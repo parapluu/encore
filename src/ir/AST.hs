@@ -1,27 +1,34 @@
 module AST where
 
+
 type Name = String
+
 type Type = String
 
 type Program = [ClassDecl]
 
-data ClassDecl = Class Name [FieldDecl] [MethodDecl]
+data ClassDecl = Class {cname   :: Name, 
+                        fields  :: [FieldDecl], 
+                        methods :: [MethodDecl]}
 
-data FieldDecl = Field Type Name
+data FieldDecl = Field {fname :: Name, ftype::Type}
 
-data MethodDecl = Method Name [ArgDecl] Type Expr
+data MethodDecl = Method {mname   :: Name, 
+                          rtype   :: Type, 
+                          mparams :: [ParamDecl], 
+                          mbody   :: Expr}
 
-type ArgDecl = (Type, Name)
+type ParamDecl = (Type, Name)
 
 data Expr = Skip
-          | Call Expr Name [Expr]
+          | Call {target :: Expr, tmname :: Name, args :: Arguments}
           | Let Name Expr Expr
+          | Seq [Expr]
           | IfThenElse Expr Expr Expr
           | Get Expr
           | FieldAccess Expr Name
-          | FieldAssign Expr Name Expr
+          | Assign Lvar Expr
           | VarAccess Name
-          | VarAssign Name Expr
           | Null
           | New Name
           | Print Expr
@@ -29,4 +36,10 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
-data Op = LT_ | GT_ | EQ_ | NEQ_
+
+data Op = LT | GT | EQ | NEQ
+
+
+type Arguments = [Expr]
+
+data Lvar = LVar Name | LField Expr Name | LThisField Name

@@ -39,10 +39,8 @@ prettyPrint (IfThenElse cond thn els) = ppIf <+> prettyPrint cond <+> ppThen $+$
                                         nest 2 (prettyPrint els)
 prettyPrint (Get e) = ppGet <+> prettyPrint e
 prettyPrint (FieldAccess e f) = maybeParens e <> ppDot <> text f
-prettyPrint (FieldAssign e1 f e2) = maybeParens e1 <> ppDot <> text f <+> 
-                                    ppEquals <+> prettyPrint e2
 prettyPrint (VarAccess x) = text x
-prettyPrint (VarAssign x e) = text x <+> ppEquals <+> prettyPrint e
+prettyPrint (Assign lvar e) = prettyPrintLvar lvar <+> ppEquals <+> prettyPrint e
 prettyPrint (Null) = ppNull
 prettyPrint (New c) = ppNew <+> text c
 prettyPrint (Print e) = ppPrint <+> prettyPrint e
@@ -51,7 +49,13 @@ prettyPrint (IntLiteral n) = int n
 prettyPrint (Binop op e1 e2) = prettyPrint e1 <+> prettyPrintBinop op <+> prettyPrint e2
 
 prettyPrintBinop :: Op -> Doc
-prettyPrintBinop LT_  = text "<"
-prettyPrintBinop GT_  = text ">"
-prettyPrintBinop EQ_  = text "=="
-prettyPrintBinop NEQ_ = text "!="
+prettyPrintBinop AST.LT  = text "<"
+prettyPrintBinop AST.GT  = text ">"
+prettyPrintBinop AST.EQ  = text "=="
+prettyPrintBinop AST.NEQ = text "!="
+
+prettyPrintLvar :: Lvar -> Doc
+prettyPrintLvar (LVar x)  = text x
+prettyPrintLvar (LField e f) = maybeParens e <> ppDot <> text f
+prettyPrintLvar (LThisField f) = text f
+
