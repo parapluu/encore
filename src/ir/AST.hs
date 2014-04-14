@@ -1,4 +1,4 @@
-import Text.PrettyPrint
+module AST where
 
 type Name = String
 type Type = String
@@ -29,4 +29,4 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
-data Op = LT | GT | EQ | NEQ
+data Op = LT_ | GT_ | EQ_ | NEQ_
