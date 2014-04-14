@@ -1,4 +1,4 @@
-import Text.PrettyPrint
+module AST where
 
 
 type Name = String
@@ -7,13 +7,16 @@ type Type = String
 
 type Program = [ClassDecl]
 
-data ClassDecl = Class {cname :: Name, 
-                    fields::[Field], 
-                    methods :: [Method]}
+data ClassDecl = Class {cname   :: Name, 
+                        fields  :: [FieldDecl], 
+                        methods :: [MethodDecl]}
 
 data FieldDecl = Field {fname :: Name, ftype::Type}
 
-data MethodDecl = Method {mname :: Name, rtype::Type, mparams :: [ParamDecl], mbody :: Expr}
+data MethodDecl = Method {mname   :: Name, 
+                          rtype   :: Type, 
+                          mparams :: [ParamDecl], 
+                          mbody   :: Expr}
 
 type ParamDecl = (Type, Name)
 
@@ -33,10 +36,10 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
+
 data Op = LT | GT | EQ | NEQ
 
 
 type Arguments = [Expr]
 
-data Lvar = LVar Name | LField Name | LThisField Name
-
+data Lvar = LVar Name | LField Expr Name | LThisField Name
