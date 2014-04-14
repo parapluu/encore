@@ -1,6 +1,7 @@
 
 {-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 
+import CCode
 import Control.Monad.Reader
 
 type Name = String
@@ -32,17 +33,6 @@ data Lvar = LVar Name | LField Name | LThisField Name
 
 
 {- to be moved into a separate file later -}
-
-data CCode = 
-     Includes [String]
-   | HashDefine String
-   | Switch String [CCode]
-   | Record [CCode]
-   | C [CCode]
-   | TypeDef String CCode
-   | SEMI          -- need to get rid of this
-   | Embed String  -- for C code that doesn't match other patterns
-
 
 render (Includes l) = mapM (\i -> line $ "#include " ++ i) l
 render (HashDefine s) = wrap1 $ "#define " ++ s
