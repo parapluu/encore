@@ -1,1 +1,1 @@
-ghc TopLevel.hs -o encorec -i../ir
+ghc TopLevel.hs -o encorec -i../ir:../back
