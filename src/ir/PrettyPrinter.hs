@@ -50,8 +50,8 @@ ppMethodDecl (Method mn rt params body) =
 
 isSimple :: Expr -> Bool
 isSimple (VarAccess _) = True
-isSimple (FieldAccess e f) = isSimple e
-isSimple (Call e m f) = isSimple e
+isSimple (FieldAccess e _) = isSimple e
+isSimple (Call (CallRec e _ _)) = isSimple e
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
@@ -61,7 +61,7 @@ maybeParens e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip = ppSkip
-ppExpr (Call e m args) = maybeParens e <> ppDot <> ppName m <> 
+ppExpr (Call (CallRec e m args)) = maybeParens e <> ppDot <> ppName m <> 
                                                      parens (cat (punctuate (ppComma <> ppSpace)
                                                                                 (map ppExpr args)))
 ppExpr (Let x e1 e2) = ppLet <+> ppName x <+> equals <+> ppExpr e1 <+> ppIn $+$ nest 2 (ppExpr e2)

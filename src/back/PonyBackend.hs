@@ -13,7 +13,21 @@ class Translatable a b where
   translate :: a -> b
 
 instance Translatable Expr CCode where
-  translate = undefined
+  translate (Skip) = undefined
+  translate (Call cr) = undefined
+  translate (Let name e_init e_body) = undefined
+  translate (Seq es) = undefined
+  translate (IfThenElse e1 e2 e3) = undefined
+  translate (Get e) = undefined
+  translate (FieldAccess e name) = undefined
+  translate (Assign lvar e) = undefined
+  translate (VarAccess name) = undefined
+  translate (Null) = undefined
+  translate (New name) = undefined
+  translate (Print e) = undefined
+  translate (StringLiteral s) = undefined
+  translate (IntLiteral i) = undefined
+  translate (Binop op e1 e2) = undefined
 
 instance Translatable ParamDecl CCode where
   translate = undefined

@@ -21,8 +21,10 @@ data MethodDecl = Method {mname   :: Name,
                           mparams :: [ParamDecl], 
                           mbody   :: Expr}
 
+data CallRec = CallRec {target :: Expr, tmname :: Name, args :: Arguments}
+
 data Expr = Skip
-          | Call {target :: Expr, tmname :: Name, args :: Arguments}
+          | Call CallRec
           | Let Name Expr Expr
           | Seq [Expr]
           | IfThenElse Expr Expr Expr
@@ -51,12 +53,12 @@ example = Program [Class "Driver"
                    [Method "fact" "Int" [Param ("Int", "n")] 
                     (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
                      (IntLiteral 1)
-                     (Let "m" (Call (VarAccess "n") "minus" [IntLiteral 1])
-                      (Call (VarAccess "n") "mult" [Call (VarAccess "this") "fact" [(VarAccess "m")]])))],
+                     (Let "m" (Call (CallRec (VarAccess "n") "minus" [IntLiteral 1]))
+                      (Call (CallRec (VarAccess "n") "mult" [Call (CallRec (VarAccess "this") "fact" [(VarAccess "m")])]))))],
                    (Class "Main" 
                     [Field "foo" "Foo", 
                      Field "bar" "Bar"]
                     [Method "main" "Object" []
                      (Seq [Print (StringLiteral "Welcome to the pasture"),
                            (Let "driver" (New "Driver")
-                            (Call (VarAccess "driver") "fact" [IntLiteral 13]))])])]
+                            (Call (CallRec (VarAccess "driver") "fact" [IntLiteral 13])))])])]
