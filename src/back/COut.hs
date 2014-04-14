@@ -1,47 +1,10 @@
 
 {-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 
+module COur where
+
 import Control.Monad.Reader
-
-type Name = String
-
-data Class = Class {cname :: Name, 
-                    fields::[Field], 
-                    constructors :: [Constructor], 
-                    methods :: [Method]}
-
-data Field = Field {fname :: Name, ftype::Type}
-
-data Constructor = Constructor Method
-
-data Method = Method {mname :: Name, rtype::Type, mbody :: Expr}
-
-type Parameters = [(Type, Name)]
-
-data Type = Type
-
-data Expr = New String Arguments
-          | Call {target :: Expr, tmname :: Name, args :: Arguments}
-          | Seq [Expr]
-          | Assign Lvar Expr
-
-type Arguments = [Expr]
-
-{- following needs a bit of work -}
-data Lvar = LVar Name | LField Name | LThisField Name
-
-
-{- to be moved into a separate file later -}
-
-data CCode = 
-     Includes [String]
-   | HashDefine String
-   | Switch String [CCode]
-   | Record [CCode]
-   | C [CCode]
-   | TypeDef String CCode
-   | SEMI          -- need to get rid of this
-   | Embed String  -- for C code that doesn't match other patterns
+import C
 
 
 render (Includes l) = mapM (\i -> line $ "#include " ++ i) l
