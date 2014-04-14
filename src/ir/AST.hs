@@ -1,10 +1,11 @@
+import Text.PrettyPrint
 
 
 type Name = String
 
 type Type = String
 
-data Program = [ClassDecl]
+type Program = [ClassDecl]
 
 data ClassDecl = Class {cname :: Name, 
                     fields::[Field], 
@@ -38,3 +39,4 @@ data Op = LT | GT | EQ | NEQ
 type Arguments = [Expr]
 
 data Lvar = LVar Name | LField Name | LThisField Name
+
