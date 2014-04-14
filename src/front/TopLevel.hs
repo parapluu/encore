@@ -3,6 +3,7 @@ module Main where
 
 import AST
 import PrettyPrinter
+import PonyBackend
 -- import CodeGen
 
 main = do
