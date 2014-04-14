@@ -1,0 +1,65 @@
+serialise(object)
+  if object is primitive
+    write(primitive)
+  else
+    map object->(owning node, address on owning node)
+    write(owning node, address on owning node)
+    if not marked(object) and object is {frozen, isolated}
+      mark(object)
+      if object is {frozen, isolated}
+        for each field
+          serialise(field)
+
+deserialise(object)
+  if object is primitive
+    read(primitive)
+  else
+    read(owning node, address on owning node)
+    if map (owning node, address on owning node)->object'
+      if object is not opaque and object' is opaque
+        for each field
+          deserialise(field)
+    else
+      allocate object
+      if object is {frozen, isolated}
+        for each field
+          deserialise(field)
+
+identity comparison of objects across nodes
+  deserialisation of an object multiple times always gets the same object
+  how to send GC messages for objects across nodes
+    I/O actor "owns" all objects that are "really" owned on another node
+    when I/O actor collects an object
+      map object->(owning node, address on owning node)
+      send DEC(address on owning node)->owning node
+      owning node I/O actor can get actual owner of address from pagemap
+
+collecting non-memory resources
+  file descriptors, opengl IDs, etc
+
+distributed termination
+
+benchmarks
+  http://www.theron-library.com/index.php?t=page&p=performance
+  http://www.krazykoding.com/2011/07/scala-actor-v-erlang-genserver.html
+  http://libcppa.blogspot.co.uk/search/label/benchmark
+  http://benchmarksgame.alioth.debian.org/u64q/performance.php?test=threadring
+
+current results
+  ring
+    with disablecd
+      30k 0.05-0.06
+      100k 0.28-0.30
+      200k 0.87-0.94
+    with none
+      30k 0.09-0.13
+      100k 0.59-0.75
+      200k 1.5-1.9
+    with finishcd
+      30k 0.17-0.19
+      100k 0.88-0.94
+      200k 2.2-2.5
+    10k, 1M
+      0.32, 0.63, 0.64
+    100k, 10M // BAD, want 6-7 seconds
+      3.8, 12.4, 12.4
