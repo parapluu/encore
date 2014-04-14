@@ -1,11 +1,12 @@
 module AST where
 
+import Data.Traversable
 
 type Name = String
 
 type Type = String
 
-type Program = [ClassDecl]
+newtype Program = Program [ClassDecl]
 
 data ClassDecl = Class {cname   :: Name, 
                         fields  :: [FieldDecl], 
@@ -13,7 +14,7 @@ data ClassDecl = Class {cname   :: Name,
 
 data FieldDecl = Field {fname :: Name, ftype::Type}
 
-type ParamDecl = (Type, Name)
+newtype ParamDecl = Param (Type, Name)
 
 data MethodDecl = Method {mname   :: Name, 
                           rtype   :: Type, 
@@ -45,17 +46,17 @@ type Arguments = [Expr]
 data Lvar = LVar Name | LField Expr Name | LThisField Name
 
 example :: Program
-example = [Class "Driver"
-               []
-               [Method "fact" "Int" [("Int", "n")] 
-               (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
-                 (IntLiteral 1)
-                 (Let "m" (Call (VarAccess "n") "minus" [IntLiteral 1])
-                   (Call (VarAccess "n") "mult" [Call (VarAccess "this") "fact" [(VarAccess "m")]])))],
- (Class "Main" 
-            [Field "foo" "Foo", 
-             Field "bar" "Bar"]
-            [Method "main" "Object" []
-               (Seq [Print (StringLiteral "Welcome to the pasture"),
-                     (Let "driver" (New "Driver")
-                       (Call (VarAccess "driver") "fact" [IntLiteral 13]))])])]
+example = Program [Class "Driver"
+                   []
+                   [Method "fact" "Int" [Param ("Int", "n")] 
+                    (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
+                     (IntLiteral 1)
+                     (Let "m" (Call (VarAccess "n") "minus" [IntLiteral 1])
+                      (Call (VarAccess "n") "mult" [Call (VarAccess "this") "fact" [(VarAccess "m")]])))],
+                   (Class "Main" 
+                    [Field "foo" "Foo", 
+                     Field "bar" "Bar"]
+                    [Method "main" "Object" []
+                     (Seq [Print (StringLiteral "Welcome to the pasture"),
+                           (Let "driver" (New "Driver")
+                            (Call (VarAccess "driver") "fact" [IntLiteral 13]))])])]

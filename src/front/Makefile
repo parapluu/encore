@@ -1,7 +1,7 @@
 encorec: TopLevel.hs
-	ghc TopLevel.hs -o encorec -i../ir:../back
+	ghc --make TopLevel.hs -o encorec -i../ir:../back
 
 clean:
 	rm -f encorec *.hi *.o
 
-.PHONY: clean
+.PHONY: clean encorec

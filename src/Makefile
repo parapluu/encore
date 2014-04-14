@@ -1,6 +1,6 @@
 PONY_DIR=./runtime/
 
-front/encorec:
+compiler:
 	make -C front
 
 $(PONY_DIR)/bin: $(PONY_DIR)/Makefile
@@ -17,4 +17,4 @@ clean_pony:
 	make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-_PHONY: clean clean_pony
+_PHONY: clean clean_pony compiler

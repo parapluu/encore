@@ -26,7 +26,7 @@ ppType :: Type -> Doc
 ppType t = text t
 
 ppProgram :: Program -> Doc
-ppProgram classDecls = vcat (map ppClassDecl classDecls)
+ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl (Class name fields methods) = text "class" <+> ppName name <+> lbrace $+$
@@ -39,7 +39,7 @@ ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t
 
 ppParamDecl :: ParamDecl -> Doc
-ppParamDecl (t, x) = ppType t <+> ppName x
+ppParamDecl (Param (t, x)) = ppType t <+> ppName x
 
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl (Method mn rt params body) = 
