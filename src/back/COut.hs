@@ -1,11 +1,11 @@
 
 {-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 
-module COur where
+
+module COut where
 
 import Control.Monad.Reader
-import C
-
+import CCode
 
 render (Includes l) = mapM (\i -> line $ "#include " ++ i) l
 render (HashDefine s) = wrap1 $ "#define " ++ s

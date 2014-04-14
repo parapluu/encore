@@ -185,7 +185,7 @@ static pony_msg_t m_cycle_unblock = {1, {{NULL, 0, PONY_PRIMITIVE}}};
 static pony_msg_t m_cycle_updaterc = {2, {{NULL, 0, PONY_PRIMITIVE}}};
 static pony_msg_t m_cycle_ack = {1, {{NULL, 0, PONY_PRIMITIVE}}};
 static pony_msg_t m_cycle_finish = {1, {{NULL, 0, PONY_PRIMITIVE}}};
-static pony_msg_t m_cycle_stats = {0, {{NULL, 0, PONY_PRIMITIVE}}};
+//static pony_msg_t m_cycle_stats = {0, {{NULL, 0, PONY_PRIMITIVE}}};
 
 static pony_msg_t* message_type(uint64_t id)
 {
