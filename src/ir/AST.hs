@@ -1,8 +1,9 @@
+import Text.PrettyPrint
 
 type Name = String
 type Type = String
 
-data Program = [ClassDecl]
+type Program = [ClassDecl]
 
 data ClassDecl = Class Name [FieldDecl] [MethodDecl]
 
@@ -28,4 +29,4 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
-data BinExp = LT | GT | EQ | NEQ
+data Op = LT | GT | EQ | NEQ
