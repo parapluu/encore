@@ -47,4 +47,4 @@ testfun = Function (Funrec "int" "main"
 instance Show CCode where
   show = pp
 
-main = do print $ pp' testfun
+main = do print testfun
