@@ -44,4 +44,7 @@ testfun = Function (Funrec "int" "main"
                     [("int","argc"), ("char**", "argv")]
                     [Embed "printf(\"asdf\");"])
 
+instance Show CCode where
+  show = pp
+
 main = do print $ pp' testfun
