@@ -1,9 +1,10 @@
-module PrettyPrinter (prettyPrint) where
+module PrettyPrinter (ppExpr) where
 import AST
 import Text.PrettyPrint
 
 ppSkip = text "skip"
 ppLet = text "let"
+ppIn = text "in"
 ppIf = text "if"
 ppThen = text "then"
 ppElse = text "else"
@@ -12,9 +13,40 @@ ppNull = text "null"
 ppNew = text "new"
 ppPrint = text "print"
 ppDot = text "."
+ppColon = text ":"
 ppComma = text ","
+ppSemicolon = text ";"
 ppEquals = text "="
 ppSpace = text " "
+
+ppName :: Name -> Doc
+ppName x = text x
+
+ppType :: Type -> Doc
+ppType t = text t
+
+ppProgram :: Program -> Doc
+ppProgram classDecls = vcat (map ppClassDecl classDecls)
+
+ppClassDecl :: ClassDecl -> Doc
+ppClassDecl (Class name fields methods) = text "class" <+> ppName name <+> lbrace $+$
+                                          (nest 2 $
+                                            vcat (map ppFieldDecl fields) $$
+                                            vcat (map ppMethodDecl methods)) 
+                                          $+$ rbrace
+
+ppFieldDecl :: FieldDecl -> Doc
+ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t
+
+ppParamDecl :: ParamDecl -> Doc
+ppParamDecl (t, x) = ppType t <+> ppName x
+
+ppMethodDecl :: MethodDecl -> Doc
+ppMethodDecl (Method mn rt params body) = 
+    ppType rt <+>
+    ppName mn <> 
+    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) $+$
+    (nest 2 (ppExpr body))
 
 isSimple :: Expr -> Bool
 isSimple (VarAccess _) = True
@@ -24,38 +56,38 @@ isSimple _ = False
 
 maybeParens :: Expr -> Doc
 maybeParens e 
-    | isSimple e = prettyPrint e
-    | otherwise  = parens $ prettyPrint e
+    | isSimple e = ppExpr e
+    | otherwise  = parens $ ppExpr e
 
-prettyPrint :: Expr -> Doc
-prettyPrint Skip = ppSkip
-prettyPrint (Call e m args) = maybeParens e <> ppDot <> text m <> 
-                              parens (cat (punctuate (ppComma <> ppSpace)
-                                           (map prettyPrint args)))
-prettyPrint (Let x e1 e2) = ppLet <+> text x <+> equals <+> prettyPrint e1
-prettyPrint (IfThenElse cond thn els) = ppIf <+> prettyPrint cond <+> ppThen $+$
-                                        nest 2 (prettyPrint thn) $+$
+ppExpr :: Expr -> Doc
+ppExpr Skip = ppSkip
+ppExpr (Call e m args) = maybeParens e <> ppDot <> ppName m <> 
+                                                     parens (cat (punctuate (ppComma <> ppSpace)
+                                                                                (map ppExpr args)))
+ppExpr (Let x e1 e2) = ppLet <+> ppName x <+> equals <+> ppExpr e1 <+> ppIn $+$ nest 2 (ppExpr e2)
+ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
+ppExpr (IfThenElse cond thn els) = ppIf <+> ppExpr cond <+> ppThen $+$
+                                        nest 2 (ppExpr thn) $+$
                                         ppElse $+$
-                                        nest 2 (prettyPrint els)
-prettyPrint (Get e) = ppGet <+> prettyPrint e
-prettyPrint (FieldAccess e f) = maybeParens e <> ppDot <> text f
-prettyPrint (VarAccess x) = text x
-prettyPrint (Assign lvar e) = prettyPrintLvar lvar <+> ppEquals <+> prettyPrint e
-prettyPrint (Null) = ppNull
-prettyPrint (New c) = ppNew <+> text c
-prettyPrint (Print e) = ppPrint <+> prettyPrint e
-prettyPrint (StringLiteral s) = text s
-prettyPrint (IntLiteral n) = int n
-prettyPrint (Binop op e1 e2) = prettyPrint e1 <+> prettyPrintBinop op <+> prettyPrint e2
+                                        nest 2 (ppExpr els)
+ppExpr (Get e) = ppGet <+> ppExpr e
+ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
+ppExpr (VarAccess x) = ppName x
+ppExpr (Assign lvar e) = ppLvar lvar <+> ppEquals <+> ppExpr e
+ppExpr (Null) = ppNull
+ppExpr (New c) = ppNew <+> ppName c
+ppExpr (Print e) = ppPrint <+> ppExpr e
+ppExpr (StringLiteral s) = doubleQuotes (ppName s)
+ppExpr (IntLiteral n) = int n
+ppExpr (Binop op e1 e2) = ppExpr e1 <+> ppBinop op <+> ppExpr e2
 
-prettyPrintBinop :: Op -> Doc
-prettyPrintBinop AST.LT  = text "<"
-prettyPrintBinop AST.GT  = text ">"
-prettyPrintBinop AST.EQ  = text "=="
-prettyPrintBinop AST.NEQ = text "!="
+ppBinop :: Op -> Doc
+ppBinop AST.LT  = text "<"
+ppBinop AST.GT  = text ">"
+ppBinop AST.EQ  = text "=="
+ppBinop AST.NEQ = text "!="
 
-prettyPrintLvar :: Lvar -> Doc
-prettyPrintLvar (LVar x)  = text x
-prettyPrintLvar (LField e f) = maybeParens e <> ppDot <> text f
-prettyPrintLvar (LThisField f) = text f
-
+ppLvar :: Lvar -> Doc
+ppLvar (LVar x)  = text x
+ppLvar (LField e f) = maybeParens e <> ppDot <> text f
+ppLvar (LThisField f) = text f

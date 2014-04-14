@@ -13,12 +13,12 @@ data ClassDecl = Class {cname   :: Name,
 
 data FieldDecl = Field {fname :: Name, ftype::Type}
 
+type ParamDecl = (Type, Name)
+
 data MethodDecl = Method {mname   :: Name, 
                           rtype   :: Type, 
                           mparams :: [ParamDecl], 
                           mbody   :: Expr}
-
-type ParamDecl = (Type, Name)
 
 data Expr = Skip
           | Call {target :: Expr, tmname :: Name, args :: Arguments}
@@ -43,3 +43,19 @@ data Op = LT | GT | EQ | NEQ
 type Arguments = [Expr]
 
 data Lvar = LVar Name | LField Expr Name | LThisField Name
+
+example :: Program
+example = [Class "Driver"
+               []
+               [Method "fact" "Int" [("Int", "n")] 
+               (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
+                 (IntLiteral 1)
+                 (Let "m" (Call (VarAccess "n") "minus" [IntLiteral 1])
+                   (Call (VarAccess "n") "mult" [Call (VarAccess "this") "fact" [(VarAccess "m")]])))],
+ (Class "Main" 
+            [Field "foo" "Foo", 
+             Field "bar" "Bar"]
+            [Method "main" "Object" []
+               (Seq [Print (StringLiteral "Welcome to the pasture"),
+                     (Let "driver" (New "Driver")
+                       (Call (VarAccess "driver") "fact" [IntLiteral 13]))])])]
