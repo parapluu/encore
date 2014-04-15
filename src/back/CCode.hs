@@ -1,6 +1,6 @@
 
 module CCode (CCode (..),
-              Funrec (..),
+              VarDecl (..),
               Id,
               Type) where
 
@@ -9,19 +9,19 @@ module CCode (CCode (..),
 type Type = String
 type Id = String
 
-data Funrec = Funrec { fun_ret :: Type,
-                       fun_name :: String,
-                       fun_args :: [(Id,Type)],
-                       fun_body :: [CCode] }
+newtype VarDecl = VarDecl (Type, Id)
 
 data CCode = 
      Includes [String]
    | HashDefine String
    | Switch String [CCode]
-   | Record [CCode]
+   | Record Id [VarDecl]
    | C [CCode]
    | TypeDef String CCode
    | SEMI          -- need to get rid of this
    | Embed String  -- for C code that doesn't match other patterns
-   | Function Funrec
+   | Function { fun_ret :: Type,
+                fun_name :: String,
+                fun_args :: [(Id,Type)],
+                fun_body :: [CCode] }
 

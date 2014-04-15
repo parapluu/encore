@@ -10,16 +10,18 @@ pp :: CCode -> String
 pp = show . pp'
 
 pp' :: CCode -> Doc
-pp' (Includes l) = foldr1 ($+$) $ map (text . ("#include "++)) l
+pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Switch tst ccodes) = text "switch (" <+> (text tst) <+> text ")" $+$
                          braced_block ccodes
-pp' (Record ccodes) = undefined
+pp' (Record name vardecls) = text "struct" <+> text name $+$
+                      braced_block fields <> text ";"
+    where fields = map (\ (VarDecl (ty, id)) -> Embed $ ty ++ " " ++ id ++ ";") vardecls
 pp' (C ccodes) = block ccodes
 pp' (TypeDef name ccode) = text ("typedef " ++ name) <+> pp' ccode
 pp' (SEMI) = text ";"
 pp' (Embed string) = text string
-pp' (Function fr) =  text ret_ty <+> text name <>
+pp' (Function ret_ty name args body) =  text ret_ty <+> text name <>
                     text "(" <> pp_args args <> text ")" $+$
                     braced_block body
   where pp_args [] = empty
@@ -27,22 +29,18 @@ pp' (Function fr) =  text ret_ty <+> text name <>
                      intersperse (text ", ") $
                      map pp_arg as
         pp_arg = \(id, ty) -> text id <+> text ty
-        ret_ty = fun_ret fr
-        name = fun_name fr
-        args = fun_args fr
-        body = fun_body fr
 
 block :: [CCode] -> Doc
-block = foldr1 ($+$) . map pp'
+block = vcat . map pp'
 
 braced_block :: [CCode] -> Doc
 braced_block ccodes = lbrace $+$
                       indent (block ccodes) $+$
                       rbrace
 
-testfun = Function (Funrec "int" "main"
+testfun = Function "int" "main"
                     [("int","argc"), ("char**", "argv")]
-                    [Embed "printf(\"asdf\");"])
+                    [Embed "printf(\"asdf\");"]
 
 instance Show CCode where
   show = pp
