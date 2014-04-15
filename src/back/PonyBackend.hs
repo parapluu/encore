@@ -7,7 +7,7 @@ import CCode
 import AST
 
 code_from_AST :: Program -> CCode
-code_from_AST (Program cs) = translate (Program cs)
+code_from_AST = translate
 
 class Translatable a b where
   translate :: a -> b
@@ -26,7 +26,7 @@ instance Translatable Expr CCode where
   translate (New name) = undefined
   translate (Print e) = undefined
   translate (StringLiteral s) = undefined
-  translate (IntLiteral i) = undefined
+  translate (IntLiteral i) = (Embed $ show i)
   translate (Binop op e1 e2) = undefined
 
 instance Translatable ParamDecl CCode where
