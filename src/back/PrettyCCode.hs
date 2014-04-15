@@ -28,7 +28,7 @@ pp' (Function ret_ty name args body) =  text ret_ty <+> text name <>
         pp_args as = foldr1 (<>) $
                      intersperse (text ", ") $
                      map pp_arg as
-        pp_arg = \(id, ty) -> text id <+> text ty
+        pp_arg = \ (VarDecl (id, ty)) -> text id <+> text ty
 
 block :: [CCode] -> Doc
 block = vcat . map pp'
@@ -39,7 +39,7 @@ braced_block ccodes = lbrace $+$
                       rbrace
 
 testfun = Function "int" "main"
-                    [("int","argc"), ("char**", "argv")]
+                    [VarDecl ("int","argc"), VarDecl ("char**", "argv")]
                     [Embed "printf(\"asdf\");"]
 
 instance Show CCode where

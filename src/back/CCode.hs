@@ -22,6 +22,6 @@ data CCode =
    | Embed String  -- for C code that doesn't match other patterns
    | Function { fun_ret :: Type,
                 fun_name :: String,
-                fun_args :: [(Id,Type)],
+                fun_args :: [VarDecl],
                 fun_body :: [CCode] }
 

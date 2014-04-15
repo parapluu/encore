@@ -53,15 +53,20 @@ instance Translatable ClassDecl CCode where
 
 
 instance Translatable Program CCode where
-  translate (Program cs) = C $
-                           (HashDefine "__STDC_FORMAT_MACROS") :
-                           (Includes ["pony/pony.h",
-                                      "stdlib.h",
-                                      "stdio.h",
-                                      "string.h",
-                                      "inttypes.h",
-                                      "assert.h"]) :
-                           map translate cs
+  translate (Program cs) =
+    C $
+    (HashDefine "__STDC_FORMAT_MACROS") :
+    (Includes ["pony/pony.h",
+               "stdlib.h",
+               "stdio.h",
+               "string.h",
+               "inttypes.h",
+               "assert.h"]) : 
+    map translate cs ++
+    [(Function
+     "int" "main"
+     [VarDecl ("int","argc"), VarDecl ("char**","argv")]
+     [Embed "return pony_start(argc, argv, pony_create(&type));"])]
 
 
 
