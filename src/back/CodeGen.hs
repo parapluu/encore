@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module PonyBackend (code_from_AST) where
+module CodeGen (code_from_AST) where
 import Data.List
 import CCode
 
@@ -45,6 +45,15 @@ instance Translatable ClassDecl CCode where
                     (map translate (methods cdecl))
 
 instance Translatable Program CCode where
-  translate (Program cs) = C $ map translate cs
+  translate (Program cs) = C $
+                           (HashDefine "__STDC_FORMAT_MACROS") :
+                           (Includes ["pony/pony.h",
+                                      "stdlib.h",
+                                      "stdio.h",
+                                      "string.h",
+                                      "inttypes.h",
+                                      "assert.h"]) :
+                           map translate cs
+
 
 

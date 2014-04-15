@@ -3,6 +3,9 @@ PONY_DIR=./runtime/
 compiler:
 	make -C front
 
+run: compiler
+	front/encorec
+
 $(PONY_DIR)/bin: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug
 
@@ -17,4 +20,4 @@ clean_pony:
 	make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-_PHONY: clean clean_pony compiler
+_PHONY: clean clean_pony compiler run
