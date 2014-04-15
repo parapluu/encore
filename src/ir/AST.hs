@@ -14,6 +14,9 @@ data ClassDecl = Class {cname   :: Name,
 
 data FieldDecl = Field {fname :: Name, ftype::Type}
 
+mkFields :: [(Name, Type)] -> [FieldDecl]
+mkFields = map (uncurry Field)
+
 newtype ParamDecl = Param (Type, Name)
 
 data MethodDecl = Method {mname   :: Name, 
@@ -21,10 +24,11 @@ data MethodDecl = Method {mname   :: Name,
                           mparams :: [ParamDecl], 
                           mbody   :: Expr}
 
-data CallRec = CallRec {target :: Expr, tmname :: Name, args :: Arguments}
+mkMethods :: [(Name, Type, [(Type, Name)], Expr)] -> [MethodDecl]
+mkMethods = map (\(n, t, ps, e) -> Method n t (map Param ps) e)
 
 data Expr = Skip
-          | Call CallRec
+          | Call {target :: Expr, tmname :: Name, args :: Arguments}
           | Let Name Expr Expr
           | Seq [Expr]
           | IfThenElse Expr Expr Expr
@@ -39,26 +43,8 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
-
 data Op = LT | GT | EQ | NEQ
-
 
 type Arguments = [Expr]
 
 data Lvar = LVar Name | LField Expr Name | LThisField Name
-
-example :: Program
-example = Program [Class "Driver"
-                   []
-                   [Method "fact" "Int" [Param ("Int", "n")] 
-                    (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
-                     (IntLiteral 1)
-                     (Let "m" (Call (CallRec (VarAccess "n") "minus" [IntLiteral 1]))
-                      (Call (CallRec (VarAccess "n") "mult" [Call (CallRec (VarAccess "this") "fact" [(VarAccess "m")])]))))],
-                   (Class "Main" 
-                    [Field "foo" "Foo", 
-                     Field "bar" "Bar"]
-                    [Method "main" "Object" []
-                     (Seq [Print (StringLiteral "Welcome to the pasture"),
-                           (Let "driver" (New "Driver")
-                            (Call (CallRec (VarAccess "driver") "fact" [IntLiteral 13])))])])]
