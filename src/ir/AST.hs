@@ -18,7 +18,7 @@ newtype ParamDecl = Param (Type, Name)
 
 data MethodDecl = Method {mname   :: Name, 
                           rtype   :: Type, 
-                          mparams :: [ParamDecl], 
+                          mparams :: [ParamDecl],
                           mbody   :: Expr}
 
 data CallRec = CallRec {target :: Expr, tmname :: Name, args :: Arguments}
