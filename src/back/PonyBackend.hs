@@ -14,7 +14,7 @@ class Translatable a b where
 
 instance Translatable Expr CCode where
   translate (Skip) = undefined
-  translate (Call cr) = undefined
+  translate (Call target name args) = undefined
   translate (Let name e_init e_body) = undefined
   translate (Seq es) = undefined
   translate (IfThenElse e1 e2 e3) = undefined

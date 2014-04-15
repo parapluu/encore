@@ -2,6 +2,7 @@ module PrettyPrinter (ppExpr,ppProgram) where
 import AST
 import Text.PrettyPrint
 
+ppClass = text "class"
 ppSkip = text "skip"
 ppLet = text "let"
 ppIn = text "in"
@@ -29,11 +30,12 @@ ppProgram :: Program -> Doc
 ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl (Class name fields methods) = text "class" <+> ppName name <+> lbrace $+$
-                                          (nest 2 $
-                                            vcat (map ppFieldDecl fields) $$
-                                            vcat (map ppMethodDecl methods)) 
-                                          $+$ rbrace
+ppClassDecl (Class name fields methods) = 
+    ppClass <+> ppName name <+> lbrace $+$
+             (nest 2 $
+                   vcat (map ppFieldDecl fields) $$
+                   vcat (map ppMethodDecl methods))
+             $+$ rbrace
 
 ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t
@@ -51,7 +53,7 @@ ppMethodDecl (Method mn rt params body) =
 isSimple :: Expr -> Bool
 isSimple (VarAccess _) = True
 isSimple (FieldAccess e _) = isSimple e
-isSimple (Call (CallRec e _ _)) = isSimple e
+isSimple (Call e _ _) = isSimple e
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
@@ -61,15 +63,18 @@ maybeParens e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip = ppSkip
-ppExpr (Call (CallRec e m args)) = maybeParens e <> ppDot <> ppName m <> 
-                                                     parens (cat (punctuate (ppComma <> ppSpace)
-                                                                                (map ppExpr args)))
-ppExpr (Let x e1 e2) = ppLet <+> ppName x <+> equals <+> ppExpr e1 <+> ppIn $+$ nest 2 (ppExpr e2)
+ppExpr (Call e m args) = 
+    maybeParens e <> ppDot <> ppName m <> 
+      parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+ppExpr (Let x e1 e2) = 
+    ppLet <+> ppName x <+> equals <+> ppExpr e1 <+> ppIn $+$ 
+      nest 2 (ppExpr e2)
 ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
-ppExpr (IfThenElse cond thn els) = ppIf <+> ppExpr cond <+> ppThen $+$
-                                        nest 2 (ppExpr thn) $+$
-                                        ppElse $+$
-                                        nest 2 (ppExpr els)
+ppExpr (IfThenElse cond thn els) = 
+    ppIf <+> ppExpr cond <+> ppThen $+$
+         nest 2 (ppExpr thn) $+$
+    ppElse $+$
+         nest 2 (ppExpr els)
 ppExpr (Get e) = ppGet <+> ppExpr e
 ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
 ppExpr (VarAccess x) = ppName x
@@ -86,6 +91,8 @@ ppBinop AST.LT  = text "<"
 ppBinop AST.GT  = text ">"
 ppBinop AST.EQ  = text "=="
 ppBinop AST.NEQ = text "!="
+ppBinop AST.PLUS  = text "+"
+ppBinop AST.MINUS = text "-"
 
 ppLvar :: Lvar -> Doc
 ppLvar (LVar x)  = text x
