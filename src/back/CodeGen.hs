@@ -30,13 +30,13 @@ instance Translatable Expr CCode where
   translate (Binop op e1 e2) = (Embed "undefined")
 
 instance Translatable ParamDecl CCode where
-  translate = (Embed "undefined")
+  translate _ = (Embed "undefined")
 
 instance Translatable MethodDecl CCode where
-  translate = (Embed "undefined")
+  translate _ = (Embed "undefined")
 
 instance Translatable FieldDecl CCode where
-  translate = (Embed "undefined")
+  translate _ = (Embed "undefined")
 
 instance Translatable ClassDecl CCode where
   translate cdecl = C $
