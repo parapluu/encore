@@ -33,24 +33,27 @@ instance Translatable Expr CCode where
 instance Translatable ParamDecl CCode where
   translate _ = (Embed "//whatever a ParamDecl does")
 
-instance Translatable MethodDecl CCode where
-  translate _ = (Embed "//whatever a MethodDecl does")
-
 --instance Translatable [FieldDecl] CCode where
 --  translate fs = (Record $ map VarDecl $ zip (map ftype fs) (map fname fs))
-
-struct_name :: ClassDecl -> Id
-struct_name = (++ "_data") . cname
 
 instance Translatable ClassDecl CCode where
   translate cdecl = C $
                     (Embed "//whatever a class does...") :
-                    (struct : 
-                     (map translate (methods cdecl)))
+                    struct :
+                    method_impls
     where
-      struct = (Record (struct_name cdecl) $ map VarDecl $
-                zip (map ftype (fields cdecl)) (map fname (fields cdecl)))
-
+      struct = (Record (struct_name cdecl) $ map CVarDecl $
+                zip (map (toCType.ftype) (fields cdecl)) (map fname (fields cdecl)))
+      method_impls = (map (method_impl (cname cdecl)) (methods cdecl))
+               
+      struct_name :: ClassDecl -> Id
+      struct_name = (++ "_data") . cname
+      
+      method_impl :: Type -> MethodDecl -> CCode
+      method_impl this_ty mdecl = (Function (toCType $ rtype mdecl) (mname mdecl)
+                                   (CVarDecl (toCType this_ty, "this"):(map mparam_to_cvardecl $ mparams mdecl))
+                                   [translate (mbody mdecl)])
+      mparam_to_cvardecl (Param (ty, na)) = CVarDecl (toCType ty, na)
 
 instance Translatable Program CCode where
   translate (Program cs) =
@@ -61,11 +64,11 @@ instance Translatable Program CCode where
                "stdio.h",
                "string.h",
                "inttypes.h",
-               "assert.h"]) : 
+               "assert.h"]) :
     map translate cs ++
     [(Function
-     "int" "main"
-     [VarDecl ("int","argc"), VarDecl ("char**","argv")]
+      (embedCType "int") "main"
+     [CVarDecl (embedCType "int","argc"), CVarDecl (embedCType "char**","argv")]
      [Embed "return pony_start(argc, argv, pony_create(&type));"])]
 
 
