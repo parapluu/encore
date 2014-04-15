@@ -15,7 +15,7 @@ class Translatable a b where
 
 instance Translatable Expr CCode where
   translate (Skip) = (Embed "")
-  translate (Call cr) = (Embed "//whatever a Call does")
+  translate (Call target name args) = (Embed "//whatever a Call does")
   translate (Let name e_init e_body) = (Embed "//whatever a Let does")
   translate (Seq es) = (Embed "//whatever a Seq does")
   translate (IfThenElse e1 e2 e3) = (Embed "//whatever a IfThenElse does")
