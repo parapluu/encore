@@ -91,6 +91,8 @@ ppBinop AST.LT  = text "<"
 ppBinop AST.GT  = text ">"
 ppBinop AST.EQ  = text "=="
 ppBinop AST.NEQ = text "!="
+ppBinop AST.PLUS  = text "+"
+ppBinop AST.MINUS = text "-"
 
 ppLvar :: Lvar -> Doc
 ppLvar (LVar x)  = text x

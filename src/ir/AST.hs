@@ -43,7 +43,7 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr
 
-data Op = LT | GT | EQ | NEQ
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS
 
 type Arguments = [Expr]
 
