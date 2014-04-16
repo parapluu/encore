@@ -32,9 +32,9 @@ solution "ponyrt"
     targetdir "bin/release"
     buildoptions "-flto"
     linkoptions {
-      "-flto=jobserver",
+--      "-flto=jobserver",
       "-fuse-ld=gold",
-      "-fwhole-program",
+--      "-fwhole-program",
       }
 
   configuration {
@@ -47,11 +47,11 @@ solution "ponyrt"
     "Release",
     "macosx"
     }
-    if use_clang_on_osx then
-      buildoptions "-O4"
-    else
+--    if use_clang_on_osx then
+--      buildoptions "-O4"
+--    else
       buildoptions "-O3"
-    end
+--    end
 
   configuration "macosx"
     if use_clang_on_osx then
