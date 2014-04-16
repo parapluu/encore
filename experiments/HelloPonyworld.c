@@ -36,8 +36,9 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
   {
     case PONY_MAIN:
     {
-	    printf("Hello Ponyworld!\n")
+		printf("Hello Ponyworld!\n");
     }
+  }
 }
 
 int main(int argc, char** argv)
