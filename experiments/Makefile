@@ -9,12 +9,12 @@ TARGETS=$(PONYCS:.pony.c=)
 all: $(TARGETS)
 
 % : %.pony.c $(LIBPONY_A_PATH)
-	@echo "building $@"
-	@echo "depends on $@.pony.c"
 	gcc $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
 $(LIBPONY_A_PATH):
-	make -C $(SRC_PATH)
+	@echo Making libpony.a
+	cd $(SRC_PATH); make clean_pony
+	make -C $(SRC_PATH); make
 
 clean:
 	echo clean
