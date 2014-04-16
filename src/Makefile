@@ -1,5 +1,7 @@
 PONY_DIR=./runtime/
 
+all: compiler $(PONY_DIR)/bin
+
 compiler:
 	make -C front
 
@@ -8,6 +10,7 @@ run: compiler
 
 $(PONY_DIR)/bin: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug
+	make -C $(PONY_DIR) config=release
 
 $(PONY_DIR)/Makefile:
 	cd $(PONY_DIR); premake4 gmake
