@@ -12,6 +12,9 @@ all: $(TARGETS) Hello
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
+../src/front/encorec:
+	make -C ../src
+
 Hello.pony.c: ../src/front/encorec
 	../src/front/encorec hello > $@
 
