@@ -15,27 +15,26 @@ examples =
 -- Hello World
 hello :: Program
 hello = Program [Class "Main"
-                     []
-                     (mkMethods
+                     [] $
+                     mkMethods
                       [("main", "Object", [],
-                         Print (StringLiteral "Hello, World!"))])]
+                         Print (StringLiteral "Hello, World!"))]]
 
 -- Create an instance of a class and call a method on it
 sumTo :: Program
 sumTo = Program [Class "Driver"
                    []
                    [Method "sumTo" "Int" [Param ("Int", "n")] 
-                    (IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
+                    $ IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
                          (IntLiteral 0)
-                       (Let "rest" (Call (VarAccess "this") "sumTo" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)])
-                         (Binop AST.PLUS (VarAccess "n") (VarAccess "rest"))))],
-                   (Class "Main" 
+                       $ Let "rest" (Call (VarAccess "this") "sumTo" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)])
+                         $ Binop AST.PLUS (VarAccess "n") (VarAccess "rest")],
+                   Class "Main" 
                     (mkFields
                      [("foo", "Foo"), ("bar", "Bar")])
-                    (mkMethods
-                     [("main", "Object", [],
-                       Let "driver" (New "Driver")
-                        (Call (VarAccess "driver") "sumTo" [IntLiteral 5]))]))]
+                    [Method "main" "Object" []
+                       $ Let "driver" (New "Driver")
+                        $ Call (VarAccess "driver") "sumTo" [IntLiteral 5]]]
 
 -- Create two actors that communicate with eachother
 pingPong :: Program
@@ -49,22 +48,21 @@ pingPong = Program [Class "PingPong"
                                   Call (VarAccess "friend") "pong" [VarAccess "n"]])
                               (Print (StringLiteral "Done!"))),
                           ("pong", "void", [("int", "n")],
-                            (Seq
+                             Seq
                               [Print (StringLiteral "Pong!"),
-                               Call (VarAccess "friend") "ping" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)]])),
+                               Call (VarAccess "friend") "ping" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)]]),
                           ("setFriend", "void", [("PingPong", "friend")],
                             (Assign (LField (VarAccess "this") "friend")
                                     (VarAccess "friend")))]),
                    Class "Main"
                      []
-                     (mkMethods
-                      [("main", "Object", [],
-                           (Let "pinger" (New "PingPong")
-                             (Let "ponger" (New "PingPong")
-                               (Seq
-                                 [Call (VarAccess "pinger") "setFriend" [VarAccess "ponger"],
-                                  Call (VarAccess "ponger") "setFriend" [VarAccess "pinger"],
-                                  Call (VarAccess "pinger") "ping" [IntLiteral 5]]))))])]
+                     [Method "main" "Object" []
+                      $ Let "pinger" (New "PingPong")
+                       $ Let "ponger" (New "PingPong")
+                        $ Seq
+                         [Call (VarAccess "pinger") "setFriend" [VarAccess "ponger"],
+                          Call (VarAccess "ponger") "setFriend" [VarAccess "pinger"],
+                          Call (VarAccess "pinger") "ping" [IntLiteral 5]]]]
 
 -- Set up a ring of actors that send a message around one time
 ring :: Program
@@ -86,9 +84,8 @@ ring = Program [Class "Actor"
                         Call (FieldAccess (VarAccess "this") "friend") "send" [FieldAccess (VarAccess "this") "id"])]),
                    Class "Main"
                      (mkFields [("a1", "Actor"),("a2", "Actor"),("a3", "Actor"),("a4", "Actor"),("a5", "Actor")])
-                     (mkMethods
-                      [("main", "Object", [],
-                        (Seq
+                     [Method "main" "Object" []
+                        $ Seq
                          [Assign (LField (VarAccess "this") "a1") (New "Actor"),
                           Assign (LField (VarAccess "this") "a2") (New "Actor"),
                           Assign (LField (VarAccess "this") "a3") (New "Actor"),
@@ -99,4 +96,4 @@ ring = Program [Class "Actor"
                           Call (FieldAccess (VarAccess "this") "a3") "setFriend" [FieldAccess (VarAccess "this") "a4"],
                           Call (FieldAccess (VarAccess "this") "a4") "setFriend" [FieldAccess (VarAccess "this") "a5"],
                           Call (FieldAccess (VarAccess "this") "a5") "setFriend" [FieldAccess (VarAccess "this") "a1"],
-                          Call (FieldAccess (VarAccess "this") "a1") "start" []]))])]
+                          Call (FieldAccess (VarAccess "this") "a1") "start" []]]]
