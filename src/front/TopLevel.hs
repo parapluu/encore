@@ -25,8 +25,8 @@ main = do
                                 -- ccode = codeGenP example             
                  Nothing -> do putStrLn "This is not a program that I can compile :("  
                                putStrLn "Available programs are:"  
-                               mapM_ putStrLn progNames
+                               printProgNames
     where
       usage = "Usage: ./encorc [program-name]"
       printCommented s = putStrLn $ unlines $ map ("//"++) $ lines s
-      progNames = map fst examples
+      printProgNames = mapM_ putStrLn $ map fst examples
