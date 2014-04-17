@@ -68,7 +68,7 @@ instance Translatable A.ClassDecl CCode where
                                   CVarSpec (embedCType "int", "argc"),
                                   CVarSpec (embedCType "pony_arg_t*", "argv")]
                                  [Switch "id" [(Var "PONY_MAIN",
-                                                C $ map SEMI [Decl $ CVarSpec (embedCType "Main_data*", "d"),
+                                                C $ map Statement [Decl $ CVarSpec (embedCType "Main_data*", "d"),
                                                               Assign (Var "d") (Call "pony_alloc" [(Call "sizeof" [Var "Main_data"])]),
                                                               Call "pony_set" [Var "d"],
                                                               Call "Main_main" [Var "d"]]),
@@ -110,7 +110,7 @@ comment_section s = C $ [Embed $ take (5 + length s) $ repeat '/',
                          Embed $ "// " ++ s]
 
 main_dispatch_clause = (Var "PONY_MAIN",
-                        C $ map SEMI [Decl $ CVarSpec (embedCType "Main_data*", "d"),
+                        C $ map Statement [Decl $ CVarSpec (embedCType "Main_data*", "d"),
                                       Assign (Var "d") (Call "pony_alloc" [(Call "sizeof" [Var "Main_data"])]),
                                       Call "pony_set" [Var "d"],
                                       Call "Main_main" [Var "d"]])
