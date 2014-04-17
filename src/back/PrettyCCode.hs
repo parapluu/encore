@@ -12,11 +12,17 @@ pp = show . pp'
 tshow :: Show t => t -> Doc
 tshow = text . show
 
+switch_body :: [(CCode,CCode)] -> Doc
+switch_body ccodes = vcat $ map switch_clause ccodes
+  where
+    switch_clause :: (CCode,CCode) -> Doc
+    switch_clause (lhs,rhs) = text "case" <+> pp' lhs <> text ":" $+$ braced_block (rhs:[Embed "break;"])
+
 pp' :: CCode -> Doc
 pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Switch tst ccodes) = text "switch (" <+> (text tst) <+> text ")" $+$
-                         braced_block ccodes
+                          switch_body ccodes
 pp' (StructDecl name vardecls) = text "struct" <+> text name $+$
                       braced_block fields <> text ";"
     where fields = map (\ (CVarDecl (ty, id)) -> Embed $ show ty ++ " " ++ id ++ ";") vardecls
