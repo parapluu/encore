@@ -2,6 +2,7 @@ module Examples(examples) where
 import AST
 import PrettyPrinter
 
+
 -- Table of exported example programs 
 examples :: [(String, Program)]
 examples =
@@ -11,6 +12,7 @@ examples =
      ("pingPong", pingPong),
      ("ring", ring)
     ]
+
 
 -- Hello World
 hello :: Program
