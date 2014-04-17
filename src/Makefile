@@ -6,7 +6,7 @@ compiler:
 	make -C front
 
 run: compiler
-	front/encorec
+	front/encorec hello
 
 $(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug

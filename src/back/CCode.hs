@@ -1,4 +1,3 @@
-
 module CCode (CCode (..),
               CVarSpec (..),
               Id (..),
