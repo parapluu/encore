@@ -1,27 +1,46 @@
 
 module CCode (CCode (..),
-              VarDecl (..),
-              Id,
-              Type) where
+              CVarDecl (..),
+              Id (..),
+              toCType,
+              embedCType,
+              CType) where
 
 {- to be moved into a separate file later -}
 
-type Type = String
+import qualified AST
+import Data.Char
+
+newtype CType = CType String
 type Id = String
 
-newtype VarDecl = VarDecl (Type, Id)
+instance Show CType where
+  show (CType ct) = ct
+
+toCType :: AST.Type -> CType
+toCType aty = if isUpper $ head aty
+              then CType $ "(struct " ++ aty++ "*" ++ ")"
+              else CType $ aty
+
+embedCType :: String -> CType
+embedCType = CType
+
+newtype CVarDecl = CVarDecl (CType, Id)
 
 data CCode = 
      Includes [String]
    | HashDefine String
    | Switch String [CCode]
-   | Record Id [VarDecl]
+   | StructDecl Id [CVarDecl]
+   | Record [CCode]
+   | Static CCode
+   | Assign CCode CCode
    | C [CCode]
    | TypeDef String CCode
-   | SEMI          -- need to get rid of this
+   | SEMI CCode          -- need to get rid of this
    | Embed String  -- for C code that doesn't match other patterns
-   | Function { fun_ret :: Type,
+   | Function { fun_ret :: CType,
                 fun_name :: String,
-                fun_args :: [VarDecl],
+                fun_args :: [CVarDecl],
                 fun_body :: [CCode] }
 
