@@ -2,6 +2,7 @@ module Examples where
 import AST
 import PrettyPrinter
 
+
 -- Hello World
 hello :: Program
 hello = Program [Class "Main"
