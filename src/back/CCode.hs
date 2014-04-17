@@ -1,4 +1,3 @@
-
 module CCode (CCode (..),
               CVarDecl (..),
               Id (..),
@@ -37,7 +36,6 @@ data CCode =
    | Assign CCode CCode
    | C [CCode]
    | TypeDef String CCode
-   | SEMI CCode          -- need to get rid of this
    | Embed String  -- for C code that doesn't match other patterns
    | Function { fun_ret :: CType,
                 fun_name :: String,
