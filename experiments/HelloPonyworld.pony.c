@@ -4,6 +4,19 @@
 
 /* Hello Ponyworld! */
 
+/* 
+
+Approximate source
+
+class Main {
+  Object main() {
+    print "Hello, World!"
+  }
+}
+
+
+*/
+
 typedef struct main_t
 {
 } main_t;
@@ -28,6 +41,10 @@ static pony_actor_type_t type =
   dispatch
 };
 
+static void Main_main(main_t *this) {
+	printf("Hello Ponyworld!\n");
+}
+
 static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv)
 {
   main_t* d = p;
@@ -36,7 +53,7 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
   {
     case PONY_MAIN:
     {
-		printf("Hello Ponyworld!\n");
+		Main_main(d);
     }
   }
 }
