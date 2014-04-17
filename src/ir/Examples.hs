@@ -1,6 +1,16 @@
-module Examples where
+module Examples(examples) where
 import AST
 import PrettyPrinter
+
+-- Table of exported example programs 
+examples :: [(String, Program)]
+examples =
+    [
+     ("hello", hello),
+     ("sumTo", sumTo), 
+     ("pingPong", pingPong),
+     ("ring", ring)
+    ]
 
 -- Hello World
 hello :: Program
