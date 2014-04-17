@@ -16,7 +16,7 @@ Demo:
     cat Hello.pony.c
     ./Hello
     
-#### It doesn't compile!
+#### "It doesn't compile!"
 
 If the runtime doesn't compile, try `brew install premake` and make sure to have an up-to-date clang version:
 
