@@ -41,10 +41,10 @@ data Expr = Skip
           | Print Expr
           | StringLiteral String
           | IntLiteral Int
-          | Binop Op Expr Expr
+          | Binop Op Expr Expr deriving (Show)
 
-data Op = LT | GT | EQ | NEQ | PLUS | MINUS
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS deriving (Show,Eq)
 
 type Arguments = [Expr]
 
-data Lvar = LVar Name | LField Expr Name | LThisField Name
+data Lvar = LVar Name | LField Expr Name | LThisField Name deriving (Show)

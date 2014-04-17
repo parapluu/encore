@@ -17,12 +17,15 @@ pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Switch tst ccodes) = text "switch (" <+> (text tst) <+> text ")" $+$
                          braced_block ccodes
-pp' (Record name vardecls) = text "struct" <+> text name $+$
+pp' (StructDecl name vardecls) = text "struct" <+> text name $+$
                       braced_block fields <> text ";"
     where fields = map (\ (CVarDecl (ty, id)) -> Embed $ show ty ++ " " ++ id ++ ";") vardecls
+pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
+pp' (Static ccode) = text "static" <+> pp' ccode
+pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
 pp' (C ccodes) = block ccodes
 pp' (TypeDef name ccode) = text ("typedef " ++ name) <+> pp' ccode
-pp' (SEMI) = text ";"
+pp' (SEMI c) = pp' c <> text ";"
 pp' (Embed string) = text string
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> text name <>
                     text "(" <> pp_args args <> text ")" $+$
