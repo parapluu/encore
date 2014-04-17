@@ -19,7 +19,7 @@ instance Show CType where
 
 toCType :: AST.Type -> CType
 toCType aty = if isUpper $ head aty
-              then CType $ "(" ++ aty++ "_data*" ++ ")"
+              then CType $ "(struct " ++ aty++ "*" ++ ")"
               else CType $ aty
 
 embedCType :: String -> CType
@@ -31,10 +31,13 @@ data CCode =
      Includes [String]
    | HashDefine String
    | Switch String [CCode]
-   | Record Id [CVarDecl]
+   | StructDecl Id [CVarDecl]
+   | Record [CCode]
+   | Static CCode
+   | Assign CCode CCode
    | C [CCode]
    | TypeDef String CCode
-   | SEMI          -- need to get rid of this
+   | SEMI CCode          -- need to get rid of this
    | Embed String  -- for C code that doesn't match other patterns
    | Function { fun_ret :: CType,
                 fun_name :: String,

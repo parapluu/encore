@@ -17,7 +17,7 @@ render (Switch s cases) =
            return $ head ++ body
 render (Record c) = block $ fmap concat $ fmap commas $ mapM render c
 render (TypeDef s c) = wrap1 "typedef " <~> render c <~> wrap1 (" " ++ s  ++ ";")
-render SEMI =  wrap1 ";"
+render (SEMI c) =  render c <~> wrap1 ";"
 render (Embed s) = wrap1 s
 
 comma [] = []
@@ -121,13 +121,13 @@ forward_decls = C
 
 actor_type = C 
   [Embed "static pony_actor_type_t type = ",
-   Record [
+   SEMI (Record [
           Embed "1",
           Record [Embed "trace", 
                   Embed "sizeof(pingpong_t)", 
                   Embed "PONY_ACTOR"],
           Embed "message_type",
-          Embed "dispatch"], SEMI]
+          Embed "dispatch"])]
 
 {- Message definitions and handling
    consists of several sections: 
