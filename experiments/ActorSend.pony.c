@@ -6,23 +6,19 @@ class Main {
 
   void main {
      Other other = new Other
-     other.init();
+     other.init("Hello Ponyworld!");
      other.work();
   } 
 }
 
 class Other {
-  int count;
+  String message;
 
-  void init() {
-    count = 10
+  void init(String va) {
+    message = va
   }
-  void work() {
-     while (count > 0) {
-       print count;
-       count--;
-     }
-     print "Hello Ponyworld!"
+  void main() {
+     print message;
   }
 }
 
@@ -41,7 +37,7 @@ typedef struct main_t
 
 typedef struct other_t
 {
-	int count;
+	char *message;
 } other_t;
 
 enum
@@ -60,12 +56,12 @@ static void trace_main(void* p)
 static void trace_other(void* p)
 {
   other_t* d = p;
-  pony_trace32(&d->count);
+  pony_trace64(&d->message); // IS THIS EVEN RIGHT
 }
 
 
-static pony_msg_t m_other_init = {0, {{NULL, 0, PONY_PRIMITIVE}}};
-static pony_msg_t m_other_work = {2, {{NULL, 0, PONY_PRIMITIVE}}};
+static pony_msg_t m_other_init = {1, {{NULL, 0, PONY_PRIMITIVE}}};
+static pony_msg_t m_other_work = {0, {}};
 
 static pony_msg_t* message_type_other(uint64_t id)
 {
@@ -108,20 +104,16 @@ static pony_actor_type_t other_type =
 static void Main_main(main_t* this) {
 	pony_actor_t* other = pony_create(&other_type);
 
-    pony_send(other, MSG_INIT);
+    pony_sendp(other, MSG_INIT, "Hello Ponyworld!");
     pony_send(other, MSG_WORK);
 }
 
-static void Other_init(other_t* this) {
-	this->count = 10;
+static void Other_init(other_t* this, char* i) {
+	this->message = i;
 }
 
 static void Other_work(other_t* this) {
-	while (this->count > 0) {
-		printf("%d\n", this->count);
-		this->count--;
-	}
-	printf("%s\n", "Hello Ponyworld!");
+	printf("%s\n", this->message);
 }
 
 
@@ -151,7 +143,7 @@ static void dispatch_other(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
 		d = pony_alloc(sizeof(other_t));  
 		pony_set(d);
-		Other_init(d);
+		Other_init(d, argv[0].p);
 		break;
     }
 
