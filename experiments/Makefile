@@ -6,10 +6,13 @@ SRC_PATH=../src
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
 
-all: $(TARGETS)
+all: $(TARGETS) Main
 
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
+
+Main.pony.c:
+	../src/front/encorec > $@
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a
