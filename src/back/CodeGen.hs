@@ -51,7 +51,7 @@ instance Translatable A.ClassDecl CCode where
         (StructDecl data_struct_name $ map CVarDecl $
          zip (map (toCType . A.ftype) (A.fields cdecl)) (map A.fname (A.fields cdecl)))
 
-      pony_actor_t_impl = SEMI (Static (Assign (Embed pony_actor_t_name) (Record [(Embed "1"), --FIXME: this can't always be '1', needs to be different per actor.
+      pony_actor_t_impl = Statement (Static (Assign (Embed pony_actor_t_name) (Record [(Embed "1"), --FIXME: this can't always be '1', needs to be different per actor.
                                                                                   tracefun_rec,
                                                                                   (Embed message_type_fn_name),
                                                                                   (Embed dispatch_fn_name)])))
@@ -67,7 +67,7 @@ instance Translatable A.ClassDecl CCode where
       tracefun_name        = (A.cname cdecl) ++ "_trace"
       data_struct_name     = (A.cname cdecl) ++ "_data" -- FIXME code duplication with CCode.hs
       dispatch_fn_name     = (A.cname cdecl) ++ "_dispatch"
-      
+
       method_impl :: A.Type -> A.MethodDecl -> CCode
       method_impl this_ty mdecl = (Function (toCType $ A.rtype mdecl) (A.mname mdecl)
                                    (CVarDecl (toCType this_ty, "this"):(map mparam_to_cvardecl $ A.mparams mdecl))

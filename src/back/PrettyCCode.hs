@@ -25,7 +25,7 @@ pp' (Static ccode) = text "static" <+> pp' ccode
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
 pp' (C ccodes) = block ccodes
 pp' (TypeDef name ccode) = text ("typedef " ++ name) <+> pp' ccode
-pp' (SEMI c) = pp' c <> text ";"
+pp' (Statement c) = pp' c <> text ";"
 pp' (Embed string) = text string
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> text name <>
                     text "(" <> pp_args args <> text ")" $+$

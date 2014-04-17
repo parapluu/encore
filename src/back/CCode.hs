@@ -34,6 +34,7 @@ data CCode =
    | Record [CCode]
    | Static CCode
    | Assign CCode CCode
+   | Statement CCode -- for putting a semi-colon on the end.
    | C [CCode]
    | TypeDef String CCode
    | Embed String  -- for C code that doesn't match other patterns
