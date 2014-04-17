@@ -27,6 +27,6 @@ main = do
                                putStrLn "Available programs are:"  
                                printProgNames
     where
-      usage = "Usage: ./encorc [program-name]"
+      usage = "Usage: ./encorec [program-name]"
       printCommented s = putStrLn $ unlines $ map ("//"++) $ lines s
       printProgNames = mapM_ putStrLn $ map fst examples

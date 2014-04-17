@@ -1,18 +1,22 @@
 LIBPONY_A_PATH=../src/runtime/bin/debug/libpony.a
 RUNTIME_PATH=../src/runtime/
 RUNTIME_INC_PATH=$(RUNTIME_PATH)/inc/
+
 SRC_PATH=../src
 
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
 
-all: $(TARGETS) Main
+all: $(TARGETS) Hello
 
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
-Main.pony.c: ../src/front/encorec
-	../src/front/encorec > $@
+../src/front/encorec:
+	make -C ../src
+
+Hello.pony.c: ../src/front/encorec
+	../src/front/encorec hello > $@
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a
@@ -21,6 +25,6 @@ $(LIBPONY_A_PATH):
 
 clean:
 	echo clean
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) Hello.pony.c
 
 .PHONY: test all
