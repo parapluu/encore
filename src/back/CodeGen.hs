@@ -43,17 +43,17 @@ instance Translatable ClassDecl CCode where
                     struct :
                     method_impls
     where
-      struct = (Record (struct_name cdecl) $ map CVarDecl $
+      struct = TypeDef (struct_name cdecl) (Record (struct_name cdecl) $ map CVarDecl $
                 zip (map (toCType.ftype) (fields cdecl)) (map fname (fields cdecl)))
-      method_impls = (map (method_impl (cname cdecl)) (methods cdecl))
+      method_impls = map (method_impl (cname cdecl)) (methods cdecl)
                
       struct_name :: ClassDecl -> Id
-      struct_name = (++ "_data") . cname
+      struct_name = (++ "_dataaaa") . cname
       
       method_impl :: Type -> MethodDecl -> CCode
-      method_impl this_ty mdecl = (Function (toCType $ rtype mdecl) (mname mdecl)
+      method_impl this_ty mdecl = Function (toCType $ rtype mdecl) (mname mdecl)
                                    (CVarDecl (toCType this_ty, "this"):(map mparam_to_cvardecl $ mparams mdecl))
-                                   [translate (mbody mdecl)])
+                                   [translate (mbody mdecl)]
       mparam_to_cvardecl (Param (ty, na)) = CVarDecl (toCType ty, na)
 
 instance Translatable Program CCode where
