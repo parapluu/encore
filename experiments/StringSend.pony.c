@@ -17,7 +17,7 @@ class Other {
   void init(String va) {
     message = va
   }
-  void main() {
+  void work() {
      print message;
   }
 }

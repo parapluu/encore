@@ -15,8 +15,14 @@ TheOthers.pony.c:
 PrimitiveSend.pony.c:
 	Something that sends primitives around
 
-Something that sends strings or arrays around
-
-Something that sends pointers to actors around
+StringSend.pony.c:
+	Sends strings around, but not clear that it follows the correct protocol
+	with the pony allocator. Need to ask Sylvain!
+	
+ActorSend.pony.c:
+	Sends one actor to another. The first sends a message to the second,
+	who prints a pleasant message to the screen.
 
 Something that depends on the return value
+
+Something that involves refactoring a class into a separate file.
