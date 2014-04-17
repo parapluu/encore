@@ -35,7 +35,6 @@ data CCode =
    | Call Id [CCode]
    | TypeDef Id CCode
    | Var Id
-   | SEMI CCode          -- need to get rid of this
    | Embed String  -- for C code that doesn't match other patterns
    | Function { fun_ret :: CType,
                 fun_name :: String,
