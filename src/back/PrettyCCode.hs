@@ -31,7 +31,6 @@ pp' (StructDecl name vardecls) = text "struct" <+> text name $+$
                       braced_block fields
     where fields = map (\ (CVarSpec (ty, id)) -> Embed $ show ty ++ " " ++ id ++ ";") vardecls
 pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
-pp' (Static ccode) = text "static" <+> pp' ccode
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
 pp' (C ccodes) = block ccodes
 pp' (Call name args) = text name <> lparen <>

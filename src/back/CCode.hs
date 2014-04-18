@@ -28,7 +28,6 @@ data CCode =
    | Switch Id [(CCode, CCode)] CCode
    | StructDecl Id [CVarSpec]
    | Record [CCode]
-   | Static CCode
    | Assign CCode CCode
    | Statement CCode -- for putting a semi-colon on the end.
    | C [CCode]
