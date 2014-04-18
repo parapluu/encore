@@ -43,10 +43,10 @@ instance Translatable A.ClassDecl CCode where
                     method_impls ++ 
                     [dispatchfun_decl]
     where
-      data_struct = C [TypeDef data_struct_name
-                       (StructDecl data_struct_name $ map CVarSpec $
-                        zip (map (convertType . A.ftype) (A.fields cdecl)) (map A.fname (A.fields cdecl))),
-                       (Embed ";")]
+      data_struct = Statement $
+                    TypeDef data_struct_name
+                    (StructDecl data_struct_name $ map CVarSpec $
+                     zip (map (convertType . A.ftype) (A.fields cdecl)) (map A.fname (A.fields cdecl)))
 
 
       dispatchfun_decl = (Static (Function (convertType "void") (A.cname cdecl ++ "_dispatch")
@@ -66,9 +66,16 @@ instance Translatable A.ClassDecl CCode where
 -- (Embed $ "void " ++ (A.cname cdecl) ++ "_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {}")
                          )
 
-      tracefun_decl = (Embed $ "static void "++ tracefun_name ++ "(void* p) {}")
+      tracefun_decl = (Static (Function
+                               (embedCType "void")
+                               tracefun_name
+                               [CVarSpec (embedCType "void*", "p")]
+                               []))
 
-      message_type_decl = (Embed $ "static pony_msg_t* "++ A.cname cdecl ++ "_message_type(uint64_t id) { return NULL; }" )
+      message_type_decl = (Static (Function (embedCType "pony_msg_t*")
+                                   (A.cname cdecl ++ "_message_type")
+                                   [CVarSpec (embedCType "uint64_t", "id")]
+                                   [Statement (Embed "return NULL")]))
 
       pony_actor_t_impl = Statement (Static (Assign (Embed $ "pony_actor_type_t " ++ pony_actor_t_name) (Record [(Embed "1"), --FIXME: this can't always be '1', needs to be different per actor.
                                                                                   tracefun_rec,
@@ -127,7 +134,7 @@ instance Translatable A.Program CCode where
                                            Assign (Var "d") (Call "pony_alloc" [(Call "sizeof" [Var "Main_data"])]),
                                            Call "pony_set" [Var "d"],
                                            Call "Main_main" [Var "d"]])]
-              (Embed "printf(\"error, got invalid id: %i\",id);")])),
+              (Embed "printf(\"error, got invalid id: %llu\",id);")])),
      (Function
       (embedCType "int") "main"
       [CVarSpec (embedCType "int","argc"), CVarSpec (embedCType "char**","argv")]

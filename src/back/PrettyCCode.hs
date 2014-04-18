@@ -44,9 +44,12 @@ pp' (Embed string) = text string
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> text name <>
                     lparen <> pp_args args <> rparen $+$
                     braced_block body
-  where pp_args [] = empty
-        pp_args as = hcat $ intersperse (text ", ") $ map pp_arg as
-        pp_arg = \(CVarSpec (ty, id)) -> tshow ty <+> text id
+pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> text name <> lparen <> pp_args args <> rparen <> text ";"
+
+
+pp_args [] = empty
+pp_args as = hcat $ intersperse (text ", ") $ map pp_arg as
+pp_arg = \(CVarSpec (ty, id)) -> tshow ty <+> text id
 
 block :: [CCode] -> Doc
 block = vcat . map pp'

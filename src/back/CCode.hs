@@ -40,4 +40,5 @@ data CCode =
                 fun_name :: String,
                 fun_args :: [CVarSpec],
                 fun_body :: [CCode] }
+   | FwdDecl CCode
 
