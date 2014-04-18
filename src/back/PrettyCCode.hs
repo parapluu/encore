@@ -12,20 +12,21 @@ pp = show . pp'
 tshow :: Show t => t -> Doc
 tshow = text . show
 
-switch_body :: [(CCode,CCode)] -> Doc
-switch_body ccodes = lbrace $+$ (nest 2 $ vcat $ map switch_clause ccodes) $+$ rbrace
+switch_body :: [(CCode,CCode)] -> CCode -> Doc
+switch_body ccodes def = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
+                         text "default:" $+$ braced_block [def]) $+$ rbrace
   where
     switch_clause :: (CCode,CCode) -> Doc
     switch_clause (lhs,rhs) =
-      (if (show . pp' $ lhs) /= "default" then text "case" else empty) <+>
+      text "case" <+>
       pp' lhs <> text ":" $+$ braced_block (rhs:[Embed "break;"])
 
 pp' :: CCode -> Doc
 pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
 pp' (Decl (CVarSpec (ty, id))) = text (show ty) <+> text id
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Switch tst ccodes) = text "switch (" <+> (text tst) <+> rparen  $+$
-                          switch_body ccodes
+pp' (Switch tst ccodes def) = text "switch (" <+> (text tst) <+> rparen  $+$
+                                  switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct" <+> text name $+$
                       braced_block fields
     where fields = map (\ (CVarSpec (ty, id)) -> Embed $ show ty ++ " " ++ id ++ ";") vardecls

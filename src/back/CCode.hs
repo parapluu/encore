@@ -25,7 +25,7 @@ data CCode =
      Includes [String]
    | Decl CVarSpec
    | HashDefine String
-   | Switch Id [(CCode, CCode)]
+   | Switch Id [(CCode, CCode)] CCode
    | StructDecl Id [CVarSpec]
    | Record [CCode]
    | Static CCode
