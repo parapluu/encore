@@ -37,6 +37,8 @@ pp' (Call name args) = text name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
 pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> text name
+pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
+pp' (Dot ccode id) = pp' ccode <> text "." <> text id
 pp' (Var st) = text st
 pp' (Statement c) = pp' c <> text ";"
 pp' (Embed string) = text string

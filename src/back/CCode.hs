@@ -33,6 +33,8 @@ data CCode =
    | C [CCode]
    | Call Id [CCode]
    | TypeDef Id CCode
+   | Deref CCode
+   | Dot CCode Id
    | Var Id
    | Embed String  -- for C code that doesn't match other patterns
    | Function { fun_ret :: CType,

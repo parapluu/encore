@@ -2,21 +2,31 @@ LIBPONY_A_PATH=../src/runtime/bin/debug/libpony.a
 RUNTIME_PATH=../src/runtime/
 RUNTIME_INC_PATH=$(RUNTIME_PATH)/inc/
 
+
+ENCORE_PONYCS=HelloPonyworld.pony.c Countdown.pony.c TheOthers.pony.c PrimitiveSend.pony.c StringSend.pony.c ActorSend.pony.c
+ENCORE_TARGETS=$(ENCORE_TARGETS:.pony.c)
+
 SRC_PATH=../src
 
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
 
-all: $(TARGETS) Hello
+$(ENCORE_TARGETS): ../src/front/encorec
+	../src/front/encorec $@
+
+all: $(TARGETS) EncoreHello EncoreCountdown
 
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
-../src/front/encorec:
+../src/front/encorec: ../src/front/TopLevel.hs
 	make -C ../src
 
-Hello.pony.c: ../src/front/encorec
+EncoreHello.pony.c: ../src/front/encorec
 	../src/front/encorec hello > $@
+
+EncoreCountdown.pony.c: ../src/front/encorec
+	../src/front/encorec countdown > $@
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a

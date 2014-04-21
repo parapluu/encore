@@ -13,15 +13,34 @@ code_from_AST = translate
 class Translatable a b where
   translate :: a -> b
 
+instance Translatable A.Lvar CCode where
+  translate (A.LVar name) = Embed name
+  translate (A.LField ex name) = (Deref $ translate ex) `Dot` name
+
+instance Translatable A.Op CCode where
+  translate A.LT = Embed "<"
+  translate A.GT = Embed ">"
+  translate A.EQ = Embed "=="
+  translate A.NEQ = Embed "!="
+  translate A.PLUS = Embed "+"
+  translate A.MINUS = Embed "-"
+
 instance Translatable A.Expr CCode where  
   translate (A.Skip)                      = Embed "/* skip */"
   translate (A.Null)                      = Embed "0"
   translate (A.Binop op e1 e2)            = C [(Embed "("),
                                                translate e1,
-                                               (Embed $ show op),
+                                               translate op,
                                                translate e2,
                                                (Embed ")")]
   translate (A.Print (A.StringLiteral s)) = Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" );"
+  translate (A.Print (A.FieldAccess (A.VarAccess var) name)) = Embed $ "printf(\"%i\\n\", " ++ var ++ "->" ++ name ++ " );"
+  translate (A.Seq es)                    = C $ map (Statement . translate) es
+  translate (A.Assign lvar expr)          = Assign (translate lvar) (translate expr)
+  translate (A.VarAccess name)            = Embed name
+  translate (A.FieldAccess exp name)      = Deref (translate exp) `Dot` name
+  translate (A.IntLiteral i)              = Embed $ show i
+  translate (A.StringLiteral s)           = Embed $ show s
   translate other = Embed $ "/* missing: " ++ show other ++ "*/"
 
 convertType :: String -> CType
@@ -50,17 +69,18 @@ instance Translatable A.ClassDecl CCode where
 
 
       dispatchfun_decl = (Function (convertType "static void") (A.cname cdecl ++ "_dispatch")
-                          [CVarSpec (embedCType "pony_actor_t*", "this"),
-                           CVarSpec (embedCType "void*", "p"),
-                           CVarSpec (embedCType "uint64_t", "id"),
-                           CVarSpec (embedCType "int", "argc"),
-                           CVarSpec (embedCType "pony_arg_t*", "argv")]
-                          [Switch "id" [(Var "PONY_MAIN",
-                                         C $ map Statement [Decl $ CVarSpec (embedCType "Main_data*", "d"),
-                                                            Assign (Var "d") (Call "pony_alloc" [(Call "sizeof" [Var "Main_data"])]),
-                                                            Call "pony_set" [Var "d"],
-                                                            Call "Main_main" [Var "d"]])]
-                           (Embed "printf(\"error, got invalid id: %i\",id);")])
+                          (map CVarSpec [(embedCType "pony_actor_t*", "this"),
+                                         (embedCType "void*", "p"),
+                                         (embedCType "uint64_t", "id"),
+                                         (embedCType "int", "argc"),
+                                         (embedCType "pony_arg_t*", "argv")])
+                          [Switch "id"
+                           [(Var "PONY_MAIN",
+                             C $ map Statement [Decl $ CVarSpec (embedCType "Main_data*", "d"),
+                                                Assign (Var "d") (Call "pony_alloc" [(Call "sizeof" [Var "Main_data"])]),
+                                                Call "pony_set" [Var "d"],
+                                                Call "Main_main" [Var "d"]])]
+                           (Embed "printf(\"error, got invalid id: %llu\",id);")])
 
 
   -- (Embed $ "void " ++ (A.cname cdecl) ++ "_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {}")
