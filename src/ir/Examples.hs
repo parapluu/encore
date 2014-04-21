@@ -8,11 +8,11 @@ examples :: [(String, Program)]
 examples =
     [
      ("hello", hello),
+     ("countdown", countdown),
      ("sumTo", sumTo), 
      ("pingPong", pingPong),
      ("ring", ring)
     ]
-
 
 -- Hello World
 hello :: Program
@@ -20,7 +20,21 @@ hello = Program [Class "Main"
                      [] $
                      mkMethods
                       [("main", "Object", [],
-                         Print (StringLiteral "Hello, World!"))]]
+                         Print (StringLiteral "Hello Ponyworld!"))]]
+
+-- Hello World
+countdown :: Program
+countdown =
+  Program [Class "Main"
+           [Field { fname = "count", ftype = "int" }] $
+           mkMethods
+           [("main", "Object", [],
+             Seq $
+             Print (StringLiteral "Hello Ponyworld!") :
+             (take 5 $ repeat $ Assign (LField (VarAccess "this") "count")
+              (Binop MINUS (FieldAccess (VarAccess "this") "count") (IntLiteral 1))) ++
+             [Print (FieldAccess (VarAccess "this") "count")]
+            )]]
 
 -- Create an instance of a class and call a method on it
 sumTo :: Program
