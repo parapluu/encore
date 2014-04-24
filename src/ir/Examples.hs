@@ -9,6 +9,7 @@ examples =
     [
      ("hello", hello),
      ("countdown", countdown),
+     ("theOthers", theOthers),
      ("sumTo", sumTo), 
      ("pingPong", pingPong),
      ("ring", ring)
@@ -16,100 +17,131 @@ examples =
 
 -- Hello World
 hello :: Program
-hello = Program [Class "Main"
+hello = Program [Class (Type "Main")
                      [] $
                      mkMethods
-                      [("main", "Object", [],
-                         Print (StringLiteral "Hello Ponyworld!"))]]
+                      [(Name "main", Type "Object", [],
+                        Print (StringLiteral "Hello Ponyworld!"))]]
 
 -- Hello World
 countdown :: Program
 countdown =
-  Program [Class "Main"
-           [Field { fname = "count", ftype = "int" }] $
+  Program [Class (Type "Main")
+           [Field (Name "count") (Type "int")] $
            mkMethods
-           [("main", "Object", [],
+           [(Name "main", Type "Object", [],
              Seq $
              Print (StringLiteral "Hello Ponyworld!") :
-             (take 5 $ repeat $ Assign (LField (VarAccess "this") "count")
-              (Binop MINUS (FieldAccess (VarAccess "this") "count") (IntLiteral 1))) ++
-             [Print (FieldAccess (VarAccess "this") "count")]
+             (take 5 $ repeat $ Assign (LField (VarAccess $ Name "this") $ Name "count")
+              (Binop MINUS (FieldAccess (VarAccess $ Name "this") $ Name "count") (IntLiteral 1))) ++
+             [Print (FieldAccess (VarAccess $ Name "this") $ Name "count")]
             )]]
 
 -- Create an instance of a class and call a method on it
 sumTo :: Program
-sumTo = Program [Class "Driver"
+sumTo = Program [Class (Type "Driver")
                    []
-                   [Method "sumTo" "Int" [Param ("Int", "n")] 
-                    $ IfThenElse (Binop AST.EQ (VarAccess "n") (IntLiteral 0))
+                   [Method (Name "sumTo") (Type "int") [Param (Type "int", Name "n")] 
+                    $ IfThenElse (Binop AST.EQ (VarAccess $ Name "n") (IntLiteral 0))
                          (IntLiteral 0)
-                       $ Let "rest" (Call (VarAccess "this") "sumTo" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)])
-                         $ Binop AST.PLUS (VarAccess "n") (VarAccess "rest")],
-                   Class "Main" 
+                       $ Let (Name "rest") (Type "int") (Call (VarAccess $ Name "this") (Name "sumTo") [Binop AST.MINUS (VarAccess $ Name "n") (IntLiteral 1)])
+                         $ Binop AST.PLUS (VarAccess $ Name "n") (VarAccess $ Name "rest")],
+                   Class (Type "Main")
                     (mkFields
-                     [("foo", "Foo"), ("bar", "Bar")])
-                    [Method "main" "Object" []
-                       $ Let "driver" (New "Driver")
-                        $ Call (VarAccess "driver") "sumTo" [IntLiteral 5]]]
+                     [(Name "foo", Type "Foo"), (Name "bar", Type "Bar")])
+                    [Method (Name "main") (Type "Object") []
+                       $ Let (Name "driver") (Type "Driver") (New $ Type "Driver")
+                        $ Call (VarAccess $ Name "driver") (Name "sumTo") [IntLiteral 5]]]
+
+theOthers = Program
+            [Class (Type "Main")
+             [] -- no fields
+             [Method (Name "main") (Type "Object") []
+              (Seq [
+                  Let (Name "other") (Type "Other") (New $ Type "Other") (
+                     Seq [
+                        Call (VarAccess $ Name "other") (Name "init") [],
+                        Call (VarAccess $ Name "other") (Name "work") []
+                        ]
+                     )
+                    ])],
+             Class (Type "Other")
+             (mkFields [(Name "count", Type "int")])
+             (mkMethods [(Name "init", Type "void", [],
+                          (Assign (LField (VarAccess $ Name "this") $ Name "count") (IntLiteral 3))),
+                         (Name "work", Type "void", [], Seq (
+                             take 3 (repeat $ decrementField (Name "this") $ Name "count") ++
+                             [
+                               Print (FieldAccess (VarAccess $ Name "this") $ Name "count"),
+                               Print (StringLiteral "Hello Ponyworld!")]))])
+            ]
+
+decrementField ovar fname = Assign (LField (VarAccess ovar) fname)
+                            (Binop MINUS (FieldAccess (VarAccess ovar) fname) (IntLiteral 1))
+              
 
 -- Create two actors that communicate with eachother
 pingPong :: Program
-pingPong = Program [Class "PingPong"
-                        (mkFields [("friend", "PingPong")])
+pingPong = Program [Class (Type "PingPong")
+                        (mkFields [(Name "friend", Type "PingPong")])
                         (mkMethods
-                         [("ping", "void", [("int", "n")],
-                            IfThenElse (Binop AST.GT (VarAccess "n") (IntLiteral 0))
+                         [(Name "ping", Type "void", [(Type "int", Name "n")],
+                            IfThenElse (Binop AST.GT (VarAccess $ Name "n") (IntLiteral 0))
                                 (Seq
                                  [Print (StringLiteral "Ping!"),
-                                  Call (VarAccess "friend") "pong" [VarAccess "n"]])
+                                  Call (VarAccess $ Name "friend") (Name "pong") [VarAccess $ Name "n"]])
                               (Print (StringLiteral "Done!"))),
-                          ("pong", "void", [("int", "n")],
+                          (Name "pong", Type "void", [(Type "int", Name "n")],
                              Seq
                               [Print (StringLiteral "Pong!"),
-                               Call (VarAccess "friend") "ping" [Binop AST.MINUS (VarAccess "n") (IntLiteral 1)]]),
-                          ("setFriend", "void", [("PingPong", "friend")],
-                            (Assign (LField (VarAccess "this") "friend")
-                                    (VarAccess "friend")))]),
-                   Class "Main"
+                               Call (VarAccess $ Name "friend") (Name "ping") [Binop AST.MINUS (VarAccess $ Name "n") (IntLiteral 1)]]),
+                          (Name "setFriend", Type "void", [(Type "PingPong", Name "friend")],
+                            (Assign (LField (VarAccess $ Name "this") $ Name "friend")
+                                    (VarAccess $ Name "friend")))]),
+                   Class (Type "Main")
                      []
-                     [Method "main" "Object" []
-                      $ Let "pinger" (New "PingPong")
-                       $ Let "ponger" (New "PingPong")
+                     [Method (Name "main") (Type "Object") []
+                      $ Let (Name "pinger") (Type "PingPong") (New $ Type "PingPong")
+                       $ Let (Name "ponger") (Type "PingPong") (New $ Type "PingPong")
                         $ Seq
-                         [Call (VarAccess "pinger") "setFriend" [VarAccess "ponger"],
-                          Call (VarAccess "ponger") "setFriend" [VarAccess "pinger"],
-                          Call (VarAccess "pinger") "ping" [IntLiteral 5]]]]
+                         [Call (VarAccess $ Name "pinger") (Name "setFriend") [VarAccess $ Name "ponger"],
+                          Call (VarAccess $ Name "ponger") (Name "setFriend") [VarAccess $ Name "pinger"],
+                          Call (VarAccess $ Name "pinger") (Name "ping") [IntLiteral 5]]]]
 
 -- Set up a ring of actors that send a message around one time
 ring :: Program
-ring = Program [Class "Actor"
-                    (mkFields [("id", "int"), ("friend", "Actor")])
+ring = Program [Class (Type "Actor")
+                    (mkFields [(Name "id", Type "int"), (Name "friend", Type "Actor")])
                     (mkMethods 
-                     [("setId", "void", [("int", "id")],
-                        Assign (LField (VarAccess "this") "id") (VarAccess "id")),
-                      ("setFriend", "void", [("Actor", "friend")],
-                        Assign (LField (VarAccess "this") "friend") (VarAccess "friend")),
-                      ("send", "void", [("int", "id")],
-                        IfThenElse (Binop AST.EQ (VarAccess "id") (FieldAccess (VarAccess "this") "id"))
+                     [(Name "setId", Type "void", [(Type "int", Name "id")],
+                        Assign (LField (VarAccess $ Name "this") $ Name "id") (VarAccess $ Name "id")),
+                      (Name "setFriend", Type "void", [(Type "Actor", Name "friend")],
+                        Assign (LField (VarAccess $ Name "this") $ Name "friend") (VarAccess $ Name "friend")),
+                      (Name "send", Type "void", [(Type "int", Name "id")],
+                        IfThenElse (Binop AST.EQ (VarAccess $ Name "id") (FieldAccess (VarAccess $ Name "this") $ Name "id"))
                             (Print (StringLiteral "Done!"))
-                          (Seq [Print (FieldAccess (VarAccess "this") "id"),
+                          (Seq [Print (FieldAccess (VarAccess $ Name "this") $ Name "id"),
                                 Print (StringLiteral ": Passing token "),
-                                Print (VarAccess "id"),
-                                Call (FieldAccess (VarAccess "this") "friend") "send" [VarAccess "id"]])),
-                      ("start", "void", [],
-                        Call (FieldAccess (VarAccess "this") "friend") "send" [FieldAccess (VarAccess "this") "id"])]),
-                   Class "Main"
-                     (mkFields [("a1", "Actor"),("a2", "Actor"),("a3", "Actor"),("a4", "Actor"),("a5", "Actor")])
-                     [Method "main" "Object" []
+                                Print (VarAccess $ Name "id"),
+                                Call (FieldAccess (VarAccess $ Name "this") $ Name "friend") (Name "send") [VarAccess $ Name "id"]])),
+                      (Name "start", Type "void", [],
+                        Call (FieldAccess (VarAccess $ Name "this") $ Name "friend") (Name "send") [FieldAccess (VarAccess $ Name "this") $ Name "id"])]),
+                   Class (Type "Main")
+                   (mkFields [(Name "a1", Type "Actor"),
+                              (Name "a2", Type "Actor"),
+                              (Name "a3", Type "Actor"),
+                              (Name "a4", Type "Actor"),
+                              (Name "a5", Type "Actor")])
+                     [Method (Name "main") (Type "Object") []
                         $ Seq
-                         [Assign (LField (VarAccess "this") "a1") (New "Actor"),
-                          Assign (LField (VarAccess "this") "a2") (New "Actor"),
-                          Assign (LField (VarAccess "this") "a3") (New "Actor"),
-                          Assign (LField (VarAccess "this") "a4") (New "Actor"),
-                          Assign (LField (VarAccess "this") "a5") (New "Actor"),
-                          Call (FieldAccess (VarAccess "this") "a1") "setFriend" [FieldAccess (VarAccess "this") "a2"],
-                          Call (FieldAccess (VarAccess "this") "a2") "setFriend" [FieldAccess (VarAccess "this") "a3"],
-                          Call (FieldAccess (VarAccess "this") "a3") "setFriend" [FieldAccess (VarAccess "this") "a4"],
-                          Call (FieldAccess (VarAccess "this") "a4") "setFriend" [FieldAccess (VarAccess "this") "a5"],
-                          Call (FieldAccess (VarAccess "this") "a5") "setFriend" [FieldAccess (VarAccess "this") "a1"],
-                          Call (FieldAccess (VarAccess "this") "a1") "start" []]]]
+                         [Assign (LField (VarAccess (Name "this")) (Name "a1")) (New (Type "Actor")),
+                          Assign (LField (VarAccess (Name "this")) (Name "a2")) (New (Type "Actor")),
+                          Assign (LField (VarAccess (Name "this")) (Name "a3")) (New (Type "Actor")),
+                          Assign (LField (VarAccess (Name "this")) (Name "a4")) (New (Type "Actor")),
+                          Assign (LField (VarAccess (Name "this")) (Name "a5")) (New (Type "Actor")),
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a1")) (Name "setFriend") [FieldAccess (VarAccess (Name "this")) (Name "a2")],
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a2")) (Name "setFriend") [FieldAccess (VarAccess (Name "this")) (Name "a3")],
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a3")) (Name "setFriend") [FieldAccess (VarAccess (Name "this")) (Name "a4")],
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a4")) (Name "setFriend") [FieldAccess (VarAccess (Name "this")) (Name "a5")],
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a5")) (Name "setFriend") [FieldAccess (VarAccess (Name "this")) (Name "a1")],
+                          Call (FieldAccess (VarAccess (Name "this")) (Name "a1")) (Name "start") []]]]

@@ -31,6 +31,7 @@ data CCode =
    | Assign CCode CCode
    | Statement CCode -- for putting a semi-colon on the end.
    | C [CCode]
+   | BracedBlock CCode
    | Call Id [CCode]
    | TypeDef Id CCode
    | Deref CCode

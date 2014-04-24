@@ -21,17 +21,17 @@ ppEquals = text "="
 ppSpace = text " "
 
 ppName :: Name -> Doc
-ppName x = text x
+ppName (Name x) = text x
 
 ppType :: Type -> Doc
-ppType t = text t
+ppType (Type t) = text t
 
 ppProgram :: Program -> Doc
 ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl (Class name fields methods) = 
-    ppClass <+> ppName name <+> lbrace $+$
+    ppClass <+> ppType name <+> lbrace $+$
              (nest 2 $
                    vcat (map ppFieldDecl fields) $$
                    vcat (map ppMethodDecl methods))
@@ -66,8 +66,8 @@ ppExpr Skip = ppSkip
 ppExpr (Call e m args) = 
     maybeParens e <> ppDot <> ppName m <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
-ppExpr (Let x e1 e2) = 
-    ppLet <+> ppName x <+> equals <+> ppExpr e1 <+> ppIn $+$ 
+ppExpr (Let (Name x) (Type ty) e1 e2) = 
+    ppLet <+> text x <+> text "::" <+> text ty <+> equals <+> ppExpr e1 <+> ppIn $+$ 
       nest 2 (ppExpr e2)
 ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
 ppExpr (IfThenElse cond thn els) = 
@@ -80,9 +80,9 @@ ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
 ppExpr (VarAccess x) = ppName x
 ppExpr (Assign lvar e) = ppLvar lvar <+> ppEquals <+> ppExpr e
 ppExpr (Null) = ppNull
-ppExpr (New c) = ppNew <+> ppName c
+ppExpr (New ty) = ppNew <+> ppType ty
 ppExpr (Print e) = ppPrint <+> ppExpr e
-ppExpr (StringLiteral s) = doubleQuotes (ppName s)
+ppExpr (StringLiteral s) = doubleQuotes (text s)
 ppExpr (IntLiteral n) = int n
 ppExpr (Binop op e1 e2) = ppExpr e1 <+> ppBinop op <+> ppExpr e2
 
@@ -95,6 +95,6 @@ ppBinop AST.PLUS  = text "+"
 ppBinop AST.MINUS = text "-"
 
 ppLvar :: Lvar -> Doc
-ppLvar (LVar x)  = text x
-ppLvar (LField e f) = maybeParens e <> ppDot <> text f
-ppLvar (LThisField f) = text f
+ppLvar (LVar (Name x))  = text x
+ppLvar (LField e (Name f)) = maybeParens e <> ppDot <> text f
+ppLvar (LThisField (Name f)) = text f

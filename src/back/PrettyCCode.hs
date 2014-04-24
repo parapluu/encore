@@ -46,6 +46,8 @@ pp' (Function ret_ty name args body) =  tshow ret_ty <+> text name <>
                     lparen <> pp_args args <> rparen $+$
                     braced_block body
 pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> text name <> lparen <> pp_args args <> rparen <> text ";"
+pp' (BracedBlock ccode) = braced_block [ccode]
+--pp' (New ty) = error "not implemented: New"
 
 
 pp_args [] = empty
