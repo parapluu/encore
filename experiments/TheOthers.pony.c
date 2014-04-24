@@ -83,7 +83,6 @@ static pony_msg_t* message_type_main(uint64_t id)
   return NULL;
 }
 
-
 static void dispatch_main(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv);
 static void dispatch_other(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv);
 
@@ -149,7 +148,7 @@ static void dispatch_other(pony_actor_t* this, void* p, uint64_t id, int argc, p
   {
     case MSG_INIT:
     {
-		d = pony_alloc(sizeof(other_t));  
+		d = pony_alloc(sizeof(other_t));
 		pony_set(d);
 		Other_init(d);
 		break;
