@@ -19,16 +19,16 @@ all: $(TARGETS) EncoreHello EncoreCountdown EncoreTheOthers
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
-../src/front/encorec: ../src/front/TopLevel.hs
+encorec:
 	make -C ../src
 
-EncoreHello.pony.c: ../src/front/encorec
+EncoreHello.pony.c: encorec
 	../src/front/encorec hello > $@
 
-EncoreTheOthers.pony.c: ../src/front/encorec
+EncoreTheOthers.pony.c: encorec
 	../src/front/encorec theOthers > $@
 
-EncoreCountdown.pony.c: ../src/front/encorec
+EncoreCountdown.pony.c: encorec
 	../src/front/encorec countdown > $@
 
 $(LIBPONY_A_PATH):
@@ -40,4 +40,4 @@ clean:
 	echo clean
 	rm -f $(TARGETS) Hello.pony.c
 
-.PHONY: test all
+.PHONY: test all encorec
