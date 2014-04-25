@@ -7,6 +7,8 @@ compiler:
 
 run: compiler
 	front/encorec hello
+	@cat encore.hello.pony.c
+	@rm encore.hello.pony.c
 
 $(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug

@@ -23,13 +23,13 @@ encorec:
 	make -C ../src
 
 EncoreHello.pony.c: encorec
-	../src/front/encorec hello > $@
+	../src/front/encorec hello
 
 EncoreTheOthers.pony.c: encorec
-	../src/front/encorec theOthers > $@
+	../src/front/encorec theOthers
 
 EncoreCountdown.pony.c: encorec
-	../src/front/encorec countdown > $@
+	../src/front/encorec countdown
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a
