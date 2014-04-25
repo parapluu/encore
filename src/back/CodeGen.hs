@@ -186,10 +186,29 @@ instance Translatable A.ClassDecl (Reader Ctx.Context CCode) where
                        [CVarSpec (embedCType "void*", "p")]
                        [])
 
-      message_type_decl = (Function (embedCType "static pony_msg_t*")
-                           ((show $ A.cname cdecl) ++ "_message_type")
-                           [CVarSpec (embedCType "uint64_t", "id")]
-                           [Statement (Embed "return NULL")])
+-- * implement the message_type functions
+-- * implement the message types:
+--      static pony_msg_t m_Other_init = {0, {{NULL, 0, PONY_PRIMITIVE}}};
+--      static pony_msg_t m_Other_work = {2, {{NULL, 0, PONY_PRIMITIVE}}};
+
+      message_type_decl = Function (embedCType "static pony_msg_t*")
+                          ((show $ A.cname cdecl) ++ "_message_type")
+                          [CVarSpec (embedCType "uint64_t", "id")]
+                          [(Switch "id" (map (\m -> message_type_clause (A.cname cdecl) (A.mname m)) (A.methods cdecl)) (C [])),
+                           Statement (Embed "return NULL")]
+        where
+          message_type_clause :: A.Type -> A.Name -> (CCode, CCode)
+          message_type_clause cname mname =
+            (Var ("MSG_"++(show cname)++"_"++(show mname)),
+             Embed $ "return &" ++ (show cname) ++ "_" ++ (show mname) ++ ";")
+
+
+--  switch(id)
+--  {
+--    case MSG_Other_init: return &m_Other_init;
+--    case MSG_Other_work: return &m_Other_work;
+--  }
+
 
       pony_actor_t_impl = Statement (Assign (Embed $ "static pony_actor_type_t " ++ pony_actor_t_name)
                                               (Record [Var ("ID_"++(show $ A.cname cdecl)),
