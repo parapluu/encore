@@ -2,8 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- TODOS
--- * different IDs for different classes
--- * implement the message_type functions
+-- * implement the message_type functions ::192
 -- * implement the message types:
 --      static pony_msg_t m_Other_init = {0, {{NULL, 0, PONY_PRIMITIVE}}};
 --      static pony_msg_t m_Other_work = {2, {{NULL, 0, PONY_PRIMITIVE}}};
@@ -31,14 +30,14 @@ class Translatable a b where
 class FwdDeclaration a b where
   fwd_decls :: a -> b
 
-
 instance Translatable A.Op CCode where
-  translate A.LT = Embed "<"
-  translate A.GT = Embed ">"
-  translate A.EQ = Embed "=="
-  translate A.NEQ = Embed "!="
-  translate A.PLUS = Embed "+"
-  translate A.MINUS = Embed "-"
+  translate op = Embed $ case op of
+    A.LT -> "<"
+    A.GT -> ">"
+    A.EQ -> "=="
+    A.NEQ -> "!="
+    A.PLUS -> "+"
+    A.MINUS -> "-"
 
 instance Translatable A.Lvar (Reader Ctx.Context CCode) where
   translate (A.LVar name) = return $ Embed $ show name
@@ -47,9 +46,9 @@ instance Translatable A.Lvar (Reader Ctx.Context CCode) where
     return $ (Deref tex) `Dot` (show name)
 
 instance Translatable A.Expr (Reader Ctx.Context CCode) where
-  translate (A.Skip)                      = return $ Embed "/* skip */"
-  translate (A.Null)                      = return $ Embed "0"
-  translate (A.Binop op e1 e2)            = do
+  translate (A.Skip) = return $ Embed "/* skip */"
+  translate (A.Null) = return $ Embed "0"
+  translate (A.Binop op e1 e2) = do
     te1 <- translate e1
     te2 <- translate e2
     return $ C [(Embed "("),
@@ -61,22 +60,23 @@ instance Translatable A.Expr (Reader Ctx.Context CCode) where
     return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" );"
   translate (A.Print (A.FieldAccess (A.VarAccess var) name)) =
     return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " );"
-  translate (A.Seq es)                    = do
+  translate (A.Seq es) = do
     tes <- mapM translate es
     return $ C (map Statement tes)
-  translate (A.Assign lvar expr)          = do texpr <- translate expr
-                                               tlvar <- translate lvar
-                                               return $ Assign tlvar texpr
-  translate (A.VarAccess name)            =
+  translate (A.Assign lvar expr) = do
+    texpr <- translate expr
+    tlvar <- translate lvar
+    return $ Assign tlvar texpr
+  translate (A.VarAccess name) =
     return $ Embed $ show name
-  translate (A.FieldAccess exp name)      = do
+  translate (A.FieldAccess exp name) = do
     texp <- translate exp
     return $ Deref texp `Dot` (show name)
-  translate (A.IntLiteral i)              =
+  translate (A.IntLiteral i) =
     return $ Embed $ show i
-  translate (A.StringLiteral s)           =
+  translate (A.StringLiteral s) =
     return $ Embed $ show s
-  translate (A.Let name ty e1 e2)         = do
+  translate (A.Let name ty e1 e2) = do
     te1 <- translate e1
     te2 <- local (Ctx.with_local (A.Param (ty, name))) $ translate e2
     return (BracedBlock $ C $
@@ -96,10 +96,7 @@ instance Translatable A.Expr (Reader Ctx.Context CCode) where
       (A.VarAccess other) -> do
         -- send message
         -- fixme: how do we send arguments?
-        -- fixme: find type of var:
         other_ty <- asks (fromJust . (Ctx.type_of $ other))
---continue here:
--- find a way to easily access the types of variables by name, which we'll need in order to construct the proper MSG names
         return $ Statement $ Call "pony_send" [Var $ show other, Var ("MSG_" ++ show other_ty ++ "_" ++ show name)]
       no_var_access -> error "calls are only implemented on variables for now"
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"
@@ -195,7 +192,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context CCode) where
                            [Statement (Embed "return NULL")])
 
       pony_actor_t_impl = Statement (Assign (Embed $ "static pony_actor_type_t " ++ pony_actor_t_name)
-                                              (Record [(Embed "1"), --FIXME: this can't always be '1', needs to be different per actor.
+                                              (Record [Var ("ID_"++(show $ A.cname cdecl)),
                                                        tracefun_rec,
                                                        (Embed message_type_fn_name),
                                                        (Embed dispatch_fn_name)]))
@@ -230,15 +227,23 @@ instance FwdDeclaration A.ClassDecl CCode where
                                "static void " ++ (show $ A.cname cdecl) ++ "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
 
 instance FwdDeclaration A.Program CCode where
-  fwd_decls (A.Program cs) = msg_enum (A.Program cs)
+  fwd_decls (A.Program cs) = C $ [msg_enum (A.Program cs),
+                                  class_ids_enum (A.Program cs)]
     where
       msg_enum :: A.Program -> CCode
       msg_enum (A.Program cs) =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (A.methods cdecl)) cs
-          lines = map (\ (cname, mdecl) -> Embed ("MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl) ++ ",")) meta
+          lines = map (\ (cname, mdecl) -> "MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
         in
-         C $ Embed "enum " : [BracedBlock (C lines), Embed ";"]
+         Statement $ Enum lines
+
+      class_ids_enum :: A.Program -> CCode
+      class_ids_enum (A.Program cs) =
+        let
+          names = map (("ID_"++) . show . A.cname) cs
+        in
+         Statement $ Enum names
 
 instance Translatable A.Program CCode where
   translate (A.Program cs) =
