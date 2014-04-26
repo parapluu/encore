@@ -8,6 +8,5 @@ import CCode.Main
 
 import qualified AST as A
 
-code_from_AST :: A.Program -> CCode
+code_from_AST :: A.Program -> CCode FIN
 code_from_AST = translate
-

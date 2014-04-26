@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 module CCode.PrettyCCode (pp) where
 
 import CCode.Main
@@ -6,57 +8,68 @@ import Data.List
 
 indent = nest 2
 
-pp :: CCode -> String
+pp :: CCode a -> String
 pp = show . pp'
 
 tshow :: Show t => t -> Doc
 tshow = text . show
 
-switch_body :: [(CCode,CCode)] -> CCode -> Doc
-switch_body ccodes def = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
-                         text "default:" $+$ (braced_block . vcat . map pp') [def]) $+$ rbrace
+switch_body :: [(CCode Id, CCode Stat)] -> CCode Stat -> Doc
+switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
+                                          text "default:" $+$
+                                                   (braced_block . vcat . map pp') [def_case]) $+$
+                              rbrace
   where
-    switch_clause :: (CCode,CCode) -> Doc
+    switch_clause :: (CCode Id, CCode Stat) -> Doc
     switch_clause (lhs,rhs) =
-      text "case" <+>
-      pp' lhs <> text ":" $+$ (braced_block . vcat . map pp') (rhs:[Embed "break;"])
+      text "case" <+> pp' lhs <> text ":"
+               $+$ (braced_block . vcat . map pp') (rhs:[Embed "break;"])
 
-
-pp' :: CCode -> Doc
-pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
-pp' (Decl (CVarSpec (ty, id))) = text (show ty) <+> text id
+pp' :: CCode a -> Doc
+pp' (Program c) = pp' c
+pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Switch tst ccodes def) = text "switch (" <+> (text tst) <+> rparen  $+$
+pp' (Statement c) = pp' c <> text ";"
+pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
                                   switch_body ccodes def
-pp' (StructDecl name vardecls) = text "struct" <+> text name $+$
+pp' (StructDecl name vardecls) = text "struct" <+> tshow name $+$
                       (braced_block . vcat . map pp') fields
-    where fields = map (\ (CVarSpec (ty, id)) -> Embed $ show ty ++ " " ++ id ++ ";") vardecls
+    where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
-pp' (C ccodes) = block ccodes
-pp' (Call name args) = text name <> lparen <>
+pp' (Decl (ty, id)) = tshow ty <+> tshow id
+pp' (Concat ccodes) = block ccodes
+pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
+pp' (StoopidSeq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
+pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
+pp' (Braced ccode) = (braced_block . pp') ccode
+pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
+pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
+pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
+pp' (Ptr ty) = pp' ty <> text "*"
+pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>
+                    lparen <> pp_args args <> rparen $+$
+                    (braced_block . pp') body
+pp' (AsExpr c) = pp' c
+pp' (AsLval c) = pp' c
+pp' (Var st) = text st
+pp' (Typ st) = text st
+pp' (Embed string) = text string
+pp' (EmbedC ccode) = pp' ccode
+pp' (Call name args) = tshow name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
-pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> text name
-pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
-pp' (Dot ccode id) = pp' ccode <> text "." <> text id
-pp' (Var st) = text st
-pp' (Statement c) = pp' c <> text ";"
-pp' (Embed string) = text string
-pp' (Function ret_ty name args body) =  tshow ret_ty <+> text name <>
-                    lparen <> pp_args args <> rparen $+$
-                    (braced_block . vcat . map pp') body
-pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> text name <> lparen <> pp_args args <> rparen <> text ";"
-pp' (BracedBlock ccode) = (braced_block . pp') ccode
-pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> text id <> text ",") ids)
+pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
+--pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
 --pp' (New ty) = error "not implemented: New"
 
 
+pp_args :: [CVarSpec] -> Doc
 pp_args [] = empty
 pp_args as = hcat $ intersperse (text ", ") $ map pp_arg as
-pp_arg = \(CVarSpec (ty, id)) -> tshow ty <+> text id
+pp_arg = \(ty, id) -> tshow ty <+> tshow id
 
-block :: [CCode] -> Doc
+block :: [CCode a] -> Doc
 block = vcat . map pp'
 
 braced_block :: Doc -> Doc
@@ -64,11 +77,6 @@ braced_block doc = lbrace $+$
                       indent doc $+$
                       rbrace
 
-testfun = Function (embedCType "int") "main"
-                    [CVarSpec (embedCType "int","argc"), CVarSpec (embedCType "char**", "argv")]
-                    [Embed "printf(\"asdf\");"]
-
-instance Show CCode where
+instance Show (CCode a) where
   show = pp
 
-main = do print testfun
