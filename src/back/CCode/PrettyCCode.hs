@@ -1,6 +1,6 @@
-module PrettyCCode (pp) where
+module CCode.PrettyCCode (pp) where
 
-import CCode
+import CCode.CCode
 import Text.PrettyPrint
 import Data.List
 

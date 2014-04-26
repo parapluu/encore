@@ -1,16 +1,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module CodeGen (code_from_AST) where
+module CodeGen.CodeGen (code_from_AST) where
+
 import Data.List
 import Data.Char
 import Data.Maybe
-import CCode
+import CCode.CCode
 import Control.Monad.Reader
-import CCodeNames
+import CodeGen.CCodeNames
 
 import qualified AST as A
-import qualified Context as Ctx
+import qualified CodeGen.Context as Ctx
 
 code_from_AST :: A.Program -> CCode
 code_from_AST = translate

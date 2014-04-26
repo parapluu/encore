@@ -1,9 +1,9 @@
-module CCode (CCode (..),
-              CVarSpec (..),
-              Id (..),
-              embedCType,
-              CType,
-              show) where
+module CCode.CCode (CCode (..),
+                    CVarSpec (..),
+                    Id (..),
+                    embedCType,
+                    CType,
+                    show) where
 
 {- to be moved into a separate file later -}
 

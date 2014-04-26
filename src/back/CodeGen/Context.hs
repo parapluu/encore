@@ -1,4 +1,4 @@
-module Context (
+module CodeGen.Context (
   Context,
   mk,
   the_prog,
