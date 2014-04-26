@@ -148,8 +148,8 @@ static void dispatch_other(pony_actor_t* this, void* p, uint64_t id, int argc, p
   {
     case MSG_INIT:
     {
-		d = pony_alloc(sizeof(other_t));
-		pony_set(d);
+      		d = pony_alloc(sizeof(other_t));
+      		pony_set(d);
 		Other_init(d);
 		break;
     }

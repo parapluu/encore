@@ -58,7 +58,8 @@ theOthers = Program
              [] -- no fields
              [Method (Name "main") (Type "Object") []
               (Seq [
-                  Let (Name "other") (Type "Other") (New $ Type "Other") (
+                Print (StringLiteral "Hello Ponyworld!"),
+                Let (Name "other") (Type "Other") (New $ Type "Other") (
                      Seq [
                         Call (VarAccess $ Name "other") (Name "init") [],
                         Call (VarAccess $ Name "other") (Name "work") []

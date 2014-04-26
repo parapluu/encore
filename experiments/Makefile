@@ -17,7 +17,7 @@ $(ENCORE_TARGETS): ../src/front/encorec
 all: $(TARGETS) EncoreHello EncoreCountdown EncoreTheOthers
 
 % : %.pony.c $(LIBPONY_A_PATH)
-	clang $@.pony.c -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
+	clang $@.pony.c -ggdb -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
 encorec:
 	make -C ../src

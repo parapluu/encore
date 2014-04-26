@@ -21,6 +21,7 @@ switch_body ccodes def = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+
       text "case" <+>
       pp' lhs <> text ":" $+$ (braced_block . vcat . map pp') (rhs:[Embed "break;"])
 
+
 pp' :: CCode -> Doc
 pp' (Includes l) = vcat $ map (text . ("#include <"++) . (++">")) l
 pp' (Decl (CVarSpec (ty, id))) = text (show ty) <+> text id
