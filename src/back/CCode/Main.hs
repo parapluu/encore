@@ -1,11 +1,9 @@
-module CCode.CCode (CCode (..),
-                    CVarSpec (..),
-                    Id (..),
-                    embedCType,
-                    CType,
-                    show) where
-
-{- to be moved into a separate file later -}
+module CCode.Main (CCode (..),
+                   CVarSpec (..),
+                   Id (..),
+                   embedCType,
+                   CType,
+                   show) where
 
 import qualified AST
 import Data.Char

@@ -39,5 +39,7 @@ $(LIBPONY_A_PATH):
 clean:
 	echo clean
 	rm -f $(TARGETS) Hello.pony.c
+	rm -rf *.dSYM
+	rm -f Encore*.pony.c
 
 .PHONY: test all encorec

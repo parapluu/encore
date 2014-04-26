@@ -7,9 +7,8 @@ import Data.List
 import AST
 import PrettyPrinter
 import Examples
-import CodeGen.CodeGen
+import CodeGen.Main
 import CCode.PrettyCCode
---import CodeGen
 
 data Argument = GCC | Clang | KeepCFiles | Undefined | File String deriving(Eq)
 

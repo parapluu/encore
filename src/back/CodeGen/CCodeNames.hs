@@ -4,7 +4,7 @@
 module CodeGen.CCodeNames where
 
 import qualified AST as A
-import CCode.CCode
+import CCode.Main
 import Data.Char
 
 -- each method is implemented as a function with a `this`
@@ -48,3 +48,14 @@ pony_actor_t_Type (A.Type ty) =
     embedCType $ if isLower $ head ty
                  then ty
                  else ty++"_actor_t*"
+
+data_rec_pointer :: A.Type -> CType
+data_rec_pointer ty =
+    embedCType $
+               case ty of
+                 (A.Type "Object") -> "void*"
+                 (A.Type other_ty) ->
+                     if isLower $ head other_ty
+                     then other_ty
+                     else data_rec_ptr ty
+

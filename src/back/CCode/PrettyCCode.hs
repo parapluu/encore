@@ -1,6 +1,6 @@
 module CCode.PrettyCCode (pp) where
 
-import CCode.CCode
+import CCode.Main
 import Text.PrettyPrint
 import Data.List
 
