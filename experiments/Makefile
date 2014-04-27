@@ -41,5 +41,6 @@ clean:
 	rm -f $(TARGETS) Hello.pony.c
 	rm -rf *.dSYM
 	rm -f encore.*.pony.c
+	rm -f *\~
 
 .PHONY: test all encorec

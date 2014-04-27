@@ -45,7 +45,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Assign lvar expr) = do
     texpr <- translate expr
     tlvar <- translate lvar
-    return $ Assign tlvar texpr
+    return $ Assign (tlvar :: CCode Lval) texpr
   translate (A.VarAccess name) =
     return $ Embed $ show name
   translate (A.FieldAccess exp name) = do
@@ -59,7 +59,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     te1 <- translate e1
     te2 <- local (Ctx.with_local (A.Param (ty, name))) $ translate e2
     return (Braced . StoopidSeq $
-                       [Assign (Decl ((embedCType "pony_actor_t*", Var $ show name))) te1,
+                       [Assign (Decl ((Typ "pony_actor_t*", Var $ show name))) te1,
                         te2])
   translate (A.New ty) = return $ Embed $ "create_and_send(&"++show ty++"_actor, MSG_alloc)"
   translate (A.Call { A.target=expr, A.tmname=name, A.args=args } ) =
@@ -68,7 +68,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
         -- call synchronously
         cname <- asks (A.cname . fromJust . Ctx.the_class)
         targs <- mapM translate args
-        return $ Call (AsExpr . AsLval $ (method_impl_name cname name)) targs
+        return $ Call (AsExpr . AsLval $ (method_impl_name cname name)) (targs :: [CCode Expr])
       (A.VarAccess other) -> do
         -- send message
         -- fixme: how do we send arguments?

@@ -45,9 +45,9 @@ data_rec_ptr = Ptr . data_rec_name
 
 pony_actor_t_Type :: A.Type -> CCode Ty
 pony_actor_t_Type (A.Type ty) =
-    embedCType $ if isLower $ head ty
-                 then ty
-                 else ty++"_actor_t*"
+    Typ $ if isLower $ head ty
+          then ty
+          else ty++"_actor_t*"
 
 -- FIXME rename
 data_rec_pointer :: A.Type -> CCode Ty

@@ -58,21 +58,25 @@ instance Translatable A.Program (CCode FIN) where
     (map fwd_decls cs) ++
     (map translate_class_here cs) ++
     [(Function
-      (embedCType "static void") (Var "dispatch")
-      [(embedCType "pony_actor_t*", Var "this"),
-       (embedCType "void*", Var "p"),
-       (embedCType "uint64_t", Var "id"),
-       (embedCType "int", Var "argc"),
-       (embedCType "pony_arg_t*", Var "argv")]
+      (Typ "static void") (Var "dispatch")
+      [(Typ "pony_actor_t*", Var "this"),
+       (Typ "void*", Var "p"),
+       (Typ "uint64_t", Var "id"),
+       (Typ "int", Var "argc"),
+       (Typ "pony_arg_t*", Var "argv")]
       (Switch (Var "id")
        [(Var "PONY_MAIN",
-         Concat $ map Statement [Assign (Decl $ (embedCType "Main_data*", Var "d")) (Call (AsExpr . AsLval . Var $ "pony_alloc") [(Call (AsExpr . AsLval . Var $ "sizeof") [EmbedC $ Var "Main_data"])]),
-                                Call (AsExpr . AsLval . Var $ "pony_set") [AsExpr . AsLval . Var $ "d"],
-                                Call (AsExpr . AsLval . Var $ "Main_main") [AsExpr . AsLval . Var $ "d"]])]
+         Concat $ map Statement
+                    [Assign (Decl $ (Typ "Main_data*", Var "d"))
+                                (Call 
+                                 (Var $ "pony_alloc")
+                                 [(Call (Var $ "sizeof") [AsExpr . Embed $ "Main_data"])]),
+                     Call (Var $ "pony_set") [Var $ "d"],
+                     Call (Var $ "Main_main") [Var $ "d"]])]
        (Embed "printf(\"error, got invalid id: %llu\",id);"))),
      (Function
-      (embedCType "int") (Var "main")
-      [(embedCType "int", Var "argc"), (embedCType "char**", Var "argv")]
+      (Typ "int") (Var "main")
+      [(Typ "int", Var "argc"), (Typ "char**", Var "argv")]
       (Embed "return pony_start(argc, argv, pony_create(&Main_actor));"))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel

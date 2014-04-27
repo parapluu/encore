@@ -22,6 +22,6 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     return $ 
       (Function (data_rec_pointer (A.rtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
        ((data_rec_pointer this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
-       (Statement tmbody))
+       (Statement (tmbody::CCode Expr)))
     where
       mparam_to_cvardecl (A.Param (ty, na)) = (data_rec_pointer ty, Var $ show na)
