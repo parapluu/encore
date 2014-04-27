@@ -30,7 +30,7 @@ instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
 
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
-  translate (A.Null) = return $ Embed "0"
+  translate (A.Null) = return $ Embed "NULL"
   translate (A.Binop op e1 e2) = do
     te1 <- translate e1
     te2 <- translate e2
@@ -59,10 +59,12 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     te1 <- translate e1
     te2 <- local (Ctx.with_local (A.Param (ty, name))) $ translate e2
     return (Braced . StoopidSeq $
-                       [Assign (Decl ((Typ "pony_actor_t*", Var $ show name))) te1,
+                       [Assign 
+                        (Decl ((Ptr . Typ $ "pony_actor_t", Var $ show name))) te1,
                         te2])
-  translate (A.New ty) = return $ Embed $ "create_and_send(&"++show ty++"_actor, MSG_alloc)"
-  translate (A.Call { A.target=expr, A.tmname=name, A.args=args } ) =
+  translate (A.New ty) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
+                                                                AsExpr . AsLval . Nam $ "MSG_alloc"]
+  translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
     case expr of
       (A.VarAccess (A.Name "this")) -> do
         -- call synchronously
@@ -74,7 +76,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
         -- fixme: how do we send arguments?
         other_ty <- asks (fromJust . (Ctx.type_of $ other))
         return $
-              Call (Var "pony_send")
+              Call (Nam "pony_send")
                        [Var $ show other,
                         AsLval $ method_msg_name other_ty name]
       no_var_access -> error "calls are only implemented on variables for now"

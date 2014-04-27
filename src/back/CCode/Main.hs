@@ -63,6 +63,7 @@ data CCode a where
     BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
     Dot        :: CCode Expr -> CCode Name -> CCode Lval
     Deref      :: CCode Expr -> CCode Expr
+    Amp        :: (UsableAs e Expr) => CCode e -> CCode Expr
     Ptr        :: CCode Ty -> CCode Ty
     Function   :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
     AsExpr     :: CCode Lval -> CCode Expr
@@ -70,6 +71,7 @@ data CCode a where
     Nam        :: String -> CCode Name
     Var        :: String -> CCode Lval -- fixme this should be -> Code Lval
     Typ        :: String -> CCode Ty
+    Static     :: CCode Ty -> CCode Ty
     Embed      :: String -> CCode a
     EmbedC     :: CCode a -> CCode b
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr

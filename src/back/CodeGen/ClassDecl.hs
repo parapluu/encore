@@ -12,7 +12,7 @@ import CCode.PrettyCCode
 
 import qualified AST as A
 
-import Control.Monad.Reader
+import Control.Monad.Reader hiding (void)
 
 instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   translate cdecl = do
@@ -47,19 +47,19 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
           ))
         
       dispatchfun_decl =
-          (Function (Typ "static void") (class_dispatch_name $ A.cname cdecl)
-           ([(Typ "pony_actor_t*", Var "this"),
-             (Typ "void*", Var "p"),
+          (Function (Static void) (class_dispatch_name $ A.cname cdecl)
+           ([(Ptr . Typ $ "pony_actor_t", Var "this"),
+             (Ptr void, Var "p"),
              (Typ "uint64_t", Var "id"),
-             (Typ "int", Var "argc"),
-             (Typ "pony_arg_t*", Var "argv")])
+             (int, Var "argc"),
+             (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "PONY_MAIN",
 
               Concat $ [alloc_instr,
                         (if (A.cname cdecl) == (A.Type "Main")
                          then Statement $ Call ((method_impl_name (A.Type "Main") (A.Name "main")))
-                                                [Var $ "p"]
+                                                [Var "p"]
                          else Concat [])]) :
 
              (Nam "MSG_alloc", alloc_instr) :
@@ -69,19 +69,19 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
           where
             alloc_instr = Concat $ map Statement $
                           [(Var "p") `Assign`
-                           (Call (Var "pony_alloc")
+                           (Call (Nam "pony_alloc")
                                      [(Call
-                                       (Var $ "sizeof")
+                                       (Var "sizeof")
                                        [AsExpr . Embed $ show (data_rec_name $ A.cname cdecl)])]),
-                           Call (Var $ "pony_set")
+                           Call (Nam "pony_set")
                                     [Var "p"]]
 
       tracefun_decl = (Function
-                       (Typ "static void")
+                       (Static void)
                        (class_trace_fn_name (A.cname cdecl))
-                       [(Typ "void*", Var "p")]
+                       [(Ptr void, Var "p")]
                        (Embed "//Todo!"))
-      message_type_decl = Function (Typ "static pony_msg_t*")
+      message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
                           (class_message_type_name $ A.cname cdecl)
                           [(Typ "uint64_t", Var "id")]
                           (Concat [(Switch (Var "id")
@@ -111,30 +111,18 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
         
       pony_actor_t_impl :: CCode Toplevel
       pony_actor_t_impl = EmbedC $
-                          Statement (Assign
-                                     ((Embed $ "static pony_actor_type_t " ++ show (actor_rec_name (A.cname cdecl))) :: CCode Lval)
-                                     (Record [AsExpr . AsLval . Nam $ ("ID_"++(show $ A.cname cdecl)),
-                                              tracefun_rec,
-                                              (EmbedC $ class_message_type_name (A.cname cdecl)),
-                                              (EmbedC $ class_dispatch_name $ A.cname cdecl)]))
+                          Statement
+                          (Assign
+                           ((Embed $ "static pony_actor_type_t " ++ show (actor_rec_name (A.cname cdecl))) :: CCode Lval)
+                           (Record [AsExpr . AsLval . Nam $ ("ID_"++(show $ A.cname cdecl)),
+                                           tracefun_rec,
+                                    (EmbedC $ class_message_type_name (A.cname cdecl)),
+                                    (EmbedC $ class_dispatch_name $ A.cname cdecl)]))
 
       tracefun_rec :: CCode Expr
       tracefun_rec = Record [AsExpr . AsLval $ (class_trace_fn_name $ A.cname cdecl),
-                             Call (Var "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
+                             Call (Nam "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
                              AsExpr . AsLval . Nam $ "PONY_ACTOR"]
-
-comment_section :: String -> CCode a
-comment_section s = EmbedC $ Concat $ [Embed $ take (5 + length s) $ repeat '/',
-                         Embed $ "// " ++ s]
-
-main_dispatch_clause = (Var "PONY_MAIN",
-                        Concat $ map Statement [
-                                      Assign
-                                      (Decl $ (Typ "Main_data*", Var "d"))
-                                      (Call (Var "pony_alloc") 
-                                                [(Call (Var "sizeof") [Var $ "Main_data"])]),
-                                      Call (Var "pony_set") [Var $ "d"],
-                                      Call (Var "Main_main") [Var $ "d"]])
 
 instance FwdDeclaration A.ClassDecl (CCode Toplevel) where
   fwd_decls cdecl =
@@ -144,3 +132,6 @@ instance FwdDeclaration A.ClassDecl (CCode Toplevel) where
                  "static void " ++ (show $ A.cname cdecl) ++
                  "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
 
+comment_section :: String -> CCode a
+comment_section s = EmbedC $ Concat $ [Embed $ take (5 + length s) $ repeat '/',
+                         Embed $ "// " ++ s]

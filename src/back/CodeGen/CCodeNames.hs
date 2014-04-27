@@ -7,6 +7,10 @@ import qualified AST as A
 import CCode.Main
 import Data.Char
 
+char = Typ "char"
+int = Typ "int"
+void = Typ "void"
+
 -- each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
 method_impl_name :: A.Type -> A.Name -> CCode Name
@@ -36,8 +40,8 @@ method_msg_name clazz mname = Nam $ "MSG_"++show clazz++"_"++show mname
 data_rec_name :: A.Type -> CCode Ty
 data_rec_name clazz = Typ $ show clazz ++ "_data"
 
-actor_rec_name :: A.Type -> CCode Lval
-actor_rec_name clazz = Var $ show clazz ++ "_actor"
+actor_rec_name :: A.Type -> CCode Name
+actor_rec_name clazz = Nam $ show clazz ++ "_actor"
 
 -- a pointer to a class' state
 data_rec_ptr :: A.Type -> CCode Ty

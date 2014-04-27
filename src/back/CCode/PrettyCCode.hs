@@ -46,6 +46,7 @@ pp' (Braced ccode) = (braced_block . pp') ccode
 pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
 pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
+pp' (Amp ccode) = lparen <> text "&" <> pp' ccode <> rparen
 pp' (Ptr ty) = pp' ty <> text "*"
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>
                     lparen <> pp_args args <> rparen $+$
@@ -55,6 +56,7 @@ pp' (AsLval c) = pp' c
 pp' (Nam st) = text st
 pp' (Var st) = text st
 pp' (Typ st) = text st
+pp' (Static ty) = text "static" <+> pp' ty
 pp' (Embed string) = text string
 pp' (EmbedC ccode) = pp' ccode
 pp' (Call name args) = tshow name <> lparen <>
