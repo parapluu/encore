@@ -36,9 +36,9 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     te2 <- translate e2
     return $ BinOp (translate op) te1 te2
   translate (A.Print (A.StringLiteral s)) =
-    return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" );"
+    return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" )"
   translate (A.Print (A.FieldAccess (A.VarAccess var) name)) =
-    return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " );"
+    return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " )"
   translate (A.Seq es) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
