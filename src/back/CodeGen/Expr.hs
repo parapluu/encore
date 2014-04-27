@@ -13,8 +13,8 @@ import qualified AST as A
 import Control.Monad.Reader
 import Data.Maybe
 
-instance Translatable A.Op (CCode Id) where
-  translate op = Var $ case op of
+instance Translatable A.Op (CCode Name) where
+  translate op = Nam $ case op of
     A.LT -> "<"
     A.GT -> ">"
     A.EQ -> "=="
@@ -26,7 +26,7 @@ instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
   translate (A.LVar name) = return $ Embed $ show name
   translate (A.LField ex name) = do
     tex <- translate ex
-    return $ (Deref tex) `Dot` (Var $ show name)
+    return $ (Deref tex) `Dot` (Nam $ show name)
 
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
@@ -50,7 +50,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     return $ Embed $ show name
   translate (A.FieldAccess exp name) = do
     texp <- translate exp
-    return $ AsExpr $ Deref texp `Dot` (Var $ show name)
+    return $ AsExpr $ Deref texp `Dot` (Nam $ show name)
   translate (A.IntLiteral i) =
     return $ Embed $ show i
   translate (A.StringLiteral s) =
@@ -68,14 +68,14 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
         -- call synchronously
         cname <- asks (A.cname . fromJust . Ctx.the_class)
         targs <- mapM translate args
-        return $ Call (AsExpr . AsLval $ (method_impl_name cname name)) (targs :: [CCode Expr])
+        return $ Call (method_impl_name cname name) (targs :: [CCode Expr])
       (A.VarAccess other) -> do
         -- send message
         -- fixme: how do we send arguments?
         other_ty <- asks (fromJust . (Ctx.type_of $ other))
         return $
-              Call (AsExpr . AsLval . Var $ "pony_send")
-                       [AsExpr . AsLval . Var $ show other,
-                        AsExpr . AsLval $ (method_msg_name other_ty name)]
+              Call (Var "pony_send")
+                       [Var $ show other,
+                        AsLval $ method_msg_name other_ty name]
       no_var_access -> error "calls are only implemented on variables for now"
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"

@@ -1,13 +1,10 @@
 {-# LANGUAGE GADTs,FlexibleInstances,FlexibleContexts,MultiParamTypeClasses #-}
 
-module CCode.Main 
---    (CCode (..),
---     CVarSpec (..),
---     Id (..),
---     embedCType,
---     CType,
---     show)
-        where
+-- This module mainly provides the CCode data type, a representation
+-- of C programs that can be pretty-printed to sometimes-legal C code.
+-- The purpose of this data type is NOT to be a C compiler, but it
+-- tries to enforce some reasonable invariants.
+module CCode.Main where
 
 import qualified AST
 import Data.Char
@@ -17,47 +14,61 @@ data Stat
 data Expr
 data Fun
 data Incl
-data Id
+data Name
 data Ty
 data Lval
 data FIN
 
--- the next lines are magic
+-- the next lines are magic :)
+
+-- I'm using the UsableAs typeclass to mark what might go where in the
+-- CCode type below.  For instance, you can always use an lval where
+-- an expression is expected, and you can always use a Name where an
+-- Lval is expected
 class UsableAs a b where
-instance UsableAs Id Lval where
+
+instance UsableAs Name Lval where
 instance UsableAs Lval Expr where
-instance UsableAs Id Expr where
+instance UsableAs Name Expr where
 instance UsableAs a a where
---instance (UsableAs a b, UsableAs b c) => UsableAs a c where
+
 
 type CType = String
-type CId = String
+type CName = String
 
-type CVarSpec = (CCode Ty, CCode Id)
+type CVarSpec = (CCode Ty, CCode Lval)
 
 data CCode a where
     Program    :: CCode Toplevel -> CCode FIN
     Includes   :: [String] -> CCode Toplevel
     HashDefine :: String -> CCode Toplevel
     Statement  :: UsableAs e Expr => CCode e -> CCode Stat
-    Switch     :: CCode Id -> [(CCode Id, CCode Stat)] -> CCode Stat -> CCode Stat
+    Switch     :: (UsableAs e Expr) => CCode e -> [(CCode Name, CCode Stat)] -> CCode Stat -> CCode Stat
     StructDecl :: CCode Ty -> [CVarSpec] -> CCode Toplevel
     Record     :: UsableAs e Expr => [CCode e] -> CCode Expr
     Assign     :: UsableAs l Lval => CCode l -> CCode Expr -> CCode Expr
     Decl       :: CVarSpec -> CCode Lval
     Concat     :: [CCode Stat] -> CCode Stat
-    ConcatTL   :: [CCode Toplevel] -> CCode Toplevel
-    StoopidSeq :: [CCode Expr] -> CCode Expr -- A.Seq is a kind of Expr that doesn't directly map to C-Exprs
-    Enum       :: [CCode Id] -> CCode Toplevel
-    Braced     :: CCode a -> CCode a -- get rid of this; only used in Let-expr
-    BinOp      :: CCode Id -> CCode Expr -> CCode Expr -> CCode Expr
-    Dot        :: CCode Expr -> CCode Id -> CCode Lval
+    ConcatTL   :: [CCode Toplevel] -> CCode Toplevel -- I do not like
+                                                     -- this
+                                                     -- duplication. Not
+                                                     -- one bit!
+    StoopidSeq :: [CCode Expr] -> CCode Expr -- A.Seq is a kind of
+                                             -- Expr that doesn't
+                                             -- directly map to
+                                             -- C-Exprs.
+    Enum       :: [CCode Name] -> CCode Toplevel
+    Braced     :: CCode a -> CCode a -- get rid of this; only used in
+                                     -- Let-expr
+    BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
+    Dot        :: CCode Expr -> CCode Name -> CCode Lval
     Deref      :: CCode Expr -> CCode Expr
     Ptr        :: CCode Ty -> CCode Ty
-    Function   :: CCode Ty -> CCode Id -> [CVarSpec] -> CCode Stat -> CCode Toplevel
+    Function   :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
     AsExpr     :: CCode Lval -> CCode Expr
-    AsLval     :: CCode Id -> CCode Lval
-    Var        :: String -> CCode Id -- fixme this should be -> Code Lval
+    AsLval     :: CCode Name -> CCode Lval
+    Nam        :: String -> CCode Name
+    Var        :: String -> CCode Lval -- fixme this should be -> Code Lval
     Typ        :: String -> CCode Ty
     Embed      :: String -> CCode a
     EmbedC     :: CCode a -> CCode b

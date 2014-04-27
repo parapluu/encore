@@ -34,14 +34,14 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (A.methods cdecl)) cs
           lines = map (\ (cname, mdecl) -> "MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
         in
-         Enum $ map Var $ "MSG_alloc":lines
+         Enum $ map Nam $ "MSG_alloc":lines
 
       class_ids_enum :: A.Program -> CCode Toplevel
       class_ids_enum (A.Program cs) =
         let
           names = map (("ID_"++) . show . A.cname) cs
         in
-         Enum $ map Var $ names
+         Enum $ map Nam $ names
 
 instance Translatable A.Program (CCode FIN) where
   translate (A.Program cs) =
@@ -58,24 +58,24 @@ instance Translatable A.Program (CCode FIN) where
     (map fwd_decls cs) ++
     (map translate_class_here cs) ++
     [(Function
-      (Typ "static void") (Var "dispatch")
+      (Typ "static void") (Nam "dispatch")
       [(Typ "pony_actor_t*", Var "this"),
        (Typ "void*", Var "p"),
        (Typ "uint64_t", Var "id"),
        (Typ "int", Var "argc"),
        (Typ "pony_arg_t*", Var "argv")]
       (Switch (Var "id")
-       [(Var "PONY_MAIN",
+       [(Nam "PONY_MAIN",
          Concat $ map Statement
-                    [Assign (Decl $ (Typ "Main_data*", Var "d"))
+                    [Assign (Decl (Typ "Main_data*", Var "d"))
                                 (Call 
-                                 (Var $ "pony_alloc")
-                                 [(Call (Var $ "sizeof") [AsExpr . Embed $ "Main_data"])]),
-                     Call (Var $ "pony_set") [Var $ "d"],
-                     Call (Var $ "Main_main") [Var $ "d"]])]
+                                 (Var "pony_alloc")
+                                 [(Call (Nam "sizeof") [AsExpr . Embed $ "Main_data"])]),
+                     Call (Nam "pony_set") [Var "d"],
+                     Call (Nam "Main_main") [Var "d"]])]
        (Embed "printf(\"error, got invalid id: %llu\",id);"))),
      (Function
-      (Typ "int") (Var "main")
+      (Typ "int") (Nam "main")
       [(Typ "int", Var "argc"), (Typ "char**", Var "argv")]
       (Embed "return pony_start(argc, argv, pony_create(&Main_actor));"))]
     where

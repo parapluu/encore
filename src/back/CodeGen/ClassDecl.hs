@@ -36,7 +36,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                      (map (Var . show . A.fname) (A.fields cdecl)))
 
 
-      mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Id, CCode Stat)
+      mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       mthd_dispatch_clause cdecl mdecl =
         ((method_msg_name (A.cname cdecl) (A.mname mdecl)),
          Statement
@@ -54,7 +54,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              (Typ "int", Var "argc"),
              (Typ "pony_arg_t*", Var "argv")])
            (Switch (Var "id")
-            ((Var "PONY_MAIN",
+            ((Nam "PONY_MAIN",
 
               Concat $ [alloc_instr,
                         (if (A.cname cdecl) == (A.Type "Main")
@@ -62,7 +62,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                                                 [Var $ "p"]
                          else Concat [])]) :
 
-             (Var "MSG_alloc", alloc_instr) :
+             (Nam "MSG_alloc", alloc_instr) :
 
              (map (mthd_dispatch_clause cdecl) (A.methods cdecl)))
              (Embed "printf(\"error, got invalid id: %llu\",id);")))
@@ -85,21 +85,16 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                           (class_message_type_name $ A.cname cdecl)
                           [(Typ "uint64_t", Var "id")]
                           (Concat [(Switch (Var "id")
-                                   ((Var "MSG_alloc", Embed "return &m_MSG_alloc;")
+                                   ((Nam "MSG_alloc", Embed "return &m_MSG_alloc;")
                                     :(map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
                                       (A.methods cdecl)))
                                    (Concat [])),
                                    (Embed "return NULL;")])
         where
-          message_type_clause :: A.Type -> A.Name -> (CCode Id, CCode Stat)
+          message_type_clause :: A.Type -> A.Name -> (CCode Name, CCode Stat)
           message_type_clause cname mname =
             (method_msg_name cname mname,
              Embed $ "return &" ++ show (method_message_type_name cname mname) ++ ";")
-
--- * implement the message types:
---      static pony_msg_t m_Other_init = {0, {{NULL, 0, PONY_PRIMITIVE}}};
---      static pony_msg_t m_Other_work = {2, {{NULL, 0, PONY_PRIMITIVE}}};
-
 
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl (A.methods cdecl)
@@ -118,15 +113,15 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       pony_actor_t_impl = EmbedC $
                           Statement (Assign
                                      ((Embed $ "static pony_actor_type_t " ++ show (actor_rec_name (A.cname cdecl))) :: CCode Lval)
-                                     (Record [AsExpr . AsLval . Var $ ("ID_"++(show $ A.cname cdecl)),
+                                     (Record [AsExpr . AsLval . Nam $ ("ID_"++(show $ A.cname cdecl)),
                                               tracefun_rec,
                                               (EmbedC $ class_message_type_name (A.cname cdecl)),
                                               (EmbedC $ class_dispatch_name $ A.cname cdecl)]))
 
       tracefun_rec :: CCode Expr
       tracefun_rec = Record [AsExpr . AsLval $ (class_trace_fn_name $ A.cname cdecl),
-                             Call (Var $ "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
-                             AsExpr . AsLval . Var $ "PONY_ACTOR"]
+                             Call (Var "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
+                             AsExpr . AsLval . Nam $ "PONY_ACTOR"]
 
 comment_section :: String -> CCode a
 comment_section s = EmbedC $ Concat $ [Embed $ take (5 + length s) $ repeat '/',

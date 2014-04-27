@@ -14,13 +14,13 @@ pp = show . pp'
 tshow :: Show t => t -> Doc
 tshow = text . show
 
-switch_body :: [(CCode Id, CCode Stat)] -> CCode Stat -> Doc
+switch_body :: [(CCode Name, CCode Stat)] -> CCode Stat -> Doc
 switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
                                           text "default:" $+$
                                                    (braced_block . vcat . map pp') [def_case]) $+$
                               rbrace
   where
-    switch_clause :: (CCode Id, CCode Stat) -> Doc
+    switch_clause :: (CCode Name, CCode Stat) -> Doc
     switch_clause (lhs,rhs) =
       text "case" <+> pp' lhs <> text ":"
                $+$ (braced_block . vcat . map pp') (rhs:[Embed "break;"])
@@ -52,6 +52,7 @@ pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>
                     (braced_block . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
+pp' (Nam st) = text st
 pp' (Var st) = text st
 pp' (Typ st) = text st
 pp' (Embed string) = text string
