@@ -61,8 +61,8 @@ data CCode a where
     Braced     :: CCode a -> CCode a -- get rid of this; only used in
                                      -- Let-expr
     BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
-    Dot        :: CCode Expr -> CCode Name -> CCode Lval
-    Deref      :: CCode Expr -> CCode Expr
+    Dot        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
+    Deref      :: UsableAs e Expr => CCode e -> CCode Expr
     Amp        :: (UsableAs e Expr) => CCode e -> CCode Expr
     Ptr        :: CCode Ty -> CCode Ty
     Function   :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel

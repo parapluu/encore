@@ -26,7 +26,7 @@ instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
   translate (A.LVar name) = return $ Embed $ show name
   translate (A.LField ex name) = do
     tex <- translate ex
-    return $ (Deref tex) `Dot` (Nam $ show name)
+    return $ (Deref (tex ::CCode Expr)) `Dot` (Nam $ show name)
 
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
@@ -50,7 +50,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     return $ Embed $ show name
   translate (A.FieldAccess exp name) = do
     texp <- translate exp
-    return $ AsExpr $ Deref texp `Dot` (Nam $ show name)
+    return $ AsExpr $ Deref (texp :: CCode Expr) `Dot` (Nam $ show name)
   translate (A.IntLiteral i) =
     return $ Embed $ show i
   translate (A.StringLiteral s) =
@@ -74,10 +74,22 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
       (A.VarAccess other) -> do
         -- send message
         -- fixme: how do we send arguments?
+        targs <- mapM translate args
         other_ty <- asks (fromJust . (Ctx.type_of $ other))
-        return $
-              Call (Nam "pony_send")
-                       [Var $ show other,
-                        AsLval $ method_msg_name other_ty name]
+        return $ args_to_call other other_ty name (targs :: [CCode Expr])
+--              Call (Nam "pony_send")
+--                       [Var $ show other,
+--                        AsLval $ method_msg_name other_ty name]
       no_var_access -> error "calls are only implemented on variables for now"
+          where
+
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"
+
+
+args_to_call other other_ty name [] =
+    Call (Nam "pony_send") [AsExpr . Var $ show other,
+                            AsExpr . AsLval $ method_msg_name other_ty name]
+args_to_call other other_ty name [arg] =
+    Call (Nam "pony_sendi") [AsExpr . Var $ show other,
+                             AsExpr . AsLval $ method_msg_name other_ty name,
+                             arg]
