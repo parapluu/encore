@@ -31,3 +31,18 @@ Something that involves refactoring a class into a separate file.
 ArgumentsPassing.pony.c:
 	Pass dyn. allocd args around. Make sure that it follows the
 	correct protocol of the pony allocator. Need to ask Sylvain!
+
+### Todo for next sprint
+
+* Add passive objects
+* Set library in C to use as backend for fields-as-sets
+* Integrate this with Pony to make fields into sets
+  - add
+  - remove (id)
+  - call 
+* Change field access to work with targets-as-sets
+* Change field access to return a set
+* Add Fold AST node (fold binop operand set)
+* Assignment between fields copies references from
+  source set to sink set, removing all existing
+  references in the sink 
