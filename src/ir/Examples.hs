@@ -20,7 +20,7 @@ hello = Program [Class (Type "Main")
                      [] $
                      mkMethods
                       [(Name "main", Type "Object", [],
-                        Print (StringLiteral "Hello Ponyworld!"))]]
+                        Print (Type "string") (StringLiteral "Hello Ponyworld!"))]]
 
 -- Hello World
 countdown :: Program
@@ -30,10 +30,10 @@ countdown =
            mkMethods
            [(Name "main", Type "Object", [],
              Seq $
-             Print (StringLiteral "Hello Ponyworld!") :
+             Print (Type "string") (StringLiteral "Hello Ponyworld!") :
              (take 5 $ repeat $ Assign (LField (VarAccess $ Name "this") $ Name "count")
               (Binop MINUS (FieldAccess (VarAccess $ Name "this") $ Name "count") (IntLiteral 1))) ++
-             [Print (FieldAccess (VarAccess $ Name "this") $ Name "count")]
+             [Print (Type "int") (FieldAccess (VarAccess $ Name "this") $ Name "count")]
             )]]
 
 -- Create an instance of a class and call a method on it
@@ -57,7 +57,7 @@ theOthers = Program
              [] -- no fields
              [Method (Name "main") (Type "Object") []
               (Seq [
-                Print (StringLiteral "Hello Ponyworld!"),
+                Print (Type "string") (StringLiteral "Hello Ponyworld!"),
                 Let (Name "other") (Type "Other") (New $ Type "Other") (
                      Seq [
                         Call (VarAccess $ Name "other") (Name "init") [],
@@ -72,8 +72,8 @@ theOthers = Program
                          (Name "work", Type "void", [], Seq (
                              take 3 (repeat $ decrementField (Name "this") $ Name "count") ++
                              [
-                               Print (FieldAccess (VarAccess $ Name "this") $ Name "count"),
-                               Print (StringLiteral "Hello Ponyworld!")]))])
+                               Print (Type "int") (FieldAccess (VarAccess $ Name "this") $ Name "count"),
+                               Print (Type "string") (StringLiteral "Hello Ponyworld!")]))])
             ]
 
 decrementField ovar fname = Assign (LField (VarAccess ovar) fname)
@@ -98,8 +98,8 @@ primitiveSend = Program [
                          (Name "work", Type "void", [], Seq (
                              take 3 (repeat $ decrementField (Name "this") $ Name "count") ++
                              [
-                               Print (FieldAccess (VarAccess $ Name "this") $ Name "count"),
-                               Print (StringLiteral "Hello Ponyworld!")]))])
+                               Print (Type "int") (FieldAccess (VarAccess $ Name "this") $ Name "count"),
+                               Print (Type "string") (StringLiteral "Hello Ponyworld!")]))])
 
                 ]
 
@@ -109,19 +109,17 @@ stringSend = Program [
                  (mkMethods [((Name "main"), (Type "Object"), [],
                              (Seq [
                                Let (Name "other") (Type "Other") (New $ Type "Other")
-                               (Seq [Call (VarAccess $ Name "other") (Name "init") [StringLiteral "Hello Ponyworld!"],
+                               (Seq [Call (VarAccess $ Name "other") (Name "init") [StringLiteral "Hello Ponyworld-message"],
                                      Call (VarAccess $ Name "other") (Name "work") []])
                     ]))]),
 
                  Class (Type "Other")
-                     (mkFields [(Name "message", Type "String")])
+                     (mkFields [(Name "message", Type "char*")])
                      (mkMethods [
-                       (Name "init", Type "void", [(Type "String", Name "va")],
+                       (Name "init", Type "void", [(Type "char*", Name "va")],
                                  (Assign (LField (VarAccess $ Name "this") $ Name "message") (VarAccess $ Name "va"))),
                        (Name "work", Type "void", [],
-                             Seq $
-                                     [Print (FieldAccess (VarAccess $ Name "this") $ Name "message"),
-                                      Print (StringLiteral "Hello Ponyworld!")])])]
+                                 Print (Type "string") (FieldAccess (VarAccess $ Name "this") $ Name "message"))])]
 
 -- Set up a ring of actors that send a message around one time
 --ring :: Program

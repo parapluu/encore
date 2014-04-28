@@ -49,9 +49,14 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv [] = []
       paramdecls_to_argv [(A.Param (ty, na))] =
-          if ty == (A.Type "int")
-          then [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
-          else error "paramdecls_to_argv only implemented for int"
+          case ty of
+            (A.Type "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
+            (A.Type "char*") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
+            other -> error $ "paramdecls_to_argv not implemented for "++show other
+
+          --if ty == (A.Type "int")
+          --then [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
+          --else
       paramdecls_to_argv other = error $ "paramdecls_to_argv not implemented for `"++show other++"`"
         
       dispatchfun_decl =

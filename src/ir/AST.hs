@@ -44,7 +44,7 @@ data Expr = Skip
           | VarAccess Name
           | Null
           | New Type
-          | Print Expr
+          | Print Type Expr
           | StringLiteral String
           | IntLiteral Int
           | Binop Op Expr Expr deriving(Read, Show, Eq)

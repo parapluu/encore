@@ -28,6 +28,11 @@ instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
     tex <- translate ex
     return $ (Deref (tex ::CCode Expr)) `Dot` (Nam $ show name)
 
+type_to_printf_fstr :: A.Type -> String
+type_to_printf_fstr (A.Type "int") = "%i"
+type_to_printf_fstr (A.Type "string") = "%s"
+type_to_printf_fstr other = error $ "Expr.hs: type_to_printf_fstr not defined for " ++ show other
+
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
   translate (A.Null) = return $ Embed "NULL"
@@ -35,10 +40,16 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     te1 <- translate e1
     te2 <- translate e2
     return $ BinOp (translate op) te1 te2
-  translate (A.Print (A.StringLiteral s)) =
-    return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" )"
-  translate (A.Print (A.FieldAccess (A.VarAccess var) name)) =
-    return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " )"
+  translate (A.Print ty e) =
+      do
+        te <- translate e
+        return $ Call (Nam "printf") [Embed $ "\""++ type_to_printf_fstr ty++"\\n\"",
+                                      te :: CCode Expr]
+--        return $ Embed $ "printf(\""++ type_to_printf_fstr ty++"\\n\", " ++ (te::CCode Expr) ++ ")"
+--  translate (A.Print (A.StringLiteral s)) =
+--    return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" )"
+--  translate (A.Print ty (A.FieldAccess (A.VarAccess var) name)) =
+--    return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " )"
   translate (A.Seq es) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
