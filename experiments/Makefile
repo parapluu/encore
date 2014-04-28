@@ -14,22 +14,23 @@ TARGETS=$(PONYCS:.pony.c=)
 $(ENCORE_TARGETS): ../src/front/encorec
 	../src/front/encorec $@
 
-all: $(TARGETS) encore.Hello encore.Countdown encore.TheOthers
+all: $(TARGETS)
 
 % : %.pony.c $(LIBPONY_A_PATH)
 	clang $@.pony.c -ggdb -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
 
 encorec:
 	make -C ../src
+	ln -fs ../src/front/encorec encorec
 
-encore.Hello.pony.c: encorec
-	../src/front/encorec hello
+#encore.hello.pony.c: encorec
+#	../src/front/encorec hello
 
-encore.TheOthers.pony.c: encorec
-	../src/front/encorec theOthers
+#encore.theOthers.pony.c: encorec
+#	../src/front/encorec theOthers
 
-encore.Countdown.pony.c: encorec
-	../src/front/encorec countdown
+#encore.countdown.pony.c: encorec
+#	../src/front/encorec countdown
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a
@@ -42,5 +43,7 @@ clean:
 	rm -rf *.dSYM
 	rm -f encore.*.pony.c
 	rm -f *\~
+	rm -f encorec
+	rm -f encore.*
 
 .PHONY: test all encorec

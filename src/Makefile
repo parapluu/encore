@@ -2,13 +2,12 @@ PONY_DIR=./runtime/
 
 all: compiler $(PONY_DIR)/bin/debug/libpony.a $(PONY_DIR)/bin/release/libpony.a
 
-compiler:
+compiler: 
 	make -C front
 
 run: compiler
-	front/encorec hello
-	@cat encore.hello.pony.c
-	@rm encore.hello.pony.c
+	front/encorec -clang hello
+	./encore.hello
 
 $(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug
@@ -21,6 +20,7 @@ $(PONY_DIR)/Makefile:
 
 clean: clean_pony
 	make -C front clean
+	rm -rf encore.hello*
 	@echo "done"
 
 clean_pony:
