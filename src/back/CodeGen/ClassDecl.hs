@@ -1,10 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
 module CodeGen.ClassDecl where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.MethodDecl
+import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -32,7 +33,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       data_struct = TypeDef (data_rec_name $ A.cname cdecl)
                     (StructDecl ((data_rec_name $ A.cname cdecl)) $
                      zip
-                     (map (Typ . show . A.ftype) (A.fields cdecl))
+                     (map (translate  . A.ftype) (A.fields cdecl))
                      (map (Var . show . A.fname) (A.fields cdecl)))
 
 
@@ -49,10 +50,10 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv [] = []
       paramdecls_to_argv [(A.Param (ty, na))] =
-          case ty of
-            (A.Type "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
-            (A.Type "char*") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
-            other -> error $ "paramdecls_to_argv not implemented for "++show other
+          case (translate ty :: CCode Ty) of
+            (Typ "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
+            (Typ "char*") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
+            other -> error $ "paramdecls_to_argv not implemented for "++show ty
 
           --if ty == (A.Type "int")
           --then [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]

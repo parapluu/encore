@@ -43,10 +43,6 @@ data_rec_name clazz = Typ $ show clazz ++ "_data"
 actor_rec_name :: A.Type -> CCode Name
 actor_rec_name clazz = Nam $ show clazz ++ "_actor"
 
--- a pointer to a class' state
-data_rec_ptr :: A.Type -> CCode Ty
-data_rec_ptr = Ptr . data_rec_name
-
 pony_actor_t_Type :: A.Type -> CCode Ty
 pony_actor_t_Type (A.Type ty) =
     Typ $ if isLower $ head ty
@@ -54,12 +50,13 @@ pony_actor_t_Type (A.Type ty) =
           else ty++"_actor_t*"
 
 -- FIXME rename
-data_rec_pointer :: A.Type -> CCode Ty
-data_rec_pointer ty =
-    case ty of
-      (A.Type "Object") -> Ptr . Typ $ "void"
-      (A.Type other_ty) ->
-          if isLower $ head $ other_ty
-          then Typ other_ty
-          else data_rec_ptr $ ty
-
+--data_rec_pointer :: A.Type -> CCode Ty
+--data_rec_pointer ty =
+--    case ty of
+--      (A.Type "Object") -> Ptr . Typ $ "void"
+--      (A.Type "string") -> Ptr char
+--      (A.Type other_ty) ->
+--          if isLower $ head $ other_ty
+--          then Typ other_ty
+--          else data_rec_ptr $ ty
+--

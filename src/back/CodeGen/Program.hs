@@ -36,10 +36,11 @@ instance Translatable A.Program (CCode FIN) where
        [(Nam "PONY_MAIN",
          Concat $ map Statement
                     [Assign
-                     (Decl (data_rec_ptr (A.Type "Main"), Var "d"))
+                     (Decl (translate (A.Type "Main"), Var "d"))
                      (Call 
                       (Var "pony_alloc")
-                      [(Call (Nam "sizeof") [AsExpr . Embed $ show $ data_rec_ptr (A.Type "Main")])]),
+                      [(Call (Nam "sizeof")
+                        [AsExpr . Embed . show $ (translate (A.Type "Main") :: CCode Ty)])]),
                      Call (Nam "pony_set") [Var "d"],
                      Call (method_impl_name (A.Type "Main") (A.Name "main")) [Var "d"]])]
        (Embed "printf(\"error, got invalid id: %llu\",id);"))),
