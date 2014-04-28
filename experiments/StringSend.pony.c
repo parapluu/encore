@@ -8,7 +8,7 @@ class Main {
      Other other = new Other
      other.init("Hello Ponyworld!");
      other.work();
-  } 
+  }
 }
 
 class Other {

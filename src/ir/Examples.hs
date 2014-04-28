@@ -10,7 +10,8 @@ examples =
      ("hello", hello),
      ("countdown", countdown),
      ("theOthers", theOthers),
-     ("primitiveSend", primitiveSend)
+     ("primitiveSend", primitiveSend),
+     ("stringSend", stringSend)                                     
     ]
 
 -- Hello World
@@ -101,6 +102,26 @@ primitiveSend = Program [
                                Print (StringLiteral "Hello Ponyworld!")]))])
 
                 ]
+
+stringSend = Program [
+                 Class (Type "Main")
+                 (mkFields [])
+                 (mkMethods [((Name "main"), (Type "Object"), [],
+                             (Seq [
+                               Let (Name "other") (Type "Other") (New $ Type "Other")
+                               (Seq [Call (VarAccess $ Name "other") (Name "init") [StringLiteral "Hello Ponyworld!"],
+                                     Call (VarAccess $ Name "other") (Name "work") []])
+                    ]))]),
+
+                 Class (Type "Other")
+                     (mkFields [(Name "message", Type "String")])
+                     (mkMethods [
+                       (Name "init", Type "void", [(Type "String", Name "va")],
+                                 (Assign (LField (VarAccess $ Name "this") $ Name "message") (VarAccess $ Name "va"))),
+                       (Name "work", Type "void", [],
+                             Seq $
+                                     [Print (FieldAccess (VarAccess $ Name "this") $ Name "message"),
+                                      Print (StringLiteral "Hello Ponyworld!")])])]
 
 -- Set up a ring of actors that send a message around one time
 --ring :: Program
