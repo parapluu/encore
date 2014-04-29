@@ -74,12 +74,45 @@ examples =
 
        Class (Type "Other")
            (mkFields [(Name "message", Type "string")])
-           (mkMethods [(Name "init", Type "void", [(Type "char*", Name "va")],
+           (mkMethods [(Name "init", Type "void", [(Type "string", Name "va")],
                         (Assign
                          (LField (VarAccess $ Name "this") $ Name "message")
                          (VarAccess $ Name "va"))),
                        (Name "work", Type "void", [],
-                             Print (Type "string") (FieldAccess (VarAccess $ Name "this") $ Name "message"))])])]
+                             Print (Type "string") (FieldAccess (VarAccess $ Name "this") $ Name "message"))])]),
+
+     ("actorSend",
+      Program [
+       Class (Type "Main")
+           (mkFields [])
+           (mkMethods [((Name "main"), (Type "Object"), [],
+                        (Seq [
+                          Let (Name "other") (Type "Other") (New $ Type "Other") $
+                          Let (Name "another") (Type "Other") (New $ Type "Other")
+                          (Seq [Call (VarAccess $ Name "other") (Name "init")
+                                         [VarAccess $ Name "another"],
+                                Call (VarAccess $ Name "other") (Name "work") []])]))]),
+
+       Class (Type "Other")
+           (mkFields [(Name "other", Type "Other")])
+           (mkMethods [(Name "init", Type "void", [(Type "Other", Name "va")],
+                        (Assign
+                         (LField (VarAccess $ Name "this") $ Name "other")
+                         (VarAccess $ Name "va"))),
+                       (Name "work", Type "void", [],
+                             Seq $
+                                 [(Print
+                                   (Type "Other")
+                                   (FieldAccess (VarAccess $ Name "this") $ Name "other")),
+                                 Let (Name "othertmp")
+                                     (Type "Other")
+                                     (FieldAccess (VarAccess $ Name "this") $ Name "other") $
+                                     Seq $
+                                         [Call (VarAccess $ Name "othertmp") (Name "print") [],
+                                          Print (Type "string") (StringLiteral "sent")]]),
+                       (Name "print", Type "void", [],
+                             Print (Type "string") (StringLiteral "Hello Actorworld!"))])])
+    ]
 
 decrementField ovar fname = Assign (LField (VarAccess ovar) fname)
                             (Binop MINUS (FieldAccess (VarAccess ovar) fname) (IntLiteral 1))
