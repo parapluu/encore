@@ -26,25 +26,6 @@ instance Translatable A.Program (CCode FIN) where
     (map fwd_decls cs) ++
     (map translate_class_here cs) ++
     [(Function
-      (Static void) (Nam "dispatch")
-      [(Ptr . Typ $ "pony_actor_t", Var "this"),
-       (Ptr void, Var "p"),
-       (Typ "uint64_t", Var "id"),
-       (int, Var "argc"),
-       (Ptr . Typ $ "pony_arg_t", Var "argv")]
-      (Switch (Var "id")
-       [(Nam "PONY_MAIN",
-         Concat $ map Statement
-                    [Assign
-                     (Decl (translate (A.Type "Main"), Var "d"))
-                     (Call 
-                      (Var "pony_alloc")
-                      [(Call (Nam "sizeof")
-                        [AsExpr . Embed . show $ (translate (A.Type "Main") :: CCode Ty)])]),
-                     Call (Nam "pony_set") [Var "d"],
-                     Call (method_impl_name (A.Type "Main") (A.Name "main")) [Var "d"]])]
-       (Embed "printf(\"error, got invalid id: %llu\",id);"))),
-     (Function
       int (Nam "main")
       [(int, Var "argc"), (Ptr . Ptr $ char, Var "argv")]
       (Embed "return pony_start(argc, argv, pony_create(&Main_actor));"))]
