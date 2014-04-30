@@ -22,8 +22,8 @@ instance Translatable A.Op (CCode Name) where
     A.PLUS -> "+"
     A.MINUS -> "-"
 
-instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
-  translate (A.LVar name) = return $ Embed $ show name
+instance Translatable A.LVal (Reader Ctx.Context (CCode Lval)) where
+  translate (A.LVal name) = return $ Embed $ show name
   translate (A.LField ex name) = do
     tex <- translate ex
     return $ (Deref (tex ::CCode Expr)) `Dot` (Nam $ show name)
