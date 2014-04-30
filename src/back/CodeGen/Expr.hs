@@ -1,9 +1,10 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances,GADTs #-}
 
 module CodeGen.Expr where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
+import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -31,7 +32,9 @@ instance Translatable A.Lvar (Reader Ctx.Context (CCode Lval)) where
 type_to_printf_fstr :: A.Type -> String
 type_to_printf_fstr (A.Type "int") = "%i"
 type_to_printf_fstr (A.Type "string") = "%s"
-type_to_printf_fstr other = error $ "Expr.hs: type_to_printf_fstr not defined for " ++ show other
+type_to_printf_fstr other = case (translate other :: CCode Ty) of
+                              Ptr something -> "%p"
+                              _ -> error $ "Expr.hs: type_to_printf_fstr not defined for " ++ show other
 
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
@@ -45,11 +48,6 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
         te <- translate e
         return $ Call (Nam "printf") [Embed $ "\""++ type_to_printf_fstr ty++"\\n\"",
                                       te :: CCode Expr]
---        return $ Embed $ "printf(\""++ type_to_printf_fstr ty++"\\n\", " ++ (te::CCode Expr) ++ ")"
---  translate (A.Print (A.StringLiteral s)) =
---    return $ Embed $ "printf(\"%s\\n\", \"" ++ s ++ "\" )"
---  translate (A.Print ty (A.FieldAccess (A.VarAccess var) name)) =
---    return $ Embed $ "printf(\"%i\\n\", " ++ show var ++ "->" ++ show name ++ " )"
   translate (A.Seq es) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
@@ -91,16 +89,21 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
 --              Call (Nam "pony_send")
 --                       [Var $ show other,
 --                        AsLval $ method_msg_name other_ty name]
-      no_var_access -> error "calls are only implemented on variables for now"
-          where
+      no_var_access -> error "Expr.hs: calls are only implemented on variables for now"
 
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"
 
-
+--args_to_call :: A.Name -> A.Type -> A.Name -> [CCode Expr]
 args_to_call other other_ty name [] =
     Call (Nam "pony_send") [AsExpr . Var $ show other,
                             AsExpr . AsLval $ method_msg_name other_ty name]
 args_to_call other other_ty name [arg] =
-    Call (Nam "pony_sendi") [AsExpr . Var $ show other,
-                             AsExpr . AsLval $ method_msg_name other_ty name,
-                             arg]
+    case (translate other_ty :: CCode Ty) of
+      (Typ "int") ->
+          Call (Nam "pony_sendi") [AsExpr . Var $ show other,
+                                   AsExpr . AsLval $ method_msg_name other_ty name,
+                                   arg]
+      (Ptr somekind) -> Call (Nam "pony_sendp") [AsExpr . Var $ show other,
+                                   AsExpr . AsLval $ method_msg_name other_ty name,
+                                   arg]
+      other -> error $ "Expr.hs: don't know how to send `"++show other++"`"
