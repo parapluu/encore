@@ -111,7 +111,24 @@ examples =
                                          [Call (VarAccess $ Name "othertmp") (Name "print") [],
                                           Print (Type "string") (StringLiteral "sent")]]),
                        (Name "print", Type "void", [],
-                             Print (Type "string") (StringLiteral "Hello Actorworld!"))])])
+                             Print (Type "string") (StringLiteral "Hello Actorworld!"))])]),
+
+     ("twoArgs",
+      Program [
+       Class (Type "Main")
+           (mkFields [])
+           (mkMethods [((Name "main"), (Type "Object"), [],
+                        (Seq [
+                          Let (Name "other") (Type "Other") (New $ Type "Other") $
+                          (Call (VarAccess $ Name "other") (Name "printSum") [
+                                     (IntLiteral 10),
+                                     (IntLiteral 20)])]))]),
+
+       Class (Type "Other")
+           []
+           (mkMethods [(Name "printSum", Type "void", [(Type "int", Name "a"),
+                                                       (Type "int", Name "b")],
+                        Print (Type "int") (Binop PLUS (VarAccess $ Name "a") (VarAccess $ Name "b")))])])
     ]
 
 decrementField ovar fname = Assign (LField (VarAccess ovar) fname)
