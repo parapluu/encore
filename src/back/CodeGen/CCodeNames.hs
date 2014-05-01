@@ -10,6 +10,7 @@ import Data.Char
 char = Typ "char"
 int = Typ "int"
 void = Typ "void"
+pony_actor_t = Typ "pony_actor_t"
 
 -- each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
@@ -40,6 +41,9 @@ method_msg_name clazz mname = Nam $ "MSG_"++show clazz++"_"++show mname
 data_rec_name :: A.Type -> CCode Ty
 data_rec_name clazz = Typ $ show clazz ++ "_data"
 
+data_rec_ptr :: A.Type -> CCode Ty
+data_rec_ptr = Ptr . data_rec_name
+
 actor_rec_name :: A.Type -> CCode Name
 actor_rec_name clazz = Nam $ show clazz ++ "_actor"
 
@@ -48,15 +52,3 @@ pony_actor_t_Type (A.Type ty) =
     Typ $ if isLower $ head ty
           then ty
           else ty++"_actor_t*"
-
--- FIXME rename
---data_rec_pointer :: A.Type -> CCode Ty
---data_rec_pointer ty =
---    case ty of
---      (A.Type "Object") -> Ptr . Typ $ "void"
---      (A.Type "string") -> Ptr char
---      (A.Type other_ty) ->
---          if isLower $ head $ other_ty
---          then Typ other_ty
---          else data_rec_ptr $ ty
---

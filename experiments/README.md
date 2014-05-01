@@ -24,6 +24,8 @@ These are the expected C code for several simple cases.
 	Sends one actor to another. The first sends a message to the second,
 	who prints a pleasant message to the screen.
 
+* Something that sends more than one argument
+
 * Something that depends on the return value (hence futures)
 
 * Something that involves refactoring a class into a separate file.

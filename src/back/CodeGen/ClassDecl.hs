@@ -11,6 +11,8 @@ import qualified CodeGen.Context as Ctx
 import CCode.Main
 import CCode.PrettyCCode
 
+import Data.List
+
 import qualified AST as A
 
 import Control.Monad.Reader hiding (void)
@@ -31,10 +33,11 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
     where
       data_struct :: CCode Toplevel
       data_struct = TypeDef (data_rec_name $ A.cname cdecl)
-                    (StructDecl ((data_rec_name $ A.cname cdecl)) $
-                     zip
-                     (map (translate  . A.ftype) (A.fields cdecl))
-                     (map (Var . show . A.fname) (A.fields cdecl)))
+                    (StructDecl (data_rec_name $ A.cname cdecl) $
+                     ((Ptr $ Embed "pony_actor_t", Var "aref") :
+                         zip
+                         (map (translate  . A.ftype) (A.fields cdecl))
+                         (map (Var . show . A.fname) (A.fields cdecl))))
 
 
       mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
@@ -52,12 +55,8 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecls_to_argv [(A.Param (ty, na))] =
           case (translate ty :: CCode Ty) of
             (Typ "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
-            (Typ "char*") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
-            other -> error $ "paramdecls_to_argv not implemented for "++show ty
-
-          --if ty == (A.Type "int")
-          --then [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
-          --else
+            (Ptr _) -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
+            other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
       paramdecls_to_argv other = error $ "paramdecls_to_argv not implemented for `"++show other++"`"
         
       dispatchfun_decl =
@@ -87,6 +86,10 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                                      [(Call
                                        (Var "sizeof")
                                        [AsExpr . Embed $ show (data_rec_name $ A.cname cdecl)])]),
+                           (Assign
+                            (AsLval . Embed $ "((Main_data*)p)->aref")
+                            (Embed "this")
+                           ),
                            Call (Nam "pony_set")
                                     [Var "p"]]
 
@@ -113,8 +116,34 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl (A.methods cdecl)
 
+      pony_mode :: A.Type -> CCode Name
+      pony_mode ty =
+          case translate ty :: CCode Ty of
+            Ptr pony_actor_t -> Nam "PONY_ACTOR"
+            _ -> Nam "PONY_PRIMITIVE" --fixme how/when will we be
+                                      --using the other modes?
+
+
       pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
       pony_msg_t_impl mdecl = 
+          Embed $ "static pony_msg_t " ++ 
+          show (method_message_type_name
+                (A.cname cdecl) 
+                (A.mname mdecl)) ++
+                   "= {" ++
+                   (show $ length (A.mparams mdecl)) ++
+                   ", {" ++
+                         param_descs (A.mparams mdecl)
+                   ++"}};"
+          where
+            param_desc :: A.ParamDecl -> String --this should NOT be a String
+            param_desc (A.Param (ty, na)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
+
+            param_descs :: [A.ParamDecl] -> String
+            param_descs ps = concat $ intersperse ", " $ map param_desc ps
+
+      pony_msg_t_impl' :: A.MethodDecl -> CCode Toplevel
+      pony_msg_t_impl' mdecl = 
           Embed $ "static pony_msg_t " ++ 
           show (method_message_type_name
                 (A.cname cdecl) 
@@ -142,7 +171,8 @@ instance FwdDeclaration A.ClassDecl (CCode Toplevel) where
   fwd_decls cdecl =
       EmbedC $ Concat $ (comment_section "Forward declarations") :
         map Embed
-                ["static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
+                ["typedef struct ___"++show (A.cname cdecl)++"_data "++show (A.cname cdecl) ++"_data;",
+                 "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
                  "static void " ++ (show $ A.cname cdecl) ++
                  "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
 

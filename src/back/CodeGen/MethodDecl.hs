@@ -22,7 +22,7 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     tmbody <- local (Ctx.with_method mdecl) $ translate (A.mbody mdecl)
     return $ 
       (Function (translate (A.rtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
-       ((translate this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
+       ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
        (Statement (tmbody::CCode Expr)))
     where
       mparam_to_cvardecl (A.Param (ty, na)) = (translate ty, Var $ show na)

@@ -32,7 +32,7 @@ pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement c) = pp' c <> text ";"
 pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
                                   switch_body ccodes def
-pp' (StructDecl name vardecls) = text "struct" <+> tshow name $+$
+pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
                       (braced_block . vcat . map pp') fields
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
