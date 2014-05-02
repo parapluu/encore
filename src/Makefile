@@ -5,10 +5,6 @@ all: compiler $(PONY_DIR)/bin/debug/libpony.a $(PONY_DIR)/bin/release/libpony.a
 compiler: 
 	make -C front
 
-run: compiler
-	front/encorec -clang hello
-	./encore.hello
-
 $(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug
 

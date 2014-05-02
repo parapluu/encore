@@ -7,13 +7,16 @@ import System.Process
 import Data.List
 import Control.Monad
 
+import Parser
 import AST
 import PrettyPrinter
 import Examples
 import CodeGen.Main
 import CCode.PrettyCCode
 
-data Argument = GCC | Clang | KeepCFiles | Undefined | File String deriving(Eq)
+-- TODO: Add a -o option for output file
+data Argument = GCC | Clang | KeepCFiles | Undefined | 
+                File String deriving(Eq)
 
 parseArgument :: String -> Argument
 parseArgument "-c" = KeepCFiles
@@ -53,7 +56,7 @@ doCompile ast progName options =
        ponyLibPath <- return $ encorecDir ++ "../runtime/bin/debug/libpony.a"
        ponyRuntimeIncPath <- return $ encorecDir ++ "../runtime/inc/"
        execName <- return ("encore." ++ progName)
-       cFile <- return (execName ++ ".pony.c")
+       cFile <- return (progName ++ ".pony.c")
 
        withFile cFile WriteMode (outputCode ast)
        when (Clang `elem` options) 
@@ -87,12 +90,11 @@ main =
             else
                 do
                   progName <- return (head programs)
-                  program <- return (lookup progName examples)
-                  case program of 
-                    Just ast -> doCompile ast progName options
-                    Nothing -> do putStrLn "This is not a program that I can compile :("  
-                                  putStrLn "Available programs are:"  
-                                  printProgNames
+                  code <- readFile progName
+                  program <- return $ parseEncoreProgram progName code
+                  case program of
+                    Right ast -> doCompile ast progName options
+                    Left error -> do putStrLn $ show error
     where
       usage = "Usage: ./encorec [-c|-gcc|-clang] [program-name]"
       printProgNames = mapM_ putStrLn $ map fst examples

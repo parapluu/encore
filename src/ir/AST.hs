@@ -40,7 +40,7 @@ data Expr = Skip
           | IfThenElse Expr Expr Expr
           | Get Expr
           | FieldAccess Expr Name
-          | Assign Lvar Expr
+          | Assign LVal Expr
           | VarAccess Name
           | Null
           | New Type
@@ -53,4 +53,4 @@ data Op = LT | GT | EQ | NEQ | PLUS | MINUS deriving(Read, Show, Eq)
 
 type Arguments = [Expr]
 
-data Lvar = LVar Name | LField Expr Name | LThisField Name deriving(Read, Show, Eq)
+data LVal = LVal Name | LField Expr Name | LThisField Name deriving(Read, Show, Eq)

@@ -78,7 +78,7 @@ ppExpr (IfThenElse cond thn els) =
 ppExpr (Get e) = ppGet <+> ppExpr e
 ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
 ppExpr (VarAccess x) = ppName x
-ppExpr (Assign lvar e) = ppLvar lvar <+> ppEquals <+> ppExpr e
+ppExpr (Assign lval e) = ppLVal lval <+> ppEquals <+> ppExpr e
 ppExpr (Null) = ppNull
 ppExpr (New ty) = ppNew <+> ppType ty
 ppExpr (Print _ e) = ppPrint <+> ppExpr e
@@ -94,7 +94,7 @@ ppBinop AST.NEQ = text "!="
 ppBinop AST.PLUS  = text "+"
 ppBinop AST.MINUS = text "-"
 
-ppLvar :: Lvar -> Doc
-ppLvar (LVar (Name x))  = text x
-ppLvar (LField e (Name f)) = maybeParens e <> ppDot <> text f
-ppLvar (LThisField (Name f)) = text f
+ppLVal :: LVal -> Doc
+ppLVal (LVal (Name x))  = text x
+ppLVal (LField e (Name f)) = maybeParens e <> ppDot <> text f
+ppLVal (LThisField (Name f)) = text f

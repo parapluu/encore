@@ -1,0 +1,17 @@
+class Main {
+  def main() : Object
+    let other :: Other = new Other in
+       {other.init(10);
+        other.work()}
+}
+class Other {
+  count : int
+  def init(va : int) : void
+    this.count = va
+  def work() : void
+    {this.count = (this.count - 1);
+     this.count = (this.count - 1);
+     this.count = (this.count - 1);
+     print int this.count;
+     print string "Hello Ponyworld!"}
+}
