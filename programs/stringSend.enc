@@ -1,0 +1,13 @@
+class Main {
+  def main() : Object
+    {let other :: Other = new Other in
+       {other.init("Hello Ponyworld-message");
+        other.work()}}
+}
+class Other {
+  message : string
+  def init(va : string) : void 
+    this.message = va
+  def work() : void
+    print string this.message
+}
