@@ -32,7 +32,7 @@ import AST
 --        | " String "
 --        | Int
 --        | ( Expr Op Expr )
--- Op     ::= < | > | == | != | + | -
+-- Op     ::= < | > | == | != | + | - | * | /
 -- Name   ::= [a-zA-Z][a-zA-Z0-9]*
 -- Int    ::= [0-9]+
 -- String ::= ([^"]|\")*
@@ -45,7 +45,7 @@ lexer =
                P.commentEnd = "*/",
                P.commentLine = "//",
                P.reservedNames = ["class", "def", "skip", "let", "call", "in", "if", "then", "else", "lookup", "get", "null", "new", "print"],
-               P.reservedOpNames = ["::", "=", "==", "!=", "<", ">", "+", "-"]
+               P.reservedOpNames = ["::", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
 identifier = P.identifier lexer
@@ -62,8 +62,6 @@ parens     = P.parens lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
 natural = P.natural lexer
-
--- Program ::= ClassDecl Program | eps
 
 program :: Parser Program
 program = do {classes <- many classDecl ;
@@ -125,31 +123,31 @@ pathToExpr (f:path) acc = pathToExpr path (FieldAccess acc (Name f))
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
--- TODO: Fix this so there is no left-recursion (and no parens)
-binExpr :: Parser Expr
-binExpr = buildExpressionParser binTable expression
+expression :: Parser Expr
+expression = buildExpressionParser opTable expr
     where
-      binTable = [[op "+" PLUS, op "-" MINUS],
-                  [op "<" AST.LT, op ">" AST.GT, op "==" AST.EQ, op "!=" AST.NEQ]]
+      opTable = [[op "*" TIMES, op "/" DIV],
+                 [op "+" PLUS, op "-" MINUS],
+                 [op "<" AST.LT, op ">" AST.GT, op "==" AST.EQ, op "!=" AST.NEQ]]
       op s binop = Infix (do{reservedOp s ; return (\e1 e2 -> Binop binop e1 e2)}) AssocLeft
 
-expression :: Parser Expr
-expression  =  skip
-           <|> try assignment
-           <|> try methodCall
-           <|> try fieldAccess
-           <|> parens binExpr -- FIXME: No parens
-           <|> varAccess
-           <|> letExpression
-           <|> ifThenElse
-           <|> get
-           <|> new
-           <|> null
-           <|> sequence
-           <|> print
-           <|> string
-           <|> int
-           <?> "expression"
+expr :: Parser Expr
+expr  =  skip
+     <|> try assignment
+     <|> try methodCall
+     <|> try fieldAccess
+     <|> parens expression
+     <|> varAccess
+     <|> letExpression
+     <|> ifThenElse
+     <|> get
+     <|> new
+     <|> null
+     <|> sequence
+     <|> print
+     <|> string
+     <|> int
+     <?> "expression"
     where
       skip = do {reserved "skip" ; return Skip }
       assignment = do {lhs <- lval ; reservedOp "=" ; 
