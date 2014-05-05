@@ -126,8 +126,8 @@ examples =
 
        Class (Type "Other")
            []
-           (mkMethods [(Name "printSum", Type "void", [(Type "int", Name "a"),
-                                                       (Type "int", Name "b")],
+           (mkMethods [(Name "printSum", Type "void", [(Name "a", Type "int"),
+                                                       (Name "b", Type "int")],
                         Print (Type "int") (Binop PLUS (VarAccess $ Name "a") (VarAccess $ Name "b")))])])
     ]
 
