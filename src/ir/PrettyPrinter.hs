@@ -31,11 +31,10 @@ ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl (Class name fields methods) = 
-    ppClass <+> ppType name <+> lbrace $+$
+    ppClass <+> ppType name $+$
              (nest 2 $
                    vcat (map ppFieldDecl fields) $$
                    vcat (map ppMethodDecl methods))
-             $+$ rbrace
 
 ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t

@@ -41,9 +41,9 @@ import AST
 
 lexer = 
     P.makeTokenParser $ 
-    emptyDef { P.commentStart = "/*",
-               P.commentEnd = "*/",
-               P.commentLine = "//",
+    emptyDef { P.commentStart = "{-",
+               P.commentEnd = "-}",
+               P.commentLine = "--",
                P.reservedNames = ["class", "def", "skip", "let", "call", "in", "if", "then", "else", "lookup", "get", "null", "new", "print"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
@@ -65,18 +65,15 @@ natural = P.natural lexer
 
 program :: Parser Program
 program = do {classes <- many classDecl ;
+              eof ;
               return $ Program classes}
 
 classDecl :: Parser ClassDecl
 classDecl = do {reserved "class" ;
                 cname <- identifier ;
-                (fields, methods) <- braces members ;
+                fields <- many fieldDecl ;
+                methods <- many methodDecl ;
                 return $ Class (Type cname) fields methods}
-    where
-      members :: Parser ([FieldDecl], [MethodDecl])
-      members = do {fields <- many fieldDecl ;
-                    methods <- many methodDecl ;
-                    return (fields, methods)}
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do {f <- identifier ;
