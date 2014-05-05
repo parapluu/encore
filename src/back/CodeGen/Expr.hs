@@ -66,7 +66,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     return $ Embed $ show s
   translate (A.Let name ty e1 e2) = do
     te1 <- translate e1
-    te2 <- local (Ctx.with_local (A.Param (ty, name))) $ translate e2
+    te2 <- local (Ctx.with_local (A.Param (name, ty))) $ translate e2
     return (Braced . StoopidSeq $
                        [Assign 
                         (Decl ((Ptr . Typ $ "pony_actor_t", Var $ show name))) te1,

@@ -52,7 +52,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
 
       paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv [] = []
-      paramdecls_to_argv [(A.Param (ty, na))] =
+      paramdecls_to_argv [(A.Param (na, ty))] =
           case (translate ty :: CCode Ty) of
             (Typ "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
             (Ptr _) -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
@@ -137,7 +137,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                    ++"}};"
           where
             param_desc :: A.ParamDecl -> String --this should NOT be a String
-            param_desc (A.Param (ty, na)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
+            param_desc (A.Param (na, ty)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
 
             param_descs :: [A.ParamDecl] -> String
             param_descs ps = concat $ intersperse ", " $ map param_desc ps

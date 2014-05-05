@@ -49,10 +49,10 @@ type_of n c = do
   return $ head $ only_tys $ filter_name_matches n $ (mparams mthd ++ locals)
     where
       filter_name_matches :: Name -> [ParamDecl] -> [ParamDecl]
-      filter_name_matches n = filter (\ (Param (_,n')) -> (n==n'))
+      filter_name_matches n = filter (\ (Param (n', _)) -> (n==n'))
       
       only_tys :: [ParamDecl] -> [Type]
-      only_tys = map (\(Param (ty,_)) -> ty)
+      only_tys = map (\(Param (_,ty)) -> ty)
 
 other_classes :: Context -> [ClassDecl]
 other_classes ctx =

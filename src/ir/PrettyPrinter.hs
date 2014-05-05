@@ -41,13 +41,14 @@ ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t
 
 ppParamDecl :: ParamDecl -> Doc
-ppParamDecl (Param (t, x)) = ppType t <+> ppName x
+ppParamDecl (Param (x, t)) =  ppName x <+> text ":" <+> ppType t
 
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl (Method mn rt params body) = 
-    ppType rt <+>
+    text "def" <+>
     ppName mn <> 
-    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) $+$
+    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) <+>
+    text ":" <+> ppType rt $+$
     (nest 2 (ppExpr body))
 
 isSimple :: Expr -> Bool
@@ -81,7 +82,7 @@ ppExpr (VarAccess x) = ppName x
 ppExpr (Assign lval e) = ppLVal lval <+> ppEquals <+> ppExpr e
 ppExpr (Null) = ppNull
 ppExpr (New ty) = ppNew <+> ppType ty
-ppExpr (Print _ e) = ppPrint <+> ppExpr e
+ppExpr (Print ty e) = ppPrint <+> ppType ty <+> ppExpr e
 ppExpr (StringLiteral s) = doubleQuotes (text s)
 ppExpr (IntLiteral n) = int n
 ppExpr (Binop op e1 e2) = ppExpr e1 <+> ppBinop op <+> ppExpr e2
@@ -93,6 +94,8 @@ ppBinop AST.EQ  = text "=="
 ppBinop AST.NEQ = text "!="
 ppBinop AST.PLUS  = text "+"
 ppBinop AST.MINUS = text "-"
+ppBinop AST.PLUS  = text "*"
+ppBinop AST.MINUS = text "/"
 
 ppLVal :: LVal -> Doc
 ppLVal (LVal (Name x))  = text x

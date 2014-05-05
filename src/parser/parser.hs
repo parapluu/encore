@@ -88,7 +88,7 @@ paramDecl :: Parser ParamDecl
 paramDecl = do {x <- identifier ; 
                 colon ; 
                 ty <- identifier ; 
-                return $ Param (Type ty, Name x)}
+                return $ Param (Name x, Type ty)}
 
 methodDecl :: Parser MethodDecl
 methodDecl = do {reserved "def" ; 
