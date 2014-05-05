@@ -52,3 +52,6 @@ pony_actor_t_Type (A.Type ty) =
     Typ $ if isLower $ head ty
           then ty
           else ty++"_actor_t*"
+
+temp_name :: String -> CCode Name
+temp_name s = Nam $ "__backend__" ++ s

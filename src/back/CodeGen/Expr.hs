@@ -91,7 +91,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
 --              Call (Nam "pony_send")
 --                       [Var $ show other,
 --                        AsLval $ method_msg_name other_ty name]
-      no_var_access -> error "Expr.hs: calls are only implemented on variables for now"
+      no_var_access -> error "Expr.hs: calls are only implemented on variables for now."
 
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"
 
@@ -109,3 +109,16 @@ args_to_call other other_ty name [arg] =
                                    AsExpr . AsLval $ method_msg_name other_ty name,
                                    arg]
       other -> error $ "Expr.hs: don't know how to send `"++show other++"`"
+args_to_call other other_ty name manyargs = (Embed "//Expr.hs: don't know how to call many args\n")
+
+
+
+-- allocates 
+make_call_record :: A.MethodDecl -> [CCode Expr] -> CCode Stat
+make_call_record mdecl =
+    let
+        -- this assumes that everything has the same size. It's broken, need to fix later
+        sum_of_sizeofs = Embed $ ("sizeof(void*)*" ++ show (length (A.mparams mdecl)))
+--        temp_ptr = temp_name "call_rec"
+    in (Assign (Decl temp_name
+

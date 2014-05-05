@@ -10,12 +10,12 @@ examples =
      ("hello", Program [Class (Type "Main")
                         [] $
                         mkMethods
-                        [(Name "main", Type "Object", [],
+                        [(Name "main", Type "void", [],
                                Print (Type "string") (StringLiteral "Hello Ponyworld!"))]]),
      ("countdown", Program [Class (Type "Main")
                                 [Field (Name "count") (Type "int")] $
                                 mkMethods
-                                [(Name "main", Type "Object", [],
+                                [(Name "main", Type "void", [],
                                        Seq $
                                            Print (Type "string") (StringLiteral "Hello Ponyworld!") :
                                        (take 5 $ repeat $ Assign
@@ -26,7 +26,7 @@ examples =
                  Program
                  [Class (Type "Main")
                   [] -- no fields
-                  [Method (Name "main") (Type "Object") []
+                  [Method (Name "main") (Type "void") []
                    (Seq [
                      Print (Type "string") (StringLiteral "Hello Ponyworld!"),
                      Let (Name "other") (Type "Other") (New $ Type "Other")
@@ -47,7 +47,7 @@ examples =
       Program [
        Class (Type "Main")
            (mkFields [])
-           (mkMethods [((Name "main"), (Type "Object"), [],
+           (mkMethods [((Name "main"), (Type "void"), [],
                         (Seq [
                           Let (Name "other") (Type "Other") (New $ Type "Other")
                           (Seq [Call (VarAccess $ Name "other") (Name "init") [IntLiteral 10],
@@ -65,7 +65,7 @@ examples =
       Program [
        Class (Type "Main")
            (mkFields [])
-           (mkMethods [((Name "main"), (Type "Object"), [],
+           (mkMethods [((Name "main"), (Type "void"), [],
                         (Seq [
                           Let (Name "other") (Type "Other") (New $ Type "Other")
                           (Seq [Call (VarAccess $ Name "other") (Name "init")
@@ -85,7 +85,7 @@ examples =
       Program [
        Class (Type "Main")
            (mkFields [])
-           (mkMethods [((Name "main"), (Type "Object"), [],
+           (mkMethods [((Name "main"), (Type "void"), [],
                         (Seq [
                           Let (Name "other") (Type "Other") (New $ Type "Other") $
                           Let (Name "another") (Type "Other") (New $ Type "Other")
@@ -117,7 +117,7 @@ examples =
       Program [
        Class (Type "Main")
            (mkFields [])
-           (mkMethods [((Name "main"), (Type "Object"), [],
+           (mkMethods [((Name "main"), (Type "void"), [],
                         (Seq [
                           Let (Name "other") (Type "Other") (New $ Type "Other") $
                           (Call (VarAccess $ Name "other") (Name "printSum") [

@@ -54,10 +54,15 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecls_to_argv [] = []
       paramdecls_to_argv [(A.Param (na, ty))] =
           case (translate ty :: CCode Ty) of
-            (Typ "int") -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "i")]
-            (Ptr _) -> [AsExpr $ Dot (Deref (Var "argv")) (Nam "p")]
+            (Typ "int") -> AsExpr $ Dot (Deref (Var "argv")) (Nam "i")
+            (Ptr _) -> AsExpr $ Dot (Deref (Var "argv")) (Nam "p")
             other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
-      paramdecls_to_argv other = error $ "paramdecls_to_argv not implemented for `"++show other++"`"
+
+      paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
+      paramdecls_to_argv = map paramdecl_to_argv
+--      paramdecls_to_argv [(A.Param (ty, na))] =
+--          [paramdecl_to_argv x]
+--      paramdecls_to_argv other = error $ "ClassDecl.hs: paramdecls_to_argv not implemented for `"++show other++"`"
         
       dispatchfun_decl =
           (Function (Static void) (class_dispatch_name $ A.cname cdecl)
@@ -142,16 +147,6 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
             param_descs :: [A.ParamDecl] -> String
             param_descs ps = concat $ intersperse ", " $ map param_desc ps
 
-      pony_msg_t_impl' :: A.MethodDecl -> CCode Toplevel
-      pony_msg_t_impl' mdecl = 
-          Embed $ "static pony_msg_t " ++ 
-          show (method_message_type_name
-                (A.cname cdecl) 
-                (A.mname mdecl)) ++
-                   "= {" ++
-                   (show $ length (A.mparams mdecl)) ++
-                   ", {{NULL, 0, PONY_PRIMITIVE}}};"
-        
       pony_actor_t_impl :: CCode Toplevel
       pony_actor_t_impl = EmbedC $
                           Statement
