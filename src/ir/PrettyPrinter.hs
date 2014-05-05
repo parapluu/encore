@@ -94,8 +94,8 @@ ppBinop AST.EQ  = text "=="
 ppBinop AST.NEQ = text "!="
 ppBinop AST.PLUS  = text "+"
 ppBinop AST.MINUS = text "-"
-ppBinop AST.PLUS  = text "*"
-ppBinop AST.MINUS = text "/"
+ppBinop AST.TIMES  = text "*"
+ppBinop AST.DIV = text "/"
 
 ppLVal :: LVal -> Doc
 ppLVal (LVal (Name x))  = text x

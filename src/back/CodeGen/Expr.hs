@@ -22,6 +22,8 @@ instance Translatable A.Op (CCode Name) where
     A.NEQ -> "!="
     A.PLUS -> "+"
     A.MINUS -> "-"
+    A.TIMES -> "*"
+    A.DIV -> "/"
 
 instance Translatable A.LVal (Reader Ctx.Context (CCode Lval)) where
   translate (A.LVal name) = return $ Embed $ show name
