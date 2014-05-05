@@ -1,4 +1,4 @@
-class Main {
+class Main 
   count : int
   def main() : Object
     {print string "Hello Ponyworld!";
@@ -8,4 +8,3 @@ class Main {
      this.count = this.count - 1;
      this.count = this.count - 1;
      print int this.count}
-}

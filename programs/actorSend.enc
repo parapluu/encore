@@ -1,11 +1,11 @@
-class Main {
+class Main 
   def main() : Object
     let other : Other = new Other in
        let another : Other = new Other in
          {other.init(another);
           other.work()}
-}
-class Other {
+
+class Other 
   other : Other
   def init(va : Other) : void 
     this.other = va
@@ -16,4 +16,3 @@ class Other {
         print string "sent"}}
   def printMsg() : void
     print string "Hello Actorworld!"
-}
