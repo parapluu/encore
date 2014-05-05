@@ -25,4 +25,4 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
        ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
        (Statement (tmbody::CCode Expr)))
     where
-      mparam_to_cvardecl (A.Param (ty, na)) = (translate ty, Var $ show na)
+      mparam_to_cvardecl (A.Param (na, ty)) = (translate ty, Var $ show na)

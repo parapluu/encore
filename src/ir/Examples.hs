@@ -55,7 +55,7 @@ examples =
 
        Class (Type "Other")
            (mkFields [(Name "count", Type "int")])
-           (mkMethods [(Name "init", Type "void", [(Type "int", Name "va")],
+           (mkMethods [(Name "init", Type "void", [(Name "va", Type "int")],
                         (Assign (LField (VarAccess $ Name "this") $ Name "count") (VarAccess $ Name "va"))),
                        (Name "work", Type "void", [],
                              Seq (take 3 (repeat $ decrementField (Name "this") $ Name "count") ++
@@ -74,7 +74,7 @@ examples =
 
        Class (Type "Other")
            (mkFields [(Name "message", Type "string")])
-           (mkMethods [(Name "init", Type "void", [(Type "string", Name "va")],
+           (mkMethods [(Name "init", Type "void", [(Name "va", Type "string")],
                         (Assign
                          (LField (VarAccess $ Name "this") $ Name "message")
                          (VarAccess $ Name "va"))),
@@ -95,7 +95,7 @@ examples =
 
        Class (Type "Other")
            (mkFields [(Name "other", Type "Other")])
-           (mkMethods [(Name "init", Type "void", [(Type "Other", Name "va")],
+           (mkMethods [(Name "init", Type "void", [(Name "va", Type "Other")],
                         (Assign
                          (LField (VarAccess $ Name "this") $ Name "other")
                          (VarAccess $ Name "va"))),
