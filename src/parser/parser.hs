@@ -45,7 +45,7 @@ lexer =
                P.commentEnd = "*/",
                P.commentLine = "//",
                P.reservedNames = ["class", "def", "skip", "let", "call", "in", "if", "then", "else", "lookup", "get", "null", "new", "print"],
-               P.reservedOpNames = ["::", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
 identifier = P.identifier lexer
@@ -158,7 +158,7 @@ expr  =  skip
                        return $ Call target tmname args}
       letExpression = do {reserved "let" ;
                           x <- identifier ;
-                          reservedOp "::" ;
+                          reservedOp ":" ;
                           ty <- identifier ;
                           reservedOp "=" ;
                           val <- expression ;

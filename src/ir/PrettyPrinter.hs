@@ -68,7 +68,7 @@ ppExpr (Call e m args) =
     maybeParens e <> ppDot <> ppName m <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
 ppExpr (Let (Name x) (Type ty) e1 e2) = 
-    ppLet <+> text x <+> text "::" <+> text ty <+> equals <+> ppExpr e1 <+> ppIn $+$ 
+    ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr e1 <+> ppIn $+$ 
       nest 2 (ppExpr e2)
 ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
 ppExpr (IfThenElse cond thn els) = 

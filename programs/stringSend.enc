@@ -1,6 +1,6 @@
 class Main {
   def main() : Object
-    {let other :: Other = new Other in
+    {let other : Other = new Other in
        {other.init("Hello Ponyworld-message");
         other.work()}}
 }
