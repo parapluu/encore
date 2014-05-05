@@ -9,9 +9,9 @@ class Other {
   def init(va : int) : void
     this.count = va
   def work() : void
-    {this.count = (this.count - 1);
-     this.count = (this.count - 1);
-     this.count = (this.count - 1);
+    {this.count = this.count - 1;
+     this.count = this.count - 1;
+     this.count = this.count - 1;
      print int this.count;
      print string "Hello Ponyworld!"}
 }
