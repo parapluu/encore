@@ -1,6 +1,7 @@
 module Main where
 
 import System.Environment
+import System.Directory
 import System.IO
 import System.Exit
 import System.Process
@@ -50,11 +51,16 @@ outputCode ast out =
     where
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
-doCompile ast progName options = 
+doCompile ast sourceName options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
        ponyLibPath <- return $ encorecDir ++ "../runtime/bin/debug/libpony.a"
        ponyRuntimeIncPath <- return $ encorecDir ++ "../runtime/inc/"
+       progName <- let ext = reverse . take 4 . reverse $ sourceName in 
+                   if length sourceName > 3 && ext == ".enc" then 
+                       return $ take ((length sourceName) - 4) sourceName 
+                   else 
+                       return sourceName
        execName <- return ("encore." ++ progName)
        cFile <- return (progName ++ ".pony.c")
 
@@ -74,7 +80,6 @@ a <+> b = (a ++ " " ++ b)
 
 main = 
     do
-      putStrLn "Encore .... Off course."
       args <- getArgs
       if null args then 
           putStrLn usage
@@ -83,18 +88,19 @@ main =
             (programs, options) <- return $ parseArguments args
             errorCheck options
             if null programs then
-                do 
-                  putStrLn "No program specified!"
-                  putStrLn "Available programs are:"  
-                  printProgNames
+                putStrLn "No program specified! Aborting..."
             else
                 do
                   progName <- return (head programs)
-                  code <- readFile progName
-                  program <- return $ parseEncoreProgram progName code
-                  case program of
-                    Right ast -> doCompile ast progName options
-                    Left error -> do putStrLn $ show error
+                  sourceExists <- doesFileExist progName
+                  if not sourceExists then
+                      putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                  else
+                      do
+                        code <- readFile progName
+                        program <- return $ parseEncoreProgram progName code
+                        case program of
+                          Right ast -> doCompile ast progName options
+                          Left error -> do putStrLn $ show error
     where
       usage = "Usage: ./encorec [-c|-gcc|-clang] [program-name]"
-      printProgNames = mapM_ putStrLn $ map fst examples
