@@ -58,6 +58,7 @@ doCompile ast sourceName options =
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
        ponyLibPath <- return $ encorecDir ++ "../runtime/bin/debug/libpony.a"
        ponyRuntimeIncPath <- return $ encorecDir ++ "../runtime/inc/"
+       setPath <- return $ encorecDir ++ "../set/set.o"
        progName <- let ext = reverse . take 4 . reverse $ sourceName in 
                    if length sourceName > 3 && ext == ".enc" then 
                        return $ take ((length sourceName) - 4) sourceName 
@@ -69,7 +70,7 @@ doCompile ast sourceName options =
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..." 
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> "-I" <+> ponyRuntimeIncPath)
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> setPath <+> ponyLibPath <+> "-I" <+> ponyRuntimeIncPath)
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)
@@ -99,7 +100,8 @@ main =
                   progName <- return (head programs)
                   sourceExists <- doesFileExist progName
                   if not sourceExists then
-                      putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                      do putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                         exitFailure
                   else
                       do
                         code <- readFile progName
@@ -110,4 +112,4 @@ main =
                           Left error -> do putStrLn $ show error
                                            exitFailure
     where
-      usage = "Usage: ./encorec [-c|-gcc|-clang] [program-name]"
+      usage = "Usage: ./encorec [-c | -gcc | -clang] file"

@@ -1,4 +1,4 @@
-GCC=gcc
+GCC=clang
 FLAGS=-std=c11 -ggdb -Wall
 
 TARGETS=set.c
