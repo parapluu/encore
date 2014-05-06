@@ -6,6 +6,15 @@ TARGETS=$(PONYCS:.pony.c=)
 $(ENCORE_TARGETS): ../src/front/encorec
 	../src/front/encorec $@
 
+test: encorec
+	make -C encore test
+	make -C compiler test
+	make -C pony test
+
+benchmark:
+	make -C benchmarks benchmark
+
+
 encorec:
 	make -C $(ROOT_PATH)
 	ln -fs $(ROOT_PATH)/release/encorec encorec
