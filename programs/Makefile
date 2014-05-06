@@ -1,16 +1,16 @@
-SRC_PATH=../src
-
+ROOT_PATH=..
+ENCOREC=$(ROOT_PATH)/release/encorec
 ENCORE_TARGETS=$(shell ls *.enc)
+ENCOREC_FLAGS=-clang -c
 
 encorec:
-	make -C $(SRC_PATH)
-	ln -fs $(SRC_PATH)/front/encorec encorec
+	make -C $(ROOT_PATH)
 
 all: encorec $(ENCORE_TARGETS)
 
 $(ENCORE_TARGETS):
 	@echo "compiling" $@
-	@./encorec $@
+	@$(ENCOREC) $(ENCOREC_FLAGS) $@
 
 clean:
 	echo clean
