@@ -1,0 +1,4 @@
+class Main 
+  def main() : Object
+    print string "Hello Ponyworld!"
+
