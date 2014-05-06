@@ -1,12 +1,14 @@
-PONY_DIR=./runtime/
+PONY_DIR=./runtime
+SET_DIR=./set
+all: compiler set pony
 
-all: compiler $(PONY_DIR)/bin/debug/libpony.a $(PONY_DIR)/bin/release/libpony.a 
-
-compiler: set 
+compiler: 
 	make -C front
 
 set: 
-	make -C set
+	make -C $(SET_DIR)
+
+pony: $(PONY_DIR)/bin/debug/libpony.a $(PONY_DIR)/bin/release/libpony.a 
 
 $(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
 	make -C $(PONY_DIR) config=debug
@@ -27,4 +29,4 @@ clean_pony:
 	make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-_PHONY: clean clean_pony compiler run
+.PHONY: clean clean_pony run set

@@ -1,15 +1,15 @@
-GCC=clang
+CC=clang
 FLAGS=-std=c11 -ggdb -Wall
 
-TARGETS=set.c
+OBJECTS=set.o
 
-all: set
+all: $(OBJECTS)
 
-set: set.c
-	$(GCC) $(FLAGS) -c $(TARGETS)
+$(OBJECTS) : %.o : %.c
+	$(CC) $(FLAGS) -c $<
 
-test: set
-	$(GCC) $(FLAGS) test.c -o test set.o
+test: set.o
+	$(CC) $(FLAGS) test.c -o test set.o
 	./test
 
 clean: 
@@ -17,4 +17,4 @@ clean:
 	rm -f *~
 	rm -rf *.dSYM
 
-_PHONY: set test clean
+.PHONY: test clean
