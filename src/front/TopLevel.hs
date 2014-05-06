@@ -1,5 +1,6 @@
 module Main where
 
+import System.Exit
 import System.Environment
 import System.Directory
 import System.IO
@@ -51,6 +52,7 @@ outputCode ast out =
     where
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
+doCompile :: Program -> FilePath -> [Argument] -> IO ExitCode
 doCompile ast sourceName options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
@@ -65,15 +67,18 @@ doCompile ast sourceName options =
        cFile <- return (progName ++ ".pony.c")
 
        withFile cFile WriteMode (outputCode ast)
-       when (Clang `elem` options) 
-           (do putStrLn "Compiling with clang..." 
-               exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> "-I" <+> ponyRuntimeIncPath)
-               case exitCode of
-                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
-                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n))
-       when ((Clang `elem` options) && not (KeepCFiles `elem` options))
-           (do runCommand $ "rm -f" <+> cFile
-               putStrLn "Cleaning up...")
+       if (Clang `elem` options) then
+           do putStrLn "Compiling with clang..." 
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> "-I" <+> ponyRuntimeIncPath)
+              case exitCode of
+                ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
+                ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)
+              when ((Clang `elem` options) && not (KeepCFiles `elem` options))
+                       (do runCommand $ "rm -f" <+> cFile
+                           putStrLn "Cleaning up...")
+              return exitCode
+       else
+           return ExitSuccess
 
 (<+>) :: String -> String -> String
 a <+> b = (a ++ " " ++ b)
@@ -100,7 +105,9 @@ main =
                         code <- readFile progName
                         program <- return $ parseEncoreProgram progName code
                         case program of
-                          Right ast -> doCompile ast progName options
+                          Right ast -> do exitCode <- doCompile ast progName options
+                                          exitWith exitCode
                           Left error -> do putStrLn $ show error
+                                           exitFailure
     where
       usage = "Usage: ./encorec [-c|-gcc|-clang] [program-name]"
