@@ -1,9 +1,9 @@
 class Main 
   def main() : Object
     let other : Other = new Other in
-       let another : Other = new Other in
-         {other.init(another);
-          other.work()}
+      let another : Other = new Other in
+        {other.init(another);
+         other.work()}
 
 class Other 
   other : Other

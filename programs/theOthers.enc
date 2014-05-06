@@ -1,8 +1,8 @@
 class Main 
   def main() : Object
     let other : Other = new Other in
-       {other.init(10);
-        other.work()}
+      {other.init(10);
+       other.work()}
 
 class Other
   count : int
