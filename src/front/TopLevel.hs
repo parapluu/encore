@@ -17,29 +17,33 @@ import CodeGen.Main
 import CCode.PrettyCCode
 
 -- TODO: Add a -o option for output file
-data Argument = GCC | Clang | KeepCFiles | Undefined | 
-                File String deriving(Eq)
+data Option = GCC | Clang | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
 
-parseArgument :: String -> Argument
-parseArgument "-c" = KeepCFiles
-parseArgument "-gcc" = GCC
-parseArgument "-clang" = Clang
-parseArgument ('-':_) = Undefined
-parseArgument filename = File filename
-
-parseArguments :: [String] -> ([String], [Argument])
+parseArguments :: [String] -> ([String], [Option])
 parseArguments args = 
-    let (files, options) = partition isFile (map parseArgument args) in
-    (map getName files, options)
+    let
+        parseArguments' []   = []
+        parseArguments' args = opt : (parseArguments' rest)
+            where 
+              (opt, rest) = parseArgument args
+              parseArgument ("-c":args)       = (KeepCFiles, args)
+              parseArgument ("-gcc":args)     = (GCC, args)
+              parseArgument ("-clang":args)    = (Clang, args)
+              parseArgument ("-o":file:args)  = (Output file, args)
+              parseArgument (('-':flag):args) = (Undefined flag, args)
+              parseArgument (file:args)       = (Source file, args)
+    in
+      let (sources, options) = partition isSource (parseArguments' args) in
+      (map getName sources, options)
     where
-      isFile (File _) = True
-      isFile _ = False
-      getName (File name) = name
+      isSource (Source _) = True
+      isSource _ = False
+      getName (Source name) = name
 
-errorCheck :: [Argument] -> IO ()
+errorCheck :: [Option] -> IO ()
 errorCheck options = 
     do
-      when (Undefined `elem` options) (putStrLn "Ignoring undefined options")
+      mapM (\flag -> case flag of {Undefined flag -> putStrLn $ "Ignoring undefined option" <+> flag; _ -> return ()}) options
       when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
       when (Clang `elem` options && GCC `elem` options) (putStrLn "Conflicting compiler options. Defaulting to clang.")
 
@@ -52,7 +56,7 @@ outputCode ast out =
     where
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
-doCompile :: Program -> FilePath -> [Argument] -> IO ExitCode
+doCompile :: Program -> FilePath -> [Option] -> IO ExitCode
 doCompile ast source options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
@@ -61,7 +65,9 @@ doCompile ast source options =
        setLibPath <- return $ encorecDir ++ "lib/set.o"
 
        progName <- return $ dropDir . dropExtension $ source
-       execName <- return ("encore." ++ progName)
+       execName <- case find (isOutput) options of
+                     Just (Output file) -> return file
+                     _                  -> return ("encore." ++ progName)
        cFile <- return (progName ++ ".pony.c")
 
        withFile cFile WriteMode (outputCode ast)
@@ -85,6 +91,9 @@ doCompile ast source options =
                              else 
                                  source
       dropDir = reverse . takeWhile (/='/') . reverse
+      isOutput (Output _) = True
+      isOutput _ = False
+
 (<+>) :: String -> String -> String
 a <+> b = (a ++ " " ++ b)
 
