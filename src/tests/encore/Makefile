@@ -1,16 +1,17 @@
-SRC_PATH=../src
+SRC_PATH=../../../src
 
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
 
-$(ENCORE_TARGETS): ../src/front/encorec
-	../src/front/encorec $@
+$(ENCORE_TARGETS): $(SRC_PATH)/front/encorec
+	$(SRC_PATH)/front/encorec $@
 
 encorec:
 	make -C $(SRC_PATH)
 	ln -fs $(SRC_PATH)/front/encorec encorec
 
-
+test: encorec
+	make -C basic test
 
 # use case: you've generated output, it doesn't work. You manually
 # fixed the pony.c file. With this target, you can compile it:

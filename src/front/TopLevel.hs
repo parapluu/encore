@@ -53,23 +53,21 @@ outputCode ast out =
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
 doCompile :: Program -> FilePath -> [Argument] -> IO ExitCode
-doCompile ast sourceName options = 
+doCompile ast source options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
-       ponyLibPath <- return $ encorecDir ++ "../runtime/bin/debug/libpony.a"
-       ponyRuntimeIncPath <- return $ encorecDir ++ "../runtime/inc/"
-       progName <- let ext = reverse . take 4 . reverse $ sourceName in 
-                   if length sourceName > 3 && ext == ".enc" then 
-                       return $ take ((length sourceName) - 4) sourceName 
-                   else 
-                       return sourceName
+       incPath <- return $ encorecDir ++ "./inc/"
+       ponyLibPath <- return $ encorecDir ++ "lib/libpony.a"
+       setLibPath <- return $ encorecDir ++ "lib/set.o"
+
+       progName <- return $ dropDir . dropExtension $ source
        execName <- return ("encore." ++ progName)
        cFile <- return (progName ++ ".pony.c")
 
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..." 
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> "-I" <+> ponyRuntimeIncPath)
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> setLibPath <+> "-I" <+> incPath)
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)
@@ -80,6 +78,13 @@ doCompile ast sourceName options =
        else
            return ExitSuccess
 
+    where
+      dropExtension source = let ext = reverse . take 4 . reverse $ source in 
+                             if length source > 3 && ext == ".enc" then 
+                                 take ((length source) - 4) source 
+                             else 
+                                 source
+      dropDir = reverse . takeWhile (/='/') . reverse
 (<+>) :: String -> String -> String
 a <+> b = (a ++ " " ++ b)
 
@@ -99,7 +104,8 @@ main =
                   progName <- return (head programs)
                   sourceExists <- doesFileExist progName
                   if not sourceExists then
-                      putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                      do putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                         exitFailure
                   else
                       do
                         code <- readFile progName
@@ -110,4 +116,4 @@ main =
                           Left error -> do putStrLn $ show error
                                            exitFailure
     where
-      usage = "Usage: ./encorec [-c|-gcc|-clang] [program-name]"
+      usage = "Usage: ./encorec [-c | -gcc | -clang] file"
