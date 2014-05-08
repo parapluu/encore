@@ -13,6 +13,6 @@ $(ENCOREC):
 	make -C $(ROOT_PATH)
 
 clean:
-	rm *.pony.c
+	rm -f *.pony.c
 
 .PHONY: test clean $(ENCORE_TARGETS)
