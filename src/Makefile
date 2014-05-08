@@ -22,7 +22,8 @@ $(PONY_DIR)/Makefile:
 clean: clean_pony
 	make -C front clean
 	make -C set clean
-	rm -rf encore.hello*
+	make -C ir clean
+	make -C parser clean
 	@echo "done"
 
 clean_pony:

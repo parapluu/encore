@@ -1,9 +1,14 @@
-compiler: encorec 
+HC=ghc
+FLAGS=--make -i$(INC_PATH)
+INC_PATH=../parser:../ir:../back
+OBJECTS=Parser.o Parser.hi
+
+all: encorec
 
 encorec: TopLevel.hs
-	ghc --make TopLevel.hs -o encorec -i../parser:../ir:../back 
+	$(HC) $< -o encorec -i$(INC_PATH)
 
 clean:
-	rm -f encorec *.hi *.o
+	rm -f encorec *.hi *.o *~
 
-.PHONY: clean
+.PHONY: all clean
