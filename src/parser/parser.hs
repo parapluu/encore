@@ -33,7 +33,7 @@ import AST
 --        | Int
 --        | ( Expr Op Expr )
 -- Op     ::= < | > | == | != | + | - | * | /
--- Name   ::= [a-zA-Z][a-zA-Z0-9]*
+-- Name   ::= [a-zA-Z][a-zA-Z0-9_]*
 -- Int    ::= [0-9]+
 -- String ::= ([^"]|\")*
 
@@ -44,6 +44,7 @@ lexer =
     emptyDef { P.commentStart = "{-",
                P.commentEnd = "-}",
                P.commentLine = "--",
+               P.identStart = letter,
                P.reservedNames = ["class", "def", "skip", "let", "call", "in", "if", "then", "else", "lookup", "get", "null", "new", "print"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
