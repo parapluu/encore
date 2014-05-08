@@ -50,9 +50,8 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
          -- fixme what about arguments?
           ))
 
-      paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
-      paramdecls_to_argv [] = []
-      paramdecls_to_argv [(A.Param (na, ty))] =
+      paramdecl_to_argv :: A.ParamDecl -> CCode Expr
+      paramdecl_to_argv (A.Param (na, ty)) =
           case (translate ty :: CCode Ty) of
             (Typ "int") -> AsExpr $ Dot (Deref (Var "argv")) (Nam "i")
             (Ptr _) -> AsExpr $ Dot (Deref (Var "argv")) (Nam "p")

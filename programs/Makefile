@@ -14,8 +14,8 @@ $(ENCORE_TARGETS):
 	@echo "compiling" $@
 	@$(ENCOREC) $(ENCOREC_FLAGS) $@
 
-$(TARGETS):
-	clang $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
+$(TARGETS): $(PONYCS)
+	clang -Wall -ggdb $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
 
 # use case: you've generated output, it doesn't work. You manually
 # fixed the pony.c file. With this target, you can compile it:
