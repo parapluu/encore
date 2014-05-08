@@ -1,7 +1,6 @@
 HC=ghc
 FLAGS=--make -i$(INC_PATH)
 INC_PATH=../parser:../ir:../back
-OBJECTS=Parser.o Parser.hi
 
 all: encorec
 
@@ -11,4 +10,4 @@ encorec: TopLevel.hs
 clean:
 	rm -f encorec *.hi *.o *\~
 
-.PHONY: all clean
+.PHONY: all encorec clean
