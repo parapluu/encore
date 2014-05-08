@@ -9,6 +9,6 @@ encorec: TopLevel.hs
 	$(HC) $< -o encorec -i$(INC_PATH)
 
 clean:
-	rm -f encorec *.hi *.o *~
+	rm -f encorec *.hi *.o *\~
 
 .PHONY: all clean

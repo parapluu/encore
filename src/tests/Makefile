@@ -1,39 +1,24 @@
 ROOT_PATH=../..
+ENCOREC=$(ROOT_PATH)/release/encorec
 
-PONYCS=$(shell ls *.pony.c)
-TARGETS=$(PONYCS:.pony.c=)
+all: test benchmark encorec
 
-$(ENCORE_TARGETS): ../src/front/encorec
-	../src/front/encorec $@
-
-test: encorec
+test: $(ENCOREC)
 	make -C encore test
 	make -C compiler test
 	make -C pony test
 
-benchmark:
+benchmark: encorec
 	make -C benchmarks benchmark
 
-
-encorec:
+$(ENCOREC):
 	make -C $(ROOT_PATH)
-	ln -fs $(ROOT_PATH)/release/encorec encorec
-
-# use case: you've generated output, it doesn't work. You manually
-# fixed the pony.c file. With this target, you can compile it:
-compile_fixed_ponyc: $(TARGETS)
-	@echo $(TARGETS)
-	@echo "done"
-
-$(TARGETS):
-	clang $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
 
 clean:
-	echo clean
-	rm -rf *.dSYM
-	rm -f encore.*.pony.c
-	rm -f *\~
-	rm -f encorec
-	rm -f encore.*
+	make -C encore clean
+	make -C compiler clean
+	make -C benchmark clean
+	make -C lib clean
+	make -C pony clean
 
-.PHONY: test all encorec compilefixedC $(TARGETS)
+.PHONY: all test benchmark clean

@@ -14,7 +14,7 @@ test: set.o
 
 clean: 
 	rm -f set.o test
-	rm -f *~
+	rm -f *\~
 	rm -rf *.dSYM
 
 .PHONY: test clean

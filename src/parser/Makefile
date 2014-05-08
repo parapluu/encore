@@ -11,6 +11,6 @@ parser: $(OBJECTS)
 	$(HC) $< $(FLAGS)
 
 clean:
-	rm -f *.hi *.o *~
+	rm -f *.hi *.o *\~
 
 .PHONY: all parser clean 

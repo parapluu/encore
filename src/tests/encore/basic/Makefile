@@ -1,26 +1,18 @@
-SRC_PATH=../../../../src
+ROOT_PATH=../../../..
+ENCOREC=$(ROOT_PATH)/release/encorec
 
 ENCORE_TARGETS=$(shell ls *.enc)
 
-encorec:
-	make -C $(SRC_PATH)
-	ln -fs $(SRC_PATH)/front/encorec encorec
-
-all: encorec $(ENCORE_TARGETS)
-
-test: all
-	@echo "Testing"
+test: $(ENCOREC) $(ENCORE_TARGETS)
 
 $(ENCORE_TARGETS):
 	@echo "compiling" $@
-	@./encorec $@
+	@$(ENCOREC) $@
+
+$(ENCOREC):
+	make -C $(ROOT_PATH)
 
 clean:
-	echo clean
-	rm -rf *.dSYM
-	rm -f *.pony.c
-	rm -f *\~
-	rm -f encorec
-	rm -f encore.*
+	rm *.pony.c
 
-.PHONY: all encorec $(ENCORE_TARGETS)
+.PHONY: test clean $(ENCORE_TARGETS)

@@ -16,6 +16,6 @@ prettyprinter: ast $(PRETTYPRINTER_OBJECTS)
 	$(HC) $< $(FLAGS)
 
 clean:
-	rm -f *.hi *.o *~
+	rm -f *.hi *.o *\~
 
 .PHONY: all ast examples prettyprinter clean

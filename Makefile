@@ -13,32 +13,38 @@ RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
 LIB_DIR=$(RELEASE_DIR)/lib
 
-PONY_TARGETS=$(PONY_LIB) $(PONY_INC)
-SET_TARGETS=$(SET_LIB) $(SET_INC)
+PONY_OBJECTS=$(PONY_LIB) $(PONY_INC)
+SET_OBJECTS=$(SET_LIB) $(SET_INC)
 
-encorec: runtime $(ENCOREC)
+all: encorec
+
+encorec: runtime
+	make -C $(SRC_DIR) all
 	cp -r $(ENCOREC) $(RELEASE_DIR)
 
-$(ENCOREC):
-	make -C $(SRC_DIR) compiler
+test:
+	make -C $(SRC_DIR) test
 
-runtime: $(PONY_TARGETS) $(SET_TARGETS)
+runtime: $(PONY_OBJECTS) $(SET_OBJECTS)
+
+$(PONY_OBJECTS):
+	make -C $(SRC_DIR) pony
+	mkdir -p $(INC_DIR)
+	mkdir -p $(LIB_DIR)
+	cp -r $(PONY_INC) $(INC_DIR)
+	cp -r $(PONY_LIB) $(LIB_DIR)
+
+$(SET_OBJECTS):
+	make -C $(SRC_DIR) set
 	mkdir -p $(INC_DIR)
 	mkdir -p $(LIB_DIR)
 	cp -r $(SET_INC) $(INC_DIR)
 	cp -r $(SET_LIB) $(LIB_DIR)
-	cp -r $(PONY_INC) $(INC_DIR)
-	cp -r $(PONY_LIB) $(LIB_DIR)
 
-$(PONY_TARGETS):
-	make -C $(SRC_DIR) pony
-
-$(SET_TARGETS):
-	make -C $(SRC_DIR) set
 clean:
 	make -C $(SRC_DIR) clean
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)
 
-.PHONY: encorec clean
+.PHONY: all runtime encorec clean
