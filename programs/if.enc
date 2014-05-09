@@ -1,0 +1,11 @@
+class Main
+  def main() : void{
+    if true then
+      print string "true is true"
+    else
+      print string "*** true is false! ***";
+    if false then
+      print string "*** false is true! ***"
+    else
+      print string "false is false"
+  }

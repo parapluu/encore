@@ -44,6 +44,8 @@ data Expr = Skip
           | Assign LVal Expr
           | VarAccess Name
           | Null
+          | BTrue
+          | BFalse
           | New Type
           | Print Type Expr
           | StringLiteral String

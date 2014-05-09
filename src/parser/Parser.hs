@@ -27,6 +27,8 @@ import AST
 --        | get Expr
 --        | Path
 --        | null
+--        | true
+--        | false
 --        | new Name
 --        | print Name Name Expr
 --        | " String "
@@ -45,7 +47,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "new", "print"],
+               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
@@ -142,6 +144,8 @@ expr  =  skip
      <|> get
      <|> new
      <|> null
+     <|> true
+     <|> false
      <|> sequence
      <|> print
      <|> string
@@ -188,6 +192,10 @@ expr  =  skip
                       return $ VarAccess $ Name id }
       null = do {reserved "null" ; 
                  return Null}
+      true = do {reserved "true" ; 
+                 return BTrue}
+      false = do {reserved "false" ; 
+                  return BFalse}
       new = do {reserved "new" ;
                 ty <- identifier ;
                 return $ New (Type ty)}
