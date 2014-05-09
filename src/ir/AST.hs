@@ -38,6 +38,7 @@ data Expr = Skip
           | Let Name Type Expr Expr
           | Seq [Expr]
           | IfThenElse Expr Expr Expr
+          | While Expr Expr
           | Get Expr
           | FieldAccess Expr Name
           | Assign LVal Expr

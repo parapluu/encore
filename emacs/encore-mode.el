@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "print" "skip" "then"))
+(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "print" "skip" "then" "while"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void"))
 
@@ -33,18 +33,6 @@
     (,encore-variable-regexp   1 font-lock-variable-name-face)
   )
 )
-
-;; Let the GC deal with obsolete data
-(setq encore-keywords nil)
-(setq encore-constants nil)
-(setq encore-primitives nil)
-(setq encore-keywords-regexp nil)
-(setq encore-constants-regexp nil)
-(setq encore-primitives-regexp nil)
-(setq encore-types-regexp nil)
-(setq encore-function-regexp nil)
-(setq encore-variable-regexp nil)
-(setq encore-comment-regexp nil)
 
 (setq encore-tab-width 2)
 (make-local-variable 'encore-tab-width)
@@ -91,6 +79,9 @@
   (if (string-match "\\<else\\>.*" line)
         (+ (match-beginning 0) encore-tab-width)
 
+  (if (string-match "\\<while\\>" line)
+      (+ (match-beginning 0) encore-tab-width)
+
   (if (string-match "\\<def\\>" line)
       (+ (match-beginning 0) encore-tab-width)
 
@@ -105,7 +96,7 @@
   (if (string-match "\\W*\\([^;]*\\);" line)
       (match-beginning 1)
   (if (bobp)
-      0)))))))))))))))
+      0))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)

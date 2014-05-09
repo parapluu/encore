@@ -45,7 +45,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "call", "in", "if", "then", "else", "lookup", "get", "null", "new", "print"],
+               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "new", "print"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
@@ -138,6 +138,7 @@ expr  =  skip
      <|> varAccess
      <|> letExpression
      <|> ifThenElse
+     <|> while
      <|> get
      <|> new
      <|> null
@@ -172,6 +173,10 @@ expr  =  skip
                        reserved "else" ;
                        els <- expression ;
                        return $ IfThenElse cond thn els}
+      while = do {reserved "while" ; 
+                  cond <- expression ;
+                  expr <- expression ;
+                  return $ While cond expr}
       get = do {reserved "get" ; 
                 expr <- expression ; 
                 return $ Get expr }

@@ -9,6 +9,7 @@ ppIn = text "in"
 ppIf = text "if"
 ppThen = text "then"
 ppElse = text "else"
+ppWhile = text "while"
 ppGet = text "get"
 ppNull = text "null"
 ppNew = text "new"
@@ -75,6 +76,9 @@ ppExpr (IfThenElse cond thn els) =
          nest 2 (ppExpr thn) $+$
     ppElse $+$
          nest 2 (ppExpr els)
+ppExpr (While cond expr) = 
+    ppWhile <+> ppExpr cond $+$
+         nest 2 (ppExpr expr)
 ppExpr (Get e) = ppGet <+> ppExpr e
 ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
 ppExpr (VarAccess x) = ppName x
