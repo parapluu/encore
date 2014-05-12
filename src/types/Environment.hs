@@ -4,7 +4,10 @@ module Environment(Environment,
                    methodLookup, 
                    fieldLookup, 
                    varLookup,
-                   extendEnvironment) where
+                   extendEnvironment,
+                   wfType) where
+
+import Data.Maybe
 
 import Types
 import AST
@@ -46,3 +49,6 @@ extendEnvironment (Env ctable locals) ((name, ty):newTypes) =
       extend ((name, ty):bindings) name' ty'
           | name == name' = (name', ty'):bindings
           | otherwise     = (name, ty):(extend bindings name' ty')
+
+wfType :: Environment -> Type -> Bool
+wfType env ty = isPrimitive ty || (isJust $ classLookup env ty)

@@ -1,5 +1,5 @@
 class Main 
-  def main() : Object
+  def main() : void
     let other : Other = new Other in
       {other.init(10);
        other.work()}

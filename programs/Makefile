@@ -2,7 +2,7 @@ ROOT_PATH=..
 ENCOREC=$(ROOT_PATH)/release/encorec
 ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
-ENCOREC_FLAGS=-clang -c
+ENCOREC_FLAGS=-clang -c -t
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
 OUTFILES=$(shell ls *.out)
@@ -10,7 +10,7 @@ OUTFILES=$(shell ls *.out)
 encorec:
 	make -C $(ROOT_PATH)
 
-all: encorec $(ENCORE_TARGETS)
+all: encorec $(ENCORE_SOURCES)
 
 $(ENCORE_SOURCES):
 	@echo "compiling" $@

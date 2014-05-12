@@ -1,6 +1,6 @@
 HC=ghc
 FLAGS=--make -i$(INC_PATH)
-INC_PATH=../parser:../ir:../back
+INC_PATH=../parser:../ir:../types:../back
 
 all: encorec
 

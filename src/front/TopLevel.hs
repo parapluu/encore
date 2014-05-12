@@ -12,12 +12,11 @@ import Control.Monad
 import Parser
 import AST
 import PrettyPrinter
-import Examples
+import Typechecker
 import CodeGen.Main
 import CCode.PrettyCCode
 
--- TODO: Add a -o option for output file
-data Option = GCC | Clang | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
+data Option = GCC | Clang | KeepCFiles | Typecheck | Undefined String | Output FilePath | Source FilePath deriving(Eq)
 
 parseArguments :: [String] -> ([String], [Option])
 parseArguments args = 
@@ -28,7 +27,8 @@ parseArguments args =
               (opt, rest) = parseArgument args
               parseArgument ("-c":args)       = (KeepCFiles, args)
               parseArgument ("-gcc":args)     = (GCC, args)
-              parseArgument ("-clang":args)    = (Clang, args)
+              parseArgument ("-clang":args)   = (Clang, args)
+              parseArgument ("-t":args)       = (Typecheck, args)
               parseArgument ("-o":file:args)  = (Output file, args)
               parseArgument (('-':flag):args) = (Undefined flag, args)
               parseArgument (file:args)       = (Source file, args)
@@ -63,6 +63,8 @@ doCompile ast source options =
        incPath <- return $ encorecDir ++ "./inc/"
        ponyLibPath <- return $ encorecDir ++ "lib/libpony.a"
        setLibPath <- return $ encorecDir ++ "lib/set.o"
+
+       
 
        progName <- return $ dropDir . dropExtension $ source
        execName <- case find (isOutput) options of
@@ -120,8 +122,11 @@ main =
                         code <- readFile progName
                         program <- return $ parseEncoreProgram progName code
                         case program of
-                          Right ast -> do exitCode <- doCompile ast progName options
-                                          exitWith exitCode
+                          Right ast -> if not (Typecheck `elem` options) || typecheckEncoreProgram ast then
+                                           do exitCode <- doCompile ast progName options
+                                              exitWith exitCode
+                                       else
+                                           putStrLn "Typechecking failed! Aborting..."
                           Left error -> do putStrLn $ show error
                                            exitFailure
     where
