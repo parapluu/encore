@@ -3,7 +3,7 @@ SET_DIR=set
 
 all: compiler
 
-compiler: parser ir back set pony
+compiler: parser ir types back set pony
 	make -C front
 
 parser: 
@@ -11,6 +11,9 @@ parser:
 
 ir:
 	make -C ir
+
+types: 
+	make -C types
 
 back:
 	make -C back
@@ -49,4 +52,4 @@ clean_pony:
 	[ -f $(PONY_DIR)/Makefile ] && make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-.PHONY: all compiler parser ir back clean clean_pony set
+.PHONY: all compiler parser ir types back clean clean_pony set
