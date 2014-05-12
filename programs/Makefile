@@ -39,6 +39,6 @@ clean:
 	rm -f *.pony.c
 	rm -f *\~
 	rm -f encorec
-	rm -f encore.*
+	rm -rf a.out*
 
 .PHONY: all encorec $(ENCORE_TARGETS)

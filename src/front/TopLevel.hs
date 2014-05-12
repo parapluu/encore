@@ -67,7 +67,7 @@ doCompile ast source options =
        progName <- return $ dropDir . dropExtension $ source
        execName <- case find (isOutput) options of
                      Just (Output file) -> return file
-                     _                  -> return ("encore." ++ progName)
+                     _                  -> return "a.out"
        cFile <- return (progName ++ ".pony.c")
 
        withFile cFile WriteMode (outputCode ast)
