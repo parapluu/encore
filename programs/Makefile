@@ -5,6 +5,7 @@ ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 ENCOREC_FLAGS=-clang -c
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
+OUTFILES=$(shell ls *.out)
 
 encorec:
 	make -C $(ROOT_PATH)
@@ -17,6 +18,14 @@ $(ENCORE_SOURCES):
 
 $(TARGETS): $(PONYCS)
 	clang -Wall -ggdb $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
+
+test:
+	for o in $(OUTFILES); do \
+	  echo $$o: ; \
+	  ./$$(echo $$o | sed "s/\(.*\)\.out/\1/") | cmp $$o && echo OK ; \
+	done
+
+#	  ./encore.$(echo $o | sed "s/\(.*\).out$/\1/") | cmp $o ; 
 
 # use case: you've generated output, it doesn't work. You manually
 # fixed the pony.c file. With this target, you can compile it:
