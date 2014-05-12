@@ -1,6 +1,7 @@
 ROOT_PATH=..
 ENCOREC=$(ROOT_PATH)/release/encorec
-ENCORE_TARGETS=$(shell ls *.enc)
+ENCORE_SOURCES=$(shell ls *.enc)
+ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 ENCOREC_FLAGS=-clang -c
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
@@ -10,9 +11,9 @@ encorec:
 
 all: encorec $(ENCORE_TARGETS)
 
-$(ENCORE_TARGETS):
+$(ENCORE_SOURCES):
 	@echo "compiling" $@
-	@$(ENCOREC) $(ENCOREC_FLAGS) $@
+	$(ENCOREC) $(ENCOREC_FLAGS) $@
 
 $(TARGETS): $(PONYCS)
 	clang -Wall -ggdb $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
@@ -31,5 +32,6 @@ clean:
 	rm -f *\~
 	rm -f encorec
 	rm -rf a.out*
+	rm -rf $(ENCORE_TARGETS)
 
-.PHONY: all encorec $(ENCORE_TARGETS)
+.PHONY: all encorec $(ENCORE_SOURCES)
