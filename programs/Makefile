@@ -19,7 +19,7 @@ $(ENCORE_SOURCES):
 $(TARGETS): $(PONYCS) $(ENCORE_SOURCES)
 	clang -Wall -ggdb $@.pony.c ../src/runtime/bin/debug/libpony.a -o $@ -I../src/runtime/inc/
 
-test: all
+run: all
 	for o in $(OUTFILES); do \
 	  echo $$o: ; \
 	  ./$$(echo $$o | sed "s/\(.*\)\.out/\1/") | cmp $$o && echo OK ; \
@@ -41,4 +41,4 @@ clean:
 	rm -rf a.out*
 	rm -rf $(ENCORE_TARGETS)
 
-.PHONY: all encorec $(ENCORE_SOURCES) compile_fixed_ponyc
+.PHONY: all encorec $(ENCORE_SOURCES) compile_fixed_ponyc run
