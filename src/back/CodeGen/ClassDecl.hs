@@ -123,9 +123,9 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       pony_mode :: A.Type -> CCode Name
       pony_mode ty =
           case translate ty :: CCode Ty of
-            Ptr pony_actor_t -> Nam "PONY_ACTOR"
-            _ -> Nam "PONY_PRIMITIVE" --fixme how/when will we be
-                                      --using the other modes?
+            Ptr (Typ "pony_actor_t") -> Nam "PONY_ACTOR"
+            _other -> Nam "PONY_PRIMITIVE" --fixme how/when will we be
+                                           --using the other modes?
 
 
       pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel

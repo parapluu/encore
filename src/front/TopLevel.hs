@@ -51,6 +51,7 @@ outputCode :: Program -> Handle -> IO ()
 outputCode ast out = 
     do printCommented "Source program: "
        printCommented $ show $ ppProgram ast
+       printCommented $ show ast
        printCommented "#####################"
        hPrint out $ code_from_AST ast
     where
