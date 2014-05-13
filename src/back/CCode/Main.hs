@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs,FlexibleInstances,FlexibleContexts,MultiParamTypeClasses #-}
+{-# LANGUAGE GADTs,FlexibleInstances,FlexibleContexts,MultiParamTypeClasses,StandaloneDeriving #-}
 
 -- This module mainly provides the CCode data type, a representation
 -- of C programs that can be pretty-printed to sometimes-legal C code.

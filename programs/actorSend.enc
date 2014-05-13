@@ -10,8 +10,7 @@ class Other
   def init(va : Other) : void 
     this.other = va
   def work() : void
-    {print Other this.other;
-     let othertmp : Other = this.other in
+    {let othertmp : Other = this.other in
        {othertmp.printMsg();
         print string "sent"}}
   def printMsg() : void
