@@ -5,7 +5,8 @@ module Environment(Environment,
                    fieldLookup, 
                    varLookup,
                    extendEnvironment,
-                   wfType) where
+                   wfType,
+                   fooEnv) where
 
 import Data.Maybe
 
@@ -14,6 +15,8 @@ import AST
 
 type ClassTable = [ClassType]
 data Environment = Env ClassTable [VarType]
+
+fooEnv = Env [] [(Name "x", Type "Foo")]
 
 buildClassTable :: Program -> Environment
 buildClassTable (Program classes) = Env (map getClassType classes) []
@@ -26,29 +29,29 @@ getClassType (Class name fields methods) = (name, (fields', methods'))
       getFieldType (Field name ty) = (name, ty)
       getMethodType (Method name rtype params _) = (name, (rtype, params))
 
-fieldLookup :: Environment -> Type -> Name -> Maybe Type
-fieldLookup (Env ctable _) cls f = do (fields, _) <- lookup cls ctable
+fieldLookup :: Type -> Name -> Environment -> Maybe Type
+fieldLookup cls f (Env ctable _) = do (fields, _) <- lookup cls ctable
                                       lookup f fields
 
-methodLookup :: Environment -> Type -> Name -> Maybe (Type, [ParamDecl])
-methodLookup (Env ctable _) cls m = do (_, methods) <- lookup cls ctable
+methodLookup :: Type -> Name -> Environment -> Maybe (Type, [ParamDecl])
+methodLookup cls m (Env ctable _) = do (_, methods) <- lookup cls ctable
                                        lookup m methods
 
-classLookup :: Environment -> Type -> Maybe ([FieldType], [MethodType])
-classLookup (Env ctable _) cls = lookup cls ctable
+classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
+classLookup cls (Env ctable _) = lookup cls ctable
 
-varLookup :: Environment -> Name -> Maybe Type
-varLookup (Env _ locals) x = lookup x locals
+varLookup :: Name -> Environment -> Maybe Type
+varLookup x (Env _ locals) = lookup x locals
 
-extendEnvironment :: Environment -> [(Name, Type)] -> Environment
-extendEnvironment env [] = env
-extendEnvironment (Env ctable locals) ((name, ty):newTypes) = 
-    extendEnvironment (Env ctable (extend locals name ty)) newTypes
+extendEnvironment :: [(Name, Type)] -> Environment -> Environment
+extendEnvironment [] env = env
+extendEnvironment ((name, ty):newTypes) (Env ctable locals) = 
+    extendEnvironment newTypes (Env ctable (extend locals name ty))
     where
       extend [] name' ty' = [(name', ty')]
       extend ((name, ty):bindings) name' ty'
           | name == name' = (name', ty'):bindings
           | otherwise     = (name, ty):(extend bindings name' ty')
 
-wfType :: Environment -> Type -> Bool
-wfType env ty = isPrimitive ty || (isJust $ classLookup env ty)
+wfType :: Type -> Environment -> Bool
+wfType ty env = isPrimitive ty || (isJust $ classLookup ty env)
