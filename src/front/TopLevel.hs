@@ -122,11 +122,15 @@ main =
                         code <- readFile progName
                         program <- return $ parseEncoreProgram progName code
                         case program of
-                          Right ast -> if not (Typecheck `elem` options) || typecheckEncoreProgram ast then
+                          Right ast -> if not (Typecheck `elem` options) then
                                            do exitCode <- doCompile ast progName options
                                               exitWith exitCode
                                        else
-                                           putStrLn "Typechecking failed! Aborting..."
+                                           do tcResult <- return $ typecheckEncoreProgram ast
+                                              case tcResult of
+                                                Right () -> do exitCode <- doCompile ast progName options
+                                                               exitWith exitCode
+                                                Left err -> print err
                           Left error -> do putStrLn $ show error
                                            exitFailure
     where

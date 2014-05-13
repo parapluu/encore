@@ -52,7 +52,17 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr deriving(Read, Show, Eq)
 
-data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Show, Eq)
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
+
+instance Show Op where
+    show AST.LT    = "<"
+    show AST.GT    = ">"
+    show AST.EQ    = "="
+    show NEQ   = "!="
+    show PLUS  = "+"
+    show MINUS = "-"
+    show TIMES = "*"
+    show DIV   = "/"
 
 type Arguments = [Expr]
 

@@ -1,4 +1,4 @@
-module PrettyPrinter (ppExpr,ppProgram) where
+module PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl) where
 import AST
 import Text.PrettyPrint
 
