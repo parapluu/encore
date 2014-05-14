@@ -9,52 +9,47 @@ module Environment(Environment,
                    backtrace,
                    pushBT) where
 
-import Data.Maybe
-import Text.PrettyPrint
-
+-- Module dependencies
 import Types
 import AST
-import PrettyPrinter
 import TypeError
 
-pushBT :: Pushable a => a -> EnvironmentTransformer
-pushBT x (Env ctable locals bt) = (Env ctable locals (push x bt))
-
-backtrace (Env _ _ bt) = bt
-
-type ClassTable = [ClassType]
-data Environment = Env ClassTable [VarType] Backtrace
+data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
 type EnvironmentTransformer = Environment -> Environment
 
-buildClassTable :: Program -> Environment
-buildClassTable (Program classes) = Env (map getClassType classes) [] []
+pushBT :: Pushable a => a -> EnvironmentTransformer
+pushBT x env = env {bt = push x (bt env)}
 
-getClassType :: ClassDecl -> ClassType
-getClassType (Class name fields methods) = (name, (fields', methods'))
+backtrace = bt
+
+buildClassTable :: Program -> Environment
+buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
     where
-      fields' = map getFieldType fields
-      methods' = map getMethodType methods
-      getFieldType (Field name ty) = (name, ty)
-      getMethodType (Method name rtype params _) = (name, (rtype, params))
+      getClassType (Class name fields methods) = (name, (fields', methods'))
+          where
+            fields' = map getFieldType fields
+            methods' = map getMethodType methods
+            getFieldType fld = (fname fld, ftype fld)
+            getMethodType mtd = (mname mtd, (rtype mtd, mparams mtd))
 
 fieldLookup :: Type -> Name -> Environment -> Maybe Type
-fieldLookup cls f (Env ctable _ _) = do (fields, _) <- lookup cls ctable
-                                        lookup f fields
+fieldLookup cls f env = do (fields, _) <- lookup cls (ctable env)
+                           lookup f fields
 
 methodLookup :: Type -> Name -> Environment -> Maybe (Type, [ParamDecl])
-methodLookup cls m (Env ctable _ _) = do (_, methods) <- lookup cls ctable
-                                         lookup m methods
+methodLookup cls m env = do (_, methods) <- lookup cls (ctable env)
+                            lookup m methods
 
 classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
-classLookup cls (Env ctable _ _) = lookup cls ctable
+classLookup cls env = lookup cls (ctable env)
 
 varLookup :: Name -> Environment -> Maybe Type
-varLookup x (Env _ locals _) = lookup x locals
+varLookup x env = lookup x (locals env)
 
 extendEnvironment :: [(Name, Type)] -> Environment -> Environment
 extendEnvironment [] env = env
-extendEnvironment ((name, ty):newTypes) (Env ctable locals bt) = 
-    extendEnvironment newTypes (Env ctable (extend locals name ty) bt)
+extendEnvironment ((name, ty):newTypes) env = 
+    extendEnvironment newTypes $ env {locals = extend (locals env) name ty}
     where
       extend [] name' ty' = [(name', ty')]
       extend ((name, ty):bindings) name' ty'

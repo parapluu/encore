@@ -1,4 +1,4 @@
-module TypeError (Backtrace, Pushable, push, TCError(TCError)) where
+module TypeError (Backtrace, emptyBT, Pushable, push, TCError(TCError)) where
 
 import Text.PrettyPrint
 import Control.Monad.Error
@@ -17,6 +17,7 @@ instance Show BacktraceNode where
     show (BTLVal lval)                 = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
 
 type Backtrace = [BacktraceNode]
+emptyBT = []
 
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
