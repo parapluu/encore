@@ -1,4 +1,48 @@
-module Parser(parseEncoreProgram) where
+{-| 
+
+Produces an "AST" (or an error) of a @Program@ built from the
+following grammar:
+
+@
+    Program ::= ClassDecl Program | eps
+  ClassDecl ::= class Name { FieldDecls MethodDecls }
+ FieldDecls ::= Name : Name FieldDecl | eps
+ ParamDecls ::= Name : Name , ParamDecl | eps
+MethodDecls ::= def Name ( ParamDecls ) : Name Expr
+   Sequence ::= Expr Seq | eps
+        Seq ::= ; Expr Seq | eps
+  Arguments ::= Expr Args | eps
+       Args ::= , Expr Args | eps
+       Path ::= Name FieldAccess | eps
+FieldAccess ::= . Name FieldAccess | eps
+       Expr ::= skip
+              | Path = Expr
+              | Path . Name ( Arguments )
+              | let Name :: Name = Expr in Expr
+              | { Sequence }
+              | if Expr then Expr else Expr
+              | while Expr Expr
+              | get Expr
+              | Path
+              | null
+              | true
+              | false
+              | new Name
+              | print Name Name Expr
+              | " String "
+              | Int
+              | ( Expr Op Expr )
+        Op ::= \< | \> | == | != | + | - | * | /
+      Name ::= [a-zA-Z][a-zA-Z0-9_]*
+       Int ::= [0-9]+
+    String ::= ([^"]|\\")*
+@
+
+Keywords: @ class def let in if then else while get null new print @
+
+-}
+
+module Parser.Parser(parseEncoreProgram) where
 import Text.Parsec
 import Text.Parsec.String
 import qualified Text.Parsec.Token as P
@@ -7,39 +51,11 @@ import Text.Parsec.Expr
 
 import AST
 
--- Program ::= ClassDecl Program | eps
--- ClassDecl ::= class Name { FieldDecls MethodDecls }
--- FieldDecls ::= Name : Name FieldDecl | eps
--- ParamDecls ::= Name : Name , ParamDecl | eps
--- MethodDecls = def Name ( ParamDecls ) : Name Expr
--- Sequence ::= Expr Seq | eps
--- Seq ::= ; Expr Seq | eps
--- Arguments ::= Expr Args | eps
--- Args ::= , Expr Args | eps
--- Path ::= Name FieldAccess | eps
--- FieldAccess ::= . Name FieldAccess | eps
--- Expr ::= skip
---        | Path = Expr
---        | Path . Name ( Arguments )
---        | let Name :: Name = Expr in Expr
---        | { Sequence }
---        | if Expr then Expr else Expr
---        | get Expr
---        | Path
---        | null
---        | true
---        | false
---        | new Name
---        | print Name Name Expr
---        | " String "
---        | Int
---        | ( Expr Op Expr )
--- Op     ::= < | > | == | != | + | - | * | /
--- Name   ::= [a-zA-Z][a-zA-Z0-9_]*
--- Int    ::= [0-9]+
--- String ::= ([^"]|\")*
-
--- Keywords: class def let in if then else get null new print
+-- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
+-- to the file being parsed and will produce an AST for @code@,
+-- unless a parse error occurs.
+parseEncoreProgram :: FilePath -> String -> Either ParseError Program
+parseEncoreProgram = parse program
 
 lexer = 
     P.makeTokenParser $ 
@@ -207,6 +223,3 @@ expr  =  skip
                    return $ StringLiteral string}
       int = do {n <- natural ; 
                 return $ IntLiteral (fromInteger n)}
-
-parseEncoreProgram :: FilePath -> String -> Either ParseError Program
-parseEncoreProgram = parse program

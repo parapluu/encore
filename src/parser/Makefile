@@ -1,16 +1,7 @@
-HC=ghc
-FLAGS=--make -c -i$(INC_PATH)
-INC_PATH=../ir
-OBJECTS=Parser.o Parser.hi
-
-all: parser
-
-parser: $(OBJECTS)
-
-%.o %.hi : %.hs
-	$(HC) $< $(FLAGS)
+all: 
+	make -C Parser
 
 clean:
-	rm -f *.hi *.o *\~
+	make -C Parser clean
 
-.PHONY: all parser clean 
+.PHONY: all clean 

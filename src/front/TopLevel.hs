@@ -9,7 +9,7 @@ import System.Process
 import Data.List
 import Control.Monad
 
-import Parser
+import Parser.Parser
 import AST
 import PrettyPrinter
 import Typechecker.Typechecker

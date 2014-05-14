@@ -23,9 +23,10 @@ instance Show BacktraceNode where
     show (BTLVal lval)                 = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
 
 type Backtrace = [BacktraceNode]
+emptyBT :: Backtrace
 emptyBT = []
 
-{-| A type class for unifying the syntactic elements that can be pushed to the backtrace stack. -}
+-- | A type class for unifying the syntactic elements that can be pushed to the backtrace stack.
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
 
@@ -47,7 +48,8 @@ instance Pushable Expr where
 instance Pushable LVal where
     push lval bt = (BTLVal lval) : bt
 
-{-| The type checking error data type. Carries an error message and a backtrace. -}
+-- | The data type for a type checking error. Showing it will
+-- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
 instance Error TCError
 instance Show TCError where

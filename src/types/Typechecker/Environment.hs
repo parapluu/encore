@@ -2,13 +2,12 @@
 
 The environment used by "Typechecker.Typechecker". Contains a
 class table and a list of local name-type bindings for doing
-lookups, as well as a stack used for the 'Typechecker.TypeError.Backtrace' of
-the typechecker.
+lookups, as well as the 'Typechecker.TypeError.Backtrace' used for
+error handling.
 
 -}
 
 module Typechecker.Environment(Environment, 
-                               EnvironmentTransformer,
                                buildClassTable, 
                                classLookup, 
                                methodLookup, 
@@ -24,7 +23,6 @@ import Typechecker.Types
 import Typechecker.TypeError
 
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
-type EnvironmentTransformer = Environment -> Environment
 
 buildClassTable :: Program -> Environment
 buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
@@ -36,7 +34,7 @@ buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
             getFieldType fld = (fname fld, ftype fld)
             getMethodType mtd = (mname mtd, (rtype mtd, mparams mtd))
 
-pushBT :: Pushable a => a -> EnvironmentTransformer
+pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
 
 backtrace = bt
