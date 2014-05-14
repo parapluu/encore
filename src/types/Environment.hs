@@ -6,50 +6,24 @@ module Environment(Environment,
                    fieldLookup, 
                    varLookup,
                    extendEnvironment,
-                   Backtrace,
                    backtrace,
-                   Pushable,
                    pushBT) where
 
 import Data.Maybe
+import Text.PrettyPrint
 
 import Types
 import AST
 import PrettyPrinter
-import Text.PrettyPrint
+import TypeError
 
-type Backtrace = [BacktraceNode]
-
-data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr | BTLVal LVal deriving(Eq)
-
-instance Show BacktraceNode where
-    show (BTClass (Type t))            = "In class '"          ++ t                      ++ "'"
-    show (BTParam p)                   = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
-    show (BTField f)                   = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
-    show (BTMethod (Name n) (Type ty)) = "In method '"         ++ n                      ++ "' of type '" ++ ty ++ "'"
-    show (BTExpr expr)                 = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
-    show (BTLVal lval)                 = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
-
-class Pushable a where
-    pushBT :: a -> EnvironmentTransformer
-instance Pushable ClassDecl where
-    pushBT (Class cname _ _) (Env ctable locals bt) = Env ctable locals ((BTClass cname):bt)
-instance Pushable FieldDecl where
-    pushBT f (Env ctable locals bt) = Env ctable locals ((BTField f):bt)
-instance Pushable ParamDecl where
-    pushBT p (Env ctable locals bt) = Env ctable locals ((BTParam p):bt)
-instance Pushable MethodDecl where
-    pushBT (Method name ty _ _) (Env ctable locals bt) = Env ctable locals ((BTMethod name ty):bt)
-instance Pushable Expr where
-    pushBT expr (Env ctable locals bt) = Env ctable locals ((BTExpr expr):bt)
-instance Pushable LVal where
-    pushBT lval (Env ctable locals bt) = Env ctable locals ((BTLVal lval):bt)
+pushBT :: Pushable a => a -> EnvironmentTransformer
+pushBT x (Env ctable locals bt) = (Env ctable locals (push x bt))
 
 backtrace (Env _ _ bt) = bt
 
 type ClassTable = [ClassType]
 data Environment = Env ClassTable [VarType] Backtrace
-
 type EnvironmentTransformer = Environment -> Environment
 
 buildClassTable :: Program -> Environment

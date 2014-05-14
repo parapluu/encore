@@ -1,29 +1,23 @@
 module Typechecker(typecheckEncoreProgram) where
 
+-- Library dependencies
 import Data.Maybe
 import Data.List
-import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.Error
 
+-- Module dependencies
 import AST
 import PrettyPrinter
 import Types
 import Environment
-
-newtype TCError = TCError (String, Backtrace)
-instance Error TCError
-instance Show TCError where
-    show (TCError (msg, bt)) = 
-        "*** Error during typechecking ***\n" ++
-        msg ++ "\n" ++
-        (concat $ map ((++"\n") . show) bt)
-
-tcError s = do bt <- asks backtrace
-               throwError $ TCError (s, bt)
+import TypeError
 
 typecheckEncoreProgram :: Program -> Either TCError ()
 typecheckEncoreProgram p = runReader (runErrorT (typecheck p)) (buildClassTable p)
+
+tcError s = do bt <- asks backtrace
+               throwError $ TCError (s, bt)
 
 wfType :: Type -> ErrorT TCError (Reader Environment) ()
 wfType ty = do refType <- asks $ classLookup ty
