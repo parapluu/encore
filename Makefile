@@ -25,6 +25,9 @@ encorec: runtime
 test:
 	make -C $(SRC_DIR) test
 
+doc:
+	haddock -o $@ -h $$(find . -name "*.hs")
+
 runtime: $(PONY_OBJECTS) $(SET_OBJECTS)
 
 $(PONY_OBJECTS):
@@ -46,5 +49,6 @@ clean:
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)
+	rm -rf doc
 
 .PHONY: all runtime encorec clean
