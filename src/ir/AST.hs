@@ -66,4 +66,4 @@ instance Show Op where
 
 type Arguments = [Expr]
 
-data LVal = LVal Name | LField Expr Name | LThisField Name deriving(Read, Show, Eq)
+data LVal = LVal Name | LField Expr Name deriving(Read, Show, Eq)
