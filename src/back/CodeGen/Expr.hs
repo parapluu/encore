@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances,GADTs #-}
 
-module CodeGen.Expr where
+{-| Makes @Expr@ an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
+
+module CodeGen.Expr () where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames

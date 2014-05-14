@@ -1,5 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
+{-| Make Type (see "AST") an instance of @Translatable@ (see
+"CodeGen.Typeclasses"). For instance, any object reference will be
+translated to a void*, but primitives will remain unchanged -}
+
 module CodeGen.Type where
 
 import CodeGen.Typeclasses

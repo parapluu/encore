@@ -1,6 +1,21 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
-module CodeGen.ClassDecl where
+{-| Translate a @ClassDecl@ (see "AST") to its @CCode@ (see
+"CCode.Main") equivalent. The contribution of this module are two instances:
+
+  - @Translatable ClassDecl (Reader Context (CCode Toplevel))@ --
+translates the class declaration into ccode, where the data are
+represented as a record and the methods are represented as in
+"CodeGen.MethodDecl".
+
+  - @instance FwdDeclaration ClassDecl (CCode Toplevel)@ -- forward
+declarations for all the parts of the implementations; we want all
+@Encore@ classes to have the semantics of mutually recursive
+definitions.
+
+ -}
+
+module CodeGen.ClassDecl () where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -17,6 +32,7 @@ import qualified AST as A
 
 import Control.Monad.Reader hiding (void)
 
+-- | A @ClassDecl@ is not translated to @CCode@ directly, but to a @Reader@ of @Context@ (see "CodeGen.Context")
 instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   translate cdecl = do
     method_impls <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (translate mdecl))) (A.methods cdecl)

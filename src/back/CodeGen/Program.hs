@@ -1,5 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses,FlexibleInstances #-}
 
+{-| Translate an Encore program (see "AST") into @CCode FIN@
+You can pretty-print (see "CCode.PrettyCCode") this and a C compiler
+might be able to compile the result. -}
+
 module CodeGen.Program(translate) where
 
 import CodeGen.Typeclasses
