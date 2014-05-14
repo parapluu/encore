@@ -1,3 +1,9 @@
+{-| The context that several of the Translatable typeclasses use for
+compiling. For instance, it's needed for looking up the type of local
+variables / fields on the class. The need for the context would go
+away if we had runtime type information and/or type information from
+the typechecking process. -}
+
 module CodeGen.Context (
   Context,
   mk,

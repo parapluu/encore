@@ -1,5 +1,9 @@
 {-# LANGUAGE GADTs #-}
 
+{-|
+Converting CCode (see "CCode.Main") to C source.
+-}
+
 module CCode.PrettyCCode (pp) where
 
 import CCode.Main
@@ -8,6 +12,7 @@ import Data.List
 
 indent = nest 2
 
+-- | Converts a CCode value to its source representation
 pp :: CCode a -> String
 pp = show . pp'
 

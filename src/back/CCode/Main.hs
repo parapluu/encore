@@ -1,9 +1,11 @@
 {-# LANGUAGE GADTs,FlexibleInstances,FlexibleContexts,MultiParamTypeClasses,StandaloneDeriving #-}
 
--- This module mainly provides the CCode data type, a representation
--- of C programs that can be pretty-printed to sometimes-legal C code.
--- The purpose of this data type is NOT to be a C compiler, but it
--- tries to enforce some reasonable invariants.
+{-| Provides the CCode data type, a representation of C
+programs that can be pretty-printed to sometimes-legal C code. The
+purpose of this data type is NOT to guarantee that only valid C code
+will be generated, but it tries to enforce some reasonable invariants.
+-}
+
 module CCode.Main where
 
 import qualified AST
@@ -17,21 +19,21 @@ data Incl
 data Name
 data Ty
 data Lval
+-- | CCode FIN == A complete program
 data FIN
 
 -- the next lines are magic :)
 
--- I'm using the UsableAs typeclass to mark what might go where in the
--- CCode type below.  For instance, you can always use an lval where
--- an expression is expected, and you can always use a Name where an
--- Lval is expected
+-- | The UsableAs typeclass marks what might go where in the
+-- | CCode type below. For instance, you can always use an lval where
+-- | an expression is expected, and you can always use a Name where an
+-- | Lval is expected
 class UsableAs a b where
 
 instance UsableAs Name Lval where
 instance UsableAs Lval Expr where
 instance UsableAs Name Expr where
 instance UsableAs a a where
-
 
 type CType = String
 type CName = String
