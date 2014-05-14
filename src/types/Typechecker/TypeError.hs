@@ -1,15 +1,15 @@
 {-|
 
-The machinery used by "Typechecker" for handling errors and backtracing. 
+The machinery used by "Typechecker.Typechecker" for handling errors and backtracing. 
 
 -}
 
-module TypeError (Backtrace, emptyBT, Pushable, push, TCError(TCError)) where
+module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCError)) where
 
 import Text.PrettyPrint
 import Control.Monad.Error
 
-import Types
+import Typechecker.Types
 import AST
 import PrettyPrinter
 
@@ -47,7 +47,7 @@ instance Pushable Expr where
 instance Pushable LVal where
     push lval bt = (BTLVal lval) : bt
 
-{-| The Exception data type. Carries an error message and a backtrace. -}
+{-| The type checking error data type. Carries an error message and a backtrace. -}
 newtype TCError = TCError (String, Backtrace)
 instance Error TCError
 instance Show TCError where

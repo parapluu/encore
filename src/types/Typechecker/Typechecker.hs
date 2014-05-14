@@ -5,7 +5,7 @@ fails.
 
 -}
 
-module Typechecker(typecheckEncoreProgram) where
+module Typechecker.Typechecker(typecheckEncoreProgram) where
 
 -- Library dependencies
 import Data.Maybe
@@ -16,9 +16,9 @@ import Control.Monad.Error
 -- Module dependencies
 import AST
 import PrettyPrinter
-import Types
-import Environment
-import TypeError
+import Typechecker.Types
+import Typechecker.Environment
+import Typechecker.TypeError
 
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError ()

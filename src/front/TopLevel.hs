@@ -12,7 +12,7 @@ import Control.Monad
 import Parser
 import AST
 import PrettyPrinter
-import Typechecker
+import Typechecker.Typechecker
 import CodeGen.Main
 import CCode.PrettyCCode
 

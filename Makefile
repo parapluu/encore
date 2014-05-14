@@ -51,4 +51,4 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc
 
-.PHONY: all runtime encorec clean
+.PHONY: all doc runtime encorec clean

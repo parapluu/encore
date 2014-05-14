@@ -1,27 +1,27 @@
 {-| 
 
-The environment used by "Typechecker". Contains a class table and
-a list of local name-type bindings for doing lookups, as well as a
-stack used for the backtrace of the typechecker (See
-'TypeError.Backtrace').
+The environment used by "Typechecker.Typechecker". Contains a
+class table and a list of local name-type bindings for doing
+lookups, as well as a stack used for the 'TypeError.Backtrace' of
+the Typechecker.Typechecker).
 
 -}
 
-module Environment(Environment, 
-                   EnvironmentTransformer,
-                   buildClassTable, 
-                   classLookup, 
-                   methodLookup, 
-                   fieldLookup, 
-                   varLookup,
-                   extendEnvironment,
-                   backtrace,
-                   pushBT) where
+module Typechecker.Environment(Environment, 
+                               EnvironmentTransformer,
+                               buildClassTable, 
+                               classLookup, 
+                               methodLookup, 
+                               fieldLookup, 
+                               varLookup,
+                               extendEnvironment,
+                               backtrace,
+                               pushBT) where
 
 -- Module dependencies
-import Types
 import AST
-import TypeError
+import Typechecker.Types
+import Typechecker.TypeError
 
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
 type EnvironmentTransformer = Environment -> Environment
