@@ -1,3 +1,9 @@
+{-|
+
+The machinery used by "Typechecker" for handling errors and backtracing. 
+
+-}
+
 module TypeError (Backtrace, emptyBT, Pushable, push, TCError(TCError)) where
 
 import Text.PrettyPrint
@@ -19,8 +25,10 @@ instance Show BacktraceNode where
 type Backtrace = [BacktraceNode]
 emptyBT = []
 
+{-| A type class for unifying the syntactic elements that can be pushed to the backtrace stack. -}
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
+
 instance Pushable ClassDecl where
     push (Class cname _ _) bt = (BTClass cname) : bt
 
@@ -39,6 +47,7 @@ instance Pushable Expr where
 instance Pushable LVal where
     push lval bt = (BTLVal lval) : bt
 
+{-| The Exception data type. Carries an error message and a backtrace. -}
 newtype TCError = TCError (String, Backtrace)
 instance Error TCError
 instance Show TCError where

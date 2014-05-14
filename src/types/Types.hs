@@ -1,4 +1,10 @@
-module Types where
+{-|
+
+The types used by the "Typechecker".
+
+-}
+
+module Types(VarType, FieldType, MethodType, ClassType, isPrimitive) where
 
 import AST
 

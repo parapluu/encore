@@ -1,3 +1,10 @@
+{-|
+
+Typechecks an "AST" and produces a meaningful error message if it
+fails. 
+
+-}
+
 module Typechecker(typecheckEncoreProgram) where
 
 -- Library dependencies
@@ -13,19 +20,29 @@ import Types
 import Environment
 import TypeError
 
+-- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError ()
 typecheckEncoreProgram p = runReader (runErrorT (typecheck p)) (buildClassTable p)
 
-tcError s = do bt <- asks backtrace
-               throwError $ TCError (s, bt)
+-- | Convenience function for throwing an exception with the
+-- current backtrace
+tcError msg = do bt <- asks backtrace
+                 throwError $ TCError (msg, bt)
 
+-- | Convenience function for checking if a type is well-formed
 wfType :: Type -> ErrorT TCError (Reader Environment) ()
 wfType ty = do refType <- asks $ classLookup ty
                unless (isPrimitive ty || isJust refType) $ tcError $ "Unknown type '" ++ show ty ++ "'"
 
+-- | The actual typechecking is done using a Reader monad wrapped
+-- in an Error monad. The Reader monad lets us do lookups in the
+-- "Environment", and the Error monad lets us throw a
+-- "TCError" exception anywhere.
 class Checkable a where
     typecheck :: a -> ErrorT TCError (Reader Environment) ()
 
+    -- | Convenience function for pushing and typechecking a
+    -- component in one step.
     pushTypecheck :: Pushable a => a -> ErrorT TCError (Reader Environment) ()
     pushTypecheck x = local (pushBT x) $ typecheck x
 
@@ -57,7 +74,11 @@ instance Checkable MethodDecl where
            typecheckParam = (\p@(Param(name, ty)) -> local (pushBT p) $ wfType ty)
            addParams = extendEnvironment (map (\(Param p) -> p) params)
 
+-- | The type class for checking things that have a type
+-- (i.e. 'AST.Expr's and 'AST.LVal's). Uses the same monad
+-- combination as Checkable.
 class Typeable a where
+    -- | Assert-style function to check if 'a' has a type 'ty'
     hastype :: a -> Type -> ErrorT TCError (Reader Environment) ()
     hastype a ty = do wfType ty
                       aType <- typeof a
@@ -66,9 +87,13 @@ class Typeable a where
     typeof :: a -> ErrorT TCError (Reader Environment) Type
     typeof x = tcError "Typechecking not implemented for this syntactic construct"
 
+    -- | Convenience function for pushing and getting the type in
+    -- one step
     pushTypeof :: Pushable a => a -> ErrorT TCError (Reader Environment) Type
     pushTypeof x = local (pushBT x) $ typeof x
 
+    -- | Convenience function for pushing and comparing types in
+    -- one step
     pushHastype :: Pushable a => a -> Type -> ErrorT TCError (Reader Environment) ()
     pushHastype x ty = local (pushBT x) $ hastype x ty
 
@@ -77,11 +102,13 @@ instance Typeable Expr where
         do wfType ty
            unless (not . isPrimitive $ ty) $ 
                   tcError $ "null cannot have primitive type '" ++ show ty ++ "'"
+
     hastype expr (Type "_NullType") = 
         do eType <- pushTypeof expr
            unless (not . isPrimitive $ eType) $ 
                   tcError $ "Primitive expression '" ++ show (ppExpr expr) ++ 
                             "' of type '" ++ show eType ++ "' cannot have null type"
+
     hastype expr ty = 
         do wfType ty
            eType <- pushTypeof expr
@@ -90,7 +117,9 @@ instance Typeable Expr where
                             "\nof type '" ++ show eType ++ "' does not have expected type '" ++
                             show ty ++ "'"
 
+
     typeof Skip = return $ Type "void"
+
     typeof (Call target name args) = 
         do targetType <- pushTypeof target
            when (isPrimitive targetType) $ 
@@ -99,22 +128,25 @@ instance Typeable Expr where
                           "' of primitive type '" ++ show targetType ++ "'"
            lookupResult <- asks $ methodLookup targetType name
            case lookupResult of
+             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
              Just (returnType, params) -> 
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
                     zipWithM_ (\arg (Param (_, ty)) -> pushHastype arg ty) args params
                     return returnType
-             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+
     typeof (Let x ty val expr) = 
         do varType <- pushTypeof val
            if varType == ty then
                local (extendEnvironment [(x, ty)]) $ pushTypeof expr
            else
                tcError $ "Declared type '" ++ show ty ++ "' does not match value type '" ++ show varType ++ "'"
+
     typeof (Seq exprs) = 
         do mapM_ (\expr -> pushTypeof expr) exprs 
            typeof (last exprs)
+
     typeof (IfThenElse cond thn els) = 
         do pushHastype cond (Type "bool")
            thnType <- pushTypeof thn
@@ -123,10 +155,13 @@ instance Typeable Expr where
                   tcError $ "Type of then-branch (" ++ show thnType ++
                             ") does not match type of else-branch (" ++ show elsType ++ ")"
            return thnType
+
     typeof (While cond expr) = 
         do pushHastype cond (Type "bool")
            pushTypeof expr
+
     typeof (Get expr) = mzero
+
     typeof (FieldAccess expr f) = 
         do pathType <- pushTypeof expr
            when (isPrimitive pathType) $ 
@@ -135,8 +170,8 @@ instance Typeable Expr where
            fType <- asks $ fieldLookup pathType f
            case fType of
              Just ty -> return ty
-             Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"
-                                                         
+             Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"                                                         
+
     typeof (Assign lval expr) = 
         do lhType <- pushTypeof lval
            rhType <- pushTypeof expr
@@ -145,22 +180,31 @@ instance Typeable Expr where
                             "  Left hand side '" ++ show (ppLVal lval) ++ "' has type '" ++ show lhType ++ "'\n" ++
                             "  Right hand side '" ++ show (ppExpr expr) ++ "' has type '" ++ show rhType ++ "'\n"
            return $ Type "void"
+
     typeof (VarAccess x) = 
         do varType <- asks (varLookup x)
            case varType of
              Just ty -> return ty
              Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
+
     typeof Null = return $ Type "_NullType"
+
     typeof BTrue = return $ Type "bool"
+
     typeof BFalse = return $ Type "bool"
+
     typeof (New ty) = 
         do wfType ty
            return ty
+
     typeof (Print ty expr) = 
         do hastype expr ty
            return $ Type "void"
+
     typeof (StringLiteral s) = return $ Type "string"
+
     typeof (IntLiteral n) = return $ Type "int"
+
     typeof (Binop op e1 e2) 
         | op `elem` cmpOps = 
             do hastype e1 (Type "int")
