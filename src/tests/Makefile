@@ -17,7 +17,7 @@ $(ENCOREC):
 clean:
 	make -C encore clean
 	make -C compiler clean
-	make -C benchmark clean
+	make -C benchmarks clean
 	make -C lib clean
 	make -C pony clean
 
