@@ -26,7 +26,7 @@ test:
 	make -C $(SRC_DIR) test
 
 doc:
-	haddock -o $@ -h $$(find . -name "*.hs")
+	haddock -o $@ -h $$(find . -name "*.hs" | grep -v "\.#")
 
 runtime: $(PONY_OBJECTS) $(SET_OBJECTS)
 
