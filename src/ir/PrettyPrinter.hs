@@ -1,4 +1,4 @@
-module PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl) where
+module PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, ppLVal, indent) where
 import AST
 import Text.PrettyPrint
 
@@ -23,6 +23,8 @@ ppSemicolon = text ";"
 ppEquals = text "="
 ppSpace = text " "
 
+indent = nest 2
+
 ppName :: Name -> Doc
 ppName (Name x) = text x
 
@@ -35,7 +37,7 @@ ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl (Class name fields methods) = 
     ppClass <+> ppType name $+$
-             (nest 2 $
+             (indent $
                    vcat (map ppFieldDecl fields) $$
                    vcat (map ppMethodDecl methods))
 
@@ -51,7 +53,7 @@ ppMethodDecl (Method mn rt params body) =
     ppName mn <> 
     parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) <+>
     text ":" <+> ppType rt $+$
-    (nest 2 (ppExpr body))
+    (indent (ppExpr body))
 
 isSimple :: Expr -> Bool
 isSimple (VarAccess _) = True
@@ -71,16 +73,16 @@ ppExpr (Call e m args) =
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
 ppExpr (Let (Name x) (Type ty) e1 e2) = 
     ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr e1 <+> ppIn $+$ 
-      nest 2 (ppExpr e2)
+      indent (ppExpr e2)
 ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
 ppExpr (IfThenElse cond thn els) = 
     ppIf <+> ppExpr cond <+> ppThen $+$
-         nest 2 (ppExpr thn) $+$
+         indent (ppExpr thn) $+$
     ppElse $+$
-         nest 2 (ppExpr els)
+         indent (ppExpr els)
 ppExpr (While cond expr) = 
     ppWhile <+> ppExpr cond $+$
-         nest 2 (ppExpr expr)
+         indent (ppExpr expr)
 ppExpr (Get e) = ppGet <+> ppExpr e
 ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
 ppExpr (VarAccess x) = ppName x
@@ -107,4 +109,3 @@ ppBinop AST.DIV = text "/"
 ppLVal :: LVal -> Doc
 ppLVal (LVal (Name x))  = text x
 ppLVal (LField e (Name f)) = maybeParens e <> ppDot <> text f
-ppLVal (LThisField (Name f)) = text f
