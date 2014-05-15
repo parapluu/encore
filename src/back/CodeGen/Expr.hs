@@ -17,16 +17,16 @@ import qualified Identifiers as ID
 import Control.Monad.Reader
 import Data.Maybe
 
-instance Translatable A.Op (CCode Name) where
+instance Translatable ID.Op (CCode Name) where
   translate op = Nam $ case op of
-    A.LT -> "<"
-    A.GT -> ">"
-    A.EQ -> "=="
-    A.NEQ -> "!="
-    A.PLUS -> "+"
-    A.MINUS -> "-"
-    A.TIMES -> "*"
-    A.DIV -> "/"
+    ID.LT -> "<"
+    ID.GT -> ">"
+    ID.EQ -> "=="
+    ID.NEQ -> "!="
+    ID.PLUS -> "+"
+    ID.MINUS -> "-"
+    ID.TIMES -> "*"
+    ID.DIV -> "/"
 
 instance Translatable A.LVal (Reader Ctx.Context (CCode Lval)) where
   translate (A.LVal name) = return $ Embed $ show name

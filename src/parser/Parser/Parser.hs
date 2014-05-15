@@ -152,7 +152,7 @@ expression = buildExpressionParser opTable expr
     where
       opTable = [[op "*" TIMES, op "/" DIV],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" AST.AST.LT, op ">" AST.AST.GT, op "==" AST.AST.EQ, op "!=" AST.AST.NEQ]]
+                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ]]
       op s binop = Infix (do{reservedOp s ; return (\e1 e2 -> Binop binop e1 e2)}) AssocLeft
 
 expr :: Parser Expr

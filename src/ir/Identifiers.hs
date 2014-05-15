@@ -16,3 +16,14 @@ newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
   show (Type t) = t
 
+-- | The supported (infix) operators
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
+instance Show Op where
+    show Identifiers.LT = "<"
+    show Identifiers.GT = ">"
+    show Identifiers.EQ = "="
+    show NEQ            = "!="
+    show PLUS           = "+"
+    show MINUS          = "-"
+    show TIMES          = "*"
+    show DIV            = "/"

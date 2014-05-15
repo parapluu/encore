@@ -49,18 +49,6 @@ data Expr = Skip
           | IntLiteral Int
           | Binop Op Expr Expr deriving(Read, Show, Eq)
 
-data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
-
-instance Show Op where
-    show AST.AST.LT = "<"
-    show AST.AST.GT = ">"
-    show AST.AST.EQ = "="
-    show NEQ        = "!="
-    show PLUS       = "+"
-    show MINUS      = "-"
-    show TIMES      = "*"
-    show DIV        = "/"
-
 type Arguments = [Expr]
 
 data LVal = LVal Name | LField Expr Name deriving(Read, Show, Eq)

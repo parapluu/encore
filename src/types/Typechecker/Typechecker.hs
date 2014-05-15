@@ -221,8 +221,8 @@ instance Typeable Expr where
                return $ Type "int"
         | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
         where
-          cmpOps   = [AST.AST.LT, AST.AST.GT]
-          eqOps    = [AST.AST.EQ, AST.AST.NEQ]
+          cmpOps   = [Identifiers.LT, Identifiers.GT]
+          eqOps    = [Identifiers.EQ, NEQ]
           arithOps = [PLUS, MINUS, TIMES, DIV]
 
 instance Typeable LVal where
