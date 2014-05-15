@@ -3,41 +3,91 @@
 
 typedef struct set *Set;
 
-typedef void (printer_fnc(void *elem));
-typedef void *(map_fnc(void *elem));
+typedef void (printer_fnc(void *elem)); 
+typedef void *(map_fnc(void *elem)); 
 typedef void *(reduce_fnc(void *elem, void *accumulator));
 
-// Returns a new empty set
+/*!
+ *  Create a new empty set. Use set_destroy"()" to free the allocated memory.
+ *  @return A new empty set
+ */
 Set set_new(void);
 
-// Returns 1 if elem was added in the set, 0 if it was already there
+/**
+ *  Insert an element in a set.
+ *  @param set The set to be extended
+ *  @param elem The element to be inserted
+ *  @return 0 if elem was already set, otherwise a non-zero value
+ */ 
 int set_add(Set set, void *elem);
 
-// Returns 1 if elem is in the set, 0 otherwise
+/**
+ *  Test an element for set membership.
+ *  @param set The set to be searched
+ *  @param elem The element sought for
+ *  @return 0 if elem was not in set, otherwise a non-zero value
+ */ 
 int set_elem(Set set, void *elem);
 
-// Returns 1 if elem was removed from the set, 0 if it was not there
+/**
+ *  Remove an element from the set.
+ *  @param set The set to be contracted
+ *  @param elem the element to be deleted
+ *  @return 0 if elem was not in set, otherwise a non-zero value
+ */ 
 int set_remove(Set set, void *elem);
 
-// Returns 1 if sub is a subset of super, 0 otherwise
+/**
+ *  Test a set for subset relation.
+ *  @param set
+ *  @param super
+ *  @return 0 if sub is not a subset of super, otherwise a non-zero value
+ */ 
 int set_subset(Set sub, Set super);
 
-// Returns 1 if set and other contains the same elements, 0 otherwise
+/**
+ *  Test for set equality.
+ *  @param set
+ *  @param other
+ *  @return 0 if set and other do not contain exactly the same elements, otherwise a non-zero value
+ */ 
 int set_eq(Set set, Set other);
 
-// Returns a new set with all elements of set copied (by reference)
+/**
+ *  Create a copy of a set.
+ *  @param set The set to be cloned
+ *  @return A new set with all elements of set copied
+ */ 
 Set set_clone(Set set);
 
-// Prints the set using the printer function print
+/**
+ *  Print a set. 
+ *  @param set The set to be printed
+ *  @param print A function that prints a single element of the set
+ */ 
 void set_print(Set set, printer_fnc print);
 
-// Removes the set (not its elements) from memory
+/**
+ *  Remove a set (but not its elements) from memory
+ *  @param set The set to be destroyed
+ */ 
 void set_destroy(Set set);
 
-// Maps f over set and returns the result
+/**
+ *  Map over all the elements of a set.
+ *  @param set The set to be mapped over
+ *  @param f A function that maps (with or without side-effects) a single element of the set to a new one
+ *  @return The set {f(x) | x \in set}
+ */ 
 Set set_map(Set set, map_fnc f);
 
-// Reduce set with f, using init as initial accumulator value
+/**
+ *  Reduce a set to a single element
+ *  @param set The set to be reduced
+ *  @param f A binary function
+ *  @param init The initial accumulator value
+ *  @return f(xn, f(..., f(x2, f(x1, init))...))
+ */ 
 void *set_reduce(Set set, reduce_fnc f, void *init);
 
 #endif
