@@ -45,7 +45,7 @@ int set_remove(Set set, void *elem);
 
 /**
  *  Test a set for subset relation.
- *  @param set
+ *  @param sub
  *  @param super
  *  @return 0 if \p sub is not a subset of \p super, otherwise a non-zero value
  */ 

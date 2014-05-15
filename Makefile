@@ -27,6 +27,7 @@ test:
 
 doc:
 	haddock -o $@ -h $$(find . -name "*.hs" | grep -v "\.#")
+	make -C $(SET_DIR) doc
 
 runtime: $(PONY_OBJECTS) $(SET_OBJECTS)
 

@@ -12,9 +12,12 @@ test: set.o
 	$(CC) $(FLAGS) test.c -o test set.o
 	./test
 
+doc: Doxyfile
+	doxygen $<
+
 clean: 
 	rm -f set.o test
 	rm -f *\~
 	rm -rf *.dSYM
 
-.PHONY: test clean
+.PHONY: test doc clean
