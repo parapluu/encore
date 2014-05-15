@@ -1,3 +1,10 @@
+{-|
+
+The top level module that orchestrates the compilation process and
+file I/O.
+
+-}
+
 module Main where
 
 import System.Exit
@@ -18,7 +25,7 @@ import CCode.PrettyCCode
 
 data Option = GCC | Clang | KeepCFiles | Typecheck | Undefined String | Output FilePath | Source FilePath deriving(Eq)
 
-parseArguments :: [String] -> ([String], [Option])
+parseArguments :: [String] -> ([FilePath], [Option])
 parseArguments args = 
     let
         parseArguments' []   = []

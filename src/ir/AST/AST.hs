@@ -1,6 +1,11 @@
-module AST.AST where
+{-|
 
-import Data.Traversable
+The abstract syntax tree produced by the parser. Carries no
+additional information other than the program itself.
+
+-}
+
+module AST.AST where
 
 newtype Name = Name String deriving (Read, Eq)
 
@@ -55,14 +60,14 @@ data Expr = Skip
 data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
 
 instance Show Op where
-    show AST.AST.LT    = "<"
-    show AST.AST.GT    = ">"
-    show AST.AST.EQ    = "="
-    show NEQ   = "!="
-    show PLUS  = "+"
-    show MINUS = "-"
-    show TIMES = "*"
-    show DIV   = "/"
+    show AST.AST.LT = "<"
+    show AST.AST.GT = ">"
+    show AST.AST.EQ = "="
+    show NEQ        = "!="
+    show PLUS       = "+"
+    show MINUS      = "-"
+    show TIMES      = "*"
+    show DIV        = "/"
 
 type Arguments = [Expr]
 

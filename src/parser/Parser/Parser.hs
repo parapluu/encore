@@ -1,6 +1,6 @@
 {-| 
 
-Produces an "AST" (or an error) of a @Program@ built from the
+Produces an "AST.AST" (or an error) of a @Program@ built from the
 following grammar:
 
 @
@@ -29,13 +29,13 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Name
               | print Name Name Expr
-              | " String "
+              | \" String \"
               | Int
               | ( Expr Op Expr )
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
-    String ::= ([^"]|\\")*
+    String ::= ([^\"]|\\\")*
 @
 
 Keywords: @ class def let in if then else while get null new print @

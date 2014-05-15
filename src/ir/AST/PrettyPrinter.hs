@@ -1,3 +1,11 @@
+{-|
+
+Prints the source code that an "AST.AST" represents. Each node in
+the abstract syntax tree has a corresponding pretty-print function
+(although not all are exported)
+
+-}
+
 module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, ppLVal, indent) where
 import AST.AST
 import Text.PrettyPrint

@@ -1,6 +1,6 @@
 {-|
 
-Typechecks an "AST" and produces a meaningful error message if it
+Typechecks an "AST.AST" and produces a meaningful error message if it
 fails. 
 
 -}
