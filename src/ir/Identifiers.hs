@@ -16,6 +16,15 @@ newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
   show (Type t) = t
 
+voidType :: Type
+voidType = Type "void"
+
+nullType :: Type
+nullType = Type "_NullType"
+
+isNullType :: Type -> Bool
+isNullType = (== nullType)
+
 -- | The supported (infix) operators
 data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
 instance Show Op where

@@ -103,23 +103,22 @@ instance Typeable Expr where
         do wfType ty
            unless (not . isPrimitive $ ty) $ 
                   tcError $ "null cannot have primitive type '" ++ show ty ++ "'"
-
-    hastype expr (Type "_NullType") = 
-        do eType <- pushTypeof expr
-           unless (not . isPrimitive $ eType) $ 
-                  tcError $ "Primitive expression '" ++ show (ppExpr expr) ++ 
-                            "' of type '" ++ show eType ++ "' cannot have null type"
-
     hastype expr ty = 
-        do wfType ty
-           eType <- pushTypeof expr
-           unless (eType == ty) $ 
-                  tcError $ "Type mismatch:\nExpression\n" ++ show (indent $ ppExpr expr) ++ 
-                            "\nof type '" ++ show eType ++ "' does not have expected type '" ++
-                            show ty ++ "'"
+        if isNullType ty then
+            do eType <- pushTypeof expr
+               unless (not . isPrimitive $ eType) $ 
+                      tcError $ "Primitive expression '" ++ show (ppExpr expr) ++ 
+                                "' of type '" ++ show eType ++ "' cannot have null type"
+        else
+            do wfType ty
+               eType <- pushTypeof expr
+               unless (eType == ty) $ 
+                      tcError $ "Type mismatch:\nExpression\n" ++ show (indent $ ppExpr expr) ++ 
+                                "\nof type '" ++ show eType ++ "' does not have expected type '" ++
+                                show ty ++ "'"
 
 
-    typeof Skip = return $ Type "void"
+    typeof Skip = return $ voidType
 
     typeof (Call target name args) = 
         do targetType <- pushTypeof target
@@ -180,7 +179,7 @@ instance Typeable Expr where
                   tcError $ "Incompatible assigment. \n" ++
                             "  Left hand side '" ++ show (ppLVal lval) ++ "' has type '" ++ show lhType ++ "'\n" ++
                             "  Right hand side '" ++ show (ppExpr expr) ++ "' has type '" ++ show rhType ++ "'\n"
-           return $ Type "void"
+           return voidType
 
     typeof (VarAccess x) = 
         do varType <- asks (varLookup x)
@@ -188,7 +187,7 @@ instance Typeable Expr where
              Just ty -> return ty
              Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
 
-    typeof Null = return $ Type "_NullType"
+    typeof Null = return $ nullType
 
     typeof BTrue = return $ Type "bool"
 
@@ -200,7 +199,7 @@ instance Typeable Expr where
 
     typeof (Print ty expr) = 
         do hastype expr ty
-           return $ Type "void"
+           return $ voidType
 
     typeof (StringLiteral s) = return $ Type "string"
 
