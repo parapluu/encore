@@ -5,6 +5,7 @@ Some example programs written in "AST.AST" form. Used for testing.
 -}
 
 module Examples(examples) where
+import Identifiers
 import AST.AST
 import AST.PrettyPrinter
 

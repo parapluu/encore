@@ -7,15 +7,7 @@ additional information other than the program itself.
 
 module AST.AST where
 
-newtype Name = Name String deriving (Read, Eq)
-
-instance Show Name where
-  show (Name n) = n
-
-instance Show Type where
-  show (Type t) = t
-
-newtype Type = Type String deriving (Read, Eq)
+import Identifiers
 
 newtype Program = Program [ClassDecl] deriving(Read, Show)
 

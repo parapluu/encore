@@ -43,12 +43,16 @@ Keywords: @ class def let in if then else while get null new print @
 -}
 
 module Parser.Parser(parseEncoreProgram) where
+
+-- Library dependencies
 import Text.Parsec
 import Text.Parsec.String
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 
+-- Module dependencies
+import Identifiers
 import AST.AST
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path

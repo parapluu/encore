@@ -9,6 +9,7 @@ module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCErro
 import Text.PrettyPrint
 import Control.Monad.Error
 
+import Identifiers
 import Typechecker.Types
 import AST.AST
 import AST.PrettyPrinter

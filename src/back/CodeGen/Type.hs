@@ -14,14 +14,14 @@ import CCode.Main
 import CCode.PrettyCCode
 import Data.Char
 
-import qualified AST.AST as A
+import qualified Identifiers as ID
 
-instance Translatable A.Type (CCode Ty) where
-    translate (A.Type "void") = void
-    translate (A.Type "Object") = Ptr void
-    translate (A.Type "int") = int
-    translate (A.Type "string") = Ptr char
-    translate (A.Type other_ty) = 
+instance Translatable ID.Type (CCode Ty) where
+    translate (ID.Type "void") = void
+    translate (ID.Type "Object") = Ptr void
+    translate (ID.Type "int") = int
+    translate (ID.Type "string") = Ptr char
+    translate (ID.Type other_ty) = 
         if isLower $ head $ other_ty
         then error $
                  "don't know how to translate type `"++other_ty++"` to pony.c"

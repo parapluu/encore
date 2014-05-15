@@ -14,6 +14,7 @@ import Control.Monad.Reader
 import Control.Monad.Error
 
 -- Module dependencies
+import Identifiers
 import AST.AST
 import AST.PrettyPrinter
 import Typechecker.Types

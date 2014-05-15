@@ -12,6 +12,7 @@ import qualified CodeGen.Context as Ctx
 import CCode.Main
 
 import qualified AST.AST as A
+import qualified Identifiers as ID
 
 import Control.Monad.Reader
 import Data.Maybe
@@ -33,9 +34,9 @@ instance Translatable A.LVal (Reader Ctx.Context (CCode Lval)) where
     tex <- translate ex
     return $ (Deref (tex ::CCode Expr)) `Dot` (Nam $ show name)
 
-type_to_printf_fstr :: A.Type -> String
-type_to_printf_fstr (A.Type "int") = "%i"
-type_to_printf_fstr (A.Type "string") = "%s"
+type_to_printf_fstr :: ID.Type -> String
+type_to_printf_fstr (ID.Type "int") = "%i"
+type_to_printf_fstr (ID.Type "string") = "%s"
 type_to_printf_fstr other = case (translate other :: CCode Ty) of
                               Ptr something -> "%p"
                               _ -> error $ "Expr.hs: type_to_printf_fstr not defined for " ++ show other
@@ -79,7 +80,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
     case expr of
-      (A.VarAccess (A.Name "this")) -> do
+      (A.VarAccess (ID.Name "this")) -> do
         -- call synchronously
         cname <- asks (A.cname . fromJust . Ctx.the_class)
         targs <- mapM translate args
@@ -97,7 +98,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
 
   translate other = return $ Embed $ "/* missing: " ++ show other ++ "*/"
 
---args_to_call :: A.Name -> A.Type -> A.Name -> [CCode Expr]
+--args_to_call :: ID.Name -> ID.Type -> ID.Name -> [CCode Expr]
 args_to_call other other_ty name [] =
     Call (Nam "pony_send") [AsExpr . Var $ show other,
                             AsExpr . AsLval $ method_msg_name other_ty name]

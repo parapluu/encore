@@ -7,8 +7,13 @@ the abstract syntax tree has a corresponding pretty-print function
 -}
 
 module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, ppLVal, indent) where
-import AST.AST
+
+-- Library dependencies
 import Text.PrettyPrint
+
+-- Module dependencies
+import Identifiers
+import AST.AST
 
 ppClass = text "class"
 ppSkip = text "skip"

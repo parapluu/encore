@@ -7,6 +7,7 @@ The types used by the "Typechecker".
 module Typechecker.Types(VarType, FieldType, MethodType, ClassType, isPrimitive) where
 
 import AST.AST
+import Identifiers
 
 type VarType = (Name, Type)
 type FieldType = (Name, Type)
