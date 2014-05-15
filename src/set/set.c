@@ -1,3 +1,6 @@
+/**
+   @file set.c
+*/
 #include "set.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -189,7 +192,7 @@ Set set_map(Set set, map_fnc f){
     return NULL;
 }
 
-void *node_reduce(struct node *node, reduce_fnc f, void *acc){
+static void *node_reduce(struct node *node, reduce_fnc f, void *acc){
   if(!node)
     return acc;
   else{
