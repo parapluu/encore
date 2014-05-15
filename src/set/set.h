@@ -13,7 +13,7 @@ typedef void (printer_fnc(void *elem));
 typedef void *(map_fnc(void *elem)); 
 typedef void *(reduce_fnc(void *elem, void *accumulator));
 
-/*!
+/**
  *  Create a new empty set. Use set_destroy"()" to free the allocated memory.
  *  @return A new empty set
  */
