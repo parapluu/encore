@@ -8,7 +8,7 @@ will be generated, but it tries to enforce some reasonable invariants.
 
 module CCode.Main where
 
-import qualified AST
+import qualified AST.AST as AST
 import Data.Char
 
 data Toplevel

@@ -28,7 +28,7 @@ import CCode.PrettyCCode
 
 import Data.List
 
-import qualified AST as A
+import qualified AST.AST as A
 
 import Control.Monad.Reader hiding (void)
 

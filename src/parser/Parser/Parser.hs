@@ -49,7 +49,7 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 
-import AST
+import AST.AST
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -57,6 +57,8 @@ import AST
 parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
 
+-- | This creates a tokenizer that reads a language derived from
+-- the empty language definition 'emptyDef' extended as shown.
 lexer = 
     P.makeTokenParser $ 
     emptyDef { P.commentStart = "{-",
@@ -67,6 +69,8 @@ lexer =
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
+-- | These parsers use the lexer above and are the smallest
+-- building blocks of the whole parser.
 identifier = P.identifier lexer
 reserved   = P.reserved lexer
 reservedOp = P.reservedOp lexer
@@ -144,7 +148,7 @@ expression = buildExpressionParser opTable expr
     where
       opTable = [[op "*" TIMES, op "/" DIV],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" AST.LT, op ">" AST.GT, op "==" AST.EQ, op "!=" AST.NEQ]]
+                 [op "<" AST.AST.LT, op ">" AST.AST.GT, op "==" AST.AST.EQ, op "!=" AST.AST.NEQ]]
       op s binop = Infix (do{reservedOp s ; return (\e1 e2 -> Binop binop e1 e2)}) AssocLeft
 
 expr :: Parser Expr

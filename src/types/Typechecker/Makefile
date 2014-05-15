@@ -1,6 +1,7 @@
 HC=ghc
 FLAGS=--make -c -i$(INC_PATH)
-INC_PATH=..:../../ir
+SRC_PATH=../..
+INC_PATH=..:$(SRC_PATH)/ir
 TYPES_OBJECTS=Types.o Types.hi
 ENVIRONMENT_OBJECTS=Environment.o Environment.hi
 TYPECHECKER_OBJECTS=Typechecker.o Typechecker.hi

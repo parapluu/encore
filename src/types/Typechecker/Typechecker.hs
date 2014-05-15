@@ -14,8 +14,8 @@ import Control.Monad.Reader
 import Control.Monad.Error
 
 -- Module dependencies
-import AST
-import PrettyPrinter
+import AST.AST
+import AST.PrettyPrinter
 import Typechecker.Types
 import Typechecker.Environment
 import Typechecker.TypeError
@@ -220,9 +220,9 @@ instance Typeable Expr where
                return $ Type "int"
         | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
         where
-          cmpOps   = [AST.LT, AST.GT]
-          eqOps    = [AST.EQ, AST.NEQ]
-          arithOps = [AST.PLUS, AST.MINUS, AST.TIMES, AST.DIV]
+          cmpOps   = [AST.AST.LT, AST.AST.GT]
+          eqOps    = [AST.AST.EQ, AST.AST.NEQ]
+          arithOps = [PLUS, MINUS, TIMES, DIV]
 
 instance Typeable LVal where
     typeof (LVal x) = 

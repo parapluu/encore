@@ -11,7 +11,7 @@ import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 
-import qualified AST as A
+import qualified AST.AST as A
 
 import Control.Monad.Reader
 import Data.Maybe

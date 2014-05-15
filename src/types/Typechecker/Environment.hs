@@ -18,7 +18,7 @@ module Typechecker.Environment(Environment,
                                pushBT) where
 
 -- Module dependencies
-import AST
+import AST.AST
 import Typechecker.Types
 import Typechecker.TypeError
 

@@ -17,7 +17,7 @@ module CodeGen.Context (
   with_local,
   other_classes) where
 
-import AST
+import AST.AST
 import Data.Maybe
 
 data Context = Context Program (Maybe (ClassDecl, Maybe (MethodDecl, [ParamDecl]))) deriving (Show)

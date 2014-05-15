@@ -1,4 +1,4 @@
-module AST where
+module AST.AST where
 
 import Data.Traversable
 
@@ -55,9 +55,9 @@ data Expr = Skip
 data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
 
 instance Show Op where
-    show AST.LT    = "<"
-    show AST.GT    = ">"
-    show AST.EQ    = "="
+    show AST.AST.LT    = "<"
+    show AST.AST.GT    = ">"
+    show AST.AST.EQ    = "="
     show NEQ   = "!="
     show PLUS  = "+"
     show MINUS = "-"

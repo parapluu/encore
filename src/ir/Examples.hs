@@ -1,6 +1,6 @@
 module Examples(examples) where
-import AST
-import PrettyPrinter
+import AST.AST
+import AST.PrettyPrinter
 
 
 -- Table of exported example programs 

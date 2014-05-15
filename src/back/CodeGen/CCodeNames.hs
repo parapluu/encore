@@ -12,7 +12,7 @@ The purpose of this module is to
 
 module CodeGen.CCodeNames where
 
-import qualified AST as A
+import qualified AST.AST as A
 import CCode.Main
 import Data.Char
 

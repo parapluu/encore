@@ -10,8 +10,8 @@ import Text.PrettyPrint
 import Control.Monad.Error
 
 import Typechecker.Types
-import AST
-import PrettyPrinter
+import AST.AST
+import AST.PrettyPrinter
 
 data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr | BTLVal LVal
 instance Show BacktraceNode where

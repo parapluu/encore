@@ -10,8 +10,8 @@ import Data.List
 import Control.Monad
 
 import Parser.Parser
-import AST
-import PrettyPrinter
+import AST.AST
+import AST.PrettyPrinter
 import Typechecker.Typechecker
 import CodeGen.Main
 import CCode.PrettyCCode

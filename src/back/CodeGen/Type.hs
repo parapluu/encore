@@ -14,7 +14,7 @@ import CCode.Main
 import CCode.PrettyCCode
 import Data.Char
 
-import qualified AST as A
+import qualified AST.AST as A
 
 instance Translatable A.Type (CCode Ty) where
     translate (A.Type "void") = void
