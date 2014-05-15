@@ -21,7 +21,7 @@ Set set_new(void);
  *  Insert an element in a set.
  *  @param set The set to be extended
  *  @param elem The element to be inserted
- *  @return 0 if elem was already set, otherwise a non-zero value
+ *  @return 0 if \p elem was already \p set, otherwise a non-zero value
  */ 
 int set_add(Set set, void *elem);
 
@@ -29,7 +29,7 @@ int set_add(Set set, void *elem);
  *  Test an element for set membership.
  *  @param set The set to be searched
  *  @param elem The element sought for
- *  @return 0 if elem was not in set, otherwise a non-zero value
+ *  @return 0 if \p elem was not in \p set, otherwise a non-zero value
  */ 
 int set_elem(Set set, void *elem);
 
@@ -37,7 +37,7 @@ int set_elem(Set set, void *elem);
  *  Remove an element from the set.
  *  @param set The set to be contracted
  *  @param elem the element to be deleted
- *  @return 0 if elem was not in set, otherwise a non-zero value
+ *  @return 0 if \p elem was not in \p set, otherwise a non-zero value
  */ 
 int set_remove(Set set, void *elem);
 
@@ -45,7 +45,7 @@ int set_remove(Set set, void *elem);
  *  Test a set for subset relation.
  *  @param set
  *  @param super
- *  @return 0 if sub is not a subset of super, otherwise a non-zero value
+ *  @return 0 if \p sub is not a subset of \p super, otherwise a non-zero value
  */ 
 int set_subset(Set sub, Set super);
 
@@ -53,14 +53,14 @@ int set_subset(Set sub, Set super);
  *  Test for set equality.
  *  @param set
  *  @param other
- *  @return 0 if set and other do not contain exactly the same elements, otherwise a non-zero value
+ *  @return 0 if \p set and \p other do not contain exactly the same elements, otherwise a non-zero value
  */ 
 int set_eq(Set set, Set other);
 
 /**
  *  Create a copy of a set.
  *  @param set The set to be cloned
- *  @return A new set with all elements of set copied
+ *  @return A new set with all elements of \p set copied
  */ 
 Set set_clone(Set set);
 
@@ -81,7 +81,7 @@ void set_destroy(Set set);
  *  Map over all the elements of a set.
  *  @param set The set to be mapped over
  *  @param f A function that maps (with or without side-effects) a single element of the set to a new one
- *  @return The set {f(x) | x \in set}
+ *  @return The set {\p f (x) | x <-- \p set}
  */ 
 Set set_map(Set set, map_fnc f);
 
@@ -90,7 +90,7 @@ Set set_map(Set set, map_fnc f);
  *  @param set The set to be reduced
  *  @param f A binary function
  *  @param init The initial accumulator value
- *  @return f(xn, f(..., f(x2, f(x1, init))...))
+ *  @return \p f (xn, \p f (..., \p f (x2, \p f (x1, \p init))...))
  */ 
 void *set_reduce(Set set, reduce_fnc f, void *init);
 
