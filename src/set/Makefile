@@ -19,5 +19,7 @@ clean:
 	rm -f set.o test
 	rm -f *\~
 	rm -rf *.dSYM
+	rm -rf html
+	rm -rf latex
 
 .PHONY: test doc clean
