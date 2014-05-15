@@ -1,5 +1,7 @@
 /**
-   @file set.h
+ *  @file set.h
+ * \mainpage Everything you want to know is in set.h
+ *
 */
 
 #ifndef __set_h__
