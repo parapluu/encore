@@ -24,7 +24,7 @@ import Typechecker.Typechecker
 import CodeGen.Main
 import CCode.PrettyCCode
 
-data Option = GCC | Clang | KeepCFiles | Typecheck | Undefined String | Output FilePath | Source FilePath deriving(Eq)
+data Option = GCC | Clang | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
 
 parseArguments :: [String] -> ([FilePath], [Option])
 parseArguments args = 
@@ -36,7 +36,6 @@ parseArguments args =
               parseArgument ("-c":args)       = (KeepCFiles, args)
               parseArgument ("-gcc":args)     = (GCC, args)
               parseArgument ("-clang":args)   = (Clang, args)
-              parseArgument ("-t":args)       = (Typecheck, args)
               parseArgument ("-o":file:args)  = (Output file, args)
               parseArgument (('-':flag):args) = (Undefined flag, args)
               parseArgument (file:args)       = (Source file, args)
@@ -131,15 +130,12 @@ main =
                         code <- readFile progName
                         program <- return $ parseEncoreProgram progName code
                         case program of
-                          Right ast -> if not (Typecheck `elem` options) then
-                                           do exitCode <- doCompile ast (EAST.fromAST ast) progName options
-                                              exitWith exitCode
-                                       else
-                                           do tcResult <- return $ typecheckEncoreProgram ast
-                                              case tcResult of
-                                                Right east -> do exitCode <- doCompile ast east progName options
-                                                                 exitWith exitCode
-                                                Left err -> print err
+                          Right ast -> do tcResult <- return $ typecheckEncoreProgram ast
+                                          case tcResult of
+                                            Right east -> do exitCode <- doCompile ast east progName options
+                                                             exitWith exitCode
+                                            Left err -> do print err
+                                                           exitFailure
                           Left error -> do putStrLn $ show error
                                            exitFailure
     where
