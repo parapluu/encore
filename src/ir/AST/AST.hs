@@ -32,22 +32,22 @@ mkMethods = map (\(n, t, ps, e) -> Method n t (map Param ps) e)
 
 data Expr = Skip
           | Call {target :: Expr, tmname :: Name, args :: Arguments}
-          | Let Name Type Expr Expr
-          | Seq [Expr]
-          | IfThenElse Expr Expr Expr
-          | While Expr Expr
-          | Get Expr
-          | FieldAccess Expr Name
-          | Assign LVal Expr
-          | VarAccess Name
+          | Let {id :: Name, ty :: Type, val :: Expr, body :: Expr}
+          | Seq {seq :: [Expr]}
+          | IfThenElse {cond :: Expr, thn :: Expr, els :: Expr}
+          | While {cond :: Expr, body :: Expr}
+          | Get {fut :: Expr}
+          | FieldAccess {path :: Expr, field :: Name}
+          | Assign {lhs :: LVal, rhs :: Expr}
+          | VarAccess {id :: Name}
           | Null
           | BTrue
           | BFalse
           | New Type
-          | Print Type Expr
+          | Print {ty :: Type, val :: Expr}
           | StringLiteral String
           | IntLiteral Int
-          | Binop Op Expr Expr deriving(Read, Show, Eq)
+          | Binop {op :: Op, loper :: Expr, roper :: Expr} deriving(Read, Show, Eq)
 
 type Arguments = [Expr]
 

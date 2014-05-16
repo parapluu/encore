@@ -44,7 +44,7 @@ type_to_printf_fstr other = case (translate other :: CCode Ty) of
 instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
   translate (A.Skip) = return $ Embed "/* skip */"
   translate (A.Null) = return $ Embed "NULL"
-  translate (A.Binop op e1 e2) = do
+  translate (A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     te1 <- translate e1
     te2 <- translate e2
     return $ BinOp (translate op) te1 te2
@@ -53,23 +53,23 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
         te <- translate e
         return $ Call (Nam "printf") [Embed $ "\""++ type_to_printf_fstr ty++"\\n\"",
                                       te :: CCode Expr]
-  translate (A.Seq es) = do
+  translate (A.Seq {A.seq = es}) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
-  translate (A.Assign lvar expr) = do
+  translate (A.Assign {A.lhs = lvar, A.rhs = expr}) = do
     texpr <- translate expr
     tlvar <- translate lvar
     return $ Assign (tlvar :: CCode Lval) texpr
-  translate (A.VarAccess name) =
+  translate (A.VarAccess {A.id = name}) =
     return $ Embed $ show name
-  translate (A.FieldAccess exp name) = do
+  translate (A.FieldAccess {A.path = exp, A.field = name}) = do
     texp <- translate exp
     return $ AsExpr $ Deref (texp :: CCode Expr) `Dot` (Nam $ show name)
   translate (A.IntLiteral i) =
     return $ Embed $ show i
   translate (A.StringLiteral s) =
     return $ Embed $ show s
-  translate (A.Let name ty e1 e2) = do
+  translate (A.Let {A.id = name, A.ty = ty, A.val = e1, A.body = e2}) = do
     te1 <- translate e1
     te2 <- local (Ctx.with_local (A.Param (name, ty))) $ translate e2
     return (Braced . StoopidSeq $
@@ -80,12 +80,12 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
     case expr of
-      (A.VarAccess (ID.Name "this")) -> do
+      (A.VarAccess {A.id = ID.Name "this"}) -> do
         -- call synchronously
         cname <- asks (A.cname . fromJust . Ctx.the_class)
         targs <- mapM translate args
         return $ Call (method_impl_name cname name) (targs :: [CCode Expr])
-      (A.VarAccess other) -> do
+      (A.VarAccess {A.id = other}) -> do
         -- send message
         -- fixme: how do we send arguments?
         targs <- mapM translate args
