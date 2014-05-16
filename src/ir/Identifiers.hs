@@ -11,6 +11,9 @@ newtype Name = Name String deriving (Read, Eq)
 instance Show Name where
   show (Name n) = n
 
+thisName :: Name
+thisName = Name "this"
+
 -- | A type identifier
 newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
@@ -24,6 +27,21 @@ nullType = Type "_NullType"
 
 isNullType :: Type -> Bool
 isNullType = (== nullType)
+
+boolType :: Type
+boolType = Type "bool"
+
+intType :: Type
+intType = Type "int"
+
+stringType :: Type
+stringType = Type "string"
+
+primitives :: [Type]
+primitives = [voidType, intType, boolType, stringType]
+
+isPrimitive :: Type -> Bool
+isPrimitive = flip elem primitives
 
 -- | The supported (infix) operators
 data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)

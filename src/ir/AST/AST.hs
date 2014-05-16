@@ -43,7 +43,7 @@ data Expr = Skip
           | Null
           | BTrue
           | BFalse
-          | New Type
+          | New {ty ::Type}
           | Print {ty :: Type, val :: Expr}
           | StringLiteral String
           | IntLiteral Int

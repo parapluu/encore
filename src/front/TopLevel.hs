@@ -136,8 +136,8 @@ main =
                                        else
                                            do tcResult <- return $ typecheckEncoreProgram ast
                                               case tcResult of
-                                                Right () -> do exitCode <- doCompile ast progName options
-                                                               exitWith exitCode
+                                                Right east -> do exitCode <- doCompile ast progName options
+                                                                 exitWith exitCode
                                                 Left err -> print err
                           Left error -> do putStrLn $ show error
                                            exitFailure
