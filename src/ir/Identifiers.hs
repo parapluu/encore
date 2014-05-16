@@ -24,6 +24,9 @@ newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
 voidType :: Type
 voidType = Type "void"
 
+isVoidType :: Type -> Bool
+isVoidType = (== voidType)
+
 nullType :: Type
 nullType = Type "_NullType"
 
@@ -33,11 +36,20 @@ isNullType = (== nullType)
 boolType :: Type
 boolType = Type "bool"
 
+isBoolType :: Type -> Bool
+isBoolType = (== boolType)
+
 intType :: Type
 intType = Type "int"
 
+isIntType :: Type -> Bool
+isIntType = (== intType)
+
 stringType :: Type
 stringType = Type "string"
+
+isStringType :: Type -> Bool
+isStringType = (== stringType)
 
 primitives :: [Type]
 primitives = [voidType, intType, boolType, stringType]
