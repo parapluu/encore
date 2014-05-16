@@ -3,10 +3,13 @@ FLAGS=--make -c
 EXAMPLES_OBJECTS=Examples.o Examples.hi
 IDENTIFIERS_OBJECTS=Identifiers.o Identifiers.hi
 
-all: ast examples identifiers
+all: east ast examples identifiers
 
 ast:
 	make -C AST
+
+east:
+	make -C EAST
 
 identifiers: $(IDENTIFIERS_OBJECTS)
 
