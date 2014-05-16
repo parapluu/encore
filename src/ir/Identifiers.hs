@@ -19,6 +19,8 @@ newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
   show (Type t) = t
 
+newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
+
 voidType :: Type
 voidType = Type "void"
 

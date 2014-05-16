@@ -96,7 +96,7 @@ instance Checkable MethodDecl Ext.MethodDecl where
             eBody <- local addParams $ pushHasType body rtype
             return $ Ext.Method name rtype eParams eBody
          where
-           typecheckParam = (\p@(Param(name, ty)) -> local (pushBT p) $ do {wfType ty; return $ Ext.Param(name, ty)})
+           typecheckParam = (\p@(Param(_, ty)) -> local (pushBT p) $ do {wfType ty; return $ p})
            addParams = extendEnvironment (map (\(Param p) -> p) params)
 
      hasType (m@(Method _ rtype _ _)) ty = do unless (rtype == ty) $ 

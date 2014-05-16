@@ -11,7 +11,7 @@ import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 
-import qualified AST.AST as A
+import qualified EAST.EAST as A
 import qualified Identifiers as ID
 
 import Control.Monad.Reader
@@ -29,8 +29,8 @@ instance Translatable ID.Op (CCode Name) where
     ID.DIV -> "/"
 
 instance Translatable A.LVal (Reader Ctx.Context (CCode Lval)) where
-  translate (A.LVal name) = return $ Embed $ show name
-  translate (A.LField ex name) = do
+  translate (A.LVal ty name) = return $ Embed $ show name
+  translate (A.LField ty ex name) = do
     tex <- translate ex
     return $ (Deref (tex ::CCode Expr)) `Dot` (Nam $ show name)
 
@@ -71,7 +71,7 @@ instance Translatable A.Expr (Reader Ctx.Context (CCode Expr)) where
     return $ Embed $ show s
   translate (A.Let {A.id = name, A.ty = ty, A.val = e1, A.body = e2}) = do
     te1 <- translate e1
-    te2 <- local (Ctx.with_local (A.Param (name, ty))) $ translate e2
+    te2 <- local (Ctx.with_local (ID.Param (name, ty))) $ translate e2
     return (Braced . StoopidSeq $
                        [Assign 
                         (Decl ((Ptr . Typ $ "pony_actor_t", Var $ show name))) te1,

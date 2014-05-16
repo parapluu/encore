@@ -17,7 +17,8 @@ import Data.List
 import Control.Monad
 
 import Parser.Parser
-import AST.AST
+import qualified AST.AST as AST
+import qualified EAST.EAST as EAST
 import AST.PrettyPrinter
 import Typechecker.Typechecker
 import CodeGen.Main
@@ -54,17 +55,17 @@ errorCheck options =
       when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
       when (Clang `elem` options && GCC `elem` options) (putStrLn "Conflicting compiler options. Defaulting to clang.")
 
-outputCode :: Program -> Handle -> IO ()
+outputCode :: EAST.Program -> Handle -> IO ()
 outputCode ast out = 
     do printCommented "Source program: "
-       printCommented $ show $ ppProgram ast
+-- FIXME:       printCommented $ show $ ppProgram ast
        printCommented $ show ast
        printCommented "#####################"
        hPrint out $ code_from_AST ast
     where
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
-doCompile :: Program -> FilePath -> [Option] -> IO ExitCode
+doCompile :: EAST.Program -> FilePath -> [Option] -> IO ExitCode
 doCompile ast source options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
@@ -131,12 +132,12 @@ main =
                         program <- return $ parseEncoreProgram progName code
                         case program of
                           Right ast -> if not (Typecheck `elem` options) then
-                                           do exitCode <- doCompile ast progName options
+                                           do exitCode <- doCompile (EAST.fromAST ast) progName options
                                               exitWith exitCode
                                        else
                                            do tcResult <- return $ typecheckEncoreProgram ast
                                               case tcResult of
-                                                Right east -> do exitCode <- doCompile ast progName options
+                                                Right east -> do exitCode <- doCompile east progName options
                                                                  exitWith exitCode
                                                 Left err -> print err
                           Left error -> do putStrLn $ show error

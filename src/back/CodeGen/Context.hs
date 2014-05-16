@@ -17,7 +17,7 @@ module CodeGen.Context (
   with_local,
   other_classes) where
 
-import AST.AST
+import EAST.EAST
 import Identifiers
 import Data.Maybe
 

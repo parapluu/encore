@@ -20,8 +20,6 @@ data FieldDecl = Field {fname :: Name, ftype::Type} deriving(Read, Show, Eq)
 mkFields :: [(Name, Type)] -> [FieldDecl]
 mkFields = map (uncurry Field)
 
-newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
-
 data MethodDecl = Method {mname   :: Name,
                           rtype   :: Type,
                           mparams :: [ParamDecl],
