@@ -28,7 +28,7 @@ import CCode.PrettyCCode
 
 import Data.List
 
-import qualified AST.AST as A
+import qualified EAST.EAST as A
 import qualified Identifiers as ID
 
 import Control.Monad.Reader hiding (void)
@@ -67,16 +67,16 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
          -- fixme what about arguments?
           ))
 
-      paramdecl_to_argv :: A.ParamDecl -> CCode Expr
-      paramdecl_to_argv (A.Param (na, ty)) =
+      paramdecl_to_argv :: ID.ParamDecl -> CCode Expr
+      paramdecl_to_argv (ID.Param (na, ty)) =
           case (translate ty :: CCode Ty) of
             (Typ "int") -> AsExpr $ Dot (Deref (Var "argv")) (Nam "i")
             (Ptr _) -> AsExpr $ Dot (Deref (Var "argv")) (Nam "p")
             other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
 
-      paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
+      paramdecls_to_argv :: [ID.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv = map paramdecl_to_argv
---      paramdecls_to_argv [(A.Param (ty, na))] =
+--      paramdecls_to_argv [(ID.Param (ty, na))] =
 --          [paramdecl_to_argv x]
 --      paramdecls_to_argv other = error $ "ClassDecl.hs: paramdecls_to_argv not implemented for `"++show other++"`"
         
@@ -157,10 +157,10 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                          param_descs (A.mparams mdecl)
                    ++"}};"
           where
-            param_desc :: A.ParamDecl -> String --this should NOT be a String
-            param_desc (A.Param (na, ty)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
+            param_desc :: ID.ParamDecl -> String --this should NOT be a String
+            param_desc (ID.Param (na, ty)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
 
-            param_descs :: [A.ParamDecl] -> String
+            param_descs :: [ID.ParamDecl] -> String
             param_descs ps = concat $ intersperse ", " $ map param_desc ps
 
       pony_actor_t_impl :: CCode Toplevel

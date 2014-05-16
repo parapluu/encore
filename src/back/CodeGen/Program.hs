@@ -11,7 +11,7 @@ import CodeGen.ClassDecl
 import CodeGen.CCodeNames
 
 import CCode.Main
-import qualified AST.AST as A
+import qualified EAST.EAST as A
 import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 

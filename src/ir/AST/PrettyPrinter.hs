@@ -110,14 +110,14 @@ ppExpr (IntLiteral n) = int n
 ppExpr (Binop op e1 e2) = ppExpr e1 <+> ppBinop op <+> ppExpr e2
 
 ppBinop :: Op -> Doc
-ppBinop AST.AST.LT  = text "<"
-ppBinop AST.AST.GT  = text ">"
-ppBinop AST.AST.EQ  = text "=="
-ppBinop AST.AST.NEQ = text "!="
-ppBinop AST.AST.PLUS  = text "+"
-ppBinop AST.AST.MINUS = text "-"
-ppBinop AST.AST.TIMES  = text "*"
-ppBinop AST.AST.DIV = text "/"
+ppBinop Identifiers.LT  = text "<"
+ppBinop Identifiers.GT  = text ">"
+ppBinop Identifiers.EQ  = text "=="
+ppBinop Identifiers.NEQ = text "!="
+ppBinop Identifiers.PLUS  = text "+"
+ppBinop Identifiers.MINUS = text "-"
+ppBinop Identifiers.TIMES  = text "*"
+ppBinop Identifiers.DIV = text "/"
 
 ppLVal :: LVal -> Doc
 ppLVal (LVal (Name x))  = text x

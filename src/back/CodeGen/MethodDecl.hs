@@ -11,7 +11,8 @@ import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 
-import qualified AST.AST as A
+import qualified EAST.EAST as A
+import qualified Identifiers as ID
 
 import Control.Monad.Reader
 import Data.Maybe
@@ -26,4 +27,4 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
        ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
        (Statement (tmbody::CCode Expr)))
     where
-      mparam_to_cvardecl (A.Param (na, ty)) = (translate ty, Var $ show na)
+      mparam_to_cvardecl (ID.Param (na, ty)) = (translate ty, Var $ show na)

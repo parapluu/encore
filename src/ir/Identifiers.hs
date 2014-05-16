@@ -11,8 +11,48 @@ newtype Name = Name String deriving (Read, Eq)
 instance Show Name where
   show (Name n) = n
 
+thisName :: Name
+thisName = Name "this"
+
 -- | A type identifier
 newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
   show (Type t) = t
 
+newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
+
+voidType :: Type
+voidType = Type "void"
+
+nullType :: Type
+nullType = Type "_NullType"
+
+isNullType :: Type -> Bool
+isNullType = (== nullType)
+
+boolType :: Type
+boolType = Type "bool"
+
+intType :: Type
+intType = Type "int"
+
+stringType :: Type
+stringType = Type "string"
+
+primitives :: [Type]
+primitives = [voidType, intType, boolType, stringType]
+
+isPrimitive :: Type -> Bool
+isPrimitive = flip elem primitives
+
+-- | The supported (infix) operators
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
+instance Show Op where
+    show Identifiers.LT = "<"
+    show Identifiers.GT = ">"
+    show Identifiers.EQ = "="
+    show NEQ            = "!="
+    show PLUS           = "+"
+    show MINUS          = "-"
+    show TIMES          = "*"
+    show DIV            = "/"
