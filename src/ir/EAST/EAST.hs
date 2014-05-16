@@ -81,22 +81,46 @@ instance HasType LVal where
 -- | Type class for the Extended AST nodes that can be stripped of
 -- their type information (leaving a normal AST)
 class ExtendedFrom a b where
+    toAST   :: a -> b
     fromAST :: b -> a
 
 instance ExtendedFrom Program A.Program where
+    toAST (Program classes) = A.Program $ map toAST classes
     fromAST (A.Program classes) = Program $ map fromAST classes
 
 instance ExtendedFrom ClassDecl A.ClassDecl where
+    toAST (Class cname fields methods) = A.Class cname (map toAST fields) (map toAST methods)
     fromAST (A.Class cname fields methods) = Class cname (map fromAST fields) (map fromAST methods)
 
 instance ExtendedFrom FieldDecl A.FieldDecl where
+    toAST (Field fname ftype) = A.Field fname ftype
     fromAST (A.Field fname ftype) = Field fname ftype
 
 instance ExtendedFrom MethodDecl A.MethodDecl where
+    toAST (Method mname rtype mparams mbody) = A.Method mname rtype mparams (toAST mbody)
     fromAST (A.Method mname rtype mparams mbody) = Method mname rtype mparams (fromAST mbody)
 
 instance ExtendedFrom Expr A.Expr where
-    fromAST (A.Skip) = Skip
+    toAST Skip = A.Skip
+    toAST (Call _ target tmname args) = A.Call (toAST target) tmname (map toAST args)
+    toAST (Let _ id idType val body) = A.Let id idType (toAST val) (toAST body)
+    toAST (Seq _ seq) = A.Seq (map toAST seq)
+    toAST (IfThenElse _ cond thn els) = A.IfThenElse (toAST cond) (toAST thn) (toAST els)
+    toAST (While _ cond body) = A.While (toAST cond) (toAST body)
+    toAST (Get _ fut) = A.Get (toAST fut)
+    toAST (FieldAccess _ path field) = A.FieldAccess (toAST path) field
+    toAST (Assign _ lhs rhs) = A.Assign (toAST lhs) (toAST rhs)
+    toAST (VarAccess _ id) = A.VarAccess id
+    toAST Null = A.Null
+    toAST BTrue = A.BTrue
+    toAST BFalse = A.BFalse
+    toAST (New ty) = A.New ty
+    toAST (Print ty val) = A.Print ty (toAST val)
+    toAST (StringLiteral s) = A.StringLiteral s
+    toAST (IntLiteral n) = A.IntLiteral n
+    toAST (Binop _ op loper roper) = A.Binop op (toAST loper) (toAST roper)
+
+    fromAST A.Skip = Skip
     fromAST (A.Call target tmname args) = Call nullType (fromAST target) tmname (map fromAST args)
     fromAST (A.Let id idType val body) = Let nullType id idType (fromAST val) (fromAST body)
     fromAST (A.Seq seq) = Seq nullType (map fromAST seq)
@@ -106,9 +130,9 @@ instance ExtendedFrom Expr A.Expr where
     fromAST (A.FieldAccess path field) = FieldAccess nullType (fromAST path) field
     fromAST (A.Assign lhs rhs) = Assign nullType (fromAST lhs) (fromAST rhs)
     fromAST (A.VarAccess id) = VarAccess nullType id
-    fromAST (A.Null) = Null
-    fromAST (A.BTrue) = BTrue
-    fromAST (A.BFalse) = BFalse
+    fromAST A.Null = Null
+    fromAST A.BTrue = BTrue
+    fromAST A.BFalse = BFalse
     fromAST (A.New ty) = New ty
     fromAST (A.Print ty val) = Print ty (fromAST val)
     fromAST (A.StringLiteral s) = StringLiteral s
@@ -116,5 +140,8 @@ instance ExtendedFrom Expr A.Expr where
     fromAST (A.Binop op loper roper) = Binop nullType op (fromAST loper) (fromAST roper)
 
 instance ExtendedFrom LVal A.LVal where
+    toAST (LVal _ x) = A.LVal x
+    toAST (LField _ expr f) = A.LField (toAST expr) f
+
     fromAST (A.LVal x) = LVal nullType x
     fromAST (A.LField expr f) = LField nullType (fromAST expr) f
