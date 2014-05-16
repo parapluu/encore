@@ -52,3 +52,4 @@ data Expr = Skip
 type Arguments = [Expr]
 
 data LVal = LVal Name | LField Expr Name deriving(Read, Show, Eq)
+
