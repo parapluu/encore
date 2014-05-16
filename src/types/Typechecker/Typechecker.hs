@@ -1,8 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-|
 
-Typechecks an "AST.AST" and produces a meaningful error message if it
-fails. 
+Typechecks an "AST.AST" and produces the same tree, extended with
+type information of every expression node. It throws an exception
+with a meaningful error message if it fails.
 
 -}
 
