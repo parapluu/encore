@@ -55,18 +55,18 @@ errorCheck options =
       when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
       when (Clang `elem` options && GCC `elem` options) (putStrLn "Conflicting compiler options. Defaulting to clang.")
 
-outputCode :: EAST.Program -> Handle -> IO ()
-outputCode ast out = 
+outputCode :: AST.Program -> EAST.Program -> Handle -> IO ()
+outputCode ast east out = 
     do printCommented "Source program: "
--- FIXME:       printCommented $ show $ ppProgram ast
+       printCommented $ show $ ppProgram ast
        printCommented $ show ast
        printCommented "#####################"
-       hPrint out $ code_from_AST ast
+       hPrint out $ code_from_AST east
     where
       printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
 
-doCompile :: EAST.Program -> FilePath -> [Option] -> IO ExitCode
-doCompile ast source options = 
+doCompile :: AST.Program -> EAST.Program -> FilePath -> [Option] -> IO ExitCode
+doCompile ast east source options = 
     do encorecPath <- getExecutablePath
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
        incPath <- return $ encorecDir ++ "./inc/"
@@ -81,7 +81,7 @@ doCompile ast source options =
                      _                  -> return progName
        cFile <- return (progName ++ ".pony.c")
 
-       withFile cFile WriteMode (outputCode ast)
+       withFile cFile WriteMode (outputCode ast east)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..." 
               exitCode <- system ("clang" <+> cFile <+> "-ggdb -o" <+> execName <+> ponyLibPath <+> setLibPath <+> "-I" <+> incPath)
@@ -132,12 +132,12 @@ main =
                         program <- return $ parseEncoreProgram progName code
                         case program of
                           Right ast -> if not (Typecheck `elem` options) then
-                                           do exitCode <- doCompile (EAST.fromAST ast) progName options
+                                           do exitCode <- doCompile ast (EAST.fromAST ast) progName options
                                               exitWith exitCode
                                        else
                                            do tcResult <- return $ typecheckEncoreProgram ast
                                               case tcResult of
-                                                Right east -> do exitCode <- doCompile east progName options
+                                                Right east -> do exitCode <- doCompile ast east progName options
                                                                  exitWith exitCode
                                                 Left err -> print err
                           Left error -> do putStrLn $ show error
