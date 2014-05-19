@@ -70,15 +70,18 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecl_to_argv argv_idx (ID.Param (na, ty)) =
           let arg_cell = ArrAcc argv_idx (Var "argv")
           in
-            case (translate ty :: CCode Ty) of
-              (Typ "int") -> AsExpr $ Dot arg_cell (Nam "i")
-              (Typ "double") -> AsExpr $ Dot arg_cell (Nam "d")
-              (Ptr _) -> AsExpr $ Dot arg_cell (Nam "p")
-              other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
+            AsExpr $ Dot arg_cell
+                       (case (translate ty :: CCode Ty) of
+                          (Typ "int")    -> (Nam "i")
+                          (Typ "double") -> (Nam "d")
+                          (Ptr _)        -> (Nam "p")
+                          other          ->
+                              error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ty)
 
       paramdecls_to_argv :: [ID.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv = zipWith paramdecl_to_argv [0..]
         
+      dispatchfun_decl :: CCode Toplevel
       dispatchfun_decl =
           (Function (Static void) (class_dispatch_name $ A.cname cdecl)
            ([(Ptr . Typ $ "pony_actor_t", Var "this"),
@@ -87,19 +90,21 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              (int, Var "argc"),
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
-            ((Nam "PONY_MAIN",
-
-              Concat $ [alloc_instr,
-                        (if (A.cname cdecl) == (ID.Type "Main")
-                         then Statement $ Call ((method_impl_name (ID.Type "Main") (ID.Name "main")))
-                                                [Var "p"]
-                         else Concat [])]) :
-
-             (Nam "MSG_alloc", alloc_instr) :
-
+            ((Nam "MSG_alloc", alloc_instr) :
+             (if (A.cname cdecl == ID.Type "Main")
+              then [pony_main_clause]
+              else []) ++
              (map (mthd_dispatch_clause cdecl) (A.methods cdecl)))
              (Embed "printf(\"error, got invalid id: %llu\",id);")))
           where
+            pony_main_clause =
+                (Nam "PONY_MAIN",
+                     Concat $ [alloc_instr,
+                               (if (A.cname cdecl) == (ID.Type "Main")
+                                then Statement $ Call ((method_impl_name (ID.Type "Main") (ID.Name "main")))
+                                         [Var "p"]
+                                else Concat [])])
+            
             alloc_instr = Concat $ map Statement $
                           [(Var "p") `Assign`
                            (Call (Nam "pony_alloc")
@@ -113,11 +118,14 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                            Call (Nam "pony_set")
                                     [Var "p"]]
 
+      tracefun_decl :: CCode Toplevel
       tracefun_decl = (Function
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
                        (Embed "//Todo!"))
+
+      message_type_decl :: CCode Toplevel
       message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
                           (class_message_type_name $ A.cname cdecl)
                           [(Typ "uint64_t", Var "id")]
@@ -179,12 +187,12 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
 
 instance FwdDeclaration A.ClassDecl (CCode Toplevel) where
   fwd_decls cdecl =
-      EmbedC $ Concat $ (comment_section "Forward declarations") :
-        map Embed
-                ["typedef struct ___"++show (A.cname cdecl)++"_data "++show (A.cname cdecl) ++"_data;",
-                 "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
-                 "static void " ++ (show $ A.cname cdecl) ++
-                 "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
+      let cname = show (A.cname cdecl)
+      in EmbedC $ Concat $ (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
+             [Embed $ "typedef struct ___"++cname++"_data "++cname++"_data;",
+              Embed $ "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
+              Embed $ "static void " ++cname++
+                        "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
 
 comment_section :: String -> CCode a
 comment_section s = EmbedC $ Concat $ [Embed $ take (5 + length s) $ repeat '/',
