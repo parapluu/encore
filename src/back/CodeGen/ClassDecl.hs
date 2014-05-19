@@ -70,8 +70,8 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       paramdecl_to_argv :: ID.ParamDecl -> CCode Expr
       paramdecl_to_argv (ID.Param (na, ty)) =
           case (translate ty :: CCode Ty) of
-            (Typ "int") -> AsExpr $ Dot (Deref (Var "argv")) (Nam "i")
-            (Ptr _) -> AsExpr $ Dot (Deref (Var "argv")) (Nam "p")
+            (Typ "int") -> AsExpr $ Dot (Deref (Var "argv++")) (Nam "i")
+            (Ptr _) -> AsExpr $ Dot (Deref (Var "argv++")) (Nam "p")
             other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
 
       paramdecls_to_argv :: [ID.ParamDecl] -> [CCode Expr]
