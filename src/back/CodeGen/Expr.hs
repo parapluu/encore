@@ -86,75 +86,32 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
       do texpr <- translate expr
-         temp1_name <- Ctx.gen_sym
-         temp2_name <- Ctx.gen_sym
          targs <- mapM translate args
-         -- void pony_sendv(pony_actor_t* to, uint64_t id, int argc, pony_arg_t* argv);
-         return $ Call (Nam "pony_sendv") [texpr :: CCode Expr,
-                                           AsExpr . AsLval $ method_msg_name (A.getType expr) name,
-                                           Embed . show . length $ args,
-                                           if (length targs) > 0
-                                           then Embed $ "(pony_arg_t*){"
-                                                         ++ concat (intersperse ", " (map (("&(pony_arg_t){.p="++) . (++"}") . show) (targs :: [CCode Expr])))
-                                                         ++ "}"
-                                           else Embed "NULL"]
-
---      pony_sendv(other, MSG_Other_init, 1, (pony_arg_t*){&(pony_arg_t){.p=another}});
-
---    case expr of
---      (A.VarAccess {A.id = ID.Name "this"}) -> do
---        -- call synchronously
---        cname <- asks (A.cname . fromJust . Ctx.the_class)
---        targs <- mapM translate args
---        return $ Call (method_impl_name cname name) (targs :: [CCode Expr])
---      (A.VarAccess {A.id = callee}) -> do
---        -- send message
---        -- fixme: how do we send arguments?
---        targs <- mapM translate args
---        callee_ty <- asks (fromJust . (Ctx.type_of $ callee))
---        return $ args_to_call callee callee_ty name (targs :: [CCode Expr])
-----              Call (Nam "pony_send")
-----                       [Var $ show callee,
-----                        AsLval $ method_msg_name callee_ty name]
---      no_var_access -> error "Expr.hs: calls are only implemented on variables for now."
+         let argtys = (map A.getType args)
+         let targtys = map (translate . A.getType) args :: [CCode Ty]
+         the_arg_name <- Ctx.gen_sym
+         let the_arg_decl = Embed $ ("pony_arg_t " ++
+                                     the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
+                                             (concat $
+                                              intersperse ", " $
+                                              map (\(arg,ty) ->
+                                                       "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
+                                                      (zip (targs :: [CCode Expr]) targtys)) ++
+                                     "}")
+         return $ StoopidSeq $ [the_arg_decl,
+                                Call
+                                (Nam "pony_sendv")
+                                ([texpr :: CCode Expr,
+                                  AsExpr . AsLval $ method_msg_name (A.getType expr) name,
+                                  Embed . show . length $ args] ++
+                                 if (length targs) > 0
+                                 then [Embed the_arg_name]
+                                 else [Embed "NULL"])]
+             where
+               pony_arg_t_tag :: CCode Ty -> String
+               pony_arg_t_tag (Ptr _) = ".p"
+               pony_arg_t_tag (Typ "int") = ".i"
+               pony_arg_t_tag (Typ "double") = ".d"
+               pony_arg_t_tag other =
+                   error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
-
-args_to_call :: ID.Name -> ID.Type -> ID.Name -> [CCode Expr] -> CCode Expr
-args_to_call callee callee_ty name [] =
-    -- no parameters
-    Call (Nam "pony_send") [AsExpr . Var $ show callee,
-                            AsExpr . AsLval $ method_msg_name callee_ty name]
-args_to_call callee callee_ty name [arg] =
-    -- one parameter
-    case (translate callee_ty :: CCode Ty) of
-      (Typ "int") ->
-          Call (Nam "pony_sendi") [AsExpr . Var $ show callee,
-                                   AsExpr . AsLval $ method_msg_name callee_ty name,
-                                   arg]
-      (Ptr somekind) -> Call (Nam "pony_sendp") [AsExpr . Var $ show callee,
-                                   AsExpr . AsLval $ method_msg_name callee_ty name,
-                                   arg]
-      callee -> error $ "Expr.hs: don't know how to send `"++show callee++"`"
-args_to_call callee callee_ty name manyargs =
-    -- many parameters
-    Call (Nam "pony_sendv") [
-              AsExpr . Var $ show callee,
-              AsExpr . AsLval $ method_msg_name callee_ty name,
-              (Embed $ "{" ++ (concat $ intersperse ", " $ map show manyargs) ++ "}")]
---    (Embed $ "//Expr.hs: don't know how to call many args (" ++ show manyargs ++ ")")
-
-arg_to_call_cell :: ID.Type -> CCode Expr -> CCode Expr
-arg_to_call_cell (ID.Type ty) ex  = Embed $ "{" ++ case ty of
-                                                     "int" -> ".i="
-                                                     "double" -> ".d="
-                                                     _ -> ".p=" ++ show ex ++ "}"
-
-
---make_call_record :: A.MethodDecl -> [CCode Expr] -> CCode Stat
---make_call_record mdecl =
---    let
---        -- this assumes that everything has the same size. It's broken, need to fix later
---        sum_of_sizeofs = Embed $ ("sizeof(void*)*" ++ show (length (A.mparams mdecl)))
-----        temp_ptr = temp_name "call_rec"
---    in (Assign (Decl temp_name
-
