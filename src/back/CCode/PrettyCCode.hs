@@ -51,6 +51,7 @@ pp' (Braced ccode) = (braced_block . pp') ccode
 pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
 pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
+pp' (ArrAcc i l) = lparen <> pp' l <> text "[" <> tshow i <> text "]" <> rparen
 pp' (Amp ccode) = lparen <> text "&" <> pp' ccode <> rparen
 pp' (Ptr ty) = pp' ty <> text "*"
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>

@@ -66,18 +66,18 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
          -- fixme what about arguments?
           ))
 
-      paramdecl_to_argv :: ID.ParamDecl -> CCode Expr
-      paramdecl_to_argv (ID.Param (na, ty)) =
-          case (translate ty :: CCode Ty) of
-            (Typ "int") -> AsExpr $ Dot (Deref (Var "argv++")) (Nam "i")
-            (Ptr _) -> AsExpr $ Dot (Deref (Var "argv++")) (Nam "p")
-            other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
+      paramdecl_to_argv :: Int -> ID.ParamDecl -> CCode Expr
+      paramdecl_to_argv argv_idx (ID.Param (na, ty)) =
+          let arg_cell = ArrAcc argv_idx (Var "argv")
+          in
+            case (translate ty :: CCode Ty) of
+              (Typ "int") -> AsExpr $ Dot arg_cell (Nam "i")
+              (Typ "double") -> AsExpr $ Dot arg_cell (Nam "d")
+              (Ptr _) -> AsExpr $ Dot arg_cell (Nam "p")
+              other -> error $ "ClassDecl.hs: paramdecls_to_argv not implemented for "++show ty
 
       paramdecls_to_argv :: [ID.ParamDecl] -> [CCode Expr]
-      paramdecls_to_argv = map paramdecl_to_argv
---      paramdecls_to_argv [(ID.Param (ty, na))] =
---          [paramdecl_to_argv x]
---      paramdecls_to_argv other = error $ "ClassDecl.hs: paramdecls_to_argv not implemented for `"++show other++"`"
+      paramdecls_to_argv = zipWith paramdecl_to_argv [0..]
         
       dispatchfun_decl =
           (Function (Static void) (class_dispatch_name $ A.cname cdecl)

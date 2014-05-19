@@ -65,6 +65,7 @@ data CCode a where
     BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
     Dot        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref      :: UsableAs e Expr => CCode e -> CCode Expr
+    ArrAcc     :: Int -> CCode Lval -> CCode Lval
     Amp        :: (UsableAs e Expr) => CCode e -> CCode Expr
     Ptr        :: CCode Ty -> CCode Ty
     Function   :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
