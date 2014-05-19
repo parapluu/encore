@@ -49,12 +49,11 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       ]
     where
       data_struct :: CCode Toplevel
-      data_struct = TypeDef (data_rec_name $ A.cname cdecl)
-                    (StructDecl (data_rec_name $ A.cname cdecl) $
+      data_struct = StructDecl (data_rec_name $ A.cname cdecl) $
                      ((Ptr $ Embed "pony_actor_t", Var "aref") :
                          zip
                          (map (translate  . A.ftype) (A.fields cdecl))
-                         (map (Var . show . A.fname) (A.fields cdecl))))
+                         (map (Var . show . A.fname) (A.fields cdecl)))
 
 
       mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)

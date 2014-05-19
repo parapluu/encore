@@ -38,7 +38,7 @@ pp' (Statement c) = pp' c <> text ";"
 pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
                                   switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
-                      (braced_block . vcat . map pp') fields
+                      (braced_block . vcat . map pp') fields <> text ";"
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
