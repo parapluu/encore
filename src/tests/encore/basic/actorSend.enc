@@ -11,7 +11,6 @@ class Other
     this.other = va
   def work() : void
     {let othertmp : Other = this.other in
-       {othertmp.printMsg();
-        print string "sent"}}
+       {othertmp.printMsg()}}
   def printMsg() : void
     print string "Hello Actorworld!"
