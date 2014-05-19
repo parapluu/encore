@@ -13,7 +13,7 @@ $(ENCORE_TARGETS): %: %.enc $(ENCOREC)
 	@echo "compiling '$@'"
 	@$(ENCOREC) $@.enc -clang -c
 
-compare_outs:
+compare_outs: clean
 	make $(ENCORE_TARGETS) || true # try to build as many as possible but don't abort
 	@for o in $(OUTFILES); do \
 	  echo $$o: ; \
