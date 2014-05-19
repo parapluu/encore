@@ -15,7 +15,8 @@ class Other
   def mthd_obj(a : Main) : void {
     print string "mthd_obj"
   
-}w
+  }
+
   def printSum(a : int, b : int, t : string) : void {
     print int a+b;
     print string t
