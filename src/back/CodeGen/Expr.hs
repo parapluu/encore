@@ -86,6 +86,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
       do texpr <- translate expr
+         temp1_name <- Ctx.gen_sym
+         temp2_name <- Ctx.gen_sym
          targs <- mapM translate args
          -- void pony_sendv(pony_actor_t* to, uint64_t id, int argc, pony_arg_t* argv);
          return $ Call (Nam "pony_sendv") [texpr :: CCode Expr,
@@ -135,9 +137,10 @@ args_to_call callee callee_ty name [arg] =
       callee -> error $ "Expr.hs: don't know how to send `"++show callee++"`"
 args_to_call callee callee_ty name manyargs =
     -- many parameters
-    Call (Nam "pony_sendv") [AsExpr . Var $ show callee,
-                             AsExpr . AsLval $ method_msg_name callee_ty name,
-                             (Embed $ "{" ++ (concat $ intersperse ", " $ map show manyargs) ++ "}")]
+    Call (Nam "pony_sendv") [
+              AsExpr . Var $ show callee,
+              AsExpr . AsLval $ method_msg_name callee_ty name,
+              (Embed $ "{" ++ (concat $ intersperse ", " $ map show manyargs) ++ "}")]
 --    (Embed $ "//Expr.hs: don't know how to call many args (" ++ show manyargs ++ ")")
 
 arg_to_call_cell :: ID.Type -> CCode Expr -> CCode Expr

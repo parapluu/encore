@@ -14,40 +14,55 @@ module CodeGen.Context (
   type_of,
   with_class,
   with_method,
+  gen_sym,
   with_local,
   other_classes) where
 
 import EAST.EAST
 import Identifiers
 import Data.Maybe
+import Control.Monad.State
 
-data Context = Context Program (Maybe (ClassDecl, Maybe (MethodDecl, [ParamDecl]))) deriving (Show)
+type NextSym = Int
+
+type ProgramLoc = (Program, Maybe (ClassDecl, Maybe (MethodDecl, [ParamDecl])))
+
+data Context = Context ProgramLoc NextSym deriving (Show)
 
 mk :: Program -> Context
-mk p = Context p Nothing
+mk p = Context (p, Nothing) 0
 
 with_class :: ClassDecl -> Context -> Context
-with_class c (Context p Nothing) = Context p (Just (c, Nothing))
-with_class c (Context p (Just (_, m))) = Context p (Just (c, m))
+with_class c (Context (p, Nothing) n) = Context (p, (Just (c, Nothing))) n
+with_class c (Context (p, (Just (_, m))) n) = Context (p, (Just (c, m))) n
 
 with_method :: MethodDecl -> Context -> Context
-with_method m (Context p (Just (c, _))) = Context p (Just (c, Just (m,[])))
+with_method m (Context (p, (Just (c, _))) n) = Context (p, (Just (c, Just (m,[])))) n
 
+gen_sym :: State Context String
+gen_sym = do
+  c <- get
+  case c of
+    Context lo n ->
+        do
+          put $ Context lo (n+1)
+          return $ "_tmp" ++ show n
+  
 with_local :: ParamDecl -> Context -> Context
-with_local d (Context p (Just (c, Just (m, ds)))) = (Context p (Just (c, Just (m, d:ds))))
+with_local d (Context (p, (Just (c, Just (m, ds)))) n) = Context (p, (Just (c, Just (m, d:ds)))) n
 with_local d c = error $ "with_local: invalid input: " ++ show (d, c)
 
 the_prog :: Context -> Program
-the_prog (Context prog _) = prog
+the_prog (Context (prog, _) _) = prog
 
 the_class :: Context -> Maybe ClassDecl
-the_class (Context _ x) = x >>= Just . fst
+the_class (Context (_, x) _) = x >>= Just . fst
 
 the_method :: Context -> Maybe MethodDecl
-the_method (Context _ x) = x >>= snd >>= return . fst
+the_method (Context (_, x) _) = x >>= snd >>= return . fst
 
 the_locals :: Context -> Maybe [ParamDecl]
-the_locals (Context _ x) = x >>= snd >>= return . snd
+the_locals (Context (_, x) _) = x >>= snd >>= return . snd
 
 type_of :: Name -> Context -> Maybe Type
 type_of n c = do
