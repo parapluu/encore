@@ -80,15 +80,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                      put (Ctx.with_local (ID.Param (name, A.getType l)) s)
                      te2 <- translate e2
                      put s
-                     return (Parens . Braced . StoopidSeq $
+                     return (Braced . StoopidSeq $
                              [Assign 
                               (Decl (translate (A.getType e1), Var $ show name)) te1,
-                                                                                     te2])
+                                                                                 te2])
   translate (A.New ty) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
-  translate (A.Call { A.target=expr, A.tmname=name, A.args=args }) =
-      do texpr <- translate expr
-         targs <- mapM translate args
+  translate (A.Call { A.target=target, A.tmname=name, A.args=args }) =
+      do ttarget <- varaccess_this_to_aref target
+         targs <- mapM varaccess_this_to_aref args
          let argtys = (map A.getType args)
          let targtys = map (translate . A.getType) args :: [CCode Ty]
          the_arg_name <- Ctx.gen_sym
@@ -104,8 +104,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                     [the_arg_decl,
                      Call
                      (Nam "pony_sendv")
-                     ([texpr :: CCode Expr,
-                                AsExpr . AsLval $ method_msg_name (A.getType expr) name,
+                     ([ttarget :: CCode Expr,
+                                AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                 Embed . show . length $ args] ++
                       [Embed the_arg_name])]
              where
@@ -115,6 +115,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                pony_arg_t_tag (Typ "double") = ".d"
                pony_arg_t_tag other          =
                    error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+
+               varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
+               varaccess_this_to_aref (A.VarAccess { A.id = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+               varaccess_this_to_aref other                           = translate other
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do tcond <- translate cond
          tbody <- translate (body :: A.Expr)
