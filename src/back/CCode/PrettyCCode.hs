@@ -34,14 +34,14 @@ pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Statement seq@(StoopidSeq _)) = pp' seq
+pp' (Statement seq@(StoopidSeq _)) = pp' seq -- avoid double semicolons!
 pp' (Statement other) =  pp' other <> text ";"
 pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
                                   switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
                       (braced_block . vcat . map pp') fields <> text ";"
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
-pp' (Record ccodes) = text "{" <+> (foldr1 (<>) $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
+pp' (Record ccodes) = text "{" <+> (hcat $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (Concat ccodes) = block ccodes
@@ -49,7 +49,7 @@ pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
 pp' (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
     where
       semicolonify :: CCode Expr -> Doc
-      semicolonify (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
+      semicolonify (StoopidSeq ccodes) = vcat $ map semicolonify ccodes -- avoid double semicolons!
       semicolonify other = pp' other <> text ";"
 
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
@@ -76,6 +76,7 @@ pp' (Call name args) = tshow name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
 pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
+pp' (While cond body) = text "while ("<>pp' cond<>text ")" $+$ braced_block (pp' body)
 --pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
 --pp' (New ty) = error "not implemented: New"
 

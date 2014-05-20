@@ -79,3 +79,4 @@ data CCode a where
     EmbedC     :: CCode a -> CCode b
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
     TypeDef    :: CCode Ty -> CCode Toplevel -> CCode Toplevel
+    While      :: CCode Expr -> CCode Stat -> CCode Expr

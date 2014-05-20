@@ -71,18 +71,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
     return $ Embed $ show i
   translate (A.StringLiteral s) =
     return $ Embed $ show s
-  translate (A.Let {A.id = name, A.ty = ty, A.val = e1, A.body = e2}) =
+  translate l@(A.Let {A.id = name, A.val = e1, A.body = e2}) =
 -- this uses an obscure feature of C: compound statements can form expressions!
 -- http://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
                    do
                      te1 <- translate e1
                      s <- get
-                     put (Ctx.with_local (ID.Param (name, ty)) s)
+                     put (Ctx.with_local (ID.Param (name, A.getType l)) s)
                      te2 <- translate e2
                      put s
                      return (Parens . Braced . StoopidSeq $
                              [Assign 
-                              (Decl ((Ptr . Typ $ "pony_actor_t", Var $ show name))) te1,
+                              (Decl (translate (A.getType e1), Var $ show name)) te1,
                                                                                      te2])
   translate (A.New ty) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
@@ -110,9 +110,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                       [Embed the_arg_name])]
              where
                pony_arg_t_tag :: CCode Ty -> String
-               pony_arg_t_tag (Ptr _) = ".p"
-               pony_arg_t_tag (Typ "int") = ".i"
+               pony_arg_t_tag (Ptr _)        = ".p"
+               pony_arg_t_tag (Typ "int")    = ".i"
                pony_arg_t_tag (Typ "double") = ".d"
-               pony_arg_t_tag other =
+               pony_arg_t_tag other          =
                    error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+  translate w@(A.While {A.cond = cond, A.body = body}) = 
+      do tcond <- translate cond
+         tbody <- translate (body :: A.Expr)
+         return (While tcond (Statement (tbody :: CCode Expr)))
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
