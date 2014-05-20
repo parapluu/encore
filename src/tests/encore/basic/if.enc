@@ -1,5 +1,8 @@
 class Main
-  def main() : void{
+  def main() : void {
+    this.stuff(0);
+    this.stuff(1)
+  }
 
   def stuff(i : int) : void {
     if i == 0 then

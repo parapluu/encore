@@ -77,6 +77,10 @@ pp' (Call name args) = tshow name <> lparen <>
                        rparen
 pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
 pp' (While cond body) = text "while ("<>pp' cond<>text ")" $+$ braced_block (pp' body)
+pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
+                 braced_block (pp' t) $+$
+                 text "else" $+$
+                 braced_block (pp' e)
 --pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
 --pp' (New ty) = error "not implemented: New"
 

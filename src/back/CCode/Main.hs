@@ -80,3 +80,4 @@ data CCode a where
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
     TypeDef    :: CCode Ty -> CCode Toplevel -> CCode Toplevel
     While      :: CCode Expr -> CCode Stat -> CCode Expr
+    If         :: CCode Expr -> CCode Stat -> CCode Stat -> CCode Expr

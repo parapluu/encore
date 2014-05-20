@@ -123,4 +123,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
       do tcond <- translate cond
          tbody <- translate (body :: A.Expr)
          return (While tcond (Statement (tbody :: CCode Expr)))
+  translate (A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
+      do tcond <- translate cond
+         tthn <- translate thn
+         tels <- translate els
+         return (If tcond (Statement (tthn :: CCode Expr)) (Statement (tels :: CCode Expr)))
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
