@@ -17,6 +17,7 @@ import qualified Identifiers as ID
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Maybe
+import Data.List
 
 instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
   translate mdecl = do
@@ -29,3 +30,14 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
        (Statement (fst (runState (translate (A.mbody mdecl)) (Ctx.with_method mdecl ctx))::CCode Expr)))
     where
       mparam_to_cvardecl (ID.Param (na, ty)) = (translate ty, Var $ show na)
+
+instance FwdDeclaration A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
+    fwd_decls mdecl = do
+      cdecl <- asks (fromJust . Ctx.the_class)
+      this_ty <- asks (A.cname . fromJust . Ctx.the_class)
+      
+      let params = data_rec_ptr this_ty : map (\(ID.Param (_, ty)) -> (translate ty ::CCode Ty)) (A.mparams mdecl)
+      return $ Embed $ show ((translate . A.rtype $ mdecl) :: CCode Ty) ++ " " ++
+             show (method_impl_name (A.cname cdecl) (A.mname mdecl)) ++ "(" ++ 
+                  (concat $ intersperse ", " $ map show params) ++
+             ");"

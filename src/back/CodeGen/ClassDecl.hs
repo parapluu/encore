@@ -185,14 +185,17 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                              Call (Nam "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
                              AsExpr . AsLval . Nam $ "PONY_ACTOR"]
 
-instance FwdDeclaration A.ClassDecl (CCode Toplevel) where
-  fwd_decls cdecl =
+instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
+  fwd_decls cdecl = do
       let cname = show (A.cname cdecl)
-      in EmbedC $ Concat $ (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
-             [Embed $ "typedef struct ___"++cname++"_data "++cname++"_data;",
-              Embed $ "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
-              Embed $ "static void " ++cname++
-                        "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"]
+      mthd_fwds <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (fwd_decls mdecl))) (A.methods cdecl)
+      return $ ConcatTL $
+                 (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
+                 [Embed $ "typedef struct ___"++cname++"_data "++cname++"_data;",
+                  Embed $ "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
+                  Embed $ "static void " ++cname++
+                            "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"] ++
+                 mthd_fwds
 
 comment_section :: String -> CCode a
 comment_section s = EmbedC $ Concat $ [Embed $ take (5 + length s) $ repeat '/',

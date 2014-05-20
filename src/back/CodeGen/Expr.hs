@@ -87,38 +87,62 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
   translate (A.New ty) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=target, A.tmname=name, A.args=args }) =
-      do ttarget <- varaccess_this_to_aref target
-         targs <- mapM varaccess_this_to_aref args
-         let argtys = (map A.getType args)
-         let targtys = map (translate . A.getType) args :: [CCode Ty]
-         the_arg_name <- Ctx.gen_sym
-         let the_arg_decl = Embed $ ("pony_arg_t " ++
-                                     the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
-                                             (concat $
-                                              intersperse ", " $
-                                              map (\(arg,ty) ->
-                                                       "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
-                                                      (zip (targs :: [CCode Expr]) targtys)) ++
-                                     "}")
-         return $ StoopidSeq $
-                    [the_arg_decl,
-                     Call
-                     (Nam "pony_sendv")
-                     ([ttarget :: CCode Expr,
-                                AsExpr . AsLval $ method_msg_name (A.getType target) name,
-                                Embed . show . length $ args] ++
-                      [Embed the_arg_name])]
-             where
-               pony_arg_t_tag :: CCode Ty -> String
-               pony_arg_t_tag (Ptr _)        = ".p"
-               pony_arg_t_tag (Typ "int")    = ".i"
-               pony_arg_t_tag (Typ "double") = ".d"
-               pony_arg_t_tag other          =
-                   error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+      (case target of
+        (A.VarAccess { A.id = ID.Name "this"}) -> local_call
+        _ -> remote_call)
+          where
+            local_call =
+                do ctx <- get
+                   ttarget <- translate target
+                   targs <- mapM varaccess_this_to_aref args
+                   let argtys = (map A.getType args)
+                   let targtys = map (translate . A.getType) args :: [CCode Ty]
+                   the_arg_name <- Ctx.gen_sym
+                   let the_arg_decl = Embed $ ("pony_arg_t " ++
+                                               the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
+                                               (concat $
+                                                intersperse ", " $
+                                                map (\(arg,ty) ->
+                                                     "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
+                                                (zip (targs :: [CCode Expr]) targtys)) ++
+                                               "}")
+                   return $ Call
+                              (method_impl_name (A.cname . fromJust $ Ctx.the_class ctx) name)
+                              (ttarget : targs)
+                             
+            remote_call :: State Ctx.Context (CCode Expr)
+            remote_call =
+                do ttarget <- varaccess_this_to_aref target
+                   targs <- mapM varaccess_this_to_aref args
+                   let argtys = (map A.getType args)
+                   let targtys = map (translate . A.getType) args :: [CCode Ty]
+                   the_arg_name <- Ctx.gen_sym
+                   let the_arg_decl = Embed $ ("pony_arg_t " ++
+                                               the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
+                                               (concat $
+                                                intersperse ", " $
+                                                map (\(arg,ty) ->
+                                                     "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
+                                                (zip (targs :: [CCode Expr]) targtys)) ++
+                                               "}")
+                   return $ StoopidSeq $
+                              [the_arg_decl,
+                               Call
+                               (Nam "pony_sendv")
+                               ([ttarget :: CCode Expr,
+                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
+                                 Embed . show . length $ args] ++
+                                [Embed the_arg_name])]
+            pony_arg_t_tag :: CCode Ty -> String
+            pony_arg_t_tag (Ptr _)        = ".p"
+            pony_arg_t_tag (Typ "int")    = ".i"
+            pony_arg_t_tag (Typ "double") = ".d"
+            pony_arg_t_tag other          =
+                error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
-               varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-               varaccess_this_to_aref (A.VarAccess { A.id = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
-               varaccess_this_to_aref other                           = translate other
+            varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
+            varaccess_this_to_aref (A.VarAccess { A.id = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+            varaccess_this_to_aref other                                   = translate other
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do tcond <- translate cond
          tbody <- translate (body :: A.Expr)

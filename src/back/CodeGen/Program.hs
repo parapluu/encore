@@ -9,6 +9,7 @@ module CodeGen.Program(translate) where
 import CodeGen.Typeclasses
 import CodeGen.ClassDecl
 import CodeGen.CCodeNames
+import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 import qualified EAST.EAST as A
@@ -16,7 +17,7 @@ import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 
 instance Translatable A.Program (CCode FIN) where
-  translate (A.Program cs) =
+  translate prog@(A.Program cs) =
     Program $ 
     ConcatTL $
     (Includes ["pony/pony.h",
@@ -27,7 +28,7 @@ instance Translatable A.Program (CCode FIN) where
                "stdio.h"
               ]) :
     (fwd_decls (A.Program cs)) :
-    (map fwd_decls cs) ++
+    (map (\cls -> runReader (fwd_decls cls) (Ctx.mk prog)) cs) ++
     (map translate_class_here cs) ++
     [(Function
       int (Nam "main")
