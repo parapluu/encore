@@ -60,11 +60,12 @@ data CCode a where
                                              -- directly map to
                                              -- C-Exprs.
     Enum       :: [CCode Name] -> CCode Toplevel
-    Braced     :: CCode a -> CCode a -- get rid of this; only used in
-                                     -- Let-expr
+    Braced     :: CCode a -> CCode a
+    Parens     :: CCode a -> CCode a
     BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
     Dot        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref      :: UsableAs e Expr => CCode e -> CCode Expr
+    ArrAcc     :: Int -> CCode Lval -> CCode Lval
     Amp        :: (UsableAs e Expr) => CCode e -> CCode Expr
     Ptr        :: CCode Ty -> CCode Ty
     Function   :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
@@ -78,3 +79,5 @@ data CCode a where
     EmbedC     :: CCode a -> CCode b
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
     TypeDef    :: CCode Ty -> CCode Toplevel -> CCode Toplevel
+    While      :: CCode Expr -> CCode Stat -> CCode Expr
+    If         :: CCode Expr -> CCode Stat -> CCode Stat -> CCode Expr

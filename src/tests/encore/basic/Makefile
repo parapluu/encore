@@ -6,22 +6,24 @@ OUTFILES=$(shell ls *.out)
 ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
-test: $(ENCOREC) $(ENCORE_TARGETS) compare_outs
+test: compiler compare_outs
 
-$(ENCORE_TARGETS):
-	@echo "compiling" $@
-	@$(ENCOREC) $@.enc -clang
+$(ENCORE_TARGETS): %: %.enc $(ENCOREC)
+#ls -l
+	@echo "compiling '$@'"
+	@$(ENCOREC) $@.enc -clang -c
 
-compare_outs:
-	for o in $(OUTFILES); do \
+compare_outs: clean
+	make $(ENCORE_TARGETS) || true # try to build as many as possible but don't abort
+	@for o in $(OUTFILES); do \
 	  echo $$o: ; \
 	  ./$$(echo $$o | sed "s/\(.*\)\.out/\1/") | cmp $$o && echo OK ; \
 	done
 
-$(ENCOREC):
-	make -C $(ROOT_PATH)
+compiler:
+	make -C $(ROOT_PATH) encorec
 
 clean:
 	rm -rf *.pony.c *.dSYM $(ENCORE_TARGETS)
 
-.PHONY: test clean $(ENCORE_TARGETS)
+.PHONY: test clean compiler compare_outs

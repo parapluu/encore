@@ -1,0 +1,12 @@
+class Main
+  def main() : void {
+    this.stuff(0);
+    this.stuff(1)
+  }
+
+  def stuff(i : int) : void {
+    if i == 0 then
+      print string "Hello"
+    else
+      print string "Ponyworld!"
+  }
