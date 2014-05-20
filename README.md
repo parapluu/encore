@@ -3,24 +3,26 @@ mylittlepony
 
 Preliminary explorations for the Encore compiler.
 
-## Change Log
-### First Program compiles
+### Build Instructions
 
-It runs. Barely, but it runs.
-This will need heavy refactoring, lots of stuff is still hard-coded, duplicated.
+Make sure that you have `doxygen`, `premake4`, an up-to-date
+`clang` and `ghc` in your path.
 
-Demo:
+We're using:
 
-    cd mylittlepony/experiments/
-    make
-    cat Hello.pony.c
-    ./Hello
-    
-#### "It doesn't compile!"
+ - doxygen v1.8.6
+ - clang:
 
-If the runtime doesn't compile, try `brew install premake` and make sure to have an up-to-date clang version:
-
-    ../experiments $ clang --version
-    Apple LLVM version 5.1 (clang-503.0.38) (based on LLVM 3.4svn)
+    Apple LLVM version 5.1 (clang-503.0.40) (based on LLVM 3.4svn)
     Target: x86_64-apple-darwin13.1.0
     Thread model: posix
+
+ - ghc: The Glorious Glasgow Haskell Compilation System, version 7.8.20140130
+
+Then run:
+
+    cd mylittlepony
+    make
+    make doc
+    make test
+
