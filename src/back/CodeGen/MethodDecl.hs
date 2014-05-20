@@ -11,7 +11,7 @@ import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 
-import qualified EAST.EAST as A
+import qualified AST.AST as A
 import qualified Identifiers as ID
 
 import Control.Monad.Reader

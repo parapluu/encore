@@ -28,7 +28,7 @@ import CCode.PrettyCCode
 
 import Data.List
 
-import qualified EAST.EAST as A
+import qualified AST.AST as A
 import qualified Identifiers as ID
 
 import Control.Monad.Reader hiding (void)

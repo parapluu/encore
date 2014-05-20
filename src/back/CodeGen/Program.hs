@@ -12,7 +12,7 @@ import CodeGen.CCodeNames
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
-import qualified EAST.EAST as A
+import qualified AST.AST as A
 import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 

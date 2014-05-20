@@ -48,20 +48,20 @@ ppProgram :: Program -> Doc
 ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl (Class name fields methods) = 
-    ppClass <+> ppType name $+$
+ppClassDecl Class {cname = cname, fields = fields, methods = methods} = 
+    ppClass <+> ppType cname $+$
              (indent $
                    vcat (map ppFieldDecl fields) $$
                    vcat (map ppMethodDecl methods))
 
 ppFieldDecl :: FieldDecl -> Doc
-ppFieldDecl (Field f t) = ppName f <+> ppColon <+> ppType t
+ppFieldDecl Field {fname = f, ftype = t} = ppName f <+> ppColon <+> ppType t
 
 ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param (x, t)) =  ppName x <+> text ":" <+> ppType t
 
 ppMethodDecl :: MethodDecl -> Doc
-ppMethodDecl (Method mn rt params body) = 
+ppMethodDecl Method {mname = mn, rtype = rt, mparams = params, mbody = body} = 
     text "def" <+>
     ppName mn <> 
     parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) <+>
@@ -69,9 +69,9 @@ ppMethodDecl (Method mn rt params body) =
     (indent (ppExpr body))
 
 isSimple :: Expr -> Bool
-isSimple (VarAccess _) = True
-isSimple (FieldAccess e _) = isSimple e
-isSimple (Call e _ _) = isSimple e
+isSimple VarAccess {} = True
+isSimple FieldAccess {path = p} = isSimple p
+isSimple Call {target = targ} = isSimple targ
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
@@ -80,34 +80,34 @@ maybeParens e
     | otherwise  = parens $ ppExpr e
 
 ppExpr :: Expr -> Doc
-ppExpr Skip = ppSkip
-ppExpr (Call e m args) = 
+ppExpr Skip {} = ppSkip
+ppExpr Call {target = e, tmname = m, args = args} = 
     maybeParens e <> ppDot <> ppName m <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
-ppExpr (Let (Name x) (Type ty) e1 e2) = 
-    ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr e1 <+> ppIn $+$ 
-      indent (ppExpr e2)
-ppExpr (Seq es) = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
-ppExpr (IfThenElse cond thn els) = 
+ppExpr Let {eid = Name x, ty = Type ty, val = val, body = body} = 
+    ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr val <+> ppIn $+$ 
+      indent (ppExpr body)
+ppExpr Seq {eseq = es} = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
+ppExpr IfThenElse {cond = cond, thn = thn, els = els} = 
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
-ppExpr (While cond expr) = 
+ppExpr While {cond = cond, body = expr} = 
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr expr)
-ppExpr (Get e) = ppGet <+> ppExpr e
-ppExpr (FieldAccess e f) = maybeParens e <> ppDot <> ppName f
-ppExpr (VarAccess x) = ppName x
-ppExpr (Assign lval e) = ppLVal lval <+> ppEquals <+> ppExpr e
-ppExpr (Null) = ppNull
-ppExpr (BTrue) = ppTrue
-ppExpr (BFalse) = ppFalse
-ppExpr (New ty) = ppNew <+> ppType ty
-ppExpr (Print ty e) = ppPrint <+> ppType ty <+> ppExpr e
-ppExpr (StringLiteral s) = doubleQuotes (text s)
-ppExpr (IntLiteral n) = int n
-ppExpr (Binop op e1 e2) = ppExpr e1 <+> ppBinop op <+> ppExpr e2
+ppExpr Get {fut = e} = ppGet <+> ppExpr e
+ppExpr FieldAccess {path = p, field = f} = maybeParens p <> ppDot <> ppName f
+ppExpr VarAccess {eid = x} = ppName x
+ppExpr Assign {lhs = lval, rhs = e} = ppLVal lval <+> ppEquals <+> ppExpr e
+ppExpr Null {} = ppNull
+ppExpr BTrue {} = ppTrue
+ppExpr BFalse {} = ppFalse
+ppExpr New {ty = ty} = ppNew <+> ppType ty
+ppExpr Print {ty = ty, val = e} = ppPrint <+> ppType ty <+> ppExpr e
+ppExpr StringLiteral {stringLit = s} = doubleQuotes (text s)
+ppExpr IntLiteral {intLit = n} = int n
+ppExpr Binop {op = op, loper = e1, roper = e2} = ppExpr e1 <+> ppBinop op <+> ppExpr e2
 
 ppBinop :: Op -> Doc
 ppBinop Identifiers.LT  = text "<"
@@ -120,5 +120,5 @@ ppBinop Identifiers.TIMES  = text "*"
 ppBinop Identifiers.DIV = text "/"
 
 ppLVal :: LVal -> Doc
-ppLVal (LVal (Name x))  = text x
-ppLVal (LField e (Name f)) = maybeParens e <> ppDot <> text f
+ppLVal LVal {lid = (Name x)}  = text x
+ppLVal LField {lpath = p, lid = Name f} = maybeParens p <> ppDot <> text f

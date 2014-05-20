@@ -12,7 +12,7 @@ import Data.List
 
 import CCode.Main
 
-import qualified EAST.EAST as A
+import qualified AST.AST as A
 import qualified Identifiers as ID
 
 import Control.Monad.State
@@ -44,34 +44,34 @@ type_to_printf_fstr other = case (translate other :: CCode Ty) of
                               _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show other
 
 instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
-  translate (A.Skip) = return $ Embed "/* skip */"
-  translate (A.Null) = return $ Embed "NULL"
+  translate (A.Skip {}) = return $ Embed "/* skip */"
+  translate (A.Null {}) = return $ Embed "NULL"
   translate (A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     te1 <- translate e1
     te2 <- translate e2
     return $ BinOp (translate op) te1 te2
-  translate (A.Print _ e) =
+  translate (A.Print {A.val = e}) =
       do
         te <- translate e
         return $ Call (Nam "printf") [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"",
                                       te :: CCode Expr]
-  translate (A.Seq {A.seq = es}) = do
+  translate (A.Seq {A.eseq = es}) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
   translate (A.Assign {A.lhs = lvar, A.rhs = expr}) = do
     texpr <- translate expr
     tlvar <- translate lvar
     return $ Assign (tlvar :: CCode Lval) texpr
-  translate (A.VarAccess {A.id = name}) =
+  translate (A.VarAccess {A.eid = name}) =
     return $ Embed $ show name
   translate (A.FieldAccess {A.path = exp, A.field = name}) = do
     texp <- translate exp
     return $ AsExpr $ Deref (texp :: CCode Expr) `Dot` (Nam $ show name)
-  translate (A.IntLiteral i) =
+  translate (A.IntLiteral {A.intLit = i}) =
     return $ Embed $ show i
-  translate (A.StringLiteral s) =
+  translate (A.StringLiteral {A.stringLit = s}) =
     return $ Embed $ show s
-  translate l@(A.Let {A.id = name, A.val = e1, A.body = e2}) =
+  translate l@(A.Let {A.eid = name, A.val = e1, A.body = e2}) =
 -- this uses an obscure feature of C: compound statements can form expressions!
 -- http://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
                    do
@@ -84,11 +84,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                              [Assign 
                               (Decl (translate (A.getType e1), Var $ show name)) te1,
                                                                                  te2])
-  translate (A.New ty) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
+  translate (A.New {A.ty = ty}) = return $ Call (Nam "create_and_send") [Amp $ actor_rec_name ty,
                                                                 AsExpr . AsLval . Nam $ "MSG_alloc"]
   translate (A.Call { A.target=target, A.tmname=name, A.args=args }) =
       (case target of
-        (A.VarAccess { A.id = ID.Name "this"}) -> local_call
+        (A.VarAccess { A.eid = ID.Name "this"}) -> local_call
         _ -> remote_call)
           where
             local_call =
@@ -141,8 +141,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                 error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref (A.VarAccess { A.id = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+            varaccess_this_to_aref (A.VarAccess { A.eid = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
             varaccess_this_to_aref other                                   = translate other
+
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do tcond <- translate cond
          tbody <- translate (body :: A.Expr)

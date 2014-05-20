@@ -54,6 +54,7 @@ import Text.Parsec.Expr
 -- Module dependencies
 import Identifiers
 import AST.AST
+import AST.Meta
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -96,17 +97,19 @@ program = do {classes <- many classDecl ;
               return $ Program classes}
 
 classDecl :: Parser ClassDecl
-classDecl = do {reserved "class" ;
+classDecl = do {pos <- getPosition ;
+                reserved "class" ;
                 cname <- identifier ;
                 fields <- many fieldDecl ;
                 methods <- many methodDecl ;
-                return $ Class (Type cname) fields methods}
+                return $ Class (meta pos) (Type cname) fields methods}
 
 fieldDecl :: Parser FieldDecl
-fieldDecl = do {f <- identifier ;
+fieldDecl = do {pos <- getPosition ;
+                f <- identifier ;
                 colon ;
                 ty <- identifier ;
-                return $ Field (Name f) (Type ty)}
+                return $ Field (meta pos) (Name f) (Type ty)}
 
 paramDecl :: Parser ParamDecl
 paramDecl = do {x <- identifier ; 
@@ -115,34 +118,38 @@ paramDecl = do {x <- identifier ;
                 return $ Param (Name x, Type ty)}
 
 methodDecl :: Parser MethodDecl
-methodDecl = do {reserved "def" ; 
+methodDecl = do {pos <- getPosition ;
+                 reserved "def" ; 
                  name <- identifier ;
                  params <- parens (commaSep paramDecl) ;
                  colon ;
                  ty <- identifier ;
                  body <- expression ; 
-                 return $ Method (Name name) (Type ty) params body}
+                 return $ Method (meta pos) (Name name) (Type ty) params body}
 
 lval :: Parser LVal
-lval  =  try (do {x <- identifier ;
+lval  =  try (do {pos <- getPosition ;
+                  x <- identifier ;
                   dot ;
                   path <- identifier `sepBy` dot ;
-                  return $ fieldAccessLVal path (VarAccess (Name x))})
-     <|> do {x <- identifier ; return $ LVal (Name x)}
+                  return $ fieldAccessLVal path (VarAccess (meta pos) (Name x))})
+     <|> do {pos <- getPosition ;
+             x <- identifier ; return $ LVal (meta pos) (Name x)}
          where
            fieldAccessLVal :: [String] -> Expr -> LVal
-           fieldAccessLVal [f] acc = LField acc (Name f)
-           fieldAccessLVal (f:path) acc = fieldAccessLVal path (FieldAccess acc (Name f))
+           fieldAccessLVal [f] acc = LField (emeta acc) acc (Name f)
+           fieldAccessLVal (f:path) acc = fieldAccessLVal path (FieldAccess (emeta acc) acc (Name f))
 
 methodPath :: Parser (Expr, Name)
-methodPath = do {root <- identifier ;
+methodPath = do {pos <- getPosition ;
+                 root <- identifier ;
                  dot ;
                  path <- identifier `sepBy` (skipMany1 dot) ;
-                 return (pathToExpr (init path) (VarAccess (Name root)), Name $ last path )}
+                 return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )}
 
 pathToExpr :: [String] -> Expr -> Expr
 pathToExpr [] acc = acc
-pathToExpr (f:path) acc = pathToExpr path (FieldAccess acc (Name f))
+pathToExpr (f:path) acc = pathToExpr path (FieldAccess (emeta acc) acc (Name f))
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
@@ -153,7 +160,9 @@ expression = buildExpressionParser opTable expr
       opTable = [[op "*" TIMES, op "/" DIV],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ]]
-      op s binop = Infix (do{reservedOp s ; return (\e1 e2 -> Binop binop e1 e2)}) AssocLeft
+      op s binop = Infix (do{pos <- getPosition ; 
+                             reservedOp s ; 
+                             return (\e1 e2 -> Binop (meta pos) binop e1 e2)}) AssocLeft
 
 expr :: Parser Expr
 expr  =  skip
@@ -176,14 +185,17 @@ expr  =  skip
      <|> int
      <?> "expression"
     where
-      skip = do {reserved "skip" ; return Skip }
-      assignment = do {lhs <- lval ; reservedOp "=" ; 
+      skip = do {pos <- getPosition ; reserved "skip" ; return $ Skip (meta pos) }
+      assignment = do {pos <- getPosition; 
+                       lhs <- lval ; reservedOp "=" ; 
                        expr <- expression ; 
-                       return $ Assign lhs expr}
-      methodCall = do {(target, tmname) <- methodPath ; 
+                       return $ Assign (meta pos) lhs expr}
+      methodCall = do {pos <- getPosition ;
+                       (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
-                       return $ Call target tmname args}
-      letExpression = do {reserved "let" ;
+                       return $ Call (meta pos) target tmname args}
+      letExpression = do {pos <- getPosition ;
+                          reserved "let" ;
                           x <- identifier ;
                           reservedOp ":" ;
                           ty <- identifier ;
@@ -191,43 +203,56 @@ expr  =  skip
                           val <- expression ;
                           reserved "in" ;
                           expr <- expression ;
-                          return $ Let (Name x) (Type ty) val expr}
-      sequence = do { seq <- braces (semiSep expression) ;
-                      return $ Seq seq}
-      ifThenElse = do {reserved "if" ; 
+                          return $ Let (meta pos) (Name x) (Type ty) val expr}
+      sequence = do {pos <- getPosition ;
+                     seq <- braces (semiSep expression) ;
+                     return $ Seq (meta pos) seq}
+      ifThenElse = do {pos <- getPosition ;
+                       reserved "if" ; 
                        cond <- expression ;
                        reserved "then" ;
                        thn <- expression ;
                        reserved "else" ;
                        els <- expression ;
-                       return $ IfThenElse cond thn els}
-      while = do {reserved "while" ; 
+                       return $ IfThenElse (meta pos) cond thn els}
+      while = do {pos <- getPosition ;
+                  reserved "while" ; 
                   cond <- expression ;
                   expr <- expression ;
-                  return $ While cond expr}
-      get = do {reserved "get" ; 
+                  return $ While (meta pos) cond expr}
+      get = do {pos <- getPosition ;
+                reserved "get" ; 
                 expr <- expression ; 
-                return $ Get expr }
-      fieldAccess = do {root <- identifier ;
+                return $ Get (meta pos) expr }
+      fieldAccess = do {pos <- getPosition ;
+                        root <- identifier ;
                         dot ;
                         path <- identifier `sepBy1` (skipMany1 dot) ;
-                        return $ pathToExpr path (VarAccess (Name root)) }
-      varAccess = do {id <- identifier ; 
-                      return $ VarAccess $ Name id }
-      null = do {reserved "null" ; 
-                 return Null}
-      true = do {reserved "true" ; 
-                 return BTrue}
-      false = do {reserved "false" ; 
-                  return BFalse}
-      new = do {reserved "new" ;
+                        return $ pathToExpr path (VarAccess (meta pos) (Name root)) }
+      varAccess = do {pos <- getPosition ;
+                      id <- identifier ; 
+                      return $ VarAccess (meta pos) $ Name id }
+      null = do {pos <- getPosition ;
+                 reserved "null" ; 
+                 return $ Null (meta pos)}
+      true = do {pos <- getPosition ;
+                 reserved "true" ; 
+                 return $ BTrue (meta pos)}
+      false = do {pos <- getPosition ;
+                  reserved "false" ; 
+                  return $ BFalse (meta pos)}
+      new = do {pos <- getPosition ;
+                reserved "new" ;
                 ty <- identifier ;
-                return $ New (Type ty)}
-      print = do {reserved "print" ;
+                return $ New (meta pos) (Type ty)}
+      print = do {pos <- getPosition ;
+                  reserved "print" ;
                   ty <- identifier ;
                   expr <- expression ;
-                  return $ Print (Type ty) expr}
-      string = do {string <- stringLiteral ; 
-                   return $ StringLiteral string}
-      int = do {n <- natural ; 
-                return $ IntLiteral (fromInteger n)}
+                  return $ Print (meta pos) (Type ty) expr}
+      string = do {pos <- getPosition ;
+                   string <- stringLiteral ; 
+                   return $ StringLiteral (meta pos) string}
+      int = do {pos <- getPosition ;
+                n <- natural ; 
+                return $ IntLiteral (meta pos) (fromInteger n)}

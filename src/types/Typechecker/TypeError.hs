@@ -32,7 +32,7 @@ class Pushable a where
     push :: a -> Backtrace -> Backtrace
 
 instance Pushable ClassDecl where
-    push (Class cname _ _) bt = (BTClass cname) : bt
+    push Class {cname = cname} bt = (BTClass cname) : bt
 
 instance Pushable FieldDecl where
     push f bt = (BTField f) : bt
@@ -41,7 +41,7 @@ instance Pushable ParamDecl where
     push p bt = (BTParam p) : bt
 
 instance Pushable MethodDecl where
-    push (Method name ty _ _) bt = (BTMethod name ty) : bt
+    push Method {mname = name, rtype = ty} bt = (BTMethod name ty) : bt
 
 instance Pushable Expr where
     push expr bt = (BTExpr expr) : bt
