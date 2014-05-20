@@ -76,8 +76,9 @@ pp' (Call name args) = tshow name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
 pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
-pp' (While cond body) = text "while ("<>pp' cond<>text ")" $+$ braced_block (pp' body)
-pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
+pp' (While cond body) = text "while" <+> pp' cond $+$
+                        braced_block (pp' body)
+pp' (If c t e) = text "if" <+> pp' c $+$
                  braced_block (pp' t) $+$
                  text "else" $+$
                  braced_block (pp' e)
