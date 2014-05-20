@@ -34,7 +34,8 @@ pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Statement c) = pp' c <> text ";"
+pp' (Statement seq@(StoopidSeq _)) = pp' seq
+pp' (Statement other) =  pp' other <> text ";"
 pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
                                   switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
@@ -45,9 +46,15 @@ pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (Concat ccodes) = block ccodes
 pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
-pp' (StoopidSeq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
+pp' (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
+    where
+      semicolonify :: CCode Expr -> Doc
+      semicolonify (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
+      semicolonify other = pp' other <> text ";"
+
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
+pp' (Parens ccode) = lparen <> pp' ccode <> rparen
 pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
 pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen

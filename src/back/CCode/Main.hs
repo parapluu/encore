@@ -60,8 +60,8 @@ data CCode a where
                                              -- directly map to
                                              -- C-Exprs.
     Enum       :: [CCode Name] -> CCode Toplevel
-    Braced     :: CCode a -> CCode a -- get rid of this; only used in
-                                     -- Let-expr
+    Braced     :: CCode a -> CCode a
+    Parens     :: CCode a -> CCode a
     BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
     Dot        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref      :: UsableAs e Expr => CCode e -> CCode Expr

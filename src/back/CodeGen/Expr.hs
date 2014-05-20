@@ -72,13 +72,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
   translate (A.StringLiteral s) =
     return $ Embed $ show s
   translate (A.Let {A.id = name, A.ty = ty, A.val = e1, A.body = e2}) =
+-- this uses an obscure feature of C: compound statements can form expressions!
+-- http://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
                    do
                      te1 <- translate e1
                      s <- get
                      put (Ctx.with_local (ID.Param (name, ty)) s)
                      te2 <- translate e2
                      put s
-                     return (Braced . StoopidSeq $
+                     return (Parens . Braced . StoopidSeq $
                              [Assign 
                               (Decl ((Ptr . Typ $ "pony_actor_t", Var $ show name))) te1,
                                                                                      te2])
@@ -99,17 +101,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                                                       (zip (targs :: [CCode Expr]) targtys)) ++
                                      "}")
          return $ StoopidSeq $
-                    (if (length targs) > 0
-                     then [the_arg_decl]
-                     else []) ++
-                    [Call
+                    [the_arg_decl,
+                     Call
                      (Nam "pony_sendv")
                      ([texpr :: CCode Expr,
                                 AsExpr . AsLval $ method_msg_name (A.getType expr) name,
                                 Embed . show . length $ args] ++
-                      if (length targs) > 0
-                      then [Embed the_arg_name]
-                      else [Embed "NULL"])]
+                      [Embed the_arg_name])]
              where
                pony_arg_t_tag :: CCode Ty -> String
                pony_arg_t_tag (Ptr _) = ".p"
