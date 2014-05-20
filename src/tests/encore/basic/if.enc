@@ -1,0 +1,9 @@
+class Main
+  def main() : void{
+
+  def stuff(i : int) : void {
+    if i == 0 then
+      print string "Hello"
+    else
+      print string "Ponyworld!"
+  }
