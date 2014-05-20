@@ -28,7 +28,7 @@ data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtr
 buildClassTable :: Program -> Environment
 buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
     where
-      getClassType (Class name fields methods) = (name, (fields', methods'))
+      getClassType Class {cname = name, fields = fields, methods = methods} = (name, (fields', methods'))
           where
             fields' = map getFieldType fields
             methods' = map getMethodType methods

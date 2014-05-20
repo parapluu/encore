@@ -17,15 +17,16 @@ import Control.Monad.Error
 
 -- Module dependencies
 import Identifiers
-import AST.AST
+import AST.AST hiding (hasType, getType)
+import qualified AST.AST as AST(hasType, getType)
 import AST.PrettyPrinter
 import Typechecker.Types
 import Typechecker.Environment
 import Typechecker.TypeError
-import qualified EAST.EAST as Ext
+--import qualified EAST.EAST as Ext
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> Either TCError Ext.Program
+typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p = runReader (runErrorT (typecheck p)) (buildClassTable p)
 
 -- | Convenience function for throwing an exception with the
@@ -42,34 +43,34 @@ wfType ty = do refType <- asks $ classLookup ty
 -- in an Error monad. The Reader monad lets us do lookups in the
 -- "Environment", and the Error monad lets us throw a
 -- "TCError" exception anywhere.
-class Checkable a b where
+class Checkable a where
     -- | Returns the extended version of its argument
-    typecheck :: a -> ErrorT TCError (Reader Environment) b
+    typecheck :: a -> ErrorT TCError (Reader Environment) a
 
     -- | Returns the extended version of its argument if its type
     -- agrees with the second argument
-    hasType   :: a -> Type -> ErrorT TCError (Reader Environment) b
+    hasType   :: a -> Type -> ErrorT TCError (Reader Environment) a
+    hasType _ _ = tcError "Typechecking not implemented for construct"
 
     -- | Convenience function for pushing and typechecking a
     -- component in one step.
-    pushTypecheck :: Pushable a => a -> ErrorT TCError (Reader Environment) b
+    pushTypecheck :: Pushable a => a -> ErrorT TCError (Reader Environment) a
     pushTypecheck x = local (pushBT x) $ typecheck x
 
-    pushHasType :: Pushable a => a -> Type -> ErrorT TCError (Reader Environment) b
+    pushHasType :: Pushable a => a -> Type -> ErrorT TCError (Reader Environment) a
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
-instance Checkable Program Ext.Program where
+instance Checkable Program where
     typecheck (Program classes) = do eclasses <- mapM pushTypecheck classes
-                                     return $ Ext.Program eclasses
-    hasType _ _ = tcError "Trying to compare the type of a whole program"
+                                     return $ Program eclasses
 
-instance Checkable ClassDecl Ext.ClassDecl where
-    typecheck (Class cname fields methods) =
+instance Checkable ClassDecl where
+    typecheck c@(Class {cname = cname, fields = fields, methods = methods}) =
         do efields <- mapM pushTypecheck fields
            emethods <- mapM typecheckMethod methods
            unless distinctFieldNames $ tcError $ "Duplicate field names"
            unless distinctMethodNames $ tcError $ "Duplicate method names"
-           return $ Ext.Class cname efields emethods
+           return $ c {fields = efields, methods = emethods}
         where
           typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
           distinctFieldNames = 
@@ -77,43 +78,31 @@ instance Checkable ClassDecl Ext.ClassDecl where
           distinctMethodNames = 
               nubBy (\m1 m2 -> (mname m1 == mname m2)) methods == methods
 
-    hasType cls ty = do wfType ty
-                        eCls@(Ext.Class cname fields methods) <- pushTypecheck cls
-                        unless (ty == cname) $ tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show cname ++ "'"
-                        return eCls
+instance Checkable FieldDecl where
+    typecheck f@(Field {ftype = ty}) = do wfType ty
+                                          return $ setType ty f
 
-instance Checkable FieldDecl Ext.FieldDecl where
-    typecheck (Field name ty) = do wfType ty
-                                   return $ Ext.Field name ty
-
-    hasType (f@(Field name fType)) ty = do unless (fType == ty) $ tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show fType ++ "'"
-                                           typecheck f
-
-instance Checkable MethodDecl Ext.MethodDecl where
-     typecheck (Method name rtype params body) = 
+instance Checkable MethodDecl where
+     typecheck m@(Method {mmeta = meta, rtype = rtype, mparams=params, mbody = body}) = 
          do wfType rtype
-            eParams <- mapM typecheckParam params
+            mapM_ typecheckParam params
             eBody <- local addParams $ pushHasType body rtype
-            return $ Ext.Method name rtype eParams eBody
+            return $ setType rtype m {mbody = eBody}
          where
            typecheckParam = (\p@(Param(_, ty)) -> local (pushBT p) $ do {wfType ty; return $ p})
            addParams = extendEnvironment (map (\(Param p) -> p) params)
 
-     hasType (m@(Method _ rtype _ _)) ty = do unless (rtype == ty) $ 
-                                                     tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show rtype ++ "'"
-                                              typecheck m
-
-instance Checkable Expr Ext.Expr where
+instance Checkable Expr where
     hasType expr ty = do eExpr <- typecheck expr
-                         unless (eExpr `Ext.hasType` ty) $
-                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (Ext.getType eExpr) ++ "'"
+                         unless (eExpr `AST.hasType` ty) $
+                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (AST.getType eExpr) ++ "'"
                          return eExpr
 
-    typecheck Skip = return $ Ext.Skip
+    typecheck skip@(Skip {}) = return $ setType voidType skip
 
-    typecheck (Call target name args) = 
+    typecheck call@(Call {target = target, tmname = name, args = args}) = 
         do eTarget <- pushTypecheck target
-           targetType <- return $ Ext.getType eTarget
+           targetType <- return $ AST.getType eTarget
            when (isPrimitive targetType) $ 
                 tcError $ "Cannot call method on expression '" ++ 
                           (show $ ppExpr target) ++ 
@@ -126,109 +115,109 @@ instance Checkable Expr Ext.Expr where
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
                     eArgs <- zipWithM (\eArg (Param (_, ty)) -> pushHasType eArg ty) args params
-                    return $ Ext.Call returnType eTarget name eArgs
+                    return $ setType returnType call {target = eTarget, args = eArgs}
 
-    typecheck (Let x ty val expr) = 
+    typecheck let_@(Let {eid = x, ty = ty, val = val, body = body}) = 
         do eVal <- pushHasType val ty
-           eExpr <- local (extendEnvironment [(x, ty)]) $ pushTypecheck expr
-           return $ Ext.Let (Ext.getType eExpr) x ty eVal eExpr
+           eBody <- local (extendEnvironment [(x, ty)]) $ pushTypecheck body
+           return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 
-    typecheck (Seq exprs) = 
+    typecheck seq@(Seq {eseq = exprs}) = 
         do eExprs <- mapM pushTypecheck exprs 
-           seqType <- return $ Ext.getType (last eExprs)
-           return $ Ext.Seq seqType eExprs
+           seqType <- return $ AST.getType (last eExprs)
+           return $ setType seqType seq{eseq = eExprs}
 
-    typecheck (IfThenElse cond thn els) = 
+    typecheck ifThenElse@(IfThenElse {cond = cond, thn = thn, els = els}) = 
         do eCond <- pushHasType cond boolType
            eThn <- pushTypecheck thn
-           thnType <- return $ Ext.getType eThn
+           thnType <- return $ AST.getType eThn
            eEls <- pushHasType els thnType
-           return $ Ext.IfThenElse thnType eCond eThn eEls
+           return $ setType thnType ifThenElse {cond = eCond, thn = eThn, els = eEls}
 
-    typecheck (While cond expr) = 
+    typecheck while@(While {cond = cond, body = expr}) = 
         do eCond <- pushHasType cond boolType
            eExpr <- pushTypecheck expr
-           return $ Ext.While (Ext.getType eExpr) eCond eExpr
+           return $ setType (AST.getType eExpr) while {cond = eCond, body = eExpr}
 
-    typecheck (Get expr) = mzero
+    typecheck get@(Get {}) = mzero
 
-    typecheck (FieldAccess expr f) = 
+    typecheck fAcc@(FieldAccess {path = expr, field = f}) = 
         do ePath <- pushTypecheck expr
-           pathType <- return $ Ext.getType ePath
+           pathType <- return $ AST.getType ePath
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr expr) ++ "' of primitive type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup pathType f
            case fType of
-             Just ty -> return $ Ext.FieldAccess ty ePath f
+             Just ty -> return $ setType ty fAcc {path = ePath}
              Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"                                                         
 
-    typecheck (Assign lval rval) = 
+    typecheck assign@(Assign {lhs = lval, rhs = rval}) = 
         do eLVal <- pushTypecheck lval
-           eRVal <- pushHasType rval (Ext.getType eLVal)
-           return $ Ext.Assign voidType eLVal eRVal
+           eRVal <- pushHasType rval (AST.getType eLVal)
+           return $ setType voidType assign {lhs = eLVal, rhs = eRVal}
 
-    typecheck (VarAccess x) = 
+    typecheck var@(VarAccess {eid = x}) = 
         do varType <- asks $ varLookup x
            case varType of
-             Just ty -> return $ Ext.VarAccess ty x
+             Just ty -> return $ setType ty var
              Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
 
-    typecheck Null = return $ Ext.Null
+    typecheck null@Null {} = return $ setType nullType null
 
-    typecheck BTrue = return $ Ext.BTrue
+    typecheck true@BTrue {} = return $ setType boolType true 
 
-    typecheck BFalse = return $ Ext.BFalse
+    typecheck false@BFalse {} = return $ setType boolType false 
 
-    typecheck (New ty) = 
+    typecheck new@(New {ty = ty}) = 
         do wfType ty
-           return $ Ext.New ty
+           return $ setType ty new
 
-    typecheck (Print ty expr) = 
+    typecheck print@(Print {ty = ty, val = expr}) = 
         do eExpr <- pushHasType expr ty
-           return $ Ext.Print voidType eExpr
+           return $ setType voidType print {val = eExpr}
 
-    typecheck (StringLiteral s) = return $ Ext.StringLiteral s
+    typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
-    typecheck (IntLiteral n) = return $ Ext.IntLiteral n
+    typecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
-    typecheck (Binop op e1 e2) 
+    typecheck binop@(Binop {op = op, loper = e1, roper = e2})
         | op `elem` cmpOps = 
             do eE1 <- pushHasType e1 intType
                eE2 <- pushHasType e2 intType
-               return $ Ext.Binop boolType op eE1 eE2
+               return $ setType boolType binop {loper = eE1, roper = eE2}
         | op `elem` eqOps =
             do eE1 <- pushTypecheck e1
-               eE2 <- pushHasType e2 (Ext.getType eE1)
-               return $ Ext.Binop boolType op eE1 eE2
+               eE2 <- pushHasType e2 (AST.getType eE1)
+               return $ setType boolType binop {loper = eE1, roper = eE2}
         | op `elem` arithOps = 
             do eE1 <- pushHasType e1 intType
                eE2 <- pushHasType e2 intType
-               return $ Ext.Binop intType op eE1 eE2
+               return $ setType intType binop {loper = eE1, roper = eE2}
         | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
         where
           cmpOps   = [Identifiers.LT, Identifiers.GT]
           eqOps    = [Identifiers.EQ, NEQ]
           arithOps = [PLUS, MINUS, TIMES, DIV]
 
-instance Checkable LVal Ext.LVal where
+instance Checkable LVal where
     hasType lval ty = do eLVal <- typecheck lval
-                         unless (eLVal `Ext.hasType` ty) $ 
-                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (Ext.getType eLVal) ++ "'"
+                         unless (eLVal `AST.hasType` ty) $ 
+                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (AST.getType eLVal) ++ "'"
                          return eLVal
 
-    typecheck (LVal x) = 
+    typecheck lval@(LVal {lid = x}) = 
         do varType <- asks (varLookup x)
            case varType of
-             Just ty -> return $ Ext.LVal ty x
+             Just ty -> return $ setType ty lval
              Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
-    typecheck (LField expr f) = 
+    typecheck lval@(LField {lpath = expr, lid = f}) = 
         do ePath <- typecheck expr
-           pathType <- return $ Ext.getType ePath
+           pathType <- return $ AST.getType ePath
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ (show $ ppExpr expr) ++ 
                           "' of primitive type '" ++ show pathType ++ "'"
-           fType <- asks $ fieldLookup (Ext.getType ePath) f
+           fType <- asks $ fieldLookup (AST.getType ePath) f
            case fType of
-             Just ty -> return $ Ext.LField ty ePath f
+             Just ty -> return $ setType ty lval {lpath = ePath}
              Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"

@@ -21,6 +21,11 @@ instance Show Type where
 
 newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
 
+-- | Used to give types to AST nodes during parsing (i.e. before
+-- typechecking)
+emptyType :: Type
+emptyType = Type "*** UN-TYPED ***"
+
 voidType :: Type
 voidType = Type "void"
 
