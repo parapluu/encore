@@ -98,15 +98,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                                                        "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
                                                       (zip (targs :: [CCode Expr]) targtys)) ++
                                      "}")
-         return $ StoopidSeq $ [the_arg_decl,
-                                Call
-                                (Nam "pony_sendv")
-                                ([texpr :: CCode Expr,
-                                  AsExpr . AsLval $ method_msg_name (A.getType expr) name,
-                                  Embed . show . length $ args] ++
-                                 if (length targs) > 0
-                                 then [Embed the_arg_name]
-                                 else [Embed "NULL"])]
+         return $ StoopidSeq $
+                    (if (length targs) > 0
+                     then [the_arg_decl]
+                     else []) ++
+                    [Call
+                     (Nam "pony_sendv")
+                     ([texpr :: CCode Expr,
+                                AsExpr . AsLval $ method_msg_name (A.getType expr) name,
+                                Embed . show . length $ args] ++
+                      if (length targs) > 0
+                      then [Embed the_arg_name]
+                      else [Embed "NULL"])]
              where
                pony_arg_t_tag :: CCode Ty -> String
                pony_arg_t_tag (Ptr _) = ".p"
