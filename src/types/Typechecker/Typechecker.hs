@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, NamedFieldPuns #-}
+
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with
@@ -65,7 +66,7 @@ instance Checkable Program where
                                      return $ Program eclasses
 
 instance Checkable ClassDecl where
-    typecheck c@(Class {cname = cname, fields = fields, methods = methods}) =
+    typecheck c@(Class {cname, fields, methods}) =
         do efields <- mapM pushTypecheck fields
            emethods <- mapM typecheckMethod methods
            unless distinctFieldNames $ tcError $ "Duplicate field names"
@@ -79,18 +80,18 @@ instance Checkable ClassDecl where
               nubBy (\m1 m2 -> (mname m1 == mname m2)) methods == methods
 
 instance Checkable FieldDecl where
-    typecheck f@(Field {ftype = ty}) = do wfType ty
-                                          return $ setType ty f
+    typecheck f@(Field {ftype}) = do wfType ftype
+                                     return $ setType ftype f
 
 instance Checkable MethodDecl where
-     typecheck m@(Method {mmeta = meta, rtype = rtype, mparams=params, mbody = body}) = 
-         do wfType rtype
-            mapM_ typecheckParam params
-            eBody <- local addParams $ pushHasType body rtype
-            return $ setType rtype m {mbody = eBody}
+     typecheck m@(Method {mtype, mparams, mbody}) = 
+         do wfType mtype
+            mapM_ typecheckParam mparams
+            eBody <- local addParams $ pushHasType mbody mtype
+            return $ setType mtype m {mbody = eBody}
          where
            typecheckParam = (\p@(Param(_, ty)) -> local (pushBT p) $ do {wfType ty; return $ p})
-           addParams = extendEnvironment (map (\(Param p) -> p) params)
+           addParams = extendEnvironment (map (\(Param p) -> p) mparams)
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- typecheck expr
@@ -100,7 +101,7 @@ instance Checkable Expr where
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
-    typecheck call@(Call {target = target, tmname = name, args = args}) = 
+    typecheck call@(Call {target, name, args}) = 
         do eTarget <- pushTypecheck target
            targetType <- return $ AST.getType eTarget
            when (isPrimitive targetType) $ 
@@ -117,51 +118,51 @@ instance Checkable Expr where
                     eArgs <- zipWithM (\eArg (Param (_, ty)) -> pushHasType eArg ty) args params
                     return $ setType returnType call {target = eTarget, args = eArgs}
 
-    typecheck let_@(Let {eid = x, ty = ty, val = val, body = body}) = 
+    typecheck let_@(Let {name, ty, val, body}) = 
         do eVal <- pushHasType val ty
-           eBody <- local (extendEnvironment [(x, ty)]) $ pushTypecheck body
+           eBody <- local (extendEnvironment [(name, ty)]) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 
-    typecheck seq@(Seq {eseq = exprs}) = 
-        do eExprs <- mapM pushTypecheck exprs 
-           seqType <- return $ AST.getType (last eExprs)
-           return $ setType seqType seq{eseq = eExprs}
+    typecheck seq@(Seq {eseq}) = 
+        do eEseq <- mapM pushTypecheck eseq 
+           seqType <- return $ AST.getType (last eEseq)
+           return $ setType seqType seq {eseq = eEseq}
 
-    typecheck ifThenElse@(IfThenElse {cond = cond, thn = thn, els = els}) = 
+    typecheck ifThenElse@(IfThenElse {cond, thn, els}) = 
         do eCond <- pushHasType cond boolType
            eThn <- pushTypecheck thn
            thnType <- return $ AST.getType eThn
            eEls <- pushHasType els thnType
            return $ setType thnType ifThenElse {cond = eCond, thn = eThn, els = eEls}
 
-    typecheck while@(While {cond = cond, body = expr}) = 
+    typecheck while@(While {cond, body}) = 
         do eCond <- pushHasType cond boolType
-           eExpr <- pushTypecheck expr
-           return $ setType (AST.getType eExpr) while {cond = eCond, body = eExpr}
+           eBody <- pushTypecheck body
+           return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
 
     typecheck get@(Get {}) = mzero
 
-    typecheck fAcc@(FieldAccess {path = expr, field = f}) = 
-        do ePath <- pushTypecheck expr
-           pathType <- return $ AST.getType ePath
+    typecheck fAcc@(FieldAccess {target, name}) = 
+        do eTarget <- pushTypecheck target
+           pathType <- return $ AST.getType eTarget
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr expr) ++ "' of primitive type '" ++ show pathType ++ "'"
-           fType <- asks $ fieldLookup pathType f
+                          (show $ ppExpr target) ++ "' of primitive type '" ++ show pathType ++ "'"
+           fType <- asks $ fieldLookup pathType name
            case fType of
-             Just ty -> return $ setType ty fAcc {path = ePath}
-             Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"                                                         
+             Just ty -> return $ setType ty fAcc {target = eTarget}
+             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"                                                         
 
-    typecheck assign@(Assign {lhs = lval, rhs = rval}) = 
-        do eLVal <- pushTypecheck lval
-           eRVal <- pushHasType rval (AST.getType eLVal)
-           return $ setType voidType assign {lhs = eLVal, rhs = eRVal}
+    typecheck assign@(Assign {lhs, rhs}) = 
+        do eLhs <- pushTypecheck lhs
+           eRhs <- pushHasType rhs (AST.getType eLhs)
+           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
-    typecheck var@(VarAccess {eid = x}) = 
-        do varType <- asks $ varLookup x
+    typecheck var@(VarAccess {name}) = 
+        do varType <- asks $ varLookup name
            case varType of
              Just ty -> return $ setType ty var
-             Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
+             Nothing -> tcError $ "Unbound variable '" ++ show name ++ "'"
 
     typecheck null@Null {} = return $ setType nullType null
 
@@ -169,31 +170,31 @@ instance Checkable Expr where
 
     typecheck false@BFalse {} = return $ setType boolType false 
 
-    typecheck new@(New {ty = ty}) = 
+    typecheck new@(New {ty}) = 
         do wfType ty
            return $ setType ty new
 
-    typecheck print@(Print {ty = ty, val = expr}) = 
-        do eExpr <- pushHasType expr ty
-           return $ setType voidType print {val = eExpr}
+    typecheck print@(Print {ty, val}) = 
+        do eVal <- pushHasType val ty
+           return $ setType voidType print {val = eVal}
 
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
     typecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
-    typecheck binop@(Binop {op = op, loper = e1, roper = e2})
+    typecheck binop@(Binop {op, loper, roper})
         | op `elem` cmpOps = 
-            do eE1 <- pushHasType e1 intType
-               eE2 <- pushHasType e2 intType
-               return $ setType boolType binop {loper = eE1, roper = eE2}
+            do eLoper <- pushHasType loper intType
+               eRoper <- pushHasType roper intType
+               return $ setType boolType binop {loper = eLoper, roper = eRoper}
         | op `elem` eqOps =
-            do eE1 <- pushTypecheck e1
-               eE2 <- pushHasType e2 (AST.getType eE1)
-               return $ setType boolType binop {loper = eE1, roper = eE2}
+            do eLoper <- pushTypecheck loper
+               eRoper <- pushHasType roper (AST.getType eLoper)
+               return $ setType boolType binop {loper = eLoper, roper = eRoper}
         | op `elem` arithOps = 
-            do eE1 <- pushHasType e1 intType
-               eE2 <- pushHasType e2 intType
-               return $ setType intType binop {loper = eE1, roper = eE2}
+            do eLoper <- pushHasType loper intType
+               eRoper <- pushHasType roper intType
+               return $ setType intType binop {loper = eLoper, roper = eRoper}
         | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
         where
           cmpOps   = [Identifiers.LT, Identifiers.GT]
@@ -206,18 +207,18 @@ instance Checkable LVal where
                                 tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (AST.getType eLVal) ++ "'"
                          return eLVal
 
-    typecheck lval@(LVal {lid = x}) = 
-        do varType <- asks (varLookup x)
+    typecheck lval@(LVal {lname}) = 
+        do varType <- asks (varLookup lname)
            case varType of
              Just ty -> return $ setType ty lval
-             Nothing -> tcError $ "Unbound variable '" ++ show x ++ "'"
-    typecheck lval@(LField {lpath = expr, lid = f}) = 
-        do ePath <- typecheck expr
-           pathType <- return $ AST.getType ePath
+             Nothing -> tcError $ "Unbound variable '" ++ show lname ++ "'"
+    typecheck lval@(LField {ltarget, lname}) = 
+        do eTarget <- typecheck ltarget
+           pathType <- return $ AST.getType eTarget
            when (isPrimitive pathType) $ 
-                tcError $ "Cannot read field of expression '" ++ (show $ ppExpr expr) ++ 
+                tcError $ "Cannot read field of expression '" ++ (show $ ppExpr ltarget) ++ 
                           "' of primitive type '" ++ show pathType ++ "'"
-           fType <- asks $ fieldLookup (AST.getType ePath) f
+           fType <- asks $ fieldLookup (AST.getType eTarget) lname
            case fType of
-             Just ty -> return $ setType ty lval {lpath = ePath}
-             Nothing -> tcError $ "No field '" ++ show f ++ "' in class '" ++ show pathType ++ "'"
+             Just ty -> return $ setType ty lval {ltarget = eTarget}
+             Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"

@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-|
 
 The machinery used by "Typechecker.Typechecker" for handling errors and backtracing. 
@@ -41,7 +43,7 @@ instance Pushable ParamDecl where
     push p bt = (BTParam p) : bt
 
 instance Pushable MethodDecl where
-    push Method {mname = name, rtype = ty} bt = (BTMethod name ty) : bt
+    push Method {mname, mtype} bt = (BTMethod mname mtype) : bt
 
 instance Pushable Expr where
     push expr bt = (BTExpr expr) : bt

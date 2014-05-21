@@ -45,74 +45,57 @@ instance HasType FieldDecl where
 
 data MethodDecl = Method {mmeta   :: Meta,
                           mname   :: Name,
-                          rtype   :: Type,
+                          mtype   :: Type,
                           mparams :: [ParamDecl],
                           mbody   :: Expr} deriving (Show, Eq)
 
 instance HasType MethodDecl where
-    getType = rtype
+    getType = mtype
     setType ty m@(Method {mmeta = meta}) = m {mmeta = AST.Meta.setType ty meta}
 
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta}
-
           | Call {emeta :: Meta, 
                   target :: Expr, 
-                  tmname :: Name, 
+                  name :: Name, 
                   args :: Arguments}
-
           | Let {emeta :: Meta, 
-                 eid :: Name, 
+                 name :: Name, 
                  ty :: Type, 
                  val :: Expr, 
                  body :: Expr}
-
           | Seq {emeta :: Meta, 
                  eseq :: [Expr]}
-
           | IfThenElse {emeta :: Meta, 
                         cond :: Expr, 
                         thn :: Expr, 
                         els :: Expr}
-
           | While {emeta :: Meta, 
                    cond :: Expr, 
                    body :: Expr}
-
           | Get {emeta :: Meta, 
-                 fut :: Expr}
-
+                 val :: Expr}
           | FieldAccess {emeta :: Meta, 
-                         path :: Expr, 
-                         field :: Name}
-
+                         target :: Expr, 
+                         name :: Name}
           | Assign {emeta :: Meta, 
                     lhs :: LVal, 
                     rhs :: Expr}
-
           | VarAccess {emeta :: Meta, 
-                       eid :: Name}
-
+                       name :: Name}
           | Null {emeta :: Meta}
-
           | BTrue {emeta :: Meta}
-
           | BFalse {emeta :: Meta}
-
           | New {emeta :: Meta, 
                  ty ::Type}
-
           | Print {emeta :: Meta, 
                    ty :: Type, 
                    val :: Expr}
-
           | StringLiteral {emeta :: Meta, 
                            stringLit :: String}
-
           | IntLiteral {emeta :: Meta, 
                         intLit :: Int}
-
           | Binop {emeta :: Meta, 
                    op :: Op, 
                    loper :: Expr, 
@@ -136,8 +119,8 @@ instance HasType Expr where
 
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
 
-data LVal = LVal {lmeta :: Meta, lid :: Name} | 
-            LField {lmeta :: Meta, lpath :: Expr, lid :: Name} deriving(Show, Eq)
+data LVal = LVal {lmeta :: Meta, lname :: Name} | 
+            LField {lmeta :: Meta, ltarget :: Expr, lname :: Name} deriving(Show, Eq)
 
 instance HasType LVal where
     getType lval = AST.Meta.getType . lmeta $ lval

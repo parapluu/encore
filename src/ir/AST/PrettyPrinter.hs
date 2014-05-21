@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-|
 
 Prints the source code that an "AST.AST" represents. Each node in
@@ -48,30 +50,30 @@ ppProgram :: Program -> Doc
 ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)
 
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl Class {cname = cname, fields = fields, methods = methods} = 
+ppClassDecl Class {cname, fields, methods} = 
     ppClass <+> ppType cname $+$
              (indent $
                    vcat (map ppFieldDecl fields) $$
                    vcat (map ppMethodDecl methods))
 
 ppFieldDecl :: FieldDecl -> Doc
-ppFieldDecl Field {fname = f, ftype = t} = ppName f <+> ppColon <+> ppType t
+ppFieldDecl Field {fname, ftype} = ppName fname <+> ppColon <+> ppType ftype
 
 ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param (x, t)) =  ppName x <+> text ":" <+> ppType t
 
 ppMethodDecl :: MethodDecl -> Doc
-ppMethodDecl Method {mname = mn, rtype = rt, mparams = params, mbody = body} = 
+ppMethodDecl Method {mname, mtype, mparams, mbody} = 
     text "def" <+>
-    ppName mn <> 
-    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl params))) <+>
-    text ":" <+> ppType rt $+$
-    (indent (ppExpr body))
+    ppName mname <> 
+    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl mparams))) <+>
+    text ":" <+> ppType mtype $+$
+    (indent (ppExpr mbody))
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
-isSimple FieldAccess {path = p} = isSimple p
-isSimple Call {target = targ} = isSimple targ
+isSimple FieldAccess {target} = isSimple target
+isSimple Call {target} = isSimple target
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
@@ -81,33 +83,33 @@ maybeParens e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
-ppExpr Call {target = e, tmname = m, args = args} = 
-    maybeParens e <> ppDot <> ppName m <> 
+ppExpr Call {target, name, args} = 
+    maybeParens target <> ppDot <> ppName name <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
-ppExpr Let {eid = Name x, ty = Type ty, val = val, body = body} = 
+ppExpr Let {name = Name x, ty = Type ty, val, body} = 
     ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr val <+> ppIn $+$ 
       indent (ppExpr body)
-ppExpr Seq {eseq = es} = braces $ vcat $ punctuate ppSemicolon (map ppExpr es)
-ppExpr IfThenElse {cond = cond, thn = thn, els = els} = 
+ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
+ppExpr IfThenElse {cond, thn, els} = 
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
-ppExpr While {cond = cond, body = expr} = 
+ppExpr While {cond, body} = 
     ppWhile <+> ppExpr cond $+$
-         indent (ppExpr expr)
-ppExpr Get {fut = e} = ppGet <+> ppExpr e
-ppExpr FieldAccess {path = p, field = f} = maybeParens p <> ppDot <> ppName f
-ppExpr VarAccess {eid = x} = ppName x
-ppExpr Assign {lhs = lval, rhs = e} = ppLVal lval <+> ppEquals <+> ppExpr e
+         indent (ppExpr body)
+ppExpr Get {val} = ppGet <+> ppExpr val
+ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
+ppExpr VarAccess {name} = ppName name
+ppExpr Assign {lhs, rhs} = ppLVal lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
-ppExpr New {ty = ty} = ppNew <+> ppType ty
-ppExpr Print {ty = ty, val = e} = ppPrint <+> ppType ty <+> ppExpr e
-ppExpr StringLiteral {stringLit = s} = doubleQuotes (text s)
-ppExpr IntLiteral {intLit = n} = int n
-ppExpr Binop {op = op, loper = e1, roper = e2} = ppExpr e1 <+> ppBinop op <+> ppExpr e2
+ppExpr New {ty} = ppNew <+> ppType ty
+ppExpr Print {ty, val} = ppPrint <+> ppType ty <+> ppExpr val
+ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
+ppExpr IntLiteral {intLit} = int intLit
+ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
 
 ppBinop :: Op -> Doc
 ppBinop Identifiers.LT  = text "<"
@@ -120,5 +122,5 @@ ppBinop Identifiers.TIMES  = text "*"
 ppBinop Identifiers.DIV = text "/"
 
 ppLVal :: LVal -> Doc
-ppLVal LVal {lid = (Name x)}  = text x
-ppLVal LField {lpath = p, lid = Name f} = maybeParens p <> ppDot <> text f
+ppLVal LVal {lname = (Name x)}  = text x
+ppLVal LField {ltarget, lname = Name f} = maybeParens ltarget <> ppDot <> text f

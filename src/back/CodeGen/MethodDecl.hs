@@ -25,7 +25,7 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     cdecl <- asks (fromJust . Ctx.the_class)
     ctx <- ask
     return $ 
-      (Function (translate (A.rtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
+      (Function (translate (A.mtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
        ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
        (Statement (fst (runState (translate (A.mbody mdecl)) (Ctx.with_method mdecl ctx))::CCode Expr)))
     where
@@ -37,7 +37,7 @@ instance FwdDeclaration A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
       this_ty <- asks (A.cname . fromJust . Ctx.the_class)
       
       let params = data_rec_ptr this_ty : map (\(ID.Param (_, ty)) -> (translate ty ::CCode Ty)) (A.mparams mdecl)
-      return $ Embed $ show ((translate . A.rtype $ mdecl) :: CCode Ty) ++ " " ++
+      return $ Embed $ show ((translate . A.mtype $ mdecl) :: CCode Ty) ++ " " ++
              show (method_impl_name (A.cname cdecl) (A.mname mdecl)) ++ "(" ++ 
                   (concat $ intersperse ", " $ map show params) ++
              ");"

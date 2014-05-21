@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-| 
 
 The environment used by "Typechecker.Typechecker". Contains a
@@ -32,8 +34,8 @@ buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
           where
             fields' = map getFieldType fields
             methods' = map getMethodType methods
-            getFieldType fld = (fname fld, ftype fld)
-            getMethodType mtd = (mname mtd, (rtype mtd, mparams mtd))
+            getFieldType Field {fname, ftype} = (fname, ftype)
+            getMethodType Method {mname, mtype, mparams} = (mname, (mtype, mparams))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
