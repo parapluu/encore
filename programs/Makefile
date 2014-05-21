@@ -2,7 +2,7 @@ ROOT_PATH=..
 ENCOREC=$(ROOT_PATH)/release/encorec
 ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
-ENCOREC_FLAGS=-clang -t
+ENCOREC_FLAGS=-clang
 
 all: encorec $(ENCORE_TARGETS)
 
