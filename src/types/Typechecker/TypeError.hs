@@ -59,10 +59,7 @@ instance Error TCError
 instance Show TCError where
     show (TCError (msg, [])) = 
         "*** Error during typechecking ***\n" ++
-        msg ++ "\n" ++
-        "*** No backtrace! ***\n"
-        where
-          showBT (node, pos) = (show . snd) node ++ "\n"
+        msg ++ "\n"
     show (TCError (msg, bt@((pos, _):_))) = 
         "*** Error during typechecking ***\n" ++
         show pos ++ "\n" ++

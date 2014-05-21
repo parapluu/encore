@@ -19,6 +19,8 @@ module Typechecker.Environment(Environment,
                                backtrace,
                                pushBT) where
 
+import Data.List
+
 -- Module dependencies
 import Identifiers
 import AST.AST
@@ -27,10 +29,14 @@ import Typechecker.TypeError
 
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
 
-buildClassTable :: Program -> Environment
-buildClassTable (Program classes) = Env (map getClassType classes) [] emptyBT
+buildClassTable :: Program -> Maybe Environment
+buildClassTable (Program classes) = if distinctClassNames then
+                                        Just $ Env (map getClassType classes) [] emptyBT
+                                    else
+                                        Nothing
     where
-      getClassType Class {cname = name, fields = fields, methods = methods} = (name, (fields', methods'))
+      distinctClassNames = nubBy (\c1 c2 -> (cname c1 == cname c2)) classes == classes
+      getClassType Class {cname, fields, methods} = (cname, (fields', methods'))
           where
             fields' = map getFieldType fields
             methods' = map getMethodType methods

@@ -28,7 +28,9 @@ import Typechecker.TypeError
 
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
-typecheckEncoreProgram p = runReader (runErrorT (typecheck p)) (buildClassTable p)
+typecheckEncoreProgram p = case buildClassTable p of
+                             Just ctable -> runReader (runErrorT (typecheck p)) ctable
+                             Nothing -> Left $ TCError ("Duplicate class definition", [])
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
