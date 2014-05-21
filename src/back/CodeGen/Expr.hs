@@ -39,7 +39,7 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval)) where
 type_to_printf_fstr :: ID.Type -> String
 type_to_printf_fstr (ID.Type "int") = "%i"
 type_to_printf_fstr (ID.Type "string") = "%s"
-type_to_printf_fstr other = case (translate other :: CCode Ty) of
+type_to_printf_fstr other = case translate other of
                               Ptr something -> "%p"
                               _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show other
 
@@ -56,19 +56,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
       do
         te <- translate e
         return $ Call (Nam "printf") [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"",
-                                      te :: CCode Expr]
+                                      te]
   translate (A.Seq {A.eseq = es}) = do
     tes <- mapM translate es
     return $ StoopidSeq tes
   translate (A.Assign {A.lhs = lvar, A.rhs = expr}) = do
     texpr <- translate expr
     tlvar <- translate lvar
-    return $ Assign (tlvar :: CCode Lval) texpr
+    return $ Assign tlvar texpr
   translate (A.VarAccess {A.name = name}) =
     return $ Embed $ show name
   translate (A.FieldAccess {A.target = exp, A.name = name}) = do
     texp <- translate exp
-    return $ AsExpr $ Deref (texp :: CCode Expr) `Dot` (Nam $ show name)
+    return $ AsExpr $ Deref texp `Dot` (Nam $ show name)
   translate (A.IntLiteral {A.intLit = i}) =
     return $ Embed $ show i
   translate (A.StringLiteral {A.stringLit = s}) =
@@ -131,7 +131,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                               [the_arg_decl,
                                Call
                                (Nam "pony_sendv")
-                               ([ttarget :: CCode Expr,
+                               ([ttarget,
                                  AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                  Embed . show . length $ args] ++
                                 [Embed the_arg_name])]
@@ -149,10 +149,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do tcond <- translate cond
          tbody <- translate (body :: A.Expr)
-         return (While tcond (Statement (tbody :: CCode Expr)))
+         return (While tcond (Statement tbody))
   translate (A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
       do tcond <- translate cond
          tthn <- translate thn
          tels <- translate els
-         return (If tcond (Statement (tthn :: CCode Expr)) (Statement (tels :: CCode Expr)))
+         return (If tcond (Statement tthn) (Statement tels))
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"

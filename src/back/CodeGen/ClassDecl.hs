@@ -71,7 +71,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
           let arg_cell = ArrAcc argv_idx (Var "argv")
           in
             AsExpr $ Dot arg_cell
-                       (case (translate ty :: CCode Ty) of
+                       (case translate ty of
                           (Typ "int")    -> (Nam "i")
                           (Typ "double") -> (Nam "d")
                           (Ptr _)        -> (Nam "p")
@@ -146,7 +146,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
 
       pony_mode :: ID.Type -> CCode Name
       pony_mode ty =
-          case translate ty :: CCode Ty of
+          case translate ty of
             Ptr (Typ "pony_actor_t") -> Nam "PONY_ACTOR"
             _other -> Nam "PONY_PRIMITIVE" --fixme how/when will we be
                                            --using the other modes?

@@ -37,7 +37,7 @@ instance FwdDeclaration A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
       this_ty <- asks (A.cname . fromJust . Ctx.the_class)
       
       let params = data_rec_ptr this_ty : map (\(A.Param {A.ptype = ty}) -> (translate ty ::CCode Ty)) (A.mparams mdecl)
-      return $ Embed $ show ((translate . A.mtype $ mdecl) :: CCode Ty) ++ " " ++
+      return $ Embed $ show (translate . A.mtype $ mdecl) ++ " " ++
              show (method_impl_name (A.cname cdecl) (A.mname mdecl)) ++ "(" ++ 
                   (concat $ intersperse ", " $ map show params) ++
              ");"
