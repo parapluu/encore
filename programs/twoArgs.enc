@@ -1,12 +1,12 @@
 class Main
   def main() : void
-    let other : Other = new Other in {
+    let other = new Other in {
        other.printSum(10, 20, "c")
     }
 
 class Other
   def printSum(a : int, b : int, t : string) : void {
-    print int a+b;
-    print string t
+    print a+b;
+    print t
   }
 

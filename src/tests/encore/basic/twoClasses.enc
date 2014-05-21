@@ -1,6 +1,6 @@
 class Main 
   def main() : void
-    let other : Other = new Other in
+    let other = new Other in
       {other.init(10);
        other.work()}
 
@@ -12,5 +12,5 @@ class Other
     {this.count = this.count - 1;
      this.count = this.count - 1;
      this.count = this.count - 1;
-     print int this.count;
-     print string "Hello Ponyworld!"}
+     print this.count;
+     print "Hello Ponyworld!"}

@@ -1,16 +1,16 @@
 class Main
   def main() : void
-    let o : Other = new Other in {
+    let o = new Other in {
       this.sayName();
       o.greet(this)
     }
 
   def sayName() : void
-    print string "I'm Ponyworld!"
+    print "I'm Ponyworld!"
 
 class Other
   def greet(client : Main) : void {
-    print string "Hello,";
+    print "Hello,";
     client.sayName()
   }
   

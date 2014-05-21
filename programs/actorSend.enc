@@ -1,7 +1,7 @@
 class Main 
   def main() : void
-    let other : Other = new Other in
-      let another : Other = new Other in
+    let other = new Other in
+      let another = new Other in
         {other.init(another);
          other.work()}
 
@@ -10,8 +10,8 @@ class Other
   def init(va : Other) : void 
     this.other = va
   def work() : void
-    {let othertmp : Other = this.other in
+    {let othertmp = this.other in
        {othertmp.printMsg();
-        print string "sent"}}
+        print "sent"}}
   def printMsg() : void
-    print string "Hello Actorworld!"
+    print "Hello Actorworld!"

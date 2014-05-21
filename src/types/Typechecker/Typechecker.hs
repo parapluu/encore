@@ -118,9 +118,9 @@ instance Checkable Expr where
                     eArgs <- zipWithM (\eArg (Param {ptype}) -> pushHasType eArg ptype) args params
                     return $ setType returnType call {target = eTarget, args = eArgs}
 
-    typecheck let_@(Let {name, ty, val, body}) = 
-        do eVal <- pushHasType val ty
-           eBody <- local (extendEnvironment [(name, ty)]) $ pushTypecheck body
+    typecheck let_@(Let {name, val, body}) = 
+        do eVal <- pushTypecheck val
+           eBody <- local (extendEnvironment [(name, AST.getType eVal)]) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 
     typecheck seq@(Seq {eseq}) = 
@@ -174,8 +174,8 @@ instance Checkable Expr where
         do wfType ty
            return $ setType ty new
 
-    typecheck print@(Print {ty, val}) = 
-        do eVal <- pushHasType val ty
+    typecheck print@(Print {val}) = 
+        do eVal <- pushTypecheck val
            return $ setType voidType print {val = eVal}
 
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit

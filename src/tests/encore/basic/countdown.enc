@@ -1,10 +1,10 @@
 class Main 
   count : int
   def main() : void
-    {print string "Hello Ponyworld!";
+    {print "Hello Ponyworld!";
      this.count = this.count - 1;
      this.count = this.count - 1;
      this.count = this.count - 1;
      this.count = this.count - 1;
      this.count = this.count - 1;
-     print int this.count}
+     print this.count}

@@ -1,11 +1,11 @@
 class Main
   def main() : void{
     if true then
-      print string "true is true"
+      print "true is true"
     else
-      print string "*** true is false! ***";
+      print "*** true is false! ***";
     if false then
-      print string "*** false is true! ***"
+      print "*** false is true! ***"
     else
-      print string "false is false"
+      print "false is false"
   }

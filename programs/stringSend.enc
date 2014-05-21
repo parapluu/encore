@@ -1,6 +1,6 @@
 class Main
   def main() : void
-    {let other : Other = new Other in
+    {let other = new Other in
        {other.init("Hello Ponyworld-message");
         other.work()}}
 
@@ -9,4 +9,4 @@ class Other
   def init(va : string) : void
     this.message = va
   def work() : void
-    print string this.message
+    print this.message

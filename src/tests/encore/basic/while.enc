@@ -1,7 +1,7 @@
 class Main
   def main() : void
-    let i : int = 3 in
+    let i = 3 in
       while i > 0
-        {print string "Hello Ponyworld!";
+        {print "Hello Ponyworld!";
          i = i - 1}
   

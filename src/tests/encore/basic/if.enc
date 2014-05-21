@@ -6,7 +6,7 @@ class Main
 
   def stuff(i : int) : void {
     if i == 0 then
-      print string "Hello"
+      print "Hello"
     else
-      print string "Ponyworld!"
+      print "Ponyworld!"
   }

@@ -1,12 +1,12 @@
 class Main
   def main() : void
-    let other : Other = new Other in {
+    let other = new Other in {
        other.printTwo("Hello", "Ponyworld!")
     }
 
 class Other
   def printTwo(a : string, b : string) : void {
-    print string a;
-    print string b
+    print a;
+    print b
   }
 

@@ -79,7 +79,6 @@ data Expr = Skip {emeta :: Meta}
                   args :: Arguments}
           | Let {emeta :: Meta, 
                  name :: Name, 
-                 ty :: Type, 
                  val :: Expr, 
                  body :: Expr}
           | Seq {emeta :: Meta, 
@@ -107,7 +106,6 @@ data Expr = Skip {emeta :: Meta}
           | New {emeta :: Meta, 
                  ty ::Type}
           | Print {emeta :: Meta, 
-                   ty :: Type, 
                    val :: Expr}
           | StringLiteral {emeta :: Meta, 
                            stringLit :: String}

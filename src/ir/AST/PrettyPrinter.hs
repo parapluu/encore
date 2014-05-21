@@ -86,8 +86,8 @@ ppExpr Skip {} = ppSkip
 ppExpr Call {target, name, args} = 
     maybeParens target <> ppDot <> ppName name <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
-ppExpr Let {name = Name x, ty = Type ty, val, body} = 
-    ppLet <+> text x <+> ppColon <+> text ty <+> equals <+> ppExpr val <+> ppIn $+$ 
+ppExpr Let {name = Name x, val, body} = 
+    ppLet <+> text x <+> equals <+> ppExpr val <+> ppIn $+$ 
       indent (ppExpr body)
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} = 
@@ -106,7 +106,7 @@ ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
 ppExpr New {ty} = ppNew <+> ppType ty
-ppExpr Print {ty, val} = ppPrint <+> ppType ty <+> ppExpr val
+ppExpr Print {val} = ppPrint <+> ppExpr val
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper

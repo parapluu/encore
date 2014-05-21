@@ -18,7 +18,7 @@ FieldAccess ::= . Name FieldAccess | eps
        Expr ::= skip
               | Path = Expr
               | Path . Name ( Arguments )
-              | let Name :: Name = Expr in Expr
+              | let Name = Expr in Expr
               | { Sequence }
               | if Expr then Expr else Expr
               | while Expr Expr
@@ -28,7 +28,7 @@ FieldAccess ::= . Name FieldAccess | eps
               | true
               | false
               | new Name
-              | print Name Name Expr
+              | print Expr
               | \" String \"
               | Int
               | ( Expr Op Expr )
@@ -198,13 +198,11 @@ expr  =  skip
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
                           x <- identifier ;
-                          reservedOp ":" ;
-                          ty <- identifier ;
                           reservedOp "=" ;
                           val <- expression ;
                           reserved "in" ;
                           expr <- expression ;
-                          return $ Let (meta pos) (Name x) (Type ty) val expr}
+                          return $ Let (meta pos) (Name x) val expr}
       sequence = do {pos <- getPosition ;
                      seq <- braces (semiSep expression) ;
                      return $ Seq (meta pos) seq}
@@ -248,9 +246,8 @@ expr  =  skip
                 return $ New (meta pos) (Type ty)}
       print = do {pos <- getPosition ;
                   reserved "print" ;
-                  ty <- identifier ;
                   expr <- expression ;
-                  return $ Print (meta pos) (Type ty) expr}
+                  return $ Print (meta pos) expr}
       string = do {pos <- getPosition ;
                    string <- stringLiteral ; 
                    return $ StringLiteral (meta pos) string}

@@ -1,4 +1,4 @@
 class Main 
   def main() : void
-    print string "Hello Ponyworld!"
+    print "Hello Ponyworld!"
 
