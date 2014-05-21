@@ -66,8 +66,8 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
          -- fixme what about arguments?
           ))
 
-      paramdecl_to_argv :: Int -> ID.ParamDecl -> CCode Expr
-      paramdecl_to_argv argv_idx (ID.Param (na, ty)) =
+      paramdecl_to_argv :: Int -> A.ParamDecl -> CCode Expr
+      paramdecl_to_argv argv_idx (A.Param {A.pname = na, A.ptype = ty}) =
           let arg_cell = ArrAcc argv_idx (Var "argv")
           in
             AsExpr $ Dot arg_cell
@@ -78,7 +78,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                           other          ->
                               error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ty)
 
-      paramdecls_to_argv :: [ID.ParamDecl] -> [CCode Expr]
+      paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
       paramdecls_to_argv = zipWith paramdecl_to_argv [0..]
         
       dispatchfun_decl :: CCode Toplevel
@@ -164,10 +164,10 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                          param_descs (A.mparams mdecl)
                    ++"}};"
           where
-            param_desc :: ID.ParamDecl -> String --this should NOT be a String
-            param_desc (ID.Param (na, ty)) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
+            param_desc :: A.ParamDecl -> String --this should NOT be a String
+            param_desc (A.Param {A.pname = na, A.ptype = ty}) = "{NULL, 0, " ++ show (pony_mode ty) ++ "}"
 
-            param_descs :: [ID.ParamDecl] -> String
+            param_descs :: [A.ParamDecl] -> String
             param_descs ps = concat $ intersperse ", " $ map param_desc ps
 
       pony_actor_t_impl :: CCode Toplevel

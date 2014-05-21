@@ -90,8 +90,8 @@ instance Checkable MethodDecl where
             eBody <- local addParams $ pushHasType mbody mtype
             return $ setType mtype m {mbody = eBody}
          where
-           typecheckParam = (\p@(Param(_, ty)) -> local (pushBT p) $ do {wfType ty; return $ p})
-           addParams = extendEnvironment (map (\(Param p) -> p) mparams)
+           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
+           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- typecheck expr
@@ -115,7 +115,7 @@ instance Checkable Expr where
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    eArgs <- zipWithM (\eArg (Param (_, ty)) -> pushHasType eArg ty) args params
+                    eArgs <- zipWithM (\eArg (Param {ptype}) -> pushHasType eArg ptype) args params
                     return $ setType returnType call {target = eTarget, args = eArgs}
 
     typecheck let_@(Let {name, ty, val, body}) = 

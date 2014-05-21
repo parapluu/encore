@@ -19,8 +19,6 @@ newtype Type = Type String deriving (Read, Eq)
 instance Show Type where
   show (Type t) = t
 
-newtype ParamDecl = Param (Name, Type) deriving(Read, Show, Eq)
-
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
 emptyType :: Type

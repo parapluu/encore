@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances,GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns #-}
 
 {-| Makes @Expr@ an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
 
@@ -77,7 +77,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
                    do
                      te1 <- translate e1
                      s <- get
-                     put (Ctx.with_local (ID.Param (name, A.getType l)) s)
+                     put (Ctx.with_local (A.Param {A.pname = name, A.ptype = A.getType e1, A.pmeta = A.emeta e1}) s) 
                      te2 <- translate e2
                      put s
                      return (Braced . StoopidSeq $

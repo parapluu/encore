@@ -60,7 +60,7 @@ ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl Field {fname, ftype} = ppName fname <+> ppColon <+> ppType ftype
 
 ppParamDecl :: ParamDecl -> Doc
-ppParamDecl (Param (x, t)) =  ppName x <+> text ":" <+> ppType t
+ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl Method {mname, mtype, mparams, mbody} = 

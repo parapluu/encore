@@ -9,6 +9,7 @@ The machinery used by "Typechecker.Typechecker" for handling errors and backtrac
 module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCError)) where
 
 import Text.PrettyPrint
+import Text.Parsec(SourcePos)
 import Control.Monad.Error
 
 import Identifiers
@@ -25,7 +26,7 @@ instance Show BacktraceNode where
     show (BTExpr expr)                 = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
     show (BTLVal lval)                 = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
 
-type Backtrace = [BacktraceNode]
+type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
 
@@ -34,29 +35,38 @@ class Pushable a where
     push :: a -> Backtrace -> Backtrace
 
 instance Pushable ClassDecl where
-    push Class {cname = cname} bt = (BTClass cname) : bt
+    push c bt = (getPos c, BTClass (cname c)) : bt
 
 instance Pushable FieldDecl where
-    push f bt = (BTField f) : bt
+    push f bt = (getPos f, BTField f) : bt
 
 instance Pushable ParamDecl where
-    push p bt = (BTParam p) : bt
+    push p bt = (getPos p, BTParam p) : bt
 
 instance Pushable MethodDecl where
-    push Method {mname, mtype} bt = (BTMethod mname mtype) : bt
+    push m@(Method {mname, mtype}) bt = (getPos m, BTMethod mname mtype) : bt
 
 instance Pushable Expr where
-    push expr bt = (BTExpr expr) : bt
+    push expr bt = (getPos expr, BTExpr expr) : bt
 
 instance Pushable LVal where
-    push lval bt = (BTLVal lval) : bt
+    push lval bt = (getPos lval, BTLVal lval) : bt
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
 instance Error TCError
 instance Show TCError where
-    show (TCError (msg, bt)) = 
+    show (TCError (msg, [])) = 
         "*** Error during typechecking ***\n" ++
         msg ++ "\n" ++
-        (concat $ map ((++"\n") . show) bt)
+        "*** No backtrace! ***\n"
+        where
+          showBT (node, pos) = (show . snd) node ++ "\n"
+    show (TCError (msg, bt@((pos, _):_))) = 
+        "*** Error during typechecking ***\n" ++
+        show pos ++ "\n" ++
+        msg ++ "\n" ++
+        (concat $ map showBT bt)
+        where
+          showBT (pos, node) = (show node) ++ "\n"

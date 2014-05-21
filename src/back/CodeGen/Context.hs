@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-| The context that several of the Translatable typeclasses use for
 compiling. For instance, it's needed for looking up the type of local
 variables / fields on the class. The need for the context would go
@@ -71,10 +73,10 @@ type_of n c = do
   return $ head $ only_tys $ filter_name_matches n $ (mparams mthd ++ locals)
     where
       filter_name_matches :: Name -> [ParamDecl] -> [ParamDecl]
-      filter_name_matches n = filter (\ (Param (n', _)) -> (n==n'))
+      filter_name_matches n = filter (\(Param {pname}) -> (n==pname))
       
       only_tys :: [ParamDecl] -> [Type]
-      only_tys = map (\(Param (_,ty)) -> ty)
+      only_tys = map (\(Param {ptype}) -> ptype)
 
 other_classes :: Context -> [ClassDecl]
 other_classes ctx =

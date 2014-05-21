@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-|
 
 The abstract syntax tree produced by the parser. Each node carries
@@ -9,12 +11,20 @@ meta-information about its type (filled in by
 
 module AST.AST where
 
+import Text.Parsec(SourcePos)
+
 import Identifiers
 import AST.Meta
 
 newtype Program = Program [ClassDecl] deriving(Show)
 
-class HasType a where
+class HasMeta a where
+    getPos :: a -> SourcePos
+
+    getType :: a -> Type
+
+    setType :: Type -> a -> a
+
     hasType :: a -> Type -> Bool
     hasType x ty = if ty == nullType then
                        not $ isPrimitive ty'
@@ -22,26 +32,32 @@ class HasType a where
                        ty == ty'
                    where
                      ty' = AST.AST.getType x
-    getType :: a -> Type
-
-    setType :: Type -> a -> a
 
 data ClassDecl = Class {cmeta   :: Meta,
                         cname   :: Type,
                         fields  :: [FieldDecl], 
                         methods :: [MethodDecl]} deriving(Show, Eq)
 
-instance HasType ClassDecl where
+instance HasMeta ClassDecl where
+    getPos = AST.Meta.getPos . cmeta
     getType = cname
-    setType ty c@(Class {cmeta = meta}) = c {cmeta = AST.Meta.setType ty meta}
+    setType ty c@(Class {cmeta}) = c {cmeta = AST.Meta.setType ty cmeta}
 
 data FieldDecl = Field {fmeta :: Meta, 
                         fname :: Name, 
-                        ftype::Type} deriving(Show, Eq)
+                        ftype :: Type} deriving(Show, Eq)
 
-instance HasType FieldDecl where
+instance HasMeta FieldDecl where
+    getPos = AST.Meta.getPos . fmeta
     getType = ftype
-    setType ty f@(Field {fmeta = meta}) = f {fmeta = AST.Meta.setType ty meta}
+    setType ty f@(Field {fmeta}) = f {fmeta = AST.Meta.setType ty fmeta}
+
+data ParamDecl = Param {pmeta :: Meta, pname :: Name, ptype :: Type} deriving(Show, Eq)
+
+instance HasMeta ParamDecl where
+    getPos = AST.Meta.getPos . pmeta
+    getType = ptype
+    setType ty p@(Param {pmeta}) = p {pmeta = AST.Meta.setType ty pmeta}
 
 data MethodDecl = Method {mmeta   :: Meta,
                           mname   :: Name,
@@ -49,9 +65,10 @@ data MethodDecl = Method {mmeta   :: Meta,
                           mparams :: [ParamDecl],
                           mbody   :: Expr} deriving (Show, Eq)
 
-instance HasType MethodDecl where
+instance HasMeta MethodDecl where
+    getPos = AST.Meta.getPos . mmeta
     getType = mtype
-    setType ty m@(Method {mmeta = meta}) = m {mmeta = AST.Meta.setType ty meta}
+    setType ty m@(Method {mmeta}) = m {mmeta = AST.Meta.setType ty mmeta}
 
 type Arguments = [Expr]
 
@@ -101,7 +118,8 @@ data Expr = Skip {emeta :: Meta}
                    loper :: Expr, 
                    roper :: Expr} deriving(Show, Eq)
 
-instance HasType Expr where
+instance HasMeta Expr where
+    getPos = AST.Meta.getPos . emeta
     hasType (Null {}) ty = not . isPrimitive $ ty
     hasType x ty = if ty == nullType then
                        not $ isPrimitive ty'
@@ -122,7 +140,9 @@ instance HasType Expr where
 data LVal = LVal {lmeta :: Meta, lname :: Name} | 
             LField {lmeta :: Meta, ltarget :: Expr, lname :: Name} deriving(Show, Eq)
 
-instance HasType LVal where
+instance HasMeta LVal where
+    getPos = AST.Meta.getPos . lmeta
+
     getType lval = AST.Meta.getType . lmeta $ lval
 
     setType ty lval = lval {lmeta = AST.Meta.setType ty (lmeta lval)}

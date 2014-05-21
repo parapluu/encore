@@ -9,6 +9,9 @@ data Meta = Meta {sourcePos :: SourcePos, ty :: Type} deriving (Eq, Show)
 meta :: SourcePos -> Meta
 meta pos = Meta {sourcePos = pos, ty = emptyType}
 
+getPos :: Meta -> SourcePos
+getPos = sourcePos
+
 getLine :: Meta -> Int
 getLine = sourceLine . sourcePos
 

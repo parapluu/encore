@@ -112,10 +112,11 @@ fieldDecl = do {pos <- getPosition ;
                 return $ Field (meta pos) (Name f) (Type ty)}
 
 paramDecl :: Parser ParamDecl
-paramDecl = do {x <- identifier ; 
+paramDecl = do {pos <- getPosition ;
+                x <- identifier ; 
                 colon ; 
                 ty <- identifier ; 
-                return $ Param (Name x, Type ty)}
+                return $ Param (meta pos) (Name x) (Type ty)}
 
 methodDecl :: Parser MethodDecl
 methodDecl = do {pos <- getPosition ;
