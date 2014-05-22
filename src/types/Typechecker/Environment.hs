@@ -29,13 +29,13 @@ import Typechecker.TypeError
 
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
 
-buildClassTable :: Program -> Maybe Environment
-buildClassTable (Program classes) = if distinctClassNames then
-                                        Just $ Env (map getClassType classes) [] emptyBT
-                                    else
-                                        Nothing
+buildClassTable :: Program -> Either TCError Environment
+buildClassTable (Program classes) = 
+    case duplicateClasses of
+      [] -> Right $ Env (map getClassType classes) [] emptyBT
+      (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
-      distinctClassNames = nubBy (\c1 c2 -> (cname c1 == cname c2)) classes == classes
+      duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
       getClassType Class {cname, fields, methods} = (cname, (fields', methods'))
           where
             fields' = map getFieldType fields

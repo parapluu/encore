@@ -24,13 +24,12 @@ import AST.PrettyPrinter
 import Typechecker.Types
 import Typechecker.Environment
 import Typechecker.TypeError
---import qualified EAST.EAST as Ext
 
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p = case buildClassTable p of
-                             Just ctable -> runReader (runErrorT (typecheck p)) ctable
-                             Nothing -> Left $ TCError ("Duplicate class definition", [])
+                             Right ctable -> runReader (runErrorT (typecheck p)) ctable
+                             Left err -> Left err
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
@@ -71,29 +70,35 @@ instance Checkable ClassDecl where
     typecheck c@(Class {cname, fields, methods}) =
         do efields <- mapM pushTypecheck fields
            emethods <- mapM typecheckMethod methods
-           unless distinctFieldNames $ tcError $ "Duplicate field names"
-           unless distinctMethodNames $ tcError $ "Duplicate method names"
+           distinctFieldNames
+           distinctMethodNames
            return $ c {fields = efields, methods = emethods}
         where
           typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
           distinctFieldNames = 
-              nubBy (\f1 f2 -> (fname f1 == fname f2)) fields == fields
+              case fields \\ nubBy (\f1 f2 -> (fname f1 == fname f2)) fields of
+                [] -> return ()
+                (f:_) -> do bt <- asks backtrace
+                            throwError $ TCError ("Duplicate definition of field '" ++ show (fname f) ++ "'" , push f bt)
           distinctMethodNames = 
-              nubBy (\m1 m2 -> (mname m1 == mname m2)) methods == methods
+              case methods \\ nubBy (\m1 m2 -> (mname m1 == mname m2)) methods of
+                [] -> return ()
+                (m:_) -> do bt <- asks backtrace
+                            throwError $ TCError ("Duplicate definition of method '" ++ show (mname m) ++ "'" , push m bt)
 
 instance Checkable FieldDecl where
     typecheck f@(Field {ftype}) = do wfType ftype
                                      return $ setType ftype f
 
 instance Checkable MethodDecl where
-     typecheck m@(Method {mtype, mparams, mbody}) = 
-         do wfType mtype
-            mapM_ typecheckParam mparams
-            eBody <- local addParams $ pushHasType mbody mtype
-            return $ setType mtype m {mbody = eBody}
-         where
-           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
-           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
+    typecheck m@(Method {mtype, mparams, mbody}) = 
+        do wfType mtype
+           mapM_ typecheckParam mparams
+           eBody <- local addParams $ pushHasType mbody mtype
+           return $ setType mtype m {mbody = eBody}
+        where
+          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
+          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- typecheck expr
