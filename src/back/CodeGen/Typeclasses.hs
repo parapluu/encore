@@ -1,11 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 
 module CodeGen.Typeclasses where
 
 -- | implements translation of one representation to another.  We use
 -- this to implement translation of AST nodes (see "AST") to CCode
 -- (see "CCode.Main")
-class Translatable a b where
+class Translatable a b | a -> b where
   translate :: a -> b
 
 -- | same same but different: the semantics of FwdDeclaration allows
