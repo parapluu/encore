@@ -11,10 +11,12 @@
 ;; with extension .enc.
 
 (setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "print" "skip" "then" "while"))
+(setq encore-danger-words '("embed"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void"))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'words))
+(setq encore-danger-regexp (regexp-opt encore-danger-words 'words))
 (setq encore-constants-regexp (regexp-opt encore-constants 'words))
 (setq encore-primitives-regexp (regexp-opt encore-primitives 'words))
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
@@ -26,6 +28,7 @@
  `(
     (,encore-comment-regexp    . font-lock-comment-face)
     (,encore-keywords-regexp   . font-lock-keyword-face)
+    (,encore-danger-regexp     . font-lock-warning-face)
     (,encore-constants-regexp  . font-lock-constant-face)
     (,encore-primitives-regexp . font-lock-type-face)
     (,encore-types-regexp      . font-lock-type-face)
