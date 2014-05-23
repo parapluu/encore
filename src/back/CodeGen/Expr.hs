@@ -46,8 +46,8 @@ type_to_printf_fstr other = case translate other of
 instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
   translate (A.Skip {}) = return $ Embed "/* skip */"
   translate (A.Null {}) = return $ Embed "NULL"
-  translate (A.BTrue {}) = return $ Embed "1 /* TODO */"
-  translate (A.BFalse {}) = return $ Embed "0 /* TODO */"
+  translate (A.BTrue {}) = return $ Embed "(1 /* TODO */)"
+  translate (A.BFalse {}) = return $ Embed "(0 /* TODO */)"
   translate (A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     te1 <- translate e1
     te2 <- translate e2
