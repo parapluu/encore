@@ -101,9 +101,13 @@ classDecl :: Parser ClassDecl
 classDecl = do {pos <- getPosition ;
                 reserved "class" ;
                 cname <- identifier ;
-                fields <- many fieldDecl ;
-                methods <- many methodDecl ;
+                (fields, methods) <- do {braces classBody} <|> do {classBody} ;
                 return $ Class (meta pos) (Type cname) fields methods}
+            where
+              classBody = do {fields <- many fieldDecl ;
+                              methods <- many methodDecl ;
+                              return (fields, methods)}
+                                     
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do {pos <- getPosition ;
