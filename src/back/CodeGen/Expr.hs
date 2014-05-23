@@ -155,4 +155,5 @@ instance Translatable A.Expr (State Ctx.Context (CCode Expr)) where
          tthn <- translate thn
          tels <- translate els
          return (If tcond (Statement tthn) (Statement tels))
+  translate e@(A.Embed {A.code=code}) = return $ Embed code
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
