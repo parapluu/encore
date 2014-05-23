@@ -32,13 +32,14 @@ FieldAccess ::= . Name FieldAccess | eps
               | \" String \"
               | Int
               | ( Expr Op Expr )
+              | embed Name \" String \"
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
 @
 
-Keywords: @ class def let in if then else while get null new print @
+Keywords: @ class def embed let in if then else while get null new print @
 
 -}
 
@@ -70,7 +71,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print"],
+               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
              }
 
@@ -167,6 +168,7 @@ expression = buildExpressionParser opTable expr
 
 expr :: Parser Expr
 expr  =  skip
+     <|> try embed
      <|> try assignment
      <|> try methodCall
      <|> try fieldAccess
@@ -186,6 +188,11 @@ expr  =  skip
      <|> int
      <?> "expression"
     where
+      embed = do {pos <- getPosition ;
+                  reserved "embed" ; 
+                  ty <- identifier ;
+                  code <- stringLiteral ; 
+                  return $ Embed (meta pos) (Type ty) code}
       skip = do {pos <- getPosition ; reserved "skip" ; return $ Skip (meta pos) }
       assignment = do {pos <- getPosition; 
                        lhs <- lval ; reservedOp "=" ; 

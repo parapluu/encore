@@ -111,6 +111,9 @@ data Expr = Skip {emeta :: Meta}
                            stringLit :: String}
           | IntLiteral {emeta :: Meta, 
                         intLit :: Int}
+          | Embed {emeta :: Meta,
+                   ty    :: Type,
+                   code  :: String}
           | Binop {emeta :: Meta, 
                    op :: Op, 
                    loper :: Expr, 

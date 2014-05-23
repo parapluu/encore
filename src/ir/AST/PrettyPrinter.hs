@@ -31,6 +31,7 @@ ppTrue = text "true"
 ppFalse = text "false"
 ppNew = text "new"
 ppPrint = text "print"
+ppEmbed = text "embed"
 ppDot = text "."
 ppColon = text ":"
 ppComma = text ","
@@ -109,6 +110,7 @@ ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Print {val} = ppPrint <+> ppExpr val
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
+ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
 
 ppBinop :: Op -> Doc

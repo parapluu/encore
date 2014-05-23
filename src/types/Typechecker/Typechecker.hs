@@ -189,6 +189,8 @@ instance Checkable Expr where
 
     typecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
+    typecheck embed@(Embed {ty}) = return $ setType ty embed
+
     typecheck binop@(Binop {op, loper, roper})
         | op `elem` cmpOps = 
             do eLoper <- pushHasType loper intType
