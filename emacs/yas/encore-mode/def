@@ -1,0 +1,6 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: def
+# key: def
+# --
+def ${1:main}($2) : ${3:void}
+    $0

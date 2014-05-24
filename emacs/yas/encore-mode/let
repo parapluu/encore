@@ -1,0 +1,6 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: let
+# key: let
+# --
+let ${1:x} = ${2} in
+      $0
