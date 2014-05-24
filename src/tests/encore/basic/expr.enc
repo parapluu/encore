@@ -1,0 +1,24 @@
+class Main {
+  def main () : void {
+    print this.foo();
+    print this.bar(this.foo());
+    this.baz(0);
+    this.baz(1)
+  }
+
+  def foo () : string {
+    "Hello"
+  }
+
+  def bar (f:string) : int {
+    print "Ponyworld!";
+    2
+  }
+
+  def baz (b:int) : void {
+    print (if b==0 then
+             "Hello"
+           else
+             "Ponyworld!")
+  }
+}
