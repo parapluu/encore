@@ -105,18 +105,20 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                                          [Var "p"]
                                 else Concat [])])
             
-            alloc_instr = Concat $ map Statement $
+            alloc_instr = Concat $
                           [(Var "p") `Assign`
-                           (Call (Nam "pony_alloc")
-                                     [(Call
-                                       (Var "sizeof")
-                                       [AsExpr . Embed $ show (data_rec_name $ A.cname cdecl)])]),
+                           (Statement
+                            (Call (Nam "pony_alloc")
+                                      [(Call
+                                        (Var "sizeof")
+                                        [AsExpr . Embed $ show (data_rec_name $ A.cname cdecl)])])),
                            (Assign
                             (AsLval . Embed $ "((Main_data*)p)->aref")
-                            (Embed "this")
+                            (Var "this")
                            ),
-                           Call (Nam "pony_set")
-                                    [Var "p"]]
+                           (Statement
+                            (Call (Nam "pony_set")
+                                      [Var "p"]))]
 
       tracefun_decl :: CCode Toplevel
       tracefun_decl = (Function

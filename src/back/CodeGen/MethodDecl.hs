@@ -24,10 +24,13 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     this_ty <- asks (A.cname . fromJust . Ctx.the_class)
     cdecl <- asks (fromJust . Ctx.the_class)
     ctx <- ask
+    let ((bodyn,bodys),_) = (runState (translate (A.mbody mdecl)) (Ctx.with_method mdecl ctx))
     return $ 
       (Function (translate (A.mtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
        ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
-       (Statement (fst (runState (translate (A.mbody mdecl)) (Ctx.with_method mdecl ctx))::CCode Expr)))
+       (if A.mtype mdecl /= ID.Type "void"
+        then (Seq $ bodys : [Embed ("return " ++ show bodyn)])
+        else bodys))
     where
       mparam_to_cvardecl (A.Param {A.pname = na, A.ptype = ty}) = (translate ty, Var $ show na)
 

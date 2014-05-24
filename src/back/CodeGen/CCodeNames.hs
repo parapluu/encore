@@ -18,6 +18,7 @@ import Data.Char
 
 char = Typ "char"
 int = Typ "int"
+bool = Typ "int"
 double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"

@@ -35,6 +35,8 @@ instance UsableAs Lval Expr where
 instance UsableAs Name Expr where
 instance UsableAs a a where
 
+instance UsableAs Stat Expr where
+
 type CType = String
 type CName = String
 
@@ -42,13 +44,14 @@ type CVarSpec = (CCode Ty, CCode Lval)
 
 data CCode a where
     Program    :: CCode Toplevel -> CCode FIN
+    Skip       :: CCode Stat
     Includes   :: [String] -> CCode Toplevel
     HashDefine :: String -> CCode Toplevel
     Statement  :: UsableAs e Expr => CCode e -> CCode Stat
     Switch     :: (UsableAs e Expr) => CCode e -> [(CCode Name, CCode Stat)] -> CCode Stat -> CCode Stat
     StructDecl :: CCode Ty -> [CVarSpec] -> CCode Toplevel
     Record     :: UsableAs e Expr => [CCode e] -> CCode Expr
-    Assign     :: UsableAs l Lval => CCode l -> CCode Expr -> CCode Expr
+    Assign     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Stat
     Decl       :: CVarSpec -> CCode Lval
     Concat     :: [CCode Stat] -> CCode Stat
     ConcatTL   :: [CCode Toplevel] -> CCode Toplevel -- I do not like
@@ -59,10 +62,11 @@ data CCode a where
                                              -- Expr that doesn't
                                              -- directly map to
                                              -- C-Exprs.
+    Seq        :: UsableAs Stat s => [CCode s] -> CCode Stat
     Enum       :: [CCode Name] -> CCode Toplevel
     Braced     :: CCode a -> CCode a
     Parens     :: CCode a -> CCode a
-    BinOp      :: CCode Name -> CCode Expr -> CCode Expr -> CCode Expr
+    BinOp      :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
     Dot        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref      :: UsableAs e Expr => CCode e -> CCode Expr
     ArrAcc     :: Int -> CCode Lval -> CCode Lval
@@ -79,5 +83,6 @@ data CCode a where
     EmbedC     :: CCode a -> CCode b
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
     TypeDef    :: CCode Ty -> CCode Toplevel -> CCode Toplevel
-    While      :: CCode Expr -> CCode Stat -> CCode Expr
-    If         :: CCode Expr -> CCode Stat -> CCode Stat -> CCode Expr
+    While      :: CCode Expr -> CCode Stat -> CCode Stat
+    StatAsExpr :: CCode Lval -> CCode Stat -> CCode Expr
+    If         :: UsableAs Expr e => CCode e -> CCode Stat -> CCode Stat -> CCode Expr

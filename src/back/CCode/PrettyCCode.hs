@@ -32,6 +32,7 @@ switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccode
 
 pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
+pp' Skip = text ""
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement seq@(StoopidSeq _)) = pp' seq -- avoid double semicolons!
@@ -42,7 +43,7 @@ pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
                       (braced_block . vcat . map pp') fields <> text ";"
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Record ccodes) = text "{" <+> (hcat $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
-pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs
+pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (Concat ccodes) = block ccodes
 pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
@@ -51,7 +52,7 @@ pp' (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
       semicolonify :: CCode Expr -> Doc
       semicolonify (StoopidSeq ccodes) = vcat $ map semicolonify ccodes -- avoid double semicolons!
       semicolonify other = pp' other <> text ";"
-
+pp' (Seq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
 pp' (Parens ccode) = lparen <> pp' ccode <> rparen
@@ -76,9 +77,10 @@ pp' (Call name args) = tshow name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
 pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
-pp' (While cond body) = text "while" <+> pp' cond $+$
+pp' (While cond body) = text "while" <+> lparen <> pp' cond <> rparen $+$
                         braced_block (pp' body)
-pp' (If c t e) = text "if" <+> pp' c $+$
+pp' (StatAsExpr n s) = text "({" <> pp' s <+> pp' n <> text ";})"
+pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
                  braced_block (pp' t) $+$
                  text "else" $+$
                  braced_block (pp' e)
