@@ -1,9 +1,12 @@
 class Main {
   def main () : void {
     print this.foo();
-    print this.bar(this.foo());
-    this.baz(0);
-    this.baz(1)
+    if this.bar(this.foo()) == 2 then {
+      this.baz(0);
+      this.baz(1)
+    } else {
+      print "oops"
+    }
   }
 
   def foo () : string {
