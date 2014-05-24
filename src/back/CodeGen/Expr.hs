@@ -38,17 +38,13 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
               tex)
 
 type_to_printf_fstr :: ID.Type -> String
-type_to_printf_fstr (ID.Type "int") = "%i"
+type_to_printf_fstr (ID.Type "int")    = "%lli"
 type_to_printf_fstr (ID.Type "string") = "%s"
-type_to_printf_fstr other = case translate other of
-                              Ptr something -> "%p"
-                              _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show other
+type_to_printf_fstr other              =
+    case translate other of
+      Ptr something -> "%p"
+      _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show other
 
---precompute :: A.Expr -> A.Expr -> State Ctx.Context (CCode Expr)
-
-
---the problem is that by the time this is running, gen_sym has already been called! this
--- needs to be in the State Monad!
 -- | If the type is not void, create a variable to store it in.
 tmp_var :: ID.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 tmp_var ty cex = do
@@ -190,10 +186,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 tmp_s])
 
             pony_arg_t_tag :: CCode Ty -> String
-            pony_arg_t_tag (Ptr _)        = ".p"
-            pony_arg_t_tag (Typ "int")    = ".i"
-            pony_arg_t_tag (Typ "double") = ".d"
-            pony_arg_t_tag other          =
+            pony_arg_t_tag (Ptr _)         = ".p"
+            pony_arg_t_tag (Typ "int64_t") = ".i"
+            pony_arg_t_tag (Typ "double")  = ".d"
+            pony_arg_t_tag other           =
                 error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)

@@ -72,10 +72,10 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
           in
             AsExpr $ Dot arg_cell
                        (case translate ty of
-                          (Typ "int")    -> (Nam "i")
-                          (Typ "double") -> (Nam "d")
-                          (Ptr _)        -> (Nam "p")
-                          other          ->
+                          (Typ "int64_t") -> (Nam "i")
+                          (Typ "double")  -> (Nam "d")
+                          (Ptr _)         -> (Nam "p")
+                          other           ->
                               error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ty)
 
       paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
@@ -87,7 +87,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
            ([(Ptr . Typ $ "pony_actor_t", Var "this"),
              (Ptr void, Var "p"),
              (Typ "uint64_t", Var "id"),
-             (int, Var "argc"),
+             (Typ "int", Var "argc"),
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :

@@ -21,7 +21,7 @@ instance Translatable A.Program (CCode FIN) where
     Program $ 
     ConcatTL $
     (Includes ["pony/pony.h",
-               --"stdlib.h",
+               "stdlib.h",
                --"string.h",
                --"inttypes.h",
                --"assert.h",
@@ -31,8 +31,8 @@ instance Translatable A.Program (CCode FIN) where
     (map (\cls -> runReader (fwd_decls cls) (Ctx.mk prog)) cs) ++
     (map translate_class_here cs) ++
     [(Function
-      int (Nam "main")
-      [(int, Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+      (Typ "int") (Nam "main")
+      [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
       (Embed "return pony_start(argc, argv, pony_create(&Main_actor));"))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel

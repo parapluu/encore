@@ -17,7 +17,7 @@ import CCode.Main
 import Data.Char
 
 char = Typ "char"
-int = Typ "int"
+int = Typ "int64_t"
 bool = Typ "int"
 double = Typ "double"
 void = Typ "void"
