@@ -1,0 +1,8 @@
+class Main
+  def main() : void
+    let x = "Hello" in {
+      print x;
+      let x = "Ponyworld!" in
+        print x
+    }
+        
