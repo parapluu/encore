@@ -31,7 +31,14 @@ instance Translatable ID.Op (CCode Name) where
     ID.DIV -> "/"
 
 instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
-  translate (A.LVal ty name) = return $ (Embed $ show name, Embed "/**/")
+  translate (A.LVal ty name) =
+      do
+        c <- get
+        case Ctx.subst_lkp c name of
+          Just subst_name ->
+              return (subst_name, Skip)
+          Nothing ->
+              return $ (Embed $ show name, Skip)
   translate (A.LField ty ex name) = do
       (nex,tex) <- translate ex
       return (EmbedC $ Deref nex `Dot` (Nam $ show name),
@@ -54,8 +61,11 @@ tmp_var ty cex = do
     return $ (Var na, Assign (Decl (translate ty, Var na)) cex)
   else return (error $ show cex ++ " is void",Statement cex)
 
-and_then :: CCode Stat -> (CCode Lval, CCode Stat) -> (CCode Lval, CCode Stat)
-and_then s1 (l, s2) = (l, Seq [s1, s2])
+substitute_var :: ID.Name -> CCode Lval -> State Ctx.Context ()
+substitute_var na impl = do
+  c <- get
+  put $ Ctx.subst_add c na impl
+  return ()
 
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.Skip {}) = return $ (error "it's void", Embed "/* skip */")
@@ -101,7 +111,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             Seq [texpr,
                  tlvar,
                  Seq[Assign nlvar nexpr]])
-  translate (A.VarAccess {A.name = name}) = return (Var $ show name, Skip)
+  translate (A.VarAccess {A.name = name}) = do
+      c <- get
+      case Ctx.subst_lkp c name of
+        Just subst_name ->
+            return (subst_name , Skip)
+        Nothing ->
+            return (Var $ show name, Skip)
   translate (A.FieldAccess {A.target = exp, A.name = name}) = do
     (nexp,texp) <- translate exp
     tmp <- Ctx.gen_sym
@@ -114,23 +130,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
                        -- TODO: this does not allow for nested lets with equal names yet
                        (ne1,te1) <- translate e1
+                       substitute_var name ne1
                        (ne2,te2) <- translate e2
                        return (ne2,
                                Seq [te1,
-                                    EmbedC $ Assign (Decl (translate (A.getType e1), Var $ show name)) ne1,
                                     te2])
----- this uses an obscure feature of C: compound statements can form expressions!
----- http://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
---                   do
---                     te1 <- translate e1
---                     s <- get
---                     put (Ctx.with_local (A.Param {A.pname = name, A.ptype = A.getType e1, A.pmeta = A.emeta e1}) s) 
---                     te2 <- translate e2
---                     put s
---                     return (Braced . StoopidSeq $
---                             [Assign 
---                              (Decl (translate (A.getType e1), Var $ show name)) te1,
---                                                                                 te2])
   translate new@(A.New {A.ty = ty}) = do
     tmp_var ty (Call (Nam "create_and_send")
                          [Amp $ actor_rec_name ty,

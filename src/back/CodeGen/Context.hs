@@ -9,6 +9,8 @@ the typechecking process. -}
 module CodeGen.Context (
   Context,
   mk,
+  subst_add,
+  subst_lkp,
   the_prog,
   the_class,
   the_method,
@@ -31,7 +33,7 @@ type NextSym = Int
 
 type ProgramLoc = (Program, Maybe (ClassDecl, Maybe (MethodDecl, [ParamDecl])))
 
-type VarSubTable = [(Name, C.CCode C.Name)] -- variable substitutions (for supporting, for instance, nested var decls)
+type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
 data Context = Context VarSubTable ProgramLoc NextSym
 
@@ -60,8 +62,17 @@ with_local d (Context s (p, (Just (c, Just (m, ds)))) n) =
 with_local d _ =
     error $ "with_local: invalid input" ++ show d
 
+subst_add :: Context -> Name -> C.CCode C.Lval -> Context
+subst_add (Context s loc nxt) na lv = Context ((na,lv):s) loc nxt
+
+subst_lkp :: Context -> Name -> Maybe (C.CCode C.Lval)
+subst_lkp c n = lookup n $ the_subst c
+
 the_prog :: Context -> Program
 the_prog (Context _ (prog, _) _) = prog
+
+the_subst :: Context -> VarSubTable
+the_subst (Context s _ _) = s
 
 the_class :: Context -> Maybe ClassDecl
 the_class (Context _ (_, x) _) = x >>= Just . fst
