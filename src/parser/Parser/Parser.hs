@@ -91,9 +91,11 @@ parens     = P.parens lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
 natural = P.natural lexer
+whiteSpace = P.whiteSpace lexer
 
 program :: Parser Program
-program = do {classes <- many classDecl ;
+program = do {whiteSpace ;
+              classes <- many classDecl ;
               eof ;
               return $ Program classes}
 
