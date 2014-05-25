@@ -113,7 +113,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                                         (Var "sizeof")
                                         [AsExpr . Embed $ show (data_rec_name $ A.cname cdecl)])])),
                            (Assign
-                            (AsLval . Embed $ "((Main_data*)p)->aref")
+                            (AsLval . Embed $ "((" ++ show (data_rec_ptr $ A.cname cdecl) ++ ")p)->aref")
                             (Var "this")
                            ),
                            (Statement
