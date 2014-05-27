@@ -13,6 +13,7 @@ The purpose of this module is to
 module CodeGen.CCodeNames where
 
 import qualified Identifiers as ID
+import Types as Ty
 import CCode.Main
 import Data.Char
 
@@ -25,44 +26,44 @@ pony_actor_t = Typ "pony_actor_t"
 
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
-method_impl_name :: ID.Type -> ID.Name -> CCode Name
+method_impl_name :: Ty.Type -> ID.Name -> CCode Name
 method_impl_name clazz mname =
     Nam $ (show clazz) ++ "_" ++ (show mname)
 
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
-class_dispatch_name :: ID.Type -> CCode Name
+class_dispatch_name :: Ty.Type -> CCode Name
 class_dispatch_name clazz = Nam $ (show clazz) ++ "_dispatch"
 
-class_message_type_name :: ID.Type -> CCode Name
+class_message_type_name :: Ty.Type -> CCode Name
 class_message_type_name clazz = Nam $ (show clazz) ++ "_message_type"
 
-class_trace_fn_name :: ID.Type -> CCode Name
+class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ show clazz ++ "_trace"
 
-method_message_type_name :: ID.Type -> ID.Name -> CCode Lval --fixme should be a name
+method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
 method_message_type_name clazz mname = Var $ "m_"++show clazz++"_"++show mname
 
 -- | for each method, there's a corresponding message, this is its name
-method_msg_name :: ID.Type -> ID.Name -> CCode Name
+method_msg_name :: Ty.Type -> ID.Name -> CCode Name
 method_msg_name clazz mname = Nam $ "MSG_"++show clazz++"_"++show mname
 
 -- | the name of the record type in which a class stores its state
-data_rec_name :: ID.Type -> CCode Ty
+data_rec_name :: Ty.Type -> CCode Ty
 data_rec_name clazz = Typ $ show clazz ++ "_data"
 
-data_rec_ptr :: ID.Type -> CCode Ty
+data_rec_ptr :: Ty.Type -> CCode Ty
 data_rec_ptr = Ptr . data_rec_name
 
-actor_rec_name :: ID.Type -> CCode Name
+actor_rec_name :: Ty.Type -> CCode Name
 actor_rec_name clazz = Nam $ show clazz ++ "_actor"
 
-pony_actor_t_Type :: ID.Type -> CCode Ty
-pony_actor_t_Type (ID.Type ty) =
-    Typ $ if isLower $ head ty
-          then ty
-          else ty++"_actor_t*"
+pony_actor_t_Type :: Ty.Type -> CCode Ty
+pony_actor_t_Type ty 
+    | isPrimitive ty = Typ $ show ty
+    | isRefType ty   = Typ $ (show ty) ++ "_actor_t*"
+    | otherwise      = error "Cannot not translate higher-order types"
 
 temp_name :: String -> CCode Name
 temp_name s = Nam $ "__backend__" ++ s

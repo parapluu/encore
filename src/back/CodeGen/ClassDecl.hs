@@ -30,6 +30,7 @@ import Data.List
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
+import qualified Types as Ty
 
 import Control.Monad.Reader hiding (void)
 
@@ -91,7 +92,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :
-             (if (A.cname cdecl == ID.Type "Main")
+             (if (A.cname cdecl == Ty.refType "Main")
               then [pony_main_clause]
               else []) ++
              (map (mthd_dispatch_clause cdecl) (A.methods cdecl)))
@@ -100,8 +101,8 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
             pony_main_clause =
                 (Nam "PONY_MAIN",
                      Concat $ [alloc_instr,
-                               (if (A.cname cdecl) == (ID.Type "Main")
-                                then Statement $ Call ((method_impl_name (ID.Type "Main") (ID.Name "main")))
+                               (if (A.cname cdecl) == (Ty.refType "Main")
+                                then Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
                                          [Var "p"]
                                 else Concat [])])
             
@@ -138,7 +139,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
                                    (Concat [])),
                                    (Embed "return NULL;")])
         where
-          message_type_clause :: ID.Type -> ID.Name -> (CCode Name, CCode Stat)
+          message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
           message_type_clause cname mname =
             (method_msg_name cname mname,
              Embed $ "return &" ++ show (method_message_type_name cname mname) ++ ";")
@@ -146,7 +147,7 @@ instance Translatable A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl (A.methods cdecl)
 
-      pony_mode :: ID.Type -> CCode Name
+      pony_mode :: Ty.Type -> CCode Name
       pony_mode ty =
           case translate ty of
             Ptr (Typ "pony_actor_t") -> Nam "PONY_ACTOR"

@@ -1,5 +1,5 @@
 HC=ghc
-INC_PATH=..
+INC_PATH=..:../../types
 FLAGS=--make -c -i$(INC_PATH)
 AST_OBJECTS=AST.o AST.hi
 PRETTYPRINTER_OBJECTS=PrettyPrinter.o PrettyPrinter.hi

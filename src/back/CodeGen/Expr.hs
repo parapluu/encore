@@ -14,6 +14,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
+import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
 import Control.Monad.Reader hiding (void)
@@ -44,18 +45,18 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
       return (EmbedC $ Deref nex `Dot` (Nam $ show name),
               tex)
 
-type_to_printf_fstr :: ID.Type -> String
-type_to_printf_fstr (ID.Type "int")    = "%lli"
-type_to_printf_fstr (ID.Type "string") = "%s"
-type_to_printf_fstr other              =
-    case translate other of
-      Ptr something -> "%p"
-      _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show other
+type_to_printf_fstr :: Ty.Type -> String
+type_to_printf_fstr ty 
+    | Ty.isIntType ty = "%lli"
+    | Ty.isStringType ty = "%s"
+    | otherwise = case translate ty of
+                    Ptr something -> "%p"
+                    _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
 
 -- | If the type is not void, create a variable to store it in.
-tmp_var :: ID.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
+tmp_var :: Ty.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 tmp_var ty cex = do
-  if ty /= ID.Type "void"
+  if not $ Ty.isVoidType ty
   then do
     na <- Ctx.gen_sym
     return $ (Var na, Assign (Decl (translate ty, Var na)) cex)
@@ -204,7 +205,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do (ncond,tcond) <- translate cond
          (nbody,tbody) <- translate body
-         if A.getType w /= ID.Type "void"
+         if not $ Ty.isVoidType (A.getType w)
          then do
            tmp <- Ctx.gen_sym;
            let export_body = Seq $ tbody : [EmbedC (Assign (Var tmp) nbody)]
@@ -218,7 +219,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ite@(A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
       do 
 --         tmp_var (A.getType ite) (If (StatAsExpr ncond tcond) (Statement tthn) (Statement tels))
-        if A.getType ite /= ID.Type "void"
+        if not $ Ty.isVoidType (A.getType ite)
         then do tmp <- Ctx.gen_sym
                 (ncond,tcond) <- translate cond
                 (nthn, tthn) <- translate thn

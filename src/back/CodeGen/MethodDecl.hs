@@ -13,6 +13,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
+import qualified Types as Ty
 
 import Control.Monad.Reader
 import Control.Monad.State
@@ -28,7 +29,7 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     return $ 
       (Function (translate (A.mtype mdecl)) (method_impl_name (A.cname cdecl) (A.mname mdecl))
        ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl $ A.mparams mdecl))
-       (if A.mtype mdecl /= ID.Type "void"
+       (if not $ Ty.isVoidType (A.mtype mdecl)
         then (Seq $ bodys : [Embed ("return " ++ show bodyn)])
         else bodys))
     where

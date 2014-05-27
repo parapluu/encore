@@ -31,12 +31,17 @@ FieldAccess ::= . Name FieldAccess | eps
               | print Expr
               | \" String \"
               | Int
-              | ( Expr Op Expr )
+              | Expr Op Expr
               | embed Name \" String \"
+              | (Expr)
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
+      Type ::= string | int | bool | void | String
+             | Fut Type | Par Type | (Types) -> Type
+     Types ::= Type Tys | eps
+       Tys ::= , Type Tys | eps
 @
 
 Keywords: @ class def embed let in if then else while get null new print @
@@ -54,6 +59,7 @@ import Text.Parsec.Expr
 
 -- Module dependencies
 import Identifiers
+import Types
 import AST.AST
 import AST.Meta
 
@@ -71,8 +77,8 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/"]
+               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "Fut", "Par"],
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -93,6 +99,31 @@ stringLiteral = P.stringLiteral lexer
 natural = P.natural lexer
 whiteSpace = P.whiteSpace lexer
 
+typ :: Parser Type
+typ  =  try arrow
+    <|> parens typ
+    <|> fut
+    <|> par
+    <|> do {ty <- identifier ;
+            return $ case ty of
+                       "void" -> voidType
+                       "string" -> stringType
+                       "int" -> intType
+                       "bool" -> boolType
+                       id -> refType id}
+    <?> "type"
+    where
+      arrow = do {lhs <- parens (commaSep typ) ;
+                  reservedOp "->" ;
+                  rhs <- typ ;
+                  return $ arrowType lhs rhs}
+      fut = do {reserved "Fut" ; 
+                ty <- typ ;
+                return $ futureType ty}
+      par = do {reserved "Par" ; 
+                ty <- typ ;
+                return $ parType ty}
+
 program :: Parser Program
 program = do {whiteSpace ;
               classes <- many classDecl ;
@@ -104,7 +135,7 @@ classDecl = do {pos <- getPosition ;
                 reserved "class" ;
                 cname <- identifier ;
                 (fields, methods) <- do {braces classBody} <|> do {classBody} ;
-                return $ Class (meta pos) (Type cname) fields methods}
+                return $ Class (meta pos) (refType cname) fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
                               methods <- many methodDecl ;
@@ -115,15 +146,15 @@ fieldDecl :: Parser FieldDecl
 fieldDecl = do {pos <- getPosition ;
                 f <- identifier ;
                 colon ;
-                ty <- identifier ;
-                return $ Field (meta pos) (Name f) (Type ty)}
+                ty <- typ ;
+                return $ Field (meta pos) (Name f) ty}
 
 paramDecl :: Parser ParamDecl
 paramDecl = do {pos <- getPosition ;
                 x <- identifier ; 
                 colon ; 
-                ty <- identifier ; 
-                return $ Param (meta pos) (Name x) (Type ty)}
+                ty <- typ ; 
+                return $ Param (meta pos) (Name x) ty}
 
 methodDecl :: Parser MethodDecl
 methodDecl = do {pos <- getPosition ;
@@ -131,9 +162,9 @@ methodDecl = do {pos <- getPosition ;
                  name <- identifier ;
                  params <- parens (commaSep paramDecl) ;
                  colon ;
-                 ty <- identifier ;
+                 ty <- typ ;
                  body <- expression ; 
-                 return $ Method (meta pos) (Name name) (Type ty) params body}
+                 return $ Method (meta pos) (Name name) ty params body}
 
 lval :: Parser LVal
 lval  =  try (do {pos <- getPosition ;
@@ -196,9 +227,9 @@ expr  =  skip
     where
       embed = do {pos <- getPosition ;
                   reserved "embed" ; 
-                  ty <- identifier ;
+                  ty <- typ ;
                   code <- stringLiteral ; 
-                  return $ Embed (meta pos) (Type ty) code}
+                  return $ Embed (meta pos) ty code}
       skip = do {pos <- getPosition ; reserved "skip" ; return $ Skip (meta pos) }
       assignment = do {pos <- getPosition; 
                        lhs <- lval ; reservedOp "=" ; 
@@ -255,8 +286,8 @@ expr  =  skip
                   return $ BFalse (meta pos)}
       new = do {pos <- getPosition ;
                 reserved "new" ;
-                ty <- identifier ;
-                return $ New (meta pos) (Type ty)}
+                ty <- typ ;
+                return $ New (meta pos) ty}
       print = do {pos <- getPosition ;
                   reserved "print" ;
                   expr <- expression ;

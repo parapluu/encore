@@ -24,8 +24,13 @@ import Data.List
 -- Module dependencies
 import Identifiers
 import AST.AST
-import Typechecker.Types
+import Types
 import Typechecker.TypeError
+
+type VarType = (Name, Type)
+type FieldType = (Name, Type)
+type MethodType = (Name, ([ParamDecl], Type))
+type ClassType = (Type, ([FieldType], [MethodType]))
 
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
 
@@ -36,12 +41,12 @@ buildClassTable (Program classes) =
       (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
-      getClassType Class {cname, fields, methods} = (cname, (fields', methods'))
+      getClassType Class {cname, fields, methods} = (cname, (fieldTypes, methodTypes))
           where
-            fields' = map getFieldType fields
-            methods' = map getMethodType methods
+            fieldTypes  = map getFieldType fields
+            methodTypes = map getMethodType methods
             getFieldType Field {fname, ftype} = (fname, ftype)
-            getMethodType Method {mname, mtype, mparams} = (mname, (mtype, mparams))
+            getMethodType Method {mname, mtype, mparams} = (mname, (mparams, mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -52,7 +57,7 @@ fieldLookup :: Type -> Name -> Environment -> Maybe Type
 fieldLookup cls f env = do (fields, _) <- lookup cls (ctable env)
                            lookup f fields
 
-methodLookup :: Type -> Name -> Environment -> Maybe (Type, [ParamDecl])
+methodLookup :: Type -> Name -> Environment -> Maybe ([ParamDecl], Type)
 methodLookup cls m env = do (_, methods) <- lookup cls (ctable env)
                             lookup m methods
 

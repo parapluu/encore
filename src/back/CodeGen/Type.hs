@@ -15,15 +15,19 @@ import CCode.PrettyCCode
 import Data.Char
 
 import qualified Identifiers as ID
+import qualified Types as Ty
 
-instance Translatable ID.Type (CCode Ty) where
-    translate (ID.Type "void") = void
-    translate (ID.Type "Object") = Ptr void
-    translate (ID.Type "int") = int
-    translate (ID.Type "string") = Ptr char
-    translate (ID.Type other_ty) = 
-        if isLower $ head $ other_ty
-        then error $
-                 "don't know how to translate type `"++other_ty++"` to pony.c"
-        else Ptr pony_actor_t
-                                                                       
+translatePrimitive :: Ty.Type -> CCode Ty
+translatePrimitive ty
+    | Ty.isVoidType ty = void
+    | Ty.isIntType ty = int
+    | Ty.isStringType ty = Ptr char
+    | otherwise = error $ show ty ++ " is not a primitive"
+    -- TODO: Reals and bools
+
+instance Translatable Ty.Type (CCode Ty) where
+    translate ty
+        | Ty.isPrimitive ty = translatePrimitive ty
+        | ty == Ty.refType "Object" = Ptr void -- TODO: What is our top-level class?
+        | Ty.isRefType ty = Ptr pony_actor_t 
+        | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"

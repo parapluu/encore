@@ -2,14 +2,11 @@ HC=ghc
 FLAGS=--make -c -i$(INC_PATH)
 SRC_PATH=../..
 INC_PATH=..:$(SRC_PATH)/ir
-TYPES_OBJECTS=Types.o Types.hi
 ENVIRONMENT_OBJECTS=Environment.o Environment.hi
 TYPECHECKER_OBJECTS=Typechecker.o Typechecker.hi
 TYPEERROR_OBJECTS=TypeError.o TypeError.hi
 
 all: types environment typechecker typeerror
-
-types: $(TYPES_OBJECTS)
 
 environment: $(ENVIRONMENT_OBJECTS)
 

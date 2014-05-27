@@ -1,7 +1,7 @@
 HC=ghc
 FLAGS=--make -c -i$(INC_PATH)
 SRC_PATH=../..
-INC_PATH=..:$(SRC_PATH)/ir
+INC_PATH=..:$(SRC_PATH)/ir:..:$(SRC_PATH)/types
 OBJECTS=Parser.o Parser.hi
 
 all: parser

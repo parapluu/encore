@@ -24,6 +24,7 @@ module CodeGen.Context (
 
 import AST.AST
 import Identifiers
+import Types
 import Data.Maybe
 import Control.Monad.State
 

@@ -21,7 +21,7 @@ import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST(hasType, getType)
 import AST.PrettyPrinter
-import Typechecker.Types
+import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 
@@ -118,7 +118,7 @@ instance Checkable Expr where
            lookupResult <- asks $ methodLookup targetType name
            case lookupResult of
              Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
-             Just (returnType, params) -> 
+             Just (params, returnType) -> 
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)

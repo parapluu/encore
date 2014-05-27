@@ -14,6 +14,7 @@ module AST.AST where
 import Text.Parsec(SourcePos)
 
 import Identifiers
+import Types
 import AST.Meta
 
 newtype Program = Program [ClassDecl] deriving(Show)

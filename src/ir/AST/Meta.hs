@@ -3,6 +3,7 @@ module AST.Meta where
 import Text.Parsec(SourcePos, sourceLine, sourceColumn)
 
 import Identifiers
+import Types
 
 data Meta = Meta {sourcePos :: SourcePos, ty :: Type} deriving (Eq, Show)
 

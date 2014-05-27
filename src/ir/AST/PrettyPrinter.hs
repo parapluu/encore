@@ -15,6 +15,7 @@ import Text.PrettyPrint
 
 -- Module dependencies
 import Identifiers
+import Types
 import AST.AST
 
 ppClass = text "class"
@@ -45,7 +46,7 @@ ppName :: Name -> Doc
 ppName (Name x) = text x
 
 ppType :: Type -> Doc
-ppType (Type t) = text t
+ppType = text . show
 
 ppProgram :: Program -> Doc
 ppProgram (Program classDecls) = vcat (map ppClassDecl classDecls)

@@ -13,18 +13,18 @@ import Text.Parsec(SourcePos)
 import Control.Monad.Error
 
 import Identifiers
-import Typechecker.Types
+import Types
 import AST.AST
 import AST.PrettyPrinter
 
 data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr | BTLVal LVal
 instance Show BacktraceNode where
-    show (BTClass (Type t))            = "In class '"          ++ t                      ++ "'"
-    show (BTParam p)                   = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
-    show (BTField f)                   = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
-    show (BTMethod (Name n) (Type ty)) = "In method '"         ++ n                      ++ "' of type '" ++ ty ++ "'"
-    show (BTExpr expr)                 = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
-    show (BTLVal lval)                 = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
+    show (BTClass ty)    = "In class '"          ++ show ty                ++ "'"
+    show (BTParam p)     = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
+    show (BTField f)     = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
+    show (BTMethod n ty) = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
+    show (BTExpr expr)   = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
+    show (BTLVal lval)   = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
