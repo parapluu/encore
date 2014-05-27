@@ -38,8 +38,10 @@ FieldAccess ::= . Name FieldAccess | eps
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
-      Type ::= string | int | bool | void | String
-             | Fut Type | Par Type | (Types) -> Type
+      Type ::= Arrow | NonArrow
+     Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
+  NonArrow ::= string | int | bool | void | String
+             | Fut Type | Par Type | (Type)
      Types ::= Type Tys | eps
        Tys ::= , Type Tys | eps
 @
