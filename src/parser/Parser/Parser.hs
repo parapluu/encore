@@ -102,15 +102,16 @@ whiteSpace = P.whiteSpace lexer
 
 typ :: Parser Type
 typ  =  try arrow
-    <|> parens typ
-    <|> fut
-    <|> par
-    <|> singleType
+    <|> nonArrow
     <?> "type"
     where
-      arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- singleType ; return [ty]} ;
+      nonArrow = parens typ
+              <|> fut
+              <|> par
+              <|> singleType
+      arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]} ;
                   reservedOp "->" ;
-                  rhs <- typ ;
+                  rhs <- nonArrow ;
                   return $ arrowType lhs rhs}
       fut = do {reserved "Fut" ; 
                 ty <- typ ;
