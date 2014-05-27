@@ -1,0 +1,9 @@
+class Main
+  myFun : ((string -> void), string) -> void
+  def app(f : string -> void, s : string) : void
+    let myFun = this.myFun in
+      myFun(f, s)
+  def main() : void
+    let doTwice = \(f : string -> void, x : string) -> {f(x); f(x)} in
+      {this.myFun = doTwice;
+       this.app(\(s : string) -> print s, "Hello ponyworld")}
