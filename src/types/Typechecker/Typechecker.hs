@@ -150,11 +150,11 @@ instance Checkable Expr where
 
     typecheck closure@(Closure {eparams, body}) = 
         do mapM_ typecheckParam eparams
-           eBody <- local addParams $ pushTypecheck body
+           eBody <- local onlyParams $ pushTypecheck body
            return $ setType (arrowType (map ptype eparams) (AST.getType eBody)) closure {body = eBody}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
-          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
+          onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val

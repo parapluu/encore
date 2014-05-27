@@ -16,6 +16,7 @@ module Typechecker.Environment(Environment,
                                fieldLookup, 
                                varLookup,
                                extendEnvironment,
+                               replaceLocals,
                                backtrace,
                                pushBT) where
 
@@ -76,3 +77,6 @@ extendEnvironment ((name, ty):newTypes) env =
       extend ((name, ty):bindings) name' ty'
           | name == name' = (name', ty'):bindings
           | otherwise     = (name, ty):(extend bindings name' ty')
+
+replaceLocals :: [(Name, Type)] -> Environment -> Environment
+replaceLocals newTypes env = env {locals = newTypes}
