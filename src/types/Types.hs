@@ -2,8 +2,8 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              parType, isParType, refType, isRefType, 
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
-             stringType, isStringType, isPrimitive, 
-             emptyType) where
+             realType, isRealType, stringType, isStringType, 
+             isPrimitive, isNumeric, emptyType) where
 
 import Data.List
 
@@ -25,6 +25,7 @@ instance Show Type where
     show VoidType          = "void"
     show StringType        = "string"
     show IntType           = "int"
+    show RealType           = "real"
     show BoolType          = "bool"
     show (RefType name)    = name
     show NullType          = "NullType"
@@ -94,3 +95,6 @@ primitives = [voidType, intType, realType, boolType, stringType]
 
 isPrimitive :: Type -> Bool
 isPrimitive = flip elem primitives
+
+isNumeric :: Type -> Bool
+isNumeric ty = isRealType ty || isIntType ty

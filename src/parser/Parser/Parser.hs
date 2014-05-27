@@ -97,6 +97,7 @@ parens     = P.parens lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
 natural = P.natural lexer
+float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
 typ :: Parser Type
@@ -222,6 +223,7 @@ expr  =  skip
      <|> sequence
      <|> print
      <|> string
+     <|> try real
      <|> int
      <?> "expression"
     where
@@ -298,3 +300,6 @@ expr  =  skip
       int = do {pos <- getPosition ;
                 n <- natural ; 
                 return $ IntLiteral (meta pos) (fromInteger n)}
+      real = do {pos <- getPosition ;
+                 r <- float ; 
+                 return $ RealLiteral (meta pos) r}

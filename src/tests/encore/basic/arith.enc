@@ -1,0 +1,8 @@
+class Main
+  def main() : void
+    let n = 42 in
+      let f = 42.0 in
+        if f - n > 0 then
+          print "You shouldn't be mixing reals and ints anyway..."
+        else
+          print "Success"

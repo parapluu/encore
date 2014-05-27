@@ -111,6 +111,7 @@ ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Print {val} = ppPrint <+> ppExpr val
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
+ppExpr RealLiteral {realLit} = double realLit
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
 

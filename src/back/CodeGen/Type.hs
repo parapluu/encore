@@ -21,9 +21,10 @@ translatePrimitive :: Ty.Type -> CCode Ty
 translatePrimitive ty
     | Ty.isVoidType ty = void
     | Ty.isIntType ty = int
+    | Ty.isRealType ty = double
+    | Ty.isBoolType ty = bool
     | Ty.isStringType ty = Ptr char
     | otherwise = error $ show ty ++ " is not a primitive"
-    -- TODO: Reals and bools
 
 instance Translatable Ty.Type (CCode Ty) where
     translate ty

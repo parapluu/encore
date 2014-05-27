@@ -189,26 +189,40 @@ instance Checkable Expr where
 
     typecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
+    typecheck realLit@(RealLiteral {}) = return $ setType realType realLit
+
     typecheck embed@(Embed {ty}) = return $ setType ty embed
 
     typecheck binop@(Binop {op, loper, roper})
         | op `elem` cmpOps = 
-            do eLoper <- pushHasType loper intType
-               eRoper <- pushHasType roper intType
+            do eLoper <- pushTypecheck loper
+               lType  <- return $ AST.getType eLoper
+               eRoper <- pushTypecheck roper
+               rType  <- return $ AST.getType eRoper
+               unless (isNumeric lType && isNumeric rType) $
+                      tcError $ "Operator "++ show op ++ " is only defined for numeric types"
                return $ setType boolType binop {loper = eLoper, roper = eRoper}
         | op `elem` eqOps =
             do eLoper <- pushTypecheck loper
                eRoper <- pushHasType roper (AST.getType eLoper)
                return $ setType boolType binop {loper = eLoper, roper = eRoper}
         | op `elem` arithOps = 
-            do eLoper <- pushHasType loper intType
-               eRoper <- pushHasType roper intType
-               return $ setType intType binop {loper = eLoper, roper = eRoper}
+            do eLoper <- pushTypecheck loper
+               lType  <- return $ AST.getType eLoper
+               eRoper <- pushTypecheck roper
+               rType  <- return $ AST.getType eRoper
+               unless (isNumeric lType && isNumeric rType) $
+                      tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+               return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
         | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
         where
           cmpOps   = [Identifiers.LT, Identifiers.GT]
           eqOps    = [Identifiers.EQ, NEQ]
           arithOps = [PLUS, MINUS, TIMES, DIV]
+          coerceTypes ty1 ty2 
+              | isRealType ty1 = realType
+              | isRealType ty2 = realType
+              | otherwise = intType
 
 instance Checkable LVal where
     hasType lval ty = do eLVal <- typecheck lval

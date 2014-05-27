@@ -112,6 +112,8 @@ data Expr = Skip {emeta :: Meta}
                            stringLit :: String}
           | IntLiteral {emeta :: Meta, 
                         intLit :: Int}
+          | RealLiteral {emeta :: Meta, 
+                         realLit :: Double}
           | Embed {emeta :: Meta,
                    ty    :: Type,
                    code  :: String}
@@ -135,6 +137,7 @@ instance HasMeta Expr where
     getType BFalse {} = boolType
     getType StringLiteral {} = stringType
     getType IntLiteral {} = intType
+    getType RealLiteral {} = realType
     getType expr = AST.Meta.getType . emeta $ expr
 
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}

@@ -48,6 +48,7 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty 
     | Ty.isIntType ty = "%lli"
+    | Ty.isRealType ty = "%f"
     | Ty.isStringType ty = "%s"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
@@ -79,7 +80,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.BFalse {}) = do
     tmp <- Ctx.gen_sym
     return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "0"::CCode Expr)])
-  translate (A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
+  translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     (ne1,ts1) <- translate (e1 :: A.Expr)
     (ne2,ts2) <- translate (e2 :: A.Expr)
     tmp <- Ctx.gen_sym
@@ -87,7 +88,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               Seq [ts1,
                    ts2,
                    Statement (Assign
-                              (Decl (bool, Var tmp))
+                              (Decl (translate $ A.getType bin, Var tmp))
                               (BinOp (translate op)
                                          (ne1 :: CCode Lval)
                                          (ne2 :: CCode Lval)))])
@@ -126,6 +127,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             texp)
   translate lit@(A.IntLiteral {A.intLit = i}) = do
       tmp_var (A.getType lit) (Embed (show i))
+  translate lit@(A.RealLiteral {A.realLit = r}) = do
+      tmp_var (A.getType lit) (Embed (show r))
   translate lit@(A.StringLiteral {A.stringLit = s}) = do
       tmp_var (A.getType lit) (Embed (show s))
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
