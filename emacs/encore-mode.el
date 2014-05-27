@@ -11,7 +11,7 @@
 ;; with extension .enc.
 
 (setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "print" "skip" "then" "while"))
-(setq encore-danger-words '("embed"))
+(setq encore-danger-words '("embed" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void"))
 
@@ -85,6 +85,11 @@
   (if (string-match "\\<while\\>" line)
       (+ (match-beginning 0) encore-tab-width)
 
+  (if (string-match "\\<embed\\>" line)
+      (if (equal first "end")
+          (match-beginning 0)
+        (+ (match-beginning 0) encore-tab-width))
+
   (if (string-match "\\<def\\>" line)
       (+ (match-beginning 0) encore-tab-width)
 
@@ -99,7 +104,7 @@
   (if (string-match "\\W*\\([^;]*\\);" line)
       (match-beginning 1)
   (if (bobp)
-      0))))))))))))))))
+      0)))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)

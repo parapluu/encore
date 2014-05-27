@@ -52,7 +52,7 @@ class Main
           -- first, we're manually making a future, add ourselves as subscriber, and
           -- then let it loose by calling spawn:
           let f = new SqFuture in {
-            f.add_subscriber(this, embed VoidPtr "NULL");
+            f.add_subscriber(this, embed VoidPtr NULL end);
             f.spawn(srv, i*10) -- "call"
           }
         };
@@ -69,7 +69,9 @@ class Main
 class Server
   def sq(n:int,f:SqFuture) : void {
     print "hmmm..";
-    embed void "sleep(5)";
+    embed 
+      void sleep(5) 
+    end;
     print "I got it!";
     f.fulfill(n*n)
   }

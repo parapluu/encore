@@ -6,9 +6,9 @@ following grammar:
 @
     Program ::= ClassDecl Program | eps
   ClassDecl ::= class Name { FieldDecls MethodDecls }
- FieldDecls ::= Name : Name FieldDecl | eps
- ParamDecls ::= Name : Name , ParamDecl | eps
-MethodDecls ::= def Name ( ParamDecls ) : Name Expr
+ FieldDecls ::= Name : Type FieldDecl | eps
+ ParamDecls ::= Name : Type , ParamDecl | eps
+MethodDecls ::= def Name ( ParamDecls ) : Type Expr
    Sequence ::= Expr Seq | eps
         Seq ::= ; Expr Seq | eps
   Arguments ::= Expr Args | eps
@@ -27,12 +27,12 @@ FieldAccess ::= . Name FieldAccess | eps
               | null
               | true
               | false
-              | new Name
+              | new Type
               | print Expr
               | \" String \"
               | Int
               | Expr Op Expr
-              | embed Name \" String \"
+              | embed Type .* end
               | (Expr)
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
@@ -77,7 +77,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "Fut", "Par"],
+               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->"]
              }
 
@@ -230,7 +230,7 @@ expr  =  skip
       embed = do {pos <- getPosition ;
                   reserved "embed" ; 
                   ty <- typ ;
-                  code <- stringLiteral ; 
+                  code <- manyTill anyChar $ try $ reserved "end" ;
                   return $ Embed (meta pos) ty code}
       skip = do {pos <- getPosition ; reserved "skip" ; return $ Skip (meta pos) }
       assignment = do {pos <- getPosition; 
