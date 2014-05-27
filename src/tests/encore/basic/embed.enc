@@ -1,0 +1,7 @@
+class Main
+  def main() : void
+    embed void
+      int x = 42;
+      char* s = "The answer is: ";
+      printf("%s%d\n", s, x);
+    end
