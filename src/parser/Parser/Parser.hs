@@ -105,16 +105,10 @@ typ  =  try arrow
     <|> parens typ
     <|> fut
     <|> par
-    <|> do {ty <- identifier ;
-            return $ case ty of
-                       "void" -> voidType
-                       "string" -> stringType
-                       "int" -> intType
-                       "bool" -> boolType
-                       id -> refType id}
+    <|> singleType
     <?> "type"
     where
-      arrow = do {lhs <- parens (commaSep typ) ;
+      arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- singleType ; return [ty]} ;
                   reservedOp "->" ;
                   rhs <- typ ;
                   return $ arrowType lhs rhs}
@@ -124,6 +118,13 @@ typ  =  try arrow
       par = do {reserved "Par" ; 
                 ty <- typ ;
                 return $ parType ty}
+      singleType = do {ty <- identifier ;
+                       return $ case ty of
+                                  "void" -> voidType
+                                  "string" -> stringType
+                                  "int" -> intType
+                                  "bool" -> boolType
+                                  id -> refType id}
 
 program :: Parser Program
 program = do {whiteSpace ;
@@ -135,7 +136,7 @@ classDecl :: Parser ClassDecl
 classDecl = do {pos <- getPosition ;
                 reserved "class" ;
                 cname <- identifier ;
-                (fields, methods) <- do {braces classBody} <|> do {classBody} ;
+                (fields, methods) <- braces classBody <|> classBody ;
                 return $ Class (meta pos) (refType cname) fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
