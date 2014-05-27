@@ -3,7 +3,8 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
-             isPrimitive, isNumeric, emptyType) where
+             isPrimitive, isNumeric, emptyType,
+             getArgTypes, getResultType) where
 
 import Data.List
 
@@ -14,6 +15,9 @@ data Type = VoidType | StringType | IntType | BoolType | RealType
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | Future {resultType :: Type} | Par {resultType :: Type}
             deriving (Read, Eq)
+
+getArgTypes = argTypes
+getResultType = resultType
 
 maybeParen :: Type -> String
 maybeParen arr@(Arrow _ _) = "(" ++ show arr ++ ")"

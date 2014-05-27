@@ -75,7 +75,8 @@ ppMethodDecl Method {mname, mtype, mparams, mbody} =
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
 isSimple FieldAccess {target} = isSimple target
-isSimple Call {target} = isSimple target
+isSimple MethodCall {target} = isSimple target
+isSimple FunctionCall {} = True
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
@@ -85,9 +86,11 @@ maybeParens e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
-ppExpr Call {target, name, args} = 
+ppExpr MethodCall {target, name, args} = 
     maybeParens target <> ppDot <> ppName name <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+ppExpr FunctionCall {name, args} = 
+    ppName name <> parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
 ppExpr Let {name = Name x, val, body} = 
     ppLet <+> text x <+> equals <+> ppExpr val <+> ppIn $+$ 
       indent (ppExpr body)

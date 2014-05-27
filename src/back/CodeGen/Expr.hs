@@ -143,7 +143,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     tmp_var ty (Call (Nam "create_and_send")
                          [Amp $ actor_rec_name ty,
                           AsExpr . AsLval . Nam $ "MSG_alloc"])
-  translate call@(A.Call { A.target=target, A.name=name, A.args=args }) =
+  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) =
       (case target of
         (A.VarAccess { A.name = ID.Name "this"}) -> local_call
         _ -> remote_call)

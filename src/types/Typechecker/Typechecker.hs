@@ -38,8 +38,18 @@ tcError msg = do bt <- asks backtrace
 
 -- | Convenience function for checking if a type is well-formed
 wfType :: Type -> ErrorT TCError (Reader Environment) ()
-wfType ty = do refType <- asks $ classLookup ty
-               unless (isPrimitive ty || isJust refType) $ tcError $ "Unknown type '" ++ show ty ++ "'"
+wfType ty 
+    | isPrimitive ty = return ()
+    | isRefType ty   = do refType <- asks $ classLookup ty
+                          unless (isJust refType) $ tcError $ "Unknown type '" ++ show ty ++ "'"
+    | isFutureType ty = do ty' <- return $ getResultType ty
+                           wfType ty'
+    | isParType ty = do ty' <- return $ getResultType ty
+                        wfType ty'
+    | isArrowType ty = do argTypes <- return $ getArgTypes ty
+                          ty' <- return $ getResultType ty
+                          mapM_ wfType argTypes
+                          wfType ty'
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -108,7 +118,7 @@ instance Checkable Expr where
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
-    typecheck call@(Call {target, name, args}) = 
+    typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
            targetType <- return $ AST.getType eTarget
            when (isPrimitive targetType) $ 
@@ -122,9 +132,21 @@ instance Checkable Expr where
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    eArgs <- zipWithM (\eArg (Param {ptype}) -> pushHasType eArg ptype) args params
-                    return $ setType returnType call {target = eTarget, args = eArgs}
-
+                    eArgs <- zipWithM (\arg (Param {ptype}) -> pushHasType arg ptype) args params
+                    return $ setType returnType mcall {target = eTarget, args = eArgs}
+    typecheck fcall@(FunctionCall {name, args}) = 
+        do fType <- asks $ varLookup name
+           case fType of
+             Just ty -> do unless (isArrowType ty) $ 
+                                  tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
+                           argTypes <- return $ getArgTypes ty
+                           unless (length args == length argTypes) $ 
+                                  tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
+                                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ show (length args)
+                           eArgs <- zipWithM (\arg ty -> pushHasType arg ty) args argTypes
+                           return $ setType (getResultType ty) fcall {args = eArgs}
+             Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+           
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val
            eBody <- local (extendEnvironment [(name, AST.getType eVal)]) $ pushTypecheck body

@@ -74,10 +74,13 @@ instance HasMeta MethodDecl where
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta}
-          | Call {emeta :: Meta, 
-                  target :: Expr, 
-                  name :: Name, 
-                  args :: Arguments}
+          | MethodCall {emeta :: Meta, 
+                        target :: Expr, 
+                        name :: Name, 
+                        args :: Arguments}
+          | FunctionCall {emeta :: Meta, 
+                          name :: Name, 
+                          args :: Arguments}
           | Let {emeta :: Meta, 
                  name :: Name, 
                  val :: Expr, 

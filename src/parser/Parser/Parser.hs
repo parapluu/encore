@@ -104,11 +104,11 @@ whiteSpace = P.whiteSpace lexer
 
 typ :: Parser Type
 typ  =  try arrow
+    <|> parens typ
     <|> nonArrow
     <?> "type"
     where
-      nonArrow = parens typ
-              <|> fut
+      nonArrow =  fut
               <|> par
               <|> singleType
       arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]} ;
@@ -214,6 +214,7 @@ expr  =  skip
      <|> try assignment
      <|> try methodCall
      <|> try fieldAccess
+     <|> try functionCall
      <|> parens expression
      <|> varAccess
      <|> letExpression
@@ -244,7 +245,7 @@ expr  =  skip
       methodCall = do {pos <- getPosition ;
                        (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
-                       return $ Call (meta pos) target tmname args}
+                       return $ MethodCall (meta pos) target tmname args}
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
                           x <- identifier ;
@@ -278,6 +279,10 @@ expr  =  skip
                         dot ;
                         path <- identifier `sepBy1` (skipMany1 dot) ;
                         return $ pathToExpr path (VarAccess (meta pos) (Name root)) }
+      functionCall = do {pos <- getPosition ;
+                         fun <- identifier ;
+                         args <- parens arguments ;
+                         return $ FunctionCall (meta pos) (Name fun) args}
       varAccess = do {pos <- getPosition ;
                       id <- identifier ; 
                       return $ VarAccess (meta pos) $ Name id }
