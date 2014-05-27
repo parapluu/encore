@@ -81,6 +81,9 @@ data Expr = Skip {emeta :: Meta}
           | FunctionCall {emeta :: Meta, 
                           name :: Name, 
                           args :: Arguments}
+          | Closure {emeta :: Meta, 
+                     eparams :: [ParamDecl],
+                     body :: Expr}
           | Let {emeta :: Meta, 
                  name :: Name, 
                  val :: Expr, 

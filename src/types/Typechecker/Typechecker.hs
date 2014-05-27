@@ -134,6 +134,7 @@ instance Checkable Expr where
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
                     eArgs <- zipWithM (\arg (Param {ptype}) -> pushHasType arg ptype) args params
                     return $ setType returnType mcall {target = eTarget, args = eArgs}
+
     typecheck fcall@(FunctionCall {name, args}) = 
         do fType <- asks $ varLookup name
            case fType of
@@ -146,6 +147,14 @@ instance Checkable Expr where
                            eArgs <- zipWithM (\arg ty -> pushHasType arg ty) args argTypes
                            return $ setType (getResultType ty) fcall {args = eArgs}
              Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+
+    typecheck closure@(Closure {eparams, body}) = 
+        do mapM_ typecheckParam eparams
+           eBody <- local addParams $ pushTypecheck body
+           return $ setType (arrowType (map ptype eparams) (AST.getType eBody)) closure {body = eBody}
+        where
+          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
+          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val

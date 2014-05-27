@@ -1,0 +1,6 @@
+class Main
+  def app(f : string -> void, s : string) : void
+    f(s)
+  def main() : void
+    let f = \(s : string) -> print s in
+      this.app(f, "Hello ponyworld")

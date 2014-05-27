@@ -80,7 +80,7 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -126,6 +126,7 @@ typ  =  try arrow
                                   "void" -> voidType
                                   "string" -> stringType
                                   "int" -> intType
+                                  "real" -> realType
                                   "bool" -> boolType
                                   id -> refType id}
 
@@ -215,6 +216,7 @@ expr  =  skip
      <|> try methodCall
      <|> try fieldAccess
      <|> try functionCall
+     <|> closure
      <|> parens expression
      <|> varAccess
      <|> letExpression
@@ -283,6 +285,12 @@ expr  =  skip
                          fun <- identifier ;
                          args <- parens arguments ;
                          return $ FunctionCall (meta pos) (Name fun) args}
+      closure = do {pos <- getPosition ;
+                    reservedOp "\\" ;
+                    params <- parens (commaSep paramDecl) ;
+                    reservedOp "->" ;
+                    body <- expression ;
+                    return $ Closure (meta pos) params body}
       varAccess = do {pos <- getPosition ;
                       id <- identifier ; 
                       return $ VarAccess (meta pos) $ Name id }

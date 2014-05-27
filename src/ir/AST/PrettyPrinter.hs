@@ -39,6 +39,8 @@ ppComma = text ","
 ppSemicolon = text ";"
 ppEquals = text "="
 ppSpace = text " "
+ppLambda = text "\\"
+ppArrow = text "->"
 
 indent = nest 2
 
@@ -91,6 +93,8 @@ ppExpr MethodCall {target, name, args} =
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
 ppExpr FunctionCall {name, args} = 
     ppName name <> parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+ppExpr Closure {eparams, body} = 
+    ppLambda <> parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl eparams))) <+> ppArrow <+> ppExpr body
 ppExpr Let {name = Name x, val, body} = 
     ppLet <+> text x <+> equals <+> ppExpr val <+> ppIn $+$ 
       indent (ppExpr body)

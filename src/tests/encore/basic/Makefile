@@ -14,7 +14,7 @@ $(ENCORE_TARGETS): %: %.enc $(ENCOREC)
 	@$(ENCOREC) $@.enc -clang -c
 
 compare_outs: clean
-	make $(ENCORE_TARGETS) || true # try to build as many as possible but don't abort
+	make -k $(ENCORE_TARGETS) || true # try to build as many as possible but don't abort
 	@for o in $(OUTFILES); do \
 	  echo $$o: ; \
 	  ./$$(echo $$o | sed "s/\(.*\)\.out/\1/") | cmp $$o && echo OK ; \
