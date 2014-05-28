@@ -34,10 +34,16 @@ class HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
-data ClassDecl = Class {cmeta   :: Meta,
-                        cname   :: Type,
-                        fields  :: [FieldDecl], 
-                        methods :: [MethodDecl]} deriving(Show, Eq)
+data Activity = Active | Passive deriving(Show, Eq)
+
+data ClassDecl = Class {cmeta     :: Meta,
+                        cactivity :: Activity,
+                        cname     :: Type,
+                        fields    :: [FieldDecl], 
+                        methods   :: [MethodDecl]} deriving(Show, Eq)
+
+isActive :: ClassDecl -> Bool
+isActive c = cactivity c == Active
 
 instance HasMeta ClassDecl where
     getPos = AST.Meta.getPos . cmeta

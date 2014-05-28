@@ -5,7 +5,7 @@ following grammar:
 
 @
     Program ::= ClassDecl Program | eps
-  ClassDecl ::= class Name { FieldDecls MethodDecls }
+  ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
  ParamDecls ::= Name : Type , ParamDecl | eps
 MethodDecls ::= def Name ( ParamDecls ) : Type Expr
@@ -48,7 +48,7 @@ FieldAccess ::= . Name FieldAccess | eps
    RefType ::= [A-Z][a-zA-Z0-9_]*
 @
 
-Keywords: @ class def embed end let in if then else while get null new print @
+Keywords: @ class def embed end Fut let in passive if then else while get null new Par print @
 
 -}
 
@@ -82,7 +82,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\"]
              }
 
@@ -142,10 +142,11 @@ program = do {whiteSpace ;
 
 classDecl :: Parser ClassDecl
 classDecl = do {pos <- getPosition ;
+                activity <- do {reserved "passive" ; return Passive} <|> do {return Active} ;
                 reserved "class" ;
                 cname <- identifier ;
                 (fields, methods) <- braces classBody <|> classBody ;
-                return $ Class (meta pos) (refType cname) fields methods}
+                return $ Class (meta pos) activity (refType cname) fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
                               methods <- many methodDecl ;
