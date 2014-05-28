@@ -34,6 +34,7 @@ FieldAccess ::= . Name FieldAccess | eps
               | Expr Op Expr
               | embed Type .* end
               | (Expr)
+              | \\ ( ParamDecls ) -> Expr
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
