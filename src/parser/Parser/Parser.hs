@@ -40,13 +40,14 @@ FieldAccess ::= . Name FieldAccess | eps
     String ::= ([^\"]|\\\")*
       Type ::= Arrow | NonArrow
      Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
-  NonArrow ::= string | int | bool | void | String
+  NonArrow ::= string | int | bool | void | RefType
              | Fut Type | Par Type | (Type)
      Types ::= Type Tys | eps
        Tys ::= , Type Tys | eps
+   RefType ::= [A-Z][a-zA-Z0-9_]*
 @
 
-Keywords: @ class def embed let in if then else while get null new print @
+Keywords: @ class def embed end let in if then else while get null new print @
 
 -}
 
@@ -58,6 +59,7 @@ import Text.Parsec.String
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
+import Data.Char(isUpper)
 
 -- Module dependencies
 import Identifiers
@@ -111,6 +113,7 @@ typ  =  try arrow
       nonArrow =  fut
               <|> par
               <|> singleType
+              <|> parens nonArrow
       arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]} ;
                   reservedOp "->" ;
                   rhs <- nonArrow ;
@@ -128,7 +131,7 @@ typ  =  try arrow
                                   "int" -> intType
                                   "real" -> realType
                                   "bool" -> boolType
-                                  id -> refType id}
+                                  id -> if isUpper . head $ id then refType id else typeVar id}
 
 program :: Parser Program
 program = do {whiteSpace ;

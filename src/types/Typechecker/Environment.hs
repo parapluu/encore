@@ -3,9 +3,9 @@
 {-| 
 
 The environment used by "Typechecker.Typechecker". Contains a
-class table and a list of local name-type bindings for doing
-lookups, as well as the 'Typechecker.TypeError.Backtrace' used for
-error handling.
+class table and a list of local name-type bindings and
+typevar-type bindings for doing lookups, as well as the
+'Typechecker.TypeError.Backtrace' used for error handling.
 
 -}
 
@@ -15,8 +15,12 @@ module Typechecker.Environment(Environment,
                                methodLookup, 
                                fieldLookup, 
                                varLookup,
+                               typeVarLookup,
                                extendEnvironment,
                                replaceLocals,
+                               bindType,
+                               bindTypes,
+                               bindings,
                                backtrace,
                                pushBT) where
 
@@ -33,12 +37,12 @@ type FieldType = (Name, Type)
 type MethodType = (Name, ([ParamDecl], Type))
 type ClassType = (Type, ([FieldType], [MethodType]))
 
-data Environment = Env {ctable :: [ClassType], locals :: [VarType], bt :: Backtrace}
+data Environment = Env {ctable :: [ClassType], locals :: [VarType], bindings :: [(Type, Type)], bt :: Backtrace}
 
 buildClassTable :: Program -> Either TCError Environment
 buildClassTable (Program classes) = 
     case duplicateClasses of
-      [] -> Right $ Env (map getClassType classes) [] emptyBT
+      [] -> Right $ Env (map getClassType classes) [] [] emptyBT
       (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
@@ -68,15 +72,28 @@ classLookup cls env = lookup cls (ctable env)
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = lookup x (locals env)
 
-extendEnvironment :: [(Name, Type)] -> Environment -> Environment
+typeVarLookup :: Type -> Environment -> Maybe Type
+typeVarLookup ty env 
+    | isTypeVar ty = lookup ty (bindings env)
+    | otherwise    = error "Tried to lookup the binding of something that was not a type variable"
+
+extendEnvironment :: [VarType] -> Environment -> Environment
 extendEnvironment [] env = env
 extendEnvironment ((name, ty):newTypes) env = 
     extendEnvironment newTypes $ env {locals = extend (locals env) name ty}
     where
       extend [] name' ty' = [(name', ty')]
-      extend ((name, ty):bindings) name' ty'
-          | name == name' = (name', ty'):bindings
-          | otherwise     = (name, ty):(extend bindings name' ty')
+      extend ((name, ty):locals) name' ty'
+          | name == name' = (name', ty'):locals
+          | otherwise     = (name, ty):(extend locals name' ty')
 
-replaceLocals :: [(Name, Type)] -> Environment -> Environment
+bindType :: Type -> Type -> Environment -> Environment
+bindType var ty env
+    | isTypeVar var = env {bindings = (var, ty) : (bindings env)}
+    | otherwise     = error "Tried to bind something that was not a type variable"
+
+bindTypes :: [(Type, Type)] -> Environment -> Environment
+bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env bindings -- env{bindings = b ++ (bindings env)}
+
+replaceLocals :: [VarType] -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
