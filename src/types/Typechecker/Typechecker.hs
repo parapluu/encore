@@ -104,7 +104,8 @@ instance Checkable FieldDecl where
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
         do wfType mtype
---           when (isTypeVar mtype) $ tcError $ "Cannot have type variable '" ++ show mtype ++ "' as return type"
+           when (isTypeVar mtype && (not $ elem mtype (map ptype mparams))) $ 
+                tcError $ "Cannot have free type variable '" ++ show mtype ++ "' in return type"
            eMparams <- mapM typecheckParam mparams
            eBody <- local addParams $ pushHasType mbody mtype
            return $ setType mtype m {mbody = eBody, mparams = eMparams}
