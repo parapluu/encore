@@ -1,4 +1,4 @@
-LIBPONY_A_PATH=../src/runtime/bin/debug/libpony.a
+LIBPONY_A_PATH=../src/runtime/pony/bin/debug/libpony.a
 RUNTIME_PATH=../src/runtime/
 RUNTIME_INC_PATH=$(RUNTIME_PATH)/inc/
 

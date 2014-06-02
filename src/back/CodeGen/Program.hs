@@ -22,6 +22,9 @@ instance Translatable A.Program (CCode FIN) where
     ConcatTL $
     (Includes ["pony/pony.h",
                "stdlib.h",
+               "unistd.h", -- for sleep(..)
+               "set.h",
+               "context.h",
                --"string.h",
                --"inttypes.h",
                --"assert.h",
