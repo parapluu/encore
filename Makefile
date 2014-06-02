@@ -1,11 +1,13 @@
 SRC_DIR=src
 ENCOREC=$(SRC_DIR)/front/encorec
 
-SET_DIR=$(SRC_DIR)/set
+RUNTIME_DIR=$(SRC_DIR)/runtime
+
+SET_DIR=$(RUNTIME_DIR)/set
 SET_INC=$(SET_DIR)/set.h
 SET_LIB=$(SET_DIR)/set.o
 
-PONY_DIR=$(SRC_DIR)/runtime
+PONY_DIR=$(RUNTIME_DIR)/pony
 PONY_INC=$(PONY_DIR)/inc/pony
 PONY_LIB=$(PONY_DIR)/bin/debug/libpony.a
 

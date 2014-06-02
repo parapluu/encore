@@ -1,5 +1,5 @@
-PONY_DIR=runtime
-SET_DIR=set
+PONY_DIR=runtime/pony
+SET_DIR=runtime/set
 
 all: compiler
 
