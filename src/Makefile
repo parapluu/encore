@@ -42,7 +42,7 @@ clean: clean_pony
 	make -C parser clean
 	make -C back clean
 	@echo "cleaning library files..."
-	make -C set clean
+	make -C runtime/set clean
 	@echo "cleaning test files..."
 	make -C tests clean
 	@echo "done"
