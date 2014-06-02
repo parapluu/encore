@@ -1,23 +1,28 @@
 class SqFuture
-
   -- A SqFuture is an actor. It models an asynchronous Sq-call to a
   -- server and allows to carry a context along.
 
-  -- When a SqFuture is spawned, it'll tell the server to do the
-  -- work.  After the server is done, it'll inform the Future of its
-  -- termination (via a `fulfill` message, threading back the context.).
+  -- When a SqFuture is spawned, it'll tell the server to do the work.
+  -- After the server is done, it'll inform the Future of its
+  -- termination (via a `fulfill` message, threading back the
+  -- context).
   
   -- When created, a SqFuture will tell the server to do its job and
   -- ask for the return value
+
   server:Server
   subsc_ctx:VoidPtr
   subsc_actor:Main
   val:int
   has_val:int
 
+  -- todo: this only has one subscriber yet (no fields as sets)
   def add_subscriber(subsc_actor:Main,subsc_ctx:VoidPtr) : void {
     this.subsc_actor = subsc_actor;
-    this.subsc_ctx = subsc_ctx
+    this.subsc_ctx = subsc_ctx;
+    if this.has_val == 1
+    then subsc_actor.tell(this.val, subsc_ctx)
+    else skip
   }
     
   def spawn(srv: Server, n:int) : void {
@@ -27,8 +32,8 @@ class SqFuture
   }
 
   def fulfill(sq:int) : void {
-    this.has_val = 1;
     this.val = sq;
+    this.has_val = 1;
     this.inform_subscribers()
   }
 
@@ -39,10 +44,6 @@ class VoidPtr
   -- empty class, I'll use references to this
   -- class when I need void*
 
-class SqFuturePtr
-  -- empty class, I'll use references to this
-  -- class when I need SqFuture_data*
-
 class Main
   def main() : void {
     let i = 2 in {
@@ -52,7 +53,7 @@ class Main
           -- first, we're manually making a future, add ourselves as subscriber, and
           -- then let it loose by calling spawn:
           let f = new SqFuture in {
-            f.add_subscriber(this, embed VoidPtr NULL end);
+            f.add_subscriber(this, null);
             f.spawn(srv, i*10) -- "call"
           }
         };
