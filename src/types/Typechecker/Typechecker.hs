@@ -50,6 +50,7 @@ wfType ty
                           ty' <- return $ getResultType ty
                           mapM_ wfType argTypes
                           wfType ty'
+    | isTypeVar ty = return ()
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -103,11 +104,13 @@ instance Checkable FieldDecl where
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
         do wfType mtype
-           mapM_ typecheckParam mparams
+           when (isTypeVar mtype && (not $ elem mtype (map ptype mparams))) $ 
+                tcError $ "Cannot have free type variable '" ++ show mtype ++ "' in return type"
+           eMparams <- mapM typecheckParam mparams
            eBody <- local addParams $ pushHasType mbody mtype
-           return $ setType mtype m {mbody = eBody}
+           return $ setType mtype m {mbody = eBody, mparams = eMparams}
         where
-          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
+          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ setType ptype p})
           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
@@ -121,10 +124,10 @@ instance Checkable Expr where
     typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
            targetType <- return $ AST.getType eTarget
-           when (isPrimitive targetType) $ 
+           unless (isRefType targetType) $ 
                 tcError $ "Cannot call method on expression '" ++ 
                           (show $ ppExpr target) ++ 
-                          "' of primitive type '" ++ show targetType ++ "'"
+                          "' of type '" ++ show targetType ++ "'"
            lookupResult <- asks $ methodLookup targetType name
            case lookupResult of
              Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
@@ -132,28 +135,39 @@ instance Checkable Expr where
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    eArgs <- zipWithM (\arg (Param {ptype}) -> pushHasType arg ptype) args params
-                    return $ setType returnType mcall {target = eTarget, args = eArgs}
+                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params) 
+                    if isTypeVar returnType then
+                        case lookup returnType bindings of
+                          Just ty -> return $ setType ty mcall {target = eTarget, args = eArgs}
+                          Nothing -> tcError $ "Could not resolve return type '" ++ show returnType ++ "'"
+                    else
+                        return $ setType returnType mcall {target = eTarget, args = eArgs}
 
     typecheck fcall@(FunctionCall {name, args}) = 
-        do fType <- asks $ varLookup name
-           case fType of
+        do funType <- asks $ varLookup name
+           case funType of
              Just ty -> do unless (isArrowType ty) $ 
                                   tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
                            argTypes <- return $ getArgTypes ty
                            unless (length args == length argTypes) $ 
                                   tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
                                             "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ show (length args)
-                           eArgs <- zipWithM (\arg ty -> pushHasType arg ty) args argTypes
-                           return $ setType (getResultType ty) fcall {args = eArgs}
+                           (eArgs, bindings) <- checkArguments args argTypes
+                           resultType <- return $ getResultType ty
+                           if isTypeVar resultType then
+                               case lookup resultType bindings of
+                                 Just rType -> return $ setType rType fcall {args = eArgs}
+                                 Nothing -> return $ setType resultType fcall {args = eArgs}
+                           else
+                               return $ setType resultType fcall {args = eArgs}
              Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
 
     typecheck closure@(Closure {eparams, body}) = 
-        do mapM_ typecheckParam eparams
+        do eEparams <- mapM typecheckParam eparams
            eBody <- local onlyParams $ pushTypecheck body
-           return $ setType (arrowType (map ptype eparams) (AST.getType eBody)) closure {body = eBody}
+           return $ setType (arrowType (map ptype eparams) (AST.getType eBody)) closure {body = eBody, eparams = eEparams}
         where
-          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ p})
+          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ setType ptype p})
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
@@ -186,6 +200,9 @@ instance Checkable Expr where
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr target) ++ "' of primitive type '" ++ show pathType ++ "'"
+           when (isTypeVar pathType) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr target) ++ "' of polymorphic type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup pathType name
            case fType of
              Just ty -> return $ setType ty fAcc {target = eTarget}
@@ -210,6 +227,7 @@ instance Checkable Expr where
 
     typecheck new@(New {ty}) = 
         do wfType ty
+           unless (isRefType ty) $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
            return $ setType ty new
 
     typecheck print@(Print {val}) = 
@@ -255,6 +273,39 @@ instance Checkable Expr where
               | isRealType ty2 = realType
               | otherwise = intType
 
+checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
+checkArguments [] [] = do bindings <- asks bindings
+                          return ([], bindings)
+checkArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg
+                                           bindings <- matchTypes typ (AST.getType eArg)
+                                           (eArgs, bindings') <- local (bindTypes bindings) $ checkArguments args types
+                                           return (eArg:eArgs, bindings')
+
+matchTypes :: Type -> Type -> ErrorT TCError (Reader Environment) [(Type, Type)]
+matchTypes ty1 ty2 
+    | isFutureType ty1 && isFutureType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
+    | isParType ty1 && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
+    | isArrowType ty1 && isArrowType ty2 = do argTypes1 <- return $ getArgTypes ty1
+                                              argTypes2 <- return $ getArgTypes ty2
+                                              argBindings <- matchArguments argTypes1 argTypes2
+                                              res1  <- return $ getResultType ty1
+                                              res2  <- return $ getResultType ty2
+                                              local (bindTypes argBindings) $ matchTypes res1 res2
+    | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
+                         case boundType of 
+                           Just ty -> do unless (ty == ty2) $ 
+                                                tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
+                                                          show ty ++ "' and '" ++ show ty2 ++ "'"
+                                         asks bindings
+                           Nothing -> do bindings <- asks bindings
+                                         return ((ty1, ty2):bindings)
+    | otherwise = do unless (ty1 == ty2) $ tcError $ "Type '" ++ show ty1 ++ "' does not match type '" ++ show ty2 ++ "'"
+                     asks bindings
+    where
+      matchArguments [] [] = asks bindings
+      matchArguments (ty1:types1) (ty2:types2) = do bindings <- matchTypes ty1 ty2
+                                                    local (bindTypes bindings) $ matchArguments types1 types2
+
 instance Checkable LVal where
     hasType lval ty = do eLVal <- typecheck lval
                          unless (eLVal `AST.hasType` ty) $ 
@@ -276,3 +327,6 @@ instance Checkable LVal where
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
              Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"
+
+
+

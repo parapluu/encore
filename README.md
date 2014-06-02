@@ -5,7 +5,7 @@ Preliminary explorations for the Encore compiler.
 
 ### Build Instructions
 
-Make sure that you have `doxygen`, `premake4`, an up-to-date
+Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
 
 We're using:

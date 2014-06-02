@@ -5,7 +5,7 @@ following grammar:
 
 @
     Program ::= ClassDecl Program | eps
-  ClassDecl ::= class Name { FieldDecls MethodDecls }
+  ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
  ParamDecls ::= Name : Type , ParamDecl | eps
 MethodDecls ::= def Name ( ParamDecls ) : Type Expr
@@ -34,19 +34,21 @@ FieldAccess ::= . Name FieldAccess | eps
               | Expr Op Expr
               | embed Type .* end
               | (Expr)
+              | \\ ( ParamDecls ) -> Expr
         Op ::= \< | \> | == | != | + | - | * | /
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
       Type ::= Arrow | NonArrow
      Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
-  NonArrow ::= string | int | bool | void | String
+  NonArrow ::= string | int | bool | void | RefType
              | Fut Type | Par Type | (Type)
      Types ::= Type Tys | eps
        Tys ::= , Type Tys | eps
+   RefType ::= [A-Z][a-zA-Z0-9_]*
 @
 
-Keywords: @ class def embed let in if then else while get null new print @
+Keywords: @ class def embed end Fut let in passive if then else while get null new Par print @
 
 -}
 
@@ -58,6 +60,7 @@ import Text.Parsec.String
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
+import Data.Char(isUpper)
 
 -- Module dependencies
 import Identifiers
@@ -79,7 +82,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\"]
              }
 
@@ -111,6 +114,7 @@ typ  =  try arrow
       nonArrow =  fut
               <|> par
               <|> singleType
+              <|> parens nonArrow
       arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]} ;
                   reservedOp "->" ;
                   rhs <- nonArrow ;
@@ -128,7 +132,7 @@ typ  =  try arrow
                                   "int" -> intType
                                   "real" -> realType
                                   "bool" -> boolType
-                                  id -> refType id}
+                                  id -> if isUpper . head $ id then refType id else typeVar id}
 
 program :: Parser Program
 program = do {whiteSpace ;
@@ -138,10 +142,11 @@ program = do {whiteSpace ;
 
 classDecl :: Parser ClassDecl
 classDecl = do {pos <- getPosition ;
+                activity <- do {reserved "passive" ; return Passive} <|> do {return Active} ;
                 reserved "class" ;
                 cname <- identifier ;
                 (fields, methods) <- braces classBody <|> classBody ;
-                return $ Class (meta pos) (refType cname) fields methods}
+                return $ Class (meta pos) activity (refType cname) fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
                               methods <- many methodDecl ;

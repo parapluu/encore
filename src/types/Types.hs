@@ -1,57 +1,65 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Types(Type, arrowType, isArrowType, futureType, isFutureType,
-             parType, isParType, refType, isRefType, 
+             parType, isParType, refType, isRefType, typeVar, isTypeVar,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
              isPrimitive, isNumeric, emptyType,
-             getArgTypes, getResultType) where
+             getArgTypes, getResultType, getId) where
 
 import Data.List
 
 import Identifiers
 
 data Type = VoidType | StringType | IntType | BoolType | RealType
-          | NullType | RefType String
+          | NullType | RefType {ident :: String} | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type} 
-          | Future {resultType :: Type} | Par {resultType :: Type}
+          | FutureType {resultType :: Type} | ParType {resultType :: Type}
             deriving (Read, Eq)
 
 getArgTypes = argTypes
 getResultType = resultType
+getId = ident
 
 maybeParen :: Type -> String
 maybeParen arr@(Arrow _ _) = "(" ++ show arr ++ ")"
-maybeParen fut@(Future _) = "(" ++ show fut ++ ")"
-maybeParen par@(Par _) = "(" ++ show par ++ ")"
+maybeParen fut@(FutureType _) = "(" ++ show fut ++ ")"
+maybeParen par@(ParType _) = "(" ++ show par ++ ")"
 maybeParen ty = show ty
 
 instance Show Type where
     show VoidType          = "void"
     show StringType        = "string"
     show IntType           = "int"
-    show RealType           = "real"
+    show RealType          = "real"
     show BoolType          = "bool"
     show (RefType name)    = name
+    show (TypeVar t)       = t
     show NullType          = "NullType"
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
-    show (Future ty)       = "Fut " ++ maybeParen ty
-    show (Par ty)          = "Par " ++ maybeParen ty
+    show (FutureType ty)   = "Fut " ++ maybeParen ty
+    show (ParType ty)      = "Par " ++ maybeParen ty
 
 arrowType = Arrow
 isArrowType (Arrow {}) = True
 isArrowType _ = False
 
-futureType = Future 
-isFutureType Future {} = True
+futureType = FutureType 
+isFutureType FutureType {} = True
 isFutureType _ = False
 
-parType = Par
-isParType Par {} = True
+parType = ParType
+isParType ParType {} = True
 isParType _ = False
 
 refType = RefType
 isRefType (RefType _) = True
 isRefType _ = False
+
+typeVar = TypeVar
+isTypeVar (TypeVar _) = True
+isTypeVar _ = False
 
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
