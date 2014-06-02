@@ -209,10 +209,15 @@ expression = buildExpressionParser opTable expr
     where
       opTable = [[op "*" TIMES, op "/" DIV],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ]]
+                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
+                 [typedExpression]]
       op s binop = Infix (do{pos <- getPosition ; 
                              reservedOp s ; 
                              return (\e1 e2 -> Binop (meta pos) binop e1 e2)}) AssocLeft
+      typedExpression = Postfix (do{pos <- getPosition ; 
+                                    reservedOp ":" ; 
+                                    t <- typ ; 
+                                    return (\e -> TypedExpr (meta pos) e t)})
 
 expr :: Parser Expr
 expr  =  skip

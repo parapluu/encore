@@ -80,6 +80,9 @@ instance HasMeta MethodDecl where
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta}
+          | TypedExpr {emeta :: Meta,
+                       body :: Expr,
+                       ty   :: Type}
           | MethodCall {emeta :: Meta, 
                         target :: Expr, 
                         name :: Name, 

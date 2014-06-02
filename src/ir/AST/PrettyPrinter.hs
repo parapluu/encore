@@ -121,6 +121,7 @@ ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
+ppExpr TypedExpr {body, ty} = ppExpr body <+> ppColon <+> ppType ty
 
 ppBinop :: Op -> Doc
 ppBinop Identifiers.LT  = text "<"
