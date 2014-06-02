@@ -104,7 +104,7 @@ instance Checkable FieldDecl where
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
         do wfType mtype
-           when (isTypeVar mtype && (not $ elem mtype (map ptype mparams))) $ 
+           when (isTypeVar mtype && (not $ elem mtype $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams)) $ 
                 tcError $ "Cannot have free type variable '" ++ show mtype ++ "' in return type"
            eMparams <- mapM typecheckParam mparams
            eBody <- local addParams $ pushHasType mbody mtype
@@ -115,9 +115,13 @@ instance Checkable MethodDecl where
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- typecheck expr
-                         unless (eExpr `AST.hasType` ty) $
-                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (AST.getType eExpr) ++ "'"
-                         return eExpr
+                         exprType <- return $ AST.getType eExpr
+                         if isNullType exprType then
+                             do matchTypes ty exprType
+                                return $ setType ty eExpr
+                         else
+                             do matchTypes ty exprType
+                                return eExpr
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
@@ -276,7 +280,7 @@ instance Checkable Expr where
 checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-checkArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg
+checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
                                            bindings <- matchTypes typ (AST.getType eArg)
                                            (eArgs, bindings') <- local (bindTypes bindings) $ checkArguments args types
                                            return (eArg:eArgs, bindings')
@@ -291,15 +295,16 @@ matchTypes ty1 ty2
                                               res1  <- return $ getResultType ty1
                                               res2  <- return $ getResultType ty2
                                               local (bindTypes argBindings) $ matchTypes res1 res2
+    | isTypeVar ty1 && isNullType ty2 = tcError $ "Cannot infer the type of type variable '" ++ show ty1 ++ "'" 
     | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
                          case boundType of 
-                           Just ty -> do unless (ty == ty2) $ 
+                           Just ty -> do unless (ty == ty2) $ -- Possibly add subtyping here...
                                                 tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
                                                           show ty ++ "' and '" ++ show ty2 ++ "'"
                                          asks bindings
                            Nothing -> do bindings <- asks bindings
                                          return ((ty1, ty2):bindings)
-    | otherwise = do unless (ty1 == ty2) $ tcError $ "Type '" ++ show ty1 ++ "' does not match type '" ++ show ty2 ++ "'"
+    | otherwise = do unless (ty1 `subtypeOf` ty2) $ tcError $ "Expected type '" ++ show ty1 ++ "' does not match type '" ++ show ty2 ++ "'"
                      asks bindings
     where
       matchArguments [] [] = asks bindings

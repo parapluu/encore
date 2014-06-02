@@ -119,19 +119,19 @@ main =
                 putStrLn "No program specified! Aborting..."
             else
                 do
-                  progName <- return (head programs)
-                  sourceExists <- doesFileExist progName
+                  sourceName <- return (head programs)
+                  sourceExists <- doesFileExist sourceName
                   if not sourceExists then
-                      do putStrLn ("File \"" ++ progName ++ "\" does not exist! Aborting..." )
+                      do putStrLn ("File \"" ++ sourceName ++ "\" does not exist! Aborting..." )
                          exitFailure
                   else
                       do
-                        code <- readFile progName
-                        program <- return $ parseEncoreProgram progName code
+                        code <- readFile sourceName
+                        program <- return $ parseEncoreProgram sourceName code
                         case program of
                           Right ast -> do tcResult <- return $ typecheckEncoreProgram ast
                                           case tcResult of
-                                            Right ast -> do exitCode <- doCompile ast progName options
+                                            Right ast -> do exitCode <- doCompile ast sourceName options
                                                             exitWith exitCode
                                             Left err -> do print err
                                                            exitFailure

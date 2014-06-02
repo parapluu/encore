@@ -6,7 +6,8 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
              isPrimitive, isNumeric, emptyType,
-             getArgTypes, getResultType, getId) where
+             getArgTypes, getResultType, getId,
+             typeComponents, subtypeOf) where
 
 import Data.List
 
@@ -17,6 +18,13 @@ data Type = VoidType | StringType | IntType | BoolType | RealType
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
             deriving (Read, Eq)
+
+typeComponents :: Type -> [Type]
+typeComponents arrow@(Arrow argTys ty) = arrow:(concatMap typeComponents argTys ++ typeComponents ty)
+typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
+typeComponents par@(ParType ty)        = par:(typeComponents ty)
+typeComponents ty                      = [ty]
+
 
 getArgTypes = argTypes
 getResultType = resultType
@@ -110,3 +118,8 @@ isPrimitive = flip elem primitives
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
+
+subtypeOf :: Type -> Type -> Bool
+subtypeOf ty1 ty2
+    | isNullType ty2 = isNullType ty1 || isRefType ty1
+    | otherwise      = ty1 == ty2

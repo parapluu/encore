@@ -43,7 +43,7 @@ data ClassDecl = Class {cmeta     :: Meta,
                         methods   :: [MethodDecl]} deriving(Show, Eq)
 
 isActive :: ClassDecl -> Bool
-isActive c = cactivity c == Active
+isActive = (== Active) . cactivity
 
 instance HasMeta ClassDecl where
     getPos = AST.Meta.getPos . cmeta
@@ -143,13 +143,13 @@ instance HasMeta Expr where
                        ty == ty'
                    where
                      ty' = AST.AST.getType x
-    getType Skip {} = voidType
-    getType Null {} = nullType
-    getType BTrue {} = boolType
-    getType BFalse {} = boolType
-    getType StringLiteral {} = stringType
-    getType IntLiteral {} = intType
-    getType RealLiteral {} = realType
+--    getType Skip {} = voidType
+--    getType Null {} = nullType
+--    getType BTrue {} = boolType
+--    getType BFalse {} = boolType
+--    getType StringLiteral {} = stringType
+--    getType IntLiteral {} = intType
+--    getType RealLiteral {} = realType
     getType expr = AST.Meta.getType . emeta $ expr
 
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
