@@ -13,7 +13,7 @@
 (setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "skip" "then" "while"))
 (setq encore-danger-words '("embed" "end"))
 (setq encore-constants '("true" "false" "null"))
-(setq encore-primitives '("int" "string" "void"))
+(setq encore-primitives '("int" "string" "void" "bool"))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'words))
 (setq encore-danger-regexp (regexp-opt encore-danger-words 'words))
