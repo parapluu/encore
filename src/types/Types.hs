@@ -44,7 +44,7 @@ instance Show Type where
     show BoolType          = "bool"
     show (RefType name)    = name
     show (TypeVar t)       = t
-    show NullType          = "NullType"
+    show NullType          = "null type"
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
     show (FutureType ty)   = "Fut " ++ maybeParen ty
     show (ParType ty)      = "Par " ++ maybeParen ty

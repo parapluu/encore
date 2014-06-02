@@ -114,16 +114,20 @@ instance Checkable MethodDecl where
           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
-    hasType expr ty = do eExpr <- typecheck expr
+    hasType expr ty = do wfType ty
+                         eExpr <- pushTypecheck expr
                          exprType <- return $ AST.getType eExpr
                          if isNullType exprType then
-                             do matchTypes ty exprType
+                             do unless (isRefType ty) $ tcError $ "Cannot infer type '" ++ show ty ++ "'"
                                 return $ setType ty eExpr
                          else
                              do matchTypes ty exprType
                                 return eExpr
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
+
+    typecheck tExpr@(TypedExpr {body, ty}) = do wfType ty
+                                                pushHasType body ty
 
     typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
@@ -185,11 +189,19 @@ instance Checkable Expr where
            return $ setType seqType seq {eseq = eEseq}
 
     typecheck ifThenElse@(IfThenElse {cond, thn, els}) = 
-        do eCond <- pushHasType cond boolType
+        do eCond <- pushHasType cond boolType -- TODO: Move the type inference stuff to a separate function
            eThn <- pushTypecheck thn
            thnType <- return $ AST.getType eThn
-           eEls <- pushHasType els thnType
-           return $ setType thnType ifThenElse {cond = eCond, thn = eThn, els = eEls}
+           eEls <- pushTypecheck els
+           elsType <- return $ AST.getType eEls
+           resultType <- case () of _ 
+                                     | isNullType thnType && isNullType elsType -> tcError $ "Cannot infer result type of if-statement"
+                                     | isNullType thnType -> return elsType
+                                     | isNullType elsType -> return thnType
+                                     | otherwise          -> if elsType == thnType 
+                                                             then return thnType
+                                                             else tcError $ "Type mismatch in different branches of if-statement"
+           return $ setType resultType ifThenElse {cond = eCond, thn = setType resultType eThn, els = setType resultType eEls}
 
     typecheck while@(While {cond, body}) = 
         do eCond <- pushHasType cond boolType
@@ -295,16 +307,17 @@ matchTypes ty1 ty2
                                               res1  <- return $ getResultType ty1
                                               res2  <- return $ getResultType ty2
                                               local (bindTypes argBindings) $ matchTypes res1 res2
-    | isTypeVar ty1 && isNullType ty2 = tcError $ "Cannot infer the type of type variable '" ++ show ty1 ++ "'" 
-    | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
+    | isTypeVar ty1 = do when (isNullType ty2) $ 
+                              tcError $ "Cannot infer which type to assign to type variable '" ++ show ty1 ++ "'"
+                         boundType <- asks $ typeVarLookup ty1
                          case boundType of 
-                           Just ty -> do unless (ty == ty2) $ -- Possibly add subtyping here...
+                           Just ty -> do unless (ty `subtypeOf` ty2) $ 
                                                 tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
-                                                          show ty ++ "' and '" ++ show ty2 ++ "'"
+                                                     show ty ++ "' and '" ++ show ty2 ++ "'"
                                          asks bindings
                            Nothing -> do bindings <- asks bindings
                                          return ((ty1, ty2):bindings)
-    | otherwise = do unless (ty1 `subtypeOf` ty2) $ tcError $ "Expected type '" ++ show ty1 ++ "' does not match type '" ++ show ty2 ++ "'"
+    | otherwise = do unless (ty1 `subtypeOf` ty2) $ tcError $ "Type '" ++ show ty2 ++ "' does not match expected type '" ++ show ty1 ++ "'"
                      asks bindings
     where
       matchArguments [] [] = asks bindings
