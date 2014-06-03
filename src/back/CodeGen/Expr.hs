@@ -71,9 +71,9 @@ substitute_var na impl = do
 
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.Skip {}) = return $ (error "it's void", Embed "/* skip */")
-  translate (A.Null {}) = do
+  translate null@(A.Null {}) = do
     tmp <- Ctx.gen_sym
-    return $ (Var tmp, Seq [Assign (Decl (Ptr void, Var tmp)) (Embed "NULL"::CCode Expr)])
+    return $ (Var tmp, Seq [Assign (Decl (translate $ A.getType null, Var tmp)) (Embed "NULL"::CCode Expr)])
   translate (A.BTrue {}) = do
     tmp <- Ctx.gen_sym
     return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "1"::CCode Expr)])
