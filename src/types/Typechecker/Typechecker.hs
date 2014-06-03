@@ -104,25 +104,35 @@ instance Checkable FieldDecl where
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
         do wfType mtype
-           when (isTypeVar mtype && (not $ elem mtype $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams)) $ 
-                tcError $ "Cannot have free type variable '" ++ show mtype ++ "' in return type"
+           noFreeTypeVariables
            eMparams <- mapM typecheckParam mparams
            eBody <- local addParams $ pushHasType mbody mtype
            return $ setType mtype m {mbody = eBody, mparams = eMparams}
         where
+          noFreeTypeVariables = 
+              let retVars = nub $ filter isTypeVar $ typeComponents mtype 
+                  paramVars = nub $ filter isTypeVar $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams
+              in
+                when (not . null $ retVars \\ paramVars) $
+                     tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ setType ptype p})
           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
-    hasType expr ty = do wfType ty
-                         eExpr <- pushTypecheck expr
+    hasType expr ty = do eExpr <- pushTypecheck expr
                          exprType <- return $ AST.getType eExpr
                          if isNullType exprType then
-                             do unless (isRefType ty) $ tcError $ "Cannot infer type '" ++ show ty ++ "'"
-                                return $ setType ty eExpr
+                             coerceNull eExpr ty
                          else
                              do matchTypes ty exprType
                                 return eExpr
+        where
+          coerceNull null ty 
+              | isNullType ty || 
+                isTypeVar ty = tcError "Cannot infer type of null valued expression"
+              | isRefType ty = return $ setType ty null
+              | otherwise = tcError "Null valued expression must have reference type"
+
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
@@ -173,14 +183,20 @@ instance Checkable Expr where
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
            eBody <- local onlyParams $ pushTypecheck body
-           return $ setType (arrowType (map ptype eparams) (AST.getType eBody)) closure {body = eBody, eparams = eEparams}
+           returnType <- return $ AST.getType eBody
+           when (isNullType returnType) $ 
+                tcError $ "Cannot infer return type of closure with null-valued body"
+           return $ setType (arrowType (map ptype eparams) returnType) closure {body = eBody, eparams = eEparams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ do {wfType ptype; return $ setType ptype p})
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val
-           eBody <- local (extendEnvironment [(name, AST.getType eVal)]) $ pushTypecheck body
+           valType <- return (AST.getType eVal)
+           when (isNullType valType) $ 
+                tcError $ "Cannot infer type of null-valued expression"
+           eBody <- local (extendEnvironment [(name, valType)]) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 
     typecheck seq@(Seq {eseq}) = 
@@ -189,19 +205,22 @@ instance Checkable Expr where
            return $ setType seqType seq {eseq = eEseq}
 
     typecheck ifThenElse@(IfThenElse {cond, thn, els}) = 
-        do eCond <- pushHasType cond boolType -- TODO: Move the type inference stuff to a separate function
+        do eCond <- pushHasType cond boolType
            eThn <- pushTypecheck thn
            thnType <- return $ AST.getType eThn
            eEls <- pushTypecheck els
            elsType <- return $ AST.getType eEls
-           resultType <- case () of _ 
-                                     | isNullType thnType && isNullType elsType -> tcError $ "Cannot infer result type of if-statement"
-                                     | isNullType thnType -> return elsType
-                                     | isNullType elsType -> return thnType
-                                     | otherwise          -> if elsType == thnType 
-                                                             then return thnType
-                                                             else tcError $ "Type mismatch in different branches of if-statement"
+           resultType <- matchBranches thnType elsType
            return $ setType resultType ifThenElse {cond = eCond, thn = setType resultType eThn, els = setType resultType eEls}
+        where
+          matchBranches ty1 ty2
+              | isNullType ty1 && isNullType ty2 =
+                  tcError $ "Cannot infer result type of if-statement"
+              | isNullType ty1 = return ty2
+              | isNullType ty2 = return ty1
+              | otherwise = if ty2 == ty1 
+                            then return ty1
+                            else tcError $ "Type mismatch in different branches of if-statement"
 
     typecheck while@(While {cond, body}) = 
         do eCond <- pushHasType cond boolType
