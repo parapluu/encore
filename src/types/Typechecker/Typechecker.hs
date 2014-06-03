@@ -299,17 +299,15 @@ checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
 
 matchTypes :: Type -> Type -> ErrorT TCError (Reader Environment) [(Type, Type)]
 matchTypes ty1 ty2 
-    | isFutureType ty1 && isFutureType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
-    | isParType ty1 && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
+    | isFutureType ty1 && isFutureType ty2 ||
+      isParType ty1    && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
     | isArrowType ty1 && isArrowType ty2 = do argTypes1 <- return $ getArgTypes ty1
                                               argTypes2 <- return $ getArgTypes ty2
                                               argBindings <- matchArguments argTypes1 argTypes2
                                               res1  <- return $ getResultType ty1
                                               res2  <- return $ getResultType ty2
                                               local (bindTypes argBindings) $ matchTypes res1 res2
-    | isTypeVar ty1 = do when (isNullType ty2) $ 
-                              tcError $ "Cannot infer which type to assign to type variable '" ++ show ty1 ++ "'"
-                         boundType <- asks $ typeVarLookup ty1
+    | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
                          case boundType of 
                            Just ty -> do unless (ty `subtypeOf` ty2) $ 
                                                 tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
