@@ -48,7 +48,7 @@ isActive = (== Active) . cactivity
 instance HasMeta ClassDecl where
     getPos = AST.Meta.getPos . cmeta
     getType = cname
-    setType ty c@(Class {cmeta}) = c {cmeta = AST.Meta.setType ty cmeta}
+    setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
 data FieldDecl = Field {fmeta :: Meta, 
                         fname :: Name, 
@@ -57,14 +57,14 @@ data FieldDecl = Field {fmeta :: Meta,
 instance HasMeta FieldDecl where
     getPos = AST.Meta.getPos . fmeta
     getType = ftype
-    setType ty f@(Field {fmeta}) = f {fmeta = AST.Meta.setType ty fmeta}
+    setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
 
 data ParamDecl = Param {pmeta :: Meta, pname :: Name, ptype :: Type} deriving(Show, Eq)
 
 instance HasMeta ParamDecl where
     getPos = AST.Meta.getPos . pmeta
     getType = ptype
-    setType ty p@(Param {pmeta}) = p {pmeta = AST.Meta.setType ty pmeta}
+    setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
 
 data MethodDecl = Method {mmeta   :: Meta,
                           mname   :: Name,
@@ -75,7 +75,7 @@ data MethodDecl = Method {mmeta   :: Meta,
 instance HasMeta MethodDecl where
     getPos = AST.Meta.getPos . mmeta
     getType = mtype
-    setType ty m@(Method {mmeta}) = m {mmeta = AST.Meta.setType ty mmeta}
+    setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
 type Arguments = [Expr]
 
@@ -139,6 +139,7 @@ data Expr = Skip {emeta :: Meta}
 
 instance HasMeta Expr where
     getPos = AST.Meta.getPos . emeta
+
     hasType (Null {}) ty = not . isPrimitive $ ty
     hasType x ty = if ty == nullType then
                        not $ isPrimitive ty'
@@ -146,15 +147,11 @@ instance HasMeta Expr where
                        ty == ty'
                    where
                      ty' = AST.AST.getType x
---    getType Skip {} = voidType
---    getType Null {} = nullType
---    getType BTrue {} = boolType
---    getType BFalse {} = boolType
---    getType StringLiteral {} = stringType
---    getType IntLiteral {} = intType
---    getType RealLiteral {} = realType
     getType expr = AST.Meta.getType . emeta $ expr
 
+    setType ty' expr@(TypedExpr {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
+    setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
+    setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
 
 data LVal = LVal {lmeta :: Meta, lname :: Name} | 

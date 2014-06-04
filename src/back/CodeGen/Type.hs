@@ -29,6 +29,5 @@ translatePrimitive ty
 instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty = translatePrimitive ty
-        | ty == Ty.refType "Object" = Ptr void -- TODO: What is our top-level class?
-        | Ty.isRefType ty = Ptr pony_actor_t 
+        | Ty.isRefType ty = if Ty.isActiveRefType ty then Ptr pony_actor_t else Ptr void
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"

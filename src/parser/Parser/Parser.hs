@@ -146,7 +146,8 @@ classDecl = do {pos <- getPosition ;
                 reserved "class" ;
                 cname <- identifier ;
                 (fields, methods) <- braces classBody <|> classBody ;
-                return $ Class (meta pos) activity (refType cname) fields methods}
+                let {ctype = case activity of Passive -> passiveRefType cname ; Active -> activeRefType cname} ;
+                return $ Class (meta pos) activity ctype fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
                               methods <- many methodDecl ;
