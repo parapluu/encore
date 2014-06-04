@@ -10,6 +10,10 @@ import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 import Data.List
 
+import qualified Parser.Parser as P -- for string interpolation in the embed expr
+import qualified Text.Parsec as Parsec
+import qualified Text.Parsec.String as PString
+
 import CCode.Main
 
 import qualified AST.AST as A
@@ -68,6 +72,10 @@ substitute_var na impl = do
   c <- get
   put $ Ctx.subst_add c na impl
   return ()
+
+-- these two are exclusively used for A.Embed translation:
+type ParsedEmbed = [Either String VarLkp]
+newtype VarLkp = VarLkp String
 
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.Skip {}) = return $ (error "it's void", Embed "/* skip */")
@@ -132,7 +140,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = do
       tmp_var (A.getType lit) (Embed (show s))
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
-                       -- TODO: this does not allow for nested lets with equal names yet
                        (ne1,te1) <- translate e1
                        substitute_var name ne1
                        (ne2,te2) <- translate e2
@@ -221,7 +228,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate ite@(A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
       do 
---         tmp_var (A.getType ite) (If (StatAsExpr ncond tcond) (Statement tthn) (Statement tels))
         if not $ Ty.isVoidType (A.getType ite)
         then do tmp <- Ctx.gen_sym
                 (ncond,tcond) <- translate cond
@@ -237,8 +243,47 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 (nels, tels) <- translate els
                 return (error $ show ite ++ " is void",
                         (Statement $ If (StatAsExpr ncond tcond) (Statement tthn) (Statement tels)))
-
---          return (If tcond (Statement tthn) (Statement tels))
   translate e@(A.Embed {A.code=code}) = do
-    tmp_var (A.getType e) (Embed code)
+    interpolated <- interpolate code
+    tmp_var (A.getType e) (Embed interpolated)
+        where
+          interpolate :: String -> State Ctx.Context String
+          interpolate embedstr =
+              case (Parsec.parse interpolate_parser "embed expression" embedstr) of
+                (Right parsed) -> do
+                  strs <- mapM to_looked_up_string parsed
+                  return $ concat strs
+                (Left err) -> error $ show err
+
+          to_looked_up_string :: Either String VarLkp -> State Ctx.Context String
+          to_looked_up_string e = case e of
+                                    (Right (VarLkp var)) -> do
+                                           ctx <- get
+                                           case Ctx.subst_lkp ctx $ (ID.Name var) of
+                                             (Just found) -> return $ show found
+                                             Nothing      -> return var -- hope that it's a parameter,
+                                                                        -- let clang handle the rest
+
+                                    (Left str)           -> return str
+
+          interpolate_parser :: PString.Parser [Either String VarLkp]
+          interpolate_parser = do
+            Parsec.many
+                  (Parsec.try
+                             (do
+                               var <- varlkp_parser
+                               return (Right (VarLkp var)))
+                   Parsec.<|>
+                         (do
+                           c <- Parsec.anyChar
+                           return (Left [c])))
+
+          varlkp_parser :: PString.Parser String
+          varlkp_parser = do
+                            Parsec.string "#{"
+                            id <- P.identifier_parser
+                            Parsec.string "}"
+                            return id
+          
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
+

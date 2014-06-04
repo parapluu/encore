@@ -1,0 +1,13 @@
+class Main {
+  def main() : void {
+    this.foo(2)
+  }
+
+  def foo(y: int): void {
+    let x = 1 in {
+      embed void printf("x=%llu\n", #{x}); end;
+      embed void printf("y=%llu\n", #{y}); end;
+      print "(btw: helloponyworld)"
+    }
+  }
+}
