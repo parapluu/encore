@@ -99,7 +99,7 @@ instance Checkable ClassDecl where
 
 instance Checkable FieldDecl where
     typecheck f@(Field {ftype}) = do wfType ftype
-                                     when (isVoidType ftype) $ tcError "Field cannot have void type"
+                                     -- when (isVoidType ftype) $ tcError "Field cannot have void type"
                                      return $ setType ftype f
 
 instance Checkable MethodDecl where
@@ -118,7 +118,7 @@ instance Checkable MethodDecl where
                      tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do wfType ptype
-                                                    when (isVoidType ptype) $ tcError $ "Method parameter cannot have void type"
+                                                    -- when (isVoidType ptype) $ tcError $ "Method parameter cannot have void type"
                                                     return $ setType ptype p)
           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
@@ -194,7 +194,7 @@ instance Checkable Expr where
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
                                                  do wfType ptype
-                                                    when (isVoidType ptype) $ tcError $ "Function parameter cannot have void type"
+                                                    --when (isVoidType ptype) $ tcError $ "Function parameter cannot have void type"
                                                     return $ setType ptype p)
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
@@ -203,8 +203,8 @@ instance Checkable Expr where
            valType <- return (AST.getType eVal)
            when (isNullType valType) $ 
                 tcError $ "Cannot infer type of null-valued expression"
-           when (isVoidType valType) $
-                tcError $ "Variable '" ++ show name ++ "' cannot have void type"
+--           when (isVoidType valType) $
+--                tcError $ "Variable '" ++ show name ++ "' cannot have void type"
            eBody <- local (extendEnvironment [(name, valType)]) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 

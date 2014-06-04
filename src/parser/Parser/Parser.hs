@@ -83,7 +83,7 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\", "()"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -220,7 +220,7 @@ expression = buildExpressionParser opTable expr
                                     return (\e -> TypedExpr (meta pos) e t)})
 
 expr :: Parser Expr
-expr  =  skip
+expr  =  unit
      <|> try embed
      <|> try assignment
      <|> try methodCall
@@ -249,7 +249,7 @@ expr  =  skip
                   ty <- typ ;
                   code <- manyTill anyChar $ try $ reserved "end" ;
                   return $ Embed (meta pos) ty code}
-      skip = do {pos <- getPosition ; reserved "skip" ; return $ Skip (meta pos) }
+      unit = do {pos <- getPosition ; reservedOp "()" ; return $ Skip (meta pos) }
       assignment = do {pos <- getPosition; 
                        lhs <- lval ; reservedOp "=" ; 
                        expr <- expression ; 

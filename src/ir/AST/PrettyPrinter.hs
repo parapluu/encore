@@ -19,7 +19,7 @@ import Types
 import AST.AST
 
 ppClass = text "class"
-ppSkip = text "skip"
+ppSkip = text "()"
 ppLet = text "let"
 ppIn = text "in"
 ppIf = text "if"
