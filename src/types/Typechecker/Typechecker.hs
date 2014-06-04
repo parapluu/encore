@@ -246,7 +246,7 @@ instance Checkable Expr where
            fType <- asks $ fieldLookup pathType name
            case fType of
              Just ty -> return $ setType ty fAcc {target = eTarget}
-             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"                                                         
+             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"
 
     typecheck assign@(Assign {lhs, rhs}) = 
         do eLhs <- pushTypecheck lhs

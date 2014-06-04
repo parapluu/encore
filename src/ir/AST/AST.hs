@@ -137,6 +137,10 @@ data Expr = Skip {emeta :: Meta}
                    loper :: Expr, 
                    roper :: Expr} deriving(Show, Eq)
 
+isThisAccess :: Expr -> Bool
+isThisAccess VarAccess {name = Name "this"} = True
+isThisAccess _ = False
+
 instance HasMeta Expr where
     getPos = AST.Meta.getPos . emeta
 

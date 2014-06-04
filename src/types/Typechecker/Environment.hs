@@ -49,10 +49,15 @@ buildClassTable (Program classes) =
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
       getClassType Class {cname, fields, methods} = (cname, (fieldTypes, methodTypes))
           where
+            activityTable = map (\(Class{cname, cactivity}) -> (cname, cactivity)) classes
+            setActivity ty = case lookup ty activityTable of
+                               Just Active -> makeActive ty
+                               Just Passive -> makePassive ty
+                               Nothing -> ty
             fieldTypes  = map getFieldType fields
             methodTypes = map getMethodType methods
-            getFieldType Field {fname, ftype} = (fname, ftype)
-            getMethodType Method {mname, mtype, mparams} = (mname, (mparams, mtype))
+            getFieldType Field {fname, ftype} = (fname, setActivity ftype)
+            getMethodType Method {mname, mtype, mparams} = (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}

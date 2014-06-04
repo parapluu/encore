@@ -29,5 +29,5 @@ translatePrimitive ty
 instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty = translatePrimitive ty
-        | Ty.isRefType ty = if Ty.isActiveRefType ty then Ptr pony_actor_t else Ptr void
+        | Ty.isRefType ty = if Ty.isActiveRefType ty then Ptr pony_actor_t else Ptr $ Typ (show (data_rec_name ty))
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"

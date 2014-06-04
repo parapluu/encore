@@ -1,7 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
-             refType, isRefType, passiveRefType, activeRefType, isActiveRefType, 
+             refType, isRefType, passiveRefType, activeRefType, 
+             isActiveRefType, isPassiveRefType, 
              makeActive, makePassive, typeVar, isTypeVar,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
@@ -77,6 +78,9 @@ isRefType _ = False
 passiveRefType = \id -> RefType $ RefTypeInfo id Passive
 makePassive (RefType info) = RefType $ info {activity = Passive}
 makePassive ty = ty
+
+isPassiveRefType (RefType (RefTypeInfo {activity = Passive})) = True
+isPassiveRefType _ = False
 
 activeRefType = \id -> RefType $ RefTypeInfo id Active
 makeActive (RefType info)  = RefType $ info {activity = Active}
