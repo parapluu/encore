@@ -15,8 +15,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
        Args ::= , Expr Args | eps
        Path ::= Name FieldAccess | eps
 FieldAccess ::= . Name FieldAccess | eps
-       Expr ::= skip
-              | Path = Expr
+       Expr ::= Path = Expr
               | Path . Name ( Arguments )
               | let Name = Expr in Expr
               | { Sequence }
@@ -86,7 +85,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "skip", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\", "()"]
              }
 
