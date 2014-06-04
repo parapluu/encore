@@ -36,7 +36,9 @@ typecheckEncoreProgram p = case buildClassTable p of
 tcError msg = do bt <- asks backtrace
                  throwError $ TCError (msg, bt)
 
--- | Convenience function for checking if a type is well-formed. 
+-- | Convenience function for checking if a type is
+-- well-formed. Returns the same type with correct activity
+-- information.
 checkType :: Type -> ErrorT TCError (Reader Environment) Type
 checkType ty 
     | isPrimitive ty = return ty
