@@ -67,4 +67,4 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc
 
-.PHONY: all doc runtime encorec clean $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS)
+.PHONY: all doc runtime encorec clean $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS) runtime

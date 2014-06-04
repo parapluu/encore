@@ -52,7 +52,9 @@ Keywords: @ class def embed end Fut let in passive if then else while get null n
 
 -}
 
-module Parser.Parser(parseEncoreProgram) where
+module Parser.Parser(parseEncoreProgram
+                    ,identifier_parser
+                    ) where
 
 -- Library dependencies
 import Text.Parsec
@@ -73,6 +75,8 @@ import AST.Meta
 -- unless a parse error occurs.
 parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
+
+identifier_parser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
