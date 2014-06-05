@@ -136,7 +136,7 @@ instance Checkable Expr where
               | isNullType ty || 
                 isTypeVar ty = tcError "Cannot infer type of null valued expression"
               | isRefType ty = return $ setType ty null
-              | otherwise = tcError "Null valued expression must have reference type"
+              | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
