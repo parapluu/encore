@@ -41,6 +41,144 @@ foldAll f e (Program classes) = map (foldClass f e) classes
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
       foldMethod f e (Method {mbody}) = foldr f e mbody
 
+extend :: (Expr -> Expr) -> Expr -> Expr
+extend f e@(MethodCall {target, args}) = 
+    let e'@(MethodCall {target = t, args = a}) = f e
+        t' = f t
+        a' = map f a
+    in
+      e'{target = t', args = a'}
+extend f e@(Let {val, body}) = 
+    let e'@(Let {val = v, body = b}) = f e
+        v' = f v
+        b' = f b
+    in
+      e'{val = v', body = b'}
+extend f e@(IfThenElse {cond, thn, els}) = 
+    let e'@(IfThenElse {cond = c, thn = t, els = el}) = f e
+        c' = f c
+        t' = f t
+        el' = f el
+    in
+      e'{cond = c', thn = t', els = el'}
+extend f e@(While {cond, body}) = 
+    let e'@(While {cond = c, body = b}) = f e
+        c' = f c
+        b' = f b
+    in
+      e'{cond = c', body = b'}
+extend f e@(Binop {loper, roper}) = 
+    let e'@(Binop {loper = l, roper = r}) = f e
+        l' = f l
+        r' = f r
+    in
+      e'{loper = l', roper = r'}
+extend f e@(FunctionCall {args}) = 
+    let e'@(FunctionCall {args = a}) = f e
+        a' = map f a
+    in
+      e'{args = a'}
+extend f e@(Closure {body}) = 
+    let e'@(Closure {body = b}) = f e
+        b' = f b
+    in
+      e'{body = b'}
+extend f e@(Seq {eseq}) = 
+    let e'@(Seq {eseq = es}) = f e
+        es' = map f es
+    in
+      e'{eseq = es'}
+extend f e@(Get {val}) = 
+    let e'@(Get {val = v}) = f e
+        v' = f v
+    in
+      e'{val = v'}
+extend f e@(FieldAccess {target}) = 
+    let e'@(FieldAccess {target = t}) = f e
+        t' = f t
+    in
+      e'{target = t'}
+extend f e@(Assign {rhs}) = 
+    let e'@(Assign {rhs = r}) = f e
+        r' = f r
+    in
+      e'{rhs = r'}
+extend f e@(Print {val}) = 
+    let e'@(Print {val = v}) = f e
+        v' = f v
+    in
+      e'{val = v'}
+extend f e = f e
+
+extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
+extendAccum f acc e@(MethodCall {target, args}) = 
+    let (acc0, e'@(MethodCall {target = t, args = a})) = f acc e
+        (acc1, t') = f acc0 t
+        (acc2, a') = List.mapAccumL f acc1 a
+    in
+      (acc2, e'{target = t', args = a'})
+extendAccum f acc e@(Let {val, body}) = 
+    let (acc0, e'@(Let {val = v, body = b})) = f acc e
+        (acc1, v') = f acc0 v
+        (acc2, b') = f acc1 b
+    in
+      (acc2, e'{val = v', body = b'})
+extendAccum f acc e@(IfThenElse {cond, thn, els}) = 
+    let (acc0, e'@(IfThenElse {cond = c, thn = t, els = el})) = f acc e
+        (acc1, c') = f acc0 c
+        (acc2, t') = f acc1 t
+        (acc3, el') = f acc2 el
+    in
+      (acc3, e'{cond = c', thn = t', els = el'})
+extendAccum f acc e@(While {cond, body}) = 
+    let (acc0, e'@(While {cond = c, body = b})) = f acc e
+        (acc1, c') = f acc0 c
+        (acc2, b') = f acc1 b
+    in
+      (acc2, e'{cond = c', body = b'})
+extendAccum f acc e@(Binop {loper, roper}) = 
+    let (acc0, e'@(Binop {loper = l, roper = r})) = f acc e
+        (acc1, l') = f acc0 l
+        (acc2, r') = f acc1 r
+    in
+      (acc2, e'{loper = l', roper = r'})
+extendAccum f acc e@(FunctionCall {args}) = 
+    let (acc0, e'@(FunctionCall{args = a})) = f acc e 
+        (acc1, a') = List.mapAccumL f acc0 a
+    in
+      (acc1, e'{args = a'})
+extendAccum f acc e@(Closure {body}) = 
+    let (acc0, e'@(Closure {body = b})) = f acc e
+        (acc1, b') = f acc0 b
+    in
+      (acc1, e'{body = b'})
+extendAccum f acc e@(Seq {eseq}) = 
+    let (acc0, e'@(Seq {eseq = es})) = f acc e
+        (acc1, es') = List.mapAccumL f acc0 es
+    in
+      (acc1, e'{eseq = es'})
+extendAccum f acc e@(Get {val}) = 
+    let (acc0, e'@(Get {val = v})) = f acc e
+        (acc1, v') = f acc0 v
+    in
+      (acc1, e'{val = v'})
+extendAccum f acc e@(FieldAccess {target}) = 
+    let (acc0, e'@(FieldAccess {target = t})) = f acc e
+        (acc1, t') = f acc0 t
+    in
+      (acc1, e'{target = t'})
+extendAccum f acc e@(Assign {rhs}) = 
+    let (acc0, e'@(Assign {rhs = r})) = f acc e
+        (acc1, r') = f acc0 r
+    in
+      (acc1, e'{rhs = r'})
+extendAccum f acc e@(Print {val}) = 
+    let (acc0, e'@(Print {val = v})) = f acc e
+        (acc1, v') = f acc0 v
+    in
+      (acc1, e'{val = v'})
+extendAccum f acc e = f acc e
+
 -- | @filterAST cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filterAST :: (Expr -> Bool) -> Expr -> [Expr]
 filterAST cond = foldr (\e acc -> if cond e then e:acc else acc) []

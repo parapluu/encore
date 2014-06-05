@@ -22,6 +22,10 @@ newtype Program = Program [ClassDecl] deriving(Show)
 class HasMeta a where
     getPos :: a -> SourcePos
 
+    getMetaId :: a -> String
+
+    setMetaId :: String -> a -> a
+
     getType :: a -> Type
 
     setType :: Type -> a -> a
@@ -47,6 +51,10 @@ isActive = (== Active) . cactivity
 
 instance HasMeta ClassDecl where
     getPos = AST.Meta.getPos . cmeta
+    getMetaId c = (metaId . cmeta) c
+    setMetaId id c = c{cmeta = cmeta'} 
+        where
+          cmeta' = (cmeta c){metaId = id}
     getType = cname
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
@@ -56,6 +64,10 @@ data FieldDecl = Field {fmeta :: Meta,
 
 instance HasMeta FieldDecl where
     getPos = AST.Meta.getPos . fmeta
+    getMetaId f = (metaId . fmeta) f
+    setMetaId id f = f{fmeta = fmeta'} 
+        where
+          fmeta' = (fmeta f){metaId = id}
     getType = ftype
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
 
@@ -63,6 +75,10 @@ data ParamDecl = Param {pmeta :: Meta, pname :: Name, ptype :: Type} deriving(Sh
 
 instance HasMeta ParamDecl where
     getPos = AST.Meta.getPos . pmeta
+    getMetaId p = (metaId . pmeta) p
+    setMetaId id p = p{pmeta = pmeta'} 
+        where
+          pmeta' = (pmeta p){metaId = id}
     getType = ptype
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
 
@@ -74,6 +90,10 @@ data MethodDecl = Method {mmeta   :: Meta,
 
 instance HasMeta MethodDecl where
     getPos = AST.Meta.getPos . mmeta
+    getMetaId m = (metaId . mmeta) m
+    setMetaId id m = m{mmeta = mmeta'} 
+        where
+          mmeta' = (mmeta m){metaId = id}
     getType = mtype
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
@@ -141,8 +161,17 @@ isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {name = Name "this"} = True
 isThisAccess _ = False
 
+isClosure :: Expr -> Bool
+isClosure Closure {} = True
+isClosure _ = False
+
 instance HasMeta Expr where
     getPos = AST.Meta.getPos . emeta
+
+    getMetaId expr = (metaId . emeta) expr
+    setMetaId id expr = expr{emeta = emeta'} 
+        where
+          emeta' = (emeta expr){metaId = id}
 
     hasType (Null {}) ty = not . isPrimitive $ ty
     hasType x ty = if ty == nullType then
@@ -163,6 +192,11 @@ data LVal = LVal {lmeta :: Meta, lname :: Name} |
 
 instance HasMeta LVal where
     getPos = AST.Meta.getPos . lmeta
+
+    getMetaId l = (metaId . lmeta) l
+    setMetaId id l = l{lmeta = lmeta'} 
+        where
+          lmeta' = (lmeta l){metaId = id}
 
     getType lval = AST.Meta.getType . lmeta $ lval
 
