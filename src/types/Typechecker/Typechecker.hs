@@ -28,12 +28,8 @@ import Typechecker.TypeError
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p = case buildClassTable p of
-                             Right env -> 
-                                 do ast <- runReader (runErrorT (typecheck p)) env
-                                    return $ markClosures ast
+                             Right env -> runReader (runErrorT (typecheck p)) env
                              Left err -> Left err
-
-markClosures = id
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
