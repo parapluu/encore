@@ -7,24 +7,8 @@
 #include "scheduler.h"
 #include "cycle.h"
 #include <assert.h>
+#include "actor_def.h"
 
-struct pony_actor_t
-{
-  void* p;
-  uint32_t rc;
-  uint32_t thread;
-  bool blocked;
-  bool mark;
-  bool refchanged;
-
-  heap_t heap;
-  map_t* foreign_ref;
-  map_t* local_ref;
-
-  // keep things accessed by other actors on a separate cache line
-  actorq_t q __attribute__ ((aligned (64)));
-  pony_actor_type_t* actor_type;
-};
 
 typedef enum
 {
@@ -364,6 +348,11 @@ pony_actor_t* actor_create(pony_actor_type_t* type)
   assert(type != NULL);
 
   pony_actor_t* actor = POOL_ALLOC(pony_actor_t);
+  return actor_create_stage_two(type, actor);
+}
+
+pony_actor_t* actor_create_stage_two(pony_actor_type_t* type, pony_actor_t* actor)
+{
   actor->actor_type = type;
   actor->p = NULL;
   actor->rc = 256;
