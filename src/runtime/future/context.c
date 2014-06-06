@@ -21,21 +21,19 @@
 #define NULL 0
 
 typedef struct _ctx {
-  ucontext_t mthd_ctx; // the method's context
-  ucontext_t pony_ctx; // the dispatch function's context
-  void *args;
-  volatile bool done; // shall be true if the context is ready to be used
-  volatile void* result;
-  volatile bool pending; // shall be set to true after the request was sent
+  ucontext_t mthd_ctx;   // the method's context
+  ucontext_t pony_ctx;   // the dispatch function's context
+  volatile bool awaiting;
+  volatile bool done;    // shall be true if the context is ready to be used
+  volatile void* payload;
 } ctx_t;
 
 void ctx_free(ctx_t *ctx) {
-  //XXX: result may leak
-  free(ctx->args);
+  //XXX: payload may leak
   free(ctx);
 }
 
-void print_ctx(ctx_t *ctx, char* title) {
+void ctx_print(ctx_t *ctx, char* title) {
   printf("vvvvvvv %s\n", title);
   printf("ctx @ %p:\n", ctx);
   if (ctx == NULL) {
@@ -43,57 +41,69 @@ void print_ctx(ctx_t *ctx, char* title) {
   } else {
     printf("mthd_ctx       = %p\n",ctx->mthd_ctx);
     printf("pony_ctx       = %p\n",ctx->pony_ctx);
-    printf("args           = %p\n",ctx->args);
     printf("done           = %i\n",(int)ctx->done);
-    printf("result         = %p (%i)\n",ctx->result, (int)ctx->result);
-    printf("pending        = %i\n", ctx->pending);
+    printf("payload        = %p (%i)\n",ctx->payload, (int)ctx->payload);
   }
   printf("^^^^^^^\n");
 }
 
 const unsigned int STACKLET_SIZE = 512;
 
+void ctx_run(ctx_t *ctx) {
+  swapcontext(&(ctx->pony_ctx),&(ctx->mthd_ctx));
+}
+
 union splitptr {
   struct {
     int i0;
     int i1;
   } ints;
-  ctx_t *ptr;
+  void *ptr;
 };
 
-void ctx_return(ctx_t* ctx) {
-  print_ctx(ctx, "ctx_return");
-  setcontext(&(ctx->pony_ctx));
+// this is a workaround for makecontext's horrible interface; it takes
+// four ints, assembles them into two pointer, the first of which is a
+// function pointer, the second its argument; it then calls the
+// function with the argument.
+void reassemble_and_call(int func0, int func1, int args0, int args1) {
+  union splitptr func_s;
+  func_s.ints.i0 = func0;
+  func_s.ints.i1 = func1;
+  void (*func)(void*) = (void (*)(void*))(func_s.ptr);
+
+  union splitptr args_s;
+  args_s.ints.i0 = args0;
+  args_s.ints.i1 = args1;
+  
+  (*func)(args_s.ptr);
 }
 
-void *ctx_empty(void (*func)(void), void *args) {
-  //  printf("creating empty ctx:\n");
-  ctx_t *ctx = malloc(sizeof(ctx_t));
-  ctx->args    = args;
-  ctx->done    = false;
-  ctx->result  = NULL;
-  ctx->pending = false;
+void *ctx_call(void (*func)(void*), void *args) {
+  ctx_t *ctx = calloc(1,sizeof(ctx_t));
+  ctx->payload = args;
 
   union splitptr ctx_spl;
   ctx_spl.ptr = ctx;
 
+  union splitptr func_spl;
+  func_spl.ptr = func;
+
   getcontext(&(ctx->mthd_ctx));
   char* mthd_stck = malloc(sizeof(char)*SIGSTKSZ);
-  ctx->mthd_ctx.uc_link  = NULL;//dispatch_ctx.ptr;
+  ctx->mthd_ctx.uc_link  = NULL;
   ctx->mthd_ctx.uc_stack.ss_sp = mthd_stck;
   ctx->mthd_ctx.uc_stack.ss_size  = SIGSTKSZ;
-  //  printf("f @ %p\n",func);
-  //  ((void (*)(int,int))func)(0,0);
-  //  printf("ran f\n");
   makecontext(&(ctx->mthd_ctx),
-              *func,
-              2,
+              reassemble_and_call,
+              4,
+              func_spl.ints.i0,
+              func_spl.ints.i1,
               ctx_spl.ints.i0,
               ctx_spl.ints.i1);
 
-  print_ctx(ctx, "created");
-
-  getcontext(&(ctx->pony_ctx));
+  //ctx_print(ctx, "created");
+  //getcontext(&(ctx->pony_ctx));
+  ctx_run(ctx);
   return ctx;
 }
 
@@ -104,47 +114,40 @@ ctx_t *ctx_assemble(int i0, int i1) {
   return ctx_spl.ptr;
 }
 
-void ctx_run(ctx_t *ctx) {
-  printf("attempting to run\n");
-  setcontext(&(ctx->mthd_ctx));
-  printf("why do I see this?\n");
-}
-
-bool ctx_ready(ctx_t *ctx) {
+bool ctx_done(ctx_t *ctx) {
   return ctx->done;
 }
 
-void ctx_set_pending(ctx_t *ctx) {
-  ctx->pending = true;
-  ctx_return(ctx); // jump back to dispatch fn
+void ctx_capture_mthd(ctx_t *ctx) {
+  //  getcontext(&(ctx->mthd_ctx));
+  //  ctx_print(ctx, "ctx_capture_mthd");
 }
 
-bool ctx_is_pending(ctx_t *ctx) {
-  return ctx->pending;
+void *ctx_get_payload(ctx_t *ctx) {
+  return ctx->payload;
 }
 
-void ctx_capture(ctx_t *ctx) {
+void skip_out(ctx_t *ctx) {
+  setcontext(&(ctx->pony_ctx));
+}
+
+void *ctx_await(ctx_t *ctx) {
   getcontext(&(ctx->mthd_ctx));
-  print_ctx(ctx, "captured");
-}
-
-void *ctx_get_args(ctx_t *ctx) {
-  return ctx->args;
-}
-
-void *ctx_await_result(ctx_t *ctx) {
-  getcontext(&(ctx->mthd_ctx));
-  if (ctx_ready(ctx)) {
-    return ctx->result;
+  if (ctx_done(ctx)) {
+    void *res = ctx->payload;
+    ctx->done     = false;
+    ctx->awaiting = false;
+    return res;
   } else {
-    setcontext(&(ctx->pony_ctx));
+    ctx->awaiting = true;
+    skip_out(ctx);
   }
 }
 
-void ctx_reinstate(ctx_t *ctx, void* result) {
-  ctx->result  = result;
-  ctx->pending = false;
-  ctx->done    = true;
-  print_ctx(ctx, "ctx_reinstate");
-  setcontext(&(ctx->mthd_ctx));
+void ctx_reinstate(ctx_t *ctx, void* payload) {
+  ctx->payload  = payload;
+  ctx->done     = true;
+  //ctx_print(ctx, "ctx_reinstate");
+  while (!ctx->awaiting) {} //  not sure this is 
+  ctx_run(ctx);
 }
