@@ -13,12 +13,13 @@ import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 import qualified AST.AST as A
+import qualified AST.Util as Util
 import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 
 instance Translatable A.Program (CCode FIN) where
   translate prog@(A.Program cs) =
-    Program $ 
+    Program $
     ConcatTL $
     (Includes ["pony/pony.h",
                "stdlib.h",
@@ -30,7 +31,7 @@ instance Translatable A.Program (CCode FIN) where
                --"assert.h",
                "stdio.h"
               ]) :
-    (fwd_decls (A.Program cs)) :
+    (fwd_decls prog) :
     (map (\cls -> runReader (fwd_decls cls) (Ctx.mk prog)) cs) ++
     (map translate_class_here cs) ++
     [(Function

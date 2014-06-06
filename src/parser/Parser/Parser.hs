@@ -15,7 +15,8 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
        Args ::= , Expr Args | eps
        Path ::= Name FieldAccess | eps
 FieldAccess ::= . Name FieldAccess | eps
-       Expr ::= Path = Expr
+       Expr ::= ()
+              | Path = Expr
               | Path . Name ( Arguments )
               | let Name = Expr in Expr
               | { Sequence }
@@ -149,7 +150,8 @@ classDecl = do {pos <- getPosition ;
                 reserved "class" ;
                 cname <- identifier ;
                 (fields, methods) <- braces classBody <|> classBody ;
-                return $ Class (meta pos) activity (refType cname) fields methods}
+                let {ctype = case activity of Passive -> passiveRefType cname ; Active -> activeRefType cname} ;
+                return $ Class (meta pos) activity ctype fields methods}
             where
               classBody = do {fields <- many fieldDecl ;
                               methods <- many methodDecl ;

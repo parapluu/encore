@@ -1,0 +1,61 @@
+passive class Data
+  elem : int
+  def getValue() : int
+    this.elem
+
+passive class Link
+  data : Data
+  next : Link
+  def init(elem : int, next : Link) : void
+    let data = new Data in{
+      data.elem = elem;
+      this.data = data;
+      this.next = next
+    }
+  def getData() : Data
+    this.data
+  def getNext() : Link
+    this.next
+  def show() : void{
+    print this.data.getValue();
+    if this.next != null then
+      this.next.show()
+    else
+      ()
+  }
+
+passive class List
+  first : Link
+  def init() : void
+    this.first = null
+  def prepend(elem : int) : void
+    let newFirst = new Link in{
+      newFirst.init(elem, this.first);
+      this.first = newFirst
+    }
+  def nth(n : int) : Data 
+    let cursor = this.first in{
+      while n > 0{
+        cursor = cursor.getNext();
+        n = n - 1
+      };
+      cursor.getData()
+    }
+  def show() : void
+    this.first.show()
+
+class Main
+  def main() : void{
+    let l = new List in{
+      l.init();
+      l.prepend(5);
+      l.prepend(4);
+      l.prepend(3);
+      l.prepend(2);
+      l.prepend(1);
+      l.show();
+      print "The third element of the list is:";
+      let data = l.nth(2) in
+        print data.elem
+    }
+  }

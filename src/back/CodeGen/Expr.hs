@@ -146,34 +146,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return (ne2,
                                Seq [te1,
                                     te2])
-  translate new@(A.New {A.ty = ty}) = do
-    tmp_var ty (Call (Nam "create_and_send")
-                         [Amp $ actor_rec_name ty,
-                          AsExpr . AsLval . Nam $ "MSG_alloc"])
-  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) =
-      (case target of
-        (A.VarAccess { A.name = ID.Name "this"}) -> local_call
-        _ -> remote_call)
+  translate new@(A.New {A.ty = ty}) 
+      | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")
+                                                 [Amp $ actor_rec_name ty,
+                                                  AsExpr . AsLval . Nam $ "MSG_alloc"])
+      | otherwise = tmp_var ty (Call (Nam "pony_alloc") 
+                                     [Call (Nam "sizeof") [Nam $ show (data_rec_name ty)]])
+  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
+      | (A.isThisAccess target) ||
+        (Ty.isPassiveRefType . A.getType) target = sync_call
+      | otherwise = remote_call
           where
-            local_call =
-                do ctx <- get
-                   tmp <- Ctx.gen_sym
-                   (ntarget,_) <- translate target
+            sync_call =
+                do (ntarget,_) <- translate target
                    targs <- mapM varaccess_this_to_aref args
-                   let argtys = (map A.getType args)
-                   let targtys = map (translate . A.getType) args :: [CCode Ty]
-                   the_arg_name <- Ctx.gen_sym
-                   let the_arg_decl = Embed $ ("pony_arg_t " ++
-                                               the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
-                                               (concat $
-                                                intersperse ", " $
-                                                map (\(arg,ty) ->
-                                                     "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
-                                                (zip (targs :: [CCode Expr]) targtys)) ++
-                                               "}")
                    tmp_var (A.getType call) (Call
-                                             (method_impl_name (A.cname . fromJust $ Ctx.the_class ctx) name)
+                                             (method_impl_name (A.getType target) name)
                                              ((EmbedC ntarget) : targs))
+
             remote_call :: State Ctx.Context (CCode Lval, CCode Stat)
             remote_call =
                 do ttarget <- varaccess_this_to_aref target
@@ -284,6 +274,25 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             id <- P.identifier_parser
                             Parsec.string "}"
                             return id
-          
+
+  translate clos@(A.Closure{}) = do let impl_name = closure_impl_name (A.getMetaId clos)
+                                    tmp <- Ctx.gen_sym
+                                    return $ (Var tmp, Concat $ (Assign (Decl (Ptr $ Typ $ "struct ___" ++ (show $ closure_impl_name (A.getMetaId clos)), Var tmp)) (Call (Nam "pony_alloc") [Call (Nam "sizeof") [Nam $ "struct ___" ++ (show (impl_name))]])) : [Embed $ tmp ++ "->call = " ++ (show (closure_fun_name (A.getMetaId clos)))])
+                                        
+
+  translate fcall@(A.FunctionCall{A.name = name, A.args = args}) = 
+      do c <- get
+         let fun = Var $ (case Ctx.subst_lkp c name of
+                           Just subst_name -> show subst_name
+                           Nothing -> show name) ++ "->call"
+         targs <- mapM varaccess_this_to_aref args
+         tmp_var (A.getType fcall) (Call fun targs)
+      where
+        varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
+        varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+        varaccess_this_to_aref other = 
+            do (ntother, tother) <- translate other
+               return $ StatAsExpr ntother tother
+
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
 

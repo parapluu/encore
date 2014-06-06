@@ -28,7 +28,7 @@ import Typechecker.TypeError
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p = case buildClassTable p of
-                             Right ctable -> runReader (runErrorT (typecheck p)) ctable
+                             Right env -> runReader (runErrorT (typecheck p)) env
                              Left err -> Left err
 
 -- | Convenience function for throwing an exception with the
@@ -36,21 +36,24 @@ typecheckEncoreProgram p = case buildClassTable p of
 tcError msg = do bt <- asks backtrace
                  throwError $ TCError (msg, bt)
 
--- | Convenience function for checking if a type is well-formed
-wfType :: Type -> ErrorT TCError (Reader Environment) ()
-wfType ty 
-    | isPrimitive ty = return ()
-    | isRefType ty   = do refType <- asks $ classLookup ty
-                          unless (isJust refType) $ tcError $ "Unknown type '" ++ show ty ++ "'"
-    | isFutureType ty = do ty' <- return $ getResultType ty
-                           wfType ty'
-    | isParType ty = do ty' <- return $ getResultType ty
-                        wfType ty'
-    | isArrowType ty = do argTypes <- return $ getArgTypes ty
-                          ty' <- return $ getResultType ty
-                          mapM_ wfType argTypes
-                          wfType ty'
-    | isTypeVar ty = return ()
+-- | Convenience function for checking if a type is
+-- well-formed. Returns the same type with correct activity
+-- information.
+checkType :: Type -> ErrorT TCError (Reader Environment) Type
+checkType ty 
+    | isPrimitive ty = return ty
+    | isTypeVar ty = return ty
+    | isRefType ty = do result <- asks $ classActivityLookup ty
+                        case result of
+                          Nothing -> tcError $ "Unknown type '" ++ show ty ++ "'"
+                          Just refType -> return refType -- This will be ty with activity information
+    | isFutureType ty = do ty' <- checkType $ getResultType ty
+                           return $ futureType ty'
+    | isParType ty = do ty' <- checkType $ getResultType ty
+                        return $ parType ty'
+    | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
+                          retType <- checkType $ getResultType ty
+                          return $ arrowType argTypes retType
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -83,7 +86,7 @@ instance Checkable ClassDecl where
            emethods <- mapM typecheckMethod methods
            distinctFieldNames
            distinctMethodNames
-           return $ c {fields = efields, methods = emethods}
+           return $ setType cname c {fields = efields, methods = emethods}
         where
           typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
           distinctFieldNames = 
@@ -98,17 +101,16 @@ instance Checkable ClassDecl where
                             throwError $ TCError ("Duplicate definition of method '" ++ show (mname m) ++ "'" , push m bt)
 
 instance Checkable FieldDecl where
-    typecheck f@(Field {ftype}) = do wfType ftype
-                                     -- when (isVoidType ftype) $ tcError "Field cannot have void type"
-                                     return $ setType ftype f
+    typecheck f@(Field {ftype}) = do ty <- checkType ftype
+                                     return $ setType ty f
 
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
-        do wfType mtype
+        do ty <- checkType mtype
            noFreeTypeVariables
            eMparams <- mapM typecheckParam mparams
-           eBody <- local addParams $ pushHasType mbody mtype
-           return $ setType mtype m {mbody = eBody, mparams = eMparams}
+           eBody <- local addParams $ pushHasType mbody ty
+           return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           noFreeTypeVariables = 
               let retVars = nub $ filter isTypeVar $ typeComponents mtype 
@@ -117,9 +119,8 @@ instance Checkable MethodDecl where
                 when (not . null $ retVars \\ paramVars) $
                      tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
-                                                 do wfType ptype
-                                                    -- when (isVoidType ptype) $ tcError $ "Method parameter cannot have void type"
-                                                    return $ setType ptype p)
+                                                 do ty <- checkType ptype
+                                                    return $ setType ty p)
           addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
 
 instance Checkable Expr where
@@ -135,13 +136,13 @@ instance Checkable Expr where
               | isNullType ty || 
                 isTypeVar ty = tcError "Cannot infer type of null valued expression"
               | isRefType ty = return $ setType ty null
-              | otherwise = tcError "Null valued expression must have reference type"
+              | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
 
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
-    typecheck tExpr@(TypedExpr {body, ty}) = do wfType ty
-                                                pushHasType body ty
+    typecheck tExpr@(TypedExpr {body, ty}) = do ty' <- checkType ty
+                                                pushHasType body ty'
 
     typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
@@ -193,9 +194,8 @@ instance Checkable Expr where
            return $ setType (arrowType (map ptype eparams) returnType) closure {body = eBody, eparams = eEparams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
-                                                 do wfType ptype
-                                                    --when (isVoidType ptype) $ tcError $ "Function parameter cannot have void type"
-                                                    return $ setType ptype p)
+                                                 do ty <- checkType ptype
+                                                    return $ setType ty p)
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
@@ -203,8 +203,6 @@ instance Checkable Expr where
            valType <- return (AST.getType eVal)
            when (isNullType valType) $ 
                 tcError $ "Cannot infer type of null-valued expression"
---           when (isVoidType valType) $
---                tcError $ "Variable '" ++ show name ++ "' cannot have void type"
            eBody <- local (extendEnvironment [(name, valType)]) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
 
@@ -250,7 +248,7 @@ instance Checkable Expr where
            fType <- asks $ fieldLookup pathType name
            case fType of
              Just ty -> return $ setType ty fAcc {target = eTarget}
-             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"                                                         
+             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"
 
     typecheck assign@(Assign {lhs, rhs}) = 
         do eLhs <- pushTypecheck lhs
@@ -270,9 +268,9 @@ instance Checkable Expr where
     typecheck false@BFalse {} = return $ setType boolType false 
 
     typecheck new@(New {ty}) = 
-        do wfType ty
-           unless (isRefType ty) $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
-           return $ setType ty new
+        do ty' <- checkType ty
+           unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
+           return $ setType ty' new
 
     typecheck print@(Print {val}) = 
         do eVal <- pushTypecheck val

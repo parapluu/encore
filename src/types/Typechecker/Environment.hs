@@ -12,6 +12,7 @@ typevar-type bindings for doing lookups, as well as the
 module Typechecker.Environment(Environment, 
                                buildClassTable, 
                                classLookup, 
+                               classActivityLookup, 
                                methodLookup, 
                                fieldLookup, 
                                varLookup,
@@ -48,10 +49,15 @@ buildClassTable (Program classes) =
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
       getClassType Class {cname, fields, methods} = (cname, (fieldTypes, methodTypes))
           where
+            activityTable = map (\(Class{cname, cactivity}) -> (cname, cactivity)) classes
+            setActivity ty = case lookup ty activityTable of
+                               Just Active -> makeActive ty
+                               Just Passive -> makePassive ty
+                               Nothing -> ty
             fieldTypes  = map getFieldType fields
             methodTypes = map getMethodType methods
-            getFieldType Field {fname, ftype} = (fname, ftype)
-            getMethodType Method {mname, mtype, mparams} = (mname, (mparams, mtype))
+            getFieldType Field {fname, ftype} = (fname, setActivity ftype)
+            getMethodType Method {mname, mtype, mparams} = (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -59,15 +65,23 @@ pushBT x env = env {bt = push x (bt env)}
 backtrace = bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe Type
-fieldLookup cls f env = do (fields, _) <- lookup cls (ctable env)
+fieldLookup cls f env = do (fields, _) <- classLookup cls env
                            lookup f fields
 
 methodLookup :: Type -> Name -> Environment -> Maybe ([ParamDecl], Type)
-methodLookup cls m env = do (_, methods) <- lookup cls (ctable env)
+methodLookup cls m env = do (_, methods) <- classLookup cls env
                             lookup m methods
 
 classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
-classLookup cls env = lookup cls (ctable env)
+classLookup cls env
+    | isRefType cls = lookup cls (ctable env)
+    | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' whiich is not a reference type"
+
+classActivityLookup :: Type -> Environment -> Maybe Type
+classActivityLookup cls env 
+    | isRefType cls = do (cls', _) <- find (\(cls', _) -> getId cls == getId cls') (ctable env)
+                         return cls'
+    | otherwise = error $ "Tried to lookup the activity of '" ++ show cls ++ "' whiich is not a reference type"
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = lookup x (locals env)

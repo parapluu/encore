@@ -45,6 +45,7 @@ pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
 pp' (Record ccodes) = text "{" <+> (hcat $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
+pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (text "*" <> tshow id) <> parens (hcat $ intersperse (text ", ") $ map pp' argTys) <+> text ";"
 pp' (Concat ccodes) = block ccodes
 pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
 pp' (StoopidSeq ccodes) = vcat $ map semicolonify ccodes

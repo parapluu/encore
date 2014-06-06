@@ -1,7 +1,9 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Types(Type, arrowType, isArrowType, futureType, isFutureType,
-             parType, isParType, refType, isRefType, typeVar, isTypeVar,
+module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
+             refType, isRefType, passiveRefType, activeRefType, 
+             isActiveRefType, isPassiveRefType, 
+             makeActive, makePassive, typeVar, isTypeVar,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
@@ -13,11 +15,18 @@ import Data.List
 
 import Identifiers
 
+data Activity = Active | Passive | Unknown deriving(Eq, Show)
+
+data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity}
+
+instance Eq RefTypeInfo where
+    RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
+
 data Type = VoidType | StringType | IntType | BoolType | RealType
-          | NullType | RefType {ident :: String} | TypeVar {ident :: String}
+          | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
-            deriving (Read, Eq)
+            deriving (Eq)
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(Arrow argTys ty) = arrow:(concatMap typeComponents argTys ++ typeComponents ty)
@@ -28,7 +37,8 @@ typeComponents ty                      = [ty]
 
 getArgTypes = argTypes
 getResultType = resultType
-getId = ident
+getId (RefType info) = refId info
+getId TypeVar {ident} = ident
 
 maybeParen :: Type -> String
 maybeParen arr@(Arrow _ _) = "(" ++ show arr ++ ")"
@@ -42,7 +52,7 @@ instance Show Type where
     show IntType           = "int"
     show RealType          = "real"
     show BoolType          = "bool"
-    show (RefType name)    = name
+    show (RefType (RefTypeInfo {refId})) = refId
     show (TypeVar t)       = t
     show NullType          = "null type"
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
@@ -61,9 +71,23 @@ parType = ParType
 isParType ParType {} = True
 isParType _ = False
 
-refType = RefType
-isRefType (RefType _) = True
+refType = \id -> RefType $ RefTypeInfo id Unknown
+isRefType RefType {} = True
 isRefType _ = False
+
+passiveRefType = \id -> RefType $ RefTypeInfo id Passive
+makePassive (RefType info) = RefType $ info {activity = Passive}
+makePassive ty = ty
+
+isPassiveRefType (RefType (RefTypeInfo {activity = Passive})) = True
+isPassiveRefType _ = False
+
+activeRefType = \id -> RefType $ RefTypeInfo id Active
+makeActive (RefType info)  = RefType $ info {activity = Active}
+makeActive ty = ty
+
+isActiveRefType (RefType (RefTypeInfo {activity = Active})) = True
+isActiveRefType _ = False
 
 typeVar = TypeVar
 isTypeVar (TypeVar _) = True
@@ -72,7 +96,7 @@ isTypeVar _ = False
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
 emptyType :: Type
-emptyType = RefType "*** UN-TYPED ***"
+emptyType = refType "*** UN-TYPED ***"
 
 voidType :: Type
 voidType = VoidType
