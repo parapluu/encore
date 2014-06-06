@@ -2,7 +2,17 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "future.h"
+#include "context.h"
 #include "future_actor.h"
+
+#define CHECK_RESUME if (resuming) { resuming = false; return; }
+
+
+// This is a thread-local variable holding the context saved in the
+// scheduler loop that we want to jump back into on a block
+__thread Ctx scheduler_loop;
+// FIXME: This is a hack which lets an actor test whether it is resuming or not
+__thread bool resuming = false;
 
 // This function is almost verbatim actor_create from actor.c, but
 // with the important difference of reserving space for two fields
@@ -28,17 +38,31 @@ void chain(future *fut, pony_actor_t* actor, void *closure) {
 }
 
 void block(future *fut, pony_actor_t* actor) {
-  pony_arg_t argv[1];
-  argv[0].p = actor;
-  pony_sendv(actor, MSG_BLOCK, 1, argv);
-  // XXX: call to suspend which does not put the actor back on the scheduler queue
-}
-
-void yield(future *fut, pony_actor_t* actor, void *closure) {
+  Ctx ctx = ctx_empty();
+  ctx_capture(ctx);
+  
+  // If we are resumed here, we should simply return from here
+  CHECK_RESUME
+  
   pony_arg_t argv[2];
   argv[0].p = actor;
-  argv[1].p = closure;
+  argv[1].p = ctx;
+  pony_sendv(actor, MSG_BLOCK, 2, argv);
+  ctx_reinstate(scheduler_loop);
+}
+
+void yield(future *fut, pony_actor_t* actor) {
+  Ctx ctx = ctx_empty();
+  ctx_capture(ctx);
+
+  // If we are resumed here, we should simply return from here
+  CHECK_RESUME
+ 
+  pony_arg_t argv[2];
+  argv[0].p = actor;
+  argv[1].p = ctx;
   pony_sendv(actor, MSG_YIELD, 2, argv);
+  ctx_reinstate(scheduler_loop);
   // XXX: call to suspend and put the actor back on the scheduler queue
 }
 
@@ -47,6 +71,13 @@ bool populated(future *fut) {
 }
 
 void *getValue(future *fut) {
+  return fut->payload.value;
+}
+
+void *getValueOrBlock(future *fut, pony_actor_t* actor) {
+  if (populated(fut) == false) {
+    block(fut, actor);
+  }
   return fut->payload.value;
 }
 
