@@ -41,7 +41,7 @@ bool populated(future *fut);
 void *getValue(future *fut);
 void chain(future *fut, pony_actor_t* actor, void *closure);
 void block(future *fut, pony_actor_t* actor);
-void yield(future *fut, pony_actor_t* actor, void *closure);
+void yield(future *fut, pony_actor_t* actor);
 void fulfil(future *fut, void *value);
 
 #endif

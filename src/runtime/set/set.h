@@ -88,6 +88,14 @@ void set_destroy(Set set);
 Set set_map(Set set, map_fnc f);
 
 /**
+ *  Like a map over a set where the return type of f is void.
+ *  @param set The set to be mapped over
+ *  @param f A function that maps (with or without side-effects) a single element of the set to a new one
+ *  @return The set {\p f (x) | x <-- \p set}
+ */
+void set_forall(Set set, map_fnc f);
+
+/**
  *  Reduce a set to a single element
  *  @param set The set to be reduced
  *  @param f A binary function
