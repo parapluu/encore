@@ -53,6 +53,7 @@ data CCode a where
     Record     :: UsableAs e Expr => [CCode e] -> CCode Expr
     Assign     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Stat
     Decl       :: CVarSpec -> CCode Lval
+    FunDecl    :: String -> CCode Ty -> [CCode ty] -> CCode Ty
     Concat     :: [CCode Stat] -> CCode Stat
     ConcatTL   :: [CCode Toplevel] -> CCode Toplevel -- I do not like
                                                      -- this
@@ -83,6 +84,7 @@ data CCode a where
     EmbedC     :: CCode a -> CCode b
     Call       :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
     TypeDef    :: CCode Ty -> CCode Toplevel -> CCode Toplevel
+    FunTypeDef :: CCode Name -> CCode Ty -> [CCode Ty] -> CCode Toplevel
     While      :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr :: CCode Lval -> CCode Stat -> CCode Expr
     If         :: UsableAs Expr e => CCode e -> CCode Stat -> CCode Stat -> CCode Expr

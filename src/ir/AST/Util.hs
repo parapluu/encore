@@ -2,10 +2,10 @@
 {-| 
   Utility functions for "AST.AST".
 -}
-module AST.Util(filterAST) where
+module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram) where
 
 import qualified Data.List as List
-import Prelude hiding (foldr)
+import Prelude hiding (foldr, filter)
 
 import AST.AST
 
@@ -35,8 +35,8 @@ foldr f acc e@(Assign {rhs}) = f e (foldr f acc rhs)
 foldr f acc e@(Print {val}) = f e (foldr f acc val)
 foldr f acc e = f e acc
 
-foldAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldAll f e (Program classes) = map (foldClass f e) classes
+foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
+foldrAll f e (Program classes) = map (foldClass f e) classes
     where
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
       foldMethod f e (Method {mbody}) = foldr f e mbody
@@ -179,6 +179,17 @@ extendAccum f acc e@(Print {val}) =
       (acc1, e'{val = v'})
 extendAccum f acc e = f acc e
 
--- | @filterAST cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
-filterAST :: (Expr -> Bool) -> Expr -> [Expr]
-filterAST cond = foldr (\e acc -> if cond e then e:acc else acc) []
+extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
+extendAccumProgram f acc (Program classes) = (acc0, Program program')
+    where 
+      (acc0, program') = List.mapAccumL (extendAccumClass f) acc classes
+      extendAccumClass f acc cls@(Class{methods}) = (acc1, cls{methods = methods'})
+          where
+            (acc1, methods') = List.mapAccumL (extendAccumMethod f) acc methods
+            extendAccumMethod f acc mtd@(Method{mbody}) = (acc2, mtd{mbody = mbody'})
+                where
+                  (acc2, mbody') = extendAccum f acc mbody
+
+-- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
+filter :: (Expr -> Bool) -> Expr -> [Expr]
+filter cond = foldr (\e acc -> if cond e then e:acc else acc) []

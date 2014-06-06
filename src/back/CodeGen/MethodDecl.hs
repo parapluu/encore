@@ -7,6 +7,7 @@ import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.Expr
 import CodeGen.Type
+import CodeGen.Closure
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -29,8 +30,8 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     cdecl <- asks (fromJust . Ctx.the_class)
     let this_ty = A.cname cdecl
     ctx <- ask
-    let ((bodyn,bodys),_) = (runState (translate mbody) (Ctx.with_method mdecl ctx))
-    let closures = [] -- map (\clos -> runState (translate clos) (Ctx.with_method mdecl ctx)) (Util.filterAST A.isClosure mbody)
+    let ((bodyn,bodys),_) = runState (translate mbody) (Ctx.with_method mdecl ctx)
+    closures <- mapM translateClosure (Util.filter A.isClosure mbody)
     return $ ConcatTL $ closures ++ 
        [(Function (translate mtype) (method_impl_name this_ty mname)
            ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl mparams))
