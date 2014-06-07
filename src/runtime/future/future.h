@@ -36,12 +36,18 @@ typedef struct future {
 /**
  * Creates a new future object, including an actor to drive its logic
  */
-future *createNewFuture(pony_actor_t* actor, heap_t* heap);
+future *createNewFuture(pony_actor_t* actor);
 bool populated(future *fut);
 void *getValue(future *fut);
 void chain(future *fut, pony_actor_t* actor, void *closure);
 void block(future *fut, pony_actor_t* actor);
 void yield(future *fut, pony_actor_t* actor);
 void fulfil(future *fut, void *value);
+void setResuming(volatile bool r);
+volatile bool getResuming();
+void setSchedulerLoop(ucontext_t *c);
+bool getSchedulerLoop();
+void saveSchedulerLoopContext();
+
 
 #endif
