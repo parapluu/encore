@@ -7,7 +7,6 @@
 #include <assert.h>
 #include "future_actor.h"
 #include "future.h"
-#include "context.h"
 #include "set.h"
 
 typedef struct future_actor_fields {
@@ -23,7 +22,7 @@ typedef struct chained_entry {
 
 typedef struct blocked_entry {
   pony_actor_t *actor;
-  Ctx context;
+  ucontext_t *context;
 } blocked_entry;
 
 pony_actor_type_t future_actor_type =
@@ -103,7 +102,7 @@ static Set getYielded(pony_actor_t* this) {
 
 static void resume(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
-  Ctx context_to_resume = entry->context;
+  ucontext_t *context_to_resume = entry->context;
   pony_arg_t argv[1];
   argv[0].p = context_to_resume;
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
