@@ -10,8 +10,6 @@
 #include "context.h"
 #include "set.h"
 
-extern volatile bool hacky_global_blocked_flag;
-
 typedef struct future_actor_fields {
   Set blocked;
   Set chained;
@@ -140,8 +138,6 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       if (populated((future*) this)) {
 	fprintf(stderr, "Reaching blocking but future is fulfilled\n");
 
-	hacky_global_blocked_flag = false;
-
 	blocked_entry new_entry = { .actor = argv[0].p , .context = argv[1].p };
 	resume(&new_entry);
 	
@@ -178,8 +174,6 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // - put all blocking actors back into the scheduler queue
       // - send the appropriate resume messages to all yielding actors
       fprintf(stderr, "Fulfilling on a future\n");
-
-      hacky_global_blocked_flag = false;
 
       Set chained = getChained(this);
       set_forall(chained, (void *((*)(void *))) run_chain);
