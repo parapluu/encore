@@ -10,7 +10,6 @@
 #include "future_actor.h"
 
 extern pony_actor_type_t future_actor_type;
-extern volatile bool hacky_global_blocked_flag;
 
 #define CHECK_RESUME if (resuming) { resuming = false; return; }
 
@@ -85,7 +84,6 @@ void block(future *fut, pony_actor_t* actor) {
   argv[1].p = ctx;
   pony_sendv(fut, FUT_MSG_BLOCK, 2, argv);
 
-  hacky_global_blocked_flag = true;
   setResuming(true);
   setcontext(scheduler_loop);
 
