@@ -1,5 +1,5 @@
 CC=clang
-FLAGS=-std=c11 -ggdb -Wall
+FLAGS=-std=gnu11 -ggdb -Wall -pthread
 
 all: context.o future.o future_actor.o
 
@@ -13,6 +13,6 @@ context.o: context.c
 	$(CC) $(FLAGS) context.c -c
 
 clean:
-	rm -f context.o
+	rm -f *.o
 
 .PHONY: all clean

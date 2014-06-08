@@ -12,7 +12,7 @@ PONY_INC=$(PONY_DIR)/inc/pony
 PONY_LIB=$(PONY_DIR)/bin/debug/libpony.a
 
 FUTURE_DIR=$(RUNTIME_DIR)/future
-FUTURE_INC=$(FUTURE_DIR)/context.h
+FUTURE_INC=$(FUTURE_DIR)/*.h
 FUTURE_LIB=$(FUTURE_DIR)/context.o
 
 RELEASE_DIR=release
@@ -25,7 +25,7 @@ FUTURE_OBJECTS=$(FUTURE_INC) $(FUTURE_LIB)
 
 all: encorec
 
-encorec: runtime
+encorec: release
 	make -C $(SRC_DIR) all
 	cp -r $(ENCOREC) $(RELEASE_DIR)
 
@@ -36,7 +36,7 @@ doc:
 	haddock -o $@ -h $$(find . -name "*.hs" | grep -v "\.#")
 	make -C $(SET_DIR) doc
 
-runtime: $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS)
+release: $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS)
 
 $(PONY_OBJECTS):
 	make -C $(SRC_DIR) pony
@@ -67,4 +67,4 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc
 
-.PHONY: all doc runtime encorec clean $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS) runtime
+.PHONY: all doc release encorec clean $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS)
