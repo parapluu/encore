@@ -63,7 +63,7 @@ typedef struct _ctx {
 #ifdef _DBG
   char * volatile lock_info;
 #endif
-  volatile pthread_mutex_t ctx_lk; // this shall only be unlocked once it's
+  volatile pthread_spinlock_t ctx_lk; // this shall only be unlocked once it's
                                    // legal to jump back into the method
   volatile bool done;              // shall be true if the context is ready to be used
   volatile void * volatile  payload;
