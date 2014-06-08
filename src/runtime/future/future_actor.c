@@ -22,7 +22,7 @@ typedef struct chained_entry {
 
 typedef struct blocked_entry {
   pony_actor_t *actor;
-  ucontext_t *context;
+  stacklet_t *context;
 } blocked_entry;
 
 pony_actor_type_t future_actor_type =
@@ -102,9 +102,10 @@ static Set getYielded(pony_actor_t* this) {
 
 static void resume(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
-  ucontext_t *context_to_resume = entry->context;
+  stacklet_t *stacklet = entry->context;
   pony_arg_t argv[1];
-  argv[0].p = context_to_resume;
+  argv[0].p = stacklet;
+  fprintf(stderr, "%p <--- resume (%p)\n", target, stacklet);
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
 }
 
@@ -113,6 +114,7 @@ static void run_chain(chained_entry *entry) {
   void *closure = entry->closure;
   pony_arg_t argv[1];
   argv[0].p = closure;
+  fprintf(stderr, "%p <--- run closure (%p)\n", target, closure);
   pony_sendv(target, FUT_MSG_RUN_CLOSURE, 1, argv); // - see https://trello.com/c/kod5Ablj
 }
 
@@ -150,7 +152,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       Set blocked = getBlocked(this);
       blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
-      new_entry->context = argv[1].p;
+      new_entry->context = (stacklet_t*) argv[1].p;
       set_add(blocked, new_entry);
       break;
     }
@@ -163,7 +165,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       Set yielded = getYielded(this);
       blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
-      new_entry->context = argv[1].p;
+      new_entry->context = (stacklet_t*) argv[1].p;
       set_add(yielded, new_entry);
       break;
     }
@@ -189,15 +191,16 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
   case FUT_MSG_RESUME:
     {
       fprintf(stderr, "Resuming because we got a resume message from a future\n");
-      setResuming(true);
-      setcontext(argv[0].p);
+      resume(argv[0].p);
       break;
     }
   case FUT_MSG_RUN_CLOSURE:
     {
-      void *closure = argv[0].p;
+      // void *closure = argv[0].p;
       // XXX do what's necessary to run the closure obj
       // XXX this should probably trigger an error in a future object! 
+      fprintf(stderr, "This point should not be reached!\n");
+      assert(false);
       break;
     }
   }
