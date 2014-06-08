@@ -39,7 +39,8 @@ doc:
 release: $(PONY_OBJECTS) $(SET_OBJECTS) $(FUTURE_OBJECTS)
 
 $(PONY_OBJECTS):
-	make -C $(SRC_DIR) pony
+	make -C $(SRC_DIR)
+	make -C $(PONY_DIR)
 	mkdir -p $(INC_DIR)
 	mkdir -p $(LIB_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)
