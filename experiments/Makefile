@@ -15,6 +15,9 @@ $(LIBPONY_A_PATH):
 	cd $(SRC_PATH); make clean_pony
 	make -C $(SRC_PATH); make
 
+Futures.test: Futures.test.c
+	clang -std=c11 -ggdb -Wall -I../src/runtime -I../src/runtime/set -I../src/runtime/future -I../src/runtime/pony/inc/ -I../src/runtime/pony/src Futures.test.c `find ../src/runtime/pony/obj/Debug/pony -name "*.o"` ../src/runtime/future/future.o ../src/runtime/future/future_actor.o ../src/runtime/set/set.o ../src/runtime/future/ccontext.o -o Futures.test
+
 clean:
 	rm -f $(TARGETS)
 	rm -rf *.dSYM

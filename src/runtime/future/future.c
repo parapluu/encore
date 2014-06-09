@@ -6,40 +6,16 @@
 #include <assert.h>
 #include <ucontext.h>
 #include "future.h"
-#include "context.h"
+#include "ccontext.h"
 #include "future_actor.h"
 
 extern pony_actor_type_t future_actor_type;
 
-#define CHECK_RESUME if (resuming) { resuming = false; return; }
-
 // This is a thread-local variable holding the context saved in the
 // scheduler loop that we want to jump back into on a block
-__thread ucontext_t *scheduler_loop = NULL;
+__thread volatile ucontext_t *scheduler_loop = NULL;
 // FIXME: This is a hack which lets an actor test whether it is resuming or not
 __thread volatile bool resuming = false;
-
-void setResuming(volatile bool r) {
-  resuming = r;
-}
-
-volatile bool getResuming() {
-  return resuming;
-}
-
-void setSchedulerLoop(ucontext_t *c) {
-  scheduler_loop = c;
-}
-
-bool getSchedulerLoop() {
-  return scheduler_loop;
-}
-
-void saveSchedulerLoopContext() {
-  ucontext_t *ctx = malloc(sizeof(ucontext_t));
-  getcontext(ctx);
-  setSchedulerLoop(ctx);
-}
 
 
 // This function is almost verbatim actor_create from actor.c, but
@@ -51,7 +27,7 @@ pony_actor_t* future_create() {
   return actor_create_stage_two(&future_actor_type, &(fut->actor));
 }
   
-future *createNewFuture(pony_actor_t* actor) {
+future *createNewFuture() {
   future *fut = (future*) future_create();
   fut->payload.populated = false;
   fut->payload.value = NULL;
@@ -62,30 +38,31 @@ void chain(future *fut, pony_actor_t* actor, void *closure) {
   pony_arg_t argv[2];
   argv[0].p = actor;
   argv[1].p = closure;
+  fprintf(stderr, "%p <--- chain (%p) from %p\n", fut, closure, actor);
   pony_sendv(fut, FUT_MSG_CHAIN, 2, argv);
 }
 
 void block(future *fut, pony_actor_t* actor) {
-  ucontext_t *ctx = malloc(sizeof(ucontext_t));
-  getcontext(ctx);
-  
+  stacklet_t *context = t_make_stacklet();
+
+  pony_arg_t argv[2];
+  argv[0].p = actor;
+  argv[1].p = context;
+  fprintf(stderr, "%p <--- block (%p) from %p\n", fut, context, actor);
+  pony_sendv(fut, FUT_MSG_BLOCK, 2, argv);
+
+  t_save(context);
+
   // If we are resumed here, we should simply return from here
   //CHECK_RESUME
-  if (resuming) {
-    resuming = false;
+  if (context->resumed) {
     fprintf(stderr, "Resuming in blocking\n");
     return;
   } else {
     fprintf(stderr, "Passed the resume point in blocking without resuming\n");
   }
   
-  pony_arg_t argv[2];
-  argv[0].p = actor;
-  argv[1].p = ctx;
-  pony_sendv(fut, FUT_MSG_BLOCK, 2, argv);
-
-  setResuming(true);
-  setcontext(scheduler_loop);
+  t_bail(actor->p);
 
   fprintf(stderr, "IF THIS TEXT IS EVER PRINTED, THEN THE YIELD BACK TO THE SCHEDULER FAILED\n");
   assert(false);
@@ -93,19 +70,27 @@ void block(future *fut, pony_actor_t* actor) {
 }
 
 void yield(future *fut, pony_actor_t* actor) {
-  ucontext_t *ctx = malloc(sizeof(ucontext_t));
-  getcontext(ctx);
-
-  // If we are resumed here, we should simply return from here
-  CHECK_RESUME
+  stacklet_t *stacklet = t_make_stacklet();
  
   pony_arg_t argv[2];
   argv[0].p = actor;
-  argv[1].p = ctx;
+  argv[1].p = stacklet;
+  fprintf(stderr, "%p <--- yield (%p) from %p\n", fut, stacklet, actor);
   pony_sendv(fut, FUT_MSG_YIELD, 2, argv);
-  setResuming(true);
-  setcontext(scheduler_loop);
+
+  // If we are resumed here, we should simply return from here
+  if (stacklet->resumed) {
+    fprintf(stderr, "Resuming in yield\n");
+    return;
+  } else {
+    fprintf(stderr, "Passed the resume point in yield without resuming\n");
+  }
+
+  t_bail(actor->p);
   // XXX: call to suspend and put the actor back on the scheduler queue
+
+  fprintf(stderr, "IF THIS TEXT IS EVER PRINTED, THEN THE YIELD BACK TO THE SCHEDULER FAILED\n");
+  assert(false);
 }
 
 bool populated(future *fut) {
@@ -130,5 +115,6 @@ void fulfil(future *fut, void *value) {
     fut->payload = temp;
     pony_arg_t argv[1];
     argv[0].p = NULL;
+    fprintf(stderr, "%p <--- fulfil\n", fut);
     pony_sendv(fut, FUT_MSG_FULFIL, 1, argv);
 }
