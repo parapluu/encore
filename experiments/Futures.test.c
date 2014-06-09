@@ -6,9 +6,14 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <pthread.h>
 #include "future.h"
 #include "ccontext.h"
 
+// Debug
+void print_threadid() {
+  fprintf(stderr, "{{{ current thread: %p }}}\n", pthread_self());
+}
 
 typedef struct state_t
 {
@@ -50,7 +55,9 @@ static pony_msg_t m_start = {0, {{NULL, 0, PONY_PRIMITIVE}} };
 
 static void trace(void* p)
 {
-  // leak for now
+  state_t* d = p;
+  if (d->value_producer) pony_traceactor(d->value_producer);
+  if (d->other_actor) pony_traceactor(d->other_actor);
 }
 
 static pony_msg_t* message_type(uint64_t id)
@@ -68,39 +75,52 @@ static pony_msg_t* message_type(uint64_t id)
   return NULL;
 }
 
-static void dispatch2(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv)
-{
-  fprintf(stderr, "********************************* DISPATCH in %p with %d *********************************\n", this, id);
+static state_t *actors_init(void *p) {
+  if (p == NULL) {
+    state_t *state = pony_alloc(sizeof(state_t));
+    state->value_producer = NULL;
+    state->other_actor = NULL;
+    pony_set(state);
+    return state;
+  } else {
+    return (state_t*) p;
+  }
+}
 
-  state_t* d = p;
+static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
+  fprintf(stderr, "[%p]\t********************************* DISPATCH in %p with %d *********************************\n", pthread_self(), this, id);
+
+  state_t *d = actors_init(p);
+
+  // t_checkpoint(&d->markPoint, dispatch2, this, d, id, argc, argv);
 
   switch(id)
     {
      case PONY_MAIN:
       {
-	fprintf(stderr, "%p <--- start \n", this);
+	fprintf(stderr, "[%p]\t%p <--- start \n", pthread_self(), this);
 	pony_send(this, MSG_START);
 	break;
       }
      case MSG_START:
       {
         pony_actor_t* value_producer = pony_create(&type);
-	fprintf(stderr, "Server is: %p\n", value_producer);
+	fprintf(stderr, "[%p]\tServer is: %p\n", pthread_self(), value_producer);
         d->value_producer = value_producer;
         // Create a future and asynchronously call value_producer
         future * fut = createNewFuture();
-	fprintf(stderr, "Future is: %p\n", fut);
-        fprintf(stderr, "Value in fresh future: %d\n", (int) getValue(fut));
+	fprintf(stderr, "[%p]\tFuture is: %p\n", pthread_self(), fut);
+        fprintf(stderr, "[%p]\tValue in fresh future: %d\n", pthread_self(), (int) getValue(fut));
 
         pony_arg_t args[1];
         args[0].p = fut;
-	fprintf(stderr, "%p <--- async call (%p) from %p\n", d->value_producer, fut, this);
+	fprintf(stderr, "[%p]\t%p <--- async call (%p) from %p\n", pthread_self(), d->value_producer, fut, this);
         pony_sendv(d->value_producer, MSG_ASYNC_CALL, 1, args);
 
         // for (int i = 0; i<10; ++i) pony_sendv(this, MSG_SELF_CALL, 1, args);
 	// getchar();
 
-        fprintf(stderr, ".....\n");
+        fprintf(stderr, "[%p]\t.....\n", pthread_self());
 
         // block	
 	if (!populated(fut)) {
@@ -109,16 +129,16 @@ static void dispatch2(pony_actor_t* this, void* p, uint64_t id, int argc, pony_a
 	  print_threadid();
 	}
 
-        fprintf(stderr, "Returning from blocking\n");
-        fprintf(stderr, "Populated: %d\n", populated(fut));
-        fprintf(stderr, "Value: %d\n", (int) getValue(fut));
+        fprintf(stderr, "[%p]\tReturning from blocking\n", pthread_self());
+        fprintf(stderr, "[%p]\tPopulated: %d\n", pthread_self(), populated(fut));
+        fprintf(stderr, "[%p]\tValue: %d\n", pthread_self(), (int) getValue(fut));
 
         break;
       }
 
     case MSG_ASYNC_CALL:
       {
-        fprintf(stderr, "Returning a value by installing it in the future\n");
+        fprintf(stderr, "[%p]\tReturning a value by installing it in the future\n", pthread_self());
         // perform long-running calculation, set future value
         future *fut = (future*) argv[0].p;
 	fulfil(fut, (void*) 42);
@@ -135,38 +155,28 @@ static void dispatch2(pony_actor_t* this, void* p, uint64_t id, int argc, pony_a
 
     case FUT_MSG_RESUME:
       {
-	fprintf(stderr, "Main is resuming on a future!\n");
+	fprintf(stderr, "[%p]\tMain is resuming on a future!\n", pthread_self());
 	stacklet_t *context = argv[0].p;
 	context->resumed = true;
 	context->context.uc_link = &d->markPoint.context;
 	setcontext(&context->context);
   //t_resume(context);
-	fprintf(stderr, "Done resuming\n");
+	fprintf(stderr, "[%p] Done resuming\n", pthread_self());
 	break;
       }
 
     case MSG_SELF_CALL:
       {
-        fprintf(stderr, "Self calling!\n");
+        fprintf(stderr, "[%p]\tSelf calling!\n", pthread_self());
         break;
       }
 
     }
 }
 
-static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
-  state_t *d = p;
-  if (d == NULL) {
-    p = d = pony_alloc(sizeof(state_t));
-    pony_set(d);
-  }
-
-  t_checkpoint(&d->markPoint, dispatch2, this, d, id, argc, argv);
-}
-
 int main(int argc, char** argv)
 {
   pony_actor_t* main = pony_create(&type);
-  fprintf(stderr, "Main is: %p\n", main);
+  fprintf(stderr, "[%p]\tMain is: %p\n", pthread_self(), main);
   return pony_start(argc, argv, main);
 }

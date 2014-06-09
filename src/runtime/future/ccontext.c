@@ -5,37 +5,37 @@
 #include <pthread.h>
 #include <stdio.h>
 
-// Debug
-void print_threadid() {
-  fprintf(stderr, "{{{ current thread: %p }}}\n", pthread_self());
-}
+#define STACK_SIZE (8 * 1024 * 1024)
 
 void t_resume(stacklet_t *context) {
-  ucontext_t here; 
-  context->context.uc_link = &here;
-  swapcontext(&here, &context->context);
+  setcontext(&context->context);
 }
 
-stacklet_t *t_make_stacklet() {
+stacklet_t *t_init() {
   return malloc(sizeof(stacklet_t));
 }
 
-void t_bail(stacklet_t *markPoint) {
-  markPoint->resumed = true;
-  setcontext(&markPoint->old);
+// TODO: need to rewrite strategy to get back into scheduler
+// - When a thread A goes back into the scheduler, how does its new stack get deleted?
+// - Ideally, A should be the one to resume an interruption and at this point release 
+//   all resources for the temporary parallel stack
+extern __thread void *t_hacky_scheduler;
+extern void* run_thread(void* p);
+
+static void __t_restart(void *this) {
+  run_thread(t_hacky_scheduler);
 }
 
-void t_checkpoint(stacklet_t *markPoint, dispatch_t dispatch, void* this, void* p, long id, int argc, void* argv) {
-  markPoint->resumed = false;
-  getcontext(&markPoint->context);
-
-  if (markPoint->resumed == false) {
-    markPoint->context.uc_link = &markPoint->old;
-    markPoint->context.uc_stack.ss_sp = malloc(1024*1024);
-    markPoint->context.uc_stack.ss_size = 1024*1024;
-    markPoint->context.uc_stack.ss_flags = 0;        
-
-    makecontext(&markPoint->context, dispatch, 5, this, p, id, argc, argv);
-    swapcontext(&markPoint->old, &markPoint->context);
-  }
+void t_restart(stacklet_t *context, void *this) {
+  getcontext(&context->old);
+  // TODO: have a pool of stacks
+  char *stack = malloc(STACK_SIZE+16);
+  // Align stack on a 16 byte boundary to please OS X
+  context->old.uc_stack.ss_sp    = stack + ((long) stack) % 16;
+  context->old.uc_stack.ss_size  = STACK_SIZE;
+  context->old.uc_stack.ss_flags = 0;        
+  context->old.uc_link           = 0;
+  
+  makecontext(&context->old, __t_restart, 1, this);
+  swapcontext(&context->context, &context->old);
 }
