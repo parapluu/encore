@@ -83,7 +83,7 @@ doCompile ast source options =
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..." 
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -o" <+> execName <+> ponyLibPath <+> setLibPath <+> contextLibPath <+> "-I" <+> incPath)
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> setLibPath <+> contextLibPath <+> "-I" <+> incPath)
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)

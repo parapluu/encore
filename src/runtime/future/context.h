@@ -14,10 +14,10 @@
 
 typedef struct _ctx ctx_t;
 
-// set up a context, then use it to call the method implementation,
-// with the void pointer as the argument; this function should be
-// called from the dispatch function
-void *ctx_call(void(*)(void*), void*);
+// Set up a context and use it to call the method implementation, with
+// the context as the argument. The void pointer will be the context's
+// payload. This function should be called from the pony-stack.
+void *ctx_call(void(*)(ctx_t*), void*);
 
 // free a context
 void ctx_free(ctx_t*);
@@ -34,7 +34,7 @@ void ctx_print(ctx_t*, char*);
 void *ctx_await(ctx_t*);
 
 // return the payload
-void *ctx_get_payload(ctx_t*);
+volatile void * volatile ctx_get_payload(ctx_t*);
 
 // reinstate an awaiting context, setting a payload (the matching
 // ctx_await_result will return the payload void*)
