@@ -2,9 +2,7 @@
  *  @file future_actor.h
  */
 
-#define _XOPEN_SOURCE
-
-#include <ucontext.h>
+#include "ccontext.h"
 
 #ifndef __future_actor_h
 #define __future_actor_h
