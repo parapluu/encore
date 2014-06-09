@@ -25,6 +25,7 @@ instance Translatable A.Program (CCode FIN) where
                "stdlib.h",
                "unistd.h", -- for sleep(..)
                "set.h",
+               "closure.h",
                "context.h",
                --"string.h",
                --"inttypes.h",

@@ -1,5 +1,6 @@
 PONY_DIR=runtime/pony
 SET_DIR=runtime/set
+CLOSURE_DIR=runtime/closure
 
 all: compiler
 
@@ -20,6 +21,9 @@ back:
 
 set: 
 	make -C $(SET_DIR)
+
+closure: 
+	make -C $(CLOSURE_DIR)
 
 test: 
 	make -C tests
@@ -52,4 +56,4 @@ clean_pony:
 	[ -f $(PONY_DIR)/Makefile ] && make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-.PHONY: all compiler parser ir types back clean clean_pony set
+.PHONY: all compiler parser ir types back clean clean_pony set closure

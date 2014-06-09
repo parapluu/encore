@@ -70,9 +70,8 @@ doCompile ast source options =
        incPath <- return $ encorecDir ++ "./inc/"
        ponyLibPath <- return $ encorecDir ++ "lib/libpony.a"
        setLibPath <- return $ encorecDir ++ "lib/set.o"
+       closureLibPath <- return $ encorecDir ++ "lib/closure.o"
        contextLibPath <- return $ encorecDir ++ "lib/context.o"
-
-       
 
        progName <- return $ dropDir . dropExtension $ source
        execName <- case find (isOutput) options of
