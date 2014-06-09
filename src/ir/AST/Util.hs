@@ -2,12 +2,13 @@
 {-| 
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram) where
+module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
 
 import AST.AST
+import Types
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
 foldr f acc e@(MethodCall {target, args}) = 
@@ -193,3 +194,12 @@ extendAccumProgram f acc (Program classes) = (acc0, Program program')
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
+
+extractTypes :: Program -> [Type]
+extractTypes (Program classes) = List.nub $ concat $ concatMap extractClassTypes classes
+    where
+      extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
+      extractFieldTypes Field {ftype} = typeComponents ftype
+      extractMethodTypes Method {mtype, mparams, mbody} = (typeComponents mtype) : (map extractParamTypes mparams) ++ [extractExprTypes mbody]
+      extractParamTypes Param {ptype} = typeComponents ptype
+      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [voidType] e
