@@ -24,7 +24,7 @@
 // The payload is a boolean flag that controls whether the future value has been set
 // The value is the future's value
 typedef struct future_payload {
-  bool populated;
+  bool fulfilled;
   void *value;
 } future_payload;
 
@@ -38,11 +38,12 @@ typedef struct future {
  * Creates a new future object, including an actor to drive its logic
  */
 future *createNewFuture();
-bool populated(future *fut);
+bool fulfilled(future *fut);
 void *getValue(future *fut);
 void chain(future *fut, pony_actor_t* actor, void *closure);
 void block(future *fut, pony_actor_t* actor);
-void yield(future *fut, pony_actor_t* actor);
+void await(future *fut, pony_actor_t* actor);
+void yield(pony_actor_t* actor);
 void fulfil(future *fut, void *value);
 
 #endif

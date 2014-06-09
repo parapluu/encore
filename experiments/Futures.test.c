@@ -123,14 +123,14 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
         fprintf(stderr, "[%p]\t.....\n", pthread_self());
 
         // block	
-	if (!populated(fut)) {
+	if (!fulfilled(fut)) {
 	  print_threadid();
 	  block(fut, this);
 	  print_threadid();
 	}
 
         fprintf(stderr, "[%p]\tReturning from blocking\n", pthread_self());
-        fprintf(stderr, "[%p]\tPopulated: %d\n", pthread_self(), populated(fut));
+        fprintf(stderr, "[%p]\tPopulated: %d\n", pthread_self(), fulfilled(fut));
         fprintf(stderr, "[%p]\tValue: %d\n", pthread_self(), (int) getValue(fut));
 
         break;

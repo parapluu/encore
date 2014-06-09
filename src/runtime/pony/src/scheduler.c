@@ -40,6 +40,11 @@ static volatile uint32_t quiet;
 static volatile uint32_t done;
 static volatile int exit_code;
 
+// XXX
+bool is_quiet(void *t) {
+  return false;
+}
+
 static inline pony_actor_t* scheduler_worksteal(scheduler_t* s)
 {
   scheduler_t* from;
@@ -85,10 +90,18 @@ static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
   return prev;
 }
 
-static void* run_thread(void* arg)
+__thread scheduler_t *t_hacky_scheduler;
+
+void *get_q() {
+  return &t_hacky_scheduler->q;
+}
+
+void* run_thread(void* arg)
 {
   scheduler_t* s = arg;
   cpu_affinity(s->cpu);
+
+  t_hacky_scheduler = arg;
 
   pony_actor_t* actor = NULL;
 
