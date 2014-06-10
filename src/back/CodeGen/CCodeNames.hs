@@ -23,6 +23,7 @@ bool = Typ "int"
 double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
+closure = Ptr $ Typ "struct closure"
 
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
@@ -30,21 +31,9 @@ method_impl_name :: Ty.Type -> ID.Name -> CCode Name
 method_impl_name clazz mname =
     Nam $ (show clazz) ++ "_" ++ (show mname)
 
-closure_impl_name :: String -> CCode Name
-closure_impl_name name =
-    Nam $ "_" ++ name
-
-closure_type_name :: String -> CCode Name
-closure_type_name name =
-    Nam $ "_" ++ name ++ "_fun_t"
-
 closure_fun_name :: String -> CCode Name
 closure_fun_name name =
     Nam $ "_" ++ name ++ "_fun"
-
-closure_env_name :: String -> CCode Name
-closure_env_name name =
-    Nam $ "_" ++ name ++ "_env"
 
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
