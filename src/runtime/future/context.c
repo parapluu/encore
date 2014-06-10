@@ -83,14 +83,14 @@ void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
 }
 #else
 void uctx_set(uctx_t *uctx) {
-  setcontext(uctx);
+  setcontext(&(uctx->ucontext));
 }
 
 void uctx_annotate(uctx_t *uctx, char *info) {
 }
 
 void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
-  swapcontext(save, run);
+  swapcontext(&(save->ucontext), &(run->ucontext));
 }
 #endif // _DBG
 
@@ -162,23 +162,9 @@ void ctx_call(pausable_fun func, void *args) {
   uctx_annotate(&(ctx->mthd_ctx), "ctx_call");
 
   char* mthd_stck = malloc(sizeof(char)*STACKLET_SIZE);
-#ifdef _DBG
   ucontext_t *muctx = &(ctx->mthd_ctx.ucontext);
-#else
-  ucontext_t *muctx = ctx;
-#endif
-#ifdef _DBG
-  ucontext_t *error_ctx = malloc(sizeof(ucontext_t));
-  getcontext(error_ctx);
-  makecontext(error_ctx,
-              error,
-              2,
-              args_spl.ints[0],
-              args_spl.ints[1]);
-  muctx->uc_link  = error_ctx;
-#else
+
   muctx->uc_link  = NULL;
-#endif // _DBG
 
   muctx->uc_stack.ss_sp = mthd_stck;
   muctx->uc_stack.ss_size  = STACKLET_SIZE;
