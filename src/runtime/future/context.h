@@ -50,9 +50,11 @@ void ctx_call(pausable_fun func, void* d);
    
    Called from inside a `pausable_fun`.
 
-   This will cause the call to `ctx_call` to return. If the context is
-   later used as an argument to `ctx_reinstate`, the call will be
-   resumed as if `ctx_await` had just returned.
+   Execution will resume at whichever happened last: `ctx_call` or
+   `ctx_reinstate`.
+
+   If the context is later used as an argument to `ctx_reinstate`, the
+   call will be resumed as if `ctx_await` had just returned.
    
    @param ctx The context of the function to be paused.
 */
