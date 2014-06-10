@@ -54,6 +54,7 @@ type_to_printf_fstr ty
     | Ty.isIntType ty = "%lli"
     | Ty.isRealType ty = "%f"
     | Ty.isStringType ty = "%s"
+    | Ty.isBoolType ty = "bool(%d)"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
@@ -66,6 +67,11 @@ tmp_var ty cex = do
     na <- Ctx.gen_sym
     return $ (Var na, Assign (Decl (translate ty, Var na)) cex)
   else return (error $ show cex ++ " is void",Statement cex)
+
+tmp_arr :: CCode Ty -> [CCode Expr] -> State Ctx.Context (CCode Lval, CCode Stat)
+tmp_arr cty arr = do
+    na <- Ctx.gen_sym
+    return $ (Var na, Assign (Decl (cty, Var $ na ++ "[]")) (Record arr))
 
 substitute_var :: ID.Name -> CCode Lval -> State Ctx.Context ()
 substitute_var na impl = do
@@ -108,12 +114,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        (Statement
                         (Call (Nam "printf") -- TODO: weird Seq
                                   [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"", ne]))])
+
   translate seq@(A.Seq {A.eseq = es}) = do
     ntes <- mapM translate es
     let (nes, tes) = unzip ntes
-    tmp <- Ctx.gen_sym
-    let lastn = head $ reverse nes
-    return (lastn, Seq $ (tes :: [CCode Stat]))
+    return (last nes, Seq tes)
+
   translate (A.Assign {A.lhs = lvar, A.rhs = expr}) = do
     (nexpr,texpr) <- translate expr
     (nlvar, tlvar) <- translate lvar
@@ -121,6 +127,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             Seq [texpr,
                  tlvar,
                  Seq[Assign nlvar nexpr]])
+
   translate (A.VarAccess {A.name = name}) = do
       c <- get
       case Ctx.subst_lkp c name of
@@ -275,24 +282,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Parsec.string "}"
                             return id
 
-  translate clos@(A.Closure{}) = do let impl_name = closure_impl_name (A.getMetaId clos)
-                                    tmp <- Ctx.gen_sym
-                                    return $ (Var tmp, Concat $ (Assign (Decl (Ptr $ Typ $ "struct ___" ++ (show $ closure_impl_name (A.getMetaId clos)), Var tmp)) (Call (Nam "pony_alloc") [Call (Nam "sizeof") [Nam $ "struct ___" ++ (show (impl_name))]])) : [Embed $ tmp ++ "->call = " ++ (show (closure_fun_name (A.getMetaId clos)))])
-                                        
+  translate clos@(A.Closure{}) = 
+      do let fun_name = closure_fun_name (A.getMetaId clos)
+         tmp <- Ctx.gen_sym
+         return $ (Var tmp, (Assign (Decl (Ptr $ Typ $ "struct closure", Var tmp)) (Call (Nam "closure_mk") [fun_name])))
 
   translate fcall@(A.FunctionCall{A.name = name, A.args = args}) = 
       do c <- get
-         let fun = Var $ (case Ctx.subst_lkp c name of
-                           Just subst_name -> show subst_name
-                           Nothing -> show name) ++ "->call"
-         targs <- mapM varaccess_this_to_aref args
-         tmp_var (A.getType fcall) (Call fun targs)
+         let clos = Var $ (case Ctx.subst_lkp c name of
+                             Just subst_name -> show subst_name
+                             Nothing -> show name)
+             ty = A.getType fcall
+         targs <- mapM translateArgument args
+         (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value") targs
+         if Ty.isVoidType ty then
+             return (error "Function is void", Seq [tmp_arg_decl, Statement (Call (getValFun ty) [Call (Nam "closure_call") [clos, tmp_args]])])
+         else
+             do 
+               (calln, the_call) <- tmp_var ty $ Call (getValFun ty) [Call (Nam "closure_call") [clos, tmp_args]]
+               return (calln, Seq [tmp_arg_decl, the_call])
       where
-        varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-        varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
-        varaccess_this_to_aref other = 
-            do (ntother, tother) <- translate other
-               return $ StatAsExpr ntother tother
+        getValFun ty
+            | Ty.isIntType  ty = Nam "val_to_int"
+            | Ty.isRealType ty = Nam "val_to_dbl"
+            | otherwise        = Nam "val_to_ptr"
+        translateArgument arg = 
+            do (ntother, tother) <- translate arg
+               return $ Call (toValFun (A.getType arg)) [StatAsExpr ntother tother]
+            where
+              toValFun ty
+                  | Ty.isIntType  ty = Nam "int_to_val"
+                  | Ty.isRealType ty = Nam "dbl_to_val"
+                  | otherwise        = Nam "ptr_to_val"
+
 
   translate other = error $ "Expr.hs: can't translate: `" ++ show other ++ "`"
 

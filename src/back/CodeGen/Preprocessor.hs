@@ -6,6 +6,7 @@ import qualified AST.Util as Util
 preprocess :: A.Program -> A.Program
 preprocess = giveClosuresUniqueNames
 
+giveClosuresUniqueNames :: A.Program -> A.Program
 giveClosuresUniqueNames ast = snd $ Util.extendAccumProgram uniqueClosureName 0 ast
     where
       uniqueClosureName acc e

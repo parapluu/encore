@@ -1,17 +1,5 @@
 // TODO: the stack should be packed at the end of the ctx_t to avoid the unnecessary dereferency
 
-// stack seems to be destroyed upon calling setcontext.
-// This is due to:
-// 1. the method returning on the first of capture_context
-// 2. the actor resuming work, using the stack
-// 3. the answer coming in and re
-// conjecture:
-// it *should* work to:
-//  - in dispatch
-//   1. create a stacklet to run the call on by using `makecontext`
-//   2. save the context using `getcontext`
-//  - on get, save the context as per usual and switch back to the old stack
-
 #include "context.h"
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
@@ -58,19 +46,18 @@ typedef struct _annotated_ucontext_t {
 } uctx_t;
 
 typedef struct _ctx {
-  volatile uctx_t mthd_ctx;    // the method's context
-  volatile uctx_t pony_ctx;    // pony's context
+  uctx_t mthd_ctx;    // the method's context
+  uctx_t pony_ctx;    // pony's context
 #ifdef _DBG
   char * volatile lock_info;
 #endif
-  volatile pthread_spinlock_t ctx_lk; // this shall only be unlocked once it's
-                                   // legal to jump back into the method
-  volatile bool done;              // shall be true if the context is ready to be used
-  volatile void * volatile  payload;
+  pthread_spinlock_t ctx_lk; // this shall only be unlocked once it's
+                             // legal to jump back into the method
+  volatile bool reinstated;
+  volatile bool done;
 } ctx_t;
 
 void ctx_free(ctx_t *ctx) {
-  //XXX: payload may leak
   pthread_spin_destroy(&(ctx->ctx_lk));
   free(ctx);
 }
@@ -115,16 +102,15 @@ void ctx_print(ctx_t *ctx, char* title) {
   if (ctx == NULL) {
     printf("NULL\n");
   } else {
-    printf("mthd_ctx  = %p\n",ctx->mthd_ctx);
+    printf("mthd_ctx  = %p\n",&(ctx->mthd_ctx));
 #ifdef _DBG
     printf("            (%s)\n",ctx->mthd_ctx.info);
 #endif // _DBG
-    printf("pony_ctx  = %p\n",ctx->pony_ctx);
+    printf("pony_ctx  = %p\n",&(ctx->pony_ctx));
 #ifdef _DBG
     printf("            (%s)\n",ctx->pony_ctx.info);
 #endif // _DBG
-    printf("done      = %i\n",(int)ctx->done);
-    printf("payload   = %p (%i)\n",ctx->payload, (int)ctx->payload);
+    printf("reinstated      = %i\n",(int)ctx->reinstated);
 #ifdef _DBG
     printf("lock_info = %s\n", ctx->lock_info);
 #endif
@@ -151,11 +137,17 @@ void *assemble_ptr(int i0, int i1) {
 // four ints, assembles them into two pointer, the first of which is a
 // function pointer, the second its argument; it then calls the
 // function with the argument.
-void reassemble_and_call(int func0, int func1, int args0, int args1) {
-  void (*func)(void*) = (void (*)(ctx_t*))assemble_ptr(func0,func1);
-  ctx_t *ctx = (ctx_t*)assemble_ptr(args0, args1);
+void reassemble_and_call(int func0, int func1, int ctx0, int ctx1, int args0, int args1) {
+  DBG("reassemble_and_call");
+  void (*func)(ctx_t*,void*) = (void (*)(ctx_t*, void*))assemble_ptr(func0,func1);
+  ctx_t *ctx = assemble_ptr(ctx0, ctx1);
+  void *args = assemble_ptr(args0, args1);
 
-  (*func)(ctx);
+#ifdef _DBG
+  printf("args=%p (reassembled)\n", args);  
+#endif // _DBG
+
+  (*func)(ctx, args);
 
   DBG("method terminated");
 
@@ -163,19 +155,17 @@ void reassemble_and_call(int func0, int func1, int args0, int args1) {
   uctx_set(&(ctx->pony_ctx));
 }
 
-void *ctx_call(void (*func)(ctx_t*), void *args) {
+void ctx_call(pausable_fun func, void *args) {
   DBG("ctx_call");
+
   ctx_t *ctx = calloc(1,sizeof(ctx_t));
-  ctx->payload = args;
   pthread_spin_init(&(ctx->ctx_lk), true);
 
-  union splitptr ctx_spl;
-  ctx_spl.ptr = ctx;
+  union splitptr ctx_spl  = {.ptr = ctx };
+  union splitptr func_spl = {.ptr = func };
+  union splitptr args_spl = {.ptr = args };
 
-  union splitptr func_spl;
-  func_spl.ptr = func;
-
-  getcontext(&(ctx->mthd_ctx));
+  getcontext(&(ctx->mthd_ctx.ucontext));
   uctx_annotate(&(ctx->mthd_ctx), "ctx_call");
 
   char* mthd_stck = malloc(sizeof(char)*SIGSTKSZ);
@@ -189,49 +179,54 @@ void *ctx_call(void (*func)(ctx_t*), void *args) {
   muctx->uc_stack.ss_size  = SIGSTKSZ;
   makecontext(muctx,
               reassemble_and_call,
-              4,
+              6,
               func_spl.ints[0],
               func_spl.ints[1],
               ctx_spl.ints[0],
-              ctx_spl.ints[1]);
+              ctx_spl.ints[1],
+              args_spl.ints[0],
+              args_spl.ints[1]);
 
   LOCK(ctx, "launching call");
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "dispatch");
   UNLOCK(ctx, "call is done");
-  return ctx;
+  if (ctx->done) {
+    ctx_free(ctx);
+  }
+  return;
 }
 
-bool ctx_done(ctx_t *ctx) {
-  DBG("ctx_done");
-  return ctx->done;
+bool ctx_reinstated(ctx_t *ctx) {
+  return ctx->reinstated;
 }
 
-volatile void * volatile ctx_get_payload(ctx_t *ctx) {
-  return ctx->payload;
-}
-
-void *ctx_await(ctx_t *ctx) {
+void ctx_await(ctx_t *ctx) {
   DBG("ctx_await");
   getcontext(&(ctx->mthd_ctx.ucontext));
   uctx_annotate(&(ctx->mthd_ctx),"ctx_await");
-  if (ctx_done(ctx)) {
-    DBG("context done, returning result");
-    void *res = ctx->payload;
-    ctx->done    = false;
-    ctx->payload = NULL;
-    printf("payload=%p\n", res);
-    return res;
+  if (ctx_reinstated(ctx)) {
+    DBG("context reinstated, returning");
+    ctx->reinstated    = false;
+    return;
   } else {
-    DBG("context not done");
+    DBG("context not reinstated");
     uctx_set(&(ctx->pony_ctx)); //will also unlock (all swapcontexts are followed by unlocking)
   }
 }
 
-void ctx_reinstate(ctx_t *ctx, void* payload) {
+void ctx_return(ctx_t* ctx) {
+  DBG("ctx_return");
+  ctx->done = true;
+  ctx_await(ctx);
+}
+
+void ctx_reinstate(ctx_t *ctx) {
   LOCK(ctx, "reinstating");
-  ctx->payload  = payload;
-  ctx->done     = true;
+  ctx->reinstated = true;
   ctx_print(ctx,"reinstate");
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "tell");
   UNLOCK(ctx, "reinstating done");
+  if (ctx->done) {
+    ctx_free(ctx);
+  }
 }
