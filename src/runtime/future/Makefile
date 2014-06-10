@@ -1,6 +1,8 @@
 CC=clang
 FLAGS=-std=gnu11 -ggdb -Wall -pthread -Wno-deprecated-declarations
 
+_: ccontext.o future.o future_actor.o context.o
+
 all: ccontext.o future.o future_actor.o context.o doc
 
 future_actor.o: future_actor.c future_actor.h
@@ -21,4 +23,4 @@ doc:
 clean:
 	rm -f *.o html latex
 
-.PHONY: all clean doc
+.PHONY: all _ clean doc
