@@ -1,6 +1,8 @@
 CC=clang
 FLAGS=-std=gnu11 -ggdb -Wall -pthread -Wno-deprecated-declarations
 
+_: ccontext.o future.o future_actor.o context.o
+
 all: ccontext.o future.o future_actor.o context.o doc
 
 future_actor.o: future_actor.c future_actor.h
@@ -13,7 +15,7 @@ context.o: context.c
 	$(CC) $(FLAGS) context.c -c
 
 ccontext.o: ccontext.c
-	$(CC) $(FLAGS) ccontext.c -c
+	$(CC) $(FLAGS) -I../pony/inc/ -I../pony/src ccontext.c -c
 
 doc:
 	doxygen
@@ -21,4 +23,4 @@ doc:
 clean:
 	rm -rf *.o html latex
 
-.PHONY: all clean doc
+.PHONY: all _ clean doc

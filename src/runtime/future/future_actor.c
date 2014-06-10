@@ -5,9 +5,12 @@
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <pthread.h>
 #include "future_actor.h"
 #include "future.h"
 #include "set.h"
+
+#define DEBUG_PRINT 0
 
 typedef struct future_actor_fields {
   Set blocked;
@@ -100,13 +103,18 @@ static Set getYielded(pony_actor_t* this) {
   return fields->yielded;
 }
 
+// XXX
+extern void pony_actor_unblock(pony_actor_t *actor);
+
 static void resume(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
   stacklet_t *stacklet = entry->context;
   pony_arg_t argv[1];
   argv[0].p = stacklet;
-  fprintf(stderr, "%p <--- resume (%p)\n", target, stacklet);
+  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- resume (%p)\n", pthread_self(), target, stacklet);
+
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
+  pony_actor_unblock(target);
 }
 
 static void run_chain(chained_entry *entry) {
@@ -114,7 +122,7 @@ static void run_chain(chained_entry *entry) {
   void *closure = entry->closure;
   pony_arg_t argv[1];
   argv[0].p = closure;
-  fprintf(stderr, "%p <--- run closure (%p)\n", target, closure);
+  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- run closure (%p)\n", pthread_self(), target, closure);
   pony_sendv(target, FUT_MSG_RUN_CLOSURE, 1, argv); // - see https://trello.com/c/kod5Ablj
 }
 
@@ -126,7 +134,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       // TODO: Add the closure argument to an internal list of closures
       // This entry should record the closure and the actor to run it
-      fprintf(stderr, "Chaining on a future\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tChaining on a future\n", pthread_self());
       Set chained = getChained(this);
       chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
       new_entry->actor = argv[0].p;
@@ -136,8 +144,10 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     }
   case FUT_MSG_BLOCK:
     {
-      if (populated((future*) this)) {
-	fprintf(stderr, "Reaching blocking but future is fulfilled\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tGot block from %p\n", pthread_self(), argv[0].p);
+
+      if (fulfilled((future*) this)) {
+	if (DEBUG_PRINT) fprintf(stderr, "[%p]\tReaching blocking but future is fulfilled\n", pthread_self());
 
 	blocked_entry new_entry = { .actor = argv[0].p , .context = argv[1].p };
 	resume(&new_entry);
@@ -148,7 +158,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
 
       // TODO: Record the actor as one that needs to be woken up when the
       // future value is set
-      fprintf(stderr, "Blocking on a future\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tBlocking on a future\n", pthread_self());
       Set blocked = getBlocked(this);
       blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
@@ -161,7 +171,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // TODO: Record the actor as one that should be sent the resume
       // message (2nd argument) when the future value is set
       // the yielded set can be merged with the blocked set
-      fprintf(stderr, "Yielding on a future\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tYielding on a future\n", pthread_self());
       Set yielded = getYielded(this);
       blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
@@ -174,7 +184,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // TODO:
       // - put all blocking actors back into the scheduler queue
       // - send the appropriate resume messages to all yielding actors
-      fprintf(stderr, "Fulfilling on a future\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tFulfilling on a future\n", pthread_self());
 
       Set chained = getChained(this);
       set_forall(chained, (void *((*)(void *))) run_chain);
@@ -185,12 +195,11 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       Set blocked = getBlocked(this);
       set_forall(blocked, (void *((*)(void *))) resume);
 
-      // For unblocking, see pony's scheduler.c line 70
       break;
     }
   case FUT_MSG_RESUME:
     {
-      fprintf(stderr, "Resuming because we got a resume message from a future\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tResuming because we got a resume message from a future\n", pthread_self());
       resume(argv[0].p);
       break;
     }
@@ -199,7 +208,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // void *closure = argv[0].p;
       // XXX do what's necessary to run the closure obj
       // XXX this should probably trigger an error in a future object! 
-      fprintf(stderr, "This point should not be reached!\n");
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tThis point should not be reached!\n", pthread_self());
       assert(false);
       break;
     }

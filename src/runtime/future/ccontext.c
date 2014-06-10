@@ -1,41 +1,39 @@
 #include "ccontext.h"
 
-#include <string.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "actor_def.h"
 
-// Debug
-void print_threadid() {
-  fprintf(stderr, "{{{ current thread: %p }}}\n", pthread_self());
+#define STACK_SIZE (8 * 1024 * 1024)
+
+void t_resume(stacklet_t *s) {
+  longjmp(s->env, 1);
 }
 
-void t_resume(stacklet_t *context) {
-  ucontext_t here; 
-  context->context.uc_link = &here;
-  swapcontext(&here, &context->context);
+stacklet_t *t_init() {
+  return calloc(1, sizeof(stacklet_t));
 }
 
-stacklet_t *t_make_stacklet() {
-  return malloc(sizeof(stacklet_t));
-}
+extern void run_thread_in_same_scheduler_as_actor(void* p);
 
-void t_bail(stacklet_t *markPoint) {
-  markPoint->resumed = true;
-  setcontext(&markPoint->old);
-}
+void t_restart(stacklet_t *s, pony_actor_t *this) {
+  // TODO: quite possibly we can move everything but env from stacklet into stack vars here
+  getcontext(&s->old);
+  // TODO: have a pool of stacks
+  // TODO: if current stack height is very small, use existing stack rather than calloc
+  char *stack = calloc(1, STACK_SIZE+16);
+  // Align stack on a 16 byte boundary to please OS X
+  s->old.uc_stack.ss_sp    = stack + ((long) stack) % 16;
+  s->old.uc_stack.ss_size  = STACK_SIZE;
+  s->old.uc_stack.ss_flags = 0;        
+  s->old.uc_link           = &s->old;
 
-void t_checkpoint(stacklet_t *markPoint, dispatch_t dispatch, void* this, void* p, long id, int argc, void* argv) {
-  markPoint->resumed = false;
-  getcontext(&markPoint->context);
+  this->blocking_on_a_future = true;
 
-  if (markPoint->resumed == false) {
-    markPoint->context.uc_link = &markPoint->old;
-    markPoint->context.uc_stack.ss_sp = malloc(1024*1024);
-    markPoint->context.uc_stack.ss_size = 1024*1024;
-    markPoint->context.uc_stack.ss_flags = 0;        
-
-    makecontext(&markPoint->context, dispatch, 5, this, p, id, argc, argv);
-    swapcontext(&markPoint->old, &markPoint->context);
+  if (setjmp(s->env) == false) {
+    makecontext(&s->old, run_thread_in_same_scheduler_as_actor, 1, this);
+    swapcontext(&s->context, &s->old);
   }
+    
+  free(s->old.uc_stack.ss_sp);
 }

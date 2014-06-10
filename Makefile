@@ -40,6 +40,7 @@ test:
 doc:
 	haddock -o $@ -h $$(find . -name "*.hs" | grep -v "\.#")
 	make -C $(SET_DIR) doc
+	make -C $(FUTURE_DIR) doc
 
 release: $(PONY_OBJECTS) $(SET_OBJECTS) $(CLOSURE_OBJECTS) $(FUTURE_OBJECTS)
 

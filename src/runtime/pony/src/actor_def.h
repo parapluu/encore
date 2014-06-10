@@ -12,11 +12,18 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+#include <stdint.h>
+#include "heap.h"
+#include "map.h"
+#include "actorq.h"
+
 struct pony_actor_t
 {
   void* p;
   uint32_t rc;
   uint32_t thread;
+  bool blocking_on_a_future; // XXX: Refactor 
   bool blocked;
   bool mark;
   bool refchanged;
