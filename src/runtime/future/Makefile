@@ -13,7 +13,7 @@ context.o: context.c
 	$(CC) $(FLAGS) context.c -c
 
 ccontext.o: ccontext.c
-	$(CC) $(FLAGS) ccontext.c -c
+	$(CC) $(FLAGS) -I../pony/inc/ -I../pony/src ccontext.c -c
 
 clean:
 	rm -f *.o

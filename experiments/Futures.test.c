@@ -156,11 +156,8 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
     case FUT_MSG_RESUME:
       {
 	fprintf(stderr, "[%p]\tMain is resuming on a future!\n", pthread_self());
-	stacklet_t *context = argv[0].p;
-	context->resumed = true;
-	context->context.uc_link = &d->markPoint.context;
-	setcontext(&context->context);
-  //t_resume(context);
+	stacklet_t *s = argv[0].p;
+	t_resume(s);
 	fprintf(stderr, "[%p] Done resuming\n", pthread_self());
 	break;
       }

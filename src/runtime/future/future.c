@@ -55,15 +55,6 @@ void block(future *fut, pony_actor_t* actor) {
   fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), fut, context, actor);
   pony_sendv((pony_actor_t*) fut, FUT_MSG_BLOCK, 2, argv);
 
-  // If we are resumed here, we should simply return from here
-  //CHECK_RESUME
-  if (context->resumed) {
-    fprintf(stderr, "[%p]\tResuming in blocking\n", pthread_self());
-    return;
-  } else {
-    fprintf(stderr, "[%p]\tPassed the resume point in blocking without resuming\n", pthread_self());
-  }
-
   t_restart(context, actor);
 }
 
