@@ -54,6 +54,7 @@ type_to_printf_fstr ty
     | Ty.isIntType ty = "%lli"
     | Ty.isRealType ty = "%f"
     | Ty.isStringType ty = "%s"
+    | Ty.isBoolType ty = "bool(%d)"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
