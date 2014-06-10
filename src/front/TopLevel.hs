@@ -19,8 +19,10 @@ import Control.Monad
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
+import AST.Util
 import Typechecker.Typechecker
 import CodeGen.Main
+import CodeGen.Preprocessor
 import CCode.PrettyCCode
 
 data Option = GCC | Clang | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
@@ -82,7 +84,7 @@ doCompile ast source options =
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..." 
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> setLibPath <+> contextLibPath <+> "-I" <+> incPath)
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> setLibPath <+> closureLibPath <+> contextLibPath <+> "-I" <+> incPath)
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)

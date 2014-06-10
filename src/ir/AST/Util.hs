@@ -12,7 +12,7 @@ import Types
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
 foldr f acc e@(MethodCall {target, args}) = 
-    let argResults = List.foldr f acc args in
+    let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
     f e (foldr f argResults target)
 foldr f acc e@(Let {val, body}) = 
     let valResults = foldr f acc val in
@@ -27,9 +27,9 @@ foldr f acc e@(While {cond, body}) =
 foldr f acc e@(Binop {loper, roper}) = 
     let lResults = foldr f acc loper in
     f e (foldr f lResults roper)
-foldr f acc e@(FunctionCall {args}) = f e (List.foldr f acc args)
+foldr f acc e@(FunctionCall {args}) = f e (List.foldr (\e acc -> foldr f acc e) acc args)
 foldr f acc e@(Closure {body}) = f e (foldr f acc body)
-foldr f acc e@(Seq {eseq}) = f e (List.foldr f acc eseq)
+foldr f acc e@(Seq {eseq}) = f e (List.foldr (\e acc -> foldr f acc e) acc eseq)
 foldr f acc e@(Get {val}) = f e (foldr f acc val)
 foldr f acc e@(FieldAccess {target, name}) = f e (foldr f acc target)
 foldr f acc e@(Assign {rhs}) = f e (foldr f acc rhs)
@@ -112,84 +112,84 @@ extend f e@(Print {val}) =
 extend f e = f e
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
-extendAccum f acc e@(MethodCall {target, args}) = 
+extendAccum f acc e@(MethodCall {}) = 
     let (acc0, e'@(MethodCall {target = t, args = a})) = f acc e
-        (acc1, t') = f acc0 t
-        (acc2, a') = List.mapAccumL f acc1 a
+        (acc1, t') = extendAccum f acc0 t
+        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 a
     in
       (acc2, e'{target = t', args = a'})
-extendAccum f acc e@(Let {val, body}) = 
+extendAccum f acc e@(Let {}) = 
     let (acc0, e'@(Let {val = v, body = b})) = f acc e
-        (acc1, v') = f acc0 v
-        (acc2, b') = f acc1 b
+        (acc1, v') = extendAccum f acc0 v
+        (acc2, b') = extendAccum f acc1 b
     in
       (acc2, e'{val = v', body = b'})
-extendAccum f acc e@(IfThenElse {cond, thn, els}) = 
+extendAccum f acc e@(IfThenElse {}) = 
     let (acc0, e'@(IfThenElse {cond = c, thn = t, els = el})) = f acc e
-        (acc1, c') = f acc0 c
-        (acc2, t') = f acc1 t
-        (acc3, el') = f acc2 el
+        (acc1, c') = extendAccum f acc0 c
+        (acc2, t') = extendAccum f acc1 t
+        (acc3, el') = extendAccum f acc2 el
     in
       (acc3, e'{cond = c', thn = t', els = el'})
-extendAccum f acc e@(While {cond, body}) = 
+extendAccum f acc e@(While {}) = 
     let (acc0, e'@(While {cond = c, body = b})) = f acc e
-        (acc1, c') = f acc0 c
-        (acc2, b') = f acc1 b
+        (acc1, c') = extendAccum f acc0 c
+        (acc2, b') = extendAccum f acc1 b
     in
       (acc2, e'{cond = c', body = b'})
-extendAccum f acc e@(Binop {loper, roper}) = 
+extendAccum f acc e@(Binop {}) = 
     let (acc0, e'@(Binop {loper = l, roper = r})) = f acc e
-        (acc1, l') = f acc0 l
-        (acc2, r') = f acc1 r
+        (acc1, l') = extendAccum f acc0 l
+        (acc2, r') = extendAccum f acc1 r
     in
       (acc2, e'{loper = l', roper = r'})
-extendAccum f acc e@(FunctionCall {args}) = 
+extendAccum f acc e@(FunctionCall {}) = 
     let (acc0, e'@(FunctionCall{args = a})) = f acc e 
-        (acc1, a') = List.mapAccumL f acc0 a
+        (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 a
     in
       (acc1, e'{args = a'})
-extendAccum f acc e@(Closure {body}) = 
+extendAccum f acc e@(Closure {}) = 
     let (acc0, e'@(Closure {body = b})) = f acc e
-        (acc1, b') = f acc0 b
+        (acc1, b') = extendAccum f acc0 b
     in
       (acc1, e'{body = b'})
-extendAccum f acc e@(Seq {eseq}) = 
+extendAccum f acc e@(Seq {}) = 
     let (acc0, e'@(Seq {eseq = es})) = f acc e
-        (acc1, es') = List.mapAccumL f acc0 es
+        (acc1, es') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 es
     in
       (acc1, e'{eseq = es'})
-extendAccum f acc e@(Get {val}) = 
+extendAccum f acc e@(Get {}) = 
     let (acc0, e'@(Get {val = v})) = f acc e
-        (acc1, v') = f acc0 v
+        (acc1, v') = extendAccum f acc0 v
     in
       (acc1, e'{val = v'})
-extendAccum f acc e@(FieldAccess {target}) = 
+extendAccum f acc e@(FieldAccess {}) = 
     let (acc0, e'@(FieldAccess {target = t})) = f acc e
-        (acc1, t') = f acc0 t
+        (acc1, t') = extendAccum f acc0 t
     in
       (acc1, e'{target = t'})
-extendAccum f acc e@(Assign {rhs}) = 
+extendAccum f acc e@(Assign {}) = 
     let (acc0, e'@(Assign {rhs = r})) = f acc e
-        (acc1, r') = f acc0 r
+        (acc1, r') = extendAccum f acc0 r
     in
       (acc1, e'{rhs = r'})
-extendAccum f acc e@(Print {val}) = 
+extendAccum f acc e@(Print {}) = 
     let (acc0, e'@(Print {val = v})) = f acc e
-        (acc1, v') = f acc0 v
+        (acc1, v') = extendAccum f acc0 v
     in
       (acc1, e'{val = v'})
 extendAccum f acc e = f acc e
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc (Program classes) = (acc0, Program program')
+extendAccumProgram f acc (Program classes) = (acc', Program program')
     where 
-      (acc0, program') = List.mapAccumL (extendAccumClass f) acc classes
-      extendAccumClass f acc cls@(Class{methods}) = (acc1, cls{methods = methods'})
+      (acc', program') = List.mapAccumL (extendAccumClass f) acc classes
+      extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
           where
-            (acc1, methods') = List.mapAccumL (extendAccumMethod f) acc methods
-            extendAccumMethod f acc mtd@(Method{mbody}) = (acc2, mtd{mbody = mbody'})
+            (acc', methods') = List.mapAccumL (extendAccumMethod f) acc methods
+            extendAccumMethod f acc mtd@(Method{mbody}) = (acc', mtd{mbody = mbody'})
                 where
-                  (acc2, mbody') = extendAccum f acc mbody
+                  (acc', mbody') = extendAccum f acc mbody
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]

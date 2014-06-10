@@ -8,7 +8,7 @@ all: $(OBJECTS)
 $(OBJECTS) : %.o : %.c %.h
 	$(CC) $(FLAGS) -c $<
 
-test: closure.o
+test: closure.o test.c
 	$(CC) $(FLAGS) test.c -o test closure.o
 	./test
 
