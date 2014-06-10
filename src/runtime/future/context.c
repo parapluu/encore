@@ -1,5 +1,3 @@
-// TODO: the stack should be packed at the end of the ctx_t to avoid the unnecessary dereferency
-
 #include "context.h"
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
@@ -19,6 +17,8 @@
 
 //#define _DBG
 
+#define STACKLET_SIZE 100000
+
 #ifdef _DBG
 #define LOCK(ctx, str)                                                  \
   printf("attempting lock (\"%s\") at line <%i>...", str, __LINE__);    \
@@ -37,6 +37,9 @@
 #define DBG(str) (1);
 #endif // _DBG
 
+#define SET_BOOL(ptr, val) __sync_bool_compare_and_swap(ptr, !(val), val)
+#define GET_BOOL(ptr) __sync_fetch_and_add(ptr, 0)
+
 
 typedef struct _annotated_ucontext_t {
   ucontext_t ucontext;
@@ -49,12 +52,12 @@ typedef struct _ctx {
   uctx_t mthd_ctx;    // the method's context
   uctx_t pony_ctx;    // pony's context
 #ifdef _DBG
-  char * volatile lock_info;
+  char * lock_info;
 #endif
   pthread_spinlock_t ctx_lk; // this shall only be unlocked once it's
                              // legal to jump back into the method
-  volatile bool reinstated;
-  volatile bool done;
+  bool reinstated;
+  bool done;
 } ctx_t;
 
 void ctx_free(ctx_t *ctx) {
@@ -68,58 +71,50 @@ void uctx_set(uctx_t *uctx) {
   uctx->info = NULL;
   setcontext(&(uctx->ucontext));
 }
-#else
-void uctx_set(uctx_t *uctx) {
-  setcontext(uctx);
-}
-#endif // _DBG
 
-#ifdef _DBG
 void uctx_annotate(uctx_t *uctx, char *info) {
   uctx->info = info;
 }
-#else
-void uctx_annotate(uctx_t *uctx, char *info) {
-}
-#endif // _DBG
 
-#ifdef _DBG
 void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
   save->info = info;
   printf("DBG: swapping to %s\n", run->info);
   swapcontext(&(save->ucontext), &(run->ucontext));
 }
 #else
+void uctx_set(uctx_t *uctx) {
+  setcontext(uctx);
+}
+
+void uctx_annotate(uctx_t *uctx, char *info) {
+}
+
 void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
   swapcontext(save, run);
 }
 #endif // _DBG
 
 void ctx_print(ctx_t *ctx, char* title) {
-#ifdef _DBG
   printf("vvvvvvv %s\n", title);
   printf("ctx @ %p:\n", ctx);
   if (ctx == NULL) {
     printf("NULL\n");
   } else {
-    printf("mthd_ctx  = %p\n",&(ctx->mthd_ctx));
+    printf("mthd_ctx   = %p\n",&(ctx->mthd_ctx));
 #ifdef _DBG
     printf("            (%s)\n",ctx->mthd_ctx.info);
 #endif // _DBG
-    printf("pony_ctx  = %p\n",&(ctx->pony_ctx));
+    printf("pony_ctx   = %p\n",&(ctx->pony_ctx));
 #ifdef _DBG
     printf("            (%s)\n",ctx->pony_ctx.info);
 #endif // _DBG
-    printf("reinstated      = %i\n",(int)ctx->reinstated);
+    printf("reinstated = %i\n", GET_BOOL(&(ctx->reinstated)));
 #ifdef _DBG
     printf("lock_info = %s\n", ctx->lock_info);
 #endif
   }
   printf("^^^^^^^\n");
-#endif
 }
-
-const unsigned int STACKLET_SIZE = 512;
 
 union splitptr {
   int ints[2];
@@ -149,10 +144,8 @@ void reassemble_and_call(int func0, int func1, int ctx0, int ctx1, int args0, in
 
   (*func)(ctx, args);
 
-  DBG("method terminated");
-
-  //resume whatever the current pony context is:
-  uctx_set(&(ctx->pony_ctx));
+  // function is done, clear up and skip back:
+  ctx_return(ctx);
 }
 
 void ctx_call(pausable_fun func, void *args) {
@@ -168,15 +161,27 @@ void ctx_call(pausable_fun func, void *args) {
   getcontext(&(ctx->mthd_ctx.ucontext));
   uctx_annotate(&(ctx->mthd_ctx), "ctx_call");
 
-  char* mthd_stck = malloc(sizeof(char)*SIGSTKSZ);
+  char* mthd_stck = malloc(sizeof(char)*STACKLET_SIZE);
 #ifdef _DBG
   ucontext_t *muctx = &(ctx->mthd_ctx.ucontext);
 #else
   ucontext_t *muctx = ctx;
 #endif
+#ifdef _DBG
+  ucontext_t *error_ctx = malloc(sizeof(ucontext_t));
+  getcontext(error_ctx);
+  makecontext(error_ctx,
+              error,
+              2,
+              args_spl.ints[0],
+              args_spl.ints[1]);
+  muctx->uc_link  = error_ctx;
+#else
   muctx->uc_link  = NULL;
+#endif // _DBG
+
   muctx->uc_stack.ss_sp = mthd_stck;
-  muctx->uc_stack.ss_size  = SIGSTKSZ;
+  muctx->uc_stack.ss_size  = STACKLET_SIZE;
   makecontext(muctx,
               reassemble_and_call,
               6,
@@ -190,23 +195,19 @@ void ctx_call(pausable_fun func, void *args) {
   LOCK(ctx, "launching call");
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "dispatch");
   UNLOCK(ctx, "call is done");
-  if (ctx->done) {
+  if (GET_BOOL(&(ctx->done))) {
     ctx_free(ctx);
   }
   return;
-}
-
-bool ctx_reinstated(ctx_t *ctx) {
-  return ctx->reinstated;
 }
 
 void ctx_await(ctx_t *ctx) {
   DBG("ctx_await");
   getcontext(&(ctx->mthd_ctx.ucontext));
   uctx_annotate(&(ctx->mthd_ctx),"ctx_await");
-  if (ctx_reinstated(ctx)) {
+  if (GET_BOOL(&(ctx->reinstated))) {
     DBG("context reinstated, returning");
-    ctx->reinstated    = false;
+    SET_BOOL(&(ctx->reinstated), false);
     return;
   } else {
     DBG("context not reinstated");
@@ -216,17 +217,19 @@ void ctx_await(ctx_t *ctx) {
 
 void ctx_return(ctx_t* ctx) {
   DBG("ctx_return");
-  ctx->done = true;
+  SET_BOOL(&(ctx->done), true);
   ctx_await(ctx);
 }
 
 void ctx_reinstate(ctx_t *ctx) {
   LOCK(ctx, "reinstating");
-  ctx->reinstated = true;
-  ctx_print(ctx,"reinstate");
+  SET_BOOL(&(ctx->reinstated), true);
+#ifdef _DBG
+    ctx_print(ctx,"reinstate");
+#endif // _DBG
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "tell");
   UNLOCK(ctx, "reinstating done");
-  if (ctx->done) {
+  if (GET_BOOL(&(ctx->done))) {
     ctx_free(ctx);
   }
 }

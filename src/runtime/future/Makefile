@@ -19,6 +19,6 @@ doc:
 	doxygen
 
 clean:
-	rm -f *.o html latex
+	rm -rf *.o html latex
 
 .PHONY: all clean doc
