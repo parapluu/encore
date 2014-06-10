@@ -46,9 +46,8 @@ static pony_msg_t m_yield = {2,
 			       {NULL, 0, PONY_ACTOR},
 			       {NULL, 0, PONY_ACTOR}}};
 // FIXME -- 2nd arg should be Ctx defined in context.h
-static pony_msg_t m_block = {3,
+static pony_msg_t m_block = {2,
 			     {
-			       {NULL, 0, PONY_ACTOR},
 			       {NULL, 0, PONY_ACTOR},
 			       {NULL, 0, PONY_ACTOR}}};
 // FIXME -- 2nd arg in chain should be any kind of Encore value
@@ -103,7 +102,7 @@ static Set getYielded(pony_actor_t* this) {
 }
 
 // XXX
-extern void unblock(void* t_hacky_q, void* actor);
+extern void unblock(void* actor);
 
 static void resume(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
@@ -114,7 +113,7 @@ static void resume(blocked_entry *entry) {
 
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
 
-  unblock(stacklet->t_hacky_q, target);
+  unblock(target);
 }
 
 static void run_chain(chained_entry *entry) {
@@ -144,13 +143,12 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     }
   case FUT_MSG_BLOCK:
     {
-      fprintf(stderr, "[%p]\tGot block from %p and queue %p\n", pthread_self(), argv[0].p, argv[2].p);
+      fprintf(stderr, "[%p]\tGot block from %p\n", pthread_self(), argv[0].p);
 
-      if (populated((future*) this)) {
+      if (fulfilled((future*) this)) {
 	fprintf(stderr, "[%p]\tReaching blocking but future is fulfilled\n", pthread_self());
 
 	blocked_entry new_entry = { .actor = argv[0].p , .context = argv[1].p };
-	new_entry.context->t_hacky_q = argv[2].p;
 	resume(&new_entry);
 	
 	break;

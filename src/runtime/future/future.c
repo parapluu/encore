@@ -49,13 +49,11 @@ extern void *get_q();
 void block(future *fut, pony_actor_t* actor) {
   stacklet_t *context = t_init();
 
-  pony_arg_t argv[3];
+  pony_arg_t argv[2];
   argv[0].p = actor;
   argv[1].p = context;
-  // XXX
-  argv[2].p = get_q();
-  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p and queue %p\n", pthread_self(), fut, context, actor, argv[2].p);
-  pony_sendv((pony_actor_t*) fut, FUT_MSG_BLOCK, 3, argv);
+  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), fut, context, actor);
+  pony_sendv((pony_actor_t*) fut, FUT_MSG_BLOCK, 2, argv);
 
   // If we are resumed here, we should simply return from here
   //CHECK_RESUME
@@ -65,9 +63,8 @@ void block(future *fut, pony_actor_t* actor) {
   } else {
     fprintf(stderr, "[%p]\tPassed the resume point in blocking without resuming\n", pthread_self());
   }
-  
-  t_restart(context, actor);
 
+  t_restart(context, actor);
 }
 
 void await(future *fut, pony_actor_t* actor) {
