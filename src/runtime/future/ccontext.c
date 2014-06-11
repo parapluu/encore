@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "actor_def.h"
+#include "pool.h"
 
 #define STACK_SIZE (8 * 1024 * 1024)
 
@@ -21,9 +22,9 @@ void t_restart(stacklet_t *s, pony_actor_t *this) {
   getcontext(&s->old);
   // TODO: have a pool of stacks
   // TODO: if current stack height is very small, use existing stack rather than calloc
-  char *stack = calloc(1, STACK_SIZE+16);
+  char *stack = calloc(1, STACK_SIZE);
   // Align stack on a 16 byte boundary to please OS X
-  s->old.uc_stack.ss_sp    = stack + ((long) stack) % 16;
+  s->old.uc_stack.ss_sp    = stack; // stack + ((long) stack) % 16;
   s->old.uc_stack.ss_size  = STACK_SIZE;
   s->old.uc_stack.ss_flags = 0;        
   s->old.uc_link           = &s->old;

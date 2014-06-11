@@ -53,7 +53,7 @@ static pony_msg_t m_block = {2,
 			       {NULL, 0, PONY_ACTOR},
 			       {NULL, 0, PONY_ACTOR}}};
 // FIXME -- 2nd arg in chain should be any kind of Encore value
-static pony_msg_t m_fulfil = {1, {{NULL, 0, PONY_ACTOR}}};
+static pony_msg_t m_fulfil = {0, {{NULL, 0, PONY_ACTOR}}};
 // FIXME -- arg should be Ctx defined in context.h
 static pony_msg_t m_resume_get = {1, {{NULL, 0, PONY_ACTOR}} };
 
@@ -154,7 +154,6 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
 	
 	break;
       }
-
 
       // TODO: Record the actor as one that needs to be woken up when the
       // future value is set

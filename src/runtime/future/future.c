@@ -12,13 +12,6 @@
 
 extern pony_actor_type_t future_actor_type;
 
-// This is a thread-local variable holding the context saved in the
-// scheduler loop that we want to jump back into on a block
-__thread volatile ucontext_t *scheduler_loop = NULL;
-// FIXME: This is a hack which lets an actor test whether it is resuming or not
-__thread volatile bool resuming = false;
-
-
 // This function is almost verbatim actor_create from actor.c, but
 // with the important difference of reserving space for two fields
 // at the end holding the future state. 
@@ -35,42 +28,50 @@ future *createNewFuture() {
   return fut; 
 }
 
-void chain(future *fut, pony_actor_t* actor, void *closure) {
+void chain(future *f, pony_actor_t* a, void *c) {
   pony_arg_t argv[2];
-  argv[0].p = actor;
-  argv[1].p = closure;
-  fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", pthread_self(), fut, closure, actor);
-  pony_sendv((pony_actor_t*) fut, FUT_MSG_CHAIN, 2, argv);
+  argv[0].p = a;
+  argv[1].p = c;
+  fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", pthread_self(), f, c, a);
+  pony_sendv(&f->actor, FUT_MSG_CHAIN, 2, argv);
 }
 
-// XXX
-extern void *get_q();
-
-void block(future *fut, pony_actor_t* actor) {
-  stacklet_t *context = t_init();
+void block(future *f, pony_actor_t* a) {
+  stacklet_t *s = t_init();
 
   pony_arg_t argv[2];
-  argv[0].p = actor;
-  argv[1].p = context;
-  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), fut, context, actor);
-  pony_sendv((pony_actor_t*) fut, FUT_MSG_BLOCK, 2, argv);
+  argv[0].p = a;
+  argv[1].p = s;
+  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), f, s, a);
+  pony_sendv(&f->actor, FUT_MSG_BLOCK, 2, argv);
 
-  t_restart(context, actor);
+  t_restart(s, a);
 }
 
-void await(future *fut, pony_actor_t* actor) {
-  // TODO -- currently the same as block
+extern void pony_actor_unblock(pony_actor_t *a);
+
+void await(future *f, pony_actor_t* a) {
+  stacklet_t *s = t_init();
+
+  pony_arg_t argv[2];
+  argv[0].p = a;
+  argv[1].p = s;
+  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), f, s, a);
+  pony_sendv(&f->actor, FUT_MSG_BLOCK, 2, argv);
+
+  pony_actor_unblock(a);
+  t_restart(s, a);
 }
 
-void yield(pony_actor_t* self) {
-  stacklet_t *context = t_init();
+void yield(pony_actor_t* a) {
+  stacklet_t *s = t_init();
 
   pony_arg_t argv[1];
-  argv[0].p = context;
-  fprintf(stderr, "[%p]\t%p <--- yield (%p)\n", pthread_self(), self, context);
-  pony_sendv(self, FUT_MSG_RESUME, 1, argv);
+  argv[0].p = s;
+  fprintf(stderr, "[%p]\t%p <--- yield (%p)\n", pthread_self(), a, s);
+  pony_sendv(a, FUT_MSG_RESUME, 1, argv);
 
-  t_restart(context, self);
+  t_restart(s, a);
 }
 
 bool fulfilled(future *fut) {
@@ -88,13 +89,11 @@ void *getValueOrBlock(future *fut, pony_actor_t* actor) {
   return fut->payload.value;
 }
 
-void fulfil(future *fut, void *value) {
+void fulfil(future *f, void *value) {
     // XXX: Need to make sure that the entire future payload is written atomically to memory, 
     // or at least that value is written *before* fulfilled is
-    future_payload temp = { true, value }; 
-    fut->payload = temp;
-    pony_arg_t argv[1];
-    argv[0].p = NULL;
-    fprintf(stderr, "[%p]\t%p <--- fulfil\n", pthread_self(), fut);
-    pony_sendv((pony_actor_t*) fut, FUT_MSG_FULFIL, 1, argv);
+    future_payload atom = { true, value }; 
+    f->payload = atom;
+    fprintf(stderr, "[%p]\t%p <--- fulfil\n", pthread_self(), f);
+    pony_send((pony_actor_t*) f, FUT_MSG_FULFIL);
 }

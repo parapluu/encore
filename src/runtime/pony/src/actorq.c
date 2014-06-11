@@ -35,7 +35,9 @@ bool actorq_push(actorq_t* q, uint64_t id, int argc, pony_arg_t* argv)
   prev = (message_t*)((uintptr_t)prev & ~(uintptr_t)1);
 
   // XXX: Figure out how this can happen (why line 38 guard is needed)
-  if (prev)
+  if (prev == NULL || ((uintptr_t) prev) == 1) 
+    return false;
+  
   prev->next = msg;
 
   return was_empty;
