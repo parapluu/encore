@@ -15,10 +15,9 @@ $(ENCORE_TARGETS): %: %.enc $(ENCOREC)
 
 compare_outs: clean
 	make -k $(ENCORE_TARGETS) || true # try to build as many as possible but don't abort
-	@for o in $(OUTFILES); do \
-	  echo $$o: ; \
-	  ./$$(echo $$o | sed "s/\(.*\)\.out/\1/") | cmp $$o && echo OK ; \
-	done
+	@echo 
+	@echo Basic tests:
+	@./test.sh $(ENCORE_TARGETS)
 
 compiler:
 	make -C $(ROOT_PATH) encorec
