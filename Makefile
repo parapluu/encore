@@ -76,6 +76,8 @@ $(FUTURE_OBJECTS):
 
 clean:
 	make -C $(SRC_DIR) clean
+	make -C $(FUTURE_DIR) clean
+	make -C programs clean
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)

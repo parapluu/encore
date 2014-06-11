@@ -192,17 +192,17 @@ Set set_map(Set set, map_fnc f){
     return NULL;
 }
 
-static void node_forall(struct node *node, map_fnc f){
+static void node_forall(struct node *node, forall_fnc f, void *arg){
   if(node){
-    f(node->elem);
-    node_forall(node->left, f);
-    node_forall(node->right, f);
+    f(node->elem, arg);
+    node_forall(node->left, f, arg);
+    node_forall(node->right, f, arg);
   }
 }
 
-void set_forall(Set set, map_fnc f){
+void set_forall(Set set, forall_fnc f, void *arg){
   if(set)
-    node_forall(set->root, f);
+    node_forall(set->root, f, arg);
 }
 
 static void *node_reduce(struct node *node, reduce_fnc f, void *acc){

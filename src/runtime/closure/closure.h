@@ -1,3 +1,6 @@
+#ifndef __closure_h__
+#define __closure_h__
+
 #include <stdint.h>
 
 // This should probably be replaced by the pony_arg_t union
@@ -100,3 +103,5 @@ int val_to_int(value v);
  *  @return \p v as a double
  */
 double val_to_dbl(value v);
+
+#endif

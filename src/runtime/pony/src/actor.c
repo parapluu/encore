@@ -357,6 +357,7 @@ pony_actor_t* actor_create_stage_two(pony_actor_type_t* type, pony_actor_t* acto
   actor->p = NULL;
   actor->rc = 256;
   actor->thread = 0;
+  actor->blocking_on_a_future = false;
   actor->blocked = false;
   actor->mark = false;
   actor->refchanged = false;

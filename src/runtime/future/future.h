@@ -20,6 +20,7 @@
 #include "actorq.h"
 #include "actor_def.h"
 #include "ccontext.h"
+#include "closure.h"
 
 // The payload is a boolean flag that controls whether the future value has been set
 // The value is the future's value
@@ -40,7 +41,7 @@ typedef struct future {
 future *createNewFuture();
 bool fulfilled(future *fut);
 void *getValue(future *fut);
-void chain(future *fut, pony_actor_t* actor, void *closure);
+void chain(future *fut, pony_actor_t* actor, struct closure *closure);
 void block(future *fut, pony_actor_t* actor);
 void await(future *fut, pony_actor_t* actor);
 void yield(pony_actor_t* actor);

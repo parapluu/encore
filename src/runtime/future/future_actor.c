@@ -9,6 +9,7 @@
 #include "future_actor.h"
 #include "future.h"
 #include "set.h"
+#include "closure.h"
 
 #define DEBUG_PRINT 0
 
@@ -20,7 +21,7 @@ typedef struct future_actor_fields {
 
 typedef struct chained_entry {
   pony_actor_t *actor;
-  void *closure;
+  struct closure *closure;
 } chained_entry;
 
 typedef struct blocked_entry {
@@ -53,7 +54,7 @@ static pony_msg_t m_block = {2,
 			       {NULL, 0, PONY_ACTOR},
 			       {NULL, 0, PONY_ACTOR}}};
 // FIXME -- 2nd arg in chain should be any kind of Encore value
-static pony_msg_t m_fulfil = {1, {{NULL, 0, PONY_ACTOR}}};
+static pony_msg_t m_fulfil = {0, {{NULL, 0, PONY_ACTOR}}};
 // FIXME -- arg should be Ctx defined in context.h
 static pony_msg_t m_resume_get = {1, {{NULL, 0, PONY_ACTOR}} };
 
@@ -117,13 +118,14 @@ static void resume(blocked_entry *entry) {
   pony_actor_unblock(target);
 }
 
-static void run_chain(chained_entry *entry) {
+static void run_chain(chained_entry *entry, void *value) {
   pony_actor_t *target = entry->actor;
-  void *closure = entry->closure;
+  struct closure *closure = entry->closure;
   pony_arg_t argv[1];
   argv[0].p = closure;
+  argv[1].p = value;
   if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- run closure (%p)\n", pthread_self(), target, closure);
-  pony_sendv(target, FUT_MSG_RUN_CLOSURE, 1, argv); // - see https://trello.com/c/kod5Ablj
+  pony_sendv(target, FUT_MSG_RUN_CLOSURE, 2, argv); // - see https://trello.com/c/kod5Ablj
 }
 
 void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
@@ -155,7 +157,6 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
 	break;
       }
 
-
       // TODO: Record the actor as one that needs to be woken up when the
       // future value is set
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\tBlocking on a future\n", pthread_self());
@@ -181,19 +182,22 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     }
   case FUT_MSG_FULFIL:
     {
+
+      void *value = ((future*)this)->payload.value;
+
       // TODO:
       // - put all blocking actors back into the scheduler queue
       // - send the appropriate resume messages to all yielding actors
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\tFulfilling on a future\n", pthread_self());
 
       Set chained = getChained(this);
-      set_forall(chained, (void *((*)(void *))) run_chain);
+      set_forall(chained, (void *((*)(void *, void*))) run_chain, value);
 
       Set yielded = getYielded(this);
-      set_forall(yielded, (void *((*)(void *))) resume);
+      set_forall(yielded, (void *((*)(void *, void*))) resume, NULL);
 
       Set blocked = getBlocked(this);
-      set_forall(blocked, (void *((*)(void *))) resume);
+      set_forall(blocked, (void *((*)(void *, void*))) resume, NULL);
 
       break;
     }
