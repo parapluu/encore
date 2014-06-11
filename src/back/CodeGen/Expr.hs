@@ -17,6 +17,7 @@ import qualified Text.Parsec.String as PString
 import CCode.Main
 
 import qualified AST.AST as A
+import qualified AST.Util as Util
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -135,11 +136,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             return (subst_name , Skip)
         Nothing ->
             return (Var $ show name, Skip)
+
   translate (A.FieldAccess {A.target = exp, A.name = name}) = do
     (nexp,texp) <- translate exp
     tmp <- Ctx.gen_sym
     return (EmbedC $ Deref nexp `Dot` (Nam $ show name),
             texp)
+
   translate lit@(A.IntLiteral {A.intLit = i}) = do
       tmp_var (A.getType lit) (Embed (show i))
   translate lit@(A.RealLiteral {A.realLit = r}) = do
@@ -282,10 +285,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Parsec.string "}"
                             return id
 
-  translate clos@(A.Closure{}) = 
-      do let fun_name = closure_fun_name (A.getMetaId clos)
+  translate clos@(A.Closure{A.eparams = params, A.body = body}) = 
+      do let fun_name = closure_fun_name $ A.getMetaId clos
+             env_name = closure_env_name $ A.getMetaId clos
+             free_vars = Util.freeVariables (map A.pname params) body
          tmp <- Ctx.gen_sym
-         return $ (Var tmp, (Assign (Decl (Ptr $ Typ $ "struct closure", Var tmp)) (Call (Nam "closure_mk") [fun_name])))
+         fill_env <- mapM (insert_var env_name) free_vars
+         return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
+                           [Assign (Decl (Ptr $ Typ $ "struct closure", Var tmp)) 
+                                       (Call (Nam "closure_mk") [fun_name, env_name])])
+      where
+        mk_env name = 
+            Assign (Decl (Ptr $ Typ $ "struct ___" ++ show name, AsLval name))
+                    (Call (Nam "malloc") 
+                          [Call (Nam "sizeof") [Var $ "struct ___" ++ show name]])
+        insert_var env_name (name, _) = 
+            do c <- get
+               let tname = case Ctx.subst_lkp c name of
+                              Just subst_name -> subst_name
+                              Nothing -> Var $ show name
+               return $ Assign ((Deref $ Var $ show env_name) `Dot` (Nam $ show name)) tname
 
   translate fcall@(A.FunctionCall{A.name = name, A.args = args}) = 
       do c <- get

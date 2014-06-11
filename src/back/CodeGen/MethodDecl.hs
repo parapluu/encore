@@ -31,7 +31,7 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
     let this_ty = A.cname cdecl
     ctx <- ask
     let ((bodyn,bodys),_) = runState (translate mbody) (Ctx.with_method mdecl ctx)
-    closures <- mapM translateClosure (Util.filter A.isClosure mbody)
+    closures <- mapM translateClosure (reverse (Util.filter A.isClosure mbody)) -- This reverse makes nested closures come before their enclosing closures. Not very nice...
     return $ ConcatTL $ closures ++ 
        [(Function (translate mtype) (method_impl_name this_ty mname)
            ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl mparams))

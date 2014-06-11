@@ -85,6 +85,7 @@ pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
                  braced_block (pp' t) $+$
                  text "else" $+$
                  braced_block (pp' e)
+pp' (Return e) = text "return" <+> pp' e
 --pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
 --pp' (New ty) = error "not implemented: New"
 
