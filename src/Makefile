@@ -47,6 +47,7 @@ clean: clean_pony
 	make -C back clean
 	@echo "cleaning library files..."
 	make -C $(SET_DIR) clean
+	make -C $(CLOSURE_DIR) clean
 	@echo "cleaning test files..."
 	make -C tests clean
 	@echo "done"

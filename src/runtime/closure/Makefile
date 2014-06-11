@@ -16,7 +16,7 @@ doc: Doxyfile
 	doxygen $<
 
 clean: 
-	rm -f set.o test
+	rm -f closure.o test
 	rm -f *\~
 	rm -rf *.dSYM
 	rm -rf html
