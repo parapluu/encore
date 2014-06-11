@@ -25,11 +25,11 @@ struct closure{
 
 /**
  *  Create a new closure. Use closure_free"()" to free the allocated memory.
- *  @param argc The number of arguments to the closure
  *  @param body The body of the closure (see the typedef of closure_fun)
- *  @return A closure with body \p body, taking \p argc arguments
+ *  @param env The environment of the closure
+ *  @return A closure with body \p body and environment \p env
  */
-struct closure *closure_mk(closure_fun body);
+struct closure *closure_mk(closure_fun body, void *env);
 
 /**
  *  Call a closure. 
