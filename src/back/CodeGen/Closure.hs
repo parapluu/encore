@@ -23,21 +23,23 @@ translateClosure :: A.Expr -> (Reader Ctx.Context (CCode Toplevel))
 translateClosure closure 
     | A.isClosure closure = 
         do ctx <- ask
-           let arrowType = A.getType closure
+           let arrowType  = A.getType closure
                resultType = Ty.getResultType arrowType
-               argTypes = Ty.getArgTypes arrowType
-               params = A.eparams closure
-               body = A.body closure
-               id = A.getMetaId closure
-               freeVars = Util.freeVariables (map A.pname params) body
+               argTypes   = Ty.getArgTypes arrowType
+               params     = A.eparams closure
+               body       = A.body closure
+               id         = A.getMetaId closure
+               fun_name   = closure_fun_name id
+               env_name   = closure_env_name id
+               freeVars   = Util.freeVariables (map A.pname params) body
            let ((bodyName, bodyStat), _) = runState (translate body) ctx
            return $ ConcatTL 
-                      [buildEnvironment (closure_env_name id) freeVars,
-                       Function (voidOrValue resultType) (closure_fun_name id)
+                      [buildEnvironment env_name freeVars,
+                       Function (voidOrValue resultType) fun_name
                          [(Typ "value", Var "_args[]"), (Ptr void, Var "_env")]
                          (Seq $ 
                             extractArguments params ++ 
-                            extractEnvironment (closure_env_name id) freeVars ++
+                            extractEnvironment env_name freeVars ++
                             [bodyStat, returnStmnt bodyName resultType])]
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
@@ -46,12 +48,12 @@ translateClosure closure
           | otherwise     = Typ "value"
       returnStmnt var ty 
           | isVoidType ty = Embed ""
-          | otherwise  = Embed $ "return " ++ (toValFun ty) ++ "(" ++ (show var) ++ ")"
+          | otherwise     = Return $ Call (toValFun ty) [var]
           where 
             toValFun ty
-                | isIntType  ty = "int_to_val"
-                | isRealType ty = "dbl_to_val"
-                | otherwise     = "ptr_to_val"
+                | isIntType  ty = Nam "int_to_val"
+                | isRealType ty = Nam "dbl_to_val"
+                | otherwise     = Nam "ptr_to_val"
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []

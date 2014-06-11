@@ -88,3 +88,4 @@ data CCode a where
     While      :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr :: CCode Lval -> CCode Stat -> CCode Expr
     If         :: UsableAs Expr e => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
+    Return     :: UsableAs Expr e => CCode e -> CCode Stat
