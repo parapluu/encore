@@ -11,6 +11,7 @@ typedef struct set *Set;
 
 typedef void (printer_fnc(void *elem)); 
 typedef void *(map_fnc(void *elem)); 
+typedef void *(forall_fnc(void *elem, void* arg)); 
 typedef void *(reduce_fnc(void *elem, void *accumulator));
 
 /**
@@ -91,9 +92,9 @@ Set set_map(Set set, map_fnc f);
  *  Like a map over a set where the return type of f is void.
  *  @param set The set to be mapped over
  *  @param f A function that maps (with or without side-effects) a single element of the set to a new one
- *  @return The set {\p f (x) | x <-- \p set}
+ *  @param arg An argument to be supplied as the last argument to each f
  */
-void set_forall(Set set, map_fnc f);
+void set_forall(Set set, forall_fnc f, void *arg);
 
 /**
  *  Reduce a set to a single element

@@ -28,7 +28,7 @@ future *createNewFuture() {
   return fut; 
 }
 
-void chain(future *f, pony_actor_t* a, void *c) {
+void chain(future *f, pony_actor_t* a, struct closure *c) {
   pony_arg_t argv[2];
   argv[0].p = a;
   argv[1].p = c;

@@ -2,13 +2,14 @@
 {-| 
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes) where
+module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
 
 import AST.AST
 import Types
+import Identifiers
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
 foldr f acc e@(MethodCall {target, args}) = 
@@ -203,3 +204,49 @@ extractTypes (Program classes) = List.nub $ concat $ concatMap extractClassTypes
       extractMethodTypes Method {mtype, mparams, mbody} = (typeComponents mtype) : (map extractParamTypes mparams) ++ [extractExprTypes mbody]
       extractParamTypes Param {ptype} = typeComponents ptype
       extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [voidType] e
+
+freeVariables :: [Name] -> Expr -> [(Name, Type)]
+freeVariables bound expr = List.nub $ freeVariables' bound expr
+    where
+      freeVariables' bound TypedExpr {body} = 
+          freeVariables' bound body
+      freeVariables' bound MethodCall {target, args} = 
+          concatMap (freeVariables' bound) args ++ freeVariables' bound target
+      freeVariables' bound fCall@(FunctionCall {name, args})
+          | name `elem` bound = concatMap (freeVariables' bound) args
+          | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
+          where
+            arrType = arrowType (map getType args) (getType fCall)
+      freeVariables' bound Closure {eparams, body} =
+          freeVariables' bound' body
+          where
+            bound' = bound ++ map pname eparams
+      freeVariables' bound Let {name, val, body} =
+          freeVariables' bound val ++ freeVariables' (name:bound) body
+      freeVariables' bound Seq {eseq} = 
+          concatMap (freeVariables' bound) eseq
+      freeVariables' bound IfThenElse {cond, thn, els} =
+          freeVariables' bound cond ++ 
+          freeVariables' bound thn ++ freeVariables' bound els
+      freeVariables' bound While {cond, body} =
+          freeVariables' bound cond ++ freeVariables' bound body
+      freeVariables' bound Get {val} = 
+          freeVariables' bound val
+      freeVariables' bound FieldAccess {target} = 
+          freeVariables' bound target
+      freeVariables' bound Assign {lhs, rhs} = 
+          freeLVal bound lhs ++ freeVariables' bound rhs
+          where
+            freeLVal bound lval@(LVal {lname})
+                | lname `elem` bound = []
+                | otherwise = [(lname, getType lval)]
+            freeLVal bound LField {ltarget} = freeVariables' bound ltarget
+      freeVariables' bound var@(VarAccess {name})
+          | name `elem` bound = []
+          | otherwise = [(name, getType var)]
+      freeVariables' bound Print {val} = 
+          freeVariables' bound val
+      freeVariables' bound Binop {loper, roper} = 
+          freeVariables' bound loper ++ freeVariables' bound roper
+      freeVariables' bound _ = []
+

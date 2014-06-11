@@ -187,7 +187,7 @@ instance Checkable Expr where
 
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
-           eBody <- local onlyParams $ pushTypecheck body
+           eBody <- local addParams $ pushTypecheck body
            returnType <- return $ AST.getType eBody
            when (isNullType returnType) $ 
                 tcError $ "Cannot infer return type of closure with null-valued body"
@@ -197,6 +197,7 @@ instance Checkable Expr where
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
+          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
            
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val

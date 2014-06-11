@@ -1,3 +1,6 @@
+#ifndef __closure_h__
+#define __closure_h__
+
 #include <stdint.h>
 
 // This should probably be replaced by the pony_arg_t union
@@ -25,11 +28,11 @@ struct closure{
 
 /**
  *  Create a new closure. Use closure_free"()" to free the allocated memory.
- *  @param argc The number of arguments to the closure
  *  @param body The body of the closure (see the typedef of closure_fun)
- *  @return A closure with body \p body, taking \p argc arguments
+ *  @param env The environment of the closure
+ *  @return A closure with body \p body and environment \p env
  */
-struct closure *closure_mk(closure_fun body);
+struct closure *closure_mk(closure_fun body, void *env);
 
 /**
  *  Call a closure. 
@@ -100,3 +103,5 @@ int val_to_int(value v);
  *  @return \p v as a double
  */
 double val_to_dbl(value v);
+
+#endif

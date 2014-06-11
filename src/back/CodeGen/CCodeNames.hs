@@ -35,6 +35,10 @@ closure_fun_name :: String -> CCode Name
 closure_fun_name name =
     Nam $ "_" ++ name ++ "_fun"
 
+closure_env_name :: String -> CCode Name
+closure_env_name name =
+    Nam $ "_" ++ name ++ "_env"
+
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
