@@ -1,5 +1,5 @@
 CC=clang
-FLAGS=-std=gnu11 -ggdb -Wall -pthread -Wno-deprecated-declarations
+FLAGS=-std=gnu11 -ggdb -g -Wall -pthread -Wno-deprecated-declarations
 
 _: ccontext.o future.o future_actor.o context.o
 
@@ -12,7 +12,7 @@ future.o: future.c future.h
 	$(CC) $(FLAGS) -I../pony/inc/ -I../pony/src -I../set  future.c -c
 
 context.o: context.c
-	$(CC) $(FLAGS) context.c -c
+	$(CC) $(FLAGS) -Werror context.c -c
 
 ccontext.o: ccontext.c
 	$(CC) $(FLAGS) -I../pony/inc/ -I../pony/src ccontext.c -c
