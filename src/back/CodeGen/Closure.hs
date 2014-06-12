@@ -35,7 +35,7 @@ translateClosure closure
            let ((bodyName, bodyStat), _) = runState (translate body) ctx
            return $ ConcatTL 
                       [buildEnvironment env_name freeVars,
-                       Function (voidOrValue resultType) fun_name
+                       Function (Typ "value") fun_name
                          [(Typ "value", Var "_args[]"), (Ptr void, Var "_env")]
                          (Seq $ 
                             extractArguments params ++ 
@@ -43,11 +43,8 @@ translateClosure closure
                             [bodyStat, returnStmnt bodyName resultType])]
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
-      voidOrValue ty
-          | isVoidType ty = void
-          | otherwise     = Typ "value"
       returnStmnt var ty 
-          | isVoidType ty = Embed ""
+          | isVoidType ty = Return $ Call (toValFun ty) [unit]
           | otherwise     = Return $ Call (toValFun ty) [var]
           where 
             toValFun ty

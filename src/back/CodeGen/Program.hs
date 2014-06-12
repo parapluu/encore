@@ -32,6 +32,7 @@ instance Translatable A.Program (CCode FIN) where
                --"assert.h",
                "stdio.h"
               ]) :
+    (HashDefine "UNIT NULL - 1") :
     (fwd_decls prog) :
     (map (\cls -> runReader (fwd_decls cls) (Ctx.mk prog)) cs) ++
     (map translate_class_here cs) ++

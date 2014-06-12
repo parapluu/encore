@@ -19,7 +19,7 @@ import qualified Types as Ty
 
 translatePrimitive :: Ty.Type -> CCode Ty
 translatePrimitive ty
-    | Ty.isVoidType ty = void
+    | Ty.isVoidType ty = Ptr void
     | Ty.isIntType ty = int
     | Ty.isRealType ty = double
     | Ty.isBoolType ty = bool

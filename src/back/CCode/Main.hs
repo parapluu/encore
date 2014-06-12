@@ -93,5 +93,5 @@ data CCode a where
     FunTypeDef   :: CCode Name -> CCode Ty -> [CCode Ty] -> CCode Toplevel
     While        :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr   :: CCode Lval -> CCode Stat -> CCode Expr
-    If           :: UsableAs Expr e => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
-    Return       :: UsableAs Expr e => CCode e -> CCode Stat
+    If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
+    Return       :: UsableAs e Expr => CCode e -> CCode Stat
