@@ -81,7 +81,12 @@ static void init(pony_actor_t* this) {
 }
 
 static Set getBlocked(pony_actor_t* this) {
-  future_actor_fields *fields = this->p;
+  assert(this);
+  future_actor_fields *fields = NULL;
+  do {
+    fields = __sync_fetch_and_add(&(this->p), 0);
+  } while (fields == NULL);
+
   if (fields->blocked == NULL) {
     fields->blocked = set_new();
   }
@@ -89,7 +94,12 @@ static Set getBlocked(pony_actor_t* this) {
 }
 
 static Set getChained(pony_actor_t* this) {
-  future_actor_fields *fields = this->p;
+  assert(this);
+  future_actor_fields *fields = NULL;
+  do {
+    fields = __sync_fetch_and_add(&(this->p), 0);
+  } while (fields == NULL);
+
   if (fields->chained == NULL) {
     fields->chained = set_new();
   }
@@ -97,7 +107,12 @@ static Set getChained(pony_actor_t* this) {
 }
 
 static Set getYielded(pony_actor_t* this) {
-  future_actor_fields *fields = this->p;
+  assert(this);
+  future_actor_fields *fields = NULL;
+  do {
+    fields = __sync_fetch_and_add(&(this->p), 0);
+  } while (fields == NULL);
+
   if (fields->yielded == NULL) {
     fields->yielded = set_new();
   }
