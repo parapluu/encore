@@ -55,7 +55,7 @@ translateActiveClass cdecl =
     where
       data_struct :: CCode Toplevel
       data_struct = StructDecl (data_rec_name $ A.cname cdecl) $
-                     ((Ptr $ Embed "pony_actor_t", Var "aref") :
+                     ((Ptr $ pony_actor_t, Var "aref") :
                          zip
                          (map (translate  . A.ftype) (A.fields cdecl))
                          (map (Var . show . A.fname) (A.fields cdecl)))
@@ -137,11 +137,11 @@ translateActiveClass cdecl =
                           (class_message_type_name $ A.cname cdecl)
                           [(Typ "uint64_t", Var "id")]
                           (Concat [(Switch (Var "id")
-                                   ((Nam "MSG_alloc", Embed "return &m_MSG_alloc;")
+                                   ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc")
                                     :(map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
                                       (A.methods cdecl)))
                                    (Concat [])),
-                                   (Embed "return NULL;")])
+                                   (Return Null)])
         where
           message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
           message_type_clause cname mname =
@@ -222,17 +222,16 @@ instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              mthd_fwds <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (fwd_decls mdecl))) (A.methods cdecl)
              return $ ConcatTL $
                         (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
-                        [Embed $ "typedef struct ___"++cname++"_data "++cname++"_data;",
-                         Embed $ "static pony_actor_type_t " ++ (show . actor_rec_name $ A.cname cdecl) ++ ";",
-                         Embed $ "static void " ++cname++
-                                   "_dispatch(pony_actor_t*, void*, uint64_t, int, pony_arg_t*);"] ++
+                        [Typedef (Struct . Nam $ cname ++ "_data") (Nam $ cname ++ "_data"), 
+                         DeclTL (Static . Typ $ "pony_actor_type_t", AsLval $ actor_rec_name $ A.cname cdecl), 
+                         FunctionDecl (Static void) (Nam $ cname ++ "_dispatch") [Ptr pony_actor_t, Ptr void, uint, Typ "int", Ptr pony_arg_t]] ++
                         mthd_fwds
       | otherwise =
           do let cname = show (A.cname cdecl)
              mthd_fwds <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (fwd_decls mdecl))) (A.methods cdecl)
              return $ ConcatTL $
                         (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
-                        [Embed $ "typedef struct ___"++cname++"_data "++cname++"_data;"] ++
+                        [Typedef (Struct . Nam $ cname ++ "_data") (Nam $ cname ++ "_data")] ++
                         mthd_fwds
 
 comment_section :: String -> CCode a

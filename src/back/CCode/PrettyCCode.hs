@@ -33,6 +33,7 @@ switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccode
 pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
 pp' Skip = text ""
+pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement seq@(StoopidSeq _)) = pp' seq -- avoid double semicolons!
@@ -42,9 +43,11 @@ pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
                       (braced_block . vcat . map pp') fields <> text ";"
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
+pp' (Struct name) = text "struct ___" <> tshow name
 pp' (Record ccodes) = text "{" <+> (hcat $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
+pp' (DeclTL (ty, id)) = tshow ty <+> tshow id <> text ";"
 pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (text "*" <> tshow id) <> parens (hcat $ intersperse (text ", ") $ map pp' argTys) <+> text ";"
 pp' (Concat ccodes) = block ccodes
 pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
@@ -60,9 +63,12 @@ pp' (Parens ccode) = lparen <> pp' ccode <> rparen
 pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
 pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
+pp' (Cast ty e) = lparen <> pp' ty <> rparen <+> pp' e
 pp' (ArrAcc i l) = lparen <> pp' l <> text "[" <> tshow i <> text "]" <> rparen
 pp' (Amp ccode) = lparen <> text "&" <> pp' ccode <> rparen
 pp' (Ptr ty) = pp' ty <> text "*"
+pp' (FunctionDecl ret_ty name args) = tshow ret_ty <+> tshow name <>
+                    lparen <> hcat (intersperse (text ", ") $ map pp' args) <> rparen $+$ text ";"
 pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>
                     lparen <> pp_args args <> rparen $+$
                     (braced_block . pp') body
@@ -77,7 +83,8 @@ pp' (EmbedC ccode) = pp' ccode
 pp' (Call name args) = tshow name <> lparen <>
                        (hcat $ intersperse (text ", ") $ map pp' args) <>
                        rparen
-pp' (TypeDef name ccode) = text ("typedef") <+> pp' ccode <+> tshow name <> text ";"
+pp' (Typedef ty name) = text ("typedef") <+> pp' ty <+> tshow name <> text ";"
+pp' (Sizeof ty) = text ("sizeof") <> parens (pp' ty)
 pp' (While cond body) = text "while" <+> lparen <> pp' cond <> rparen $+$
                         braced_block (pp' body)
 pp' (StatAsExpr n s) = text "({" <> pp' s <+> pp' n <> text ";})"
@@ -85,7 +92,7 @@ pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
                  braced_block (pp' t) $+$
                  text "else" $+$
                  braced_block (pp' e)
-pp' (Return e) = text "return" <+> pp' e
+pp' (Return e) = text "return" <+> pp' e <> text ";"
 --pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
 --pp' (New ty) = error "not implemented: New"
 

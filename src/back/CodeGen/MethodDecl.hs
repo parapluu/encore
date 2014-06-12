@@ -36,8 +36,8 @@ instance Translatable A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
        [(Function (translate mtype) (method_impl_name this_ty mname)
            ((data_rec_ptr this_ty, Var "this"):(map mparam_to_cvardecl mparams))
            (if not $ Ty.isVoidType mtype
-            then (Seq $ bodys : [Embed ("return " ++ show bodyn)])
-            else bodys))]
+            then (Seq $ bodys : [Return bodyn])
+            else (Seq $ bodys : [Return unit])))]
     where
       mparam_to_cvardecl (A.Param {A.pname = na, A.ptype = ty}) = (translate ty, Var $ show na)
 
@@ -48,8 +48,5 @@ instance FwdDeclaration A.MethodDecl (Reader Ctx.Context (CCode Toplevel)) where
                         A.mbody = mbody} = do
       cdecl <- asks (fromJust . Ctx.the_class)
       let this_ty = A.cname cdecl
-      let params = data_rec_ptr this_ty : map (\(A.Param {A.ptype = ty}) -> (translate ty)) mparams
-      return $ Embed $ show (translate mtype) ++ " " ++
-             show (method_impl_name this_ty mname) ++ "(" ++ 
-                  (concat $ intersperse ", " $ map show params) ++
-             ");"
+          params = data_rec_ptr this_ty : map (\(A.Param {A.ptype = ty}) -> (translate ty)) mparams
+      return $ FunctionDecl (translate mtype) (method_impl_name this_ty mname) params
