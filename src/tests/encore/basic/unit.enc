@@ -1,0 +1,15 @@
+class Foo
+  f : void
+  def foo(unit : void) : void
+    print "Got unit"
+
+class Main
+  def main() : void
+    let unit1 = () in
+    let unit2 = () in
+    let x = new Foo in
+    let f = \(x : void) -> {print "Got unit"; x} in
+      {x.foo(unit1);
+       f(unit2);
+       unit1 = unit2
+      }

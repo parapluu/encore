@@ -87,6 +87,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate null@(A.Null {}) = tmp_var (A.getType null) Null
   translate true@(A.BTrue {}) = tmp_var (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = tmp_var (A.getType false) (Embed "0/*False*/"::CCode Expr)
+  translate lit@(A.IntLiteral {A.intLit = i}) = tmp_var (A.getType lit) (Embed (show i))
+  translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Embed (show r))
+  translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (Embed (show s))
+
   translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     (ne1,ts1) <- translate (e1 :: A.Expr)
     (ne2,ts2) <- translate (e2 :: A.Expr)
@@ -99,6 +103,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (BinOp (translate op)
                                          (ne1 :: CCode Lval)
                                          (ne2 :: CCode Lval)))])
+
   translate (A.Print {A.val = e}) =
       do
         (ne,te) <- translate e
@@ -135,13 +140,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (EmbedC $ Deref nexp `Dot` (Nam $ show name),
             texp)
 
-  translate lit@(A.IntLiteral {A.intLit = i}) = do
-      tmp_var (A.getType lit) (Embed (show i))
-  translate lit@(A.RealLiteral {A.realLit = r}) = do
-      tmp_var (A.getType lit) (Embed (show r))
-  translate lit@(A.StringLiteral {A.stringLit = s}) = do
-      tmp_var (A.getType lit) (Embed (show s))
-
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
                        (ne1,te1) <- translate e1
                        substitute_var name ne1
@@ -149,12 +147,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return (ne2,
                                Seq [te1,
                                     te2])
+
   translate new@(A.New {A.ty = ty}) 
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")
                                                  [Amp $ actor_rec_name ty,
                                                   AsExpr . AsLval . Nam $ "MSG_alloc"])
       | otherwise = tmp_var ty (Call (Nam "pony_alloc") 
-                                     [Call (Nam "sizeof") [Nam $ show (data_rec_name ty)]])
+                                     [Sizeof $ Typ $ show (data_rec_name ty)])
+
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
         (Ty.isPassiveRefType . A.getType) target = sync_call
@@ -204,6 +204,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             varaccess_this_to_aref other                                     = do
                      (ntother, tother) <- translate other
                      return $ StatAsExpr ntother tother
+
   translate w@(A.While {A.cond = cond, A.body = body}) = 
       do (ncond,tcond) <- translate cond
          (nbody,tbody) <- translate body
