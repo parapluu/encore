@@ -31,10 +31,10 @@ FUTURE_OBJECTS=$(FUTURE_INC) $(FUTURE_LIB)
 all: encorec
 
 encorec: release
-	make -C $(SRC_DIR) all
+	make -C $(SRC_DIR) compiler
 	cp -r $(ENCOREC) $(RELEASE_DIR)
 
-test:
+test: encorec
 	make -C $(SRC_DIR) test
 
 doc:
@@ -42,41 +42,39 @@ doc:
 	make -C $(SET_DIR) doc
 	make -C $(FUTURE_DIR) doc
 
-release: $(PONY_OBJECTS) $(SET_OBJECTS) $(CLOSURE_OBJECTS) $(FUTURE_OBJECTS)
+release: dirs pony set closure future
 
-$(PONY_OBJECTS):
-	make -C $(SRC_DIR)
-	make -C $(PONY_DIR)
+dirs: $(INC_DIR) $(LIB_DIR)
+
+$(INC_DIR):
 	mkdir -p $(INC_DIR)
+
+$(LIB_DIR):
 	mkdir -p $(LIB_DIR)
+
+pony: dirs $(PONY_OBJECTS)
+	make -C $(SRC_DIR) pony
 	cp -r $(PONY_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 
-$(SET_OBJECTS):
+set: dirs $(SET_OBJECTS)
 	make -C $(SRC_DIR) set
-	mkdir -p $(INC_DIR)
-	mkdir -p $(LIB_DIR)
 	cp -r $(SET_INC) $(INC_DIR)
 	cp -r $(SET_LIB) $(LIB_DIR)
 
-$(CLOSURE_OBJECTS):
+closure: dirs $(CLOSURE_OBJECTS)
 	make -C $(SRC_DIR) closure
-	mkdir -p $(INC_DIR)
-	mkdir -p $(LIB_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
 
-$(FUTURE_OBJECTS):
+future: dirs $(FUTURE_OBJECTS)
 	@echo "#############"
-	make -C $(FUTURE_DIR)
-	mkdir -p $(INC_DIR)
-	mkdir -p $(LIB_DIR)
+	make -C $(SRC_DIR) future
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
 
 clean:
 	make -C $(SRC_DIR) clean
-	make -C $(FUTURE_DIR) clean
 	make -C programs clean
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)

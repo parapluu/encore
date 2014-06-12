@@ -5,7 +5,7 @@ INC_PATH=../parser:../ir:../types:../back
 all: encorec
 
 encorec: TopLevel.hs
-	$(HC) $< -o encorec -i$(INC_PATH)
+	$(HC) $< -o encorec $(FLAGS)
 
 clean:
 	rm -f encorec *.hi *.o *\~

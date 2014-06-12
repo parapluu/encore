@@ -1,18 +1,12 @@
-ROOT_PATH=../..
-ENCOREC=$(ROOT_PATH)/release/encorec
+all: test benchmark
 
-all: test benchmark encorec
-
-test: $(ENCOREC)
+test: 
 	make -C encore test
 	make -C compiler test
 	make -C pony test
 
-benchmark: encorec
+benchmark: 
 	make -C benchmarks benchmark
-
-$(ENCOREC):
-	make -C $(ROOT_PATH)
 
 clean:
 	make -C encore clean

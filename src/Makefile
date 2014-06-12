@@ -1,10 +1,11 @@
 PONY_DIR=runtime/pony
 SET_DIR=runtime/set
 CLOSURE_DIR=runtime/closure
+FUTURE_DIR=runtime/future
 
 all: compiler
 
-compiler: parser ir types back set pony
+compiler: 
 	make -C front
 
 parser: 
@@ -24,6 +25,9 @@ set:
 
 closure: 
 	make -C $(CLOSURE_DIR)
+
+future: 
+	make -C $(FUTURE_DIR)
 
 test: 
 	make -C tests
@@ -48,6 +52,7 @@ clean: clean_pony
 	@echo "cleaning library files..."
 	make -C $(SET_DIR) clean
 	make -C $(CLOSURE_DIR) clean
+	make -C $(FUTURE_DIR) clean
 	@echo "cleaning test files..."
 	make -C tests clean
 	@echo "done"
@@ -57,4 +62,4 @@ clean_pony:
 	[ -f $(PONY_DIR)/Makefile ] && make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-.PHONY: all compiler parser ir types back clean clean_pony set closure
+.PHONY: all compiler future parser ir types back clean clean_pony set closure

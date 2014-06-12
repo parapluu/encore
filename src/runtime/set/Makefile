@@ -5,7 +5,7 @@ OBJECTS=set.o
 
 all: $(OBJECTS)
 
-$(OBJECTS) : %.o : %.c
+$(OBJECTS) : %.o : %.c %.h
 	$(CC) $(FLAGS) -c $<
 
 test: set.o
