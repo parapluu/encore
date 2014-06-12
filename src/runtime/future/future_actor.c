@@ -119,13 +119,18 @@ static void resume(blocked_entry *entry) {
 }
 
 static void run_chain(chained_entry *entry, void *value) {
-  pony_actor_t *target = entry->actor;
   struct closure *closure = entry->closure;
-  pony_arg_t argv[1];
-  argv[0].p = closure;
-  argv[1].p = value;
-  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- run closure (%p)\n", pthread_self(), target, closure);
-  pony_sendv(target, FUT_MSG_RUN_CLOSURE, 2, argv); // - see https://trello.com/c/kod5Ablj
+  pony_actor_t *target = entry->actor;
+  if (target != NULL) {
+    pony_arg_t argv[1];
+    argv[0].p = closure;
+    argv[1].p = value;
+    if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- run closure (%p)\n", pthread_self(), target, closure);
+    pony_sendv(target, FUT_MSG_RUN_CLOSURE, 2, argv); // - see https://trello.com/c/kod5Ablj
+  } else {
+    union value arg[] = {ptr_to_val(value)};
+    closure_call(closure, arg);
+  }
 }
 
 void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {

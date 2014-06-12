@@ -19,11 +19,16 @@ counter: counter.c
 	  clang -ggdb -Wall -Werror ~/code/mylittlepony/release/lib/* -I ~/code/mylittlepony/release/inc counter.c -o counter
 
 Futures.test: Futures.test.c
-	clang -std=c11 -ggdb -Wall -I../src/runtime -I../src/runtime/set -I../src/runtime/future -I../src/runtime/pony/inc/ -I../src/runtime/pony/src Futures.test.c `find ../src/runtime/pony/obj/Debug/pony -name "*.o"` ../src/runtime/future/future.o ../src/runtime/future/future_actor.o ../src/runtime/set/set.o ../src/runtime/future/ccontext.o -o Futures.test
+	clang -std=c11 -ggdb -Wall -I ../release/inc -I../src/runtime -I../src/runtime/set -I../src/runtime/future -I../src/runtime/pony/inc/ -I../src/runtime/pony/src Futures.test.c ../release/lib/context.o `find ../src/runtime/pony/obj/Debug/pony -name "*.o"` ../src/runtime/future/future.o ../src/runtime/future/future_actor.o ../src/runtime/set/set.o ../src/runtime/future/ccontext.o -o Futures.test
+
+Futures: Futures.pony.c
+	rm -f ../release/lib/*.o
+	make -C .. release
+	clang -std=c11 -ggdb -Wall -Werror ../release/lib/* -I ../release/inc -I ../src/runtime/pony/src/ Futures.pony.c -o Futures
 
 clean:
 	rm -f $(TARGETS)
 	rm -rf *.dSYM
 	rm -f *\~
 
-.PHONY: clean all
+.PHONY: clean all Futures
