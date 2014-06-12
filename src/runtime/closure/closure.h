@@ -15,9 +15,11 @@ typedef union value {
 struct closure;
 
 /**
- *  The body of a closure. The function should start by reading
- *  its arguments, using closure_get_arg_ptr() et al. It should
- *  return a value using closure_val_ptr() et al.
+ *  The body of a closure.
+
+ *  The function should start by reading its arguments, using
+ *  closure_get_arg_ptr() et al. It should return a value using
+ *  ptr_to_val() et al.
  */
 typedef value (*closure_fun)(value[], void*);
 
@@ -27,7 +29,10 @@ struct closure{
 };
 
 /**
- *  Create a new closure. Use closure_free"()" to free the allocated memory.
+ *  Create a new closure.
+ * 
+ *  Use closure_free"()" to free the allocated memory.
+ * 
  *  @param body The body of the closure (see the typedef of closure_fun)
  *  @param env The environment of the closure
  *  @return A closure with body \p body and environment \p env
