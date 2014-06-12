@@ -14,6 +14,7 @@ test:
 
 %: %.enc
 #ls -l
+	@rm -f $@
 	@echo "compiling '$@'"
 	@$(ENCOREC) $@.enc -clang -c
 
