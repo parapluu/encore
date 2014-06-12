@@ -1,45 +1,38 @@
+// Possible optimisation: 
+// dynamically growing stacks:
+// 1) start with very small stack;
+// 2) figure out when stack overflow is near, in which case:
+// 3) attempt realloc on the stack
+// 3.1) if relloc fails: alloc new stacklet and swap to that
+
 #include "context.h"
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
 #undef _XOPEN_SOURCE
 
-
 #include <stdlib.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <errno.h>
-#include "spinlock_compatibility.h"
 
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <sys/time.h>
 
-//#define _DBG
+#define _DBG
 
-#define STACKLET_SIZE 100000
+// TODO: Figure out a good value for this. This implementation uses
+// large stacks, but they're not needed this big.
+#define STACKLET_SIZE SIGSTKSZ
 
 #ifdef _DBG
-#define LOCK(ctx, str)                                                  \
-  printf("attempting lock (\"%s\") at line <%i>...", str, __LINE__);    \
-  pthread_spin_lock(&(ctx->ctx_lk)); printf("ok\n");                    \
-  ctx->lock_info = str;
-#define UNLOCK(ctx,str)                                                 \
-  printf("attempting unlock (\"%s\") at line <%i>...", str, __LINE__);  \
-  pthread_spin_unlock(&(ctx->ctx_lk)); printf("ok\n");                  \
-  ctx->lock_info = str
 #define DBG(str) printf("DBG: %s\n",str);
 #else
-#define LOCK(ctx,str)                                                   \
-  pthread_spin_lock(&(ctx->ctx_lk))
-#define UNLOCK(ctx,str)                                                 \
-  pthread_spin_unlock(&(ctx->ctx_lk))
-#define DBG(str) (1);
+#define DBG(str) ;
 #endif // _DBG
 
 #define SET_BOOL(ptr, val) __sync_bool_compare_and_swap(ptr, !(val), val)
 #define GET_BOOL(ptr) __sync_fetch_and_add(ptr, 0)
-
 
 typedef struct _annotated_ucontext_t {
   ucontext_t ucontext;
@@ -51,17 +44,11 @@ typedef struct _annotated_ucontext_t {
 typedef struct _ctx {
   uctx_t mthd_ctx;    // the method's context
   uctx_t pony_ctx;    // pony's context
-#ifdef _DBG
-  char * lock_info;
-#endif
-  pthread_spinlock_t ctx_lk; // this shall only be unlocked once it's
-                             // legal to jump back into the method
   bool reinstated;
   bool done;
 } ctx_t;
 
 void ctx_free(ctx_t *ctx) {
-  pthread_spin_destroy(&(ctx->ctx_lk));
   free(ctx);
 }
 
@@ -83,14 +70,14 @@ void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
 }
 #else
 void uctx_set(uctx_t *uctx) {
-  setcontext(uctx);
+  setcontext(&(uctx->ucontext));
 }
 
 void uctx_annotate(uctx_t *uctx, char *info) {
 }
 
 void uctx_swap(uctx_t *save, uctx_t *run, char *info) {
-  swapcontext(save, run);
+  swapcontext(&(save->ucontext), &(run->ucontext));
 }
 #endif // _DBG
 
@@ -109,9 +96,6 @@ void ctx_print(ctx_t *ctx, char* title) {
     printf("            (%s)\n",ctx->pony_ctx.info);
 #endif // _DBG
     printf("reinstated = %i\n", GET_BOOL(&(ctx->reinstated)));
-#ifdef _DBG
-    printf("lock_info = %s\n", ctx->lock_info);
-#endif
   }
   printf("^^^^^^^\n");
 }
@@ -152,7 +136,6 @@ void ctx_call(pausable_fun func, void *args) {
   DBG("ctx_call");
 
   ctx_t *ctx = calloc(1,sizeof(ctx_t));
-  pthread_spin_init(&(ctx->ctx_lk), true);
 
   union splitptr ctx_spl  = {.ptr = ctx };
   union splitptr func_spl = {.ptr = func };
@@ -162,23 +145,9 @@ void ctx_call(pausable_fun func, void *args) {
   uctx_annotate(&(ctx->mthd_ctx), "ctx_call");
 
   char* mthd_stck = malloc(sizeof(char)*STACKLET_SIZE);
-#ifdef _DBG
   ucontext_t *muctx = &(ctx->mthd_ctx.ucontext);
-#else
-  ucontext_t *muctx = ctx;
-#endif
-#ifdef _DBG
-  ucontext_t *error_ctx = malloc(sizeof(ucontext_t));
-  getcontext(error_ctx);
-  makecontext(error_ctx,
-              error,
-              2,
-              args_spl.ints[0],
-              args_spl.ints[1]);
-  muctx->uc_link  = error_ctx;
-#else
+
   muctx->uc_link  = NULL;
-#endif // _DBG
 
   muctx->uc_stack.ss_sp = mthd_stck;
   muctx->uc_stack.ss_size  = STACKLET_SIZE;
@@ -192,9 +161,7 @@ void ctx_call(pausable_fun func, void *args) {
               args_spl.ints[0],
               args_spl.ints[1]);
 
-  LOCK(ctx, "launching call");
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "dispatch");
-  UNLOCK(ctx, "call is done");
   if (GET_BOOL(&(ctx->done))) {
     ctx_free(ctx);
   }
@@ -211,7 +178,7 @@ void ctx_await(ctx_t *ctx) {
     return;
   } else {
     DBG("context not reinstated");
-    uctx_set(&(ctx->pony_ctx)); //will also unlock (all swapcontexts are followed by unlocking)
+    uctx_set(&(ctx->pony_ctx));
   }
 }
 
@@ -222,13 +189,11 @@ void ctx_return(ctx_t* ctx) {
 }
 
 void ctx_reinstate(ctx_t *ctx) {
-  LOCK(ctx, "reinstating");
   SET_BOOL(&(ctx->reinstated), true);
 #ifdef _DBG
     ctx_print(ctx,"reinstate");
 #endif // _DBG
   uctx_swap(&(ctx->pony_ctx),&(ctx->mthd_ctx), "tell");
-  UNLOCK(ctx, "reinstating done");
   if (GET_BOOL(&(ctx->done))) {
     ctx_free(ctx);
   }
