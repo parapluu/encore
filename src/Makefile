@@ -3,7 +3,7 @@ SET_DIR=runtime/set
 CLOSURE_DIR=runtime/closure
 FUTURE_DIR=runtime/future
 
-all: compiler
+all: compiler pony
 
 compiler: 
 	make -C front
@@ -32,16 +32,10 @@ future:
 test: 
 	make -C tests
 
-pony: $(PONY_DIR)/bin/debug/libpony.a $(PONY_DIR)/bin/release/libpony.a 
-
-$(PONY_DIR)/bin/debug/libpony.a: $(PONY_DIR)/Makefile
-	make -C $(PONY_DIR) config=debug
-
-$(PONY_DIR)/bin/release/libpony.a: $(PONY_DIR)/Makefile
-	make -C $(PONY_DIR) config=release
-
-$(PONY_DIR)/Makefile:
+pony:
 	cd $(PONY_DIR); premake4 gmake
+	make -C $(PONY_DIR) config=debug
+	make -C $(PONY_DIR) config=release
 
 clean: clean_pony
 	@echo "cleaning haskell files..."
@@ -62,4 +56,4 @@ clean_pony:
 	[ -f $(PONY_DIR)/Makefile ] && make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-.PHONY: all compiler future parser ir types back clean clean_pony set closure
+.PHONY: all compiler pony future parser ir types back clean clean_pony set closure
