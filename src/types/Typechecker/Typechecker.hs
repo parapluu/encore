@@ -176,13 +176,8 @@ instance Checkable Expr where
                                   tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
                                             "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ show (length args)
                            (eArgs, bindings) <- checkArguments args argTypes
-                           resultType <- return $ getResultType ty
-                           if isTypeVar resultType then
-                               case lookup resultType bindings of
-                                 Just rType -> return $ setType rType fcall {args = eArgs}
-                                 Nothing -> return $ setType resultType fcall {args = eArgs}
-                           else
-                               return $ setType resultType fcall {args = eArgs}
+                           let resultType = replaceTypeVars bindings (getResultType ty)
+                           return $ setType resultType fcall {args = eArgs}
              Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
 
     typecheck closure@(Closure {eparams, body}) = 

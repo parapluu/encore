@@ -3,7 +3,7 @@
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
              refType, isRefType, passiveRefType, activeRefType, 
              isActiveRefType, isPassiveRefType, 
-             makeActive, makePassive, typeVar, isTypeVar,
+             makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
@@ -92,6 +92,18 @@ isActiveRefType _ = False
 typeVar = TypeVar
 isTypeVar (TypeVar _) = True
 isTypeVar _ = False
+
+replaceTypeVars :: [(Type, Type)] -> Type -> Type
+replaceTypeVars bindings ty
+    | isTypeVar ty = case lookup ty bindings of
+                       Just ty' -> ty'
+                       Nothing  -> ty
+    | isArrowType ty = let argTypes = getArgTypes ty
+                           resultType = getResultType ty
+                       in arrowType (map (replaceTypeVars bindings) argTypes) (replaceTypeVars bindings resultType)
+    | isFutureType ty = futureType (replaceTypeVars bindings ty)
+    | isParType ty = parType (replaceTypeVars bindings ty)
+    | otherwise = ty
 
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
