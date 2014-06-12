@@ -109,7 +109,7 @@ instance Checkable MethodDecl where
         do ty <- checkType mtype
            noFreeTypeVariables
            eMparams <- mapM typecheckParam mparams
-           eBody <- local addParams $ pushHasType mbody ty
+           eBody <- local (addParams eMparams) $ pushHasType mbody ty
            return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           noFreeTypeVariables = 
@@ -121,7 +121,7 @@ instance Checkable MethodDecl where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
-          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) mparams
+          addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- pushTypecheck expr
@@ -182,7 +182,7 @@ instance Checkable Expr where
 
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
-           eBody <- local addParams $ pushTypecheck body
+           eBody <- local (addParams eEparams) $ pushTypecheck body
            returnType <- return $ AST.getType eBody
            when (isNullType returnType) $ 
                 tcError $ "Cannot infer return type of closure with null-valued body"
@@ -192,7 +192,7 @@ instance Checkable Expr where
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
-          addParams = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
+          addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
            
     typecheck let_@(Let {name, val, body}) = 
         do eVal <- pushTypecheck val
