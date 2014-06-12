@@ -7,14 +7,13 @@ ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
 test: 
-	@$(foreach PROG,$(ENCORE_TARGETS), make -qk $(PROG) || make -k $(PROG);)
+	@$(foreach PROG,$(ENCORE_TARGETS), make -Bqk $(PROG) || make -Bk $(PROG);)
 	@echo 
 	@echo Basic tests:
 	@./test.sh $(ENCORE_TARGETS)
 
 %: %.enc
 #ls -l
-	@rm -f $@
 	@echo "compiling '$@'"
 	@$(ENCOREC) $@.enc -clang -c
 
