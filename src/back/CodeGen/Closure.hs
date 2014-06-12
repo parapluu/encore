@@ -78,4 +78,4 @@ translateClosure closure
           (Assign (Decl (translate ty, Var $ show name)) (getVar name)) : extractEnvironment envName vars
               where
                 getVar name = 
-                    (Deref $ Var $ "((struct ___" ++ (show envName) ++ "*) " ++ "_env)") `Dot` (Nam $ show name)
+                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (Nam $ show name)

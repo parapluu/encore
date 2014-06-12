@@ -19,10 +19,12 @@ import Data.Char
 
 char = Typ "char"
 int = Typ "int64_t"
+uint = Typ "uint64_t"
 bool = Typ "int"
 double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
+pony_arg_t = Typ "pony_arg_t"
 closure = Ptr $ Typ "struct closure"
 
 -- | each method is implemented as a function with a `this`

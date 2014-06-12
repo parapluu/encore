@@ -88,13 +88,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.Skip {}) = return $ (error "it's void", Embed "/* skip */")
   translate null@(A.Null {}) = do
     tmp <- Ctx.gen_sym
-    return $ (Var tmp, Seq [Assign (Decl (translate $ A.getType null, Var tmp)) (Embed "NULL"::CCode Expr)])
+    return $ (Var tmp, Seq [Assign (Decl (translate $ A.getType null, Var tmp)) (Null)])
   translate (A.BTrue {}) = do
     tmp <- Ctx.gen_sym
-    return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "1"::CCode Expr)])
+    return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "1/*True*/"::CCode Expr)])
   translate (A.BFalse {}) = do
     tmp <- Ctx.gen_sym
-    return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "0"::CCode Expr)])
+    return $ (Var tmp, Seq [Assign (Decl (bool, Var tmp)) $ (Embed "0/*False*/"::CCode Expr)])
   translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     (ne1,ts1) <- translate (e1 :: A.Expr)
     (ne2,ts2) <- translate (e2 :: A.Expr)
@@ -292,13 +292,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          tmp <- Ctx.gen_sym
          fill_env <- mapM (insert_var env_name) free_vars
          return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
-                           [Assign (Decl (Ptr $ Typ $ "struct closure", Var tmp)) 
+                           [Assign (Decl (closure, Var tmp)) 
                                        (Call (Nam "closure_mk") [fun_name, env_name])])
       where
         mk_env name = 
-            Assign (Decl (Ptr $ Typ $ "struct ___" ++ show name, AsLval name))
+            Assign (Decl (Ptr $ Struct name, AsLval name))
                     (Call (Nam "malloc") 
-                          [Call (Nam "sizeof") [Var $ "struct ___" ++ show name]])
+                          [Sizeof $ Struct name])
         insert_var env_name (name, _) = 
             do c <- get
                let tname = case Ctx.subst_lkp c name of
