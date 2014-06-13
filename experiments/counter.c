@@ -60,6 +60,10 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
   {
   case PONY_MAIN:
     {
+      d = pony_alloc(sizeof(counter_t));
+      d->count = 0;
+      pony_set(d);
+      //pony_send(this, MSG_INIT);
       printf("starting..\n");
       //int margc = argv[0].i;
       //char** margv = argv[1].p;
@@ -69,8 +73,8 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
       pony_actor_t *actors[N];
       for (int i = 0; i<N; ++i) {
         actors[i] = pony_create(&type);
-        pony_arg_t arg = {.p = this };
-        pony_sendp(actors[i], MSG_SHOOT_ME, &arg);
+        //pony_arg_t arg = {.p = this };
+        pony_sendp(actors[i], MSG_SHOOT_ME, this);
         
         //pony_sendp(actor, MSG_GETANDRESET, this);
       }
@@ -80,21 +84,22 @@ static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_ar
   case MSG_SHOOT_ME:
     {
       printf("shooting..\n");
-      pony_actor_t *me = argv[1].p;
+      pony_actor_t *me = argv[0].p;
       for (int i=0; i < 1000; i++) {
         pony_send(me, MSG_INC);
       }
       break;
     }
   case MSG_INIT:
-    d = pony_alloc(sizeof(counter_t));
-    d->count = 0;
-    pony_set(d);
+      d = pony_alloc(sizeof(counter_t));
+      d->count = 0;
+      pony_set(d);
+
     break;
     
   case MSG_INC:
     d->count++;
-    printf("count = %llu\n",d->count);
+    //printf("count = %llu\n",d->count);
     break;
     
   case MSG_GETANDRESET:
