@@ -1,6 +1,7 @@
 LIBPONY_A_PATH=../src/runtime/pony/bin/debug/libpony.a
-RUNTIME_PATH=../src/runtime/
-RUNTIME_INC_PATH=$(RUNTIME_PATH)/inc/
+RELEASE_PATH=../release
+RELEASE_INC_PATH=$(RELEASE_PATH)/inc/
+RELEASE_LIB_PATH=$(RELEASE_PATH)/lib/
 
 PONYCS=$(shell ls *.pony.c)
 TARGETS=$(PONYCS:.pony.c=)
@@ -8,7 +9,7 @@ TARGETS=$(PONYCS:.pony.c=)
 all: $(TARGETS)
 
 % : %.pony.c $(LIBPONY_A_PATH)
-	clang $@.pony.c -ggdb -o $@ $(LIBPONY_A_PATH) -I$(RUNTIME_INC_PATH)
+	clang $@.pony.c -ggdb -o $@ $(RELEASE_LIB_PATH)/* -I$(RELEASE_INC_PATH)
 
 $(LIBPONY_A_PATH):
 	@echo Making libpony.a
@@ -16,7 +17,7 @@ $(LIBPONY_A_PATH):
 	make -C $(SRC_PATH); make
 
 counter: counter.c
-	  clang -ggdb -Wall -Werror ~/code/mylittlepony/release/lib/* -I ~/code/mylittlepony/release/inc counter.c -o counter
+	  clang -ggdb -Wall -Werror $(RELEASE_LIB_PATH)/* -I $(RELEASE_INC_PATH) counter.c -o counter
 
 Futures.test: Futures.test.c
 	clang -std=c11 -ggdb -Wall -I ../release/inc -I../src/runtime -I../src/runtime/set -I../src/runtime/future -I../src/runtime/pony/inc/ -I../src/runtime/pony/src Futures.test.c ../release/lib/context.o `find ../src/runtime/pony/obj/Debug/pony -name "*.o"` ../src/runtime/future/future.o ../src/runtime/future/future_actor.o ../src/runtime/set/set.o ../src/runtime/future/ccontext.o -o Futures.test
