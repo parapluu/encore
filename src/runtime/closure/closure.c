@@ -40,3 +40,7 @@ int val_to_int(value v){
 double val_to_dbl(value v){
   return v.dbl;
 }
+
+void closure_trace(struct closure* c) {
+  // Not implemented yet
+}
