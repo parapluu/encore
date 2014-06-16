@@ -39,7 +39,7 @@ test: encorec
 	make -C $(SRC_DIR) test
 
 doc:
-	haddock -o $@ -h $$(find . -name "*.hs" | grep -v "\.#")
+	haddock -o doc/html -h $$(find . -name "*.hs" | grep -v "\.#")
 	make -C $(SET_DIR) doc
 	make -C $(FUTURE_DIR) doc
 
