@@ -1,0 +1,56 @@
+passive class Link
+  elem : int
+  next : Link
+  def show() : void{
+    print this.elem;
+    if this.next != null then
+      this.next.show()
+    else
+      ()}
+
+class Stack
+  top : Link
+  def init() : void
+    this.top = null
+  def push(val : int) : void
+    let newTop = new Link in
+      {newTop.elem = val; 
+       newTop.next = this.top; 
+       this.top = newTop}
+  def pop() : void
+    if this.top != null then
+      this.top = this.top.next
+    else
+      ()
+  def top() : int
+    this.top.elem
+  def show() : void
+    if this.top != null then
+      this.top.show()
+    else
+      ()
+
+class Pusher
+  def run(s : Stack) : void
+    let i = 20000000 in{
+      while i > 0 {s.push(i); i = i - 1};
+      print "Pusher done"
+    }
+
+class Popper
+  def run(s : Stack) : void
+    let i = 20000000 in{
+      while i > 0 {s.pop(); i = i - 1};
+      print "Popper done"
+    }
+
+class Main
+  stack : Stack
+  def main() : void
+    let pusher = new Pusher in
+    let popper = new Popper in
+    let stack = new Stack in{
+      stack.init();
+      pusher.run(stack);
+      popper.run(stack)
+    }
