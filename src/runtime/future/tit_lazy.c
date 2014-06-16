@@ -6,12 +6,12 @@
 #include <err.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include "tit_lazy.h"
 #include "mpmcq.h"
 
 struct lazy_tit_t {
   ucontext_t context;
-  void *stack; // This is used because a stack may be moved underfoot due (e.g. 16 byte alignment on OS X)
   bool is_suspended;
   bool is_proper;
 };
@@ -43,13 +43,13 @@ static void t_cleanup(lazy_tit_t *stack) {
   do {
     current_cache_size = cached_side_stacks;
     if (__sync_bool_compare_and_swap(&cached_side_stacks, current_cache_size, current_cache_size + 1)) {
-      mpmcq_push(&side_stacks_for_reuse, stack->stack);
+      mpmcq_push(&side_stacks_for_reuse, stack->context.uc_stack.ss_sp);
       free_stack = false;
       break;
     }
   } while (current_cache_size < side_stack_cache_size);
   
-  if (free_stack) free(stack->stack);
+  if (free_stack) free(stack->context.uc_stack.ss_sp);
   free(stack);
 }
 
@@ -77,7 +77,6 @@ void init_lazy_system(int __side_stack_cache_size) {
 lazy_tit_t *lazy_t_init_current() {
   current = lazy_t_init_new();
   // TODO: assert this has not been initialized
-  current->stack        = NULL;
   current->is_suspended = false;
   current->is_proper    = true;
   return current;
@@ -90,24 +89,29 @@ lazy_tit_t *lazy_t_init_new() {
 
 static inline void __t_fork(lazy_tit_t *new) {
   getcontext(&new->context); 
+  new->context.uc_stack.ss_sp    = NULL;
   new->context.uc_stack.ss_flags = 0; 
   new->context.uc_link           = 0; 
   new->is_suspended		 = false; 
   new->is_proper		 = false; 
   current->is_suspended		 = true; 
 
-  while (new->stack == NULL && cached_side_stacks > 0) {
-    new->stack = mpmcq_pop(&side_stacks_for_reuse);
+  if (side_stack_cache_size > 0) {
+    while (new->context.uc_stack.ss_sp == NULL && cached_side_stacks > 0) {
+      new->context.uc_stack.ss_sp = mpmcq_pop(&side_stacks_for_reuse);
+    }
+    if (new->context.uc_stack.ss_sp) {
+      int cache_size;
+      do {
+	cache_size = cached_side_stacks;
+      } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
+    }
   }
-  if (new->stack) {
-    int cache_size;
-    do {
-      cache_size = cached_side_stacks;
-    } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
-  }
-  if (new->stack == NULL) {
-    new->stack = calloc(1, new->context.uc_stack.ss_size);
-    new->context.uc_stack.ss_sp = new->stack; 
+
+  if (new->context.uc_stack.ss_sp == NULL) {
+    if (posix_memalign(&new->context.uc_stack.ss_sp, 16, new->context.uc_stack.ss_size) != false) {
+      err(EX_OSERR, "Posix memalign failed");
+    }
   }
 }
 
