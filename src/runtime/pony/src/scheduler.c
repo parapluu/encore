@@ -4,7 +4,6 @@
 #include "mpmcq.h"
 #include "cycle.h"
 #include "actor.h"
-#include "actor_def.h"
 #include <pony/pony.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -41,10 +40,6 @@ static volatile uint32_t quiet;
 static volatile uint32_t done;
 static volatile int exit_code;
 
-static inline bool can_migrate(pony_actor_t *p) {
-  return !p->blocking_on_a_future; 
-}
-
 static inline pony_actor_t* scheduler_worksteal(scheduler_t* s)
 {
   scheduler_t* from;
@@ -55,31 +50,7 @@ static inline pony_actor_t* scheduler_worksteal(scheduler_t* s)
     from = &scheduler[s->steal % scheduler_count];
   } while(from == s);
 
-  // XXX improve this design
-  // Attempt to steal objects up to 16 times, push them back into the queue if they cannot migrate
-  for (int attempts = 16; attempts > 0; --attempts) {
-    pony_actor_t *a = mpmcq_pop(&from->q);
-    if (!a) return NULL;
-    if (can_migrate(a)) {
-      return a;
-    } else {
-      mpmcq_push(&from->q, a);
-    }
-  }
-  
-  return NULL;
-}
-
-void pony_actor_unblock(pony_actor_t *actor) 
-{
-  scheduler_add(actor, actor->thread);
-  scheduler_t *s = &scheduler[actor->thread];
-  // XXX: Compensate for multiple calls to run_thread with prev == NULL on resumes
-  if(!s->quiet)
-  {
-    s->quiet = true;
-    __sync_fetch_and_add(&quiet, 1);
-  }
+  return mpmcq_pop(&from->q);
 }
 
 static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
@@ -114,9 +85,12 @@ static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
   return prev;
 }
 
-void* run_thread(void* arg) 
+static __thread scheduler_t *memory;
+
+static void* run_thread(void* arg)
 {
   scheduler_t* s = arg;
+  memory = s;
   cpu_affinity(s->cpu);
 
   pony_actor_t* actor = NULL;
@@ -176,9 +150,12 @@ void* run_thread(void* arg)
   return NULL;
 }
 
-void run_thread_in_same_scheduler_as_actor(pony_actor_t* a) {
-  scheduler_t *s = &scheduler[a->thread];
-  run_thread(s);
+void* run_thread_restart() {
+  return run_thread(memory);
+}
+
+void pony_actor_unblock(pony_actor_t *actor) {
+  mpmcq_push(&memory->q, actor);
 }
 
 static int parse_args(int argc, char** argv)

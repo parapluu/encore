@@ -1,3 +1,4 @@
+
 #ifndef actor_h
 #define actor_h
 
@@ -20,8 +21,6 @@ void actor_destroy(pony_actor_t* actor, map_t* cycle);
 void actor_sendv(pony_actor_t* to, uint64_t id, int argc, pony_arg_t* argv);
 
 pony_actor_t* actor_create(pony_actor_type_t* type);
-
-pony_actor_t* actor_create_stage_two(pony_actor_type_t* type, pony_actor_t* actor);
 
 void actor_disablecd(bool state);
 

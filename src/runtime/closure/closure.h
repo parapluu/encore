@@ -109,4 +109,6 @@ int val_to_int(value v);
  */
 double val_to_dbl(value v);
 
+void closure_trace(struct closure* c);
+
 #endif

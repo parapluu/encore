@@ -1,50 +1,40 @@
-/**
- *  @file future.h
- */
-
-// ================================================================
-// TODO
-// ================================================================
-// [x] Who garbage collects the future struct? 
-// [x] Can the actor object be extended with an arbitrary payload?
-// [ ] Refactor solution to creating a future actor
-// ================================================================
-
 #ifndef __future_using_actors_h
 #define __future_using_actors_h
 
 #include "pony/pony.h"
-#include "actor.h"
-#include "heap.h"
-#include "pool.h"
-#include "actorq.h"
-#include "actor_def.h"
-#include "ccontext.h"
+#include "tit_eager.h"
 #include "closure.h"
 
-// The payload is a boolean flag that controls whether the future value has been set
-// The value is the future's value
-typedef struct future_payload {
-  bool fulfilled;
-  void *value;
-} future_payload;
+typedef struct future future_t;
 
-// A future type is a subtype of a pony_actor_t which has a couple of extra bytes at the end
-typedef struct future {
-  pony_actor_t actor;
-  volatile future_payload payload;
-} future;
+// =============================================================================
+// Logic for creating, querying, and fulfilling futures
+// =============================================================================
 
-/**
- * Creates a new future object, including an actor to drive its logic
- */
-future *createNewFuture();
-bool fulfilled(future *fut);
-void *getValue(future *fut);
-void chain(future *fut, pony_actor_t* actor, struct closure *closure);
-void block(future *fut, pony_actor_t* actor);
-void await(future *fut, pony_actor_t* actor);
-void yield(pony_actor_t* actor);
-void fulfil(future *fut, void *value);
+future_t *create_new_future();
+volatile bool fulfilled(future_t *future);
+volatile void *get_value(future_t *future);
+void fulfil(future_t *future, volatile void *value);
+
+// =============================================================================
+// Actor-specific parts of the future library
+// =============================================================================
+
+void chain(future_t *future, pony_actor_t* actor_owning_closure, struct closure *closure);
+void await(future_t *future, pony_actor_t* actor_awaiting_future);
+void block(future_t *future, pony_actor_t* actor_blocking_on_future, void *stacklet);
+volatile void *get_value_or_block(future_t *future, pony_actor_t* actor_blocking_on_future);
+
+// =============================================================================
+// Task-specific parts of the future library
+// =============================================================================
+
+/* TODO */
+
+// =============================================================================
+// Stuff that should be moved to some other library in the future
+// =============================================================================
+
+void yield(pony_actor_t *actor);
 
 #endif
