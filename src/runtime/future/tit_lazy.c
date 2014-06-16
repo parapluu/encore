@@ -103,7 +103,7 @@ static inline void __t_fork(lazy_tit_t *new) {
     int cache_size;
     do {
       cache_size = cached_side_stacks;
-    } while (__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
+    } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
   }
   if (new->stack == NULL) {
     new->stack = calloc(1, new->context.uc_stack.ss_size);
