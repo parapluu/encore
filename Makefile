@@ -80,6 +80,6 @@ clean:
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)
-	rm -rf doc
+	rm -rf doc/html
 
 .PHONY: all doc release encorec clean $(PONY_OBJECTS) $(SET_OBJECTS) $(CLOSURE_OBJECTS) $(FUTURE_OBJECTS)
