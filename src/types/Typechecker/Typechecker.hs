@@ -102,6 +102,8 @@ instance Checkable ClassDecl where
 
 instance Checkable FieldDecl where
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
+                                     let types = typeComponents ty
+                                     when (any isTypeVar types) $ tcError $ "Free type variables in field type"
                                      return $ setType ty f
 
 instance Checkable MethodDecl where
