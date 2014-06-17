@@ -32,14 +32,14 @@ class Stack
 
 class Pusher
   def run(s : Stack) : void
-    let i = 20000000 in{
+    let i = 1000000 in{
       while i > 0 {s.push(i); i = i - 1};
       print "Pusher done"
     }
 
 class Popper
   def run(s : Stack) : void
-    let i = 20000000 in{
+    let i = 1000000 in{
       while i > 0 {s.pop(); i = i - 1};
       print "Popper done"
     }
@@ -49,8 +49,8 @@ class Main
   def main() : void
     let pusher = new Pusher in
     let popper = new Popper in
-    let stack = new Stack in{
+    let stack  = new Stack  in{
       stack.init();
       pusher.run(stack);
-      popper.run(stack)
+      popper.run(stack);
     }
