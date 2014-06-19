@@ -19,6 +19,9 @@ pp = show . pp'
 tshow :: Show t => t -> Doc
 tshow = text . show
 
+star :: Doc
+star = text "*"
+
 switch_body :: [(CCode Name, CCode Stat)] -> CCode Stat -> Doc
 switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
                                           text "default:" $+$
@@ -36,42 +39,37 @@ pp' Skip = text ""
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Statement seq@(StoopidSeq _)) = pp' seq -- avoid double semicolons!
 pp' (Statement other) =  pp' other <> text ";"
-pp' (Switch tst ccodes def) = text "switch (" <+> (tshow tst) <+> rparen  $+$
-                                  switch_body ccodes def
+pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$
+                              switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
-                      (braced_block . vcat . map pp') fields <> text ";"
+                                 (braced_block . vcat) (map pp' fields) <> text ";"
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Struct name) = text "struct ___" <> tshow name
-pp' (Record ccodes) = text "{" <+> (hcat $ intersperse (text ", ") $ map pp' ccodes) <+> text "}"
+pp' (Record ccodes) = braces $ commaList ccodes
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (DeclTL (ty, id)) = tshow ty <+> tshow id <> text ";"
-pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (text "*" <> tshow id) <> parens (hcat $ intersperse (text ", ") $ map pp' argTys) <+> text ";"
+pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
+                                parens (commaList argTys) <+> text ";"
 pp' (Concat ccodes) = block ccodes
 pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
-pp' (StoopidSeq ccodes) = vcat $ map semicolonify ccodes
-    where
-      semicolonify :: CCode Expr -> Doc
-      semicolonify (StoopidSeq ccodes) = vcat $ map semicolonify ccodes -- avoid double semicolons!
-      semicolonify other = pp' other <> text ";"
 pp' (Seq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
-pp' (Parens ccode) = lparen <> pp' ccode <> rparen
-pp' (BinOp o e1 e2) = lparen <> pp' e1 <+> pp' o <+> pp' e2 <> rparen
+pp' (Parens ccode) = parens $ pp' ccode
+pp' (BinOp o e1 e2) = parens $  pp' e1 <+> pp' o <+> pp' e2 
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
-pp' (Deref ccode) = lparen <> text "*" <> pp' ccode <> rparen
-pp' (Cast ty e) = lparen <> lparen <> pp' ty <> rparen <+> pp' e <> rparen
-pp' (ArrAcc i l) = lparen <> pp' l <> text "[" <> tshow i <> text "]" <> rparen
-pp' (Amp ccode) = lparen <> text "&" <> pp' ccode <> rparen
-pp' (Ptr ty) = pp' ty <> text "*"
+pp' (Deref ccode) = parens $ star <> pp' ccode 
+pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
+pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
+pp' (Amp ccode) = parens $ text "&" <> (parens $ pp' ccode)
+pp' (Ptr ty) = pp' ty <> star
 pp' (FunctionDecl ret_ty name args) = tshow ret_ty <+> tshow name <>
-                    lparen <> hcat (intersperse (text ", ") $ map pp' args) <> rparen $+$ text ";"
-pp' (Function ret_ty name args body) =  tshow ret_ty <+> tshow name <>
-                    lparen <> pp_args args <> rparen $+$
-                    (braced_block . pp') body
+                                      parens (commaList args) $+$ text ";"
+pp' (Function ret_ty name args body) = tshow ret_ty <+> tshow name <>
+                                       parens (pp_args args)  $+$
+                                       (braced_block . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
 pp' (Nam st) = text st
@@ -80,22 +78,20 @@ pp' (Typ st) = text st
 pp' (Static ty) = text "static" <+> pp' ty
 pp' (Embed string) = text string
 pp' (EmbedC ccode) = pp' ccode
-pp' (Call name args) = tshow name <> lparen <>
-                       (hcat $ intersperse (text ", ") $ map pp' args) <>
-                       rparen
-pp' (Typedef ty name) = text ("typedef") <+> pp' ty <+> tshow name <> text ";"
-pp' (Sizeof ty) = text ("sizeof") <> parens (pp' ty)
-pp' (While cond body) = text "while" <+> lparen <> pp' cond <> rparen $+$
+pp' (Call name args) = tshow name <> parens (commaList args)
+pp' (Typedef ty name) = text "typedef" <+> pp' ty <+> tshow name <> text ";"
+pp' (Sizeof ty) = text "sizeof" <> parens (pp' ty)
+pp' (While cond body) = text "while" <+> parens (pp' cond) $+$
                         braced_block (pp' body)
 pp' (StatAsExpr n s) = text "({" <> pp' s <+> pp' n <> text ";})"
-pp' (If c t e) = text "if" <+> lparen <> pp' c <> rparen $+$
-                 braced_block (pp' t) $+$
+pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
+                   braced_block (pp' t) $+$
                  text "else" $+$
-                 braced_block (pp' e)
+                   braced_block (pp' e)
 pp' (Return e) = text "return" <+> pp' e <> text ";"
---pp' (FwdDecl (Function ret_ty name args _)) = tshow ret_ty <+> tshow name <> lparen <> pp_args args <> rparen <> text ";"
---pp' (New ty) = error "not implemented: New"
 
+commaList :: [CCode a] -> Doc
+commaList l = hcat $ intersperse (text ", ") $ map pp' l
 
 pp_args :: [CVarSpec] -> Doc
 pp_args [] = empty
