@@ -105,6 +105,7 @@ instance Checkable FieldDecl where
                                      let types = typeComponents ty
                                      when (any isTypeVar types) $ tcError $ "Free type variables in field type"
                                      return $ setType ty f
+  
 
 instance Checkable MethodDecl where
     typecheck m@(Method {mtype, mparams, mbody}) = 
@@ -221,8 +222,8 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError $ "Cannot infer result type of if-statement"
-              | isNullType ty1 = return ty2
-              | isNullType ty2 = return ty1
+              | isNullType ty1 && isRefType ty2 = return ty2
+              | isNullType ty2 && isRefType ty1 = return ty1
               | otherwise = if ty2 == ty1 
                             then return ty1
                             else tcError $ "Type mismatch in different branches of if-statement"
@@ -367,6 +368,3 @@ instance Checkable LVal where
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
              Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"
-
-
-

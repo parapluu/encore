@@ -35,7 +35,7 @@ switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccode
 
 pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
-pp' Skip = text ""
+pp' Skip = empty
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (HashDefine str) = text $ "#define " ++ str
