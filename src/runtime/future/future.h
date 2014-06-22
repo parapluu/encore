@@ -6,6 +6,13 @@
 #include "closure.h"
 
 typedef struct future future_t;
+typedef struct resumable resumable_t;
+
+typedef enum {
+  LAZY,
+  EAGER
+} strategy_t;
+
 
 // =============================================================================
 // Logic for creating, querying, and fulfilling futures
@@ -36,5 +43,8 @@ volatile void *get_value_or_block(future_t *future, pony_actor_t* actor_blocking
 // =============================================================================
 
 void yield(pony_actor_t *actor);
+void init_futures(int cache_size, strategy_t strategy);
+void future_run_loop_start();
+void resume(resumable_t *r);
 
 #endif

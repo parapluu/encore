@@ -13,3 +13,6 @@ cabal.sandbox.config
 cabal.config
 encorec
 release
+/GPATH
+/GRTAGS
+/GTAGS

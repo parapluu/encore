@@ -24,10 +24,6 @@ void mpmcq_destroy(mpmcq_t* q)
   q->tail.node = NULL;
 }
 
-void unblock(void *q, void *actor) {
-  mpmcq_push(q, actor);
-}
-
 void mpmcq_push(mpmcq_t* q, void* data)
 {
   mpmcq_node_t* node = POOL_ALLOC(mpmcq_node_t);

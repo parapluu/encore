@@ -419,7 +419,6 @@ void pony_sendv(pony_actor_t* to, uint64_t id, int argc, pony_arg_t* argv)
   assert(argc <= PONY_MAX_ARG);
   assert(mtype->argc == argc);
 
-  /* Tobias commented this out in waiting for Syvan's fixes
   if(argc > 0)
   {
     trace = TRACE_SEND;
@@ -436,7 +435,6 @@ void pony_sendv(pony_actor_t* to, uint64_t id, int argc, pony_arg_t* argv)
     map_clearmarks(this->local_ref);
     this->mark = false;
   }
-  */
 
   push_message(to, id, argc, argv);
 }
