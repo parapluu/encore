@@ -56,7 +56,7 @@ static resumable_t *mk_resumeable() {
   return r;
 }
 
-void resume(resumable_t *r) {
+void future_resume(resumable_t *r) {
   switch (r->strategy) {
   case LAZY:
     resume_lazy(r->lazy);
@@ -69,11 +69,11 @@ void resume(resumable_t *r) {
   }
 }
 
-future_t *create_new_future() {
+future_t *future_mk() {
   return (future_t*) future_create();
 }
 
-void chain(future_t *f, pony_actor_t* a, struct closure *c) {
+void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
   pony_arg_t argv[2];
   argv[0].p = a;
   argv[1].p = c;
@@ -83,7 +83,7 @@ void chain(future_t *f, pony_actor_t* a, struct closure *c) {
   pony_sendv(&f->actor, FUT_MSG_CHAIN, 2, argv);
 }
 
-void block(future_t *f, pony_actor_t* a, void *ignore) {
+void future_block(future_t *f, pony_actor_t* a, void *ignore) {
   pony_arg_t argv[1];
   argv[0].p = a;
   argv[1].p = mk_resumeable();
@@ -96,7 +96,7 @@ void block(future_t *f, pony_actor_t* a, void *ignore) {
   suspend((tit_t*)argv[1].p);
 }
 
-void await(future_t *f, pony_actor_t* a) {
+void future_await(future_t *f, pony_actor_t* a) {
   pony_arg_t argv[1];
   argv[0].p = a;
   argv[1].p = mk_resumeable();
@@ -121,24 +121,24 @@ void yield(pony_actor_t* a) {
   suspend((tit_t*)argv[0].p);
 }
 
-inline volatile bool fulfilled(future_t *fut) {
+inline volatile bool future_fulfilled(future_t *fut) {
   return future_actor_get_fulfilled(&fut->actor);
 }
 
-inline volatile void *get_value(future_t *fut) {
+inline volatile void *future_read_value(future_t *fut) {
   return future_actor_get_value(&fut->actor);
 }
 
-volatile void *get_value_or_block(future_t *fut, pony_actor_t* actor) {
+volatile void *future_get(future_t *fut, pony_actor_t* actor) {
   volatile void *result;
   if (future_actor_get_value_and_fulfillment(&fut->actor, &result)) {
     return result;
   }
-  block(fut, actor, NULL);
-  return get_value(fut);
+  future_block(fut, actor, NULL);
+  return future_read_value(fut);
 }
 
-void fulfil(future_t *f, volatile void *value) {
+void future_fulfil(future_t *f, volatile void *value) {
   future_actor_set_value(&f->actor, value);
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- fulfil\n", pthread_self(), f);

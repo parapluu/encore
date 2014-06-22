@@ -176,7 +176,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) block ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
 
-      if (fulfilled((future_t*) this)) {
+      if (future_fulfilled((future_t*) this)) {
         if (DEBUG_PRINT) fprintf(stderr, "[%p]\tAttempt to block on fulfilled future\n", pthread_self());
 
         blocked_entry new_entry = { .actor = argv[0].p , .context = argv[1].p };

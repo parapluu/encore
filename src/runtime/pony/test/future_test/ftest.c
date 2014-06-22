@@ -112,14 +112,14 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\tServer is: %p\n", pthread_self(), value_producer);
         d->value_producer = value_producer;
         // Create a future and asynchronously call value_producer
-        future_t* fut = create_new_future();
+        future_t* fut = future_mk();
 	fprintf(stderr, "[%p]\tFuture is: %p\n", pthread_self(), fut);
 
 	struct closure *closure = closure_mk((closure_fun) print_value, NULL);
 	fprintf(stderr, "[%p]\tClosure is: %p\n", pthread_self(), closure);
-	chain(fut, this, closure);
+	future_chain(fut, this, closure);
 	
-        fprintf(stderr, "[%p]\tValue in fresh pony_actor_t: %d\n", pthread_self(), (int) get_value(fut));
+        fprintf(stderr, "[%p]\tValue in fresh pony_actor_t: %d\n", pthread_self(), (int) future_read_value(fut));
 
         pony_arg_t args[1];
         args[0].p = fut;
@@ -132,15 +132,15 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
         fprintf(stderr, "[%p]\t.....\n", pthread_self());
 
         // block	
-	if (!fulfilled(fut)) {
+	if (!future_fulfilled(fut)) {
 	  print_threadid();
-	  block(fut, this, NULL);
+	  future_block(fut, this, NULL);
 	  print_threadid();
 	}
 
         fprintf(stderr, "[%p]\tReturning from blocking\n", pthread_self());
-        fprintf(stderr, "[%p]\tPopulated: %d\n", pthread_self(), fulfilled(fut));
-        fprintf(stderr, "[%p]\tValue: %d\n", pthread_self(), (int) get_value(fut));
+        fprintf(stderr, "[%p]\tPopulated: %d\n", pthread_self(), future_fulfilled(fut));
+        fprintf(stderr, "[%p]\tValue: %d\n", pthread_self(), (int) future_read_value(fut));
 
         break;
       }
@@ -160,7 +160,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\t(%p) async_call ---> %p \n", pthread_self(), argv[0].p, this);
         // perform long-running calculation, set pony_actor_t value
         future_t *fut = (future_t*) argv[0].p;
-	fulfil(fut, (void*) 1024);
+	future_fulfil(fut, (void*) 1024);
         break;
       }
 
@@ -169,7 +169,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\t(%p) future_arg ---> %p \n", pthread_self(), argv[0].p, this);
         // also block on the pony_actor_t
         future_t *fut = (future_t*) argv[0].p;
-        block(fut, this, NULL);
+        future_block(fut, this, NULL);
         break;
       }
 
@@ -178,7 +178,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\t(%p) resume ---> %p \n", pthread_self(), argv[0].p, this);
 	resumable_t *r = argv[0].p;
 	fprintf(stderr, "Resuming on %p\n", r);
-	resume(r);
+	future_resume(r);
 	fprintf(stderr, "[%p]\tDone resuming\n", pthread_self());
 	break;
       }
