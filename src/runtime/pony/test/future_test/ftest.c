@@ -31,8 +31,6 @@ typedef struct state_t
 
 enum
   {
-    FUT_MSG_RUN_CLOSURE,
-    FUT_MSG_RESUME,
     MSG_ASYNC_CALL,
     MSG_FUTURE_ARG,
     MSG_SELF_CALL,

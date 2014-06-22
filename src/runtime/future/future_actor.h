@@ -7,8 +7,6 @@
 
 enum
   {
-    FUT_MSG_RUN_CLOSURE,
-    FUT_MSG_RESUME,
     FUT_MSG_BLOCK,
     FUT_MSG_CHAIN,
     FUT_MSG_AWAIT,
