@@ -272,7 +272,7 @@ expr  =  unit
                           expr <- expression ;
                           return $ Let (meta pos) (Name x) val expr}
       sequence = do {pos <- getPosition ;
-                     seq <- braces (semiSep expression) ;
+                     seq <- braces (do {seq <- expression `sepEndBy` semi; return seq}) ;
                      return $ Seq (meta pos) seq}
       ifThenElse = do {pos <- getPosition ;
                        reserved "if" ; 

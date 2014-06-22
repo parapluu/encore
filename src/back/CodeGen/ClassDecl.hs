@@ -126,11 +126,24 @@ translateActiveClass cdecl =
                                       [Var "p"]))]
 
       tracefun_decl :: CCode Toplevel
-      tracefun_decl = (Function
+      tracefun_decl = Function
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Embed "//Todo!"))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+          where
+            trace_field A.Field{A.fname = name, A.ftype = ty} 
+                | Ty.isRefType ty && Ty.isActiveRefType ty = 
+                    Call (Nam "pony_traceactor")
+                         [Amp $ Deref (Cast (Ptr $ data_rec_name $ A.cname cdecl) (Var "p")) `Dot` (Nam $ show name)]
+                | Ty.isRefType ty && not (Ty.isActiveRefType ty) = 
+                    Call (Nam "pony_trace") -- TODO: Active/passive
+                         [Amp $ Deref (Cast (Ptr $ data_rec_name $ A.cname cdecl) (Var "p")) `Dot` (Nam $ show name),
+                          AsExpr . AsLval $ class_trace_fn_name ty,
+                          Sizeof $ data_rec_name ty,
+                          Embed "PONY_MUTABLE"]
+                | otherwise = Embed ""
 
       message_type_decl :: CCode Toplevel
       message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
@@ -209,11 +222,24 @@ translatePassiveClass cdecl =
                          (map (Var . show . A.fname) (A.fields cdecl)))
 
       tracefun_decl :: CCode Toplevel
-      tracefun_decl = (Function
+      tracefun_decl = Function
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Embed "//Todo!"))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+          where
+            trace_field A.Field{A.fname = name, A.ftype = ty} 
+                | Ty.isRefType ty && Ty.isActiveRefType ty = 
+                    Call (Nam "pony_traceactor")
+                         [Amp $ Deref (Cast (Ptr $ data_rec_name $ A.cname cdecl) (Var "p")) `Dot` (Nam $ show name)]
+                | Ty.isRefType ty && not (Ty.isActiveRefType ty) = 
+                    Call (Nam "pony_trace") -- TODO: Active/passive
+                         [Amp $ Deref (Cast (Ptr $ data_rec_name $ A.cname cdecl) (Var "p")) `Dot` (Nam $ show name),
+                          AsExpr . AsLval $ class_trace_fn_name ty,
+                          Sizeof $ data_rec_name ty,
+                          Embed "PONY_MUTABLE"]
+                | otherwise = Embed ""
 
 instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   fwd_decls cdecl 

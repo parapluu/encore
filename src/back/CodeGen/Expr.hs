@@ -188,7 +188,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                                 Embed . show . length $ args,
                                                 Embed the_arg_name])
-                   return (error "Message sends have no return value",
+                   return (unit, --error "Message sends have no return value",
                            Seq [the_arg_decl,
                                 the_call])
 
