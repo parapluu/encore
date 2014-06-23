@@ -8,7 +8,7 @@ solution "ponyrt"
     "Release"
     }
 
-  includedirs { "inc/" }
+  includedirs { "inc/", "../set/", "../future/", "../closure/", "src/" }
 
   buildoptions {
     "-std=gnu99",
@@ -67,46 +67,91 @@ solution "ponyrt"
   project "pony"
     kind "StaticLib"
     language "C"
-    files "src/*.c"
+    buildoptions { "-Wno-deprecated-declarations" }
+    files {
+      "src/*.c",
+      "../future/future.c",
+      "../future/future_actor.c",
+      "../future/tit_eager.c",
+      "../future/tit_lazy.c",
+      "../set/set.c",
+      "../closure/closure.c"
+    }
+    -- links {
+    --   "Futures"
+    -- }
+
+  -- project "Futures"
+  --   kind "StaticLib"
+  --   language "C"
+  --   links { "Closures", "Set" }
+  --   buildoptions { "-Wno-deprecated-declarations" }
+  --   files {
+  --       "../future/future.c",
+  --       "../future/future_actor.c",
+  --       "../future/tit_eager.c",
+  --       "../future/tit_lazy.c"
+  --   }
+
+  -- project "Closures"
+  --   kind "StaticLib"
+  --   language "C"
+  --   files {
+  --       "../closure/closure.c"
+  --   }
+
+  -- project "Set"
+  --   kind "StaticLib"
+  --   language "C"
+  --   files {
+  --       "../set/set.c"
+  --   }
 
   project "spreader"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/spreader.c"
 
   project "counter"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/counter.c"
 
   project "ring"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/ring.c"
 
   project "mailbox"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/mailbox.c"
 
   project "mixed"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/mixed.c"
 
   project "gups"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/RandomAccess/*.c"
 
   project "gups2"
     kind "ConsoleApp"
     language "C"
-    links "pony"
+    links { "pony" }
     files "test/RandomAccess2/*.c"
+
+  project "future_test"
+    kind "ConsoleApp"
+    language "C"
+    links { "pony" }
+    files "test/future_test/*.c"
+

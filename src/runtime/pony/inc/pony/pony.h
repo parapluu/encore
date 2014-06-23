@@ -21,6 +21,12 @@ typedef struct pony_actor_t pony_actor_t;
  */
 #define PONY_MAIN UINT64_MAX
 
+enum
+{
+  FUT_MSG_RUN_CLOSURE = UINT64_MAX - 1000,
+  FUT_MSG_RESUME
+};
+
 /** Argument to a message.
  *
  * This union type is used to make sending primitive types simpler.

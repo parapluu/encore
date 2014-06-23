@@ -1,5 +1,7 @@
 dist
 cabal-dev
+*\.yas*
+*.dSYM
 *.o
 *.hi
 *.chi
@@ -11,3 +13,6 @@ cabal.sandbox.config
 cabal.config
 encorec
 release
+/GPATH
+/GRTAGS
+/GTAGS

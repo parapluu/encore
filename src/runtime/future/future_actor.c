@@ -10,8 +10,9 @@
 #include "set.h"
 #include "closure.h"
 #include "actor_def.h"
+#include "scheduler.h"
 
-#define DEBUG_PRINT 0
+#define DEBUG_PRINT 1
 
 typedef struct future_actor_fields {
   volatile bool fulfilled;
@@ -28,7 +29,7 @@ typedef struct chained_entry {
 
 typedef struct blocked_entry {
   pony_actor_t *actor;
-  tit_t *context;
+  resumable_t *context;
 } blocked_entry;
 
 static void future_actor_trace(void* p);
@@ -126,25 +127,23 @@ static void trace_chain(chained_entry *entry) {
 
 static void resume_from_await(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
-  tit_t *stacklet = entry->context;
+  resumable_t *r = entry->context;
   pony_arg_t argv[1];
-  argv[0].p = stacklet;
-  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- resume (%p)\n", pthread_self(), target, stacklet);
+  argv[0].p = r;
+  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- resume (%p)\n", pthread_self(), target, r);
 
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
 }
 
-extern void pony_actor_unblock(pony_actor_t *actor);
-
 static void resume_from_block(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
-  tit_t *stacklet = entry->context;
+  resumable_t *r = entry->context;
   pony_arg_t argv[1];
-  argv[0].p = stacklet;
-  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- resume (%p)\n", pthread_self(), target, stacklet);
+  argv[0].p = r;
+  if (DEBUG_PRINT) fprintf(stderr, "[%p]\t%p <--- resume (%p)\n", pthread_self(), target, r);
 
-  // XXX: Waiting for Sylvan's implementation of this
-  pony_actor_unblock(target);
+  scheduler_add(target, target->thread);
+  // pony_actor_unblock(target);
   // XXX: For now, implement futures with await semantics even on blocking
   pony_sendv(target, FUT_MSG_RESUME, 1, argv);
 }
@@ -160,8 +159,6 @@ static void run_chain(chained_entry *entry, void *value) {
 }
 
 void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
-  future_init(p, this);
-
   switch (id) {
   case FUT_MSG_CHAIN:
     {
@@ -169,7 +166,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // TODO: Add the closure argument to an internal list of closures
       // This entry should record the closure and the actor to run it
       Set chained = getChained(this);
-      chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
+      chained_entry *new_entry = malloc(sizeof(chained_entry));
       new_entry->actor = argv[0].p;
       new_entry->closure = argv[1].p;
       set_add(chained, new_entry);
@@ -179,7 +176,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) block ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
 
-      if (fulfilled((future_t*) this)) {
+      if (future_fulfilled((future_t*) this)) {
         if (DEBUG_PRINT) fprintf(stderr, "[%p]\tAttempt to block on fulfilled future\n", pthread_self());
 
         blocked_entry new_entry = { .actor = argv[0].p , .context = argv[1].p };
@@ -189,9 +186,9 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       }
 
       Set blocked = getBlocked(this);
-      blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
+      blocked_entry *new_entry = malloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
-      new_entry->context = (tit_t*) argv[1].p;
+      new_entry->context = (resumable_t*) argv[1].p;
       set_add(blocked, new_entry);
       break;
     }
@@ -199,21 +196,23 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) await ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
       Set awaiting = getAwaiting(this);
-      blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
+      blocked_entry *new_entry = malloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
-      new_entry->context = (tit_t*) argv[1].p;
+      new_entry->context = (resumable_t*) argv[1].p;
       set_add(awaiting, new_entry);
       break;
     }
   case FUT_MSG_FULFIL:
     {
       // Discarding volatile here because it does not matter
-      void *value = (void*) future_actor_get_value(this);
+      volatile void *value;
+      bool fulfilled;
+      fulfilled = future_actor_get_value_and_fulfillment(this, &value);
 
-      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tfulfil ---> %p [value=%p]\n", pthread_self(), this, value);
+      if (DEBUG_PRINT) fprintf(stderr, "[%p]\tfulfil ---> %p [value=%p,status=%d]\n", pthread_self(), this, value, fulfilled);
 
       Set chained = getChained(this);
-      set_forall(chained, (void *((*)(void *, void*))) run_chain, value);
+      set_forall(chained, (void *((*)(void *, void*))) run_chain, (void*) value);
 
       Set awaiting = getAwaiting(this);
       set_forall(awaiting, (void *((*)(void *, void*))) resume_from_await, NULL);
@@ -226,6 +225,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
   case FUT_MSG_RESUME:
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p) resume ---> %p \n", pthread_self(), argv[0].p, this);
+      // XXX: This behaviour is controlled by the eager/lazy strategy
       t_resume(argv[0].p);
       break;
     }
@@ -238,23 +238,31 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
   }
 }
 
-volatile void *future_actor_get_value(pony_actor_t* this) {
-  future_actor_fields *state = this->p;
-  return state->value;
-}
 void future_actor_set_value(pony_actor_t* this, volatile void *value) {
   future_actor_fields *state = this->p;
   state->value = value;
+  __sync_synchronize();
+  state->fulfilled = true;
+}
+volatile bool future_actor_get_value_and_fulfillment(pony_actor_t* this, volatile void **value) {
+  future_actor_fields *state = this->p;
+  volatile bool fulfilled = state->fulfilled;
+  __sync_synchronize();
+  *value = state->value;
+  return fulfilled;
 }
 volatile bool future_actor_get_fulfilled(pony_actor_t* this) {
   future_actor_fields *state = this->p;
   return state->fulfilled;
 }
+volatile void *future_actor_get_value(pony_actor_t* this) {
+  future_actor_fields *state = this->p;
+  return state->value;
+}
 void future_actor_set_fulfilled(pony_actor_t* this, volatile bool fulfilled) {
   future_actor_fields *state = this->p;
   state->fulfilled = fulfilled;
 }
-
 pony_actor_t* future_create() {
   pony_actor_t* fut = pony_create(&future_actor_type);
   future_init(NULL, fut);
@@ -269,3 +277,4 @@ static void future_actor_trace(void* p)
   set_forall(fields->awaiting, (void *((*)(void *, void*))) trace_resume, NULL);
   set_forall(fields->blocked, (void *((*)(void *, void*))) trace_resume, NULL);
 }
+

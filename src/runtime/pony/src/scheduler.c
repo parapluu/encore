@@ -14,10 +14,10 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <assert.h>
-
+#include "pony_extensions.h"
 #include <signal.h>
 
-typedef struct
+struct scheduler_t
 {
   pthread_t tid;
   uint32_t id;
@@ -29,14 +29,17 @@ typedef struct
   bool quiet;
   bool finish;
   mpmcq_t q;
-} scheduler_t __attribute__((aligned (64)));
+} __attribute__((aligned (64)));
 
-static uint32_t scheduler_count;
-static scheduler_t* scheduler;
+// Tobias: removed static from the following line
+uint32_t scheduler_count;
+// Tobias: removed static from the following line
+scheduler_t* scheduler;
 static volatile bool finishcd;
 static volatile bool stats;
 static volatile bool terminate;
-static volatile uint32_t quiet;
+// Tobias: removed static from the following line
+volatile uint32_t quiet;
 static volatile uint32_t done;
 static volatile int exit_code;
 
@@ -53,7 +56,7 @@ static inline pony_actor_t* scheduler_worksteal(scheduler_t* s)
   return mpmcq_pop(&from->q);
 }
 
-static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
+pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
 {
   pony_actor_t* next = mpmcq_pop(&s->q);
 
@@ -76,7 +79,7 @@ static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
     return next;
   }
 
-  if(prev == NULL && !s->quiet)
+  if(prev == NULL && !s->quiet) 
   {
     s->quiet = true;
     __sync_fetch_and_add(&quiet, 1);
@@ -85,24 +88,26 @@ static pony_actor_t* next_actor(scheduler_t* s, pony_actor_t* prev)
   return prev;
 }
 
-static __thread scheduler_t *memory;
-
-static void* run_thread(void* arg)
+// Tobias: removed static on the following line
+void* run_thread(void* arg)
 {
-  scheduler_t* s = arg;
-  memory = s;
+  // Cache the current thread's scheduler unless arg == NULL
+  scheduler_t* s = ext_run_thread_start((scheduler_t*)arg);
   cpu_affinity(s->cpu);
 
   pony_actor_t* actor = NULL;
 
   while(true)
   {
-    if((actor = next_actor(s, actor)) != NULL)
+    ext_run_loop_start();
+    if((actor = ext_next_actor(s, actor)) != NULL) 
     {
       if(!actor_run(actor, s->id, &s->app_msgs, &s->rc_msgs))
       {
         actor = NULL;
       }
+      // Make sure to reread the current thread's scheduler
+      s = ext_run_thread_start(NULL);
     } else if(quiet < scheduler_count) {
       struct timespec ts = {0, 0};
       nanosleep(&ts, NULL);
@@ -150,12 +155,9 @@ static void* run_thread(void* arg)
   return NULL;
 }
 
-void* run_thread_restart() {
-  return run_thread(memory);
-}
-
-void pony_actor_unblock(pony_actor_t *actor) {
-  mpmcq_push(&memory->q, actor);
+static void* __run_thread(void* arg) {
+  ext_new_thread();
+  return run_thread(arg);
 }
 
 static int parse_args(int argc, char** argv)
@@ -253,7 +255,7 @@ int pony_start(int argc, char** argv, pony_actor_t* actor)
 
   for(uint32_t i = 1; i < scheduler_count; i++)
   {
-    if(pthread_create(&scheduler[i].tid, NULL, run_thread, &scheduler[i]) != 0)
+    if(pthread_create(&scheduler[i].tid, NULL, __run_thread, &scheduler[i]) != 0)
     {
       return -1;
     }
@@ -264,7 +266,7 @@ int pony_start(int argc, char** argv, pony_actor_t* actor)
   arg[1].p = argv;
   actor_sendv(actor, PONY_MAIN, 2, arg);
 
-  run_thread(&scheduler[0]);
+  __run_thread(&scheduler[0]);
 
   for(uint32_t i = 1; i < scheduler_count; i++)
   {

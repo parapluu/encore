@@ -6,24 +6,31 @@
 #include "closure.h"
 
 typedef struct future future_t;
+typedef struct resumable resumable_t;
+
+typedef enum {
+  LAZY,
+  EAGER
+} strategy_t;
+
 
 // =============================================================================
 // Logic for creating, querying, and fulfilling futures
 // =============================================================================
 
-future_t *create_new_future();
-volatile bool fulfilled(future_t *future);
-volatile void *get_value(future_t *future);
-void fulfil(future_t *future, volatile void *value);
+future_t *future_mk();
+volatile bool future_fulfilled(future_t *future);
+volatile void *future_read_value(future_t *future);
+void future_fulfil(future_t *future, volatile void *value);
 
 // =============================================================================
 // Actor-specific parts of the future library
 // =============================================================================
 
-void chain(future_t *future, pony_actor_t* actor_owning_closure, struct closure *closure);
-void await(future_t *future, pony_actor_t* actor_awaiting_future);
-void block(future_t *future, pony_actor_t* actor_blocking_on_future, void *stacklet);
-volatile void *get_value_or_block(future_t *future, pony_actor_t* actor_blocking_on_future);
+void future_chain(future_t *future, pony_actor_t* actor_owning_closure, struct closure *closure);
+void future_await(future_t *future, pony_actor_t* actor_awaiting_future);
+void future_block(future_t *future, pony_actor_t* actor_blocking_on_future, void *stacklet);
+volatile void *future_get(future_t *future, pony_actor_t* actor_blocking_on_future);
 
 // =============================================================================
 // Task-specific parts of the future library
@@ -36,5 +43,13 @@ volatile void *get_value_or_block(future_t *future, pony_actor_t* actor_blocking
 // =============================================================================
 
 void yield(pony_actor_t *actor);
+
+// =============================================================================
+// This is low-level and should not be part of future public interface
+// [ ] Refactor
+// =============================================================================
+void future_resume(resumable_t *r);
+void future_run_loop_start();
+void init_futures(int cache_size, strategy_t strategy);
 
 #endif

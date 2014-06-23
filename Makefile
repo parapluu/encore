@@ -17,8 +17,7 @@ PONY_LIB=$(PONY_DIR)/bin/debug/libpony.a
 
 FUTURE_DIR=$(RUNTIME_DIR)/future
 FUTURE_INC=$(FUTURE_DIR)/*.h
-#FUTURE_LIB=$(FUTURE_DIR)/context.o $(FUTURE_DIR)/future.o $(FUTURE_DIR)/future_actor.o $(FUTURE_DIR)/ccontext.o # with ccontext
-FUTURE_LIB=$(FUTURE_DIR)/context.o $(FUTURE_DIR)/future_actor.o # with context # $(FUTURE_DIR)/context_future.o 
+FUTURE_LIB=$(FUTURE_DIR)/future_actor.o $(FUTURE_DIR)/future.o $(FUTURE_DIR)/tit_lazy.o $(FUTURE_DIR)/tit_eager.o 
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc

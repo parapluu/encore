@@ -2,16 +2,9 @@
 #define __tit_lazy_h__
 
 #include <stdbool.h>
+#include "tit_common.h"
 
 typedef struct lazy_tit_t lazy_tit_t;
-
-typedef void(*fun_t_0)(void);
-typedef void(*fun_t_1)(void* a);
-typedef void(*fun_t_2)(void* a, void *b);
-typedef void(*fun_t_3)(void* a, void *b, void *c);
-typedef void(*fun_t_4)(void* a, void *b, void *c, void *d);
-typedef void(*fun_t_5)(void* a, void *b, void *c, void *d, void* e);
-typedef void(*fun_t_6)(void* a, void *b, void *c, void *d, void* e, void*f);
 
 // =============================================================================
 // Setting up and tearing down a stack
@@ -78,5 +71,9 @@ bool lazy_t_done(lazy_tit_t *stack);
 bool lazy_t_is_suspended(lazy_tit_t *stack);
 bool lazy_t_is_proper(lazy_tit_t *stack);
 lazy_tit_t *lazy_t_copy(lazy_tit_t *stack);
+
+bool done_lazy(lazy_tit_t *stack);
+void fork_lazy(void(*fun)());
+void resume_lazy(lazy_tit_t *stack);
 
 #endif
