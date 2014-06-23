@@ -194,15 +194,9 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 
 static void trampoline(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
   fprintf(stderr, "(%p)\t---------------------- TRAMPOLINE in (%p) ----------------------\n", pthread_self(), this);
-
   state_t *state = actors_init(p, this);
-  
-  /* if (t_is_suspended(state->stacklet)) { */
-  /*   futures_eager_dispatch(this, state, id, argc, argv); */
-  /* } else { */
-  /*   fprintf(stderr, "[%p]\t***In trampoline of %p with stacklet %p\n", pthread_self(), this, state->stacklet); */
+  // TODO: move the trampolining stage into actor.c and handle messages
   fork_eager(futures_eager_dispatch, this, state, (void*) id, (void*) (long) argc, argv);
-  /* } */
 }
 
 int main(int argc, char** argv)
