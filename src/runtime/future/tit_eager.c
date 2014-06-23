@@ -4,108 +4,120 @@
 #include <assert.h>
 #include <sysexits.h>
 #include <err.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "tit_eager.h"
 #include "mpmcq.h"
 
-struct tit_t {
-  ucontext_t extra_stack;
-  ucontext_t original_stack;
-  void *stack; // This is used because original_stack may be moved underfoot due (e.g. 16 byte alignment on OS X)
-  bool is_suspended;
+#define STACK_SIZE (8*1024*1024)
+#define MAX(a,b)   ((a < b) ? b : a)
+
+typedef enum stack_state {
+  SUSPENDED,
+  RUNNING,
+  GARBAGE,
+} stack_state;
+
+struct eager_tit_t {
+  stack_state state;
+  bool is_proper;
+  ucontext_t context;
 };
 
-tit_t *t_init() {
-  tit_t *stack_pair = calloc(1, sizeof(struct tit_t));
-  return stack_pair;
-}
+static __thread eager_tit_t *_trampoline;
+static __thread eager_tit_t *runloop;
 
-#define __t_fork(stack_pair)				\
-  getcontext(&stack_pair->extra_stack);			\
-  stack_pair->stack			   = calloc(1, stack_pair->extra_stack.uc_stack.ss_size);	\
-  stack_pair->extra_stack.uc_stack.ss_sp    = stack_pair->stack;  \
-  stack_pair->extra_stack.uc_stack.ss_flags = 0;		\
-  stack_pair->extra_stack.uc_link           = &stack_pair->original_stack;	\
+static void trampoline_5(eager_tit_t *new, fun_t_5 fun, void *a, void *b, void *c, void *d, void *e);
+static inline void __start_trampoline(eager_tit_t *new);
+static inline void __end_trampoline();
+extern void return_allocated_stack_to_pool(void *stack_pointer);
+extern void mk_stack(ucontext_t *uc);
 
-void t_fork_0(tit_t *stack_pair, void(*fun)()) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 0);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
+void fork_eager(void(*fun_t_5)(), void *a, void *b, void *c, void *d, void *e) {
+  eager_tit_t *fork = calloc(1, sizeof(struct eager_tit_t));
+  getcontext(&fork->context);
+  fork->context.uc_stack.ss_sp    = NULL;
+  fork->context.uc_stack.ss_flags = 0;
+  fork->context.uc_link           = &runloop->context;
+  fork->state                     = RUNNING;
+  fork->is_proper                 = false;
+  runloop->state                  = SUSPENDED;
+
+  mk_stack(&fork->context);
+
+  // fprintf(stderr, "\t\t<%p> fork: tit %p has stack: %p\n", pthread_self(), fork, fork->context.uc_stack.ss_sp);
+  makecontext(&fork->context, trampoline_5, 7, fork, fun_t_5, a, b, c, d, e);
+  if (swapcontext(&runloop->context, &fork->context) != 0) {
     err(EX_OSERR, "swapcontext failed");
   }
 }
 
-void t_fork_1(tit_t *stack_pair, void(*fun)(void* a), void *a) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 1, a);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
-  }
+static inline void __start_trampoline(eager_tit_t *t) {
+  _trampoline = t;
 }
-void t_fork_2(tit_t *stack_pair, void(*fun)(void* a, void *b), void *a, void *b) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 2, a, b);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
-  }
+
+static inline void __end_trampoline(eager_tit_t *t) {
+  t->state = GARBAGE;
 }
-void t_fork_3(tit_t *stack_pair, void(*fun)(void* a, void *b, void *c), void *a, void *b, void *c) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 3, a, b, c);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
-  }
+
+static void trampoline_5(eager_tit_t *t, fun_t_5 fun, void *a, void *b, void *c, void *d, void *e) {
+  __start_trampoline(t);
+  fun(a, b, c, d, e);
+  __end_trampoline(t);
 }
-void t_fork_4(tit_t *stack_pair, void(*fun)(void* a, void *b, void *c, void *d), void *a, void *b, void *c, void *d) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 4, a, b, c, d);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
-  }
-}
-void t_fork_5(tit_t *stack_pair, void(*fun)(void* a, void *b, void *c, void *d, void* e), void *a, void *b, void *c, void *d, void *e) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 5, a, b, c, d, e);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
-  }
-  // puts("Resuming from t_fork_5");
-}
-void t_fork_6(tit_t *stack_pair, void(*fun)(void* a, void *b, void *c, void *d, void* e, void*f), void *a, void *b, void *c, void *d, void *e, void *f) {
-  __t_fork(stack_pair);
-  makecontext(&stack_pair->extra_stack, fun, 6, a, b, c, d, e, f);
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
+
+void suspend_eager(eager_tit_t *t) {
+  runloop->state = RUNNING;
+  t->state = SUSPENDED;
+
+  if (swapcontext(&t->context, &runloop->context) != 0) {
+    err(EX_OSERR, "setcontext failed");
   }
 }
 
-void t_suspend(tit_t *stack_pair) {
-  stack_pair->is_suspended = true;
-  if (swapcontext(&stack_pair->extra_stack, &stack_pair->original_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
+void resume_eager(eager_tit_t *t) {
+  eager_tit_t *cache = _trampoline;
+
+  cache->state = SUSPENDED;
+  t->state = RUNNING;
+  t->context.uc_link = &cache->context;
+
+  if (swapcontext(&cache->context, &t->context) != 0) {
+    err(EX_OSERR, "setcontext failed");
   }
-}
 
-static void t_cleanup(tit_t *stack_pair) {
-  free(stack_pair->stack);
-  free(stack_pair);
-}
+  _trampoline = cache;
 
-void t_resume(tit_t *stack_pair) {
-  assert(stack_pair->is_suspended);
-  stack_pair->is_suspended = false;
-  stack_pair->extra_stack.uc_link = &stack_pair->original_stack;
-  if (swapcontext(&stack_pair->original_stack, &stack_pair->extra_stack) != 0) {
-    err(EX_OSERR, "swapcontext failed");
+  switch (t->state) {
+  case GARBAGE:
+    return_allocated_stack_to_pool(t->context.uc_stack.ss_sp);
+    free(t);
+    break;
+  case SUSPENDED:
+    // Do nothing
+    break;
+  case RUNNING:
+    assert(false);
+    break;
+  default:
+    assert(false);
+    break;
   }
-  t_cleanup(stack_pair);
+
+  /* eager_tit_t *foo = runloop; */
+  /* foo->state = RUNNING; */
 }
 
-void t_done(tit_t *stack_pair) {
-  // Nothing to do in this strategy
+eager_tit_t *get_suspendable_tit() {
+  assert(_trampoline->is_proper == false);
+    
+  return _trampoline;
 }
 
-bool t_is_suspended(tit_t *stack_pair) {
-  return stack_pair->is_suspended;
+void eager_t_init_current() {
+  runloop = calloc(1, sizeof(eager_tit_t));
+  runloop->is_proper = true;
+  runloop->state = RUNNING;
 }
-

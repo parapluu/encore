@@ -13,7 +13,7 @@ typedef struct lazy_tit_t lazy_tit_t;
 /*
  * Sets up the library internal state. Should be called once per system.
  */
-void init_lazy_system(int cache_size);
+void init_system(int cache_size);
 
 /*
  * Sets up context information for the current thread. Should be

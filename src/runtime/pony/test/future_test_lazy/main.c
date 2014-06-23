@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include "future.h"
 #include "closure.h"
 #include "pthread.h"
@@ -132,7 +133,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
         // block	
 	if (!future_fulfilled(fut)) {
 	  print_threadid();
-	  future_block(fut, this, NULL);
+	  future_block(fut, this);
 	  print_threadid();
 	}
 
@@ -167,7 +168,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\t(%p) future_arg ---> %p \n", pthread_self(), argv[0].p, this);
         // also block on the pony_actor_t
         future_t *fut = (future_t*) argv[0].p;
-        future_block(fut, this, NULL);
+        future_block(fut, this);
         break;
       }
 
@@ -191,30 +192,9 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
     }
 }
 
-static __thread bool called_init;
-
 static void trampoline(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv) {
-  // lazy_t_done(current);
-
-  if (!called_init) {
-    // lazy_t_init_current();
-    called_init = true;
-  }
-
-  fprintf(stderr, "(%p)\t---------------------- TRAMPOLINE in (%p) ----------------------\n", pthread_self(), this);
-
   state_t *state = actors_init(p, this);
-  /* futures_eager_dispatch(this, state, id, argc, argv); */
-  /* return; */
-  
-  /* if (state->stacklet && lazy_t_is_suspended(state->stacklet)) { */
-  /*   fprintf(stderr, "<<%p>>\tDispatch abandons current thread for existing stacklet %p\n", pthread_self(), state->stacklet); */
-  /*   lazy_tit_t *stacklet = state->stacklet; */
-  /*   state->stacklet = NULL; */
-  /*   lazy_t_resume(stacklet); */
-  /* } else { */
-    futures_eager_dispatch(this, state, id, argc, argv);
-  /* } */
+  futures_eager_dispatch(this, state, id, argc, argv);
 }
 
 int main(int argc, char** argv)

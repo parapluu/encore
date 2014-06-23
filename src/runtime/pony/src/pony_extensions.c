@@ -11,6 +11,7 @@ extern volatile uint32_t quiet;
 extern void* run_thread(void* arg); // in scheduler.h
 extern void future_run_loop_start(); // in future.h
 extern void lazy_t_init_current(); // in tit_lazy.h
+extern void eager_t_init_current(); // in tit_eager.h
 
 struct scheduler_t
 {
@@ -42,6 +43,7 @@ void ext_new_thread() {
   // XXX: For now, place this here to make sure that futures are always initialised
   init_futures(2, LAZY);
   lazy_t_init_current();
+  eager_t_init_current();
 }
 
 scheduler_t *ext_run_thread_start(scheduler_t *s) {
