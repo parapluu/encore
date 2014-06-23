@@ -166,7 +166,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // TODO: Add the closure argument to an internal list of closures
       // This entry should record the closure and the actor to run it
       Set chained = getChained(this);
-      chained_entry *new_entry = malloc(sizeof(chained_entry));
+      chained_entry *new_entry = calloc(1, sizeof(chained_entry));
       new_entry->actor = argv[0].p;
       new_entry->closure = argv[1].p;
       set_add(chained, new_entry);
@@ -226,7 +226,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p) resume ---> %p \n", pthread_self(), argv[0].p, this);
       // XXX: This behaviour is controlled by the eager/lazy strategy
-      t_resume(argv[0].p);
+      // t_resume(argv[0].p);
       break;
     }
   case FUT_MSG_RUN_CLOSURE:

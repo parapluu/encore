@@ -2,7 +2,6 @@
 #define __future_using_actors_h
 
 #include "pony/pony.h"
-#include "tit_eager.h"
 #include "closure.h"
 
 typedef struct future future_t;
@@ -29,7 +28,7 @@ void future_fulfil(future_t *future, volatile void *value);
 
 void future_chain(future_t *future, pony_actor_t* actor_owning_closure, struct closure *closure);
 void future_await(future_t *future, pony_actor_t* actor_awaiting_future);
-void future_block(future_t *future, pony_actor_t* actor_blocking_on_future, void *stacklet);
+void future_block(future_t *future, pony_actor_t* actor_blocking_on_future);
 volatile void *future_get(future_t *future, pony_actor_t* actor_blocking_on_future);
 
 // =============================================================================

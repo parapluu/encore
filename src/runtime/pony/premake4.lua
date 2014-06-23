@@ -149,9 +149,15 @@ solution "ponyrt"
     links { "pony" }
     files "test/RandomAccess2/*.c"
 
-  project "future_test"
+  project "future_test_eager"
     kind "ConsoleApp"
     language "C"
     links { "pony" }
-    files "test/future_test/*.c"
+    files "test/future_test_eager/*.c"
+
+  project "future_test_lazy"
+    kind "ConsoleApp"
+    language "C"
+    links { "pony" }
+    files "test/future_test_lazy/*.c"
 

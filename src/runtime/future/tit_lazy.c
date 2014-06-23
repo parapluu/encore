@@ -41,34 +41,51 @@ static void trampoline_0(lazy_tit_t *new, fun_t_0 fun);
 // static void trampoline_4(lazy_tit_t *new, fun_t_4 fun, void *a, void *b, void *c, void *d);
 // static void trampoline_5(lazy_tit_t *new, fun_t_5 fun, void *a, void *b, void *c, void *d, void *e);
 // static void trampoline_6(lazy_tit_t *new, fun_t_6 fun, void *a, void *b, void *c, void *d, void *e, void *f);
-static void return_allocated_stack_to_pool(lazy_tit_t *stack);
+void return_allocated_stack_to_pool(void *stack_pointer);
 static inline void __start_trampoline(lazy_tit_t *new);
 static inline void __end_trampoline();
 
+void mk_stack(ucontext_t *fork) {
+  if (side_stack_cache_size > 0) {
+    while (fork->uc_stack.ss_sp == NULL && cached_side_stacks > 0) {
+      fork->uc_stack.ss_sp = mpmcq_pop(&side_stacks_for_reuse);
+    }
+    if (fork->uc_stack.ss_sp) {
+      int cache_size;
+      do {
+        cache_size = cached_side_stacks;
+      } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
+    }
+  }
 
-static void return_allocated_stack_to_pool(lazy_tit_t *stack) {
-  assert(stack->is_proper == false);
+  if (fork->uc_stack.ss_sp == NULL) {
+    if (posix_memalign(&fork->uc_stack.ss_sp, 16, MAX(fork->uc_stack.ss_size,STACK_SIZE)) != false) {
+      err(EX_OSERR, "Posix memalign failed");
+    }
+  }
+}
+
+void return_allocated_stack_to_pool(void *stack_pointer) {
   bool free_stack = true;
-
   int current_cache_size;
   do {
     current_cache_size = cached_side_stacks;
     if (__sync_bool_compare_and_swap(&cached_side_stacks, current_cache_size, current_cache_size + 1)) {
-      mpmcq_push(&side_stacks_for_reuse, stack->context.uc_stack.ss_sp);
+      mpmcq_push(&side_stacks_for_reuse, stack_pointer);
       free_stack = false;
       break;
     }
   } while (current_cache_size < side_stack_cache_size);
 
-  if (free_stack) free(stack->context.uc_stack.ss_sp);
-  // free(stack);
+  if (free_stack) free(stack_pointer);
 }
 
 static void garbage_collect_stack(lazy_tit_t *to_retire) {
   if (to_retire->is_proper) {
     mpmcq_push(&proper_stacks_for_reuse, to_retire);
   } else {
-    return_allocated_stack_to_pool(to_retire);
+    return_allocated_stack_to_pool(to_retire->context.uc_stack.ss_sp);
+    free(to_retire);
   }
 }
 
@@ -77,7 +94,7 @@ static void __init_pool() {
   mpmcq_init(&side_stacks_for_reuse);
 }
 
-void init_lazy_system(int __side_stack_cache_size) {
+void init_system(int __side_stack_cache_size) {
   pthread_once(&stack_pool_is_initialized, __init_pool);
   // Silently fail if attempt to reset
   if (!side_stack_cache_size) {
@@ -111,23 +128,7 @@ void fork_lazy(void(*fun)()) {
   fork->is_proper                 = false;
   cache->state                    = SUSPENDED;
 
-  if (side_stack_cache_size > 0) {
-    while (fork->context.uc_stack.ss_sp == NULL && cached_side_stacks > 0) {
-      fork->context.uc_stack.ss_sp = mpmcq_pop(&side_stacks_for_reuse);
-    }
-    if (fork->context.uc_stack.ss_sp) {
-      int cache_size;
-      do {
-        cache_size = cached_side_stacks;
-      } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
-    }
-  }
-
-  if (fork->context.uc_stack.ss_sp == NULL) {
-    if (posix_memalign(&fork->context.uc_stack.ss_sp, 16, MAX(fork->context.uc_stack.ss_size,STACK_SIZE)) != false) {
-      err(EX_OSERR, "Posix memalign failed");
-    }
-  }
+  mk_stack(&fork->context);
 
   // fprintf(stderr, "\t\t<%p> fork: tit %p has stack: %p\n", pthread_self(), fork, fork->context.uc_stack.ss_sp);
   makecontext(&fork->context, trampoline_0, 2, fork, fun);
