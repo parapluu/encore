@@ -20,8 +20,8 @@ struct set{
   struct node *root;
 };
 
-Set set_new(void){
-  struct set *set = malloc(sizeof(struct set));
+set_t *set_new(void){
+  set_t *set = malloc(sizeof(set_t));
   if(set)
     set->root = NULL;
   return set;
@@ -37,7 +37,7 @@ static struct node *node_mk(void *elem){
   return node;
 }
 
-bool set_add(Set set, void *elem){
+bool set_add(set_t *set, void *elem){
   if(set){
     if(!set->root){
       set->root = node_mk(elem);
@@ -56,7 +56,7 @@ bool set_add(Set set, void *elem){
   return FALSE;
 }
 
-bool set_elem(Set set, void *elem){
+bool set_elem(set_t *set, void *elem){
   if(set){
     struct node *cursor = set->root;
     while(cursor != NULL){
@@ -94,7 +94,7 @@ static void removeNode(struct node **nodePtr){
   free(tmp);
 }
 
-bool set_remove(Set set, void *elem){
+bool set_remove(set_t *set, void *elem){
   if(!set || !(set->root))
     return FALSE;
   struct node **cursor = &(set->root);
@@ -109,7 +109,7 @@ bool set_remove(Set set, void *elem){
   }
 }
 
-static bool node_subset(struct node *node, Set set){
+static bool node_subset(struct node *node, set_t *set){
   if(!node)
     return TRUE;
   return set_elem(set, node->elem) && 
@@ -118,14 +118,14 @@ static bool node_subset(struct node *node, Set set){
 
 }
 
-bool set_subset(Set sub, Set super){
+bool set_subset(set_t *sub, set_t *super){
   if(sub)
     return node_subset(sub->root, super);
   else
     return FALSE;
 }
 
-bool set_eq(Set set, Set other){
+bool set_eq(set_t *set, set_t *other){
   return set_subset(set, other) && set_subset(other, set);
 }
 
@@ -137,9 +137,10 @@ static void cloneNode(struct node *from, struct node **to){
   }
 }
 
-Set set_clone(Set set){
-  Set newSet = NULL;
+set_t *set_clone(set_t *set){
+  set_t *newSet = NULL;
   if(set)
+
     newSet = set_new();
   if(newSet)
     cloneNode(set->root, &(newSet->root));
@@ -156,7 +157,7 @@ static void printNode(struct node *node, printer_fnc printer){
   }
 }
 
-void set_print(Set set, printer_fnc printer){
+void set_print(set_t *set, printer_fnc printer){
   if(set)
     printNode(set->root, printer);
 }
@@ -169,14 +170,14 @@ static void node_destroy(struct node* node){
   }
 }
 
-void set_destroy(Set set){
+void set_destroy(set_t *set){
   if(set){
     node_destroy(set->root);
     free(set);
   }
 }
 
-static Set node_map(struct node *node, Set result, map_fnc f){
+static set_t *node_map(struct node *node, set_t *result, map_fnc f){
   if(node){
     set_add(result, f(node->elem));
     node_map(node->left, result, f);
@@ -185,7 +186,7 @@ static Set node_map(struct node *node, Set result, map_fnc f){
   return result;
 }
 
-Set set_map(Set set, map_fnc f){
+set_t *set_map(set_t *set, map_fnc f){
   if(set)
     return node_map(set->root, set_new(), f);
   else
@@ -200,7 +201,7 @@ static void node_forall(struct node *node, forall_fnc f, void *arg){
   }
 }
 
-void set_forall(Set set, forall_fnc f, void *arg){
+void set_forall(set_t *set, forall_fnc f, void *arg){
   if(set)
     node_forall(set->root, f, arg);
 }
@@ -215,7 +216,7 @@ static void *node_reduce(struct node *node, reduce_fnc f, void *acc){
   }
 }
 
-void *set_reduce(Set set, reduce_fnc f, void *init){
+void *set_reduce(set_t *set, reduce_fnc f, void *init){
   if(set)
     return node_reduce(set->root, f, init);
   else

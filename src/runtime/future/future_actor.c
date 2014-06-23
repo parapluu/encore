@@ -17,9 +17,9 @@
 typedef struct future_actor_fields {
   volatile bool fulfilled;
   volatile void *value;
-  Set blocked;
-  Set chained;
-  Set awaiting;
+  set_t *blocked;
+  set_t *chained;
+  set_t *awaiting;
 } future_actor_fields;
 
 typedef struct chained_entry {
@@ -89,26 +89,26 @@ static future_actor_fields *future_init(void *p, void *this) {
   }
 }
 
-static Set getBlocked(pony_actor_t* this) {
+static set_t *getBlocked(pony_actor_t* this) {
   future_actor_fields *fields = this->p;
   if (fields->blocked == NULL) {
-    fields->blocked = set_new();
+    fields->blocked = mk_set();
   }
   return fields->blocked;
 }
 
-static Set getChained(pony_actor_t* this) {
+static set_t *getChained(pony_actor_t* this) {
   future_actor_fields *fields = this->p;
   if (fields->chained == NULL) {
-    fields->chained = set_new();
+    fields->chained = mk_set();
   }
   return fields->chained;
 }
 
-static Set getAwaiting(pony_actor_t* this) {
+static set_t *getAwaiting(pony_actor_t* this) {
   future_actor_fields *fields = this->p;
   if (fields->awaiting == NULL) {
-    fields->awaiting = set_new();
+    fields->awaiting = mk_set();
   }
   return fields->awaiting;
 }
@@ -165,7 +165,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) chain ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
       // TODO: Add the closure argument to an internal list of closures
       // This entry should record the closure and the actor to run it
-      Set chained = getChained(this);
+      set_t *chained = getChained(this);
       chained_entry *new_entry = malloc(sizeof(chained_entry));
       new_entry->actor = argv[0].p;
       new_entry->closure = argv[1].p;
@@ -185,7 +185,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
         break;
       }
 
-      Set blocked = getBlocked(this);
+      set_t *blocked = getBlocked(this);
       blocked_entry *new_entry = malloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
       new_entry->context = (resumable_t*) argv[1].p;
@@ -195,7 +195,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
   case FUT_MSG_AWAIT:
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) await ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
-      Set awaiting = getAwaiting(this);
+      set_t *awaiting = getAwaiting(this);
       blocked_entry *new_entry = malloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
       new_entry->context = (resumable_t*) argv[1].p;
@@ -211,13 +211,13 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
 
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\tfulfil ---> %p [value=%p,status=%d]\n", pthread_self(), this, value, fulfilled);
 
-      Set chained = getChained(this);
+      set_t *chained = getChained(this);
       set_forall(chained, (void *((*)(void *, void*))) run_chain, (void*) value);
 
-      Set awaiting = getAwaiting(this);
+      set_t *awaiting = getAwaiting(this);
       set_forall(awaiting, (void *((*)(void *, void*))) resume_from_await, NULL);
 
-      Set blocked = getBlocked(this);
+      set_t *blocked = getBlocked(this);
       set_forall(blocked, (void *((*)(void *, void*))) resume_from_block, NULL);
 
       break;
