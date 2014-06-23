@@ -35,8 +35,8 @@ translateClosure closure
            let ((bodyName, bodyStat), _) = runState (translate body) ctx
            return $ ConcatTL 
                       [buildEnvironment env_name freeVars,
-                       Function (Typ "value") fun_name
-                         [(Typ "value", Var "_args[]"), (Ptr void, Var "_env")]
+                       Function (Typ "value_t") fun_name
+                         [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
                          (Seq $ 
                             extractArguments params ++ 
                             extractEnvironment env_name freeVars ++

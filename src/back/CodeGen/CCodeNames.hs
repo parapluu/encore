@@ -25,7 +25,7 @@ double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
 pony_arg_t = Typ "pony_arg_t"
-closure = Ptr $ Typ "struct closure"
+closure = Ptr $ Typ "closure_t"
 unit :: CCode Lval
 unit = Embed "UNIT" 
 

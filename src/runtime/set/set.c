@@ -20,7 +20,7 @@ struct set{
   struct node *root;
 };
 
-set_t *set_new(void){
+set_t *mk_set(void){
   set_t *set = malloc(sizeof(set_t));
   if(set)
     set->root = NULL;
@@ -141,7 +141,7 @@ set_t *set_clone(set_t *set){
   set_t *newSet = NULL;
   if(set)
 
-    newSet = set_new();
+    newSet = mk_set();
   if(newSet)
     cloneNode(set->root, &(newSet->root));
   return newSet;
@@ -188,7 +188,7 @@ static set_t *node_map(struct node *node, set_t *result, map_fnc f){
 
 set_t *set_map(set_t *set, map_fnc f){
   if(set)
-    return node_map(set->root, set_new(), f);
+    return node_map(set->root, mk_set(), f);
   else
     return NULL;
 }

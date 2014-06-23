@@ -19,7 +19,7 @@ void print_threadid() {
   fprintf(stderr, "{{{ current thread: %p }}}\n", pthread_self());
 }
 
-void print_value(value args[], void* env) {
+void print_value(value_t args[], void* env) {
   fprintf(stderr, "------------------> Chained closure prints value as: %llu\n", args[0].integer);
 }
 
@@ -114,7 +114,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
         future_t* fut = future_mk();
 	fprintf(stderr, "[%p]\tFuture is: %p\n", pthread_self(), fut);
 
-	struct closure *closure = closure_mk((closure_fun) print_value, NULL);
+	closure_t *closure = mk_closure((closure_fun) print_value, NULL);
 	fprintf(stderr, "[%p]\tClosure is: %p\n", pthread_self(), closure);
 	future_chain(fut, this, closure);
 	
@@ -148,7 +148,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
       {
 	fprintf(stderr, "[%p]\t(%p) run_closure ---> %p \n", pthread_self(), argv[0].p, this);
 	struct closure* closure = argv[0].p;
-	value closure_arguments[1];
+	value_t closure_arguments[1];
 	closure_arguments[0].ptr = argv[1].p;
         closure_call(closure, closure_arguments); 
         break;

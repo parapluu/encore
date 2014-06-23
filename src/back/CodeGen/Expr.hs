@@ -278,7 +278,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          fill_env <- mapM (insert_var env_name) free_vars
          return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
                            [Assign (Decl (closure, Var tmp)) 
-                                       (Call (Nam "closure_mk") [fun_name, env_name])])
+                                       (Call (Nam "mk_closure") [fun_name, env_name])])
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))
@@ -298,7 +298,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                              Nothing -> show name)
              ty = A.getType fcall
          targs <- mapM translateArgument args
-         (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value") targs
+         (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs
          (calln, the_call) <- tmp_var ty $ Call (getValFun ty) [Call (Nam "closure_call") [clos, tmp_args]]
          return (if Ty.isVoidType ty then unit else calln, Seq [tmp_arg_decl, the_call])
       where
