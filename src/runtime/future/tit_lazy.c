@@ -31,7 +31,7 @@ static pthread_once_t stack_pool_is_initialized = PTHREAD_ONCE_INIT;
 static mpmcq_t proper_stacks_for_reuse;
 static mpmcq_t side_stacks_for_reuse;
 static __thread lazy_tit_t *current;
-static unsigned int cached_side_stacks;
+static volatile unsigned int cached_side_stacks;
 static unsigned int side_stack_cache_size;
 
 static void trampoline_0(lazy_tit_t *new, fun_t_0 fun);
@@ -59,7 +59,9 @@ void mk_stack(ucontext_t *fork) {
   }
 
   if (fork->uc_stack.ss_sp == NULL) {
-    if (posix_memalign(&fork->uc_stack.ss_sp, 16, MAX(fork->uc_stack.ss_size,STACK_SIZE)) != false) {
+    // Set the correct stack size
+    fork->uc_stack.ss_size = MAX(fork->uc_stack.ss_size,STACK_SIZE);
+    if (posix_memalign(&fork->uc_stack.ss_sp, 16, fork->uc_stack.ss_size) != false) {
       err(EX_OSERR, "Posix memalign failed");
     }
   }
