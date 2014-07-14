@@ -186,7 +186,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       }
 
       set_t *blocked = getBlocked(this);
-      blocked_entry *new_entry = malloc(sizeof(blocked_entry));
+      blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
       new_entry->context = (resumable_t*) argv[1].p;
       set_add(blocked, new_entry);
@@ -196,7 +196,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     {
       if (DEBUG_PRINT) fprintf(stderr, "[%p]\t(%p, %p) await ---> %p \n", pthread_self(), argv[0].p, argv[1].p, this);
       set_t *awaiting = getAwaiting(this);
-      blocked_entry *new_entry = malloc(sizeof(blocked_entry));
+      blocked_entry *new_entry = pony_alloc(sizeof(blocked_entry));
       new_entry->actor = argv[0].p;
       new_entry->context = (resumable_t*) argv[1].p;
       set_add(awaiting, new_entry);

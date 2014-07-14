@@ -6,7 +6,7 @@ OBJECTS=set.o
 all: $(OBJECTS)
 
 $(OBJECTS) : %.o : %.c %.h
-	$(CC) $(FLAGS) -c $<
+	$(CC) $(FLAGS) -I../pony/inc -c $<
 
 test: set.o
 	$(CC) $(FLAGS) test.c -o test set.o

@@ -6,7 +6,7 @@ OBJECTS=closure.o
 all: $(OBJECTS)
 
 $(OBJECTS) : %.o : %.c %.h
-	$(CC) $(FLAGS) -c $<
+	$(CC) $(FLAGS) -I../pony/inc -c $<
 
 test: closure.o test.c
 	$(CC) $(FLAGS) test.c -o test closure.o
