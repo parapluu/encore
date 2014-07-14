@@ -1,1 +1,3 @@
 *.pony.c
+.DS_Store
+
