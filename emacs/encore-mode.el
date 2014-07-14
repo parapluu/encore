@@ -59,8 +59,13 @@
   (if (equal first "def")
       (if (string-match "\\<def\\>" line)
           (match-beginning 0)
+      (if (string-match "\\<passive\\>" line)
+          (+ (match-beginning 0) encore-tab-width)
       (if (string-match "\\<class\\>" line)
-          (+ (match-beginning 0) encore-tab-width)))
+          (+ (match-beginning 0) encore-tab-width))))
+
+  (if (string-match "\\<passive\\> .*" line)
+      (+ (match-beginning 0) encore-tab-width)
 
   (if (string-match "\\<class\\> .*" line)
       (+ (match-beginning 0) encore-tab-width)
@@ -104,7 +109,7 @@
   (if (string-match "\\W*\\([^;]*\\);" line)
       (match-beginning 1)
   (if (bobp)
-      0)))))))))))))))))
+      0))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)
