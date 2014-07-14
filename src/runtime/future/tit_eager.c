@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 600
 
 #include <ucontext.h>
 #include <assert.h>
@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tit_eager.h"
-#include "mpmcq.h"
 
 #define STACK_SIZE (8*1024*1024)
 #define MAX(a,b)   ((a < b) ? b : a)
@@ -36,6 +35,11 @@ extern void return_allocated_stack_to_pool(void *stack_pointer);
 extern void mk_stack(ucontext_t *uc);
 
 void fork_eager(void(*fun_t_5)(), void *a, void *b, void *c, void *d, void *e) {
+  //FIXME: move to init part of runtime for each thread
+  if (runloop == NULL) {
+    eager_t_init_current();
+  }
+
   eager_tit_t *fork = calloc(1, sizeof(struct eager_tit_t));
   getcontext(&fork->context);
   fork->context.uc_stack.ss_sp    = NULL;

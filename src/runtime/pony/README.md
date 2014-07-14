@@ -16,5 +16,7 @@ ponyrt
 pony runtime
 
 $ premake4 gmake
-$ gmake config=release
+
+$ make config=release
+
 $ ls ./bin/release/

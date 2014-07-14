@@ -5,19 +5,16 @@ RUNTIME_DIR=$(SRC_DIR)/runtime
 
 SET_DIR=$(RUNTIME_DIR)/set
 SET_INC=$(SET_DIR)/set.h
-SET_LIB=$(SET_DIR)/set.o
 
 CLOSURE_DIR=$(RUNTIME_DIR)/closure
 CLOSURE_INC=$(CLOSURE_DIR)/closure.h
-CLOSURE_LIB=$(CLOSURE_DIR)/closure.o
 
 PONY_DIR=$(RUNTIME_DIR)/pony
 PONY_INC=$(PONY_DIR)/inc/pony
 PONY_LIB=$(PONY_DIR)/bin/debug/libpony.a
 
 FUTURE_DIR=$(RUNTIME_DIR)/future
-FUTURE_INC=$(FUTURE_DIR)/*.h
-FUTURE_LIB=$(FUTURE_DIR)/future_actor.o $(FUTURE_DIR)/future.o $(FUTURE_DIR)/tit_lazy.o $(FUTURE_DIR)/tit_eager.o 
+FUTURE_INC=$(FUTURE_DIR)/future.h
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
@@ -42,7 +39,7 @@ doc:
 	make -C $(SET_DIR) doc
 	make -C $(FUTURE_DIR) doc
 
-release: dirs pony set closure future
+release: dirs pony
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -55,23 +52,10 @@ $(LIB_DIR):
 pony: dirs $(PONY_OBJECTS)
 	make -C $(SRC_DIR) pony
 	cp -r $(PONY_INC) $(INC_DIR)
-	cp -r $(PONY_LIB) $(LIB_DIR)
-
-set: dirs $(SET_OBJECTS)
-	make -C $(SRC_DIR) set
 	cp -r $(SET_INC) $(INC_DIR)
-	cp -r $(SET_LIB) $(LIB_DIR)
-
-closure: dirs $(CLOSURE_OBJECTS)
-	make -C $(SRC_DIR) closure
-	cp -r $(CLOSURE_INC) $(INC_DIR)
-	cp -r $(CLOSURE_LIB) $(LIB_DIR)
-
-future: dirs $(FUTURE_OBJECTS)
-	@echo "#############"
-	make -C $(SRC_DIR) future
 	cp -r $(FUTURE_INC) $(INC_DIR)
-	cp -r $(FUTURE_LIB) $(LIB_DIR)
+	cp -r $(CLOSURE_INC) $(INC_DIR)
+	cp -r $(PONY_LIB) $(LIB_DIR)
 
 clean:
 	make -C $(SRC_DIR) clean

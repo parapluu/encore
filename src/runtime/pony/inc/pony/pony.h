@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,16 +39,6 @@ typedef union
   double d;
 } pony_arg_t;
 
-/// Indicates the mode of an object.
-typedef enum
-{
-  PONY_PRIMITIVE,
-  PONY_ACTOR,
-  PONY_MUTABLE,
-  PONY_IMMUTABLE,
-  PONY_OPAQUE
-} pony_mode_t;
-
 /** Trace function.
  *
  * Each type supplies a trace function. It is invoked with the object being
@@ -57,21 +48,28 @@ typedef enum
 typedef void (*pony_trace_fn)(void* p);
 
 /// Describes a type to the runtime
-typedef const struct pony_type_t
+typedef const struct _pony_type_t
 {
-  pony_trace_fn trace;
   size_t size;
-  pony_mode_t mode;
+  pony_trace_fn trace;
+  pony_trace_fn serialise;
+  pony_trace_fn deserialise;
 } pony_type_t;
+
+/// Use this when sending non-allocated arguments in messages
+#define PONY_NONE ((pony_type_t*)0)
+
+/// Use this when sending actors in messages
+#define PONY_ACTOR ((pony_type_t*)1)
 
 /// Maximum argument count to pony_sendv
 #define PONY_MAX_ARG 6
 
 /// Describes the arguments an actor expects for a given message ID.
-typedef const struct pony_msg_t
+typedef const struct _pony_msg_t
 {
   int argc;
-  pony_type_t type[PONY_MAX_ARG];
+  pony_type_t* type[PONY_MAX_ARG];
 } pony_msg_t;
 
 /** Message trace function.
@@ -90,13 +88,21 @@ typedef pony_msg_t* (*pony_msg_fn)(uint64_t id);
 typedef void (*pony_dispatch_fn)(pony_actor_t* actor, void* p, uint64_t id,
   int argc, pony_arg_t* argv);
 
+/** Actor finalizer.
+ *
+ *  Each actor supplies a finalizer, which is called
+ *  before an actor is collected.
+ */
+typedef void (*pony_final_fn)(void* p);
+
 /// Describes an actor type to the runtime
-typedef const struct pony_actor_type_t
+typedef const struct _pony_actor_type_t
 {
   uint32_t id;
   pony_type_t type;
   pony_msg_fn msg;
   pony_dispatch_fn dispatch;
+  pony_final_fn final;
 } pony_actor_type_t;
 
 /// This function must be supplied by the program, not the runtime
@@ -110,6 +116,12 @@ pony_actor_type_t* pony_actor_type(uint32_t id);
  * handles received messages.
  */
 pony_actor_t* pony_create(pony_actor_type_t* type);
+
+/** Get the actor's data.
+ *
+ * This is only needed when manually scheduling actors.
+ */
+void* pony_get();
 
 /** Set the actor's data.
  *
@@ -134,6 +146,17 @@ void pony_sendi(pony_actor_t* to, uint64_t id, intptr_t i);
 /// Convenience function to send a floating point argument in a message
 void pony_sendd(pony_actor_t* to, uint64_t id, double d);
 
+/** Store a continuation.
+ *
+ * This puts a message at the front of the actor's queue, instead of at the
+ * back. This is not concurrency safe: only a single actor should push a
+ * continuation to another actor.
+ *
+ * Not used in pony.
+ */
+void pony_continuation(pony_actor_t* to, uint64_t id,
+  int argc, pony_arg_t* argv);
+
 /** Allocate memory on the current actor's heap.
  *
  * This is garbage collected memory. This can only be done while an actor is
@@ -141,46 +164,97 @@ void pony_sendd(pony_actor_t* to, uint64_t id, double d);
  */
 void* pony_alloc(size_t size) __attribute__((malloc,alloc_size(1)));
 
+// TODO: pony_free() for when escape analysis shows a reference doesn't survive
+
 /// Trigger GC next time the current actor is scheduled
 void pony_triggergc();
+
+/**
+ * If an actor is currently unscheduled, this will reschedule it. This is not
+ * concurrency safe: only a single actor should reschedule another actor, and
+ * it should be sure the target actor is actually unscheduled.
+ */
+void pony_schedule(pony_actor_t* actor);
+
+/**
+ * The current actor will no longer be scheduled. It will not handle messages on
+ * its queue until it is rescheduled.
+ */
+void pony_unschedule();
+
+/**
+ * Call this to "become" an actor on a non-scheduler thread, i.e. from outside
+ * the pony runtime. Following this, pony API calls can be made as if the actor
+ * in question were the current actor, eg. pony_alloc, pony_send, pony_create,
+ * etc.
+ *
+ * This can be called with NULL to make no actor the "current" actor for a
+ * thread.
+ */
+void pony_become(pony_actor_t* actor);
+
+/**
+ * Call this to handle an application message on the actor your thread has
+ * "become". This will do two things: first, it will possibly gc, and
+ * second it will possibly handle a pending application message. If an
+ * application message is handled, it will return true, otherwise false.
+ */
+bool pony_poll();
+
+/** Trace memory
+ *
+ * Call this on allocated memory that contains no pointers to other allocated
+ * memory. Also use this to mark tag aliases.
+ */
+void pony_trace(void* p);
+
+/** Trace an actor
+ *
+ * This should be called for fields in an object that point to an actor.
+ */
+void pony_traceactor(pony_actor_t* p);
 
 /** Trace an object.
  *
  * This should be called for every pointer field in an object when the object's
  * trace function is invoked.
  *
- * @param p The address of the field, not the value of the field.
- * @param f The trace function of the field type, if any.
- * @param size The size of the object pointed to by the field.
- * @param mode The mode of the field, if any.
+ * @param p The pointer being traced.
+ * @param f The trace function for the object pointed to.
  */
-void pony_trace(void* p, pony_trace_fn f, size_t size, pony_mode_t mode);
-
-/// Trace an actor reference
-void pony_traceactor(pony_actor_t** p);
-
-/// Trace an array of objects.
-void pony_tracearray(void* p, size_t asize, pony_mode_t amode,
-  pony_trace_fn f, size_t size, pony_mode_t mode);
-
-/// Trace an 8 bit primitive
-void pony_trace8(void* p);
-
-/// Trace a 16 bit primitive
-void pony_trace16(void* p);
-
-/// Trace a 32 bit primitive
-void pony_trace32(void* p);
-
-/// Trace a 64 bit primitive
-void pony_trace64(void* p);
+void pony_traceobject(void* p, pony_trace_fn f);
 
 /** Starts the pony runtime.
  *
  * Takes the command line arguments and the initial actor. The initial actor
- * will be sent (PONY_MAIN, argc, argv) once the runtime is initialised.
+ * will be sent (PONY_MAIN, argc, argv) once the runtime is initialised. Returns
+ * -1 if the scheduler couldn't start, otherwise returns the exit code set with
+ * pony_exitcode(), defaulting to 0.
+ *
+ * It is not safe to call this again before it has returned. For that sort of
+ * behaviour, use pony_init() and pony_shutdown().
  */
 int pony_start(int argc, char** argv, pony_actor_t* actor);
+
+/** Starts the runtime as a service.
+ *
+ * This starts the runtime and leaves it running, even if there is no work to
+ * be done, until pony_shutdown() is called. It returns -1 if the scheduler
+ * couldn't start, otherwise it returns the remaining command line arguments
+ * after pony specific arguments have been parsed and removed.
+ *
+ * It is not safe to call this again before pony_shutdown() has returned.
+ */
+int pony_init(int argc, char** argv);
+
+/** Shuts down the pony runtime.
+ *
+ * Call this after pony_init() when the runtime service is no longer needed.
+ * Returns the exit code set with pony_exitcode(), defaulting to 0.
+ *
+ * This will not return immediately: it will wait for actor quiescence.
+ */
+int pony_shutdown();
 
 /** Set the exit code.
  *

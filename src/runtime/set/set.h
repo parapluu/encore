@@ -7,6 +7,8 @@
 #ifndef __set_h__
 #define __set_h__
 
+#include <stdbool.h>
+
 typedef struct set set_t;
 
 typedef void (printer_fnc(void *elem)); 
@@ -26,7 +28,7 @@ set_t *mk_set(void);
  *  @param elem The element to be inserted
  *  @return 0 if \p elem was already \p set, otherwise a non-zero value
  */ 
-int set_add(set_t *set, void *elem);
+bool set_add(set_t *set, void *elem);
 
 /**
  *  Test an element for set membership.
@@ -34,7 +36,7 @@ int set_add(set_t *set, void *elem);
  *  @param elem The element sought for
  *  @return 0 if \p elem was not in \p set, otherwise a non-zero value
  */ 
-int set_elem(set_t *set, void *elem);
+bool set_elem(set_t *set, void *elem);
 
 /**
  *  Remove an element from the set.
@@ -42,7 +44,7 @@ int set_elem(set_t *set, void *elem);
  *  @param elem the element to be deleted
  *  @return 0 if \p elem was not in \p set, otherwise a non-zero value
  */ 
-int set_remove(set_t *set, void *elem);
+bool set_remove(set_t *set, void *elem);
 
 /**
  *  Test a set for subset relation.
@@ -50,7 +52,7 @@ int set_remove(set_t *set, void *elem);
  *  @param super
  *  @return 0 if \p sub is not a subset of \p super, otherwise a non-zero value
  */ 
-int set_subset(set_t *sub, set_t *super);
+bool set_subset(set_t *sub, set_t *super);
 
 /**
  *  Test for set equality.
@@ -58,7 +60,7 @@ int set_subset(set_t *sub, set_t *super);
  *  @param other
  *  @return 0 if \p set and \p other do not contain exactly the same elements, otherwise a non-zero value
  */ 
-int set_eq(set_t *set, set_t *other);
+bool set_eq(set_t *set, set_t *other);
 
 /**
  *  Create a copy of a set.

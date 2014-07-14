@@ -4,7 +4,7 @@
 #include "pony/pony.h"
 #include "closure.h"
 
-typedef struct future future_t;
+typedef void future_t;
 typedef struct resumable resumable_t;
 
 typedef enum {

@@ -4,7 +4,7 @@ SET_DIR=runtime/set
 CLOSURE_DIR=runtime/closure
 FUTURE_DIR=runtime/future
 
-all: compiler runtime pony
+all: compiler pony
 
 compiler: 
 	make -C front
@@ -21,15 +21,6 @@ types:
 back:
 	make -C back
 
-set: 
-	make -C $(SET_DIR)
-
-closure: 
-	make -C $(CLOSURE_DIR)
-
-future: 
-	make -C $(FUTURE_DIR)
-
 test: 
 	make -C tests
 
@@ -38,7 +29,7 @@ runtime:
 	make -C $(RUNTIME_DIR) config=debug
 	make -C $(RUNTIME_DIR) config=release
 
-pony:
+pony: runtime
 	cd $(PONY_DIR); premake4 gmake
 	make -C $(PONY_DIR) config=debug
 	make -C $(PONY_DIR) config=release
@@ -50,9 +41,7 @@ clean: clean_pony
 	make -C parser clean
 	make -C back clean
 	@echo "cleaning library files..."
-	make -C $(SET_DIR) clean
-	make -C $(CLOSURE_DIR) clean
-	make -C $(FUTURE_DIR) clean
+	make -C $(RUNTIME_DIR) clean
 	@echo "cleaning test files..."
 	make -C tests clean
 	@echo "done"

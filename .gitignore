@@ -9,6 +9,7 @@ cabal-dev
 .virtualenv
 .hsenv
 .cabal-sandbox/
+lib*.a
 cabal.sandbox.config
 cabal.config
 encorec
@@ -17,3 +18,10 @@ GPATH
 GRTAGS
 GTAGS
 .DS_Store
+/.emacs.desktop
+/.emacs.desktop.lock
+/src/runtime/closure.make
+/src/runtime/future.make
+/src/runtime/set.make
+/src/runtime/obj/
+/src/runtime/Makefile

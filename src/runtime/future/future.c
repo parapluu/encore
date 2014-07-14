@@ -1,5 +1,4 @@
 #define DEBUG_PRINT
-#define _XOPEN_SOURCE
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -10,12 +9,10 @@
 #include "tit_eager.h"
 #include "future.h"
 #include "future_actor.h"
-#include "actor_def.h"
-#include "pony_extensions.h"
+#include "pony/pony.h"
+// #include "ext/pony_extensions.h"
 
-struct future {
-  pony_actor_t actor;
-};
+extern void run_restart();
 
 struct resumable {
   // strategy_t strategy; // Possible future work: support multiple strategies in parallel
@@ -30,7 +27,7 @@ static strategy_t strategy;
 static inline void suspend(resumable_t *r) {
   switch (strategy) {
   case LAZY:
-    fork_lazy(run_thread_restart);
+    fork_lazy(run_restart);
     break;
   case EAGER:
     suspend_eager(r->eager);
@@ -79,7 +76,7 @@ void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", pthread_self(), f, c, a);
 #endif
-  pony_sendv(&f->actor, FUT_MSG_CHAIN, 2, argv);
+  pony_sendv(f, FUT_MSG_CHAIN, 2, argv);
 }
 
 void future_block(future_t *f, pony_actor_t* a) {
@@ -91,8 +88,9 @@ void future_block(future_t *f, pony_actor_t* a) {
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), f, argv[1].p, a);
 #endif
-  pony_sendv(&f->actor, FUT_MSG_BLOCK, 2, argv);
+  pony_sendv(f, FUT_MSG_BLOCK, 2, argv);
 
+  pony_unschedule(a);
   suspend(r);
 }
 
@@ -105,7 +103,7 @@ void future_await(future_t *f, pony_actor_t* a) {
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- await (%p) from %p \n", pthread_self(), f, argv[1].p, a);
 #endif
-  pony_sendv(&f->actor, FUT_MSG_AWAIT, 2, argv);
+  pony_sendv(f, FUT_MSG_AWAIT, 2, argv);
 
   suspend(r);
 }
@@ -124,16 +122,16 @@ void yield(pony_actor_t* a) {
 }
 
 inline volatile bool future_fulfilled(future_t *fut) {
-  return future_actor_get_fulfilled(&fut->actor);
+  return future_actor_get_fulfilled(fut);
 }
 
 inline volatile void *future_read_value(future_t *fut) {
-  return future_actor_get_value(&fut->actor);
+  return future_actor_get_value(fut);
 }
 
 volatile void *future_get(future_t *fut, pony_actor_t* actor) {
   volatile void *result;
-  if (future_actor_get_value_and_fulfillment(&fut->actor, &result)) {
+  if (future_actor_get_value_and_fulfillment(fut, &result)) {
     return result;
   }
   future_block(fut, actor);
@@ -141,11 +139,11 @@ volatile void *future_get(future_t *fut, pony_actor_t* actor) {
 }
 
 void future_fulfil(future_t *f, volatile void *value) {
-  future_actor_set_value(&f->actor, value);
+  future_actor_set_value(f, value);
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- fulfil\n", pthread_self(), f);
 #endif
-  pony_send(&f->actor, FUT_MSG_FULFIL);
+  pony_send(f, FUT_MSG_FULFIL);
 }
 
 void init_futures(int cache_size, strategy_t s) {

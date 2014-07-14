@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 600
 
 #include <ucontext.h>
 #include <assert.h>
@@ -119,6 +119,11 @@ lazy_tit_t *lazy_t_init_new() {
 }
 
 void fork_lazy(void(*fun)()) {
+  //FIXME: move to init part of runtime for each thread
+  if (current == NULL) {
+    lazy_t_init_current();
+  }
+
   /* fprintf(stderr, "forking!!\n"); */
   lazy_tit_t *fork = calloc(1, sizeof(struct lazy_tit_t));
   lazy_tit_t *cache = current;
@@ -177,6 +182,11 @@ bool done_lazy(lazy_tit_t *tit) {
 }
 
 void resume_lazy(lazy_tit_t *tit) {
+  //FIXME: move to init part of runtime for each thread
+  if (current == NULL) {
+    lazy_t_init_current();
+  }
+
   fprintf(stderr, "\t\t<%p> resume: tit %p has stack: %p\n", pthread_self(), tit, tit->context.uc_stack.ss_sp);
   tit->state = RUNNING;
   current->state = GARBAGE;
@@ -243,6 +253,11 @@ static void trampoline_0(lazy_tit_t *new, fun_t_0 fun) {
 /* } */
 
 void lazy_t_resume(lazy_tit_t *stack) {
+  //FIXME: move to init part of runtime for each thread
+  if (current == NULL) {
+    lazy_t_init_current();
+  }
+
   stack->state = RUNNING;
   current->state = GARBAGE;
   if (current->is_proper) {
@@ -273,6 +288,10 @@ bool lazy_t_is_suspended(lazy_tit_t *stack) {
 }
 
 lazy_tit_t *lazy_t_get_current() {
+  //FIXME: move to init part of runtime for each thread
+  if (current == NULL) {
+    lazy_t_init_current();
+  }
   return current;
 }
 
