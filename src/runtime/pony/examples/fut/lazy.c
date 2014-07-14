@@ -33,7 +33,8 @@ enum
     MSG_ASYNC_CALL,
     MSG_FUTURE_ARG,
     MSG_SELF_CALL,
-    MSG_START
+    MSG_START,
+    MSG_BLOCK_TEST
   };
 
 static void trace(void* p);
@@ -55,6 +56,7 @@ static pony_msg_t	m_self_call   = {1, {PONY_NONE} };
 static pony_msg_t	m_resume_get  = {1, {PONY_NONE} };
 static pony_msg_t	m_start	      = {0, {PONY_NONE} };
 static pony_msg_t	m_closure_run = {2, {PONY_NONE, PONY_NONE} };
+static pony_msg_t	m_blocking    = {0, {PONY_NONE} };
 
 static void trace(void* p)
 {
@@ -75,6 +77,7 @@ static pony_msg_t* message_type(uint64_t id)
     case MSG_FUTURE_ARG: return &m_future_arg;
     case MSG_SELF_CALL:  return &m_self_call;
     case MSG_START:      return &m_start;
+    case MSG_BLOCK_TEST: return &m_blocking;
     }
   fprintf(stderr, "Received spurious message id: %lld\n", id);
   assert(false);
@@ -103,6 +106,8 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
       {
 	fprintf(stderr, "[%p]\t%p <--- start \n", pthread_self(), this);
 	pony_send(this, MSG_START);
+	fprintf(stderr, "[%p]\t%p <--- block_test \n", pthread_self(), this);
+	pony_send(this, MSG_BLOCK_TEST);
 	break;
       }
      case MSG_START:
@@ -187,6 +192,13 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
       {
 	fprintf(stderr, "[%p]\tself_call ---> %p \n", pthread_self(), this);
         fprintf(stderr, "[%p]\tSelf calling!\n", pthread_self());
+        break;
+      }
+
+    case MSG_BLOCK_TEST:
+      {
+	fprintf(stderr, "[%p]\tblock_test ---> %p \n", pthread_self(), this);
+        fprintf(stderr, "[%p]\tThis must not appear BEFORE blocking is finished!\n", pthread_self());
         break;
       }
 
