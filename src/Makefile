@@ -1,9 +1,10 @@
+RUNTIME_DIR=runtime
 PONY_DIR=runtime/pony
 SET_DIR=runtime/set
 CLOSURE_DIR=runtime/closure
 FUTURE_DIR=runtime/future
 
-all: compiler pony
+all: compiler runtime pony
 
 compiler: 
 	make -C front
@@ -32,6 +33,11 @@ future:
 test: 
 	make -C tests
 
+runtime:
+	cd $(RUNTIME_DIR); premake4 gmake
+	make -C $(RUNTIME_DIR) config=debug
+	make -C $(RUNTIME_DIR) config=release
+
 pony:
 	cd $(PONY_DIR); premake4 gmake
 	make -C $(PONY_DIR) config=debug
@@ -56,4 +62,4 @@ clean_pony:
 	[ -f $(PONY_DIR)/Makefile ] && make -C $(PONY_DIR) clean || true
 	rm -rf $(PONY_DIR)/*.make $(PONY_DIR)/Makefile $(PONY_DIR)/bin $(PONY_DIR)/obj
 
-.PHONY: all compiler pony future parser ir types back clean clean_pony set closure
+.PHONY: all compiler runtime parser ir types back clean clean_pony
