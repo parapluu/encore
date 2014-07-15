@@ -17,10 +17,18 @@ function unittest()
       "../inc/"
     }
     libdirs "../bin/utils/"
-    buildoptions "-std=gnu++11"
+    buildoptions {
+      "-std=gnu++11",
+      "-mcx16",
+      "-pthread",
+      "-march=native"
+      }
     language "C++"
     kind "ConsoleApp"
-    links { "gtest", "pony" }
+    links { "gtest", "pony", "future", "set", "closure" }
+    linkoptions {
+      "-pthread"
+      }
 end
 
 project "ds"

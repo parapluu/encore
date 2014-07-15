@@ -1,8 +1,25 @@
 function c_app()
   kind "ConsoleApp"
   language "C"
-  links { "pony", "future" }
+  links { "pony", "future", "set", "closure" }
   buildoptions "-std=gnu11"
+  buildoptions {
+    "-mcx16",
+    "-pthread",
+    "-march=native"
+    }
+
+  linkoptions {
+    "-lm",
+    "-pthread"
+    }
+
+  flags {
+    "ExtraWarnings",
+--    "FatalWarnings",
+    "Symbols"
+    }
+
 end
 
 project "service"
