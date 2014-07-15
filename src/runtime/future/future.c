@@ -74,7 +74,7 @@ void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
   argv[0].p = a;
   argv[1].p = c;
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", pthread_self(), f, c, a);
+  fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", (void *)pthread_self(), f, c, a);
 #endif
   pony_sendv(f, FUT_MSG_CHAIN, 2, argv);
 }
@@ -86,7 +86,7 @@ void future_block(future_t *f, pony_actor_t* a) {
   argv[1].p = r;
 
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", pthread_self(), f, argv[1].p, a);
+  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", (void *)pthread_self(), f, argv[1].p, a);
 #endif
   pony_sendv(f, FUT_MSG_BLOCK, 2, argv);
 
@@ -101,7 +101,7 @@ void future_await(future_t *f, pony_actor_t* a) {
   argv[1].p = r;
 
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- await (%p) from %p \n", pthread_self(), f, argv[1].p, a);
+  fprintf(stderr, "[%p]\t%p <--- await (%p) from %p \n", (void *)pthread_self(), f, argv[1].p, a);
 #endif
   pony_sendv(f, FUT_MSG_AWAIT, 2, argv);
 
@@ -114,7 +114,7 @@ void yield(pony_actor_t* a) {
   argv[0].p = r;
 
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- yield (%p)\n", pthread_self(), a, argv[0].p);
+  fprintf(stderr, "[%p]\t%p <--- yield (%p)\n", (void *)(void *)pthread_self(), a, argv[0].p);
 #endif
   pony_sendv(a, FUT_MSG_RESUME, 1, argv);
 
@@ -141,7 +141,7 @@ volatile void *future_get(future_t *fut, pony_actor_t* actor) {
 void future_fulfil(future_t *f, volatile void *value) {
   future_actor_set_value(f, value);
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- fulfil\n", pthread_self(), f);
+  fprintf(stderr, "[%p]\t%p <--- fulfil\n", (void *)pthread_self(), f);
 #endif
   pony_send(f, FUT_MSG_FULFIL);
 }

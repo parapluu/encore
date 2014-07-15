@@ -1,7 +1,6 @@
 solution "ponyrt"
   configurations {"Debug", "Release"}
 
-  libdirs { ".." }
   links { "future", "set", "closure" }
 
   buildoptions {

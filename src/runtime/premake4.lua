@@ -1,6 +1,29 @@
 solution "encore_runtime"
 
+  configuration "Debug"
+    targetdir "bin/debug"
+    objdir "obj/debug"
+
+  configuration "Release"
+    targetdir "bin/release"
+    objdir "obj/release"
+    defines "NDEBUG"
+    buildoptions {
+      "-O3",
+      "-flto"
+      }
+    linkoptions {
+      "-flto",
+      "-fuse-ld=gold",
+      }
+
+  configuration "macosx"
+    -- set these to suppress clang warning about -pthread being unused
+    buildoptions "-Qunused-arguments"
+    linkoptions "-Qunused-arguments"
+
 project "closure"
+  configurations {"Debug", "Release"}
   kind "StaticLib"
   language "C"
   includedirs "pony/inc/"
@@ -10,6 +33,7 @@ project "closure"
   }
 
 project "set"
+  configurations {"Debug", "Release"}
   kind "StaticLib"
   language "C"
   includedirs "pony/inc/"
