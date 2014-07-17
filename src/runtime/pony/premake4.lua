@@ -39,7 +39,7 @@ solution "ponyrt"
     linkoptions "-Qunused-arguments"
     -- This stupidity because of http://industriousone.com/topic/how-remove-flags-ldflags
     -- It manually removes the -Wl,-x flags that are erroneously inserted on OS X
-    prebuildcommands "if [ -d \"test/\" ]; then sed -e 's/-Wl,-x//g' -i '' test/*.make; fi"
+    prebuildcommands "@if [ -d \"test/\" ]; then sed -e 's/-Wl,-x//g' -i '' test/*.make; fi"
 
 project "pony"
   kind "StaticLib"

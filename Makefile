@@ -15,6 +15,7 @@ PONY_LIB=$(PONY_DIR)/bin/debug/libpony.a
 
 FUTURE_DIR=$(RUNTIME_DIR)/future
 FUTURE_INC=$(FUTURE_DIR)/future.h
+FUTURE_LIB=$(PONY_DIR)/bin/debug/libfuture.a
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
@@ -23,7 +24,7 @@ LIB_DIR=$(RELEASE_DIR)/lib
 PONY_OBJECTS=$(PONY_LIB) $(PONY_INC)
 SET_OBJECTS=$(SET_LIB) $(SET_INC)
 CLOSURE_OBJECTS=$(CLOSURE_LIB) $(CLOSURE_INC)
-FUTURE_OBJECTS=$(FUTURE_INC) $(FUTURE_LIB)
+FUTURE_OBJECTS=$(FUTURE_INC)
 
 all: encorec
 
@@ -56,6 +57,7 @@ pony: dirs $(PONY_OBJECTS)
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
+	cp -r $(FUTURE_LIB) $(LIB_DIR)
 
 clean:
 	make -C $(SRC_DIR) clean
