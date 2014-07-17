@@ -5,9 +5,11 @@ RUNTIME_DIR=$(SRC_DIR)/runtime
 
 SET_DIR=$(RUNTIME_DIR)/set
 SET_INC=$(SET_DIR)/set.h
+SET_LIB=$(PONY_DIR)/bin/debug/libset.a
 
 CLOSURE_DIR=$(RUNTIME_DIR)/closure
 CLOSURE_INC=$(CLOSURE_DIR)/closure.h
+CLOSURE_LIB=$(PONY_DIR)/bin/debug/libclosure.a
 
 PONY_DIR=$(RUNTIME_DIR)/pony
 PONY_INC=$(PONY_DIR)/inc/pony
@@ -58,6 +60,8 @@ pony: dirs $(PONY_OBJECTS)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
+	cp -r $(CLOSURE_LIB) $(LIB_DIR)
+	cp -r $(SET_LIB) $(LIB_DIR)
 
 clean:
 	make -C $(SRC_DIR) clean
