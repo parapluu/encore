@@ -48,6 +48,7 @@ pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
 pp' (Struct name) = text "struct ___" <> tshow name
 pp' (Record ccodes) = braces $ commaList ccodes
 pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
+pp' (AssignTL lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (DeclTL (ty, id)) = tshow ty <+> tshow id <> text ";"
 pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
