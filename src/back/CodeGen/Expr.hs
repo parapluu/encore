@@ -142,10 +142,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
                        (ne1,te1) <- translate e1
-                       substitute_var name ne1
+                       tmp <- Ctx.gen_sym
+                       substitute_var name (Var tmp)
                        (ne2,te2) <- translate e2
                        return (ne2,
                                Seq [te1,
+                                    Assign (Decl (translate (A.getType e1), Var tmp)) (ne1),
                                     te2])
 
   translate new@(A.New {A.ty = ty}) 
