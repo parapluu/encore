@@ -54,6 +54,7 @@ data CCode a where
     Struct       :: CCode Name -> CCode Ty
     Record       :: UsableAs e Expr => [CCode e] -> CCode Expr
     Assign       :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Stat
+    AssignTL     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Toplevel
     Decl         :: CVarSpec -> CCode Lval
     DeclTL       :: CVarSpec -> CCode Toplevel
 

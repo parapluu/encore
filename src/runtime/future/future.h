@@ -20,7 +20,7 @@ typedef enum {
 future_t *future_mk();
 volatile bool future_fulfilled(future_t *future);
 volatile void *future_read_value(future_t *future);
-void future_fulfil(future_t *future, volatile void *value);
+void future_fulfil(future_t *future, void *value);
 
 // =============================================================================
 // Actor-specific parts of the future library
