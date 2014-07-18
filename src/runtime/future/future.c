@@ -1,4 +1,4 @@
-#define DEBUG_PRINT
+//#define DEBUG_PRINT 1
 
 #include <stdbool.h>
 #include <stdlib.h>

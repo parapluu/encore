@@ -11,7 +11,7 @@
 #include "set.h"
 #include "closure.h"
 
-#define DEBUG_PRINT 1
+#define DEBUG_PRINT 0
 
 typedef struct future_actor_fields {
   bool fulfilled;
