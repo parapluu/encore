@@ -71,6 +71,9 @@ doCompile ast source options =
        encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
        incPath <- return $ encorecDir ++ "./inc/"
        ponyLibPath <- return $ encorecDir ++ "lib/libpony.a"
+       futLibPath <- return $ encorecDir ++ "lib/libfuture.a"
+       setLibPath <- return $ encorecDir ++ "lib/libset.a"
+       closureLibPath <- return $ encorecDir ++ "lib/libclosure.a"
 
        progName <- return $ dropDir . dropExtension $ source
        execName <- case find (isOutput) options of
@@ -81,7 +84,7 @@ doCompile ast source options =
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..."
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> "-I" <+> incPath)
+              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> futLibPath <+> setLibPath <+> closureLibPath <+> "-I" <+> incPath)
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)
