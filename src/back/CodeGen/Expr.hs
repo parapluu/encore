@@ -139,6 +139,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     tmp <- Ctx.gen_sym
     return (Var tmp, Seq [texp,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref nexp `Dot` (Nam $ show name)))])
+
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
                        (ne1,te1) <- translate e1
                        substitute_var name ne1
@@ -160,11 +161,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | otherwise = remote_call
           where
             sync_call =
-                do (ntarget,_) <- translate target
+                do (ntarget, ttarget) <- translate target
                    targs <- mapM varaccess_this_to_aref args
-                   tmp_var (A.getType call) (Call
-                                             (method_impl_name (A.getType target) name)
-                                             ((EmbedC ntarget) : targs))
+                   tmp <- Ctx.gen_sym
+                   return (Var tmp, (Seq [ttarget,
+                                          Assign (Decl (translate (A.getType call), Var tmp)) 
+                                                 (Call (method_impl_name (A.getType target) name)
+                                                  ((EmbedC ntarget) : targs))]))
 
             remote_call :: State Ctx.Context (CCode Lval, CCode Stat)
             remote_call =
