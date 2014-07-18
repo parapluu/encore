@@ -121,16 +121,16 @@ void yield(pony_actor_t* a) {
   suspend(r);
 }
 
-inline volatile bool future_fulfilled(future_t *fut) {
+inline bool future_fulfilled(future_t *fut) {
   return future_actor_get_fulfilled(fut);
 }
 
-inline volatile void *future_read_value(future_t *fut) {
+inline void *future_read_value(future_t *fut) {
   return future_actor_get_value(fut);
 }
 
-volatile void *future_get(future_t *fut, pony_actor_t* actor) {
-  volatile void *result;
+void *future_get(future_t *fut, pony_actor_t* actor) {
+  void *result;
   if (future_actor_get_value_and_fulfillment(fut, &result)) {
     return result;
   }
@@ -138,7 +138,7 @@ volatile void *future_get(future_t *fut, pony_actor_t* actor) {
   return future_read_value(fut);
 }
 
-void future_fulfil(future_t *f, volatile void *value) {
+void future_fulfil(future_t *f, void *value) {
   future_actor_set_value(f, value);
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- fulfil\n", (void *)pthread_self(), f);
