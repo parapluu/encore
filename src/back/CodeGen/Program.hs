@@ -26,9 +26,10 @@ instance Translatable A.Program (CCode FIN) where
                "unistd.h", -- for sleep(..)
                "set.h",
                "closure.h",
+               "future.h",
                --"string.h",
                --"inttypes.h",
-               --"assert.h",
+               "assert.h",
                "stdio.h"
               ]) :
     (HashDefine "UNIT NULL - 1") :
@@ -50,7 +51,7 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
                                          class_ids_enum (A.Program cs)]
     where
       msg_alloc_decl =
-          Embed $ "static pony_msg_t m_MSG_alloc = {0, {{NULL, 0, PONY_PRIMITIVE}}};"
+          Embed $ "static pony_msg_t m_MSG_alloc = {0, {PONY_NONE}};"
       create_and_send_fn =
           Embed $
                     "pony_actor_t* create_and_send(pony_actor_type_t* type, uint64_t msg_id) {\n" ++
