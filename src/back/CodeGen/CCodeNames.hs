@@ -20,7 +20,7 @@ import Data.Char
 char = Typ "char"
 int = Typ "int64_t"
 uint = Typ "uint64_t"
-bool = Typ "int"
+bool = Typ "int64_t" -- For pony argument tag compatibility. Should be changed to something smaller
 double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
