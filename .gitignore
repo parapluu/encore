@@ -25,3 +25,6 @@ GTAGS
 /src/runtime/set.make
 /src/runtime/obj/
 /src/runtime/Makefile
+/src/tests/encore/basic/embed-multiline-bug
+/src/tests/encore/basic/let-arguments
+/src/tests/encore/basic/let-fields
