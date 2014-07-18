@@ -151,13 +151,18 @@ translateActiveClass cdecl =
                           [(Typ "uint64_t", Var "id")]
                           (Concat [(Switch (Var "id")
                                    ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc")
-                                    :(map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
+                                    : (map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
                                       (A.methods cdecl)))
                                    (Concat [])),
                                    (Return Null)])
         where
           message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
           message_type_clause cname mname =
+              if mname == (ID.Name "main") then
+                  (method_msg_name cname mname,
+                   Embed $ "case PONY_MAIN: return &" ++ show (method_message_type_name cname mname) ++ ";") -- TODO: Make this less ugly
+
+              else
             (method_msg_name cname mname,
              Embed $ "return &" ++ show (method_message_type_name cname mname) ++ ";")
 
@@ -168,8 +173,8 @@ translateActiveClass cdecl =
       pony_mode ty =
           case translate ty of
             Ptr (Typ "pony_actor_t") -> Nam "PONY_ACTOR"
-            _other -> Nam "PONY_PRIMITIVE" --fixme how/when will we be
-                                           --using the other modes?
+            _other -> Nam "PONY_NONE" --fixme how/when will we be
+                                      --using the other modes?
 
 
       pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
@@ -196,14 +201,15 @@ translateActiveClass cdecl =
                           (Assign
                            ((Embed $ "static pony_actor_type_t " ++ show (actor_rec_name (A.cname cdecl))) :: CCode Lval)
                            (Record [AsExpr . AsLval . Nam $ ("ID_"++(show $ A.cname cdecl)),
-                                           tracefun_rec,
+                                    tracefun_rec,
                                     (EmbedC $ class_message_type_name (A.cname cdecl)),
                                     (EmbedC $ class_dispatch_name $ A.cname cdecl)]))
 
       tracefun_rec :: CCode Expr
-      tracefun_rec = Record [AsExpr . AsLval $ (class_trace_fn_name $ A.cname cdecl),
-                             Call (Nam "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
-                             AsExpr . AsLval . Nam $ "PONY_ACTOR"]
+      tracefun_rec = Record [Call (Nam "sizeof") [AsExpr . Embed $ show $ data_rec_name (A.cname cdecl)],
+                             AsExpr . AsLval $ (class_trace_fn_name $ A.cname cdecl),
+                             Null,
+                             Null]
 
 translatePassiveClass cdecl = 
     do method_impls <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (translate mdecl))) (A.methods cdecl)
