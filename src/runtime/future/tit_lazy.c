@@ -31,8 +31,8 @@ static pthread_once_t stack_pool_is_initialized = PTHREAD_ONCE_INIT;
 static mpmcq_t proper_stacks_for_reuse;
 static mpmcq_t side_stacks_for_reuse;
 static __thread lazy_tit_t *current;
-static volatile unsigned int cached_side_stacks;
-static unsigned int side_stack_cache_size;
+static uint32_t cached_side_stacks;
+static uint32_t side_stack_cache_size;
 
 static void trampoline_0(lazy_tit_t *new, fun_t_0 fun);
 // static void trampoline_1(lazy_tit_t *new, fun_t_1 fun, void *a);
@@ -47,14 +47,15 @@ static inline void __end_trampoline();
 
 void mk_stack(ucontext_t *fork) {
   if (side_stack_cache_size > 0) {
-    while (fork->uc_stack.ss_sp == NULL && cached_side_stacks > 0) {
+    while (fork->uc_stack.ss_sp == NULL && __atomic_load_n(&cached_side_stacks, __ATOMIC_CONSUME) > 0) {
       fork->uc_stack.ss_sp = mpmcq_pop(&side_stacks_for_reuse);
     }
     if (fork->uc_stack.ss_sp) {
-      int cache_size;
+      uint32_t cache_size;
       do {
-        cache_size = cached_side_stacks;
-      } while (!__sync_bool_compare_and_swap(&cached_side_stacks, cache_size, cache_size - 1));
+        cache_size = __atomic_load_n(&cached_side_stacks, __ATOMIC_CONSUME); 
+      } while (!__atomic_compare_exchange_n(&cached_side_stacks, &cache_size, cache_size - 1, false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
+      // TODO: check the correctness and optimality of line above
     }
   }
 
@@ -69,10 +70,11 @@ void mk_stack(ucontext_t *fork) {
 
 void return_allocated_stack_to_pool(void *stack_pointer) {
   bool free_stack = true;
-  int current_cache_size;
+  uint32_t current_cache_size;
   do {
-    current_cache_size = cached_side_stacks;
-    if (__sync_bool_compare_and_swap(&cached_side_stacks, current_cache_size, current_cache_size + 1)) {
+    current_cache_size = __atomic_load_n(&cached_side_stacks, __ATOMIC_CONSUME); 
+    // TODO: check the correctness and optimality of line below
+    if (__atomic_compare_exchange_n(&cached_side_stacks, &current_cache_size, current_cache_size + 1, false, __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
       mpmcq_push(&side_stacks_for_reuse, stack_pointer);
       free_stack = false;
       break;
