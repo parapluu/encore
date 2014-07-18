@@ -139,10 +139,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     tmp <- Ctx.gen_sym
     return (Var tmp, Seq [texp,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref nexp `Dot` (Nam $ show name)))])
-               --- (Decl (Ptr $ Typ "future_t", Var the_fut_name))
---    return (EmbedC $ Deref nexp `Dot` (Nam $ show name),
---            texp)
-
   translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
                        (ne1,te1) <- translate e1
                        substitute_var name ne1
