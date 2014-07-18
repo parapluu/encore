@@ -18,8 +18,8 @@ typedef enum {
 // =============================================================================
 
 future_t *future_mk();
-volatile bool future_fulfilled(future_t *future);
-volatile void *future_read_value(future_t *future);
+bool future_fulfilled(future_t *future);
+void *future_read_value(future_t *future);
 void future_fulfil(future_t *future, void *value);
 
 // =============================================================================
@@ -29,7 +29,7 @@ void future_fulfil(future_t *future, void *value);
 void future_chain(future_t *future, pony_actor_t* actor_owning_closure, struct closure *closure);
 void future_await(future_t *future, pony_actor_t* actor_awaiting_future);
 void future_block(future_t *future, pony_actor_t* actor_blocking_on_future);
-volatile void *future_get(future_t *future, pony_actor_t* actor_blocking_on_future);
+void *future_get(future_t *future, pony_actor_t* actor_blocking_on_future);
 
 // =============================================================================
 // Task-specific parts of the future library

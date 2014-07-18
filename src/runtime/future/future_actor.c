@@ -14,8 +14,8 @@
 #define DEBUG_PRINT 1
 
 typedef struct future_actor_fields {
-  volatile bool fulfilled;
-  volatile void *value;
+  bool fulfilled;
+  void *value;
   set_t *blocked;
   set_t *chained;
   set_t *awaiting;
@@ -189,8 +189,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
     }
   case FUT_MSG_FULFIL:
     {
-      // Discarding volatile here because it does not matter
-      volatile void *value;
+      void *value;
       bool fulfilled;
       fulfilled = future_actor_get_value_and_fulfillment(this, &value);
 
@@ -227,24 +226,24 @@ future_actor_fields *get_fields(pony_actor_t *this) {
   return *(future_actor_fields **)this;
 }
 
-void future_actor_set_value(pony_actor_t* this, volatile void *value) {
+void future_actor_set_value(pony_actor_t* this, void *value) {
   future_actor_fields *state = get_fields(this);
   state->value = value;
   __sync_synchronize();
   state->fulfilled = true;
 }
-volatile bool future_actor_get_value_and_fulfillment(pony_actor_t* this, volatile void **value) {
+bool future_actor_get_value_and_fulfillment(pony_actor_t* this, void **value) {
   future_actor_fields *state = get_fields(this);
-  volatile bool fulfilled = state->fulfilled;
+  bool fulfilled = state->fulfilled;
   __sync_synchronize();
   *value = state->value;
   return fulfilled;
 }
-volatile bool future_actor_get_fulfilled(pony_actor_t* this) {
+bool future_actor_get_fulfilled(pony_actor_t* this) {
   future_actor_fields *state = get_fields(this);
   return state->fulfilled;
 }
-volatile void *future_actor_get_value(pony_actor_t* this) {
+void *future_actor_get_value(pony_actor_t* this) {
   future_actor_fields *state = get_fields(this);
   return state->value;
 }
