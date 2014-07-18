@@ -26,6 +26,7 @@ void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
 pony_arg_t = Typ "pony_arg_t"
 closure = Ptr $ Typ "closure_t"
+future = Ptr $ Typ "future_t"
 unit :: CCode Lval
 unit = Embed "UNIT" 
 

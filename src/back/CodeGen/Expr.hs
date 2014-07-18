@@ -110,7 +110,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         return $ (unit,
                   Seq [te,
                        (Statement
-                        (Call (Nam "printf") -- TODO: weird Seq
+                        (Call (Nam "printf") 
                                   [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"", ne]))])
 
   translate seq@(A.Seq {A.eseq = es}) = do
@@ -174,23 +174,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    targs <- mapM varaccess_this_to_aref args
                    let argtys = (map A.getType args)
                    let targtys = map (translate . A.getType) args :: [CCode Ty]
+                   the_fut_name <- Ctx.gen_sym
+                   let the_fut_decl = Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) (Call (Nam "future_mk") ([] :: [CCode Lval]))
                    the_arg_name <- Ctx.gen_sym
-                   let the_arg_decl = Embed $ ("pony_arg_t " ++
-                                               the_arg_name ++ "[" ++ show (length args) ++ "] = {" ++
-                                               (concat $
-                                                intersperse ", " $
-                                                map (\(arg,ty) ->
-                                                     "{"++pony_arg_t_tag ty ++ "=" ++ show arg ++ "}") $
-                                                (zip (targs :: [CCode Expr]) targtys)) ++
-                                               "}")
+                   let the_arg_decl = Assign
+                                        (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
+                                        (Record
+                                          ((Embed $ "{.p = " ++ the_fut_name ++ "}") : 
+                                          (map (\(arg, ty) -> Embed $ "{"++(pony_arg_t_tag ty) ++"="++ (show arg)++"}")
+                                          (zip (targs) targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
-                                                Embed . show . length $ args,
+                                                Embed . show $ 1 + length args,
                                                 Embed the_arg_name])
-                   return (unit, --error "Message sends have no return value",
-                           Seq [the_arg_decl,
-                                the_call])
+                   return (Var the_fut_name, 
+                           Seq [the_fut_decl,
+                                the_arg_decl,
+                                Statement the_call])
 
             pony_arg_t_tag :: CCode Ty -> String
             pony_arg_t_tag (Ptr _)         = ".p"
@@ -269,6 +270,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             id <- P.identifier_parser
                             Parsec.string "}"
                             return id
+
+  translate get@(A.Get{A.val = val}) = 
+      do (nval, tval) <- translate val
+         let the_get = Statement $ Call (Nam "future_get") [nval, Var "this->aref"]
+         tmp <- Ctx.gen_sym
+         return (Var tmp, Seq [tval, Assign (Decl (translate (A.getType val), Var tmp)) the_get])
 
   translate clos@(A.Closure{A.eparams = params, A.body = body}) = 
       do let fun_name = closure_fun_name $ A.getMetaId clos

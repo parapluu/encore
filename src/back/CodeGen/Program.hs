@@ -39,7 +39,8 @@ instance Translatable A.Program (CCode FIN) where
     [(Function
       (Typ "int") (Nam "main")
       [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-      (Embed "return pony_start(argc, argv, pony_create(&Main_actor));"))]
+      (Concat [Statement (Call (Nam "init_futures") [Embed "2", Var "LAZY"]), -- TODO: Pass these as params to encorec
+              Return $ Call (Nam "pony_start") [AsExpr $ Var "argc", AsExpr $ Var "argv", Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel
       translate_class_here cdecl = runReader (translate cdecl) $ Ctx.mk (A.Program cs)
@@ -47,11 +48,14 @@ instance Translatable A.Program (CCode FIN) where
 instance FwdDeclaration A.Program (CCode Toplevel) where
   fwd_decls (A.Program cs) = ConcatTL $ [create_and_send_fn,
                                          msg_alloc_decl,
+                                         msg_fut_resume_decl,
                                          msg_enum (A.Program cs),
                                          class_ids_enum (A.Program cs)]
     where
       msg_alloc_decl =
           Embed $ "static pony_msg_t m_MSG_alloc = {0, {PONY_NONE}};"
+      msg_fut_resume_decl =
+          Embed $ "static pony_msg_t m_resume_get = {1, {PONY_NONE} };"
       create_and_send_fn =
           Embed $
                     "pony_actor_t* create_and_send(pony_actor_type_t* type, uint64_t msg_id) {\n" ++

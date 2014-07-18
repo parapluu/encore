@@ -1,5 +1,5 @@
 class Main
-  def main() : void
+  def main() : Fut (Fut void)
     let o = new Other in {
       this.sayName();
       o.greet(this)
@@ -9,7 +9,7 @@ class Main
     print "I'm Ponyworld!"
 
 class Other
-  def greet(client : Main) : void {
+  def greet(client : Main) : Fut void {
     print "Hello,";
     client.sayName()
   }

@@ -64,12 +64,12 @@ translateActiveClass cdecl =
       mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       mthd_dispatch_clause cdecl mdecl =
         ((method_msg_name (A.cname cdecl) (A.mname mdecl)),
-         Statement
-         (Call
-          ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-          ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl))
-         -- fixme what about arguments?
-          ))
+         Concat 
+           [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
+            Statement (Call (Nam "future_fulfil") 
+                        [AsExpr $ Var "fut",
+                         (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
+                          ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl)))])])
 
       paramdecl_to_argv :: Int -> A.ParamDecl -> CCode Expr
       paramdecl_to_argv argv_idx (A.Param {A.pname = na, A.ptype = ty}) =
@@ -84,7 +84,7 @@ translateActiveClass cdecl =
                               error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ty)
 
       paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
-      paramdecls_to_argv = zipWith paramdecl_to_argv [0..]
+      paramdecls_to_argv = zipWith paramdecl_to_argv [1..]
         
       dispatchfun_decl :: CCode Toplevel
       dispatchfun_decl =
@@ -96,6 +96,7 @@ translateActiveClass cdecl =
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :
+             (Nam "FUT_MSG_RESUME", fut_resume_instr) : 
              (if (A.cname cdecl == Ty.refType "Main")
               then [pony_main_clause]
               else []) ++
@@ -125,6 +126,10 @@ translateActiveClass cdecl =
                             (Call (Nam "pony_set")
                                       [Var "p"]))]
 
+            fut_resume_instr = Concat 
+                                 [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
+                                  Statement $ Call (Nam "future_resume") [Var "r"]]
+
       tracefun_decl :: CCode Toplevel
       tracefun_decl = Function
                        (Static void)
@@ -150,8 +155,9 @@ translateActiveClass cdecl =
                           (class_message_type_name $ A.cname cdecl)
                           [(Typ "uint64_t", Var "id")]
                           (Concat [(Switch (Var "id")
-                                   ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc")
-                                    : (map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
+                                   ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
+                                    (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
+                                    (map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
                                       (A.methods cdecl)))
                                    (Concat [])),
                                    (Return Null)])
@@ -182,8 +188,8 @@ translateActiveClass cdecl =
           AssignTL
             (Decl (Static (Typ "pony_msg_t"), 
                   (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-            (Record [Embed (show $ length (A.mparams mdecl)),
-                     Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
+            (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
+                     Record $ {- future argument -} Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])
           where
 
       pony_actor_t_impl :: CCode Toplevel

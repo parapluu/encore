@@ -161,13 +161,20 @@ instance Checkable Expr where
                  do unless (length args == length params) $ 
                        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
                                  "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params) 
+                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
                     if isTypeVar returnType then
                         case lookup returnType bindings of
-                          Just ty -> return $ setType ty mcall {target = eTarget, args = eArgs}
+                          Just ty -> 
+                              if isThisAccess target then
+                                  return $ setType ty mcall {target = eTarget, args = eArgs}
+                              else
+                                  return $ setType (futureType ty) mcall {target = eTarget, args = eArgs}
                           Nothing -> tcError $ "Could not resolve return type '" ++ show returnType ++ "'"
                     else
-                        return $ setType returnType mcall {target = eTarget, args = eArgs}
+                        if isThisAccess target then
+                            return $ setType returnType mcall {target = eTarget, args = eArgs}
+                        else
+                            return $ setType (futureType returnType) mcall {target = eTarget, args = eArgs}
 
     typecheck fcall@(FunctionCall {name, args}) = 
         do funType <- asks $ varLookup name
@@ -233,7 +240,12 @@ instance Checkable Expr where
            eBody <- pushTypecheck body
            return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
 
-    typecheck get@(Get {}) = mzero
+    typecheck get@(Get {val}) = 
+        do eVal <- pushTypecheck val
+           let ty = AST.getType eVal
+           unless (isFutureType ty) $ 
+                  tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
+           return $ setType (getResultType ty) get {val = eVal}
 
     typecheck fAcc@(FieldAccess {target, name}) = 
         do eTarget <- pushTypecheck target
