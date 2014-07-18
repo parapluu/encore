@@ -44,7 +44,7 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
           Just subst_name ->
               return (subst_name, Skip)
           Nothing ->
-              return $ (Embed $ show name, Skip)
+              return $ (Var $ show name, Skip)
   translate (A.LField ty ex name) = do
       (nex,tex) <- translate ex
       return (EmbedC $ Deref nex `Dot` (Nam $ show name),
@@ -189,7 +189,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                [ttarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                                 Embed . show $ 1 + length args,
-                                                Embed the_arg_name])
+                                                AsExpr $ Var the_arg_name])
                    return (Var the_fut_name, 
                            Seq [the_fut_decl,
                                 the_arg_decl,
@@ -225,8 +225,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let export_thn = Seq $ tthn : [Assign (Var (tmp++"_ite")) nthn]
              export_els = Seq $ tels : [Assign (Var (tmp++"_ite")) nels]
          return (Var (tmp++"_ite"),
-                 Seq [Embed ((show $ translate (A.getType ite)) ++ " " ++ (tmp++"_ite")),
-                      (If (StatAsExpr ncond tcond) (Statement export_thn) (Statement export_els))])
+                 Seq [AsExpr $ Decl (translate (A.getType ite), Var $ tmp++"_ite"),
+                      If (StatAsExpr ncond tcond) (Statement export_thn) (Statement export_els)])
 
   translate e@(A.Embed {A.code=code}) = do
     interpolated <- interpolate code
