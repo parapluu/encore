@@ -1,0 +1,11 @@
+class Main
+  def main() : void 
+    this.test(2)
+  def test(value : int) : void
+    let i = value in
+      while i < 11
+        {
+	  print i;
+          i = i + value;
+        }
+
