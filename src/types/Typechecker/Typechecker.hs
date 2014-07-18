@@ -165,13 +165,13 @@ instance Checkable Expr where
                     if isTypeVar returnType then
                         case lookup returnType bindings of
                           Just ty -> 
-                              if isThisAccess target then
+                              if isThisAccess target || (not $ isActiveRefType targetType) then
                                   return $ setType ty mcall {target = eTarget, args = eArgs}
                               else
                                   return $ setType (futureType ty) mcall {target = eTarget, args = eArgs}
                           Nothing -> tcError $ "Could not resolve return type '" ++ show returnType ++ "'"
                     else
-                        if isThisAccess target then
+                        if isThisAccess target || (not $ isActiveRefType targetType) then
                             return $ setType returnType mcall {target = eTarget, args = eArgs}
                         else
                             return $ setType (futureType returnType) mcall {target = eTarget, args = eArgs}
