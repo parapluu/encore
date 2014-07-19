@@ -235,7 +235,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     if Ty.isVoidType (A.getType e) then
         return (unit, Embed interpolated)
     else
-        tmp_var (A.getType e) (Embed interpolated)
+        tmp_var (A.getType e) (Embed $ "({" ++ interpolated  ++ "})")
         where
           interpolate :: String -> State Ctx.Context String
           interpolate embedstr =

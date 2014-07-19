@@ -2,7 +2,7 @@
 class Main
   def main() : void
     let result = embed int
-      printf("Hello, world!");
+      printf("Hello, world!\n");
       27; 
     end in 
       if result == 27 then print "Test OK" 
