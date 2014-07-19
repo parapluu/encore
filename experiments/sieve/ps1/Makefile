@@ -5,7 +5,7 @@ INC_DIR=-I../bitset -I../../../release/inc
 LIB_DIR=-L../bitset -L../../../release/lib
 LIBS=-lpony -lclosure -lfuture -lset
 BITSET_C=../bitset/bitset.c
-PS=ps2_0
+PS=sieve
 
 generate:
 	$(ENCOREC) $(PS).enc
@@ -15,7 +15,7 @@ generate:
 
 debug: generate
 	@clang -ggdb $(INC_DIR) $(LIB_DIR) $(LIBS) temp.c $(BITSET_C) -o ps
-	./ps | sort -n
+	./ps
 
 release: generate
 	@clang -O3 $(INC_DIR) $(LIB_DIR) $(LIBS) temp.c $(BITSET_C) -o ps
