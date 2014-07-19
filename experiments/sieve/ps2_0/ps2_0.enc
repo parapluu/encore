@@ -22,17 +22,17 @@ passive class PrimeArray
   def flag(index : int) : void
     let bs = this.data in 
       embed void
-        set((bitset*) #{bs}, #{index})
+        set((bitset*) #{bs}, #{index});
       end
   def unflag(index : int) : void
     let bs = this.data in 
       embed void
-        unset((bitset*) #{bs}, #{index})
+        unset((bitset*) #{bs}, #{index});
       end
   def is_not_flagged(index : int) : bool 
     let bs = this.data in 
       embed bool
-        !isset((bitset*) #{bs}, #{index})
+        !isset((bitset*) #{bs}, #{index});
       end
   def set_size(size : int) : void 
     this.data = embed Void
