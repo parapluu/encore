@@ -233,7 +233,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate e@(A.Embed {A.code=code}) = do
     interpolated <- interpolate code
     if Ty.isVoidType (A.getType e) then
-        return (unit, Embed interpolated)
+        return (unit, Embed $ "({" ++ interpolated  ++ "})")
     else
         tmp_var (A.getType e) (Embed $ "({" ++ interpolated  ++ "})")
         where
