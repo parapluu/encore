@@ -4,6 +4,7 @@ ENCOREC=../../../release/encorec
 INC_DIR=-I../bitset -I../../../release/inc
 LIB_DIR=-L../bitset -L../../../release/lib
 LIBS=-lpony -lclosure -lfuture -lset
+EXPECTED=../primes/5M.txt
 BITSET_C=../bitset/bitset.c
 PS=sieve
 
@@ -25,7 +26,7 @@ run:	release
 
 test:	release
 	./ps | sort -n > result.txt
-	head -n `wc -l result.txt | awk '{print $$1}'` expected.txt > /tmp/expected.txt
+	head -n `wc -l result.txt | awk '{print $$1}'` $(EXPECTED) > /tmp/expected.txt
 	diff result.txt /tmp/expected.txt 
 
 measure: release
