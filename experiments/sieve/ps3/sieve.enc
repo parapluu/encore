@@ -1,0 +1,238 @@
+-----------------------------------------------------------------------------
+-- Dummy class for embedding
+-----------------------------------------------------------------------------
+passive class Void
+
+-----------------------------------------------------------------------------
+-- PrimeArray
+-----------------------------------------------------------------------------
+passive class PrimeArray
+  data : Void 
+  def flag(index : int) : void
+    let bs = this.data in 
+      embed void
+        set((bitset*) #{bs}, #{index});
+      end
+  def unflag(index : int) : void
+    let bs = this.data in 
+      embed void
+        unset((bitset*) #{bs}, #{index});
+      end
+  def is_not_flagged(index : int) : bool 
+    let bs = this.data in 
+      embed bool
+        !isset((bitset*) #{bs}, #{index});
+      end
+  def set_size(size : int) : void 
+    this.data = embed Void
+        (Void_data*) mkBitset(0);
+    end
+  def bit_index(a : int, b : int) : int 
+    embed int
+      (#{a} % #{b}) ? ((#{a}/#{b})+1) * #{b} - #{a} : 0;
+    end
+  def even(a : int) : bool
+    embed bool
+      #{a} % 2 == 0;
+    end
+  def mod(a : int, b : int) : int
+    embed int
+      #{a} % #{b};
+    end
+  def puts_debug(s : string, i : int) : void
+    embed void
+      fprintf(stderr, "%s: %lld\n", #{s}, #{i});
+    end
+  def puts_debug4(s1 : string, i1 : int, s2 : string, i2 : int) : void
+    embed void
+      fprintf(stderr, "%s: %lld %s: %lld\n", #{s1}, #{i1}, #{s2}, #{i2});
+    end
+
+-----------------------------------------------------------------------------
+-- Buffer
+-----------------------------------------------------------------------------
+passive class Buffer
+  size : int
+  max_size : int
+  data : int -- Ouch!
+  fc : int -- Ouch!
+  def init(m : int) : void 
+    embed void 
+      this->max_size = #{m};
+      this->data = malloc(sizeof(int64_t) * this->max_size); 
+    end
+  def full() : bool
+    embed bool this->size == this->max_size; end
+  def add(v : int) : void
+    embed void ((int64_t*)this->data)[this->size++] = v; end
+  def take(i : int) : int
+    embed int ((int64_t*)this->data)[i]; end
+  def size() : int
+    embed int this->size; end
+  def free() : void {
+    this.fc = this.fc + 1;
+    if this.fc == 3 then {
+      embed void free((int64_t*) this->data); end
+    } else ();
+    }
+    
+
+passive class BufferEncore
+  data : int
+  size : int
+  max_size : int
+  def init(m : int) : void {
+    this.size = 0;
+    this.max_size = 1;
+  }
+  def full() : bool
+    if this.size < this.max_size then false else true
+  def add(v : int) : void {
+    this.data = v;
+    this.size = 1
+  }
+  def take(i : int) : int
+    this.data
+  def size() : int
+    if this.full() then 1 else 0
+
+-----------------------------------------------------------------------------
+-- Main
+-----------------------------------------------------------------------------
+class Main
+  start : int
+  size : int
+  prime_array : PrimeArray
+  f1 : Filter
+  f2 : Filter
+  f3 : Filter
+  buffer : Buffer
+
+  def main() : void 
+    -- Requirement: vec_size * 4 > number_of_actors^2
+    let vec_size = 16*1024*1024 in
+      this.init(vec_size)
+
+  def set_bound(start : int, size : int) : void {
+      this.start = start;
+      this.size = size;
+      this.prime_array = new PrimeArray;
+      this.prime_array.set_size(size);
+    }
+
+  def init(size : int) : void { 
+      this.buffer = new Buffer;
+      this.buffer.init(16*1024);
+      this.set_bound(3, size);
+      -- Setup the filters // number is hardcoded for now
+      this.f1 = new Filter;
+      this.f2 = new Filter;
+      this.f3 = new Filter;
+      -- Stack them so they only send to `later' actors
+      this.f1.set_bound((size * 2) + 3, size);
+      this.f2.set_bound((size * 4) + 3, size);
+      this.f3.set_bound((size * 6) + 3, size);
+      -- Start the computation
+      this.filter();
+      print 2;
+      this.post_result(this.prime_array, this.start);
+      this.f1.get_report(this);
+      this.f2.get_report(this);
+      this.f3.get_report(this);
+      ();
+    }
+
+  def filter() : void {
+    let value = this.start in
+    let offset = 0 in 
+      while offset < this.size
+        {
+          if this.prime_array.is_not_flagged(offset) then {
+            this.pass_on(value, false);
+            this.remove_simple(offset, value);
+          } else {
+              ();
+          }; 
+          offset = offset + 1;
+          value = value + 2;
+        };
+     this.pass_on(0, true);
+     }
+
+  def remove_simple(offset : int, value : int) : void {
+    let offset = offset + value in
+      while offset < this.size
+        {
+          this.prime_array.flag(offset);
+          offset = offset + value
+        }
+    }
+
+  def or(a : bool, b : bool) : bool 
+    if a then 
+      true
+    else
+      b
+
+  def pass_on(value : int, flush : bool) : void {
+    if this.or(this.buffer.full(), flush) then {
+      this.f1.remove_buffer(this.buffer); 
+      this.f2.remove_buffer(this.buffer); 
+      this.f3.remove_buffer(this.buffer); 
+      this.buffer = new Buffer;
+      this.buffer.init(16*1024);
+    } else ();
+    this.buffer.add(value);
+    }
+
+  def post_result(a : PrimeArray, start : int) : void 
+    let value = start in
+    let i = 0 in
+      while i < this.size 
+        {
+          if a.is_not_flagged(i) then print value else ();
+          i = i + 1;
+          value = value + 2;
+        }
+
+
+-----------------------------------------------------------------------------
+-- Filter
+-----------------------------------------------------------------------------
+class Filter
+  start : int
+  size : int
+  prime_array : PrimeArray
+
+  def set_bound(start : int, size : int) : void {
+      this.start = start;
+      this.size = size;
+      this.prime_array = new PrimeArray;
+      this.prime_array.set_size(size);
+    }
+
+  def remove_buffer(b : Buffer) : void {
+    let i = 0 in 
+      while i < b.size {
+	let v = b.take(i) in if v == 0 then () else this.remove(v);
+        i = i + 1;
+	};
+        b.free();
+    }
+
+  def remove(value : int) : void {
+    let i = 
+      let offset = this.start / value in {
+        if this.prime_array.mod(this.start, value) == 0 then 0 else {
+          let fst = ((offset + 1) * value) in
+            if this.prime_array.even(fst) then (fst + value - this.start) / 2 else (fst - this.start) / 2} } in {
+              while i < this.size
+                {
+                  this.prime_array.flag(i);
+                  i = i + value;
+                };
+      }
+    }
+
+  def get_report(report_to : Main) : Fut void 
+    report_to.post_result(this.prime_array, this.start)
