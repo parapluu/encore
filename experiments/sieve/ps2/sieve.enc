@@ -91,7 +91,7 @@ class Main
 
   def main() : void 
     -- Requirement: vec_size * 4 > number_of_actors^2
-    let vec_size = 16*1024*1024 in
+    let vec_size = 1024*1024 in
       this.init(0, vec_size)
 
   def set_bound(start : int, stop : int) : void {

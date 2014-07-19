@@ -39,7 +39,8 @@ typedef bitset(*binop_bitset)(bitset, bitset);
 typedef enum { set_op, unset_op, read_op } bit_op; 
 typedef enum { union_op, intersection_op, xor_op } bitset_op; 
 
-#define ELEMENTS          16777216
+// 16777216
+#define ELEMENTS          201326592
 #define BITS_PER_ELEMENT  (sizeof(bitset) * 8)
 #define ARRAY_SIZE        (ELEMENTS / BITS_PER_ELEMENT)
 #define ONE               1UL
@@ -74,18 +75,6 @@ bitset *mkBitset(int64_t element_count, ...) {
   return bits;
 }
 
-static int64_t _bitop(bitset *b, int64_t idx, bit_op bop) {
-  assertTrue(idx >= 0, "Asking for negative element in set");
-  assertTrue(idx < ELEMENTS, "Asking for too large element in set");
-
-  switch(bop) {
-  case set_op:   element(b, idx) |=  mask(idx); return 0;
-  case unset_op: element(b, idx) &= ~mask(idx); return 0;
-  case read_op:                                 return element(b, idx) & mask(idx); 
-  default: fail("Unreachable default reached"); return -1;
-  }
-}
-
 static inline bitset *_setop_fun(const bitset *lhs, binop_bitset binop, const bitset *rhs) {
   bitset *result = mkBitset(0); 
   for (int64_t i = 0; i < ELEMENTS; ++i) { 
@@ -106,9 +95,9 @@ void print(bitset* bits) {
   printf(" }\n");
 }
 
-void set       (bitset *bits, int64_t index) {        _bitop(bits, index, set_op);   }
-void unset     (bitset *bits, int64_t index) {        _bitop(bits, index, unset_op); }
-int64_t isset  (bitset *bits, int64_t index) { return _bitop(bits, index, read_op);  } 
+void set       (bitset *bits, int64_t index) { element(bits, index) |=  mask(index); }
+void unset     (bitset *bits, int64_t index) { element(bits, index) &= ~mask(index); }
+int64_t isset  (bitset *bits, int64_t index) { return element(bits, index) & mask(index); }
 
 bitset binop_and(bitset a, bitset b) { return a & b; }
 bitset binop_or (bitset a, bitset b) { return a | b; }
