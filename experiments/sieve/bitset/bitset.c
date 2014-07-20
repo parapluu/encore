@@ -95,9 +95,23 @@ void print(bitset* bits) {
   printf(" }\n");
 }
 
-void set       (bitset *bits, int64_t index) { element(bits, index) |=  mask(index); }
-void unset     (bitset *bits, int64_t index) { element(bits, index) &= ~mask(index); }
-int64_t isset  (bitset *bits, int64_t index) { return element(bits, index) & mask(index); }
+void set (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  element(bits, index) |=  mask(index); 
+}
+
+void unset (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  element(bits, index) &= ~mask(index); 
+}
+
+int64_t isset (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  return element(bits, index) & mask(index); 
+}
 
 bitset binop_and(bitset a, bitset b) { return a & b; }
 bitset binop_or (bitset a, bitset b) { return a | b; }
