@@ -77,8 +77,8 @@ class Checkable a where
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
 instance Checkable Program where
-    typecheck (Program classes) = do eclasses <- mapM pushTypecheck classes
-                                     return $ Program eclasses
+    typecheck (Program etl classes) = do eclasses <- mapM pushTypecheck classes
+                                         return $ Program etl eclasses
 
 instance Checkable ClassDecl where
     typecheck c@(Class {cname, fields, methods}) =

@@ -41,7 +41,7 @@ type ClassType = (Type, ([FieldType], [MethodType]))
 data Environment = Env {ctable :: [ClassType], locals :: [VarType], bindings :: [(Type, Type)], bt :: Backtrace}
 
 buildClassTable :: Program -> Either TCError Environment
-buildClassTable (Program classes) = 
+buildClassTable (Program _ classes) = 
     case duplicateClasses of
       [] -> Right $ Env (map getClassType classes) [] [] emptyBT
       (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)

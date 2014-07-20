@@ -4,7 +4,8 @@ Produces an "AST.AST" (or an error) of a @Program@ built from the
 following grammar:
 
 @
-    Program ::= ClassDecl Program | eps
+    Program ::= EmbedTL ClassDecl Program | eps
+    EmbedTL ::= embed .*end
   ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
  ParamDecls ::= Name : Type , ParamDecl | eps
@@ -140,9 +141,20 @@ typ  =  try arrow
 
 program :: Parser Program
 program = do {whiteSpace ;
+              embedtl <- embedTL ;
+              whiteSpace ;
               classes <- many classDecl ;
               eof ;
-              return $ Program classes}
+              return $ Program embedtl classes}
+
+embedTL :: Parser EmbedTL
+embedTL = do
+  pos <- getPosition
+  try (do
+        reserved "embed"
+        code <- manyTill anyChar $ (try $ reserved "end")
+        return $ EmbedTL (meta pos) code) <|>
+       (return $ EmbedTL (meta pos) "")
 
 classDecl :: Parser ClassDecl
 classDecl = do {pos <- getPosition ;
