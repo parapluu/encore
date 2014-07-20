@@ -38,7 +38,7 @@ foldr f acc e@(Print {val}) = f e (foldr f acc val)
 foldr f acc e = f e acc
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program classes) = map (foldClass f e) classes
+foldrAll f e (Program _ classes) = map (foldClass f e) classes
     where
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
       foldMethod f e (Method {mbody}) = foldr f e mbody
@@ -182,7 +182,7 @@ extendAccum f acc e@(Print {}) =
 extendAccum f acc e = f acc e
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc (Program classes) = (acc', Program program')
+extendAccumProgram f acc (Program etl classes) = (acc', Program etl program')
     where 
       (acc', program') = List.mapAccumL (extendAccumClass f) acc classes
       extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
@@ -197,7 +197,7 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program classes) = List.nub $ concat $ concatMap extractClassTypes classes
+extractTypes (Program _ classes) = List.nub $ concat $ concatMap extractClassTypes classes
     where
       extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
       extractFieldTypes Field {ftype} = typeComponents ftype

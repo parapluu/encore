@@ -17,7 +17,7 @@ import Identifiers
 import Types
 import AST.Meta
 
-newtype Program = Program [ClassDecl] deriving(Show)
+data Program = Program EmbedTL [ClassDecl] deriving(Show)
 
 class HasMeta a where
     getPos :: a -> SourcePos
@@ -39,6 +39,9 @@ class HasMeta a where
                      ty' = AST.AST.getType x
 
 data Activity = Active | Passive deriving(Show, Eq)
+
+data EmbedTL = EmbedTL {etlmeta :: Meta,
+                        etlcode  :: String} deriving (Show)
 
 data ClassDecl = Class {cmeta     :: Meta,
                         cactivity :: Activity,

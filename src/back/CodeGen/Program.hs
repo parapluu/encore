@@ -17,8 +17,11 @@ import qualified AST.Util as Util
 import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 
+instance Translatable A.EmbedTL (CCode Toplevel) where
+    translate (A.EmbedTL _ code) = Embed code
+
 instance Translatable A.Program (CCode FIN) where
-  translate prog@(A.Program cs) =
+  translate prog@(A.Program etl cs) =
     Program $
     ConcatTL $
     (Includes ["pony/pony.h",
@@ -32,6 +35,7 @@ instance Translatable A.Program (CCode FIN) where
                "assert.h",
                "stdio.h"
               ]) :
+    (translate etl) :
     (HashDefine "UNIT NULL - 1") :
     (fwd_decls prog) :
     (map (\cls -> runReader (fwd_decls cls) (Ctx.mk prog)) cs) ++
@@ -43,14 +47,14 @@ instance Translatable A.Program (CCode FIN) where
               Return $ Call (Nam "pony_start") [AsExpr $ Var "argc", AsExpr $ Var "argv", Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel
-      translate_class_here cdecl = runReader (translate cdecl) $ Ctx.mk (A.Program cs)
+      translate_class_here cdecl = runReader (translate cdecl) (Ctx.mk (A.Program etl cs))
 
 instance FwdDeclaration A.Program (CCode Toplevel) where
-  fwd_decls (A.Program cs) = ConcatTL $ [create_and_send_fn,
+  fwd_decls (A.Program etl cs) = ConcatTL $ [create_and_send_fn,
                                          msg_alloc_decl,
                                          msg_fut_resume_decl,
-                                         msg_enum (A.Program cs),
-                                         class_ids_enum (A.Program cs)]
+                                         msg_enum (A.Program etl cs),
+                                         class_ids_enum (A.Program etl cs)]
     where
       msg_alloc_decl =
           Embed $ "static pony_msg_t m_MSG_alloc = {0, {PONY_NONE}};"
@@ -67,7 +71,7 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
                     "  return ret;\n" ++
                     "}"
       msg_enum :: A.Program -> CCode Toplevel
-      msg_enum (A.Program cs) =
+      msg_enum (A.Program etl cs) =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (A.methods cdecl)) cs
           lines = map (\ (cname, mdecl) -> "MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
@@ -75,7 +79,7 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
          Enum $ map Nam $ "MSG_alloc":lines
 
       class_ids_enum :: A.Program -> CCode Toplevel
-      class_ids_enum (A.Program cs) =
+      class_ids_enum (A.Program etl cs) =
         let
           names = map (("ID_"++) . show . A.cname) cs
         in
