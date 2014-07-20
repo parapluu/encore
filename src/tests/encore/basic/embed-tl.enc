@@ -1,0 +1,9 @@
+embed
+  int foo(int x) {
+    return 2*x;
+  }
+end
+
+class Main
+  def main() : void
+    print embed int foo(2); end
