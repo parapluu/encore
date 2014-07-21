@@ -35,6 +35,7 @@ instance Translatable ID.Op (CCode Name) where
     ID.MINUS -> "-"
     ID.TIMES -> "*"
     ID.DIV -> "/"
+    ID.MOD -> "%"
 
 instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.LVal ty name) =
