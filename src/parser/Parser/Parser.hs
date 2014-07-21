@@ -4,7 +4,7 @@ Produces an "AST.AST" (or an error) of a @Program@ built from the
 following grammar:
 
 @
-    Program ::= EmbedTL ClassDecl Program | eps
+    Program ::= {EmbedTL}? ClassDecl Program | eps
     EmbedTL ::= embed .*end
   ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
