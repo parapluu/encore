@@ -84,7 +84,10 @@ doCompile ast source options =
        withFile cFile WriteMode (outputCode ast)
        if (Clang `elem` options) then
            do putStrLn "Compiling with clang..."
-              exitCode <- system ("clang" <+> cFile <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> futLibPath <+> setLibPath <+> closureLibPath <+> "-I" <+> incPath)
+              files  <- getDirectoryContents "."
+              let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
+              let cmd = "clang" <+> cFile <+> ofilesInc <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> futLibPath <+> setLibPath <+> closureLibPath <+> "-I" <+> incPath <+> "-I ."
+              exitCode <- system cmd
               case exitCode of
                 ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
                 ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)

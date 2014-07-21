@@ -133,6 +133,7 @@ ppBinop Identifiers.PLUS  = text "+"
 ppBinop Identifiers.MINUS = text "-"
 ppBinop Identifiers.TIMES  = text "*"
 ppBinop Identifiers.DIV = text "/"
+ppBinop Identifiers.MOD = text "%"
 
 ppLVal :: LVal -> Doc
 ppLVal LVal {lname = (Name x)}  = text x

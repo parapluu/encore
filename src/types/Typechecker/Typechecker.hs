@@ -320,8 +320,8 @@ instance Checkable Expr where
         where
           cmpOps   = [Identifiers.LT, Identifiers.GT]
           eqOps    = [Identifiers.EQ, NEQ]
-          arithOps = [PLUS, MINUS, TIMES, DIV]
-          coerceTypes ty1 ty2 
+          arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
+          coerceTypes ty1 ty2
               | isRealType ty1 = realType
               | isRealType ty2 = realType
               | otherwise = intType
