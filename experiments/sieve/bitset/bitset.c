@@ -40,7 +40,7 @@ typedef enum { set_op, unset_op, read_op } bit_op;
 typedef enum { union_op, intersection_op, xor_op } bitset_op; 
 
 // 16777216
-#define ELEMENTS          201326592
+#define ELEMENTS          268435456
 #define BITS_PER_ELEMENT  (sizeof(bitset) * 8)
 #define ARRAY_SIZE        (ELEMENTS / BITS_PER_ELEMENT)
 #define ONE               1UL
