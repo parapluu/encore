@@ -20,5 +20,7 @@ bool future_actor_get_value_and_fulfillment(pony_actor_t* this, void **value);
 void future_actor_set_value(pony_actor_t* this, void *value);
 bool future_actor_get_fulfilled(pony_actor_t* this);
 void *future_actor_get_value(pony_actor_t* this);
+bool future_has_blocking(pony_actor_t *this);
+void future_set_blocking(pony_actor_t *this);
 
 #endif

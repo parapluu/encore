@@ -80,6 +80,7 @@ void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
 }
 
 void future_block(future_t *f, pony_actor_t* a) {
+  future_set_blocking(f);
   resumable_t *r = mk_resumeable();
   pony_arg_t argv[2];
   argv[0].p = a;
@@ -140,10 +141,13 @@ void *future_get(future_t *fut, pony_actor_t* actor) {
 
 void future_fulfil(future_t *f, void *value) {
   future_actor_set_value(f, value);
+
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[%p]\t%p <--- fulfil\n", (void *)pthread_self(), f);
 #endif
-  pony_send(f, FUT_MSG_FULFIL);
+
+  if (future_has_blocking(f))
+    pony_send(f, FUT_MSG_FULFIL);
 }
 
 void init_futures(int cache_size, strategy_t s) {

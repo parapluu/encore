@@ -5,7 +5,7 @@
 #include <assert.h>
 
 // Controls whether malloc of pony_alloc is to be used
-#define USE_PONY_ALLOC 1
+//#define USE_PONY_ALLOC 1
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>

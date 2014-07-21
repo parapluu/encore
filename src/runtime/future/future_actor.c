@@ -15,6 +15,7 @@
 
 typedef struct future_actor_fields {
   bool fulfilled;
+  bool has_blocking;
   void *value;
   set_t *blocked;
   set_t *chained;
@@ -48,7 +49,7 @@ static pony_msg_t m_await = {2, {PONY_ACTOR, PONY_NONE}};
 // FIXME -- 2nd arg should be Ctx defined in context.h
 static pony_msg_t m_block = {2, {PONY_ACTOR, PONY_NONE}};
 // FIXME -- 2nd arg in chain should be any kind of Encore value
-static pony_msg_t m_fulfil = {0, {PONY_ACTOR}};
+static pony_msg_t m_fulfil = {0, {PONY_NONE}}; //XXX We can only store passive values in futures!
 // FIXME -- arg should be Ctx defined in context.h
 static pony_msg_t m_resume_get = {1, {PONY_NONE} };
 
@@ -66,7 +67,7 @@ pony_msg_t* future_actor_message_type(uint64_t id) {
 
 static future_actor_fields *future_init(void *p, void *this) {
   if (p == NULL) {
-    future_actor_fields *fields = malloc(sizeof (future_actor_fields));
+    future_actor_fields *fields = pony_alloc(sizeof (future_actor_fields));
     *(void**) this = fields;
     fields->fulfilled = false;
     fields->value = NULL;
@@ -151,7 +152,7 @@ void future_actor_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, p
       // TODO: Add the closure argument to an internal list of closures
       // This entry should record the closure and the actor to run it
       set_t *chained = getChained(p);
-      chained_entry *new_entry = calloc(1, sizeof(chained_entry));
+      chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
       new_entry->actor = argv[0].p;
       new_entry->closure = argv[1].p;
       set_add(chained, new_entry);
@@ -229,14 +230,14 @@ future_actor_fields *get_fields(pony_actor_t *this) {
 void future_actor_set_value(pony_actor_t* this, void *value) {
   future_actor_fields *state = get_fields(this);
   state->value = value;
-  __sync_synchronize();
-  state->fulfilled = true;
+  bool TRUE = true;
+  __atomic_store(&state->value, &value, __ATOMIC_SEQ_CST); //TODO: relax from sc
+  __atomic_store(&state->fulfilled, &TRUE, __ATOMIC_SEQ_CST); //TODO: relax from sc
 }
 bool future_actor_get_value_and_fulfillment(pony_actor_t* this, void **value) {
   future_actor_fields *state = get_fields(this);
-  bool fulfilled = state->fulfilled;
-  __sync_synchronize();
-  *value = state->value;
+  bool fulfilled = __atomic_load_n(&state->fulfilled, __ATOMIC_SEQ_CST); //TODO: relax
+  *value = __atomic_load_n(&state->value, __ATOMIC_SEQ_CST);
   return fulfilled;
 }
 bool future_actor_get_fulfilled(pony_actor_t* this) {
@@ -247,14 +248,25 @@ void *future_actor_get_value(pony_actor_t* this) {
   future_actor_fields *state = get_fields(this);
   return state->value;
 }
-void future_actor_set_fulfilled(pony_actor_t* this, volatile bool fulfilled) {
+void future_actor_set_fulfilled(pony_actor_t* this, bool fulfilled) {
   future_actor_fields *state = get_fields(this);
-  state->fulfilled = fulfilled;
+  __atomic_store(&state->fulfilled, &fulfilled, __ATOMIC_SEQ_CST); //TODO: relax from sc
 }
 pony_actor_t* future_create() {
   pony_actor_t* fut = pony_create(&future_actor_type);
   future_init(NULL, fut);
   return fut;
+}
+
+bool future_has_blocking(pony_actor_t *this) {
+  future_actor_fields *state = get_fields(this);
+  return __atomic_load_n(&state->has_blocking, __ATOMIC_SEQ_CST); //TODO: relax
+}
+
+void future_set_blocking(pony_actor_t *this) {
+  future_actor_fields *state = get_fields(this);
+  bool TRUE = true;
+  __atomic_store_n(&state->has_blocking, &TRUE, __ATOMIC_SEQ_CST); //TODO: relax
 }
 
 static void future_actor_trace()
