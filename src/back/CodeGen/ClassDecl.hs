@@ -135,8 +135,15 @@ translateActiveClass cdecl =
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
           where
+            trace_field A.Field {A.ftype = ty, A.fname = f}
+                | Ty.isActiveRefType ty = Call (Nam "pony_traceactor") [get_field f]
+                | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
+                | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
+                where
+                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
 
       message_type_decl :: CCode Toplevel
       message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
@@ -218,8 +225,15 @@ translatePassiveClass cdecl =
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
           where
+            trace_field A.Field {A.ftype = ty, A.fname = f}
+                | Ty.isActiveRefType ty = Call (Nam "pony_traceactor") [get_field f]
+                | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
+                | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
+                where
+                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
 
 instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   fwd_decls cdecl 
