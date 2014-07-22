@@ -51,10 +51,11 @@ instance Translatable A.Program (CCode FIN) where
 
 instance FwdDeclaration A.Program (CCode Toplevel) where
   fwd_decls (A.Program etl cs) = ConcatTL $ [create_and_send_fn,
-                                         msg_alloc_decl,
-                                         msg_fut_resume_decl,
-                                         msg_enum (A.Program etl cs),
-                                         class_ids_enum (A.Program etl cs)]
+                                             msg_alloc_decl,
+                                             msg_fut_resume_decl,
+                                             msg_enum cs,
+                                             class_ids_enum cs,
+                                             class_data_recs cs]
     where
       msg_alloc_decl =
           Embed $ "static pony_msg_t m_MSG_alloc = {0, {PONY_NONE}};"
@@ -70,17 +71,24 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
                     "  \n" ++
                     "  return ret;\n" ++
                     "}"
-      msg_enum :: A.Program -> CCode Toplevel
-      msg_enum (A.Program etl cs) =
+      msg_enum :: [A.ClassDecl] -> CCode Toplevel
+      msg_enum cs =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (A.methods cdecl)) cs
           lines = map (\ (cname, mdecl) -> "MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
         in
          Enum $ map Nam $ "MSG_alloc":lines
 
-      class_ids_enum :: A.Program -> CCode Toplevel
-      class_ids_enum (A.Program etl cs) =
+      class_ids_enum :: [A.ClassDecl] -> CCode Toplevel
+      class_ids_enum cs =
         let
           names = map (("ID_"++) . show . A.cname) cs
         in
          Enum $ map Nam $ names
+
+      class_data_recs :: [A.ClassDecl] -> CCode Toplevel
+      class_data_recs = ConcatTL . (map class_data_rec)
+          where
+            class_data_rec :: A.ClassDecl -> CCode Toplevel
+            class_data_rec A.Class {A.cname = cname} =
+                Typedef (Struct . Nam $ (show cname) ++ "_data") (Nam $ (show cname) ++ "_data")
