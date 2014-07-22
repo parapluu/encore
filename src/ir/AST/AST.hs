@@ -113,6 +113,10 @@ data Expr = Skip {emeta :: Meta}
                         target :: Expr, 
                         name :: Name, 
                         args :: Arguments}
+          | MessageSend {emeta :: Meta, 
+                         target :: Expr, 
+                         name :: Name, 
+                         args :: Arguments}
           | FunctionCall {emeta :: Meta, 
                           name :: Name, 
                           args :: Arguments}

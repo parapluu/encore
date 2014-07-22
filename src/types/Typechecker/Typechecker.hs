@@ -176,6 +176,23 @@ instance Checkable Expr where
                         else
                             return $ setType (futureType returnType) mcall {target = eTarget, args = eArgs}
 
+    typecheck msend@(MessageSend {target, name, args}) = 
+        do eTarget <- pushTypecheck target
+           targetType <- return $ AST.getType eTarget
+           unless (isActiveRefType targetType) $ 
+                tcError $ "Cannot send message to expression '" ++ 
+                          (show $ ppExpr target) ++ 
+                          "' of type '" ++ show targetType ++ "'"
+           lookupResult <- asks $ methodLookup targetType name
+           case lookupResult of
+             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+             Just (params, returnType) -> 
+                 do unless (length args == length params) $ 
+                       tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
+                                 "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
+                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
+                    return $ setType voidType msend {target = eTarget, args = eArgs}
+
     typecheck fcall@(FunctionCall {name, args}) = 
         do funType <- asks $ varLookup name
            case funType of

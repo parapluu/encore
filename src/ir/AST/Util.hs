@@ -15,6 +15,9 @@ foldr :: (Expr -> a -> a) -> a -> Expr -> a
 foldr f acc e@(MethodCall {target, args}) = 
     let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
     f e (foldr f argResults target)
+foldr f acc e@(MessageSend {target, args}) = 
+    let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
+    f e (foldr f argResults target)
 foldr f acc e@(Let {val, body}) = 
     let valResults = foldr f acc val in
     f e (foldr f valResults body)
@@ -46,6 +49,12 @@ foldrAll f e (Program _ classes) = map (foldClass f e) classes
 extend :: (Expr -> Expr) -> Expr -> Expr
 extend f e@(MethodCall {target, args}) = 
     let e'@(MethodCall {target = t, args = a}) = f e
+        t' = f t
+        a' = map f a
+    in
+      e'{target = t', args = a'}
+extend f e@(MessageSend {target, args}) = 
+    let e'@(MessageSend {target = t, args = a}) = f e
         t' = f t
         a' = map f a
     in
@@ -115,6 +124,12 @@ extend f e = f e
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
 extendAccum f acc e@(MethodCall {}) = 
     let (acc0, e'@(MethodCall {target = t, args = a})) = f acc e
+        (acc1, t') = extendAccum f acc0 t
+        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 a
+    in
+      (acc2, e'{target = t', args = a'})
+extendAccum f acc e@(MessageSend {}) = 
+    let (acc0, e'@(MessageSend {target = t, args = a})) = f acc e
         (acc1, t') = extendAccum f acc0 t
         (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 a
     in
@@ -211,6 +226,8 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
       freeVariables' bound TypedExpr {body} = 
           freeVariables' bound body
       freeVariables' bound MethodCall {target, args} = 
+          concatMap (freeVariables' bound) args ++ freeVariables' bound target
+      freeVariables' bound MessageSend {target, args} = 
           concatMap (freeVariables' bound) args ++ freeVariables' bound target
       freeVariables' bound fCall@(FunctionCall {name, args})
           | name `elem` bound = concatMap (freeVariables' bound) args

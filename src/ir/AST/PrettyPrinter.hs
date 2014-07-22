@@ -34,6 +34,7 @@ ppNew = text "new"
 ppPrint = text "print"
 ppEmbed = text "embed"
 ppDot = text "."
+ppBang = text "!"
 ppColon = text ":"
 ppComma = text ","
 ppSemicolon = text ";"
@@ -79,6 +80,7 @@ isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
 isSimple FieldAccess {target} = isSimple target
 isSimple MethodCall {target} = isSimple target
+isSimple MessageSend {target} = isSimple target
 isSimple FunctionCall {} = True
 isSimple _ = False
 
@@ -91,6 +93,9 @@ ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
 ppExpr MethodCall {target, name, args} = 
     maybeParens target <> ppDot <> ppName name <> 
+      parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+ppExpr MessageSend {target, name, args} = 
+    maybeParens target <> ppBang <> ppName name <> 
       parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
 ppExpr FunctionCall {name, args} = 
     ppName name <> parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))

@@ -98,6 +98,7 @@ reserved   = P.reserved lexer
 reservedOp = P.reservedOp lexer
 operator   = P.operator lexer
 dot        = P.dot lexer
+bang       = P.symbol lexer "!"
 commaSep   = P.commaSep lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
@@ -214,6 +215,15 @@ methodPath = do {pos <- getPosition ;
                  path <- identifier `sepBy` (skipMany1 dot) ;
                  return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )}
 
+messagePath :: Parser (Expr, Name)
+messagePath =  do pos <- getPosition
+                  root <- identifier
+                  optional dot
+                  path <- option [] $ identifier `sepBy` (skipMany1 dot)
+                  bang
+                  mname <- identifier
+                  return (pathToExpr path (VarAccess (meta pos) (Name root)), Name $ mname)
+
 pathToExpr :: [String] -> Expr -> Expr
 pathToExpr [] acc = acc
 pathToExpr (f:path) acc = pathToExpr path (FieldAccess (emeta acc) acc (Name f))
@@ -241,6 +251,7 @@ expr  =  unit
      <|> try embed
      <|> try assignment
      <|> try methodCall
+     <|> try messageSend
      <|> try fieldAccess
      <|> try functionCall
      <|> closure
@@ -275,6 +286,10 @@ expr  =  unit
                        (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
                        return $ MethodCall (meta pos) target tmname args}
+      messageSend = do {pos <- getPosition ;
+                        (target, tmname) <- messagePath ; 
+                        args <- parens arguments ; 
+                        return $ MessageSend (meta pos) target tmname args}
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
                           x <- identifier ;

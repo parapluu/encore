@@ -64,12 +64,19 @@ translateActiveClass cdecl =
       mthd_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       mthd_dispatch_clause cdecl mdecl =
         ((method_msg_name (A.cname cdecl) (A.mname mdecl)),
-         Concat 
-           [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-            Statement (Call (Nam "future_fulfil") 
-                        [AsExpr $ Var "fut",
-                         (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-                          ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl)))])])
+              (Concat 
+               [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
+                Statement (Call (Nam "future_fulfil") 
+                           [AsExpr $ Var "fut",
+                            (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
+                          ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl)))])]))
+
+      one_way_send_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
+      one_way_send_dispatch_clause cdecl mdecl =
+        ((one_way_send_msg_name (A.cname cdecl) (A.mname mdecl)),
+              (Statement $
+               Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
+                ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl))))
 
       paramdecl_to_argv :: Int -> A.ParamDecl -> CCode Expr
       paramdecl_to_argv argv_idx (A.Param {A.pname = na, A.ptype = ty}) =
@@ -100,7 +107,8 @@ translateActiveClass cdecl =
              (if (A.cname cdecl == Ty.refType "Main")
               then [pony_main_clause]
               else []) ++
-             (map (mthd_dispatch_clause cdecl) (A.methods cdecl)))
+             (concatMap (\m -> [mthd_dispatch_clause cdecl m,
+                                one_way_send_dispatch_clause cdecl m]) (A.methods cdecl)))
              (Embed "printf(\"error, got invalid id: %llu\",id);")))
           where
             pony_main_clause =
@@ -152,7 +160,8 @@ translateActiveClass cdecl =
                           (Concat [(Switch (Var "id")
                                    ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
                                     (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
-                                    (map (\mdecl -> message_type_clause (A.cname cdecl) (A.mname mdecl))
+                                    (concatMap (\mdecl -> [message_type_clause (A.cname cdecl) (A.mname mdecl),
+                                                           one_way_message_type_clause (A.cname cdecl) (A.mname mdecl)])
                                       (A.methods cdecl)))
                                    (Concat [])),
                                    (Return Null)])
@@ -165,6 +174,11 @@ translateActiveClass cdecl =
               else
             (method_msg_name cname mname,
              Embed $ "return &" ++ show (method_message_type_name cname mname) ++ ";")
+
+          one_way_message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
+          one_way_message_type_clause cname mname =
+            (one_way_send_msg_name cname mname,
+             Embed $ "return &" ++ show (one_way_message_type_name cname mname) ++ ";")
 
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl (A.methods cdecl)
@@ -179,15 +193,20 @@ translateActiveClass cdecl =
 
       pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
       pony_msg_t_impl mdecl = 
-          AssignTL
-            (Decl (Static (Typ "pony_msg_t"), 
-                  (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-            (if A.isMain cdecl mdecl then
-                 (Record [Embed (show $ length (A.mparams mdecl)), 
-                          Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
-             else
-                 (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
-                          Record $ {- future argument -} Nam "PONY_ACTOR" : map (pony_mode . A.getType) (A.mparams mdecl)]))
+          ConcatTL $
+            [AssignTL
+             (Decl (Static (Typ "pony_msg_t"), 
+                    (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
+             (if A.isMain cdecl mdecl then
+                  (Record [Embed (show $ length (A.mparams mdecl)), 
+                           Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
+              else
+                  (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
+                           Record $ {- future argument -} Nam "PONY_ACTOR" : map (pony_mode . A.getType) (A.mparams mdecl)])), 
+            AssignTL 
+                (Decl (Static (Typ "pony_msg_t"), one_way_message_type_name (A.cname cdecl) (A.mname mdecl)))
+                (Record [Embed (show $ length (A.mparams mdecl)), 
+                           Record $ map (pony_mode . A.getType) (A.mparams mdecl)])]
 
       pony_actor_t_impl :: CCode Toplevel
       pony_actor_t_impl = EmbedC $
