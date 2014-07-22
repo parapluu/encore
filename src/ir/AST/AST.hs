@@ -100,6 +100,9 @@ instance HasMeta MethodDecl where
     getType = mtype
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
+isMain :: ClassDecl -> MethodDecl -> Bool
+isMain cdecl mdecl = ((== "Main") . getId . cname $ cdecl) && ((== Name "main") . mname $ mdecl)
+
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta}

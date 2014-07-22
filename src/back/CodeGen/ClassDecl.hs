@@ -175,9 +175,12 @@ translateActiveClass cdecl =
           AssignTL
             (Decl (Static (Typ "pony_msg_t"), 
                   (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-            (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
-                     Record $ {- future argument -} Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])
-          where
+            (if A.isMain cdecl mdecl then
+                 (Record [Embed (show $ length (A.mparams mdecl)), 
+                          Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
+             else
+                 (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
+                          Record $ {- future argument -} Nam "PONY_ACTOR" : map (pony_mode . A.getType) (A.mparams mdecl)]))
 
       pony_actor_t_impl :: CCode Toplevel
       pony_actor_t_impl = EmbedC $
