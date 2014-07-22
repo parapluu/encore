@@ -27,6 +27,9 @@ import Data.Maybe
 
 instance Translatable ID.Op (CCode Name) where
   translate op = Nam $ case op of
+    ID.NOT -> "!"
+    ID.AND -> "&&"
+    ID.OR -> "||"
     ID.LT -> "<"
     ID.GT -> ">"
     ID.EQ -> "=="
@@ -91,6 +94,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.IntLiteral {A.intLit = i}) = tmp_var (A.getType lit) (Embed (show i))
   translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Embed (show r))
   translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (Embed (show s))
+
+  translate unary@(A.Unary {A.op = op, A.operand = e}) = do
+    (ne, ts) <- translate e
+    tmp <- Ctx.gen_sym
+    return $ (Var tmp,
+              Seq [ts,
+                   Statement (Assign
+                              (Decl (translate $ A.getType unary, Var tmp))
+                              (CUnary (translate op)
+                                         (ne :: CCode Lval)))])
 
   translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     (ne1,ts1) <- translate (e1 :: A.Expr)

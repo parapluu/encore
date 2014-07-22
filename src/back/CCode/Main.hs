@@ -71,6 +71,7 @@ data CCode a where
     Enum         :: [CCode Name] -> CCode Toplevel
     Braced       :: CCode a -> CCode a
     Parens       :: CCode a -> CCode a
+    CUnary       :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
     Dot          :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref        :: UsableAs e Expr => CCode e -> CCode Expr
