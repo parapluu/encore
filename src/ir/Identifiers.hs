@@ -15,14 +15,17 @@ thisName :: Name
 thisName = Name "this"
 
 -- | The supported (infix) operators
-data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq)
-instance Show Op where
-    show Identifiers.LT = "<"
-    show Identifiers.GT = ">"
-    show Identifiers.EQ = "="
-    show NEQ            = "!="
-    show PLUS           = "+"
-    show MINUS          = "-"
-    show TIMES          = "*"
-    show DIV            = "/"
-    show MOD            = "%"
+data Op = AND | OR | NOT | LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq, Show)
+-- instance Show Op where
+--     show Identifiers.AND = "&&"
+--     show Identifiers.OR = "||"
+--     show Identifiers.NOT = "!"
+--     show Identifiers.LT = "<"
+--     show Identifiers.GT = ">"
+--     show Identifiers.EQ = "="
+--     show NEQ            = "!="
+--     show PLUS           = "+"
+--     show MINUS          = "-"
+--     show TIMES          = "*"
+--     show DIV            = "/"
+--     show MOD            = "%"
