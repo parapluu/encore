@@ -140,12 +140,21 @@ typ  =  try arrow
                                   id -> if isUpper . head $ id then refType id else typeVar id}
 
 program :: Parser Program
-program = do {whiteSpace ;
+program = do {popHashbang ;
+              whiteSpace ;
               embedtl <- embedTL ;
               whiteSpace ;
               classes <- many classDecl ;
               eof ;
               return $ Program embedtl classes}
+
+popHashbang :: Parser ()
+popHashbang = do
+  try (do
+    string "#!"
+    many (noneOf "\n\r")
+    whiteSpace
+    return ()) <|> return ()
 
 embedTL :: Parser EmbedTL
 embedTL = do
