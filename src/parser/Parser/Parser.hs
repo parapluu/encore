@@ -88,7 +88,7 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "->", "\\", "()"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -233,7 +233,7 @@ arguments = expression `sepBy` comma
 expression :: Parser Expr
 expression = buildExpressionParser opTable expr
     where
-      opTable = [[op "*" TIMES, op "/" DIV],
+      opTable = [[op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
                  [typedExpression]]

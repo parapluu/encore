@@ -135,8 +135,15 @@ translateActiveClass cdecl =
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
           where
+            trace_field A.Field {A.ftype = ty, A.fname = f}
+                | Ty.isActiveRefType ty = Call (Nam "pony_traceactor") [get_field f]
+                | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
+                | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
+                where
+                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
 
       message_type_decl :: CCode Toplevel
       message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
@@ -175,9 +182,12 @@ translateActiveClass cdecl =
           AssignTL
             (Decl (Static (Typ "pony_msg_t"), 
                   (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-            (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
-                     Record $ {- future argument -} Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])
-          where
+            (if A.isMain cdecl mdecl then
+                 (Record [Embed (show $ length (A.mparams mdecl)), 
+                          Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
+             else
+                 (Record [Embed (show $ length (A.mparams mdecl) + 1), -- plus 1 for future argument
+                          Record $ {- future argument -} Nam "PONY_ACTOR" : map (pony_mode . A.getType) (A.mparams mdecl)]))
 
       pony_actor_t_impl :: CCode Toplevel
       pony_actor_t_impl = EmbedC $
@@ -215,8 +225,15 @@ translatePassiveClass cdecl =
                        (Static void)
                        (class_trace_fn_name (A.cname cdecl))
                        [(Ptr void, Var "p")]
-                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
+                       (Seq $ map trace_field (A.fields cdecl))
+--                       (Return $ (Embed "/* This space intentionally left blank */" :: CCode Expr))
           where
+            trace_field A.Field {A.ftype = ty, A.fname = f}
+                | Ty.isActiveRefType ty = Call (Nam "pony_traceactor") [get_field f]
+                | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
+                | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
+                where
+                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
 
 instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   fwd_decls cdecl 
@@ -225,8 +242,7 @@ instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              mthd_fwds <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (fwd_decls mdecl))) (A.methods cdecl)
              return $ ConcatTL $
                         (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
-                        [Typedef (Struct . Nam $ cname ++ "_data") (Nam $ cname ++ "_data"), 
-                         DeclTL (Static . Typ $ "pony_actor_type_t", AsLval $ actor_rec_name $ A.cname cdecl), 
+                        [DeclTL (Static . Typ $ "pony_actor_type_t", AsLval $ actor_rec_name $ A.cname cdecl), 
                          FunctionDecl (Static void) (Nam $ cname ++ "_dispatch") [Ptr pony_actor_t, Ptr void, uint, Typ "int", Ptr pony_arg_t]] ++
                         mthd_fwds
       | otherwise =
@@ -234,7 +250,6 @@ instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
              mthd_fwds <- mapM (\mdecl -> (local (Ctx.with_class cdecl) (fwd_decls mdecl))) (A.methods cdecl)
              return $ ConcatTL $
                         (comment_section $ "Forward declarations for " ++ show (A.cname cdecl)) :
-                        [Typedef (Struct . Nam $ cname ++ "_data") (Nam $ cname ++ "_data")] ++
                         mthd_fwds
 
 comment_section :: String -> CCode a

@@ -15,7 +15,7 @@ thisName :: Name
 thisName = Name "this"
 
 -- | The supported (infix) operators
-data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV deriving(Read, Eq)
+data Op = LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq)
 instance Show Op where
     show Identifiers.LT = "<"
     show Identifiers.GT = ">"
@@ -25,3 +25,4 @@ instance Show Op where
     show MINUS          = "-"
     show TIMES          = "*"
     show DIV            = "/"
+    show MOD            = "%"

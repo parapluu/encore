@@ -35,6 +35,7 @@ instance Translatable ID.Op (CCode Name) where
     ID.MINUS -> "-"
     ID.TIMES -> "*"
     ID.DIV -> "/"
+    ID.MOD -> "%"
 
 instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate (A.LVal ty name) =
@@ -293,7 +294,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))
-                    (Call (Nam "malloc") 
+                    (Call (Nam "pony_alloc") 
                           [Sizeof $ Struct name])
         insert_var env_name (name, _) = 
             do c <- get

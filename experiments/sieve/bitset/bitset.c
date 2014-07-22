@@ -40,7 +40,7 @@ typedef enum { set_op, unset_op, read_op } bit_op;
 typedef enum { union_op, intersection_op, xor_op } bitset_op; 
 
 // 16777216
-#define ELEMENTS          201326592
+#define ELEMENTS          268435456
 #define BITS_PER_ELEMENT  (sizeof(bitset) * 8)
 #define ARRAY_SIZE        (ELEMENTS / BITS_PER_ELEMENT)
 #define ONE               1UL
@@ -95,9 +95,23 @@ void print(bitset* bits) {
   printf(" }\n");
 }
 
-void set       (bitset *bits, int64_t index) { element(bits, index) |=  mask(index); }
-void unset     (bitset *bits, int64_t index) { element(bits, index) &= ~mask(index); }
-int64_t isset  (bitset *bits, int64_t index) { return element(bits, index) & mask(index); }
+void set (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  element(bits, index) |=  mask(index); 
+}
+
+void unset (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  element(bits, index) &= ~mask(index); 
+}
+
+int64_t isset (bitset *bits, int64_t index) { 
+  assertTrue(index >= 0, "Negative numbers not allowed");
+  assertTrue(index < ELEMENTS, "index exceeds size of bitset");
+  return element(bits, index) & mask(index); 
+}
 
 bitset binop_and(bitset a, bitset b) { return a & b; }
 bitset binop_or (bitset a, bitset b) { return a | b; }

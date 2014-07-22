@@ -5,7 +5,7 @@
 #include <assert.h>
 
 // Controls whether malloc of pony_alloc is to be used
-#define USE_PONY_ALLOC 
+#define USE_PONY_ALLOC 1
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>
@@ -228,6 +228,20 @@ static void node_forall(struct node *node, forall_fnc f, void *arg){
 void set_forall(set_t *set, forall_fnc f, void *arg){
   if(set)
     node_forall(set->root, f, arg);
+}
+
+static void node_forall_closure(struct node *node, closure_t *c){
+  if(node){
+    value_t args[1] = {{.ptr=node->elem}};
+    closure_call(c, args);
+    node_forall_closure(node->left, c);
+    node_forall_closure(node->right, c);
+  }
+}
+
+void set_forall_closure(set_t *set, closure_t *c){
+  if(set)
+    node_forall_closure(set->root, c);
 }
 
 static void *node_reduce(struct node *node, reduce_fnc f, void *acc){

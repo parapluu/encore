@@ -8,13 +8,14 @@
 #define __set_h__
 
 #include <stdbool.h>
+#include "closure.h"
 
 typedef struct set set_t;
 
-typedef void (printer_fnc(void *elem)); 
-typedef void *(map_fnc(void *elem)); 
-typedef void *(forall_fnc(void *elem, void* arg)); 
-typedef void *(reduce_fnc(void *elem, void *accumulator));
+typedef void  (*printer_fnc)(void *elem); 
+typedef void *(*map_fnc)(void *elem); 
+typedef void *(*forall_fnc)(void *elem, void* arg); 
+typedef void *(*reduce_fnc)(void *elem, void *accumulator);
 
 /**
  *  Create a new empty set. Use set_destroy"()" to free the allocated memory.
@@ -97,6 +98,11 @@ set_t *set_map(set_t *set, map_fnc f);
  *  @param arg An argument to be supplied as the last argument to each f
  */
 void set_forall(set_t *set, forall_fnc f, void *arg);
+
+/** 
+ * @see set_forall, but uses a closure
+ */
+void set_forall_closure(set_t *set, closure_t *c);
 
 /**
  *  Reduce a set to a single element

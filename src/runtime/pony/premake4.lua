@@ -19,6 +19,9 @@ solution "ponyrt"
   configuration "Debug"
     targetdir "bin/debug"
     objdir "obj/debug"
+    buildoptions {
+      "-ggdb",
+      }
 
   configuration "Release"
     targetdir "bin/release"
@@ -67,6 +70,8 @@ project "closure"
 project "set"
   kind "StaticLib"
   language "C"
+  links { "closure" }
+  includedirs { "../closure" }
   files {
     "../set/set.c"
   }
