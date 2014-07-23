@@ -59,9 +59,15 @@ class_trace_fn_name clazz = Nam $ show clazz ++ "_trace"
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
 method_message_type_name clazz mname = Var $ "m_"++show clazz++"_"++show mname
 
+one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
+one_way_message_type_name clazz mname = Var $ "m_"++show clazz++"__one_way_"++show mname
+
 -- | for each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
 method_msg_name clazz mname = Nam $ "MSG_"++show clazz++"_"++show mname
+
+one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
+one_way_send_msg_name clazz mname = Nam $ "MSG_"++show clazz++"__one_way_"++show mname
 
 -- | the name of the record type in which a class stores its state
 data_rec_name :: Ty.Type -> CCode Ty

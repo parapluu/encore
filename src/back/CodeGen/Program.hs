@@ -74,10 +74,11 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
       msg_enum :: [A.ClassDecl] -> CCode Toplevel
       msg_enum cs =
         let
-          meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (A.methods cdecl)) cs
-          lines = map (\ (cname, mdecl) -> "MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
+          meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) cs
+          method_msg_names = map (show . (uncurry method_msg_name)) meta --"MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
+          one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta --"MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
         in
-         Enum $ map Nam $ "MSG_alloc":lines
+         Enum $ map Nam $ "MSG_alloc":(method_msg_names ++ one_way_msg_names)
 
       class_ids_enum :: [A.ClassDecl] -> CCode Toplevel
       class_ids_enum cs =

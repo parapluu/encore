@@ -113,6 +113,10 @@ data Expr = Skip {emeta :: Meta}
                         target :: Expr, 
                         name :: Name, 
                         args :: Arguments}
+          | MessageSend {emeta :: Meta, 
+                         target :: Expr, 
+                         name :: Name, 
+                         args :: Arguments}
           | FunctionCall {emeta :: Meta, 
                           name :: Name, 
                           args :: Arguments}
@@ -158,9 +162,12 @@ data Expr = Skip {emeta :: Meta}
           | Embed {emeta :: Meta,
                    ty    :: Type,
                    code  :: String}
-          | Binop {emeta :: Meta, 
-                   op :: Op, 
-                   loper :: Expr, 
+          | Unary {emeta :: Meta,
+                   op    :: Op,
+                   operand  :: Expr }
+          | Binop {emeta :: Meta,
+                   op :: Op,
+                   loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
 
 isThisAccess :: Expr -> Bool

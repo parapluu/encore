@@ -27,6 +27,9 @@ import Data.Maybe
 
 instance Translatable ID.Op (CCode Name) where
   translate op = Nam $ case op of
+    ID.NOT -> "!"
+    ID.AND -> "&&"
+    ID.OR -> "||"
     ID.LT -> "<"
     ID.GT -> ">"
     ID.EQ -> "=="
@@ -91,6 +94,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.IntLiteral {A.intLit = i}) = tmp_var (A.getType lit) (Embed (show i))
   translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Embed (show r))
   translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (Embed (show s))
+
+  translate unary@(A.Unary {A.op = op, A.operand = e}) = do
+    (ne, ts) <- translate e
+    tmp <- Ctx.gen_sym
+    return $ (Var tmp,
+              Seq [ts,
+                   Statement (Assign
+                              (Decl (translate $ A.getType unary, Var tmp))
+                              (CUnary (translate op)
+                                         (ne :: CCode Lval)))])
 
   translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
     (ne1,ts1) <- translate (e1 :: A.Expr)
@@ -196,6 +209,45 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    return (Var the_fut_name, 
                            Seq [the_fut_decl,
                                 the_arg_decl,
+                                Statement the_call])
+
+            pony_arg_t_tag :: CCode Ty -> String
+            pony_arg_t_tag (Ptr _)         = ".p"
+            pony_arg_t_tag (Typ "int64_t") = ".i"
+            pony_arg_t_tag (Typ "double")  = ".d"
+            pony_arg_t_tag other           =
+                error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+
+            varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
+            varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+            varaccess_this_to_aref other                                     = do
+                     (ntother, tother) <- translate other
+                     return $ StatAsExpr ntother tother
+
+  translate send@(A.MessageSend { A.target=target, A.name=name, A.args=args }) 
+      | (Ty.isActiveRefType . A.getType) target = message_send
+      | otherwise = error "Tried to send a message to something that was not an active reference"
+          where
+            message_send :: State Ctx.Context (CCode Lval, CCode Stat)
+            message_send =
+                do ttarget <- varaccess_this_to_aref target
+                   tmp <- Ctx.gen_sym
+                   targs <- mapM varaccess_this_to_aref args
+                   let argtys = (map A.getType args)
+                   let targtys = map (translate . A.getType) args :: [CCode Ty]
+                   the_arg_name <- Ctx.gen_sym
+                   let the_arg_decl = Assign
+                                        (Decl (Typ "pony_arg_t", ArrAcc (length args) (Var the_arg_name)))
+                                        (Record
+                                          ((map (\(arg, ty) -> Embed $ "{"++(pony_arg_t_tag ty) ++"="++ (show arg)++"}")
+                                          (zip (targs) targtys)) :: [CCode Expr]))
+                   the_call <- return (Call (Nam "pony_sendv")
+                                               [ttarget,
+                                                AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
+                                                Embed . show $ length args,
+                                                AsExpr $ Var the_arg_name])
+                   return (unit, 
+                           Seq [the_arg_decl,
                                 Statement the_call])
 
             pony_arg_t_tag :: CCode Ty -> String
