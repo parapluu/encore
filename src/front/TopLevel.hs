@@ -143,8 +143,8 @@ main =
                                    case tcResult of
                                      Right ast -> do
                                                    compileProgram ast exeName options
-                                                   system $ "./"++exeName
                                                    when (Run `elem` options) (do
+                                                                               system $ "./"++exeName
                                                                                system $ "rm "++exeName
                                                                                return ())
                                      Left error -> fail $ show error
