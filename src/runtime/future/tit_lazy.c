@@ -148,7 +148,7 @@ void fork_lazy(void(*fun)()) {
   // This is the resume point
   switch (fork->state) {
   case GARBAGE:
-    fprintf(stderr, "GD'd!\n");
+    //fprintf(stderr, "GD'd!\n");
     garbage_collect_stack(fork);
     break;
   case SUSPENDED:
@@ -189,7 +189,7 @@ void resume_lazy(lazy_tit_t *tit) {
     lazy_t_init_current();
   }
 
-  fprintf(stderr, "\t\t<%p> resume: tit %p has stack: %p\n", pthread_self(), tit, tit->context.uc_stack.ss_sp);
+  //fprintf(stderr, "\t\t<%p> resume: tit %p has stack: %p\n", pthread_self(), tit, tit->context.uc_stack.ss_sp);
   tit->state = RUNNING;
   current->state = GARBAGE;
   if (current->is_proper) {

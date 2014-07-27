@@ -13,6 +13,7 @@ import System.Directory
 import System.IO
 import System.Exit
 import System.Process
+import System.Posix.Directory
 import Data.List
 import Control.Monad
 
@@ -25,7 +26,7 @@ import CodeGen.Main
 import CodeGen.Preprocessor
 import CCode.PrettyCCode
 
-data Option = GCC | Clang | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
+data Option = GCC | Clang | Run | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
 
 parseArguments :: [String] -> ([FilePath], [Option])
 parseArguments args = 
@@ -36,6 +37,7 @@ parseArguments args =
               (opt, rest) = parseArgument args
               parseArgument ("-c":args)       = (KeepCFiles, args)
               parseArgument ("-gcc":args)     = (GCC, args)
+              parseArgument ("-run":args)     = (Run, args)
               parseArgument ("-clang":args)   = (Clang, args)
               parseArgument ("-o":file:args)  = (Output file, args)
               parseArgument (('-':flag):args) = (Undefined flag, args)
@@ -48,8 +50,8 @@ parseArguments args =
       isSource _ = False
       getName (Source name) = name
 
-errorCheck :: [Option] -> IO ()
-errorCheck options = 
+warnUnknownFlags :: [Option] -> IO ()
+warnUnknownFlags options = 
     do
       mapM (\flag -> case flag of {Undefined flag -> putStrLn $ "Ignoring undefined option" <+> flag; _ -> return ()}) options
       when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
@@ -63,40 +65,40 @@ outputCode ast out =
        printCommented "#####################"
        hPrint out $ code_from_AST ast
     where
-      printCommented s = hPutStrLn out $ unlines $ map ("//"++) $ lines s
+      printCommented s = hPutStrLn out $ unlines $ map ("// "++) $ lines s
 
-doCompile :: Program -> FilePath -> [Option] -> IO ExitCode
-doCompile ast source options = 
+compileProgram :: Program -> FilePath -> [Option] -> IO ()
+compileProgram prog exe_path options =
     do encorecPath <- getExecutablePath
-       encorecDir <- return $ take (length encorecPath - length "encorec") encorecPath
-       incPath <- return $ encorecDir ++ "./inc/"
-       ponyLibPath <- return $ encorecDir ++ "lib/libpony.a"
-       futLibPath <- return $ encorecDir ++ "lib/libfuture.a"
-       setLibPath <- return $ encorecDir ++ "lib/libset.a"
-       closureLibPath <- return $ encorecDir ++ "lib/libclosure.a"
-
-       progName <- return $ dropDir . dropExtension $ source
+       let encorecDir = take (length encorecPath - length "encorec") encorecPath
+       let incPath = encorecDir ++ "./inc/"
+       let libPath = encorecDir ++ "./lib/"
        execName <- case find (isOutput) options of
                      Just (Output file) -> return file
-                     _                  -> return progName
-       cFile <- return (progName ++ ".pony.c")
-
-       withFile cFile WriteMode (outputCode ast)
-       if (Clang `elem` options) then
-           do putStrLn "Compiling with clang..."
-              files  <- getDirectoryContents "."
-              let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
-              let cmd = "clang" <+> cFile <+> ofilesInc <+> "-ggdb -Wall -lpthread -o" <+> execName <+> ponyLibPath <+> futLibPath <+> setLibPath <+> closureLibPath <+> "-I" <+> incPath <+> "-I ."
-              exitCode <- system cmd
-              case exitCode of
-                ExitSuccess -> putStrLn $ "Done! Output written to" <+> execName
-                ExitFailure n -> putStrLn $ "Compilation failed with exit code" <+> (show n)
-              when ((Clang `elem` options) && not (KeepCFiles `elem` options))
-                       (do runCommand $ "rm -f" <+> cFile
-                           putStrLn "Cleaning up...")
-              return exitCode
+                     Nothing            -> return exe_path
+       let cFile = exe_path ++ ".pony.c"
+       withFile cFile WriteMode (outputCode prog)
+       if ((Clang `elem` options) || (Run `elem` options)) then
+           do
+             files  <- getDirectoryContents "."
+             let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
+             let cmd = "clang" <+> 
+                       cFile <+> 
+                       ofilesInc <+> 
+                       "-ggdb -Wall -lpthread" <+>
+                       " -o" <+> execName <+>
+                       (libPath++"*.a") <+>
+                       "-I" <+> incPath <+> "-I ."
+             exitCode <- system cmd
+             case exitCode of
+               ExitSuccess -> return ()
+               ExitFailure n -> do
+                             when (not (KeepCFiles `elem` options))
+                                (do runCommand $ "rm -f" <+> cFile
+                                    return ())
+                             fail $ "Compilation failed with exit code" <+> (show n)
        else
-           return ExitSuccess
+           return ()
 
     where
       dropExtension source = let ext = reverse . take 4 . reverse $ source in 
@@ -111,36 +113,47 @@ doCompile ast source options =
 (<+>) :: String -> String -> String
 a <+> b = (a ++ " " ++ b)
 
+-- withTemporaryEncFileName :: (FilePath -> IO ()) -> IO ()
+-- withTemporaryEncFileName f = withFile "tmp.enc" WriteMode f
+
 main = 
     do
       args <- getArgs
-      if null args then 
-          putStrLn usage
-      else
-          do
-            (programs, options) <- return $ parseArguments args
-            errorCheck options
-            if null programs then
-                putStrLn "No program specified! Aborting..."
-            else
-                do
-                  sourceName <- return (head programs)
-                  sourceExists <- doesFileExist sourceName
-                  if not sourceExists then
-                      do putStrLn ("File \"" ++ sourceName ++ "\" does not exist! Aborting..." )
-                         exitFailure
-                  else
-                      do
-                        code <- readFile sourceName
-                        program <- return $ parseEncoreProgram sourceName code
-                        case program of
-                          Right ast -> do tcResult <- return $ typecheckEncoreProgram ast
-                                          case tcResult of
-                                            Right ast -> do exitCode <- doCompile ast sourceName options
-                                                            exitWith exitCode
-                                            Left err -> do print err
-                                                           exitFailure
-                          Left error -> do putStrLn $ show error
-                                           exitFailure
+      do
+        let (programs, options) = parseArguments args
+        warnUnknownFlags options
+        if null programs then
+            do
+              putStrLn usage
+              fail "No program specified! Aborting."
+        else
+            do
+              let sourceName = head programs
+              let exeName = dropExtension sourceName
+              sourceExists <- doesFileExist sourceName
+              if not sourceExists then
+                  fail $ "File \"" ++ sourceName ++ "\" does not exist! Aborting."
+              else
+                  do
+                    code <- readFile sourceName
+                    let program = parseEncoreProgram sourceName code
+                    case program of
+                      Right ast -> do
+                                   let tcResult = typecheckEncoreProgram ast
+                                   case tcResult of
+                                     Right ast -> do
+                                                   compileProgram ast exeName options
+                                                   when (Run `elem` options) (do
+                                                                               system $ "./"++exeName
+                                                                               system $ "rm "++exeName
+                                                                               return ())
+                                     Left error -> fail $ show error
+                      Left error -> fail $ show error
     where
-      usage = "Usage: ./encorec [-c | -gcc | -clang] file"
+      usage = "Usage: ./encorec [-c | -gcc | -clang | -run] file"
+      dropExtension source =
+          let ext = reverse . take 4 . reverse $ source in 
+          if length source > 3 && ext == ".enc" then 
+              take ((length source) - 4) source 
+          else 
+              source

@@ -100,6 +100,9 @@ instance HasMeta MethodDecl where
     getType = mtype
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
+isMain :: ClassDecl -> MethodDecl -> Bool
+isMain cdecl mdecl = ((== "Main") . getId . cname $ cdecl) && ((== Name "main") . mname $ mdecl)
+
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta}
@@ -110,6 +113,10 @@ data Expr = Skip {emeta :: Meta}
                         target :: Expr, 
                         name :: Name, 
                         args :: Arguments}
+          | MessageSend {emeta :: Meta, 
+                         target :: Expr, 
+                         name :: Name, 
+                         args :: Arguments}
           | FunctionCall {emeta :: Meta, 
                           name :: Name, 
                           args :: Arguments}
@@ -155,9 +162,12 @@ data Expr = Skip {emeta :: Meta}
           | Embed {emeta :: Meta,
                    ty    :: Type,
                    code  :: String}
-          | Binop {emeta :: Meta, 
-                   op :: Op, 
-                   loper :: Expr, 
+          | Unary {emeta :: Meta,
+                   op    :: Op,
+                   operand  :: Expr }
+          | Binop {emeta :: Meta,
+                   op :: Op,
+                   loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
 
 isThisAccess :: Expr -> Bool

@@ -5,12 +5,15 @@
 #include <assert.h>
 
 // Controls whether malloc of pony_alloc is to be used
-//#define USE_PONY_ALLOC 1
-
+// #define USE_PONY_ALLOC 1
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>
+  #define ALLOC(size) pony_alloc(size)
+  #define FREE(ptr)
 #else
-  #include <stdlib.h>
+  #include <stdlib.h> 
+  #define ALLOC(size) malloc(size)
+  #define FREE(ptr) free(ptr)
 #endif
 
 #define NOP 0
@@ -28,22 +31,14 @@ struct set{
 };
 
 set_t *mk_set(void){
-#ifdef USE_PONY_ALLOC
-  set_t *set = pony_alloc(sizeof(set_t));
-#else
-  set_t *set = malloc(sizeof(set_t));
-#endif
+  set_t *set = ALLOC(sizeof(set_t));
   if(set)
     set->root = NULL;
   return set;
 }
 
 static struct node *node_mk(void *elem){
-#ifdef USE_PONY_ALLOC
-  struct node *node = pony_alloc(sizeof(struct node));
-#else
-  struct node *node = malloc(sizeof(struct node));
-#endif
+  struct node *node = ALLOC(sizeof(struct node));
   if(node){
     node->elem = elem;
     node->left = NULL;
@@ -106,10 +101,7 @@ static void removeNode(struct node **nodePtr){
     newRoot->right = (*nodePtr)->right;
     *nodePtr = newRoot;
   }
-#ifdef USE_PONY_ALLOC
-#else
-  free(tmp);
-#endif
+  FREE(tmp);
 }
 
 bool set_remove(set_t *set, void *elem){
@@ -184,20 +176,14 @@ static void node_destroy(struct node* node){
   if(node){
     node_destroy(node->left);
     node_destroy(node->right);
-#ifdef USE_PONY_ALLOC
-#else
-    free(node);
-#endif
+    FREE(node);
   }
 }
 
 void set_destroy(set_t *set){
   if(set){
     node_destroy(set->root);
-#ifdef USE_PONY_ALLOC
-#else
-    free(set);
-#endif
+    FREE(set);
   }
 }
 

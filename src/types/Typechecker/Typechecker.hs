@@ -176,6 +176,23 @@ instance Checkable Expr where
                         else
                             return $ setType (futureType returnType) mcall {target = eTarget, args = eArgs}
 
+    typecheck msend@(MessageSend {target, name, args}) = 
+        do eTarget <- pushTypecheck target
+           targetType <- return $ AST.getType eTarget
+           unless (isActiveRefType targetType) $ 
+                tcError $ "Cannot send message to expression '" ++ 
+                          (show $ ppExpr target) ++ 
+                          "' of type '" ++ show targetType ++ "'"
+           lookupResult <- asks $ methodLookup targetType name
+           case lookupResult of
+             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+             Just (params, returnType) -> 
+                 do unless (length args == length params) $ 
+                       tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
+                                 "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
+                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
+                    return $ setType voidType msend {target = eTarget, args = eArgs}
+
     typecheck fcall@(FunctionCall {name, args}) = 
         do funType <- asks $ varLookup name
            case funType of
@@ -256,6 +273,9 @@ instance Checkable Expr where
            when (isTypeVar pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr target) ++ "' of polymorphic type '" ++ show pathType ++ "'"
+           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr target) ++ "' of active object type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup pathType name
            case fType of
              Just ty -> return $ setType ty fAcc {target = eTarget}
@@ -295,36 +315,53 @@ instance Checkable Expr where
 
     typecheck embed@(Embed {ty}) = return $ setType ty embed
 
+    typecheck unary@(Unary {op, operand})
+      | op == (Identifiers.NOT) = do
+        eOperand <- pushTypecheck operand
+        eType <- return $ AST.getType eOperand
+        unless (isBoolType eType) $
+                tcError $ "Operator "++ show op ++ " is only defined for boolean types"
+        return $ setType boolType unary { operand = eOperand }
+
     typecheck binop@(Binop {op, loper, roper})
-        | op `elem` cmpOps = 
-            do eLoper <- pushTypecheck loper
-               lType  <- return $ AST.getType eLoper
-               eRoper <- pushTypecheck roper
-               rType  <- return $ AST.getType eRoper
-               unless (isNumeric lType && isNumeric rType) $
-                      tcError $ "Operator "++ show op ++ " is only defined for numeric types"
-               return $ setType boolType binop {loper = eLoper, roper = eRoper}
-        | op `elem` eqOps =
-            do eLoper <- pushTypecheck loper
-               eRoper <- pushHasType roper (AST.getType eLoper)
-               return $ setType boolType binop {loper = eLoper, roper = eRoper}
-        | op `elem` arithOps = 
-            do eLoper <- pushTypecheck loper
-               lType  <- return $ AST.getType eLoper
-               eRoper <- pushTypecheck roper
-               rType  <- return $ AST.getType eRoper
-               unless (isNumeric lType && isNumeric rType) $
-                      tcError $ "Operator "++ show op ++ " is only defined for numeric types"
-               return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
-        | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
-        where
-          cmpOps   = [Identifiers.LT, Identifiers.GT]
-          eqOps    = [Identifiers.EQ, NEQ]
-          arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
-          coerceTypes ty1 ty2
-              | isRealType ty1 = realType
-              | isRealType ty2 = realType
-              | otherwise = intType
+      | op `elem` boolOps = do
+          eLoper <- pushTypecheck loper
+          lType  <- return $ AST.getType eLoper
+          eRoper <- pushTypecheck roper
+          rType  <- return $ AST.getType eRoper
+          unless (isBoolType lType && isBoolType rType) $
+                  tcError $ "Operator "++ show op ++ " is only defined for boolean types"
+          return $ setType boolType binop {loper = eLoper, roper = eRoper}
+      | op `elem` cmpOps =
+          do eLoper <- pushTypecheck loper
+             lType  <- return $ AST.getType eLoper
+             eRoper <- pushTypecheck roper
+             rType  <- return $ AST.getType eRoper
+             unless (isNumeric lType && isNumeric rType) $
+                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+             return $ setType boolType binop {loper = eLoper, roper = eRoper}
+      | op `elem` eqOps =
+          do eLoper <- pushTypecheck loper
+             eRoper <- pushHasType roper (AST.getType eLoper)
+             return $ setType boolType binop {loper = eLoper, roper = eRoper}
+      | op `elem` arithOps =
+          do eLoper <- pushTypecheck loper
+             lType  <- return $ AST.getType eLoper
+             eRoper <- pushTypecheck roper
+             rType  <- return $ AST.getType eRoper
+             unless (isNumeric lType && isNumeric rType) $
+                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+             return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
+      | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
+      where
+        boolOps   = [Identifiers.AND, Identifiers.OR]
+        cmpOps   = [Identifiers.LT, Identifiers.GT]
+        eqOps    = [Identifiers.EQ, NEQ]
+        arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
+        coerceTypes ty1 ty2
+            | isRealType ty1 = realType
+            | isRealType ty2 = realType
+            | otherwise = intType
 
 checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings
@@ -376,6 +413,12 @@ instance Checkable LVal where
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ (show $ ppExpr ltarget) ++ 
                           "' of primitive type '" ++ show pathType ++ "'"
+           when (isTypeVar pathType) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr ltarget) ++ "' of polymorphic type '" ++ show pathType ++ "'"
+           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr ltarget) ++ "' of active object type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup (AST.getType eTarget) lname
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}

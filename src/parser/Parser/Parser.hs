@@ -36,7 +36,7 @@ FieldAccess ::= . Name FieldAccess | eps
               | embed Type .* end
               | (Expr)
               | \\ ( ParamDecls ) -> Expr
-        Op ::= \< | \> | == | != | + | - | * | /
+        Op ::= \< | \> | == | != | + | - | * | / | %
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
@@ -87,7 +87,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -98,6 +98,7 @@ reserved   = P.reserved lexer
 reservedOp = P.reservedOp lexer
 operator   = P.operator lexer
 dot        = P.dot lexer
+bang       = P.symbol lexer "!"
 commaSep   = P.commaSep lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
@@ -140,12 +141,21 @@ typ  =  try arrow
                                   id -> if isUpper . head $ id then refType id else typeVar id}
 
 program :: Parser Program
-program = do {whiteSpace ;
+program = do {popHashbang ;
+              whiteSpace ;
               embedtl <- embedTL ;
               whiteSpace ;
               classes <- many classDecl ;
               eof ;
               return $ Program embedtl classes}
+
+popHashbang :: Parser ()
+popHashbang = do
+  try (do
+    string "#!"
+    many (noneOf "\n\r")
+    whiteSpace
+    return ()) <|> return ()
 
 embedTL :: Parser EmbedTL
 embedTL = do
@@ -214,6 +224,15 @@ methodPath = do {pos <- getPosition ;
                  path <- identifier `sepBy` (skipMany1 dot) ;
                  return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )}
 
+messagePath :: Parser (Expr, Name)
+messagePath =  do pos <- getPosition
+                  root <- identifier
+                  optional dot
+                  path <- option [] $ identifier `sepBy` (skipMany1 dot)
+                  bang
+                  mname <- identifier
+                  return (pathToExpr path (VarAccess (meta pos) (Name root)), Name $ mname)
+
 pathToExpr :: [String] -> Expr -> Expr
 pathToExpr [] acc = acc
 pathToExpr (f:path) acc = pathToExpr path (FieldAccess (emeta acc) acc (Name f))
@@ -224,16 +243,23 @@ arguments = expression `sepBy` comma
 expression :: Parser Expr
 expression = buildExpressionParser opTable expr
     where
-      opTable = [[op "*" TIMES, op "/" DIV, op "%" MOD],
+      opTable = [
+                 [prefix "not" Identifiers.NOT],
+                 [op "*" TIMES, op "/" DIV, op "%" MOD],
+                 [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
+                 [op "and" Identifiers.AND, op "or" Identifiers.OR],
                  [typedExpression]]
-      op s binop = Infix (do{pos <- getPosition ; 
-                             reservedOp s ; 
+      prefix s operator = Prefix (do{ pos <- getPosition;
+                               reservedOp s;
+                               return (\x -> Unary (meta pos) operator x) })
+      op s binop = Infix (do{pos <- getPosition ;
+                             reservedOp s ;
                              return (\e1 e2 -> Binop (meta pos) binop e1 e2)}) AssocLeft
-      typedExpression = Postfix (do{pos <- getPosition ; 
-                                    reservedOp ":" ; 
-                                    t <- typ ; 
+      typedExpression = Postfix (do{pos <- getPosition ;
+                                    reservedOp ":" ;
+                                    t <- typ ;
                                     return (\e -> TypedExpr (meta pos) e t)})
 
 expr :: Parser Expr
@@ -241,6 +267,7 @@ expr  =  unit
      <|> try embed
      <|> try assignment
      <|> try methodCall
+     <|> try messageSend
      <|> try fieldAccess
      <|> try functionCall
      <|> closure
@@ -275,6 +302,10 @@ expr  =  unit
                        (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
                        return $ MethodCall (meta pos) target tmname args}
+      messageSend = do {pos <- getPosition ;
+                        (target, tmname) <- messagePath ; 
+                        args <- parens arguments ; 
+                        return $ MessageSend (meta pos) target tmname args}
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
                           x <- identifier ;

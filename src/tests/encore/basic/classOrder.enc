@@ -1,0 +1,9 @@
+class Foo
+  def foo() : Bar
+    new Bar
+
+class Bar
+
+class Main
+  def main() : void
+    print "Hello, ponyworld!"
