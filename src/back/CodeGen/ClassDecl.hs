@@ -69,14 +69,14 @@ translateActiveClass cdecl =
                 Statement (Call (Nam "future_fulfil") 
                            [AsExpr $ Var "fut",
                             (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-                          ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl)))])]))
+                          ((AsExpr . Var $ "p") : (paramdecls_to_argv 1 $ A.mparams mdecl)))])]))
 
       one_way_send_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       one_way_send_dispatch_clause cdecl mdecl =
         ((one_way_send_msg_name (A.cname cdecl) (A.mname mdecl)),
               (Statement $
                Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-                ((AsExpr . Var $ "p") : (paramdecls_to_argv $ A.mparams mdecl))))
+                ((AsExpr . Var $ "p") : (paramdecls_to_argv 0 $ A.mparams mdecl))))
 
       paramdecl_to_argv :: Int -> A.ParamDecl -> CCode Expr
       paramdecl_to_argv argv_idx (A.Param {A.pname = na, A.ptype = ty}) =
@@ -90,8 +90,8 @@ translateActiveClass cdecl =
                           other           ->
                               error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ty)
 
-      paramdecls_to_argv :: [A.ParamDecl] -> [CCode Expr]
-      paramdecls_to_argv = zipWith paramdecl_to_argv [1..]
+      paramdecls_to_argv :: Int -> [A.ParamDecl] -> [CCode Expr]
+      paramdecls_to_argv start_idx = zipWith paramdecl_to_argv [start_idx..]
         
       dispatchfun_decl :: CCode Toplevel
       dispatchfun_decl =
