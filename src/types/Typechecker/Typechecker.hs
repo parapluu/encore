@@ -273,6 +273,9 @@ instance Checkable Expr where
            when (isTypeVar pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr target) ++ "' of polymorphic type '" ++ show pathType ++ "'"
+           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr target) ++ "' of active object type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup pathType name
            case fType of
              Just ty -> return $ setType ty fAcc {target = eTarget}
@@ -410,6 +413,12 @@ instance Checkable LVal where
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ (show $ ppExpr ltarget) ++ 
                           "' of primitive type '" ++ show pathType ++ "'"
+           when (isTypeVar pathType) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr ltarget) ++ "' of polymorphic type '" ++ show pathType ++ "'"
+           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
+                tcError $ "Cannot read field of expression '" ++ 
+                          (show $ ppExpr ltarget) ++ "' of active object type '" ++ show pathType ++ "'"
            fType <- asks $ fieldLookup (AST.getType eTarget) lname
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
