@@ -108,9 +108,11 @@ instance Checkable FieldDecl where
   
 
 instance Checkable MethodDecl where
-    typecheck m@(Method {mtype, mparams, mbody}) = 
+    typecheck m@(Method {mtype, mparams, mbody, mname}) = 
         do ty <- checkType mtype
            noFreeTypeVariables
+           Just thisType <- asks $ varLookup thisName
+           when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $ pushHasType mbody ty
            return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
@@ -121,6 +123,9 @@ instance Checkable MethodDecl where
               in
                 when (not . null $ retVars \\ paramVars) $
                      tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
+          checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
+                              tcError $
+                                "Main method must have argument type () or (int, string[]) (but arrays are not supported yet)"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
