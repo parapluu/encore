@@ -197,7 +197,7 @@ translateActiveClass cdecl =
             [AssignTL
              (Decl (Static (Typ "pony_msg_t"), 
                     (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-             (if A.isMain cdecl mdecl then
+             (if A.isMainDecl cdecl mdecl then
                   (Record [Embed (show $ length (A.mparams mdecl)), 
                            Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
               else

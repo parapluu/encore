@@ -154,6 +154,7 @@ instance Checkable Expr where
                 tcError $ "Cannot call method on expression '" ++ 
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
+           when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
            lookupResult <- asks $ methodLookup targetType name
            case lookupResult of
              Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
@@ -301,6 +302,7 @@ instance Checkable Expr where
     typecheck new@(New {ty}) = 
         do ty' <- checkType ty
            unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
+           when (isMainType ty') $ tcError "Cannot create additional Main objects"
            return $ setType ty' new
 
     typecheck print@(Print {val}) = 
