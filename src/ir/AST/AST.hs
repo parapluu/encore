@@ -52,6 +52,9 @@ data ClassDecl = Class {cmeta     :: Meta,
 isActive :: ClassDecl -> Bool
 isActive = (== Active) . cactivity
 
+isMainClass :: ClassDecl -> Bool
+isMainClass cdecl = (== "Main") . getId . cname $ cdecl
+
 instance HasMeta ClassDecl where
     getPos = AST.Meta.getPos . cmeta
     getMetaId c = (metaId . cmeta) c
@@ -99,9 +102,6 @@ instance HasMeta MethodDecl where
           mmeta' = (mmeta m){metaId = id}
     getType = mtype
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
-
-isMainDecl :: ClassDecl -> MethodDecl -> Bool
-isMainDecl cdecl mdecl = ((== "Main") . getId . cname $ cdecl) && ((== Name "main") . mname $ mdecl)
 
 type Arguments = [Expr]
 
