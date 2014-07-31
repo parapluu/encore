@@ -56,10 +56,11 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
 
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty 
-    | Ty.isIntType ty = "%lli"
-    | Ty.isRealType ty = "%f"
+    | Ty.isIntType ty    = "%lli"
+    | Ty.isRealType ty   = "%f"
     | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty = "bool(%d)"
+    | Ty.isBoolType ty   = "bool<%d>"
+    | Ty.isRefType ty    = show ty ++ "<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
