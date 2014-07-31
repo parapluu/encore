@@ -151,6 +151,9 @@ data Expr = Skip {emeta :: Meta}
           | BFalse {emeta :: Meta}
           | New {emeta :: Meta, 
                  ty ::Type}
+          | PrintF {emeta :: Meta, 
+                    stringLit :: String,
+                    args :: [Expr]}
           | Print {emeta :: Meta, 
                    val :: Expr}
           | StringLiteral {emeta :: Meta, 

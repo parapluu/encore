@@ -13,6 +13,7 @@ module Typechecker.Typechecker(typecheckEncoreProgram) where
 -- Library dependencies
 import Data.Maybe
 import Data.List
+import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Error
 
@@ -310,6 +311,14 @@ instance Checkable Expr where
            when (isMainType ty') $ tcError "Cannot create additional Main objects"
            return $ setType ty' new
 
+    typecheck printf@(PrintF {stringLit, args}) =
+        do let noArgs = T.count (T.pack "{}") (T.pack stringLit)
+           unless (noArgs == length args) $
+                  tcError $ "Wrong number of arguments to format string. " ++
+                            "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
+           eArgs <- mapM pushTypecheck args
+           return $ setType voidType printf {args = eArgs}
+
     typecheck print@(Print {val}) = 
         do eVal <- pushTypecheck val
            return $ setType voidType print {val = eVal}
@@ -369,6 +378,7 @@ instance Checkable Expr where
             | isRealType ty1 = realType
             | isRealType ty2 = realType
             | otherwise = intType
+    typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 
 checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings

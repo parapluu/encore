@@ -118,14 +118,30 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          (ne1 :: CCode Lval)
                                          (ne2 :: CCode Lval)))])
 
-  translate (A.Print {A.val = e}) =
-      do
-        (ne,te) <- translate e
-        return $ (unit,
-                  Seq [te,
-                       (Statement
-                        (Call (Nam "printf") 
-                                  [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"", ne]))])
+  translate (A.PrintF {A.stringLit = s, A.args = args}) = do
+      targs <- mapM translate args
+      let arg_names = map fst targs
+      let arg_decls = map snd targs
+      let arg_tys   = map A.getType args
+      let fstring = format_string s arg_tys
+      return $ (unit,
+                Seq $ arg_decls ++
+                     [Statement 
+                      (Call (Nam "printf")
+                       ((Embed $ show fstring) : arg_names))])
+      where
+        format_string s [] = s
+        format_string "" (ty:tys) = error "Wrong number of arguments to printf"
+        format_string ('{':'}':s) (ty:tys) = (type_to_printf_fstr ty) ++ (format_string s tys)
+        format_string (c:s) tys = c : (format_string s tys)
+
+  translate (A.Print {A.val = e}) = do
+      (ne,te) <- translate e
+      return $ (unit,
+                Seq [te,
+                     (Statement
+                      (Call (Nam "printf") 
+                       [Embed $ "\""++ type_to_printf_fstr (A.getType e) ++ "\\n\"", ne]))])
 
   translate seq@(A.Seq {A.eseq = es}) = do
     ntes <- mapM translate es

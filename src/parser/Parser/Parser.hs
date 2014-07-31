@@ -87,7 +87,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "printf", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -163,7 +163,8 @@ embedTL = do
   try (do
         reserved "embed"
         code <- manyTill anyChar $ (try $ reserved "end")
-        return $ EmbedTL (meta pos) code) <|>
+        return $ EmbedTL (meta pos) code)
+       <|>
        (return $ EmbedTL (meta pos) "")
 
 classDecl :: Parser ClassDecl
@@ -246,7 +247,6 @@ expression = buildExpressionParser opTable expr
       opTable = [
                  [prefix "not" Identifiers.NOT],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
-                 [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
@@ -282,6 +282,7 @@ expr  =  unit
      <|> true
      <|> false
      <|> sequence
+     <|> try printf
      <|> print
      <|> string
      <|> try real
@@ -365,6 +366,12 @@ expr  =  unit
                 reserved "new" ;
                 ty <- typ ;
                 return $ New (meta pos) ty}
+      printf = do {pos <- getPosition ;
+                   reserved "printf" ;
+                   string <- stringLiteral ;
+                   optional comma ;
+                   args <- commaSep expression ;
+                   return $ PrintF (meta pos) string args}
       print = do {pos <- getPosition ;
                   reserved "print" ;
                   expr <- expression ;
