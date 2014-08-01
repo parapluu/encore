@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "then" "while"))
+(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "printf" "then" "while"))
 (setq encore-danger-words '("embed" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
@@ -90,26 +90,30 @@
   (if (string-match "\\<while\\>" line)
       (+ (match-beginning 0) encore-tab-width)
 
+  (if (string-match "\\<let\\>.*\\<in\\>$" line)
+        (+ (match-beginning 0) encore-tab-width)
+
+  (if (string-match "\\<embed\\>.*\\<end\\>" line)
+      (match-beginning 0)
   (if (string-match "\\<embed\\>" line)
       (if (equal first "end")
           (match-beginning 0)
         (+ (match-beginning 0) encore-tab-width))
 
-  (if (string-match "\\<def\\>" line)
-      (+ (match-beginning 0) encore-tab-width)
-
-  (if (string-match "\\<let\\>.*\\<in\\>$" line)
-        (+ (match-beginning 0) encore-tab-width)
   (if (string-match "\\<let\\>" line)
       (if (equal "in" first)
           (match-beginning 0)
         (+ (match-beginning 0) encore-tab-width))
   (if (string-match "\\<in\\>[ \t]*$" line)
       (+ (match-beginning 0) encore-tab-width)
+
+  (if (string-match "\\<def\\>" line)
+      (+ (match-beginning 0) encore-tab-width)
+
   (if (string-match "\\W*\\([^;]*\\);" line)
       (match-beginning 1)
   (if (bobp)
-      0))))))))))))))))))
+      0)))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)

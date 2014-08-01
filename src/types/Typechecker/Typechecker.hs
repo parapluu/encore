@@ -13,6 +13,7 @@ module Typechecker.Typechecker(typecheckEncoreProgram) where
 -- Library dependencies
 import Data.Maybe
 import Data.List
+import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Error
 
@@ -108,9 +109,11 @@ instance Checkable FieldDecl where
   
 
 instance Checkable MethodDecl where
-    typecheck m@(Method {mtype, mparams, mbody}) = 
+    typecheck m@(Method {mtype, mparams, mbody, mname}) = 
         do ty <- checkType mtype
            noFreeTypeVariables
+           Just thisType <- asks $ varLookup thisName
+           when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $ pushHasType mbody ty
            return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
@@ -121,6 +124,9 @@ instance Checkable MethodDecl where
               in
                 when (not . null $ retVars \\ paramVars) $
                      tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
+          checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
+                              tcError $
+                                "Main method must have argument type () or (int, string[]) (but arrays are not supported yet)"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
@@ -154,6 +160,7 @@ instance Checkable Expr where
                 tcError $ "Cannot call method on expression '" ++ 
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
+           when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
            lookupResult <- asks $ methodLookup targetType name
            case lookupResult of
              Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
@@ -301,7 +308,16 @@ instance Checkable Expr where
     typecheck new@(New {ty}) = 
         do ty' <- checkType ty
            unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
+           when (isMainType ty') $ tcError "Cannot create additional Main objects"
            return $ setType ty' new
+
+    typecheck printf@(PrintF {stringLit, args}) =
+        do let noArgs = T.count (T.pack "{}") (T.pack stringLit)
+           unless (noArgs == length args) $
+                  tcError $ "Wrong number of arguments to format string. " ++
+                            "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
+           eArgs <- mapM pushTypecheck args
+           return $ setType voidType printf {args = eArgs}
 
     typecheck print@(Print {val}) = 
         do eVal <- pushTypecheck val
@@ -362,6 +378,7 @@ instance Checkable Expr where
             | isRealType ty1 = realType
             | isRealType ty2 = realType
             | otherwise = intType
+    typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 
 checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings
@@ -423,3 +440,4 @@ instance Checkable LVal where
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
              Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"
+

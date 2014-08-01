@@ -103,21 +103,22 @@ translateActiveClass cdecl =
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :
-             (Nam "FUT_MSG_RESUME", fut_resume_instr) : 
-             (if (A.cname cdecl == Ty.refType "Main")
-              then [pony_main_clause]
-              else []) ++
-             (concatMap (\m -> [mthd_dispatch_clause cdecl m,
-                                one_way_send_dispatch_clause cdecl m]) (A.methods cdecl)))
+             (Nam "FUT_MSG_RESUME", fut_resume_instr) :
+             (if (A.isMainClass cdecl)
+              then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) (A.methods cdecl))
+              else method_clauses $ A.methods cdecl
+             ))
              (Embed "printf(\"error, got invalid id: %llu\",id);")))
           where
+            method_clauses = concatMap (\m -> [mthd_dispatch_clause cdecl m, one_way_send_dispatch_clause cdecl m])
             pony_main_clause =
                 (Nam "PONY_MAIN",
                      Concat $ [alloc_instr,
-                               (if (A.cname cdecl) == (Ty.refType "Main")
-                                then Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
-                                         [Var "p"]
-                                else Concat [])])
+                                Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
+                                         [AsExpr $ Var "p",
+                                          AsExpr $ (ArrAcc 0 (Var "argv")) `Dot` (Nam "i"),
+                                          Cast (Ptr $ Ptr char) $ (ArrAcc 1 (Var "argv")) `Dot` (Nam "p")]
+                              ])
             
             alloc_instr = Concat $
                           [(Var "p") `Assign`
@@ -197,7 +198,7 @@ translateActiveClass cdecl =
             [AssignTL
              (Decl (Static (Typ "pony_msg_t"), 
                     (method_message_type_name (A.cname cdecl) (A.mname mdecl))))
-             (if A.isMain cdecl mdecl then
+             (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main") then
                   (Record [Embed (show $ length (A.mparams mdecl)), 
                            Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
               else

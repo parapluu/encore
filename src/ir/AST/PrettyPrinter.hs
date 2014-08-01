@@ -45,6 +45,8 @@ ppArrow = text "->"
 
 indent = nest 2
 
+commaSep l = cat $ punctuate (ppComma <> ppSpace) l
+
 ppName :: Name -> Doc
 ppName (Name x) = text x
 
@@ -72,7 +74,7 @@ ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl Method {mname, mtype, mparams, mbody} = 
     text "def" <+>
     ppName mname <> 
-    parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl mparams))) <+>
+    parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
     (indent (ppExpr mbody))
 
@@ -93,14 +95,14 @@ ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
 ppExpr MethodCall {target, name, args} = 
     maybeParens target <> ppDot <> ppName name <> 
-      parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+      parens (commaSep (map ppExpr args))
 ppExpr MessageSend {target, name, args} = 
     maybeParens target <> ppBang <> ppName name <> 
-      parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+      parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {name, args} = 
-    ppName name <> parens (cat (punctuate (ppComma <> ppSpace) (map ppExpr args)))
+    ppName name <> parens (commaSep (map ppExpr args))
 ppExpr Closure {eparams, body} = 
-    ppLambda <> parens (cat (punctuate (ppComma <> ppSpace) (map ppParamDecl eparams))) <+> ppArrow <+> ppExpr body
+    ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Let {name = Name x, val, body} = 
     ppLet <+> text x <+> equals <+> ppExpr val <+> ppIn $+$ 
       indent (ppExpr body)
@@ -122,6 +124,7 @@ ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
 ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Print {val} = ppPrint <+> ppExpr val
+ppExpr PrintF {stringLit, args} = doubleQuotes (text stringLit) <> commaSep (map ppExpr args)
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
