@@ -30,6 +30,7 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
+              | printf \" String \", Arguments
               | \" String \"
               | Int
               | Expr Op Expr
