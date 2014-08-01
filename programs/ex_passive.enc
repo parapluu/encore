@@ -1,0 +1,22 @@
+passive class Location
+  x : int
+  y : int
+  label : string
+
+  def init(new_x:int, new_y:int, new_label:string) : void {
+    this.x = new_x;
+    this.y = new_y;
+    this.label = new_label;
+    ()
+  }
+
+class Main
+  loc : Location
+
+  def main() : void {
+    this.loc = new Location;
+    this.loc.init(1,2,"a place");
+    print this.loc.x;
+    print this.loc.y;
+    print this.loc.label
+  }
