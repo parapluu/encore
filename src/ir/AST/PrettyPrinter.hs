@@ -103,8 +103,8 @@ ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
 ppExpr Closure {eparams, body} = 
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
-ppExpr Let {name = Name x, val, body} = 
-    ppLet <+> text x <+> equals <+> ppExpr val <+> ppIn $+$ 
+ppExpr Let {decls, body} = 
+    ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
       indent (ppExpr body)
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} = 

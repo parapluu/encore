@@ -124,8 +124,7 @@ data Expr = Skip {emeta :: Meta}
                      eparams :: [ParamDecl],
                      body :: Expr}
           | Let {emeta :: Meta, 
-                 name :: Name, 
-                 val :: Expr, 
+                 decls :: [(Name, Expr)],
                  body :: Expr}
           | Seq {emeta :: Meta, 
                  eseq :: [Expr]}

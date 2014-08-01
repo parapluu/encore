@@ -171,15 +171,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (Var tmp, Seq [texp,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref nexp `Dot` (Nam $ show name)))])
 
-  translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
-                       (ne1,te1) <- translate e1
-                       tmp <- Ctx.gen_sym
-                       substitute_var name (Var tmp)
-                       (ne2,te2) <- translate e2
-                       return (ne2,
-                               Seq [te1,
-                                    Assign (Decl (translate (A.getType e1), Var tmp)) (ne1),
-                                    te2])
+  translate l@(A.Let {A.decls = decls, A.body = body}) = 
+                     do
+                       tdecls <- translate_decls decls
+                       (nbody, tbody) <- translate body
+                       return (nbody, Seq $ tdecls ++ [tbody])
+                     where
+                       translate_decls [] = return []
+                       translate_decls ((name, expr):decls) = 
+                           do (ne, te) <- translate expr
+                              tmp <- Ctx.gen_sym
+                              substitute_var name (Var tmp)
+                              tdecls <- translate_decls decls
+                              return $ [te, Assign (Decl (translate (A.getType expr), Var tmp)) ne] ++ tdecls
 
   translate new@(A.New {A.ty = ty}) 
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")

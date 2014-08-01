@@ -228,14 +228,19 @@ instance Checkable Expr where
           onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
            
-    typecheck let_@(Let {name, val, body}) = 
-        do eVal <- pushTypecheck val
-           valType <- return (AST.getType eVal)
-           when (isNullType valType) $ 
+    typecheck let_@(Let {decls, body}) = 
+        do eDecls <- typecheckDecls decls
+           let declTypes = map (AST.getType . snd) eDecls
+           when (any isNullType declTypes) $ 
                 tcError $ "Cannot infer type of null-valued expression"
-           eBody <- local (extendEnvironment [(name, valType)]) $ pushTypecheck body
-           return $ setType (AST.getType eBody) let_ {val = eVal, body = eBody}
-
+           eBody <- local (extendEnvironment (zip (map fst eDecls) declTypes)) $ pushTypecheck body
+           return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
+        where
+          typecheckDecls [] = return []
+          typecheckDecls ((name, expr):decls) = do eExpr <- pushTypecheck expr
+                                                   eDecls <- local (extendEnvironment [(name, AST.getType eExpr)]) 
+                                                                 $ typecheckDecls decls
+                                                   return $ (name, eExpr):eDecls
     typecheck seq@(Seq {eseq}) = 
         do eEseq <- mapM pushTypecheck eseq 
            seqType <- return $ AST.getType (last eEseq)

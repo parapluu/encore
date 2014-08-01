@@ -16,10 +16,11 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
        Args ::= , Expr Args | eps
        Path ::= Name FieldAccess | eps
 FieldAccess ::= . Name FieldAccess | eps
+   LetDecls ::= Name = Expr LetDecls | eps
        Expr ::= ()
               | Path = Expr
               | Path . Name ( Arguments )
-              | let Name = Expr in Expr
+              | let LetDecls in Expr
               | { Sequence }
               | if Expr then Expr else Expr
               | while Expr Expr
@@ -310,12 +311,13 @@ expr  =  unit
                         return $ MessageSend (meta pos) target tmname args}
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
-                          x <- identifier ;
-                          reservedOp "=" ;
-                          val <- expression ;
+                          decls <- many (do {x <- identifier ;
+                                             reservedOp "=" ;
+                                             val <- expression ;
+                                             return (Name x, val)}) ;
                           reserved "in" ;
                           expr <- expression ;
-                          return $ Let (meta pos) (Name x) val expr}
+                          return $ Let (meta pos) decls expr}
       sequence = do {pos <- getPosition ;
                      seq <- braces (do {seq <- expression `sepEndBy` semi; return seq}) ;
                      return $ Seq (meta pos) seq}

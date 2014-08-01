@@ -18,9 +18,9 @@ foldr f acc e@(MethodCall {target, args}) =
 foldr f acc e@(MessageSend {target, args}) = 
     let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
     f e (foldr f argResults target)
-foldr f acc e@(Let {val, body}) = 
-    let valResults = foldr f acc val in
-    f e (foldr f valResults body)
+foldr f acc e@(Let {decls, body}) = 
+    let declsResults = List.foldr (\(name, val) acc' -> foldr f acc' val) acc decls in
+    f e (foldr f declsResults body)
 foldr f acc e@(IfThenElse {cond, thn, els}) = 
     let condResults = foldr f acc cond
         thnResults = foldr f condResults thn in
@@ -59,12 +59,12 @@ extend f e@(MessageSend {target, args}) =
         a' = map f a
     in
       e'{target = t', args = a'}
-extend f e@(Let {val, body}) = 
-    let e'@(Let {val = v, body = b}) = f e
-        v' = f v
+extend f e@(Let {decls, body}) = 
+    let e'@(Let {decls = d, body = b}) = f e
+        d' = map (\(name, val) -> (name, f val)) d
         b' = f b
     in
-      e'{val = v', body = b'}
+      e'{decls = d', body = b'}
 extend f e@(IfThenElse {cond, thn, els}) = 
     let e'@(IfThenElse {cond = c, thn = t, els = el}) = f e
         c' = f c
@@ -135,11 +135,14 @@ extendAccum f acc e@(MessageSend {}) =
     in
       (acc2, e'{target = t', args = a'})
 extendAccum f acc e@(Let {}) = 
-    let (acc0, e'@(Let {val = v, body = b})) = f acc e
-        (acc1, v') = extendAccum f acc0 v
+    let (acc0, e'@(Let {decls = d, body = b})) = f acc e
+        (acc1, d') = List.mapAccumL accumDecls acc0 d
         (acc2, b') = extendAccum f acc1 b
     in
-      (acc2, e'{val = v', body = b'})
+      (acc2, e'{decls = d', body = b'})
+    where
+      accumDecls acc (name, expr) = let (acc', expr') = extendAccum f acc expr 
+                                    in (acc', (name, expr'))
 extendAccum f acc e@(IfThenElse {}) = 
     let (acc0, e'@(IfThenElse {cond = c, thn = t, els = el})) = f acc e
         (acc1, c') = extendAccum f acc0 c
@@ -238,8 +241,11 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           freeVariables' bound' body
           where
             bound' = bound ++ map pname eparams
-      freeVariables' bound Let {name, val, body} =
-          freeVariables' bound val ++ freeVariables' (name:bound) body
+      freeVariables' bound Let {decls, body} =
+          freeVars ++ freeVariables' bound' body
+          where
+            (freeVars, bound') = List.foldr fvDecls ([], bound) decls
+            fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
       freeVariables' bound Seq {eseq} = 
           concatMap (freeVariables' bound) eseq
       freeVariables' bound IfThenElse {cond, thn, els} =
@@ -266,4 +272,3 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
       freeVariables' bound Binop {loper, roper} = 
           freeVariables' bound loper ++ freeVariables' bound roper
       freeVariables' bound _ = []
-
