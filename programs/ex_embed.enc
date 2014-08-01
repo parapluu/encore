@@ -1,0 +1,20 @@
+#! /usr/bin/env encorec -run
+
+embed
+  // We're defining the sq(int) function in a toplevel embed block.
+  // Each file can have no more than one toplevel embed blocks.
+  int sq(int i) {
+    return i*i;
+  }
+end
+
+class Main
+  def main() : void {
+    let x = 2 in {
+      -- Contrary to the toplevel embed block, an embed expression
+      -- also needs to specify a certain type.
+      -- In this example, the expression promises to return an int:
+      print (embed int sq(#{x}); end)
+    }
+  }
+    

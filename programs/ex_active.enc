@@ -1,0 +1,38 @@
+#! /usr/bin/env encorec -run
+
+class Main
+  def main() : void {
+    let obj1 = new Foo in {
+    let obj2 = new Foo in {
+      obj1.setID("obj1");
+      obj2.setID("obj2");
+      let fut1 = obj1.printID() in {
+      let fut2 = obj2.printID() in {
+        print "waiting for result...";
+        let res1 = get fut1 in {
+          print "got result";
+          print res1
+        }
+      }
+      }
+    }
+    }
+  }
+
+class Foo
+  id : string
+
+  def setID(new_id : string) : void {
+    this.id = new_id;
+    ()
+  }
+
+  def printID() : string {
+    let i = 0 in {
+      while i < 5 {
+        i = i + 1;
+        print this.id;
+        this.id
+      }
+    }
+  }
