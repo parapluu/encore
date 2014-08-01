@@ -100,6 +100,10 @@
           (match-beginning 0)
         (+ (match-beginning 0) encore-tab-width))
 
+  (if (string-match "\\<let\\>\\W*\\(\\w+\\)" line)
+      (if (equal "in" first)
+          (match-beginning 0)
+        (match-beginning 1))
   (if (string-match "\\<let\\>" line)
       (if (equal "in" first)
           (match-beginning 0)
@@ -113,7 +117,7 @@
   (if (string-match "\\W*\\([^;]*\\);" line)
       (match-beginning 1)
   (if (bobp)
-      0)))))))))))))))))))
+      0))))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)
