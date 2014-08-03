@@ -94,6 +94,7 @@ compileProgram prog exe_path options =
                        "-ggdb -Wall -lpthread" <+>
                        " -o" <+> execName <+>
                        (libPath++"*.a") <+>
+                       (libPath++"*.a") <+>
                        "-I" <+> incPath <+> "-I ."
              exitCode <- system cmd
              case exitCode of
