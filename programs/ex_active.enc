@@ -2,20 +2,19 @@
 
 class Main
   def main() : void {
-    let obj1 = new Foo in {
-    let obj2 = new Foo in {
+    let obj1 = new Foo
+        obj2 = new Foo
+    in {
       obj1.setID("obj1");
       obj2.setID("obj2");
-      let fut1 = obj1.printID() in {
-      let fut2 = obj2.printID() in {
+      let fut1 = obj1.printID()
+          fut2 = obj2.printID() in {
         print "waiting for result...";
         let res1 = get fut1 in {
           print "got result";
           print res1
         }
       }
-      }
-    }
     }
   }
 
