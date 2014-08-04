@@ -1,3 +1,3 @@
 class Main
   def main() : void
-    print 4%(3)
+    print 4 % 3

@@ -1,0 +1,26 @@
+#! /usr/bin/env encorec -run
+-- ex_lambdas.enc
+
+passive class Point
+  x : int
+  y : int
+
+  def scale(f : int -> int) : void {
+    this.x = f(this.x);
+    this.y = f(this.y);
+    ()
+  }
+
+class Main
+  def main() : void {
+    let p = new Point in {
+      p.x = 1;
+      p.y = 2;
+      -- scale the point up by 10, using an anonymous function:
+      let f = \ (i : int) -> 10*i in {
+        p.scale(f);
+      };
+      print p.x;
+      print p.y
+    }
+  }

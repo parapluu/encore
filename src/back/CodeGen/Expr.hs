@@ -56,10 +56,11 @@ instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
 
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty 
-    | Ty.isIntType ty = "%lli"
-    | Ty.isRealType ty = "%f"
+    | Ty.isIntType ty    = "%lli"
+    | Ty.isRealType ty   = "%f"
     | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty = "bool(%d)"
+    | Ty.isBoolType ty   = "bool<%d>"
+    | Ty.isRefType ty    = show ty ++ "<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
@@ -118,14 +119,30 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          (ne1 :: CCode Lval)
                                          (ne2 :: CCode Lval)))])
 
-  translate (A.Print {A.val = e}) =
-      do
-        (ne,te) <- translate e
-        return $ (unit,
-                  Seq [te,
-                       (Statement
-                        (Call (Nam "printf") 
-                                  [Embed $ "\""++ type_to_printf_fstr (A.getType e)++"\\n\"", ne]))])
+  translate (A.PrintF {A.stringLit = s, A.args = args}) = do
+      targs <- mapM translate args
+      let arg_names = map fst targs
+      let arg_decls = map snd targs
+      let arg_tys   = map A.getType args
+      let fstring = format_string s arg_tys
+      return $ (unit,
+                Seq $ arg_decls ++
+                     [Statement 
+                      (Call (Nam "printf")
+                       ((Embed $ show fstring) : arg_names))])
+      where
+        format_string s [] = s
+        format_string "" (ty:tys) = error "Wrong number of arguments to printf"
+        format_string ('{':'}':s) (ty:tys) = (type_to_printf_fstr ty) ++ (format_string s tys)
+        format_string (c:s) tys = c : (format_string s tys)
+
+  translate (A.Print {A.val = e}) = do
+      (ne,te) <- translate e
+      return $ (unit,
+                Seq [te,
+                     (Statement
+                      (Call (Nam "printf") 
+                       [Embed $ "\""++ type_to_printf_fstr (A.getType e) ++ "\\n\"", ne]))])
 
   translate seq@(A.Seq {A.eseq = es}) = do
     ntes <- mapM translate es
@@ -154,15 +171,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (Var tmp, Seq [texp,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref nexp `Dot` (Nam $ show name)))])
 
-  translate l@(A.Let {A.name = name, A.val = e1, A.body = e2}) = do
-                       (ne1,te1) <- translate e1
-                       tmp <- Ctx.gen_sym
-                       substitute_var name (Var tmp)
-                       (ne2,te2) <- translate e2
-                       return (ne2,
-                               Seq [te1,
-                                    Assign (Decl (translate (A.getType e1), Var tmp)) (ne1),
-                                    te2])
+  translate l@(A.Let {A.decls = decls, A.body = body}) = 
+                     do
+                       tdecls <- translate_decls decls
+                       (nbody, tbody) <- translate body
+                       return (nbody, Seq $ tdecls ++ [tbody])
+                     where
+                       translate_decls [] = return []
+                       translate_decls ((name, expr):decls) = 
+                           do (ne, te) <- translate expr
+                              tmp <- Ctx.gen_sym
+                              substitute_var name (Var tmp)
+                              tdecls <- translate_decls decls
+                              return $ [te, Assign (Decl (translate (A.getType expr), Var tmp)) ne] ++ tdecls
 
   translate new@(A.New {A.ty = ty}) 
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")

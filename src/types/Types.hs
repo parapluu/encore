@@ -2,7 +2,7 @@
 
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
              refType, isRefType, passiveRefType, activeRefType, 
-             isActiveRefType, isPassiveRefType, 
+             isActiveRefType, isPassiveRefType, isMainType,
              makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
@@ -88,6 +88,9 @@ makeActive ty = ty
 
 isActiveRefType (RefType (RefTypeInfo {activity = Active})) = True
 isActiveRefType _ = False
+
+isMainType (RefType (RefTypeInfo {refId = "Main"})) = True
+isMainType _ = False
 
 typeVar = TypeVar
 isTypeVar (TypeVar _) = True

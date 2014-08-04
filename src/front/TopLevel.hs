@@ -26,7 +26,11 @@ import CodeGen.Main
 import CodeGen.Preprocessor
 import CCode.PrettyCCode
 
-data Option = GCC | Clang | Run | KeepCFiles | Undefined String | Output FilePath | Source FilePath deriving(Eq)
+data Phase = Parsed | TypeChecked 
+    deriving Eq
+
+data Option = GCC | Clang | Run | KeepCFiles | Undefined String | Output FilePath | Source FilePath | Intermediate Phase
+	deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [Option])
 parseArguments args = 
@@ -35,13 +39,15 @@ parseArguments args =
         parseArguments' args = opt : (parseArguments' rest)
             where 
               (opt, rest) = parseArgument args
-              parseArgument ("-c":args)       = (KeepCFiles, args)
-              parseArgument ("-gcc":args)     = (GCC, args)
-              parseArgument ("-run":args)     = (Run, args)
-              parseArgument ("-clang":args)   = (Clang, args)
-              parseArgument ("-o":file:args)  = (Output file, args)
-              parseArgument (('-':flag):args) = (Undefined flag, args)
-              parseArgument (file:args)       = (Source file, args)
+              parseArgument ("-c":args)         = (KeepCFiles, args)
+              parseArgument ("-gcc":args)       = (GCC, args)
+              parseArgument ("-run":args)       = (Run, args)
+              parseArgument ("-clang":args)     = (Clang, args)
+              parseArgument ("-o":file:args)    = (Output file, args)
+              parseArgument ("--AST":args)      = (Intermediate Parsed, args)
+              parseArgument ("--TypedAST":args) = (Intermediate TypeChecked, args)
+              parseArgument (('-':flag):args)   = (Undefined flag, args)
+              parseArgument (file:args)         = (Source file, args)
     in
       let (sources, options) = partition isSource (parseArguments' args) in
       (map getName sources, options)
@@ -88,6 +94,7 @@ compileProgram prog exe_path options =
                        "-ggdb -Wall -lpthread" <+>
                        " -o" <+> execName <+>
                        (libPath++"*.a") <+>
+                       (libPath++"*.a") <+>
                        "-I" <+> incPath <+> "-I ."
              exitCode <- system cmd
              case exitCode of
@@ -101,11 +108,6 @@ compileProgram prog exe_path options =
            return ()
 
     where
-      dropExtension source = let ext = reverse . take 4 . reverse $ source in 
-                             if length source > 3 && ext == ".enc" then 
-                                 take ((length source) - 4) source 
-                             else 
-                                 source
       dropDir = reverse . takeWhile (/='/') . reverse
       isOutput (Output _) = True
       isOutput _ = False
@@ -139,21 +141,27 @@ main =
                     let program = parseEncoreProgram sourceName code
                     case program of
                       Right ast -> do
+                                   when (Intermediate Parsed `elem` options) (withFile (exeName ++ ".AST") WriteMode (flip hPrint $ show ast))
                                    let tcResult = typecheckEncoreProgram ast
                                    case tcResult of
                                      Right ast -> do
+                                                   when (Intermediate TypeChecked `elem` options) (withFile (exeName ++ ".TAST") WriteMode (flip hPrint $ show ast))
                                                    compileProgram ast exeName options
                                                    when (Run `elem` options) (do
-                                                                               system $ "./"++exeName
-                                                                               system $ "rm "++exeName
+                                                                               system $ "./" ++ exeName
+                                                                               system $ "rm " ++ exeName
                                                                                return ())
                                      Left error -> fail $ show error
                       Left error -> fail $ show error
     where
-      usage = "Usage: ./encorec [-c | -gcc | -clang | -run] file"
-      dropExtension source =
-          let ext = reverse . take 4 . reverse $ source in 
-          if length source > 3 && ext == ".enc" then 
-              take ((length source) - 4) source 
-          else 
-              source
+      usage = "Usage: ./encorec [ -c | -gcc | -clang | -run | --AST | --TypedAST ] file"
+
+-- some utility functions (TODO: move some to general utility library)
+dropExtension source =
+	let ext = lastn 4 source in 
+	if length source > 3 && ext == ".enc" then 
+		take ((length source) - 4) source 
+	else 
+		source
+		
+lastn n = reverse . take n . reverse

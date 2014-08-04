@@ -16,10 +16,11 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
        Args ::= , Expr Args | eps
        Path ::= Name FieldAccess | eps
 FieldAccess ::= . Name FieldAccess | eps
+   LetDecls ::= Name = Expr LetDecls | eps
        Expr ::= ()
               | Path = Expr
               | Path . Name ( Arguments )
-              | let Name = Expr in Expr
+              | let LetDecls in Expr
               | { Sequence }
               | if Expr then Expr else Expr
               | while Expr Expr
@@ -30,6 +31,7 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
+              | printf \" String \", Arguments
               | \" String \"
               | Int
               | Expr Op Expr
@@ -87,7 +89,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "printf", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -163,7 +165,8 @@ embedTL = do
   try (do
         reserved "embed"
         code <- manyTill anyChar $ (try $ reserved "end")
-        return $ EmbedTL (meta pos) code) <|>
+        return $ EmbedTL (meta pos) code)
+       <|>
        (return $ EmbedTL (meta pos) "")
 
 classDecl :: Parser ClassDecl
@@ -246,7 +249,6 @@ expression = buildExpressionParser opTable expr
       opTable = [
                  [prefix "not" Identifiers.NOT],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
-                 [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
@@ -282,6 +284,7 @@ expr  =  unit
      <|> true
      <|> false
      <|> sequence
+     <|> try printf
      <|> print
      <|> string
      <|> try real
@@ -308,12 +311,13 @@ expr  =  unit
                         return $ MessageSend (meta pos) target tmname args}
       letExpression = do {pos <- getPosition ;
                           reserved "let" ;
-                          x <- identifier ;
-                          reservedOp "=" ;
-                          val <- expression ;
+                          decls <- many (do {x <- identifier ;
+                                             reservedOp "=" ;
+                                             val <- expression ;
+                                             return (Name x, val)}) ;
                           reserved "in" ;
                           expr <- expression ;
-                          return $ Let (meta pos) (Name x) val expr}
+                          return $ Let (meta pos) decls expr}
       sequence = do {pos <- getPosition ;
                      seq <- braces (do {seq <- expression `sepEndBy` semi; return seq}) ;
                      return $ Seq (meta pos) seq}
@@ -365,6 +369,12 @@ expr  =  unit
                 reserved "new" ;
                 ty <- typ ;
                 return $ New (meta pos) ty}
+      printf = do {pos <- getPosition ;
+                   reserved "printf" ;
+                   string <- stringLiteral ;
+                   optional comma ;
+                   args <- commaSep expression ;
+                   return $ PrintF (meta pos) string args}
       print = do {pos <- getPosition ;
                   reserved "print" ;
                   expr <- expression ;

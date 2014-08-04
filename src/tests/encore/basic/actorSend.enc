@@ -1,16 +1,17 @@
 class Main 
   def main() : Fut (Fut void)
-    let other = new Other in
-      let another = new Other in
-        {other.init(another);
-         other.work()}
+    let other = new Other
+        another = new Other
+    in
+      {other.init(another);
+       other.work()}
 
 class Other 
   other : Other
   def init(va : Other) : void 
     this.other = va
   def work() : Fut void
-    {let othertmp = this.other in
-       {othertmp.printMsg()}}
+    let othertmp = this.other in
+      othertmp.printMsg()
   def printMsg() : void
     print "Hello Actorworld!"
