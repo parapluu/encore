@@ -49,4 +49,6 @@ Or, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run`
 
 This will compile the file -- and run it.
 
-You can find some files in the [https://github.com/parapluu/mylittlepony/tree/master/programs](programs) directory
+You can find some example programs in the [https://github.com/parapluu/mylittlepony/tree/master/programs](programs) directory.
+
+Have fun!
