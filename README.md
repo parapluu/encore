@@ -27,3 +27,26 @@ Then run:
     make doc
     make test
 
+Now we recommend that you add the `release` directory to your `PATH` environment variable -- this will allow you to invoke the compiler by just saying
+
+    $ encorec my_file.enc
+
+in any directory. To do this, add the line to your `~/.bashrc` file:
+
+    export PATH="${HOME}/code/mylittlepony/release:${PATH}"
+
+Now you can compile a program by using:
+
+    $ encorec -clang my_file.enc
+
+Or, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
+
+    $ chmod u+x my_file.enc
+
+..you can execute it:
+
+    $ ./my_file.enc
+
+This will compile the file -- and run it.
+
+You can find some files in the [https://github.com/parapluu/mylittlepony/tree/master/programs](programs) directory
