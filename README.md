@@ -18,6 +18,7 @@ We're using:
     Thread model: posix
 
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.8.20140130
+ - premake4 (Premake Build Script Generator) 4.3
 
 Then run:
 
