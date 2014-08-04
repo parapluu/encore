@@ -39,11 +39,11 @@ passive class Void
 passive class Set_of_Ints
   set_ptr : Void -- ouch!
   size : int
-  def init() : void
+  def init(siz:int) : void
     embed void
       this->size = 0;
-      this->set_ptr = malloc(sizeof(int64_t) * 1024);
-      bzero(this->set_ptr, sizeof(int64_t) * 1024);
+      this->set_ptr = malloc(sizeof(int64_t) * siz);
+      memset(this->set_ptr, 0, sizeof(int64_t) * siz);
       assert(this->set_ptr);
     end
   def add(v:int) : void
@@ -73,7 +73,7 @@ passive class Set_of_Filters
     embed void
       this->size = 0;
       this->set_ptr = malloc(sizeof(pony_actor_t*) * 1024);
-      bzero(this->set_ptr, sizeof(pony_actor_t*) * 1024);
+      memset(this->set_ptr, 0, sizeof(pony_actor_t*) * 1024);
       assert(this->set_ptr);
     end
     -- embed void
@@ -142,9 +142,9 @@ class PFilter
     let fix = this.filter in -- HERE!
       let action = \(i:int) -> { fix.cancel(i); (); } in 
         primes.for_all_ints(action)
-  def report(receiver:Main) : Fut void 
+  def report(receiver:Main) : void 
     let f = this.filter in 
-      receiver.receive_report(f)
+      receiver ! receive_report(f)
 class Main
   filter : Filter
   pfilters : Set_of_Filters
@@ -155,7 +155,7 @@ class Main
       fprintf(stderr, "%s %lld %lld\n", #{s}, #{i1}, #{i2});
     end
   def main() : void
-    this.init(4, 1024, 1)
+    this.init(32, 1024*1024*16*16, 128)
   def init(no_filters : int, candidates : int, buffer_size : int) : void {
     let filter_size = candidates / no_filters in {
       embed void 
@@ -170,14 +170,14 @@ class Main
       this.pfilters.init();
       this.start = 3;
       this.filter.init(0, this.start, filter_size);
-      this.printa("Filter size:", filter_size, 0);
-      this.printa("M", this.start, filter_size);
+      -- this.printa("Filter size:", filter_size, 0);
+      -- this.printa("M", this.start, filter_size);
       let start = this.start + filter_size * 2 in {
         let i = 1 in {
           while i < no_filters {
             let f = new PFilter in {
-	      this.printa("P", start, filter_size);
-              f.init(i, start, filter_size);
+	      -- this.printa("P", start, filter_size);
+              f ! init(i, start, filter_size);
               this.pfilters.add(f);
               start = start + filter_size * 2;
               i = i + 1;
@@ -194,14 +194,15 @@ class Main
       let fix = embed Main
 		  (Main_data *)this->aref;
 	        end in
-        let action = \(f : PFilter) -> { f.report(fix); (); } in 
+        let action = \(f : PFilter) -> { f ! report(fix); (); } in 
           this.pfilters.for_all(action); 
       }
-  def do_work(start_index : int, amount : int) : void {
+  def do_work(start_index : int, buf_siz : int) : void {
     let primes = new Set_of_Ints in {
-      primes.init();
+      let BUF_SIZ = min(buf_siz, this.size - this.start) in
+      primes.init(BUF_SIZ);
       let i = 0 in 
-        while i < amount
+        while i < BUF_SIZ
           {
             if this.filter.is_not_flagged(i + start_index) then {
               this.filter.cancel(this.start);
@@ -212,12 +213,11 @@ class Main
             i = i + 1;
           };
         if primes.size > 0 then 
-          let action = \(f : PFilter) -> { f.do_work(primes); (); } in this.pfilters.for_all(action)
+          let action = \(f : PFilter) -> { f ! do_work(primes); (); } in this.pfilters.for_all(action)
         else (); 
         }
       }
   def receive_report(f : Filter) : void {
-    --this.printa("receive_report", f.start, f.start+f.size);
     let value = f.start in 
       let i = 0 in 
         while i < f.size 

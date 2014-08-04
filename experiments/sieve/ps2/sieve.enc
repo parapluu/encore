@@ -41,39 +41,6 @@ passive class PrimeArray
     end
   def puts(x : int) : void
     print x
-  def puts_buf(x : int) : void
-    -- TODO: add flushing
-    embed void
-      static int64_t buf[16]; 
-      static short counter = 0;
-      if (counter < 16) {
-        buf[counter++] = x;
-      } else {
-        printf("%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n%lld\n", 
-               buf[0],
-               buf[1],
-               buf[2],
-               buf[3],
-               buf[4],
-               buf[5],
-               buf[6],
-               buf[7],
-               buf[8],
-               buf[9],
-               buf[10],
-               buf[11],
-               buf[12],
-               buf[13],
-               buf[14],
-               buf[15]);
-        counter=0;
-      }
-    end
-  def puts_debug(s : string, i : int) : void
-    embed void
-      fprintf(stderr, "%s: %lld\n", #{s}, #{i});
-    end
-
 
 -----------------------------------------------------------------------------
 -- Main
@@ -123,7 +90,6 @@ class Main
       let i = start in 
         while i < this.stop
           {
-	    -- this.prime_array.puts_debug("Considering", i);
             if this.prime_array.is_not_flagged(i) then {
               this.pass_on(i); 
               this.remove_simple(i);
@@ -148,7 +114,6 @@ class Main
     }
 
   def post_result(a : PrimeArray, offset : int, start : int) : void {
-    a.puts_debug("Work", a.get_work_report());
     let i = start in
       while i < this.stop 
         {
@@ -174,7 +139,6 @@ class Filter
     }
 
   def remove(value : int) : void {
-    -- this.prime_array.puts_debug("Cancelling", value);
     let m = this.prime_array.bit_index(this.start, value) in 
       let i = m in
         while i < (this.stop - this.start)
