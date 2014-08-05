@@ -154,7 +154,7 @@ main =
                                      Left error -> fail $ show error
                       Left error -> fail $ show error
     where
-      usage = "Usage: ./encorec [ -c | -gcc | -clang | -run | --AST | --TypedAST ] file"
+      usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
 
 -- some utility functions (TODO: move some to general utility library)
 dropExtension source =
