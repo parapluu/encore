@@ -43,7 +43,6 @@ Then install the newest version through `brew install haskell-platform`.
 
     cd mylittlepony
     make
-    make doc
     make test
     
 ##### Adding `encorec` to the path
