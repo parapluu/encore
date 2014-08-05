@@ -21,14 +21,14 @@ We're using:
  - premake4 (Premake Build Script Generator) 4.3
 
 #### On OS X: Installing homebrew
-Go to http://brew.sh/, the instructions there work nicely. Make sure that your normal user is an admin (that you can use `sudo`).
+Go to http://brew.sh/, the instructions there work nicely. Make sure that your normal user is an admin (that you can use `sudo`). You should not need `sudo` to *use* `brew` in the future.
 
 #### On OS X: Installing `doxygen`
 
-Run: `brew install doxygen`
+Run: `brew update; brew install doxygen`
 
 #### On OS X: Installing `clang`:
-Run: `brew install llvm34`
+Run: `brew update; brew install llvm`
 
 #### On OS X: Installing `ghc`
 
@@ -37,7 +37,7 @@ You need at least version `7.6.3`.
 - If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
 - If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to also uninstall stuff easily.
 
-Then install the newest version through `brew install haskell-platform`.
+Then install the newest version, saying `brew update; brew install haskell-platform`.
 
 #### Compiling and installing mylittlepony
 
