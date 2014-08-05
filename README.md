@@ -23,6 +23,13 @@ We're using:
 #### On OS X: Installing homebrew
 Go to http://brew.sh/, the instructions there work nicely. Make sure that your normal user is an admin (that you can use `sudo`).
 
+#### On OS X: Installing `doxygen`
+
+Run: `brew install doxygen`
+
+#### On OS X: Installing `clang`:
+Run: `brew install llvm34`
+
 #### On OS X: Installing `ghc`
 
 You need at least version `7.6.3`.
