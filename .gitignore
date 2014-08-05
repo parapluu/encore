@@ -28,3 +28,9 @@ GTAGS
 /src/tests/encore/basic/embed-multiline-bug
 /src/tests/encore/basic/let-arguments
 /src/tests/encore/basic/let-fields
+src/tests/encore/basic/boolean
+src/tests/encore/basic/printf
+src/tests/encore/basic/classOrder
+src/tests/encore/basic/embed-tl
+src/tests/encore/basic/messageSend
+src/tests/encore/basic/modulus
