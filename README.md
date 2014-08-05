@@ -45,9 +45,9 @@ We recommend that you add the `release` directory to your `PATH` environment var
 
     $ encorec my_file.enc
 
-in any directory. To do this, add this line to your `~/.bashrc` file:
+in any directory. To do this, add this line to your `~/.bashrc` file, inserting the proper path for `<SOME_DIR>`:
 
-    export PATH="${HOME}/code/mylittlepony/release:${PATH}"
+    export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
 
 Now you can compile a program by using:
 
