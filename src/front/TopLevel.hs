@@ -75,8 +75,8 @@ outputCode ast out =
 
 compileProgram :: Program -> FilePath -> [Option] -> IO ()
 compileProgram prog exe_path options =
-    do encorecPath <- getExecutablePath
-       let encorecDir = take (length encorecPath - length "encorec") encorecPath
+    do --encorecPath <- getExecutablePath
+       let encorecDir = getCurrentDirectory
        let incPath = encorecDir ++ "./inc/"
        let libPath = encorecDir ++ "./lib/"
        execName <- case find (isOutput) options of
