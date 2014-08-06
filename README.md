@@ -3,10 +3,14 @@ mylittlepony
 
 Preliminary explorations for the Encore compiler.
 
-### Build Instructions
+
+
+## Build Instructions
 
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
+
+### Step 1: Premiminaries
 
 We're using:
 
@@ -20,17 +24,19 @@ We're using:
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
  - premake4 (Premake Build Script Generator) 4.3
 
-#### On OS X: Installing homebrew
+#### Installing preliminaries on OS X
+
+##### Installing homebrew
 Go to http://brew.sh/, the instructions there work nicely. Make sure that your normal user is an admin (that you can use `sudo`). You should not need `sudo` to *use* `brew` in the future.
 
-#### On OS X: Installing `doxygen`
+##### Installing `doxygen`
 
 Run: `brew update; brew install doxygen`
 
-#### On OS X: Installing `clang`:
+##### Installing `clang`:
 Run: `brew update; brew install llvm`
 
-#### On OS X: Installing `ghc`
+##### Installing `ghc`
 
 You need at least version `7.6.3`.
 
@@ -39,7 +45,7 @@ You need at least version `7.6.3`.
 
 Then install the newest version, saying `brew update; brew install haskell-platform`.
 
-#### Linux
+#### Installing preliminaries on Linux
 
 It's only tested on Ubuntu 14.04, and hopefully it works as well on other
 distributions based on Ubuntu or Debian.
@@ -51,13 +57,13 @@ distributions based on Ubuntu or Debian.
     # if you also want to see the HTML doc
     apt-apt install -y doxygen
 
-#### Compiling and installing mylittlepony
+#### Step 2: Compiling and installing mylittlepony
 
     cd mylittlepony
     make
     make test
 
-##### Adding `encorec` to the path
+#### Step 3: Adding `encorec` to the path
 
 We recommend that you add the `release` directory to your `PATH` environment variable -- this will allow you to invoke the compiler by just saying
 
@@ -66,6 +72,8 @@ We recommend that you add the `release` directory to your `PATH` environment var
 in any directory. To do this, add this line to your `~/.bashrc` file, inserting the proper path for `<SOME_DIR>`:
 
     export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
+
+### Compiling and Runnining Encore Programs
 
 Now you can compile a program by using:
 
