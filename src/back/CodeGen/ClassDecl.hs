@@ -120,20 +120,18 @@ translateActiveClass cdecl =
                                           Cast (Ptr $ Ptr char) $ (ArrAcc 1 (Var "argv")) `Dot` (Nam "p")]
                               ])
             
-            alloc_instr = Concat $
-                          [(Var "p") `Assign`
-                           (Statement
-                            (Call (Nam "pony_alloc")
-                                      [(Call
-                                        (Var "sizeof")
-                                        [Var $ show (data_rec_name $ A.cname cdecl)])])),
-                           (Assign
-                            (Deref (Cast (data_rec_ptr $ A.cname cdecl) (Var "p") ) `Dot` Nam "aref")
-                            (Var "this")
-                           ),
-                           (Statement
-                            (Call (Nam "pony_set")
-                                      [Var "p"]))]
+            alloc_instr = let size = Call (Var "sizeof") [Var $ show (data_rec_name $ A.cname cdecl)]
+                          in
+                            Concat $
+                              [(Var "p") `Assign`
+                                 (Statement $ Call (Nam "pony_alloc") [size]),
+                               Statement (Call (Nam "memset") [AsExpr $ Var "p", Embed "0", size]),
+                               (Assign
+                                (Deref (Cast (data_rec_ptr $ A.cname cdecl) (Var "p") ) `Dot` Nam "aref")
+                                (Var "this")),
+                               (Statement
+                                (Call (Nam "pony_set")
+                                 [Var "p"]))]
 
             fut_resume_instr = Concat 
                                  [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),

@@ -59,7 +59,7 @@ type_to_printf_fstr ty
     | Ty.isIntType ty    = "%lli"
     | Ty.isRealType ty   = "%f"
     | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty   = "bool<%d>"
+    | Ty.isBoolType ty   = "bool<%lld>"
     | Ty.isRefType ty    = show ty ++ "<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
@@ -155,7 +155,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (unit,
             Seq [texpr,
                  tlvar,
-                 if Ty.isVoidType $ A.getType lvar then Skip else Seq[Assign nlvar nexpr]])
+                 if Ty.isVoidType $ A.getType lvar then Skip else Seq [Assign nlvar nexpr]])
 
   translate (A.VarAccess {A.name = name}) = do
       c <- get
@@ -189,8 +189,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")
                                                  [Amp $ actor_rec_name ty,
                                                   AsExpr . AsLval . Nam $ "MSG_alloc"])
-      | otherwise = tmp_var ty (Call (Nam "pony_alloc")
-                                     [Sizeof $ Typ $ show (data_rec_name ty)])
+      | otherwise = do na <- Ctx.gen_sym
+                       let size = Sizeof $ Typ $ show (data_rec_name ty)
+                       return $ (Var na, Seq $ 
+                                         [Assign (Decl (translate ty, Var na))
+                                          (Call (Nam "pony_alloc") [size]),
+                                          Statement (Call (Nam "memset") [AsExpr $ Var na, Embed "0", size])])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
@@ -295,7 +299,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate ite@(A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
       do tmp <- Ctx.gen_sym
-         (ncond,tcond) <- translate cond
+         (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
          let export_thn = Seq $ tthn : [Assign (Var (tmp++"_ite")) nthn]
@@ -367,7 +371,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))
-                    (Call (Nam "pony_alloc")
+                    (Call (Nam "malloc") -- Use malloc until we figure out how to trace environments
                           [Sizeof $ Struct name])
         insert_var env_name (name, _) = 
             do c <- get

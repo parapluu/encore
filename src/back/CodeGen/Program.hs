@@ -30,7 +30,7 @@ instance Translatable A.Program (CCode FIN) where
                "set.h",
                "closure.h",
                "future.h",
-               --"string.h",
+               "string.h",
                --"inttypes.h",
                "assert.h",
                "stdio.h"
