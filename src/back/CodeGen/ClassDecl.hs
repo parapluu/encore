@@ -68,8 +68,9 @@ translateActiveClass cdecl =
                [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
                 Statement (Call (Nam "future_fulfil") 
                            [AsExpr $ Var "fut",
-                            (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-                          ((AsExpr . Var $ "p") : (paramdecls_to_argv 1 $ A.mparams mdecl)))])]))
+                            Cast (Ptr void)
+                              (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
+                               ((AsExpr . Var $ "p") : (paramdecls_to_argv 1 $ A.mparams mdecl)))])]))
 
       one_way_send_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       one_way_send_dispatch_clause cdecl mdecl =
