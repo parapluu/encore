@@ -23,7 +23,7 @@ We're using:
 
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
  - premake4 (Premake Build Script Generator) 4.3
- 
+
 
 In the below you find instructions for installing the preliminaries  on OS X and on linux.
 
@@ -91,7 +91,7 @@ or, if you you are calling C from your code, by using:
 Then, you can run the executable, as usual, through
 
    ./my_file
-   
+
 Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
 
     $ chmod u+x my_file.enc
@@ -105,3 +105,20 @@ This will compile the file -- and run it.
 You can find some example programs in the [programs](https://github.com/parapluu/mylittlepony/tree/master/programs) directory.
 
 Have fun!
+
+## `encorec` Options
+
+By default, `encorec` would only compile (translate) `.enc` file to `.c` file.
+
+    encorec <filename>.enc # => <filename>.pony.c
+
+Mostly, we want the executable, so `-clang` option is introduced to generate the
+final executable, with compiling (translating), C compiling and linking behind
+the scene.
+
+    encorec -clang <filename>.enc # => <filename>
+
+To speed up the edit-compile-run cycle, `-run` option is introduced so that the
+generated executable is run automatically.
+
+    encorec -run <filename>.enc # => ./<filename>
