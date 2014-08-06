@@ -83,10 +83,10 @@ instance Checkable Program where
 
 instance Checkable ClassDecl where
     typecheck c@(Class {cname, fields, methods}) =
-        do efields <- mapM pushTypecheck fields
-           emethods <- mapM typecheckMethod methods
-           distinctFieldNames
+        do distinctFieldNames
+           efields <- mapM pushTypecheck fields
            distinctMethodNames
+           emethods <- mapM typecheckMethod methods
            return $ setType cname c {fields = efields, methods = emethods}
         where
           typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
