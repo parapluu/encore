@@ -1,5 +1,5 @@
 class Main
-  def main() : void
+  def main() : Fut void
     {let other = new Other in
        {other.init("Hello Ponyworld-message");
         other.work()}}
