@@ -47,7 +47,7 @@ distributions based on Ubuntu or Debian.
     # sync with the online repo source
     apt-get update
     # set up the building infrastructure
-    apt-get install -y clang g++ premake4
+    apt-get install -y clang g++ premake4 haskell-platform
     # if you also want to see the HTML doc
     apt-apt install -y doxygen
 
