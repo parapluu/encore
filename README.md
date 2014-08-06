@@ -88,7 +88,7 @@ or, if you you are calling C from your code, by using:
 
     $ encorec -clang my_file.enc
 
-Then, you can run the executable, as ususal, through
+Then, you can run the executable, as usual, through
 
    ./my_file
    
