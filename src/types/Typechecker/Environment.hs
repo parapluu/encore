@@ -47,7 +47,7 @@ buildClassTable (Program _ classes) =
       (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
-      getClassType Class {cname, fields, methods} = (cname, (fieldTypes, methodTypes))
+      getClassType Class {cname, fields, methods} = (setActivity cname, (fieldTypes, methodTypes))
           where
             activityTable = map (\(Class{cname, cactivity}) -> (cname, cactivity)) classes
             setActivity ty = case lookup ty activityTable of
@@ -57,7 +57,8 @@ buildClassTable (Program _ classes) =
             fieldTypes  = map getFieldType fields
             methodTypes = map getMethodType methods
             getFieldType Field {fname, ftype} = (fname, setActivity ftype)
-            getMethodType Method {mname, mtype, mparams} = (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
+            getMethodType Method {mname, mtype, mparams} = 
+                (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -75,13 +76,13 @@ methodLookup cls m env = do (_, methods) <- classLookup cls env
 classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
 classLookup cls env
     | isRefType cls = lookup cls (ctable env)
-    | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' whiich is not a reference type"
+    | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' which is not a reference type"
 
 classActivityLookup :: Type -> Environment -> Maybe Type
 classActivityLookup cls env 
     | isRefType cls = do (cls', _) <- find (\(cls', _) -> getId cls == getId cls') (ctable env)
                          return cls'
-    | otherwise = error $ "Tried to lookup the activity of '" ++ show cls ++ "' whiich is not a reference type"
+    | otherwise = error $ "Tried to lookup the activity of '" ++ show cls ++ "' which is not a reference type"
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = lookup x (locals env)

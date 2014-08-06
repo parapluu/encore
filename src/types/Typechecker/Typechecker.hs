@@ -55,6 +55,7 @@ checkType ty
     | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
                           retType <- checkType $ getResultType ty
                           return $ arrowType argTypes retType
+    | otherwise = tcError $ "Unknown type '" ++ show ty ++ "'"
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -118,7 +119,7 @@ instance Checkable MethodDecl where
            when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $ pushHasType mbody ty
-           return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
+           return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           noFreeTypeVariables = 
               let retVars = nub $ filter isTypeVar $ typeComponents mtype 
