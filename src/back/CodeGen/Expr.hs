@@ -189,7 +189,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")
                                                  [Amp $ actor_rec_name ty,
                                                   AsExpr . AsLval . Nam $ "MSG_alloc"])
-      | otherwise = tmp_var ty (Call (Nam "malloc") -- Use malloc until we figure out pony_alloc
+      | otherwise = tmp_var ty (Call (Nam "pony_alloc")
                                      [Sizeof $ Typ $ show (data_rec_name ty)])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
@@ -367,7 +367,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))
-                    (Call (Nam "malloc") -- Use malloc until we figure out pony_alloc
+                    (Call (Nam "pony_alloc")
                           [Sizeof $ Struct name])
         insert_var env_name (name, _) = 
             do c <- get
