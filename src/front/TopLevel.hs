@@ -91,7 +91,7 @@ compileProgram prog exe_path options =
              let cmd = "clang" <+> 
                        cFile <+> 
                        ofilesInc <+> 
-                       "-ggdb -Wall -lpthread" <+>
+                       "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
                        " -o" <+> execName <+>
                        (libPath++"*.a") <+>
                        (libPath++"*.a") <+>
