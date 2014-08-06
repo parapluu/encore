@@ -78,8 +78,9 @@ class Checkable a where
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
 instance Checkable Program where
-    typecheck (Program etl classes) = do eclasses <- mapM pushTypecheck classes
-                                         return $ Program etl eclasses
+    typecheck (Program etl classes) = 
+        do eclasses <- mapM pushTypecheck classes
+           return $ Program etl eclasses
 
 instance Checkable ClassDecl where
     typecheck c@(Class {cname, fields, methods}) =
@@ -104,7 +105,8 @@ instance Checkable ClassDecl where
 instance Checkable FieldDecl where
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
                                      let types = typeComponents ty
-                                     when (any isTypeVar types) $ tcError $ "Free type variables in field type"
+                                     when (any isTypeVar types) $ 
+                                          tcError $ "Free type variables in field type"
                                      return $ setType ty f
   
 
@@ -217,7 +219,7 @@ instance Checkable Expr where
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
            eBody <- local (addParams eEparams) $ pushTypecheck body
-           returnType <- return $ AST.getType eBody
+           let returnType = AST.getType eBody
            when (isNullType returnType) $ 
                 tcError $ "Cannot infer return type of closure with null-valued body"
            return $ setType (arrowType (map ptype eparams) returnType) closure {body = eBody, eparams = eEparams}
@@ -445,4 +447,3 @@ instance Checkable LVal where
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
              Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"
-
