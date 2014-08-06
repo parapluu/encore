@@ -39,12 +39,24 @@ You need at least version `7.6.3`.
 
 Then install the newest version, saying `brew update; brew install haskell-platform`.
 
+#### Linux
+
+It's only tested on Ubuntu 14.04, and hopefully it works as well on other
+distributions based on Ubuntu or Debian.
+
+    # sync with the online repo source
+    apt-get update
+    # set up the building infrastructure
+    apt-get install -y clang g++ premake4
+    # if you also want to see the HTML doc
+    apt-apt install -y doxygen
+
 #### Compiling and installing mylittlepony
 
     cd mylittlepony
     make
     make test
-    
+
 ##### Adding `encorec` to the path
 
 We recommend that you add the `release` directory to your `PATH` environment variable -- this will allow you to invoke the compiler by just saying
