@@ -23,10 +23,14 @@ We're using:
 
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
  - premake4 (Premake Build Script Generator) 4.3
+ 
 
-#### Installing preliminaries on OS X
+In the below you find instructions for installing the preliminaries  on OS X and on linux.
+
+#### Installing the preliminaries on OS X
 
 ##### Installing homebrew
+
 Go to http://brew.sh/, the instructions there work nicely. Make sure that your normal user is an admin (that you can use `sudo`). You should not need `sudo` to *use* `brew` in the future.
 
 ##### Installing `doxygen`
@@ -34,6 +38,7 @@ Go to http://brew.sh/, the instructions there work nicely. Make sure that your n
 Run: `brew update; brew install doxygen`
 
 ##### Installing `clang`:
+
 Run: `brew update; brew install llvm`
 
 ##### Installing `ghc`
@@ -45,7 +50,7 @@ You need at least version `7.6.3`.
 
 Then install the newest version, saying `brew update; brew install haskell-platform`.
 
-#### Installing preliminaries on Linux
+#### Installing the preliminaries on Linux
 
 It's only tested on Ubuntu 14.04, and hopefully it works as well on other
 distributions based on Ubuntu or Debian.
@@ -73,13 +78,21 @@ in any directory. To do this, add this line to your `~/.bashrc` file, inserting 
 
     export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
 
-### Compiling and Runnining Encore Programs
+### Step 4: Compiling and Runnining Encore Programs
 
-Now you can compile a program by using:
+Now you can compile a program by using
+
+    $ encorec my_file.enc
+
+or, if you you are calling C from your code, by using:
 
     $ encorec -clang my_file.enc
 
-Or, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
+Then, you can run the executable, as ususal, through
+
+   ./my_file
+   
+Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
 
     $ chmod u+x my_file.enc
 
