@@ -61,6 +61,7 @@ type_to_printf_fstr ty
     | Ty.isStringType ty = "%s"
     | Ty.isBoolType ty   = "bool<%lld>"
     | Ty.isRefType ty    = show ty ++ "<%p>"
+    | Ty.isFutureType ty = "fut<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: type_to_printf_fstr not defined for " ++ show ty
