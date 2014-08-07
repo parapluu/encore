@@ -296,7 +296,7 @@ class Main
       f          = let t = new Filter  in { t.init(0, size, depth, u, t ); t } 
     in {
       f ! filter();
-      if candidates_approx != candidates then printf "Adjusted candidate size: {}\n", candidates * 2 else ();
+      if candidates_approx != candidates then print("Adjusted candidate size: {}\n", candidates * 2) else ();
     }
   }
 
