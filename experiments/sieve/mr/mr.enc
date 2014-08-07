@@ -1,8 +1,14 @@
 embed
+/* Needed for memset */
 #include <string.h>
+/* Needed for C-string to integer argument conversion */
 #include <ctype.h>
-#include "bitset.h"
-#include "set.h"
+
+/* "Needed" by bitset */
+#define BITS_PER_ELEMENT  (sizeof(unsigned long) * 8)
+#define ONE               1UL
+#define mask(num)          (ONE << (num % BITS_PER_ELEMENT)) 
+#define element(bits, num) (((unsigned long *)bits)[num / BITS_PER_ELEMENT])
 end
 
 
@@ -60,27 +66,25 @@ passive class Bitset
   def init(size:int) : void
     embed void
       this->size = size;
-      this->data = pony_alloc(size / 8 + size % 8);
-      memset(this->data, 0, size / 8 + size % 8);
+      this->data = pony_alloc(size / 8 + 1);
+      memset(this->data, 0, size / 8 + 1);
       this->capacity = size;
     end
 
   def isset(index:int) : bool
     embed bool
-      assert(0 <= index && index < this->capacity);
-      !isset((bitset*) this->data, #{index});
+      bool r = element(this->data, index) & mask(index);
+      !r;
     end
 
   def set(index:int) : void
     embed void
-      assert(0 <= index && index < this->capacity);
-      unset((bitset*) this->data, #{index});
+      element(this->data, index) &= ~mask(index); 
     end
 
   def unset(index:int) : void
     embed void
-      assert(0 <= index && index < this->capacity);
-      set((bitset*) this->data, #{index});
+      element(this->data, index) |=  mask(index); 
     end
 
 --
@@ -92,8 +96,18 @@ passive class Bitset
 -- class could go.
 --
 passive class Utility
-  def init() : void 
-    ()
+  adjustment:int
+
+  def init(adjustment:int) : Utility {
+    this.adjustment = adjustment; 
+    this
+  }
+
+  def start_adjustment_for_actor(actor:int) : int 
+    if actor == 0 then 0 else this.adjustment * 2
+
+  def size_adjustment_for_actor(actor:int) : int 
+    if actor == 0 then this.adjustment else 0
 
   -- In wating for the ability to write 2^depth - 1
   def actors_for_depth(depth:int) : int
@@ -136,7 +150,7 @@ class Filter
 
   def init(id:int, size:int, depth:int, u:Utility, p:Filter) : void {
     this.result = 0;
-    this.setup(id, size);
+    this.setup(id, size, u);
     this.parent  = p;
     this.barrier = 3;
 
@@ -150,10 +164,10 @@ class Filter
     };
   }
 
-  def setup(id:int, size:int) : void {
+  def setup(id:int, size:int, u:Utility) : void {
     this.id = id;
-    this.start = id * size * 2 + 3;
-    this.size = size;
+    this.start = id * size * 2 + 3 + u.start_adjustment_for_actor(id);
+    this.size = size + u.size_adjustment_for_actor(id);
     if this.start % 2 == 0 then {
       this.start = this.start + 1;
       this.size = this.size - 1;
@@ -234,9 +248,7 @@ class Filter
   def cancel_one(prime:int) : void {
     let i = this.calculate_offset(this.start, this.size, prime) in {
       if i < 0 then { (); } else {
-	-- printf "{} has offset {} @ {}\n", prime, i, this.id;
         while i < this.size {
-	  -- printf "{} cancels {} @ {}\n", this.id, prime, i;
           this.primes.unset(i);
           i = i + prime;
         };
@@ -258,14 +270,12 @@ class Filter
         prime = prime + 2; -- So we could print it if needed
 	i = i + 1;
       };
-      -- printf "{} finds {} primes in [{}..{}]\n", this.id, primes, this.start, this.start + this.size * 2;
       if this.left == null then this.parent ! result(primes, this.id) else this ! result(primes, this.id);
     }
   }
 
   -- Aggregate results from children and pass to parent 
   def result(result:int, id:int) : void {
-    -- printf "{} gets {} from {} holding {} when barrier is {}\n", this.id, result, id, this.result, this.barrier;
     this.result = this.result + result;
     this.barrier = this.barrier - 1;
     if this.barrier == 0 then 
@@ -281,22 +291,22 @@ class Main
     embed void
       if (argc >= 3) { 
 	int candidates = atol(argv[1]);
-	fprintf(stderr, "# of primes in %d candidates:\n", candidates);
-        Main_run(this, candidates / 2, atol(argv[2]));
+        int depth      = atol(argv[2]);
+	fprintf(stderr, "# of primes in %d candidates using %lld filter actors: ", candidates, Utility_actors_for_depth(NULL, depth));
+        Main_run(this, candidates / 2, depth);
       } else {
-        puts("Usage: ps candidates depth");
+        printf("Usage: %s candidates depth\n", argv[0]);
       }
     end
 
-  def run(candidates_approx:int, depth:int) : void {
+  def run(candidates:int, depth:int) : void {
     let
-      u          = let t = new Utility in { t.init(); t } 
-      size       = u.actor_size(candidates_approx, depth) 
-      candidates = u.candidates_adjusted(candidates_approx, depth) 
-      f          = let t = new Filter  in { t.init(0, size, depth, u, t ); t } 
+      u          = new Utility
+      size       = u.actor_size(candidates, depth) 
+      actors     = u.actors_for_depth(depth) 
+      adjustment = candidates - size * actors 
+      f          = let t = new Filter  in { t.init(0, size, depth, u.init(adjustment), t ); t } 
     in {
       f ! filter();
-      if candidates_approx != candidates then print("Adjusted candidate size: {}\n", candidates * 2) else ();
     }
   }
-
