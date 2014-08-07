@@ -55,6 +55,7 @@ checkType ty
     | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
                           retType <- checkType $ getResultType ty
                           return $ arrowType argTypes retType
+    | otherwise = tcError $ "Unknown type '" ++ show ty ++ "'"
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -78,8 +79,9 @@ class Checkable a where
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
 instance Checkable Program where
-    typecheck (Program etl classes) = do eclasses <- mapM pushTypecheck classes
-                                         return $ Program etl eclasses
+    typecheck (Program etl classes) = 
+        do eclasses <- mapM pushTypecheck classes
+           return $ Program etl eclasses
 
 instance Checkable ClassDecl where
     typecheck c@(Class {cname, fields, methods}) =
@@ -104,7 +106,8 @@ instance Checkable ClassDecl where
 instance Checkable FieldDecl where
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
                                      let types = typeComponents ty
-                                     when (any isTypeVar types) $ tcError $ "Free type variables in field type"
+                                     when (any isTypeVar types) $ 
+                                          tcError $ "Free type variables in field type"
                                      return $ setType ty f
   
 
@@ -116,7 +119,7 @@ instance Checkable MethodDecl where
            when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $ pushHasType mbody ty
-           return $ setType mtype m {mtype = ty, mbody = eBody, mparams = eMparams}
+           return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           noFreeTypeVariables = 
               let retVars = nub $ filter isTypeVar $ typeComponents mtype 
@@ -217,7 +220,7 @@ instance Checkable Expr where
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
            eBody <- local (addParams eEparams) $ pushTypecheck body
-           returnType <- return $ AST.getType eBody
+           let returnType = AST.getType eBody
            when (isNullType returnType) $ 
                 tcError $ "Cannot infer return type of closure with null-valued body"
            return $ setType (arrowType (map ptype eparams) returnType) closure {body = eBody, eparams = eEparams}
@@ -445,4 +448,3 @@ instance Checkable LVal where
            case fType of
              Just ty -> return $ setType ty lval {ltarget = eTarget}
              Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"
-

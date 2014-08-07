@@ -91,7 +91,7 @@ compileProgram prog exe_path options =
              let cmd = "clang" <+> 
                        cFile <+> 
                        ofilesInc <+> 
-                       "-ggdb -Wall -lpthread" <+>
+                       "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
                        " -o" <+> execName <+>
                        (libPath++"*.a") <+>
                        (libPath++"*.a") <+>
@@ -141,16 +141,22 @@ main =
                     let program = parseEncoreProgram sourceName code
                     case program of
                       Right ast -> do
-                                   when (Intermediate Parsed `elem` options) (withFile (exeName ++ ".AST") WriteMode (flip hPrint $ show ast))
+                                   when (Intermediate Parsed `elem` options) 
+                                            (withFile (exeName ++ ".AST") WriteMode 
+                                             (flip hPrint $ show ast))
                                    let tcResult = typecheckEncoreProgram ast
                                    case tcResult of
-                                     Right ast -> do
-                                                   when (Intermediate TypeChecked `elem` options) (withFile (exeName ++ ".TAST") WriteMode (flip hPrint $ show ast))
-                                                   compileProgram ast exeName options
-                                                   when (Run `elem` options) (do
-                                                                               system $ "./" ++ exeName
-                                                                               system $ "rm " ++ exeName
-                                                                               return ())
+                                     Right ast -> 
+                                         do
+                                           when (Intermediate TypeChecked `elem` options)
+                                                    (withFile (exeName ++ ".TAST") WriteMode 
+                                                     (flip hPrint $ show ast))
+                                           compileProgram ast exeName options
+                                           when (Run `elem` options) 
+                                                    (do
+                                                      system $ "./" ++ exeName
+                                                      system $ "rm " ++ exeName
+                                                      return ())
                                      Left error -> fail $ show error
                       Left error -> fail $ show error
     where

@@ -68,8 +68,9 @@ translateActiveClass cdecl =
                [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
                 Statement (Call (Nam "future_fulfil") 
                            [AsExpr $ Var "fut",
-                            (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
-                          ((AsExpr . Var $ "p") : (paramdecls_to_argv 1 $ A.mparams mdecl)))])]))
+                            Cast (Ptr void)
+                              (Call ((method_impl_name (A.cname cdecl) (A.mname mdecl)))
+                               ((AsExpr . Var $ "p") : (paramdecls_to_argv 1 $ A.mparams mdecl)))])]))
 
       one_way_send_dispatch_clause :: A.ClassDecl -> A.MethodDecl -> (CCode Name, CCode Stat)
       one_way_send_dispatch_clause cdecl mdecl =
@@ -120,20 +121,18 @@ translateActiveClass cdecl =
                                           Cast (Ptr $ Ptr char) $ (ArrAcc 1 (Var "argv")) `Dot` (Nam "p")]
                               ])
             
-            alloc_instr = Concat $
-                          [(Var "p") `Assign`
-                           (Statement
-                            (Call (Nam "pony_alloc")
-                                      [(Call
-                                        (Var "sizeof")
-                                        [Var $ show (data_rec_name $ A.cname cdecl)])])),
-                           (Assign
-                            (Deref (Cast (data_rec_ptr $ A.cname cdecl) (Var "p") ) `Dot` Nam "aref")
-                            (Var "this")
-                           ),
-                           (Statement
-                            (Call (Nam "pony_set")
-                                      [Var "p"]))]
+            alloc_instr = let size = Call (Var "sizeof") [Var $ show (data_rec_name $ A.cname cdecl)]
+                          in
+                            Concat $
+                              [(Var "p") `Assign`
+                                 (Statement $ Call (Nam "pony_alloc") [size]),
+                               Statement (Call (Nam "memset") [AsExpr $ Var "p", Embed "0", size]),
+                               (Assign
+                                (Deref (Cast (data_rec_ptr $ A.cname cdecl) (Var "p") ) `Dot` Nam "aref")
+                                (Var "this")),
+                               (Statement
+                                (Call (Nam "pony_set")
+                                 [Var "p"]))]
 
             fut_resume_instr = Concat 
                                  [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),

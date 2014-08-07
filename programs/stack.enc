@@ -46,7 +46,7 @@ class Popper
 
 class Main
   stack : Stack
-  def main() : void
+  def main() : Fut void
     let pusher = new Pusher in
     let popper = new Popper in
     let stack  = new Stack  in{
