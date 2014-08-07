@@ -31,12 +31,12 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
-              | printf \" String \", Arguments
+              | print ( \" String \" , Arguments )
               | \" String \"
               | Int
               | Expr Op Expr
               | embed Type .* end
-              | (Expr)
+              | ( Expr )
               | \\ ( ParamDecls ) -> Expr
         Op ::= \< | \> | == | != | + | - | * | / | %
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
@@ -89,7 +89,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "printf", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -107,6 +107,8 @@ semi       = P.semi lexer
 semiSep    = P.semiSep lexer
 comma      = P.comma lexer
 parens     = P.parens lexer
+lparen     = P.symbol lexer "("
+rparen     = P.symbol lexer ")"
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
 natural = P.natural lexer
@@ -284,7 +286,6 @@ expr  =  unit
      <|> true
      <|> false
      <|> sequence
-     <|> try printf
      <|> print
      <|> string
      <|> try real
@@ -369,16 +370,16 @@ expr  =  unit
                 reserved "new" ;
                 ty <- typ ;
                 return $ New (meta pos) ty}
-      printf = do {pos <- getPosition ;
-                   reserved "printf" ;
-                   string <- stringLiteral ;
-                   optional comma ;
-                   args <- commaSep expression ;
-                   return $ PrintF (meta pos) string args}
       print = do {pos <- getPosition ;
                   reserved "print" ;
-                  expr <- expression ;
-                  return $ Print (meta pos) expr}
+                  (string, args) <- 
+                      try (parens (do {string <- stringLiteral ;
+                                      optional comma ;
+                                      args <- commaSep expression ;
+                                      return (string, args)}))
+                      <|> (do {val <- expression ;
+                               return ("{}\n", [val])}) ;
+                      return $ Print (meta pos) string args}
       string = do {pos <- getPosition ;
                    string <- stringLiteral ; 
                    return $ StringLiteral (meta pos) string}

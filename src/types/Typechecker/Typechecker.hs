@@ -319,17 +319,13 @@ instance Checkable Expr where
            when (isMainType ty') $ tcError "Cannot create additional Main objects"
            return $ setType ty' new
 
-    typecheck printf@(PrintF {stringLit, args}) =
+    typecheck print@(Print {stringLit, args}) =
         do let noArgs = T.count (T.pack "{}") (T.pack stringLit)
            unless (noArgs == length args) $
                   tcError $ "Wrong number of arguments to format string. " ++
                             "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
            eArgs <- mapM pushTypecheck args
-           return $ setType voidType printf {args = eArgs}
-
-    typecheck print@(Print {val}) = 
-        do eVal <- pushTypecheck val
-           return $ setType voidType print {val = eVal}
+           return $ setType voidType print {args = eArgs}
 
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 

@@ -2,6 +2,6 @@ class Main
   def main() : void
     let i = 1 in
       while i < 10{
-        printf "The square of {} is {}\n", i, i*i;
+        print("The square of {} is {}\n", i, i*i);
         i = i + 1;
       }

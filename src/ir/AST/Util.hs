@@ -37,7 +37,7 @@ foldr f acc e@(Seq {eseq}) = f e (List.foldr (\e acc -> foldr f acc e) acc eseq)
 foldr f acc e@(Get {val}) = f e (foldr f acc val)
 foldr f acc e@(FieldAccess {target, name}) = f e (foldr f acc target)
 foldr f acc e@(Assign {rhs}) = f e (foldr f acc rhs)
-foldr f acc e@(Print {val}) = f e (foldr f acc val)
+foldr f acc e@(Print {args}) = f e (List.foldr (\e acc -> foldr f acc e) acc args) --f e (foldr f acc val)
 foldr f acc e = f e acc
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
@@ -50,18 +50,18 @@ extend :: (Expr -> Expr) -> Expr -> Expr
 extend f e@(MethodCall {target, args}) = 
     let e'@(MethodCall {target = t, args = a}) = f e
         t' = f t
-        a' = map f a
+        a' = map (\x -> extend f x) a
     in
       e'{target = t', args = a'}
 extend f e@(MessageSend {target, args}) = 
     let e'@(MessageSend {target = t, args = a}) = f e
         t' = f t
-        a' = map f a
+        a' = map (\x -> extend f x) a
     in
       e'{target = t', args = a'}
 extend f e@(Let {decls, body}) = 
     let e'@(Let {decls = d, body = b}) = f e
-        d' = map (\(name, val) -> (name, f val)) d
+        d' = map (\(name, val) -> (name, extend f val)) d
         b' = f b
     in
       e'{decls = d', body = b'}
@@ -86,7 +86,7 @@ extend f e@(Binop {loper, roper}) =
       e'{loper = l', roper = r'}
 extend f e@(FunctionCall {args}) = 
     let e'@(FunctionCall {args = a}) = f e
-        a' = map f a
+        a' = map (\x -> extend f x) a
     in
       e'{args = a'}
 extend f e@(Closure {body}) = 
@@ -96,7 +96,7 @@ extend f e@(Closure {body}) =
       e'{body = b'}
 extend f e@(Seq {eseq}) = 
     let e'@(Seq {eseq = es}) = f e
-        es' = map f es
+        es' = map (\x -> extend f x) es
     in
       e'{eseq = es'}
 extend f e@(Get {val}) = 
@@ -114,11 +114,11 @@ extend f e@(Assign {rhs}) =
         r' = f r
     in
       e'{rhs = r'}
-extend f e@(Print {val}) = 
-    let e'@(Print {val = v}) = f e
-        v' = f v
+extend f e@(Print {args}) = 
+    let e'@(Print {args = a}) = f e
+        a' = map (\x -> extend f x) a
     in
-      e'{val = v'}
+      e'{args = a'}
 extend f e = f e
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
@@ -193,10 +193,10 @@ extendAccum f acc e@(Assign {}) =
     in
       (acc1, e'{rhs = r'})
 extendAccum f acc e@(Print {}) = 
-    let (acc0, e'@(Print {val = v})) = f acc e
-        (acc1, v') = extendAccum f acc0 v
+    let (acc0, e'@(Print {args = a})) = f acc e
+        (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 a
     in
-      (acc1, e'{val = v'})
+      (acc1, e'{args = a'})
 extendAccum f acc e = f acc e
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
@@ -267,8 +267,8 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
       freeVariables' bound var@(VarAccess {name})
           | name `elem` bound = []
           | otherwise = [(name, getType var)]
-      freeVariables' bound Print {val} = 
-          freeVariables' bound val
+      freeVariables' bound Print {args} = 
+          concatMap (freeVariables' bound) args
       freeVariables' bound Binop {loper, roper} = 
           freeVariables' bound loper ++ freeVariables' bound roper
       freeVariables' bound _ = []
