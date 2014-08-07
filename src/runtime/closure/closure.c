@@ -1,7 +1,8 @@
 #include "closure.h"
 
 // Control whether pony_alloc is used or not
-// #define USE_PONY_ALLOC
+
+//#define USE_PONY_ALLOC 1
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>

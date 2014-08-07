@@ -3,10 +3,10 @@ all:	run
 ENCOREC=../../../release/encorec
 INC_DIR=-I../bitset -I../../../release/inc
 LIB_DIR=-L../bitset -L../../../release/lib
-LIBS=-lpony -lclosure -lfuture 
+LIBS=-lpony -lclosure -lfuture -lc
 EXPECTED=../primes/26M.txt
 BITSET_C=../bitset/bitset.c ../../../src/runtime/set/set.c
-PS=sieve
+PS=mr
 
 generate:
 	$(ENCOREC) $(PS).enc
