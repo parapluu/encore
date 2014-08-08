@@ -90,7 +90,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -280,6 +280,7 @@ expr  =  unit
      <|> varAccess
      <|> letExpression
      <|> ifThenElse
+     <|> unless
      <|> while
      <|> get
      <|> new
@@ -331,6 +332,12 @@ expr  =  unit
                        reserved "else" ;
                        els <- expression ;
                        return $ IfThenElse (meta pos) cond thn els}
+      unless = do {pos <- getPosition ;
+                       reserved "unless" ; 
+                       cond <- expression ;
+                       reserved "then" ;
+                       thn <- expression ;
+                       return $ Unless (meta pos) cond thn}
       while = do {pos <- getPosition ;
                   reserved "while" ; 
                   cond <- expression ;
