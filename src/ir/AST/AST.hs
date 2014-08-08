@@ -132,6 +132,9 @@ data Expr = Skip {emeta :: Meta}
                         cond :: Expr, 
                         thn :: Expr, 
                         els :: Expr}
+          | IfThen {emeta :: Meta, 
+                    cond :: Expr, 
+                    thn :: Expr}
           | Unless {emeta :: Meta, 
                     cond :: Expr, 
                     thn :: Expr}

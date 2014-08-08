@@ -1,0 +1,42 @@
+class Main
+  def main() : void{
+    if true then
+      print "Hello Ponyworld 1!";
+
+    if true then
+      if false then
+        print "Bad Pony!"
+      else
+        print "Hello Ponyworld 2!";
+
+    if true then
+      (if false then
+        print "Bad Pony!")
+    else
+      print "Bad Pony!";
+
+    if false then
+      if false then
+         print "Bad Pony!"
+      else
+        print "Bad Pony!";
+
+    if false then
+      (if false then
+         print "Bad Pony!")
+    else
+      print "Hello Ponyworld 3!";
+
+    if false then
+      if true then
+        print "Bad Pony!"
+      else
+        print "Bad Pony!";
+
+    if false then
+      (if true then
+         print "Bad Pony!")
+    else
+      print "Hello Ponyworld 4!";
+
+  }

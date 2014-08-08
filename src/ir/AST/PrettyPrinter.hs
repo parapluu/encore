@@ -25,6 +25,7 @@ ppIn = text "in"
 ppIf = text "if"
 ppThen = text "then"
 ppElse = text "else"
+ppUnless = text "unless"
 ppWhile = text "while"
 ppGet = text "get"
 ppNull = text "null"
@@ -113,6 +114,12 @@ ppExpr IfThenElse {cond, thn, els} =
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
+ppExpr IfThen {cond, thn} = 
+    ppIf <+> ppExpr cond <+> ppThen $+$
+         indent (ppExpr thn)
+ppExpr Unless {cond, thn} = 
+    ppUnless <+> ppExpr cond <+> ppThen $+$
+         indent (ppExpr thn)
 ppExpr While {cond, body} = 
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)

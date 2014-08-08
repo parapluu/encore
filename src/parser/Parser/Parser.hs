@@ -279,7 +279,8 @@ expr  =  unit
      <|> parens expression
      <|> varAccess
      <|> letExpression
-     <|> ifThenElse
+     <|> try ifThenElse
+     <|> ifThen
      <|> unless
      <|> while
      <|> get
@@ -332,12 +333,18 @@ expr  =  unit
                        reserved "else" ;
                        els <- expression ;
                        return $ IfThenElse (meta pos) cond thn els}
+      ifThen = do {pos <- getPosition ;
+                   reserved "if" ; 
+                   cond <- expression ;
+                   reserved "then" ;
+                   thn <- expression ;
+                   return $ IfThen (meta pos) cond thn}
       unless = do {pos <- getPosition ;
-                       reserved "unless" ; 
-                       cond <- expression ;
-                       reserved "then" ;
-                       thn <- expression ;
-                       return $ Unless (meta pos) cond thn}
+                   reserved "unless" ; 
+                   cond <- expression ;
+                   reserved "then" ;
+                   thn <- expression ;
+                   return $ Unless (meta pos) cond thn}
       while = do {pos <- getPosition ;
                   reserved "while" ; 
                   cond <- expression ;

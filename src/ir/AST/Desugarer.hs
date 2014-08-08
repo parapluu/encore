@@ -43,7 +43,10 @@ desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = cond : lit@(
                        Exit emeta [IntLiteral emeta 1]])
            (Skip emeta)
 
-desugar u@Unless{emeta, cond, thn} =
+desugar u@IfThen{emeta, cond, thn} =
+    IfThenElse emeta cond thn (Skip emeta)
+
+desugar u@Unless{emeta, cond, thn} = 
     IfThenElse emeta (Unary emeta Identifiers.NOT cond) thn (Skip emeta)
 
 desugar e = e
