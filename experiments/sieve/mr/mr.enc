@@ -172,7 +172,7 @@ class Filter
     if this.start % 2 == 0 then {
       this.start = this.start + 1;
       this.size = this.size - 1;
-    } else { (); };
+    };
     this.primes = new Bitset(this.size)
   }
 
@@ -194,11 +194,11 @@ class Filter
           if primes % bufsiz == 0 then {
 	    this.cancel_forward(buffer);
             buffer = new List(bufsiz);
-          } else { (); };
-        } else { (); };
+          } else {();};
+        } else {();};
         i = i + 1;
       };
-      if buffer.size > 0 then this.cancel_forward(buffer) else ();
+      if buffer.size > 0 then this.cancel_forward(buffer);
       this.done();
     }
 
@@ -248,7 +248,7 @@ class Filter
   -- Cancel all multiples of one prime
   def cancel_one(prime:int) : void {
     let i = this.calculate_offset(this.start, this.size, prime) in {
-      if i < 0 then { (); } else {
+      if i > -1 then { 
         while i < this.size {
           this.primes.unset(i);
           i = i + prime;
@@ -267,7 +267,7 @@ class Filter
       prime  = this.start
     in {
       while i < this.size {
-        if this.primes.isset(i) then primes = primes + 1 else ();
+        if this.primes.isset(i) then primes = primes + 1;
         prime = prime + 2; -- So we could print it if needed
 	i = i + 1;
       };
@@ -280,8 +280,7 @@ class Filter
     this.result = this.result + result;
     this.barrier = this.barrier - 1;
     if this.barrier == 0 then 
-      if this.id == 0 then print this.result + 1 else this.parent ! result(this.result, this.id)
-    else ();
+      if this.id == 0 then print this.result + 1 else this.parent ! result(this.result, this.id);
   }
 
 --
