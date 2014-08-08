@@ -137,6 +137,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         format_string ('{':'}':s) (ty:tys) = (type_to_printf_fstr ty) ++ (format_string s tys)
         format_string (c:s) tys = c : (format_string s tys)
 
+  translate exit@(A.Exit {A.args = [arg]}) = do
+      (narg, targ) <- translate arg
+      let exit_call = Call (Nam "exit") [narg]
+      return (unit, Seq [Statement targ, Statement exit_call])
+
   translate seq@(A.Seq {A.eseq = es}) = do
     ntes <- mapM translate es
     let (nes, tes) = unzip ntes
