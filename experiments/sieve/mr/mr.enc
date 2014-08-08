@@ -156,8 +156,8 @@ class Filter
     this.barrier = 3;
 
     if depth > 1 then {
-      this.left =  let t = new Filter in { t ! init(id + 1,                                 size, depth - 1, u, this); t };
-      this.right = let t = new Filter in { t ! init(id + 1 + u.actors_for_depth(depth - 1), size, depth - 1, u, this); t };
+      this.left =  new Filter(id + 1,                                 size, depth - 1, u, this);
+      this.right = new Filter(id + 1 + u.actors_for_depth(depth - 1), size, depth - 1, u, this);
     } else { 
       this.left = null;
       this.right = null;
@@ -173,7 +173,7 @@ class Filter
       this.start = this.start + 1;
       this.size = this.size - 1;
     } else { (); };
-    this.primes = let t = new Bitset in { t.init(this.size); t };
+    this.primes = new Bitset(this.size)
   }
 
   -- Only called at top-level: filter out all primes, starting at 3
@@ -183,7 +183,7 @@ class Filter
       i      = 0 
       bufsiz = 1024
       primes = 0
-      buffer = let t = new List in { t.init(bufsiz); t }
+      buffer = new List(bufsiz)
     in {
       while i < size {
         if this.primes.isset(i) then { 
@@ -193,7 +193,7 @@ class Filter
 	  this.primes.set(i);
           if primes % bufsiz == 0 then {
 	    this.cancel_forward(buffer);
-            buffer = let t = new List in { t.init(bufsiz); t };
+            buffer = new List(bufsiz);
           } else { (); };
         } else { (); };
         i = i + 1;
@@ -306,7 +306,7 @@ class Main
       size       = u.actor_size(candidates, depth) 
       actors     = u.actors_for_depth(depth) 
       adjustment = candidates - size * actors 
-      f          = let t = new Filter  in { t.init(0, size, depth, u.init(adjustment), t ); t } 
+      f          = let t = new Filter in { t.init(0, size, depth, u.init(adjustment), t) ; t }
     in {
       f ! filter();
     }
