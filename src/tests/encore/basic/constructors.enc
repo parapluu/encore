@@ -1,0 +1,7 @@
+class Foo
+  def init(a:int) : void
+    print a
+
+class Main
+  def main() : Foo
+    new Foo(42)
