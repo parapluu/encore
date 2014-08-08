@@ -1,0 +1,6 @@
+class Main
+  def main() : void{
+      print "Hello Ponyworld!";
+      exit(0);
+      print "Goodbye Ponyworld";
+    }
