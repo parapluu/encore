@@ -5,7 +5,7 @@
 #
 # NOTE!!!!!!!!!!!!!!!!
 # 
-# If you run this program on OSX, first do "brew install gtime"
+# If you run this program on OSX, first do "brew install gnu-time"
 # ----------------------------------------------------------------
 
 from subprocess import call, check_output
