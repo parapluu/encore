@@ -1,6 +1,7 @@
 embed
 /* Needed for memset */
 #include <string.h>
+
 /* Needed for C-string to integer argument conversion */
 #include <ctype.h>
 
