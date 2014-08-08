@@ -284,6 +284,7 @@ expr  =  unit
      <|> unless
      <|> while
      <|> get
+     <|> try newWithInit
      <|> new
      <|> null
      <|> true
@@ -381,6 +382,11 @@ expr  =  unit
       false = do {pos <- getPosition ;
                   reserved "false" ; 
                   return $ BFalse (meta pos)}
+      newWithInit = do {pos <- getPosition ;
+                reserved "new" ;
+                ty <- typ ;
+                args <- parens arguments ; 
+                return $ NewWithInit (meta pos) ty args}
       new = do {pos <- getPosition ;
                 reserved "new" ;
                 ty <- typ ;

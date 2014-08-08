@@ -154,6 +154,9 @@ data Expr = Skip {emeta :: Meta}
           | Null {emeta :: Meta}
           | BTrue {emeta :: Meta}
           | BFalse {emeta :: Meta}
+          | NewWithInit {emeta :: Meta, 
+                         ty ::Type,
+                         args :: Arguments}
           | New {emeta :: Meta, 
                  ty ::Type}
           | Print {emeta :: Meta, 

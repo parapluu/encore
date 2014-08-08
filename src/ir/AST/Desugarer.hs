@@ -49,4 +49,7 @@ desugar u@IfThen{emeta, cond, thn} =
 desugar u@Unless{emeta, cond, thn} = 
     IfThenElse emeta (Unary emeta Identifiers.NOT cond) thn (Skip emeta)
 
+desugar n@NewWithInit{emeta, ty, args} = 
+    Let (emeta) [(Name "__tmp__", (New emeta ty))] (Seq emeta [(MethodCall (emeta) (VarAccess emeta (Name "__tmp__")) (Name "init") args), (VarAccess emeta (Name "__tmp__"))])
+
 desugar e = e
