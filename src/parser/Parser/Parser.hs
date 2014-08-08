@@ -31,7 +31,8 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
-              | print ( \" String \" , Arguments )
+              | print ( \" String \" {Args}? )
+              | exit( Int )
               | \" String \"
               | Int
               | Expr Op Expr

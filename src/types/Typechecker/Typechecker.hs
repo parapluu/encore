@@ -211,7 +211,8 @@ instance Checkable Expr where
                            argTypes <- return $ getArgTypes ty
                            unless (length args == length argTypes) $ 
                                   tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ show (length args)
+                                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
+                                            show (length args)
                            (eArgs, bindings) <- checkArguments args argTypes
                            let resultType = replaceTypeVars bindings (getResultType ty)
                            return $ setType resultType fcall {args = eArgs}
@@ -326,6 +327,12 @@ instance Checkable Expr where
                             "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
            eArgs <- mapM pushTypecheck args
            return $ setType voidType print {args = eArgs}
+
+    typecheck exit@(Exit {args}) = 
+        do eArgs <- mapM pushTypecheck args
+           unless (length eArgs == 1 && (isIntType $ AST.getType (head eArgs))) $
+                  tcError $ "exit expects a single integer argument"
+           return $ setType voidType exit {args = eArgs}
 
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 

@@ -17,7 +17,7 @@ import Identifiers
 import Types
 import AST.Meta
 
-data Program = Program EmbedTL [ClassDecl] deriving(Show)
+data Program = Program {etl :: EmbedTL, classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
     getPos :: a -> SourcePos
@@ -153,6 +153,8 @@ data Expr = Skip {emeta :: Meta}
           | Print {emeta :: Meta, 
                    stringLit :: String,
                    args :: [Expr]}
+          | Exit {emeta :: Meta,
+                  args :: [Expr]}
           | StringLiteral {emeta :: Meta, 
                            stringLit :: String}
           | IntLiteral {emeta :: Meta, 
