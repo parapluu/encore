@@ -112,7 +112,7 @@ lparen     = P.symbol lexer "("
 rparen     = P.symbol lexer ")"
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
-natural = P.natural lexer
+natural = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
