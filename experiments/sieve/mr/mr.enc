@@ -248,7 +248,7 @@ class Filter
   -- Cancel all multiples of one prime
   def cancel_one(prime:int) : void {
     let i = this.calculate_offset(this.start, this.size, prime) in {
-      if i > -1 then { 
+      if i >= 0 then { 
         while i < this.size {
           this.primes.unset(i);
           i = i + prime;
