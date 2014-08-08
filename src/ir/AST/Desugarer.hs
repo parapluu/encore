@@ -31,4 +31,16 @@ desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
                        Exit emeta [IntLiteral emeta 1]])
            (Skip emeta)
 
+desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = cond : lit@(StringLiteral {stringLit = s}) : rest} = 
+    IfThenElse emeta cond 
+           (Skip emeta)
+           (Seq emeta [Print emeta ("Assertion failed: " ++ s ++ "\n") rest,
+                       Exit emeta [IntLiteral emeta 1]])
+
+desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = cond : lit@(StringLiteral {stringLit = s}) : rest} = 
+    IfThenElse emeta cond 
+           (Seq emeta [Print emeta ("Assertion failed: " ++ s ++ "\n") rest,
+                       Exit emeta [IntLiteral emeta 1]])
+           (Skip emeta)
+
 desugar e = e
