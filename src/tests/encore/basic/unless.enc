@@ -1,0 +1,4 @@
+class Main
+  def main() : void
+    unless 1 == 2 then
+      print "Hello Ponyworld!"
