@@ -382,7 +382,7 @@ instance Checkable Expr where
       | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
       where
         boolOps   = [Identifiers.AND, Identifiers.OR]
-        cmpOps   = [Identifiers.LT, Identifiers.GT]
+        cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]
         eqOps    = [Identifiers.EQ, NEQ]
         arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
         coerceTypes ty1 ty2

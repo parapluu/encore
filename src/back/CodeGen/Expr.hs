@@ -32,6 +32,8 @@ instance Translatable ID.Op (CCode Name) where
     ID.OR -> "||"
     ID.LT -> "<"
     ID.GT -> ">"
+    ID.LTE -> "<="
+    ID.GTE -> ">="
     ID.EQ -> "=="
     ID.NEQ -> "!="
     ID.PLUS -> "+"

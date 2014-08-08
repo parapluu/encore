@@ -15,7 +15,7 @@ thisName :: Name
 thisName = Name "this"
 
 -- | The supported (infix) operators
-data Op = AND | OR | NOT | LT | GT | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq, Show)
+data Op = AND | OR | NOT | LT | GT | LTE | GTE | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq, Show)
 -- instance Show Op where
 --     show Identifiers.AND = "&&"
 --     show Identifiers.OR = "||"
