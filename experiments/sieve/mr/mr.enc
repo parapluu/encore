@@ -241,8 +241,8 @@ class Filter
   -- Forward a list of primes to cancel to children
   def cancel_forward(primes:List) : void {
     -- primes.dump(this.id);
-    if this.right == null then () else this.right ! cancel_many(primes);
-    if this.left  == null then () else this.left  ! cancel_many(primes);
+    unless this.right == null then this.right ! cancel_many(primes);
+    unless this.left  == null then this.left  ! cancel_many(primes);
   }
 
   -- Cancel all multiples of one prime
@@ -259,8 +259,8 @@ class Filter
 
   -- Notify children to calculate the number of primes found and pass to parent
   def done() : void {
-    if this.left  == null then () else this.left  ! done();
-    if this.right == null then () else this.right ! done();
+    unless this.left  == null then this.left  ! done();
+    unless this.right == null then this.right ! done();
     let 
       i      = 0
       primes = 0
