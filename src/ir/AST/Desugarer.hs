@@ -4,6 +4,7 @@ module AST.Desugarer(desugarProgram) where
 
 import Identifiers
 import AST.AST
+import AST.PrettyPrinter
 import AST.Util
 import Types
 
@@ -15,5 +16,19 @@ desugarProgram p@(Program{classes}) = p{classes = map desugarClass classes}
       desugarExpr = extend desugar
 
 desugar :: Expr -> Expr
+
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
+
+desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} = 
+    IfThenElse emeta cond
+           (Skip emeta)
+           (Seq emeta [Print emeta ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
+                       Exit emeta [IntLiteral emeta 1]])
+
+desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} = 
+    IfThenElse emeta cond 
+           (Seq emeta [Print emeta ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
+                       Exit emeta [IntLiteral emeta 1]])
+           (Skip emeta)
+
 desugar e = e
