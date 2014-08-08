@@ -1,0 +1,5 @@
+class Main
+  def main() : void {
+    assertFalse(false);
+    assertFalse(true, "Kingfisher")
+  }
