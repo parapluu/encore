@@ -353,9 +353,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate get@(A.Get{A.val = val}) = 
       do (nval, tval) <- translate val
-         let the_get = Statement $ Call (Nam "future_get") [nval, Var "this->aref"]
+         let result_type = translate (Ty.getResultType $ A.getType val)
+         let the_get = Cast (result_type) $ Call (Nam "future_get") [nval, Var "this->aref"]
          tmp <- Ctx.gen_sym
-         return (Var tmp, Seq [tval, Assign (Decl (translate (A.getType val), Var tmp)) the_get])
+         return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
 
   translate clos@(A.Closure{A.eparams = params, A.body = body}) = 
       do let fun_name = closure_fun_name $ A.getMetaId clos
