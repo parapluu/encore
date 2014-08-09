@@ -130,6 +130,7 @@ ppExpr Assign {lhs, rhs} = ppLVal lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
+ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))

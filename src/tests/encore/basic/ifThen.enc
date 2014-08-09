@@ -4,10 +4,14 @@ class Main
       print "Hello Ponyworld 1!";
 
     if true then
+      if true then
+        print "Hello Ponyworld 2!";
+
+    if true then
       if false then
         print "Bad Pony!"
       else
-        print "Hello Ponyworld 2!";
+        print "Hello Ponyworld 3!";
 
     if true then
       (if false then
@@ -25,7 +29,7 @@ class Main
       (if false then
          print "Bad Pony!")
     else
-      print "Hello Ponyworld 3!";
+      print "Hello Ponyworld 4!";
 
     if false then
       if true then
@@ -37,6 +41,6 @@ class Main
       (if true then
          print "Bad Pony!")
     else
-      print "Hello Ponyworld 4!";
+      print "Hello Ponyworld 5!";
 
   }

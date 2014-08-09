@@ -18,6 +18,8 @@ foldr f acc e@(MethodCall {target, args}) =
 foldr f acc e@(MessageSend {target, args}) = 
     let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
     f e (foldr f argResults target)
+foldr f acc e@(NewWithInit {args}) = 
+    f e (List.foldr (\e acc -> foldr f acc e) acc args)
 foldr f acc e@(Let {decls, body}) = 
     let declsResults = List.foldr (\(name, val) acc' -> foldr f acc' val) acc decls in
     f e (foldr f declsResults body)
@@ -25,6 +27,12 @@ foldr f acc e@(IfThenElse {cond, thn, els}) =
     let condResults = foldr f acc cond
         thnResults = foldr f condResults thn in
     f e (foldr f thnResults els)
+foldr f acc e@(IfThen {cond, thn}) = 
+    let condResults = foldr f acc cond in
+    f e (foldr f condResults thn)
+foldr f acc e@(Unless {cond, thn}) = 
+    let condResults = foldr f acc cond in
+    f e (foldr f condResults thn)
 foldr f acc e@(While {cond, body}) = 
     let condResults = foldr f acc cond in
     f e (foldr f condResults body)
@@ -61,6 +69,10 @@ extendAccum f acc0 e@(MessageSend {target, args}) =
         (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
     in
       f acc2 e{target = t', args = a'}
+extendAccum f acc0 e@(NewWithInit {args}) = 
+    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
+    in
+      f acc1 e{args = a'}
 extendAccum f acc0 e@(Let {decls, body}) = 
     let (acc1, d') = List.mapAccumL accumDecls acc0 decls
         (acc2, b') = extendAccum f acc1 body
@@ -75,6 +87,16 @@ extendAccum f acc0 e@(IfThenElse {cond, thn, els}) =
         (acc3, el') = extendAccum f acc2 els
     in
       f acc3 e{cond = c', thn = t', els = el'}
+extendAccum f acc0 e@(IfThen {cond, thn}) = 
+    let (acc1, c') = extendAccum f acc0 cond
+        (acc2, t') = extendAccum f acc1 thn
+    in
+      f acc2 e{cond = c', thn = t'}
+extendAccum f acc0 e@(Unless {cond, thn}) = 
+    let (acc1, c') = extendAccum f acc0 cond
+        (acc2, t') = extendAccum f acc1 thn
+    in
+      f acc2 e{cond = c', thn = t'}
 extendAccum f acc0 e@(While {cond, body}) = 
     let (acc1, c') = extendAccum f acc0 cond
         (acc2, b') = extendAccum f acc1 body
@@ -152,6 +174,8 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           concatMap (freeVariables' bound) args ++ freeVariables' bound target
       freeVariables' bound MessageSend {target, args} = 
           concatMap (freeVariables' bound) args ++ freeVariables' bound target
+      freeVariables' bound NewWithInit {args} = 
+          concatMap (freeVariables' bound) args
       freeVariables' bound fCall@(FunctionCall {name, args})
           | name `elem` bound = concatMap (freeVariables' bound) args
           | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
@@ -171,6 +195,10 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
       freeVariables' bound IfThenElse {cond, thn, els} =
           freeVariables' bound cond ++ 
           freeVariables' bound thn ++ freeVariables' bound els
+      freeVariables' bound IfThen {cond, thn} =
+          freeVariables' bound cond ++ freeVariables' bound thn
+      freeVariables' bound Unless {cond, thn} =
+          freeVariables' bound cond ++ freeVariables' bound thn
       freeVariables' bound While {cond, body} =
           freeVariables' bound cond ++ freeVariables' bound body
       freeVariables' bound Get {val} = 
