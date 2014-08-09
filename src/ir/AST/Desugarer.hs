@@ -19,6 +19,9 @@ desugar :: Expr -> Expr
 
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 
+desugar FunctionCall{emeta, name = Name "print", args = (string@(StringLiteral {stringLit = s})):args} = 
+    Print emeta s args
+
 desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} = 
     IfThenElse emeta cond
            (Skip emeta)
