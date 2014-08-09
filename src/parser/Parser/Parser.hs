@@ -117,8 +117,11 @@ natural = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
+-- Note, when we have product types (i.e. tuples), we could make
+-- an expressionParser for types (with arrow as the only infix
+-- operator)
 typ :: Parser Type
-typ  =  try arrow
+typ  =  try arrow 
     <|> parens typ
     <|> nonArrow
     <?> "type"
@@ -127,96 +130,92 @@ typ  =  try arrow
               <|> par
               <|> singleType
               <|> parens nonArrow
-      arrow = do {lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]} ;
-                  reservedOp "->" ;
-                  rhs <- nonArrow ;
-                  return $ arrowType lhs rhs}
-      fut = do {reserved "Fut" ; 
-                ty <- typ ;
-                return $ futureType ty}
-      par = do {reserved "Par" ; 
-                ty <- typ ;
-                return $ parType ty}
-      singleType = do {ty <- identifier ;
-                       return $ case ty of
-                                  "void" -> voidType
-                                  "string" -> stringType
-                                  "int" -> intType
-                                  "real" -> realType
-                                  "bool" -> boolType
-                                  id -> if isUpper . head $ id then refType id else typeVar id}
+      arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
+                 reservedOp "->"
+                 rhs <- nonArrow
+                 return $ arrowType lhs rhs
+      fut = do reserved "Fut" 
+               ty <- typ 
+               return $ futureType ty
+      par = do reserved "Par" 
+               ty <- typ 
+               return $ parType ty
+      singleType = do ty <- identifier ;
+                      return $ read ty
+          where read "void"   = voidType
+                read "string" = stringType
+                read "int"    = intType
+                read "real"   = realType
+                read "bool"   = boolType
+                read id 
+                    | isUpper . head $ id = refType id
+                    | otherwise           = typeVar id
 
 program :: Parser Program
-program = do {popHashbang ;
-              whiteSpace ;
-              embedtl <- embedTL ;
-              whiteSpace ;
-              classes <- many classDecl ;
-              eof ;
-              return $ Program embedtl classes}
-
-popHashbang :: Parser ()
-popHashbang = do
-  try (do
-    string "#!"
-    many (noneOf "\n\r")
-    whiteSpace
-    return ()) <|> return ()
+program = do optional hashbang
+             whiteSpace
+             embedtl <- embedTL
+             classes <- many classDecl
+             eof
+             return $ Program embedtl classes
+    where
+      hashbang = do string "#!"
+                    many (noneOf "\n\r")
 
 embedTL :: Parser EmbedTL
-embedTL = do
-  pos <- getPosition
-  try (do
-        reserved "embed"
-        code <- manyTill anyChar $ (try $ reserved "end")
-        return $ EmbedTL (meta pos) code)
-       <|>
-       (return $ EmbedTL (meta pos) "")
+embedTL = do pos <- getPosition
+             option 
+               (EmbedTL (meta pos) "")
+               (do reserved "embed"
+                   code <- manyTill anyChar $ reserved "end"
+                   return $ EmbedTL (meta pos) code)
 
 classDecl :: Parser ClassDecl
-classDecl = do {pos <- getPosition ;
-                activity <- do {reserved "passive" ; return Passive} <|> do {return Active} ;
-                reserved "class" ;
-                cname <- identifier ;
-                (fields, methods) <- braces classBody <|> classBody ;
-                let {ctype = case activity of Passive -> passiveRefType cname ; Active -> activeRefType cname} ;
-                return $ Class (meta pos) activity ctype fields methods}
+classDecl = do pos <- getPosition
+               activity <- option Active (do {reserved "passive" ; return Passive})
+               reserved "class"
+               cname <- identifier
+               (fields, methods) <- braces classBody <|> classBody
+               let {ctype = case activity of
+                              Passive -> passiveRefType cname
+                              Active -> activeRefType cname}
+               return $ Class (meta pos) activity ctype fields methods
             where
-              classBody = do {fields <- many fieldDecl ;
-                              methods <- many methodDecl ;
-                              return (fields, methods)}
+              classBody = do fields <- many fieldDecl
+                             methods <- many methodDecl
+                             return (fields, methods)
                                      
 
 fieldDecl :: Parser FieldDecl
-fieldDecl = do {pos <- getPosition ;
-                f <- identifier ;
-                colon ;
-                ty <- typ ;
-                return $ Field (meta pos) (Name f) ty}
+fieldDecl = do pos <- getPosition
+               f <- identifier
+               colon
+               ty <- typ
+               return $ Field (meta pos) (Name f) ty
 
 paramDecl :: Parser ParamDecl
-paramDecl = do {pos <- getPosition ;
-                x <- identifier ; 
-                colon ; 
-                ty <- typ ; 
-                return $ Param (meta pos) (Name x) ty}
+paramDecl = do pos <- getPosition
+               x <- identifier
+               colon
+               ty <- typ
+               return $ Param (meta pos) (Name x) ty
 
 methodDecl :: Parser MethodDecl
-methodDecl = do {pos <- getPosition ;
-                 reserved "def" ; 
-                 name <- identifier ;
-                 params <- parens (commaSep paramDecl) ;
-                 colon ;
-                 ty <- typ ;
-                 body <- expression ; 
-                 return $ Method (meta pos) (Name name) ty params body}
+methodDecl = do pos <- getPosition
+                reserved "def"
+                name <- identifier
+                params <- parens (commaSep paramDecl)
+                colon
+                ty <- typ
+                body <- expression
+                return $ Method (meta pos) (Name name) ty params body
 
 methodPath :: Parser (Expr, Name)
-methodPath = do {pos <- getPosition ;
-                 root <- identifier ;
-                 dot ;
-                 path <- identifier `sepBy` (skipMany1 dot) ;
-                 return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )}
+methodPath = do pos <- getPosition
+                root <- identifier
+                dot
+                path <- identifier `sepBy` (skipMany1 dot)
+                return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )
 
 messagePath :: Parser (Expr, Name)
 messagePath =  do pos <- getPosition
@@ -246,19 +245,19 @@ expression = buildExpressionParser opTable expr
                  [typedExpression],
                  [assignment]
                 ]
-      prefix s operator = Prefix (do{ pos <- getPosition;
-                                      reservedOp s;
-                                      return (\x -> Unary (meta pos) operator x) })
-      op s binop = Infix (do{pos <- getPosition ;
-                             reservedOp s ;
-                             return (\e1 e2 -> Binop (meta pos) binop e1 e2)}) AssocLeft
-      typedExpression = Postfix (do{pos <- getPosition ;
-                                    reservedOp ":" ;
-                                    t <- typ ;
-                                    return (\e -> TypedExpr (meta pos) e t)})
-      assignment = Infix (do{pos <- getPosition ;
+      prefix s operator = Prefix (do pos <- getPosition
+                                     reservedOp s
+                                     return (\x -> Unary (meta pos) operator x))
+      op s binop = Infix (do pos <- getPosition
+                             reservedOp s
+                             return (\e1 e2 -> Binop (meta pos) binop e1 e2)) AssocLeft
+      typedExpression = Postfix (do pos <- getPosition
+                                    reservedOp ":"
+                                    t <- typ
+                                    return (\e -> TypedExpr (meta pos) e t))
+      assignment = Infix (do pos <- getPosition ;
                              reservedOp "=" ;
-                             return (\lhs rhs -> Assign (meta pos) lhs rhs)}) AssocRight
+                             return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
 
 expr :: Parser Expr
 expr  =  unit
@@ -267,7 +266,9 @@ expr  =  unit
      <|> try messageSend
      <|> try fieldAccess
      <|> try print
+     <|> try methodCall
      <|> try functionCall
+     <|> try fieldAccess
      <|> closure
      <|> parens expression
      <|> varAccess
@@ -288,107 +289,111 @@ expr  =  unit
      <|> int
      <?> "expression"
     where
-      embed = do {pos <- getPosition ;
-                  reserved "embed" ; 
-                  ty <- typ ;
-                  code <- manyTill anyChar $ try $ reserved "end" ;
-                  return $ Embed (meta pos) ty code}
-      unit = do {pos <- getPosition ; reservedOp "()" ; return $ Skip (meta pos) }
-      methodCall = do {pos <- getPosition ;
-                       (target, tmname) <- methodPath ; 
-                       args <- parens arguments ; 
-                       return $ MethodCall (meta pos) target tmname args}
-      messageSend = do {pos <- getPosition ;
-                        (target, tmname) <- messagePath ; 
-                        args <- parens arguments ; 
-                        return $ MessageSend (meta pos) target tmname args}
-      letExpression = do {pos <- getPosition ;
-                          reserved "let" ;
-                          decls <- many (do {x <- identifier ;
-                                             reservedOp "=" ;
-                                             val <- expression ;
-                                             return (Name x, val)}) ;
-                          reserved "in" ;
-                          expr <- expression ;
-                          return $ Let (meta pos) decls expr}
-      sequence = do {pos <- getPosition ;
-                     seq <- braces (do {seq <- expression `sepEndBy` semi; return seq}) ;
-                     return $ Seq (meta pos) seq}
-      ifThenElse = do {pos <- getPosition ;
-                       reserved "if" ; 
-                       cond <- expression ;
-                       reserved "then" ;
-                       thn <- expression ;
-                       reserved "else" ;
-                       els <- expression ;
-                       return $ IfThenElse (meta pos) cond thn els}
-      ifThen = do {pos <- getPosition ;
-                   reserved "if" ; 
-                   cond <- expression ;
-                   reserved "then" ;
-                   thn <- expression ;
-                   return $ IfThen (meta pos) cond thn}
-      unless = do {pos <- getPosition ;
-                   reserved "unless" ; 
-                   cond <- expression ;
-                   reserved "then" ;
-                   thn <- expression ;
-                   return $ Unless (meta pos) cond thn}
-      while = do {pos <- getPosition ;
-                  reserved "while" ; 
-                  cond <- expression ;
-                  expr <- expression ;
-                  return $ While (meta pos) cond expr}
-      get = do {pos <- getPosition ;
-                reserved "get" ; 
-                expr <- expression ; 
-                return $ Get (meta pos) expr }
-      fieldAccess = do {pos <- getPosition ;
-                        root <- identifier ;
-                        dot ;
-                        path <- identifier `sepBy1` (skipMany1 dot) ;
-                        return $ pathToExpr path (VarAccess (meta pos) (Name root)) }
-      functionCall = do {pos <- getPosition ;
-                         fun <- identifier ;
-                         args <- parens arguments ;
-                         return $ FunctionCall (meta pos) (Name fun) args}
-      closure = do {pos <- getPosition ;
-                    reservedOp "\\" ;
-                    params <- parens (commaSep paramDecl) ;
-                    reservedOp "->" ;
-                    body <- expression ;
-                    return $ Closure (meta pos) params body}
-      varAccess = do {pos <- getPosition ;
-                      id <- identifier ; 
-                      return $ VarAccess (meta pos) $ Name id }
-      null = do {pos <- getPosition ;
-                 reserved "null" ; 
-                 return $ Null (meta pos)}
-      true = do {pos <- getPosition ;
-                 reserved "true" ; 
-                 return $ BTrue (meta pos)}
-      false = do {pos <- getPosition ;
-                  reserved "false" ; 
-                  return $ BFalse (meta pos)}
-      newWithInit = do {pos <- getPosition ;
-                        reserved "new" ;
-                        ty <- typ ;
-                        args <- parens arguments ; 
-                        return $ NewWithInit (meta pos) ty args}
-      new = do {pos <- getPosition ;
-                reserved "new" ;
-                ty <- typ ;
-                return $ New (meta pos) ty}
-      print = do {pos <- getPosition ;
-                  reserved "print" ;
-                  val <- expression ;
-                  return $ Print (meta pos) "{}\n" [val]}
-      stringLit = do {pos <- getPosition ;
-                      string <- stringLiteral ; 
-                      return $ StringLiteral (meta pos) string}
-      int = do {pos <- getPosition ;
-                n <- natural ; 
-                return $ IntLiteral (meta pos) (fromInteger n)}
-      real = do {pos <- getPosition ;
-                 r <- float ; 
-                 return $ RealLiteral (meta pos) r}
+      embed = do pos <- getPosition
+                 reserved "embed"
+                 ty <- typ
+                 code <- manyTill anyChar $ try $ reserved "end"
+                 return $ Embed (meta pos) ty code
+      unit = do pos <- getPosition
+                reservedOp "()" 
+                return $ Skip (meta pos)
+      methodCall = do pos <- getPosition
+                      (target, tmname) <- methodPath
+                      args <- parens arguments
+                      return $ MethodCall (meta pos) target tmname args
+      messageSend = do pos <- getPosition
+                       (target, tmname) <- messagePath
+                       args <- parens arguments
+                       return $ MessageSend (meta pos) target tmname args
+      letExpression = do pos <- getPosition
+                         reserved "let"
+                         decls <- many varDecl
+                         reserved "in"
+                         expr <- expression
+                         return $ Let (meta pos) decls expr
+                      where
+                        varDecl = do x <- identifier
+                                     reservedOp "="
+                                     val <- expression
+                                     return (Name x, val)
+      sequence = do pos <- getPosition
+                    seq <- braces (do {seq <- expression `sepEndBy` semi; return seq})
+                    return $ Seq (meta pos) seq
+      ifThenElse = do pos <- getPosition
+                      reserved "if"
+                      cond <- expression
+                      reserved "then"
+                      thn <- expression
+                      reserved "else"
+                      els <- expression
+                      return $ IfThenElse (meta pos) cond thn els
+      ifThen = do pos <- getPosition
+                  reserved "if"
+                  cond <- expression
+                  reserved "then"
+                  thn <- expression
+                  return $ IfThen (meta pos) cond thn
+      unless = do pos <- getPosition
+                  reserved "unless"
+                  cond <- expression
+                  reserved "then"
+                  thn <- expression
+                  return $ Unless (meta pos) cond thn
+      while = do pos <- getPosition
+                 reserved "while"
+                 cond <- expression
+                 expr <- expression
+                 return $ While (meta pos) cond expr
+      get = do pos <- getPosition
+               reserved "get"
+               expr <- expression
+               return $ Get (meta pos) expr 
+      fieldAccess = do pos <- getPosition
+                       root <- identifier
+                       dot
+                       path <- identifier `sepBy1` (skipMany1 dot)
+                       return $ pathToExpr path (VarAccess (meta pos) (Name root)) 
+      functionCall = do pos <- getPosition
+                        fun <- identifier
+                        args <- parens arguments
+                        return $ FunctionCall (meta pos) (Name fun) args
+      closure = do pos <- getPosition
+                   reservedOp "\\"
+                   params <- parens (commaSep paramDecl)
+                   reservedOp "->"
+                   body <- expression
+                   return $ Closure (meta pos) params body
+      varAccess = do pos <- getPosition
+                     id <- identifier
+                     return $ VarAccess (meta pos) $ Name id 
+      null = do pos <- getPosition
+                reserved "null"
+                return $ Null (meta pos)
+      true = do pos <- getPosition
+                reserved "true"
+                return $ BTrue (meta pos)
+      false = do pos <- getPosition
+                 reserved "false"
+                 return $ BFalse (meta pos)
+      newWithInit = do pos <- getPosition
+                       reserved "new"
+                       ty <- typ
+                       args <- parens arguments
+                       return $ NewWithInit (meta pos) ty args
+      new = do pos <- getPosition
+               reserved "new"
+               ty <- typ
+               return $ New (meta pos) ty
+      print = do pos <- getPosition
+                 reserved "print"
+                 val <- expression
+                 return $ Print (meta pos) "{}\n" [val]
+      stringLit = do pos <- getPosition
+                     string <- stringLiteral
+                     return $ StringLiteral (meta pos) string
+      int = do pos <- getPosition
+               n <- natural
+               return $ IntLiteral (meta pos) (fromInteger n)
+      real = do pos <- getPosition
+                r <- float
+                return $ RealLiteral (meta pos) r
