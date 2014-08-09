@@ -11,43 +11,33 @@ import AST.AST
 import Types
 import Identifiers
 
+-- | @getChildren e@ returns all children of @e@ that are Exprs themselves
+getChildren :: Expr -> [Expr]
+getChildren TypedExpr {body} = [body]
+getChildren MethodCall {target, args} = target : args
+getChildren MessageSend {target, args} = target : args
+getChildren FunctionCall {args} = args
+getChildren Closure {body} = [body]
+getChildren Let {body, decls} = body : map snd decls
+getChildren Seq {eseq} = eseq
+getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
+getChildren IfThen {cond, thn} = [cond, thn]
+getChildren Unless {cond, thn} = [cond, thn]
+getChildren While {cond, body} = [cond, body]
+getChildren Get {val} = [val]
+getChildren FieldAccess {target} = [target]
+getChildren Assign {rhs} = [rhs]
+getChildren NewWithInit {args} = args
+getChildren Print {args} = args
+getChildren Exit {args} = args
+getChildren Unary {operand} = [operand]
+getChildren Binop {loper, roper} = [loper, roper]
+getChildren e = []
+
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
-foldr f acc e@(MethodCall {target, args}) = 
-    let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
-    f e (foldr f argResults target)
-foldr f acc e@(MessageSend {target, args}) = 
-    let argResults = List.foldr (\e acc -> foldr f acc e) acc args in
-    f e (foldr f argResults target)
-foldr f acc e@(NewWithInit {args}) = 
-    f e (List.foldr (\e acc -> foldr f acc e) acc args)
-foldr f acc e@(Let {decls, body}) = 
-    let declsResults = List.foldr (\(name, val) acc' -> foldr f acc' val) acc decls in
-    f e (foldr f declsResults body)
-foldr f acc e@(IfThenElse {cond, thn, els}) = 
-    let condResults = foldr f acc cond
-        thnResults = foldr f condResults thn in
-    f e (foldr f thnResults els)
-foldr f acc e@(IfThen {cond, thn}) = 
-    let condResults = foldr f acc cond in
-    f e (foldr f condResults thn)
-foldr f acc e@(Unless {cond, thn}) = 
-    let condResults = foldr f acc cond in
-    f e (foldr f condResults thn)
-foldr f acc e@(While {cond, body}) = 
-    let condResults = foldr f acc cond in
-    f e (foldr f condResults body)
-foldr f acc e@(Binop {loper, roper}) = 
-    let lResults = foldr f acc loper in
-    f e (foldr f lResults roper)
-foldr f acc e@(FunctionCall {args}) = f e (List.foldr (\e acc -> foldr f acc e) acc args)
-foldr f acc e@(Closure {body}) = f e (foldr f acc body)
-foldr f acc e@(Seq {eseq}) = f e (List.foldr (\e acc -> foldr f acc e) acc eseq)
-foldr f acc e@(Get {val}) = f e (foldr f acc val)
-foldr f acc e@(FieldAccess {target, name}) = f e (foldr f acc target)
-foldr f acc e@(Assign {rhs}) = f e (foldr f acc rhs)
-foldr f acc e@(Print {args}) = f e (List.foldr (\e acc -> foldr f acc e) acc args)
-foldr f acc e@(Exit {args}) = f e (List.foldr (\e acc -> foldr f acc e) acc args)
-foldr f acc e = f e acc
+foldr f acc e = 
+    let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
+    in f e childResult
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
 foldrAll f e (Program _ classes) = map (foldClass f e) classes
@@ -63,7 +53,7 @@ extendAccum f acc0 e@(MethodCall {target, args}) =
     let (acc1, t') = extendAccum f acc0 target
         (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
     in
-      (acc2, e{target = t', args = a'})
+      f acc2 e{target = t', args = a'}
 extendAccum f acc0 e@(MessageSend {target, args}) = 
     let (acc1, t') = extendAccum f acc0 target
         (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
@@ -163,19 +153,14 @@ extractTypes (Program _ classes) = List.nub $ concat $ concatMap extractClassTyp
       extractFieldTypes Field {ftype} = typeComponents ftype
       extractMethodTypes Method {mtype, mparams, mbody} = (typeComponents mtype) : (map extractParamTypes mparams) ++ [extractExprTypes mbody]
       extractParamTypes Param {ptype} = typeComponents ptype
-      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [voidType] e
+      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [] e
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
     where
-      freeVariables' bound TypedExpr {body} = 
-          freeVariables' bound body
-      freeVariables' bound MethodCall {target, args} = 
-          concatMap (freeVariables' bound) args ++ freeVariables' bound target
-      freeVariables' bound MessageSend {target, args} = 
-          concatMap (freeVariables' bound) args ++ freeVariables' bound target
-      freeVariables' bound NewWithInit {args} = 
-          concatMap (freeVariables' bound) args
+      freeVariables' bound var@(VarAccess {name})
+          | name `elem` bound = []
+          | otherwise = [(name, getType var)]
       freeVariables' bound fCall@(FunctionCall {name, args})
           | name `elem` bound = concatMap (freeVariables' bound) args
           | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
@@ -190,21 +175,6 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           where
             (freeVars, bound') = List.foldr fvDecls ([], bound) decls
             fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
-      freeVariables' bound Seq {eseq} = 
-          concatMap (freeVariables' bound) eseq
-      freeVariables' bound IfThenElse {cond, thn, els} =
-          freeVariables' bound cond ++ 
-          freeVariables' bound thn ++ freeVariables' bound els
-      freeVariables' bound IfThen {cond, thn} =
-          freeVariables' bound cond ++ freeVariables' bound thn
-      freeVariables' bound Unless {cond, thn} =
-          freeVariables' bound cond ++ freeVariables' bound thn
-      freeVariables' bound While {cond, body} =
-          freeVariables' bound cond ++ freeVariables' bound body
-      freeVariables' bound Get {val} = 
-          freeVariables' bound val
-      freeVariables' bound FieldAccess {target} = 
-          freeVariables' bound target
       freeVariables' bound Assign {lhs, rhs} = 
           freeLVal bound lhs ++ freeVariables' bound rhs
           where
@@ -212,13 +182,4 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
                 | lname `elem` bound = []
                 | otherwise = [(lname, getType lval)]
             freeLVal bound LField {ltarget} = freeVariables' bound ltarget
-      freeVariables' bound var@(VarAccess {name})
-          | name `elem` bound = []
-          | otherwise = [(name, getType var)]
-      freeVariables' bound Print {args} = 
-          concatMap (freeVariables' bound) args
-      freeVariables' bound Exit {args} = 
-          concatMap (freeVariables' bound) args
-      freeVariables' bound Binop {loper, roper} = 
-          freeVariables' bound loper ++ freeVariables' bound roper
-      freeVariables' bound _ = []
+      freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
