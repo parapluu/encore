@@ -10,7 +10,7 @@ Preliminary explorations for the Encore compiler.
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
 
-### Step 1: Premiminaries
+### Step 1: Preliminaries
 
 We're using:
 
@@ -55,12 +55,21 @@ Then install the newest version, saying `brew update; brew install haskell-platf
 It's only tested on Ubuntu 14.04, and hopefully it works as well on other
 distributions based on Ubuntu or Debian.
 
+
     # sync with the online repo source
     apt-get update
     # set up the building infrastructure
     apt-get install -y clang g++ premake4 haskell-platform
     # if you also want to see the HTML doc
     apt-apt install -y doxygen
+
+##### Version checking
+
+Due to the incomplete support for C++11 in gcc
+[4.7](https://gcc.gnu.org/gcc-4.7/cxx0x_status.html), the minimal version of gcc
+is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
+
+    gcc/g++: ~> 4.8
 
 #### Step 2: Compiling and installing mylittlepony
 
@@ -78,7 +87,7 @@ in any directory. To do this, add this line to your `~/.bashrc` file, inserting 
 
     export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
 
-### Step 4: Compiling and Runnining Encore Programs
+### Step 4: Compiling and Running Encore Programs
 
 Now you can compile a program by using
 

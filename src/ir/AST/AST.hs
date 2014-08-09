@@ -17,7 +17,7 @@ import Identifiers
 import Types
 import AST.Meta
 
-data Program = Program EmbedTL [ClassDecl] deriving(Show)
+data Program = Program {etl :: EmbedTL, classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
     getPos :: a -> SourcePos
@@ -132,6 +132,12 @@ data Expr = Skip {emeta :: Meta}
                         cond :: Expr, 
                         thn :: Expr, 
                         els :: Expr}
+          | IfThen {emeta :: Meta, 
+                    cond :: Expr, 
+                    thn :: Expr}
+          | Unless {emeta :: Meta, 
+                    cond :: Expr, 
+                    thn :: Expr}
           | While {emeta :: Meta, 
                    cond :: Expr, 
                    body :: Expr}
@@ -141,18 +147,23 @@ data Expr = Skip {emeta :: Meta}
                          target :: Expr, 
                          name :: Name}
           | Assign {emeta :: Meta, 
-                    lhs :: LVal, 
+                    lhs :: Expr, 
                     rhs :: Expr}
           | VarAccess {emeta :: Meta, 
                        name :: Name}
           | Null {emeta :: Meta}
           | BTrue {emeta :: Meta}
           | BFalse {emeta :: Meta}
+          | NewWithInit {emeta :: Meta, 
+                         ty ::Type,
+                         args :: Arguments}
           | New {emeta :: Meta, 
                  ty ::Type}
           | Print {emeta :: Meta, 
                    stringLit :: String,
                    args :: [Expr]}
+          | Exit {emeta :: Meta,
+                  args :: [Expr]}
           | StringLiteral {emeta :: Meta, 
                            stringLit :: String}
           | IntLiteral {emeta :: Meta, 
@@ -169,6 +180,11 @@ data Expr = Skip {emeta :: Meta}
                    op :: Op,
                    loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
+
+isLval :: Expr -> Bool
+isLval VarAccess {} = True
+isLval FieldAccess {} = True
+isLval _ = False
 
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {name = Name "this"} = True
@@ -199,18 +215,3 @@ instance HasMeta Expr where
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
-
-data LVal = LVal {lmeta :: Meta, lname :: Name} | 
-            LField {lmeta :: Meta, ltarget :: Expr, lname :: Name} deriving(Show, Eq)
-
-instance HasMeta LVal where
-    getPos = AST.Meta.getPos . lmeta
-
-    getMetaId l = (metaId . lmeta) l
-    setMetaId id l = l{lmeta = lmeta'} 
-        where
-          lmeta' = (lmeta l){metaId = id}
-
-    getType lval = AST.Meta.getType . lmeta $ lval
-
-    setType ty lval = lval {lmeta = AST.Meta.setType ty (lmeta lval)}

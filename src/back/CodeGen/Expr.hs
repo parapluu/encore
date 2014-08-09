@@ -32,6 +32,8 @@ instance Translatable ID.Op (CCode Name) where
     ID.OR -> "||"
     ID.LT -> "<"
     ID.GT -> ">"
+    ID.LTE -> "<="
+    ID.GTE -> ">="
     ID.EQ -> "=="
     ID.NEQ -> "!="
     ID.PLUS -> "+"
@@ -39,20 +41,6 @@ instance Translatable ID.Op (CCode Name) where
     ID.TIMES -> "*"
     ID.DIV -> "/"
     ID.MOD -> "%"
-
-instance Translatable A.LVal (State Ctx.Context (CCode Lval, CCode Stat)) where
-  translate (A.LVal ty name) =
-      do
-        c <- get
-        case Ctx.subst_lkp c name of
-          Just subst_name ->
-              return (subst_name, Skip)
-          Nothing ->
-              return $ (Var $ show name, Skip)
-  translate (A.LField ty ex name) = do
-      (nex,tex) <- translate ex
-      return (EmbedC $ Deref nex `Dot` (Nam $ show name),
-              tex)
 
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty 
@@ -137,18 +125,31 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         format_string ('{':'}':s) (ty:tys) = (type_to_printf_fstr ty) ++ (format_string s tys)
         format_string (c:s) tys = c : (format_string s tys)
 
+  translate exit@(A.Exit {A.args = [arg]}) = do
+      (narg, targ) <- translate arg
+      let exit_call = Call (Nam "exit") [narg]
+      return (unit, Seq [Statement targ, Statement exit_call])
+
   translate seq@(A.Seq {A.eseq = es}) = do
     ntes <- mapM translate es
     let (nes, tes) = unzip ntes
     return (last nes, Seq tes)
 
-  translate (A.Assign {A.lhs = lvar, A.rhs = expr}) = do
-    (nexpr,texpr) <- translate expr
-    (nlvar, tlvar) <- translate lvar
-    return (unit,
-            Seq [texpr,
-                 tlvar,
-                 if Ty.isVoidType $ A.getType lvar then Skip else Seq [Assign nlvar nexpr]])
+  translate (A.Assign {A.lhs = lhs, A.rhs = rhs}) = do
+    (nrhs, trhs) <- translate rhs
+    (nlhs, tlhs) <- translate lhs
+    lval <- mk_lval lhs
+    return (unit, Seq [trhs, Assign lval nrhs])
+        where
+          mk_lval (A.VarAccess {A.name = name}) =
+              do ctx <- get
+                 case Ctx.subst_lkp ctx name of
+                   Just subst_name -> return subst_name
+                   Nothing -> return $ Var (show name)
+          mk_lval (A.FieldAccess {A.target = target, A.name = name}) =
+              do (ntarg, ttarg) <- translate target
+                 return (EmbedC $ Deref ntarg `Dot` (Nam $ show name))
+          mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate (A.VarAccess {A.name = name}) = do
       c <- get
@@ -348,9 +349,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate get@(A.Get{A.val = val}) = 
       do (nval, tval) <- translate val
-         let the_get = Statement $ Call (Nam "future_get") [nval, Var "this->aref"]
+         let result_type = translate (Ty.getResultType $ A.getType val)
+         let the_get = Cast (result_type) $ Call (Nam "future_get") [nval, Var "this->aref"]
          tmp <- Ctx.gen_sym
-         return (Var tmp, Seq [tval, Assign (Decl (translate (A.getType val), Var tmp)) the_get])
+         return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
 
   translate clos@(A.Closure{A.eparams = params, A.body = body}) = 
       do let fun_name = closure_fun_name $ A.getMetaId clos

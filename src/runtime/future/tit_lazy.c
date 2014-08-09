@@ -157,7 +157,7 @@ void fork_lazy(void(*fun)()) {
     break;
   case RUNNING:
     // This should probably never happen???
-    fprintf(stderr, "RUNNING!\n");
+    // fprintf(stderr, "RUNNING!\n");
     break;
   case DONE:
     // This should probably never happen???

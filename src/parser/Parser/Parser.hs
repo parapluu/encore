@@ -18,7 +18,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
 FieldAccess ::= . Name FieldAccess | eps
    LetDecls ::= Name = Expr LetDecls | eps
        Expr ::= ()
-              | Path = Expr
+              | Expr = Expr
               | Path . Name ( Arguments )
               | let LetDecls in Expr
               | { Sequence }
@@ -31,7 +31,8 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
-              | print ( \" String \" , Arguments )
+              | print ( \" String \" {Args}? )
+              | exit( Int )
               | \" String \"
               | Int
               | Expr Op Expr
@@ -89,29 +90,30 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "print", "embed", "end", "Fut", "Par"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "+", "-", "*", "/", "%", "->", "\\", "()"]
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", "end", "Fut", "Par"],
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
 identifier = P.identifier lexer
+symbol     = P.symbol lexer
 reserved   = P.reserved lexer
 reservedOp = P.reservedOp lexer
 operator   = P.operator lexer
 dot        = P.dot lexer
-bang       = P.symbol lexer "!"
+bang       = symbol "!"
 commaSep   = P.commaSep lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
 semiSep    = P.semiSep lexer
 comma      = P.comma lexer
 parens     = P.parens lexer
-lparen     = P.symbol lexer "("
-rparen     = P.symbol lexer ")"
+lparen     = symbol "("
+rparen     = symbol ")"
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
-natural = P.natural lexer
+natural = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
@@ -209,19 +211,6 @@ methodDecl = do {pos <- getPosition ;
                  body <- expression ; 
                  return $ Method (meta pos) (Name name) ty params body}
 
-lval :: Parser LVal
-lval  =  try (do {pos <- getPosition ;
-                  x <- identifier ;
-                  dot ;
-                  path <- identifier `sepBy` dot ;
-                  return $ fieldAccessLVal path (VarAccess (meta pos) (Name x))})
-     <|> do {pos <- getPosition ;
-             x <- identifier ; return $ LVal (meta pos) (Name x)}
-         where
-           fieldAccessLVal :: [String] -> Expr -> LVal
-           fieldAccessLVal [f] acc = LField (emeta acc) acc (Name f)
-           fieldAccessLVal (f:path) acc = fieldAccessLVal path (FieldAccess (emeta acc) acc (Name f))
-
 methodPath :: Parser (Expr, Name)
 methodPath = do {pos <- getPosition ;
                  root <- identifier ;
@@ -252,12 +241,14 @@ expression = buildExpressionParser opTable expr
                  [prefix "not" Identifiers.NOT],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "==" Identifiers.EQ, op "!=" NEQ],
+                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "<=" Identifiers.LTE, op ">=" Identifiers.GTE, op "==" Identifiers.EQ, op "!=" NEQ],
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
-                 [typedExpression]]
+                 [typedExpression],
+                 [assignment]
+                ]
       prefix s operator = Prefix (do{ pos <- getPosition;
-                               reservedOp s;
-                               return (\x -> Unary (meta pos) operator x) })
+                                      reservedOp s;
+                                      return (\x -> Unary (meta pos) operator x) })
       op s binop = Infix (do{pos <- getPosition ;
                              reservedOp s ;
                              return (\e1 e2 -> Binop (meta pos) binop e1 e2)}) AssocLeft
@@ -265,29 +256,34 @@ expression = buildExpressionParser opTable expr
                                     reservedOp ":" ;
                                     t <- typ ;
                                     return (\e -> TypedExpr (meta pos) e t)})
+      assignment = Infix (do{pos <- getPosition ;
+                             reservedOp "=" ;
+                             return (\lhs rhs -> Assign (meta pos) lhs rhs)}) AssocRight
 
 expr :: Parser Expr
 expr  =  unit
      <|> try embed
-     <|> try assignment
      <|> try methodCall
      <|> try messageSend
      <|> try fieldAccess
+     <|> try print
      <|> try functionCall
      <|> closure
      <|> parens expression
      <|> varAccess
      <|> letExpression
-     <|> ifThenElse
+     <|> try ifThenElse
+     <|> ifThen
+     <|> unless
      <|> while
      <|> get
+     <|> try newWithInit
      <|> new
      <|> null
      <|> true
      <|> false
      <|> sequence
-     <|> print
-     <|> string
+     <|> stringLit
      <|> try real
      <|> int
      <?> "expression"
@@ -298,10 +294,6 @@ expr  =  unit
                   code <- manyTill anyChar $ try $ reserved "end" ;
                   return $ Embed (meta pos) ty code}
       unit = do {pos <- getPosition ; reservedOp "()" ; return $ Skip (meta pos) }
-      assignment = do {pos <- getPosition; 
-                       lhs <- lval ; reservedOp "=" ; 
-                       expr <- expression ; 
-                       return $ Assign (meta pos) lhs expr}
       methodCall = do {pos <- getPosition ;
                        (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
@@ -330,6 +322,18 @@ expr  =  unit
                        reserved "else" ;
                        els <- expression ;
                        return $ IfThenElse (meta pos) cond thn els}
+      ifThen = do {pos <- getPosition ;
+                   reserved "if" ; 
+                   cond <- expression ;
+                   reserved "then" ;
+                   thn <- expression ;
+                   return $ IfThen (meta pos) cond thn}
+      unless = do {pos <- getPosition ;
+                   reserved "unless" ; 
+                   cond <- expression ;
+                   reserved "then" ;
+                   thn <- expression ;
+                   return $ Unless (meta pos) cond thn}
       while = do {pos <- getPosition ;
                   reserved "while" ; 
                   cond <- expression ;
@@ -366,23 +370,22 @@ expr  =  unit
       false = do {pos <- getPosition ;
                   reserved "false" ; 
                   return $ BFalse (meta pos)}
+      newWithInit = do {pos <- getPosition ;
+                        reserved "new" ;
+                        ty <- typ ;
+                        args <- parens arguments ; 
+                        return $ NewWithInit (meta pos) ty args}
       new = do {pos <- getPosition ;
                 reserved "new" ;
                 ty <- typ ;
                 return $ New (meta pos) ty}
       print = do {pos <- getPosition ;
                   reserved "print" ;
-                  (string, args) <- 
-                      try (parens (do {string <- stringLiteral ;
-                                      optional comma ;
-                                      args <- commaSep expression ;
-                                      return (string, args)}))
-                      <|> (do {val <- expression ;
-                               return ("{}\n", [val])}) ;
-                      return $ Print (meta pos) string args}
-      string = do {pos <- getPosition ;
-                   string <- stringLiteral ; 
-                   return $ StringLiteral (meta pos) string}
+                  val <- expression ;
+                  return $ Print (meta pos) "{}\n" [val]}
+      stringLit = do {pos <- getPosition ;
+                      string <- stringLiteral ; 
+                      return $ StringLiteral (meta pos) string}
       int = do {pos <- getPosition ;
                 n <- natural ; 
                 return $ IntLiteral (meta pos) (fromInteger n)}

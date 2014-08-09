@@ -21,6 +21,7 @@ import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
 import AST.Util
+import AST.Desugarer
 import Typechecker.Typechecker
 import CodeGen.Main
 import CodeGen.Preprocessor
@@ -144,7 +145,8 @@ main =
                                    when (Intermediate Parsed `elem` options) 
                                             (withFile (exeName ++ ".AST") WriteMode 
                                              (flip hPrint $ show ast))
-                                   let tcResult = typecheckEncoreProgram ast
+                                   let ast' = desugarProgram ast
+                                   let tcResult = typecheckEncoreProgram ast'
                                    case tcResult of
                                      Right ast -> 
                                          do

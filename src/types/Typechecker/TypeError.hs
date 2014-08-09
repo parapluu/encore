@@ -17,14 +17,13 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr | BTLVal LVal
+data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr
 instance Show BacktraceNode where
     show (BTClass ty)    = "In class '"          ++ show ty                ++ "'"
     show (BTParam p)     = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
     show (BTField f)     = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
     show (BTMethod n ty) = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
     show (BTExpr expr)   = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
-    show (BTLVal lval)   = "In left hand side '" ++ (show $ ppLVal lval) ++ "'"
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -48,9 +47,6 @@ instance Pushable MethodDecl where
 
 instance Pushable Expr where
     push expr bt = (getPos expr, BTExpr expr) : bt
-
-instance Pushable LVal where
-    push lval bt = (getPos lval, BTLVal lval) : bt
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.

@@ -1,0 +1,5 @@
+class Main
+  def main() : void {
+    assertTrue(true);
+    assertTrue(false, "Int {} Bool {} String {}", 42, false, "Foo")
+  }

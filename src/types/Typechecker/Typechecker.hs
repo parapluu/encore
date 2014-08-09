@@ -211,7 +211,8 @@ instance Checkable Expr where
                            argTypes <- return $ getArgTypes ty
                            unless (length args == length argTypes) $ 
                                   tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ show (length args)
+                                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
+                                            show (length args)
                            (eArgs, bindings) <- checkArguments args argTypes
                            let resultType = replaceTypeVars bindings (getResultType ty)
                            return $ setType resultType fcall {args = eArgs}
@@ -298,6 +299,8 @@ instance Checkable Expr where
 
     typecheck assign@(Assign {lhs, rhs}) = 
         do eLhs <- pushTypecheck lhs
+           unless (isLval lhs) $ 
+                  tcError $ "Left hand side '" ++ show (ppExpr lhs) ++ "' cannot be assigned to"
            eRhs <- pushHasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
@@ -326,6 +329,12 @@ instance Checkable Expr where
                             "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
            eArgs <- mapM pushTypecheck args
            return $ setType voidType print {args = eArgs}
+
+    typecheck exit@(Exit {args}) = 
+        do eArgs <- mapM pushTypecheck args
+           unless (length eArgs == 1 && (isIntType $ AST.getType (head eArgs))) $
+                  tcError $ "exit expects a single integer argument"
+           return $ setType voidType exit {args = eArgs}
 
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
@@ -375,7 +384,7 @@ instance Checkable Expr where
       | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
       where
         boolOps   = [Identifiers.AND, Identifiers.OR]
-        cmpOps   = [Identifiers.LT, Identifiers.GT]
+        cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]
         eqOps    = [Identifiers.EQ, NEQ]
         arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
         coerceTypes ty1 ty2
@@ -416,31 +425,3 @@ matchTypes ty1 ty2
       matchArguments [] [] = asks bindings
       matchArguments (ty1:types1) (ty2:types2) = do bindings <- matchTypes ty1 ty2
                                                     local (bindTypes bindings) $ matchArguments types1 types2
-
-instance Checkable LVal where
-    hasType lval ty = do eLVal <- typecheck lval
-                         unless (eLVal `AST.hasType` ty) $ 
-                                tcError $ "Type mismatch. Expected type '" ++ show ty ++ "', got '" ++ show (AST.getType eLVal) ++ "'"
-                         return eLVal
-
-    typecheck lval@(LVal {lname}) = 
-        do varType <- asks (varLookup lname)
-           case varType of
-             Just ty -> return $ setType ty lval
-             Nothing -> tcError $ "Unbound variable '" ++ show lname ++ "'"
-    typecheck lval@(LField {ltarget, lname}) = 
-        do eTarget <- typecheck ltarget
-           pathType <- return $ AST.getType eTarget
-           when (isPrimitive pathType) $ 
-                tcError $ "Cannot read field of expression '" ++ (show $ ppExpr ltarget) ++ 
-                          "' of primitive type '" ++ show pathType ++ "'"
-           when (isTypeVar pathType) $ 
-                tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr ltarget) ++ "' of polymorphic type '" ++ show pathType ++ "'"
-           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
-                tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr ltarget) ++ "' of active object type '" ++ show pathType ++ "'"
-           fType <- asks $ fieldLookup (AST.getType eTarget) lname
-           case fType of
-             Just ty -> return $ setType ty lval {ltarget = eTarget}
-             Nothing -> tcError $ "No field '" ++ show lname ++ "' in class '" ++ show pathType ++ "'"

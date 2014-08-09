@@ -47,11 +47,6 @@ passive class PrimeArray
     embed void
       fprintf(stderr, "%s: %lld %s: %lld\n", #{s1}, #{i1}, #{s2}, #{i2});
     end
-  def or(a : bool, b : bool) : bool 
-    if a then 
-      true
-    else
-      b
   def calculate_index(value : int, start : int, size : int) : int {
     embed int
 int64_t S = #{start};

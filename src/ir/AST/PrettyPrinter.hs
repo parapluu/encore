@@ -8,7 +8,7 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, ppLVal, indent) where
+module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, indent) where
 
 -- Library dependencies
 import Text.PrettyPrint
@@ -25,6 +25,7 @@ ppIn = text "in"
 ppIf = text "if"
 ppThen = text "then"
 ppElse = text "else"
+ppUnless = text "unless"
 ppWhile = text "while"
 ppGet = text "get"
 ppNull = text "null"
@@ -32,6 +33,7 @@ ppTrue = text "true"
 ppFalse = text "false"
 ppNew = text "new"
 ppPrint = text "print"
+ppExit = text "exit"
 ppEmbed = text "embed"
 ppDot = text "."
 ppBang = text "!"
@@ -112,18 +114,26 @@ ppExpr IfThenElse {cond, thn, els} =
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
+ppExpr IfThen {cond, thn} = 
+    ppIf <+> ppExpr cond <+> ppThen $+$
+         indent (ppExpr thn)
+ppExpr Unless {cond, thn} = 
+    ppUnless <+> ppExpr cond <+> ppThen $+$
+         indent (ppExpr thn)
 ppExpr While {cond, body} = 
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
 ppExpr VarAccess {name} = ppName name
-ppExpr Assign {lhs, rhs} = ppLVal lhs <+> ppEquals <+> ppExpr rhs
+ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
+ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
-ppExpr Print {stringLit, args} = doubleQuotes (text stringLit) <> commaSep (map ppExpr args)
+ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> commaSep (map ppExpr args))
+ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
@@ -140,6 +150,8 @@ ppBinop Identifiers.AND = text "&&"
 ppBinop Identifiers.OR = text "||"
 ppBinop Identifiers.LT  = text "<"
 ppBinop Identifiers.GT  = text ">"
+ppBinop Identifiers.LTE  = text "<="
+ppBinop Identifiers.GTE  = text ">="
 ppBinop Identifiers.EQ  = text "=="
 ppBinop Identifiers.NEQ = text "!="
 ppBinop Identifiers.PLUS  = text "+"
@@ -147,7 +159,3 @@ ppBinop Identifiers.MINUS = text "-"
 ppBinop Identifiers.TIMES  = text "*"
 ppBinop Identifiers.DIV = text "/"
 ppBinop Identifiers.MOD = text "%"
-
-ppLVal :: LVal -> Doc
-ppLVal LVal {lname = (Name x)}  = text x
-ppLVal LField {ltarget, lname = Name f} = maybeParens ltarget <> ppDot <> text f
