@@ -147,7 +147,7 @@ data Expr = Skip {emeta :: Meta}
                          target :: Expr, 
                          name :: Name}
           | Assign {emeta :: Meta, 
-                    lhs :: LVal, 
+                    lhs :: Expr, 
                     rhs :: Expr}
           | VarAccess {emeta :: Meta, 
                        name :: Name}
@@ -181,6 +181,11 @@ data Expr = Skip {emeta :: Meta}
                    loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
 
+isLval :: Expr -> Bool
+isLval VarAccess {} = True
+isLval FieldAccess {} = True
+isLval _ = False
+
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {name = Name "this"} = True
 isThisAccess _ = False
@@ -210,18 +215,3 @@ instance HasMeta Expr where
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
-
-data LVal = LVal {lmeta :: Meta, lname :: Name} | 
-            LField {lmeta :: Meta, ltarget :: Expr, lname :: Name} deriving(Show, Eq)
-
-instance HasMeta LVal where
-    getPos = AST.Meta.getPos . lmeta
-
-    getMetaId l = (metaId . lmeta) l
-    setMetaId id l = l{lmeta = lmeta'} 
-        where
-          lmeta' = (lmeta l){metaId = id}
-
-    getType lval = AST.Meta.getType . lmeta $ lval
-
-    setType ty lval = lval {lmeta = AST.Meta.setType ty (lmeta lval)}

@@ -26,7 +26,7 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Get {val} = [val]
 getChildren FieldAccess {target} = [target]
-getChildren Assign {rhs} = [rhs]
+getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren NewWithInit {args} = args
 getChildren Print {args} = args
 getChildren Exit {args} = args
@@ -175,11 +175,4 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           where
             (freeVars, bound') = List.foldr fvDecls ([], bound) decls
             fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
-      freeVariables' bound Assign {lhs, rhs} = 
-          freeLVal bound lhs ++ freeVariables' bound rhs
-          where
-            freeLVal bound lval@(LVal {lname})
-                | lname `elem` bound = []
-                | otherwise = [(lname, getType lval)]
-            freeLVal bound LField {ltarget} = freeVariables' bound ltarget
       freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)

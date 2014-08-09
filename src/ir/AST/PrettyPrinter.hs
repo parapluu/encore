@@ -8,7 +8,7 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, ppLVal, indent) where
+module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, indent) where
 
 -- Library dependencies
 import Text.PrettyPrint
@@ -126,7 +126,7 @@ ppExpr While {cond, body} =
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
 ppExpr VarAccess {name} = ppName name
-ppExpr Assign {lhs, rhs} = ppLVal lhs <+> ppEquals <+> ppExpr rhs
+ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
@@ -159,7 +159,3 @@ ppBinop Identifiers.MINUS = text "-"
 ppBinop Identifiers.TIMES  = text "*"
 ppBinop Identifiers.DIV = text "/"
 ppBinop Identifiers.MOD = text "%"
-
-ppLVal :: LVal -> Doc
-ppLVal LVal {lname = (Name x)}  = text x
-ppLVal LField {ltarget, lname = Name f} = maybeParens ltarget <> ppDot <> text f

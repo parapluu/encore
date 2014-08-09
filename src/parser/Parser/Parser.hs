@@ -18,7 +18,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
 FieldAccess ::= . Name FieldAccess | eps
    LetDecls ::= Name = Expr LetDecls | eps
        Expr ::= ()
-              | Path = Expr
+              | Expr = Expr
               | Path . Name ( Arguments )
               | let LetDecls in Expr
               | { Sequence }
@@ -210,19 +210,6 @@ methodDecl = do {pos <- getPosition ;
                  body <- expression ; 
                  return $ Method (meta pos) (Name name) ty params body}
 
-lval :: Parser LVal
-lval  =  try (do {pos <- getPosition ;
-                  x <- identifier ;
-                  dot ;
-                  path <- identifier `sepBy` dot ;
-                  return $ fieldAccessLVal path (VarAccess (meta pos) (Name x))})
-     <|> do {pos <- getPosition ;
-             x <- identifier ; return $ LVal (meta pos) (Name x)}
-         where
-           fieldAccessLVal :: [String] -> Expr -> LVal
-           fieldAccessLVal [f] acc = LField (emeta acc) acc (Name f)
-           fieldAccessLVal (f:path) acc = fieldAccessLVal path (FieldAccess (emeta acc) acc (Name f))
-
 methodPath :: Parser (Expr, Name)
 methodPath = do {pos <- getPosition ;
                  root <- identifier ;
@@ -255,7 +242,8 @@ expression = buildExpressionParser opTable expr
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "<=" Identifiers.LTE, op ">=" Identifiers.GTE, op "==" Identifiers.EQ, op "!=" NEQ],
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
-                 [typedExpression]]
+                 [typedExpression],
+                 [assignment]]
       prefix s operator = Prefix (do{ pos <- getPosition;
                                reservedOp s;
                                return (\x -> Unary (meta pos) operator x) })
@@ -266,11 +254,13 @@ expression = buildExpressionParser opTable expr
                                     reservedOp ":" ;
                                     t <- typ ;
                                     return (\e -> TypedExpr (meta pos) e t)})
+      assignment = Infix (do{pos <- getPosition ;
+                             reservedOp "=" ;
+                             return (\lhs rhs -> Assign (meta pos) lhs rhs)}) AssocRight
 
 expr :: Parser Expr
 expr  =  unit
      <|> try embed
-     <|> try assignment
      <|> try methodCall
      <|> try messageSend
      <|> try fieldAccess
@@ -302,10 +292,6 @@ expr  =  unit
                   code <- manyTill anyChar $ try $ reserved "end" ;
                   return $ Embed (meta pos) ty code}
       unit = do {pos <- getPosition ; reservedOp "()" ; return $ Skip (meta pos) }
-      assignment = do {pos <- getPosition; 
-                       lhs <- lval ; reservedOp "=" ; 
-                       expr <- expression ; 
-                       return $ Assign (meta pos) lhs expr}
       methodCall = do {pos <- getPosition ;
                        (target, tmname) <- methodPath ; 
                        args <- parens arguments ; 
