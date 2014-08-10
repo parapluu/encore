@@ -43,6 +43,9 @@ data Activity = Active | Passive deriving(Show, Eq)
 data EmbedTL = EmbedTL {etlmeta :: Meta,
                         etlcode  :: String} deriving (Show)
 
+data ImportDecl = Import {imeta   :: Meta,
+                          itarget :: Name } deriving (Show, Eq)
+
 data ClassDecl = Class {cmeta     :: Meta,
                         cactivity :: Activity,
                         cname     :: Type,
