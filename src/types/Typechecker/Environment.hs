@@ -47,12 +47,10 @@ buildClassTable (Program _ classes) =
       (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
-      getClassType Class {cname, fields, methods} = (setActivity cname, (fieldTypes, methodTypes))
+      getClassType Class {cname = c, fields, methods} = (c, (fieldTypes, methodTypes))
           where
-            activityTable = map (\(Class{cname, cactivity}) -> (cname, cactivity)) classes
-            setActivity ty = case lookup ty activityTable of
-                               Just Active -> makeActive ty
-                               Just Passive -> makePassive ty
+            setActivity ty = case find ((==ty) . cname) classes of
+                               Just c -> cname c
                                Nothing -> ty
             fieldTypes  = map getFieldType fields
             methodTypes = map getMethodType methods

@@ -164,22 +164,18 @@ program = do optional hashbang
 
 embedTL :: Parser EmbedTL
 embedTL = do pos <- getPosition
-             option 
-               (EmbedTL (meta pos) "")
+             option (EmbedTL (meta pos) "")
                (do reserved "embed"
                    code <- manyTill anyChar $ reserved "end"
                    return $ EmbedTL (meta pos) code)
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition
-               activity <- option Active (do {reserved "passive" ; return Passive})
+               refKind <- option activeRefType (do {reserved "passive" ; return passiveRefType})
                reserved "class"
                cname <- identifier
                (fields, methods) <- braces classBody <|> classBody
-               let {ctype = case activity of
-                              Passive -> passiveRefType cname
-                              Active -> activeRefType cname}
-               return $ Class (meta pos) activity ctype fields methods
+               return $ Class (meta pos) (refKind cname) fields methods
             where
               classBody = do fields <- many fieldDecl
                              methods <- many methodDecl

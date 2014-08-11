@@ -38,19 +38,16 @@ class HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
-data Activity = Active | Passive deriving(Show, Eq)
-
 data EmbedTL = EmbedTL {etlmeta :: Meta,
                         etlcode  :: String} deriving (Show)
 
 data ClassDecl = Class {cmeta     :: Meta,
-                        cactivity :: Activity,
                         cname     :: Type,
                         fields    :: [FieldDecl], 
                         methods   :: [MethodDecl]} deriving(Show, Eq)
 
 isActive :: ClassDecl -> Bool
-isActive = (== Active) . cactivity
+isActive = isActiveRefType . cname
 
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl = (== "Main") . getId . cname $ cdecl
