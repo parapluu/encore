@@ -17,7 +17,7 @@ import Identifiers
 import Types
 import AST.Meta
 
-data Program = Program {etl :: EmbedTL, classes :: [ClassDecl]} deriving(Show)
+data Program = Program {etl :: EmbedTL, imports :: [ImportDecl], classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
     getPos :: a -> SourcePos

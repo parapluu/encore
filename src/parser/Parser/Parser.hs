@@ -157,7 +157,7 @@ program = do {popHashbang ;
               whiteSpace ;
               classes <- many classDecl ;
               eof ;
-              return $ Program embedtl classes}
+              return $ Program embedtl importdecls classes}
 
 popHashbang :: Parser ()
 popHashbang = do

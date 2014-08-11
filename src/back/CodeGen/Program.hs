@@ -21,7 +21,7 @@ instance Translatable A.EmbedTL (CCode Toplevel) where
     translate (A.EmbedTL _ code) = Embed code
 
 instance Translatable A.Program (CCode FIN) where
-  translate prog@(A.Program etl cs) =
+  translate prog@(A.Program etl imps cs) =
     Program $
     ConcatTL $
     (Includes ["pony/pony.h",
@@ -47,10 +47,10 @@ instance Translatable A.Program (CCode FIN) where
               Return $ Call (Nam "pony_start") [AsExpr $ Var "argc", AsExpr $ Var "argv", Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel
-      translate_class_here cdecl = runReader (translate cdecl) (Ctx.mk (A.Program etl cs))
+      translate_class_here cdecl = runReader (translate cdecl) (Ctx.mk (A.Program etl imps cs))
 
 instance FwdDeclaration A.Program (CCode Toplevel) where
-  fwd_decls (A.Program etl cs) = ConcatTL $ [create_and_send_fn,
+  fwd_decls (A.Program etl imps cs) = ConcatTL $ [create_and_send_fn,
                                              msg_alloc_decl,
                                              msg_fut_resume_decl,
                                              msg_enum cs,
