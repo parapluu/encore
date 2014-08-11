@@ -23,6 +23,7 @@ import AST.PrettyPrinter
 import AST.Util
 import AST.Desugarer
 import Typechecker.Typechecker
+import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.Preprocessor
 import CCode.PrettyCCode
@@ -153,7 +154,8 @@ main =
                                            when (Intermediate TypeChecked `elem` options)
                                                     (withFile (exeName ++ ".TAST") WriteMode 
                                                      (flip hPrint $ show ast))
-                                           compileProgram ast exeName options
+                                           let ast' = optimizeProgram ast
+                                           compileProgram ast' exeName options
                                            when (Run `elem` options) 
                                                     (do
                                                       system $ "./" ++ exeName
