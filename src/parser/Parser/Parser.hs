@@ -23,6 +23,8 @@ FieldAccess ::= . Name FieldAccess | eps
               | let LetDecls in Expr
               | { Sequence }
               | if Expr then Expr else Expr
+              | if Expr then Expr
+              | unless Expr then Expr
               | while Expr Expr
               | get Expr
               | Path
@@ -31,15 +33,14 @@ FieldAccess ::= . Name FieldAccess | eps
               | false
               | new Type
               | print Expr
-              | print ( \" String \" {Args}? )
-              | exit( Int )
               | \" String \"
               | Int
               | Expr Op Expr
               | embed Type .* end
+              | not Expr
               | ( Expr )
               | \\ ( ParamDecls ) -> Expr
-        Op ::= \< | \> | == | != | + | - | * | / | %
+        Op ::= \< | \> | == | != | + | - | * | / | % | and | or
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
     String ::= ([^\"]|\\\")*
@@ -56,9 +57,7 @@ Keywords: @ class def embed end Fut let in passive if then else while get null n
 
 -}
 
-module Parser.Parser(parseEncoreProgram
-                    ,identifier_parser
-                    ) where
+module Parser.Parser(parseEncoreProgram ,identifier_parser) where
 
 -- Library dependencies
 import Text.Parsec
@@ -241,19 +240,23 @@ expression = buildExpressionParser opTable expr
                  [typedExpression],
                  [assignment]
                 ]
-      prefix s operator = Prefix (do pos <- getPosition
-                                     reservedOp s
-                                     return (\x -> Unary (meta pos) operator x))
-      op s binop = Infix (do pos <- getPosition
-                             reservedOp s
-                             return (\e1 e2 -> Binop (meta pos) binop e1 e2)) AssocLeft
-      typedExpression = Postfix (do pos <- getPosition
-                                    reservedOp ":"
-                                    t <- typ
-                                    return (\e -> TypedExpr (meta pos) e t))
-      assignment = Infix (do pos <- getPosition ;
-                             reservedOp "=" ;
-                             return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
+      prefix s operator = 
+          Prefix (do pos <- getPosition
+                     reservedOp s
+                     return (\x -> Unary (meta pos) operator x))
+      op s binop = 
+          Infix (do pos <- getPosition
+                    reservedOp s
+                    return (\e1 e2 -> Binop (meta pos) binop e1 e2)) AssocLeft
+      typedExpression = 
+          Postfix (do pos <- getPosition
+                      reservedOp ":"
+                      t <- typ
+                      return (\e -> TypedExpr (meta pos) e t))
+      assignment = 
+          Infix (do pos <- getPosition ;
+                    reservedOp "=" ;
+                    return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
 
 expr :: Parser Expr
 expr  =  unit
