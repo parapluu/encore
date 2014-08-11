@@ -121,48 +121,39 @@ a <+> b = (a ++ " " ++ b)
 -- withTemporaryEncFileName f = withFile "tmp.enc" WriteMode f
 
 main = 
-    do
-      args <- getArgs
-      do
-        let (programs, options) = parseArguments args
-        warnUnknownFlags options
-        if null programs then
-            do
-              putStrLn usage
-              fail "No program specified! Aborting."
-        else
-            do
-              let sourceName = head programs
-              let exeName = dropExtension sourceName
-              sourceExists <- doesFileExist sourceName
-              if not sourceExists then
-                  fail $ "File \"" ++ sourceName ++ "\" does not exist! Aborting."
-              else
-                  do
-                    code <- readFile sourceName
-                    let program = parseEncoreProgram sourceName code
-                    case program of
-                      Right ast -> do
-                                   when (Intermediate Parsed `elem` options) 
-                                            (withFile (exeName ++ ".AST") WriteMode 
-                                             (flip hPrint $ show ast))
-                                   let ast' = desugarProgram ast
-                                   let tcResult = typecheckEncoreProgram ast'
-                                   case tcResult of
-                                     Right ast -> 
-                                         do
-                                           when (Intermediate TypeChecked `elem` options)
-                                                    (withFile (exeName ++ ".TAST") WriteMode 
-                                                     (flip hPrint $ show ast))
-                                           let ast' = optimizeProgram ast
-                                           compileProgram ast' exeName options
-                                           when (Run `elem` options) 
-                                                    (do
-                                                      system $ "./" ++ exeName
-                                                      system $ "rm " ++ exeName
-                                                      return ())
-                                     Left error -> fail $ show error
-                      Left error -> fail $ show error
+    do args <- getArgs
+       let (programs, options) = parseArguments args
+       warnUnknownFlags options
+       when (null programs)
+           (do putStrLn usage
+               fail "No program specified! Aborting.")
+       let sourceName = head programs
+       let exeName = dropExtension sourceName
+       sourceExists <- doesFileExist sourceName
+       when (not sourceExists)
+           (fail $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
+       code <- readFile sourceName
+       let program = parseEncoreProgram sourceName code
+       case program of
+         Right ast -> 
+             do when (Intermediate Parsed `elem` options) 
+                    (withFile (exeName ++ ".AST") WriteMode 
+                        (flip hPrint $ show ast))
+                let ast' = desugarProgram ast
+                let tcResult = typecheckEncoreProgram ast'
+                case tcResult of
+                  Right ast -> 
+                      do when (Intermediate TypeChecked `elem` options)
+                             (withFile (exeName ++ ".TAST") WriteMode 
+                                 (flip hPrint $ show ast))
+                         let ast' = optimizeProgram ast
+                         compileProgram ast' exeName options
+                         when (Run `elem` options) 
+                             (do system $ "./" ++ exeName
+                                 system $ "rm " ++ exeName
+                                 return ())
+                  Left error -> fail $ show error
+         Left error -> fail $ show error
     where
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
 
