@@ -13,38 +13,42 @@ following grammar:
  ParamDecls ::= Name : Type , ParamDecl | eps
 MethodDecls ::= def Name ( ParamDecls ) : Type Expr
    Sequence ::= Expr Seq | eps
-        Seq ::= ; Expr Seq | eps
+        Seq ::= ; Expr Seq | ; | eps
   Arguments ::= Expr Args | eps
        Args ::= , Expr Args | eps
-       Path ::= Name FieldAccess | eps
-FieldAccess ::= . Name FieldAccess | eps
    LetDecls ::= Name = Expr LetDecls | eps
        Expr ::= ()
-              | Expr = Expr
-              | Path . Name ( Arguments )
+              | embed Type .* end
+              | Expr . Name
+              | Expr . Name ( Arguments )
+              | Expr ! Name ( Arguments )
+              | print Expr
+              | Name ( Arguments )
+              | ( Expr )
+              | Name
               | let LetDecls in Expr
+              | Expr = Expr
               | { Sequence }
               | if Expr then Expr else Expr
               | if Expr then Expr
               | unless Expr then Expr
               | while Expr Expr
               | get Expr
-              | Path
+              | new Type ( Arguments )
+              | new Type
               | null
               | true
               | false
-              | new Type
-              | print Expr
               | \" String \"
               | Int
+              | Real
               | Expr Op Expr
-              | embed Type .* end
               | not Expr
-              | ( Expr )
               | \\ ( ParamDecls ) -> Expr
         Op ::= \< | \> | == | != | + | - | * | / | % | and | or
       Name ::= [a-zA-Z][a-zA-Z0-9_]*
        Int ::= [0-9]+
+      Real ::= Int . Int
     String ::= ([^\"]|\\\")*
       Type ::= Arrow | NonArrow
      Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
