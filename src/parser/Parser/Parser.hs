@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-| 
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
@@ -205,26 +207,6 @@ methodDecl = do pos <- getPosition
                 body <- expression
                 return $ Method (meta pos) (Name name) ty params body
 
-methodPath :: Parser (Expr, Name)
-methodPath = do pos <- getPosition
-                root <- identifier
-                dot
-                path <- identifier `sepBy` (skipMany1 dot)
-                return (pathToExpr (init path) (VarAccess (meta pos) (Name root)), Name $ last path )
-
-messagePath :: Parser (Expr, Name)
-messagePath =  do pos <- getPosition
-                  root <- identifier
-                  optional dot
-                  path <- option [] $ identifier `sepBy` (skipMany1 dot)
-                  bang
-                  mname <- identifier
-                  return (pathToExpr path (VarAccess (meta pos) (Name root)), Name $ mname)
-
-pathToExpr :: [String] -> Expr -> Expr
-pathToExpr [] acc = acc
-pathToExpr (f:path) acc = pathToExpr path (FieldAccess (emeta acc) acc (Name f))
-
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
@@ -237,6 +219,7 @@ expression = buildExpressionParser opTable expr
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "<=" Identifiers.LTE, op ">=" Identifiers.GTE, op "==" Identifiers.EQ, op "!=" NEQ],
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
+                 [messageSend],
                  [typedExpression],
                  [assignment]
                 ]
@@ -253,6 +236,12 @@ expression = buildExpressionParser opTable expr
                       reservedOp ":"
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
+      messageSend = 
+          Postfix (do pos <- getPosition
+                      bang
+                      name <- identifier
+                      args <- parens arguments
+                      return (\target -> MessageSend (meta pos) target (Name name) args))
       assignment = 
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;
@@ -261,13 +250,9 @@ expression = buildExpressionParser opTable expr
 expr :: Parser Expr
 expr  =  unit
      <|> try embed
-     <|> try methodCall
-     <|> try messageSend
-     <|> try fieldAccess
+     <|> try path
      <|> try print
-     <|> try methodCall
      <|> try functionCall
-     <|> try fieldAccess
      <|> closure
      <|> parens expression
      <|> varAccess
@@ -296,14 +281,14 @@ expr  =  unit
       unit = do pos <- getPosition
                 reservedOp "()" 
                 return $ Skip (meta pos)
-      methodCall = do pos <- getPosition
-                      (target, tmname) <- methodPath
-                      args <- parens arguments
-                      return $ MethodCall (meta pos) target tmname args
-      messageSend = do pos <- getPosition
-                       (target, tmname) <- messagePath
-                       args <- parens arguments
-                       return $ MessageSend (meta pos) target tmname args
+      path = do pos <- getPosition
+                root <- parens expression <|> try functionCall <|> varAccess
+                dot
+                path <- (try functionCall <|> varAccess) `sepBy1` dot
+                return $ foldl (buildPath pos) root path
+             where
+               buildPath pos target (VarAccess{name}) = FieldAccess (meta pos) target name
+               buildPath pos target (FunctionCall{name, args}) = MethodCall (meta pos) target name args
       letExpression = do pos <- getPosition
                          reserved "let"
                          decls <- many varDecl
@@ -347,11 +332,6 @@ expr  =  unit
                reserved "get"
                expr <- expression
                return $ Get (meta pos) expr 
-      fieldAccess = do pos <- getPosition
-                       root <- identifier
-                       dot
-                       path <- identifier `sepBy1` (skipMany1 dot)
-                       return $ pathToExpr path (VarAccess (meta pos) (Name root)) 
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments
