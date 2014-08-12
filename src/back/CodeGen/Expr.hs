@@ -148,7 +148,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    Nothing -> return $ Var (show name)
           mk_lval (A.FieldAccess {A.target = target, A.name = name}) =
               do (ntarg, ttarg) <- translate target
-                 return (EmbedC $ Deref ntarg `Dot` (Nam $ show name))
+                 return (Deref ntarg `Dot` (Nam $ show name))
           mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate (A.VarAccess {A.name = name}) = do
@@ -202,7 +202,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    return (Var tmp, (Seq [ttarget,
                                           Assign (Decl (translate (A.getType call), Var tmp)) 
                                                  (Call (method_impl_name (A.getType target) name)
-                                                  ((EmbedC ntarget) : targs))]))
+                                                  ((AsExpr ntarget) : targs))]))
 
             remote_call :: State Ctx.Context (CCode Lval, CCode Stat)
             remote_call =
@@ -217,9 +217,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
                                         (Record
-                                          ((Embed $ "{.p = " ++ the_fut_name ++ "}") : 
-                                          (map (\(arg, ty) -> Embed $ "{"++(pony_arg_t_tag ty) ++"="++ (show arg)++"}")
-                                          (zip (targs) targtys)) :: [CCode Expr]))
+                                          ((UnionInst (Nam "p") (Var the_fut_name)) : 
+                                          (map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
+                                               (zip (targs) targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
@@ -230,10 +230,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 the_arg_decl,
                                 Statement the_call])
 
-            pony_arg_t_tag :: CCode Ty -> String
-            pony_arg_t_tag (Ptr _)         = ".p"
-            pony_arg_t_tag (Typ "int64_t") = ".i"
-            pony_arg_t_tag (Typ "double")  = ".d"
+            pony_arg_t_tag :: CCode Ty -> CCode Name
+            pony_arg_t_tag (Ptr _)         = Nam "p"
+            pony_arg_t_tag (Typ "int64_t") = Nam "i"
+            pony_arg_t_tag (Typ "double")  = Nam "d"
             pony_arg_t_tag other           =
                 error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
@@ -258,7 +258,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (length args) (Var the_arg_name)))
                                         (Record
-                                          ((map (\(arg, ty) -> Embed $ "{"++(pony_arg_t_tag ty) ++"="++ (show arg)++"}")
+                                          ((map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
                                           (zip (targs) targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
@@ -269,12 +269,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            Seq [the_arg_decl,
                                 Statement the_call])
 
-            pony_arg_t_tag :: CCode Ty -> String
-            pony_arg_t_tag (Ptr _)         = ".p"
-            pony_arg_t_tag (Typ "int64_t") = ".i"
-            pony_arg_t_tag (Typ "double")  = ".d"
-            pony_arg_t_tag other           =
-                error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+            pony_arg_t_tag :: CCode Ty -> CCode Name
+            pony_arg_t_tag (Ptr _)         = Nam "p"
+            pony_arg_t_tag (Typ "int64_t") = Nam "i"
+            pony_arg_t_tag (Typ "double")  = Nam "d"
+            pony_arg_t_tag other = error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
             varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
@@ -286,9 +285,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do (ncond,tcond) <- translate cond
          (nbody,tbody) <- translate body
          tmp <- Ctx.gen_sym;
-         let export_body = Seq $ tbody : [EmbedC (Assign (Var tmp) nbody)]
+         let export_body = Seq $ tbody : [Assign (Var tmp) nbody]
          return (Var tmp,
-                 Seq [EmbedC $ Decl ((translate (A.getType w)), Var tmp),
+                 Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
                       (While (StatAsExpr ncond tcond) (Statement export_body))])
 
   translate ite@(A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
@@ -383,21 +382,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              ty = A.getType fcall
          targs <- mapM translateArgument args
          (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs
-         (calln, the_call) <- tmp_var ty $ Call (getValFun ty) [Call (Nam "closure_call") [clos, tmp_args]]
+         (calln, the_call) <- tmp_var ty $ arg_member ty (Call (Nam "closure_call") [clos, tmp_args])
          return (if Ty.isVoidType ty then unit else calln, Seq [tmp_arg_decl, the_call])
       where
-        getValFun ty
-            | Ty.isIntType  ty = Nam "val_to_int"
-            | Ty.isRealType ty = Nam "val_to_dbl"
-            | otherwise        = Nam "val_to_ptr"
+        arg_member :: Ty.Type -> CCode Expr -> CCode Expr
+        arg_member ty e
+            | Ty.isVoidType ty = e
+            | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
+            | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
+            | otherwise        = AsExpr $ e `Dot` Nam "p"
         translateArgument arg = 
             do (ntother, tother) <- translate arg
-               return $ Call (toValFun (A.getType arg)) [StatAsExpr ntother tother]
+               return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
             where
-              toValFun ty
-                  | Ty.isIntType  ty = Nam "int_to_val"
-                  | Ty.isRealType ty = Nam "dbl_to_val"
-                  | otherwise        = Nam "ptr_to_val"
-
+              arg_member ty
+                  | Ty.isIntType  ty = Nam "i"
+                  | Ty.isRealType ty = Nam "d"
+                  | otherwise        = Nam "p"
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"

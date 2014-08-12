@@ -97,3 +97,4 @@ data CCode a where
     StatAsExpr   :: CCode Lval -> CCode Stat -> CCode Expr
     If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
     Return       :: UsableAs e Expr => CCode e -> CCode Stat
+    UnionInst    :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr

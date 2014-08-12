@@ -91,6 +91,7 @@ pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
                  text "else" $+$
                    braced_block (pp' e)
 pp' (Return e) = text "return" <+> pp' e <> text ";"
+pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l

@@ -105,6 +105,7 @@ translateActiveClass cdecl =
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :
              (Nam "FUT_MSG_RESUME", fut_resume_instr) :
+             (Nam "FUT_MSG_RUN_CLOSURE", fut_run_closure_instr) :
              (if (A.isMainClass cdecl)
               then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) (A.methods cdecl))
               else method_clauses $ A.methods cdecl
@@ -134,9 +135,17 @@ translateActiveClass cdecl =
                                 (Call (Nam "pony_set")
                                  [Var "p"]))]
 
-            fut_resume_instr = Concat 
-                                 [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                                  Statement $ Call (Nam "future_resume") [Var "r"]]
+            fut_resume_instr = 
+                Concat 
+                [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
+                 Statement $ Call (Nam "future_resume") [Var "r"]]
+            fut_run_closure_instr = 
+                Concat
+                [Assign (Decl (closure, Var "closure"))
+                        ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
+                 Assign (Decl (Typ "value_t", Var "closure_arguments[]"))
+                        (Embed "{{.p = argv[1].p}}" :: CCode Expr),
+                 Statement $ Call (Nam "closure_call") [Var "closure", Var "closure_arguments"]]
 
       tracefun_decl :: CCode Toplevel
       tracefun_decl = Function

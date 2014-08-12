@@ -44,13 +44,13 @@ translateClosure closure
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty 
-          | isVoidType ty = Return $ Call (toValFun ty) [unit]
-          | otherwise     = Return $ Call (toValFun ty) [var]
+          | isVoidType ty = Return $ (arg_cast ty unit)
+          | otherwise     = Return $ (arg_cast ty var)
           where 
-            toValFun ty
-                | isIntType  ty = Nam "int_to_val"
-                | isRealType ty = Nam "dbl_to_val"
-                | otherwise     = Nam "ptr_to_val"
+            arg_cast ty var
+                | isIntType  ty = Cast (pony_arg_t) (UnionInst (Nam "i") var)
+                | isRealType ty = Cast (pony_arg_t) (UnionInst (Nam "d") var)
+                | otherwise     = Cast (pony_arg_t) (UnionInst (Nam "p") var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
@@ -59,11 +59,11 @@ translateClosure closure
           where
             ty = translate ptype
             arg = Var $ show pname
-            getArgument i = Call getValFun [ArrAcc i (Var "_args")]
-            getValFun
-                | isIntType ptype  = Nam "val_to_int"
-                | isRealType ptype = Nam "val_to_dbl"
-                | otherwise        = Nam "val_to_ptr"
+            getArgument i = ArrAcc i (Var "_args") `Dot` arg_member
+            arg_member
+                | isIntType ptype  = Nam "i"
+                | isRealType ptype = Nam "d"
+                | otherwise        = Nam "p"
 
       buildEnvironment name members = 
           StructDecl (Typ $ show name) (map translate_binding members)

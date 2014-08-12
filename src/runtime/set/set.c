@@ -219,7 +219,7 @@ void set_forall(set_t *set, forall_fnc f, void *arg){
 
 static void node_forall_closure(struct node *node, closure_t *c){
   if(node){
-    value_t args[1] = {{.ptr=node->elem}};
+    value_t args[1] = {ptr_to_val(node->elem)};
     closure_call(c, args);
     node_forall_closure(node->left, c);
     node_forall_closure(node->right, c);

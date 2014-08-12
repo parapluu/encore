@@ -18,7 +18,7 @@ void print_threadid() {
 }
 
 void print_value(value_t args[], void* env) {
-  fprintf(stderr, "------------------> Chained closure prints value as: %llu\n", args[0].integer);
+  fprintf(stderr, "------------------> Chained closure prints value as: %ld\n", args[0].i);
 }
 
 typedef struct state_t
@@ -155,7 +155,7 @@ static void futures_eager_dispatch(pony_actor_t* this, void* p, uint64_t id, int
 	fprintf(stderr, "[%p]\t(%p) run_closure ---> %p \n", pthread_self(), argv[0].p, this);
 	struct closure* closure = argv[0].p;
 	value_t closure_arguments[1];
-	closure_arguments[0].ptr = argv[1].p;
+	closure_arguments[0].p = argv[1].p;
         closure_call(closure, closure_arguments); 
         break;
       }
