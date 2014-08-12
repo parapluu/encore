@@ -26,6 +26,7 @@ import Typechecker.Typechecker
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.Preprocessor
+import CodeGen.Header
 import CCode.PrettyCCode
 
 data Phase = Parsed | TypeChecked 
@@ -75,6 +76,9 @@ outputCode ast out =
     where
       printCommented s = hPutStrLn out $ unlines $ map ("// "++) $ lines s
 
+generateHeader ast out =
+    do (hPrint out $ generate_header ast)
+
 compileProgram :: Program -> FilePath -> [Option] -> IO ()
 compileProgram prog exe_path options =
     do encorecPath <- getExecutablePath
@@ -86,6 +90,7 @@ compileProgram prog exe_path options =
                      Nothing            -> return exe_path
        let cFile = exe_path ++ ".pony.c"
        withFile cFile WriteMode (outputCode prog)
+       withFile "header.h" WriteMode (generateHeader prog)
        when ((Clang `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
