@@ -133,27 +133,25 @@ main =
        when (not sourceExists)
            (fail $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
        code <- readFile sourceName
-       let program = parseEncoreProgram sourceName code
-       case program of
-         Right ast -> 
-             do when (Intermediate Parsed `elem` options) 
-                    (withFile (exeName ++ ".AST") WriteMode 
-                        (flip hPrint $ show ast))
-                let ast' = desugarProgram ast
-                let tcResult = typecheckEncoreProgram ast'
-                case tcResult of
-                  Right ast -> 
-                      do when (Intermediate TypeChecked `elem` options)
-                             (withFile (exeName ++ ".TAST") WriteMode 
-                                 (flip hPrint $ show ast))
-                         let ast' = optimizeProgram ast
-                         compileProgram ast' exeName options
-                         when (Run `elem` options) 
-                             (do system $ "./" ++ exeName
-                                 system $ "rm " ++ exeName
-                                 return ())
-                  Left error -> fail $ show error
-         Left error -> fail $ show error
+       ast <- case parseEncoreProgram sourceName code of
+                Right ast  -> return ast
+                Left error -> fail $ show error
+       when (Intermediate Parsed `elem` options) 
+           (withFile (exeName ++ ".AST") WriteMode 
+               (flip hPrint $ show ast))
+       let desugaredAST = desugarProgram ast
+       typecheckedAST <- case typecheckEncoreProgram desugaredAST of
+                           Right ast  -> return ast
+                           Left error -> fail $ show error
+       when (Intermediate TypeChecked `elem` options)
+           (withFile (exeName ++ ".TAST") WriteMode 
+               (flip hPrint $ show ast))
+       let optimizedAST = optimizeProgram typecheckedAST
+       compileProgram optimizedAST exeName options
+       when (Run `elem` options) 
+           (do system $ "./" ++ exeName
+               system $ "rm " ++ exeName
+               return ())
     where
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
 
