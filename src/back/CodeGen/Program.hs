@@ -95,4 +95,4 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
           where
             class_data_rec :: A.ClassDecl -> CCode Toplevel
             class_data_rec A.Class {A.cname = cname} =
-                Typedef (Struct . Nam $ (show cname) ++ "_data") (Nam $ (show cname) ++ "_data")
+                Typedef (Struct $ data_rec_name cname) (data_rec_name cname)

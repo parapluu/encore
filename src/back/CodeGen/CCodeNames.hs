@@ -72,11 +72,14 @@ one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
 one_way_send_msg_name clazz mname = Nam $ "MSG_"++show clazz++"__one_way_"++show mname
 
 -- | the name of the record type in which a class stores its state
-data_rec_name :: Ty.Type -> CCode Ty
-data_rec_name clazz = Typ $ show clazz ++ "_data"
+data_rec_name :: Ty.Type -> CCode Name
+data_rec_name clazz = Nam $ show clazz ++ "_data"
+
+data_rec_type :: Ty.Type -> CCode Ty
+data_rec_type clazz = Typ $ show clazz ++ "_data"
 
 data_rec_ptr :: Ty.Type -> CCode Ty
-data_rec_ptr = Ptr . data_rec_name
+data_rec_ptr = Ptr . data_rec_type
 
 actor_rec_name :: Ty.Type -> CCode Name
 actor_rec_name clazz = Nam $ show clazz ++ "_actor"

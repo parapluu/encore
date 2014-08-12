@@ -54,7 +54,7 @@ translateActiveClass cdecl =
                    ]
     where
       data_struct :: CCode Toplevel
-      data_struct = StructDecl (data_rec_name $ A.cname cdecl) $
+      data_struct = StructDecl (data_rec_type $ A.cname cdecl) $
                      ((Ptr $ pony_actor_t, Var "aref") :
                          zip
                          (map (translate  . A.ftype) (A.fields cdecl))
@@ -160,7 +160,7 @@ translateActiveClass cdecl =
                 | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
                 | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
                 where
-                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
+                  get_field f = Deref (Cast (data_rec_ptr (A.cname cdecl)) (Var "p")) `Dot` (Nam $ show f)
 
       message_type_decl :: CCode Toplevel
       message_type_decl = Function (Static . Ptr . Typ $ "pony_msg_t")
@@ -242,7 +242,7 @@ translatePassiveClass cdecl =
                    ]
     where
       data_struct :: CCode Toplevel
-      data_struct = StructDecl (data_rec_name $ A.cname cdecl) $
+      data_struct = StructDecl (data_rec_type $ A.cname cdecl) $
                      (zip
                          (map (translate  . A.ftype) (A.fields cdecl))
                          (map (Var . show . A.fname) (A.fields cdecl)))
@@ -260,7 +260,7 @@ translatePassiveClass cdecl =
                 | Ty.isPassiveRefType ty = Call (Nam "pony_traceobject") [get_field f, AsLval $ class_trace_fn_name ty]
                 | otherwise = Embed $ "/* Not tracing field '" ++ show f ++ "' */"
                 where
-                  get_field f = Deref (Cast (Ptr (data_rec_name (A.cname cdecl))) (Var "p")) `Dot` (Nam $ show f)
+                  get_field f = Deref (Cast (data_rec_ptr (A.cname cdecl)) (Var "p")) `Dot` (Nam $ show f)
 
 instance FwdDeclaration A.ClassDecl (Reader Ctx.Context (CCode Toplevel)) where
   fwd_decls cdecl 
