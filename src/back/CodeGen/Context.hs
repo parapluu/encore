@@ -99,7 +99,7 @@ type_of n c = do
 other_classes :: Context -> [ClassDecl]
 other_classes ctx =
   let
-    (Program _ clss) = (the_prog ctx)
+    (Program _ _ clss) = (the_prog ctx)
     cls = (the_class ctx)
   in
    map fromJust $ filter (/= cls) (map Just clss)

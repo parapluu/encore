@@ -17,7 +17,7 @@ import Identifiers
 import Types
 import AST.Meta
 
-data Program = Program {etl :: EmbedTL, classes :: [ClassDecl]} deriving(Show)
+data Program = Program {etl :: EmbedTL, imports :: [ImportDecl], classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
     getPos :: a -> SourcePos
@@ -40,6 +40,9 @@ class HasMeta a where
 
 data EmbedTL = EmbedTL {etlmeta :: Meta,
                         etlcode  :: String} deriving (Show)
+
+data ImportDecl = Import {imeta   :: Meta,
+                          itarget :: Name } deriving (Show, Eq)
 
 data ClassDecl = Class {cmeta     :: Meta,
                         cname     :: Type,

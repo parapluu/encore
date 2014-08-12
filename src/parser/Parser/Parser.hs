@@ -6,7 +6,8 @@ Produces an "AST.AST" (or an error) of a @Program@ built from the
 following grammar:
 
 @
-    Program ::= {EmbedTL}? ClassDecl Program | eps
+    Program ::= {Imports}* {EmbedTL}? ClassDecl Program | eps
+    Imports ::= import {qualified}? Name {(Name,...)}? {as Name}?
     EmbedTL ::= embed .*end
   ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
@@ -95,7 +96,9 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", "end", "Fut", "Par"],
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", 
+								   "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
+								   "end", "Fut", "Par", "import", "qualified", "module"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -159,13 +162,25 @@ typ  =  try arrow
 program :: Parser Program
 program = do optional hashbang
              whiteSpace
+             importdecls <- many importdecl
              embedtl <- embedTL
              classes <- many classDecl
              eof
-             return $ Program embedtl classes
+             return $ Program embedtl importdecls classes
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
+
+importdecl :: Parser ImportDecl
+importdecl = do 
+  pos <- getPosition 
+  reserved "import"
+--  qualified <- option $ reserved "qualified"
+  iname <- identifier
+--  {(Name,...)}? 
+--  stringliteral "as"; qname <- name
+--  {as Name}
+  return $ Import (meta pos) (Name iname)
 
 embedTL :: Parser EmbedTL
 embedTL = do pos <- getPosition
