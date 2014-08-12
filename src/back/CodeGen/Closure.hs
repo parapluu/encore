@@ -33,7 +33,7 @@ translateClosure closure
                env_name   = closure_env_name id
                freeVars   = Util.freeVariables (map A.pname params) body
            let ((bodyName, bodyStat), _) = runState (translate body) ctx
-           return $ ConcatTL 
+           return $ Concat
                       [buildEnvironment env_name freeVars,
                        Function (Typ "value_t") fun_name
                          [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]

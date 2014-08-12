@@ -23,18 +23,19 @@ instance Translatable A.EmbedTL (CCode Toplevel) where
 instance Translatable A.Program (CCode FIN) where
   translate prog@(A.Program etl cs) =
     Program $
-    ConcatTL $
-    (Includes ["pony/pony.h",
-               "stdlib.h",
-               "unistd.h", -- for sleep(..)
-               "set.h",
-               "closure.h",
-               "future.h",
-               "string.h",
-               --"inttypes.h",
-               "assert.h",
-               "stdio.h"
-              ]) :
+    Concat $
+    (Includes [
+      "pony/pony.h",
+      "stdlib.h",
+      "set.h",
+      "closure.h",
+      "future.h",
+      "string.h",
+      "stdio.h"
+     -- "unistd.h", -- for sleep(..)
+     --"inttypes.h"
+     -- "assert.h"
+     ]) :
     (translate etl) :
     (HashDefine "UNIT NULL - 1") :
     (fwd_decls prog) :
@@ -43,14 +44,14 @@ instance Translatable A.Program (CCode FIN) where
     [(Function
       (Typ "int") (Nam "main")
       [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-      (Concat [Statement (Call (Nam "init_futures") [Embed "2", Var "LAZY"]), -- TODO: Pass these as params to encorec
+      (Seq [Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"]), -- TODO: Pass these as params to encorec
               Return $ Call (Nam "pony_start") [AsExpr $ Var "argc", AsExpr $ Var "argv", Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))]
     where
       translate_class_here :: A.ClassDecl -> CCode Toplevel
       translate_class_here cdecl = runReader (translate cdecl) (Ctx.mk (A.Program etl cs))
 
 instance FwdDeclaration A.Program (CCode Toplevel) where
-  fwd_decls (A.Program etl cs) = ConcatTL $ [create_and_send_fn,
+  fwd_decls (A.Program etl cs) = Concat $ [create_and_send_fn,
                                              msg_alloc_decl,
                                              msg_fut_resume_decl,
                                              msg_fut_run_closure_decl,
@@ -60,29 +61,25 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
     where
       msg_alloc_decl =
           AssignTL (Decl (Static pony_msg_t, Var "m_MSG_alloc"))
-                   (Record [Embed "0", Record ([] :: [CCode Expr])])
+                   (Record [Int 0, Record ([] :: [CCode Expr])])
       msg_fut_resume_decl =
           AssignTL (Decl (Static pony_msg_t, Var "m_resume_get"))
-                   (Record [Embed "1", Record [Var "PONY_NONE"]])
+                   (Record [Int 1, Record [Var "PONY_NONE"]])
       msg_fut_run_closure_decl =
           AssignTL (Decl (Static pony_msg_t, Var "m_run_closure"))
-                   (Record [Embed "1", Record [Var "PONY_NONE"]])
+                   (Record [Int 1, Record [Var "PONY_NONE"]])
       create_and_send_fn =
-          Embed $
-                    "pony_actor_t* create_and_send(pony_actor_type_t* type, uint64_t msg_id) {\n" ++
---                    "  printf(\"creating:\\n\");\n" ++
-                    "  pony_actor_t* ret = pony_create(type);\n" ++
-                    "  pony_send(ret, msg_id);\n" ++
---                    "  printf(\"created and sent!\\n\");\n" ++
-                    "  \n" ++
-                    "  return ret;\n" ++
-                    "}"
+          Function (Ptr pony_actor_t) (Nam "create_and_send") 
+                   [(Ptr pony_actor_type_t, Var "type"), (uint, Var "msg_id")]
+                   (Seq [Assign (Decl (Ptr pony_actor_t, Var "ret")) (Call (Nam "pony_create") [Var "type"]),
+                        Statement $ Call (Nam "pony_send") [Var "ret", Var "msg_id"],
+                        Return $ Var "ret"])
       msg_enum :: [A.ClassDecl] -> CCode Toplevel
       msg_enum cs =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) cs
-          method_msg_names = map (show . (uncurry method_msg_name)) meta --"MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
-          one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta --"MSG_" ++ show cname ++ "_" ++ (show $ A.mname mdecl)) meta
+          method_msg_names = map (show . (uncurry method_msg_name)) meta
+          one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta
         in
          Enum $ map Nam $ "MSG_alloc":(method_msg_names ++ one_way_msg_names)
 
@@ -94,7 +91,7 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
          Enum $ map Nam $ names
 
       class_data_recs :: [A.ClassDecl] -> CCode Toplevel
-      class_data_recs = ConcatTL . (map class_data_rec)
+      class_data_recs = Concat . (map class_data_rec)
           where
             class_data_rec :: A.ClassDecl -> CCode Toplevel
             class_data_rec A.Class {A.cname = cname} =

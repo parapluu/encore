@@ -24,7 +24,9 @@ bool = Typ "int64_t" -- For pony argument tag compatibility. Should be changed t
 double = Typ "double"
 void = Typ "void"
 pony_actor_t = Typ "pony_actor_t"
+pony_actor_type_t = Typ "pony_actor_type_t"
 pony_arg_t = Typ "pony_arg_t"
+pony_msg_t = Typ "pony_msg_t"
 closure = Ptr $ Typ "closure_t"
 future = Ptr $ Typ "future_t"
 unit :: CCode Lval

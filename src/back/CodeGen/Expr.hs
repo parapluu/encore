@@ -81,9 +81,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate null@(A.Null {}) = tmp_var (A.getType null) Null
   translate true@(A.BTrue {}) = tmp_var (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = tmp_var (A.getType false) (Embed "0/*False*/"::CCode Expr)
-  translate lit@(A.IntLiteral {A.intLit = i}) = tmp_var (A.getType lit) (Embed (show i))
-  translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Embed (show r))
-  translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (Embed (show s))
+  translate lit@(A.IntLiteral {A.intLit = i}) = tmp_var (A.getType lit) (Int i)
+  translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Double r)
+  translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (String s)
 
   translate unary@(A.Unary {A.op = op, A.operand = e}) = do
     (ne, ts) <- translate e
@@ -110,7 +110,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate (A.Print {A.stringLit = s, A.args = args}) = do
       targs <- mapM translate args
-      let arg_names = map fst targs
+      let arg_names = map (AsExpr . fst) targs
       let arg_decls = map snd targs
       let arg_tys   = map A.getType args
       let fstring = format_string s arg_tys
@@ -118,7 +118,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 Seq $ arg_decls ++
                      [Statement 
                       (Call (Nam "printf")
-                       ((Embed $ show fstring) : arg_names))])
+                       ((String fstring) : arg_names))])
       where
         format_string s [] = s
         format_string "" (ty:tys) = error "Wrong number of arguments to printf"
@@ -188,7 +188,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return $ (Var na, Seq $ 
                                          [Assign (Decl (translate ty, Var na))
                                           (Call (Nam "pony_alloc") [size]),
-                                          Statement (Call (Nam "memset") [AsExpr $ Var na, Embed "0", size])])
+                                          Statement (Call (Nam "memset") [AsExpr $ Var na, Int 0, size])])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
@@ -223,7 +223,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
-                                                Embed . show $ 1 + length args,
+                                                Int $ 1 + length args,
                                                 AsExpr $ Var the_arg_name])
                    return (Var the_fut_name, 
                            Seq [the_fut_decl,
@@ -263,7 +263,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
-                                                Embed . show $ length args,
+                                                Int $ length args,
                                                 AsExpr $ Var the_arg_name])
                    return (unit, 
                            Seq [the_arg_decl,

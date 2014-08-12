@@ -53,8 +53,7 @@ pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (DeclTL (ty, id)) = tshow ty <+> tshow id <> text ";"
 pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
                                 parens (commaList argTys) <+> text ";"
-pp' (Concat ccodes) = block ccodes
-pp' (ConcatTL ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
+pp' (Concat ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
 pp' (Seq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
@@ -92,6 +91,9 @@ pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
                    braced_block (pp' e)
 pp' (Return e) = text "return" <+> pp' e <> text ";"
 pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
+pp' (Int n) = tshow n
+pp' (String s) = tshow s
+pp' (Double d) = tshow d
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l
