@@ -53,16 +53,20 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
   fwd_decls (A.Program etl cs) = ConcatTL $ [create_and_send_fn,
                                              msg_alloc_decl,
                                              msg_fut_resume_decl,
+                                             msg_fut_run_closure_decl,
                                              msg_enum cs,
                                              class_ids_enum cs,
                                              class_data_recs cs]
     where
       msg_alloc_decl =
-          Embed $ "static pony_msg_t m_MSG_alloc = {0, {}};"
+          AssignTL (Decl (Static pony_msg_t, Var "m_MSG_alloc"))
+                   (Record [Embed "0", Record ([] :: [CCode Expr])])
       msg_fut_resume_decl =
-          Embed $ "static pony_msg_t m_resume_get = {1, {PONY_NONE}};"
-      msg_fut_run_closure =
-          Embed $ "static pony_msg_t m_run_closure = {1, {PONY_NONE}};"
+          AssignTL (Decl (Static pony_msg_t, Var "m_resume_get"))
+                   (Record [Embed "1", Record [Var "PONY_NONE"]])
+      msg_fut_run_closure_decl =
+          AssignTL (Decl (Static pony_msg_t, Var "m_run_closure"))
+                   (Record [Embed "1", Record [Var "PONY_NONE"]])
       create_and_send_fn =
           Embed $
                     "pony_actor_t* create_and_send(pony_actor_type_t* type, uint64_t msg_id) {\n" ++
