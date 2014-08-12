@@ -58,9 +58,11 @@ instance FwdDeclaration A.Program (CCode Toplevel) where
                                              class_data_recs cs]
     where
       msg_alloc_decl =
-          Embed $ "static pony_msg_t m_MSG_alloc = {0, {PONY_NONE}};"
+          Embed $ "static pony_msg_t m_MSG_alloc = {0, {}};"
       msg_fut_resume_decl =
-          Embed $ "static pony_msg_t m_resume_get = {1, {PONY_NONE} };"
+          Embed $ "static pony_msg_t m_resume_get = {1, {PONY_NONE}};"
+      msg_fut_run_closure =
+          Embed $ "static pony_msg_t m_run_closure = {1, {PONY_NONE}};"
       create_and_send_fn =
           Embed $
                     "pony_actor_t* create_and_send(pony_actor_type_t* type, uint64_t msg_id) {\n" ++

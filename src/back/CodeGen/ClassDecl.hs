@@ -169,6 +169,7 @@ translateActiveClass cdecl =
                           (Concat [(Switch (Var "id")
                                    ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
                                     (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
+                                    (Nam "FUT_MSG_RUN_CLOSURE", Return $ Amp $ Var "m_resume_get") :
                                     (concatMap (\mdecl -> [message_type_clause (A.cname cdecl) (A.mname mdecl),
                                                            one_way_message_type_clause (A.cname cdecl) (A.mname mdecl)])
                                       (A.methods cdecl)))
