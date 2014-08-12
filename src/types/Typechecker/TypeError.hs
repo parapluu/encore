@@ -54,10 +54,10 @@ newtype TCError = TCError (String, Backtrace)
 instance Error TCError
 instance Show TCError where
     show (TCError (msg, [])) = 
-        "*** Error during typechecking ***\n" ++
+        " *** Error during typechecking *** \n" ++
         msg ++ "\n"
     show (TCError (msg, bt@((pos, _):_))) = 
-        "*** Error during typechecking ***\n" ++
+        " *** Error during typechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
         (concat $ map showBT bt)

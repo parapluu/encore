@@ -86,29 +86,25 @@ compileProgram prog exe_path options =
                      Nothing            -> return exe_path
        let cFile = exe_path ++ ".pony.c"
        withFile cFile WriteMode (outputCode prog)
-       if ((Clang `elem` options) || (Run `elem` options)) then
-           do
-             files  <- getDirectoryContents "."
-             let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
-             let cmd = "clang" <+> 
-                       cFile <+> 
-                       ofilesInc <+> 
-                       "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
-                       " -o" <+> execName <+>
-                       (libPath++"*.a") <+>
-                       (libPath++"*.a") <+>
-                       "-I" <+> incPath <+> "-I ."
-             exitCode <- system cmd
-             case exitCode of
-               ExitSuccess -> return ()
-               ExitFailure n -> do
-                             when (not (KeepCFiles `elem` options))
-                                (do runCommand $ "rm -f" <+> cFile
-                                    return ())
-                             fail $ "Compilation failed with exit code" <+> (show n)
-       else
-           return ()
-
+       when ((Clang `elem` options) || (Run `elem` options))
+           (do files  <- getDirectoryContents "."
+               let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
+                   cmd = "clang" <+> 
+                         cFile <+> 
+                         ofilesInc <+> 
+                         "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
+                         " -o" <+> execName <+>
+                         (libPath++"*.a") <+>
+                         (libPath++"*.a") <+>
+                         "-I" <+> incPath <+> "-I ."
+               exitCode <- system cmd
+               case exitCode of
+                 ExitSuccess -> return ()
+                 ExitFailure n -> 
+                     do when (not (KeepCFiles `elem` options))
+                             (do runCommand $ "rm -f" <+> cFile
+                                 return ())
+                        abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
     where
       dropDir = reverse . takeWhile (/='/') . reverse
       isOutput (Output _) = True
@@ -120,29 +116,32 @@ a <+> b = (a ++ " " ++ b)
 -- withTemporaryEncFileName :: (FilePath -> IO ()) -> IO ()
 -- withTemporaryEncFileName f = withFile "tmp.enc" WriteMode f
 
+abort msg = do putStrLn msg
+               exitFailure
+
 main = 
     do args <- getArgs
        let (programs, options) = parseArguments args
        warnUnknownFlags options
        when (null programs)
            (do putStrLn usage
-               fail "No program specified! Aborting.")
+               abort "No program specified! Aborting.")
        let sourceName = head programs
        let exeName = dropExtension sourceName
        sourceExists <- doesFileExist sourceName
        when (not sourceExists)
-           (fail $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
+           (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
        code <- readFile sourceName
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
-                Left error -> fail $ show error
+                Left error -> abort $ show error
        when (Intermediate Parsed `elem` options) 
            (withFile (exeName ++ ".AST") WriteMode 
                (flip hPrint $ show ast))
        let desugaredAST = desugarProgram ast
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
-                           Left error -> fail $ show error
+                           Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
            (withFile (exeName ++ ".TAST") WriteMode 
                (flip hPrint $ show ast))
@@ -156,11 +155,5 @@ main =
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
 
 -- some utility functions (TODO: move some to general utility library)
-dropExtension source =
-	let ext = lastn 4 source in 
-	if length source > 3 && ext == ".enc" then 
-		take ((length source) - 4) source 
-	else 
-		source
-		
-lastn n = reverse . take n . reverse
+dropExtension source = let extLen = 1 + (length . (takeWhile (/= '.')) . reverse $ source)
+                       in take (length source - extLen) source
