@@ -113,9 +113,3 @@ static void Main_dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, po
 }
 
 pony_actor_type_t Main_actor = {ID_Main, {sizeof(Main_data), Main_trace, NULL, NULL}, Main_message_type, Main_dispatch};
-
-int main(int argc, char** argv)
-{
-  init_futures(2, LAZY);;
-  return pony_start(argc, argv, pony_create((&(Main_actor))));;
-}

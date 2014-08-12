@@ -44,12 +44,16 @@ enum
 // Data structs
 typedef struct ___Foo_data Foo_data;
 
-typedef struct ___Bar_data
-{
-  pony_actor_t* f;
-} Bar_data;
+typedef struct ___Bar_data Bar_data;
 
 typedef struct ___Main_data Main_data;
+
+///////////////////////////////
+// Passive class data structs
+struct ___Bar_data
+{
+  pony_actor_t* f;
+};
 
 /////////////////////////////////
 // Forward declarations for Foo
