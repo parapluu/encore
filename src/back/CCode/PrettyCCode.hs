@@ -38,6 +38,7 @@ pp' (Program cs) = pp' cs
 pp' Skip = empty
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
+pp' (LocalInclude s) = text "#include" <+> doubleQuotes (text s)
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement other) =  pp' other <> text ";"
 pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$

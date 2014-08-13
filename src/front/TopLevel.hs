@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-|
 
 The top level module that orchestrates the compilation process and
@@ -25,6 +27,7 @@ import AST.Desugarer
 import Typechecker.Typechecker
 import Optimizer.Optimizer
 import CodeGen.Main
+import CodeGen.ClassDecl
 import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
@@ -66,36 +69,35 @@ warnUnknownFlags options =
       when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
       when (Clang `elem` options && GCC `elem` options) (putStrLn "Conflicting compiler options. Defaulting to clang.")
 
-outputCode :: Program -> Handle -> IO ()
-outputCode ast out = 
-    do printCommented "Source program: "
-       printCommented $ show $ ppProgram ast
-       printCommented $ show ast
-       printCommented "#####################"
-       hPrint out $ code_from_AST ast
-    where
-      printCommented s = hPutStrLn out $ unlines $ map ("// "++) $ lines s
+outputCode ast out = hPrint out ast    
 
-generateHeader ast out =
-    do (hPrint out $ generate_header ast)
+writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (outputCode ast)
 
 compileProgram :: Program -> FilePath -> [Option] -> IO ()
-compileProgram prog exe_path options =
+compileProgram prog path options =
     do encorecPath <- getExecutablePath
        let encorecDir = take (length encorecPath - length "encorec") encorecPath
-       let incPath = encorecDir ++ "./inc/"
-       let libPath = encorecDir ++ "./lib/"
-       execName <- case find (isOutput) options of
-                     Just (Output file) -> return file
-                     Nothing            -> return exe_path
-       let cFile = exe_path ++ ".pony.c"
-       withFile cFile WriteMode (outputCode prog)
-       withFile "header.h" WriteMode (generateHeader prog)
+           incPath = encorecDir ++ "./inc/"
+           libPath = encorecDir ++ "./lib/"
+           sourceBaseName = dropExtension path
+           execName = case find (isOutput) options of
+                        Just (Output file) -> file
+                        Nothing            -> sourceBaseName
+           srcDir = (sourceBaseName ++ "_src")
+       createDirectoryIfMissing True srcDir
+       let (classes, header, shared) = compile_to_c prog
+       mapM (writeClass srcDir) classes
+       let classFiles = map (\(name, _) -> (srcDir ++ "/" ++ name ++ ".pony.c")) classes
+           headerFile = srcDir ++ "/header.h"
+           sharedFile = srcDir ++ "/shared.c"
+       withFile headerFile WriteMode (outputCode header)
+       withFile sharedFile WriteMode (outputCode shared)
        when ((Clang `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
                    cmd = "clang" <+> 
-                         cFile <+> 
+                         concat (intersperse " " classFiles) <+> 
+                         sharedFile <+>
                          ofilesInc <+> 
                          "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
                          " -o" <+> execName <+>
@@ -107,7 +109,7 @@ compileProgram prog exe_path options =
                  ExitSuccess -> return ()
                  ExitFailure n -> 
                      do when (not (KeepCFiles `elem` options))
-                             (do runCommand $ "rm -f" <+> cFile
+                             (do runCommand $ "rm -rf" <+> srcDir
                                  return ())
                         abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
     where
@@ -151,7 +153,7 @@ main =
            (withFile (exeName ++ ".TAST") WriteMode 
                (flip hPrint $ show ast))
        let optimizedAST = optimizeProgram typecheckedAST
-       compileProgram optimizedAST exeName options
+       compileProgram optimizedAST sourceName options
        when (Run `elem` options) 
            (do system $ "./" ++ exeName
                system $ "rm " ++ exeName

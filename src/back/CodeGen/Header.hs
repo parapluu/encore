@@ -30,22 +30,29 @@ generate_header A.Program{A.classes = classes} =
          "string.h",
          "stdio.h"
         ]) :
---       (translate etl) :
        (HashDefine "UNIT NULL - 1") :
+
        [comment_section "Shared functions"] ++
        [create_and_send_decl] ++
+
        [comment_section "Shared messages"] ++
        shared_messages ++
+
        [comment_section "Message IDs"] ++
        [message_enums] ++
+
        [comment_section "Class IDs"] ++
        [class_enums] ++
+
        [comment_section "Data structs"] ++
        data_struct_decls ++ 
+
        [comment_section "Passive class data structs"] ++
        passive_data_structs ++ 
+
        [comment_section "Actor types"] ++
        actor_decls ++
+
        [comment_section "Methods"] ++
        concatMap method_fwds classes
     where

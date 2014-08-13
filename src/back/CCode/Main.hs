@@ -47,6 +47,7 @@ data CCode a where
     Skip         :: CCode Stat
     Null         :: CCode Expr
     Includes     :: [String] -> CCode Toplevel
+    LocalInclude :: String   -> CCode Toplevel
     HashDefine   :: String -> CCode Toplevel
     Statement    :: UsableAs e Expr => CCode e -> CCode Stat
     Switch       :: (UsableAs e Expr) => CCode e -> [(CCode Name, CCode Stat)] -> CCode Stat -> CCode Stat
