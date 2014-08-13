@@ -18,6 +18,7 @@ import System.Process
 import System.Posix.Directory
 import Data.List
 import Control.Monad
+import SystemUtils
 
 import Parser.Parser
 import AST.AST
@@ -73,23 +74,22 @@ outputCode ast out = hPrint out ast
 
 writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (outputCode ast)
 
-compileProgram :: Program -> FilePath -> [Option] -> IO ()
-compileProgram prog path options =
+compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
-       let encorecDir = take (length encorecPath - length "encorec") encorecPath
-           incPath = encorecDir ++ "./inc/"
-           libPath = encorecDir ++ "./lib/"
-           sourceBaseName = dropExtension path
+       let encorecDir = dirname encorecPath
+           incPath = encorecDir </> "inc/"
+           libPath = encorecDir </> "lib/"
+           sourceName = changeFileExt sourcePath ""
            execName = case find (isOutput) options of
                         Just (Output file) -> file
-                        Nothing            -> sourceBaseName
-           srcDir = (sourceBaseName ++ "_src")
+                        Nothing            -> sourceName
+           srcDir = (sourceName ++ "_src")
        createDirectoryIfMissing True srcDir
        let (classes, header, shared) = compile_to_c prog
        mapM (writeClass srcDir) classes
-       let classFiles = map (\(name, _) -> (srcDir ++ "/" ++ name ++ ".pony.c")) classes
-           headerFile = srcDir ++ "/header.h"
-           sharedFile = srcDir ++ "/shared.c"
+       let classFiles = map (\(name, _) -> (srcDir </> changeFileExt name "pony.c")) classes
+           headerFile = srcDir </> "header.h"
+           sharedFile = srcDir </> "shared.c"
        withFile headerFile WriteMode (outputCode header)
        withFile sharedFile WriteMode (outputCode shared)
        when ((Clang `elem` options) || (Run `elem` options))
@@ -108,20 +108,14 @@ compileProgram prog path options =
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n -> 
-                     do when (not (KeepCFiles `elem` options))
-                             (do runCommand $ "rm -rf" <+> srcDir
-                                 return ())
-                        abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
+                     abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
+       unless (KeepCFiles `elem` options)
+                  (do runCommand $ "rm -rf" <+> srcDir
+                      return ())
+       return execName
     where
-      dropDir = reverse . takeWhile (/='/') . reverse
       isOutput (Output _) = True
       isOutput _ = False
-
-(<+>) :: String -> String -> String
-a <+> b = (a ++ " " ++ b)
-
--- withTemporaryEncFileName :: (FilePath -> IO ()) -> IO ()
--- withTemporaryEncFileName f = withFile "tmp.enc" WriteMode f
 
 abort msg = do putStrLn msg
                exitFailure
@@ -134,7 +128,6 @@ main =
            (do putStrLn usage
                abort "No program specified! Aborting.")
        let sourceName = head programs
-       let exeName = dropExtension sourceName
        sourceExists <- doesFileExist sourceName
        when (not sourceExists)
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
@@ -143,24 +136,20 @@ main =
                 Right ast  -> return ast
                 Left error -> abort $ show error
        when (Intermediate Parsed `elem` options) 
-           (withFile (exeName ++ ".AST") WriteMode 
+           (withFile (changeFileExt sourceName "AST") WriteMode 
                (flip hPrint $ show ast))
        let desugaredAST = desugarProgram ast
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
-           (withFile (exeName ++ ".TAST") WriteMode 
+           (withFile (changeFileExt sourceName "TAST") WriteMode 
                (flip hPrint $ show ast))
        let optimizedAST = optimizeProgram typecheckedAST
-       compileProgram optimizedAST sourceName options
+       exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options) 
            (do system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())
     where
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
-
--- some utility functions (TODO: move some to general utility library)
-dropExtension source = let extLen = 1 + (length . (takeWhile (/= '.')) . reverse $ source)
-                       in take (length source - extLen) source
