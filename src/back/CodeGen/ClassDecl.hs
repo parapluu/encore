@@ -61,8 +61,7 @@ translateActiveClass cdecl@(A.Class{A.cname = cname, A.fields = fields, A.method
 
       tracefun_decl :: CCode Toplevel
       tracefun_decl = Function
-                       (Static void)
-                       (class_trace_fn_name cname)
+                       (void) (class_trace_fn_name cname)
                        [(Ptr void, Var "p")]
                        (Seq $ map trace_field fields)
           where
@@ -243,7 +242,7 @@ translatePassiveClass cdecl@(A.Class{A.cname = cname, A.fields = fields, A.metho
     where
       tracefun_decl :: CCode Toplevel
       tracefun_decl = 
-          Function (Static void) (class_trace_fn_name cname)
+          Function void (class_trace_fn_name cname)
                    [(Ptr void, Var "p")]
                    (Seq $ map trace_field fields)
           where

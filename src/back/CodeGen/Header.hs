@@ -44,6 +44,9 @@ generate_header A.Program{A.classes = classes} =
        [comment_section "Class IDs"] ++
        [class_enums] ++
 
+       [comment_section "Trace functions"] ++
+       trace_fn_decls ++
+
        [comment_section "Data structs"] ++
        data_struct_decls ++ 
 
@@ -78,7 +81,12 @@ generate_header A.Program{A.classes = classes} =
           names = map (("ID_"++) . show . A.cname) classes
         in
          Enum $ map Nam $ names
-              
+
+      trace_fn_decls = map trace_fn_decl classes
+          where
+            trace_fn_decl A.Class{A.cname = cname} =
+                      FunctionDecl void (class_trace_fn_name cname) [Ptr void]
+
       data_struct_decls = map data_struct_decl classes
           where
             data_struct_decl A.Class{A.cname = cname} = 
