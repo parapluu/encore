@@ -16,6 +16,7 @@ import System.Process
 import System.Posix.Directory
 import Data.List
 import Control.Monad
+import SystemUtils
 
 import Parser.Parser
 import AST.AST
@@ -75,16 +76,16 @@ outputCode ast out =
     where
       printCommented s = hPutStrLn out $ unlines $ map ("// "++) $ lines s
 
-compileProgram :: Program -> FilePath -> [Option] -> IO ()
-compileProgram prog exe_path options =
+compileProgram :: Program -> FilePath -> [Option] -> IO String
+compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
-       let encorecDir = take (length encorecPath - length "encorec") encorecPath
-       let incPath = encorecDir ++ "./inc/"
-       let libPath = encorecDir ++ "./lib/"
-       execName <- case find (isOutput) options of
-                     Just (Output file) -> return file
-                     Nothing            -> return exe_path
-       let cFile = exe_path ++ ".pony.c"
+       let encorecDir = dirname encorecPath
+       let incPath = encorecDir </> "inc/"
+       let libPath = encorecDir </> "lib/"
+       let execName = case find (isOutput) options of
+                        Just (Output file) -> file
+                        Nothing -> changeFileExt sourcePath ""
+       let cFile = changeFileExt sourcePath "pony.c"
        withFile cFile WriteMode (outputCode prog)
        when ((Clang `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
@@ -105,16 +106,10 @@ compileProgram prog exe_path options =
                              (do runCommand $ "rm -f" <+> cFile
                                  return ())
                         abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
+       return execName
     where
-      dropDir = reverse . takeWhile (/='/') . reverse
       isOutput (Output _) = True
       isOutput _ = False
-
-(<+>) :: String -> String -> String
-a <+> b = (a ++ " " ++ b)
-
--- withTemporaryEncFileName :: (FilePath -> IO ()) -> IO ()
--- withTemporaryEncFileName f = withFile "tmp.enc" WriteMode f
 
 abort msg = do putStrLn msg
                exitFailure
@@ -127,7 +122,6 @@ main =
            (do putStrLn usage
                abort "No program specified! Aborting.")
        let sourceName = head programs
-       let exeName = dropExtension sourceName
        sourceExists <- doesFileExist sourceName
        when (not sourceExists)
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
@@ -136,24 +130,20 @@ main =
                 Right ast  -> return ast
                 Left error -> abort $ show error
        when (Intermediate Parsed `elem` options) 
-           (withFile (exeName ++ ".AST") WriteMode 
+           (withFile (changeFileExt sourceName "AST") WriteMode 
                (flip hPrint $ show ast))
        let desugaredAST = desugarProgram ast
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
-           (withFile (exeName ++ ".TAST") WriteMode 
+           (withFile (changeFileExt sourceName "TAST") WriteMode 
                (flip hPrint $ show ast))
        let optimizedAST = optimizeProgram typecheckedAST
-       compileProgram optimizedAST exeName options
+       exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options) 
            (do system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())
     where
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
-
--- some utility functions (TODO: move some to general utility library)
-dropExtension source = let extLen = 1 + (length . (takeWhile (/= '.')) . reverse $ source)
-                       in take (length source - extLen) source
