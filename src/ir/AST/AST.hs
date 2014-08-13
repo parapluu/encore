@@ -38,8 +38,9 @@ class HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
-data EmbedTL = EmbedTL {etlmeta :: Meta,
-                        etlcode  :: String} deriving (Show)
+data EmbedTL = EmbedTL {etlmeta   :: Meta,
+                        etlheader :: String,
+                        etlbody   :: String} deriving (Show)
 
 data ImportDecl = Import {imeta   :: Meta,
                           itarget :: Name } deriving (Show, Eq)

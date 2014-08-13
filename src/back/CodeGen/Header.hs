@@ -18,7 +18,8 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 generate_header :: A.Program -> CCode FIN
-generate_header A.Program{A.classes = classes} = 
+generate_header A.Program{A.etl = A.EmbedTL{A.etlheader = etlheader}, 
+                          A.classes = classes} = 
        Program $
        Concat $ 
        (Includes [
@@ -31,6 +32,9 @@ generate_header A.Program{A.classes = classes} =
          "stdio.h"
         ]) :
        (HashDefine "UNIT NULL - 1") :
+
+       [comment_section "Embedded code"] ++
+       [Embed etlheader] ++
 
        [comment_section "Shared functions"] ++
        [create_and_send_decl] ++

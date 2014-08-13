@@ -11,7 +11,7 @@
 ;; with extension .enc.
 
 (setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "then" "unless" "while"))
-(setq encore-danger-words '("embed" "end"))
+(setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
 

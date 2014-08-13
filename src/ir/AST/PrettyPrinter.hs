@@ -56,9 +56,10 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram (Program (EmbedTL _ code) importDecls classDecls) = text "embed" $+$ text code $+$ text "end" $+$
-                                                              vcat (map ppImportDecl importDecls) $+$
-                                                              vcat (map ppClassDecl classDecls)
+ppProgram (Program (EmbedTL _ header code) importDecls classDecls) = 
+    text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
+         vcat (map ppImportDecl importDecls) $+$
+         vcat (map ppClassDecl classDecls)
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppName itarget

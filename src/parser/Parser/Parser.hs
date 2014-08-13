@@ -8,7 +8,7 @@ following grammar:
 @
     Program ::= {Imports}* {EmbedTL}? ClassDecl Program | eps
     Imports ::= import {qualified}? Name {(Name,...)}? {as Name}?
-    EmbedTL ::= embed .*end
+    EmbedTL ::= embed .* body .* end | embed .* end
   ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
  FieldDecls ::= Name : Type FieldDecl | eps
  ParamDecls ::= Name : Type , ParamDecl | eps
@@ -60,7 +60,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
    RefType ::= [A-Z][a-zA-Z0-9_]*
 @
 
-Keywords: @ class def embed end Fut let in passive if then else while get null new Par print @
+Keywords: @ class def embed body end Fut let in passive if then else while get null new Par print @
 
 -}
 
@@ -97,8 +97,8 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", 
-								   "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
-								   "end", "Fut", "Par", "import", "qualified", "module"],
+				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
+				  "body", "end", "Fut", "Par", "import", "qualified", "module"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -184,10 +184,17 @@ importdecl = do
 
 embedTL :: Parser EmbedTL
 embedTL = do pos <- getPosition
-             option (EmbedTL (meta pos) "")
-               (do reserved "embed"
-                   code <- manyTill anyChar $ reserved "end"
-                   return $ EmbedTL (meta pos) code)
+             (try (do reserved "embed"
+                      header <- manyTill anyChar $ reserved "body"
+                      code <- manyTill anyChar $ reserved "end"
+                      return $ EmbedTL (meta pos) header code
+                 )
+              <|>
+              try (do reserved "embed"
+                      header <- manyTill anyChar $ reserved "end"
+                      return $ EmbedTL (meta pos) header ""
+                 ) <|>
+              (return $ EmbedTL (meta pos) "" ""))
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition

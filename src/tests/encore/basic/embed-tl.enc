@@ -1,6 +1,7 @@
 embed
 #include "embed_tl.h"
-
+int bar();
+body
 int bar() {
   return 2;
 }
