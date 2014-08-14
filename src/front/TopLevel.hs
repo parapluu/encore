@@ -25,6 +25,7 @@ import AST.AST
 import AST.PrettyPrinter
 import AST.Util
 import AST.Desugarer
+import AST.ModuleExpander
 import Typechecker.Typechecker
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -138,7 +139,10 @@ main =
        when (Intermediate Parsed `elem` options) 
            (withFile (changeFileExt sourceName "AST") WriteMode 
                (flip hPrint $ show ast))
-       let desugaredAST = desugarProgram ast
+       expandedAST <- case expandModules ast of
+		         Right ast  -> return ast
+		         Left error -> abort $ show error
+       let desugaredAST = desugarProgram expandedAST
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
