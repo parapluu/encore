@@ -54,7 +54,7 @@ translateClosure closure
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
-      extractArguments' ((A.Param{A.pname = pname, A.ptype = ptype}):args) i = 
+      extractArguments' ((A.Param{A.pname, A.ptype}):args) i = 
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype

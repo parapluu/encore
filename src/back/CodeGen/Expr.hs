@@ -77,6 +77,7 @@ type ParsedEmbed = [Either String VarLkp]
 newtype VarLkp = VarLkp String
 
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
+  -- | Translate an expression into the corresponding C code
   translate skip@(A.Skip {}) = tmp_var (A.getType skip) (AsExpr unit)
   translate null@(A.Null {}) = tmp_var (A.getType null) Null
   translate true@(A.BTrue {}) = tmp_var (A.getType true) (Embed "1/*True*/"::CCode Expr)
@@ -85,30 +86,27 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.RealLiteral {A.realLit = r}) = tmp_var (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = tmp_var (A.getType lit) (String s)
 
-  translate unary@(A.Unary {A.op = op, A.operand = e}) = do
-    (ne, ts) <- translate e
+  translate unary@(A.Unary {A.op, A.operand}) = do
+    (noperand, toperand) <- translate operand
     tmp <- Ctx.gen_sym
     return $ (Var tmp,
-              Seq [ts,
+              Seq [toperand,
                    Statement (Assign
                               (Decl (translate $ A.getType unary, Var tmp))
-                              (CUnary (translate op)
-                                         (ne :: CCode Lval)))])
+                              (CUnary (translate op) noperand))])
 
-  translate bin@(A.Binop {A.op = op, A.loper = e1, A.roper = e2}) = do
-    (ne1,ts1) <- translate (e1 :: A.Expr)
-    (ne2,ts2) <- translate (e2 :: A.Expr)
+  translate bin@(A.Binop {A.op, A.loper, A.roper}) = do
+    (nlo, tlo) <- translate (loper :: A.Expr)
+    (nro, tro) <- translate (roper :: A.Expr)
     tmp <- Ctx.gen_sym
     return $ (Var tmp,
-              Seq [ts1,
-                   ts2,
+              Seq [tlo,
+                   tro,
                    Statement (Assign
                               (Decl (translate $ A.getType bin, Var tmp))
-                              (BinOp (translate op)
-                                         (ne1 :: CCode Lval)
-                                         (ne2 :: CCode Lval)))])
+                              (BinOp (translate op) nlo nro))])
 
-  translate (A.Print {A.stringLit = s, A.args = args}) = do
+  translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args
       let arg_names = map (AsExpr . fst) targs
       let arg_decls = map snd targs
@@ -130,28 +128,28 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let exit_call = Call (Nam "exit") [narg]
       return (unit, Seq [Statement targ, Statement exit_call])
 
-  translate seq@(A.Seq {A.eseq = es}) = do
-    ntes <- mapM translate es
+  translate seq@(A.Seq {A.eseq}) = do
+    ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes
     return (last nes, Seq tes)
 
-  translate (A.Assign {A.lhs = lhs, A.rhs = rhs}) = do
+  translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
     (nlhs, tlhs) <- translate lhs
     lval <- mk_lval lhs
     return (unit, Seq [trhs, Assign lval nrhs])
         where
-          mk_lval (A.VarAccess {A.name = name}) =
+          mk_lval (A.VarAccess {A.name}) =
               do ctx <- get
                  case Ctx.subst_lkp ctx name of
                    Just subst_name -> return subst_name
                    Nothing -> return $ Var (show name)
-          mk_lval (A.FieldAccess {A.target = target, A.name = name}) =
+          mk_lval (A.FieldAccess {A.target, A.name}) =
               do (ntarg, ttarg) <- translate target
                  return (Deref ntarg `Dot` (Nam $ show name))
           mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
-  translate (A.VarAccess {A.name = name}) = do
+  translate (A.VarAccess {A.name}) = do
       c <- get
       case Ctx.subst_lkp c name of
         Just subst_name ->
@@ -159,13 +157,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var $ show name, Skip)
 
-  translate acc@(A.FieldAccess {A.target = exp, A.name = name}) = do
-    (nexp,texp) <- translate exp
+  translate acc@(A.FieldAccess {A.target, A.name}) = do
+    (ntarg,ttarg) <- translate target
     tmp <- Ctx.gen_sym
-    return (Var tmp, Seq [texp,
-                      (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref nexp `Dot` (Nam $ show name)))])
+    return (Var tmp, Seq [ttarg,
+                      (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref ntarg `Dot` (Nam $ show name)))])
 
-  translate l@(A.Let {A.decls = decls, A.body = body}) = 
+  translate l@(A.Let {A.decls, A.body}) = 
                      do
                        tdecls <- translate_decls decls
                        (nbody, tbody) <- translate body
@@ -179,10 +177,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               tdecls <- translate_decls decls
                               return $ [te, Assign (Decl (translate (A.getType expr), Var tmp)) ne] ++ tdecls
 
-  translate new@(A.New {A.ty = ty}) 
+  translate new@(A.New {A.ty}) 
       | Ty.isActiveRefType ty = tmp_var ty (Call (Nam "create_and_send")
                                                  [Amp $ actor_rec_name ty,
-                                                  AsExpr . AsLval . Nam $ "MSG_alloc"])
+                                                  AsExpr . Var $ "MSG_alloc"])
       | otherwise = do na <- Ctx.gen_sym
                        let size = Sizeof $ Typ $ show (data_rec_name ty)
                        return $ (Var na, Seq $ 
@@ -253,13 +251,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    tmp <- Ctx.gen_sym
                    targs <- mapM varaccess_this_to_aref args
                    let argtys = (map A.getType args)
-                   let targtys = map (translate . A.getType) args :: [CCode Ty]
+                   let targtys = map (translate . A.getType) args
                    the_arg_name <- Ctx.gen_sym
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (length args) (Var the_arg_name)))
                                         (Record
-                                          ((map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
-                                          (zip (targs) targtys)) :: [CCode Expr]))
+                                          (map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
+                                            (zip targs targtys)))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
@@ -276,12 +274,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             pony_arg_t_tag other = error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
-            varaccess_this_to_aref other                                     = do
-                     (ntother, tother) <- translate other
-                     return $ StatAsExpr ntother tother
+            varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = 
+                return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+            varaccess_this_to_aref other = 
+                do (ntother, tother) <- translate other
+                   return $ StatAsExpr ntother tother
 
-  translate w@(A.While {A.cond = cond, A.body = body}) = 
+  translate w@(A.While {A.cond, A.body}) = 
       do (ncond,tcond) <- translate cond
          (nbody,tbody) <- translate body
          tmp <- Ctx.gen_sym;
@@ -290,7 +289,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
                       (While (StatAsExpr ncond tcond) (Statement export_body))])
 
-  translate ite@(A.IfThenElse { A.cond = cond, A.thn = thn, A.els = els }) =
+  translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_sym
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
@@ -346,17 +345,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Parsec.string "}"
                             return id
 
-  translate get@(A.Get{A.val = val}) = 
+  translate get@(A.Get{A.val}) = 
       do (nval, tval) <- translate val
          let result_type = translate (Ty.getResultType $ A.getType val)
          let the_get = Cast (result_type) $ Call (Nam "future_get") [nval, Var "this->aref"]
          tmp <- Ctx.gen_sym
          return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
 
-  translate clos@(A.Closure{A.eparams = params, A.body = body}) = 
+  translate clos@(A.Closure{A.eparams, A.body}) = 
       do let fun_name = closure_fun_name $ A.getMetaId clos
              env_name = closure_env_name $ A.getMetaId clos
-             free_vars = Util.freeVariables (map A.pname params) body
+             free_vars = Util.freeVariables (map A.pname eparams) body
          tmp <- Ctx.gen_sym
          fill_env <- mapM (insert_var env_name) free_vars
          return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
@@ -374,7 +373,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               Nothing -> Var $ show name
                return $ Assign ((Deref $ Var $ show env_name) `Dot` (Nam $ show name)) tname
 
-  translate fcall@(A.FunctionCall{A.name = name, A.args = args}) = 
+  translate fcall@(A.FunctionCall{A.name, A.args}) = 
       do c <- get
          let clos = Var $ (case Ctx.subst_lkp c name of
                              Just subst_name -> show subst_name

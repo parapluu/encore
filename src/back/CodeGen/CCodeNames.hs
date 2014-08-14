@@ -83,12 +83,3 @@ data_rec_ptr = Ptr . data_rec_type
 
 actor_rec_name :: Ty.Type -> CCode Name
 actor_rec_name clazz = Nam $ show clazz ++ "_actor"
-
-pony_actor_t_Type :: Ty.Type -> CCode Ty
-pony_actor_t_Type ty 
-    | isPrimitive ty = Typ $ show ty
-    | isRefType ty   = Typ $ (show ty) ++ "_actor_t*"
-    | otherwise      = error "Cannot not translate higher-order types"
-
-temp_name :: String -> CCode Name
-temp_name s = Nam $ "__backend__" ++ s

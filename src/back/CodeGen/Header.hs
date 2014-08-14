@@ -17,9 +17,9 @@ import qualified AST.AST as A
 import qualified Identifiers as ID
 import qualified Types as Ty
 
+-- | Generates the C header file for the translated program
 generate_header :: A.Program -> CCode FIN
-generate_header A.Program{A.etl = A.EmbedTL{A.etlheader = etlheader}, 
-                          A.classes = classes} = 
+generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.classes} = 
        Program $
        Concat $ 
        (Includes [
@@ -88,17 +88,17 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader = etlheader},
 
       trace_fn_decls = map trace_fn_decl classes
           where
-            trace_fn_decl A.Class{A.cname = cname} =
+            trace_fn_decl A.Class{A.cname} =
                       FunctionDecl void (class_trace_fn_name cname) [Ptr void]
 
       data_struct_decls = map data_struct_decl classes
           where
-            data_struct_decl A.Class{A.cname = cname} = 
+            data_struct_decl A.Class{A.cname} = 
                 Typedef (Struct $ data_rec_name cname) (data_rec_name cname)
 
       passive_data_structs = map passive_data_struct $ filter (not . A.isActive) classes
           where
-            passive_data_struct A.Class{A.cname = cname, A.fields = fields} = 
+            passive_data_struct A.Class{A.cname, A.fields} = 
                 StructDecl (data_rec_type cname) 
                            (zip
                             (map (translate . A.ftype) fields)
@@ -108,15 +108,12 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader = etlheader},
           where
             actor_decl A.Class{A.cname} = DeclTL (pony_actor_type_t, AsLval $ actor_rec_name cname)
 
-      method_fwds cdecl@(A.Class{A.cname = cname, A.methods = methods}) = map method_fwd methods
+      method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where
-            method_fwd A.Method{A.mtype = mtype, 
-                                A.mname = mname, 
-                                A.mparams = mparams, 
-                                A.mbody = mbody} =
+            method_fwd A.Method{A.mtype, A.mname, A.mparams, A.mbody} =
               let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
                            then [data_rec_ptr cname, int, Ptr $ Ptr char]
-                           else data_rec_ptr cname : map (\(A.Param {A.ptype = ty}) -> (translate ty)) mparams
+                           else data_rec_ptr cname : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl (translate mtype) (method_impl_name cname mname) params
 

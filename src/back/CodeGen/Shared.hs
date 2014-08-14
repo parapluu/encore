@@ -6,9 +6,10 @@ import CCode.Main
 import CodeGen.CCodeNames
 import qualified AST.AST as A
 
-
+-- | Generates a file containing the shared (but not included) C
+-- code of the translated program
 generate_shared :: A.Program -> CCode FIN
-generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody = etlbody}} = 
+generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}} = 
     Program $
     Concat $
       (LocalInclude "header.h") :
