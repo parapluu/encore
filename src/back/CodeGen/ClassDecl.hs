@@ -125,7 +125,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
         
       method_impls = map method_impl methods
           where
-            method_impl mdecl = runReader (translate mdecl) (Ctx.mk cdecl)
+            method_impl mdecl = translate mdecl cdecl
 
       dispatchfun_decl :: CCode Toplevel
       dispatchfun_decl =
@@ -253,4 +253,4 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
 
       method_impls = map method_decl methods
           where
-            method_decl mdecl = runReader (translate mdecl) (Ctx.mk cdecl)
+            method_decl mdecl = translate mdecl cdecl

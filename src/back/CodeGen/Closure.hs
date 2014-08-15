@@ -19,10 +19,9 @@ import Control.Monad.Reader hiding(void)
 import Control.Monad.State hiding(void)
 import Data.Maybe
 
-translateClosure :: A.Expr -> (Reader Ctx.Context (CCode Toplevel))
+translateClosure :: A.Expr -> CCode Toplevel
 translateClosure closure 
     | A.isClosure closure = 
-        do ctx <- ask
            let arrowType  = A.getType closure
                resultType = Ty.getResultType arrowType
                argTypes   = Ty.getArgTypes arrowType
@@ -32,15 +31,15 @@ translateClosure closure
                fun_name   = closure_fun_name id
                env_name   = closure_env_name id
                freeVars   = Util.freeVariables (map A.pname params) body
-           let ((bodyName, bodyStat), _) = runState (translate body) ctx
-           return $ Concat
-                      [buildEnvironment env_name freeVars,
-                       Function (Typ "value_t") fun_name
-                         [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
-                         (Seq $ 
-                            extractArguments params ++ 
-                            extractEnvironment env_name freeVars ++
-                            [bodyStat, returnStmnt bodyName resultType])]
+               ((bodyName, bodyStat), _) = runState (translate body) Ctx.empty
+           in
+             Concat [buildEnvironment env_name freeVars,
+                     Function (Typ "value_t") fun_name
+                              [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
+                              (Seq $ 
+                                extractArguments params ++ 
+                                extractEnvironment env_name freeVars ++
+                                [bodyStat, returnStmnt bodyName resultType])]
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty 
