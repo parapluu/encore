@@ -7,7 +7,7 @@ import Types
 
 data MetaInfo = Unspecified
               | Closure {metaId :: String}
-              | GlobalCall deriving (Eq, Show)
+                deriving (Eq, Show)
 
 data Meta = Meta {sourcePos :: SourcePos, metaType :: Type, metaInfo :: MetaInfo} deriving (Eq, Show)
 
@@ -31,9 +31,6 @@ getType = metaType
 
 metaClosure :: String -> Meta -> Meta
 metaClosure id m = m {metaInfo = Closure id}
-
-metaGlobalCall :: Meta -> Meta
-metaGlobalCall m = m {metaInfo = GlobalCall}
 
 getMetaId :: Meta -> String
 getMetaId = metaId . metaInfo

@@ -31,12 +31,12 @@ instance Translatable A.Function (CCode Toplevel) where
           closures = map translateClosure (reverse (Util.filter A.isClosure funbody)) 
       in
         Concat $ 
-               closures ++ 
-                   [Function (Typ "value_t") fun_name
-                         [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
-                         (Seq $ 
-                          extractArguments funparams ++ 
-                          [bodyStat, returnStmnt bodyName funtype])]
+        closures ++ 
+        [Function (Typ "value_t") fun_name
+                  [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
+                  (Seq $ 
+                   extractArguments funparams ++ 
+                   [bodyStat, returnStmnt bodyName funtype])]
     where
       returnStmnt var ty 
           | isVoidType ty = Return $ (arg_cast ty unit)
