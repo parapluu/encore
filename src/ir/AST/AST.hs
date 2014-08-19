@@ -61,10 +61,10 @@ instance HasMeta Function where
     setMeta f m = f{funmeta = m}
     setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
 
-data ClassDecl = Class {cmeta     :: Meta,
-                        cname     :: Type,
-                        fields    :: [FieldDecl], 
-                        methods   :: [MethodDecl]} deriving(Show, Eq)
+data ClassDecl = Class {cmeta   :: Meta,
+                        cname   :: Type,
+                        fields  :: [FieldDecl], 
+                        methods :: [MethodDecl]} deriving(Show, Eq)
 
 isActive :: ClassDecl -> Bool
 isActive = isActiveRefType . cname

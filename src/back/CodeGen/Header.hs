@@ -77,9 +77,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
 
       global_function_decls = map global_function_decl functions
           where
-            global_function_decl A.Function{A.funtype, A.funname, A.funparams} =
-              let params = map (\(A.Param {A.ptype}) -> (translate ptype)) funparams
-              in FunctionDecl (translate funtype) (global_function_name funname) params
+            global_function_decl A.Function{A.funname} = 
+                DeclTL (closure, AsLval $ global_closure_name funname)
 
 
       message_enums =

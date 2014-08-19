@@ -1,7 +1,9 @@
+def compose(g : b -> c, f : a -> b) : a -> c
+  \(x : a) -> g(f(x))
+
 class Main
   def main() : void
-    let compose = \(g : b -> c, f : a -> b) -> \(x : a) -> g(f(x))
-        double = \(x : int) -> x*2
+    let double = \(x : int) -> x*2
         bump = \(x : int) -> x+1
         f = compose(double, bump)
     in

@@ -228,30 +228,21 @@ instance Checkable Expr where
                     (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
                     return $ setType voidType msend {target = eTarget, args = eArgs}
 
-    typecheck fcall@(FunctionCall {name}) = 
-        do localFunType <- asks $ varLookup name
-           globalFunType <- asks $ globalLookup name
-           case localFunType of
-             Just ty -> typecheckFunctionCall fcall ty
-             Nothing -> 
-                 case globalFunType of
-                   Just ty -> do eFcall <- typecheckFunctionCall fcall ty
-                                 let m = getMeta eFcall
-                                 return $ setMeta eFcall (Meta.metaGlobalCall m)
-                   Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
-                 
-        where
-          typecheckFunctionCall fcall@(FunctionCall {name, args}) ty = 
-              do unless (isArrowType ty) $ 
-                        tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
-                 argTypes <- return $ getArgTypes ty
-                 unless (length args == length argTypes) $ 
-                        tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                                  "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
-                                  show (length args)
-                 (eArgs, bindings) <- checkArguments args argTypes
-                 let resultType = replaceTypeVars bindings (getResultType ty)
-                 return $ setType resultType fcall {args = eArgs}
+    typecheck fcall@(FunctionCall {name, args}) = 
+        do funType <- asks $ varLookup name
+           case funType of
+             Just ty -> 
+                 do unless (isArrowType ty) $ 
+                           tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
+                    argTypes <- return $ getArgTypes ty
+                    unless (length args == length argTypes) $ 
+                           tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
+                                     "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
+                                     show (length args)
+                    (eArgs, bindings) <- checkArguments args argTypes
+                    let resultType = replaceTypeVars bindings (getResultType ty)
+                    return $ setType resultType fcall {args = eArgs}
+             Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
 
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
@@ -334,6 +325,13 @@ instance Checkable Expr where
              Just ty -> return $ setType ty fAcc {target = eTarget}
              Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"
 
+    typecheck assign@(Assign {lhs = lhs@VarAccess{name}, rhs}) = 
+        do eLhs <- pushTypecheck lhs
+           isLocal <- asks $ isLocal name
+           unless isLocal $ 
+                  tcError $ "Left hand side '" ++ show (ppExpr lhs) ++ "' is a global variable and cannot be assigned to"
+           eRhs <- pushHasType rhs (AST.getType eLhs)
+           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
     typecheck assign@(Assign {lhs, rhs}) = 
         do eLhs <- pushTypecheck lhs
            unless (isLval lhs) $ 

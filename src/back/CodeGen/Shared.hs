@@ -49,14 +49,23 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                          (Record [Int 1, Record [Var "PONY_NONE"]])
       
       global_functions = map translate functions
+
       main_function =
           (Function (Typ "int") (Nam "main")
                     [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                    (Seq [Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"]), 
-                          Return $ 
-                          Call (Nam "pony_start") [AsExpr $ Var "argc", 
-                                                   AsExpr $ Var "argv", 
-                                                   Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))
+                    (Seq $ [init_futures] ++
+                           init_globals ++
+                           [Return $ 
+                            Call (Nam "pony_start") [AsExpr $ Var "argc", 
+                                                     AsExpr $ Var "argv", 
+                                                     Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))
+          where
+            init_futures = Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"])
+            init_globals = map init_global functions
+                where 
+                  init_global A.Function{A.funname} = 
+                      Assign (global_closure_name funname)
+                             (Call (Nam "mk_closure") [AsExpr $ AsLval $ global_function_name funname, Null])
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

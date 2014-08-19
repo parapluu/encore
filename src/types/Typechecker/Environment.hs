@@ -16,7 +16,7 @@ module Typechecker.Environment(Environment,
                                methodLookup, 
                                fieldLookup, 
                                varLookup,
-                               globalLookup,
+                               isLocal,
                                typeVarLookup,
                                extendEnvironment,
                                replaceLocals,
@@ -27,6 +27,7 @@ module Typechecker.Environment(Environment,
                                pushBT) where
 
 import Data.List
+import Data.Maybe
 
 -- Module dependencies
 import Identifiers
@@ -90,12 +91,12 @@ classActivityLookup cls env
     | otherwise = error $ "Tried to lookup the activity of '" ++ show cls ++ "' which is not a reference type"
 
 varLookup :: Name -> Environment -> Maybe Type
-varLookup x env = lookup x (locals env)
-
-globalLookup :: Name -> Environment -> Maybe Type
-globalLookup x env = case lookup x (locals env) of
+varLookup x env = case lookup x (locals env) of
                        Nothing -> lookup x (globals env)
                        result -> result
+
+isLocal :: Name -> Environment -> Bool
+isLocal x env = isJust $ lookup x (locals env)
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env 
