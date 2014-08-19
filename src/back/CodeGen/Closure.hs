@@ -11,6 +11,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
+import qualified AST.Meta as Meta
 
 import Types as Ty
 import Identifiers as Id
@@ -27,7 +28,7 @@ translateClosure closure
                argTypes   = Ty.getArgTypes arrowType
                params     = A.eparams closure
                body       = A.body closure
-               id         = A.getMetaId closure
+               id         = Meta.getMetaId . A.getMeta $ closure
                fun_name   = closure_fun_name id
                env_name   = closure_env_name id
                freeVars   = Util.freeVariables (map A.pname params) body

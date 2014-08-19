@@ -38,6 +38,10 @@ method_impl_name :: Ty.Type -> ID.Name -> CCode Name
 method_impl_name clazz mname =
     Nam $ (show clazz) ++ "_" ++ (show mname)
 
+global_function_name :: ID.Name -> CCode Name
+global_function_name funname =
+    Nam $ "_" ++ (show funname)
+
 closure_fun_name :: String -> CCode Name
 closure_fun_name name =
     Nam $ "_" ++ name ++ "_fun"

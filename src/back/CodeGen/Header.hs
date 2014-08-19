@@ -19,7 +19,7 @@ import qualified Types as Ty
 
 -- | Generates the C header file for the translated program
 generate_header :: A.Program -> CCode FIN
-generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.classes} = 
+generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes} = 
        Program $
        Concat $ 
        (Includes [
@@ -41,6 +41,9 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.classes} =
 
        [comment_section "Shared messages"] ++
        shared_messages ++
+
+       [comment_section "Global functions"] ++
+       global_function_decls ++
 
        [comment_section "Message IDs"] ++
        [message_enums] ++
@@ -71,6 +74,13 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.classes} =
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
            DeclTL (pony_msg_t, Var "m_resume_get"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
+
+      global_function_decls = map global_function_decl functions
+          where
+            global_function_decl A.Function{A.funtype, A.funname, A.funparams} =
+              let params = map (\(A.Param {A.ptype}) -> (translate ptype)) funparams
+              in FunctionDecl (translate funtype) (global_function_name funname) params
+
 
       message_enums =
         let
@@ -110,7 +120,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.classes} =
 
       method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where
-            method_fwd A.Method{A.mtype, A.mname, A.mparams, A.mbody} =
+            method_fwd A.Method{A.mtype, A.mname, A.mparams} =
               let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
                            then [data_rec_ptr cname, int, Ptr $ Ptr char]
                            else data_rec_ptr cname : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams

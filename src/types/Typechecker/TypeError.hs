@@ -17,13 +17,14 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr
+data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr
 instance Show BacktraceNode where
-    show (BTClass ty)    = "In class '"          ++ show ty                ++ "'"
-    show (BTParam p)     = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
-    show (BTField f)     = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
-    show (BTMethod n ty) = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
-    show (BTExpr expr)   = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
+    show (BTFunction n ty) = "In function '"       ++ show n                 ++ "' of type '" ++ show ty ++ "'"
+    show (BTClass ty)      = "In class '"          ++ show ty                ++ "'"
+    show (BTParam p)       = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
+    show (BTField f)       = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
+    show (BTMethod n ty)   = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
+    show (BTExpr expr)     = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -32,6 +33,9 @@ emptyBT = []
 -- | A type class for unifying the syntactic elements that can be pushed to the backtrace stack.
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
+
+instance Pushable Function where
+    push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
 
 instance Pushable ClassDecl where
     push c bt = (getPos c, BTClass (cname c)) : bt

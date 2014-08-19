@@ -18,6 +18,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
+import qualified AST.Meta as Meta
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -353,8 +354,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
 
   translate clos@(A.Closure{A.eparams, A.body}) = 
-      do let fun_name = closure_fun_name $ A.getMetaId clos
-             env_name = closure_env_name $ A.getMetaId clos
+      do let fun_name = closure_fun_name . Meta.getMetaId . A.getMeta $ clos
+             env_name = closure_env_name . Meta.getMetaId . A.getMeta $ clos
              free_vars = Util.freeVariables (map A.pname eparams) body
          tmp <- Ctx.gen_sym
          fill_env <- mapM (insert_var env_name) free_vars
@@ -374,29 +375,43 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return $ Assign ((Deref $ Var $ show env_name) `Dot` (Nam $ show name)) tname
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = 
-      do c <- get
-         let clos = Var $ (case Ctx.subst_lkp c name of
-                             Just subst_name -> show subst_name
-                             Nothing -> show name)
-             ty = A.getType fcall
-         targs <- mapM translateArgument args
-         (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs
-         (calln, the_call) <- tmp_var ty $ arg_member ty (Call (Nam "closure_call") [clos, tmp_args])
-         return (if Ty.isVoidType ty then unit else calln, Seq [tmp_arg_decl, the_call])
-      where
-        arg_member :: Ty.Type -> CCode Expr -> CCode Expr
-        arg_member ty e
-            | Ty.isVoidType ty = e
-            | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
-            | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
-            | otherwise        = AsExpr $ e `Dot` Nam "p"
-        translateArgument arg = 
-            do (ntother, tother) <- translate arg
-               return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
+      case A.getMetaInfo fcall of
+        Meta.GlobalCall -> do targs <- mapM varaccess_this_to_aref args
+                              tmp <- Ctx.gen_sym
+                              return (Var tmp, Assign (Decl (translate (A.getType fcall), Var tmp)) 
+                                               (Call (global_function_name name) targs))
             where
-              arg_member ty
-                  | Ty.isIntType  ty = Nam "i"
-                  | Ty.isRealType ty = Nam "d"
-                  | otherwise        = Nam "p"
+              varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
+              varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = 
+                  return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
+              varaccess_this_to_aref other = 
+                  do (ntother, tother) <- translate other
+                     return $ StatAsExpr ntother tother
+
+        _  -> -- Closure call
+            do c <- get
+               let clos = Var $ (case Ctx.subst_lkp c name of
+                                   Just subst_name -> show subst_name
+                                   Nothing -> show name)
+                   ty = A.getType fcall
+               targs <- mapM translateArgument args
+               (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs
+               (calln, the_call) <- tmp_var ty $ arg_member ty (Call (Nam "closure_call") [clos, tmp_args])
+               return (if Ty.isVoidType ty then unit else calln, Seq [tmp_arg_decl, the_call])
+            where
+              arg_member :: Ty.Type -> CCode Expr -> CCode Expr
+              arg_member ty e
+                  | Ty.isVoidType ty = e
+                  | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
+                  | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
+                  | otherwise        = AsExpr $ e `Dot` Nam "p"
+              translateArgument arg = 
+                  do (ntother, tother) <- translate arg
+                     return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
+                  where
+                    arg_member ty
+                        | Ty.isIntType  ty = Nam "i"
+                        | Ty.isRealType ty = Nam "d"
+                        | otherwise        = Nam "p"
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"

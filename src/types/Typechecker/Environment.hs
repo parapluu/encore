@@ -10,12 +10,13 @@ typevar-type bindings for doing lookups, as well as the
 -}
 
 module Typechecker.Environment(Environment, 
-                               buildClassTable, 
+                               buildEnvironment, 
                                classLookup, 
                                classActivityLookup, 
                                methodLookup, 
                                fieldLookup, 
                                varLookup,
+                               globalLookup,
                                typeVarLookup,
                                extendEnvironment,
                                replaceLocals,
@@ -33,30 +34,36 @@ import AST.AST
 import Types
 import Typechecker.TypeError
 
+type FunctionType = (Name, Type)
 type VarType = (Name, Type)
 type FieldType = (Name, Type)
 type MethodType = (Name, ([ParamDecl], Type))
 type ClassType = (Type, ([FieldType], [MethodType]))
 
-data Environment = Env {ctable :: [ClassType], locals :: [VarType], bindings :: [(Type, Type)], bt :: Backtrace}
+data Environment = Env {ctable :: [ClassType], globals :: [FunctionType], locals :: [VarType], bindings :: [(Type, Type)], bt :: Backtrace}
 
-buildClassTable :: Program -> Either TCError Environment
-buildClassTable (Program _ _ classes) = 
-    case duplicateClasses of
-      [] -> Right $ Env (map getClassType classes) [] [] emptyBT
-      (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
+buildEnvironment :: Program -> Either TCError Environment
+buildEnvironment (Program _ _ funs classes) = 
+    case duplicateFunctions of
+      (fun:_) -> Left $ TCError ("Duplicate definition of function '" ++ show (funname fun) ++ "'" , push fun emptyBT)
+      [] -> 
+          case duplicateClasses of
+            [] -> Right $ Env (map getClassType classes) (map getFunctionType funs) [] [] emptyBT
+            (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
     where
+      duplicateFunctions = funs \\ nubBy (\f1 f2 -> (funname f1 == funname f2)) funs
       duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
-      getClassType Class {cname = c, fields, methods} = (c, (fieldTypes, methodTypes))
-          where
-            setActivity ty = case find ((==ty) . cname) classes of
-                               Just c -> cname c
-                               Nothing -> ty
-            fieldTypes  = map getFieldType fields
-            methodTypes = map getMethodType methods
-            getFieldType Field {fname, ftype} = (fname, setActivity ftype)
-            getMethodType Method {mname, mtype, mparams} = 
-                (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
+      getFunctionType Function {funname, funtype, funparams} = 
+          (funname, arrowType (map (\p@(Param{ptype}) -> setActivity ptype) funparams) (setActivity funtype))
+      getClassType Class {cname = c, fields, methods} = (c, (fieldTypes fields, methodTypes methods))
+      setActivity ty = case find ((==ty) . cname) classes of
+                         Just c -> cname c
+                         Nothing -> ty
+      fieldTypes  = map getFieldType
+      methodTypes = map getMethodType
+      getFieldType Field {fname, ftype} = (fname, setActivity ftype)
+      getMethodType Method {mname, mtype, mparams} = 
+          (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -84,6 +91,11 @@ classActivityLookup cls env
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = lookup x (locals env)
+
+globalLookup :: Name -> Environment -> Maybe Type
+globalLookup x env = case lookup x (locals env) of
+                       Nothing -> lookup x (globals env)
+                       result -> result
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env 

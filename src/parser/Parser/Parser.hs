@@ -78,7 +78,7 @@ import Data.Char(isUpper)
 import Identifiers
 import Types
 import AST.AST
-import AST.Meta
+import AST.Meta hiding(Closure)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -164,9 +164,10 @@ program = do optional hashbang
              whiteSpace
              importdecls <- many importdecl
              embedtl <- embedTL
+             functions <- many function
              classes <- many classDecl
              eof
-             return $ Program embedtl importdecls classes
+             return $ Program embedtl importdecls functions classes
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -195,6 +196,16 @@ embedTL = do pos <- getPosition
                       return $ EmbedTL (meta pos) header ""
                  ) <|>
               (return $ EmbedTL (meta pos) "" ""))
+
+function :: Parser Function
+function = do pos <- getPosition
+              reserved "def"
+              name <- identifier
+              params <- parens (commaSep paramDecl)
+              colon
+              ty <- typ
+              body <- expression
+              return $ Function (meta pos) (Name name) ty params body
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition

@@ -4,12 +4,14 @@ module CodeGen.Shared(generate_shared) where
 
 import CCode.Main
 import CodeGen.CCodeNames
+import CodeGen.Typeclasses
+import CodeGen.Function
 import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generate_shared :: A.Program -> CCode FIN
-generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}} = 
+generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} = 
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -18,6 +20,9 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}} =
 
       [comment_section "Shared functions"] ++
       [create_and_send] ++
+
+      [comment_section "Global functions"] ++
+      global_functions ++
 
       [comment_section "Shared messages"] ++
       shared_messages ++
@@ -42,7 +47,8 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}} =
             msg_fut_run_closure_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
                          (Record [Int 1, Record [Var "PONY_NONE"]])
-          
+      
+      global_functions = map translate functions
       main_function =
           (Function (Typ "int") (Nam "main")
                     [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]

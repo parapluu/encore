@@ -40,8 +40,9 @@ foldr f acc e =
     in f e childResult
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ classes) = map (foldClass f e) classes
+foldrAll f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
     where
+      foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
       foldMethod f e (Method {mbody}) = foldr f e mbody
 
@@ -132,9 +133,13 @@ extendAccum f acc0 e@(Exit {args}) =
 extendAccum f acc e = f acc e
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc (Program etl imps classes) = (acc', Program etl imps program')
+extendAccumProgram f acc0 (Program etl imps funs classes) = (acc2, Program etl imps funs' classes')
     where 
-      (acc', program') = List.mapAccumL (extendAccumClass f) acc classes
+      (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
+      extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
+          where
+            (acc', funbody') = extendAccum f acc funbody
+      (acc2, classes') = List.mapAccumL (extendAccumClass f) acc1 classes
       extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
           where
             (acc', methods') = List.mapAccumL (extendAccumMethod f) acc methods
@@ -147,8 +152,10 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program _ _ classes) = List.nub $ concat $ concatMap extractClassTypes classes
+extractTypes (Program _ _ funs classes) = 
+    List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
     where
+      extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
       extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
       extractFieldTypes Field {ftype} = typeComponents ftype
       extractMethodTypes Method {mtype, mparams, mbody} = (typeComponents mtype) : (map extractParamTypes mparams) ++ [extractExprTypes mbody]

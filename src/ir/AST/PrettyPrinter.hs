@@ -56,14 +56,22 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram (Program (EmbedTL _ header code) importDecls classDecls) = 
+ppProgram (Program (EmbedTL _ header code) importDecls functions classDecls) = 
     text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
          vcat (map ppImportDecl importDecls) $+$
+         vcat (map ppFunction functions) $+$
          vcat (map ppClassDecl classDecls)
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppName itarget
 
+ppFunction :: Function -> Doc
+ppFunction Function {funname, funtype, funparams, funbody} = 
+    text "def" <+>
+    ppName funname <> 
+    parens (commaSep (map ppParamDecl funparams)) <+>
+    text ":" <+> ppType funtype $+$
+    (indent (ppExpr funbody))
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, fields, methods} = 
@@ -138,7 +146,7 @@ ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
 ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
-ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> commaSep (map ppExpr args))
+ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> comma <+> commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit

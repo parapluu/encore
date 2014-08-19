@@ -15,18 +15,20 @@ import Text.Parsec(SourcePos)
 
 import Identifiers
 import Types
-import AST.Meta
+import AST.Meta hiding(Closure)
 
-data Program = Program {etl :: EmbedTL, imports :: [ImportDecl], classes :: [ClassDecl]} deriving(Show)
+data Program = Program {etl :: EmbedTL, imports :: [ImportDecl], functions :: [Function], classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
+    getMeta :: a -> Meta
+
+    setMeta :: a -> Meta -> a
+
     getPos :: a -> SourcePos
-
-    getMetaId :: a -> String
-
-    setMetaId :: String -> a -> a
+    getPos = AST.Meta.getPos . getMeta
 
     getType :: a -> Type
+    getType = AST.Meta.getType . getMeta
 
     setType :: Type -> a -> a
 
@@ -38,12 +40,26 @@ class HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
+    getMetaInfo :: a -> MetaInfo
+    getMetaInfo = AST.Meta.metaInfo . getMeta
+
 data EmbedTL = EmbedTL {etlmeta   :: Meta,
                         etlheader :: String,
                         etlbody   :: String} deriving (Show)
 
 data ImportDecl = Import {imeta   :: Meta,
                           itarget :: Name } deriving (Show, Eq)
+
+data Function = Function {funmeta   :: Meta,
+                          funname   :: Name,
+                          funtype   :: Type,
+                          funparams :: [ParamDecl],
+                          funbody   :: Expr} deriving (Show, Eq)
+
+instance HasMeta Function where
+    getMeta = funmeta
+    setMeta f m = f{funmeta = m}
+    setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
 
 data ClassDecl = Class {cmeta     :: Meta,
                         cname     :: Type,
@@ -57,12 +73,8 @@ isMainClass :: ClassDecl -> Bool
 isMainClass cdecl = (== "Main") . getId . cname $ cdecl
 
 instance HasMeta ClassDecl where
-    getPos = AST.Meta.getPos . cmeta
-    getMetaId c = (metaId . cmeta) c
-    setMetaId id c = c{cmeta = cmeta'} 
-        where
-          cmeta' = (cmeta c){metaId = id}
-    getType = cname
+    getMeta = cmeta
+    setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
 data FieldDecl = Field {fmeta :: Meta, 
@@ -70,23 +82,15 @@ data FieldDecl = Field {fmeta :: Meta,
                         ftype :: Type} deriving(Show, Eq)
 
 instance HasMeta FieldDecl where
-    getPos = AST.Meta.getPos . fmeta
-    getMetaId f = (metaId . fmeta) f
-    setMetaId id f = f{fmeta = fmeta'} 
-        where
-          fmeta' = (fmeta f){metaId = id}
-    getType = ftype
+    getMeta = fmeta
+    setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
 
 data ParamDecl = Param {pmeta :: Meta, pname :: Name, ptype :: Type} deriving(Show, Eq)
 
 instance HasMeta ParamDecl where
-    getPos = AST.Meta.getPos . pmeta
-    getMetaId p = (metaId . pmeta) p
-    setMetaId id p = p{pmeta = pmeta'} 
-        where
-          pmeta' = (pmeta p){metaId = id}
-    getType = ptype
+    getMeta = pmeta
+    setMeta p m = p{pmeta = m}
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
 
 data MethodDecl = Method {mmeta   :: Meta,
@@ -96,12 +100,8 @@ data MethodDecl = Method {mmeta   :: Meta,
                           mbody   :: Expr} deriving (Show, Eq)
 
 instance HasMeta MethodDecl where
-    getPos = AST.Meta.getPos . mmeta
-    getMetaId m = (metaId . mmeta) m
-    setMetaId id m = m{mmeta = mmeta'} 
-        where
-          mmeta' = (mmeta m){metaId = id}
-    getType = mtype
+    getMeta = mmeta
+    setMeta mtd m = mtd{mmeta = m}
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
 type Arguments = [Expr]
@@ -196,12 +196,8 @@ isClosure Closure {} = True
 isClosure _ = False
 
 instance HasMeta Expr where
-    getPos = AST.Meta.getPos . emeta
-
-    getMetaId expr = (metaId . emeta) expr
-    setMetaId id expr = expr{emeta = emeta'} 
-        where
-          emeta' = (emeta expr){metaId = id}
+    getMeta = emeta
+    setMeta e m = e{emeta = m}
 
     hasType (Null {}) ty = not . isPrimitive $ ty
     hasType x ty = if ty == nullType then
@@ -210,7 +206,6 @@ instance HasMeta Expr where
                        ty == ty'
                    where
                      ty' = AST.AST.getType x
-    getType expr = AST.Meta.getType . emeta $ expr
 
     setType ty' expr@(TypedExpr {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
