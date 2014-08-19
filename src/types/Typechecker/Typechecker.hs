@@ -29,9 +29,8 @@ import Typechecker.TypeError
 
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
-typecheckEncoreProgram p = case buildEnvironment p of
-                             Right env -> runReader (runErrorT (typecheck p)) env
-                             Left err -> Left err
+typecheckEncoreProgram p = do env <- buildEnvironment p
+                              runReader (runErrorT (typecheck p)) env
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
@@ -162,7 +161,7 @@ instance Checkable MethodDecl where
 
 instance Checkable Expr where
     hasType expr ty = do eExpr <- pushTypecheck expr
-                         exprType <- return $ AST.getType eExpr
+                         let exprType = AST.getType eExpr
                          if isNullType exprType then
                              coerceNull eExpr ty
                          else
@@ -183,66 +182,66 @@ instance Checkable Expr where
 
     typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
-           targetType <- return $ AST.getType eTarget
+           let targetType = AST.getType eTarget
            unless (isRefType targetType) $ 
                 tcError $ "Cannot call method on expression '" ++ 
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
            when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
            lookupResult <- asks $ methodLookup targetType name
-           case lookupResult of
-             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
-             Just (params, returnType) -> 
-                 do unless (length args == length params) $ 
-                       tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
-                                 "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
-                    if isTypeVar returnType then
-                        case lookup returnType bindings of
-                          Just ty -> 
-                              if isThisAccess target || (not $ isActiveRefType targetType) then
-                                  return $ setType ty mcall {target = eTarget, args = eArgs}
-                              else
-                                  return $ setType (futureType ty) mcall {target = eTarget, args = eArgs}
-                          Nothing -> tcError $ "Could not resolve return type '" ++ show returnType ++ "'"
-                    else
-                        if isThisAccess target || (not $ isActiveRefType targetType) then
-                            return $ setType returnType mcall {target = eTarget, args = eArgs}
+           (paramTypes, methodType) <- 
+               case lookupResult of
+                 Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+                 Just result -> return result
+           unless (length args == length paramTypes) $ 
+                  tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
+                            "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
+           (eArgs, bindings) <- checkArguments args paramTypes
+           returnType <- 
+               do ty <- if isTypeVar methodType then
+                            case lookup methodType bindings of
+                              Just ty -> return ty
+                              Nothing -> tcError $ "Could not resolve return type '" ++ show methodType ++ "'"
                         else
-                            return $ setType (futureType returnType) mcall {target = eTarget, args = eArgs}
+                            return methodType
+                  return $ if isThisAccess target || (not $ isActiveRefType targetType) 
+                           then ty
+                           else futureType ty
+           return $ setType returnType mcall {target = eTarget, args = eArgs}
 
     typecheck msend@(MessageSend {target, name, args}) = 
         do eTarget <- pushTypecheck target
-           targetType <- return $ AST.getType eTarget
+           let targetType = AST.getType eTarget
            unless (isActiveRefType targetType) $ 
                 tcError $ "Cannot send message to expression '" ++ 
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
            lookupResult <- asks $ methodLookup targetType name
-           case lookupResult of
-             Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
-             Just (params, returnType) -> 
-                 do unless (length args == length params) $ 
-                       tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
-                                 "' expects " ++ show (length params) ++ " arguments. Got " ++ show (length args)
-                    (eArgs, bindings) <- checkArguments args (map (\(Param{ptype}) -> ptype) params)
-                    return $ setType voidType msend {target = eTarget, args = eArgs}
+           (paramTypes, _) <- 
+               case lookupResult of
+                 Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+                 Just result -> return result
+           unless (length args == length paramTypes) $ 
+                  tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
+                            "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
+           (eArgs, bindings) <- checkArguments args paramTypes
+           return $ setType voidType msend {target = eTarget, args = eArgs}
 
     typecheck fcall@(FunctionCall {name, args}) = 
         do funType <- asks $ varLookup name
-           case funType of
-             Just ty -> 
-                 do unless (isArrowType ty) $ 
-                           tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
-                    argTypes <- return $ getArgTypes ty
-                    unless (length args == length argTypes) $ 
-                           tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                                     "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
-                                     show (length args)
-                    (eArgs, bindings) <- checkArguments args argTypes
-                    let resultType = replaceTypeVars bindings (getResultType ty)
-                    return $ setType resultType fcall {args = eArgs}
-             Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+           ty <- case funType of
+                   Just ty -> return ty
+                   Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+           unless (isArrowType ty) $ 
+                  tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
+           let argTypes = getArgTypes ty
+           unless (length args == length argTypes) $ 
+                  tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
+                            "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
+                            show (length args)
+           (eArgs, bindings) <- checkArguments args argTypes
+           let resultType = replaceTypeVars bindings (getResultType ty)
+           return $ setType resultType fcall {args = eArgs}
 
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
@@ -273,15 +272,15 @@ instance Checkable Expr where
                                                    return $ (name, eExpr):eDecls
     typecheck seq@(Seq {eseq}) = 
         do eEseq <- mapM pushTypecheck eseq 
-           seqType <- return $ AST.getType (last eEseq)
+           let seqType = AST.getType (last eEseq)
            return $ setType seqType seq {eseq = eEseq}
 
     typecheck ifThenElse@(IfThenElse {cond, thn, els}) = 
         do eCond <- pushHasType cond boolType
            eThn <- pushTypecheck thn
-           thnType <- return $ AST.getType eThn
            eEls <- pushTypecheck els
-           elsType <- return $ AST.getType eEls
+           let thnType = AST.getType eThn
+               elsType = AST.getType eEls
            resultType <- matchBranches thnType elsType
            return $ setType resultType ifThenElse {cond = eCond, thn = setType resultType eThn, els = setType resultType eEls}
         where
@@ -310,7 +309,7 @@ instance Checkable Expr where
 
     typecheck fAcc@(FieldAccess {target, name}) = 
         do eTarget <- pushTypecheck target
-           pathType <- return $ AST.getType eTarget
+           let pathType = AST.getType eTarget
            when (isPrimitive pathType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr target) ++ "' of primitive type '" ++ show pathType ++ "'"
@@ -382,7 +381,7 @@ instance Checkable Expr where
     typecheck unary@(Unary {op, operand})
       | op == (Identifiers.NOT) = do
         eOperand <- pushTypecheck operand
-        eType <- return $ AST.getType eOperand
+        let eType = AST.getType eOperand
         unless (isBoolType eType) $
                 tcError $ "Operator "++ show op ++ " is only defined for boolean types"
         return $ setType boolType unary { operand = eOperand }
@@ -390,17 +389,17 @@ instance Checkable Expr where
     typecheck binop@(Binop {op, loper, roper})
       | op `elem` boolOps = do
           eLoper <- pushTypecheck loper
-          lType  <- return $ AST.getType eLoper
           eRoper <- pushTypecheck roper
-          rType  <- return $ AST.getType eRoper
+          let lType = AST.getType eLoper
+              rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
                   tcError $ "Operator "++ show op ++ " is only defined for boolean types"
           return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` cmpOps =
           do eLoper <- pushTypecheck loper
-             lType  <- return $ AST.getType eLoper
              eRoper <- pushTypecheck roper
-             rType  <- return $ AST.getType eRoper
+             let lType = AST.getType eLoper
+                 rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
                     tcError $ "Operator "++ show op ++ " is only defined for numeric types"
              return $ setType boolType binop {loper = eLoper, roper = eRoper}
@@ -410,9 +409,9 @@ instance Checkable Expr where
              return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` arithOps =
           do eLoper <- pushTypecheck loper
-             lType  <- return $ AST.getType eLoper
              eRoper <- pushTypecheck roper
-             rType  <- return $ AST.getType eRoper
+             let lType = AST.getType eLoper
+                 rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
                     tcError $ "Operator "++ show op ++ " is only defined for numeric types"
              return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
@@ -440,11 +439,11 @@ matchTypes :: Type -> Type -> ErrorT TCError (Reader Environment) [(Type, Type)]
 matchTypes ty1 ty2 
     | isFutureType ty1 && isFutureType ty2 ||
       isParType ty1    && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
-    | isArrowType ty1 && isArrowType ty2 = do argTypes1 <- return $ getArgTypes ty1
-                                              argTypes2 <- return $ getArgTypes ty2
+    | isArrowType ty1 && isArrowType ty2 = do let argTypes1 = getArgTypes ty1
+                                                  argTypes2 = getArgTypes ty2
+                                                  res1 = getResultType ty1
+                                                  res2 = getResultType ty2
                                               argBindings <- matchArguments argTypes1 argTypes2
-                                              res1  <- return $ getResultType ty1
-                                              res2  <- return $ getResultType ty2
                                               local (bindTypes argBindings) $ matchTypes res1 res2
     | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
                          case boundType of 

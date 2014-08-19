@@ -28,6 +28,7 @@ module Typechecker.Environment(Environment,
 
 import Data.List
 import Data.Maybe
+import Control.Monad.Error
 
 -- Module dependencies
 import Identifiers
@@ -38,33 +39,52 @@ import Typechecker.TypeError
 type FunctionType = (Name, Type)
 type VarType = (Name, Type)
 type FieldType = (Name, Type)
-type MethodType = (Name, ([ParamDecl], Type))
+type MethodType = (Name, ([Type], Type))
 type ClassType = (Type, ([FieldType], [MethodType]))
 
-data Environment = Env {ctable :: [ClassType], globals :: [FunctionType], locals :: [VarType], bindings :: [(Type, Type)], bt :: Backtrace}
+data Environment = Env {ctable :: [ClassType], 
+                        globals :: [FunctionType], 
+                        locals :: [VarType], 
+                        bindings :: [(Type, Type)], 
+                        bt :: Backtrace}
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment (Program _ _ funs classes) = 
-    case duplicateFunctions of
-      (fun:_) -> Left $ TCError ("Duplicate definition of function '" ++ show (funname fun) ++ "'" , push fun emptyBT)
-      [] -> 
-          case duplicateClasses of
-            [] -> Right $ Env (map getClassType classes) (map getFunctionType funs) [] [] emptyBT
-            (cls:_) -> Left $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
+buildEnvironment Program {functions, classes} = 
+    do distinctFunctions
+       distinctClasses
+       return $ Env {ctable = map getClassType classes,
+                     globals = map getFunctionType functions, 
+                     locals = [], bindings = [], bt = emptyBT}
     where
-      duplicateFunctions = funs \\ nubBy (\f1 f2 -> (funname f1 == funname f2)) funs
-      duplicateClasses = classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes
+      -- Each class knows if it's passive or not, but reference
+      -- types in functions, methods and fields must be given the
+      -- correct activity
+      setActivity ty = 
+          case find ((==ty) . cname) classes of
+            Just c -> cname c
+            Nothing -> ty
+
+      distinctFunctions = 
+          case functions \\ nubBy (\f1 f2 -> (funname f1 == funname f2)) functions of
+            [] -> return ()
+            (fun:_) -> throwError $ TCError ("Duplicate definition of function '" ++ show (funname fun) ++ "'" , push fun emptyBT)
+
+      distinctClasses = 
+          case classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes of
+            [] -> return ()
+            (cls:_) -> throwError $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
+
       getFunctionType Function {funname, funtype, funparams} = 
-          (funname, arrowType (map (\p@(Param{ptype}) -> setActivity ptype) funparams) (setActivity funtype))
-      getClassType Class {cname = c, fields, methods} = (c, (fieldTypes fields, methodTypes methods))
-      setActivity ty = case find ((==ty) . cname) classes of
-                         Just c -> cname c
-                         Nothing -> ty
-      fieldTypes  = map getFieldType
-      methodTypes = map getMethodType
-      getFieldType Field {fname, ftype} = (fname, setActivity ftype)
+          (funname, arrowType (map (setActivity . ptype) funparams) (setActivity funtype))
+
+      getClassType Class {cname = c, fields, methods} = 
+          (c, (map getFieldType fields, map getMethodType methods))
+
+      getFieldType Field {fname, ftype} =
+          (fname, setActivity ftype)
+
       getMethodType Method {mname, mtype, mparams} = 
-          (mname, (map (\p@(Param{ptype}) -> p{ptype = setActivity ptype}) mparams, setActivity mtype))
+          (mname, (map (setActivity . ptype) mparams, setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -75,7 +95,7 @@ fieldLookup :: Type -> Name -> Environment -> Maybe Type
 fieldLookup cls f env = do (fields, _) <- classLookup cls env
                            lookup f fields
 
-methodLookup :: Type -> Name -> Environment -> Maybe ([ParamDecl], Type)
+methodLookup :: Type -> Name -> Environment -> Maybe ([Type], Type)
 methodLookup cls m env = do (_, methods) <- classLookup cls env
                             lookup m methods
 
