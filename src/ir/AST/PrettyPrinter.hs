@@ -157,11 +157,11 @@ ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ppColon <+> ppType ty
 
 ppUnary :: Op -> Doc
-ppUnary Identifiers.NOT = text "!"
+ppUnary Identifiers.NOT = text "not"
 
 ppBinop :: Op -> Doc
-ppBinop Identifiers.AND = text "&&"
-ppBinop Identifiers.OR = text "||"
+ppBinop Identifiers.AND = text "and"
+ppBinop Identifiers.OR = text "or"
 ppBinop Identifiers.LT  = text "<"
 ppBinop Identifiers.GT  = text ">"
 ppBinop Identifiers.LTE  = text "<="

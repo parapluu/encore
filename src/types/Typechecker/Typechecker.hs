@@ -383,7 +383,7 @@ instance Checkable Expr where
         eOperand <- pushTypecheck operand
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
-                tcError $ "Operator "++ show op ++ " is only defined for boolean types"
+                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types"
         return $ setType boolType unary { operand = eOperand }
 
     typecheck binop@(Binop {op, loper, roper})
@@ -393,7 +393,7 @@ instance Checkable Expr where
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ "Operator "++ show op ++ " is only defined for boolean types"
+                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types"
           return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` cmpOps =
           do eLoper <- pushTypecheck loper
