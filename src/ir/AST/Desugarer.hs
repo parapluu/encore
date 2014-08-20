@@ -9,8 +9,10 @@ import AST.Util
 import Types
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{classes}) = p{classes = map desugarClass classes}
+desugarProgram p@(Program{classes, functions}) = p{classes = map desugarClass classes, 
+                                                   functions = map desugarFunction functions}
     where
+      desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
       desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
       desugarMethod m@(Method{mbody}) = m{mbody = desugarExpr mbody}
       desugarExpr = extend desugar

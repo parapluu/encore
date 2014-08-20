@@ -8,8 +8,10 @@ import AST.Util
 import Types
 
 optimizeProgram :: Program -> Program
-optimizeProgram p@(Program{classes}) = p{classes = map optimizeClass classes}
+optimizeProgram p@(Program{classes, functions}) = p{classes = map optimizeClass classes,
+                                                    functions = map optimizeFunction functions}
     where
+      optimizeFunction f@(Function{funbody}) = f{funbody = optimizeExpr funbody}
       optimizeClass c@(Class{methods}) = c{methods = map optimizeMethod methods}
       optimizeMethod m@(Method{mbody}) = m{mbody = optimizeExpr mbody}
       optimizeExpr ast = foldl (\ast opt -> opt ast) ast optimizerPasses
