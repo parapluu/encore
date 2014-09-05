@@ -338,7 +338,7 @@ expr  =  unit
                                      val <- expression
                                      return (Name x, val)
       sequence = do pos <- getPosition
-                    seq <- braces (do {seq <- expression `sepEndBy` semi; return seq})
+                    seq <- braces (do {seq <- expression `sepEndBy1` semi; return seq})
                     return $ Seq (meta pos) seq
       ifThenElse = do pos <- getPosition
                       reserved "if"
