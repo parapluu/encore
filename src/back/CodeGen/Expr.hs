@@ -136,7 +136,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
-    (nlhs, tlhs) <- translate lhs
     lval <- mk_lval lhs
     return (unit, Seq [trhs, Assign lval nrhs])
         where
@@ -147,7 +146,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    Nothing -> return $ Var (show name)
           mk_lval (A.FieldAccess {A.target, A.name}) =
               do (ntarg, ttarg) <- translate target
-                 return (Deref ntarg `Dot` (Nam $ show name))
+                 return (Deref (StatAsExpr ntarg ttarg) `Dot` (Nam $ show name))
           mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate (A.VarAccess {A.name}) = do
