@@ -41,6 +41,8 @@ Run: `brew update; brew install doxygen`
 
 Run: `brew update; brew install llvm`
 
+- If you have a newer version of clang (clang-600.0.1), please downgrade to clang-503.0.40 by installing the [Command Line Tools for Xcode - April 2014](https://developer.apple.com/downloads/index.action).
+
 ##### Installing `ghc`
 
 You need at least version `7.6.3`.
@@ -48,7 +50,7 @@ You need at least version `7.6.3`.
 - If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
 - If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to uninstall stuff easily once you don't need it any more.
 
-Then install the newest version, saying `brew update; brew install haskell-platform`.
+Then install the newest version, saying `brew update; brew install cabal; cabal install cabal-install`.
 
 #### Installing the preliminaries on Linux
 
