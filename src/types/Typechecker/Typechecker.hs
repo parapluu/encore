@@ -376,7 +376,9 @@ instance Checkable Expr where
 
     typecheck realLit@(RealLiteral {}) = return $ setType realType realLit
 
-    typecheck embed@(Embed {ty}) = return $ setType ty embed
+    typecheck embed@(Embed {ty}) = 
+        do eTy <- checkType ty
+           return $ setType eTy embed
 
     typecheck unary@(Unary {op, operand})
       | op == (Identifiers.NOT) = do
