@@ -10,7 +10,8 @@ module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCErro
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
-import Control.Monad.Error
+-- import Control.Monad.Error
+import Control.Monad.Except
 
 import Identifiers
 import Types
@@ -55,7 +56,7 @@ instance Pushable Expr where
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
-instance Error TCError
+-- instance Error TCError
 instance Show TCError where
     show (TCError (msg, [])) = 
         " *** Error during typechecking *** \n" ++

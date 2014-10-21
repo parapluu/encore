@@ -15,7 +15,8 @@ import Data.Maybe
 import Data.List
 import qualified Data.Text as T
 import Control.Monad.Reader
-import Control.Monad.Error
+-- import Control.Monad.Error
+import Control.Monad.Except
 
 -- Module dependencies
 import Identifiers
@@ -30,7 +31,7 @@ import Typechecker.TypeError
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p = do env <- buildEnvironment p
-                              runReader (runErrorT (typecheck p)) env
+                              runReader (runExceptT (typecheck p)) env
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
@@ -40,7 +41,7 @@ tcError msg = do bt <- asks backtrace
 -- | Convenience function for checking if a type is
 -- well-formed. Returns the same type with correct activity
 -- information.
-checkType :: Type -> ErrorT TCError (Reader Environment) Type
+checkType :: Type -> ExceptT TCError (Reader Environment) Type
 checkType ty 
     | isPrimitive ty = return ty
     | isTypeVar ty = return ty
@@ -63,19 +64,19 @@ checkType ty
 -- "TCError" exception anywhere.
 class Checkable a where
     -- | Returns the extended version of its argument
-    typecheck :: a -> ErrorT TCError (Reader Environment) a
+    typecheck :: a -> ExceptT TCError (Reader Environment) a
 
     -- | Returns the extended version of its argument if its type
     -- agrees with the second argument
-    hasType   :: a -> Type -> ErrorT TCError (Reader Environment) a
+    hasType   :: a -> Type -> ExceptT TCError (Reader Environment) a
     hasType _ _ = tcError "Typechecking not implemented for construct"
 
     -- | Convenience function for pushing and typechecking a
     -- component in one step.
-    pushTypecheck :: Pushable a => a -> ErrorT TCError (Reader Environment) a
+    pushTypecheck :: Pushable a => a -> ExceptT TCError (Reader Environment) a
     pushTypecheck x = local (pushBT x) $ typecheck x
 
-    pushHasType :: Pushable a => a -> Type -> ErrorT TCError (Reader Environment) a
+    pushHasType :: Pushable a => a -> Type -> ExceptT TCError (Reader Environment) a
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
 instance Checkable Program where
@@ -117,10 +118,12 @@ instance Checkable ClassDecl where
         where
           typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
           distinctFieldNames = 
-              case fields \\ nubBy (\f1 f2 -> (fname f1 == fname f2)) fields of
-                [] -> return ()
-                (f:_) -> do bt <- asks backtrace
-                            throwError $ TCError ("Duplicate definition of field '" ++ show (fname f) ++ "'" , push f bt)
+              let fieldsNoDuplicates = nubBy (\f1 f2 -> (fname f1 == fname f2)) fields
+              in
+                case fields \\ fieldsNoDuplicates of
+                  [] -> return ()
+                  (f:_) -> do bt <- asks backtrace
+                              throwError $ TCError ("Duplicate definition of field '" ++ show (fname f) ++ "'" , push f bt)
           distinctMethodNames = 
               case methods \\ nubBy (\m1 m2 -> (mname m1 == mname m2)) methods of
                 [] -> return ()
@@ -260,9 +263,10 @@ instance Checkable Expr where
     typecheck let_@(Let {decls, body}) = 
         do eDecls <- typecheckDecls decls
            let declTypes = map (AST.getType . snd) eDecls
+               declNames = map fst eDecls
            when (any isNullType declTypes) $ 
                 tcError $ "Cannot infer type of null-valued expression"
-           eBody <- local (extendEnvironment (zip (map fst eDecls) declTypes)) $ pushTypecheck body
+           eBody <- local (extendEnvironment (zip declNames declTypes)) $ pushTypecheck body
            return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
         where
           typecheckDecls [] = return []
@@ -429,7 +433,7 @@ instance Checkable Expr where
             | otherwise = intType
     typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 
-checkArguments :: [Expr] -> [Type] -> ErrorT TCError (Reader Environment) ([Expr], [(Type, Type)])
+checkArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
 checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
@@ -437,7 +441,7 @@ checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
                                            (eArgs, bindings') <- local (bindTypes bindings) $ checkArguments args types
                                            return (eArg:eArgs, bindings')
 
-matchTypes :: Type -> Type -> ErrorT TCError (Reader Environment) [(Type, Type)]
+matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 matchTypes ty1 ty2 
     | isFutureType ty1 && isFutureType ty2 ||
       isParType ty1    && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)

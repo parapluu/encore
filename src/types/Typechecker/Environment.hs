@@ -28,7 +28,8 @@ module Typechecker.Environment(Environment,
 
 import Data.List
 import Data.Maybe
-import Control.Monad.Error
+--import Control.Monad.Error
+import Control.Monad.Except
 
 -- Module dependencies
 import Identifiers
