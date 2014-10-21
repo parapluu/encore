@@ -9,7 +9,9 @@ data MetaInfo = Unspecified
               | Closure {metaId :: String}
                 deriving (Eq, Show)
 
-data Meta = Meta {sourcePos :: SourcePos, metaType :: Type, metaInfo :: MetaInfo} deriving (Eq, Show)
+data Meta = Meta {sourcePos :: SourcePos, 
+                  metaType :: Type, 
+                  metaInfo :: MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta
 meta pos = Meta {sourcePos = pos, metaType = emptyType, metaInfo = Unspecified}

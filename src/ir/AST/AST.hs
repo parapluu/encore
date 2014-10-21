@@ -17,7 +17,10 @@ import Identifiers
 import Types
 import AST.Meta hiding(Closure)
 
-data Program = Program {etl :: EmbedTL, imports :: [ImportDecl], functions :: [Function], classes :: [ClassDecl]} deriving(Show)
+data Program = Program {etl :: EmbedTL, 
+                        imports :: [ImportDecl], 
+                        functions :: [Function], 
+                        classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
     getMeta :: a -> Meta
