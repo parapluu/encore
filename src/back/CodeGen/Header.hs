@@ -31,7 +31,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
          "string.h",
          "stdio.h"
         ]) :
-       (HashDefine "UNIT NULL - 1") :
+       (HashDefine "UNIT ((void*) -1)") :
 
        [comment_section "Embedded code"] ++
        [Embed etlheader] ++
@@ -89,11 +89,12 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
         in
          Enum $ map Nam $ "MSG_alloc":(method_msg_names ++ one_way_msg_names)
 
+
       class_enums =
         let
           names = map (("ID_"++) . show . A.cname) classes
         in
-         Enum $ map Nam $ names
+         Enum $ map Nam names
 
       trace_fn_decls = map trace_fn_decl classes
           where
