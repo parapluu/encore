@@ -16,11 +16,10 @@ We're using:
 
  - doxygen v1.8.6
  - clang:
-
     Apple LLVM version 5.1 (clang-503.0.40) (based on LLVM 3.4svn)
     Target: x86_64-apple-darwin13.1.0
     Thread model: posix
-
+ - g++ 4.8
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
  - premake4 (Premake Build Script Generator) 4.3
 
