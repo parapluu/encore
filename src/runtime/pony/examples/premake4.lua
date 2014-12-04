@@ -74,5 +74,16 @@ project "fut-lazy"
   }
   files {
     "fut/lazy.c"
-  } 
+  }
+
+project "fut-shared"
+  c_app()
+  includedirs {
+    "../../future",
+    "../../closure",
+    "../../set"
+  }
+  files {
+    "fut/shared.c"
+  }
 
