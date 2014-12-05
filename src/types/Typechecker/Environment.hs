@@ -82,10 +82,10 @@ buildEnvironment Program {functions, classes} =
           (c, (map getFieldType fields, map getMethodType methods))
 
       getFieldType Field {fname, ftype} =
-          (fname, setActivity ftype)
+          (fname, typeMap setActivity ftype)
 
       getMethodType Method {mname, mtype, mparams} = 
-          (mname, (map (setActivity . ptype) mparams, setActivity mtype))
+          (mname, (map ((typeMap setActivity) . ptype) mparams, typeMap setActivity mtype))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}

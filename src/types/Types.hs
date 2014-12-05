@@ -9,7 +9,7 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, is
              realType, isRealType, stringType, isStringType, 
              isPrimitive, isNumeric, emptyType,
              getArgTypes, getResultType, getId,
-             typeComponents, subtypeOf) where
+             typeComponents, subtypeOf, typeMap) where
 
 import Data.List
 
@@ -34,6 +34,15 @@ typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
 typeComponents par@(ParType ty)        = par:(typeComponents ty)
 typeComponents ty                      = [ty]
 
+typeMap :: (Type -> Type) -> Type -> Type
+typeMap f ty 
+    | isArrowType ty = 
+        f (Arrow (map (typeMap f) (argTypes ty)) (typeMap f (resultType ty)))
+    | isFutureType ty =
+        f (FutureType (typeMap f (resultType ty)))
+    | isParType ty =
+        f (ParType (typeMap f (resultType ty)))
+    | otherwise = f ty
 
 getArgTypes = argTypes
 getResultType = resultType
@@ -104,9 +113,19 @@ replaceTypeVars bindings ty
     | isArrowType ty = let argTypes = getArgTypes ty
                            resultType = getResultType ty
                        in arrowType (map (replaceTypeVars bindings) argTypes) (replaceTypeVars bindings resultType)
-    | isFutureType ty = futureType (replaceTypeVars bindings ty)
-    | isParType ty = parType (replaceTypeVars bindings ty)
+    | isFutureType ty = futureType (replaceTypeVars bindings (getResultType ty))
+    | isParType ty = parType (replaceTypeVars bindings (getResultType ty))
     | otherwise = ty
+
+replaceTypeVars bindings ty
+    ...
+    | isFutureType ty = futureType (replaceTypeVars bindings ty)
+    ...
+
+replaceTypeVars bindings ty
+    ...
+    | isFutureType ty = futureType (replaceTypeVars bindings (getResultType ty))
+    ...
 
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
