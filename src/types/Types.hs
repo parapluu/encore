@@ -117,16 +117,6 @@ replaceTypeVars bindings ty
     | isParType ty = parType (replaceTypeVars bindings (getResultType ty))
     | otherwise = ty
 
-replaceTypeVars bindings ty
-    ...
-    | isFutureType ty = futureType (replaceTypeVars bindings ty)
-    ...
-
-replaceTypeVars bindings ty
-    ...
-    | isFutureType ty = futureType (replaceTypeVars bindings (getResultType ty))
-    ...
-
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)
 emptyType :: Type
