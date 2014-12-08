@@ -14,7 +14,9 @@ desugarProgram p@(Program{classes, functions}) = p{classes = map desugarClass cl
     where
       desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
       desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
-      desugarMethod m@(Method{mbody}) = m{mbody = desugarExpr mbody}
+      desugarMethod m@(Method{mname, mbody}) 
+          | mname == Name "init" = m{mname = Name "_init", mbody = desugarExpr mbody}
+          | otherwise = m{mbody = desugarExpr mbody}
       desugarExpr = extend desugar
 
 desugar :: Expr -> Expr
@@ -55,6 +57,6 @@ desugar u@Unless{emeta, cond, thn} =
     IfThenElse emeta (Unary emeta Identifiers.NOT cond) thn (Skip emeta)
 
 desugar n@NewWithInit{emeta, ty, args} = 
-    Let (emeta) [(Name "__tmp__", (New emeta ty))] (Seq emeta [(MethodCall (emeta) (VarAccess emeta (Name "__tmp__")) (Name "init") args), (VarAccess emeta (Name "__tmp__"))])
+    Let (emeta) [(Name "__tmp__", (New emeta ty))] (Seq emeta [(MethodCall (emeta) (VarAccess emeta (Name "__tmp__")) (Name "_init") args), (VarAccess emeta (Name "__tmp__"))])
 
 desugar e = e

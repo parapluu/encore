@@ -3,12 +3,12 @@ class Main
     let other = new Other
         another = new Other
     in
-      {other.init(another);
+      {other.setOther(another);
        other.work()}
 
 class Other 
   other : Other
-  def init(va : Other) : void 
+  def setOther(va : Other) : void 
     this.other = va
   def work() : Fut void
     let othertmp = this.other in

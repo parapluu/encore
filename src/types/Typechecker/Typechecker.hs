@@ -191,6 +191,7 @@ instance Checkable Expr where
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
            when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
+           when (name == Name "init") $ tcError "Constructor method 'init' can only be called during object creation"
            lookupResult <- asks $ methodLookup targetType name
            (paramTypes, methodType) <- 
                case lookupResult of
