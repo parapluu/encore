@@ -162,7 +162,12 @@ void pony_continuation(pony_actor_t* to, uint64_t id,
  * This is garbage collected memory. This can only be done while an actor is
  * handling a message, so that there is a current actor.
  */
-void* pony_alloc(size_t size) __attribute__((malloc,alloc_size(1)));
+void* pony_alloc(size_t size) 
+#ifdef __clang__
+  __attribute__((malloc));
+#else
+  __attribute__((malloc, alloc_size(3)));
+#endif
 
 // TODO: pony_free() for when escape analysis shows a reference doesn't survive
 
