@@ -195,11 +195,20 @@ instance Checkable Expr where
            lookupResult <- asks $ methodLookup targetType name
            (paramTypes, methodType) <- 
                case lookupResult of
-                 Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+                 Nothing -> 
+                     tcError $
+                        (case name of
+                          Name "_init" -> "No constructor" 
+                          _ -> "No method '" ++ show name ++ "'") ++
+                        " in class '" ++ show targetType ++ "'"
                  Just result -> return result
            unless (length args == length paramTypes) $ 
-                  tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
-                            "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
+                  tcError $
+                     (case name of
+                           Name "_init" -> "Constructor"
+                           _ -> "Method '" ++ show name ++ "'") ++ 
+                        " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
+                        " arguments. Got " ++ show (length args)
            (eArgs, bindings) <- checkArguments args paramTypes
            returnType <- 
                do ty <- if isTypeVar methodType then
@@ -223,11 +232,30 @@ instance Checkable Expr where
            lookupResult <- asks $ methodLookup targetType name
            (paramTypes, _) <- 
                case lookupResult of
-                 Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+                 Nothing -> 
+                     tcError $
+                        (case name of
+                          Name "_init" -> "No constructor" 
+                          _ -> "No method '" ++ show name ++ "'") ++
+                        " in class '" ++ show targetType ++ "'"
+                 -- Nothing -> 
+                 --     case name of
+                 --       Name "_init" -> tcError $ "No constructor in class '" ++ show targetType ++ "'"
+                 --       _ -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
                  Just result -> return result
            unless (length args == length paramTypes) $ 
-                  tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
-                            "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
+                  tcError $
+                        (case name of
+                           Name "_init" -> "Constructor"
+                           _ -> "Method '" ++ show name ++ "'") ++ 
+                        " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
+                        " arguments. Got " ++ show (length args)
+           --     case lookupResult of
+           --       Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
+           --       Just result -> return result
+           -- unless (length args == length paramTypes) $ 
+           --        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
+           --                  "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
            (eArgs, bindings) <- checkArguments args paramTypes
            return $ setType voidType msend {target = eTarget, args = eArgs}
 
