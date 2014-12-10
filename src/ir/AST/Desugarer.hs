@@ -54,6 +54,34 @@ desugar u@IfThen{emeta, cond, thn} =
 desugar u@Unless{emeta, cond, thn} = 
     IfThenElse emeta (Unary emeta Identifiers.NOT cond) thn (Skip emeta)
 
+-- Desugars
+--   repeat id <- e1 e2
+-- into
+--   let 
+--     id = 0
+--     tmp = e1
+--   in
+--     while id < tmp
+--       {
+--         e2;
+--         id = id + 1;
+--       }
+desugar Repeat{emeta, name, times, body} = 
+    Let emeta 
+        [(name, (IntLiteral emeta 0)), (Name "__gub__", times)]
+       (While emeta 
+             (Binop emeta 
+                   Identifiers.LT
+                   (VarAccess emeta name) 
+                   (VarAccess emeta (Name "__gub__")))
+             (Seq emeta 
+                  [body, (Assign emeta 
+                               (VarAccess emeta name)
+                               (Binop emeta 
+                                     PLUS
+                                     (VarAccess emeta name)
+                                     (IntLiteral emeta 1)))]))
+
 desugar n@NewWithInit{emeta, ty, args} = 
     Let (emeta) [(Name "__tmp__", (New emeta ty))] (Seq emeta [(MethodCall (emeta) (VarAccess emeta (Name "__tmp__")) (Name "init") args), (VarAccess emeta (Name "__tmp__"))])
 

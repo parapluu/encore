@@ -27,6 +27,7 @@ ppThen = text "then"
 ppElse = text "else"
 ppUnless = text "unless"
 ppWhile = text "while"
+ppRepeat = text "repeat"
 ppGet = text "get"
 ppNull = text "null"
 ppTrue = text "true"
@@ -136,6 +137,9 @@ ppExpr Unless {cond, thn} =
          indent (ppExpr thn)
 ppExpr While {cond, body} = 
     ppWhile <+> ppExpr cond $+$
+         indent (ppExpr body)
+ppExpr Repeat {name, times, body} = 
+    ppRepeat <+> (ppExpr times) <> comma <+> (ppName name) $+$
          indent (ppExpr body)
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
