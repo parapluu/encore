@@ -13,6 +13,7 @@ LIB_DIR=$(RELEASE_DIR)/lib
 all: encorec
 
 encorec: dirs pony
+	cabal configure
 	cabal build
 	cp -r $(ENCOREC) $(RELEASE_DIR)
 
