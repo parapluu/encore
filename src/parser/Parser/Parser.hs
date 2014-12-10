@@ -98,7 +98,7 @@ lexer =
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", 
 				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
-				  "body", "end", "Fut", "Par", "import", "qualified", "module"],
+				  "body", "end", "Fut", "Par", "import", "qualified", "module", "this"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
              }
 
@@ -380,7 +380,7 @@ expr  =  unit
                    body <- expression
                    return $ Closure (meta pos) params body
       varAccess = do pos <- getPosition
-                     id <- identifier
+                     id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id 
       null = do pos <- getPosition
                 reserved "null"
