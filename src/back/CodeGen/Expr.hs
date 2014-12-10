@@ -135,7 +135,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (last nes, Seq tes)
 
   translate (A.Assign {A.lhs, A.rhs}) = do
-    (nrhs, trhs) <- translate rhs
+    (nrhs, trhs) <- if A.isThisAccess rhs && (Ty.isActiveRefType $ A.getType rhs)
+                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
+                    else translate rhs
     lval <- mk_lval lhs
     return (unit, Seq [trhs, Assign lval nrhs])
         where
@@ -170,8 +172,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return (nbody, Seq $ tdecls ++ [tbody])
                      where
                        translate_decls [] = return []
-                       translate_decls ((name, expr):decls) = 
-                           do (ne, te) <- translate expr
+                       translate_decls ((name, expr):decls) =
+                           do (ne, te) <- if A.isThisAccess expr && (Ty.isActiveRefType $ A.getType expr)
+                                          then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
+                                          else translate expr
                               tmp <- Ctx.gen_sym
                               substitute_var name (Var tmp)
                               tdecls <- translate_decls decls
@@ -391,7 +395,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
             | otherwise        = AsExpr $ e `Dot` Nam "p"
         translateArgument arg = 
-            do (ntother, tother) <- translate arg
+            do (ntother, tother) <- if A.isThisAccess arg && (Ty.isActiveRefType $ A.getType arg)
+                                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
+                                    else translate arg
                return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
             where
               arg_member ty
