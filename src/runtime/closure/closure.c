@@ -2,7 +2,7 @@
 
 // Control whether pony_alloc is used or not
 
-//#define USE_PONY_ALLOC 1
+#define USE_PONY_ALLOC 
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>
@@ -60,5 +60,6 @@ double val_to_dbl(value_t v){
 }
 
 void closure_trace(closure_t* c) {
-  // Not implemented yet
+  pony_trace(c);
+  pony_trace(c->env);
 }
