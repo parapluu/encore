@@ -1,0 +1,4 @@
+class Main
+  def main() : void
+    repeat i <- 10
+      print i
