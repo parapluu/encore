@@ -1,0 +1,78 @@
+
+-- Stream = Fut E
+
+-- class E stores the payload and the pointer to the
+-- next element of the stream
+-- EOS is a future containing null
+-- this will be fixed in the future by a proper value
+
+
+passive class E
+  payload : int
+  next : Fut E  -- that is, stream
+  ended : bool
+
+  def initi(p : int, n : Fut E) : E {
+    this.payload = p;
+    this.next = n;
+    this.ended = false;
+    this
+  }
+
+  def eos() : E {
+    this.ended = true;
+    this
+  }
+
+  def getPayload() : int {
+    this.payload;
+  }
+
+  def getNext() : Fut E {
+     this.next;
+  } 
+
+  def isEos() : bool {
+    this.ended
+  }
+
+class StreamProducer 
+  def computeStream(state : int) : E {
+    let res = new E in {
+      if (state > 110) then {
+        res.eos()
+      } else {
+        let sf = this in
+        res.initi(state, sf.computeStream(state + 1) )      
+      };
+      res;
+    }
+  }
+
+class StreamConsumer
+  def consume(s : Fut E) : void {
+     let res = get s in
+     if (res.isEos()) then {
+        () -- we're done
+     } else {
+        let d = res.getPayload() in
+        let n = res.getNext() in {
+          print d;
+          this.consume(n);
+          ();
+        }
+     };
+  }
+    
+
+class Main 
+  def main () : void { 
+    let producer = new StreamProducer in
+    let s = producer.computeStream(100)  
+        c = new StreamConsumer  
+        c2 = new StreamConsumer in {
+      c.consume(s);
+      c2.consume(s);
+    };
+    ()
+  }
