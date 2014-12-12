@@ -30,7 +30,9 @@ struct pony_actor_t
   pony_actor_type_t* actor_type;
 };
 
-static __thread pony_actor_t* this_actor;
+// Tobias: removed the static keyword here to make top-level functions as closures work
+// static 
+__thread pony_actor_t* this_actor;
 
 static bool has_flag(pony_actor_t* actor, uint8_t flag)
 {
