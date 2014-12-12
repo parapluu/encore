@@ -50,7 +50,7 @@ project "pony"
 
   flags {
     "ExtraWarnings",
-    "FatalWarnings",
+--    "FatalWarnings",		
     "Symbols"
     }
 
