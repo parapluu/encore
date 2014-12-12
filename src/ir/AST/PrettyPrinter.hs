@@ -145,7 +145,7 @@ ppExpr While {cond, body} =
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)
 ppExpr Repeat {name, times, body} = 
-    ppRepeat <+> (ppExpr times) <> comma <+> (ppName name) $+$
+    ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
          indent (ppExpr body)
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
