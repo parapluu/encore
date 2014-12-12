@@ -145,15 +145,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | While {emeta :: Meta Expr, 
                    cond :: Expr, 
                    body :: Expr}
-<<<<<<< HEAD
-          | Repeat {emeta :: Meta, 
+          | Repeat {emeta :: Meta Expr, 
                     name :: Name, 
                     times :: Expr, 
                     body :: Expr}
-          | Get {emeta :: Meta, 
-=======
           | Get {emeta :: Meta Expr, 
->>>>>>> 9f917d23b67b6f9e7de5040dfea64bbff6e53dbb
                  val :: Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
