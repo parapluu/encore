@@ -8,7 +8,8 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr,ppProgram,ppParamDecl, ppFieldDecl, indent) where
+module AST.PrettyPrinter (ppExpr, ppProgram, ppParamDecl, 
+                          ppFieldDecl, indent, ppSugared) where
 
 -- Library dependencies
 import Text.PrettyPrint
@@ -107,6 +108,11 @@ maybeParens :: Expr -> Doc
 maybeParens e 
     | isSimple e = ppExpr e
     | otherwise  = parens $ ppExpr e
+
+ppSugared :: Expr -> Doc
+ppSugared e = case getSugared e of
+                Just e' -> ppExpr e'
+                Nothing -> ppExpr e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip

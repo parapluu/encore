@@ -12,6 +12,7 @@ import Text.PrettyPrint
 import Text.Parsec(SourcePos)
 -- import Control.Monad.Error
 import Control.Monad.Except
+import Data.Maybe
 
 import Identifiers
 import Types
@@ -25,7 +26,9 @@ instance Show BacktraceNode where
     show (BTParam p)       = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
     show (BTField f)       = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
     show (BTMethod n ty)   = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
-    show (BTExpr expr)     = "In expression: \n"   ++ (show $ nest 2 $ ppExpr expr)
+    show (BTExpr expr)     
+        | (isNothing . getSugared) expr = ""
+        | otherwise = "In expression: \n"   ++ (show $ nest 2 $ ppSugared expr)
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -67,4 +70,7 @@ instance Show TCError where
         msg ++ "\n" ++
         (concat $ map showBT bt)
         where
-          showBT (pos, node) = (show node) ++ "\n"
+          showBT (pos, node) = 
+              case (show node) of
+                "" -> ""
+                s  -> s ++ "\n"

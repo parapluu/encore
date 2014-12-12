@@ -18,7 +18,7 @@ optimizeProgram p@(Program{classes, functions}) = p{classes = map optimizeClass 
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding]
+optimizerPasses = [constantFolding, constructors]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -30,3 +30,14 @@ constantFolding = extend foldConst
       foldConst (Binop {emeta = meta, op = PLUS, loper = IntLiteral{intLit = m}, roper = IntLiteral{intLit = n}}) = 
           IntLiteral{emeta = meta, intLit = (m + n)}
       foldConst e = e
+
+-- Calls to init are necessarily constructor calls and should
+-- therefore be future-less message sends.
+constructors :: Expr -> Expr
+constructors = extend constr
+    where
+      constr e@(MethodCall {name = Name "_init", emeta, target, args}) 
+          | (isActiveRefType . getType) target =
+              MessageSend {name = Name "_init", emeta = emeta, target = target, args = args}
+          | otherwise = e
+      constr e = e

@@ -1,8 +1,7 @@
 class Main
   def main() : Fut void
-    {let other = new Other in
-       {other.init("Hello Ponyworld-message");
-        other.work()}}
+    let other = new Other("Hello Ponyworld-message") in
+      other.work()
 
 class Other
   message : string

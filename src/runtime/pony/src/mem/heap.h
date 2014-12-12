@@ -30,7 +30,11 @@ void heap_init(heap_t* heap);
 void heap_destroy(heap_t* heap);
 
 void* heap_alloc(pony_actor_t* actor, heap_t* heap, size_t size)
+#ifdef __clang__
+  __attribute__((malloc));
+#else
   __attribute__((malloc,alloc_size(3)));
+#endif
 
 /**
  * Adds to the used memory figure kept by the heap. This allows objects received

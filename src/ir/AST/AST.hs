@@ -23,9 +23,9 @@ data Program = Program {etl :: EmbedTL,
                         classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
-    getMeta :: a -> Meta
+    getMeta :: a -> Meta a
 
-    setMeta :: a -> Meta -> a
+    setMeta :: a -> Meta a -> a
 
     getPos :: a -> SourcePos
     getPos = AST.Meta.getPos . getMeta
@@ -46,14 +46,14 @@ class HasMeta a where
     getMetaInfo :: a -> MetaInfo
     getMetaInfo = AST.Meta.metaInfo . getMeta
 
-data EmbedTL = EmbedTL {etlmeta   :: Meta,
+data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlheader :: String,
                         etlbody   :: String} deriving (Show)
 
-data ImportDecl = Import {imeta   :: Meta,
+data ImportDecl = Import {imeta   :: Meta ImportDecl,
                           itarget :: Name } deriving (Show, Eq)
 
-data Function = Function {funmeta   :: Meta,
+data Function = Function {funmeta   :: Meta Function,
                           funname   :: Name,
                           funtype   :: Type,
                           funparams :: [ParamDecl],
@@ -64,7 +64,7 @@ instance HasMeta Function where
     setMeta f m = f{funmeta = m}
     setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
 
-data ClassDecl = Class {cmeta   :: Meta,
+data ClassDecl = Class {cmeta   :: Meta ClassDecl,
                         cname   :: Type,
                         fields  :: [FieldDecl], 
                         methods :: [MethodDecl]} deriving(Show, Eq)
@@ -80,7 +80,7 @@ instance HasMeta ClassDecl where
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
-data FieldDecl = Field {fmeta :: Meta, 
+data FieldDecl = Field {fmeta :: Meta FieldDecl, 
                         fname :: Name, 
                         ftype :: Type} deriving(Show, Eq)
 
@@ -89,14 +89,14 @@ instance HasMeta FieldDecl where
     setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
 
-data ParamDecl = Param {pmeta :: Meta, pname :: Name, ptype :: Type} deriving(Show, Eq)
+data ParamDecl = Param {pmeta :: Meta ParamDecl, pname :: Name, ptype :: Type} deriving(Show, Eq)
 
 instance HasMeta ParamDecl where
     getMeta = pmeta
     setMeta p m = p{pmeta = m}
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
 
-data MethodDecl = Method {mmeta   :: Meta,
+data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                           mname   :: Name,
                           mtype   :: Type,
                           mparams :: [ParamDecl],
@@ -109,82 +109,86 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
-data Expr = Skip {emeta :: Meta}
-          | TypedExpr {emeta :: Meta,
+data Expr = Skip {emeta :: Meta Expr}
+          | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}
-          | MethodCall {emeta :: Meta, 
+          | MethodCall {emeta :: Meta Expr, 
                         target :: Expr, 
                         name :: Name, 
                         args :: Arguments}
-          | MessageSend {emeta :: Meta, 
+          | MessageSend {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name, 
                          args :: Arguments}
-          | FunctionCall {emeta :: Meta, 
+          | FunctionCall {emeta :: Meta Expr, 
                           name :: Name, 
                           args :: Arguments}
-          | Closure {emeta :: Meta, 
+          | Closure {emeta :: Meta Expr, 
                      eparams :: [ParamDecl],
                      body :: Expr}
-          | Let {emeta :: Meta, 
+          | Let {emeta :: Meta Expr, 
                  decls :: [(Name, Expr)],
                  body :: Expr}
-          | Seq {emeta :: Meta, 
+          | Seq {emeta :: Meta Expr, 
                  eseq :: [Expr]}
-          | IfThenElse {emeta :: Meta, 
+          | IfThenElse {emeta :: Meta Expr, 
                         cond :: Expr, 
                         thn :: Expr, 
                         els :: Expr}
-          | IfThen {emeta :: Meta, 
+          | IfThen {emeta :: Meta Expr, 
                     cond :: Expr, 
                     thn :: Expr}
-          | Unless {emeta :: Meta, 
+          | Unless {emeta :: Meta Expr, 
                     cond :: Expr, 
                     thn :: Expr}
-          | While {emeta :: Meta, 
+          | While {emeta :: Meta Expr, 
                    cond :: Expr, 
                    body :: Expr}
+<<<<<<< HEAD
           | Repeat {emeta :: Meta, 
                     name :: Name, 
                     times :: Expr, 
                     body :: Expr}
           | Get {emeta :: Meta, 
+=======
+          | Get {emeta :: Meta Expr, 
+>>>>>>> 9f917d23b67b6f9e7de5040dfea64bbff6e53dbb
                  val :: Expr}
-          | FieldAccess {emeta :: Meta, 
+          | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}
-          | Assign {emeta :: Meta, 
+          | Assign {emeta :: Meta Expr, 
                     lhs :: Expr, 
                     rhs :: Expr}
-          | VarAccess {emeta :: Meta, 
+          | VarAccess {emeta :: Meta Expr, 
                        name :: Name}
-          | Null {emeta :: Meta}
-          | BTrue {emeta :: Meta}
-          | BFalse {emeta :: Meta}
-          | NewWithInit {emeta :: Meta, 
+          | Null {emeta :: Meta Expr}
+          | BTrue {emeta :: Meta Expr}
+          | BFalse {emeta :: Meta Expr}
+          | NewWithInit {emeta :: Meta Expr, 
                          ty ::Type,
                          args :: Arguments}
-          | New {emeta :: Meta, 
+          | New {emeta :: Meta Expr, 
                  ty ::Type}
-          | Print {emeta :: Meta, 
+          | Print {emeta :: Meta Expr, 
                    stringLit :: String,
                    args :: [Expr]}
-          | Exit {emeta :: Meta,
+          | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
-          | StringLiteral {emeta :: Meta, 
+          | StringLiteral {emeta :: Meta Expr, 
                            stringLit :: String}
-          | IntLiteral {emeta :: Meta, 
+          | IntLiteral {emeta :: Meta Expr, 
                         intLit :: Int}
-          | RealLiteral {emeta :: Meta, 
+          | RealLiteral {emeta :: Meta Expr, 
                          realLit :: Double}
-          | Embed {emeta :: Meta,
+          | Embed {emeta :: Meta Expr,
                    ty    :: Type,
                    code  :: String}
-          | Unary {emeta :: Meta,
+          | Unary {emeta :: Meta Expr,
                    op    :: Op,
                    operand  :: Expr }
-          | Binop {emeta :: Meta,
+          | Binop {emeta :: Meta Expr,
                    op :: Op,
                    loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
@@ -218,3 +222,10 @@ instance HasMeta Expr where
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
+
+setSugared :: Expr -> Expr -> Expr
+setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
+
+getSugared :: Expr -> Maybe Expr
+getSugared e = AST.Meta.getSugared (emeta e)
+
