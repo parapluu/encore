@@ -2,11 +2,15 @@
 
 // Control whether pony_alloc is used or not
 
-//#define USE_PONY_ALLOC 1
+#define USE_PONY_ALLOC 
+
+extern __thread pony_actor_t* this_actor;
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>
-  #define ALLOC(size) pony_alloc(size)
+  // Tobias: this is a hack to make top-level functions work as they are implemented as closures right now
+  // This hack creates a small memory leak which we can safely ignore until top-level functions change.
+  #define ALLOC(size) (this_actor ? pony_alloc(size) : malloc(size))
   #define FREE(ptr)
 #else
   #include <stdlib.h> 
@@ -60,5 +64,6 @@ double val_to_dbl(value_t v){
 }
 
 void closure_trace(closure_t* c) {
-  // Not implemented yet
+  pony_trace(c);
+  pony_trace(c->env);
 }

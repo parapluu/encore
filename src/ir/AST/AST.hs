@@ -145,6 +145,10 @@ data Expr = Skip {emeta :: Meta Expr}
           | While {emeta :: Meta Expr, 
                    cond :: Expr, 
                    body :: Expr}
+          | Repeat {emeta :: Meta Expr, 
+                    name :: Name, 
+                    times :: Expr, 
+                    body :: Expr}
           | Get {emeta :: Meta Expr, 
                  val :: Expr}
           | FieldAccess {emeta :: Meta Expr, 
@@ -220,3 +224,4 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
+

@@ -24,6 +24,7 @@ getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
 getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
+getChildren Repeat {name, times, body} = [times, body]
 getChildren Get {val} = [val]
 getChildren FieldAccess {target} = [target]
 getChildren Assign {lhs, rhs} = [lhs, rhs]
@@ -93,6 +94,11 @@ extendAccum f acc0 e@(While {cond, body}) =
         (acc2, b') = extendAccum f acc1 body
     in
       f acc2 e{cond = c', body = b'}
+extendAccum f acc0 e@(Repeat {times, body}) = 
+    let (acc1, t') = extendAccum f acc0 times
+        (acc2, b') = extendAccum f acc1 body
+    in
+      f acc2 e{times = t', body = b'}
 extendAccum f acc0 e@(Binop {loper, roper}) = 
     let (acc1, l') = extendAccum f acc0 loper
         (acc2, r') = extendAccum f acc1 roper

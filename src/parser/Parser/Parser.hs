@@ -34,6 +34,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
               | if Expr then Expr
               | unless Expr then Expr
               | while Expr Expr
+              | repeat Name <- Expr Expr
               | get Expr
               | new Type ( Arguments )
               | new Type
@@ -96,7 +97,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", 
+               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "repeat",
 				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
 				  "body", "end", "Fut", "Par", "import", "qualified", "module", "this"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
@@ -297,6 +298,7 @@ expr  =  unit
      <|> try ifThenElse
      <|> ifThen
      <|> unless
+     <|> repeat
      <|> while
      <|> get
      <|> try newWithInit
@@ -354,6 +356,13 @@ expr  =  unit
                   reserved "then"
                   thn <- expression
                   return $ IfThen (meta pos) cond thn
+      repeat = do pos <- getPosition
+                  reserved "repeat"
+                  name <- identifier
+                  symbol "<-"
+                  times <- expression
+                  body <- expression
+                  return $ Repeat (meta pos) (Name name) times body
       unless = do pos <- getPosition
                   reserved "unless"
                   cond <- expression
