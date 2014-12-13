@@ -115,12 +115,12 @@ Have fun!
 ## `encorec` options
 
 Running `encorec foo.enc` will typecheck the source and produce the executable
-`foo`. The following flags are supported:
+`foo`. The following options are supported:
  
-`-c` -- Keep intermediate C-files
-`-tc` -- Typecheck only (don't produce an executable)
-`-o [file]` -- Specify output file
-`-run` -- Run the program and remove the executable
-`-clang` -- Use clang to build the executable (default)
-`-AST` -- Output the parsed AST as text to `foo.AST`
-`-TypedAST` -- Output the typechecked AST as text to `foo.TAST`
+* `-c` -- Keep intermediate C-files
+* `-tc` -- Typecheck only (don't produce an executable)
+* `-o [file]` -- Specify output file
+* `-run` -- Run the program and remove the executable
+* `-clang` -- Use clang to build the executable (default)
+* `-AST` -- Output the parsed AST as text to `foo.AST`
+* `-TypedAST` -- Output the typechecked AST as text to `foo.TAST`
