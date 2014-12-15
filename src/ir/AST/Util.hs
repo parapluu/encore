@@ -2,7 +2,7 @@
 {-| 
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(foldr, foldrProgram, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -67,8 +67,8 @@ foldr f acc0 e =
     let childResult = List.foldr (\e acc -> foldr f acc e) acc0 (getChildren e)
     in f e childResult
 
-foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
+foldrProgram :: (Expr -> a -> a) -> a -> Program -> [[a]]
+foldrProgram f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
