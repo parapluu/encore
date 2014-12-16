@@ -1,0 +1,90 @@
+
+------------------------------------------------------------
+------------------------------------------------------------
+------------------------------------------------------------
+-- save for version 2
+-- seq :: Par t -> [Fut t]
+-- join :: [Fut t] -> Fut [t]
+-- each :: [t] -> Par t
+
+-- Put all the results of the arguments into a list that will be
+-- available when all values are available
+sync :: Par t -> Fut [t]
+sync = undefined
+
+
+-- forkJoin f l lifts each element of l into a Par, maps f over that
+-- Par, syncs the Par into a list future (possibly of a different size
+-- and permutation than l) and gets that future.
+forkJoin :: (t -> t') -> [t] -> [t']
+forkJoin f = get . sync . pmap f . each
+
+
+{-
+
+each :: [t] -> Par t
+each [] = stop
+each (f:r) = lift . fut f | each r
+
+
+filter :: (t -> bool) -> Par t -> Par t
+-- filter p par kills all computations of par that do not fulfill the
+-- condititon p
+
+reduce :: (t -> t' -> t') -> t' -> Par t -> Fut t'
+-- reduce works like a fold over a parallel computation, with the
+-- second argument being the initial accumulator value. Returns
+-- directly with a future
+
+repeat :: Delay t -> Par t
+-- Calls the argument function repeatedly, putting all the resulting
+-- computations into a par. The following code gives intuition but
+-- skips the fact that no new computations are done after f halts for
+-- the first time.
+repeat f = f() | repeat f
+
+-- Comment: Letting f have the type Delay Maybe t, we can stop when it
+-- returns Nothing
+
+iterate :: Par t -> (Par t -> Par t) -> (Par t -> bool) -> Par t
+iterate par f p = iterate f p (filter p (pmap f p))
+-- The above code is a possible interpretation (I should ask Dave
+-- about this... "Do until..." he says). The idea is to keep mapping f
+-- over par and keep only the computations for which p results in
+-- true. The question is when you should stop... In a functional
+-- setting, an implementation could say that you can stop iterating
+-- over a value when the resulting value is the same.
+
+scan :: (t -> t' -> t') -> t' -> Par t -> Par t'
+-- Like reduce, but produces all intermediate values:
+-- scan f z (a | b | ...) = (z | f(a,z) | f(b, f(a,z)) | ...)
+
+-- Comment: scan doesn't really make a lot of sense. Since there is no
+-- order in a Par, there will be no order among the intermediate
+-- values. If we take optimizations into account, there may be several
+-- parallel reductions going at once, so not only will the
+-- intermediate values and their order be non-deterministic, but also
+-- the size of the resulting Par. The lack of order also means that
+-- there is no way to discern between the final value and another one,
+-- except that the final one finishes last (something that we most
+-- probably can't observe). All we can do (right now) is to prune the
+-- resulting Par and hope that we get a "good" value out of it.
+
+
+-- Consider the following function:
+
+double :: t -> Par t
+double x = lift . fut x | lift . fut x
+-- The call forkJoin double [1,2,3] will result in any permutation of
+-- the list [1, 1, 2, 2, 3, 3]. Do we have a way to express a parallel
+-- map that is order (and length) preserving?
+
+
+parmap :: (t -> t') -> [t] -> [t']
+parmap f [] = []
+parmap f x:xs = x' : (parmap f xs) << f x
+-- Note that the function body (f x) : (parmap f xs') is parallel by
+-- construction in Vanilla Orc due to Orc rewriting it into 
+--     (x' : xs' <x'< f x )<xs'< parmap f xs
+
+-}
