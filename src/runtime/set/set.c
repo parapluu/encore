@@ -5,11 +5,15 @@
 #include <assert.h>
 
 // Controls whether malloc of pony_alloc is to be used
-// #define USE_PONY_ALLOC 1
+#define USE_PONY_ALLOC 1
+
+extern __thread pony_actor_t* this_actor;
 
 #ifdef USE_PONY_ALLOC
   #include <pony/pony.h>
-  #define ALLOC(size) pony_alloc(size)
+  // Tobias: this is a hack to make top-level functions work as they are implemented as closures right now
+  // This hack creates a small memory leak which we can safely ignore until top-level functions change.
+  #define ALLOC(size) (this_actor ? pony_alloc(size) : malloc(size))
   #define FREE(ptr)
 #else
   #include <stdlib.h> 

@@ -5,14 +5,13 @@
 #include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
-#include "tit_lazy.h"
-#include "tit_eager.h"
 #include "future.h"
 #include "future_actor.h"
 #include "pony/pony.h"
-// #include "ext/pony_extensions.h"
+#include "tit_lazy.h"
+#include "tit_eager.h"
 
-extern void run_restart();
+// #include "ext/pony_extensions.h"
 
 struct resumable {
   // strategy_t strategy; // Possible future work: support multiple strategies in parallel
@@ -21,6 +20,8 @@ struct resumable {
     eager_tit_t *eager;
   };
 };
+
+extern void run_restart();
 
 static strategy_t strategy;
 
@@ -38,7 +39,7 @@ static inline void suspend(resumable_t *r) {
 }
 
 static resumable_t *mk_resumeable() {
-  resumable_t *r = calloc(1, sizeof(resumable_t));
+  resumable_t *r = pony_alloc(sizeof(resumable_t));
   switch (strategy) {
   case LAZY:
     r->lazy = lazy_t_get_current();

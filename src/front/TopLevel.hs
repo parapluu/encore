@@ -37,7 +37,10 @@ import CCode.PrettyCCode
 data Phase = Parsed | TypeChecked 
     deriving Eq
 
-data Option = GCC | Clang | Run | KeepCFiles | Undefined String | Output FilePath | Source FilePath | Intermediate Phase
+data Option = GCC | Clang | Run | 
+              KeepCFiles | Undefined String | 
+              Output FilePath | Source FilePath | 
+              Intermediate Phase | TypecheckOnly
 	deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [Option])
@@ -48,12 +51,13 @@ parseArguments args =
             where 
               (opt, rest) = parseArgument args
               parseArgument ("-c":args)         = (KeepCFiles, args)
+              parseArgument ("-tc":args)        = (TypecheckOnly, args)
               parseArgument ("-gcc":args)       = (GCC, args)
               parseArgument ("-run":args)       = (Run, args)
               parseArgument ("-clang":args)     = (Clang, args)
               parseArgument ("-o":file:args)    = (Output file, args)
-              parseArgument ("--AST":args)      = (Intermediate Parsed, args)
-              parseArgument ("--TypedAST":args) = (Intermediate TypeChecked, args)
+              parseArgument ("-AST":args)       = (Intermediate Parsed, args)
+              parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
@@ -67,9 +71,16 @@ parseArguments args =
 warnUnknownFlags :: [Option] -> IO ()
 warnUnknownFlags options = 
     do
-      mapM (\flag -> case flag of {Undefined flag -> putStrLn $ "Ignoring undefined option" <+> flag; _ -> return ()}) options
-      when (GCC `elem` options) (putStrLn "Compilation with gcc not yet supported")
-      when (Clang `elem` options && GCC `elem` options) (putStrLn "Conflicting compiler options. Defaulting to clang.")
+      mapM (\flag -> case flag of 
+                       Undefined flag -> putStrLn $ "Warning: Ignoring undefined option" <+> flag
+                       _ -> return ()) options
+      when (GCC `elem` options && (not $ Clang `elem` options)) 
+               (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
+      when (Clang `elem` options && GCC `elem` options) 
+               (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
+      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options)) 
+               (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
+
 
 outputCode ast out = hPrint out ast    
 
@@ -93,7 +104,7 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
        withFile headerFile WriteMode (outputCode header)
        withFile sharedFile WriteMode (outputCode shared)
-       when ((Clang `elem` options) || (Run `elem` options))
+       when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
                    cmd = "clang" <+> 

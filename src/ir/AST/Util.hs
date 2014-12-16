@@ -2,7 +2,7 @@
 {-| 
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(foldr, foldrProgram, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -11,7 +11,8 @@ import AST.AST
 import Types
 import Identifiers
 
--- | @getChildren e@ returns all children of @e@ that are Exprs themselves
+-- | @getChildren e@ returns all children of @e@ that are Exprs
+-- themselves
 getChildren :: Expr -> [Expr]
 getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
@@ -24,6 +25,7 @@ getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
 getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
+getChildren Repeat {times, body} = [times, body]
 getChildren Get {val} = [val]
 getChildren FieldAccess {target} = [target]
 getChildren Assign {lhs, rhs} = [lhs, rhs]
@@ -34,13 +36,39 @@ getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
 getChildren e = []
 
+-- | @putChildren children e@ returns @e@ with it's children
+-- replaced by the Exprs in @children@. The expected invariant is
+-- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
+putChildren :: [Expr] -> Expr -> Expr
+putChildren [body] e@(TypedExpr {}) = e{body = body}
+putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
+putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
+putChildren args e@(FunctionCall {}) = e{args = args}
+putChildren [body] e@(Closure {}) = e{body = body}
+putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
+putChildren eseq e@(Seq {}) = e{eseq = eseq}
+putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
+putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
+putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
+putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
+putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
+putChildren [val] e@(Get {}) = e{val = val}
+putChildren [target] e@(FieldAccess {}) = e{target = target}
+putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
+putChildren args e@(NewWithInit {}) = e{args = args}
+putChildren args e@(Print {}) = e{args = args}
+putChildren args e@(Exit {}) = e{args = args}
+putChildren [operand] e@(Unary {}) = e{operand = operand}
+putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
+putChildren _ e = e
+
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
-foldr f acc e = 
-    let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
+foldr f acc0 e = 
+    let childResult = List.foldr (\e acc -> foldr f acc e) acc0 (getChildren e)
     in f e childResult
 
-foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
+foldrProgram :: (Expr -> a -> a) -> a -> Program -> [[a]]
+foldrProgram f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
@@ -50,88 +78,10 @@ extend :: (Expr -> Expr) -> Expr -> Expr
 extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
-extendAccum f acc0 e@(MethodCall {target, args}) = 
-    let (acc1, t') = extendAccum f acc0 target
-        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
-    in
-      f acc2 e{target = t', args = a'}
-extendAccum f acc0 e@(MessageSend {target, args}) = 
-    let (acc1, t') = extendAccum f acc0 target
-        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
-    in
-      f acc2 e{target = t', args = a'}
-extendAccum f acc0 e@(NewWithInit {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Let {decls, body}) = 
-    let (acc1, d') = List.mapAccumL accumDecls acc0 decls
-        (acc2, b') = extendAccum f acc1 body
-    in
-      f acc2 e{decls = d', body = b'}
-    where
-      accumDecls acc (name, expr) = let (acc', expr') = extendAccum f acc expr 
-                                    in (acc', (name, expr'))
-extendAccum f acc0 e@(IfThenElse {cond, thn, els}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-        (acc3, el') = extendAccum f acc2 els
-    in
-      f acc3 e{cond = c', thn = t', els = el'}
-extendAccum f acc0 e@(IfThen {cond, thn}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-    in
-      f acc2 e{cond = c', thn = t'}
-extendAccum f acc0 e@(Unless {cond, thn}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-    in
-      f acc2 e{cond = c', thn = t'}
-extendAccum f acc0 e@(While {cond, body}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, b') = extendAccum f acc1 body
-    in
-      f acc2 e{cond = c', body = b'}
-extendAccum f acc0 e@(Binop {loper, roper}) = 
-    let (acc1, l') = extendAccum f acc0 loper
-        (acc2, r') = extendAccum f acc1 roper
-    in
-      f acc2 e{loper = l', roper = r'}
-extendAccum f acc0 e@(FunctionCall {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Closure {body}) = 
-    let (acc1, b') = extendAccum f acc0 body
-    in
-      f acc1 e{body = b'}
-extendAccum f acc0 e@(Seq {eseq}) = 
-    let (acc1, es') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 eseq
-    in
-      f acc1 e{eseq = es'}
-extendAccum f acc0 e@(Get {val}) = 
-    let (acc1, v') = extendAccum f acc0 val
-    in
-      f acc1 e{val = v'}
-extendAccum f acc0 e@(FieldAccess {target}) = 
-    let (acc1, t') = extendAccum f acc0 target
-    in
-      f acc1 e{target = t'}
-extendAccum f acc0 e@(Assign {rhs}) = 
-    let (acc1, r') = extendAccum f acc0 rhs
-    in
-      f acc1 e{rhs = r'}
-extendAccum f acc0 e@(Print {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Exit {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc e = f acc e
-
+extendAccum f acc0 e =
+    let (acc1, childResults) = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
+    in f acc1 (putChildren childResults e)
+    
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
 extendAccumProgram f acc0 (Program etl imps funs classes) = (acc2, Program etl imps funs' classes')
     where 

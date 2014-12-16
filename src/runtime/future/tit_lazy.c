@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pony/pony.h>
 #include "tit_lazy.h"
 #include "mpmcq.h"
 
@@ -26,6 +27,11 @@ struct lazy_tit_t {
   bool is_proper;
   ucontext_t context;
 };
+
+void lazy_tit_trace(void *p)
+{
+  pony_trace(p);
+}
 
 static pthread_once_t stack_pool_is_initialized = PTHREAD_ONCE_INIT;
 static mpmcq_t proper_stacks_for_reuse;
@@ -89,7 +95,8 @@ static void garbage_collect_stack(lazy_tit_t *to_retire) {
     mpmcq_push(&proper_stacks_for_reuse, to_retire);
   } else {
     return_allocated_stack_to_pool(to_retire->context.uc_stack.ss_sp);
-    free(to_retire);
+    // Tobias: this currently leaks memory -- not fixing this now since Kiko and Albert are rewriting tits
+    // free(to_retire);
   }
 }
 

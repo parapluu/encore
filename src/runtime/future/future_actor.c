@@ -32,7 +32,7 @@ typedef struct blocked_entry {
   resumable_t *context;
 } blocked_entry;
 
-static void future_actor_trace();
+static void future_actor_trace(pony_actor_t *this);
 
 pony_actor_type_t future_actor_type =
   {
@@ -42,12 +42,32 @@ pony_actor_type_t future_actor_type =
     future_actor_dispatch
   };
 
+pony_type_t closure_type =
+  {
+    16, 
+    closure_trace,
+    NULL, 
+    NULL
+  };
+
+void resumable_trace(void *p) {
+  pony_trace(*(void**)p);
+}
+
+pony_type_t resumable_type =
+  {
+    sizeof(void*),
+    resumable_trace,
+    NULL, 
+    NULL
+  };
+
 // FIXME -- 2nd arg in chain should be a closure, not an actor!
-static pony_msg_t m_chain = {2, {PONY_ACTOR, PONY_NONE}};
+static pony_msg_t m_chain = {2, {PONY_ACTOR, &closure_type}};
 // FIXME -- 2nd arg should be Ctx defined in context.h
 static pony_msg_t m_await = {2, {PONY_ACTOR, PONY_NONE}};
 // FIXME -- 2nd arg should be Ctx defined in context.h
-static pony_msg_t m_block = {2, {PONY_ACTOR, PONY_NONE}};
+static pony_msg_t m_block = {2, {PONY_ACTOR, &resumable_type}};
 // FIXME -- 2nd arg in chain should be any kind of Encore value
 static pony_msg_t m_fulfil = {0, {PONY_NONE}}; //XXX We can only store passive values in futures!
 // FIXME -- arg should be Ctx defined in context.h
@@ -104,13 +124,12 @@ static set_t *getAwaiting(future_actor_fields *fields) {
 static void trace_resume(blocked_entry *entry) {
   pony_actor_t *target = entry->actor;
   pony_traceactor(target);
+  pony_trace(entry->context);
 }
 
 static void trace_chain(chained_entry *entry) {
-  pony_actor_t *target = entry->actor;
-  struct closure *closure = entry->closure;
-  pony_traceactor(target);
-  closure_trace(closure);
+  pony_traceactor(entry->actor);
+  closure_trace(entry->closure);
 }
 
 static void resume_from_await(blocked_entry *entry) {
@@ -269,9 +288,11 @@ void future_set_blocking(pony_actor_t *this) {
   __atomic_store_n(&state->has_blocking, &TRUE, __ATOMIC_SEQ_CST); //TODO: relax
 }
 
-static void future_actor_trace()
+static void future_actor_trace(pony_actor_t *this)
 {
-  future_actor_fields *fields = pony_get();
+  fprintf(stderr, "Tracing in future_actor_trace %p\n", this);
+
+  future_actor_fields *fields = get_fields(this);
 
   set_forall(fields->chained, (void *((*)(void *, void*))) trace_chain, NULL);
   set_forall(fields->awaiting, (void *((*)(void *, void*))) trace_resume, NULL);

@@ -94,41 +94,33 @@ Now you can compile a program by using
 
     $ encorec my_file.enc
 
-or, if you you are calling C from your code, by using:
-
-    $ encorec -clang my_file.enc
-
-Then, you can run the executable, as usual, through
+This will produce an executable that you can run as usual: 
 
    ./my_file
 
-Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
+Alternatively, you can use the .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
 
     $ chmod u+x my_file.enc
 
-..you can execute it:
+...you can execute it:
 
     $ ./my_file.enc
 
-This will compile the file -- and run it.
+This will compile the file, run it and remove the executable.
 
 You can find some example programs in the [programs](https://github.com/parapluu/mylittlepony/tree/master/programs) directory.
 
 Have fun!
 
-## `encorec` Options
+## `encorec` options
 
-By default, `encorec` would only compile (translate) `.enc` file to `.c` file.
-
-    encorec <filename>.enc # => <filename>.pony.c
-
-Mostly, we want the executable, so `-clang` option is introduced to generate the
-final executable, with compiling (translating), C compiling and linking behind
-the scene.
-
-    encorec -clang <filename>.enc # => <filename>
-
-To speed up the edit-compile-run cycle, `-run` option is introduced so that the
-generated executable is run automatically.
-
-    encorec -run <filename>.enc # => ./<filename>
+Running `encorec foo.enc` will typecheck the source and produce the executable
+`foo`. The following options are supported:
+ 
+* `-c` -- Keep intermediate C-files
+* `-tc` -- Typecheck only (don't produce an executable)
+* `-o [file]` -- Specify output file
+* `-run` -- Run the program and remove the executable
+* `-clang` -- Use clang to build the executable (default)
+* `-AST` -- Output the parsed AST as text to `foo.AST`
+* `-TypedAST` -- Output the typechecked AST as text to `foo.TAST`

@@ -1,0 +1,8 @@
+class Main
+  def main() : void
+    repeat i <- 3 
+      repeat j <- 3 {
+        print i;  
+        print j;  
+      }
+
