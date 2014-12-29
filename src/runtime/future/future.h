@@ -6,6 +6,7 @@
 #include "set.h"
 
 typedef struct future_actor_fields {
+  pthread_mutex_t lock;
   bool fulfilled;
   bool has_blocking;
   void *value;

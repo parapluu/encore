@@ -106,6 +106,7 @@ void future_resume(resumable_t *r) {
 
 future_t *future_mk() {
   future_t *f = pony_alloc(sizeof *f);
+  pthread_mutex_init(&f->lock, NULL);
   f->fulfilled = false;
   f->value = NULL;
   f->blocked = NULL;
@@ -115,21 +116,31 @@ future_t *future_mk() {
 }
 
 void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
-  set_t *chained = get_chained(f);
   chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
   new_entry->actor = a;
   new_entry->closure = c;
+
+  pthread_mutex_lock(&f->lock);
+  set_t *chained = get_chained(f);
   set_add(chained, new_entry);
+
+  f->has_blocking =  true; 
+  pthread_mutex_unlock(&f->lock);
 }
 
 void future_block(future_t *f, pony_actor_t* a) {
-
+  pthread_mutex_lock(&f->lock);
+  if(f->fulfilled){
+    return;
+  } 
   pony_unschedule(a);
 
-  f->has_blocking = true;
+  f->has_blocking =  true;
+
   set_t *blocked = get_blocked(f);
   set_add(blocked, a);
-
+  pthread_mutex_unlock(&f->lock);
+  
   block_actor(a);
 }
 
@@ -142,6 +153,7 @@ inline void *future_read_value(future_t *f) {
 }
 
 void future_fulfil(future_t *f, void *value) {
+  pthread_mutex_lock(&f->lock);
   f->fulfilled = true;
   f->value = value;
 
@@ -149,6 +161,7 @@ void future_fulfil(future_t *f, void *value) {
     set_forall(get_chained(f), (forall_fnc) run_chain, (void*) value);
     set_forall(get_blocked(f), (forall_fnc) resume_from_block, NULL );
   }
+  pthread_mutex_unlock(&f->lock);
 }
 
 void init_futures(int cache_size, strategy_t s) {
