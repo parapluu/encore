@@ -35,6 +35,8 @@ extern void return_allocated_stack_to_pool(void *stack_pointer);
 extern void mk_stack(ucontext_t *uc);
 extern void *get_stack(pony_actor_t *a);
 extern ucontext_t *get_context(pony_actor_t *a);
+extern __thread ucontext_t resuming_origin;
+extern __thread bool resuming;
 
 void fork_eager(void(*fun_t_5)(), pony_actor_t *a, void *b, void *c, void *d, void *e) {
   //FIXME: move to init part of runtime for each thread
@@ -50,6 +52,11 @@ void fork_eager(void(*fun_t_5)(), pony_actor_t *a, void *b, void *c, void *d, vo
 
   if (swapcontext(&runloop->context, context) != 0) {
     err(EX_OSERR, "swapcontext failed");
+  }
+
+  if(resuming) {
+      resuming = false;
+      setcontext(&resuming_origin);
   }
 }
 

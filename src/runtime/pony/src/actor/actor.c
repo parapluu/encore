@@ -11,6 +11,8 @@
 #include <stdbool.h>
 
 #define STACK_SIZE 1024 * 1024 * 8
+__thread ucontext_t resuming_origin;
+__thread bool resuming;
 
 enum
 {
@@ -197,15 +199,6 @@ static bool handle_message(pony_actor_t* actor, message_t* msg)
   }
 }
 
-static void resume_actor(pony_actor_t *actor){
-  unblock_actor(actor);
-  
-  // Save current context and resume actor
-  ucontext_t current_context;
-  getcontext(&current_context);
-  actor->context->uc_link = &current_context;
-  swapcontext(&current_context, actor->context);
-}
 
 bool actor_run(pony_actor_t* actor)
 {
@@ -224,8 +217,15 @@ bool actor_run(pony_actor_t* actor)
   }
 
   if (is_blocked(actor)) {
-      resume_actor(actor);
-      puts("after resume back to main");
+      unblock_actor(actor);
+      resuming = true;
+      // Save current context and resume actor
+      getcontext(&resuming_origin);
+      actor->context->uc_link = &resuming_origin;
+      if(swapcontext(&resuming_origin, actor->context)) {
+          puts("swapcontext error in actor_run");
+      }
+      resuming = false;
       return !has_flag(actor, FLAG_UNSCHEDULED);
   }
 
