@@ -25,6 +25,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        Concat $ 
        HashDefine "HEADER_H" :
        (Includes [
+         "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
          "pony/pony.h",
          "stdlib.h",
          "set.h",

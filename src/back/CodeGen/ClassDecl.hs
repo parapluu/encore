@@ -81,7 +81,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                       else
                           (Record
                            [Int $ length (A.mparams mdecl) + 1, -- plus 1 for future argument
-                            Record $ Nam "PONY_ACTOR" : map (pony_mode . A.getType) (A.mparams mdecl)])), 
+                            Record $ Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])), 
                    AssignTL 
                      (Decl (Static (Typ "pony_msg_t"), 
                             one_way_message_type_name cname (A.mname mdecl)))
