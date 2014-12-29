@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "tit_common.h"
+#include <pony/pony.h>
 
 typedef struct eager_tit_t eager_tit_t;
 
@@ -16,7 +17,7 @@ void eager_t_init_current();
 // Calling a new function in its own stack
 // =============================================================================
 
-void fork_eager(void(*fun_t_5)(), void *a, void *b, void *c, void *d, void *e);
+void fork_eager(void(*fun_t_5)(), pony_actor_t *a, void *b, void *c, void *d, void *e);
 
 // =============================================================================
 // Suspending, resuming and querying the state of a stack

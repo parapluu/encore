@@ -13,6 +13,9 @@
 
 // #include "ext/pony_extensions.h"
 
+extern void run_restart();
+extern void block_actor(pony_actor_t *a);
+
 struct resumable {
   // strategy_t strategy; // Possible future work: support multiple strategies in parallel
   union {
@@ -53,7 +56,42 @@ static resumable_t *mk_resumeable() {
   return r;
 }
 
+typedef struct chained_entry {
+  pony_actor_t *actor;
+  struct closure *closure;
+} chained_entry;
+
+
+static inline set_t *get_chained(future_t *f) {
+  if (f->chained == NULL) {
+    f->chained = mk_set();
+  }
+  return f->chained;
+}
+
+static inline set_t *get_blocked(future_t *f) {
+  if (f->blocked == NULL) {
+    f->blocked = mk_set();
+  }
+  return f->blocked;
+}
+
+static void run_chain(chained_entry *entry, void *value) {
+  pony_actor_t *target = entry->actor;
+  struct closure *closure = entry->closure;
+  pony_arg_t argv[2];
+  argv[0].p = closure;
+  argv[1].p = value;
+  pony_sendv(target, FUT_MSG_RUN_CLOSURE, 2, argv); // - see https://trello.com/c/kod5Ablj
+}
+
+static void resume_from_block(pony_actor_t *a) {
+  pony_schedule(a);
+}
+
+
 void future_resume(resumable_t *r) {
+    return;
   switch (strategy) {
   case LAZY:
     resume_lazy(r->lazy);
@@ -67,88 +105,50 @@ void future_resume(resumable_t *r) {
 }
 
 future_t *future_mk() {
-  return (future_t*) future_create();
+  future_t *f = pony_alloc(sizeof *f);
+  f->fulfilled = false;
+  f->value = NULL;
+  f->blocked = NULL;
+  f->chained = NULL;
+  f->awaiting = NULL;
+  return f;
 }
 
 void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
-  pony_arg_t argv[2];
-  argv[0].p = a;
-  argv[1].p = c;
-#ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- chain (%p) from %p\n", (void *)pthread_self(), f, c, a);
-#endif
-  pony_sendv(f, FUT_MSG_CHAIN, 2, argv);
+  set_t *chained = get_chained(f);
+  chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
+  new_entry->actor = a;
+  new_entry->closure = c;
+  set_add(chained, new_entry);
 }
 
 void future_block(future_t *f, pony_actor_t* a) {
-  future_set_blocking(f);
-  resumable_t *r = mk_resumeable();
-  pony_arg_t argv[2];
-  argv[0].p = a;
-  argv[1].p = r;
-
-#ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- block (%p) from %p \n", (void *)pthread_self(), f, argv[1].p, a);
-#endif
-  pony_sendv(f, FUT_MSG_BLOCK, 2, argv);
 
   pony_unschedule(a);
-  suspend(r);
+
+  f->has_blocking = true;
+  set_t *blocked = get_blocked(f);
+  set_add(blocked, a);
+
+  block_actor(a);
 }
 
-void future_await(future_t *f, pony_actor_t* a) {
-  resumable_t *r = mk_resumeable();
-  pony_arg_t argv[2];
-  argv[0].p = a;
-  argv[1].p = r;
-
-#ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- await (%p) from %p \n", (void *)pthread_self(), f, argv[1].p, a);
-#endif
-  pony_sendv(f, FUT_MSG_AWAIT, 2, argv);
-
-  suspend(r);
+inline bool future_fulfilled(future_t *f) {
+  return f->fulfilled;
 }
 
-void yield(pony_actor_t* a) {
-  resumable_t *r = mk_resumeable();
-  pony_arg_t argv[1];
-  argv[0].p = r;
-
-#ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- yield (%p)\n", (void *)(void *)pthread_self(), a, argv[0].p);
-#endif
-  pony_sendv(a, FUT_MSG_RESUME, 1, argv);
-
-  suspend(r);
-}
-
-inline bool future_fulfilled(future_t *fut) {
-  return future_actor_get_fulfilled(fut);
-}
-
-inline void *future_read_value(future_t *fut) {
-  return future_actor_get_value(fut);
-}
-
-void *future_get(future_t *fut, pony_actor_t* actor) {
-  void *result;
-  if (future_actor_get_value_and_fulfillment(fut, &result)) {
-    return result;
-  }
-  future_block(fut, actor);
-  return future_read_value(fut);
+inline void *future_read_value(future_t *f) {
+  return f->value;
 }
 
 void future_fulfil(future_t *f, void *value) {
-  future_actor_set_value(f, value);
+  f->fulfilled = true;
+  f->value = value;
 
-#ifdef DEBUG_PRINT
-  fprintf(stderr, "[%p]\t%p <--- fulfil\n", (void *)pthread_self(), f);
-#endif
-
-  if (future_has_blocking(f))
-    pony_send(f, FUT_MSG_FULFIL);
+  if (f->has_blocking) {
+    set_forall(get_chained(f), (forall_fnc) run_chain, (void*) value);
+    set_forall(get_blocked(f), (forall_fnc) resume_from_block, NULL );
+  }
 }
 
 void init_futures(int cache_size, strategy_t s) {

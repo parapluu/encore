@@ -7,6 +7,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <ucontext.h>
+#include <stdbool.h>
+
+#define STACK_SIZE 1024 * 1024 * 8
 
 enum
 {
@@ -28,11 +32,41 @@ struct pony_actor_t
   messageq_t q __attribute__ ((aligned (64)));
   message_t* continuation;
   pony_actor_type_t* actor_type;
+  void* stack;
+  ucontext_t* context;
+  bool blocked;
 };
+
 
 // Tobias: removed the static keyword here to make top-level functions as closures work
 // static 
 __thread pony_actor_t* this_actor;
+
+void *get_stack(pony_actor_t *a)
+{
+    return a->stack;
+}
+
+ucontext_t *get_context(pony_actor_t *a)
+{
+    return a->context;
+}
+
+bool is_blocked(pony_actor_t *a)
+{
+    return a->blocked;
+}
+
+void block_actor(pony_actor_t *a)
+{
+    a->blocked = true;
+    swapcontext(a->context, a->context->uc_link);
+}
+
+void unblock_actor(pony_actor_t *a)
+{
+    a->blocked = false;
+}
 
 static bool has_flag(pony_actor_t* actor, uint8_t flag)
 {
@@ -155,11 +189,22 @@ static bool handle_message(pony_actor_t* actor, message_t* msg)
         gc_done(&actor->gc);
       }
 
+      // printf("dispatch %ld\n", msg->id);
       actor->actor_type->dispatch(actor, actor->p, msg->id,
         mtype->argc, msg->argv);
       return true;
     }
   }
+}
+
+static void resume_actor(pony_actor_t *actor){
+  unblock_actor(actor);
+  
+  // Save current context and resume actor
+  ucontext_t current_context;
+  getcontext(&current_context);
+  actor->context->uc_link = &current_context;
+  swapcontext(&current_context, actor->context);
 }
 
 bool actor_run(pony_actor_t* actor)
@@ -178,6 +223,12 @@ bool actor_run(pony_actor_t* actor)
     heap_endgc(&actor->heap);
   }
 
+  if (is_blocked(actor)) {
+      resume_actor(actor);
+      puts("after resume back to main");
+      return !has_flag(actor, FLAG_UNSCHEDULED);
+  }
+
   if(actor->continuation != NULL)
   {
     message_t* msg = actor->continuation;
@@ -191,9 +242,12 @@ bool actor_run(pony_actor_t* actor)
 
   while((msg = messageq_pop(&actor->q)) != NULL)
   {
-    if(handle_message(actor, msg))
-      return !has_flag(actor, FLAG_UNSCHEDULED);
+      /* printf("starting iteration current actor is %p\n", actor); */
+      if(handle_message(actor, msg)) {
+          return !has_flag(actor, FLAG_UNSCHEDULED);
+      }
   }
+  // puts("iteration finished");
 
   if(!has_flag(actor, FLAG_BLOCKED | FLAG_SYSTEM | FLAG_UNSCHEDULED))
   {
@@ -283,6 +337,18 @@ void actor_dec_rc()
   this_actor->gc.rc--;
 }
 
+ucontext_t *mk_context(pony_actor_t* a)
+{
+  // create actor's stack
+    a->stack = malloc(1024 * 1024 * 8);
+
+    ucontext_t *context = malloc(sizeof *context);
+    context->uc_stack.ss_sp = a->stack;
+    context->uc_stack.ss_size = STACK_SIZE;
+    context->uc_stack.ss_flags = 0;
+    return context;
+}
+
 pony_actor_t* pony_create(pony_actor_type_t* type)
 {
   assert(type != NULL);
@@ -293,6 +359,9 @@ pony_actor_t* pony_create(pony_actor_type_t* type)
 
   messageq_init(&actor->q);
   heap_init(&actor->heap);
+  actor->context = mk_context(actor);
+
+  actor->blocked = false;
 
   if(this_actor != NULL)
   {

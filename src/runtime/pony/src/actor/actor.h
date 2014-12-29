@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 600
 #ifndef actor_h
 #define actor_h
 
@@ -17,6 +18,8 @@ enum
 bool actor_run(pony_actor_t* actor);
 
 void actor_destroy(pony_actor_t* actor);
+
+void block_actor(pony_actor_t *a);
 
 pony_actor_t* actor_current();
 

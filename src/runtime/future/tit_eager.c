@@ -33,27 +33,22 @@ static inline void __start_trampoline(eager_tit_t *new);
 static inline void __end_trampoline();
 extern void return_allocated_stack_to_pool(void *stack_pointer);
 extern void mk_stack(ucontext_t *uc);
+extern void *get_stack(pony_actor_t *a);
+extern ucontext_t *get_context(pony_actor_t *a);
 
-void fork_eager(void(*fun_t_5)(), void *a, void *b, void *c, void *d, void *e) {
+void fork_eager(void(*fun_t_5)(), pony_actor_t *a, void *b, void *c, void *d, void *e) {
   //FIXME: move to init part of runtime for each thread
   if (runloop == NULL) {
     eager_t_init_current();
   }
 
-  eager_tit_t *fork = calloc(1, sizeof(struct eager_tit_t));
-  getcontext(&fork->context);
-  fork->context.uc_stack.ss_sp    = NULL;
-  fork->context.uc_stack.ss_flags = 0;
-  fork->context.uc_link           = &runloop->context;
-  fork->state                     = RUNNING;
-  fork->is_proper                 = false;
-  runloop->state                  = SUSPENDED;
+  ucontext_t *context = get_context(a);
+  getcontext(context);
+  context->uc_stack.ss_sp = get_stack(a);
+  context->uc_link = &runloop->context;
+  makecontext(context, trampoline_5, 7, NULL, fun_t_5, a, b, c, d, e);
 
-  mk_stack(&fork->context);
-
-  // fprintf(stderr, "\t\t<%p> fork: tit %p has stack: %p\n", pthread_self(), fork, fork->context.uc_stack.ss_sp);
-  makecontext(&fork->context, trampoline_5, 7, fork, fun_t_5, a, b, c, d, e);
-  if (swapcontext(&runloop->context, &fork->context) != 0) {
+  if (swapcontext(&runloop->context, context) != 0) {
     err(EX_OSERR, "swapcontext failed");
   }
 }
@@ -67,9 +62,10 @@ static inline void __end_trampoline(eager_tit_t *t) {
 }
 
 static void trampoline_5(eager_tit_t *t, fun_t_5 fun, void *a, void *b, void *c, void *d, void *e) {
-  __start_trampoline(t);
+// static void trampoline_5(fun_t_5 fun, void *a, void *b, void *c, void *d, void *e) {
+  // __start_trampoline(t);
   fun(a, b, c, d, e);
-  __end_trampoline(t);
+  // __end_trampoline(t);
 }
 
 void suspend_eager(eager_tit_t *t) {
@@ -79,6 +75,7 @@ void suspend_eager(eager_tit_t *t) {
   if (swapcontext(&t->context, &runloop->context) != 0) {
     err(EX_OSERR, "setcontext failed");
   }
+    fflush(stdout);
 }
 
 void resume_eager(eager_tit_t *t) {
@@ -88,6 +85,8 @@ void resume_eager(eager_tit_t *t) {
   t->state = RUNNING;
   t->context.uc_link = &cache->context;
 
+  printf("before resuming sp is %p\n", t->context.uc_stack.ss_sp);
+  printf("before resuming context is %p\n", t->context);
   if (swapcontext(&cache->context, &t->context) != 0) {
     err(EX_OSERR, "setcontext failed");
   }
@@ -116,7 +115,7 @@ void resume_eager(eager_tit_t *t) {
 
 eager_tit_t *get_suspendable_tit() {
   assert(_trampoline->is_proper == false);
-    
+
   return _trampoline;
 }
 

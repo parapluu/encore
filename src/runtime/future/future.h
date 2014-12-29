@@ -3,8 +3,17 @@
 
 #include "pony/pony.h"
 #include "closure.h"
+#include "set.h"
 
-typedef void future_t;
+typedef struct future_actor_fields {
+  bool fulfilled;
+  bool has_blocking;
+  void *value;
+  set_t *blocked;
+  set_t *chained;
+  set_t *awaiting;
+} future_t;
+
 typedef struct resumable resumable_t;
 
 typedef enum {
