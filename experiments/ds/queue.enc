@@ -1,0 +1,61 @@
+passive class Data
+  elem: int
+  next: Data
+
+  def init(e: int): Data {
+    this.elem = e;
+    this.next = null;
+    this;
+  }
+
+
+passive class Queue
+  head: Data
+  tail: Data
+  size: int
+  
+  def init(): void {
+    this.head = null;
+    this.tail = null;
+    this.size = 0;
+  }
+
+  def push(d: Data): void {
+    if(this.size==0) then {
+      this.head = d;
+      this.tail = d;
+    } else {
+      this.tail.next = d;
+      this.tail = d;
+    };
+    this.size = this.size + 1;
+  }
+
+  def peek(): Data {
+    this.head;
+  }
+  
+  def pop(): Data
+    if(this.size == 0) then {	
+      embed Data
+        NULL;
+      end
+    }else{
+      let node = this.head in {
+      	  this.head = this.head.next;
+	  this.size = this.size - 1;
+	  node;
+      }
+    }
+
+class Main
+  def main(): void
+    let q = new Queue in {
+      q.push(new Data(2));
+      q.push(new Data(5));
+      q.push(new Data(6));
+      let d1 = q.pop() in { 
+	  print d1.elem;
+	  print q.peek();
+      }
+    }
