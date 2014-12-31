@@ -84,7 +84,6 @@ project "future"
   includedirs { "../closure", "../set", "src/sched" }
   files {
     "../future/future.c",
-    "../future/future_actor.c",
     "../future/tit_eager.c",
     "../future/tit_lazy.c"
   }

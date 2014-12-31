@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <pthread.h>
 #include "future.h"
-#include "future_actor.h"
 #include "pony/pony.h"
 #include "tit_lazy.h"
 #include "tit_eager.h"
