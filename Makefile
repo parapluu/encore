@@ -65,4 +65,13 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc/html
 
-.PHONY: all encorec fetch-hs-deps test dirs pony clean
+# @ supresses output from shell
+# - supresses ignore errors
+vagrant:
+	-@vagrant up
+	-@vagrant ssh -c "cabal update && cabal install cabal-install"
+	-@vagrant ssh -c "cd /vagrant && make test"
+
+
+
+.PHONY: all encorec fetch-hs-deps test dirs pony clean vagrant
