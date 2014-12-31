@@ -15,6 +15,17 @@
 extern void run_restart();
 extern void block_actor(pony_actor_t *a);
 
+struct future_actor_fields {
+  pthread_mutex_t lock;
+  bool fulfilled;
+  bool has_blocking;
+  void *value;
+  set_t *blocked;
+  set_t *chained;
+  set_t *awaiting;
+};
+
+
 struct resumable {
   // strategy_t strategy; // Possible future work: support multiple strategies in parallel
   union {

@@ -5,16 +5,7 @@
 #include "closure.h"
 #include "set.h"
 
-typedef struct future_actor_fields {
-  pthread_mutex_t lock;
-  bool fulfilled;
-  bool has_blocking;
-  void *value;
-  set_t *blocked;
-  set_t *chained;
-  set_t *awaiting;
-} future_t;
-
+typedef struct future_actor_fields future_t;
 typedef struct resumable resumable_t;
 
 typedef enum {
@@ -24,7 +15,7 @@ typedef enum {
 
 
 // =============================================================================
-// Logic for creating, querying, and fulfilling futures
+// Create, inspect and fulfil
 // =============================================================================
 
 future_t *future_mk();
