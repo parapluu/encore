@@ -186,16 +186,17 @@ importdecl = do
 
 embedTL :: Parser EmbedTL
 embedTL = do pos <- getPosition
-             (try (do reserved "embed"
-                      header <- manyTill anyChar $ reserved "body"
-                      code <- manyTill anyChar $ reserved "end"
+             (try (do string "embed"
+                      header <- manyTill anyChar $ try $ do {space; string "body"}
+                      code <- manyTill anyChar $ try $ do {space; reserved "end"}
                       return $ EmbedTL (meta pos) header code
                  )
               <|>
-              try (do reserved "embed"
-                      header <- manyTill anyChar $ reserved "end"
+              try (do string "embed"
+                      header <- manyTill anyChar $ try $ do {space; reserved "end"}
                       return $ EmbedTL (meta pos) header ""
-                 ) <|>
+                 ) 
+              <|>
               (return $ EmbedTL (meta pos) "" ""))
 
 function :: Parser Function
@@ -315,7 +316,7 @@ expr  =  unit
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ
-                 code <- manyTill anyChar $ try $ reserved "end"
+                 code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
       unit = do pos <- getPosition
                 reservedOp "()" 
