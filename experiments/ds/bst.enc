@@ -1,0 +1,118 @@
+--
+-- BST: A binary search tree with no elements repeated.
+--
+-- Missing compare function as lambda
+--
+
+passive class Data
+  elem: int
+
+  def init(e: int): Data {
+    this.elem = e;
+    this;
+  }
+
+passive class BST
+  node: Data
+  left: BST
+  right: BST
+  count: int
+
+  def init(): BST {
+      this.node = null;
+      this.left = null;
+      this.right = null;
+      this.count = 0;
+      this;
+  }
+
+  def find(e: Data): bool {
+    let that = this in {
+      this.findFrom(that, e);
+    }
+  }
+
+  -- private method
+  def findFrom(root: BST, e: Data): bool {
+    if(root == null) then {
+      false;
+    } else {
+      let elem = e.elem in {
+        if(root.node.elem == elem) then {
+          true;
+        } else {
+          if(elem < root.node.elem) then {
+            this.findFrom(root.left, e);
+          } else {
+            this.findFrom(root.right, e);
+          }
+        }
+      }
+    }
+  }
+
+  def insert(e: Data): void {
+    let that = this in {
+      if(this.node == null) then {
+        this.node = e;
+      } else {
+        this.insertAt(that, e);
+      }
+    }
+  }
+
+  -- private method
+  def insertAt(root: BST, e:Data): void {
+    let node = root
+        elem = e.elem in {
+      if(elem != root.node.elem)  then {
+	  if(elem < root.node.elem) then {
+	    if(root.left != null) then {
+	      this.insertAt(root.left, e);
+	    } else {
+              root.left = new BST();
+	      root.left.node = e;
+	      this.count = this.count + 1;
+	    }
+	  } else {
+	    if(root.right != null) then {
+              this.insertAt(root.right, e);
+	    }else {
+              root.right = new BST();
+	      root.right.node = e;
+	      this.count = this.count + 1;
+	    }
+	 }
+      }
+    }
+  }
+
+  def count(): int {
+    this.count;
+  }
+
+
+class Main
+  def main(): void
+    let b = new BST()
+        d6 = new Data(6) 
+        d3 = new Data(3) 
+        d8 = new Data(8) 
+        d9 = new Data(9) 
+    in {
+      b.insert(d6);
+      b.insert(d8);
+      b.insert(d3);
+      b.insert(d9);
+      
+      print b.node.elem;
+      print b.right.node.elem;
+      print b.left.node.elem;
+      print b.right.right.node.elem;
+
+      print b.find(d6);
+      print b.find(d3);
+      print b.find(d8);
+      print b.find(d9);
+      print b.find(new Data(2));
+    }
