@@ -141,6 +141,7 @@ void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
 void future_block(future_t *f, pony_actor_t* a) {
   pthread_mutex_lock(&f->lock);
   if(f->fulfilled){
+    pthread_mutex_unlock(&f->lock);
     return;
   } 
   pony_unschedule(a);
