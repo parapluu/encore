@@ -20,6 +20,7 @@ GPATH
 GRTAGS
 GTAGS
 .DS_Store
+.vagrant
 /.emacs.desktop
 /.emacs.desktop.lock
 /src/runtime/closure.make
