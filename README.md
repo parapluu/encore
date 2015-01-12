@@ -3,6 +3,48 @@ mylittlepony
 
 Preliminary explorations for the Encore compiler.
 
+## Play around with Encore
+
+Would like to play around without having to install all the dependencies? Now you can!
+
+1. Install [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Vagrant](https://www.vagrantup.com/).
+
+2. `git clone git@github.com:parapluu/mylittlepony.git`
+
+3. `cd mylittlepony`
+
+4. `make vagrant` (you need to run this make target only the first time you download the project)
+
+This installs the Encore compiler in a Virtual Machine (VM).
+
+At this point, you have a Ubuntu VM working for you. You will work on your localhost (marked as `localhost$`) and compile on the VM (marked as `vm$`).
+
+To connect to the VM:
+
+    localhost$ vagrant ssh
+
+From the VM, compile using Encore:
+
+    vm$ encorec example.enc
+
+To exit the VM:
+
+    vm$ exit
+
+After playing around with Encore, you want to suspend or halt the machine
+(so that it does not consume resources).
+
+In you local machine:
+
+    localhost$ vagrant halt
+
+or
+
+    localhost$ vagrant suspend
+
+To start and connect again to the VM:
+
+    localhost$ vagrant up && vagrant ssh
 
 
 ## Build Instructions
