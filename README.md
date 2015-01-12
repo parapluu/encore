@@ -5,7 +5,7 @@ Preliminary explorations for the Encore compiler.
 
 ## Play around with Encore
 
-Would like to play around without having to install all the dependencies? Now you can!
+Would you like to play around with Encore without having to install all the dependencies? Now you can!
 
 1. Install [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Vagrant](https://www.vagrantup.com/).
 
