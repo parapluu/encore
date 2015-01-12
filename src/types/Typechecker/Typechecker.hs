@@ -177,9 +177,14 @@ instance Checkable Expr where
               | isRefType ty = return $ setType ty null
               | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
-
+    -- 
+    -- --------------
+    --   () : void
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
+    --    e : t
+    -- --------------
+    --   (e : t) : t
     typecheck tExpr@(TypedExpr {body, ty}) = do ty' <- checkType ty
                                                 pushHasType body ty'
 
@@ -238,10 +243,6 @@ instance Checkable Expr where
                           Name "_init" -> "No constructor" 
                           _ -> "No method '" ++ show name ++ "'") ++
                         " in class '" ++ show targetType ++ "'"
-                 -- Nothing -> 
-                 --     case name of
-                 --       Name "_init" -> tcError $ "No constructor in class '" ++ show targetType ++ "'"
-                 --       _ -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
                  Just result -> return result
            unless (length args == length paramTypes) $ 
                   tcError $
@@ -250,12 +251,6 @@ instance Checkable Expr where
                            _ -> "Method '" ++ show name ++ "'") ++ 
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
-           --     case lookupResult of
-           --       Nothing -> tcError $ "No method '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
-           --       Just result -> return result
-           -- unless (length args == length paramTypes) $ 
-           --        tcError $ "Method '" ++ show name ++ "' of class '" ++ show targetType ++
-           --                  "' expects " ++ show (length paramTypes) ++ " arguments. Got " ++ show (length args)
            (eArgs, bindings) <- checkArguments args paramTypes
            return $ setType voidType msend {target = eTarget, args = eArgs}
 
