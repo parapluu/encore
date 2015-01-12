@@ -71,7 +71,7 @@ vagrant:
 	-@vagrant up
 	-@vagrant ssh -c "cabal update && cabal install cabal-install"
 	-@vagrant ssh -c "cd /vagrant && make test"
-
+	-@vagrant ssh -c "ln -s /vagrant/* /home/vagrant/"
 
 
 .PHONY: all encorec fetch-hs-deps test dirs pony clean vagrant
