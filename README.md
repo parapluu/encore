@@ -124,3 +124,54 @@ Running `encorec foo.enc` will typecheck the source and produce the executable
 * `-clang` -- Use clang to build the executable (default)
 * `-AST` -- Output the parsed AST as text to `foo.AST`
 * `-TypedAST` -- Output the typechecked AST as text to `foo.TAST`
+
+
+## Language Specification
+
+Update the language specification whenever you change the Encore compiler.
+
+#### Dependencies
+
+In order to update the language specification, first you need to:
+
+  1. download the [Racket language](http://download.racket-lang.org/)
+  2. clone the project upscale (https://github.com/fxpl/upscale)
+  3. cd upscale/doc/encore
+  4. make
+
+After following the instructions above, you should have a folder under
+`upscale/doc/encore` named `build` that contains the documentation in
+pdf and html.
+
+#### Update the language specification
+
+The language specification has the following directory structure:
+
+```
+├── Makefile
+├── README.md
+├── index.scrbl
+├── lang
+│    ├── client-side
+│    │   └── index.scrbl (todo)
+│    ├── getting-started
+│    │   └── index.scrbl
+│    ├── module-system
+│    │   └── index.scrbl (todo)
+│    ├── semantics
+│    │   └── index.scrbl (todo)
+│    └── syntax
+│        ├── index.scrbl
+│        └── grammar.scrbl (ongoing work)
+└── extras
+     ├── README.md
+     └── math
+         └── ...
+```
+
+Update the files relevant to your changes. For instance, if you decide to
+introduce a new keyword in the language, such as `repeat`, you would need to
+update the file `grammar.scbl` in `upscale/doc/encore/lang/syntax/`.
+
+The easiest way (for now) to know what to modify is by generating the html,
+reading the section relevant to you and updating it.
