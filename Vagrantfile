@@ -78,8 +78,9 @@ Vagrant.configure(2) do |config|
      apt-get update
 
      # Install dependencies
-     apt-get install -y clang g++ make premake4 zlib1g-dev ghc-7.8.3 cabal-install-1.22 unzip valgrind git emacs vim
+     apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.8.3 cabal-install-1.22 unzip valgrind git emacs vim
      ln -s /usr/bin/cabal-1.22 /usr/bin/cabal
+     ln -s /usr/bin/lldb-3.5 /usr/bin/lldb
   SHELL
 
   config.vm.provision "update cabal", type: "shell", privileged: false, :inline => <<-SHELL 
@@ -89,9 +90,10 @@ Vagrant.configure(2) do |config|
 
   config.vm.provision "run test", type: "shell", privileged: false, :inline => <<-SHELL
     export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:$PATH
-    ln -s /vagrant/* /home/vagrant/
-    make clean && make test
+    cd /vagrant && make clean && make test
   SHELL
 
   config.vm.provision "update $PATH", type: "shell", privileged: false, inline: "echo export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:$PATH >> .profile"
+
+  config.vm.provision "symlink to shared folder", type: "shell", privileged: false, inline: "ln -s /vagrant/* /home/vagrant/"
 end
