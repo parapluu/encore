@@ -71,17 +71,27 @@ Vagrant.configure(2) do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
+
   config.vm.provision "install dependencies", type: "shell", :inline => <<-SHELL
      # Add sources
      sudo add-apt-repository -y ppa:hvr/ghc
      apt-get update
 
      # Install dependencies
-     apt-get install -y clang g++ make premake4 zlib1g-dev ghc-7.8.3 cabal-install-1.20 unzip valgrind git emacs vim
-     ln -s /usr/bin/cabal-1.20 /usr/bin/cabal
-
-     # Add ghc to your $PATH env
-     echo export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:/vagrant/release:$PATH >> .profile
+     apt-get install -y clang g++ make premake4 zlib1g-dev ghc-7.8.3 cabal-install-1.22 unzip valgrind git emacs vim
+     ln -s /usr/bin/cabal-1.22 /usr/bin/cabal
   SHELL
 
+  config.vm.provision "update cabal", type: "shell", privileged: false, :inline => <<-SHELL 
+    export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:$PATH
+    cabal update && cabal install cabal-install
+  SHELL
+
+  config.vm.provision "run test", type: "shell", privileged: false, :inline => <<-SHELL
+    export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:$PATH
+    ln -s /vagrant/* /home/vagrant/
+    make clean && make test
+  SHELL
+
+  config.vm.provision "update $PATH", type: "shell", privileged: false, inline: "echo export PATH=/vagrant/release:/opt/ghc/7.8.3/bin:$PATH >> .profile"
 end
