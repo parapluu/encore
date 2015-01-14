@@ -271,16 +271,10 @@ instance Checkable Expr where
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
            (eArgs, bindings) <- matchArguments args paramTypes
-           returnType <- 
-               do ty <- if isTypeVar methodType then -- FIXME!
-                            case lookup methodType bindings of
-                              Just ty -> return ty
-                              Nothing -> tcError $ "Could not resolve return type '" ++ show methodType ++ "'"
-                        else
-                            return methodType
-                  return $ if isThisAccess target || (not $ isActiveRefType targetType) 
-                           then ty
-                           else futureType ty
+           let resultType = replaceTypeVars bindings methodType
+               returnType = if isThisAccess target || isPassiveRefType targetType
+                            then resultType
+                            else futureType resultType
            return $ setType returnType mcall {target = eTarget, args = eArgs}
 
     --  E |- e : t'
@@ -620,7 +614,7 @@ instance Checkable Expr where
 matchArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg 
+matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg --pushHasType arg typ
                                            bindings <- matchTypes typ (AST.getType eArg)
                                            (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
                                            return (eArg:eArgs, bindings')
