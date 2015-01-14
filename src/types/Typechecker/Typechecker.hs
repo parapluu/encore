@@ -197,7 +197,7 @@ instance Checkable Expr where
                          if isNullType exprType then
                              coerceNull eExpr ty
                          else
-                             do matchTypes ty exprType
+                             do assertSubtypeOf exprType ty
                                 return eExpr
         where
           coerceNull null ty 
@@ -270,7 +270,7 @@ instance Checkable Expr where
                            _ -> "Method '" ++ show name ++ "'") ++ 
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
-           (eArgs, bindings) <- checkArguments args paramTypes
+           (eArgs, bindings) <- matchArguments args paramTypes
            returnType <- 
                do ty <- if isTypeVar methodType then -- FIXME!
                             case lookup methodType bindings of
@@ -314,7 +314,7 @@ instance Checkable Expr where
                            _ -> "Method '" ++ show name ++ "'") ++ 
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
-           (eArgs, bindings) <- checkArguments args paramTypes
+           (eArgs, bindings) <- matchArguments args paramTypes
            return $ setType voidType msend {target = eTarget, args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
@@ -335,7 +335,7 @@ instance Checkable Expr where
                   tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
                             "' expects " ++ show (length argTypes) ++ " arguments. Got " ++ 
                             show (length args)
-           (eArgs, bindings) <- checkArguments args argTypes
+           (eArgs, bindings) <- matchArguments args argTypes
            let resultType = replaceTypeVars bindings (getResultType ty)
            return $ setType resultType fcall {args = eArgs}
 
@@ -613,16 +613,16 @@ instance Checkable Expr where
 --  E, B1 |- arg2 : t2 .. argn : tn -| B'
 -- ------------------------------------------------
 --  E, B |- arg1 : t1 arg2 : t2 .. argn : tn -| B'
--- | @checkArguments args types@ checks if @arg_i@ matches
+-- | @matchArguments args types@ checks if @arg_i@ matches
 -- @type_i@ and throws a type checking error if they don't.
 -- Returns the type checked arguments and a list of inferred
 -- bindings, i.e. type variables to types.
-checkArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
-checkArguments [] [] = do bindings <- asks bindings
+matchArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
+matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
+matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg 
                                            bindings <- matchTypes typ (AST.getType eArg)
-                                           (eArgs, bindings') <- local (bindTypes bindings) $ checkArguments args types
+                                           (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
                                            return (eArg:eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad
@@ -658,27 +658,36 @@ checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
 -- list of inferred bindings, i.e. type variables to types,
 -- together with the preexisting bindings.
 matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
-matchTypes ty1 ty2
-    | isFutureType ty1 && isFutureType ty2 ||
-      isParType ty1    && isParType ty2   = matchTypes (getResultType ty1) (getResultType ty2)
-    | isArrowType ty1  && isArrowType ty2 = let argTypes1 = getArgTypes ty1
-                                                argTypes2 = getArgTypes ty2
-                                                res1 = getResultType ty1
-                                                res2 = getResultType ty2
-                                            in
-                                              do argBindings <- matchArguments argTypes1 argTypes2
-                                                 local (bindTypes argBindings) $ matchTypes res1 res2
-    | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
-                         case boundType of
-                           Just ty -> do unless (ty `subtypeOf` ty2) $ -- FIXME!
-                                                tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
-                                                     show ty ++ "' and '" ++ show ty2 ++ "'"
-                                         asks bindings
-                           Nothing -> do bindings <- asks bindings
-                                         return $ (ty1, ty2) : bindings
-    | otherwise = do unless (ty1 `subtypeOf` ty2) $ tcError $ "Type '" ++ show ty2 ++ "' does not match expected type '" ++ show ty1 ++ "'"
+matchTypes expected ty
+    | isFutureType expected && isFutureType ty ||
+      isParType expected    && isParType ty   = matchTypes (getResultType expected) (getResultType ty)
+    | isArrowType expected  && isArrowType ty = let expArgTypes = getArgTypes expected
+                                                    argTypes    = getArgTypes ty
+                                                    expRes      = getResultType expected
+                                                    resTy       = getResultType ty
+                                                in
+                                                  do argBindings <- matchArguments expArgTypes argTypes
+                                                     local (bindTypes argBindings) $ matchTypes expRes resTy
+    | isTypeVar expected = do result <- asks $ typeVarLookup expected
+                              case result of
+                                Just boundType -> 
+                                    do unless (ty `subtypeOf` boundType) $
+                                              tcError $ "Type variable '" ++ show expected ++ 
+                                                        "' cannot be bound to both '" ++ show ty ++ 
+                                                        "' and '" ++ show boundType ++ "'"
+                                       asks bindings
+                                Nothing -> 
+                                    do bindings <- asks bindings
+                                       return $ (expected, ty) : bindings
+    | otherwise = do assertSubtypeOf ty expected
                      asks bindings
     where
       matchArguments [] [] = asks bindings
       matchArguments (ty1:types1) (ty2:types2) = do bindings <- matchTypes ty1 ty2
                                                     local (bindTypes bindings) $ matchArguments types1 types2
+
+assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()
+assertSubtypeOf sub super = 
+    unless (sub `subtypeOf` super) $ 
+           tcError $ "Type '" ++ show sub ++ 
+                     "' does not match expected type '" ++ show super ++ "'"
