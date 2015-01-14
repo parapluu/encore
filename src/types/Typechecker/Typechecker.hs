@@ -63,7 +63,8 @@ checkType ty
 -- "Environment", and the Error monad lets us throw a
 -- "TCError" exception anywhere.
 class Checkable a where
-    -- | Returns the extended version of its argument
+    -- | Returns the extended version of its argument (e.g. an
+    -- AST-node extended with type information)
     typecheck :: a -> ExceptT TCError (Reader Environment) a
 
     -- | Returns the extended version of its argument if its type
@@ -80,16 +81,25 @@ class Checkable a where
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
 instance Checkable Program where
+    --  E |- fun1 .. E |- funn
+    --  E |- class1 .. E |- classm
+    -- ----------------------------
+    --  E |- funs classes
     typecheck (Program etl imps funs classes) = 
         do efuns <- mapM pushTypecheck funs
            eclasses <- mapM pushTypecheck classes
            return $ Program etl imps efuns eclasses
 
 instance Checkable Function where
+   ---  |- funtype
+    --  hasTypeVars(funtype) => funtype \in t1 .. tn
+   ---  |- t1 .. |- tn
+    --  E, x1 : t1, .., xn : tn |- funbody : funtype
+    -- ----------------------------------------------------------
+    --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
     typecheck f@(Function {funtype, funparams, funbody, funname}) = 
         do ty <- checkType funtype
            noFreeTypeVariables
-           when (funname == Name "main") checkMainParams
            eParams <- mapM typecheckParam funparams
            eBody <- local (addParams eParams) $ pushHasType funbody ty
            return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
@@ -100,15 +110,18 @@ instance Checkable Function where
               in
                 when (not . null $ retVars \\ paramVars) $
                      tcError $ "Free type variables in return type '" ++ show funtype ++ "'"
-          checkMainParams = unless ((map ptype funparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
-                              tcError $
-                                "Main function must have argument type () or (int, string[]) (but arrays are not supported yet)"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 instance Checkable ClassDecl where
+    --  distinctNames(fields)
+   ---  |- field1 .. |- fieldn
+    --  distinctNames(methods)
+    --  E, this : cname |- method1 .. E, this : cname |- methodm
+    -- -----------------------------------------------------------
+    --  E |- class cname fields methods
     typecheck c@(Class {cname, fields, methods}) =
         do distinctFieldNames
            efields <- mapM pushTypecheck fields
@@ -131,6 +144,10 @@ instance Checkable ClassDecl where
                             throwError $ TCError ("Duplicate definition of method '" ++ show (mname m) ++ "'" , push m bt)
 
 instance Checkable FieldDecl where
+   ---  |- t
+    --  !hasTypeVars(t)
+    -- -----------------
+   ---  |- f : t
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
                                      let types = typeComponents ty
                                      when (any isTypeVar types) $ 
@@ -139,6 +156,18 @@ instance Checkable FieldDecl where
   
 
 instance Checkable MethodDecl where
+   ---  |- mtype 
+    --  !hasTypeVars(mtype)
+    --  E |- e : mtype
+    -- --------------------------------------------
+    --  E, this : Main |- def main() : mtype mbody
+    --
+   ---  |- mtype
+    --  hasTypeVars(mtype) => mtype \in t1 .. tn
+   ---  |- t1 .. |- tn
+    --  E, x1 : t1, .., xn : tn |- mbody : mtype
+    -- -----------------------------------------------------
+    --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(Method {mtype, mparams, mbody, mname}) = 
         do ty <- checkType mtype
            noFreeTypeVariables
@@ -178,16 +207,43 @@ instance Checkable Expr where
               | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
     -- 
-    -- --------------
-    --   () : void
+    -- ----------------
+    --  E |- () : void
     typecheck skip@(Skip {}) = return $ setType voidType skip
 
-    --    e : t
-    -- --------------
-    --   (e : t) : t
+   ---  |- t
+    --  E |- body : t
+    -- ----------------------
+    --  E |- (body : t) : t
     typecheck tExpr@(TypedExpr {body, ty}) = do ty' <- checkType ty
                                                 pushHasType body ty'
 
+    --  E |- e : t
+    --  methodLookup(t, m) = (t1 .. tn, t')
+    --  E |- arg1 : t1 .. E |- argn : tn
+    --  typeVarBindings() = B
+    --  E, B |- arg1 : t1 .. argn : tn -| B'
+    --  B'(t') = t''
+    -- ----------------------------------------
+    --  E |- this.m(arg1, .., argn) : t''
+    --
+    --  E |- e : t
+    --  isPassiveRefType(t)
+    --  methodLookup(t, m) = (t1 .. tn, t')
+    --  typeVarBindings() = B
+    --  E, B |- arg1 : t1 .. argn : tn -| B'
+    --  B'(t') = t''
+    -- ----------------------------------------
+    --  E |- e.m(arg1, .., argn) : t''
+    --
+    --  E |- e : t
+    --  isActiveRefType(t)
+    --  methodLookup(t, m) = (t1 .. tn, t')
+    --  typeVarBindings() = B
+    --  E, B |- arg1 : t1 .. argn : tn -| B'
+    --  B'(t') = t''
+    -- ----------------------------------------
+    --  E |- e.m(arg1, .., argn) : Fut t
     typecheck mcall@(MethodCall {target, name, args}) = 
         do eTarget <- pushTypecheck target
            let targetType = AST.getType eTarget
@@ -216,7 +272,7 @@ instance Checkable Expr where
                         " arguments. Got " ++ show (length args)
            (eArgs, bindings) <- checkArguments args paramTypes
            returnType <- 
-               do ty <- if isTypeVar methodType then
+               do ty <- if isTypeVar methodType then -- FIXME!
                             case lookup methodType bindings of
                               Just ty -> return ty
                               Nothing -> tcError $ "Could not resolve return type '" ++ show methodType ++ "'"
@@ -227,6 +283,13 @@ instance Checkable Expr where
                            else futureType ty
            return $ setType returnType mcall {target = eTarget, args = eArgs}
 
+    --  E |- e : t'
+    --  isActiveRefType(t')
+    --  methodLookup(t', m) = (t1 .. tn, _)
+    --  typeVarBindings() = B
+    --  E, B |- arg1 : t1 .. argn : tn -| B'
+    -- --------------------------------------
+    --  E |- e!m(arg1, .., argn) : ()
     typecheck msend@(MessageSend {target, name, args}) = 
         do eTarget <- pushTypecheck target
            let targetType = AST.getType eTarget
@@ -254,6 +317,12 @@ instance Checkable Expr where
            (eArgs, bindings) <- checkArguments args paramTypes
            return $ setType voidType msend {target = eTarget, args = eArgs}
 
+    --  E |- f : (t1 .. tn) -> t
+    --  typeVarBindings() = B
+    --  E, B |- arg1 : t1 .. argn : tn -| B'
+    --  B'(t) = t'
+    -- --------------------------------------
+    --  E |- f(arg1, .., argn) : t'
     typecheck fcall@(FunctionCall {name, args}) = 
         do funType <- asks $ varLookup name
            ty <- case funType of
@@ -270,6 +339,11 @@ instance Checkable Expr where
            let resultType = replaceTypeVars bindings (getResultType ty)
            return $ setType resultType fcall {args = eArgs}
 
+   ---  |- t1 .. |- tn
+    --  E, x1 : t1, .., xn : tn |- body : t
+    --  t != nullType
+    -- ------------------------------------------------------
+    --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     typecheck closure@(Closure {eparams, body}) = 
         do eEparams <- mapM typecheckParam eparams
            eBody <- local (addParams eEparams) $ pushTypecheck body
@@ -281,9 +355,13 @@ instance Checkable Expr where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
-          onlyParams = replaceLocals $ map (\(Param {pname, ptype}) -> (pname, ptype)) eparams
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
            
+    --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
+    --  E, x1 : t1, .., xn : tn |- body : t
+    --  x1 != nullType .. xn != nullType
+    -- --------------------------------------------------------------------------------------
+    --  E |- let x1 = e1 .. xn = en in body : t
     typecheck let_@(Let {decls, body}) = 
         do eDecls <- typecheckDecls decls
            let declNames = map fst eDecls
@@ -299,11 +377,20 @@ instance Checkable Expr where
                  eDecls <- local (extendEnvironment [(name, AST.getType eExpr)]) $ typecheckDecls decls
                  return $ (name, eExpr):eDecls
 
+    --  E |- en : t
+    -- ------------------------
+    --  E |- {e1; ..; en} : t
     typecheck seq@(Seq {eseq}) = 
         do eEseq <- mapM pushTypecheck eseq 
            let seqType = AST.getType (last eEseq)
            return $ setType seqType seq {eseq = eEseq}
 
+    --  E |- cond : bool
+    --  E |- thn : t'
+    --  E |- els : t''
+    --  t = matchBranches(t', t'')
+    -- ------------------------------------
+    --  E |- if cond then thn else els : t
     typecheck ifThenElse@(IfThenElse {cond, thn, els}) = 
         do eCond <- pushHasType cond boolType
            eThn <- pushTypecheck thn
@@ -324,11 +411,18 @@ instance Checkable Expr where
                                            "  then:  " ++ show ty1 ++ "\n" ++
                                            "  else:  " ++ show ty2
 
+    --  E |- cond : bool
+    --  E |- body : t
+    -- -----------------------
+    --  E |- while cond body : t
     typecheck while@(While {cond, body}) = 
         do eCond <- pushHasType cond boolType
            eBody <- pushTypecheck body
            return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
 
+    --  E |- val : Fut t
+    -- ------------------
+    --  E |- get val : t
     typecheck get@(Get {val}) = 
         do eVal <- pushTypecheck val
            let ty = AST.getType eVal
@@ -336,6 +430,10 @@ instance Checkable Expr where
                   tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
            return $ setType (getResultType ty) get {val = eVal}
 
+    --  E |- target : t'
+    --  fieldLookup(t', name) = t
+    -- ---------------------------
+    --  E |- target.name : t
     typecheck fAcc@(FieldAccess {target, name}) = 
         do eTarget <- pushTypecheck target
            let pathType = AST.getType eTarget
@@ -353,11 +451,17 @@ instance Checkable Expr where
              Just ty -> return $ setType ty fAcc {target = eTarget}
              Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"
 
+    --  E |- lhs : t
+    --  isLval(lhs)
+    --  E |- rhs : t
+    -- ------------------------
+    --  E |- name = rhs : void
     typecheck assign@(Assign {lhs = lhs@VarAccess{name}, rhs}) = 
         do eLhs <- pushTypecheck lhs
            isLocal <- asks $ isLocal name
            unless isLocal $ 
-                  tcError $ "Left hand side '" ++ show (ppExpr lhs) ++ "' is a global variable and cannot be assigned to"
+                  tcError $ "Left hand side '" ++ show (ppExpr lhs) ++ 
+                            "' is a global variable and cannot be assigned to"
            eRhs <- pushHasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
     typecheck assign@(Assign {lhs, rhs}) = 
@@ -367,24 +471,45 @@ instance Checkable Expr where
            eRhs <- pushHasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
+    --  name : t \in E
+    -- ----------------
+    --  E |- name : t
     typecheck var@(VarAccess {name}) = 
         do varType <- asks $ varLookup name
            case varType of
              Just ty -> return $ setType ty var
              Nothing -> tcError $ "Unbound variable '" ++ show name ++ "'"
 
+    --
+    -- ----------------------
+    --  E |- null : nullType
     typecheck null@Null {} = return $ setType nullType null
 
+    --
+    -- ------------------
+    --  E |- true : bool
     typecheck true@BTrue {} = return $ setType boolType true 
 
+    --
+    -- ------------------
+    --  E |- false : bool
     typecheck false@BFalse {} = return $ setType boolType false 
 
+   ---  |- t
+    --  classLookup(ty) = _
+    --  ty != Main
+    -- ----------------------
+    --  E |- new ty : ty
     typecheck new@(New {ty}) = 
         do ty' <- checkType ty
            unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
            when (isMainType ty') $ tcError "Cannot create additional Main objects"
            return $ setType ty' new
 
+    --  count("{}", stringLit) = n
+    --  E |- arg1 : t1 .. E |- argn : tn
+    -- ---------------------------------------------
+    --  E |- print(stringLit, arg1 .. argn) : void
     typecheck print@(Print {stringLit, args}) =
         do let noArgs = T.count (T.pack "{}") (T.pack stringLit)
            unless (noArgs == length args) $
@@ -393,6 +518,9 @@ instance Checkable Expr where
            eArgs <- mapM pushTypecheck args
            return $ setType voidType print {args = eArgs}
 
+    --  E |- arg : int
+    -- ------------------------
+    --  E |- exit(arg) : void
     typecheck exit@(Exit {args}) = 
         do eArgs <- mapM pushTypecheck args
            unless (length eArgs == 1 && (isIntType $ AST.getType (head eArgs))) $
@@ -405,10 +533,16 @@ instance Checkable Expr where
 
     typecheck realLit@(RealLiteral {}) = return $ setType realType realLit
 
+   ---  |- ty
+    -- ---------------------
+    -- E |- embed ty _ : ty
     typecheck embed@(Embed {ty}) = 
         do eTy <- checkType ty
            return $ setType eTy embed
 
+    --  E |- operand : bool
+    -- -------------------------
+    --  E |- not operand : bool
     typecheck unary@(Unary {op, operand})
       | op == (Identifiers.NOT) = do
         eOperand <- pushTypecheck operand
@@ -417,6 +551,21 @@ instance Checkable Expr where
                 tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types"
         return $ setType boolType unary { operand = eOperand }
 
+    --  op \in {and, or}
+    --  E |- loper : bool
+    --  E |- roper : bool
+    -- ----------------------------
+    --  E |- loper op roper : bool
+    -- 
+    --  op \in {<, >, <=, >=}
+    --  E |- loper : t
+    --  E |- roper : t'
+    --  isNumeric(t)
+    --  isNumeric(t')
+    -- ----------------------------
+    --  E |- loper op roper : bool
+    --
+    -- etc.
     typecheck binop@(Binop {op, loper, roper})
       | op `elem` boolOps = do
           eLoper <- pushTypecheck loper
@@ -448,7 +597,7 @@ instance Checkable Expr where
              return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
       | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
       where
-        boolOps   = [Identifiers.AND, Identifiers.OR]
+        boolOps  = [Identifiers.AND, Identifiers.OR]
         cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]
         eqOps    = [Identifiers.EQ, NEQ]
         arithOps = [PLUS, MINUS, TIMES, DIV, MOD]
@@ -456,8 +605,18 @@ instance Checkable Expr where
             | isRealType ty1 = realType
             | isRealType ty2 = realType
             | otherwise = intType
+
     typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 
+--  E |- arg1 : t
+--  matchTypes(B, t1, t) = B1
+--  E, B1 |- arg2 : t2 .. argn : tn -| B'
+-- ------------------------------------------------
+--  E, B |- arg1 : t1 arg2 : t2 .. argn : tn -| B'
+-- | @checkArguments args types@ checks if @arg_i@ matches
+-- @type_i@ and throws a type checking error if they don't.
+-- Returns the type checked arguments and a list of inferred
+-- bindings, i.e. type variables to types.
 checkArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
 checkArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
@@ -466,24 +625,57 @@ checkArguments (arg:args) (typ:types) = do eArg <- pushHasType arg typ
                                            (eArgs, bindings') <- local (bindTypes bindings) $ checkArguments args types
                                            return (eArg:eArgs, bindings')
 
+--  Note that the bindings B is implicit in the reader monad
+--
+--  matchTypes(B, t1, t2) = B'
+-- ----------------------------------
+--  matchTypes(B, _ t1, _ t2) = B'
+--
+--  matchTypes(B, t11, t21) = B1
+--  matchTypes(B1, t12, t22) = B2 .. matchTypes(B(n-1), t1n, t2n) = Bn
+--  matchTypes(Bn, t1, t2) = B'
+-- ---------------------------------------------------------------------
+--  matchTypes(B, (t11, .., t1n) -> t1, (t21, .., t2n) -> t2) = B'
+--
+--  B(x) = t'
+--  t <: t'
+-- --------------------------
+--  matchTypes(B, x, t) = B
+--
+--  x notin dom(B)
+-- -------------------------------
+--  matchTypes(B, x, t) = B[x->t]
+--
+--  !compoundType(t)
+--  !compoundType(t')
+--  t <: t'
+-- --------------------------
+--  matchTypes(B, t, t') = B
+-- | @matchTypes ty1 ty2@ checks if @ty1@ and @ty2@ match and
+-- throws a type checking error if they don't. If @ty1@ is a type
+-- variable, it tries to bind that variable to @ty2@ and throws an
+-- error if it is already bound to a different type. Returns the
+-- list of inferred bindings, i.e. type variables to types,
+-- together with the preexisting bindings.
 matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
-matchTypes ty1 ty2 
+matchTypes ty1 ty2
     | isFutureType ty1 && isFutureType ty2 ||
-      isParType ty1    && isParType ty2 = matchTypes (getResultType ty1) (getResultType ty2)
-    | isArrowType ty1 && isArrowType ty2 = do let argTypes1 = getArgTypes ty1
-                                                  argTypes2 = getArgTypes ty2
-                                                  res1 = getResultType ty1
-                                                  res2 = getResultType ty2
-                                              argBindings <- matchArguments argTypes1 argTypes2
-                                              local (bindTypes argBindings) $ matchTypes res1 res2
+      isParType ty1    && isParType ty2   = matchTypes (getResultType ty1) (getResultType ty2)
+    | isArrowType ty1  && isArrowType ty2 = let argTypes1 = getArgTypes ty1
+                                                argTypes2 = getArgTypes ty2
+                                                res1 = getResultType ty1
+                                                res2 = getResultType ty2
+                                            in
+                                              do argBindings <- matchArguments argTypes1 argTypes2
+                                                 local (bindTypes argBindings) $ matchTypes res1 res2
     | isTypeVar ty1 = do boundType <- asks $ typeVarLookup ty1
-                         case boundType of 
-                           Just ty -> do unless (ty `subtypeOf` ty2) $ 
+                         case boundType of
+                           Just ty -> do unless (ty `subtypeOf` ty2) $ -- FIXME!
                                                 tcError $ "Type variable '" ++ show ty1 ++ "' cannot be bound to both '" ++ 
                                                      show ty ++ "' and '" ++ show ty2 ++ "'"
                                          asks bindings
                            Nothing -> do bindings <- asks bindings
-                                         return ((ty1, ty2):bindings)
+                                         return $ (ty1, ty2) : bindings
     | otherwise = do unless (ty1 `subtypeOf` ty2) $ tcError $ "Type '" ++ show ty2 ++ "' does not match expected type '" ++ show ty1 ++ "'"
                      asks bindings
     where
