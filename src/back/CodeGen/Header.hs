@@ -21,7 +21,9 @@ import qualified Types as Ty
 generate_header :: A.Program -> CCode FIN
 generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes} = 
        Program $
+       IfNDefine "HEADER_H" $
        Concat $ 
+       HashDefine "HEADER_H" :
        (Includes [
          "pony/pony.h",
          "stdlib.h",
