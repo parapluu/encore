@@ -1,9 +1,13 @@
 mylittlepony
 ============
 
-Preliminary explorations for the Encore compiler.
+The Encore compiler.
 
-## Play around with Encore
+There are two ways of installing the Encore compiler. The first (**Playing around with Encore**) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach (**Building Encore from Source**) is a proper installation of all the dependencies (Haskell, llvm, etc). 
+
+This readme concludes with a discussion of the Encore command line arguments and details of the documentation.
+
+## Playing around with Encore
 
 Would you like to play around with Encore without having to install all the dependencies? Now you can!
 
@@ -47,7 +51,7 @@ To start and connect again to the VM:
     localhost$ vagrant up && vagrant ssh
 
 
-## Build Instructions
+## Building Encore from Source
 
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
