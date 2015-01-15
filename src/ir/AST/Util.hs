@@ -27,6 +27,7 @@ getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren Get {val} = [val]
 getChildren FutureChain {future, chain} = [future, chain]
+getChildren Yield {val} = [val]
 getChildren FieldAccess {target} = [target]
 getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren NewWithInit {args} = args
@@ -35,6 +36,35 @@ getChildren Exit {args} = args
 getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
 getChildren e = []
+
+-- | @putChildren children e@ returns @e@ with it's children
+-- replaced by the Exprs in @children@. The expected invariant is
+-- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
+putChildren :: [Expr] -> Expr -> Expr
+putChildren [body] e@(TypedExpr {}) = e{body = body}
+putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
+putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
+putChildren args e@(FunctionCall {}) = e{args = args}
+putChildren [body] e@(Closure {}) = e{body = body}
+putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
+putChildren eseq e@(Seq {}) = e{eseq = eseq}
+putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
+putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
+putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
+putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
+putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
+putChildren [val] e@(Get {}) = e{val = val}
+putChildren [val] e@(Yield {}) = e{val = val}
+putChildren [target] e@(FieldAccess {}) = e{target = target}
+putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
+putChildren args e@(NewWithInit {}) = e{args = args}
+putChildren args e@(Print {}) = e{args = args}
+putChildren args e@(Exit {}) = e{args = args}
+putChildren [operand] e@(Unary {}) = e{operand = operand}
+putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
+putChildren _ e = e
+
+--------------- The functions below this line depend only on the two above --------------------
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
 foldr f acc e = 

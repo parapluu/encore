@@ -100,12 +100,18 @@ data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                           mname   :: Name,
                           mtype   :: Type,
                           mparams :: [ParamDecl],
-                          mbody   :: Expr} deriving (Show, Eq)
+                          mbody   :: Expr} 
+                | StreamMethod {mmeta   :: Meta MethodDecl,
+                                mname   :: Name,
+                                mtype   :: Type,
+                                mparams :: [ParamDecl],
+                                mbody   :: Expr} deriving (Show, Eq)
 
 instance HasMeta MethodDecl where
     getMeta = mmeta
     setMeta mtd m = mtd{mmeta = m}
     setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
+    setType ty m@(StreamMethod {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
 
 type Arguments = [Expr]
 
@@ -157,6 +163,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr, 
                         future :: Expr,
                          chain :: Expr}
+          | Yield {emeta :: Meta Expr, 
+                   val :: Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}

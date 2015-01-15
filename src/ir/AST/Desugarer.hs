@@ -18,6 +18,9 @@ desugarProgram p@(Program{classes, functions}) = p{classes = map desugarClass cl
       desugarMethod m@(Method{mname, mbody}) 
           | mname == Name "init" = m{mname = Name "_init", mbody = desugarExpr mbody}
           | otherwise = m{mbody = desugarExpr mbody}
+      desugarMethod m@(StreamMethod{mname, mbody}) 
+          | mname == Name "init" = m{mname = Name "_init", mbody = desugarExpr mbody}
+          | otherwise = m{mbody = desugarExpr mbody}
       desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr

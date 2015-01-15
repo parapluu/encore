@@ -1,9 +1,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
-             refType, passiveRefType, activeRefType, 
+module Types(Type, arrowType, isArrowType, futureType, isFutureType, 
+             parType, isParType, streamType, isStreamType,
              refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
-             isRefType, isActiveRefType, isPassiveRefType, isMainType,
+             refType, isRefType, passiveRefType, activeRefType, 
+             isActiveRefType, isPassiveRefType, isMainType,
              makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
@@ -27,6 +28,7 @@ data Type = VoidType | StringType | IntType | BoolType | RealType
           | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
+          | StreamType {resultType :: Type}
             deriving (Eq)
 
 typeComponents :: Type -> [Type]
@@ -34,6 +36,7 @@ typeComponents arrow@(Arrow argTys ty) = arrow:(concatMap typeComponents argTys 
 typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
 typeComponents par@(ParType ty)        = par:(typeComponents ty)
 typeComponents ref@(RefType RefTypeInfo{parameters}) = ref : (concatMap typeComponents parameters)
+typeComponents str@(StreamType ty)     = str:(typeComponents ty)
 typeComponents ty                      = [ty]
 
 typeMap :: (Type -> Type) -> Type -> Type
@@ -50,6 +53,8 @@ typeMap f ty
               f $ RefType info{parameters = map (typeMap f) parameters}
           otherwise -> 
               error $ "Couldn't deconstruct refType: " ++ show ty
+    | isStreamType ty =
+        f (StreamType (typeMap f (resultType ty)))
     | otherwise = f ty
 
 getArgTypes = argTypes
@@ -64,9 +69,10 @@ setTypeParameters (RefType info@(RefTypeInfo{})) params = RefType info{parameter
 setTypeParameters ty _ = error $ "Can't set type parameters from type: " ++ show ty
 
 maybeParen :: Type -> String
-maybeParen arr@(Arrow _ _) = "(" ++ show arr ++ ")"
+maybeParen arr@(Arrow _ _)    = "(" ++ show arr ++ ")"
 maybeParen fut@(FutureType _) = "(" ++ show fut ++ ")"
-maybeParen par@(ParType _) = "(" ++ show par ++ ")"
+maybeParen par@(ParType _)    = "(" ++ show par ++ ")"
+maybeParen str@(StreamType _) = "(" ++ show str ++ ")"
 maybeParen ty = show ty
 
 instance Show Type where
@@ -83,6 +89,7 @@ instance Show Type where
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
     show (FutureType ty)   = "Fut " ++ maybeParen ty
     show (ParType ty)      = "Par " ++ maybeParen ty
+    show (StreamType ty)   = "Stream " ++ maybeParen ty
 
 arrowType = Arrow
 isArrowType (Arrow {}) = True
@@ -98,6 +105,10 @@ isParType _ = False
 
 refTypeWithParams = \id params -> RefType $ RefTypeInfo id Unknown params
 refType id = refTypeWithParams id []
+streamType = StreamType
+isStreamType StreamType {} = True
+isStreamType _ = False
+
 isRefType RefType {} = True
 isRefType _ = False
 

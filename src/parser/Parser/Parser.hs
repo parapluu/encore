@@ -99,9 +99,11 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "repeat",
-				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", "await", "suspend", 
-				  "body", "end", "Fut", "Par", "import", "qualified", "module", "this"],
+               P.reservedNames = ["passive", "class", "def", "stream", 
+                                  "let", "in", "if", "unless", "then", "else", "repeat", "while", 
+                                  "get", "yield", "new", "this", "await", "suspend",
+				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
+                                  "Fut", "Par", "Stream", "import", "qualified", "module"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -141,6 +143,7 @@ typ  =  try arrow
       nonArrow =  fut
               <|> par
               <|> try paramType
+              <|> stream
               <|> singleType
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
@@ -158,6 +161,9 @@ typ  =  try arrow
                      then do params <- angles (commaSep typ)
                              return $ refTypeWithParams id params
                      else fail "Type with parameters must start with upper-case letter"
+      stream = do reserved "Stream" 
+                  ty <- typ 
+                  return $ streamType ty
       singleType = do ty <- identifier
                       return $ read ty
           where read "void"   = voidType
@@ -258,6 +264,15 @@ methodDecl = do pos <- getPosition
                 ty <- typ
                 body <- expression
                 return $ Method (meta pos) (Name name) ty params body
+             <|>
+             do pos <- getPosition
+                reserved "stream"
+                name <- identifier
+                params <- parens (commaSep paramDecl)
+                colon
+                ty <- typ
+                body <- expression
+                return $ StreamMethod (meta pos) (Name name) ty params body
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
@@ -324,6 +339,7 @@ expr  =  unit
      <|> get
      <|> await
      <|> suspend
+     <|> yield
      <|> try newWithInit
      <|> new
      <|> null
@@ -408,7 +424,10 @@ expr  =  unit
       suspend = do pos <- getPosition
                    reserved "suspend"
                    return $ Suspend (meta pos) 
-
+      yield = do pos <- getPosition
+                 reserved "yield"
+                 expr <- expression
+                 return $ Yield (meta pos) expr 
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments

@@ -32,6 +32,7 @@ ppRepeat = text "repeat"
 ppGet = text "get"
 ppAwait = text "await"
 ppSuspend = text "suspend"
+ppYield = text "yield"
 ppNull = text "null"
 ppTrue = text "true"
 ppFalse = text "false"
@@ -97,6 +98,12 @@ ppMethodDecl Method {mname, mtype, mparams, mbody} =
     parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
     (indent (ppExpr mbody))
+ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} = 
+    text "stream" <+>
+    ppName mname <> 
+    parens (commaSep (map ppParamDecl mparams)) <+>
+    text ":" <+> ppType mtype $+$
+    (indent (ppExpr mbody))
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
@@ -154,6 +161,7 @@ ppExpr FutureChain {future, chain} =
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Await {val} = ppAwait <+> ppExpr val
 ppExpr Suspend {} = ppSuspend
+ppExpr Yield {val} = ppYield <+> ppExpr val
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
