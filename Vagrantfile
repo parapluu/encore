@@ -49,6 +49,9 @@ Vagrant.configure(2) do |config|
     # vb.gui = true
     # v.name = "encore"
 
+    # Set the number of available CPUs in the VM
+    vb.customize ["modifyvm", :id, "--cpus", `#{RbConfig::CONFIG['host_os'] =~ /darwin/ ? 'sysctl -n hw.ncpu' : 'nproc'}`.chomp]
+
     # Customize the amount of memory on the VM:
     vb.memory = "2048"
   end
