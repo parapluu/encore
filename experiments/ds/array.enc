@@ -1,0 +1,44 @@
+passive class Array_Data
+  v: string
+
+  def init(v: string) : void
+    this.v = v
+
+passive class Array
+  slots: Array_Data
+  size: int
+
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(void *));
+      this->size = size;
+    end
+
+  def write(i:int, v:Array_Data) : void
+    embed void
+      ((void **)this->slots)[i] = (void *)v;
+    end
+
+  def read(i:int) : Array_Data
+    embed Array_Data
+      (0 <= i && i < this->size) ? ((void **)this->slots)[i] : NULL;
+    end
+
+class Main
+ def main() : void 
+   let a = new Array(5)
+       b = 0
+       e = 5
+   in {
+       a.write(0, new Array_Data("a"));
+       a.write(1, new Array_Data("b"));
+       a.write(2, new Array_Data("c"));
+       a.write(3, new Array_Data("d"));
+       a.write(4, new Array_Data("e"));
+       while b <= e {
+           let d = a.read(b) in unless d == null then print d.v;
+           b = b + 1;
+        }
+   }
+
+
