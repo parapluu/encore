@@ -11,6 +11,8 @@ module CodeGen.Context (
   empty,
   subst_add,
   subst_lkp,
+  subst_rem,
+  gen_named_sym,
   gen_sym) where
 
 import AST.AST
@@ -30,17 +32,25 @@ data Context = Context VarSubTable NextSym
 empty :: Context
 empty = Context [] 0
 
-gen_sym :: State Context String
-gen_sym = do
-  c <- get
+gen_named_sym :: String -> State Context String
+gen_named_sym name = do
+  c <-get
   case c of
     Context s n ->
-        do
-          put $ Context s (n+1)
-          return $ "_tmp" ++ show n
+        do put $ Context s (n+1)
+           return $ "_" ++ name ++ "_" ++ show n 
+
+gen_sym :: State Context String
+gen_sym = gen_named_sym "tmp"
   
 subst_add :: Context -> Name -> C.CCode C.Lval -> Context
-subst_add (Context s nxt) na lv = Context ((na,lv):s) nxt
+subst_add c@(Context s nxt) na lv = (Context ((na,lv):s) nxt)
+
+subst_rem :: Context -> Name -> Context
+subst_rem (Context [] nxt) na = Context [] nxt
+subst_rem (Context ((na, lv):s) nxt) na'
+    | na == na'  = Context s nxt
+    | na /= na'  = subst_rem (Context s nxt) na'
 
 subst_lkp :: Context -> Name -> Maybe (C.CCode C.Lval)
 subst_lkp (Context s _) n = lookup n s

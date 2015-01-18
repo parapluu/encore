@@ -95,3 +95,4 @@ data CCode a where
     Int          :: Int -> CCode Expr
     String       :: String -> CCode Expr
     Double       :: Double -> CCode Expr
+    Comm         :: String -> CCode a

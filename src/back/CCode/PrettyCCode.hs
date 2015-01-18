@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs,FlexibleContexts #-}
 
 {-|
 Converting CCode (see "CCode.Main") to C source.
@@ -97,6 +97,7 @@ pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text 
 pp' (Int n) = tshow n
 pp' (String s) = tshow s
 pp' (Double d) = tshow d
+pp' (Comm s) = text ("/* "++s++" */")
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l
