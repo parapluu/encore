@@ -19,6 +19,10 @@ pp = show . pp'
 tshow :: Show t => t -> Doc
 tshow = text . show
 
+add_semi :: Doc -> Doc
+add_semi d = if show d == "" then d
+             else if isSuffixOf ";" $ show d then d else d <> text ";"
+
 star :: Doc
 star = text "*"
 
@@ -39,25 +43,29 @@ pp' Skip = empty
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (LocalInclude s) = text "#include" <+> doubleQuotes (text s)
-pp' (IfDefine str ccode) = text "#ifdef" <+> text str $+$ pp' ccode $+$ text "#endif //ifdef" <+> text str
-pp' (IfNDefine str ccode) = text "#ifndef" <+> text str $+$ pp' ccode $+$ text "#endif //ifndef" <+> text str
+pp' (IfDefine str ccode) = text "#ifdef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifdef" <+> text str <+> text "*/"
+pp' (IfNDefine str ccode) = text "#ifndef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifndef" <+> text str <+> text "*/"
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Statement other) =  pp' other <> text ";"
+pp' (Statement other) =  add_semi $ pp' other
 pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$
                               switch_body ccodes def
 pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
-                                 (braced_block . vcat) (map pp' fields) <> text ";"
+                                 (add_semi . braced_block . vcat) (map pp' fields)
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Struct name) = text "struct ___" <> tshow name
 pp' (Record ccodes) = braces $ commaList ccodes
-pp' (Assign lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
-pp' (AssignTL lhs rhs) = pp' lhs <+> text "=" <+> pp' rhs <> text ";"
+pp' (Assign lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
+pp' (AssignTL lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
-pp' (DeclTL (ty, id)) = tshow ty <+> tshow id <> text ";"
-pp' (FunTypeDef id ty argTys) = text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
-                                parens (commaList argTys) <+> text ";"
+pp' (DeclTL (ty, id)) = add_semi $ tshow ty <+> tshow id
+pp' (FunTypeDef id ty argTys) = add_semi $ text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
+                                parens (commaList argTys)
 pp' (Concat ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
-pp' (Seq ccodes) = vcat $ map ((<> text ";") . pp') ccodes
+pp' (Seq ccodes) = vcat $ map (add_semi . pp') ccodes
+--    where
+--      pp'' :: UsableAs Stat s => CCode s -> Doc
+--      pp'' (Seq ccodes) = vcat $ map pp'' ccodes
+--      pp'' other = pp' other
 pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
 pp' (Parens ccode) = parens $ pp' ccode
@@ -70,7 +78,7 @@ pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
 pp' (Amp ccode) = parens $ text "&" <> (parens $ pp' ccode)
 pp' (Ptr ty) = pp' ty <> star
 pp' (FunctionDecl ret_ty name args) = tshow ret_ty <+> tshow name <>
-                                      parens (commaList args) $+$ text ";"
+                                      parens (commaList args) <> text ";"
 pp' (Function ret_ty name args body) = tshow ret_ty <+> tshow name <>
                                        parens (pp_args args)  $+$
                                        (braced_block . pp') body
