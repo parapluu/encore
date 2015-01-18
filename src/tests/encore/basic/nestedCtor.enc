@@ -1,0 +1,21 @@
+class Main
+  def main() : void
+    let foo = new Foo(new Bar(2)) in {
+      foo.print();
+      ()
+    }
+
+class Foo
+  x : Bar
+
+  def init(x_ : Bar) : void
+    this.x = x_
+
+  def print() : void
+    print(this.x.i)
+
+passive class Bar
+  i : int
+  
+  def init(i_ : int) : void
+    this.i = i_
