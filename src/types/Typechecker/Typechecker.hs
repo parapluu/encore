@@ -779,7 +779,8 @@ matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg
 matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
-      isParType expected    && isParType ty   = matchTypes (getResultType expected) (getResultType ty)
+      isParType expected    && isParType ty    ||
+      isStreamType expected && isStreamType ty = matchTypes (getResultType expected) (getResultType ty)
     | isArrowType expected  && isArrowType ty = let expArgTypes = getArgTypes expected
                                                     argTypes    = getArgTypes ty
                                                     expRes      = getResultType expected
