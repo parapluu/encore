@@ -34,4 +34,5 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isArrowType ty      = closure
         | Ty.isTypeVar ty        = Ptr void
         | Ty.isFutureType ty     = future
+        | Ty.isStreamType ty     = stream
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"

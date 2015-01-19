@@ -227,7 +227,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                         (Record
                                           ((UnionInst (Nam "p") (Var the_fut_name)) : 
                                           (map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
-                                               (zip (targs) targtys)) :: [CCode Expr]))
+                                               (zip targs targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
@@ -238,13 +238,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 the_fut_decl,
                                 the_arg_decl,
                                 Statement the_call])
-
-            pony_arg_t_tag :: CCode Ty -> CCode Name
-            pony_arg_t_tag (Ptr _)         = Nam "p"
-            pony_arg_t_tag (Typ "int64_t") = Nam "i"
-            pony_arg_t_tag (Typ "double")  = Nam "d"
-            pony_arg_t_tag other           =
-                error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
             varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
@@ -277,12 +270,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    return (unit,
                            Seq ((Comm "message send") : the_arg_impls ++
                                 the_arg_decl : [Statement the_call]))
-
-            pony_arg_t_tag :: CCode Ty -> CCode Name
-            pony_arg_t_tag (Ptr _)         = Nam "p"
-            pony_arg_t_tag (Typ "int64_t") = Nam "i"
-            pony_arg_t_tag (Typ "double")  = Nam "d"
-            pony_arg_t_tag other = error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
             varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = 
@@ -356,12 +343,45 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Parsec.string "}"
                             return id
 
-  translate get@(A.Get{A.val}) = 
+  translate get@(A.Get{A.val}) 
+    | Ty.isFutureType $ A.getType val =
+        do (nval, tval) <- translate val
+           let result_type = translate (Ty.getResultType $ A.getType val)
+               the_get = Cast result_type $ Call (Nam "future_get_actor") [nval]
+           tmp <- Ctx.gen_sym
+           return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
+    | Ty.isStreamType $ A.getType val =
+        do (nval, tval) <- translate val
+           let result_type = translate (Ty.getResultType $ A.getType val)
+               the_get = Cast result_type $ (Call (Nam "stream_get") [nval]) `Dot` pony_arg_t_tag result_type
+           tmp <- Ctx.gen_sym
+           return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
+    | otherwise = error $ "Cannot translate get of " ++ show val
+        
+
+  translate yield@(A.Yield{A.val}) = 
       do (nval, tval) <- translate val
-         let result_type = translate (Ty.getResultType $ A.getType val)
-         let the_get = Cast (result_type) $ Call (Nam "future_get_actor") [nval]
+         let yield_arg = Cast pony_arg_t $ UnionInst (pony_arg_t_tag (translate (A.getType val))) nval
+             update_stream = Assign (stream_handle) (Call (Nam "stream_put") 
+                                                          [AsExpr stream_handle, yield_arg])
+         return (unit, Seq [tval, update_stream])
+
+  translate eos@(A.Eos{}) = 
+      let eos_call = Call (Nam "stream_close") [stream_handle]
+      in return (unit, Statement eos_call)
+
+  translate iseos@(A.IsEos{A.target}) = 
+      do (ntarg, ttarg) <- translate target
          tmp <- Ctx.gen_sym
-         return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
+         let result_type = translate (A.getType target)
+             the_call = Assign (Decl (bool, Var tmp)) (Call (Nam "stream_eos") [ntarg])
+         return (Var tmp, Seq [ttarg, the_call])
+
+  translate next@(A.StreamNext{A.target}) = 
+      do (ntarg, ttarg) <- translate target
+         tmp <- Ctx.gen_sym
+         let the_call = Assign (Decl (stream, Var tmp)) (Call (Nam "stream_get_next") [ntarg])
+         return (Var tmp, Seq [ttarg, the_call])
 
   translate await@(A.Await{A.val}) = 
       do (nval, tval) <- translate val
@@ -434,3 +454,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   | otherwise        = Nam "p"
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+pony_arg_t_tag :: CCode Ty -> CCode Name
+pony_arg_t_tag (Ptr _)         = Nam "p"
+pony_arg_t_tag (Typ "int64_t") = Nam "i"
+pony_arg_t_tag (Typ "double")  = Nam "d"
+pony_arg_t_tag other           =
+    error $ "Expr.hs: no pony_arg_t_tag for " ++ show other

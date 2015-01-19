@@ -29,6 +29,7 @@ pony_arg_t = Typ "pony_arg_t"
 pony_msg_t = Typ "pony_msg_t"
 closure = Ptr $ Typ "closure_t"
 future = Ptr $ Typ "future_t"
+stream = Ptr $ Typ "stream_t"
 unit :: CCode Lval
 unit = Embed "UNIT" 
 
@@ -53,6 +54,9 @@ closure_fun_name name =
 closure_env_name :: String -> CCode Name
 closure_env_name name =
     Nam $ "_" ++ name ++ "_env"
+
+stream_handle :: CCode Lval
+stream_handle = Var "_stream"
 
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that

@@ -17,8 +17,8 @@ import qualified AST.Util as Util
 import qualified Identifiers as ID
 import qualified Types as Ty
 
-import Control.Monad.Reader
-import Control.Monad.State
+import Control.Monad.Reader hiding(void)
+import Control.Monad.State hiding(void)
 import Data.Maybe
 import Data.List
 
@@ -39,5 +39,19 @@ instance Translatable A.MethodDecl (A.ClassDecl -> CCode Toplevel) where
            (if not $ Ty.isVoidType mtype
             then (Seq $ bodys : [Return bodyn])
             else (Seq $ bodys : [Return unit]))]
+    where
+      mparam_to_cvardecl (A.Param {A.pname, A.ptype}) = (translate ptype, Var $ show pname)
+
+  translate mdecl@(A.StreamMethod {A.mtype, A.mname, A.mparams, A.mbody})
+            cdecl@(A.Class {A.cname}) = 
+    let ((bodyn,bodys),_) = runState (translate mbody) Ctx.empty
+        -- This reverse makes nested closures come before their enclosing closures. Not very nice...
+        closures = map translateClosure (reverse (Util.filter A.isClosure mbody)) 
+    in
+      Concat $ closures ++ 
+       [Function void (method_impl_name cname mname)
+           ((data_rec_ptr cname, Var "this") : (stream, stream_handle) : 
+            (map mparam_to_cvardecl mparams))
+           (Seq $ bodys : [Statement $ Call (Nam "stream_close") [stream_handle]])]
     where
       mparam_to_cvardecl (A.Param {A.pname, A.ptype}) = (translate ptype, Var $ show pname)

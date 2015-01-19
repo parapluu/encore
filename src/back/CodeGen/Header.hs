@@ -30,6 +30,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
          "stdlib.h",
          "set.h",
          "closure.h",
+         "stream.h",
          "future.h",
          "string.h",
          "stdio.h"
@@ -131,6 +132,10 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
                            else data_rec_ptr cname : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl (translate mtype) (method_impl_name cname mname) params
+            method_fwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
+              let params = data_rec_ptr cname : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+              in
+                FunctionDecl void (method_impl_name cname mname) params
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

@@ -194,24 +194,35 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
             method_clauses :: [A.MethodDecl] -> [(CCode Name, CCode Stat)]
             method_clauses = concatMap method_clause
 
-            method_clause m = [mthd_dispatch_clause m, one_way_send_dispatch_clause m]
+            method_clause m = (mthd_dispatch_clause m) : 
+                              if not (A.isStreamMethod m) 
+                              then [one_way_send_dispatch_clause m]
+                              else []
 
-            mthd_dispatch_clause mdecl =
-                (method_msg_name cname (A.mname mdecl),
+            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams})  =
+                (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
                       ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
                       Statement $ Call (Nam "future_fulfil") 
                                        [AsExpr $ Var "fut",
                                         Cast (Ptr void) 
-                                             (Call (method_impl_name cname (A.mname mdecl))
+                                             (Call (method_impl_name cname mname)
                                               ((AsExpr . Var $ "p") : 
-                                               (paramdecls_to_argv 1 $ A.mparams mdecl)))]])
+                                               (paramdecls_to_argv 1 $ mparams)))]])
+            mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
+                (method_msg_name cname mname,
+                 Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
+                      ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
+                      Statement $ (Call (method_impl_name cname mname)
+                                        ((AsExpr . Var $ "p") :
+                                         (AsExpr . Var $ "fut") :
+                                         (paramdecls_to_argv 1 $ mparams)))])
 
-            one_way_send_dispatch_clause mdecl =
-                (one_way_send_msg_name cname (A.mname mdecl),
+            one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
+                (one_way_send_msg_name cname mname,
                  (Statement $
-                  Call (method_impl_name cname (A.mname mdecl))
-                       ((AsExpr . Var $ "p") : (paramdecls_to_argv 0 $ A.mparams mdecl))))
+                  Call (method_impl_name cname mname)
+                       ((AsExpr . Var $ "p") : (paramdecls_to_argv 0 $ mparams))))
 
             paramdecls_to_argv :: Int -> [A.ParamDecl] -> [CCode Expr]
             paramdecls_to_argv start_idx = zipWith paramdecl_to_argv [start_idx..]
