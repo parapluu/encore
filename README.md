@@ -3,7 +3,7 @@ encorec
 
 The Encore compiler.
 
-There are two ways of installing the Encore compiler. The first ([**Playing around with Encore**](https://github.com/parapluu/mylittlepony/blob/master/README.md#playing-around-with-encore)) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach ([**Building Encore from Source**](https://github.com/parapluu/mylittlepony/blob/master/README.md#building-encore-from-source)) is a proper installation of all the dependencies (Haskell, llvm, etc). 
+There are two ways of installing the Encore compiler. The first ([**Playing around with Encore**](https://github.com/parapluu/encore/blob/master/README.md#playing-around-with-encore)) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach ([**Building Encore from Source**](https://github.com/parapluu/encore/blob/master/README.md#building-encore-from-source)) is a proper installation of all the dependencies (Haskell, llvm, etc). 
 
 This readme concludes with a discussion of the Encore command line arguments and details of the documentation.
 
@@ -13,9 +13,9 @@ Would you like to play around with Encore without having to install all the depe
 
 1. Install [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Vagrant](https://www.vagrantup.com/).
 
-2. `git clone git@github.com:parapluu/mylittlepony.git`
+2. `git clone git@github.com:parapluu/encore.git`
 
-3. `cd mylittlepony`
+3. `cd encore`
 
 4. `make vagrant` (you need to run this make target only the first time you download the project)
 
@@ -118,9 +118,9 @@ is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
 
     gcc/g++: ~> 4.8
 
-#### Step 2: Compiling and installing mylittlepony
+#### Step 2: Compiling and installing encorec
 
-    cd mylittlepony
+    cd encore
     make
     make test
 
@@ -132,7 +132,7 @@ We recommend that you add the `release` directory to your `PATH` environment var
 
 in any directory. To do this, add this line to your `~/.bashrc` file, inserting the proper path for `<SOME_DIR>`:
 
-    export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
+    export PATH="<SOME_DIR>/encore/release:${PATH}"
 
 ### Step 4: Compiling and Running Encore Programs
 
@@ -154,7 +154,7 @@ Alternatively, you can use the .enc-file as a script by adding `#! /usr/bin/env 
 
 This will compile the file, run it and remove the executable.
 
-You can find some example programs in the [programs](https://github.com/parapluu/mylittlepony/tree/master/programs) directory.
+You can find some example programs in the [programs](https://github.com/parapluu/encore/tree/master/programs) directory.
 
 Have fun!
 
