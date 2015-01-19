@@ -101,7 +101,7 @@ lexer =
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "stream", 
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
-                                  "get", "yield", "new", "this", "await", "suspend",
+                                  "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
                                   "Fut", "Par", "Stream", "import", "qualified", "module"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
@@ -337,6 +337,10 @@ expr  =  unit
      <|> repeat
      <|> while
      <|> get
+     <|> yield
+     <|> try isEos
+     <|> eos
+     <|> getNext
      <|> await
      <|> suspend
      <|> yield
@@ -417,6 +421,21 @@ expr  =  unit
                reserved "get"
                expr <- expression
                return $ Get (meta pos) expr 
+      getNext = do pos <- getPosition
+                   reserved "getNext"
+                   expr <- expression
+                   return $ StreamNext (meta pos) expr 
+      yield = do pos <- getPosition
+                 reserved "yield"
+                 expr <- expression
+                 return $ Yield (meta pos) expr 
+      isEos = do pos <- getPosition
+                 reserved "eos"
+                 expr <- expression
+                 return $ IsEos (meta pos) expr
+      eos = do pos <- getPosition
+               reserved "eos"
+               return $ Eos (meta pos)
       await = do pos <- getPosition
                  reserved "await"
                  expr <- expression
@@ -424,10 +443,6 @@ expr  =  unit
       suspend = do pos <- getPosition
                    reserved "suspend"
                    return $ Suspend (meta pos) 
-      yield = do pos <- getPosition
-                 reserved "yield"
-                 expr <- expression
-                 return $ Yield (meta pos) expr 
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments

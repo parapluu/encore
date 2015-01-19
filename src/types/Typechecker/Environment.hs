@@ -27,11 +27,11 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
+                               isStreaming,
                                pushBT) where
 
 import Data.List
 import Data.Maybe
---import Control.Monad.Error
 import Control.Monad.Except
 
 -- Module dependencies
@@ -43,7 +43,8 @@ import Typechecker.TypeError
 type FunctionType = (Name, Type)
 type VarType = (Name, Type)
 type FieldType = (Name, Type)
-type MethodType = (Name, ([Type], Type))
+data MethodKind = Normal | Streaming deriving(Eq) -- Maybe the environment should contain full decls instead...
+type MethodType = (Name, ([Type], Type, MethodKind))
 type ClassType = (Type, ([FieldType], [MethodType]))
 
 data Environment = Env {ctable :: [ClassType], 
@@ -90,7 +91,8 @@ buildEnvironment Program {functions, classes} =
           (fname, typeMap setActivity ftype)
 
       getMethodType m = 
-          (mname m, (map ((typeMap setActivity) . ptype) (mparams m), typeMap setActivity (mtype m)))
+          (mname m, (map ((typeMap setActivity) . ptype) (mparams m), typeMap setActivity (mtype m),
+                     if isStreamMethod m then Streaming else Normal))
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -101,7 +103,7 @@ fieldLookup :: Type -> Name -> Environment -> Maybe Type
 fieldLookup cls f env = do (fields, _) <- classLookup cls env
                            lookup f fields
 
-methodLookup :: Type -> Name -> Environment -> Maybe ([Type], Type)
+methodLookup :: Type -> Name -> Environment -> Maybe ([Type], Type, MethodKind)
 methodLookup cls m env = do (_, methods) <- classLookup cls env
                             lookup m methods
 
@@ -164,3 +166,7 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 
 replaceLocals :: [VarType] -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
+
+isStreaming :: MethodKind -> Bool
+isStreaming Streaming = True
+isStreaming _ = False

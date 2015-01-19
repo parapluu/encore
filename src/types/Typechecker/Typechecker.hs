@@ -65,6 +65,8 @@ checkType ty
 
     | isFutureType ty = do ty' <- checkType $ getResultType ty
                            return $ futureType ty'
+    | isStreamType ty = do ty' <- checkType $ getResultType ty
+                           return $ streamType ty'
     | isParType ty = do ty' <- checkType $ getResultType ty
                         return $ parType ty'
     | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
@@ -285,7 +287,7 @@ instance Checkable Expr where
            when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
            when (name == Name "init") $ tcError "Constructor method 'init' can only be called during object creation"
            lookupResult <- asks $ methodLookup targetType name
-           (paramTypes, methodType) <- 
+           (paramTypes, methodType, methodKind) <- 
                case lookupResult of
                  Nothing -> 
                      tcError $
@@ -308,6 +310,8 @@ instance Checkable Expr where
            let resultType = replaceTypeVars bindings methodType
                returnType = if isThisAccess target || isPassiveRefType targetType
                             then resultType
+                            else if isStreaming methodKind
+                            then streamType resultType
                             else futureType resultType
            return $ setType returnType mcall {target = eTarget, args = eArgs}
 
@@ -326,7 +330,7 @@ instance Checkable Expr where
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
            lookupResult <- asks $ methodLookup targetType name
-           (paramTypes, _) <- 
+           (paramTypes, _, methodKind) <- 
                case lookupResult of
                  Nothing -> 
                      tcError $
@@ -462,6 +466,53 @@ instance Checkable Expr where
                   tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
            return $ setType (getResultType ty) get {val = eVal}
 
+    --  E |- val : t
+    --  isStreaming(currentMethod)
+    -- -----------------------------
+    --  E |- yield val : void
+    typecheck yield@(Yield {val}) = 
+        do eVal <- pushTypecheck val
+           bt <- asks backtrace
+           let mtd   = currentMethod bt
+               mType = mtype mtd
+               eType = AST.getType eVal
+           unless (isStreamMethod mtd) $
+                  tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
+           unless (eType `subtypeOf` mType) $
+                  tcError $ "Cannot yield value of type '" ++ show eType ++ 
+                            "' in streaming method of type '" ++ show mType ++ "'"
+           return $ setType voidType yield {val = eVal}
+
+    --  isStreaming(currentMethod)
+    -- ----------------------------
+    --  E |- eos() : void
+    typecheck eos@(Eos {}) =
+        do bt <- asks backtrace
+           let mtd = currentMethod bt
+           unless (isStreamMethod mtd) $
+                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
+           return $ setType voidType eos
+
+    --  E |- s : Stream t
+    -- ---------------------
+    --  E |- s.eos() : bool
+    typecheck iseos@(IsEos {target}) =
+        do eTarget <- pushTypecheck target
+           unless (isStreamType $ AST.getType eTarget) $
+                  tcError $ "Cannot check end of stream on non-stream target '" ++ show (ppExpr target) ++ "'"
+           return $ setType boolType iseos{target = eTarget}
+
+    --  E |- s : Stream t
+    -- ---------------------------
+    --  E |- s.next() : Stream t
+    typecheck next@(StreamNext {target}) =
+        do eTarget <- pushTypecheck target
+           let eType = AST.getType eTarget
+           unless (isStreamType eType) $
+                  tcError $ "Cannot get next value from non-stream target '" ++ show (ppExpr target) ++ "'"
+           return $ setType eType next{target = eTarget}
+
+    --
     --    ------------------ :: suspend
     --    suspend : void
     typecheck suspend@(Suspend {}) = 
@@ -493,33 +544,6 @@ instance Checkable Expr where
            unless ([getResultType ty] == getArgTypes ty') $ 
                   tcError $ "Future value has type '" ++ show (getResultType ty) ++ "' but chained closure expects '" ++ show (head (getArgTypes ty')) ++ "'"
            return $ setType (futureType (getResultType ty')) futureChain {future = eFuture, chain = eChain}
-
-    --  E |- val : t
-    --  isStreaming(currentMethod)
-    -- -----------------------------
-    --  E |- yield val : void
-    typecheck yield@(Yield {val}) = 
-        do eVal <- pushTypecheck val
-           bt <- asks backtrace
-           let mtd   = currentMethod bt
-               mType = mtype mtd
-               eType = AST.getType eVal
-           unless (isStreamMethod mtd) $
-                  tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
-           unless (eType `subtypeOf` mType) $
-                  tcError $ "Cannot yield value of type '" ++ show eType ++ 
-                            "' in streaming method of type '" ++ show mType ++ "'"
-           return $ setType voidType yield {val = eVal}
-
-    --  isStreaming(currentMethod)
-    -- ----------------------------
-    --  E |- eos() : void
-    typecheck eos@(Eos {}) =
-        do bt <- asks backtrace
-           let mtd = currentMethod bt
-           unless (isStreamMethod mtd) $
-                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
-           return $ setType voidType eos
 
     --  E |- target : t'
     --  fieldLookup(t', name) = t

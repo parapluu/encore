@@ -26,8 +26,10 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren Get {val} = [val]
-getChildren FutureChain {future, chain} = [future, chain]
 getChildren Yield {val} = [val]
+getChildren IsEos {target} = [target]
+getChildren StreamNext {target} = [target]
+getChildren FutureChain {future, chain} = [future, chain]
 getChildren FieldAccess {target} = [target]
 getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren NewWithInit {args} = args
@@ -55,6 +57,9 @@ putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
+putChildren [target] e@(IsEos {}) = e{target = target}
+putChildren [target] e@(StreamNext {}) = e{target = target}
+putChildren [future, chain] e@(FutureChain {}) = e{future = future, chain = chain}
 putChildren [target] e@(FieldAccess {}) = e{target = target}
 putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
 putChildren args e@(NewWithInit {}) = e{args = args}

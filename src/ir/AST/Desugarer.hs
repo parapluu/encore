@@ -89,16 +89,6 @@ desugar Repeat{emeta, name, times, body} =
                                      (IntLiteral emeta 1)))]))
 
 desugar NewWithInit{emeta, ty, args} = 
-    Let emeta 
-        [(Name "__tmp__", (New (cloneMeta emeta) ty))] 
-      (Seq (cloneMeta emeta) 
-           [(MethodCall ((cloneMeta emeta)) 
-               (VarAccess (cloneMeta emeta) (Name "__tmp__")) 
-               (Name "_init") args), 
-            (VarAccess (cloneMeta emeta) (Name "__tmp__"))])
-
-desugar FunctionCall{emeta, name = Name "eos", args = []} = Eos emeta
-desugar FunctionCall{emeta, name = Name "eos", args = [e]} = 
-    Seq emeta [Yield (cloneMeta emeta) e, Eos (cloneMeta emeta)]
+    Let emeta [(Name "to_init", (New (cloneMeta emeta) ty))] (Seq (cloneMeta emeta) [(MethodCall ((cloneMeta emeta)) (VarAccess (cloneMeta emeta) (Name "to_init")) (Name "_init") (map desugar args)), (VarAccess (cloneMeta emeta) (Name "to_init"))])
 
 desugar e = e

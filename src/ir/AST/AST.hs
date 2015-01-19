@@ -160,15 +160,19 @@ data Expr = Skip {emeta :: Meta Expr}
                     body :: Expr}
           | Get {emeta :: Meta Expr, 
                  val :: Expr}
+          | Yield {emeta :: Meta Expr, 
+                   val :: Expr}
+          | Eos {emeta :: Meta Expr}
+          | IsEos {emeta :: Meta Expr,
+                   target :: Expr}
+          | StreamNext {emeta :: Meta Expr,
+                        target :: Expr}
           | Await {emeta :: Meta Expr, 
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr, 
                         future :: Expr,
                          chain :: Expr}
-          | Yield {emeta :: Meta Expr, 
-                   val :: Expr}
-          | Eos {emeta :: Meta Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}
