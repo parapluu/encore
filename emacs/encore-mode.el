@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "then" "unless" "while" "and" "or" "not" "this" "repeat" "await" "suspend" "chain"))
+(setq encore-keywords '("and" "await" "class" "chain" "def" "else" "eos" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "stream" "suspend" "then" "this" "unless" "while" "yield"))
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
@@ -20,7 +20,7 @@
 (setq encore-constants-regexp (regexp-opt encore-constants 'words))
 (setq encore-primitives-regexp (regexp-opt encore-primitives 'words))
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
-(setq encore-function-regexp "\\<def\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
+(setq encore-function-regexp "\\<\\(def\\|stream\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
 (setq encore-comment-regexp "--.?*")
 
@@ -32,7 +32,7 @@
 	(,encore-constants-regexp  . font-lock-constant-face)
 	(,encore-primitives-regexp . font-lock-type-face)
 	(,encore-types-regexp      . font-lock-type-face)
-	(,encore-function-regexp   1 font-lock-function-name-face)
+	(,encore-function-regexp   2 font-lock-function-name-face)
 	(,encore-variable-regexp   1 font-lock-variable-name-face)
 	)
       )
