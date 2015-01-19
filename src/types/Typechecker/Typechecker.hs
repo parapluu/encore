@@ -207,7 +207,10 @@ instance Checkable MethodDecl where
     -- -----------------------------------------------------
     --  E |- stream mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(StreamMethod {mtype, mparams, mbody, mname}) = 
-        do ty <- checkType mtype
+        do Just thisType <- asks $ varLookup thisName
+           unless (isActiveRefType thisType) $
+                  tcError "Cannot have streaming methods in a passive class"
+           ty <- checkType mtype
            noFreeTypeVariables
            eMparams <- mapM typecheckParam mparams
            eBody    <- local (addParams eMparams) $ pushTypecheck mbody
