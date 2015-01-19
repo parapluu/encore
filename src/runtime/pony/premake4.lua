@@ -67,6 +67,16 @@ project "closure"
     "../closure/closure.c"
   }
 
+project "stream"
+  kind "StaticLib"
+  language "C"
+  links { "future" }
+  includedirs { "../future", "../closure" }
+  files {
+    "../stream/stream.h",
+    "../stream/stream.c"
+  }
+
 project "set"
   kind "StaticLib"
   language "C"

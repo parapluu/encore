@@ -5,6 +5,8 @@ RUNTIME_DIR=$(SRC_DIR)/runtime
 
 CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
 CLOSURE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libclosure.a
+STREAM_INC=$(RUNTIME_DIR)/stream/stream.h
+STREAM_LIB=$(RUNTIME_DIR)/pony/bin/debug/libstream.a
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
@@ -50,9 +52,11 @@ pony: dirs $(PONY_INC)
 	cp -r $(SET_INC) $(INC_DIR)
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
+	cp -r $(STREAM_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
+	cp -r $(STREAM_LIB) $(LIB_DIR)
 	cp -r $(SET_LIB) $(LIB_DIR)
 
 clean:
