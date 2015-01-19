@@ -15,12 +15,9 @@ desugarProgram p@(Program{classes, functions}) = p{classes = map desugarClass cl
     where
       desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
       desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
-      desugarMethod m@(Method{mname, mbody}) 
-          | mname == Name "init" = m{mname = Name "_init", mbody = desugarExpr mbody}
-          | otherwise = m{mbody = desugarExpr mbody}
-      desugarMethod m@(StreamMethod{mname, mbody}) 
-          | mname == Name "init" = m{mname = Name "_init", mbody = desugarExpr mbody}
-          | otherwise = m{mbody = desugarExpr mbody}
+      desugarMethod m 
+          | (mname m) == Name "init" = m{mname = Name "_init", mbody = desugarExpr (mbody m)}
+          | otherwise = m{mbody = desugarExpr (mbody m)}
       desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
@@ -99,5 +96,9 @@ desugar NewWithInit{emeta, ty, args} =
                (VarAccess (cloneMeta emeta) (Name "__tmp__")) 
                (Name "_init") args), 
             (VarAccess (cloneMeta emeta) (Name "__tmp__"))])
+
+desugar FunctionCall{emeta, name = Name "eos", args = []} = Eos emeta
+desugar FunctionCall{emeta, name = Name "eos", args = [e]} = 
+    Seq emeta [Yield (cloneMeta emeta) e, Eos (cloneMeta emeta)]
 
 desugar e = e

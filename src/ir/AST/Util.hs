@@ -76,7 +76,7 @@ foldrAll f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map 
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
-      foldMethod f e (Method {mbody}) = foldr f e mbody
+      foldMethod f e m = foldr f e (mbody m)
 
 extend :: (Expr -> Expr) -> Expr -> Expr
 extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
@@ -189,9 +189,9 @@ extendAccumProgram f acc0 (Program etl imps funs classes) = (acc2, Program etl i
       extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
           where
             (acc', methods') = List.mapAccumL (extendAccumMethod f) acc methods
-            extendAccumMethod f acc mtd@(Method{mbody}) = (acc', mtd{mbody = mbody'})
+            extendAccumMethod f acc mtd = (acc', mtd{mbody = mbody'})
                 where
-                  (acc', mbody') = extendAccum f acc mbody
+                  (acc', mbody') = extendAccum f acc (mbody mtd)
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
@@ -204,7 +204,7 @@ extractTypes (Program _ _ funs classes) =
       extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
       extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
       extractFieldTypes Field {ftype} = typeComponents ftype
-      extractMethodTypes Method {mtype, mparams, mbody} = (typeComponents mtype) : (map extractParamTypes mparams) ++ [extractExprTypes mbody]
+      extractMethodTypes m = (typeComponents (mtype m)) : (map extractParamTypes (mparams m)) ++ [extractExprTypes (mbody m)]
       extractParamTypes Param {ptype} = typeComponents ptype
       extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [] e
 

@@ -13,7 +13,7 @@ optimizeProgram p@(Program{classes, functions}) = p{classes = map optimizeClass 
     where
       optimizeFunction f@(Function{funbody}) = f{funbody = optimizeExpr funbody}
       optimizeClass c@(Class{methods}) = c{methods = map optimizeMethod methods}
-      optimizeMethod m@(Method{mbody}) = m{mbody = optimizeExpr mbody}
+      optimizeMethod m = m{mbody = optimizeExpr (mbody m)}
       optimizeExpr ast = foldl (\ast opt -> opt ast) ast optimizerPasses
 
 -- | The functions in this list will be performed in order during optimization
@@ -27,7 +27,9 @@ optimizerPasses = [constantFolding, constructors]
 constantFolding :: Expr -> Expr
 constantFolding = extend foldConst
     where
-      foldConst (Binop {emeta = meta, op = PLUS, loper = IntLiteral{intLit = m}, roper = IntLiteral{intLit = n}}) = 
+      foldConst (Binop {emeta = meta, op = PLUS, 
+                        loper = IntLiteral{intLit = m}, 
+                        roper = IntLiteral{intLit = n}}) = 
           IntLiteral{emeta = meta, intLit = (m + n)}
       foldConst e = e
 

@@ -198,6 +198,30 @@ instance Checkable MethodDecl where
                                                return $ setType ty p
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
+   ---  |- mtype
+    --  hasTypeVars(mtype) => mtype \in t1 .. tn
+   ---  |- t1 .. |- tn
+    --  E, x1 : t1, .., xn : tn |- mbody : mtype
+    -- -----------------------------------------------------
+    --  E |- stream mname(x1 : t1, .., xn : tn) : mtype mbody
+    typecheck m@(StreamMethod {mtype, mparams, mbody, mname}) = 
+        do ty <- checkType mtype
+           noFreeTypeVariables
+           eMparams <- mapM typecheckParam mparams
+           eBody    <- local (addParams eMparams) $ pushTypecheck mbody
+           return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
+        where
+          noFreeTypeVariables = 
+              let retVars = nub $ filter isTypeVar $ typeComponents mtype 
+                  paramVars = nub $ filter isTypeVar $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams
+              in
+                when (not . null $ retVars \\ paramVars) $
+                     tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
+          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
+                                                 do ty <- checkType ptype
+                                                    return $ setType ty p)
+          addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
+
 instance Checkable Expr where
     hasType expr ty = do eExpr <- pushTypecheck expr
                          let exprType = AST.getType eExpr
@@ -434,7 +458,7 @@ instance Checkable Expr where
     typecheck get@(Get {val}) = 
         do eVal <- pushTypecheck val
            let ty = AST.getType eVal
-           unless (isFutureType ty) $ 
+           unless (isFutureType ty || isStreamType ty) $ 
                   tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
            return $ setType (getResultType ty) get {val = eVal}
 
@@ -469,6 +493,33 @@ instance Checkable Expr where
            unless ([getResultType ty] == getArgTypes ty') $ 
                   tcError $ "Future value has type '" ++ show (getResultType ty) ++ "' but chained closure expects '" ++ show (head (getArgTypes ty')) ++ "'"
            return $ setType (futureType (getResultType ty')) futureChain {future = eFuture, chain = eChain}
+
+    --  E |- val : t
+    --  isStreaming(currentMethod)
+    -- -----------------------------
+    --  E |- yield val : void
+    typecheck yield@(Yield {val}) = 
+        do eVal <- pushTypecheck val
+           bt <- asks backtrace
+           let mtd   = currentMethod bt
+               mType = mtype mtd
+               eType = AST.getType eVal
+           unless (isStreamMethod mtd) $
+                  tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
+           unless (eType `subtypeOf` mType) $
+                  tcError $ "Cannot yield value of type '" ++ show eType ++ 
+                            "' in streaming method of type '" ++ show mType ++ "'"
+           return $ setType voidType yield {val = eVal}
+
+    --  isStreaming(currentMethod)
+    -- ----------------------------
+    --  E |- eos() : void
+    typecheck eos@(Eos {}) =
+        do bt <- asks backtrace
+           let mtd = currentMethod bt
+           unless (isStreamMethod mtd) $
+                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
+           return $ setType voidType eos
 
     --  E |- target : t'
     --  fieldLookup(t', name) = t

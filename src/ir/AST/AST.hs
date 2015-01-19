@@ -107,6 +107,9 @@ data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                                 mparams :: [ParamDecl],
                                 mbody   :: Expr} deriving (Show, Eq)
 
+isStreamMethod StreamMethod{} = True
+isStreamMethod _ = False
+
 instance HasMeta MethodDecl where
     getMeta = mmeta
     setMeta mtd m = mtd{mmeta = m}
@@ -165,6 +168,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          chain :: Expr}
           | Yield {emeta :: Meta Expr, 
                    val :: Expr}
+          | Eos {emeta :: Meta Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}
