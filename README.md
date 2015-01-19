@@ -1,4 +1,4 @@
-mylittlepony
+encorec
 ============
 
 The Encore compiler.
