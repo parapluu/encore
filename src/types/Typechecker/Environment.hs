@@ -27,7 +27,6 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
-                               isStreaming,
                                pushBT) where
 
 import Data.List
@@ -40,25 +39,24 @@ import AST.AST
 import Types
 import Typechecker.TypeError
 
-type FunctionType = (Name, Type)
-type VarType = (Name, Type)
-type FieldType = (Name, Type)
-data MethodKind = Normal | Streaming deriving(Eq) -- Maybe the environment should contain full decls instead...
-type MethodType = (Name, ([Type], Type, MethodKind))
-type ClassType = (Type, ([FieldType], [MethodType]))
+type VarTable    = [(Name, Type)]
+type FieldTable  = [(Name, FieldDecl)]
+type MethodTable = [(Name, MethodDecl)] 
+type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
-data Environment = Env {ctable :: [ClassType], 
-                        globals :: [FunctionType], 
-                        locals :: [VarType], 
+data Environment = Env {ctable   :: ClassTable, 
+                        globals  :: VarTable, 
+                        locals   :: VarTable, 
                         bindings :: [(Type, Type)], 
                         typeParameters :: [Type],
                         bt :: Backtrace}
+                 -- TODO: Add "current control abstraction"
 
 buildEnvironment :: Program -> Either TCError Environment
 buildEnvironment Program {functions, classes} = 
     do distinctFunctions
        distinctClasses
-       return $ Env {ctable = map getClassType classes,
+       return $ Env {ctable  = map getClassEntry classes,
                      globals = map getFunctionType functions, 
                      locals = [], bindings = [], typeParameters = [], 
                      bt = emptyBT}
@@ -84,31 +82,31 @@ buildEnvironment Program {functions, classes} =
       getFunctionType Function {funname, funtype, funparams} = 
           (funname, arrowType (map (setActivity . ptype) funparams) (setActivity funtype))
 
-      getClassType Class {cname = c, fields, methods} = 
-          (c, (map getFieldType fields, map getMethodType methods))
+      getClassEntry Class {cname = c, fields, methods} = 
+          (c, (map getField fields, map getMethod methods))
 
-      getFieldType Field {fname, ftype} =
-          (fname, typeMap setActivity ftype)
+      getField f@(Field {fname, ftype}) =
+          (fname, f{ftype = typeMap setActivity ftype})
 
-      getMethodType m = 
-          (mname m, (map ((typeMap setActivity) . ptype) (mparams m), typeMap setActivity (mtype m),
-                     if isStreamMethod m then Streaming else Normal))
+      getMethod m = 
+          (mname m, m{mparams = map (\p@(Param{ptype}) -> p{ptype = (typeMap setActivity) ptype}) (mparams m),
+                      mtype = typeMap setActivity (mtype m)})
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
 
 backtrace = bt
 
-fieldLookup :: Type -> Name -> Environment -> Maybe Type
+fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup cls f env = do (fields, _) <- classLookup cls env
                            lookup f fields
 
-methodLookup :: Type -> Name -> Environment -> Maybe ([Type], Type, MethodKind)
+methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 methodLookup cls m env = do (_, methods) <- classLookup cls env
                             lookup m methods
 
 -- TODO: Merge these two functions
-classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
+classLookup :: Type -> Environment -> Maybe (FieldTable, MethodTable)
 classLookup cls env
     | isRefType cls = lookup cls (ctable env)
     | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' which is not a reference type"
@@ -138,7 +136,7 @@ typeVarLookup ty env
     | isTypeVar ty = lookup ty (bindings env)
     | otherwise    = error "Tried to lookup the binding of something that was not a type variable"
 
-extendEnvironment :: [VarType] -> Environment -> Environment
+extendEnvironment :: [(Name, Type)] -> Environment -> Environment
 extendEnvironment [] env = env
 extendEnvironment ((name, ty):newTypes) env = 
     extendEnvironment newTypes $ env {locals = extend (locals env) name ty}
@@ -162,11 +160,7 @@ bindType var ty env
     | otherwise     = error "Tried to bind something that was not a type variable"
 
 bindTypes :: [(Type, Type)] -> Environment -> Environment
-bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env bindings -- env{bindings = b ++ (bindings env)}
+bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env bindings
 
-replaceLocals :: [VarType] -> Environment -> Environment
+replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
-
-isStreaming :: MethodKind -> Bool
-isStreaming Streaming = True
-isStreaming _ = False

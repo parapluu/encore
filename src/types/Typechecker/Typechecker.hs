@@ -290,7 +290,7 @@ instance Checkable Expr where
            when (isMainType targetType && name == Name "main") $ tcError "Cannot call the main method"
            when (name == Name "init") $ tcError "Constructor method 'init' can only be called during object creation"
            lookupResult <- asks $ methodLookup targetType name
-           (paramTypes, methodType, methodKind) <- 
+           mdecl <- 
                case lookupResult of
                  Nothing -> 
                      tcError $
@@ -299,6 +299,8 @@ instance Checkable Expr where
                           _ -> "No method '" ++ show name ++ "'") ++
                         " in class '" ++ show targetType ++ "'"
                  Just result -> return result
+           let paramTypes = map ptype (mparams mdecl)
+               methodType = mtype mdecl
            unless (length args == length paramTypes) $ 
                   tcError $
                      (case name of
@@ -313,7 +315,7 @@ instance Checkable Expr where
            let resultType = replaceTypeVars bindings methodType
                returnType = if isThisAccess target || isPassiveRefType targetType
                             then resultType
-                            else if isStreaming methodKind
+                            else if isStreamMethod mdecl
                             then streamType resultType
                             else futureType resultType
            return $ setType returnType mcall {target = eTarget, args = eArgs}
@@ -333,7 +335,7 @@ instance Checkable Expr where
                           (show $ ppExpr target) ++ 
                           "' of type '" ++ show targetType ++ "'"
            lookupResult <- asks $ methodLookup targetType name
-           (paramTypes, _, methodKind) <- 
+           mdecl <- 
                case lookupResult of
                  Nothing -> 
                      tcError $
@@ -342,6 +344,8 @@ instance Checkable Expr where
                           _ -> "No method '" ++ show name ++ "'") ++
                         " in class '" ++ show targetType ++ "'"
                  Just result -> return result
+           let paramTypes = map ptype (mparams mdecl)
+               methodType = mtype mdecl
            unless (length args == length paramTypes) $ 
                   tcError $
                         (case name of
@@ -488,7 +492,7 @@ instance Checkable Expr where
 
     --  isStreaming(currentMethod)
     -- ----------------------------
-    --  E |- eos() : void
+    --  E |- eos : void
     typecheck eos@(Eos {}) =
         do bt <- asks backtrace
            let mtd = currentMethod bt
@@ -498,7 +502,7 @@ instance Checkable Expr where
 
     --  E |- s : Stream t
     -- ---------------------
-    --  E |- s.eos() : bool
+    --  E |- eos s : bool
     typecheck iseos@(IsEos {target}) =
         do eTarget <- pushTypecheck target
            unless (isStreamType $ AST.getType eTarget) $
@@ -564,13 +568,14 @@ instance Checkable Expr where
            when (isActiveRefType targetType && (not $ isThisAccess eTarget)) $ 
                 tcError $ "Cannot read field of expression '" ++ 
                           (show $ ppExpr target) ++ "' of active object type '" ++ show targetType ++ "'"
-           fType <- asks $ fieldLookup targetType name
-           case fType of
-             Just ty -> do let actualTypeParams = getTypeParameters targetType
-                           formalTypeParams <- asks $ classTypeParameterLookup targetType
-                           bindings <- matchTypeParameters formalTypeParams actualTypeParams
-                           let ty' = replaceTypeVars bindings ty
-                           return $ setType ty' fAcc {target = eTarget}
+           fdecl <- asks $ fieldLookup targetType name
+           case fdecl of
+             Just Field{ftype} -> 
+                 do let actualTypeParams = getTypeParameters targetType
+                    formalTypeParams <- asks $ classTypeParameterLookup targetType
+                    bindings <- matchTypeParameters formalTypeParams actualTypeParams
+                    let ty' = replaceTypeVars bindings ftype
+                    return $ setType ty' fAcc {target = eTarget}
              Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
 
     --  E |- lhs : t
