@@ -1,3 +1,8 @@
+// future_chaining
+#define _XOPEN_SOURCE 800
+#include <ucontext.h>
+#include <sysexits.h>
+
 #include "actor.h"
 #include "messageq.h"
 #include "../sched/scheduler.h"
@@ -8,6 +13,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+// future_chaining
+#define Stack_Size 64*1024
+
 enum
 {
   FLAG_BLOCKED = 1 << 0,
@@ -15,6 +23,11 @@ enum
   FLAG_UNSCHEDULED = 1 << 2,
   FLAG_PENDINGDESTROY = 1 << 3,
 };
+
+typedef struct stack_page {
+  void *stack;
+  struct stack_page *next;
+} stack_page;
 
 struct pony_actor_t
 {
@@ -28,11 +41,117 @@ struct pony_actor_t
   messageq_t q __attribute__ ((aligned (64)));
   message_t* continuation;
   pony_actor_type_t* actor_type;
+
+  // future_chaining
+  //temporary addition here before merge to new PonyRT
+  ucontext_t ctx;
+  ucontext_t home_ctx;
+  bool resume;
+  stack_page *page;
 };
 
-// Tobias: removed the static keyword here to make top-level functions as closures work
-// static 
-__thread pony_actor_t* this_actor;
+#define MAX_STACK_IN_POOL 4
+
+static __thread stack_page *stack_pool = NULL;
+static __thread unsigned int available_pages = 0;
+static __thread stack_page *local_page = NULL;
+static __thread pony_actor_t* this_actor;
+
+void* pony_get_messageq(){
+  pony_actor_t* actor = actor_current();
+  return &actor->q;
+}
+
+static stack_page *pop_page()
+{
+  if (available_pages == 0) {
+    stack_pool = POOL_ALLOC(sizeof *stack_pool);
+    stack_pool->next = NULL;
+    posix_memalign(&stack_pool->stack, 16, Stack_Size);
+  } else {
+    // update the remaining number of pages
+    available_pages--;
+  }
+  stack_page *page = stack_pool;
+  stack_pool = page->next;
+  return page;
+}
+
+static void push_page(stack_page *page)
+{
+  available_pages++;
+  page->next = stack_pool;
+  stack_pool = page;
+}
+
+void reclaim_page(pony_actor_t *a)
+{
+  push_page(a->page);
+}
+
+static void clean_pool()
+{
+  static stack_page *page, *next;
+  while (available_pages > MAX_STACK_IN_POOL) {
+    available_pages--;
+    page = stack_pool;
+    next = stack_pool->next;
+    free(page->stack);
+    POOL_FREE(stack_page, page);
+    stack_pool = next;
+  }
+}
+
+void actor_suspend(pony_actor_t *actor)
+{
+  // Make a copy of the current context and replace it
+  ucontext_t ctxp = actor->ctx;
+
+  ctx_wrapper d = { .ctx = &ctxp, .uc_link=ctxp.uc_link };
+  pony_arg_t argv[1] =  { { .p = &d } };
+  actor->page = local_page;
+  local_page = NULL;
+
+  pony_sendv(actor, FUT_MSG_SUSPEND, 1, argv);
+  assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
+  assert(ctxp.uc_link == &actor->home_ctx);
+}
+
+// TODO: suspend and await overlaps heavily
+void actor_await(pony_actor_t *actor, void *future)
+{
+  // Make a copy of the current context and replace it
+  ucontext_t ctxp = actor->ctx;
+  ctx_wrapper d = { .ctx = &ctxp, .uc_link=ctxp.uc_link };
+  pony_arg_t argv[2] =  { { .p = &d }, { .p = future } };
+
+  actor->page = local_page;
+  local_page = NULL;
+
+  pony_sendv(actor, FUT_MSG_AWAIT, 2, argv);
+
+  assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
+  assert(ctxp.uc_link == &actor->home_ctx);
+}
+
+void actor_block(pony_actor_t *actor)
+{
+  actor->page = local_page;
+  local_page = NULL;
+  assert(swapcontext(&actor->ctx, actor->ctx.uc_link) == 0);
+}
+
+void actor_set_resume(pony_actor_t *actor)
+{
+  actor->resume = true;
+}
+
+void actor_resume(pony_actor_t *actor)
+{
+  actor->resume = false;
+  assert(swapcontext(actor->ctx.uc_link, &actor->ctx) == 0);
+  reclaim_page(actor);
+}
 
 static bool has_flag(pony_actor_t* actor, uint8_t flag)
 {
@@ -96,6 +215,7 @@ static void push_message(pony_actor_t* to, uint64_t id,
   }
 }
 
+
 static bool handle_message(pony_actor_t* actor, message_t* msg)
 {
   switch(msg->id)
@@ -122,8 +242,22 @@ static bool handle_message(pony_actor_t* actor, message_t* msg)
       cycle_ack(msg->argv[0].i);
       return false;
 
+    case FUT_MSG_SUSPEND:
+      future_suspend_resume(msg->argv[0].p);
+      return true;
+
+    case FUT_MSG_AWAIT:
+      future_await_resume(msg->argv);
+      return true;
+
+    case FUT_MSG_RUN_CLOSURE:
+      run_closure(msg->argv[0].p, msg->argv[1].p, msg->argv[2].p);
+      return true;
+
     default:
     {
+      local_page = local_page ? local_page : pop_page();
+
       if(has_flag(actor, FLAG_BLOCKED))
       {
         // if we are blocked and we get an application message, unblock
@@ -155,8 +289,18 @@ static bool handle_message(pony_actor_t* actor, message_t* msg)
         gc_done(&actor->gc);
       }
 
-      actor->actor_type->dispatch(actor, actor->p, msg->id,
-        mtype->argc, msg->argv);
+      // future_chaining
+      // Temporary insertion, should go into each actor
+      getcontext(&actor->ctx);
+      actor->ctx.uc_stack.ss_sp = local_page->stack;
+      actor->ctx.uc_stack.ss_size = Stack_Size;
+      actor->ctx.uc_link = &actor->home_ctx;
+      actor->ctx.uc_stack.ss_flags = 0;
+      makecontext(&actor->ctx, actor->actor_type->dispatch, 5, actor, actor->p, msg->id, mtype->argc, msg->argv);
+
+      if (swapcontext(&actor->home_ctx, &actor->ctx) != 0) {
+          err(EX_OSERR, "swapcontext failed");
+      }
       return true;
     }
   }
@@ -166,6 +310,8 @@ bool actor_run(pony_actor_t* actor)
 {
   message_t* msg;
   this_actor = actor;
+
+  clean_pool();
 
   if(heap_startgc(&actor->heap))
   {
@@ -178,15 +324,10 @@ bool actor_run(pony_actor_t* actor)
     heap_endgc(&actor->heap);
   }
 
-  if(actor->continuation != NULL)
+  if(actor->resume)
   {
-    message_t* msg = actor->continuation;
-    actor->continuation = NULL;
-    bool ret = handle_message(actor, msg);
-    POOL_FREE(message_t, msg);
-
-    if(ret)
-      return !has_flag(actor, FLAG_UNSCHEDULED);
+    actor_resume(actor);
+    return !has_flag(actor, FLAG_UNSCHEDULED);
   }
 
   while((msg = messageq_pop(&actor->q)) != NULL)
@@ -303,6 +444,9 @@ pony_actor_t* pony_create(pony_actor_type_t* type)
     // no creator, so the actor isn't referenced by anything
     actor->gc.rc = 0;
   }
+
+  // future_chaining
+  actor->resume = false;
 
   return actor;
 }

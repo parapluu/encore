@@ -42,7 +42,7 @@ solution "ponyrt"
     linkoptions "-Qunused-arguments"
     -- This stupidity because of http://industriousone.com/topic/how-remove-flags-ldflags
     -- It manually removes the -Wl,-x flags that are erroneously inserted on OS X
-    prebuildcommands "@if [ -d \"test/\" ]; then sed -e 's/-Wl,-x//g' -i '' test/*.make; fi"
+    -- prebuildcommands "@if [ -d \"test/\" ]; then sed -e 's/-Wl,-x//g' -i '' test/*.make; fi"
 
 project "pony"
   kind "StaticLib"
@@ -55,9 +55,9 @@ project "pony"
     }
 
   include("src/")
-  include("examples/")
-  include("utils/")
-  include("test/")
+  -- include("examples/")
+  -- include("utils/")
+  -- include("test/")
 
 project "closure"
   kind "StaticLib"
@@ -84,8 +84,5 @@ project "future"
   includedirs { "../closure", "../set", "src/sched" }
   files {
     "../future/future.c",
-    "../future/future_actor.c",
-    "../future/tit_eager.c",
-    "../future/tit_lazy.c"
   }
 

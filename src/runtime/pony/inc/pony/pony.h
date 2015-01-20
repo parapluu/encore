@@ -25,7 +25,9 @@ typedef struct pony_actor_t pony_actor_t;
 enum
 {
   FUT_MSG_RUN_CLOSURE = UINT64_MAX - 1000,
-  FUT_MSG_RESUME
+  FUT_MSG_RESUME,
+  FUT_MSG_SUSPEND,
+  FUT_MSG_AWAIT
 };
 
 /** Argument to a message.
@@ -122,6 +124,8 @@ pony_actor_t* pony_create(pony_actor_type_t* type);
  * This is only needed when manually scheduling actors.
  */
 void* pony_get();
+
+void* pony_get_messageq();
 
 /** Set the actor's data.
  *

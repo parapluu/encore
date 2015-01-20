@@ -65,9 +65,9 @@ desugar Unless{emeta, cond, thn} =
 -- into
 --   let 
 --     id = 0
---     tmp = e1
+--     __ub__ = e1
 --   in
---     while id < tmp
+--     while id < __ub__
 --       {
 --         e2;
 --         id = id + 1;
@@ -89,6 +89,12 @@ desugar Repeat{emeta, name, times, body} =
                                      (IntLiteral emeta 1)))]))
 
 desugar NewWithInit{emeta, ty, args} = 
-    Let emeta [(Name "to_init", (New (cloneMeta emeta) ty))] (Seq (cloneMeta emeta) [(MethodCall ((cloneMeta emeta)) (VarAccess (cloneMeta emeta) (Name "to_init")) (Name "_init") (map desugar args)), (VarAccess (cloneMeta emeta) (Name "to_init"))])
+    Let emeta 
+        [(Name "__tmp__", (New (cloneMeta emeta) ty))] 
+      (Seq (cloneMeta emeta) 
+           [(MethodCall ((cloneMeta emeta)) 
+               (VarAccess (cloneMeta emeta) (Name "__tmp__")) 
+               (Name "_init") args), 
+            (VarAccess (cloneMeta emeta) (Name "__tmp__"))])
 
 desugar e = e

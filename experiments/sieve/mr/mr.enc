@@ -99,7 +99,10 @@ passive class Bitset
 passive class Utility
   adjustment:int
 
-  def init(adjustment:int) : Utility {
+  def init(adjustment:int) : Utility 
+    this.init_(adjustment)
+
+  def init_(adjustment:int) : Utility {
     this.adjustment = adjustment; 
     this
   }
@@ -149,7 +152,9 @@ class Filter
   result  : int
   barrier : int
 
-  def init(id:int, size:int, depth:int, u:Utility, p:Filter) : void {
+  def init(id:int, size:int, depth:int, u:Utility, p:Filter) : void 
+    this.init_(id, size, depth, u, p)
+  def init_(id:int, size:int, depth:int, u:Utility, p:Filter) : void {
     this.result = 0;
     this.setup(id, size, u);
     this.parent  = p;
@@ -305,7 +310,7 @@ class Main
       size       = u.actor_size(candidates, depth) 
       actors     = u.actors_for_depth(depth) 
       adjustment = candidates - size * actors 
-      f          = let t = new Filter in { t.init(0, size, depth, u.init(adjustment), t) ; t }
+      f          = let t = new Filter in { t.init_(0, size, depth, u.init_(adjustment), t) ; t }
     in {
       f ! filter();
     }

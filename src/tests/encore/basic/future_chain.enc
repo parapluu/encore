@@ -1,0 +1,11 @@
+class Producer
+  def produce() : int
+    42 + 1
+
+class Main
+  def main() : void
+    let
+      p = new Producer
+      l = \(x:int) -> { print x; x + 1 }
+    in
+      print get p.produce() ~~> l

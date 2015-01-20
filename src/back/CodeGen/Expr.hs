@@ -359,9 +359,29 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate get@(A.Get{A.val}) = 
       do (nval, tval) <- translate val
          let result_type = translate (Ty.getResultType $ A.getType val)
-         let the_get = Cast (result_type) $ Call (Nam "future_get") [nval, Var "this->aref"]
+         let the_get = Cast (result_type) $ Call (Nam "future_get_actor") [nval]
          tmp <- Ctx.gen_sym
          return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
+
+  translate await@(A.Await{A.val}) = 
+      do (nval, tval) <- translate val
+         tmp <- Ctx.gen_sym
+         return (Var tmp, Seq [(Call (Nam "future_await") [nval])])
+
+  translate suspend@(A.Suspend{}) = 
+      do tmp <- Ctx.gen_sym
+         return (Var tmp, Seq [(Call (Nam "future_suspend") [Nam ""])]) --TODO: Call should support 0-arity 
+
+  translate futureChain@(A.FutureChain{A.future, A.chain}) = 
+      do (nfuture,tfuture) <- translate future
+         (nchain, tchain)  <- translate chain
+         fut_name <- Ctx.gen_sym
+         let fut_decl = Assign (Decl (Ptr $ Typ "future_t", Var fut_name)) (Call (Nam "future_mk") ([] :: [CCode Lval]))
+         result <- Ctx.gen_sym
+         return $ (Var result, Seq [tfuture, 
+                                    tchain,  
+                                    fut_decl,
+                                    (Assign (Decl (Ptr $ Typ "future_t", Var result)) (Call (Nam "future_chain_actor") [nfuture, (Var fut_name), nchain]))])
 
   translate clos@(A.Closure{A.eparams, A.body}) = 
       do let fun_name = closure_fun_name . Meta.getMetaId . A.getMeta $ clos

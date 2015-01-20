@@ -1,0 +1,23 @@
+class Main
+  def main() : void
+    let
+      failures = 0
+      successes = 0
+    in
+      repeat i <- 1
+        new Test ! run()
+
+class Test
+  def run() : void
+    let 
+      p = new Producer
+    in
+      print get get p.produce()
+
+class Producer
+  def produce() : Fut int
+    (new Producer).meta_produce()
+  def meta_produce() : int
+    17
+
+

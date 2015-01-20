@@ -272,14 +272,6 @@ static void run(scheduler_t* sched)
   }
 }
 
-//XXX: Temporary during upgrade to new ponyrt
-extern void future_run_loop_start(); // in future.c
-void run_restart() {
-  run(this_scheduler);
-  if (this_scheduler == &scheduler[0]) 
-    future_run_loop_start();
-}
-
 static void* run_thread(void* arg)
 {
   scheduler_t* sched = arg;

@@ -5,9 +5,12 @@ class Foo
 
 class Main
   def main() : void
-    let x = new Foo
+    let unit1 = ()
+        unit2 = ()
+        x = new Foo
         f = \(x : void) -> {print "Got unit"; x}
     in
-      {x.foo(());
-       f(());
+      {x.foo(unit1);
+       f(unit2);
+       unit1 = unit2
       }

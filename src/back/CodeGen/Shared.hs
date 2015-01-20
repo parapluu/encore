@@ -36,7 +36,7 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                          Statement $ Call (Nam "pony_send") [Var "ret", Var "msg_id"],
                          Return $ Var "ret"])
 
-      shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_run_closure_decl]
+      shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
           where
             msg_alloc_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_MSG_alloc"))
@@ -44,16 +44,22 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
             msg_fut_resume_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_resume_get"))
                          (Record [Int 1, Record [Var "PONY_NONE"]])
+            msg_fut_suspend_decl =
+                AssignTL (Decl (pony_msg_t, Var "m_resume_suspend"))
+                         (Record [Int 1, Record [Var "PONY_NONE"]])
+            msg_fut_await_decl =
+                AssignTL (Decl (pony_msg_t, Var "m_resume_await"))
+                         (Record [Int 2, Record [Var "PONY_NONE", Var "PONY_NONE"]])
             msg_fut_run_closure_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
-                         (Record [Int 1, Record [Var "PONY_NONE"]])
+                         (Record [Int 3, Record [Var "PONY_NONE", Var "PONY_NONE", Var "PONY_NONE"]])
       
       global_functions = map translate functions
 
       main_function =
           (Function (Typ "int") (Nam "main")
                     [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                    (Seq $ [init_futures] ++
+                    (Seq $ --[init_futures] ++
                            init_globals ++
                            [Return $ 
                             Call (Nam "pony_start") [AsExpr $ Var "argc", 

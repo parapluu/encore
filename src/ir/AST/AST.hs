@@ -151,6 +151,12 @@ data Expr = Skip {emeta :: Meta Expr}
                     body :: Expr}
           | Get {emeta :: Meta Expr, 
                  val :: Expr}
+          | Await {emeta :: Meta Expr, 
+                   val :: Expr}
+          | Suspend {emeta :: Meta Expr}
+          | FutureChain {emeta :: Meta Expr, 
+                        future :: Expr,
+                         chain :: Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}

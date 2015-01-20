@@ -1,0 +1,35 @@
+class Main
+  def main() : void
+    let 
+      t = new Test()
+    in 
+      {
+        t ! run1();
+        t ! run2();
+      }
+
+class Producer
+  def foo() : int 
+    17
+
+class Test
+  p:Producer
+  def init() : void
+    this.p = new Producer
+  def run2() : void {
+    print "While awaiting";
+  }
+  def run1() : void 
+    let 
+      f = this.p.foo()
+    in
+      {
+	print "Before await";
+        await f;
+        -- embed void
+        --   future_await(#{f}, this->aref);
+        -- end;
+	print "After await";
+	print get f
+      }
+

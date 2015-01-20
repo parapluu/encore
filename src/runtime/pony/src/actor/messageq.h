@@ -26,4 +26,6 @@ message_t* messageq_pop(messageq_t* q);
 
 bool messageq_markempty(messageq_t* q);
 
+bool messageq_find(messageq_t* m, void* e);
+
 #endif
