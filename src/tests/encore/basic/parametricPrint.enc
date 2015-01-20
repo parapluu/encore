@@ -1,0 +1,18 @@
+#! /usr/bin/env encorec -run
+
+passive class Pair<a,b>
+  fst : a
+  snd : b
+  def init(fst_ : a, snd_ : b) : void{
+    this.fst = fst_;
+    this.snd = snd_
+  }
+
+  def prnt() : void
+    print("({},{})\n", this.fst, this.snd)
+
+    
+class Main
+  def main() : void
+    let pair = new Pair<int,string>(65, "a") in
+      pair.prnt()
