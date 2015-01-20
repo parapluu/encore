@@ -210,18 +210,12 @@ instance Checkable MethodDecl where
         do Just thisType <- asks $ varLookup thisName
            unless (isActiveRefType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
-           ty <- checkType mtype
-           noFreeTypeVariables
-           eMparams <- mapM typecheckParam mparams
+           let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) mparams
+           ty <- local (addTypeParameters typeParams) $ checkType mtype
+           eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
            eBody    <- local (addParams eMparams) $ pushTypecheck mbody
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          noFreeTypeVariables = 
-              let retVars = nub $ filter isTypeVar $ typeComponents mtype 
-                  paramVars = nub $ filter isTypeVar $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams
-              in
-                when (not . null $ retVars \\ paramVars) $
-                     tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
