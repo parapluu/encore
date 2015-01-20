@@ -30,6 +30,8 @@ ppUnless = text "unless"
 ppWhile = text "while"
 ppRepeat = text "repeat"
 ppGet = text "get"
+ppAwait = text "await"
+ppSuspend = text "suspend"
 ppNull = text "null"
 ppTrue = text "true"
 ppFalse = text "false"
@@ -147,7 +149,11 @@ ppExpr While {cond, body} =
 ppExpr Repeat {name, times, body} = 
     ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
          indent (ppExpr body)
+ppExpr FutureChain {future, chain} = 
+    ppExpr future <+> (text "~~>") <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
+ppExpr Await {val} = ppAwait <+> ppExpr val
+ppExpr Suspend {} = ppSuspend
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs

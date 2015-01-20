@@ -101,6 +101,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                    (Seq [Switch (Var "id")
                            ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
                             (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
+                            (Nam "FUT_MSG_SUSPEND", Return $ Amp $ Var "m_resume_suspend") :
+                            (Nam "FUT_MSG_AWAIT", Return $ Amp $ Var "m_resume_await") :
                             (Nam "FUT_MSG_RUN_CLOSURE", Return $ Amp $ Var "m_run_closure") :
                             (concatMap type_clause methods))
                             (Skip),
@@ -137,7 +139,9 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              (Ptr . Typ $ "pony_arg_t", Var "argv")])
            (Switch (Var "id")
             ((Nam "MSG_alloc", alloc_instr) :
-             (Nam "FUT_MSG_RESUME", fut_resume_instr) :
+             -- (Nam "FUT_MSG_RESUME", fut_resume_instr) :
+             (Nam "FUT_MSG_SUSPEND", fut_resume_suspend_instr) :
+             (Nam "FUT_MSG_AWAIT", fut_resume_await_instr) :
              (Nam "FUT_MSG_RUN_CLOSURE", fut_run_closure_instr) :
              (if (A.isMainClass cdecl)
               then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
@@ -157,9 +161,19 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
 
             fut_resume_instr = 
                 Seq 
-                  [Assign (Decl (Ptr $ Typ "resumable_t", Var "r")) 
+                  [Assign (Decl (Ptr $ Typ "future_t", Var "fut")) 
                           ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                   Statement $ Call (Nam "future_resume") [Var "r"]]
+                   Statement $ Call (Nam "future_resume") [Var "fut"]]
+
+            fut_resume_suspend_instr = 
+                Seq 
+                  [Assign (Decl (Ptr $ Typ "void", Var "s")) 
+                          ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
+                   Statement $ Call (Nam "future_suspend_resume") [Var "s"]]
+
+            fut_resume_await_instr = 
+                Seq 
+                  [Statement $ Call (Nam "future_await_resume") [Var "argv"]]
 
             fut_run_closure_instr = 
                 Seq

@@ -1,0 +1,26 @@
+embed
+  #include <unistd.h>
+end
+
+class Main
+  def main() : void
+    let 
+      t = new Test
+    in 
+      {
+        t ! fst();
+	t ! snd();
+      }
+
+class Test
+  def fst() : void {
+    -- TODO: better "fix" to make sure snd reaches Test before suspend point
+    embed void
+      sleep(1); 
+    end;
+    print "Before suspend";
+    suspend; 
+    print "After suspend";
+  }
+  def snd() : void 
+    print "Interleaving!"

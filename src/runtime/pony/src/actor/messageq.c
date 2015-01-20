@@ -65,3 +65,17 @@ bool messageq_markempty(messageq_t* q)
   return __atomic_compare_exchange_n(&q->head, &tail, head, false,
     __ATOMIC_RELAXED, __ATOMIC_RELAXED);
 }
+
+// Find in messageq. No need of lock free algorithm.
+bool messageq_find(messageq_t* q, void* e)
+{
+  message_t* m = q->head;
+  bool found = false;
+  while(m!=NULL){
+    if(m->argv[0].p == e){
+      found = true;
+    }
+    m = m->next;
+  }
+  return found;
+}

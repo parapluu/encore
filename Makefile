@@ -65,10 +65,4 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc/html
 
-# @ supresses output from shell
-# - supresses ignore errors
-vagrant:
-	-@vagrant up
-
-
-.PHONY: all encorec fetch-hs-deps test dirs pony clean vagrant
+.PHONY: all encorec fetch-hs-deps test dirs pony clean

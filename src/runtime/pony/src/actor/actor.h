@@ -1,6 +1,9 @@
-#define _XOPEN_SOURCE 600
 #ifndef actor_h
 #define actor_h
+
+#define _XOPEN_SOURCE 800
+
+#include <ucontext.h>
 
 #include "../gc/gc.h"
 #include "../mem/heap.h"
@@ -15,11 +18,21 @@ enum
   ACTORMSG_CONF
 };
 
+typedef struct ctx_wrapper {
+  ucontext_t* ctx;
+  void* uc_link;
+} ctx_wrapper;
+
+// future chaining
+void actor_suspend(pony_actor_t *actor);
+void actor_block(pony_actor_t *actor);
+void actor_resume(pony_actor_t *actor);
+void actor_set_resume(pony_actor_t *actor);
+void actor_await(pony_actor_t *actor, void *future);
+
 bool actor_run(pony_actor_t* actor);
 
 void actor_destroy(pony_actor_t* actor);
-
-void block_actor(pony_actor_t *a);
 
 pony_actor_t* actor_current();
 

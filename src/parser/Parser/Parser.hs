@@ -36,6 +36,8 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
               | while Expr Expr
               | repeat Name <- Expr Expr
               | get Expr
+              | await Expr
+              | suspend
               | new Type ( Arguments )
               | new Type
               | null
@@ -61,7 +63,7 @@ MethodDecls ::= def Name ( ParamDecls ) : Type Expr
    RefType ::= [A-Z][a-zA-Z0-9_]*
 @
 
-Keywords: @ class def embed body end Fut let in passive if then else while get null new Par print @
+Keywords: @ class def embed body end Fut let in passive if then else while await suspend get null new Par print @
 
 -}
 
@@ -98,9 +100,9 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "let", "in", "if", "unless", "then", "else", "repeat",
-				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", 
+				  "and", "or", "not", "while", "get", "null", "true", "false", "new", "embed", "await", "suspend", 
 				  "body", "end", "Fut", "Par", "import", "qualified", "module", "this"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -260,6 +262,7 @@ expression = buildExpressionParser opTable expr
                  [op "and" Identifiers.AND, op "or" Identifiers.OR],
                  [messageSend],
                  [typedExpression],
+                 [chain],
                  [assignment]
                 ]
       prefix s operator = 
@@ -281,10 +284,16 @@ expression = buildExpressionParser opTable expr
                       name <- identifier
                       args <- parens arguments
                       return (\target -> MessageSend (meta pos) target (Name name) args))
+      chain = 
+          Infix (do pos <- getPosition ;
+                    reservedOp "~~>" ;
+                    return $ (\lhs rhs -> FutureChain (meta pos) lhs rhs)) AssocLeft
       assignment = 
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;
                     return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
+
+
 
 expr :: Parser Expr
 expr  =  unit
@@ -302,6 +311,8 @@ expr  =  unit
      <|> repeat
      <|> while
      <|> get
+     <|> await
+     <|> suspend
      <|> try newWithInit
      <|> new
      <|> null
@@ -379,6 +390,14 @@ expr  =  unit
                reserved "get"
                expr <- expression
                return $ Get (meta pos) expr 
+      await = do pos <- getPosition
+                 reserved "await"
+                 expr <- expression
+                 return $ Await (meta pos) expr 
+      suspend = do pos <- getPosition
+                   reserved "suspend"
+                   return $ Suspend (meta pos) 
+
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments

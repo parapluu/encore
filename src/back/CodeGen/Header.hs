@@ -76,6 +76,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
       shared_messages = 
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
            DeclTL (pony_msg_t, Var "m_resume_get"),
+           DeclTL (pony_msg_t, Var "m_resume_suspend"),
+           DeclTL (pony_msg_t, Var "m_resume_await"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
 
       global_function_decls = map global_function_decl functions

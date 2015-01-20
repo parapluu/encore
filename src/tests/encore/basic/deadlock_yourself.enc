@@ -1,0 +1,10 @@
+class Main
+  def execute(): int
+    42
+
+  def main(): void {
+    let that = this in { 
+      print get that.execute(); 
+      print "44";
+    };
+  }

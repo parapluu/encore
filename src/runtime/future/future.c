@@ -1,194 +1,308 @@
-//#define DEBUG_PRINT 1
+#ifndef __future__
+#define __future__
+
+#define _XOPEN_SOURCE 800
+
+#include <ucontext.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+
 #include <assert.h>
 #include <pthread.h>
+
 #include "future.h"
-#include "pony/pony.h"
-#include "tit_lazy.h"
-#include "tit_eager.h"
+#include <pony/pony.h>
+#include "../src/actor/actor.h"
+#include "../src/actor/messageq.h"
 
-// #include "ext/pony_extensions.h"
+#define BLOCK    pthread_mutex_lock(&fut->lock);
+#define UNBLOCK  pthread_mutex_unlock(&fut->lock);
+#define perr(m)  // fprintf(stderr, "%s\n", m);
 
-extern void run_restart();
-extern void block_actor(pony_actor_t *a);
+typedef struct chain_entry chain_entry_t;
+typedef struct actor_entry actor_entry_t;
+typedef struct closure_entry closure_entry_t;
+typedef struct message_entry message_entry_t;
 
-struct future_actor_fields {
-  pthread_mutex_t lock;
-  bool fulfilled;
-  bool has_blocking;
-  void *value;
-  set_t *blocked;
-  set_t *chained;
-  set_t *awaiting;
+// Terminology:
+// Producer -- the actor responsible for fulfilling a future
+// Consumer -- an non-producer actor using a future
+
+typedef enum
+{
+  // A closure that should be run by the producer
+  DETACHED_CLOSURE,
+  // A closure that should be run ty the consumer
+  ATTACHED_CLOSURE,
+  // A message blocked on this future
+  BLOCKED_MESSAGE
+} responsibility_t;
+
+struct closure_entry
+{
+  // The consumer that created closure
+  pony_actor_t *actor;
+  // The future where the result of the closure should be stored
+  future_t     *future;
+  // The closure to be run on fulfilment of the future
+  closure_t    *closure;
+
+  closure_entry_t *next;
 };
 
+struct message_entry
+{
+  // The consumer that created closure
+  pony_actor_t *actor;
+  // FIXME: add context
+};
 
-struct resumable {
-  // strategy_t strategy; // Possible future work: support multiple strategies in parallel
-  union {
-    lazy_tit_t *lazy;
-    eager_tit_t *eager;
+struct actor_entry
+{
+  responsibility_t type;
+  union
+  {
+    closure_entry_t closure;
+    message_entry_t message;
   };
 };
 
-extern void run_restart();
+struct future
+{
+  void           *value;
+  bool            fulfilled;
+  // Stupid limitation for now
+  actor_entry_t   responsibilities[16];
+  int             no_responsibilities;
+  // Lock-based for now
+  pthread_mutex_t lock;
+  future_t *parent;
+  closure_t *closure;
+  closure_entry_t *children;
+};
 
-static strategy_t strategy;
+// ===============================================================
+// Create, inspect and fulfil
+// ===============================================================
+future_t *future_mk(void)
+{
+  perr("future_mk");
 
-static inline void suspend(resumable_t *r) {
-  switch (strategy) {
-  case LAZY:
-    fork_lazy(run_restart);
-    break;
-  case EAGER:
-    suspend_eager(r->eager);
-    break;
-  default:
-    assert(false);
-  }
+  future_t *fut = pony_alloc(sizeof(future_t));
+  // TODO: figure out if this is necessary, of if memory is already 0'd
+  *fut = (future_t) {};
+  // fut->parent = NULL;
+
+  return fut;
 }
 
-static resumable_t *mk_resumeable() {
-  resumable_t *r = pony_alloc(sizeof(resumable_t));
-  switch (strategy) {
-  case LAZY:
-    r->lazy = lazy_t_get_current();
-    break;
-  case EAGER:
-    r->eager = get_suspendable_tit();
-    break;
-  default:
-    assert(false);
-  }
+void *run_closure(closure_t *c, void *value, future_t *fut)
+{
+  value_t result = closure_call(c, (value_t[1]) { { .p = value } });
+  future_fulfil(fut, result.p);
+  return result.p;
+}
+
+bool future_fulfilled(future_t *fut)
+{
+  perr("future_fulfilled");
+  bool r;
+  BLOCK;
+  r = fut->fulfilled;
+  UNBLOCK;
   return r;
 }
 
-typedef struct chained_entry {
-  pony_actor_t *actor;
-  struct closure *closure;
-} chained_entry;
+void *future_read_value(future_t *fut)
+{
+  perr("future_read_value");
+  BLOCK;
+  void *v = fut->value;
+  UNBLOCK;
+  return v;
+}
 
+void future_fulfil(future_t *fut, void *value)
+{
+  perr("future_fulfil");
 
-static inline set_t *get_chained(future_t *f) {
-  if (f->chained == NULL) {
-    f->chained = mk_set();
+  BLOCK;
+  fut->value = value;
+  fut->fulfilled = true;
+
+  // Unblock on blocked actors
+  closure_entry_t *current = fut->children;
+  bool blocked;
+  while(current) {
+    blocked = false;
+    // TODO use one set for blocked actors
+    for (int i = 0; i < fut->no_responsibilities; ++i) {
+      if(fut->responsibilities[i].message.actor == current->actor) {
+        blocked = true;
+        break;
+      }
+    }
+    if (!blocked) {
+      pony_arg_t argv[3] = { { .p = current->closure }, { .p = value }, { .p = current->future } };
+      pony_sendv(current->actor, FUT_MSG_RUN_CLOSURE, 3, argv);
+    }
+    current = current->next;
   }
-  return f->chained;
-}
 
-static inline set_t *get_blocked(future_t *f) {
-  if (f->blocked == NULL) {
-    f->blocked = mk_set();
-  }
-  return f->blocked;
-}
-
-static void run_chain(chained_entry *entry, void *value) {
-  pony_actor_t *target = entry->actor;
-  struct closure *closure = entry->closure;
-  pony_arg_t argv[2];
-  argv[0].p = closure;
-  argv[1].p = value;
-  pony_sendv(target, FUT_MSG_RUN_CLOSURE, 2, argv); // - see https://trello.com/c/kod5Ablj
-}
-
-static void resume_from_block(pony_actor_t *a) {
-  pony_schedule(a);
-}
-
-
-void future_resume(resumable_t *r) {
-    return;
-  switch (strategy) {
-  case LAZY:
-    resume_lazy(r->lazy);
-    break;
-  case EAGER:
-    resume_eager(r->eager);
-    break;
-  default:
-    assert(false);
-  }
-}
-
-future_t *future_mk() {
-  future_t *f = pony_alloc(sizeof *f);
-  pthread_mutex_init(&f->lock, NULL);
-  f->fulfilled = false;
-  f->value = NULL;
-  f->blocked = NULL;
-  f->chained = NULL;
-  f->awaiting = NULL;
-  return f;
-}
-
-void future_chain(future_t *f, pony_actor_t* a, struct closure *c) {
-  chained_entry *new_entry = pony_alloc(sizeof(chained_entry));
-  new_entry->actor = a;
-  new_entry->closure = c;
-
-  pthread_mutex_lock(&f->lock);
-  set_t *chained = get_chained(f);
-  set_add(chained, new_entry);
-
-  f->has_blocking =  true; 
-  pthread_mutex_unlock(&f->lock);
-}
-
-void future_block(future_t *f, pony_actor_t* a) {
-  pthread_mutex_lock(&f->lock);
-  if(f->fulfilled){
-    pthread_mutex_unlock(&f->lock);
-    return;
-  } 
-  pony_unschedule(a);
-
-  f->has_blocking =  true;
-
-  set_t *blocked = get_blocked(f);
-  set_add(blocked, a);
-  pthread_mutex_unlock(&f->lock);
-  
-  block_actor(a);
-}
-
-inline bool future_fulfilled(future_t *f) {
-  return f->fulfilled;
-}
-
-inline void *future_read_value(future_t *f) {
-  return f->value;
-}
-
-void future_fulfil(future_t *f, void *value) {
-  pthread_mutex_lock(&f->lock);
-  f->fulfilled = true;
-  f->value = value;
-
-  if (f->has_blocking) {
-    set_forall(get_chained(f), (forall_fnc) run_chain, (void*) value);
-    set_forall(get_blocked(f), (forall_fnc) resume_from_block, NULL );
-  }
-  pthread_mutex_unlock(&f->lock);
-}
-
-void init_futures(int cache_size, strategy_t s) {
-  static bool init = false;
-  if (init == false) {
-    strategy = s;
-    init_system(cache_size);
-    init = true;
-  }
-}
-
-void future_run_loop_start() {
-  if (strategy == LAZY) {
-    lazy_tit_t *current = lazy_t_get_current();
-    if (current) {
-      done_lazy(current);
+  for (int i = 0; i < fut->no_responsibilities; ++i)
+  {
+    actor_entry_t e = fut->responsibilities[i];
+    switch (e.type)
+    {
+      case BLOCKED_MESSAGE:
+        {
+          perr("Unblocking");
+          actor_set_resume(e.message.actor);
+          pony_schedule(e.message.actor);
+          break;
+        }
+        // Current design: send closure back to origin to execute (deadlock-prone)
+        // Intended design: see https://github.com/parapluu/mylittlepony/wiki/Futures
+      case ATTACHED_CLOSURE:
+        {
+          pony_arg_t argv[3] = { { .p = e.closure.closure }, { .p = value }, { .p = e.closure.future } };
+          pony_sendv(e.closure.actor, FUT_MSG_RUN_CLOSURE, 3, argv);
+          break;
+        }
+        // Design 1: current thread executes closures (racy)
+      case DETACHED_CLOSURE:
+        {
+          value_t result = closure_call(e.closure.closure, (value_t[1]) { { .p = value } });
+          future_fulfil(e.closure.future, result.p);
+          break;
+        }
+      default:
+        {
+          // Do nothing
+        }
     }
   }
+  UNBLOCK;
 }
+
+// ===============================================================
+// Means for actors to get, block and chain
+// ===============================================================
+void *future_get_actor(future_t *fut)
+{
+  // early return for simple case
+  if (fut->parent == NULL) {
+    future_block_actor(fut);
+    return fut->value;
+  }
+
+  if (!future_fulfilled(fut->parent)) {
+    future_block_actor(fut->parent);
+  }
+
+  return run_closure(fut->closure, future_read_value(fut->parent), fut);
+}
+
+future_t  *future_chain_actor(future_t *fut, future_t* r, closure_t *c)
+{
+  perr("future_chain_actor");
+
+  closure_entry_t *entry = malloc(sizeof *entry);
+  entry->actor = actor_current();
+  entry->future = r;
+  entry->closure = c;
+
+  BLOCK;
+  entry->next = fut->children;
+  fut->children = entry;
+  UNBLOCK;
+
+  r->parent = fut;
+  r->closure = c;
+
+  return r;
+}
+
+void future_block_actor(future_t *fut)
+{
+  perr("future_block_actor");
+
+  pony_actor_t *a = actor_current();
+  BLOCK;
+
+  if (fut->fulfilled) {
+    UNBLOCK;
+    return;
+  }
+
+  // the implementation of messageq_find is specific to this case.
+  // therefore, it's not thread-safe
+  bool block_myself = messageq_find(pony_get_messageq(), fut);
+  if(block_myself){
+    UNBLOCK;
+    actor_suspend(a);
+  }else{
+    pony_unschedule(a);
+    fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
+    UNBLOCK;
+
+    actor_block(a);
+  }
+
+}
+
+void future_unblock_actor(future_t *r)
+{
+  perr("future_unblock_actor");
+
+  // FIXME: move context into message
+  actor_resume(actor_current());
+}
+
+// ===============================================================
+// Possibly these functions do not belong in the future library
+// ===============================================================
+void future_suspend(void)
+{
+  // FIXME: move context into message
+  // TODO: block GC'ing during suspend
+  actor_suspend(actor_current());
+}
+
+// FIXME: better type for this
+void future_suspend_resume(void *arg)
+{
+  ctx_wrapper *d = (ctx_wrapper *) arg;
+  ucontext_t* ctx = d->ctx;
+  ctx->uc_link = d->uc_link;
+  assert(swapcontext(ctx->uc_link, ctx) == 0);
+  reclaim_page(actor_current());
+}
+
+void future_await(future_t *fut)
+{
+  // FIXME: move context into message
+  actor_await(actor_current(), fut);
+}
+
+// FIXME: better type for this
+void future_await_resume(void *argv)
+{
+  ctx_wrapper *d = ((pony_arg_t *)argv)[0].p;
+  ucontext_t* ctx = d->ctx;
+  ctx->uc_link = d->uc_link;
+
+  future_t *fut = ((pony_arg_t *)argv)[1].p;
+
+  if (future_fulfilled(fut))
+  {
+    assert(swapcontext(ctx->uc_link, ctx) == 0);
+    reclaim_page(actor_current());
+  } else {
+    pony_sendv(actor_current(), FUT_MSG_AWAIT, 2, argv);
+  }
+}
+
+#endif

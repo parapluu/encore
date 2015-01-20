@@ -424,6 +424,38 @@ instance Checkable Expr where
                   tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
            return $ setType (getResultType ty) get {val = eVal}
 
+    --    ------------------ :: suspend
+    --    suspend : void
+    typecheck suspend@(Suspend {}) = 
+        do return $ setType voidType suspend 
+
+    --    f : Fut T
+    --    ------------------ :: await
+    --    await f : void
+    typecheck await@(Await {val}) = 
+        do eVal <- pushTypecheck val
+           let ty = AST.getType eVal
+           unless (isFutureType ty) $ 
+                  tcError $ "Cannot await the value of non-future type '" ++ show ty ++ "'"
+           return $ setType voidType await {val = eVal}
+
+    --    f : Fut T
+    --    c : T -> T'
+    --    ------------------ :: chain
+    --    f then c : Fut T'
+    typecheck futureChain@(FutureChain {future, chain}) = 
+        do eFuture <- pushTypecheck future
+           eChain <- pushTypecheck chain
+           let ty = AST.getType eFuture
+           unless (isFutureType ty) $ 
+                  tcError $ "Cannot chain with a non-future type '" ++ show ty ++ "'"
+           let ty' = AST.getType eChain
+           unless (isArrowType ty') $ 
+                  tcError $ "Chaining requires a closure argument '" ++ show ty' ++ "'"
+           unless ([getResultType ty] == getArgTypes ty') $ 
+                  tcError $ "Future value has type '" ++ show (getResultType ty) ++ "' but chained closure expects '" ++ show (head (getArgTypes ty')) ++ "'"
+           return $ setType (futureType (getResultType ty')) futureChain {future = eFuture, chain = eChain}
+
     --  E |- target : t'
     --  fieldLookup(t', name) = t
     -- ---------------------------

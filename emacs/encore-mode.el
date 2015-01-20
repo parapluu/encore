@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "then" "unless" "while" "and" "or" "not" "this" "repeat"))
+(setq encore-keywords '("class" "def" "else" "get" "if" "in" "let" "new" "passive" "print" "then" "unless" "while" "and" "or" "not" "this" "repeat" "await" "suspend" "chain"))
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
@@ -179,6 +179,11 @@
   (interactive)
   (setq imenu-generic-expression encore-imenu-generic-expression))
 ;(setq-local imenu-create-index-function 'imenu-default-create-index-function))
+
+
+(add-to-list 'load-path (concat (file-name-directory (buffer-file-name)) "dtrt-indent-20140325.1330/"))
+(require 'dtrt-indent)
+(dtrt-indent-mode 1)
 
 (add-hook 'encore-mode-hook
 	  (lambda ()
