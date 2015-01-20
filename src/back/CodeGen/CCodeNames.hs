@@ -36,7 +36,7 @@ unit = Embed "UNIT"
 -- pointer. This is the name of that function
 method_impl_name :: Ty.Type -> ID.Name -> CCode Name
 method_impl_name clazz mname =
-    Nam $ (show clazz) ++ "_" ++ (show mname)
+    Nam $ (Ty.getId clazz) ++ "_" ++ (show mname)
 
 global_closure_name :: ID.Name -> CCode Name
 global_closure_name funname =
@@ -58,36 +58,36 @@ closure_env_name name =
 -- messages to the right method calls. This is the name of that
 -- function.
 class_dispatch_name :: Ty.Type -> CCode Name
-class_dispatch_name clazz = Nam $ (show clazz) ++ "_dispatch"
+class_dispatch_name clazz = Nam $ Ty.getId clazz ++ "_dispatch"
 
 class_message_type_name :: Ty.Type -> CCode Name
-class_message_type_name clazz = Nam $ (show clazz) ++ "_message_type"
+class_message_type_name clazz = Nam $ Ty.getId clazz ++ "_message_type"
 
 class_trace_fn_name :: Ty.Type -> CCode Name
-class_trace_fn_name clazz = Nam $ show clazz ++ "_trace"
+class_trace_fn_name clazz = Nam $ Ty.getId clazz ++ "_trace"
 
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-method_message_type_name clazz mname = Var $ "m_"++show clazz++"_"++show mname
+method_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"_"++show mname
 
 one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-one_way_message_type_name clazz mname = Var $ "m_"++show clazz++"__one_way_"++show mname
+one_way_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"__one_way_"++show mname
 
 -- | for each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
-method_msg_name clazz mname = Nam $ "MSG_"++show clazz++"_"++show mname
+method_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"_"++show mname
 
 one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_send_msg_name clazz mname = Nam $ "MSG_"++show clazz++"__one_way_"++show mname
+one_way_send_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"__one_way_"++show mname
 
 -- | the name of the record type in which a class stores its state
 data_rec_name :: Ty.Type -> CCode Name
-data_rec_name clazz = Nam $ show clazz ++ "_data"
+data_rec_name clazz = Nam $ Ty.getId clazz ++ "_data"
 
 data_rec_type :: Ty.Type -> CCode Ty
-data_rec_type clazz = Typ $ show clazz ++ "_data"
+data_rec_type clazz = Typ $ Ty.getId clazz ++ "_data"
 
 data_rec_ptr :: Ty.Type -> CCode Ty
 data_rec_ptr = Ptr . data_rec_type
 
 actor_rec_name :: Ty.Type -> CCode Name
-actor_rec_name clazz = Nam $ show clazz ++ "_actor"
+actor_rec_name clazz = Nam $ Ty.getId clazz ++ "_actor"

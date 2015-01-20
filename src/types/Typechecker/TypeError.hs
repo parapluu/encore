@@ -19,11 +19,13 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod Name Type | BTExpr Expr
+data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | -- BTTypeParam Type | 
+                     BTField FieldDecl | BTMethod Name Type | BTExpr Expr 
 instance Show BacktraceNode where
     show (BTFunction n ty) = "In function '"       ++ show n                 ++ "' of type '" ++ show ty ++ "'"
     show (BTClass ty)      = "In class '"          ++ show ty                ++ "'"
     show (BTParam p)       = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
+--    show (BTTypeParam p    = "In type parameter '" ++ (show $ ppParamDecl p) ++ "'"
     show (BTField f)       = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
     show (BTMethod n ty)   = "In method '"         ++ show n                 ++ "' of type '" ++ show ty ++ "'"
     show (BTExpr expr)     

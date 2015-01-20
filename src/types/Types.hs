@@ -1,14 +1,15 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, parType, isParType, 
-             refType, isRefType, passiveRefType, activeRefType, 
-             isActiveRefType, isPassiveRefType, isMainType,
+             refType, passiveRefType, activeRefType, 
+             refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
+             isRefType, isActiveRefType, isPassiveRefType, isMainType,
              makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
              voidType, isVoidType, nullType, isNullType, 
              boolType, isBoolType, intType, isIntType, 
              realType, isRealType, stringType, isStringType, 
              isPrimitive, isNumeric, emptyType,
-             getArgTypes, getResultType, getId,
+             getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
              typeComponents, subtypeOf, typeMap) where
 
 import Data.List
@@ -17,7 +18,7 @@ import Identifiers
 
 data Activity = Active | Passive | Unknown deriving(Eq, Show)
 
-data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity}
+data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity, parameters :: [Type]}
 
 instance Eq RefTypeInfo where
     RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
@@ -32,6 +33,7 @@ typeComponents :: Type -> [Type]
 typeComponents arrow@(Arrow argTys ty) = arrow:(concatMap typeComponents argTys ++ typeComponents ty)
 typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
 typeComponents par@(ParType ty)        = par:(typeComponents ty)
+typeComponents ref@(RefType RefTypeInfo{parameters}) = ref : (concatMap typeComponents parameters)
 typeComponents ty                      = [ty]
 
 typeMap :: (Type -> Type) -> Type -> Type
@@ -42,12 +44,24 @@ typeMap f ty
         f (FutureType (typeMap f (resultType ty)))
     | isParType ty =
         f (ParType (typeMap f (resultType ty)))
+    | isRefType ty =
+        case ty of 
+          (RefType (info@(RefTypeInfo{parameters}))) -> 
+              f $ RefType info{parameters = map (typeMap f) parameters}
+          otherwise -> 
+              error $ "Couldn't deconstruct refType: " ++ show ty
     | otherwise = f ty
 
 getArgTypes = argTypes
 getResultType = resultType
 getId (RefType info) = refId info
 getId TypeVar {ident} = ident
+
+getTypeParameters (RefType RefTypeInfo{parameters}) = parameters
+getTypeParameters ty = error $ "Can't get type parameters from type: " ++ show ty
+
+setTypeParameters (RefType info@(RefTypeInfo{})) params = RefType info{parameters = params}
+setTypeParameters ty _ = error $ "Can't set type parameters from type: " ++ show ty
 
 maybeParen :: Type -> String
 maybeParen arr@(Arrow _ _) = "(" ++ show arr ++ ")"
@@ -61,7 +75,9 @@ instance Show Type where
     show IntType           = "int"
     show RealType          = "real"
     show BoolType          = "bool"
-    show (RefType (RefTypeInfo {refId})) = refId
+    show (RefType (RefTypeInfo {refId, parameters = []})) = refId
+    show (RefType (RefTypeInfo {refId, parameters})) = 
+        refId ++ "<" ++ (concat $ (intersperse ", " (map show parameters))) ++ ">"
     show (TypeVar t)       = t
     show NullType          = "null type"
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
@@ -80,18 +96,21 @@ parType = ParType
 isParType ParType {} = True
 isParType _ = False
 
-refType = \id -> RefType $ RefTypeInfo id Unknown
+refTypeWithParams = \id params -> RefType $ RefTypeInfo id Unknown params
+refType id = refTypeWithParams id []
 isRefType RefType {} = True
 isRefType _ = False
 
-passiveRefType = \id -> RefType $ RefTypeInfo id Passive
+passiveRefTypeWithParams id = makePassive . refTypeWithParams id
+passiveRefType id = passiveRefTypeWithParams id []
 makePassive (RefType info) = RefType $ info {activity = Passive}
 makePassive ty = ty
 
 isPassiveRefType (RefType (RefTypeInfo {activity = Passive})) = True
 isPassiveRefType _ = False
 
-activeRefType = \id -> RefType $ RefTypeInfo id Active
+activeRefTypeWithParams id = makeActive . refTypeWithParams id
+activeRefType id = activeRefTypeWithParams id []
 makeActive (RefType info)  = RefType $ info {activity = Active}
 makeActive ty = ty
 
@@ -106,16 +125,10 @@ isTypeVar (TypeVar _) = True
 isTypeVar _ = False
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
-replaceTypeVars bindings ty
-    | isTypeVar ty = case lookup ty bindings of
-                       Just ty' -> ty'
-                       Nothing  -> ty
-    | isArrowType ty = let argTypes = getArgTypes ty
-                           resultType = getResultType ty
-                       in arrowType (map (replaceTypeVars bindings) argTypes) (replaceTypeVars bindings resultType)
-    | isFutureType ty = futureType (replaceTypeVars bindings (getResultType ty))
-    | isParType ty = parType (replaceTypeVars bindings (getResultType ty))
-    | otherwise = ty
+replaceTypeVars bindings ty = typeMap replace ty
+    where replace ty = case lookup ty bindings of
+                         Just ty' -> ty'
+                         Nothing  -> ty
 
 -- | Used to give types to AST nodes during parsing (i.e. before
 -- typechecking)

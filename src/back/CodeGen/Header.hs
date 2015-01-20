@@ -97,7 +97,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
 
       class_enums =
         let
-          names = map (("ID_"++) . show . A.cname) classes
+          names = map (("ID_"++) . Ty.getId . A.cname) classes
         in
          Enum $ map Nam names
 

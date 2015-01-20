@@ -120,6 +120,7 @@ semi       = P.semi lexer
 semiSep    = P.semiSep lexer
 comma      = P.comma lexer
 parens     = P.parens lexer
+angles     = P.angles lexer
 lparen     = symbol "("
 rparen     = symbol ")"
 braces     = P.braces lexer
@@ -132,13 +133,14 @@ whiteSpace = P.whiteSpace lexer
 -- an expressionParser for types (with arrow as the only infix
 -- operator)
 typ :: Parser Type
-typ  =  try arrow 
+typ  =  try arrow
     <|> parens typ
     <|> nonArrow
     <?> "type"
     where
       nonArrow =  fut
               <|> par
+              <|> try paramType
               <|> singleType
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
@@ -151,7 +153,12 @@ typ  =  try arrow
       par = do reserved "Par" 
                ty <- typ 
                return $ parType ty
-      singleType = do ty <- identifier ;
+      paramType = do id <- identifier
+                     if (isUpper . head $ id) 
+                     then do params <- angles (commaSep typ)
+                             return $ refTypeWithParams id params
+                     else fail "Type with parameters must start with upper-case letter"
+      singleType = do ty <- identifier
                       return $ read ty
           where read "void"   = voidType
                 read "string" = stringType
@@ -213,11 +220,15 @@ function = do pos <- getPosition
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition
-               refKind <- option activeRefType (do {reserved "passive" ; return passiveRefType})
+               refKind <- option activeRefTypeWithParams 
+                          (do {reserved "passive" ; return passiveRefTypeWithParams})
                reserved "class"
                cname <- identifier
+               params <- option [] 
+                         (do ids <- angles $ commaSep identifier
+                             return $ map typeVar ids)
                (fields, methods) <- braces classBody <|> classBody
-               return $ Class (meta pos) (refKind cname) fields methods
+               return $ Class (meta pos) (refKind cname params) fields methods
             where
               classBody = do fields <- many fieldDecl
                              methods <- many methodDecl

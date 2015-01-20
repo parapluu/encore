@@ -231,7 +231,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       pony_actor_t_impl =
                 (AssignTL
                  (Decl (Typ "pony_actor_type_t", AsLval $ actor_rec_name cname))
-                 (Record [AsExpr . AsLval . Nam $ ("ID_"++(show cname)),
+                 (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
                           tracefun_rec,
                           AsExpr . AsLval $ class_message_type_name cname,
                           AsExpr . AsLval $ class_dispatch_name cname]))

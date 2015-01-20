@@ -44,11 +44,25 @@ tcError msg = do bt <- asks backtrace
 checkType :: Type -> ExceptT TCError (Reader Environment) Type
 checkType ty 
     | isPrimitive ty = return ty
-    | isTypeVar ty = return ty
-    | isRefType ty = do result <- asks $ classActivityLookup ty
+    | isTypeVar ty = do params <- asks typeParameters
+                        unless (ty `elem` params) $ 
+                               tcError $ "Free type variables in type '" ++ show ty ++ "'"
+                        return ty
+    | isRefType ty = do result <- asks $ classTypeLookup ty
+                        params <- mapM checkType (getTypeParameters ty)
                         case result of
                           Nothing -> tcError $ "Unknown type '" ++ show ty ++ "'"
-                          Just refType -> return refType -- This will be ty with activity information
+                          Just refType -> 
+                              do let formalParams = getTypeParameters refType
+                                 unless (length params == length formalParams) $
+                                        tcError $ "Class '" ++ show refType ++ "' " ++
+                                                  "expects " ++ show (length formalParams) ++ " type parameters.\n" ++
+                                                  "Type '" ++ show ty ++ "' has " ++ show (length params)
+                                 if isActiveRefType refType then
+                                     return $ makeActive $ setTypeParameters ty params
+                                 else
+                                     return $ makePassive $ setTypeParameters ty params
+
     | isFutureType ty = do ty' <- checkType $ getResultType ty
                            return $ futureType ty'
     | isParType ty = do ty' <- checkType $ getResultType ty
@@ -98,18 +112,12 @@ instance Checkable Function where
     -- ----------------------------------------------------------
     --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
     typecheck f@(Function {funtype, funparams, funbody, funname}) = 
-        do ty <- checkType funtype
-           noFreeTypeVariables
-           eParams <- mapM typecheckParam funparams
+        do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) funparams
+           ty <- local (addTypeParameters typeParams) $ checkType funtype
+           eParams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) funparams
            eBody <- local (addParams eParams) $ pushHasType funbody ty
            return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
         where
-          noFreeTypeVariables = 
-              let retVars = nub $ filter isTypeVar $ typeComponents funtype 
-                  paramVars = nub $ filter isTypeVar $ concatMap (\(Param{ptype}) -> typeComponents ptype) funparams
-              in
-                when (not . null $ retVars \\ paramVars) $
-                     tcError $ "Free type variables in return type '" ++ show funtype ++ "'"
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
@@ -123,13 +131,22 @@ instance Checkable ClassDecl where
     -- -----------------------------------------------------------
     --  E |- class cname fields methods
     typecheck c@(Class {cname, fields, methods}) =
-        do distinctFieldNames
-           efields <- mapM pushTypecheck fields
+        do distinctTypeParams
+           distinctFieldNames
+           efields <- mapM (\f -> withParams $ pushTypecheck f) fields
            distinctMethodNames
            emethods <- mapM typecheckMethod methods
            return $ setType cname c {fields = efields, methods = emethods}
         where
-          typecheckMethod m = local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
+          withParams = local (addTypeParameters (getTypeParameters cname))
+          typecheckMethod m = withParams $ local (extendEnvironment [(thisName, cname)]) $ pushTypecheck m
+          distinctTypeParams = 
+              let params = getTypeParameters cname
+                  paramsNoDuplicates = nub params
+              in
+                case params \\ paramsNoDuplicates of
+                  [] -> return ()
+                  (p:_) -> tcError $ "Duplicate type parameter '" ++ show p ++ "'"
           distinctFieldNames = 
               let fieldsNoDuplicates = nubBy (\f1 f2 -> (fname f1 == fname f2)) fields
               in
@@ -149,11 +166,7 @@ instance Checkable FieldDecl where
     -- -----------------
    ---  |- f : t
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
-                                     let types = typeComponents ty
-                                     when (any isTypeVar types) $ 
-                                          tcError $ "Free type variables in field type"
-                                     return $ setType ty f
-  
+                                     return $ setType ty f  
 
 instance Checkable MethodDecl where
    ---  |- mtype 
@@ -169,26 +182,20 @@ instance Checkable MethodDecl where
     -- -----------------------------------------------------
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(Method {mtype, mparams, mbody, mname}) = 
-        do ty <- checkType mtype
-           noFreeTypeVariables
+        do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) mparams
+           ty <- local (addTypeParameters typeParams) $ checkType mtype
            Just thisType <- asks $ varLookup thisName
            when (isMainType thisType && mname == Name "main") checkMainParams
-           eMparams <- mapM typecheckParam mparams
+           eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
            eBody <- local (addParams eMparams) $ pushHasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          noFreeTypeVariables = 
-              let retVars = nub $ filter isTypeVar $ typeComponents mtype 
-                  paramVars = nub $ filter isTypeVar $ concatMap (\(Param{ptype}) -> typeComponents ptype) mparams
-              in
-                when (not . null $ retVars \\ paramVars) $
-                     tcError $ "Free type variables in return type '" ++ show mtype ++ "'"
           checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
                               tcError $
                                 "Main method must have argument type () or (int, string[]) (but arrays are not supported yet)"
-          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
-                                                 do ty <- checkType ptype
-                                                    return $ setType ty p)
+          typecheckParam p@(Param{ptype}) = local (pushBT p) $ 
+                                            do ty <- checkType ptype
+                                               return $ setType ty p
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 instance Checkable Expr where
@@ -270,7 +277,10 @@ instance Checkable Expr where
                            _ -> "Method '" ++ show name ++ "'") ++ 
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
-           (eArgs, bindings) <- matchArguments args paramTypes
+           let actualTypeParams = getTypeParameters targetType
+           formalTypeParams <- asks $ classTypeParameterLookup targetType
+           targetBindings <- matchTypeParameters formalTypeParams actualTypeParams
+           (eArgs, bindings) <- local (bindTypes targetBindings) $ matchArguments args paramTypes
            let resultType = replaceTypeVars bindings methodType
                returnType = if isThisAccess target || isPassiveRefType targetType
                             then resultType
@@ -308,7 +318,10 @@ instance Checkable Expr where
                            _ -> "Method '" ++ show name ++ "'") ++ 
                         " of class '" ++ show targetType ++ "' expects " ++ show (length paramTypes) ++ 
                         " arguments. Got " ++ show (length args)
-           (eArgs, bindings) <- matchArguments args paramTypes
+           let actualTypeParams = getTypeParameters targetType
+           formalTypeParams <- asks $ classTypeParameterLookup targetType
+           targetBindings <- matchTypeParameters formalTypeParams actualTypeParams
+           (eArgs, bindings) <- local (bindTypes targetBindings) $ matchArguments args paramTypes
            return $ setType voidType msend {target = eTarget, args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
@@ -339,7 +352,8 @@ instance Checkable Expr where
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     typecheck closure@(Closure {eparams, body}) = 
-        do eEparams <- mapM typecheckParam eparams
+        do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) eparams
+           eEparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) eparams
            eBody <- local (addParams eEparams) $ pushTypecheck body
            let returnType = AST.getType eBody
            when (isNullType returnType) $ 
@@ -462,20 +476,24 @@ instance Checkable Expr where
     --  E |- target.name : t
     typecheck fAcc@(FieldAccess {target, name}) = 
         do eTarget <- pushTypecheck target
-           let pathType = AST.getType eTarget
-           when (isPrimitive pathType) $ 
+           let targetType = AST.getType eTarget
+           when (isPrimitive targetType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr target) ++ "' of primitive type '" ++ show pathType ++ "'"
-           when (isTypeVar pathType) $ 
+                          (show $ ppExpr target) ++ "' of primitive type '" ++ show targetType ++ "'"
+           when (isTypeVar targetType) $ 
                 tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr target) ++ "' of polymorphic type '" ++ show pathType ++ "'"
-           when (isActiveRefType pathType && (not $ isThisAccess eTarget)) $ 
+                          (show $ ppExpr target) ++ "' of polymorphic type '" ++ show targetType ++ "'"
+           when (isActiveRefType targetType && (not $ isThisAccess eTarget)) $ 
                 tcError $ "Cannot read field of expression '" ++ 
-                          (show $ ppExpr target) ++ "' of active object type '" ++ show pathType ++ "'"
-           fType <- asks $ fieldLookup pathType name
+                          (show $ ppExpr target) ++ "' of active object type '" ++ show targetType ++ "'"
+           fType <- asks $ fieldLookup targetType name
            case fType of
-             Just ty -> return $ setType ty fAcc {target = eTarget}
-             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show pathType ++ "'"
+             Just ty -> do let actualTypeParams = getTypeParameters targetType
+                           formalTypeParams <- asks $ classTypeParameterLookup targetType
+                           bindings <- matchTypeParameters formalTypeParams actualTypeParams
+                           let ty' = replaceTypeVars bindings ty
+                           return $ setType ty' fAcc {target = eTarget}
+             Nothing -> tcError $ "No field '" ++ show name ++ "' in class '" ++ show targetType ++ "'"
 
     --  E |- lhs : t
     --  isLval(lhs)
@@ -646,7 +664,7 @@ instance Checkable Expr where
 matchArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg --pushHasType arg typ
+matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg
                                            bindings <- matchTypes typ (AST.getType eArg)
                                            (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
                                            return (eArg:eArgs, bindings')
@@ -711,6 +729,10 @@ matchTypes expected ty
       matchArguments [] [] = asks bindings
       matchArguments (ty1:types1) (ty2:types2) = do bindings <- matchTypes ty1 ty2
                                                     local (bindTypes bindings) $ matchArguments types1 types2
+
+matchTypeParameters :: [Type] -> [Type] -> ExceptT TCError (Reader Environment) [(Type, Type)]
+matchTypeParameters formals params = do bindings <- mapM (uncurry matchTypes) $ zip formals params
+                                        return $ concat bindings
 
 assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()
 assertSubtypeOf sub super = 

@@ -1,0 +1,35 @@
+class Cell<a>
+  val : a
+  def init(val : a) : void
+    this.val = val
+
+  def getVal() : a
+    this.val
+
+class Pair<a, b>
+  fst : a
+  snd : b
+  def init(fst : a, snd : b) : void{
+    this.fst = fst;
+    this.snd = snd
+  }
+  def getFst() : a
+    this.fst
+
+  def getSnd() : b
+    this.snd
+
+class Main
+  def main() : void{
+    let p = new Pair<int, string>(42, "fortytwo")
+        c = new Cell<Pair<int, string>>(p)
+        pp = get c.getVal()
+    in {
+      print get pp.getFst();
+      print get pp.getSnd();
+    };
+     -- Workaround for Github-issue #44'
+     embed void
+       fflush(NULL);
+     end
+  }

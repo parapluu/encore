@@ -12,13 +12,16 @@ typevar-type bindings for doing lookups, as well as the
 module Typechecker.Environment(Environment, 
                                buildEnvironment, 
                                classLookup, 
-                               classActivityLookup, 
+                               classTypeLookup, 
+                               classTypeParameterLookup, 
                                methodLookup, 
                                fieldLookup, 
                                varLookup,
                                isLocal,
                                typeVarLookup,
                                extendEnvironment,
+                               addTypeParameters,
+                               typeParameters,
                                replaceLocals,
                                bindType,
                                bindTypes,
@@ -47,6 +50,7 @@ data Environment = Env {ctable :: [ClassType],
                         globals :: [FunctionType], 
                         locals :: [VarType], 
                         bindings :: [(Type, Type)], 
+                        typeParameters :: [Type],
                         bt :: Backtrace}
 
 buildEnvironment :: Program -> Either TCError Environment
@@ -55,7 +59,8 @@ buildEnvironment Program {functions, classes} =
        distinctClasses
        return $ Env {ctable = map getClassType classes,
                      globals = map getFunctionType functions, 
-                     locals = [], bindings = [], bt = emptyBT}
+                     locals = [], bindings = [], typeParameters = [], 
+                     bt = emptyBT}
     where
       -- Each class knows if it's passive or not, but reference
       -- types in functions, methods and fields must be given the
@@ -100,16 +105,23 @@ methodLookup :: Type -> Name -> Environment -> Maybe ([Type], Type)
 methodLookup cls m env = do (_, methods) <- classLookup cls env
                             lookup m methods
 
+-- TODO: Merge these two functions
 classLookup :: Type -> Environment -> Maybe ([FieldType], [MethodType])
 classLookup cls env
     | isRefType cls = lookup cls (ctable env)
     | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' which is not a reference type"
 
-classActivityLookup :: Type -> Environment -> Maybe Type
-classActivityLookup cls env 
+classTypeLookup :: Type -> Environment -> Maybe Type
+classTypeLookup cls env 
     | isRefType cls = do (cls', _) <- find (\(cls', _) -> getId cls == getId cls') (ctable env)
                          return cls'
-    | otherwise = error $ "Tried to lookup the activity of '" ++ show cls ++ "' which is not a reference type"
+    | otherwise = error $ "Tried to lookup the class declaration of '" ++ show cls ++ "' which is not a reference type"
+
+classTypeParameterLookup :: Type -> Environment -> [Type]
+classTypeParameterLookup cls env
+    | isRefType cls = let Just (cls', _) = find (\(cls', _) -> getId cls == getId cls') (ctable env)
+                      in getTypeParameters cls'
+    | otherwise = error $ "Tried to lookup the type parameters of '" ++ show cls ++ "' which is not a reference type"
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = case lookup x (locals env) of
@@ -133,6 +145,14 @@ extendEnvironment ((name, ty):newTypes) env =
       extend ((name, ty):locals) name' ty'
           | name == name' = (name', ty'):locals
           | otherwise     = (name, ty):(extend locals name' ty')
+
+addTypeParameters :: [Type] -> Environment -> Environment
+addTypeParameters [] env = env
+addTypeParameters xs env@(Env{typeParameters}) =
+    if all isTypeVar xs then
+        env{typeParameters = xs ++ typeParameters}
+    else
+        error "Tried to add a type parameter that was not a type parameter"
 
 bindType :: Type -> Type -> Environment -> Environment
 bindType var ty env
