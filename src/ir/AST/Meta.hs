@@ -11,9 +11,9 @@ data MetaInfo = Unspecified
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos, 
-                    metaType :: Type, 
-                    sugared :: Maybe a,
-                    metaInfo :: MetaInfo} deriving (Eq, Show)
+                    metaType  :: Type, 
+                    sugared   :: Maybe a,
+                    metaInfo  :: MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
 meta pos = Meta {sourcePos = pos, metaType = emptyType, sugared = Nothing, metaInfo = Unspecified}

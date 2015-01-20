@@ -10,7 +10,6 @@ module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCErro
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
--- import Control.Monad.Error
 import Control.Monad.Except
 import Data.Maybe
 
@@ -19,7 +18,8 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | BTField FieldDecl | BTMethod MethodDecl | BTExpr Expr
+data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | 
+                     BTField FieldDecl | BTMethod MethodDecl | BTExpr Expr
 instance Show BacktraceNode where
     show (BTFunction n ty) = "In function '"       ++ show n                 ++ "' of type '" ++ show ty ++ "'"
     show (BTClass ty)      = "In class '"          ++ show ty                ++ "'"
