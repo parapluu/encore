@@ -181,9 +181,9 @@
 ;(setq-local imenu-create-index-function 'imenu-default-create-index-function))
 
 
-(add-to-list 'load-path (concat (file-name-directory (buffer-file-name)) "dtrt-indent-20140325.1330/"))
-(require 'dtrt-indent)
-(dtrt-indent-mode 1)
+;(add-to-list 'load-path (concat (file-name-directory (buffer-file-name)) "dtrt-indent-20140325.1330/"))
+;(require 'dtrt-indent)
+;(dtrt-indent-mode 1)
 
 (add-hook 'encore-mode-hook
 	  (lambda ()
