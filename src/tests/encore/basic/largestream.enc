@@ -1,0 +1,24 @@
+#!/usr/bin/env encorec -run
+
+-- a Sequence of Integers
+class IntSeq
+
+  stream start(fr : int, to : int) : int {
+    while fr <= to {
+      yield fr;
+      fr = fr+1
+    };
+  }
+
+class Main
+  def main() : void
+    let
+      lst = 0
+      str = (new IntSeq).start(1,1000000)
+    in {
+      while not eos str {
+        lst = get str;
+        str = getNext str;
+      };
+      print lst
+    }
