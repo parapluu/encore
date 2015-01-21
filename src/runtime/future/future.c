@@ -209,7 +209,7 @@ future_t  *future_chain_actor(future_t *fut, future_t* r, closure_t *c)
 {
   perr("future_chain_actor");
 
-  closure_entry_t *entry = malloc(sizeof *entry);
+  closure_entry_t *entry = pony_alloc(sizeof *entry);
   entry->actor = actor_current();
   entry->future = r;
   entry->closure = c;
