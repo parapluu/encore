@@ -1,4 +1,0 @@
-FUT_MSG_HANDLE
-  carries a payload which is the ucontext
-    sometime sending the FUT_MSG_HANDLE is delayed -- on a get
-    

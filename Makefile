@@ -28,6 +28,7 @@ test: encorec
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 doc:
+	make -C doc/encore/
 	haddock -o doc/html -h $$(find . -name "*.hs" | grep -v "\.#")
 	make -C $(SET_DIR) doc
 	make -C $(FUTURE_DIR) doc
@@ -62,6 +63,7 @@ pony: dirs $(PONY_INC)
 clean:
 	cabal clean
 	rm -rf dist
+	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
 	make -C programs clean
 	rm -rf $(RELEASE_DIR)
@@ -69,4 +71,4 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc/html
 
-.PHONY: all encorec fetch-hs-deps test dirs pony clean
+.PHONY: all encorec fetch-hs-deps test dirs pony clean doc
