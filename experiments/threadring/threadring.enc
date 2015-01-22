@@ -2,10 +2,9 @@ class Agent
   id: int
   next: Agent
 
-  def init(id: int): Agent {
+  def init(id: int) {
     this.id = id;
     this.next = null;
-    this;
   }
 
   def add(a: Agent): Agent {
