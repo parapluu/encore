@@ -1,0 +1,31 @@
+class Actor
+  id:int
+  next:Actor
+  def init(id:int) : void 
+    this.id = id
+  def create_ring(id:int, ring_size:int, fst:Actor) : void
+    if (id < ring_size) then
+      {
+        this.next = new Actor(id);
+        this.next ! create_ring(id + 1, ring_size, fst);
+      }
+    else
+      {
+        this.next = fst;
+      }
+   def send(hops:int) : void
+    if (hops > 0) then
+      this.next ! send(hops-1)
+    else
+      print(this.id)
+      
+
+class Main
+  def main() : void 
+    let
+      a = new Actor(503)
+    in
+      {
+        a ! create_ring(1, 502, a);
+	a ! send(5000000)
+      }
