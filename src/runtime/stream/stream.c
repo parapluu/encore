@@ -1,5 +1,6 @@
 #include "stream.h"
 #include "future.h"
+#include <stdio.h>
 
 struct scons{
   bool eos;
@@ -13,6 +14,16 @@ static struct scons *scons_mk(){
   scons->element = (value_t) {.p = NULL};
   scons->next = NULL;
   return scons;
+}
+
+// For debugging
+static void scons_print(struct scons *scons){
+  printf("struct scons@%p{\n", scons);
+  printf("  eos     = %s\n", scons->eos? "true": "false");
+  printf("  element = %d\n", scons->element.i);
+  printf("  next    = %p\n", scons->next);
+  printf("  foo     = %d\n", scons->foo);
+  printf("}\n", scons);
 }
 
 stream_t *stream_mk(){
