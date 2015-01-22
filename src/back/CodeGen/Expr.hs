@@ -19,6 +19,7 @@ import CCode.Main
 import qualified AST.AST as A
 import qualified AST.Util as Util
 import qualified AST.Meta as Meta
+import qualified AST.PrettyPrinter as PP
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -139,7 +140,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate seq@(A.Seq {A.eseq}) = do
     ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes
-    return (last nes, Seq tes)
+--    let comms = map (Comm . show . PP.ppExpr) eseq
+--    map comment_and_te (zip eseq tes)
+    return (last nes, Seq $ map comment_and_te (zip eseq tes))
+           where
+--             merge comms tes = concat $ zipWith (\(comm, te) -> (Seq [comm,te])) comms tes
+
+             comment_for = (Comm . show . PP.ppExpr)
+
+             comment_and_te (ast, te) = Seq [comment_for ast, te]
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- if A.isThisAccess rhs && (Ty.isActiveRefType $ A.getType rhs)
@@ -186,7 +195,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                           else translate expr
                               tmp <- Ctx.gen_named_sym (show name)
                               substitute_var name (Var tmp)
-                              return $ (Var tmp , [te, Assign (Decl (translate (A.getType expr), Var tmp)) ne])
+                              return $ (Var tmp
+                                       , [ Comm ((show name) ++ " = " ++ (show $ PP.ppExpr expr))
+                                         , te
+                                         , Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
   translate new@(A.New {A.ty}) 
       | Ty.isActiveRefType ty = named_tmp_var "new" ty (Call (Nam "create_and_send")
