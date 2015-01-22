@@ -1,4 +1,4 @@
-mylittlepony
+encore
 ============
 
 Preliminary explorations for the Encore compiler.
@@ -22,6 +22,7 @@ We're using:
  - g++ 4.8
  - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
  - premake4 (Premake Build Script Generator) 4.3
+ - `scribble` -- only for building the documentation
 
 
 In the below you find instructions for installing the preliminaries  on OS X and on linux.
@@ -36,6 +37,12 @@ Go to http://brew.sh/, the instructions there work nicely. Make sure that your n
 
 Run: `brew update; brew install doxygen`
 
+##### Installing `scribble`
+
+Go to the [Racket Download page](http://racket-lang.org/download/),
+download and install racket. The `scribble` tool comes with the racket
+distribution.
+
 ##### Installing `clang`:
 
 Run: `brew update; brew install llvm`
@@ -49,7 +56,7 @@ You need at least version `7.6.3`.
 - If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
 - If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to uninstall stuff easily once you don't need it any more.
 
-Then install the newest version, saying `brew update; brew install cabal; cabal install cabal-install`.
+Then install the newest version, saying `brew update && brew install cabal && cabal install cabal-install`.
 
 #### Installing the preliminaries on Linux
 
@@ -72,9 +79,9 @@ is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
 
     gcc/g++: ~> 4.8
 
-#### Step 2: Compiling and installing mylittlepony
+#### Step 2: Compiling and installing encore
 
-    cd mylittlepony
+    cd encore
     make
     make test
 
@@ -86,7 +93,7 @@ We recommend that you add the `release` directory to your `PATH` environment var
 
 in any directory. To do this, add this line to your `~/.bashrc` file, inserting the proper path for `<SOME_DIR>`:
 
-    export PATH="<SOME_DIR>/mylittlepony/release:${PATH}"
+    export PATH="<SOME_DIR>/encore/release:${PATH}"
 
 ### Step 4: Compiling and Running Encore Programs
 
@@ -112,7 +119,7 @@ Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env en
 
 This will compile the file -- and run it.
 
-You can find some example programs in the [programs](https://github.com/parapluu/mylittlepony/tree/master/programs) directory.
+You can find some example programs in the [programs](https://github.com/parapluu/encore/tree/master/programs) directory.
 
 Have fun!
 
