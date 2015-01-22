@@ -231,8 +231,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    targs <- mapM varaccess_this_to_aref args
                    let argtys = (map A.getType args)
                    let targtys = map (translate . A.getType) args :: [CCode Ty]
-                   the_fut_name <- Ctx.gen_named_sym "fut"
-                   let the_fut_decl = Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) (Call (Nam "future_mk") ([] :: [CCode Lval]))
+                   the_fut_name <- if Ty.isStreamType $ A.getType call then 
+                                       Ctx.gen_named_sym "stream"
+                                   else
+                                       Ctx.gen_named_sym "fut"
+                   let the_fut_decl = if Ty.isStreamType $ A.getType call then 
+                                          Assign (Decl (Ptr $ Typ "stream_t", Var the_fut_name)) 
+                                                 (Call (Nam "stream_mk") ([] :: [CCode Lval]))
+                                      else 
+                                          Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) 
+                                                 (Call (Nam "future_mk") ([] :: [CCode Lval]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
