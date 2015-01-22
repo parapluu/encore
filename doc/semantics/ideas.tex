@@ -1,0 +1,59 @@
+\documentclass{article}
+
+\usepackage{color}
+\usepackage{xspace}
+
+\newcommand{\TODO}[1]{\textcolor{red}{TODO: #1\xspace}}
+
+\newcommand{\sub}{\mathop{<:}}
+
+\title{Encore Semantics Ideas}
+\author{Many}
+
+\begin{document}
+	\maketitle
+	
+
+	\section{Advanced Features}
+
+	\subsection*{Pars}
+
+
+	Par is the top element of a hierarchy of structured types.
+	For instance, we may have an array type with size, and array
+	type with unknown size, and then Par.
+
+	\[
+		Array~s~t \sub AnArray~t \sub Par~t
+	\]
+
+Copy
+
+\subsection*{Streams}
+
+
+Four variants. Linearly used ends or not.
+
+A method producing a stream uses yield, as in Scala. 
+That is, generators produce streams.
+
+Multiple parties may have access to the output end of the stream.
+They basically traverse it.
+
+Semantically,
+\begin{verbatim}
+  type Stream a = Future (Selement a)
+  data SElement a  = EOS | SCons a (Stream a) 
+\end{verbatim}
+
+\subsection*{Channels}
+
+Same constraints as for streams, except when multiple ends have access
+to the end, it is a first in best dressed situation.		
+
+
+
+	
+\end{document}
+	
+	
