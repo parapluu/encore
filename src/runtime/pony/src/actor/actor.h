@@ -28,6 +28,8 @@ void actor_suspend(pony_actor_t *actor);
 void actor_block(pony_actor_t *actor);
 void actor_resume(pony_actor_t *actor);
 void actor_set_resume(pony_actor_t *actor);
+void actor_set_run_to_completion(pony_actor_t *actor);
+bool actor_run_to_completion(pony_actor_t *actor);
 void actor_await(pony_actor_t *actor, void *future);
 
 bool actor_run(pony_actor_t* actor);
