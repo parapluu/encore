@@ -1,3 +1,5 @@
+#! ../release/encorec -c
+
 passive class Link
   elem : int
   next : Link
@@ -31,26 +33,35 @@ class Stack
       ()
 
 class Pusher
-  def run(s : Stack) : void
-    let i = 1000000 in{
-      while i > 0 {s.push(i); i = i - 1};
+  stack : Stack
+  def init(stack : Stack) : void
+    this.stack = stack
+  def run() : void
+    let i = 10000 in{
+      while i > 0 {this.stack.push(i); i = i - 1};
       print "Pusher done"
     }
 
 class Popper
-  def run(s : Stack) : void
-    let i = 1000000 in{
-      while i > 0 {s.pop(); i = i - 1};
+  stack : Stack
+  def init(stack : Stack) : void
+    this.stack = stack
+  def run() : void
+    let i = 10000 in{
+      while i > 0 {this.stack.pop(); i = i - 1};
       print "Popper done"
     }
 
 class Main
   stack : Stack
-  def main() : Fut void
-    let pusher = new Pusher in
-    let popper = new Popper in
-    let stack  = new Stack  in{
-      stack.init();
-      pusher.run(stack);
-      popper.run(stack);
-    }
+  pusher : Pusher
+  popper : Popper
+  def main() : void{
+    let stack  = new Stack()
+        pusher = new Pusher(stack)
+        popper = new Popper(stack)
+    in
+      this.pusher.run();
+      this.popper.run();
+      ()
+  }
