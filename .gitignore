@@ -14,6 +14,8 @@ cabal-dev
 lib*.a
 cabal.sandbox.config
 cabal.config
+doc/encore/build/
+doc/html/
 encorec
 release
 GPATH
