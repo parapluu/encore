@@ -27,5 +27,5 @@ class Main
     in
       {
         a ! create_ring(1, 502, a);
-	a ! send(50 * 1000 * 1000)
+	a ! send(50 * 1000)
       }
