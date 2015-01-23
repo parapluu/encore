@@ -277,8 +277,16 @@ void future_suspend_resume(void *arg)
   ctx_wrapper *d = (ctx_wrapper *) arg;
   ucontext_t* ctx = d->ctx;
   ctx->uc_link = d->uc_link;
+
+  pony_actor_t *actor = actor_current();
+  actor_set_run_to_completion(actor);
+
   assert(swapcontext(ctx->uc_link, ctx) == 0);
-  reclaim_page(actor_current());
+
+
+  if (actor_run_to_completion(actor)) {
+      reclaim_page(actor);
+  }
 }
 
 void future_await(future_t *fut)
@@ -298,8 +306,14 @@ void future_await_resume(void *argv)
 
   if (future_fulfilled(fut))
   {
+    pony_actor_t *actor = actor_current();
+    actor_set_run_to_completion(actor);
+
     assert(swapcontext(ctx->uc_link, ctx) == 0);
-    reclaim_page(actor_current());
+
+    if (actor_run_to_completion(actor)) {
+        reclaim_page(actor);
+    }
   } else {
     pony_sendv(actor_current(), FUT_MSG_AWAIT, 2, argv);
   }

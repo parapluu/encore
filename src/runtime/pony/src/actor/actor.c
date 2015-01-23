@@ -47,6 +47,7 @@ struct pony_actor_t
   ucontext_t ctx;
   ucontext_t home_ctx;
   bool resume;
+  bool run_to_completion;
   stack_page *page;
 };
 
@@ -114,6 +115,8 @@ void actor_suspend(pony_actor_t *actor)
   local_page = NULL;
 
   pony_sendv(actor, FUT_MSG_SUSPEND, 1, argv);
+
+  actor->run_to_completion = false;
   assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
 }
@@ -131,15 +134,17 @@ void actor_await(pony_actor_t *actor, void *future)
 
   pony_sendv(actor, FUT_MSG_AWAIT, 2, argv);
 
+  actor->run_to_completion = false;
   assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
 }
 
 void actor_block(pony_actor_t *actor)
 {
-  actor->page = actor->page ? actor->page : local_page;
+  actor->page = local_page ? local_page : actor->page;
   assert(actor->page);
   local_page = NULL;
+  actor->run_to_completion = false;
   assert(swapcontext(&actor->ctx, actor->ctx.uc_link) == 0);
 }
 
@@ -148,11 +153,25 @@ void actor_set_resume(pony_actor_t *actor)
   actor->resume = true;
 }
 
+void actor_set_run_to_completion(pony_actor_t *actor)
+{
+    actor->run_to_completion = true;
+}
+
+bool actor_run_to_completion(pony_actor_t *actor)
+{
+    return actor->run_to_completion;
+}
+
 void actor_resume(pony_actor_t *actor)
 {
   actor->resume = false;
+  actor->run_to_completion = true;
   assert(swapcontext(actor->ctx.uc_link, &actor->ctx) == 0);
-  reclaim_page(actor);
+
+  if (actor->run_to_completion) {
+    reclaim_page(actor);
+  }
 }
 
 static bool has_flag(pony_actor_t* actor, uint8_t flag)
