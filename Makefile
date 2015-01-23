@@ -71,4 +71,7 @@ clean:
 	rm -rf $(LIB_DIR)
 	rm -rf doc/html
 
-.PHONY: all encorec fetch-hs-deps test dirs pony clean doc
+vagrant:
+	-@vagrant up
+
+.PHONY: all encorec fetch-hs-deps test dirs pony clean doc vagrant
