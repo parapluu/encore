@@ -4,7 +4,7 @@ class Actor
   def init(id:int) : void 
     this.id = id
   def create_ring(id:int, ring_size:int, fst:Actor) : void
-    if (id < ring_size) then
+    if (id <= ring_size) then
       {
         this.next = new Actor(id);
         this.next ! create_ring(id + 1, ring_size, fst);
@@ -18,14 +18,13 @@ class Actor
       this.next ! send(hops-1)
     else
       print(this.id)
-      
 
 class Main
   def main() : void 
     let
-      a = new Actor(503)
+      a = new Actor(1)
     in
       {
-        a ! create_ring(1, 502, a);
-	a ! send(50 * 1000)
+        a ! create_ring(2, 503, a);
+	a ! send(50 * 1000 * 1000)
       }
