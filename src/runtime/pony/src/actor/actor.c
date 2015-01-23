@@ -87,6 +87,7 @@ static void push_page(stack_page *page)
 void reclaim_page(pony_actor_t *a)
 {
   push_page(a->page);
+  a->page = NULL;
 }
 
 static void clean_pool()
@@ -136,7 +137,8 @@ void actor_await(pony_actor_t *actor, void *future)
 
 void actor_block(pony_actor_t *actor)
 {
-  actor->page = local_page;
+  actor->page = actor->page ? actor->page : local_page;
+  assert(actor->page);
   local_page = NULL;
   assert(swapcontext(&actor->ctx, actor->ctx.uc_link) == 0);
 }
