@@ -22,8 +22,7 @@ static void scons_print(struct scons *scons){
   printf("  eos     = %s\n", scons->eos? "true": "false");
   printf("  element = %d\n", scons->element.i);
   printf("  next    = %p\n", scons->next);
-  printf("  foo     = %d\n", scons->foo);
-  printf("}\n", scons);
+  printf("}\n");
 }
 
 stream_t *stream_mk(){
