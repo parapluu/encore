@@ -311,6 +311,12 @@ bool actor_run(pony_actor_t* actor)
   message_t* msg;
   this_actor = actor;
 
+  if(actor->resume)
+  {
+    actor_resume(actor);
+    return !has_flag(actor, FLAG_UNSCHEDULED);
+  }
+
   clean_pool();
 
   if(heap_startgc(&actor->heap))
@@ -322,12 +328,6 @@ bool actor_run(pony_actor_t* actor)
     gc_sweep(&actor->gc);
     gc_done(&actor->gc);
     heap_endgc(&actor->heap);
-  }
-
-  if(actor->resume)
-  {
-    actor_resume(actor);
-    return !has_flag(actor, FLAG_UNSCHEDULED);
   }
 
   while((msg = messageq_pop(&actor->q)) != NULL)
