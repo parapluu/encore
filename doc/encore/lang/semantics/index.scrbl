@@ -379,7 +379,7 @@ We can now use the class like this:
 @codeblock|{
 class Main
   def main() : void
-    let pair = new Pair<int,string>(65, "a") in
+    let pair = new (Pair int string)(65, "a") in
       print("({},{})\n", pair.fst, pair.snd)
 }|
 
