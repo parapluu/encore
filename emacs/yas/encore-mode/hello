@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: hello
+# key: hello
+# --
+#! /usr/bin/env encorec -run
+class Main
+  def main() : void
+    print "Hello, World!"
