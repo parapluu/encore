@@ -104,15 +104,15 @@ def pmap(f : T -> T, x : ParT) : ParT {
 passive class T  -- represents the type variable for ParT
 
 passive class ParT {
-  typetag : int,
-  -- union
+  typetag : int
+  -- union 
   -- S -- typetag == 0
   -- V -- typetag == 1
-  valv : T,
+  valv : T
   -- F -- typetag == 2
-  futurev : Fut T,
+  futurev : Fut T
   -- P -- typetag == 3
-  leftv : ParT,
+  leftv : ParT
   rightv : ParT
 
   def init() : ParT {

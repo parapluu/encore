@@ -10,8 +10,8 @@ passive class Data
 
 
 passive class Queue
-  head: Data,
-  tail: Data,
+  head: Data
+  tail: Data
   size: int
   
   def init(): void {
@@ -37,7 +37,7 @@ passive class Queue
   
   def pop(): Data
     if(this.size == 0) then {	
-      embed (Data)
+      embed Data
         NULL;
       end
     }else{

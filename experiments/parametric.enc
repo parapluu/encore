@@ -2,21 +2,21 @@
 
 passive class Node<foo>
   element : foo
-  next : Node foo
-  def init(element : foo, next : Node foo) : void{
+  next : Node<foo>
+  def init(element : foo, next : Node<foo>) : void{
     this.element = element;
     this.next = next;
   }
 
 class List<bar>
-  head : Node bar
+  head : Node<bar>
   
   def init() : void{
     this.head = null
   }
 
   def add(x : bar) : void{
-    this.head = new (Node bar)(x, this.head)
+    this.head = new Node<bar>(x, this.head)
   }
 
 --  def head() : bar{
@@ -42,11 +42,11 @@ passive class Pair<a, b>
 
 class Main
   def main() : void{
-    let l = new (List int)(),
-        c1 = new (Cell int)(42),
-        c2 = new (Cell string)("fortytwo"),
-        p = new (Pair int string)(42, "fortytwo"),
-        c3 = new (Cell (Pair int string))(p)
+    let l = new List<int>() 
+        c1 = new Cell<int>(42)
+        c2 = new Cell<string>("fortytwo")
+        p = new Pair<int,string>(42, "fortytwo")
+        c3 = new Cell<Pair<int, string>>(p)
     in {
       l.add(3);
       l.add(2);

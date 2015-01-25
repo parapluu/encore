@@ -82,8 +82,8 @@ instance Show Type where
     show RealType          = "real"
     show BoolType          = "bool"
     show (RefType (RefTypeInfo {refId, parameters = []})) = refId
-    show (RefType (RefTypeInfo {refId, parameters})) =
-        refId ++ " " ++ (concat $ (intersperse " " (map show parameters)))
+    show (RefType (RefTypeInfo {refId, parameters})) = 
+        refId ++ "<" ++ (concat $ (intersperse ", " (map show parameters))) ++ ">"
     show (TypeVar t)       = t
     show NullType          = "null type"
     show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
