@@ -53,15 +53,13 @@ class Popper
     }
 
 class Main
-  stack : Stack
-  pusher : Pusher
-  popper : Popper
   def main() : void{
     let stack  = new Stack()
         pusher = new Pusher(stack)
         popper = new Popper(stack)
-    in
-      this.pusher.run();
-      this.popper.run();
+    in{
+      pusher.run();
+      popper.run();
       ()
+    }
   }
