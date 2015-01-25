@@ -1,7 +1,7 @@
 #! /usr/bin/env encorec -run
 
 class Agent
-  id: int
+  id: int,
   next: Agent
 
   def init(id: int): void{
@@ -27,9 +27,9 @@ class Agent
 class Main
   def main(): Fut void {
     let 
-      n_agents = 2
-      hops = 50*1000*1000
-      first_agent = new Agent(1)
+      n_agents = 2,
+      hops = 50*1000*1000,
+      first_agent = new Agent(1),
       prev_agent = new Agent(2)
     in {
       --
