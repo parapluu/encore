@@ -12,6 +12,6 @@ build/pdf/encore.pdf: $(SCRBLS)
 	@scribble --pdf --dest $(BUILD)/pdf $(DEST) $(INIT);
 
 clean:
-	@rm -r $(BUILD)
+	@rm -fr $(BUILD)
 
 .PHONY: all clean
