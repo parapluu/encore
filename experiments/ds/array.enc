@@ -5,7 +5,7 @@ passive class Array_Data
     this.v = v
 
 passive class Array
-  slots: Array_Data
+  slots: Array_Data,
   size: int
 
   def init(size:int) : void

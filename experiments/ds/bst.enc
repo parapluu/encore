@@ -13,9 +13,9 @@ passive class Data
   }
 
 passive class BST
-  node: Data
-  left: BST
-  right: BST
+  node: Data,
+  left: BST,
+  right: BST,
   count: int
 
   def init(): BST {

@@ -236,7 +236,7 @@ classDecl = do pos <- getPosition
                (fields, methods) <- braces classBody <|> classBody
                return $ Class (meta pos) (refKind cname params) fields methods
             where
-              classBody = do fields <- many fieldDecl
+              classBody = do fields <- fieldDecl `sepBy` (do { optional comma; whiteSpace })
                              methods <- many methodDecl
                              return (fields, methods)
                                      

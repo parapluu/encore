@@ -10,7 +10,7 @@ passive class Data
     this.elem
 
 passive class Node
-  data: Data
+  data: Data,
   next: Node
 
   def init(x: int): void {
@@ -99,9 +99,9 @@ passive class List
 
 class Main
   def main(): void {
-    let l = new List 
+    let l = new List,
         l2 = new List in {
-	l.push(new Data(7));        
+	l.push(new Data(7));
         l.push(new Data(8));
         l.push(new Data(9));
         l.push(new Data(10));
