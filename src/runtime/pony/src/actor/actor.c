@@ -141,9 +141,11 @@ void actor_await(pony_actor_t *actor, void *future)
 
 void actor_block(pony_actor_t *actor)
 {
-  actor->page = local_page ? local_page : actor->page;
+  if (!actor->page) {
+    actor->page = local_page;
+    local_page = NULL;
+  }
   assert(actor->page);
-  local_page = NULL;
   actor->run_to_completion = false;
   assert(swapcontext(&actor->ctx, actor->ctx.uc_link) == 0);
 }

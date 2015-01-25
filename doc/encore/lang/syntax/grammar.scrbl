@@ -85,7 +85,6 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm FieldDecls)
 @(encore/nonterm MethodDecls)
 @(encore/nonterm Type)
-@(encore/nonterm FieldDecl)
 @(encore/nonterm Expr)
 @(encore/nonterm Seq)
 @(encore/nonterm Sequence)
@@ -137,7 +136,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	
 	  (list FieldDecls
 	  	@alt[
-  		 	@seq[Name colon Type FieldDecl]
+  		 	@seq[Name colon Type comma FieldDecls]
+ 		 	@seq[Name colon Type]
 			eps])
 
 	(list ParamDecls
@@ -171,7 +171,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
 	(list LetDecls
 	      @alt[
-			@seq[Name equal Expr LetDecls]
+			@seq[Name equal Expr comma LetDecls]
+			@seq[Name equal Expr]
 			eps])
 
 	(list Expr
