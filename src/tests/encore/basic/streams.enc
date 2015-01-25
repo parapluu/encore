@@ -27,10 +27,10 @@ class Combinator
 
 class Main
   def main() : void
-    let x = new Streamer,
+    let x = new Streamer
         even = x.even(10)
         odd  = x.odd(10)
-        c = new Combinator,
+        c = new Combinator
         range = c.interleave(even, odd)
     in{
       while (not eos range){

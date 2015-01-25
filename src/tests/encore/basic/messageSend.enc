@@ -4,7 +4,7 @@ class Foo
 
 class Main
   def main() : void
-    let x = new Foo,
+    let x = new Foo
         s = "Hello, Ponyworld!"
     in
       x!foo(s)

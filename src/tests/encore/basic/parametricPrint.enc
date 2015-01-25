@@ -14,5 +14,5 @@ passive class Pair<a,b>
     
 class Main
   def main() : void
-    let pair = new (Pair int string)(65, "a") in
+    let pair = new Pair<int,string>(65, "a") in
       pair.prnt()

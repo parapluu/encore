@@ -1,6 +1,6 @@
 class Main 
   def main() : Fut (Fut void)
-    let other = new Other,
+    let other = new Other
         another = new Other
     in
       {other.setOther(another);

@@ -158,7 +158,7 @@ typ  =  try arrow
                return $ parType ty
       paramType = do id <- identifier
                      if (isUpper . head $ id) 
-                     then do params <- many typ
+                     then do params <- angles (commaSep typ)
                              return $ refTypeWithParams id params
                      else fail "Type with parameters must start with upper-case letter"
       stream = do reserved "Stream" 
@@ -236,7 +236,7 @@ classDecl = do pos <- getPosition
                (fields, methods) <- braces classBody <|> classBody
                return $ Class (meta pos) (refKind cname params) fields methods
             where
-              classBody = do fields <- fieldDecl `sepBy` (do { optional comma; whiteSpace })
+              classBody = do fields <- many fieldDecl
                              methods <- many methodDecl
                              return (fields, methods)
                                      
@@ -373,7 +373,7 @@ expr  =  unit
                buildPath pos target (FunctionCall{name, args}) = MethodCall (meta pos) target name args
       letExpression = do pos <- getPosition
                          reserved "let"
-                         decls <- varDecl `sepBy` (do { optional comma; whiteSpace })
+                         decls <- many varDecl
                          reserved "in"
                          expr <- expression
                          return $ Let (meta pos) decls expr

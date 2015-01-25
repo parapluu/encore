@@ -21,8 +21,8 @@ class Pair<a, b>
 
 class Main
   def main() : void{
-    let p = new (Pair int string)(42, "fortytwo"),
-        c = new (Cell (Pair int string))(p),
+    let p = new Pair<int, string>(42, "fortytwo")
+        c = new Cell<Pair<int, string>>(p)
         pp = get c.getVal()
     in {
       print get pp.getFst();
