@@ -167,4 +167,4 @@ main =
                system $ "rm " ++ exeName
                return ())
     where
-      usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | --AST | --TypedAST ] file"
+      usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | -AST | -TypedAST ] file"
