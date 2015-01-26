@@ -44,6 +44,7 @@ instance Translatable A.Function (CCode Toplevel) where
           where 
             arg_cast ty var
                 | isIntType  ty = Cast (pony_arg_t) (UnionInst (Nam "i") var)
+                | isBoolType ty = Cast (pony_arg_t) (UnionInst (Nam "i") var)
                 | isRealType ty = Cast (pony_arg_t) (UnionInst (Nam "d") var)
                 | otherwise     = Cast (pony_arg_t) (UnionInst (Nam "p") var)
 

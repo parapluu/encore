@@ -460,6 +460,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         arg_member ty e
             | Ty.isVoidType ty = e
             | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
+            | Ty.isBoolType ty = AsExpr $ e `Dot` Nam "i"
             | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
             | otherwise        = AsExpr $ e `Dot` Nam "p"
         translateArgument arg = 
@@ -470,6 +471,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             where
               arg_member ty
                   | Ty.isIntType  ty = Nam "i"
+                  | Ty.isBoolType ty = Nam "i"
                   | Ty.isRealType ty = Nam "d"
                   | otherwise        = Nam "p"
 
