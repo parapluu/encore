@@ -35,7 +35,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword semic ";")
 @(encore/keyword exc "!")
 @(encore/keyword k_let "let")
+@(encore/keyword repeat "repeat")
 @(encore/keyword arrow "->")
+@(encore/keyword larrow "<-")
 @(encore/keyword lamb "\\")
 @(encore/keyword dot ".")
 @(encore/keyword l "<")
@@ -136,8 +138,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	
 	  (list FieldDecls
 	  	@alt[
-  		 	@seq[Name colon Type comma FieldDecls]
- 		 	@seq[Name colon Type]
+  		 	@seq[Name colon Type FieldDecls]
 			eps])
 
 	(list ParamDecls
@@ -171,8 +172,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
 	(list LetDecls
 	      @alt[
-			@seq[Name equal Expr comma LetDecls]
-			@seq[Name equal Expr]
+			@seq[Name equal Expr LetDecls]
 			eps])
 
 	(list Expr
@@ -186,6 +186,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[open-paren Expr close-paren]
 	      @seq[Name]
 	      @seq[let LetDecls in Expr]
+	      @seq[repeat Name larrow Expr Expr]
 	      @seq[Expr equal Expr]
 	      @seq[open-c Sequence close-c]
 	      @seq[if Expr then Expr else Expr]

@@ -347,6 +347,39 @@ The available primitive types and example literals for them are:
   (list @code{void}   @code{()})
 )]
 
+@section{Loops}
+There are @code{while} and @code{repeat} loops.
+
+A while loop takes a boolean loop condition, and evaluates its body
+expression repeatedly -- as long as the loop condition evaluates to
+true:
+
+@codeblock|{
+let i = 0 in
+  while i < 5 {
+    print("i={}\n",i)
+    i = i+1
+  }
+|}
+
+This prints:
+
+@verbatim{
+i=0
+i=1
+i=2
+i=3
+i=4
+}
+
+The @code{repeat} look is syntax sugar that makes iterating over
+integers simpler. The following example is equivalent to the @code{while} loop above:
+
+@codeblock|{
+repeat i <- 5
+  print("i={}\n",i)
+|}
+
 @section{Classes}
 
 Classes in @tt{encore} have fields and methods. There is no
@@ -551,3 +584,4 @@ function:
           let bump = \ (x : int) -> x + 1 in
             print(apply(bump, 3))
 }|
+
