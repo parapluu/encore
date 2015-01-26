@@ -66,7 +66,9 @@ buildEnvironment Program {functions, classes} =
       -- correct activity
       setActivity ty = 
           case find ((==ty) . cname) classes of
-            Just c -> cname c
+            Just c -> if isActiveRefType $ cname c
+                      then makeActive ty
+                      else makePassive ty
             Nothing -> ty
 
       distinctFunctions = 
