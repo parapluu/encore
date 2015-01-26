@@ -272,24 +272,23 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             message_send :: State Ctx.Context (CCode Lval, CCode Stat)
             message_send =
                 do ttarget <- varaccess_this_to_aref target
-                   targs <- mapM translate args
-                   let the_arg_names = map fst targs;
-                   let the_arg_impls = map snd targs;
-                   let targtys = map (translate . A.getType) args
+                   targs <- mapM varaccess_this_to_aref args
+                   let argtys = (map A.getType args)
+                       targtys = map (translate . A.getType) args :: [CCode Ty]
                    the_arg_name <- Ctx.gen_named_sym "arg"
                    let the_arg_decl = Assign
-                                        (Decl (Typ "pony_arg_t", ArrAcc (length args) (Var the_arg_name)))
-                                        (Record
-                                          (map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
-                                            (zip the_arg_names targtys)))
+                                        (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
+                                        (Record ((map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
+                                                      (zip targs targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
                                                 Int $ length args,
                                                 AsExpr $ Var the_arg_name])
                    return (unit,
-                           Seq ((Comm "message send") : the_arg_impls ++
-                                the_arg_decl : [Statement the_call]))
+                           Seq ((Comm "message send") : 
+                                the_arg_decl : 
+                                [Statement the_call]))
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
             varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = 
