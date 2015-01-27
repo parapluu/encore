@@ -77,7 +77,8 @@ Vagrant.configure(2) do |config|
   #   push.app = "YOUR_ATLAS_USERNAME/YOUR_APPLICATION_NAME"
   # end
 
-  config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key', '~/.ssh/id_rsa' ]
+  config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key' ]
+
   config.ssh.forward_agent = true
 
   # Enable provisioning with a shell script. Additional provisioners such as
