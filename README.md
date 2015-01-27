@@ -29,7 +29,7 @@ To connect to the VM:
 
 From the VM, compile using Encore:
 
-    vm$ encorec example.enc
+    vm$ encorec -clang example.enc
 
 To exit the VM:
 
