@@ -1,0 +1,182 @@
+--- The following are available to the programmer.
+
+-- The value that signals the stop of a computation. 
+-- stop :: Par T
+def stop() : Par<T> {
+  let r = new Par<T> in 
+    r.mkS();
+}
+
+
+-- "Upcast" a future value into a (singleton) parallel computation.
+-- lift :: Fut x -> Par x
+def lift(x : Fut T) : Par<T> {
+  let r = new Par<T> in 
+    r.mkF(x);
+}
+
+-- "Upcast" a value into a (singleton) parallel computation.
+-- parone :: x -> Par x
+def parone(x : T) : Par<T> {
+  let r = new Par T in 
+    r.mkV(x);
+}
+
+
+-- (|) :: Par x -> Par x -> Par x
+def par(x : Par<T>, y : Par<T>) : Par<T> {
+  let r = new Par<T> in 
+    r.mkP(x,y);
+}
+
+
+-- >>= :: Par x -> (x -> Par y) -> Par y
+def bind(x : Par<T>, f : T -> Par<T'>) : Par<T'> {
+  if x.isS() then stop()
+  else if x.isV() then f(x.val())
+  else if x.isF() then f(get x.future())    -- should use chaining
+  else par(bind(x.left(), f), bind(x.right(), f) )
+}
+
+-- Wait for one value to finish and kill any remaining parallel computations.
+-- primprune :: Par t -> t
+-- Note: the real definition of this would need to
+-- 1) pick the first to finish
+-- 2) actually kill of the others.
+-- 3) What happens if there is nothing there? Currently, returns null
+
+def primprune(x : Par<T>) : T {
+  if x.isS() then null
+  else if x.isV() then x.val()
+  else if x.isF() then get x.future()
+  else 
+    let y = primprune(x.left()) in 
+    if y != null then y else primprune(x.right())
+}
+
+
+
+-- Orc's pruning 
+-- (<<) :: (t -> Par t') -> Par t -> Par t'
+-- this should run the two argument functions
+-- in parallel. But doesn't
+-- A more refined type would be something like (Fut t -> Par t') -> Par t -> Par t'
+-- where the future captures the result of pruning the second argument
+
+def prune(f : T -> Par<T>, x : Par<T>) : Par<T> {
+  let res = primprune(x) in 
+  if res == null then stop() else f(res)
+}
+
+
+-- A "lambda guarded" value of type t
+-- type Delay t = () -> t
+-- otherwise: if first argument is Stop, use second argument
+-- (\\) :: Par t -> Delay (Par t) -> Par t
+
+def otherwise(x : Par<T>, d : () -> ParT) : ParT {
+   -- deep check whether x is stop
+   if isNothing(x) then d () else x
+}
+
+def isNothing(x : Par<T>) : bool {
+  if x.isS() then true
+  else if x.isV() then false
+  else if x.isF() then false
+  else (isNothing(x.left()) and isNothing(x.right()))
+}
+
+def pmap(f : T -> T', x : Par<T>) : Par<T'> {
+  if x.isS() then stop()
+  else if x.isV() then parone(f(x.val()))
+  else if x.isF() then parone(f(get x.future()))    -- should use chaining
+  else par(pmap(f, x.left()), pmap(f, x.right()) )
+}
+
+
+
+--
+-- data Par t = Stop                   -- empty structures
+--             | V t                    -- a single value, here
+--             | F (Fut t)              -- single value, not yet here
+--             | P (Par t) (Par t)  -- par
+
+
+passive class Par<T> {
+  typetag : int
+  -- union 
+  -- S -- typetag == 0
+  -- V -- typetag == 1
+  valv : T
+  -- F -- typetag == 2
+  futurev : Fut T
+  -- P -- typetag == 3
+  leftv : ParT
+  rightv : ParT
+
+  def init() : Par<T> {
+    -- cannot do much here, maybe set everything to null
+    this
+  }
+  
+  -- S ops
+  def mkS() : ParT {
+    this.typetag = 0;
+    this;
+  }
+
+  def isS() : bool {
+     (this.typetag == 0);
+  }
+
+  -- V ops
+  def mkV(x : T) : ParT {
+    this.typetag = 1;
+    this.valv = x;
+    this;
+  }
+
+  def isV() : bool {
+     (this.typetag == 1);
+  }
+
+  def val() : T {
+     this.valv;
+  }
+   
+  -- F ops
+  def mkF(x : Fut T) : ParT {
+    this.typetag = 2;
+    this.futurev = x;
+    this;
+  }
+
+  def isF() : bool {
+     (this.typetag == 2);
+  }
+
+  def future() : Fut T {
+     this.futurev;
+  }  
+
+  -- P ops
+  def mkP(x : Par<T>, y : Par<T>) : Par<T> {
+    this.typetag = 3;
+    this.leftv = x;
+    this.rightv = y;
+    this;
+  }
+
+  def isP() : bool {
+     (this.typetag == 3);
+  }
+
+  def left() : ParT {
+     this.leftv;
+  }
+
+  def right() : ParT {
+     this.rightv;
+  }
+}
+
