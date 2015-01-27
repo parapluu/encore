@@ -1,0 +1,6 @@
+
+import DeepLib
+
+passive class Bar
+  def name() : string
+     (new Foo).name()

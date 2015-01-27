@@ -1,0 +1,4 @@
+
+passive class Foo
+  def name() : string
+    "DeepFoo"
