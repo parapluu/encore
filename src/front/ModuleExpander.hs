@@ -14,18 +14,12 @@ import Parser.Parser
 data MError = MError deriving Show
 
 
-{-
-data Program = Program {etl :: EmbedTL, 
-                        imports :: [ImportDecl], 
-                        functions :: [Function], 
-                        classes :: [ClassDecl]} deriving(Show)
--}
-
 expandModules :: Program -> IO Program
 expandModules p@(Program etl imps funs cls) = 
  	do 
-		mapM importOne imps
-		return p
+		impAsts <- mapM importOne imps
+		rimpAsts <- mapM expandModules impAsts
+		return $ foldr merge p rimpAsts
 
 importOne :: ImportDecl -> IO Program
 importOne (Import meta (Name target)) = 
@@ -40,7 +34,8 @@ importOne (Import meta (Name target)) =
                Left error -> abort $ show error
       return ast
 
+merge (Program elt ims funs cls) (Program elt' ims' funs' cls') = Program (emjoin elt elt') (ims ++ ims') (funs ++ funs') (cls ++ cls')
+  where emjoin (EmbedTL meta header body) (EmbedTL meta' header' body') = EmbedTL meta (header ++ header) (body ++ body') 
+-- TODO how should I join the two meta components?
 
-expandModulesAux :: [Name] -> Program -> Either MError Program
-expandModulesAux = undefined
 
