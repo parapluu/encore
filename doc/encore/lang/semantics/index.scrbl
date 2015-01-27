@@ -360,7 +360,7 @@ let i = 0 in
     print("i={}\n",i)
     i = i+1
   }
-|}
+}|
 
 This prints:
 
@@ -378,7 +378,7 @@ integers simpler. The following example is equivalent to the @code{while} loop a
 @codeblock|{
 repeat i <- 5
   print("i={}\n",i)
-|}
+}|
 
 @section{Classes}
 
