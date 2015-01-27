@@ -1,0 +1,11 @@
+
+import Lib
+
+class Main
+  def main() : void
+    let
+      f = new Foo 
+    in {
+      print (f.name());
+      ()
+    }
