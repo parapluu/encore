@@ -51,10 +51,18 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                          (map (Var . show . A.fname) fields))
 
       tracefun_decl :: CCode Toplevel
-      tracefun_decl = Function
-                       (void) (class_trace_fn_name cname)
-                       [(Ptr void, Var "p")]
-                       (Seq $ map trace_field fields)
+      tracefun_decl = 
+          case find ((== Ty.getId cname ++ "_trace") . show . A.mname) methods of
+            Just mdecl@(A.Method{A.mbody, A.mname}) ->
+                    Function void (class_trace_fn_name cname) 
+                             [(Ptr void, Var "p")]
+                             (Statement $ Call (method_impl_name cname mname)
+                                          [Var "p"])
+
+            Nothing -> 
+                Function void (class_trace_fn_name cname) 
+                         [(Ptr void, Var "p")]
+                         (Seq $ map trace_field fields)
           where
             trace_field A.Field {A.ftype, A.fname}
                 | Ty.isActiveRefType ftype =
@@ -264,8 +272,16 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       method_impls
     where
       tracefun_decl :: CCode Toplevel
-      tracefun_decl =
-          Function void (class_trace_fn_name cname)
+      tracefun_decl = 
+          case find ((== Ty.getId cname ++ "_trace") . show . A.mname) methods of
+            Just mdecl@(A.Method{A.mbody, A.mname}) ->
+                    Function void (class_trace_fn_name cname) 
+                             [(Ptr void, Var "p")]
+                             (Statement $ Call (method_impl_name cname mname)
+                                          [Var "p"])
+
+            Nothing -> 
+                Function void (class_trace_fn_name cname)
                    [(Ptr void, Var "p")]
                    (Seq $ map trace_field fields)
           where
