@@ -7,63 +7,68 @@ import AST.AST
 import qualified AST.Meta as Meta
 import AST.PrettyPrinter
 import AST.Util
-import Types
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{classes, functions}) = p{classes = map desugarClass classes, 
-                                                   functions = map desugarFunction functions}
-    where
+desugarProgram p@(Program{classes, functions}) =
+    p{classes = map desugarClass classes,
+      functions = map desugarFunction functions}
+  where
       desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
       desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
-      desugarMethod m 
-          | (mname m) == Name "init" = m{mname = Name "_init", mbody = desugarExpr (mbody m)}
+      desugarMethod m
+          | mname m == Name "init" =
+              m{mname = Name "_init", mbody = desugarExpr (mbody m)}
           | otherwise = m{mbody = desugarExpr (mbody m)}
-      desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
+      desugarExpr = extend desugar . extend (\e -> setSugared e e)
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
-cloneMeta m = (Meta.meta (Meta.sourcePos m))
+cloneMeta m = Meta.meta (Meta.sourcePos m)
 
 desugar :: Expr -> Expr
-
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
-
-desugar FunctionCall{emeta, name = Name "print", args = (string@(StringLiteral {stringLit = s})):args} = 
+desugar FunctionCall{emeta, name = Name "print",
+                     args = (StringLiteral {stringLit = s}):args} =
     Print emeta s args
-
-desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} = 
+desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
     IfThenElse emeta cond
-           (Skip (cloneMeta emeta))
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
-
-desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} = 
-    IfThenElse emeta cond 
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
-           (Skip (cloneMeta emeta))
-
-desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : lit@(StringLiteral {stringLit = s}) : rest} = 
-    IfThenElse emeta cond 
-           (Skip (cloneMeta emeta))
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ s ++ "\n") rest,
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
-
-desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : lit@(StringLiteral {stringLit = s}) : rest} = 
-    IfThenElse emeta cond 
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ s ++ "\n") rest,
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
-           (Skip (cloneMeta emeta))
-
+        (Skip (cloneMeta emeta))
+        (Seq (cloneMeta emeta)
+             [Print (cloneMeta emeta)
+                    ("Assertion failed: " ++ show (ppExpr fCall) ++ "\n") [],
+              Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
+    IfThenElse emeta cond
+        (Seq (cloneMeta emeta)
+             [Print (cloneMeta emeta)
+                    ("Assertion failed: " ++ show (ppExpr fCall) ++ "\n") [],
+              Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+        (Skip (cloneMeta emeta))
+desugar FunctionCall{emeta, name = Name "assertTrue",
+                     args = cond : (StringLiteral {stringLit = s}) : rest} =
+    IfThenElse emeta cond
+        (Skip (cloneMeta emeta))
+        (Seq (cloneMeta emeta)
+             [Print (cloneMeta emeta)
+                    ("Assertion failed: " ++ s ++ "\n") rest,
+              Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+desugar FunctionCall{emeta, name = Name "assertFalse",
+                     args = cond : (StringLiteral {stringLit = s}) : rest} =
+    IfThenElse emeta cond
+        (Seq (cloneMeta emeta)
+             [Print (cloneMeta emeta)
+                    ("Assertion failed: " ++ s ++ "\n") rest,
+              Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+        (Skip (cloneMeta emeta))
 desugar IfThen{emeta, cond, thn} =
-    IfThenElse emeta cond thn (Skip (Meta.meta (Meta.sourcePos (cloneMeta emeta))))
-
-desugar Unless{emeta, cond, thn} = 
-    IfThenElse emeta (Unary (cloneMeta emeta) Identifiers.NOT cond) thn (Skip (cloneMeta emeta))
-
+    IfThenElse emeta cond thn
+        (Skip (Meta.meta (Meta.sourcePos (cloneMeta emeta))))
+desugar Unless{emeta, cond, thn} =
+    IfThenElse emeta (Unary (cloneMeta emeta) Identifiers.NOT cond) thn
+        (Skip (cloneMeta emeta))
 -- Desugars
 --   repeat id <- e1 e2
 -- into
---   let 
+--   let
 --     id = 0
 --     __ub__ = e1
 --   in
@@ -72,23 +77,27 @@ desugar Unless{emeta, cond, thn} =
 --         e2;
 --         id = id + 1;
 --       }
-desugar Repeat{emeta, name, times, body} = 
-    Let emeta 
-        [(name, (IntLiteral emeta 0)), (Name "__gub__", times)]
-       (While emeta 
-             (Binop emeta 
+desugar Repeat{emeta, name, times, body} =
+    Let emeta
+        [(name, IntLiteral emeta 0), (Name "__gub__", times)]
+       (While emeta
+             (Binop emeta
                    Identifiers.LT
-                   (VarAccess emeta name) 
+                   (VarAccess emeta name)
                    (VarAccess emeta (Name "__gub__")))
-             (Seq emeta 
-                  [body, (Assign emeta 
+             (Seq emeta
+                  [body, Assign emeta
                                (VarAccess emeta name)
-                               (Binop emeta 
+                               (Binop emeta
                                      PLUS
                                      (VarAccess emeta name)
-                                     (IntLiteral emeta 1)))]))
-
-desugar NewWithInit{emeta, ty, args} = 
-    Let emeta [(Name "to_init", (New (cloneMeta emeta) ty))] (Seq (cloneMeta emeta) [(MethodCall ((cloneMeta emeta)) (VarAccess (cloneMeta emeta) (Name "to_init")) (Name "_init") (map desugar args)), (VarAccess (cloneMeta emeta) (Name "to_init"))])
-
+                                     (IntLiteral emeta 1))]))
+desugar NewWithInit{emeta, ty, args} =
+    Let emeta [(Name "to_init", New (cloneMeta emeta) ty)]
+        (Seq (cloneMeta emeta)
+            [MethodCall (cloneMeta emeta)
+                (VarAccess (cloneMeta emeta) (Name "to_init"))
+                (Name "_init")
+                (map desugar args),
+             VarAccess (cloneMeta emeta) (Name "to_init")])
 desugar e = e
