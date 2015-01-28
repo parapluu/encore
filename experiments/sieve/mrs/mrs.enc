@@ -1,0 +1,302 @@
+embed
+/* Needed for memset */
+#include <string.h>
+
+/* Needed for C-string to integer argument conversion */
+#include <ctype.h>
+
+/* "Needed" by bitset */
+#define BITS_PER_ELEMENT  (sizeof(unsigned long) * 8)
+#define ONE               1UL
+#define mask(num)          (ONE << (num % BITS_PER_ELEMENT)) 
+#define element(bits, num) (((unsigned long *)bits)[num / BITS_PER_ELEMENT])
+extern uint64_t adjustment;
+body
+uint64_t adjustment;
+end
+
+--
+-- Utility
+-- 
+-- Collection of simple utility functions
+--
+def start_adjustment_for_actor(actor:int) : int
+  let adjustment = embed int adjustment; end in
+    if actor == 0 then 0 else adjustment * 2
+
+def size_adjustment_for_actor(actor:int) : int 
+  let adjustment = embed int adjustment; end in
+    if actor == 0 then adjustment else 0
+
+-- In wating for the ability to write 2^depth - 1
+def actors_for_depth(depth:int) : int
+  let 
+    actors = 1 
+    size   = 1 
+  in {
+    while depth > 1 {
+      size = size * 2;
+      depth = depth - 1;
+      actors = actors + size;
+    };
+    actors
+  }
+
+  -- Calculate the size of each actor's bitvector
+def actor_size(size:int, depth:int) : int
+  let actors = actors_for_depth(depth) in size / actors
+
+  -- Calculate the actual size of candidates considered
+def candidates_adjusted(size:int, depth:int) : int
+  let actors = actors_for_depth(depth) in size - size % actors + 3
+
+
+--
+-- Data
+--
+-- A dummy class used for the embedded C fields. 
+--
+passive class Data
+
+
+--
+-- List
+--
+-- Stupid array list implementation.
+--
+passive class List
+  list : Data
+  size : int
+  capacity : int
+
+  def init(size:int) : void
+    embed void
+      this->list = calloc(sizeof(int64_t), size);
+      memset(this->list, 0, size * sizeof(int64_t));
+      this->size = 0;
+      this->capacity = size;
+    end
+
+  def append(prime:int) : void 
+    embed void
+      // assert(this->size < this->capacity);
+      int64_t *ints = (int64_t *)this->list;
+      ints[this->size++] = prime;
+    end
+
+  def take(i:int) : int
+    embed int
+      // assert(i < this->size);
+      int64_t *ints = (int64_t *)this->list;
+      ints[i];
+    end
+
+
+--
+-- Bitset
+--
+-- Simple wrapper around a bitset library.
+--
+passive class Bitset
+  data : Data
+  size : int
+  capacity : int
+
+  def init(size:int) : void
+    embed void
+      this->size = size;
+      this->data = pony_alloc(size / 8 + 1);
+      memset(this->data, 0, size / 8 + 1);
+      this->capacity = size;
+    end
+
+  def isset(index:int) : bool
+    embed bool
+      bool r = element(this->data, index) & mask(index);
+      !r;
+    end
+
+  def set(index:int) : void
+    embed void
+      element(this->data, index) &= ~mask(index); 
+    end
+
+  def unset(index:int) : void
+    embed void
+      element(this->data, index) |=  mask(index); 
+    end
+
+--
+-- Filter
+-- 
+-- A binary tree of filters in map-reduce style.
+--
+class Filter
+  id      : int
+  left    : Filter
+  right   : Filter
+  start   : int
+  size    : int
+  primes  : Bitset
+  parent  : Filter
+  result  : int
+  barrier : int
+
+  def init(id:int, size:int, depth:int, p:Filter) : void 
+    this.init_(id, size, depth, p)
+  def init_(id:int, size:int, depth:int, p:Filter) : void {
+    this.result = 0;
+    this.setup(id, size);
+    this.parent  = p;
+    this.barrier = 3;
+
+    if depth > 1 then {
+      this.left  = new Filter(id + 1,                               size, depth - 1, this);
+      this.right = new Filter(id + 1 + actors_for_depth(depth - 1), size, depth - 1, this);
+    } else { 
+      this.left = null;
+      this.right = null;
+      if id == 0 then this.barrier = 1;
+    };
+  }
+
+  def setup(id:int, size:int) : void {
+    this.id = id;
+    this.start = id * size * 2 + 3 + start_adjustment_for_actor(id);
+    this.size = size + size_adjustment_for_actor(id);
+    if this.start % 2 == 0 then {
+      this.start = this.start + 1;
+      this.size = this.size - 1;
+    };
+    this.primes = new Bitset(this.size)
+  }
+
+  -- Only called at top-level: filter out all primes, starting at 3
+  def filter() : void 
+    let 
+      that = this
+      seed = that.seed()
+    in {
+      unless (this.left ==  null) then this.left  ! cancel(seed);
+      unless (this.right == null) then this.right ! cancel(seed);
+    }
+
+  stream seed() : int
+    let 
+      i = 0 
+    in {
+      while i < this.size {
+        if this.primes.isset(i) then {
+          this.cancel_one(this.start + i * 2);
+          yield (this.start + i * 2);
+	  this.primes.set(i);
+        };
+        i = i + 1;
+      };
+      this.done();
+    }
+
+  def cancel(seed : Stream int) : void {
+    unless (this.left ==  null) then this.left  ! cancel(seed);
+    unless (this.right == null) then this.right ! cancel(seed);    
+    while not eos seed {
+      this.cancel_one(get seed);
+      seed = getNext seed;
+    };
+    this.done();
+  }
+
+  def calculate_offset(start:int, length:int, prime:int) : int {
+    length = length * 2;
+    let
+      finish   = start + length
+      prime_multiple = 0
+      offset   = 0
+      negative = 0 - 1
+    in 
+    if start % prime == 0 then 0 else {
+      prime_multiple = (start / prime + 1) * prime;
+      -- Skip past any even number
+      if prime_multiple % 2 == 0 then prime_multiple = prime_multiple + prime else ();
+      if start + 1 < prime_multiple and prime_multiple < finish + 1 then {
+        offset = prime_multiple - start;
+        if offset < length then offset / 2 else negative;
+      } else {
+        negative; 
+      }
+    }
+  }
+
+  -- Cancel all multiples of one prime
+  def cancel_one(prime:int) : void {
+    let i = this.calculate_offset(this.start, this.size, prime) in {
+      if i >= 0 then { 
+        while i < this.size {
+          this.primes.unset(i);
+          i = i + prime;
+        };
+      };
+    }
+  }
+
+  -- Notify children to calculate the number of primes found and pass to parent
+  def done() : void {
+    unless this.left  == null then this.left  ! done();
+    unless this.right == null then this.right ! done();
+    let 
+      i      = 0
+      primes = 0
+      prime  = this.start
+    in {
+      while i < this.size {
+        if this.primes.isset(i) then primes = primes + 1;
+        prime = prime + 2; -- So we could print it if needed
+	i = i + 1;
+      };
+      if this.left == null then 
+        this.parent ! result(primes) 
+      else 
+        this ! result(primes);
+    }
+  }
+
+  -- Aggregate results from children and pass to parent 
+  def result(result:int) : void {
+    this.result = this.result + result;
+    this.barrier = this.barrier - 1;
+    if this.barrier == 0 then 
+      if this.id == 0 then 
+        print this.result
+      else 
+        this.parent ! result(this.result)
+  }
+
+--
+-- Main
+--
+class Main 
+  def main() : void 
+    let argc = embed int argc; end in
+    if argc >= 3 then {
+      let
+        candidates = embed int atol(argv[1]); end
+        depth = embed int atol(argv[2]); end
+      in {
+        print("# of primes in {} candidates using {} filter actors: ", candidates, actors_for_depth(depth));
+        this.run(candidates / 2, depth);
+      }
+    } else {
+        print("Usage: {} candidates depth\n", embed string argv[0]; end);
+    }
+
+  def run(candidates:int, depth:int) : void {
+    let
+      size       = actor_size(candidates, depth)
+      actors     = actors_for_depth(depth)
+      adjustment = candidates - size * actors
+      f          = let t = new Filter in { t.init_(0, size, depth, t) ; t }
+    in {
+      embed void adjustment = #{adjustment}; end; -- Set the global variable adjustment
+      f ! filter();
+    }
+  }
