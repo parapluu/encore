@@ -87,101 +87,11 @@ extend :: (Expr -> Expr) -> Expr -> Expr
 extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
-extendAccum f acc0 e@(MethodCall {target, args}) = 
-    let (acc1, t') = extendAccum f acc0 target
-        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
-    in
-      f acc2 e{target = t', args = a'}
-extendAccum f acc0 e@(MessageSend {target, args}) = 
-    let (acc1, t') = extendAccum f acc0 target
-        (acc2, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc1 args
-    in
-      f acc2 e{target = t', args = a'}
-extendAccum f acc0 e@(NewWithInit {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Let {decls, body}) = 
-    let (acc1, d') = List.mapAccumL accumDecls acc0 decls
-        (acc2, b') = extendAccum f acc1 body
-    in
-      f acc2 e{decls = d', body = b'}
-    where
-      accumDecls acc (name, expr) = let (acc', expr') = extendAccum f acc expr 
-                                    in (acc', (name, expr'))
-extendAccum f acc0 e@(IfThenElse {cond, thn, els}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-        (acc3, el') = extendAccum f acc2 els
-    in
-      f acc3 e{cond = c', thn = t', els = el'}
-extendAccum f acc0 e@(IfThen {cond, thn}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-    in
-      f acc2 e{cond = c', thn = t'}
-extendAccum f acc0 e@(Unless {cond, thn}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, t') = extendAccum f acc1 thn
-    in
-      f acc2 e{cond = c', thn = t'}
-extendAccum f acc0 e@(While {cond, body}) = 
-    let (acc1, c') = extendAccum f acc0 cond
-        (acc2, b') = extendAccum f acc1 body
-    in
-      f acc2 e{cond = c', body = b'}
-extendAccum f acc0 e@(Repeat {times, body}) = 
-    let (acc1, t') = extendAccum f acc0 times
-        (acc2, b') = extendAccum f acc1 body
-    in
-      f acc2 e{times = t', body = b'}
-extendAccum f acc0 e@(FutureChain {future, chain}) = 
-    let (acc1, f') = extendAccum f acc0 future
-        (acc2, c') = extendAccum f acc1 chain
-    in
-      f acc2 e{future = f', chain = c'}
-extendAccum f acc0 e@(Binop {loper, roper}) = 
-    let (acc1, l') = extendAccum f acc0 loper
-        (acc2, r') = extendAccum f acc1 roper
-    in
-      f acc2 e{loper = l', roper = r'}
-extendAccum f acc0 e@(FunctionCall {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Closure {body}) = 
-    let (acc1, b') = extendAccum f acc0 body
-    in
-      f acc1 e{body = b'}
-extendAccum f acc0 e@(Seq {eseq}) = 
-    let (acc1, es') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 eseq
-    in
-      f acc1 e{eseq = es'}
-extendAccum f acc0 e@(Get {val}) = 
-    let (acc1, v') = extendAccum f acc0 val
-    in
-      f acc1 e{val = v'}
-extendAccum f acc0 e@(Await {val}) = 
-    let (acc1, v') = extendAccum f acc0 val
-    in
-      f acc1 e{val = v'}
-extendAccum f acc0 e@(FieldAccess {target}) = 
-    let (acc1, t') = extendAccum f acc0 target
-    in
-      f acc1 e{target = t'}
-extendAccum f acc0 e@(Assign {rhs}) = 
-    let (acc1, r') = extendAccum f acc0 rhs
-    in
-      f acc1 e{rhs = r'}
-extendAccum f acc0 e@(Print {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc0 e@(Exit {args}) = 
-    let (acc1, a') = List.mapAccumL (\acc e -> extendAccum f acc e) acc0 args
-    in
-      f acc1 e{args = a'}
-extendAccum f acc e = f acc e
+extendAccum f acc0 e =
+    let (acc1, childResults) = 
+            List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
+    in 
+      f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
 extendAccumProgram f acc0 (Program etl imps funs classes) = (acc2, Program etl imps funs' classes')
