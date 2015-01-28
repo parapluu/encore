@@ -782,7 +782,11 @@ matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)
 matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
       isParType expected    && isParType ty    ||
-      isStreamType expected && isStreamType ty = matchTypes (getResultType expected) (getResultType ty)
+      isStreamType expected && isStreamType ty = 
+          matchTypes (getResultType expected) (getResultType ty)
+          `catchError` (\_ -> tcError $ "Type '" ++ show ty ++ 
+                                        "' does not match expected type '" ++ 
+                                        show expected ++ "'")
     | isArrowType expected  && isArrowType ty = let expArgTypes = getArgTypes expected
                                                     argTypes    = getArgTypes ty
                                                     expRes      = getResultType expected
