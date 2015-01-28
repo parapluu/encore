@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module CodeGen.Typeclasses where
 
@@ -6,4 +7,4 @@ module CodeGen.Typeclasses where
 -- use this to implement translation of AST nodes (see "AST") to
 -- CCode (see "CCode.Main")
 class Translatable a b | a -> b where
-  translate :: a -> b
+    translate :: a -> b

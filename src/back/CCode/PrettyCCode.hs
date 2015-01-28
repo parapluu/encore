@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 
 {-|
 Converting CCode (see "CCode.Main") to C source.
@@ -10,6 +11,7 @@ import CCode.Main
 import Text.PrettyPrint
 import Data.List
 
+indent :: Doc -> Doc
 indent = nest 2
 
 -- | Converts a CCode value to its source representation
@@ -20,22 +22,22 @@ tshow :: Show t => t -> Doc
 tshow = text . show
 
 add_semi :: Doc -> Doc
-add_semi d = if show d == "" then d
-             else if isSuffixOf ";" $ show d then d else d <> text ";"
+add_semi d = if show d == "" || ";" `isSuffixOf` show d
+             then d
+             else d <> text ";"
 
 star :: Doc
 star = text "*"
 
 switch_body :: [(CCode Name, CCode Stat)] -> CCode Stat -> Doc
-switch_body ccodes def_case = lbrace $+$ (nest 2 $ vcat (map switch_clause ccodes) $+$
-                                          text "default:" $+$
-                                                   (braced_block . vcat . map pp') [def_case]) $+$
-                              rbrace
+switch_body ccodes def_case =
+    lbrace $+$ nest 2 (vcat (map switch_clause ccodes) $+$
+      text "default:" $+$ (braced_block . vcat . map pp') [def_case]) $+$
+        rbrace
   where
     switch_clause :: (CCode Name, CCode Stat) -> Doc
-    switch_clause (lhs,rhs) =
-      text "case" <+> pp' lhs <> text ":"
-               $+$ (braced_block . vcat . map pp') (rhs:[Embed "break;"])
+    switch_clause (lhs, rhs) = text "case" <+> pp' lhs <> text ":" $+$
+      (braced_block . vcat . map pp') (rhs : [Embed "break;"])
 
 pp' :: CCode a -> Doc
 pp' (Program cs) = pp' cs
@@ -43,45 +45,50 @@ pp' Skip = empty
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (LocalInclude s) = text "#include" <+> doubleQuotes (text s)
-pp' (IfDefine str ccode) = text "#ifdef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifdef" <+> text str <+> text "*/"
-pp' (IfNDefine str ccode) = text "#ifndef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifndef" <+> text str <+> text "*/"
+pp' (IfDefine str ccode) =
+    text "#ifdef" <+> text str $+$ pp' ccode $+$
+      text "#endif /* ifdef" <+> text str <+> text "*/"
+pp' (IfNDefine str ccode) =
+    text "#ifndef" <+> text str $+$ pp' ccode $+$
+      text "#endif /* ifndef" <+> text str <+> text "*/"
 pp' (HashDefine str) = text $ "#define " ++ str
-pp' (Statement other) =  add_semi $ pp' other
-pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$
-                              switch_body ccodes def
-pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
-                                 (add_semi . braced_block . vcat) (map pp' fields)
-    where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
+pp' (Statement other) = add_semi $ pp' other
+pp' (Switch tst ccodes def) =
+    text "switch" <+> parens (tshow tst) $+$ switch_body ccodes def
+pp' (StructDecl name vardecls) =
+    text "struct ___" <> tshow name $+$
+      (add_semi . braced_block . vcat) (map pp' fields)
+  where fields = map (\(ty, id) ->
+                         Embed $ show ty ++ " " ++ show id ++ ";") vardecls
 pp' (Struct name) = text "struct ___" <> tshow name
 pp' (Record ccodes) = braces $ commaList ccodes
 pp' (Assign lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (AssignTL lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (DeclTL (ty, id)) = add_semi $ tshow ty <+> tshow id
-pp' (FunTypeDef id ty argTys) = add_semi $ text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
-                                parens (commaList argTys)
+pp' (FunTypeDef id ty argTys) =
+    add_semi $ text "typedef" <+> tshow ty <+> parens (star <> tshow id) <>
+      parens (commaList argTys)
 pp' (Concat ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
 pp' (Seq ccodes) = vcat $ map (add_semi . pp') ccodes
---    where
---      pp'' :: UsableAs Stat s => CCode s -> Doc
---      pp'' (Seq ccodes) = vcat $ map pp'' ccodes
---      pp'' other = pp' other
-pp' (Enum ids) = text "enum" $+$ braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
+pp' (Enum ids) =
+    text "enum" $+$
+      braced_block (vcat $ map (\id -> tshow id <> text ",") ids) <> text ";"
 pp' (Braced ccode) = (braced_block . pp') ccode
 pp' (Parens ccode) = parens $ pp' ccode
-pp' (CUnary o e) = parens $  pp' o <+> pp' e
-pp' (BinOp o e1 e2) = parens $  pp' e1 <+> pp' o <+> pp' e2
+pp' (CUnary o e) = parens $ pp' o <+> pp' e
+pp' (BinOp o e1 e2) = parens $ pp' e1 <+> pp' o <+> pp' e2
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
-pp' (Deref ccode) = parens $ star <> pp' ccode 
-pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
-pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
-pp' (Amp ccode) = parens $ text "&" <> (parens $ pp' ccode)
+pp' (Deref ccode) = parens $ star <> pp' ccode
+pp' (Cast ty e) = parens $ parens (pp' ty) <+> pp' e
+pp' (ArrAcc i l) = parens $ pp' l <> brackets (tshow i)
+pp' (Amp ccode) = parens $ text "&" <> parens (pp' ccode)
 pp' (Ptr ty) = pp' ty <> star
-pp' (FunctionDecl ret_ty name args) = tshow ret_ty <+> tshow name <>
-                                      parens (commaList args) <> text ";"
-pp' (Function ret_ty name args body) = tshow ret_ty <+> tshow name <>
-                                       parens (pp_args args)  $+$
-                                       (braced_block . pp') body
+pp' (FunctionDecl ret_ty name args) =
+    tshow ret_ty <+> tshow name <> parens (commaList args) <> text ";"
+pp' (Function ret_ty name args body) =
+    tshow ret_ty <+> tshow name <> parens (pp_args args) $+$
+      (braced_block . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
 pp' (Nam st) = text st
@@ -93,15 +100,15 @@ pp' (EmbedC ccode) = pp' ccode
 pp' (Call name args) = tshow name <> parens (commaList args)
 pp' (Typedef ty name) = text "typedef" <+> pp' ty <+> tshow name <> text ";"
 pp' (Sizeof ty) = text "sizeof" <> parens (pp' ty)
-pp' (While cond body) = text "while" <+> parens (pp' cond) $+$
-                        braced_block (pp' body)
+pp' (While cond body) =
+    text "while" <+> parens (pp' cond) $+$ braced_block (pp' body)
 pp' (StatAsExpr n s) = text "({" <> pp' s <+> pp' n <> text ";})"
-pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
-                   braced_block (pp' t) $+$
-                 text "else" $+$
-                   braced_block (pp' e)
+pp' (If c t e) =
+    text "if" <+> parens (pp' c) $+$ braced_block (pp' t) $+$
+      text "else" $+$ braced_block (pp' e)
 pp' (Return e) = text "return" <+> pp' e <> text ";"
-pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
+pp' (UnionInst name e) =
+    text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
 pp' (Int n) = tshow n
 pp' (String s) = tshow s
 pp' (Double d) = tshow d
@@ -113,16 +120,13 @@ commaList l = hcat $ intersperse (text ", ") $ map pp' l
 pp_args :: [CVarSpec] -> Doc
 pp_args [] = empty
 pp_args as = hcat $ intersperse (text ", ") $ map pp_arg as
-pp_arg = \(ty, id) -> tshow ty <+> tshow id
+  where pp_arg (ty, id) = tshow ty <+> tshow id
 
 block :: [CCode a] -> Doc
 block = vcat . map pp'
 
 braced_block :: Doc -> Doc
-braced_block doc = lbrace $+$
-                      indent doc $+$
-                      rbrace
+braced_block doc = lbrace $+$ indent doc $+$ rbrace
 
 instance Show (CCode a) where
-  show = pp
-
+    show = pp

@@ -1,4 +1,7 @@
-{-# LANGUAGE GADTs,FlexibleInstances,FlexibleContexts,MultiParamTypeClasses,StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-| Provides the CCode data type, a representation of C
 programs that can be pretty-printed to sometimes-legal C code. The
@@ -7,9 +10,6 @@ will be generated, but it tries to enforce some reasonable invariants.
 -}
 
 module CCode.Main where
-
-import qualified AST.AST as AST
-import Data.Char
 
 data Toplevel
 data Stat
@@ -25,9 +25,9 @@ data FIN
 -- the next lines are magic :)
 
 -- | The UsableAs typeclass marks what might go where in the
--- | CCode type below. For instance, you can always use an lval where
--- | an expression is expected, and you can always use a Name where an
--- | Lval is expected
+-- CCode type below. For instance, you can always use an lval where
+-- an expression is expected, and you can always use a Name where an
+-- Lval is expected
 class UsableAs a b where
 
 instance UsableAs Name Lval where
@@ -52,21 +52,25 @@ data CCode a where
     IfNDefine    :: String -> CCode a -> CCode a
     HashDefine   :: String -> CCode Toplevel
     Statement    :: UsableAs e Expr => CCode e -> CCode Stat
-    Switch       :: (UsableAs e Expr) => CCode e -> [(CCode Name, CCode Stat)] -> CCode Stat -> CCode Stat
+    Switch       :: (UsableAs e Expr) => CCode e -> [(CCode Name, CCode Stat)]
+                 -> CCode Stat -> CCode Stat
     StructDecl   :: CCode Ty -> [CVarSpec] -> CCode Toplevel
     Struct       :: CCode Name -> CCode Ty
     Record       :: UsableAs e Expr => [CCode e] -> CCode Expr
-    Assign       :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Stat
-    AssignTL     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Toplevel
+    Assign       :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e
+                 -> CCode Stat
+    AssignTL     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e
+                 -> CCode Toplevel
     Decl         :: CVarSpec -> CCode Lval
     DeclTL       :: CVarSpec -> CCode Toplevel
-    Concat       :: [CCode Toplevel] -> CCode Toplevel 
+    Concat       :: [CCode Toplevel] -> CCode Toplevel
     Seq          :: UsableAs Stat s => [CCode s] -> CCode Stat
     Enum         :: [CCode Name] -> CCode Toplevel
     Braced       :: CCode a -> CCode a
     Parens       :: CCode a -> CCode a
     CUnary       :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
-    BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
+    BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e
+                 -> CCode Expr
     Dot          :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref        :: UsableAs e Expr => CCode e -> CCode Expr
     Cast         :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
@@ -74,7 +78,8 @@ data CCode a where
     Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr
     Ptr          :: CCode Ty -> CCode Ty
     FunctionDecl :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Toplevel
-    Function     :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
+    Function     :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat
+                 -> CCode Toplevel
     AsExpr       :: CCode Lval -> CCode Expr
     AsLval       :: CCode Name -> CCode Lval
     Nam          :: String -> CCode Name
@@ -83,13 +88,15 @@ data CCode a where
     Static       :: CCode Ty -> CCode Ty
     Embed        :: String -> CCode a
     EmbedC       :: CCode a -> CCode b
-    Call         :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
+    Call         :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1
+                 -> [CCode e2] -> CCode Expr
     Typedef      :: CCode Ty -> CCode Name -> CCode Toplevel
     Sizeof       :: CCode Ty -> CCode Expr
     FunTypeDef   :: CCode Name -> CCode Ty -> [CCode Ty] -> CCode Toplevel
     While        :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr   :: CCode Lval -> CCode Stat -> CCode Expr
-    If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
+    If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat
+                 -> CCode Expr
     Return       :: UsableAs e Expr => CCode e -> CCode Stat
     UnionInst    :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     Int          :: Int -> CCode Expr
