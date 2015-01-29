@@ -1,4 +1,4 @@
-# Contribuiting
+# Contributing
 
 Thanks for contribuiting to the Encore programming language.
 
