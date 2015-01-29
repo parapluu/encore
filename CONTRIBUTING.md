@@ -37,7 +37,7 @@ Opinion on this differs a little between developers, but my preference is that
 you should clean up your branch an interactive git rebase before you submit your
 pull request.
 
-Your goal shouldn't be to give the project maintainer an accutate, chronological history
+Your goal shouldn't be to give the project maintainer an accurate, chronological history
 of your changes, but to present a history that aids their understanding.
 
 ### Understand git commit messages
@@ -48,13 +48,13 @@ description of the commit. Think of it like the subject line of an email.
 This summary line should be short. Opinions differ on how short; some recommend
 it should be as short as 50 characters, while others recommend no more than 70
 to 75 characters. Github itself truncates summaries longer than 69 characters so
-s the limit I tend to use.
+is the limit I tend to use.
 
 ### Include tests
 
 If the project has automated tests, and it makes sense to do so, include tests
 in your pull request. This not only prevents regressions, but it also gives the
-project maintainer confidence ve actually spent time making sure your code
+project maintainer confidence we actually spent time making sure your code
 works.
 
 If you submit a pull request without tests, to a project with tests, you're
