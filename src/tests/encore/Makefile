@@ -4,6 +4,6 @@ test:
 
 clean:
 	make -C basic clean
-	make -C modules test
+	make -C modules clean
 
 .PHONY: test all
