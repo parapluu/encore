@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contribuiting to the Encore programming language.
+Thanks for contributing to the Encore programming language.
 
 ## Opening issues
 
@@ -24,7 +24,7 @@ a separate pull request.
 understand**, and pull requests that implement multiple features are harder to
 test and approve.
 
-**Stay focused**. Make things easy for the project maintainer, and ll get your pull
+**Stay focused**. Make things easy for the project maintainer, and they'll get your pull
 request merged much more quickly.
 
 ### Present a clean history
@@ -34,7 +34,7 @@ or all your reverts and mistakes. All of that just obscures the meaning of the
 code.
 
 Opinion on this differs a little between developers, but my preference is that
-you should clean up your branch an interactive git rebase before you submit your
+you should clean up your branch an interactive `git rebase` before you submit your
 pull request.
 
 Your goal shouldn't be to give the project maintainer an accurate, chronological history
@@ -63,8 +63,8 @@ some.
 
 ### Respect conventions
 
-You might hate tabs in your source code. You might
-really, really hate them. But if re submitting a pull request to a project that
+You might love tabs in your source code. You might
+really, really love them. But if re submitting a pull request to a project that
 uses tabs, you're going have to suck it up and use them.
 
 Aside from coding style, projects might have more subtle conventions that it
