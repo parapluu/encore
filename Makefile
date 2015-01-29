@@ -14,24 +14,22 @@ LIB_DIR=$(RELEASE_DIR)/lib
 
 all: encorec
 
-encorec: dirs pony
-	cabal configure
+encorec: dirs pony cabal-config
 	cabal build
 	cp -r $(ENCOREC) $(RELEASE_DIR)
 
-fetch-hs-deps:
+cabal-config:
 	cabal install --dependencies-only
+	cabal configure
 
 test: encorec
 	make -C $(SRC_DIR) test
 
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
-doc:
+doc: cabal-config
 	make -C doc/encore/
-	haddock -o doc/html -h $$(find . -name "*.hs" | grep -v "\.#")
-	make -C $(SET_DIR) doc
-	make -C $(FUTURE_DIR) doc
+	cabal haddock --all
 
 dirs: $(INC_DIR) $(LIB_DIR)
 

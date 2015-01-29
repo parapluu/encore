@@ -34,7 +34,7 @@ empty = Context [] 0
 
 gen_named_sym :: String -> State Context String
 gen_named_sym name = do
-  c <-get
+  c <- get
   case c of
     Context s n ->
         do put $ Context s (n+1)
@@ -49,8 +49,8 @@ subst_add c@(Context s nxt) na lv = (Context ((na,lv):s) nxt)
 subst_rem :: Context -> Name -> Context
 subst_rem (Context [] nxt) na = Context [] nxt
 subst_rem (Context ((na, lv):s) nxt) na'
-    | na == na'  = Context s nxt
-    | na /= na'  = subst_rem (Context s nxt) na'
+     | na == na'  = Context s nxt
+     | na /= na'  = subst_add (subst_rem (Context s nxt) na') na lv
 
 subst_lkp :: Context -> Name -> Maybe (C.CCode C.Lval)
 subst_lkp (Context s _) n = lookup n s

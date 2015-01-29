@@ -6,7 +6,7 @@ This section describes the semantics of the language.
 
 @section[#:tag "futures"]{Futures}
 
-As mentioned before (@secref{active-passive-classes}), 
+As mentioned before (@secref{active-passive-classes}),
 a method call on an active class is executed asynchronously.
 Futures are produced when you call a method on an active class.
 
@@ -58,7 +58,7 @@ class Main
   }
 }|
 
-line @code{19} returns a @code{future} data type. 
+line @code{19} returns a @code{future} data type.
 
 In order to get the value of the @code{future}, you need to do a call to the @code{get} method (line @code{20}).
 @code{get} checks if the value of the future
@@ -72,11 +72,11 @@ be printed after the print out of the price.
 
 @subsection{@code{await} execution}
 
-One of the problems of calling @code{get} on a future is the blocking behaviour 
+One of the problems of calling @code{get} on a future is the blocking behaviour
 of the actor. As we explained in @seclink{get-future}, this will block
 the actor until the future is fulfilled. If the method on which
 we get the future does a time-consuming calculation, the actor will be
-waiting until it finishes and the future is fulfilled. 
+waiting until it finishes and the future is fulfilled.
 
 A better alternative would be to let the actor continue running some
 other messages from its message queue and resume the actor when the future
@@ -101,11 +101,11 @@ Let's take a look at the example below:
     p:Producer
     def init() : void
       this.p = new Producer
-  
+
     def run2() : void {
       print "While awaiting";
     }
-  
+
     def run1() : void
       let f = this.p.foo() in
       {
@@ -154,7 +154,7 @@ contain the result of the chained `lambda`. For instance:
 
   class Main
     def main(): void {
-      let p = new Producer in 
+      let p = new Producer in
           l = \ (x:int) -> { print x; x + 1 } in {
         print get p.produce() ~~> l;
       }
@@ -475,7 +475,7 @@ Syntactically, method bodies are a single expression:
     print ".. but it CAN use them!"
   }
 }|
- 
+
 If you desire to run several expressions in sequence, you must use a
 @italic{<Sequence>} expression:
 
@@ -528,29 +528,29 @@ Running:
 Encore has anonymous functions:
 
 @codeblock|{
-    let f = \ (i : int) -> 10*i in 
+    let f = \ (i : int) -> 10*i in
       print(f(10)) -- prints 100
 }|
 
 
-The backslash @literal{\} syntax is borrowed from Haskell and is supposed to resemble a lambda. It is followed by a comma separated list of parameter declarations, an arrow @code{->} and an expression that is the function body. 
+The backslash @literal{\} syntax is borrowed from Haskell and is supposed to resemble a lambda. It is followed by a comma separated list of parameter declarations, an arrow @code{->} and an expression that is the function body.
 
 The type of a function is declared similarly. The function @code{f} above has type @code{int -> int}. Multi-argument functions have types such as @code{(int, string) -> bool}.
 
 @codeblock|{
   #! /usr/bin/env encorec -run
   -- ex_lambdas.enc
-  
+
   passive class Point
     x : int
     y : int
-    
+
     def scale(f : int -> int) : void {
       this.x = f(this.x);
       this.y = f(this.y);
       ()
     }
-  
+
   class Main
     def main() : void {
       let p = new Point in {
@@ -578,8 +578,8 @@ function:
 @codeblock|{
     class Main
       def main() : void
-        let 
-          apply = \ (f : a -> b, x : a) -> f(x) 
+        let
+          apply = \ (f : a -> b, x : a) -> f(x)
         in
           let bump = \ (x : int) -> x + 1 in
             print(apply(bump, 3))

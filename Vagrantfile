@@ -48,9 +48,18 @@ Vagrant.configure(2) do |config|
     # Display the VirtualBox GUI when booting the machine
     # vb.gui = true
     # v.name = "encore"
+    host = RbConfig::CONFIG['host_os']
+
+    if host =~ /darwin/
+      cpus = `sysctl -n hw.ncpu`.chomp
+    elsif host =~ /linux/
+      cpus = `nproc`.chomp
+    else # Windows
+      cpus = 2
+    end
 
     # Set the number of available CPUs in the VM
-    vb.customize ["modifyvm", :id, "--cpus", `#{RbConfig::CONFIG['host_os'] =~ /darwin/ ? 'sysctl -n hw.ncpu' : 'nproc'}`.chomp]
+    vb.customize ["modifyvm", :id, "--cpus", cpus]
 
     # Customize the amount of memory on the VM:
     vb.memory = "2048"
@@ -68,7 +77,8 @@ Vagrant.configure(2) do |config|
   #   push.app = "YOUR_ATLAS_USERNAME/YOUR_APPLICATION_NAME"
   # end
 
-  config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key', '~/.ssh/id_rsa' ]
+  config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key' ]
+
   config.ssh.forward_agent = true
 
   # Enable provisioning with a shell script. Additional provisioners such as

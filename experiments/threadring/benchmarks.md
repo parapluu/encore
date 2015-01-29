@@ -31,19 +31,25 @@ Please find below different setups ordered by their real time (wall clock):
 	
     racket threadring.racket 50000000  68.69s user 17.64s system 99% cpu 1:26.65 total
 
-## Asynchronous setup: tr.enc (**Encore**)
+## Asynchronous setup: tr.enc (**Encore**) Killing everything related to CD
 
     encorec -clang tr.enc
     time ./tr
     
     ./tr  167.76s user 54.15s system 186% cpu 1:58.70 total
 
-## Synchronous setup and heavy us of futures: threadring.enc
-
-    encorec -clang threadring.enc
-    time ./threadring.enc
+## Asynchronous setup: threadring.enc (**Encore**) Killing everything related to CD
 
     ./threadring  215.64s user 51.46s system 199% cpu 2:13.92 total
+	
+
+## Asynchronous setup: tr.enc and exit on last message (**Encore**)
+
+    ./tr  124.30s user 155.06s system 199% cpu 2:20.07 total
+
+## Synchronous setup and exit on last message (**Encore**)
+
+    ./threadring  180.40s user 173.07s system 199% cpu 2:57.25 total
 
 
 ## [Java #7](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=java&id=7)
@@ -53,6 +59,21 @@ Please find below different setups ordered by their real time (wall clock):
 
     java -server -XX:+TieredCompilation -XX:+AggressiveOpts threadring 50000000
     68.73s user 139.27s system 101% cpu 3:25.73 total
+
+## Asynchronous setup: tr.enc (**Encore**)
+
+    ./tr  213.57s user 242.83s system 199% cpu 3:48.79 total
+	
+## [Pony]
+    
+    /bin/debug/ring --size 503 --count 1 --pass 50000000  214.26s user 247.69s system 199% cpu 3:51.63 total
+
+## Synchronous setup and heavy us of futures: threadring.enc
+
+    encorec -clang threadring.enc
+    time ./threadring.enc
+
+    ./threadring  237.62s user 231.54s system 199% cpu 3:55.23 total
 
 
 ## [C gcc](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=gcc&id=1)

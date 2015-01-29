@@ -189,3 +189,15 @@
 	  (lambda ()
 	    (setq imenu-generic-expression (encore-imenu-configure))))
 
+;; compilation-mode
+(add-hook 'encore-mode-hook
+	  (lambda ()
+            (set (make-local-variable 'compile-command)
+                 (concat "encorec " (buffer-name)))))
+
+(setq encorec-error-regexp '(encorec "\"\\(.*\\.enc\\)\" (line \\([0-9]*\\), column \\([0-9]*\\)" 1 2 3))
+(add-hook 'compilation-mode-hook
+          (lambda ()
+            (add-to-list 'compilation-error-regexp-alist-alist encorec-error-regexp)
+            (add-to-list 'compilation-error-regexp-alist 'encorec)))
+

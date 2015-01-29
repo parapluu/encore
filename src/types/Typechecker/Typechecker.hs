@@ -164,7 +164,6 @@ instance Checkable ClassDecl where
 
 instance Checkable FieldDecl where
    ---  |- t
-    --  !hasTypeVars(t)
     -- -----------------
    ---  |- f : t
     typecheck f@(Field {ftype}) = do ty <- checkType ftype
@@ -172,13 +171,11 @@ instance Checkable FieldDecl where
 
 instance Checkable MethodDecl where
    ---  |- mtype 
-    --  !hasTypeVars(mtype)
     --  E |- e : mtype
     -- --------------------------------------------
     --  E, this : Main |- def main() : mtype mbody
     --
    ---  |- mtype
-    --  hasTypeVars(mtype) => mtype \in t1 .. tn
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
     -- -----------------------------------------------------
@@ -201,7 +198,6 @@ instance Checkable MethodDecl where
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
    ---  |- mtype
-    --  hasTypeVars(mtype) => mtype \in t1 .. tn
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
     -- -----------------------------------------------------
@@ -782,7 +778,11 @@ matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)
 matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
       isParType expected    && isParType ty    ||
-      isStreamType expected && isStreamType ty = matchTypes (getResultType expected) (getResultType ty)
+      isStreamType expected && isStreamType ty = 
+          matchTypes (getResultType expected) (getResultType ty)
+          `catchError` (\_ -> tcError $ "Type '" ++ show ty ++ 
+                                        "' does not match expected type '" ++ 
+                                        show expected ++ "'")
     | isArrowType expected  && isArrowType ty = let expArgTypes = getArgTypes expected
                                                     argTypes    = getArgTypes ty
                                                     expRes      = getResultType expected
