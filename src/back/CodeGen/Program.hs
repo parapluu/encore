@@ -1,4 +1,6 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, NamedFieldPuns #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 {-| Translate an Encore program (see "AST") into a tuple
 @(classes, header, shared)@, where @classes@ is a list of the
@@ -13,21 +15,18 @@ module CodeGen.Program(translate) where
 
 import CodeGen.Typeclasses
 import CodeGen.ClassDecl
-import CodeGen.CCodeNames
 import CodeGen.Header
 import CodeGen.Shared
-import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 import qualified AST.AST as A
 import qualified Types as Ty
-import Control.Monad.Reader hiding (void)
-import qualified CodeGen.Context as Ctx
 
 instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) where
     translate prog@(A.Program{A.classes}) = (classList, header, shared)
-        where
+      where
           classList = map name_and_class classes
-          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl)
+          name_and_class cdecl@(A.Class{A.cname}) =
+              (Ty.getId cname, translate cdecl)
           header = generate_header prog
           shared = generate_shared prog

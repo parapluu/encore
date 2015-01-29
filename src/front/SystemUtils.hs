@@ -1,27 +1,28 @@
-{-# LANGUAGE CPP, ScopedTypeVariables #-}
--- 
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+--
 -- Copyright (C) 2004 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- 
+--
 -- This library is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU Lesser General Public
 -- License as published by the Free Software Foundation; either
 -- version 2.1 of the License, or (at your option) any later version.
--- 
+--
 -- This library is distributed in the hope that it will be useful,
 -- but WITHOUT ANY WARRANTY; without even the implied warranty of
 -- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 -- Lesser General Public License for more details.
--- 
+--
 -- You should have received a copy of the GNU Lesser General Public
 -- License along with this library; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 -- USA
--- 
+--
 
 -- This module has was created from System.Plugins.Utils, but has
 -- had certain functions (with dependencies) removed.
 
-module SystemUtils ( 
+module SystemUtils (
     Arg,
 
     hWrite,
@@ -49,14 +50,11 @@ module SystemUtils (
 
   ) where
 
-import Control.Exception               (IOException, catch)
 import Data.Char
 import Data.List
-import Prelude hiding                  (catch)
 
 import System.IO
-import System.Environment           ( getEnv )
-import System.Directory             ( doesFileExist, getModificationTime, removeFile )
+import System.Directory (doesFileExist, getModificationTime)
 
 -- ---------------------------------------------------------------------
 -- some misc types we use
@@ -103,35 +101,39 @@ a  <> b = a ++ b
 --
 dirname :: FilePath -> FilePath
 dirname p  =
-    let x = findIndices (== '\\') p
-        y = findIndices (== '/') p
+    let x = elemIndices '\\' p
+        y = elemIndices '/' p
     in
     if not $ null x
-      then if not $ null y
-          then if (maximum x) > (maximum y) then dirname' '\\' p else dirname' '/' p
-          else dirname' '\\' p
-      else dirname' '/' p
-    where
-        dirname' chara pa =
-            case reverse $ dropWhile (/= chara) $ reverse pa of
-                [] -> "."
-                pa' -> pa'
+    then if not $ null y
+         then if maximum x > maximum y
+              then dirname' '\\' p
+              else dirname' '/' p
+         else dirname' '\\' p
+    else dirname' '/' p
+  where
+      dirname' chara pa =
+          case reverse $ dropWhile (/= chara) $ reverse pa of
+               [] -> "."
+               pa' -> pa'
 
 --
 -- | basename : return the filename portion of a path
 --
 basename :: FilePath -> FilePath
 basename p =
-    let x = findIndices (== '\\') p
-        y = findIndices (== '/') p
+    let x = elemIndices '\\' p
+        y = elemIndices '/' p
     in
     if not $ null x
-      then if not $ null y
-          then if (maximum x) > (maximum y) then basename' '\\' p else basename' '/' p
-          else basename' '\\' p
+    then if not $ null y
+         then if maximum x > maximum y
+              then basename' '\\' p
+              else basename' '/' p
+         else basename' '\\' p
       else basename' '/' p
-    where
-        basename' chara pa = reverse $ takeWhile (/= chara) $ reverse pa
+  where
+      basename' chara pa = reverse $ takeWhile (/= chara) $ reverse pa
 
 --
 -- drop suffix
@@ -142,7 +144,7 @@ dropSuffix f = reverse . tail . dropWhile (/= '.') $ reverse f
 --
 -- | work out the mod name from a filepath
 mkModid :: String -> String
-mkModid = (takeWhile (/= '.')) . reverse . (takeWhile (\x -> ('/'/= x) && ('\\' /= x))) . reverse
+mkModid = takeWhile (/= '.') . reverse . takeWhile (\x -> ('/'/= x) && ('\\' /= x)) . reverse
 
 
 -----------------------------------------------------------
@@ -156,7 +158,7 @@ changeFileExt :: FilePath           -- ^ The path information to modify.
               -> FilePath           -- ^ A string containing the modified path information.
 changeFileExt fpath ext = joinFileExt name ext
   where
-    (name,_) = splitFileExt fpath
+      (name,_) = splitFileExt fpath
 
 -- | The 'joinFileExt' function is the opposite of 'splitFileExt'.
 -- It joins a file name and an extension to form a complete file path.
@@ -182,11 +184,11 @@ joinFileExt fpath ext = fpath ++ '.':ext
 -- > splitFileExt "foo.bar."== ("foo.bar.", "")
 splitFileExt :: FilePath -> (String, String)
 splitFileExt p =
-  case break (== '.') fname of
-        (suf@(_:_),_:pre) -> (reverse (pre++fpath), reverse suf)
-        _                 -> (p, [])
+    case break (== '.') fname of
+         (suf@(_:_),_:pre) -> (reverse (pre++fpath), reverse suf)
+         _                 -> (p, [])
   where
-    (fname,fpath) = break isPathSeparator (reverse p)
+      (fname,fpath) = break isPathSeparator (reverse p)
 
 -- | Checks whether the character is a valid path separator for the host
 -- platform. The valid character is a 'pathSeparator' but since the Windows
@@ -221,9 +223,10 @@ newer a b = do
     a_t      <- getModificationTime a
     b_exists <- doesFileExist b
     if not b_exists
-        then return True                -- needs compiling
-        else do b_t <- getModificationTime b
-                return ( a_t > b_t )    -- maybe need recompiling
+    then return True                -- needs compiling
+    else do
+        b_t <- getModificationTime b
+        return ( a_t > b_t )    -- maybe need recompiling
 
 ------------------------------------------------------------------------
 --
@@ -240,20 +243,22 @@ encode (c:cs) = encode_ch c ++ encode cs
 unencodedChar :: Char -> Bool   -- True for chars that don't need encoding
 unencodedChar 'Z' = False
 unencodedChar 'z' = False
-unencodedChar c   =  c >= 'a' && c <= 'z'
-                  || c >= 'A' && c <= 'Z'
-                  || c >= '0' && c <= '9'
+unencodedChar c   =  isAsciiLower c
+                  || isAsciiUpper c
+                  || isDigit c
 
 --
 -- Decode is used for user printing.
 --
 decode :: EncodedString -> String
 decode [] = []
-decode ('Z' : d : rest) | isDigit d = decode_tuple   d rest
-                        | otherwise = decode_upper   d : decode rest
-decode ('z' : d : rest) | isDigit d = decode_num_esc d rest
-                        | otherwise = decode_lower   d : decode rest
-decode (c  : rest) = c : decode rest
+decode ('Z' : d : rest)
+  | isDigit d = decode_tuple d rest
+  | otherwise = decode_upper d : decode rest
+decode ('z' : d : rest)
+  | isDigit d = decode_num_esc d rest
+  | otherwise = decode_lower d : decode rest
+decode (c : rest) = c : decode rest
 
 decode_upper, decode_lower :: Char -> Char
 
@@ -264,7 +269,7 @@ decode_upper 'N' = ']'
 decode_upper 'C' = ':'
 decode_upper 'Z' = 'Z'
 decode_upper ch  = error $ "decode_upper can't handle this char `"++[ch]++"'"
-            
+
 decode_lower 'z' = 'z'
 decode_lower 'a' = '&'
 decode_lower 'b' = '|'
@@ -331,15 +336,14 @@ encode_ch '%'  = "zv"
 encode_ch c    = 'z' : shows (ord c) "U"
 
 decode_tuple :: Char -> EncodedString -> String
-decode_tuple d cs
-  = go (digitToInt d) cs
+decode_tuple d cs = go (digitToInt d) cs
   where
-    go n (c : rest) | isDigit c = go (10*n + digitToInt c) rest
-    go 0 ['T']          = "()"
-    go n ['T']          = '(' : replicate (n-1) ',' ++ ")"
-    go 1 ['H']          = "(# #)"
-    go n ['H']          = '(' : '#' : replicate (n-1) ',' ++ "#)"
-    go _ other = error $ "decode_tuple \'"++other++"'"
+      go n (c : rest) | isDigit c = go (10*n + digitToInt c) rest
+      go 0 "T" = "()"
+      go n "T" = '(' : replicate (n-1) ',' ++ ")"
+      go 1 "H" = "(# #)"
+      go n "H" = '(' : '#' : replicate (n-1) ',' ++ "#)"
+      go _ other = error $ "decode_tuple \'"++other++"'"
 
 -- ---------------------------------------------------------------------
 
@@ -353,5 +357,5 @@ isSublistOf :: Eq a => [a] -> [a] -> Bool
 isSublistOf [] _ = True
 isSublistOf _ [] = False
 isSublistOf x y@(_:ys)
-    | isPrefixOf x y = True
-    | otherwise      = isSublistOf x ys
+  | isPrefixOf x y = True
+  | otherwise      = isSublistOf x ys

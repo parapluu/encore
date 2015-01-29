@@ -1,4 +1,8 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 {-| Translate a @ClassDecl@ (see "AST") to its @CCode@ (see
 "CCode.Main") equivalent.
@@ -10,22 +14,17 @@ module CodeGen.ClassDecl () where
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.MethodDecl
-import CodeGen.Type
-import qualified CodeGen.Context as Ctx
 
 import CCode.Main
-import CCode.PrettyCCode
 
-import Data.List
+import Control.Arrow ((&&&))
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
 import qualified Types as Ty
 
-import Control.Monad.Reader hiding (void)
-
 instance Translatable A.ClassDecl (CCode FIN) where
-  translate cdecl
+    translate cdecl
       | A.isActive cdecl = translateActiveClass cdecl
       | otherwise        = translatePassiveClass cdecl
 
@@ -34,7 +33,7 @@ instance Translatable A.ClassDecl (CCode FIN) where
 -- "CodeGen.Header"
 translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
     Program $ Concat $
-      (LocalInclude "header.h") :
+      LocalInclude "header.h" :
       [data_struct] ++
       [tracefun_decl] ++
       pony_msg_t_impls ++
@@ -42,59 +41,63 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       method_impls ++
       [dispatchfun_decl] ++
       [pony_actor_t_impl]
-    where
+  where
       data_struct :: CCode Toplevel
-      data_struct = StructDecl (data_rec_type cname) $
-                     ((Ptr $ pony_actor_t, Var "aref") :
-                         zip
-                         (map (translate  . A.ftype) fields)
-                         (map (Var . show . A.fname) fields))
+      data_struct =
+          StructDecl (data_rec_type cname) ((Ptr pony_actor_t, Var "aref") :
+              map ((translate . A.ftype) &&& (Var . show . A.fname)) fields)
 
       tracefun_decl :: CCode Toplevel
-      tracefun_decl = 
+      tracefun_decl =
           case find ((== Ty.getId cname ++ "_trace") . show . A.mname) methods of
-            Just mdecl@(A.Method{A.mbody, A.mname}) ->
-                    Function void (class_trace_fn_name cname) 
-                             [(Ptr void, Var "p")]
-                             (Statement $ Call (method_impl_name cname mname)
-                                          [Var "p"])
-
-            Nothing -> 
-                Function void (class_trace_fn_name cname) 
-                         [(Ptr void, Var "p")]
-                         (Seq $ map trace_field fields)
-          where
+               Just mdecl@(A.Method{A.mbody, A.mname}) ->
+                 Function void (class_trace_fn_name cname)
+                     [(Ptr void, Var "p")]
+                     (Statement $ Call (method_impl_name cname mname) [Var "p"])
+               Nothing ->
+                 Function void (class_trace_fn_name cname)
+                     [(Ptr void, Var "p")]
+                     (Seq $ map trace_field fields)
+        where
             trace_field A.Field {A.ftype, A.fname}
                 | Ty.isActiveRefType ftype =
                     Call (Nam "pony_traceactor") [get_field fname]
                 | Ty.isPassiveRefType ftype =
-                    Call (Nam "pony_traceobject") [get_field fname, AsLval $ class_trace_fn_name ftype]
+                    Call (Nam "pony_traceobject")
+                        [get_field fname, AsLval $ class_trace_fn_name ftype]
                 | otherwise =
                     Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
-            get_field f = Deref (Cast (data_rec_ptr cname) (Var "p")) `Dot` (Nam $ show f)
+            get_field f =
+                Deref (Cast (data_rec_ptr cname) (Var "p")) `Dot` (Nam $ show f)
 
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl methods
-          where
+        where
             pony_msg_t_impl mdecl =
                 Concat
-                  [AssignTL
-                     (Decl (Static (Typ "pony_msg_t"),
-                           (method_message_type_name cname (A.mname mdecl))))
-                     (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main") then
-                          (Record
-                           [Int $ length (A.mparams mdecl),
-                            Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
-                      else
-                          (Record
-                           [Int $ length (A.mparams mdecl) + 1, -- plus 1 for future argument
-                            Record $ Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])),
-                   AssignTL
-                     (Decl (Static (Typ "pony_msg_t"),
+                  [ AssignTL
+                      (Decl (Static (Typ "pony_msg_t"),
+                            method_message_type_name cname (A.mname mdecl)))
+                      (if A.isMainClass cdecl && A.mname mdecl == ID.Name "main"
+                       then Record
+                           [ Int $ length (A.mparams mdecl)
+                           , Record $ map (pony_mode . A.getType)
+                             (A.mparams mdecl)
+                           ]
+                       else Record
+                           [ Int $ length (A.mparams mdecl) + 1 -- plus 1 for future argument
+                           , Record $ Nam "PONY_NONE" :
+                             map (pony_mode . A.getType) (A.mparams mdecl)
+                           ])
+                  , AssignTL
+                      (Decl (Static (Typ "pony_msg_t"),
                             one_way_message_type_name cname (A.mname mdecl)))
-                     (Record [Int $ length (A.mparams mdecl),
-                              Record $ map (pony_mode . A.getType) (A.mparams mdecl)])]
+                      (Record
+                        [ Int $ length (A.mparams mdecl)
+                        , Record $ map (pony_mode . A.getType) (A.mparams mdecl)
+                        ])
+                  ]
 
             pony_mode ty =
                 case translate ty of
@@ -107,77 +110,81 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                    (class_message_type_name cname)
                    [(Typ "uint64_t", Var "id")]
                    (Seq [Switch (Var "id")
-                           ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
-                            (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
-                            (Nam "FUT_MSG_SUSPEND", Return $ Amp $ Var "m_resume_suspend") :
-                            (Nam "FUT_MSG_AWAIT", Return $ Amp $ Var "m_resume_await") :
-                            (Nam "FUT_MSG_RUN_CLOSURE", Return $ Amp $ Var "m_run_closure") :
-                            (concatMap type_clause methods))
-                            (Skip),
-                         (Return Null)])
+                       ((Nam "MSG_alloc",
+                             Return $ Amp $ Var "m_MSG_alloc") :
+                       (Nam "FUT_MSG_RESUME",
+                            Return $ Amp $ Var "m_resume_get") :
+                       (Nam "FUT_MSG_SUSPEND",
+                            Return $ Amp $ Var "m_resume_suspend") :
+                       (Nam "FUT_MSG_AWAIT",
+                            Return $ Amp $ Var "m_resume_await") :
+                       (Nam "FUT_MSG_RUN_CLOSURE",
+                            Return $ Amp $ Var "m_run_closure") :
+                        concatMap type_clause methods) Skip, Return Null])
         where
           type_clause mdecl =
-              [message_type_clause cname (A.mname mdecl),
-               one_way_message_type_clause cname (A.mname mdecl)]
+              [ message_type_clause cname (A.mname mdecl)
+              , one_way_message_type_clause cname (A.mname mdecl)
+              ]
           message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
           message_type_clause cname mname =
-              if mname == (ID.Name "main") then
-                  (Nam "PONY_MAIN",
-                   Return $ Amp (method_message_type_name cname mname))
-              else
-            (method_msg_name cname mname,
-             Return $ Amp (method_message_type_name cname mname))
+              if mname == ID.Name "main"
+              then (Nam "PONY_MAIN",
+                       Return $ Amp (method_message_type_name cname mname))
+              else (method_msg_name cname mname,
+                       Return $ Amp (method_message_type_name cname mname))
 
           one_way_message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
           one_way_message_type_clause cname mname =
-            (one_way_send_msg_name cname mname,
-             Return $ Amp (one_way_message_type_name cname mname))
+              (one_way_send_msg_name cname mname,
+                  Return $ Amp (one_way_message_type_name cname mname))
 
-      method_impls = map method_impl methods
-          where
-            method_impl mdecl = translate mdecl cdecl
+      method_impls = map (`translate` cdecl) methods
 
       dispatchfun_decl :: CCode Toplevel
       dispatchfun_decl =
-          (Function (Static void) (class_dispatch_name cname)
-           ([(Ptr . Typ $ "pony_actor_t", Var "this"),
-             (Ptr void, Var "p"),
-             (Typ "uint64_t", Var "id"),
-             (Typ "int", Var "argc"),
-             (Ptr . Typ $ "pony_arg_t", Var "argv")])
-           (Switch (Var "id")
-            ((Nam "MSG_alloc", alloc_instr) :
-             -- (Nam "FUT_MSG_RESUME", fut_resume_instr) :
-             (Nam "FUT_MSG_SUSPEND", fut_resume_suspend_instr) :
-             (Nam "FUT_MSG_AWAIT", fut_resume_await_instr) :
-             (Nam "FUT_MSG_RUN_CLOSURE", fut_run_closure_instr) :
-             (if (A.isMainClass cdecl)
-              then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
-              else method_clauses $ methods
-             ))
-             (Statement $ Call (Nam "printf") [String "error, got invalid id: %llu", AsExpr $ Var "id"])))
-          where
-            alloc_instr = let size = Call (Var "sizeof") [Var $ show (data_rec_name cname)]
-                          in
-                            Seq
-                              [Assign (Var "p")
-                                      (Call (Nam "pony_alloc") [size]),
-                               Statement $ Call (Nam "memset") [AsExpr $ Var "p", Int 0, size],
-                               (Assign (Deref (Cast (data_rec_ptr cname) (Var "p") ) `Dot` Nam "aref")
-                                       (Var "this")),
-                               (Statement $ Call (Nam "pony_set") [Var "p"])]
-
-            fut_resume_instr =
-                Seq
-                  [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                          ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                   Statement $ Call (Nam "future_resume") [Var "fut"]]
+          Function (Static void) (class_dispatch_name cname)
+              [ (Ptr . Typ $ "pony_actor_t", Var "this")
+              , (Ptr void, Var "p")
+              , (Typ "uint64_t", Var "id")
+              , (Typ "int", Var "argc")
+              , (Ptr . Typ $ "pony_arg_t", Var "argv")
+              ]
+              (Switch (Var "id")
+              ((Nam "MSG_alloc", alloc_instr) :
+              -- (Nam "FUT_MSG_RESUME", fut_resume_instr) :
+              (Nam "FUT_MSG_SUSPEND", fut_resume_suspend_instr) :
+              (Nam "FUT_MSG_AWAIT", fut_resume_await_instr) :
+              (Nam "FUT_MSG_RUN_CLOSURE", fut_run_closure_instr) :
+              (if A.isMainClass cdecl
+              then pony_main_clause :
+                method_clauses (filter ((/= ID.Name "main") . A.mname) methods)
+              else method_clauses methods
+              ))
+              (Statement $ Call (Nam "printf")
+                [ String "error, got invalid id: %llu"
+                , AsExpr $ Var "id"
+                ]))
+        where
+            alloc_instr = let size = Call (Var "sizeof")
+                                        [Var $ show (data_rec_name cname)]
+                          in Seq
+                              [ Assign (Var "p")
+                                    (Call (Nam "pony_alloc") [size])
+                              , Statement $ Call (Nam "memset")
+                                    [AsExpr $ Var "p", Int 0, size]
+                              , Assign (Deref (Cast (data_rec_ptr cname)
+                                                (Var "p")) `Dot` Nam "aref")
+                                                    (Var "this")
+                              , Statement $ Call (Nam "pony_set") [Var "p"]
+                              ]
 
             fut_resume_suspend_instr =
                 Seq
-                  [Assign (Decl (Ptr $ Typ "void", Var "s"))
-                          ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                   Statement $ Call (Nam "future_suspend_resume") [Var "s"]]
+                  [ Assign (Decl (Ptr $ Typ "void", Var "s"))
+                      (ArrAcc 0 (Var "argv") `Dot` Nam "p")
+                  , Statement $ Call (Nam "future_suspend_resume") [Var "s"]
+                  ]
 
             fut_resume_await_instr =
                 Seq
@@ -186,112 +193,122 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
             fut_run_closure_instr =
                 Seq
                   [Assign (Decl (closure, Var "closure"))
-                          ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                   Assign (Decl (Typ "value_t", Var "closure_arguments[]"))
-                          (Record [UnionInst (Nam "p") (ArrAcc 1 (Var "argv") `Dot` (Nam "p"))]),
-                   Statement $ Call (Nam "closure_call") [Var "closure", Var "closure_arguments"]]
+                      (ArrAcc 0 (Var "argv") `Dot` Nam "p")
+                  , Assign (Decl (Typ "value_t", Var "closure_arguments[]"))
+                      (Record
+                          [UnionInst (Nam "p")
+                              (ArrAcc 1 (Var "argv") `Dot` Nam "p")])
+                  , Statement $ Call (Nam "closure_call")
+                      [Var "closure", Var "closure_arguments"]
+                  ]
 
             pony_main_clause =
                 (Nam "PONY_MAIN",
-                 Seq $ [alloc_instr,
-                        Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
-                                         [AsExpr $ Var "p",
-                                          AsExpr $ (ArrAcc 0 (Var "argv")) `Dot` (Nam "i"),
-                                          Cast (Ptr $ Ptr char) $ (ArrAcc 1 (Var "argv")) `Dot` (Nam "p")]])
+                 Seq [ alloc_instr
+                     , Statement $ Call
+                        (method_impl_name (Ty.refType "Main") (ID.Name "main"))
+                            [ AsExpr $ Var "p"
+                            , AsExpr $ ArrAcc 0 (Var "argv") `Dot` Nam "i"
+                            , Cast (Ptr $ Ptr char) $ ArrAcc 1 (Var "argv")
+                                `Dot` Nam "p"
+                            ]
+                     ])
 
             method_clauses :: [A.MethodDecl] -> [(CCode Name, CCode Stat)]
             method_clauses = concatMap method_clause
 
-            method_clause m = (mthd_dispatch_clause m) :
-                              if not (A.isStreamMethod m)
-                              then [one_way_send_dispatch_clause m]
-                              else []
+            method_clause m =
+                mthd_dispatch_clause m : if not (A.isStreamMethod m)
+                                         then [one_way_send_dispatch_clause m]
+                                         else []
 
-            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams})  =
+            mthd_dispatch_clause (A.Method{A.mname, A.mparams}) =
                 (method_msg_name cname mname,
-                 Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                      ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-                      Statement $ Call (Nam "future_fulfil")
-                                       [AsExpr $ Var "fut",
-                                        Cast (Ptr void)
-                                             (Call (method_impl_name cname mname)
-                                              ((AsExpr . Var $ "p") :
-                                               (paramdecls_to_argv 1 $ mparams)))]])
-            mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
+                 Seq [ Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
+                         (ArrAcc 0 (Var "argv") `Dot` Nam "p")
+                     , Statement $ Call (Nam "future_fulfil")
+                         [ AsExpr $ Var "fut"
+                         , Cast (Ptr void) (Call (method_impl_name cname mname)
+                             ((AsExpr . Var $ "p") :
+                                paramdecls_to_argv 1 mparams))
+                         ]
+                     ])
+            mthd_dispatch_clause (A.StreamMethod{A.mname, A.mparams}) =
                 (method_msg_name cname mname,
-                 Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                      ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-                      Statement $ (Call (method_impl_name cname mname)
-                                        ((AsExpr . Var $ "p") :
-                                         (AsExpr . Var $ "fut") :
-                                         (paramdecls_to_argv 1 $ mparams)))])
+                 Seq [ Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
+                         (ArrAcc 0 (Var "argv") `Dot` Nam "p")
+                     , Statement $ Call (method_impl_name cname mname)
+                         ((AsExpr . Var $ "p") : (AsExpr . Var $ "fut") :
+                             paramdecls_to_argv 1 mparams)
+                     ])
 
-            one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
+            one_way_send_dispatch_clause A.Method{A.mname, A.mparams} =
                 (one_way_send_msg_name cname mname,
-                 (Statement $
-                  Call (method_impl_name cname mname)
-                       ((AsExpr . Var $ "p") : (paramdecls_to_argv 0 $ mparams))))
+                 Statement $ Call (method_impl_name cname mname)
+                     ((AsExpr . Var $ "p") : paramdecls_to_argv 0 mparams))
 
             paramdecls_to_argv :: Int -> [A.ParamDecl] -> [CCode Expr]
-            paramdecls_to_argv start_idx = zipWith paramdecl_to_argv [start_idx..]
+            paramdecls_to_argv start_idx =
+                zipWith paramdecl_to_argv [start_idx..]
 
             paramdecl_to_argv argv_idx (A.Param {A.ptype}) =
                 let arg_cell = ArrAcc argv_idx (Var "argv")
-                in
-                  AsExpr $
-                  arg_cell `Dot`
-                      (case translate ptype of
-                         (Typ "int64_t") -> (Nam "i")
-                         (Typ "double")  -> (Nam "d")
-                         (Ptr _)         -> (Nam "p")
-                         other           ->
-                             error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ptype)
+                in AsExpr $ arg_cell `Dot`
+                    (case translate ptype of
+                        (Typ "int64_t") -> Nam "i"
+                        (Typ "double")  -> Nam "d"
+                        (Ptr _)         -> Nam "p"
+                        _               -> error $ "ClassDecl.hs: " ++
+                            "paramdecl_to_argv not implemented for " ++
+                              show ptype)
 
       pony_actor_t_impl =
-                (AssignTL
-                 (Decl (Typ "pony_actor_type_t", AsLval $ actor_rec_name cname))
-                 (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
-                          tracefun_rec,
-                          AsExpr . AsLval $ class_message_type_name cname,
-                          AsExpr . AsLval $ class_dispatch_name cname]))
-          where
+          AssignTL
+              (Decl (Typ "pony_actor_type_t", AsLval $ actor_rec_name cname))
+                  (Record [ AsExpr . AsLval . Nam $ "ID_" ++ Ty.getId cname
+                          , tracefun_rec
+                          , AsExpr . AsLval $ class_message_type_name cname
+                          , AsExpr . AsLval $ class_dispatch_name cname
+                          ])
+        where
             tracefun_rec =
-                Record [Call (Nam "sizeof") [Var . show $ data_rec_name cname],
-                        AsExpr . AsLval $ (class_trace_fn_name cname),
-                        Null,
-                        Null]
+                Record [ Call (Nam "sizeof") [Var . show $ data_rec_name cname]
+                       , AsExpr . AsLval $ class_trace_fn_name cname
+                       , Null
+                       , Null
+                       ]
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
 -- struct for instance variables) in the file generated by
 -- "CodeGen.Header"
+translatePassiveClass :: A.ClassDecl -> CCode FIN
 translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
-    Program $ Concat $
-      (LocalInclude "header.h") :
-      [tracefun_decl] ++
-      method_impls
-    where
+    Program $ Concat $ LocalInclude "header.h" : tracefun_decl : method_impls
+  where
       tracefun_decl :: CCode Toplevel
-      tracefun_decl = 
+      tracefun_decl =
           case find ((== Ty.getId cname ++ "_trace") . show . A.mname) methods of
-            Just mdecl@(A.Method{A.mbody, A.mname}) ->
-                    Function void (class_trace_fn_name cname) 
-                             [(Ptr void, Var "p")]
-                             (Statement $ Call (method_impl_name cname mname)
-                                          [Var "p"])
-
-            Nothing -> 
-                Function void (class_trace_fn_name cname)
-                   [(Ptr void, Var "p")]
-                   (Seq $ map trace_field fields)
-          where
+               Just mdecl@(A.Method{A.mbody, A.mname}) ->
+                 Function void (class_trace_fn_name cname)
+                     [(Ptr void, Var "p")]
+                     (Statement $ Call (method_impl_name cname mname) [Var "p"])
+               Nothing ->
+                 Function void (class_trace_fn_name cname)
+                     [(Ptr void, Var "p")]
+                     (Seq $ map trace_field fields)
+        where
             trace_field A.Field {A.ftype, A.fname}
-                | Ty.isActiveRefType ftype = Call (Nam "pony_traceactor") [get_field fname]
-                | Ty.isPassiveRefType ftype = Call (Nam "pony_traceobject") [get_field fname, AsLval $ class_trace_fn_name ftype]
-                | otherwise = Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
-                where
-                  get_field f = Deref (Cast (data_rec_ptr cname) (Var "p")) `Dot` (Nam $ show f)
+              | Ty.isActiveRefType ftype =
+                  Call (Nam "pony_traceactor") [get_field fname]
+              | Ty.isPassiveRefType ftype =
+                  Call (Nam "pony_traceobject")
+                      [ get_field fname
+                      , AsLval $ class_trace_fn_name ftype
+                      ]
+              | otherwise =
+                  Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
+            get_field f =
+                Deref (Cast (data_rec_ptr cname) (Var "p")) `Dot` (Nam $ show f)
 
-      method_impls = map method_decl methods
-          where
-            method_decl mdecl = translate mdecl cdecl
+      method_impls = map (`translate` cdecl) methods

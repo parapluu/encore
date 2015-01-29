@@ -1,4 +1,6 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, NamedFieldPuns #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 {-|
 Translating an Encore program to its CCode representation (see "CCode.Main")

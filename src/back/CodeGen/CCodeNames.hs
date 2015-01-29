@@ -15,7 +15,6 @@ module CodeGen.CCodeNames where
 import qualified Identifiers as ID
 import Types as Ty
 import CCode.Main
-import Data.Char
 
 char = Typ "char"
 int = Typ "int64_t"
@@ -31,34 +30,29 @@ closure = Ptr $ Typ "closure_t"
 future = Ptr $ Typ "future_t"
 stream = Ptr $ Typ "stream_t"
 unit :: CCode Lval
-unit = Embed "UNIT" 
+unit = Embed "UNIT"
 
--- | each method is implemented as a function with a `this`
+-- | Each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
 method_impl_name :: Ty.Type -> ID.Name -> CCode Name
-method_impl_name clazz mname =
-    Nam $ (Ty.getId clazz) ++ "_" ++ (show mname)
+method_impl_name clazz mname = Nam $ Ty.getId clazz ++ "_" ++ show mname
 
 global_closure_name :: ID.Name -> CCode Name
-global_closure_name funname =
-    Nam $ (show funname)
+global_closure_name funname = Nam $ show funname
 
 global_function_name :: ID.Name -> CCode Name
-global_function_name funname = 
-    Nam $ "_global_" ++ (show funname) ++ "_fun"
+global_function_name funname = Nam $ "_global_" ++ show funname ++ "_fun"
 
 closure_fun_name :: String -> CCode Name
-closure_fun_name name =
-    Nam $ "_" ++ name ++ "_fun"
+closure_fun_name name = Nam $ "_" ++ name ++ "_fun"
 
 closure_env_name :: String -> CCode Name
-closure_env_name name =
-    Nam $ "_" ++ name ++ "_env"
+closure_env_name name = Nam $ "_" ++ name ++ "_env"
 
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
 
--- | each class, in C, provides a dispatch function that dispatches
+-- | Each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
 class_dispatch_name :: Ty.Type -> CCode Name
@@ -71,19 +65,23 @@ class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ Ty.getId clazz ++ "_trace"
 
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-method_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"_"++show mname
+method_message_type_name clazz mname =
+    Var $ "m_" ++ Ty.getId clazz ++ "_" ++ show mname
 
 one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-one_way_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"__one_way_"++show mname
+one_way_message_type_name clazz mname =
+    Var $ "m_" ++ Ty.getId clazz ++ "__one_way_" ++ show mname
 
--- | for each method, there's a corresponding message, this is its name
+-- | For each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
-method_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"_"++show mname
+method_msg_name clazz mname =
+    Nam $ "MSG_" ++ Ty.getId clazz ++ "_" ++ show mname
 
 one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_send_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"__one_way_"++show mname
+one_way_send_msg_name clazz mname =
+    Nam $ "MSG_" ++ Ty.getId clazz ++ "__one_way_" ++ show mname
 
--- | the name of the record type in which a class stores its state
+-- | The name of the record type in which a class stores its state
 data_rec_name :: Ty.Type -> CCode Name
 data_rec_name clazz = Nam $ Ty.getId clazz ++ "_data"
 

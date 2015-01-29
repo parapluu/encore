@@ -8,8 +8,15 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr, ppProgram, ppParamDecl, 
-                          ppFieldDecl, indent, ppSugared) where
+module AST.PrettyPrinter
+    (
+      ppExpr
+    , ppProgram
+    , ppParamDecl
+    , ppFieldDecl
+    , indent
+    , ppSugared
+    ) where
 
 -- Library dependencies
 import Text.PrettyPrint
@@ -62,29 +69,28 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram (Program (EmbedTL _ header code) importDecls functions classDecls) = 
-    text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
-         vcat (map ppImportDecl importDecls) $+$
-         vcat (map ppFunction functions) $+$
-         vcat (map ppClassDecl classDecls)
+ppProgram (Program (EmbedTL _ header code) importDecls functions classDecls) =
+    text "embed" $+$ text header $+$ text "body" $+$ text code $+$
+      text "end" $+$
+        vcat (map ppImportDecl importDecls) $+$
+        vcat (map ppFunction functions) $+$
+        vcat (map ppClassDecl classDecls)
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppName itarget
 
 ppFunction :: Function -> Doc
-ppFunction Function {funname, funtype, funparams, funbody} = 
+ppFunction Function {funname, funtype, funparams, funbody} =
     text "def" <+>
-    ppName funname <> 
+    ppName funname <>
     parens (commaSep (map ppParamDecl funparams)) <+>
     text ":" <+> ppType funtype $+$
-    (indent (ppExpr funbody))
+    indent (ppExpr funbody)
 
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl Class {cname, fields, methods} = 
+ppClassDecl Class {cname, fields, methods} =
     ppClass <+> ppType cname $+$
-             (indent $
-                   vcat (map ppFieldDecl fields) $$
-                   vcat (map ppMethodDecl methods))
+      indent (vcat (map ppFieldDecl fields) $$ vcat (map ppMethodDecl methods))
 
 ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl Field {fname, ftype} = ppName fname <+> ppColon <+> ppType ftype
@@ -93,18 +99,18 @@ ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
-ppMethodDecl Method {mname, mtype, mparams, mbody} = 
+ppMethodDecl Method {mname, mtype, mparams, mbody} =
     text "def" <+>
-    ppName mname <> 
+    ppName mname <>
     parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
-    (indent (ppExpr mbody))
-ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} = 
+    indent (ppExpr mbody)
+ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} =
     text "stream" <+>
-    ppName mname <> 
+    ppName mname <>
     parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
-    (indent (ppExpr mbody))
+    indent (ppExpr mbody)
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
@@ -115,56 +121,58 @@ isSimple FunctionCall {} = True
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
-maybeParens e 
-    | isSimple e = ppExpr e
-    | otherwise  = parens $ ppExpr e
+maybeParens e
+  | isSimple e = ppExpr e
+  | otherwise  = parens $ ppExpr e
 
 ppSugared :: Expr -> Doc
 ppSugared e = case getSugared e of
-                Just e' -> ppExpr e'
-                Nothing -> ppExpr e
+                   Just e' -> ppExpr e'
+                   Nothing -> ppExpr e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
-ppExpr MethodCall {target, name, args} = 
-    maybeParens target <> ppDot <> ppName name <> 
+ppExpr MethodCall {target, name, args} =
+    maybeParens target <> ppDot <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args} = 
-    maybeParens target <> ppBang <> ppName name <> 
+ppExpr MessageSend {target, name, args} =
+    maybeParens target <> ppBang <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr FunctionCall {name, args} = 
+ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
-ppExpr Closure {eparams, body} = 
-    ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
-ppExpr Let {decls, body} = 
-    ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
-      indent (ppExpr body)
+ppExpr Closure {eparams, body} =
+    ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+>
+      ppExpr body
+ppExpr Let {decls, body} =
+    ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e)
+                       decls) $+$ ppIn $+$ indent (ppExpr body)
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
-ppExpr IfThenElse {cond, thn, els} = 
+ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
-ppExpr IfThen {cond, thn} = 
+ppExpr IfThen {cond, thn} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn)
-ppExpr Unless {cond, thn} = 
+ppExpr Unless {cond, thn} =
     ppUnless <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn)
-ppExpr While {cond, body} = 
+ppExpr While {cond, body} =
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)
-ppExpr Repeat {name, times, body} = 
-    ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
+ppExpr Repeat {name, times, body} =
+    ppRepeat <+> ppName name <+> text "<-" <+> ppExpr times $+$
          indent (ppExpr body)
-ppExpr FutureChain {future, chain} = 
-    ppExpr future <+> (text "~~>") <+> ppExpr chain
+ppExpr FutureChain {future, chain} =
+    ppExpr future <+> text "~~>" <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val
 ppExpr Eos {} = ppEos <> parens empty
 ppExpr Await {val} = ppAwait <+> ppExpr val
 ppExpr IsEos {target} = ppExpr target <> ppDot <> ppEos <> parens empty
-ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <> parens empty
+ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <>
+    parens empty
 ppExpr Suspend {} = ppSuspend
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
 ppExpr VarAccess {name} = ppName name
@@ -172,9 +180,11 @@ ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
-ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
+ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <>
+    parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
-ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> comma <+> commaSep (map ppExpr args))
+ppExpr Print {stringLit, args} = ppPrint <> parens
+    (doubleQuotes (text stringLit) <> comma <+> commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit

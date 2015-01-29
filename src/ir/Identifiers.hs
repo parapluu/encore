@@ -15,11 +15,26 @@ thisName :: Name
 thisName = Name "this"
 
 -- | The supported (infix) operators
-data Op = AND | OR | NOT | LT | GT | LTE | GTE | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq)
+data Op = AND
+        | OR
+        | NOT
+        | LT
+        | GT
+        | LTE
+        | GTE
+        | EQ
+        | NEQ
+        | PLUS
+        | MINUS
+        | TIMES
+        | DIV
+        | MOD
+        deriving(Read, Eq)
+
 instance Show Op where
-    show Identifiers.AND = "and"
-    show Identifiers.OR = "or"
-    show Identifiers.NOT = "not"
+    show AND            = "and"
+    show OR             = "or"
+    show NOT            = "not"
     show Identifiers.LT = "<"
     show Identifiers.GT = ">"
     show Identifiers.EQ = "="

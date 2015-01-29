@@ -1,4 +1,6 @@
-{-# LANGUAGE NamedFieldPuns, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module CodeGen.Shared(generate_shared) where
 
@@ -11,10 +13,10 @@ import qualified AST.AST as A
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generate_shared :: A.Program -> CCode FIN
-generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} = 
+generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
     Program $
     Concat $
-      (LocalInclude "header.h") :
+      LocalInclude "header.h" :
       [comment_section "Embedded Code"] ++
       [Embed etlbody] ++
 
@@ -29,15 +31,24 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       [main_function]
     where
       create_and_send =
-          Function (Ptr pony_actor_t) (Nam "create_and_send") 
-                   [(Ptr pony_actor_type_t, Var "type"), (uint, Var "msg_id")]
-                   (Seq [Assign (Decl (Ptr pony_actor_t, Var "ret")) 
-                                (Call (Nam "pony_create") [Var "type"]),
-                         Statement $ Call (Nam "pony_send") [Var "ret", Var "msg_id"],
-                         Return $ Var "ret"])
+          Function (Ptr pony_actor_t) (Nam "create_and_send")
+                   [ (Ptr pony_actor_type_t, Var "type")
+                   , (uint, Var "msg_id")
+                   ]
+                   (Seq [ Assign (Decl (Ptr pony_actor_t, Var "ret"))
+                                (Call (Nam "pony_create") [Var "type"])
+                        , Statement $ Call (Nam "pony_send")
+                            [Var "ret", Var "msg_id"]
+                        , Return $ Var "ret"
+                        ])
 
-      shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
-          where
+      shared_messages = [ msg_alloc_decl
+                        , msg_fut_resume_decl
+                        , msg_fut_suspend_decl
+                        , msg_fut_await_decl
+                        , msg_fut_run_closure_decl
+                        ]
+        where
             msg_alloc_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_MSG_alloc"))
                          (Record [Int 0, Record ([] :: [CCode Expr])])
@@ -49,29 +60,41 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                          (Record [Int 1, Record [Var "PONY_NONE"]])
             msg_fut_await_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_resume_await"))
-                         (Record [Int 2, Record [Var "PONY_NONE", Var "PONY_NONE"]])
+                         (Record [ Int 2
+                                 , Record [Var "PONY_NONE", Var "PONY_NONE"]
+                                 ])
             msg_fut_run_closure_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
-                         (Record [Int 3, Record [Var "PONY_NONE", Var "PONY_NONE", Var "PONY_NONE"]])
-      
+                         (Record [ Int 3
+                                 , Record [ Var "PONY_NONE"
+                                          , Var "PONY_NONE"
+                                          , Var "PONY_NONE"
+                                          ]
+                                 ])
+
       global_functions = map translate functions
 
       main_function =
-          (Function (Typ "int") (Nam "main")
-                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                    (Seq $ --[init_futures] ++
-                           init_globals ++
-                           [Return $ 
-                            Call (Nam "pony_start") [AsExpr $ Var "argc", 
-                                                     AsExpr $ Var "argv", 
-                                                     Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))
-          where
-            init_futures = Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"])
+          Function (Typ "int") (Nam "main")
+                   [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+                   (Seq $ --[init_futures] ++
+                          init_globals ++
+                          [Return $ Call (Nam "pony_start")
+                            [ AsExpr $ Var "argc"
+                            , AsExpr $ Var "argv"
+                            , Call (Nam "pony_create") [Amp (Var "Main_actor")]
+                            ]])
+        where
+            init_futures = Statement (Call (Nam "init_futures")
+                [Int 2, AsExpr $ Var "LAZY"])
             init_globals = map init_global functions
-                where 
-                  init_global A.Function{A.funname} = 
+              where
+                  init_global A.Function{A.funname} =
                       Assign (global_closure_name funname)
-                             (Call (Nam "mk_closure") [AsExpr $ AsLval $ global_function_name funname, Null])
+                             (Call (Nam "mk_closure")
+                             [ AsExpr $ AsLval $ global_function_name funname
+                             , Null
+                             ])
 
 comment_section :: String -> CCode Toplevel
-comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
+comment_section s = Embed $ take (5 + length s) $ repeat '/' ++ "\n// " ++ s
