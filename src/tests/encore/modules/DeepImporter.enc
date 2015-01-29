@@ -1,0 +1,11 @@
+
+import MidImport
+
+class Main
+  def main() : void
+    let
+      f = new Bar 
+    in {
+      print (f.name());
+      ()
+    }

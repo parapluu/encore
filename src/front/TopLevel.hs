@@ -20,12 +20,13 @@ import Data.List
 import Control.Monad
 import SystemUtils
 
+import Utils
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
 import AST.Util
 import AST.Desugarer
-import AST.ModuleExpander
+import ModuleExpander
 import Typechecker.Typechecker
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -129,9 +130,6 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
-abort msg = do putStrLn msg
-               exitFailure
-
 main = 
     do args <- getArgs
        let (programs, options) = parseArguments args
@@ -150,10 +148,8 @@ main =
        when (Intermediate Parsed `elem` options) 
            (withFile (changeFileExt sourceName "AST") WriteMode 
                (flip hPrint $ show ast))
-       expandedAST <- case expandModules ast of
-		         Right ast  -> return ast
-		         Left error -> abort $ show error
-       let desugaredAST = desugarProgram expandedAST
+       expandedAst <- expandModules ast
+       let desugaredAST = desugarProgram expandedAst
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
