@@ -1,0 +1,47 @@
+
+embed
+	//Requests for docuemntation.
+	//	How are formatting actually done.
+	//	Are { neccesary
+	//	Return type of init ???
+	//	Type inference ??
+	//	Scoping ?
+	// 	Type casting
+end
+
+
+class Main
+	def main() : void{
+			print "computing mandelbrots like a boss";
+			let 
+				point = new Point 
+				point2 = new Point
+				n = 0.1
+			
+			in{
+			n = get point.compute_color(n);
+			n = get point.compute_color(n);
+			n = get point.compute_color(n);
+			
+			n = get point.compute_color(n);
+			n = get point.compute_color(n);
+			n = get point.compute_color(n);
+			}
+			
+		}
+		
+class Point
+	x0 : real
+	y0 : real
+	color : real
+	
+	def print_point() : void {
+		print("(({},{}),{})", this.x0, this.y0, this.color);
+	}
+	
+	def compute_color(N : int) : real{
+		print("{} loool \n",N+1);
+		N + 1
+		
+	}
+	
