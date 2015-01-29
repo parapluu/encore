@@ -9,34 +9,84 @@
 	 	Type casting ?
 	 	Basic synax (loops and such)
 	 		just the grammar is not cool
+	 	
 -}
 
 
+
+
+{-
+	Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
+
+-}
 class Main
 	def main() : void{
-			print "computing mandelbrots like a boss ";
+			--print "computing mandelbrots like a boss ";
 			let 
-				point = new Point 
-				point2 = new Point
-				n = 1 : int
-			
+				N = 50
+				list = new List			
 			in{
-				print("{} trololololo ",point.compute_color(n));
+				list = this.create_list(N);
+	
+				get list.printSilly(N);
+				
 			}
 			
 		}
+		
+	def create_list(N : int) : List{
+		let
+			x_max = 1.5
+			x_min = -1*1.5
+			y_max = 1.0
+			y_min = -1*1.0
+			x = 0.0
+			y = 0.0
+			dx = 0.0
+			dy = 0.0
+			iterations = 75000
+			list = new List()
+		in{
+			dx = (x_max - x_min) / N;
+			dy = (y_max - y_min) / N;
+			x = x_min;
+			y = y_min;
+			while (y < y_max){
+				while(x < x_max){
+					get list.insert(new Point(x,y,iterations));
+					x = x + dx;
+				};
+				x = x_min;
+				y = y + dy;
+			};
+			
+			list
+			
+		}
+		
+	
+	}
 		
 class Point
 	x0 : real
 	y0 : real
 	color : real
+	max_iterations : int
+	
+	
+	def init(x0 : real ,y0 : real,  N : int) : void {
+		this.x0 = x0;
+		this.y0 = y0;
+		this.color = -1*1.0;
+		this.max_iterations = N;
+	}
 	
 	def print_point() : void {
-		print("(({},{}),{})", this.x0, this.y0, this.color);
+		print("(({},{}),{})\n", this.x0, this.y0, this.color);
 	}
 	
 	--currently just computes membership
-	def compute_color(N : int) : real{
+	def compute_color() : bool{
 		let
 			x = 0.0 : real
 			xtemp = 0.0 : real
@@ -44,25 +94,156 @@ class Point
 			iteration = 0 : int
 			
 		in{
-			while ((x*x + y*y < 4.0) and (iteration <= N)){
+			while ((x*x + y*y < 4.0) and (iteration <= this.max_iterations)){
 				xtemp = x*x - y*y + this.x0;
 				y = 2.0*x*y + this.y0;
 				x = xtemp;
 				iteration = iteration + 1;
 			};
 			
-			if (iteration >= N) then{
-				this.color = 0.0;
-				0.0
-			}else{
+			if (iteration >= this.max_iterations) then{
+				--is in set
 				this.color = 1.0;
-				1.0
+				true
+			}else{
+				--outside set
+				this.color = 0.0;
+				false
 			}		
 		}
 	}
 
+class List
+	head : Node
+	
+	def init() : void{
+		this.head = null
+	}
+	
+	def insert(point : Point) : void{
+		let
+			new_node = new Node(point)
+		in{
+			if(this.head == null) then{
+				this.head = new_node;
+			}else{
+				 get new_node.setNextNode(this.head);
+				 this.head = new_node;
+			}
+		}
+	}
+	
+	def print() : void{
+		get this.head.print();
+	}
+	
+	{-
+		slightly COPY PEJSTED FROM:
+		http://benchmarksgame.alioth.debian.org/u64q/program.php?test=mandelbrot&lang=gcc&id=9
+
+	-}
+	def printBMP() : void{
+		embed void
+			 fprintf(stdout, "P4\n%jd %jd\n", (intmax_t)10,
+    		 (intmax_t)10);
+		end;
+		get this.head.bmpPrint();
+	}
+	
+	def printSilly(N : int) : void{
+		if this.head != null then
+			get this.head.printSilly(0,N);
+	}
+	
+
+	
+	
+
 class Node
 	next : Node
+	point : Point
+	done : Fut bool
+	
+	def init(point : Point) : void{
+		this.next = null;
+		this.point = point;
+		this.done = point.compute_color();
+	}
+	
+	def setNextNode(node : Node ) : void {
+		this.next = node
+	}
+	
+	def getNextNode() : Node{
+		this.next
+	}
+	
+	def printSilly(i : int,  N : int) : void{
+		if( i < N*N and this.next != null ) then{
+			if((i % N) == 0) then{
+				print("\n{}","");
+			};
+			if (get this.done) then{
+				print("#{}","")
+			}else{
+				print(" {}","")
+			};
+				
+			get this.next.printSilly(i+1,N);
+		}else{
+			print("");
+		}
+	}
+	
+	def bmpPrint() : void{
+		if (this.next == null) then 
+			if(get this.done) then
+				embed void
+					char lol = 1; 
+					fwrite(&lol, (10*10)/8, 1, stdout);
+				end
+				
+			else
+				embed void
+					char lol1 = 0; 
+					fwrite(&lol1, (10*10)/8, 1, stdout);
+				end
+		else
+			if(get this.done) then
+				embed void
+					char lol2 = 1; 
+					fwrite(&lol2, (10*10)/8, 1, stdout);
+				end
+				
+			else
+				embed void
+					char lol3 = 0; 
+					fwrite(&lol3, (10*10)/8, 1, stdout);
+				end;
+				
+			get this.next.bmpPrint()
+		}
+	
+	
+	def print() : void{
+		if(this.next == null )then{
+			get this.done;
+			this.point!print_point();
+		}else{
+			get this.done;
+			this.point!print_point();
+			get this.next.print();
+		}
+		
+	}
+	
+
+	
+	
+
+	
+	
+	
 	
 	
 
