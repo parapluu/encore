@@ -237,7 +237,8 @@ For instance, we might want to keep the intermediate C-files:
 
 @subsection{encore-mode}
 
-Some extra support for emacs from Elias Castegren; add the following to @literal{~./emacs} or @literal{~/.emacs.d/init.el}
+Some extra support for emacs from Elias Castegren; add the following
+to @literal{~./emacs} or @literal{~/.emacs.d/init.el}
 
 @codeblock|{
     (add-to-list 'load-path "PATH/TO/encore/emacs")
@@ -254,6 +255,19 @@ If you also want better automatic indentation, you can additionally add:
     (require 'dtrt-indent)
     (dtrt-indent-mode 1)
 }|
+
+You can add compilation support by adding the lines:
+
+@codeblock|{
+    (add-hook 'encore-mode-hook (lambda () (global-set-key (kbd "C-c C-c") 'compile)))
+    (add-hook 'encore-mode-hook (lambda () (global-set-key (kbd "C-c C-n") 'next-error)))
+    (add-hook 'encore-mode-hook (lambda () (global-set-key (kbd "C-c C-p") 'previous-error)))
+}|
+
+This allows you to compile an @tt{encore} source file by pressing
+@tt{C-c C-c} in emacs. If there are errors, you can jump to them by
+pressing @tt{C-c C-n} (to jump to the next error) or @tt{C-c C-p} (to
+jump to the previous error.
 
 @subsection{yas-minor-mode}
 
