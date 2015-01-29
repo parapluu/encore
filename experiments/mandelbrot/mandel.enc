@@ -1,31 +1,27 @@
 
-embed
-	//Requests for docuemntation.
-	//	How are formatting actually done.
-	//	Are { neccesary
-	//	Return type of init ???
-	//	Type inference ??
-	//	Scoping ?
-	// 	Type casting
-end
+{-
+	   Requests for docuemntation.
+		How are formatting actually done.
+		Are { neccesary
+		Return type of init ???
+		Type inference ??
+		Scoping ?
+	 	Type casting ?
+	 	Basic synax (loops and such)
+	 		just the grammar is not cool
+-}
 
 
 class Main
 	def main() : void{
-			print "computing mandelbrots like a boss";
+			print "computing mandelbrots like a boss ";
 			let 
 				point = new Point 
 				point2 = new Point
-				n = 0.1
+				n = 1 : int
 			
 			in{
-			n = get point.compute_color(n);
-			n = get point.compute_color(n);
-			n = get point.compute_color(n);
-			
-			n = get point.compute_color(n);
-			n = get point.compute_color(n);
-			n = get point.compute_color(n);
+				print("{} trololololo ",point.compute_color(n));
 			}
 			
 		}
@@ -39,9 +35,70 @@ class Point
 		print("(({},{}),{})", this.x0, this.y0, this.color);
 	}
 	
+	--currently just computes membership
 	def compute_color(N : int) : real{
-		print("{} loool \n",N+1);
-		N + 1
-		
+		let
+			x = 0.0 : real
+			xtemp = 0.0 : real
+			y = 0.0 : real
+			iteration = 0 : int
+			
+		in{
+			while ((x*x + y*y < 4.0) and (iteration <= N)){
+				xtemp = x*x - y*y + this.x0;
+				y = 2.0*x*y + this.y0;
+				x = xtemp;
+				iteration = iteration + 1;
+			};
+			
+			if (iteration >= N) then{
+				this.color = 0.0;
+				0.0
+			}else{
+				this.color = 1.0;
+				1.0
+			}		
+		}
 	}
+
+class Node
+	next : Node
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
