@@ -83,23 +83,18 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                      (Decl (Static (Typ "pony_msg_t"),
                            (method_message_type_name cname (A.mname mdecl))))
                      (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main") then
-                          (Record
-                           [Int $ length (A.mparams mdecl),
-                            Record $ map (pony_mode . A.getType) (A.mparams mdecl)])
+                          (Record 
+                           [Int $ length (A.mparams mdecl), 
+                            Record $ map (runtime_type . A.getType) (A.mparams mdecl)])
                       else
                           (Record
                            [Int $ length (A.mparams mdecl) + 1, -- plus 1 for future argument
-                            Record $ Nam "PONY_NONE" : map (pony_mode . A.getType) (A.mparams mdecl)])),
-                   AssignTL
-                     (Decl (Static (Typ "pony_msg_t"),
+                            Record $ Amp future_type_rec_name : map (runtime_type . A.getType) (A.mparams mdecl)])), 
+                   AssignTL 
+                     (Decl (Static (Typ "pony_msg_t"), 
                             one_way_message_type_name cname (A.mname mdecl)))
-                     (Record [Int $ length (A.mparams mdecl),
-                              Record $ map (pony_mode . A.getType) (A.mparams mdecl)])]
-
-            pony_mode ty =
-                case translate ty of
-                  Ptr (Typ "pony_actor_t") -> Nam "PONY_ACTOR"
-                  _other -> Nam "PONY_NONE"
+                     (Record [Int $ length (A.mparams mdecl), 
+                              Record $ map (runtime_type . A.getType) (A.mparams mdecl)])]
 
       message_type_decl :: CCode Toplevel
       message_type_decl =
@@ -207,7 +202,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                               then [one_way_send_dispatch_clause m]
                               else []
 
-            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams})  =
+            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
                 (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
                       ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
@@ -221,10 +216,10 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                 (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
                       ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-                      Statement $ (Call (method_impl_name cname mname)
+                      Statement $ Call (method_impl_name cname mname)
                                         ((AsExpr . Var $ "p") :
                                          (AsExpr . Var $ "fut") :
-                                         (paramdecls_to_argv 1 $ mparams)))])
+                                         (paramdecls_to_argv 1 $ mparams))])
 
             one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
                 (one_way_send_msg_name cname mname,
@@ -251,11 +246,11 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                 (AssignTL
                  (Decl (Typ "pony_actor_type_t", AsLval $ actor_rec_name cname))
                  (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
-                          tracefun_rec,
+                          pony_type_t_rec,
                           AsExpr . AsLval $ class_message_type_name cname,
                           AsExpr . AsLval $ class_dispatch_name cname]))
           where
-            tracefun_rec =
+            pony_type_t_rec = 
                 Record [Call (Nam "sizeof") [Var . show $ data_rec_name cname],
                         AsExpr . AsLval $ (class_trace_fn_name cname),
                         Null,
@@ -269,7 +264,9 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
     Program $ Concat $
       (LocalInclude "header.h") :
       [tracefun_decl] ++
-      method_impls
+      method_impls ++
+      [pony_type_t_impl]
+
     where
       tracefun_decl :: CCode Toplevel
       tracefun_decl = 
@@ -295,3 +292,10 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       method_impls = map method_decl methods
           where
             method_decl mdecl = translate mdecl cdecl
+
+      pony_type_t_impl = 
+          (AssignTL (Decl (Typ "pony_type_t", AsLval $ type_rec_name cname))
+                    (Record [Call (Nam "sizeof") [Var . show $ data_rec_name cname],
+                             AsExpr . AsLval $ (class_trace_fn_name cname),
+                             Null,
+                             Null]))

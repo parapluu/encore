@@ -23,6 +23,7 @@ uint = Typ "uint64_t"
 bool = Typ "int64_t" -- For pony argument tag compatibility. Should be changed to something smaller
 double = Typ "double"
 void = Typ "void"
+pony_type_t = Typ "pony_type_t"
 pony_actor_t = Typ "pony_actor_t"
 pony_actor_type_t = Typ "pony_actor_type_t"
 pony_arg_t = Typ "pony_arg_t"
@@ -95,3 +96,9 @@ data_rec_ptr = Ptr . data_rec_type
 
 actor_rec_name :: Ty.Type -> CCode Name
 actor_rec_name clazz = Nam $ Ty.getId clazz ++ "_actor"
+
+type_rec_name :: Ty.Type -> CCode Name
+type_rec_name clazz = Nam $ Ty.getId clazz ++ "_type"
+
+future_type_rec_name :: CCode Name
+future_type_rec_name = Nam $ "future_type"

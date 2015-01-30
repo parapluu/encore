@@ -1,7 +1,7 @@
 #ifndef __stream_h__
 #define __stream_h__
 
-#include <pony/pony.h> //only for pony_arg_t
+#include <pony/pony.h>
 #include <stdbool.h>
 
 typedef void stream_t;
@@ -19,9 +19,10 @@ stream_t *stream_mk();
  *  
  *  @param s A stream
  *  @param value The value to be put in the stream
+ *  @param type The runtime type of \p value
  *  @return The (empty) head of \p s
  */
-stream_t *stream_put(stream_t *s, pony_arg_t value);
+stream_t *stream_put(stream_t *s, pony_arg_t value, pony_type_t *type);
 
 /**
  *  Read a value from a stream

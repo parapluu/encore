@@ -36,3 +36,11 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
+
+runtime_type :: Ty.Type -> CCode Expr
+runtime_type ty 
+    | Ty.isActiveRefType ty  = AsExpr $ Var "PONY_ACTOR"
+    | Ty.isPassiveRefType ty = Amp $ type_rec_name ty
+    | Ty.isFutureType ty ||
+      Ty.isStreamType ty = Amp $ future_type_rec_name
+    | otherwise = AsExpr $ Var "PONY_NONE"

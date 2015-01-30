@@ -67,6 +67,9 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Actor types"] ++
        actor_decls ++
 
+       [comment_section "Passive class types"] ++
+       type_decls ++
+
        [comment_section "Methods"] ++
        concatMap method_fwds classes
     where
@@ -123,6 +126,10 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
       actor_decls = map actor_decl $ filter A.isActive classes
           where
             actor_decl A.Class{A.cname} = DeclTL (pony_actor_type_t, AsLval $ actor_rec_name cname)
+
+      type_decls = map type_decl $ filter (not . A.isActive) classes
+          where
+            type_decl A.Class{A.cname} = DeclTL (pony_type_t, AsLval $ type_rec_name cname)
 
       method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where

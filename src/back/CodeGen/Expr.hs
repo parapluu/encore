@@ -227,20 +227,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
             remote_call :: State Ctx.Context (CCode Lval, CCode Stat)
             remote_call =
-                do ttarget <- varaccess_this_to_aref target
+                do (ntarget, ttarget) <- translate target
                    targs <- mapM varaccess_this_to_aref args
                    let argtys = (map A.getType args)
-                   let targtys = map (translate . A.getType) args :: [CCode Ty]
+                       targtys = map (translate . A.getType) args :: [CCode Ty]
                    the_fut_name <- if Ty.isStreamType $ A.getType call then 
                                        Ctx.gen_named_sym "stream"
                                    else
                                        Ctx.gen_named_sym "fut"
                    let the_fut_decl = if Ty.isStreamType $ A.getType call then 
                                           Assign (Decl (Ptr $ Typ "stream_t", Var the_fut_name)) 
-                                                 (Call (Nam "stream_mk") ([] :: [CCode Lval]))
+                                                 (Call (Nam "stream_mk") ([] :: [CCode Expr]))
                                       else 
                                           Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) 
-                                                 (Call (Nam "future_mk") ([] :: [CCode Lval]))
+                                                 (Call (Nam "future_mk") ([runtime_type $ A.getType call]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
@@ -249,12 +249,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                           (map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
                                                (zip targs targtys)) :: [CCode Expr]))
                    the_call <- return (Call (Nam "pony_sendv")
-                                               [ttarget,
+                                               [AsExpr ntarget,
                                                 AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                                 Int $ 1 + length args,
                                                 AsExpr $ Var the_arg_name])
                    return (Var the_fut_name, 
-                           Seq [
+                           Seq [ttarget,
                                 the_fut_decl,
                                 the_arg_decl,
                                 Statement the_call])
@@ -380,10 +380,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate yield@(A.Yield{A.val}) = 
       do (nval, tval) <- translate val
+         tmp <- Ctx.gen_sym
          let yield_arg = Cast pony_arg_t $ UnionInst (pony_arg_t_tag (translate (A.getType val))) nval
+             tmp_stream = Assign (Decl (stream, Var tmp)) stream_handle
              update_stream = Assign (stream_handle) (Call (Nam "stream_put") 
-                                                          [AsExpr stream_handle, yield_arg])
-         return (unit, Seq [tval, update_stream])
+                                                          [AsExpr stream_handle, yield_arg, runtime_type $ A.getType val])
+         return (unit, Seq [tval, tmp_stream, update_stream])
 
   translate eos@(A.Eos{}) = 
       let eos_call = Call (Nam "stream_close") [stream_handle]

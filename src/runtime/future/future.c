@@ -72,6 +72,7 @@ struct actor_entry
 struct future
 {
   void           *value;
+  pony_type_t    *type;
   bool            fulfilled;
   // Stupid limitation for now
   actor_entry_t   responsibilities[16];
@@ -83,10 +84,38 @@ struct future
   closure_entry_t *children;
 };
 
+pony_type_t future_type = {sizeof(struct future), future_trace, NULL, NULL};
+
+pony_type_t *future_get_type(future_t *fut){
+  return fut->type;
+}
+
+void future_trace(void *p)
+{
+  future_t *fut = (future_t *) p;
+  if(future_fulfilled(fut)){ // Should the tracer need to block on the future?
+    if(fut->type == PONY_NONE){
+//      pony_trace(p);
+    }else if (fut->type == PONY_ACTOR){
+      pony_traceactor(fut->value);
+    }else{
+      pony_traceobject(fut->value, fut->type->trace);
+    }
+  }
+  // TODO: Who traces whom?
+  for(int i = 0; i < fut->no_responsibilities; i++){
+    pony_traceactor(fut->responsibilities[i].message.actor);
+  }
+  closure_entry_t *cursor = fut->children;
+  while(cursor != NULL){
+    pony_traceobject(cursor->future, future_trace);
+  }
+}
+
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
-future_t *future_mk(void)
+future_t *future_mk(pony_type_t *type)
 {
   perr("future_mk");
 
@@ -94,6 +123,7 @@ future_t *future_mk(void)
   // TODO: figure out if this is necessary, of if memory is already 0'd
   *fut = (future_t) {};
   // fut->parent = NULL;
+  fut->type = type;
 
   return fut;
 }

@@ -6,10 +6,13 @@
 
 typedef struct future future_t;
 
+extern pony_type_t future_type;
+void future_trace(void *);
+pony_type_t *future_get_type(future_t *fut);
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
-future_t *future_mk(void);
+future_t *future_mk(pony_type_t *type);
 bool      future_fulfilled  (future_t *fut);
 void     *future_read_value (future_t *fut);
 void      future_fulfil     (future_t *fut, void *value);
