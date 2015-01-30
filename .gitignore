@@ -33,3 +33,6 @@ GTAGS
 src/tests/encore/basic/*
 !src/tests/encore/basic/*.enc
 !src/tests/encore/basic/*.out
+src/tests/encore/modules/*
+!src/tests/encore/modules/*.enc
+!src/tests/encore/modules/*.out
