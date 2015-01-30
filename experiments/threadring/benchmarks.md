@@ -17,6 +17,12 @@ our experience is abysmal (e.g. C++ performance).
 
 Please find below different setups ordered by their real time (wall clock):
 
+## [Go #5](http://benchmarksgame.alioth.debian.org/u64q/program.php?test=threadring&lang=go&id=5)
+
+    ./threadring.go 50000000  6.57s user 0.01s system 99% cpu 6.619 total
+
+
+
 ## [Clojure #2](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=clojure&id=2)
 
     lein uberjar
@@ -51,7 +57,6 @@ Please find below different setups ordered by their real time (wall clock):
 
     ./threadring  180.40s user 173.07s system 199% cpu 2:57.25 total
 
-
 ## [Java #7](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=java&id=7)
 
     javac threadring.java
@@ -68,12 +73,21 @@ Please find below different setups ordered by their real time (wall clock):
     
     /bin/debug/ring --size 503 --count 1 --pass 50000000  214.26s user 247.69s system 199% cpu 3:51.63 total
 
+## [Ocaml #2](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=ocaml&id=2)
+
+    ./threadring.ocaml-2.ocaml_run 50000000  51.05s user 244.33s system 126% cpu 3:54.22 total
+    
 ## Synchronous setup and heavy us of futures: threadring.enc
 
     encorec -clang threadring.enc
     time ./threadring.enc
 
     ./threadring  237.62s user 231.54s system 199% cpu 3:55.23 total
+
+## [Ocaml #3](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=ocaml&id=3)
+
+    ./threadring.ocaml-3.ocaml_run 50000000
+	./threadring.ocaml-3.ocaml_run 50000000  54.87s user 760.82s system 150% cpu 9:02.60 total
 
 
 ## [C gcc](http://benchmarksgame.alioth.debian.org/u32/program.php?test=threadring&lang=gcc&id=1)
@@ -89,4 +103,9 @@ Please find below different setups ordered by their real time (wall clock):
 	        /usr/bin/g++ threadring.gpp-5.c++.o -o threadring.gpp-5.gpp_run -lboost_system -lpthread
 			
     ./threadring.gpp-5.gpp_run 50000000  106.72s user 1863.33s system 301% cpu 10:53.42 total
+
+## [Ruby #2](http://benchmarksgame.alioth.debian.org/u32q/program.php?test=threadring&lang=yarv&id=2)
+
+    ruby threadring.yarv-2.yarv 50000000
+	ruby threadring.yarv-2.yarv 50000000  352.12s user 1023.07s system 141% cpu 16:13.53 total
 
