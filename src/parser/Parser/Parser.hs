@@ -325,8 +325,8 @@ expr :: Parser Expr
 expr  =  unit
      <|> try embed
      <|> try path
-     <|> try print
      <|> try functionCall
+     <|> try print
      <|> closure
      <|> parens expression
      <|> varAccess

@@ -30,6 +30,9 @@ desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 desugar FunctionCall{emeta, name = Name "print", args = (string@(StringLiteral {stringLit = s})):args} = 
     Print emeta s args
 
+desugar FunctionCall{emeta, name = Name "print", args = [e]} = 
+    Print emeta "{}\n" [e]
+
 desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} = 
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
