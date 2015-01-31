@@ -29,7 +29,7 @@ test:
 	@$(ENCOREC) $@.enc -clang -c
 
 clean:
-	rm -rf *.pony.c *.dSYM $(ENCORE_TARGETS)
+	rm -rf *.pony.c *.dSYM *_src $(ENCORE_TARGETS)
 	rm -f embed_tl.o
 
 .PHONY: test clean
