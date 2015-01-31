@@ -10,6 +10,13 @@ If you taking the time to mention a problem, even a seemingly minor one, it is
 greatly appreciated, and a totally valid contribution to this project. Thank
 you!
 
+## Git
+
+Please do **not** push to the `master` branch. Rather than that, clone the
+encore repository in your own github account, push there and send a pull
+request. This allows for code to be reviewed before it gets into `master`. Also,
+when implementing a large feature, please do use a feature branch.
+
 ## Guidelines (taken from [here](http://www.booleanknot.com/blog/2013/09/07/pull-requests.html))
 
 ### Stay on target
