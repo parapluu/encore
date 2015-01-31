@@ -1,4 +1,6 @@
 
+
+
 {-
 	   Requests for docuemntation.
 		How are formatting actually done.
@@ -13,8 +15,6 @@
 -}
 
 
-
-
 {-
 	Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
 
@@ -23,12 +23,20 @@ class Main
 	def main() : void{
 			--print "computing mandelbrots like a boss ";
 			let 
-				N = 50
+				N = 50 : int
 				list = new List			
+			    argc = embed int argc; end
+			    argv1 = embed int atoi(argv[1]); end
+			
+
 			in{
-				list = this.create_list(N);
-	
-				get list.printSilly(N);
+			
+				list = this.create_list(argv1);
+				if(argc == 3) then{
+					get list.print(argv1);
+				}else{
+					print "finished"
+				}
 				
 			}
 			
@@ -44,7 +52,7 @@ class Main
 			y = 0.0
 			dx = 0.0
 			dy = 0.0
-			iterations = 75000
+			iterations = 100
 			list = new List()
 		in{
 			dx = (x_max - x_min) / N;
@@ -66,6 +74,8 @@ class Main
 		
 	
 	}
+	
+
 		
 class Point
 	x0 : real
@@ -86,7 +96,7 @@ class Point
 	}
 	
 	--currently just computes membership
-	def compute_color() : bool{
+	def compute_color() : int{
 		let
 			x = 0.0 : real
 			xtemp = 0.0 : real
@@ -104,11 +114,11 @@ class Point
 			if (iteration >= this.max_iterations) then{
 				--is in set
 				this.color = 1.0;
-				true
+				1
 			}else{
 				--outside set
 				this.color = 0.0;
-				false
+				0
 			}		
 		}
 	}
@@ -133,26 +143,19 @@ class List
 		}
 	}
 	
-	def print() : void{
+	def print(n : int) : void{
+		print("{},",n);
 		get this.head.print();
 	}
 	
-	{-
-		slightly COPY PEJSTED FROM:
-		http://benchmarksgame.alioth.debian.org/u64q/program.php?test=mandelbrot&lang=gcc&id=9
-
-	-}
-	def printBMP() : void{
-		embed void
-			 fprintf(stdout, "P4\n%jd %jd\n", (intmax_t)10,
-    		 (intmax_t)10);
-		end;
-		get this.head.bmpPrint();
-	}
 	
-	def printSilly(N : int) : void{
+	
+	def count() : int{
 		if this.head != null then
-			get this.head.printSilly(0,N);
+			get this.head.count(0)
+		else
+			0
+				  	
 	}
 	
 
@@ -162,7 +165,7 @@ class List
 class Node
 	next : Node
 	point : Point
-	done : Fut bool
+	done : Fut int
 	
 	def init(point : Point) : void{
 		this.next = null;
@@ -178,62 +181,28 @@ class Node
 		this.next
 	}
 	
-	def printSilly(i : int,  N : int) : void{
-		if( i < N*N and this.next != null ) then{
-			if((i % N) == 0) then{
-				print("\n{}","");
-			};
-			if (get this.done) then{
-				print("#{}","")
-			}else{
-				print(" {}","")
-			};
-				
-			get this.next.printSilly(i+1,N);
-		}else{
-			print("");
-		}
+	def getDone() : int{
+		get this.done
 	}
 	
-	def bmpPrint() : void{
-		if (this.next == null) then 
-			if(get this.done) then
-				embed void
-					char lol = 1; 
-					fwrite(&lol, (10*10)/8, 1, stdout);
-				end
-				
-			else
-				embed void
-					char lol1 = 0; 
-					fwrite(&lol1, (10*10)/8, 1, stdout);
-				end
+	def count(i : int) : int {
+		if(this.next != null) then
+			get this.next.count(i+1)
 		else
-			if(get this.done) then
-				embed void
-					char lol2 = 1; 
-					fwrite(&lol2, (10*10)/8, 1, stdout);
-				end
-				
-			else
-				embed void
-					char lol3 = 0; 
-					fwrite(&lol3, (10*10)/8, 1, stdout);
-				end;
-				
-			get this.next.bmpPrint()
+			i+1
+		
 		}
 	
 	
 	def print() : void{
 		if(this.next == null )then{
-			get this.done;
-			this.point!print_point();
+			print("{}",get this.done);
 		}else{
-			get this.done;
-			this.point!print_point();
+			print("{},",get this.done);
 			get this.next.print();
 		}
+		
+	
 		
 	}
 	
