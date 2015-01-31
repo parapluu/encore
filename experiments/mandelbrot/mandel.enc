@@ -32,11 +32,11 @@ class Main
 			in{
 			
 				list = this.create_list(argv1);
-				if(argc == 3) then{
-					get list.print(argv1);
-				}else{
-					print "finished"
-				}
+				--if(argc == 3) then{
+					--get list.print(argv1);
+				--}else{
+				--	print "finished"
+				--}
 				
 			}
 			
@@ -53,28 +53,123 @@ class Main
 			dx = 0.0
 			dy = 0.0
 			iterations = 100
-			list = new List()
+			--list = new List()
+			step = 0
+			lol = new Line
 		in{
 			dx = (x_max - x_min) / N;
 			dy = (y_max - y_min) / N;
 			x = x_min;
 			y = y_min;
+			
 			while (y < y_max){
-				while(x < x_max){
-					get list.insert(new Point(x,y,iterations));
-					x = x + dx;
-				};
-				x = x_min;
-				y = y + dy;
+				lol = new Line(step,"",N,iterations);
+				get lol.compute(x_min,x_max,y);
+				get lol.dump(true);				
+				y = y+dy;
+				step = step + 1;
 			};
 			
-			list
+			new List
 			
 		}
 		
 	
 	}
 	
+passive class Monitor{
+	finished : int
+	threads : int
+	
+}
+
+class Line{
+
+
+	absolute_Y : int
+	array : Array<int>
+	file : string 
+	width : int
+	max_iterations : int
+	
+	def init(Y : int, file : string, width : int, max_iterations : int) : void{
+		this.absolute_Y = Y;
+		this.array = new (Array<int>)(width);
+		this.file = file;
+		this.width = width;
+		this.max_iterations = max_iterations;
+	
+	}
+	
+	def compute(x_start : real, x_end : real , y_start : real) : void{
+		let
+			cx = x_start
+			cy = y_start
+			dx = 0.0
+			x = 0.0
+			y = 0.0
+			iteration = 0
+			step = 0
+			xtemp = 0.0
+		in{
+		
+			dx = (x_end-x_start)/this.width;
+			
+			
+			
+			while(step < this.width){
+				
+				x = 0.0;
+				y = 0.0;
+								
+				while ((x*x + y*y < 4.0) and (iteration <= this.max_iterations)){
+					xtemp = x*x - y*y + cx;
+					y = 2.0*x*y + cy;
+					x = xtemp;
+					iteration = iteration + 1;
+				};
+				
+				{-
+				if (iteration >= this.max_iterations) then{
+					--is in set
+					this.color = 1.0;
+					1
+				}else{
+					--outside set
+					this.color = 0.0;
+					0
+				};
+				-}
+				
+				this.array.write(step, new (Array_Data<int>)(iteration));
+				
+				
+				cx  =  cx + dx;
+				step = step+1;
+			
+			}
+		}
+		
+	}
+	
+	def dump( stdout : bool) : void{
+		let
+			i = 0
+		in{
+			if(stdout) then{
+				print("{}",this.absolute_Y);
+				while(i < this.width){
+					print(",{}", this.array.read(i).v);
+					i = i+1;
+				};
+				print "";
+			}
+		}
+	}
+	
+
+
+}
 
 		
 class Point
@@ -229,6 +324,41 @@ class Node
 
 
 
+
+
+
+
+
+
+
+
+
+
+passive class Array_Data<t>
+  v: t
+
+  def init(v: t) : void
+    this.v = v
+
+passive class Array<t>
+  slots: Array_Data<t>
+  size: int
+
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(void *));
+      this->size = size;
+    end
+
+  def write(i:int, v:Array_Data<t>) : void
+    embed void
+      ((void **)this->slots)[i] = (void *)v;
+    end
+
+  def read(i:int) : (Array_Data<t>)
+    embed (Array_Data<t>)
+      (0 <= i && i < this->size) ? ((void **)this->slots)[i] : NULL;
+    end
 
 
 
