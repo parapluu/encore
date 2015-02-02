@@ -1,0 +1,135 @@
+{-
+		Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
+		Pipe the output to lol.txt and then run the plot.py python script to
+		generate a pictures
+
+-}
+
+class Main
+  def main() : void
+    let 
+      N = 50 : int					  
+      argc = embed int argc; end
+      argv1 = embed int atoi(argv[1]); end
+    in
+      this.make_lame(argv1)
+			
+  def make_lame(N : int) : void
+    let
+      x_max = 1.5
+      x_min = -1*1.5
+      y_max = 1.0
+      y_min = -1*1.0
+      x = 0.0
+      y = 0.0
+      dx = 0.0
+      dy = 0.0
+      iterations = 100
+      step = 0
+      lol = new Line
+    in {
+      dx = (x_max - x_min) / N;
+      dy = (y_max - y_min) / N;
+      x = x_min;
+      y = y_min;
+      print("{}\n",iterations);
+      print("{}\n",N);
+      while (y < y_max) {
+	lol = new Line(step,"",N,iterations);
+        get lol.compute(x_min,x_max,y);
+	get lol.dump(true);								
+        y = y+dy;
+	step = step + 1;
+      };
+    }
+		
+--This ugly class corresponds to one row of the mandelbrot plot.
+class Line
+  absolute_Y : int
+  array : IntArray
+  file : string 
+  width : int
+  max_iterations : int
+  done : bool
+	
+  def init(Y : int, file : string, width : int, max_iterations : int) : void {
+    this.absolute_Y = Y;
+    this.array = new IntArray(width);
+    this.file = file;
+    this.width = width;
+    this.max_iterations = max_iterations;
+    this.done = false;
+  }
+    
+  def getDone() : bool
+    this.done
+	
+  def compute(x_start : real, x_end : real , y_start : real) : void 
+    let
+      cx = x_start
+      cy = y_start
+      dx = 0.0
+      x = 0.0
+      y = 0.0
+      iteration = 0
+      step = 0
+      xtemp = 0.0
+      i = 0
+    in {
+      dx = (x_end-x_start)/this.width;
+      --print argc;
+      while(step < this.width) {
+	x = 0.0;
+        y = 0.0;
+	iteration = 0;
+        while ((x*x + y*y < 4.0) and (iteration < this.max_iterations)) {
+	  xtemp = x*x - y*y + cx;
+          y = 2.0*x*y + cy;
+	  x = xtemp;
+          iteration = iteration + 1;
+	};
+        this.array.write(step, iteration);
+        cx = cx + dx;
+        step = step+1;
+      };
+    }
+	
+  def dump( stdout : bool) : void 
+    let
+      i = 0
+    in 
+      if(stdout) then {
+	print("{}",this.absolute_Y);
+        while(i < this.width) {
+	  print(",{}", this.array.read(i));
+          i = i+1;
+	};
+        print "";
+      }
+		
+
+passive class D
+
+passive class IntArray
+  slots: D
+  size: int
+  -- def IntArray_trace() : void
+  --   embed void
+  --     pony_trace(this->slots);
+  --   end
+
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(int64_t));
+      this->size = size;
+    end
+
+  def write(i:int, v:int) : void
+    embed void
+      ((int64_t*)this->slots)[i] = (int64_t)v;
+    end
+
+  def read(i:int) : int
+    embed int
+      (0 <= i && i < this->size) ? ((int64_t*)this->slots)[i] : 0;
+    end
