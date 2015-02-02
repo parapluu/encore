@@ -1,17 +1,18 @@
 
+import ParComb
+
 -- This will be an Encore version of the prime sieve program
 -- that uses parallel combinators as much as possible.
 -- It originates from Dave's Haskell version.
 
+-- requirements of ParComb library
+-- pmap :: (a -> b) -> Par a -> Par b
+-- each :: [t] -> Par t
+ 
 -- MODULE PAR
 
 type Par t = [t]
 
-pmap :: (a -> b) -> Par a -> Par b
-pmap = map
-
-par :: [t] -> Par t
-par = id
 
 papply :: Par (a -> b, a) -> Par b
 papply = pmap (\(f,a) -> f a)
@@ -43,19 +44,15 @@ generate s f = generate' [] s f
          cont acc (Left (s', o)) = generate' (o : acc) s' f
          cont acc (Right res)    = (reverse acc, res)
 
--- MODULE ARRAY
-
-type Array t = [t]
 
 
----
 
 
 workers :: Int -> Int -> Int -> StreamConsumer (Array Int) Int [Int] -> Par (Stream Int -> Array Int)
 workers number minnum maxnum sc = 
   pmap (consumer sc) $  
   pmap (\(min,max) -> [min,min+2..max]) $ 
-  par $ slices number minnum maxnum
+  each $ slices number minnum maxnum
 
 
 -- this part needs to be reimplemented so that it just computes
@@ -73,16 +70,37 @@ chunk n xs = as : chunk n bs
 -- END OF STUFF THAT NEEDS TO BE REDONE
 
 
+class PrimeGenerator 
 -- master
-primegenerator :: Int -> Stream Int
-primegenerator last = primegenerator' [3,5..last] 3
-  where
-    primegenerator' array p = yield p `andthen` cont (remove p array) 
-    cont         [] = eos
-    cont (p': rest) = primegenerator' rest p'
+-- primegenerator :: Int -> Stream Int
+-- primegenerator last = primegenerator' [3,5..last] 3
+--  where
+--    primegenerator' array p = yield p `andthen` cont (remove p array) 
+--    cont         [] = eos
+--    cont (p': rest) = primegenerator' rest p'
 
+  last : int
+  def init(last : int) : PrimeGenerator 
+    this.last = last
 
+  stream run() : int 
+    let i = 3
+    while i <= last {
+       if inarray {
+         yield i
+         remove i multiples from array
+       }
+       i = i + 1
+    }
+ 
+(STEAL KEY STUFF FROM TOBIAS' EFFORT)
 remove p l = filter (\n -> n `mod` p /= 0) l
+
+-- each worker is a Par. It's initial values are 1) the range 2) the end of the stream.
+-- each worker creates an array for the range, takes primes out of stream,
+-- filters array, then returns (somehow) final results
+
+
 
 
 -- primes :: Int -> Int -> Int
