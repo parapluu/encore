@@ -109,6 +109,7 @@ void future_trace(void *p)
   closure_entry_t *cursor = fut->children;
   while(cursor != NULL){
     pony_traceobject(cursor->future, future_trace);
+    cursor = cursor->next;
   }
 }
 
