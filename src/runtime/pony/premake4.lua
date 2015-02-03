@@ -111,6 +111,14 @@ project "encore"
     "../encore/encore.c"
   }
 
+project "array"
+  kind "StaticLib"
+  language "C"
+  files {
+    "../array/array.h",
+    "../array/array.c"
+  }
+
 project "stream"
   kind "StaticLib"
   language "C"
