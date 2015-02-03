@@ -1,14 +1,23 @@
 # Contributing
 
-Thanks for contributing to the Encore programming language.
+Thanks for contributing to the Encore programming language.  
+Here are some guidelines for making the most of your contribution.
 
 ## Opening issues
 
-If you find a bug, please feel free to open an issue.
+If you find a bug, please feel free to open an issue describing it.  
+Try to present the bug in terms of the smallest program exhibiting that bug.
 
 If you taking the time to mention a problem, even a seemingly minor one, it is
 greatly appreciated, and a totally valid contribution to this project. Thank
 you!
+
+## Git
+
+Please do **not** push to the `master` branch. Rather, clone the
+encore repository in your own github account, push there and send a pull
+request. This allows for code to be reviewed before it gets into `master`. Also,
+when implementing a large feature, please use a feature branch.
 
 ## Guidelines (taken from [here](http://www.booleanknot.com/blog/2013/09/07/pull-requests.html))
 
