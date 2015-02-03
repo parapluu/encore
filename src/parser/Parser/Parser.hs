@@ -116,6 +116,7 @@ reservedOp = P.reservedOp lexer
 operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
+bar        = symbol "|"
 commaSep   = P.commaSep lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
@@ -123,8 +124,7 @@ semiSep    = P.semiSep lexer
 comma      = P.comma lexer
 parens     = P.parens lexer
 angles     = P.angles lexer
-lparen     = symbol "("
-rparen     = symbol ")"
+brackets   = P.brackets lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
 natural = P.integer lexer
@@ -144,6 +144,7 @@ typ  =  try arrow
               <|> par
               <|> try paramType
               <|> stream
+              <|> array
               <|> singleType
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
@@ -164,6 +165,8 @@ typ  =  try arrow
       stream = do reserved "Stream" 
                   ty <- typ 
                   return $ streamType ty
+      array = do ty <- brackets typ
+                 return $ arrayType ty
       singleType = do ty <- identifier
                       return $ read ty
           where read "void"   = voidType
@@ -281,6 +284,7 @@ expression :: Parser Expr
 expression = buildExpressionParser opTable expr
     where
       opTable = [
+                 [arrayAccess],
                  [prefix "not" Identifiers.NOT],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
@@ -304,6 +308,10 @@ expression = buildExpressionParser opTable expr
                       reservedOp ":"
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
+      arrayAccess = 
+          Postfix (do pos <- getPosition
+                      index <- brackets expression
+                      return (\e -> ArrayAccess (meta pos) e index))
       messageSend = 
           Postfix (do pos <- getPosition
                       bang
@@ -330,6 +338,8 @@ expr  =  unit
      <|> closure
      <|> parens expression
      <|> varAccess
+     <|> arraySize
+     <|> arrayLit
      <|> letExpression
      <|> try ifThenElse
      <|> ifThen
@@ -456,6 +466,14 @@ expr  =  unit
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id 
+      arraySize = do pos <- getPosition
+                     bar
+                     arr <- expression
+                     bar
+                     return $ ArraySize (meta pos) arr
+      arrayLit = do pos <- getPosition
+                    args <- brackets $ commaSep expression
+                    return $ ArrayLiteral (meta pos) args
       null = do pos <- getPosition
                 reserved "null"
                 return $ Null (meta pos)

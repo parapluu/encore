@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, 
-             parType, isParType, streamType, isStreamType,
+             parType, isParType, streamType, isStreamType, arrayType, isArrayType,
              refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
              refType, isRefType, passiveRefType, activeRefType, 
              isActiveRefType, isPassiveRefType, isMainType,
@@ -28,7 +28,7 @@ data Type = VoidType | StringType | IntType | BoolType | RealType
           | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
-          | StreamType {resultType :: Type}
+          | StreamType {resultType :: Type} | ArrayType {resultType :: Type}
             deriving (Eq)
 
 typeComponents :: Type -> [Type]
@@ -37,6 +37,7 @@ typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
 typeComponents par@(ParType ty)        = par:(typeComponents ty)
 typeComponents ref@(RefType RefTypeInfo{parameters}) = ref : (concatMap typeComponents parameters)
 typeComponents str@(StreamType ty)     = str:(typeComponents ty)
+typeComponents arr@(ArrayType ty)      = arr:(typeComponents ty)
 typeComponents ty                      = [ty]
 
 typeMap :: (Type -> Type) -> Type -> Type
@@ -55,6 +56,8 @@ typeMap f ty
               error $ "Couldn't deconstruct refType: " ++ show ty
     | isStreamType ty =
         f (StreamType (typeMap f (resultType ty)))
+    | isArrayType ty =
+        f (ArrayType (typeMap f (resultType ty)))
     | otherwise = f ty
 
 getArgTypes = argTypes
@@ -73,6 +76,7 @@ maybeParen arr@(Arrow _ _)    = "(" ++ show arr ++ ")"
 maybeParen fut@(FutureType _) = "(" ++ show fut ++ ")"
 maybeParen par@(ParType _)    = "(" ++ show par ++ ")"
 maybeParen str@(StreamType _) = "(" ++ show str ++ ")"
+maybeParen arr@(ArrayType _)  = "(" ++ show arr ++ ")"
 maybeParen ty = show ty
 
 instance Show Type where
@@ -90,6 +94,7 @@ instance Show Type where
     show (FutureType ty)   = "Fut " ++ maybeParen ty
     show (ParType ty)      = "Par " ++ maybeParen ty
     show (StreamType ty)   = "Stream " ++ maybeParen ty
+    show (ArrayType ty)    = "[" ++ show ty ++ "]"
 
 arrowType = Arrow
 isArrowType (Arrow {}) = True
@@ -108,6 +113,10 @@ refType id = refTypeWithParams id []
 streamType = StreamType
 isStreamType StreamType {} = True
 isStreamType _ = False
+
+arrayType = ArrayType
+isArrayType ArrayType {} = True
+isArrayType _ = False
 
 isRefType RefType {} = True
 isRefType _ = False
