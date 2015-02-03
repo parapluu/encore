@@ -72,7 +72,7 @@ struct actor_entry
 
 struct future
 {
-  void           *value;
+  encore_arg_t      value;
   pony_type_t    *type;
   bool            fulfilled;
   // Stupid limitation for now
@@ -108,9 +108,9 @@ void future_trace(void *p)
   future_t *fut = (future_t *) p;
   if(fut->fulfilled){
     if(fut->type == ENCORE_ACTIVE){
-      pony_traceactor(fut->value);
+      pony_traceactor(fut->value.p);
     }else if(fut->type != ENCORE_PRIMITIVE){
-      pony_traceobject(fut->value, fut->type->trace);
+      pony_traceobject(fut->value.p, fut->type->trace);
     }
   }
   // TODO: Who traces whom?
@@ -139,11 +139,11 @@ future_t *future_mk(pony_type_t *type)
   return fut;
 }
 
-void *run_closure(closure_t *c, void *value, future_t *fut)
+encore_arg_t run_closure(closure_t *c, encore_arg_t value, future_t *fut)
 {
-  value_t result = closure_call(c, (value_t[1]) { { .p = value } });
-  future_fulfil(fut, result.p);
-  return result.p;
+  value_t result = closure_call(c, (value_t[1]) { value });
+  future_fulfil(fut, result);
+  return result;
 }
 
 bool future_fulfilled(future_t *fut)
@@ -156,16 +156,16 @@ bool future_fulfilled(future_t *fut)
   return r;
 }
 
-void *future_read_value(future_t *fut)
+encore_arg_t future_read_value(future_t *fut)
 {
   perr("future_read_value");
   BLOCK;
-  void *v = fut->value;
+  encore_arg_t v = fut->value;
   UNBLOCK;
   return v;
 }
 
-void future_fulfil(future_t *fut, void *value)
+void future_fulfil(future_t *fut, encore_arg_t value)
 {
   perr("future_fulfil");
 
@@ -188,7 +188,7 @@ void future_fulfil(future_t *fut, void *value)
       }
     }
     if (!blocked) {
-      encore_arg_t argv[3] = { { .p = current->closure }, { .p = value }, { .p = current->future } };
+      encore_arg_t argv[3] = { { .p = current->closure }, value, { .p = current->future } };
       // pony_sendv(current->actor, FUT_MSG_RUN_CLOSURE, 3, argv);
     }
     current = current->next;
@@ -210,15 +210,15 @@ void future_fulfil(future_t *fut, void *value)
         // Intended design: see https://github.com/parapluu/mylittlepony/wiki/Futures
       case ATTACHED_CLOSURE:
         {
-          encore_arg_t argv[3] = { { .p = e.closure.closure }, { .p = value }, { .p = e.closure.future } };
+          encore_arg_t argv[3] = { { .p = e.closure.closure }, value, { .p = e.closure.future } };
           // pony_sendv(e.closure.actor, FUT_MSG_RUN_CLOSURE, 3, argv);
           break;
         }
         // Design 1: current thread executes closures (racy)
       case DETACHED_CLOSURE:
         {
-          value_t result = closure_call(e.closure.closure, (value_t[1]) { { .p = value } });
-          future_fulfil(e.closure.future, result.p);
+          value_t result = closure_call(e.closure.closure, (value_t[1]) { value });
+          future_fulfil(e.closure.future, result);
           break;
         }
       default:
@@ -233,7 +233,7 @@ void future_fulfil(future_t *fut, void *value)
 // ===============================================================
 // Means for actors to get, block and chain
 // ===============================================================
-void *future_get_actor(future_t *fut)
+encore_arg_t future_get_actor(future_t *fut)
 {
   // early return for simple case
   if (fut->parent == NULL) {
@@ -368,7 +368,7 @@ static inline future_gc_trace(future_t *fut)
 {
   if (fut->type == ENCORE_ACTIVE)
     {
-      pony_traceactor(fut->value);
+      pony_traceactor(fut->value.p);
     }
   else if (fut->type == ENCORE_PRIMITIVE)
     {
@@ -376,7 +376,7 @@ static inline future_gc_trace(future_t *fut)
     }
   else
     {
-      pony_traceobject(fut->value, fut->type->trace);
+      pony_traceobject(fut->value.p, fut->type->trace);
     }
 }
 

@@ -60,27 +60,28 @@ stream_t *stream_put(stream_t *s, encore_arg_t value, pony_type_t *type){
   struct scons *scons = scons_mk(type);
   scons->element = value;
   scons->next = fut;
-  future_fulfil((future_t *)s, scons);
+  future_fulfil((future_t *)s, (encore_arg_t){ .p = scons });
   return fut;
 }
 
 bool stream_eos(stream_t *s){
-  struct scons *scons = future_get_actor((future_t *)s);
-  return scons->eos;
+  struct scons *scons = future_get_actor((future_t *)s).p;
+  return scons->eos;  
 }
 
 encore_arg_t stream_get(stream_t *s){
-  struct scons *scons = future_get_actor((future_t *)s);
+  struct scons *scons = future_get_actor((future_t *)s).p;
   return scons->element;
 }
 
 stream_t *stream_get_next(stream_t *s){
-  struct scons *scons = future_get_actor((future_t *)s);
+  struct scons *scons = future_get_actor((future_t *)s).p;
   return scons->next;
 }
 
 void stream_close(stream_t *s){
   struct scons *scons = scons_mk(NULL);
   scons->eos = true;
-  future_fulfil((future_t *)s, scons);
+  future_fulfil((future_t *)s, (encore_arg_t){ .p = scons });
 }
+

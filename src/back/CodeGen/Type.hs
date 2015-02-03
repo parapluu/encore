@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
 {-| Make Type (see "AST") an instance of @Translatable@ (see
 "CodeGen.Typeclasses"). -}
@@ -43,3 +43,10 @@ runtime_type ty
       Ty.isStreamType ty = Amp $ future_type_rec_name
     | Ty.isArrowType ty = Amp $ closure_type_rec_name
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
+
+encore_arg_t_tag :: CCode Ty -> CCode Name
+encore_arg_t_tag (Ptr _)         = Nam "p"
+encore_arg_t_tag (Typ "int64_t") = Nam "i"
+encore_arg_t_tag (Typ "double")  = Nam "d"
+encore_arg_t_tag other           =
+    error $ "Type.hs: no encore_arg_t_tag for " ++ show other
