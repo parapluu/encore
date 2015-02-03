@@ -235,12 +235,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                        Ctx.gen_named_sym "stream"
                                    else
                                        Ctx.gen_named_sym "fut"
-                   let the_fut_decl = if Ty.isStreamType $ A.getType call then 
-                                          Assign (Decl (Ptr $ Typ "stream_t", Var the_fut_name)) 
-                                                 (Call (Nam "stream_mk") ([] :: [CCode Expr]))
-                                      else 
-                                          Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) 
-                                                 (Call (Nam "future_mk") ([runtime_type $ A.getType call]))
+                   let the_fut_decl = 
+                           if Ty.isStreamType $ A.getType call then 
+                               Assign (Decl (Ptr $ Typ "stream_t", Var the_fut_name)) 
+                                      (Call (Nam "stream_mk") ([] :: [CCode Expr]))
+                           else 
+                               Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name)) 
+                                      (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
                    let the_arg_decl = Assign
                                         (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
@@ -417,7 +418,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do (nfuture,tfuture) <- translate future
          (nchain, tchain)  <- translate chain
          fut_name <- Ctx.gen_sym
-         let fut_decl = Assign (Decl (Ptr $ Typ "future_t", Var fut_name)) (Call (Nam "future_mk") ([] :: [CCode Lval]))
+         let ty = runtime_type . Ty.getResultType . A.getType $ chain 
+             fut_decl = Assign (Decl (Ptr $ Typ "future_t", Var fut_name)) 
+                               (Call (Nam "future_mk") [ty])
          result <- Ctx.gen_sym
          return $ (Var result, Seq [tfuture, 
                                     tchain,  
