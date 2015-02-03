@@ -207,16 +207,17 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                               then [one_way_send_dispatch_clause m]
                               else []
 
-            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams})  =
+            mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
                 (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
                       ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
                       Statement $ Call (Nam "future_fulfil")
                                        [AsExpr $ Var "fut",
-                                        Cast (Ptr void)
-                                             (Call (method_impl_name cname mname)
-                                              ((AsExpr . Var $ "p") :
-                                               (paramdecls_to_argv 1 $ mparams)))]])
+                                        Cast (pony_arg_t)
+                                             (UnionInst (pony_arg_t_tag (translate mtype)) $
+                                                  Call (method_impl_name cname mname)
+                                                       ((AsExpr . Var $ "p") :
+                                                        (paramdecls_to_argv 1 $ mparams)))]])
             mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
                 (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))

@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
 {-| Make Type (see "AST") an instance of @Translatable@ (see
 "CodeGen.Typeclasses"). -}
@@ -36,3 +36,10 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
+
+pony_arg_t_tag :: CCode Ty -> CCode Name
+pony_arg_t_tag (Ptr _)         = Nam "p"
+pony_arg_t_tag (Typ "int64_t") = Nam "i"
+pony_arg_t_tag (Typ "double")  = Nam "d"
+pony_arg_t_tag other           =
+    error $ "Type.hs: no pony_arg_t_tag for " ++ show other
