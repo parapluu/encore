@@ -17,6 +17,7 @@ import System.Exit
 import System.Process
 import System.Posix.Directory
 import Data.List
+import Data.List.Utils(split)
 import Control.Monad
 import SystemUtils
 
@@ -40,11 +41,11 @@ data Phase = Parsed | TypeChecked
 
 data Option = GCC | Clang | Run | 
               KeepCFiles | Undefined String | 
-              Output FilePath | Source FilePath | 
+              Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly
 	deriving Eq
 
-parseArguments :: [String] -> ([FilePath], [Option])
+parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
 parseArguments args = 
     let
         parseArguments' []   = []
@@ -59,15 +60,21 @@ parseArguments args =
               parseArgument ("-o":file:args)    = (Output file, args)
               parseArgument ("-AST":args)       = (Intermediate Parsed, args)
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
+              parseArgument ("-I":dirs:args)    = (Imports $ split "," dirs, args) -- HERE HERE HERE
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
-      let (sources, options) = partition isSource (parseArguments' args) in
-      (map getName sources, options)
+      let (sources, aux) = partition isSource (parseArguments' args) 
+          (imports, options) = partition isImport aux
+      in
+      (map getName sources, ("./" :) $ map (++ "/") $ concat $ map getDirs imports, options)
     where
       isSource (Source _) = True
       isSource _ = False
       getName (Source name) = name
+      isImport (Imports _) = True
+      isImport _ = False
+      getDirs (Imports dirs) = dirs
 
 warnUnknownFlags :: [Option] -> IO ()
 warnUnknownFlags options = 
@@ -132,7 +139,7 @@ compileProgram prog sourcePath options =
 
 main = 
     do args <- getArgs
-       let (programs, options) = parseArguments args
+       let (programs, importDirs, options) = parseArguments args
        warnUnknownFlags options
        when (null programs)
            (do putStrLn usage
@@ -148,7 +155,7 @@ main =
        when (Intermediate Parsed `elem` options) 
            (withFile (changeFileExt sourceName "AST") WriteMode 
                (flip hPrint $ show ast))
-       expandedAst <- expandModules ast
+       expandedAst <- expandModules importDirs ast
        let desugaredAST = desugarProgram expandedAst
        typecheckedAST <- case typecheckEncoreProgram desugaredAST of
                            Right ast  -> return ast
