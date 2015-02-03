@@ -224,6 +224,7 @@ data Expr = Skip {emeta :: Meta Expr}
 isLval :: Expr -> Bool
 isLval VarAccess {} = True
 isLval FieldAccess {} = True
+isLval ArrayAccess {} = True
 isLval _ = False
 
 isThisAccess :: Expr -> Bool
