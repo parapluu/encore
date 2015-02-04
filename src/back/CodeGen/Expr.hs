@@ -201,15 +201,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          , Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
   translate new@(A.New {A.ty}) 
-      | Ty.isActiveRefType ty = named_tmp_var "new" ty (Call (Nam "create_and_send")
-                                                 [Amp $ actor_rec_name ty,
-                                                  AsExpr . Var $ "MSG_alloc"])
-      | otherwise = do na <- Ctx.gen_named_sym "new"
-                       let size = Sizeof $ Typ $ show (data_rec_name ty)
-                       return $ (Var na, Seq $ 
-                                         [Assign (Decl (translate ty, Var na))
-                                          (Call (Nam "pony_alloc") [size]),
-                                          Statement (Call (Nam "memset") [AsExpr $ Var na, Int 0, size])])
+      | Ty.isActiveRefType ty = 
+          named_tmp_var "new" ty 
+                        (Call (Nam "encore_create")
+                              [Amp $ runtime_type_name ty])
+      | otherwise = 
+          do na <- Ctx.gen_named_sym "new"
+             let size = Sizeof . AsType $ class_type_name ty
+             return $ (Var na, Seq $ 
+                               [Assign (Decl (translate ty, Var na))
+                                       (Call (Nam "encore_alloc") [size]),
+                                Statement (Call (Nam "memset") 
+                                                [AsExpr $ Var na, Int 0, size])])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
@@ -441,7 +444,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))
-                    (Call (Nam "pony_alloc") -- Use malloc until we figure out how to trace environments
+                    (Call (Nam "encore_alloc")
                           [Sizeof $ Struct name])
         insert_var env_name (name, _) = 
             do c <- get
