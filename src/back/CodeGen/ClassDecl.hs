@@ -105,7 +105,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
            ([(Ptr . Typ $ "pony_actor_t", Var "_a"),
              (Ptr . Typ $ "pony_msg_t", Var "_m")])
            (Seq [Assign (Decl (Ptr . AsType $ class_type_name cname, Var "this"))
-                        (Var "_a"),
+                        (Cast (Ptr . AsType $ class_type_name cname) (Var "_a")),
                  (Switch (Var "_m" `Arrow` Nam "id")
                   (
                    -- (Nam "_ENC__MSG_RESUME_SUSPEND", fut_resume_suspend_instr) :
