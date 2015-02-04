@@ -23,10 +23,11 @@ expandModules importDirs p = expand p
     importOne (Import meta (Name target)) = 
       do
           let sources = map (\dir -> dir ++ target ++ ".enc") importDirs
-          maybeFirstSource <- firstsource sources
-          sourceName <- case maybeFirstSource of
-                          Just name -> return name
-                          Nothing -> (abort $ "Module \"" ++ target ++ "\" cannot be found in imports! Aborting.")
+          candidates <- filterM doesFileExist sources
+          sourceName <- case candidates of
+                          [] -> (abort $ "Module \"" ++ target ++ "\" cannot be found in imports! Aborting.")
+                          [src] -> do {  informImport target src; return src }
+                          l@(src:_) -> do { duplicateModuleWarning target l; return src }
           code <- readFile sourceName
           ast <- case parseEncoreProgram sourceName code of
                Right ast  -> return ast
@@ -37,12 +38,17 @@ merge (Program elt ims funs cls) (Program elt' ims' funs' cls') = Program (emjoi
   where emjoin (EmbedTL meta header body) (EmbedTL meta' header' body') = EmbedTL meta (header ++ header) (body ++ body') 
 -- TODO how to join the two meta components?
 
+-- 
+informImport name src =
+	putStrLn $ "Importing module " ++ name ++ " from " ++ src
 
-firstsource [] = return Nothing
-firstsource (src : srcs) = 
+duplicateModuleWarning :: String -> [FilePath] -> IO ()
+duplicateModuleWarning name srcs = 
 	do 
-      sourceExists <- doesFileExist src 
-      if sourceExists then return $ Just src
-	  else firstsource srcs
-	
+		putStrLn $ "Warning: Module " ++ name ++ " found in multiple places:"
+		mapM (\src -> putStrLn $ "-- " ++ src) srcs
+		return ()
+		
+
+
 	

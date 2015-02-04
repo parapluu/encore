@@ -4,10 +4,10 @@ ENCOREC=$(ROOT_PATH)/release/encorec
 #INGORE=Lib.enc
 
 #OUTFILES=$(shell ls *.out)
-OUTFILES=Importer.out DeepImporter.out FarImporter.out
+OUTFILES=Importer.out DeepImporter.out FarImporter.out DupImporter.out
 
 #ENCORE_SOURCES=$(shell ls *.enc)
-ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc
+ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc DupImporter.enc
 
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
@@ -25,7 +25,7 @@ test:
 #ls -l
 	@rm -f $@
 	@echo "compiling '$@'"
-	@$(ENCOREC) $@.enc -clang -c -I lib
+	@$(ENCOREC) $@.enc -clang -c -I lib:otherlib
 
 clean:
 	rm -rf *.pony.c *.dSYM *_src $(ENCORE_TARGETS)
