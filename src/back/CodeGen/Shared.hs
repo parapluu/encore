@@ -62,9 +62,9 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                     (Seq $ --[init_futures] ++
                            init_globals ++
                            [Return $ 
-                            Call (Nam "pony_start") [AsExpr $ Var "argc", 
-                                                     AsExpr $ Var "argv", 
-                                                     Call (Nam "pony_create") [Amp (Var "Main_actor")]]]))
+                            Call (Nam "encore_start") [AsExpr $ Var "argc", 
+                                                       AsExpr $ Var "argv", 
+                                                       Amp (Var "Main_actor")]]))
           where
             init_futures = Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"])
             init_globals = map init_global functions
