@@ -39,7 +39,7 @@ struct encore_actor
 };
 
 /// Create a new Encore actor
-encore_actor_t *encore_create(encore_create_t *type);
+encore_actor_t *encore_create(encore_actor_t *type);
 
 /// Allocate s bytes of memory, zeroed out
 void *encore_alloc(size_t *s);
