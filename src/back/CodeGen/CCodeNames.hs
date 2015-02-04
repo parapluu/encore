@@ -23,6 +23,7 @@ uint = Typ "uint64_t"
 bool = Typ "int64_t" -- For pony argument tag compatibility. Should be changed to something smaller
 double = Typ "double"
 void = Typ "void"
+encore_actor_t = Typ "encore_actor_t"
 pony_type_t = Typ "pony_type_t"
 pony_actor_t = Typ "pony_actor_t"
 pony_actor_type_t = Typ "pony_actor_type_t"
@@ -46,19 +47,19 @@ global_closure_name funname =
 
 global_function_name :: ID.Name -> CCode Name
 global_function_name funname = 
-    Nam $ "_global_" ++ (show funname) ++ "_fun"
+    Nam $ "_enc__global_" ++ (show funname) ++ "_fun"
 
 closure_fun_name :: String -> CCode Name
 closure_fun_name name =
-    Nam $ "_" ++ name ++ "_fun"
+    Nam $ "_enc__" ++ name ++ "_fun"
 
 closure_env_name :: String -> CCode Name
 closure_env_name name =
-    Nam $ "_" ++ name ++ "_env"
+    Nam $ "_enc__" ++ name ++ "_env"
 
 closure_trace_name :: String -> CCode Name
 closure_trace_name name =
-    Nam $ "_" ++ name ++ "_trace"
+    Nam $ "_enc__" ++ name ++ "_trace"
 
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
@@ -67,13 +68,13 @@ stream_handle = Var "_stream"
 -- messages to the right method calls. This is the name of that
 -- function.
 class_dispatch_name :: Ty.Type -> CCode Name
-class_dispatch_name clazz = Nam $ Ty.getId clazz ++ "_dispatch"
+class_dispatch_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_dispatch"
 
 class_message_type_name :: Ty.Type -> CCode Name
 class_message_type_name clazz = Nam $ Ty.getId clazz ++ "_message_type"
 
 class_trace_fn_name :: Ty.Type -> CCode Name
-class_trace_fn_name clazz = Nam $ Ty.getId clazz ++ "_trace"
+class_trace_fn_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_trace"
 
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
 method_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"_"++show mname
@@ -91,6 +92,24 @@ one_way_send_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"__one_way_"++
 -- | the name of the record type in which a class stores its state
 data_rec_name :: Ty.Type -> CCode Name
 data_rec_name clazz = Nam $ Ty.getId clazz ++ "_data"
+
+class_type_name :: Ty.Type -> CCode Name
+class_type_name cls 
+    | Ty.isActiveRefType cls =
+        Nam $ "_enc__active_" ++ Ty.getId cls ++ "_t"
+    | Ty.isPassiveRefType cls =
+        Nam $ "_enc__passive_" ++ Ty.getId cls ++ "_t"
+    | otherwise = error $ "Type '" ++ show cls ++ 
+                          "' is neither active nor passive!" 
+
+runtime_type_name :: Ty.Type -> CCode Name
+runtime_type_name cls 
+    | Ty.isActiveRefType cls =
+        Nam $ "_enc__active_" ++ Ty.getId cls ++ "_type"
+    | Ty.isPassiveRefType cls =
+        Nam $ "_enc__passive_" ++ Ty.getId cls ++ "_type"
+    | otherwise = error $ "Type '" ++ show cls ++ 
+                          "' is neither active nor passive!" 
 
 data_rec_type :: Ty.Type -> CCode Ty
 data_rec_type clazz = Typ $ Ty.getId clazz ++ "_data"

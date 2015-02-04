@@ -34,8 +34,8 @@ instance Translatable A.MethodDecl (A.ClassDecl -> CCode Toplevel) where
        [Function (translate mtype) (method_impl_name cname mname)
         -- When we have a top-level main function, this should be cleaned up
            (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main")
-            then [(data_rec_ptr cname, Var "this"), (int, Var "argc"), (Ptr $ Ptr char, Var "argv")]
-            else (data_rec_ptr cname, Var "this") : (map mparam_to_cvardecl mparams))
+            then [(Ptr . AsType $ class_type_name cname, Var "this"), (int, Var "argc"), (Ptr $ Ptr char, Var "argv")]
+            else (Ptr . AsType $ class_type_name cname, Var "this") : (map mparam_to_cvardecl mparams))
            (if not $ Ty.isVoidType mtype
             then (Seq $ bodys : [Return bodyn])
             else (Seq $ bodys : [Return unit]))]
@@ -50,7 +50,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> CCode Toplevel) where
     in
       Concat $ closures ++ 
        [Function void (method_impl_name cname mname)
-           ((data_rec_ptr cname, Var "this") : (stream, stream_handle) : 
+           ((Ptr . AsType $ class_type_name cname, Var "this") : (stream, stream_handle) : 
             (map mparam_to_cvardecl mparams))
            (Seq $ bodys : [Statement $ Call (Nam "stream_close") [stream_handle]])]
     where

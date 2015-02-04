@@ -58,11 +58,11 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Trace functions"] ++
        trace_fn_decls ++
 
-       [comment_section "Data structs"] ++
-       data_struct_decls ++ 
+       [comment_section "Class types"] ++
+       class_type_decls ++ 
 
-       [comment_section "Passive class data structs"] ++
-       passive_data_structs ++ 
+       [comment_section "Passive class types"] ++
+       passive_types ++ 
 
        [comment_section "Actor types"] ++
        actor_decls ++
@@ -103,22 +103,22 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
         let
           names = map (("ID_"++) . Ty.getId . A.cname) classes
         in
-         Enum $ map Nam names
+         Enum $ (Nam "__DUMMY__ = 1024") : map Nam names
 
       trace_fn_decls = map trace_fn_decl classes
           where
             trace_fn_decl A.Class{A.cname} =
                       FunctionDecl void (class_trace_fn_name cname) [Ptr void]
 
-      data_struct_decls = map data_struct_decl classes
+      class_type_decls = map class_type_decl classes
           where
-            data_struct_decl A.Class{A.cname} = 
-                Typedef (Struct $ data_rec_name cname) (data_rec_name cname)
+            class_type_decl A.Class{A.cname} = 
+                Typedef (Struct $ class_type_name cname) (class_type_name cname)
 
-      passive_data_structs = map passive_data_struct $ filter (not . A.isActive) classes
+      passive_types = map passive_type $ filter (not . A.isActive) classes
           where
-            passive_data_struct A.Class{A.cname, A.fields} = 
-                StructDecl (data_rec_type cname) 
+            passive_type A.Class{A.cname, A.fields} = 
+                StructDecl (AsType $ class_type_name cname) 
                            (zip
                             (map (translate . A.ftype) fields)
                             (map (Var . show . A.fname) fields))
@@ -135,12 +135,12 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
           where
             method_fwd A.Method{A.mtype, A.mname, A.mparams} =
               let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
-                           then [data_rec_ptr cname, int, Ptr $ Ptr char]
-                           else data_rec_ptr cname : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                           then [Ptr . AsType $ class_type_name cname, int, Ptr $ Ptr char]
+                           else (Ptr . AsType $ class_type_name cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl (translate mtype) (method_impl_name cname mname) params
             method_fwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
-              let params = data_rec_ptr cname : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+              let params = (Ptr . AsType $ class_type_name cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl void (method_impl_name cname mname) params
 

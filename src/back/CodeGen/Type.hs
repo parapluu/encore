@@ -28,9 +28,7 @@ translatePrimitive ty
 instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty      = translatePrimitive ty
-        | Ty.isActiveRefType ty  = Ptr pony_actor_t 
-        | Ty.isPassiveRefType ty = Ptr $ Typ (show (data_rec_name ty))
-        | Ty.isRefType ty        = error $ "Unknown activity of class '" ++ show ty ++ "'"
+        | Ty.isRefType ty        = Ptr . AsType $ class_type_name ty
         | Ty.isArrowType ty      = closure
         | Ty.isTypeVar ty        = Ptr void
         | Ty.isFutureType ty     = future
