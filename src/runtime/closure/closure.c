@@ -25,7 +25,7 @@ struct closure{
   pony_trace_fn trace;
 };
 
-pony_type_t closure_type = {CLOSURE_ZERO, sizeof(struct closure), closure_trace, NULL, NULL};
+pony_type_t closure_type = {CLOSURE_ID, sizeof(struct closure), closure_trace, NULL, NULL};
 
 void closure_trace(void *p){
   closure_t *c = (closure_t *) p;
