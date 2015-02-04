@@ -33,13 +33,13 @@ struct encore_oneway_msg
 
 struct encore_fut_msg
 {
-  encore_msg_t;
+  encore_oneway_msg_t; 
   future_t    *_fut;
 };
 
 struct encore_actor
 {
-  pony_actor_pad_t;
+  pony_actor_pad_t; // to be removed when -fm-extension
   // Everything else that goes into an encore_actor that's not part of PonyRT
 };
 
