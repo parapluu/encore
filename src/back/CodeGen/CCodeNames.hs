@@ -72,9 +72,6 @@ stream_handle = Var "_stream"
 class_dispatch_name :: Ty.Type -> CCode Name
 class_dispatch_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_dispatch"
 
-class_message_type_name :: Ty.Type -> CCode Name
-class_message_type_name clazz = Nam $ Ty.getId clazz ++ "_message_type"
-
 class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_trace"
 
