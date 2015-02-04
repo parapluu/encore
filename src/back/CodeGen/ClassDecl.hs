@@ -48,6 +48,53 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                          (map (translate  . A.ftype) fields)
                          (map (Var . show . A.fname) fields))
 
+      pony_msg_t_impls :: [CCode Toplevel]
+      pony_msg_t_impls = map pony_msg_t_impl methods
+          where
+            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
+            pony_msg_t_impl mdecl =
+              let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                  argnames = map (Var . ("f"++) . show)  ([1..] :: [Int])
+                  argspecs = zip argrttys argnames :: [CVarSpec]
+                  encoremsgtspec = (enc_msg_t, Var "msg")
+                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
+                  nameprefix = "encore_"++ (show (A.cname cdecl))
+                                ++ "_" ++ (show (A.mname mdecl))
+              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
+                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
+
+      -- message_type_decl :: CCode Toplevel
+      -- message_type_decl =
+      --     Function (Static . Ptr . Typ $ "pony_msg_t")
+      --              (class_message_type_name cname)
+      --              [(Typ "uint64_t", Var "id")]
+      --              (Seq [Switch (Var "id")
+      --                      ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
+      --                       (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
+      --                       (Nam "FUT_MSG_SUSPEND", Return $ Amp $ Var "m_resume_suspend") :
+      --                       (Nam "FUT_MSG_AWAIT", Return $ Amp $ Var "m_resume_await") :
+      --                       (Nam "FUT_MSG_RUN_CLOSURE", Return $ Amp $ Var "m_run_closure") :
+      --                       (concatMap type_clause methods))
+      --                       (Skip),
+      --                    (Return Null)])
+      --   where
+      --     type_clause mdecl =
+      --         [message_type_clause cname (A.mname mdecl),
+      --          one_way_message_type_clause cname (A.mname mdecl)]
+      --     message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
+      --     message_type_clause cname mname =
+      --         if mname == (ID.Name "main") then
+      --             (Nam "PONY_MAIN",
+      --              Return $ Amp (method_message_type_name cname mname))
+      --         else
+      --       (method_msg_name cname mname,
+      --        Return $ Amp (method_message_type_name cname mname))
+
+      --     one_way_message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
+      --     one_way_message_type_clause cname mname =
+      --       (one_way_send_msg_name cname mname,
+      --        Return $ Amp (one_way_message_type_name cname mname))
+
       method_impls = map method_impl methods
           where
             method_impl mdecl = translate mdecl cdecl
@@ -94,7 +141,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                     Statement $ Call (Nam "closure_call") [Var "closure", Var "closure_arguments"]]
 
              pony_main_clause =
-                 (Nam "PONY_MAIN",
+                 (Nam "_ENC__MSG_MAIN",
                   Seq $ [Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
                                           [AsExpr $ Var "p",
                                            AsExpr $ (ArrAcc 0 (Var "argv")) `Dot` (Nam "i"),
