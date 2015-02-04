@@ -35,21 +35,21 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 
-data Phase = Parsed | TypeChecked 
+data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run | 
-              KeepCFiles | Undefined String | 
-              Output FilePath | Source FilePath | 
+data Option = GCC | Clang | Run |
+              KeepCFiles | Undefined String |
+              Output FilePath | Source FilePath |
               Intermediate Phase | TypecheckOnly
 	deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [Option])
-parseArguments args = 
+parseArguments args =
     let
         parseArguments' []   = []
         parseArguments' args = opt : (parseArguments' rest)
-            where 
+            where
               (opt, rest) = parseArgument args
               parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
@@ -70,20 +70,20 @@ parseArguments args =
       getName (Source name) = name
 
 warnUnknownFlags :: [Option] -> IO ()
-warnUnknownFlags options = 
+warnUnknownFlags options =
     do
-      mapM (\flag -> case flag of 
+      mapM (\flag -> case flag of
                        Undefined flag -> putStrLn $ "Warning: Ignoring undefined option" <+> flag
                        _ -> return ()) options
-      when (GCC `elem` options && (not $ Clang `elem` options)) 
+      when (GCC `elem` options && (not $ Clang `elem` options))
                (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
-      when (Clang `elem` options && GCC `elem` options) 
+      when (Clang `elem` options && GCC `elem` options)
                (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
-      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options)) 
+      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options))
                (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
 
 
-outputCode ast out = hPrint out ast    
+outputCode ast out = hPrint out ast
 
 writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (outputCode ast)
 
@@ -108,11 +108,11 @@ compileProgram prog sourcePath options =
        when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
-                   cmd = "clang" <+> 
-                         concat (intersperse " " classFiles) <+> 
+                   cmd = "clang" <+>
+                         concat (intersperse " " classFiles) <+>
                          sharedFile <+>
-                         ofilesInc <+> 
-                         "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
+                         ofilesInc <+>
+                         "-ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -Wno-unknown-attributes -lpthread" <+>
                          " -o" <+> execName <+>
                          (libPath++"*.a") <+>
                          (libPath++"*.a") <+>
@@ -120,7 +120,7 @@ compileProgram prog sourcePath options =
                exitCode <- system cmd
                case exitCode of
                  ExitSuccess -> return ()
-                 ExitFailure n -> 
+                 ExitFailure n ->
                      abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
        unless (KeepCFiles `elem` options)
                   (do runCommand $ "rm -rf" <+> srcDir
@@ -130,7 +130,7 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
-main = 
+main =
     do args <- getArgs
        let (programs, options) = parseArguments args
        warnUnknownFlags options
@@ -145,8 +145,8 @@ main =
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
                 Left error -> abort $ show error
-       when (Intermediate Parsed `elem` options) 
-           (withFile (changeFileExt sourceName "AST") WriteMode 
+       when (Intermediate Parsed `elem` options)
+           (withFile (changeFileExt sourceName "AST") WriteMode
                (flip hPrint $ show ast))
        expandedAst <- expandModules ast
        let desugaredAST = desugarProgram expandedAst
@@ -154,11 +154,11 @@ main =
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
-           (withFile (changeFileExt sourceName "TAST") WriteMode 
+           (withFile (changeFileExt sourceName "TAST") WriteMode
                (flip hPrint $ show ast))
        let optimizedAST = optimizeProgram typecheckedAST
        exeName <- compileProgram optimizedAST sourceName options
-       when (Run `elem` options) 
+       when (Run `elem` options)
            (do system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())
