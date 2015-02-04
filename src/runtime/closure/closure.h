@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <pony/pony.h>
-#include "../encore/encore.h" // <-- Only for accessing encore_arg_t
+#include "encore.h"
 
 typedef encore_arg_t value_t;
 /*

@@ -1,3 +1,6 @@
+#ifndef ENCORE_H_6Q243YHL
+#define ENCORE_H_6Q243YHL
+
 #include "future.h"
 
 typedef struct encore_actor encore_actor_t;
@@ -25,7 +28,7 @@ typedef enum {
 
 struct encore_oneway_msg
 {
-  pony_msg_t; 
+  pony_msg_t;
 };
 
 struct encore_fut_msg
@@ -48,3 +51,5 @@ void *encore_alloc(size_t *s);
 
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, encore_actor_t *type);
+
+#endif /* end of include guard: ENCORE_H_6Q243YHL */

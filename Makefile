@@ -40,6 +40,7 @@ $(INC_DIR):
 $(LIB_DIR):
 	mkdir -p $(LIB_DIR)
 
+PLATFORM_INC=$(RUNTIME_DIR)/pony/inc/platform
 PONY_INC=$(RUNTIME_DIR)/pony/inc/pony
 PONY_LIB=$(RUNTIME_DIR)/pony/bin/debug/libpony.a
 FUTURE_INC=$(FUTURE_DIR)/future.h
@@ -50,11 +51,13 @@ ENCORE_INC=$(ENCORE_DIR)/encore.h
 ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libencore.a
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony
+	cp -r $(PLATFORM_INC) $(INC_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)
 	cp -r $(SET_INC) $(INC_DIR)
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(STREAM_INC) $(INC_DIR)
+	cp -r $(ENCORE_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 	# cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
