@@ -70,7 +70,7 @@ static int parse_opts(int argc, char** argv, options_t* opt)
       if(i < (argc - 2))
       {
         opt->parent_host = argv[i + 1];
-        opt->parent_port = argv[i + 1];
+        opt->parent_port = argv[i + 2];
         remove += 2;
       }
     }
@@ -87,7 +87,7 @@ static int parse_opts(int argc, char** argv, options_t* opt)
   return argc;
 }
 
-static int setup(int argc, char** argv)
+int pony_init(int argc, char** argv)
 {
   options_t opt;
   memset(&opt, 0, sizeof(options_t));
@@ -97,6 +97,7 @@ static int setup(int argc, char** argv)
   scheduler_init(opt.threads, opt.forcecd);
   cycle_create();
 
+#ifndef PLATFORM_IS_WINDOWS
   if(opt.distrib)
   {
     dist_create(opt.port, opt.child_count, opt.master);
@@ -104,47 +105,30 @@ static int setup(int argc, char** argv)
     if(!opt.master)
       dist_join(opt.parent_host, opt.parent_port);
   }
+#endif
 
   return argc;
 }
 
-int pony_start(int argc, char** argv, pony_actor_t* actor)
+int pony_start(pony_termination_t termination)
 {
-  argc = setup(argc, argv);
-
-  //the program is started on the master node.
-  //if(!distrib || master)
-  //{
-    pony_arg_t arg[2];
-    arg[0].i = argc;
-    arg[1].p = argv;
-    pony_sendv(actor, PONY_MAIN, 2, arg);
-  //}
-
-  if(!scheduler_run(false))
+  if(!scheduler_start(termination))
     return -1;
 
-  scheduler_finish();
-  return __atomic_load_n(&exit_code, __ATOMIC_ACQUIRE);
+  return __pony_atomic_load_n(&exit_code, PONY_ATOMIC_ACQUIRE,
+    PONY_ATOMIC_NO_TYPE);
 }
 
-int pony_init(int argc, char** argv)
+int pony_stop()
 {
-  argc = setup(argc, argv);
+  scheduler_stop();
 
-  if(!scheduler_run(true))
-    return -1;
-
-  return argc;
-}
-
-int pony_shutdown()
-{
-  scheduler_finish();
-  return __atomic_load_n(&exit_code, __ATOMIC_ACQUIRE);
+  return __pony_atomic_load_n(&exit_code, PONY_ATOMIC_ACQUIRE,
+    PONY_ATOMIC_NO_TYPE);
 }
 
 void pony_exitcode(int code)
 {
-  __atomic_store_n(&exit_code, code, __ATOMIC_RELEASE);
+  __pony_atomic_store_n(&exit_code, code, PONY_ATOMIC_RELEASE,
+    PONY_ATOMIC_NO_TYPE);
 }

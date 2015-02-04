@@ -9,8 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct ring_t
+typedef struct main_t
 {
+  pony_actor_pad_t pad;
+
   struct timeval total;
   uint64_t streamer_count;
   uint64_t updater_count;
@@ -18,46 +20,37 @@ typedef struct ring_t
   array_actor_t* updaters;
 } main_t;
 
+typedef struct updater_done_msg_t
+{
+  pony_msg_t msg;
+  struct timeval tv;
+} updater_done_msg_t;
+
 enum
 {
+  MSG_ARGS,
   MSG_STREAMER_DONE,
   MSG_UPDATER_DONE
 };
 
 static void trace(void* p);
-static pony_msg_t* message_type(uint64_t id);
-static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv);
+static void dispatch(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  1,
-  {sizeof(main_t), trace, NULL, NULL},
-  message_type,
+  2,
+  sizeof(main_t),
+  trace,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
 
-static pony_msg_t m_main = {2, {PONY_NONE}};
-static pony_msg_t m_streamer_done = {0, {PONY_NONE}};
-static pony_msg_t m_updater_done = {2, {PONY_NONE}};
-
 static void trace(void* p)
 {
-  main_t* this = p;
-
-  pony_traceobject(this->updaters, array_actor_trace);
-}
-
-static pony_msg_t* message_type(uint64_t id)
-{
-  switch(id)
-  {
-    case PONY_MAIN: return &m_main;
-    case MSG_STREAMER_DONE: return &m_streamer_done;
-    case MSG_UPDATER_DONE: return &m_updater_done;
-  }
-
-  return NULL;
+  main_t* self = (main_t*)p;
+  pony_traceobject(self->updaters, array_actor_trace);
 }
 
 static void usage()
@@ -101,36 +94,32 @@ static bool getarg_u64(const char* name, char** argv, uint64_t* val)
   return false;
 }
 
-static void dispatch(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_arg_t* argv)
+static void dispatch(pony_actor_t* actor, pony_msg_t* msg)
 {
-  main_t* this = p;
+  main_t* self = (main_t*)actor;
 
-  switch(id)
+  switch(msg->id)
   {
-    case PONY_MAIN:
+    case MSG_ARGS:
     {
-      int margc = argv[0].i;
-      char** margv = argv[1].p;
+      pony_main_msg_t* m = (pony_main_msg_t*)msg;
 
-      this = pony_alloc(sizeof(main_t));
-      pony_set(this);
-
-      this->total.tv_sec = 0;
-      this->total.tv_usec = 0;
-      this->streamer_count = 4;
-      this->updater_count = 8;
+      self->total.tv_sec = 0;
+      self->total.tv_usec = 0;
+      self->streamer_count = 4;
+      self->updater_count = 8;
 
       uint64_t logtable = 20;
       uint64_t iterate = 10000;
       uint64_t chunk = 1024;
 
-      for(int i = 1; i < margc; i++)
+      for(int i = 1; i < m->argc; i++)
       {
-        if(getarg_u64("--logtable", &margv[i], &logtable) ||
-          getarg_u64("--iterate", &margv[i], &iterate) ||
-          getarg_u64("--chunk", &margv[i], &chunk) ||
-          getarg_u64("--streamers", &margv[i], &this->streamer_count) ||
-          getarg_u64("--updaters", &margv[i], &this->updater_count)
+        if(getarg_u64("--logtable", &m->argv[i], &logtable) ||
+          getarg_u64("--iterate", &m->argv[i], &iterate) ||
+          getarg_u64("--chunk", &m->argv[i], &chunk) ||
+          getarg_u64("--streamers", &m->argv[i], &self->streamer_count) ||
+          getarg_u64("--updaters", &m->argv[i], &self->updater_count)
           )
         {
           i++;
@@ -140,23 +129,24 @@ static void dispatch(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_a
         }
       }
 
-      this->updater_count = next_pow2(this->updater_count);
-      uint64_t size = (1 << logtable) / this->updater_count;
-      this->updates = chunk * iterate * this->streamer_count;
+      self->updater_count = next_pow2(self->updater_count);
+      uint64_t size = ((uint64_t)1 << logtable) / self->updater_count;
+      self->updates = chunk * iterate * self->streamer_count;
 
-      // FIX: should be in array_actor_t
-      this->updaters = pony_alloc(sizeof(array_actor_t));
-      this->updaters->count = this->updater_count;
-      this->updaters->array = pony_alloc(this->updaters->count * sizeof(pony_actor_t*));
+      //TODO: should be in array_actor_t
+      self->updaters = (array_actor_t*)pony_alloc(sizeof(array_actor_t));
+      self->updaters->count = self->updater_count;
+      self->updaters->array = (pony_actor_t**)pony_alloc(
+        self->updaters->count * sizeof(pony_actor_t*));
 
-      for(uint64_t i = 0; i < this->updater_count; i++)
-        this->updaters->array[i] = updater_create(i, size);
+      for(uint64_t i = 0; i < self->updater_count; i++)
+        self->updaters->array[i] = updater_create(i, size);
 
-      for(uint64_t i = 0; i < this->streamer_count; i++)
+      for(uint64_t i = 0; i < self->streamer_count; i++)
       {
         streamer_apply(
           streamer_create(
-            actor, this->updaters, size, chunk, chunk * iterate * i
+            actor, self->updaters, size, chunk, chunk * iterate * i
             ),
           iterate
           );
@@ -166,34 +156,36 @@ static void dispatch(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_a
 
     case MSG_STREAMER_DONE:
     {
-      this->streamer_count--;
+      self->streamer_count--;
 
-      if(this->streamer_count == 0)
+      if(self->streamer_count == 0)
       {
-        for(uint64_t i = 0; i < this->updaters->count; i++)
-          updater_done(this->updaters->array[i], actor);
+        for(uint64_t i = 0; i < self->updaters->count; i++)
+          updater_done(self->updaters->array[i], actor);
       }
       break;
     }
 
     case MSG_UPDATER_DONE:
     {
-      this->total.tv_sec += argv[0].i;
-      this->total.tv_usec += argv[1].i;
+      updater_done_msg_t* m = (updater_done_msg_t*)msg;
 
-      if(this->total.tv_usec >= 1000000)
+      self->total.tv_sec += m->tv.tv_usec;
+      self->total.tv_usec += m->tv.tv_usec;
+
+      if(self->total.tv_usec >= 1000000)
       {
-        this->total.tv_sec++;
-        this->total.tv_usec -= 1000000;
+        self->total.tv_sec++;
+        self->total.tv_usec -= 1000000;
       }
 
-      this->updater_count--;
+      self->updater_count--;
 
-      if(this->updater_count == 0)
+      if(self->updater_count == 0)
       {
-        double t = this->total.tv_sec + (this->total.tv_usec * 0.000001);
-        t /= this->updaters->count;
-        printf("Time: %g\nGUPS %g\n", t, this->updates / t / 1e9);
+        double t = self->total.tv_sec + (self->total.tv_usec * 0.000001);
+        t /= self->updaters->count;
+        printf("Time: %g\nGUPS %g\n", t, self->updates / t / 1e9);
       }
       break;
     }
@@ -202,7 +194,11 @@ static void dispatch(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_a
 
 int main(int argc, char** argv)
 {
-  return pony_start(argc, argv, pony_create(&type));
+  argc = pony_init(argc, argv);
+  pony_actor_t* actor = pony_create(&type);
+  pony_sendargs(actor, MSG_ARGS, argc, argv);
+
+  return pony_start(PONY_DONT_WAIT);
 }
 
 void main_streamerdone(pony_actor_t* main)
@@ -212,8 +208,9 @@ void main_streamerdone(pony_actor_t* main)
 
 void main_updaterdone(pony_actor_t* main, struct timeval* tv)
 {
-  pony_arg_t arg[2];
-  arg[0].i = tv->tv_sec;
-  arg[1].i = tv->tv_usec;
-  pony_sendv(main, MSG_UPDATER_DONE, 2, arg);
+  updater_done_msg_t* m = (updater_done_msg_t*)pony_alloc_msg(
+    0, MSG_UPDATER_DONE);
+
+  m->tv = *tv;
+  pony_sendv(main, &m->msg);
 }

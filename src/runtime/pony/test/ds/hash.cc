@@ -107,7 +107,7 @@ TEST_F(HashMapTest, HashMapSize)
   ASSERT_EQ(100, testmap_size(&_map));
 }
 
-/** Hash maps are resized to the next power of two
+/** Hash maps are resized by (size << 3)
  *  once a size threshold of 0.5 is exceeded.
  */
 TEST_F(HashMapTest, Resize)
@@ -124,7 +124,7 @@ TEST_F(HashMapTest, Resize)
   testmap_put(&_map, curr);
 
   ASSERT_EQ(BELOW_HALF+1, testmap_size(&_map));
-  ASSERT_EQ(INITIAL_SIZE << 1, _map.contents.size);
+  ASSERT_EQ(INITIAL_SIZE << 3, _map.contents.size);
 }
 
 /** After having put an element with a

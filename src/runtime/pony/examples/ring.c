@@ -18,94 +18,78 @@ static void usage()
 
 typedef struct ring_t
 {
+  pony_actor_pad_t pad;
   pony_actor_t* next;
 } ring_t;
 
 enum
 {
+  MSG_ARGS,
   MSG_INIT,
-  MSG_PASS,
+  MSG_PASS
 };
 
 static void trace(void* p);
-static pony_msg_t* message_type(uint64_t id);
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv);
+static void dispatch(pony_actor_t* self, pony_msg_t* msg);
 static void final(void* p);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  1,
-  {sizeof(ring_t), trace, NULL, NULL},
-  message_type,
+  2,
+  sizeof(ring_t),
+  trace,
+  NULL,
+  NULL,
   dispatch,
   final
 };
 
-static pony_msg_t m_main = {2, {PONY_NONE}};
-static pony_msg_t m_init = {1, {PONY_ACTOR}};
-static pony_msg_t m_pass = {1, {PONY_NONE}};
-
 static void trace(void* p)
 {
-  ring_t* d = p;
+  ring_t* d = (ring_t*)p;
   pony_traceactor(d->next);
 }
 
-static pony_msg_t* message_type(uint64_t id)
+static void dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  switch(id)
+  ring_t* d = (ring_t*)self;
+
+  switch(msg->id)
   {
-    case PONY_MAIN: return &m_main;
-    case MSG_INIT: return &m_init;
-    case MSG_PASS: return &m_pass;
-  }
-
-  return NULL;
-}
-
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
-{
-  ring_t* d = p;
-
-  switch(id)
-  {
-    case PONY_MAIN:
+    case MSG_ARGS:
     {
-      int margc = argv[0].i;
-      char** margv = argv[1].p;
+      pony_main_msg_t* m = (pony_main_msg_t*)msg;
       int ring_size = 3;
       int ring_count = 1;
       uint64_t pass = 10;
 
-      for(int i = 1; i < margc; i++)
+      for(int i = 1; i < m->argc; i++)
       {
-        if(!strcmp(margv[i], "--size"))
+        if(!strcmp(m->argv[i], "--size"))
         {
-          if(margc <= (i + 1))
+          if(m->argc <= (i + 1))
           {
             usage();
             return;
           }
 
-          ring_size = atoi(margv[++i]);
-        } else if(!strcmp(margv[i], "--count")) {
-          if(margc <= (i + 1))
+          ring_size = atoi(m->argv[++i]);
+        } else if(!strcmp(m->argv[i], "--count")) {
+          if(m->argc <= (i + 1))
           {
             usage();
             return;
           }
 
-          ring_count = atoi(margv[++i]);
-        } else if(!strcmp(margv[i], "--pass")) {
-          if(margc <= (i + 1))
+          ring_count = atoi(m->argv[++i]);
+        } else if(!strcmp(m->argv[i], "--pass")) {
+          if(m->argc <= (i + 1))
           {
             usage();
             return;
           }
 
-          pass = atoi(margv[++i]);
+          pass = atoi(m->argv[++i]);
         } else {
           usage();
           return;
@@ -120,9 +104,18 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
         for(int j = 0; j < (ring_size - 1); j++)
         {
           pony_actor_t* actor = pony_create(&type);
+
+          pony_gc_send();
+          pony_traceactor(next);
+          pony_send_done();
+
           pony_sendp(actor, MSG_INIT, next);
           next = actor;
         }
+
+        pony_gc_send();
+        pony_traceactor(next);
+        pony_send_done();
 
         pony_sendp(first, MSG_INIT, next);
 
@@ -134,18 +127,19 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
 
     case MSG_INIT:
     {
-      d = pony_alloc(sizeof(ring_t));
-      d->next = argv[0].p;
-      pony_set(d);
+      pony_msgp_t* m = (pony_msgp_t*)msg;
+      d->next = (pony_actor_t*)m->p;
       break;
     }
 
     case MSG_PASS:
     {
-      if(argv[0].i > 0)
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+
+      if(m->i > 0)
       {
         // printf("%zd\n", argv[0].i);
-        pony_sendi(d->next, MSG_PASS, argv[0].i - 1);
+        pony_sendi(d->next, MSG_PASS, m->i - 1);
       } else {
         printf("done\n");
       }
@@ -161,5 +155,9 @@ static void final(void* p)
 
 int main(int argc, char** argv)
 {
-  return pony_start(argc, argv, pony_create(&type));
+  argc = pony_init(argc, argv);
+  pony_actor_t* actor = pony_create(&type);
+  pony_sendargs(actor, MSG_ARGS, argc, argv);
+
+  return pony_start(PONY_DONT_WAIT);
 }

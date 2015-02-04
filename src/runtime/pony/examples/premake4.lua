@@ -1,25 +1,12 @@
 function c_app()
   kind "ConsoleApp"
-  language "C"
-  links { "pony", "future", "set", "closure" }
-  buildoptions "-std=gnu11"
-  buildoptions {
-    "-mcx16",
-    "-pthread",
-    "-march=native"
-    }
+  links "pony"
+  
+  configuration "not windows"
+    language "C"
+    buildoptions "-std=gnu11"
 
-  linkoptions {
-    "-lm",
-    "-pthread"
-    }
-
-  flags {
-    "ExtraWarnings",
---    "FatalWarnings",
-    "Symbols"
-    }
-
+  configuration "*"
 end
 
 project "service"
@@ -48,42 +35,18 @@ project "mixed"
 
 project "gups"
   c_app()
-  files "RandomAccess/*.c"
+  files {
+    "RandomAccess/*.c",
+    "RandomAccess/*.h"
+  }
 
 project "gups2"
   c_app()
-  files "RandomAccess2/*.c"
-
-project "fut-eager"
-  c_app()
-  includedirs { 
-    "../../future", 
-    "../../closure", 
-    "../../set"
-  }
   files {
-    "fut/eager.c"
-  } 
+    "RandomAccess2/*.c",
+    "RandomAccess2/*.h"
+  }
 
-project "fut-lazy"
+project "dist"
   c_app()
-  includedirs { 
-    "../../future", 
-    "../../closure", 
-    "../../set"
-  }
-  files {
-    "fut/lazy.c"
-  }
-
-project "fut-shared"
-  c_app()
-  includedirs {
-    "../../future",
-    "../../closure",
-    "../../set"
-  }
-  files {
-    "fut/shared.c"
-  }
-
+  files "dist.c"

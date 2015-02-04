@@ -5,8 +5,17 @@
 #include <inttypes.h>
 #include <assert.h>
 
+typedef struct spreader_msg_t
+{
+  pony_msg_t msg;
+  pony_actor_t* parent;
+  uint64_t count;
+} spreader_msg_t;
+
 typedef struct spreader_t
 {
+  pony_actor_pad_t pad;
+
   pony_actor_t* parent;
   uint64_t count;
   uint64_t result;
@@ -15,63 +24,44 @@ typedef struct spreader_t
 
 enum
 {
+  MSG_ARGS,
   MSG_SPREAD,
   MSG_RESULT
 };
 
-static void spawn_children(pony_actor_t* self, spreader_t* d);
-
-static pony_msg_t m_main = {2, {PONY_NONE}};
-static pony_msg_t m_spread = {2, {PONY_ACTOR, PONY_NONE}};
-static pony_msg_t m_result = {1, {PONY_NONE}};
+static void spawn_child(pony_actor_t* self, spreader_t* d);
 
 static void trace(void* p)
 {
-  spreader_t* d = p;
+  spreader_t* d = (spreader_t*)p;
   pony_traceactor(d->parent);
 }
 
-static pony_msg_t* message_type(uint64_t id)
+static void dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  switch(id)
+  spreader_t* d = (spreader_t*)self;
+
+  switch(msg->id)
   {
-    case PONY_MAIN: return &m_main;
-    case MSG_SPREAD: return &m_spread;
-    case MSG_RESULT: return &m_result;
-  }
-
-  return NULL;
-}
-
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
-{
-  spreader_t* d = p;
-
-  switch(id)
-  {
-    case PONY_MAIN:
+    case MSG_ARGS:
     {
-      int margc = argv[0].i;
-      char** margv = argv[1].p;
-
-      d = pony_alloc(sizeof(spreader_t));
-      pony_set(d);
+      pony_main_msg_t* m = (pony_main_msg_t*)msg;
 
       d->parent = NULL;
       d->result = 0;
       d->received = 0;
 
-      if(margc >= 2)
+      if(m->argc >= 2)
       {
-        d->count = atoi(margv[1]);
+        d->count = atoi(m->argv[1]);
       } else {
         d->count = 10;
       }
 
       if(d->count > 0)
       {
-        spawn_children(self, d);
+        spawn_child(self, d);
+        spawn_child(self, d);
       } else {
         printf("1 actor\n");
       }
@@ -80,30 +70,30 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
 
     case MSG_SPREAD:
     {
-      if(argv[1].i == 0)
-      {
-        pony_sendi(argv[0].p, MSG_RESULT, 1);
-      } else {
-        // each actor allocates a subpage (2kb) plus a chunk (64b) plus its
-        // actual data (64b) plus the actor itself (512b).
-        d = pony_alloc(sizeof(spreader_t));
-        pony_set(d);
+      spreader_msg_t* m = (spreader_msg_t*)msg;
 
-        d->parent = argv[0].p;
-        d->count = argv[1].i;
+      if(m->count == 0)
+      {
+        pony_sendi(m->parent, MSG_RESULT, 1);
+      } else {
+        d->parent = m->parent;
+        d->count = m->count;
         d->result = 0;
         d->received = 0;
 
-        spawn_children(self, d);
+        spawn_child(self, d);
+        spawn_child(self, d);
       }
       break;
     }
 
     case MSG_RESULT:
     {
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+
       assert(d->received < 2);
       d->received++;
-      d->result += argv[0].i;
+      d->result += m->i;
 
       if(d->received == 2)
       {
@@ -122,30 +112,36 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
   }
 }
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  1,
-  {sizeof(spreader_t), trace, NULL, NULL},
-  message_type,
+  2,
+  sizeof(spreader_t),
+  trace,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
 
-static void spawn_children(pony_actor_t* self, spreader_t* d)
+static void spawn_child(pony_actor_t* self, spreader_t* d)
 {
-  pony_actor_t* child;
-  pony_arg_t arg[2];
-  arg[0].p = self;
-  arg[1].i = d->count - 1;
+  pony_gc_send();
+  pony_traceactor(self);
+  pony_send_done();
 
-  child = pony_create(&type);
-  pony_sendv(child, MSG_SPREAD, 2, arg);
+  spreader_msg_t* m = (spreader_msg_t*)pony_alloc_msg(0, MSG_SPREAD);
+  m->parent = self;
+  m->count = d->count - 1;
 
-  child = pony_create(&type);
-  pony_sendv(child, MSG_SPREAD, 2, arg);
+  pony_actor_t* child = pony_create(&type);
+  pony_sendv(child, &m->msg);
 }
 
 int main(int argc, char** argv)
 {
-  return pony_start(argc, argv, pony_create(&type));
+  argc = pony_init(argc, argv);
+  pony_actor_t* actor = pony_create(&type);
+  pony_sendargs(actor, MSG_ARGS, argc, argv);
+
+  return pony_start(PONY_DONT_WAIT);
 }

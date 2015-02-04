@@ -1,3 +1,4 @@
+#include <platform/platform.h>
 #include <gtest/gtest.h>
 
 #include <ds/fun.h>
@@ -52,7 +53,7 @@ TEST(DsFunTest, NumbersToNextPow)
 
   ASSERT_EQ(
     1,
-    __builtin_popcount(
+    __pony_popcount64(
       next_pow2(i)
     )
   );

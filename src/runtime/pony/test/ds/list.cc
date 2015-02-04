@@ -1,3 +1,4 @@
+#include <platform/platform.h>
 #include <gtest/gtest.h>
 
 #include <ds/list.h>

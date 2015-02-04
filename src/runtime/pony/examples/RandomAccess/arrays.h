@@ -10,7 +10,6 @@ typedef struct array_actor_t
   pony_actor_t** array;
 } array_actor_t;
 
-extern pony_type_t array_actor_type;
 void array_actor_trace(void* p);
 
 #endif

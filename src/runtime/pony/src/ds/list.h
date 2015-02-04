@@ -2,9 +2,10 @@
 #define ds_list_h
 
 #include "fun.h"
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#include <platform/platform.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,13 +21,13 @@ list_t* list_append(list_t* list, void* data);
 
 list_t* list_next(list_t* list);
 
-list_t* list_index(list_t* list, int index);
+list_t* list_index(list_t* list, ssize_t index);
 
 void* list_data(list_t* list);
 
 void* list_find(list_t* list, cmp_fn f, void* data);
 
-int list_findindex(list_t* list, cmp_fn f, void* data);
+ssize_t list_findindex(list_t* list, cmp_fn f, void* data);
 
 bool list_subset(list_t* a, list_t* b, cmp_fn f);
 
@@ -49,10 +50,10 @@ void list_free(list_t* list, free_fn f);
   name##_t* name##_push(name##_t* list, elem* data); \
   name##_t* name##_append(name##_t* list, elem* data); \
   name##_t* name##_next(name##_t* list); \
-  name##_t* name##_index(name##_t* list, int index); \
+  name##_t* name##_index(name##_t* list, ssize_t index); \
   elem* name##_data(name##_t* list); \
   elem* name##_find(name##_t* list, elem* data); \
-  int name##_findindex(name##_t* list, elem* data); \
+  ssize_t name##_findindex(name##_t* list, elem* data); \
   bool name##_subset(name##_t* a, name##_t* b); \
   bool name##_equals(name##_t* a, name##_t* b); \
   name##_t* name##_map(name##_t* list, name##_map_fn f, void* arg); \
@@ -79,7 +80,7 @@ void list_free(list_t* list, free_fn f);
   { \
     return (name##_t*)list_next((list_t*)list); \
   } \
-  name##_t* name##_index(name##_t* list, int index) \
+  name##_t* name##_index(name##_t* list, ssize_t index) \
   { \
     return (name##_t*)list_index((list_t*)list, index); \
   } \
@@ -92,7 +93,7 @@ void list_free(list_t* list, free_fn f);
     name##_cmp_fn cmp = cmpf; \
     return (elem*)list_find((list_t*)list, (cmp_fn)cmp, data); \
   } \
-  int name##_findindex(name##_t* list, elem* data) \
+  ssize_t name##_findindex(name##_t* list, elem* data) \
   { \
     name##_cmp_fn cmp = cmpf; \
     return list_findindex((list_t*)list, (cmp_fn)cmp, data); \

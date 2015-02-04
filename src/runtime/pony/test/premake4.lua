@@ -17,10 +17,14 @@ function unittest()
       "../inc/"
     }
     libdirs "../bin/utils/"
-    buildoptions "-std=gnu++11"
-    language "C++"
-    kind "ConsoleApp"
-    links { "gtest", "pony", "future", "set", "closure" }
+    
+    configuration "not windows"
+      buildoptions "-std=gnu++11"
+    
+    configuration "*"
+      kind "ConsoleApp"
+      language "C++"
+      links { "gtest", "pony" }
 end
 
 project "ds"
@@ -30,4 +34,3 @@ project "ds"
 project "mem"
   unittest()
   files "mem/*.cc"
-

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <assert.h>
 
-static __thread actormap_t acquire;
+static __pony_thread_local actormap_t acquire;
 
 static void acquire_actor(pony_actor_t* actor)
 {
@@ -40,7 +40,7 @@ static void current_actor_dec(gc_t* gc)
 void gc_sendobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
   void* p, pony_trace_fn f)
 {
-  chunk_t* chunk = pagemap_get(p);
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
 
   // don't gc memory that wasn't pony_allocated
   if(chunk == NULL)
@@ -106,7 +106,7 @@ void gc_sendobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
 void gc_recvobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
   void* p, pony_trace_fn f)
 {
-  chunk_t* chunk = pagemap_get(p);
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
 
   // don't gc memory that wasn't pony_allocated
   if(chunk == NULL)
@@ -167,7 +167,7 @@ void gc_recvobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
 void gc_markobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
   void* p, pony_trace_fn f)
 {
-  chunk_t* chunk = pagemap_get(p);
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
 
   // don't gc memory that wasn't pony_allocated
   if(chunk == NULL)

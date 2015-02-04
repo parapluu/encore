@@ -7,6 +7,7 @@
 
 typedef struct service_t
 {
+  pony_actor_pad_t pad;
   uint64_t expect;
   uint64_t received;
 } service_t;
@@ -17,48 +18,34 @@ enum
   MSG_PONG
 };
 
-static pony_msg_t m_ping = {1, {PONY_ACTOR}};
-static pony_msg_t m_pong = {0, {PONY_NONE}};
-
-static pony_msg_t* message_type(uint64_t id)
+static void dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  switch(id)
-  {
-    case MSG_PING: return &m_ping;
-    case MSG_PONG: return &m_pong;
-  }
+  service_t* d = (service_t*)self;
 
-  return NULL;
-}
-
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
-{
-  service_t* d = p;
-
-  switch(id)
+  switch(msg->id)
   {
     case MSG_PING:
     {
-      assert(d == NULL);
-      pony_send(argv[0].p, MSG_PONG);
+      pony_msgp_t* m = (pony_msgp_t*)msg;
+      pony_send((pony_actor_t*)m->p, MSG_PONG);
       break;
     }
 
     case MSG_PONG:
     {
-      assert(d != NULL);
       d->received++;
       break;
     }
   }
 }
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  1,
-  {sizeof(service_t), NULL, NULL, NULL},
-  message_type,
+  2,
+  sizeof(service_t),
+  NULL,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
@@ -69,14 +56,18 @@ static void waitfor(int count)
   pony_become(actor);
   pony_unschedule();
 
-  service_t* d = pony_alloc(sizeof(service_t));
+  service_t* d = (service_t*)actor;
   d->expect = count;
   d->received = 0;
-  pony_set(d);
 
   for(int i = 0; i < count; i++)
   {
     pony_actor_t* ping = pony_create(&type);
+
+    pony_gc_send();
+    pony_traceactor(actor);
+    pony_send_done();
+
     pony_sendp(ping, MSG_PING, actor);
   }
 
@@ -92,6 +83,7 @@ static void waitfor(int count)
 int main(int argc, char** argv)
 {
   argc = pony_init(argc, argv);
+  pony_start(PONY_ASYNC_WAIT);
 
   int count = 10;
 
@@ -101,5 +93,5 @@ int main(int argc, char** argv)
   for(int i = 1; i <= count; i++)
     waitfor(i);
 
-  return pony_shutdown();
+  return pony_stop();
 }

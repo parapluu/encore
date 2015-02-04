@@ -14,6 +14,7 @@
 
 typedef struct updater_t
 {
+  pony_actor_pad_t pad;
   pony_actor_t* main;
   array_actor_t* updaters;
   uint64_t index;
@@ -25,6 +26,17 @@ typedef struct updater_t
   uint64_t* table;
 } updater_t;
 
+typedef struct create_msg_t
+{
+  pony_msg_t msg;
+  pony_actor_t* main;
+  array_actor_t* updaters;
+  uint64_t index;
+  uint64_t size;
+  uint64_t chunk;
+  uint64_t seed;
+} create_msg_t;
+
 enum
 {
   MSG_CREATE,
@@ -34,43 +46,26 @@ enum
 };
 
 static void trace(void* p);
-static pony_msg_t* message_type(uint64_t id);
-static void dispatch(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv);
+static void dispatch(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  2,
-  {sizeof(updater_t), trace, NULL, NULL},
-  message_type,
+  3,
+  sizeof(updater_t),
+  trace,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
 
-static pony_msg_t m_create = {6, {PONY_ACTOR, &array_actor_type, PONY_NONE}};
-static pony_msg_t m_apply = {1, {PONY_NONE}};
-static pony_msg_t m_receive = {1, {&array_uint64_type}};
-static pony_msg_t m_done = {0, {PONY_NONE}};
-
 static void trace(void* p)
 {
-  updater_t* this = p;
+  updater_t* self = (updater_t*)p;
 
-  pony_traceactor(this->main);
-  pony_traceobject(this->updaters, array_actor_trace);
-  pony_trace(this->table);
-}
-
-static pony_msg_t* message_type(uint64_t id)
-{
-  switch(id)
-  {
-    case MSG_CREATE: return &m_create;
-    case MSG_APPLY: return &m_apply;
-    case MSG_RECEIVE: return &m_receive;
-    case MSG_DONE: return &m_done;
-  }
-
-  return NULL;
+  pony_traceactor(self->main);
+  pony_traceobject(self->updaters, array_actor_trace);
+  pony_trace(self->table);
 }
 
 static uint64_t rng_next(int64_t n)
@@ -87,140 +82,153 @@ static uint64_t rng_seed(int64_t n)
   uint64_t m2[64];
   uint64_t temp = 1;
 
-  for(int i = 0; i < 64; i++)
+  for(uint32_t i = 0; i < 64; i++)
   {
     m2[i] = temp;
     temp = rng_next(rng_next(temp));
   }
 
-  int i = 62;
+  int32_t j = 62;
 
-  while(i >= 0)
+  while(j >= 0)
   {
-    if((n >> i) & 1) break;
-    i--;
+    if((n >> j) & 1) break;
+    j--;
   }
 
   uint64_t ran = 2;
 
-  while(i > 0)
+  while(j > 0)
   {
     temp = 0;
 
-    for(int j = 0; j < 64; j++)
+    for(uint32_t k = 0; k < 64; k++)
     {
-      if((ran >> j) & 1) temp ^= m2[j];
+      if((ran >> k) & 1) temp ^= m2[k];
     }
 
     ran = temp;
-    i--;
+    j--;
 
-    if((n >> i) & 1) ran = rng_next(ran);
+    if((n >> j) & 1) ran = rng_next(ran);
   }
 
   return ran;
 }
 
-static void dispatch(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_arg_t* argv)
+static void dispatch(pony_actor_t* actor, pony_msg_t* msg)
 {
-  updater_t* this = p;
+  updater_t* self = (updater_t*)actor;
 
-  switch(id)
+  switch(msg->id)
   {
     case MSG_CREATE:
     {
-      this = pony_alloc(sizeof(updater_t));
-      pony_set(this);
+      create_msg_t* m = (create_msg_t*)msg;
 
-      this->main = argv[0].p;
-      this->updaters = argv[1].p;
-      this->index = argv[2].i;
-      this->size = argv[3].i;
-      this->chunk = argv[4].i;
-      this->rnd = rng_seed(argv[4].i);
+      pony_gc_recv();
+      pony_traceactor(m->main);
+      pony_traceobject(m->updaters, array_actor_trace);
+      pony_recv_done();
 
-      this->shift = __builtin_ffsl(this->size) - 1;
-      this->mask = this->updaters->count - 1;
+      self->main = m->main;
+      self->updaters = m->updaters;
+      self->index = m->index;
+      self->size = m->size;
+      self->chunk = m->chunk;
+      self->rnd = rng_seed(m->seed);
 
-      uint64_t offset = this->index * this->size;
-      this->table = pony_alloc(this->size * sizeof(uint64_t));
+      self->shift = __pony_ffsl(self->size) - 1;
+      self->mask = self->updaters->count - 1;
 
-      for(uint64_t i = 0; i < this->size; i++)
-        this->table[i] = i + offset;
+      uint64_t offset = self->index * self->size;
+      self->table = (uint64_t*)pony_alloc(self->size * sizeof(uint64_t));
+
+      for(uint64_t i = 0; i < self->size; i++)
+        self->table[i] = i + offset;
       break;
     }
 
     case MSG_APPLY:
     {
-      const uint64_t iterate = argv[0].i;
-      const uint64_t me = this->index;
-      const uint64_t mask = this->size - 1;
-      const uint64_t count = this->updaters->count;
-      array_uint64_t* list[count];
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+
+      const uint64_t iterate = m->i;
+      const uint64_t me = self->index;
+      const uint64_t mask = self->size - 1;
+      const uint64_t count = self->updaters->count;
+      VLA(array_uint64_t*, list, count);
 
       for(uint64_t i = 0; i < count; i++)
       {
         if(i != me)
         {
-          // FIX: should be in array_uint64_t
-          list[i] = pony_alloc(sizeof(array_uint64_t));
+          // TODO: should be in array_uint64_t
+          list[i] = (array_uint64_t*)pony_alloc(sizeof(array_uint64_t));
           list[i]->count = 0;
-          list[i]->array = pony_alloc(this->chunk * sizeof(uint64_t));
+          list[i]->array = (uint64_t*)pony_alloc(
+            self->chunk * sizeof(uint64_t));
         }
       }
 
-      const uint64_t chunk = this->chunk;
-      uint64_t datum = this->rnd;
+      const uint64_t chunk = self->chunk;
+      uint64_t datum = self->rnd;
 
       for(uint64_t i = 0; i < chunk; i++)
       {
         datum = rng_next(datum);
-        const uint64_t updater = (datum >> this->shift) & this->mask;
+        const uint64_t updater = (datum >> self->shift) & self->mask;
 
         if(updater == me)
         {
           const uint64_t index = datum & mask;
-          this->table[index] ^= datum;
+          self->table[index] ^= datum;
         } else {
           const uint64_t index = list[updater]->count++;
           list[updater]->array[index] = datum;
         }
       }
 
-      this->rnd = datum;
+      self->rnd = datum;
 
       for(uint64_t i = 0; i < count; i++)
       {
         if((i != me) && (list[i]->count > 0))
-          updater_receive(this->updaters->array[i], list[i]);
+          updater_receive(self->updaters->array[i], list[i]);
       }
 
       if(iterate > 0)
       {
         updater_apply(actor, iterate - 1);
       } else {
-        main_done(this->main);
+        main_done(self->main);
       }
       break;
     }
 
     case MSG_RECEIVE:
     {
-      array_uint64_t* data = argv[0].p;
-      uint64_t mask = this->size - 1;
+      pony_msgp_t* m = (pony_msgp_t*)msg;
+      array_uint64_t* data = (array_uint64_t*)m->p;
+
+      pony_gc_recv();
+      pony_traceobject(data, array_uint64_trace);
+      pony_recv_done();
+
+      uint64_t mask = self->size - 1;
 
       for(uint64_t i = 0; i < data->count; i++)
       {
         uint64_t datum = data->array[i];
         uint64_t index = datum & mask;
-        this->table[index] ^= datum;
+        self->table[index] ^= datum;
       }
       break;
     }
 
     case MSG_DONE:
     {
-      main_conf(this->main);
+      main_conf(self->main);
       break;
     }
   }
@@ -231,15 +239,20 @@ pony_actor_t* updater_create(pony_actor_t* main, array_actor_t* updaters,
 {
   pony_actor_t* updater = pony_create(&type);
 
-  pony_arg_t argv[6];
-  argv[0].p = main;
-  argv[1].p = updaters;
-  argv[2].i = index;
-  argv[3].i = size;
-  argv[4].i = chunk;
-  argv[5].i = seed;
-  pony_sendv(updater, MSG_CREATE, 6, argv);
+  pony_gc_send();
+  pony_traceactor(main);
+  pony_traceobject(updaters, array_actor_trace);
+  pony_send_done();
 
+  create_msg_t* m = (create_msg_t*)pony_alloc_msg(0, MSG_CREATE);
+  m->main = main;
+  m->updaters = updaters;
+  m->index = index;
+  m->size = size;
+  m->chunk = chunk;
+  m->seed = seed;
+
+  pony_sendv(updater, &m->msg);
   return updater;
 }
 
@@ -250,6 +263,10 @@ void updater_apply(pony_actor_t* updater, uint64_t iterate)
 
 void updater_receive(pony_actor_t* updater, array_uint64_t* data)
 {
+  pony_gc_send();
+  pony_traceobject(data, array_uint64_trace);
+  pony_send_done();
+
   pony_sendp(updater, MSG_RECEIVE, data);
 }
 

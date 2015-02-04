@@ -1,36 +1,15 @@
 #ifndef actor_h
 #define actor_h
 
-#define _XOPEN_SOURCE 800
-
-#include <ucontext.h>
-
 #include "../gc/gc.h"
 #include "../mem/heap.h"
 #include <pony/pony.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-enum
-{
-  ACTORMSG_ACQUIRE = UINT64_MAX - 3,
-  ACTORMSG_RELEASE,
-  ACTORMSG_CONF
-};
-
-typedef struct ctx_wrapper {
-  ucontext_t* ctx;
-  void* uc_link;
-} ctx_wrapper;
-
-// future chaining
-void actor_suspend(pony_actor_t *actor);
-void actor_block(pony_actor_t *actor);
-void actor_resume(pony_actor_t *actor);
-void actor_set_resume(pony_actor_t *actor);
-void actor_set_run_to_completion(pony_actor_t *actor);
-bool actor_run_to_completion(pony_actor_t *actor);
-void actor_await(pony_actor_t *actor, void *future);
+#define  ACTORMSG_ACQUIRE (UINT32_MAX - 3)
+#define  ACTORMSG_RELEASE (UINT32_MAX - 2)
+#define  ACTORMSG_CONF (UINT32_MAX - 1)
 
 bool actor_run(pony_actor_t* actor);
 

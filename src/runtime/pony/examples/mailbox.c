@@ -6,40 +6,32 @@
 #include <inttypes.h>
 #include <assert.h>
 
+typedef struct mailbox_msg_t
+{
+  pony_msg_t msg;
+  pony_actor_t* receiver;
+  int pass;
+} mailbox_msg_t;
+
 enum
 {
+  MSG_ARGS,
   MSG_MAILBOX,
   MSG_PING
 };
 
-static pony_msg_t* message_type(uint64_t id);
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv);
+static void dispatch(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
-  1,
-  {0, NULL, NULL, NULL},
-  message_type,
+  2,
+  sizeof(pony_actor_pad_t),
+  NULL,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
-
-static pony_msg_t m_main = {2, {PONY_NONE}};
-static pony_msg_t m_mailbox = {2, {PONY_ACTOR, PONY_NONE}};
-static pony_msg_t m_ping = {0, {PONY_NONE}};
-
-static pony_msg_t* message_type(uint64_t id)
-{
-  switch(id)
-  {
-    case PONY_MAIN: return &m_main;
-    case MSG_MAILBOX: return &m_mailbox;
-    case MSG_PING: return &m_ping;
-  }
-
-  return NULL;
-}
 
 static void usage()
 {
@@ -50,63 +42,63 @@ static void usage()
     );
 }
 
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
+static void dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  switch(id)
+  switch(msg->id)
   {
-    case PONY_MAIN:
+    case MSG_ARGS:
     {
-      int margc = argv[0].i;
-      char** margv = argv[1].p;
+      pony_main_msg_t* m = (pony_main_msg_t*)msg;
       int size = 3;
       int pass = 0;
 
-      for(int i = 1; i < margc; i++)
+      for(int i = 1; i < m->argc; i++)
       {
-        if(!strcmp(margv[i], "--size"))
+        if(!strcmp(m->argv[i], "--size"))
         {
-          if(margc <= (i + 1))
+          if(m->argc <= (i + 1))
           {
             usage();
             return;
           }
 
-          size = atoi(margv[++i]);
-        } else if(!strcmp(margv[i], "--pass")) {
-          if(margc <= (i + 1))
+          size = atoi(m->argv[++i]);
+        } else if(!strcmp(m->argv[i], "--pass")) {
+          if(m->argc <= (i + 1))
           {
             usage();
             return;
           }
 
-          pass = atoi(margv[++i]);
+          pass = atoi(m->argv[++i]);
         } else {
           usage();
           return;
         }
       }
 
-      pony_actor_t* actor;
-      pony_arg_t argv[2];
-      argv[0].p = self;
-      argv[1].i = pass;
-
       for(int i = 0; i < size; i++)
       {
-        actor = pony_create(&type);
-        pony_sendv(actor, MSG_MAILBOX, 2, argv);
+        pony_actor_t* actor = pony_create(&type);
+        mailbox_msg_t* m = (mailbox_msg_t*)pony_alloc_msg(0, MSG_MAILBOX);
+
+        pony_gc_send();
+        pony_traceactor(self);
+        pony_send_done();
+
+        m->receiver = self;
+        m->pass = pass;
+        pony_sendv(actor, &m->msg);
       }
       break;
     }
 
     case MSG_MAILBOX:
     {
-      pony_actor_t* receiver = argv[0].p;
-      int pass = argv[1].i;
+      mailbox_msg_t* m = (mailbox_msg_t*)msg;
 
-      for(int i = 0; i < pass; i++)
-        pony_send(receiver, MSG_PING);
+      for(int i = 0; i < m->pass; i++)
+        pony_send(m->receiver, MSG_PING);
       break;
     }
 
@@ -119,5 +111,9 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
 
 int main(int argc, char** argv)
 {
-  return pony_start(argc, argv, pony_create(&type));
+  argc = pony_init(argc, argv);
+  pony_actor_t* actor = pony_create(&type);
+  pony_sendargs(actor, MSG_ARGS, argc, argv);
+
+  return pony_start(PONY_DONT_WAIT);
 }

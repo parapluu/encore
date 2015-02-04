@@ -15,7 +15,7 @@ extern "C" {
 
 /** Definition of a quadratic probing hash map.
  *
- * Do not access the fields of this type.
+ *  Do not access the fields of this type.
  */
 typedef struct hashmap_t
 {
@@ -44,16 +44,14 @@ hashmap_t* hashmap_compact(hashmap_t* map, hash_fn hash, cmp_fn cmp,
 
 /** Retrieve an element from a hash map.
  *
- *  Returns a pointer to the element, or
- *  NULL.
+ *  Returns a pointer to the element, or NULL.
  */
 void* hashmap_get(hashmap_t* map, void* key, hash_fn hash, cmp_fn cmp);
 
 /** Put a new element in a hash map.
  *
- *  If the element (according to cmp_fn) is already
- *  in the hash map, the old element is overwritten
- *  and returned to the caller.
+ *  If the element (according to cmp_fn) is already in the hash map, the old
+ *  element is overwritten and returned to the caller.
  */
 void* hashmap_put(hashmap_t* map, void* entry, hash_fn hash, cmp_fn cmp,
   alloc_fn alloc, free_size_fn fr);
@@ -76,7 +74,7 @@ size_t hashmap_size(hashmap_t* map);
 
 /** Hashmap iterator.
  *
- * Set i to HASHMAP_BEGIN, then call until this returns NULL.
+ *  Set i to HASHMAP_BEGIN, then call until this returns NULL.
  */
 void* hashmap_next(hashmap_t* map, size_t* i);
 

@@ -21,7 +21,7 @@ list_t* list_pop(list_t* list, void** data)
 
 list_t* list_push(list_t* list, void* data)
 {
-  list_t* l = POOL_ALLOC(list_t);
+  list_t* l = (list_t*)POOL_ALLOC(list_t);
   l->data = data;
   l->next = list;
 
@@ -30,7 +30,7 @@ list_t* list_push(list_t* list, void* data)
 
 list_t* list_append(list_t* list, void* data)
 {
-  list_t* l = POOL_ALLOC(list_t);
+  list_t* l = (list_t*)POOL_ALLOC(list_t);
   l->data = data;
   l->next = NULL;
 
@@ -51,7 +51,7 @@ list_t* list_next(list_t* list)
   return list->next;
 }
 
-list_t* list_index(list_t* list, int index)
+list_t* list_index(list_t* list, ssize_t index)
 {
   if(index < 0)
     index = list_length(list) + index;
@@ -80,9 +80,9 @@ void* list_find(list_t* list, cmp_fn f, void* data)
   return NULL;
 }
 
-int list_findindex(list_t* list, cmp_fn f, void* data)
+ssize_t list_findindex(list_t* list, cmp_fn f, void* data)
 {
-  int index = 0;
+  size_t index = 0;
 
   while(list != NULL)
   {

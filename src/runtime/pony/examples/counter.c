@@ -4,64 +4,45 @@
 
 typedef struct counter_t
 {
+  pony_actor_pad_t pad;
   uint64_t count;
 } counter_t;
 
 enum
 {
+  MSG_ARGS,
   MSG_INIT,
   MSG_INC,
   MSG_GETANDRESET,
   MSG_RESPONSE
 };
 
-static pony_msg_t m_main = {2, {PONY_NONE}};
-static pony_msg_t m_init = {0, {PONY_NONE}};
-static pony_msg_t m_inc = {0, {PONY_NONE}};
-static pony_msg_t m_getandreset = {1, {PONY_ACTOR}};
-static pony_msg_t m_response = {1, {PONY_NONE}};
+static void dispatch(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_msg_t* message_type(uint64_t id)
+static pony_type_t type =
 {
-  switch(id)
-  {
-    case PONY_MAIN: return &m_main;
-    case MSG_INIT: return &m_init;
-    case MSG_INC: return &m_inc;
-    case MSG_GETANDRESET: return &m_getandreset;
-    case MSG_RESPONSE: return &m_response;
-  }
-
-  return NULL;
-}
-
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv);
-
-static pony_actor_type_t type =
-{
-  1,
-  {sizeof(counter_t), NULL, NULL, NULL},
-  message_type,
+  2,
+  sizeof(counter_t),
+  NULL,
+  NULL,
+  NULL,
   dispatch,
   NULL
 };
 
-static void dispatch(pony_actor_t* self, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
+static void dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  counter_t* d = p;
+  counter_t* d = (counter_t*)self;
 
-  switch(id)
+  switch(msg->id)
   {
-    case PONY_MAIN:
+    case MSG_ARGS:
     {
-      int margc = argv[0].i;
-      char** margv = argv[1].p;
+      pony_main_msg_t* m = (pony_main_msg_t*)msg;
       uint64_t count = 10;
 
-      if(margc >= 2)
-        count = atoi(margv[1]);
+      if(m->argc >= 2)
+        count = atoi(m->argv[1]);
 
       pony_actor_t* actor = pony_create(&type);
       pony_send(actor, MSG_INIT);
@@ -69,14 +50,16 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
       for(uint64_t i = 0; i < count; i++)
         pony_send(actor, MSG_INC);
 
+      pony_gc_send();
+      pony_traceactor(self);
+      pony_send_done();
+
       pony_sendp(actor, MSG_GETANDRESET, self);
       break;
     }
 
     case MSG_INIT:
-      d = pony_alloc(sizeof(counter_t));
       d->count = 0;
-      pony_set(d);
       break;
 
     case MSG_INC:
@@ -84,17 +67,33 @@ static void dispatch(pony_actor_t* self, void* p, uint64_t id,
       break;
 
     case MSG_GETANDRESET:
-      pony_sendi(argv[0].p, MSG_RESPONSE, d->count);
+    {
+      pony_msgp_t* m = (pony_msgp_t*)msg;
+      pony_actor_t* actor = (pony_actor_t*)m->p;
+
+      pony_gc_recv();
+      pony_traceactor(actor);
+      pony_recv_done();
+
+      pony_sendi(actor, MSG_RESPONSE, d->count);
       d->count = 0;
       break;
+    }
 
     case MSG_RESPONSE:
-      printf("%lu\n", argv[0].i);
+    {
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+      printf("%lu\n", m->i);
       break;
+    }
   }
 }
 
 int main(int argc, char** argv)
 {
-  return pony_start(argc, argv, pony_create(&type));
+  argc = pony_init(argc, argv);
+  pony_actor_t* actor = pony_create(&type);
+  pony_sendargs(actor, MSG_ARGS, argc, argv);
+
+  return pony_start(PONY_DONT_WAIT);
 }

@@ -5,9 +5,9 @@
 
 void scheduler_init(uint32_t threads, bool forcecd);
 
-bool scheduler_run(bool spinoff);
+bool scheduler_start(pony_termination_t termination);
 
-void scheduler_finish();
+void scheduler_stop();
 
 pony_actor_t* scheduler_worksteal();
 
