@@ -3,6 +3,9 @@
 
 #include "future.h"
 
+static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
+static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
+
 typedef struct encore_actor encore_actor_t;
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
@@ -19,7 +22,7 @@ typedef enum {
 } encore_type_id;
 
 typedef enum {
-  _ENC__MSG_RESUME_GET,
+  _ENC__MSG_RESUME_GET, /// This should probably go
   _ENC__MSG_RESUME_SUSPEND,
   _ENC__MSG_RESUME_AWAIT,
   _ENC__MSG_RUN_CLOSURE,
