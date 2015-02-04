@@ -1,3 +1,5 @@
+#include "future.h"
+
 typedef struct encore_actor encore_actor_t;
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
