@@ -93,8 +93,8 @@ pony_type_t *future_get_type(future_t *fut){
 void future_trace(void *p)
 {
   future_t *fut = (future_t *) p;
-  if(future_fulfilled(fut)){ // Should the tracer need to block on the future?
-    if (fut->type == PONY_ACTOR){
+  if(fut->fulfilled){
+    if(fut->type == PONY_ACTOR){
       pony_traceactor(fut->value);
     }else if(fut->type != PONY_NONE){
       pony_traceobject(fut->value, fut->type->trace);
