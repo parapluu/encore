@@ -112,7 +112,7 @@ compileProgram prog sourcePath options =
                          concat (intersperse " " classFiles) <+>
                          sharedFile <+>
                          ofilesInc <+>
-                         "-ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -Wno-unknown-attributes -lpthread" <+>
+                         "-ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -lpthread" <+>
                          " -o" <+> execName <+>
                          (libPath++"*.a") <+>
                          (libPath++"*.a") <+>
