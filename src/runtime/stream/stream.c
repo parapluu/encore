@@ -14,7 +14,6 @@ void scons_trace(void *p){
   if(!scons->eos){
     pony_type_t *type = scons->type;
     if(type == PONY_NONE){
-//      pony_trace(scons->element.p);
     } else if (type == PONY_ACTOR){
       pony_traceactor(scons->element.p);
     } else{
