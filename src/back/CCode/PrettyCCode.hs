@@ -72,6 +72,7 @@ pp' (Parens ccode) = parens $ pp' ccode
 pp' (CUnary o e) = parens $  pp' o <+> pp' e
 pp' (BinOp o e1 e2) = parens $  pp' e1 <+> pp' o <+> pp' e2
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
+pp' (Arrow ccode id) = pp' ccode <> text "->" <> tshow id
 pp' (Deref ccode) = parens $ star <> pp' ccode 
 pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
 pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
