@@ -1,7 +1,7 @@
 #include <pony/pony.h>
 #include "encore.h"
 
-encore_actor_t *encore_create(encore_create_t *type)
+encore_actor_t *encore_create(encore_actor_t *type)
 {
   return pony_create(type);
 }
