@@ -435,7 +435,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          fill_env <- mapM (insert_var env_name) free_vars
          return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
                            [Assign (Decl (closure, Var tmp)) 
-                                       (Call (Nam "mk_closure") [fun_name, env_name])])
+                                       (Call (Nam "closure_mk") [fun_name, env_name])])
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))

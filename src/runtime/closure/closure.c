@@ -24,7 +24,7 @@ struct closure{
   void *env;
 };
 
-closure_t *mk_closure(closure_fun fn, void *env){
+closure_t *closure_mk(closure_fun fn, void *env){
   closure_t *c = ALLOC(sizeof(closure_t));
   c->call = fn;
   c->env = env;

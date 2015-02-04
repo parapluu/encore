@@ -33,7 +33,7 @@ typedef value_t (*closure_fun)(value_t[], void*);
  *  @param env The environment of the closure
  *  @return A closure with body \p body and environment \p env
  */
-closure_t *mk_closure(closure_fun body, void *env);
+closure_t *closure_mk(closure_fun body, void *env);
 
 /**
  *  Call a closure. 
