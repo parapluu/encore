@@ -37,7 +37,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       (LocalInclude "header.h") :
       [type_struct] ++
       [tracefun_decl cdecl] ++
-      pony_msg_t_impls ++
       method_impls ++
       [dispatchfun_decl] ++
       [pony_type_t_decl cname]
@@ -48,21 +47,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                          zip
                          (map (translate  . A.ftype) fields)
                          (map (Var . show . A.fname) fields))
-
-      pony_msg_t_impls :: [CCode Toplevel]
-      pony_msg_t_impls = map pony_msg_t_impl methods
-          where
-            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
-            pony_msg_t_impl mdecl =
-              let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                  argnames = map (Var . show . A.pname)  (A.mparams mdecl)
-                  argspecs = zip argrttys argnames :: [CVarSpec]
-                  encoremsgtspec = (enc_msg_t, Var "msg")
-                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
-                  nameprefix = "_enc__"++ (show (A.cname cdecl))
-                                ++ "_" ++ (show (A.mname mdecl))
-              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
-                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
 
       method_impls = map method_impl methods
           where

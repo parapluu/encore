@@ -43,6 +43,9 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Shared messages"] ++
        shared_messages ++
 
+       [comment_section "Message types"] ++
+       pony_msg_t_impls ++
+
        [comment_section "Global functions"] ++
        global_function_decls ++
 
@@ -73,6 +76,23 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
            DeclTL (pony_msg_t, Var "m_resume_suspend"),
            DeclTL (pony_msg_t, Var "m_resume_await"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
+
+      pony_msg_t_impls :: [CCode Toplevel]
+      pony_msg_t_impls = map pony_msg_t_impls_class classes
+      pony_msg_t_impls_class cdecl@(A.Class{A.methods}) = 
+          Concat $ map pony_msg_t_impl methods
+          where
+            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
+            pony_msg_t_impl mdecl =
+              let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                  argnames = map (Var . show . A.pname)  (A.mparams mdecl)
+                  argspecs = zip argrttys argnames :: [CVarSpec]
+                  encoremsgtspec = (enc_msg_t, Var "msg")
+                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
+                  nameprefix = "_enc__"++ (show (A.cname cdecl))
+                                ++ "_" ++ (show (A.mname mdecl))
+              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
+                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
 
       global_function_decls = map global_function_decl functions
           where
