@@ -428,14 +428,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                     (Assign (Decl (Ptr $ Typ "future_t", Var result)) (Call (Nam "future_chain_actor") [nfuture, (Var fut_name), nchain]))])
 
   translate clos@(A.Closure{A.eparams, A.body}) = 
-      do let fun_name = closure_fun_name . Meta.getMetaId . A.getMeta $ clos
-             env_name = closure_env_name . Meta.getMetaId . A.getMeta $ clos
-             free_vars = Util.freeVariables (map A.pname eparams) body
+      do let meta_id    = Meta.getMetaId . A.getMeta $ clos
+             fun_name   = closure_fun_name meta_id
+             env_name   = closure_env_name meta_id
+             trace_name = closure_trace_name meta_id
+             free_vars  = Util.freeVariables (map A.pname eparams) body
          tmp <- Ctx.gen_sym
          fill_env <- mapM (insert_var env_name) free_vars
          return $ (Var tmp, Seq $ (mk_env env_name) : fill_env ++
                            [Assign (Decl (closure, Var tmp)) 
-                                       (Call (Nam "closure_mk") [fun_name, env_name])])
+                                       (Call (Nam "closure_mk") [fun_name, env_name, trace_name])])
       where
         mk_env name = 
             Assign (Decl (Ptr $ Struct name, AsLval name))

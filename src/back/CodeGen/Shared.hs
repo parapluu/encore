@@ -71,7 +71,10 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                 where 
                   init_global A.Function{A.funname} = 
                       Assign (global_closure_name funname)
-                             (Call (Nam "closure_mk") [AsExpr $ AsLval $ global_function_name funname, Null])
+                             (Call (Nam "closure_mk") 
+                                   [AsExpr $ AsLval $ global_function_name funname, 
+                                    Null, 
+                                    Null])
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

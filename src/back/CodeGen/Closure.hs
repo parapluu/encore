@@ -31,10 +31,12 @@ translateClosure closure
                id         = Meta.getMetaId . A.getMeta $ closure
                fun_name   = closure_fun_name id
                env_name   = closure_env_name id
+               trace_name = closure_trace_name id
                freeVars   = Util.freeVariables (map A.pname params) body
                ((bodyName, bodyStat), _) = runState (translate body) Ctx.empty
            in
              Concat [buildEnvironment env_name freeVars,
+                     tracefun_decl trace_name env_name freeVars,
                      Function (Typ "value_t") fun_name
                               [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
                               (Seq $ 
@@ -76,3 +78,17 @@ translateClosure closure
               where
                 getVar name = 
                     (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (Nam $ show name)
+
+      tracefun_decl traceName envName members =
+          Function void traceName [(Ptr void, Var "p")]
+                   (Seq $ map traceMember members)
+              where
+                traceMember (name, ty) 
+                    | Ty.isActiveRefType ty = 
+                        Call (Nam "pony_traceactor") [getVar name]
+                    | Ty.isPassiveRefType ty = 
+                        Call (Nam "pony_traceobject") 
+                             [getVar name, AsLval $ class_trace_fn_name ty]
+                    | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
+                getVar name = 
+                    (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)

@@ -43,4 +43,5 @@ runtime_type ty
     | Ty.isPassiveRefType ty = Amp $ type_rec_name ty
     | Ty.isFutureType ty ||
       Ty.isStreamType ty = Amp $ future_type_rec_name
+    | Ty.isArrowType ty = Amp $ closure_type_rec_name
     | otherwise = AsExpr $ Var "PONY_NONE"

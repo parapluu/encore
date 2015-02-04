@@ -94,20 +94,20 @@ void future_trace(void *p)
 {
   future_t *fut = (future_t *) p;
   if(future_fulfilled(fut)){ // Should the tracer need to block on the future?
-    if(fut->type == PONY_NONE){
-    }else if (fut->type == PONY_ACTOR){
+    if (fut->type == PONY_ACTOR){
       pony_traceactor(fut->value);
-    }else{
+    }else if(fut->type != PONY_NONE){
       pony_traceobject(fut->value, fut->type->trace);
     }
   }
   // TODO: Who traces whom?
-  for(int i = 0; i < fut->no_responsibilities; i++){
-    pony_traceactor(fut->responsibilities[i].message.actor);
-  }
+  // for(int i = 0; i < fut->no_responsibilities; i++){
+  //   pony_traceactor(fut->responsibilities[i].message.actor);
+  // }
   closure_entry_t *cursor = fut->children;
   while(cursor != NULL){
     pony_traceobject(cursor->future, future_trace);
+    closure_trace(cursor->closure);
     cursor = cursor->next;
   }
 }

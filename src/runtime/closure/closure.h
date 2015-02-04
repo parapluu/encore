@@ -15,6 +15,10 @@ typedef union value {
 
 typedef struct closure closure_t;
 
+extern pony_type_t closure_type;
+
+void closure_trace(void *p);
+
 /**
  *  The body of a closure.
 
@@ -31,9 +35,10 @@ typedef value_t (*closure_fun)(value_t[], void*);
  * 
  *  @param body The body of the closure (see the typedef of closure_fun)
  *  @param env The environment of the closure
+ *  @param trace The trace function of the environment
  *  @return A closure with body \p body and environment \p env
  */
-closure_t *closure_mk(closure_fun body, void *env);
+closure_t *closure_mk(closure_fun body, void *env, pony_trace_fn trace);
 
 /**
  *  Call a closure. 
@@ -48,7 +53,5 @@ value_t closure_call(closure_t *closure, value_t args[]);
  *  @param closure a closure
  */
 void closure_free(closure_t *closure);
-
-void closure_trace(closure_t *c);
 
 #endif

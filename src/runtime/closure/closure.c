@@ -22,12 +22,23 @@ extern __thread pony_actor_t* this_actor;
 struct closure{
   closure_fun call;
   void *env;
+  pony_trace_fn trace;
 };
 
-closure_t *closure_mk(closure_fun fn, void *env){
+pony_type_t closure_type = {sizeof(struct closure), closure_trace, NULL, NULL};
+
+void closure_trace(void *p){
+  closure_t *c = (closure_t *) p;
+  if(c->trace != NULL){
+    c->trace(c->env);
+  }
+}
+
+closure_t *closure_mk(closure_fun fn, void *env, pony_trace_fn trace){
   closure_t *c = ALLOC(sizeof(closure_t));
   c->call = fn;
   c->env = env;
+  c->trace = trace;
   return c;
 }
 
@@ -62,9 +73,4 @@ int val_to_int(value_t v){
 
 double val_to_dbl(value_t v){
   return v.d;
-}
-
-void closure_trace(closure_t* c) {
-  pony_trace(c);
-  pony_trace(c->env);
 }

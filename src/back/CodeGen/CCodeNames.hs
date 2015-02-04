@@ -56,6 +56,10 @@ closure_env_name :: String -> CCode Name
 closure_env_name name =
     Nam $ "_" ++ name ++ "_env"
 
+closure_trace_name :: String -> CCode Name
+closure_trace_name name =
+    Nam $ "_" ++ name ++ "_trace"
+
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
 
@@ -102,3 +106,6 @@ type_rec_name clazz = Nam $ Ty.getId clazz ++ "_type"
 
 future_type_rec_name :: CCode Name
 future_type_rec_name = Nam $ "future_type"
+
+closure_type_rec_name :: CCode Name
+closure_type_rec_name = Nam $ "closure_type"
