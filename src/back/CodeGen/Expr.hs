@@ -49,7 +49,7 @@ type_to_printf_fstr ty
     | Ty.isIntType ty    = "%lli"
     | Ty.isRealType ty   = "%f"
     | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty   = "bool<%lld>"
+    | Ty.isBoolType ty   = "bool<%zd>"
     | Ty.isRefType ty    = show ty ++ "<%p>"
     | Ty.isFutureType ty = "fut<%p>"
     | otherwise = case translate ty of

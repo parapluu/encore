@@ -67,7 +67,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                     then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
                     else method_clauses $ methods
                    ))
-                  (Statement $ Call (Nam "printf") [String "error, got invalid id: %llu", AsExpr $ Var "id"]))]))
+                  (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ Var "id"]))]))
            where
              fut_resume_instr =
                  Seq
