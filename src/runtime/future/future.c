@@ -190,7 +190,7 @@ void future_fulfil(future_t *fut, void *value)
       case BLOCKED_MESSAGE:
         {
           perr("Unblocking");
-          actor_set_resume(e.message.actor);
+          /// actor_set_resume(e.message.actor);
           pony_schedule(e.message.actor);
           break;
         }
@@ -270,16 +270,16 @@ void future_block_actor(future_t *fut)
 
   // the implementation of messageq_find is specific to this case.
   // therefore, it's not thread-safe
-  bool block_myself = messageq_find(pony_get_messageq(), fut);
+  bool block_myself = false; /// messageq_find(pony_get_messageq(), fut);
   if(block_myself){
     UNBLOCK;
-    actor_suspend(a);
+    /// actor_suspend(a);
   }else{
     pony_unschedule(a);
     fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
     UNBLOCK;
 
-    actor_block(a);
+    /// actor_block(a);
   }
 
 }
@@ -289,7 +289,7 @@ void future_unblock_actor(future_t *r)
   perr("future_unblock_actor");
 
   // FIXME: move context into message
-  actor_resume(actor_current());
+  /// actor_resume(actor_current());
 }
 
 // ===============================================================
@@ -299,7 +299,7 @@ void future_suspend(void)
 {
   // FIXME: move context into message
   // TODO: block GC'ing during suspend
-  actor_suspend(actor_current());
+  /// actor_suspend(actor_current());
 }
 
 // FIXME: better type for this
@@ -310,20 +310,19 @@ void future_suspend_resume(void *arg)
   ctx->uc_link = d->uc_link;
 
   pony_actor_t *actor = actor_current();
-  actor_set_run_to_completion(actor);
+  /// actor_set_run_to_completion(actor);
 
   assert(swapcontext(ctx->uc_link, ctx) == 0);
 
 
-  if (actor_run_to_completion(actor)) {
-      reclaim_page(actor);
-  }
+  /// if (actor_run_to_completion(actor)) {
+  ///     reclaim_page(actor);
+  /// }
 }
 
 void future_await(future_t *fut)
 {
-  // FIXME: move context into message
-  actor_await(actor_current(), fut);
+  /// actor_await(actor_current(), fut);
 }
 
 // FIXME: better type for this
@@ -338,13 +337,13 @@ void future_await_resume(void *argv)
   if (future_fulfilled(fut))
   {
     pony_actor_t *actor = actor_current();
-    actor_set_run_to_completion(actor);
+    /// actor_set_run_to_completion(actor);
 
     assert(swapcontext(ctx->uc_link, ctx) == 0);
 
-    if (actor_run_to_completion(actor)) {
-        reclaim_page(actor);
-    }
+    /// if (actor_run_to_completion(actor)) {
+    ///     reclaim_page(actor);
+    /// }
   } else {
     // pony_sendv(actor_current(), FUT_MSG_AWAIT, 2, argv);
   }
