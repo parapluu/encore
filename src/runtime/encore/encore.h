@@ -1,5 +1,5 @@
 typedef struct encore_actor encore_actor_t;
-typedef struct encore_msg encore_msg_t;
+typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
 
 typedef union
@@ -21,7 +21,7 @@ typedef enum {
   _ENC__MSG_MAIN,
 } encore_msg_id;
 
-struct encore_msg
+struct encore_oneway_msg
 {
   pony_msg_t; 
 };
@@ -37,3 +37,12 @@ struct encore_actor
   pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
 };
+
+/// Create a new Encore actor
+encore_actor_t *encore_create(encore_create_t *type);
+
+/// Allocate s bytes of memory, zeroed out
+void *encore_alloc(size_t *s);
+
+/// The starting point of all Encore programs
+int encore_start(int argc, char** argv, encore_actor_t *type);
