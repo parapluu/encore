@@ -1,0 +1,180 @@
+import lib
+
+class PreferentialActor
+  id:int
+  k:int                  -- the number of connections to add for each node
+  stop_node:int          -- the elements following n * k in cs owned by this actor
+  connections:Array<int> -- the global array with all the connections
+  owners_map:Map         -- mapping stop_node to the preferential server handling it
+  home:Main              -- where to report the result
+  edges:SmallerArray     -- for detecting conflicts
+  scan_errors:int
+  skip_errors:int
+
+  def init(id:int, k:int, cs:Array<int>, owners_map:Map, home:Main) : void {
+    this.id          = id;
+    this.k           = k;
+    this.stop_node   = (owners_map.range / k) * (id + 1); -- calculate stop node
+    this.connections = cs; 
+    this.owners_map  = owners_map;
+    this.home        = home;
+    this.edges       = new SmallerArray(k);
+    this.scan_errors = 0;
+    this.skip_errors = 0;
+  }
+
+  -- Hacky random
+  def random(a:int,b:int) : int
+    embed int
+      (random() % b) + a;
+    end
+
+  def generate_clique() : void {
+    repeat n <- this.k + 1
+      repeat k <- this.k
+        let i = k + (n * this.k) in this.connections.write(i, if k < n then k+1 else -1);
+    this.add_node(this.k);
+  }
+
+  def add_node(n:int) : void {
+    repeat j <- this.owners_map.range / this.k
+      {
+        this.edges.reset();
+
+	repeat i <- this.k 
+	  this.add_edge(n + j, (n + j) * this.k + i); 
+      };
+    this ! done_scan(0);
+  }
+      
+  def add_node_(n:int) : void 
+    if n == this.stop_node then
+      this ! done_scan(0)
+    else
+      {
+        this.edges.reset();
+
+	repeat i <- this.k 
+	  this.add_edge(n, n * this.k + i); 
+
+        this.add_node(n + 1)
+      }
+
+  def done_scan(i:int) : void 
+    let 
+      stop = this.stop_node * this.k
+      done = i
+    in 
+      {
+        while (this.connections.read(done) != 0 and done < stop) done = done + 1;
+
+	if (done == i) then {
+          -- FIXME: Skipping this
+          this.scan_errors = this.scan_errors + 1;
+          done = done + 1;
+        };
+
+        if done == stop then
+          this.home ! done(this.id, this.scan_errors, this.skip_errors)
+        else
+	  this ! done_scan(done)
+      } 
+
+  def duplicate(v:int) : bool 
+    if v > 0 then not this.edges.add(v) else false
+
+  -- Extend the graph by one new connection 
+  def add_edge(n:int, i:int) : void 
+    let
+      coin_flip  = this.random(0, 2)
+      back_index = this.random(0, n * this.k) 
+      v          = if coin_flip == 0 then (back_index % n) + 1 else this.connections.read(back_index) 
+    in 
+      if v == -1 or this.duplicate(v) then 
+	this.add_edge(n, i)
+      else
+	if v == 0 then
+          this.owners_map.lookup(back_index) ! register_interest(back_index, this, i, 0)
+        else
+	  this.add_connection(i, v) 
+
+  -- Missing: when other actors report values, scan for duplicates
+  def add_connection(i:int, v:int) : void 
+    this.connections.write(i, v)
+
+  def register_interest(i:int, s:PreferentialActor, i_s:int, times_seen:int) : void {
+    let 
+      v = this.connections.read(i)
+    in
+      if v > 0 then
+        s ! add_connection(i_s, v)
+      else
+	if times_seen < 100 then
+          this ! register_interest(i, s, i_s, times_seen + 1)
+        else {
+          -- FIXME: Skipping this
+          this.skip_errors = this.skip_errors + 1;
+	}
+  }
+
+
+class Main
+  owners_map:Map
+  array:Array<int>
+  workers:int
+  scan_errors:int
+  skip_errors:int
+
+  def duplicate_check(n:int, k:int, a:Array<int>) : bool
+    let 
+      result = true
+    in {
+      repeat i <- n
+        repeat j <- (k-1)
+          let
+	    i1 = (i * k) + j
+	    i2 = i1 + 1
+	    v1 = a.read(i1)
+	    v2 = a.read(i2)
+	  in
+            if v1 >= 0 and v1 == v2 then { result = false; print("{} == {} ({})\n", i1, i2, v1); };
+      result;
+    }
+
+  def done(id:int, scan_errors:int, skip_errors:int) : void {
+    this.scan_errors = this.scan_errors + scan_errors;
+    this.skip_errors = this.skip_errors + skip_errors;
+    -- print("{} done\n", id);
+    if this.workers == 1 then 
+      print("Done! (scan errors: {}  skip errors: {})\n", this.scan_errors, this.skip_errors)
+      --this.array.dump(15)
+    else 
+      this.workers = this.workers - 1;
+
+    --if this.workers == 1 then print this.duplicate_check(6000, 10, this.array);
+  }
+
+  def main() : void 
+    let
+      n       = 600000
+      k       = 10
+      workers = 2
+    in 
+      {
+	this.workers    = workers;
+        this.array      = new Array<int>(n * k);
+        this.owners_map = new Map(n * k, workers);
+        repeat i <- workers
+          let
+            a = new PreferentialActor(i, k, this.array, this.owners_map, this)
+	    s = i * (n / workers) --start location
+          in 
+            {
+              this.owners_map.add(a);
+    
+              if i == 0 then 
+                a ! generate_clique()
+              else
+                a ! add_node(s);
+            };
+      }
