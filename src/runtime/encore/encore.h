@@ -29,7 +29,7 @@ typedef enum {
 
 struct encore_oneway_msg
 {
-  pony_msg_t;
+  struct pony_msg_t;
 };
 
 #include "future.h"
