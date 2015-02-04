@@ -39,17 +39,17 @@ struct encore_fut_msg
 
 struct encore_actor
 {
-  pony_actor_pad_t; // to be removed when -fm-extension
+  pony_actor_pad_t; 
   // Everything else that goes into an encore_actor that's not part of PonyRT
 };
 
 /// Create a new Encore actor
-encore_actor_t *encore_create(encore_actor_t *type);
+encore_actor_t *encore_create(pony_type_t *type);
 
 /// Allocate s bytes of memory, zeroed out
-void *encore_alloc(size_t *s);
+void *encore_alloc(size_t s);
 
 /// The starting point of all Encore programs
-int encore_start(int argc, char** argv, encore_actor_t *type);
+int encore_start(int argc, char** argv, pony_type_t *type);
 
 #endif /* end of include guard: ENCORE_H_6Q243YHL */
