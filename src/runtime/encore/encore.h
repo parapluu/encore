@@ -1,3 +1,7 @@
+typedef struct encore_actor encore_actor_t;
+typedef struct encore_msg encore_msg_t;
+typedef struct encore_fut_msg encore_fut_msg_t;
+
 typedef union
 {
   void* p;
@@ -17,10 +21,19 @@ typedef enum {
   _ENC__MSG_MAIN,
 } encore_msg_id;
 
-typedef struct encore_actor encore_actor_t;
+struct encore_msg
+{
+  pony_msg_t; 
+};
+
+struct encore_fut_msg
+{
+  encore_msg_t;
+  future_t    *_fut;
+};
 
 struct encore_actor
 {
-  pony_actor_pad_t pad;
+  pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
 };
