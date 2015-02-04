@@ -22,7 +22,7 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       global_functions ++
 
       [comment_section "Shared messages"] ++
-      shared_messages ++
+      -- shared_messages ++
       [main_function]
     where
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
@@ -53,7 +53,7 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                            [Return $ 
                             Call (Nam "encore_start") [AsExpr $ Var "argc", 
                                                        AsExpr $ Var "argv", 
-                                                       Amp (Var "Main_actor")]]))
+                                                       Amp (Var "_enc__active_Main_type")]]))
           where
             init_futures = Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"])
             init_globals = map init_global functions
