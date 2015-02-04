@@ -60,7 +60,7 @@ parseArguments args =
               parseArgument ("-o":file:args)    = (Output file, args)
               parseArgument ("-AST":args)       = (Intermediate Parsed, args)
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
-              parseArgument ("-I":dirs:args)    = (Imports $ split "," dirs, args) -- HERE HERE HERE
+              parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args) -- HERE HERE HERE
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
