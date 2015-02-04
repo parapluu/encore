@@ -69,6 +69,9 @@ future = Ptr $ Typ "future_t"
 stream :: CCode Ty
 stream = Ptr $ Typ "stream_t"
 
+array :: CCode Ty
+array = Ptr $ Typ "array_t"
+
 unit :: CCode Lval
 unit = Embed "UNIT"
 
@@ -150,3 +153,6 @@ future_type_rec_name = Nam $ "future_type"
 
 closure_type_rec_name :: CCode Name
 closure_type_rec_name = Nam $ "closure_type"
+
+array_type_rec_name :: CCode Name
+array_type_rec_name = Nam $ "array_type"
