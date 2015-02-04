@@ -6,7 +6,7 @@
 
 if premake.override then
   local force_cpp = { }
- 
+
   function cppforce(inFiles)
     for _, val in ipairs(inFiles) do
       for _, fname in ipairs(os.matchfiles(val)) do
@@ -14,7 +14,7 @@ if premake.override then
       end
     end
   end
-  
+
   premake.override(premake.vstudio.vc2010, "additionalCompileOptions", function(base, cfg, condition)
     if cfg.abspath then
       if table.contains(force_cpp, cfg.abspath) then
@@ -69,7 +69,7 @@ solution "ponyrt"
   configuration "windows"
     if(architecture) then
       architecture "x64"
-    end 
+    end
 
     linkoptions "/NODEFAULTLIB:msvcrt.lib"
 
@@ -78,6 +78,54 @@ solution "ponyrt"
     end
 
   include("src/")
-  include("examples/")
+  -- include("examples/")
   include("utils/")
-  include("test/")
+  -- include("test/")
+
+project "closure"
+  kind "StaticLib"
+  language "C"
+  files {
+    "../closure/closure.h",
+    "../closure/closure.c"
+  }
+
+project "encore"
+  kind "StaticLib"
+  language "C"
+  buildoptions {
+    "-fms-extensions"
+  }
+  files {
+    "../encore/encore.h",
+    "../encore/encore.c"
+  }
+
+-- project "stream"
+--   kind "StaticLib"
+--   language "C"
+--   links { "future" }
+--   includedirs { "../future", "../closure" }
+--   files {
+--     "../stream/stream.h",
+--     "../stream/stream.c"
+--   }
+
+-- project "set"
+--   kind "StaticLib"
+--   language "C"
+--   links { "closure" }
+--   includedirs { "../closure" }
+--   files {
+--     "../set/set.c"
+--   }
+
+-- project "future"
+--   kind "StaticLib"
+--   language "C"
+--   links { "closure", "set" }
+--   buildoptions { "-Wno-deprecated-declarations", "-std=gnu11" }
+--   includedirs { "../closure", "../set", "src/sched" }
+--   files {
+--     "../future/future.c",
+--   }

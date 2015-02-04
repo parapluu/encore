@@ -27,6 +27,7 @@ test: encorec
 
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
+ENCORE_DIR=$(RUNTIME_DIR)/encore
 doc: cabal-config
 	make -C doc/encore/
 	cabal haddock --all
@@ -45,6 +46,8 @@ FUTURE_INC=$(FUTURE_DIR)/future.h
 FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libfuture.a
 SET_INC=$(SET_DIR)/set.h
 SET_LIB=$(RUNTIME_DIR)/pony/bin/debug/libset.a
+ENCORE_INC=$(ENCORE_DIR)/encore.h
+ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libencore.a
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony
 	cp -r $(PONY_INC) $(INC_DIR)
@@ -53,10 +56,11 @@ pony: dirs $(PONY_INC)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(STREAM_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
-	cp -r $(FUTURE_LIB) $(LIB_DIR)
+	# cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
-	cp -r $(STREAM_LIB) $(LIB_DIR)
-	cp -r $(SET_LIB) $(LIB_DIR)
+	cp -r $(ENCORE_LIB) $(LIB_DIR)
+	# cp -r $(STREAM_LIB) $(LIB_DIR)
+	# cp -r $(SET_LIB) $(LIB_DIR)
 
 clean:
 	cabal clean
