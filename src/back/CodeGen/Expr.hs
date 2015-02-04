@@ -208,11 +208,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | otherwise = 
           do na <- Ctx.gen_named_sym "new"
              let size = Sizeof . AsType $ class_type_name ty
-             return $ (Var na, Seq $ 
-                               [Assign (Decl (translate ty, Var na))
-                                       (Call (Nam "encore_alloc") [size]),
-                                Statement (Call (Nam "memset") 
-                                                [AsExpr $ Var na, Int 0, size])])
+             return $ (Var na, Assign (Decl (translate ty, Var na))
+                                      (Call (Nam "encore_alloc") [size]))
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
