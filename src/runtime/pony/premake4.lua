@@ -85,6 +85,9 @@ solution "ponyrt"
 project "closure"
   kind "StaticLib"
   language "C"
+  buildoptions {
+    "-fms-extensions"
+  }
   includedirs { "../encore", "../future", "../closure" }
   files {
     "../closure/closure.h",
@@ -97,7 +100,7 @@ project "encore"
   buildoptions {
     "-fms-extensions"
   }
-  includedirs { "../future" }
+  includedirs { "../closure", "../set", "../encore", "../future" }
   files {
     "../encore/encore.h",
     "../encore/encore.c"
@@ -126,8 +129,12 @@ project "future"
   kind "StaticLib"
   language "C"
   links { "closure", "set" }
-  buildoptions { "-Wno-deprecated-declarations", "-std=gnu11" }
-  includedirs { "../closure", "../set", "src/sched" }
+  buildoptions {
+      "-Wno-deprecated-declarations",
+      "-fms-extensions",
+      "-std=gnu11"
+  }
+  includedirs { "../closure", "../set", "../encore", "../future", "src/sched" }
   files {
     "../future/future.c",
   }

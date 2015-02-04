@@ -1,6 +1,6 @@
 #include <pony/pony.h>
-#include <string.h>
 #include "encore.h"
+#include <string.h>
 
 encore_actor_t *encore_create(pony_type_t *type)
 {

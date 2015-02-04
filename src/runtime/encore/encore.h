@@ -1,8 +1,6 @@
 #ifndef ENCORE_H_6Q243YHL
 #define ENCORE_H_6Q243YHL
 
-#include "future.h"
-
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
 
@@ -34,15 +32,17 @@ struct encore_oneway_msg
   pony_msg_t;
 };
 
+#include "future.h"
+
 struct encore_fut_msg
 {
-  encore_oneway_msg_t; 
+  encore_oneway_msg_t;
   future_t    *_fut;
 };
 
 struct encore_actor
 {
-  pony_actor_pad_t; 
+  pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
 };
 

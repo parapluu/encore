@@ -3,9 +3,13 @@
 
 #include <stdint.h>
 #include <pony/pony.h>
+
+typedef struct closure closure_t;
+
 #include "encore.h"
 
 typedef encore_arg_t value_t;
+
 /*
 typedef union value {
   void* p;
@@ -13,8 +17,6 @@ typedef union value {
   double d;
 } value_t;
 */
-
-typedef struct closure closure_t;
 
 extern pony_type_t closure_type;
 
