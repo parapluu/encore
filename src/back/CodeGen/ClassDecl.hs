@@ -157,16 +157,25 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                                then [one_way_send_dispatch_clause m]
                                else []
 
+             -- explode _enc__Foo_bar_msg_t struct into variable names
+             method_unpack_arguments :: A.MethodDecl -> [CCode Stat]
+             method_unpack_arguments mdecl@(A.Method{A.mname, A.mparams, A.mtype}) = 
+               map unpack mparams
+                 where
+                   unpack A.Param{A.pname, A.ptype} = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ show pname)))
+                     where
+                       msg_type_name = Ptr $ Typ $ "struct _enc__" ++ (show (A.cname cdecl)) ++ "_" ++ (show (A.mname mdecl)) ++ "_fut_msg"
+
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
                 (method_msg_name cname mname,
-                 Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                      ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-                      Statement $ Call (Nam "future_fulfil")
-                                       [AsExpr $ Var "fut",
-                                        Cast (Ptr void)
-                                             (Call (method_impl_name cname mname)
-                                              ((AsExpr . Var $ "p") :
-                                               (paramdecls_to_argv 1 $ mparams)))]])
+                 Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
+                      ((method_unpack_arguments mdecl) ++
+                      [Statement $ Call (Nam "future_fulfil")
+                                        [AsExpr $ Var "_fut",
+                                         Cast (Ptr void)
+                                              (Call (method_impl_name cname mname)
+                                              ((AsExpr . Var $ "this") :
+                                              (map method_argument mparams)))]])))
              mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
                 (method_msg_name cname mname,
                  Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
@@ -174,28 +183,14 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                       Statement $ Call (method_impl_name cname mname)
                                         ((AsExpr . Var $ "p") :
                                          (AsExpr . Var $ "fut") :
-                                         (paramdecls_to_argv 1 $ mparams))])
+                                         (map method_argument mparams))])
 
              one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
                 (one_way_send_msg_name cname mname,
-                 (Statement $
-                  Call (method_impl_name cname mname)
-                       ((AsExpr . Var $ "p") : (paramdecls_to_argv 0 $ mparams))))
+                 Seq ((method_unpack_arguments mdecl) ++
+                     [Statement $ Call (method_impl_name cname mname) ((AsExpr . Var $ "this") : (map method_argument mparams))]))
 
-             paramdecls_to_argv :: Int -> [A.ParamDecl] -> [CCode Expr]
-             paramdecls_to_argv start_idx = zipWith paramdecl_to_argv [start_idx..]
-
-             paramdecl_to_argv argv_idx (A.Param {A.ptype}) =
-                let arg_cell = ArrAcc argv_idx (Var "argv")
-                in
-                  AsExpr $
-                  arg_cell `Dot`
-                      (case translate ptype of
-                         (Typ "int64_t") -> (Nam "i")
-                         (Typ "double")  -> (Nam "d")
-                         (Ptr _)         -> (Nam "p")
-                         other           ->
-                             error $ "ClassDecl.hs: paramdecl_to_argv not implemented for "++show ptype)
+             method_argument A.Param {A.pname} = AsExpr (Var $ show pname)
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
