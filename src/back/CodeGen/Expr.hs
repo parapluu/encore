@@ -366,7 +366,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
            let result_type = translate (Ty.getResultType $ A.getType val)
-               the_get = Cast result_type $ Call (Nam "future_get_actor") [nval]
+               the_get = Cast result_type $ Call (Nam "future_get_actor") [nval] `Dot` pony_arg_t_tag result_type
            tmp <- Ctx.gen_sym
            return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
     | Ty.isStreamType $ A.getType val =
@@ -475,10 +475,3 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   | otherwise        = Nam "p"
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
-
-pony_arg_t_tag :: CCode Ty -> CCode Name
-pony_arg_t_tag (Ptr _)         = Nam "p"
-pony_arg_t_tag (Typ "int64_t") = Nam "i"
-pony_arg_t_tag (Typ "double")  = Nam "d"
-pony_arg_t_tag other           =
-    error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
