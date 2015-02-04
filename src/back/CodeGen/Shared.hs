@@ -18,9 +18,6 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       [comment_section "Embedded Code"] ++
       [Embed etlbody] ++
 
-      [comment_section "Shared functions"] ++
-      [create_and_send] ++
-
       [comment_section "Global functions"] ++
       global_functions ++
 
@@ -28,14 +25,6 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       shared_messages ++
       [main_function]
     where
-      create_and_send =
-          Function (Ptr pony_actor_t) (Nam "create_and_send") 
-                   [(Ptr pony_actor_type_t, Var "type"), (uint, Var "msg_id")]
-                   (Seq [Assign (Decl (Ptr pony_actor_t, Var "ret")) 
-                                (Call (Nam "pony_create") [Var "type"]),
-                         Statement $ Call (Nam "pony_send") [Var "ret", Var "msg_id"],
-                         Return $ Var "ret"])
-
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
           where
             msg_alloc_decl =

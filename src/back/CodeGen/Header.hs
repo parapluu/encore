@@ -40,9 +40,6 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Embedded code"] ++
        [Embed etlheader] ++
 
-       [comment_section "Shared functions"] ++
-       [create_and_send_decl] ++
-
        [comment_section "Shared messages"] ++
        shared_messages ++
 
@@ -64,19 +61,12 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Passive class types"] ++
        passive_types ++ 
 
-       [comment_section "Actor types"] ++
-       actor_decls ++
-
        [comment_section "Passive class types"] ++
        type_decls ++
 
        [comment_section "Methods"] ++
        concatMap method_fwds classes
     where
-      create_and_send_decl = 
-          FunctionDecl (Ptr pony_actor_t) (Nam "create_and_send") 
-                       [Ptr pony_actor_type_t, uint]
-
       shared_messages = 
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
            DeclTL (pony_msg_t, Var "m_resume_get"),
@@ -122,10 +112,6 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
                            (zip
                             (map (translate . A.ftype) fields)
                             (map (Var . show . A.fname) fields))
-
-      actor_decls = map actor_decl $ filter A.isActive classes
-          where
-            actor_decl A.Class{A.cname} = DeclTL (pony_actor_type_t, AsLval $ actor_rec_name cname)
 
       type_decls = map type_decl $ filter (not . A.isActive) classes
           where
