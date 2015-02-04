@@ -9,6 +9,14 @@ typedef enum {
   CLOSURE_ID = 0
 } encore_type_id;
 
+typedef enum {
+  _ENC__MSG_RESUME_GET,
+  _ENC__MSG_RESUME_SUSPEND,
+  _ENC__MSG_RESUME_AWAIT,
+  _ENC__MSG_RUN_CLOSURE,
+  _ENC__MSG_MAIN,
+} encore_msg_id;
+
 typedef struct encore_actor encore_actor_t;
 
 struct encore_actor
