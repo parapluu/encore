@@ -107,14 +107,15 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
            (Seq [Assign (Decl (Ptr . AsType $ class_type_name cname, Var "this"))
                         (Var "_a"),
                  (Switch (Var "_m" `Arrow` Nam "id")
-                  ((Nam "_ENC__MSG_RESUME_SUSPEND", fut_resume_suspend_instr) :
-                   (Nam "_ENC__MSG_RESUME_AWAIT", fut_resume_await_instr) :
-                   (Nam "_ENC__MSG_RUN_CLOSURE", fut_run_closure_instr) :
+                  (
+                   -- (Nam "_ENC__MSG_RESUME_SUSPEND", fut_resume_suspend_instr) :
+                   -- (Nam "_ENC__MSG_RESUME_AWAIT", fut_resume_await_instr) :
+                   -- (Nam "_ENC__MSG_RUN_CLOSURE", fut_run_closure_instr) :
                    (if (A.isMainClass cdecl)
                     then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
                     else method_clauses $ methods
                    ))
-                  (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ Var "id"]))]))
+                  (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ (Var "_m") `Arrow` (Nam "id")]))]))
            where
              fut_resume_instr =
                  Seq
@@ -142,10 +143,11 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
 
              pony_main_clause =
                  (Nam "_ENC__MSG_MAIN",
-                  Seq $ [Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
-                                          [AsExpr $ Var "p",
-                                           AsExpr $ (ArrAcc 0 (Var "argv")) `Dot` (Nam "i"),
-                                           Cast (Ptr $ Ptr char) $ (ArrAcc 1 (Var "argv")) `Dot` (Nam "p")]])
+                  Seq $ [Assign (Decl (Ptr $ Typ "pony_main_msg_t", Var "msg")) (Cast (Ptr $ Typ "pony_main_msg_t") (Var "_m")),
+                         Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
+                                          [(Cast (Ptr $ Typ "_enc__active_Main_t") (Var "_a")),
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]])
 
              method_clauses :: [A.MethodDecl] -> [(CCode Name, CCode Stat)]
              method_clauses = concatMap method_clause

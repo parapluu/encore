@@ -68,8 +68,13 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        type_decls ++
 
        [comment_section "Methods"] ++
-       concatMap method_fwds classes
+       concatMap method_fwds classes ++
+
+       [comment_section "Main actor rtti"] ++
+       [extern_main_rtti]
     where
+      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
+
       shared_messages = 
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
            DeclTL (pony_msg_t, Var "m_resume_get"),
