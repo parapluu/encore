@@ -56,7 +56,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
             pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
             pony_msg_t_impl mdecl =
               let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                  argnames = map (Var . show . A.pname)  (A.mparams mdecl)
+                  argnames = map (Var . ("f"++) . show)  ([1..] :: [Int])
                   argspecs = zip argrttys argnames :: [CVarSpec]
                   encoremsgtspec = (enc_msg_t, Var "msg")
                   encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
