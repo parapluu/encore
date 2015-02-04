@@ -106,15 +106,18 @@ project "encore"
     "../encore/encore.c"
   }
 
--- project "stream"
---   kind "StaticLib"
---   language "C"
---   links { "future" }
---   includedirs { "../future", "../closure" }
---   files {
---     "../stream/stream.h",
---     "../stream/stream.c"
---   }
+project "stream"
+  kind "StaticLib"
+  language "C"
+  buildoptions {
+    "-fms-extensions"
+  }
+  links { "future" }
+  includedirs { "../closure", "../set", "../encore", "../future" }
+  files {
+    "../stream/stream.h",
+    "../stream/stream.c"
+  }
 
 -- project "set"
 --   kind "StaticLib"

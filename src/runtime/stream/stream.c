@@ -4,7 +4,7 @@
 
 struct scons{
   bool eos;
-  pony_arg_t element;
+  encore_arg_t element;
   pony_type_t *type;
   stream_t *next;
 };
@@ -13,17 +13,17 @@ void scons_trace(void *p){
   struct scons *scons = p;
   if(!scons->eos){
     pony_type_t *type = scons->type;
-    if(type == PONY_NONE){
-    } else if (type == PONY_ACTOR){
-      pony_traceactor(scons->element.p);
-    } else{
-      pony_traceobject(scons->element.p, type->trace);
-    }
+    // if(type == PONY_NONE){
+    // } else if (type == PONY_ACTOR){
+    //   pony_traceactor(scons->element.p);
+    // } else{
+    //   pony_traceobject(scons->element.p, type->trace);
+    // }
     pony_traceobject(scons->next, future_trace);
   }
 }
 
-pony_type_t scons_type = {sizeof(struct scons), scons_trace, NULL, NULL};
+pony_type_t scons_type = {0, sizeof(struct scons), scons_trace, NULL, NULL};
 
 static struct scons *scons_mk(pony_type_t *type){
   struct scons *scons = pony_alloc(sizeof(struct scons));
@@ -48,7 +48,7 @@ stream_t *stream_mk(){
   return future_mk(&scons_type);
 }
 
-stream_t *stream_put(stream_t *s, pony_arg_t value, pony_type_t *type){
+stream_t *stream_put(stream_t *s, encore_arg_t value, pony_type_t *type){
   future_t *fut = future_mk(&scons_type);
   struct scons *scons = scons_mk(type);
   scons->element = value;
@@ -59,10 +59,10 @@ stream_t *stream_put(stream_t *s, pony_arg_t value, pony_type_t *type){
 
 bool stream_eos(stream_t *s){
   struct scons *scons = future_get_actor((future_t *)s);
-  return scons->eos;  
+  return scons->eos;
 }
 
-pony_arg_t stream_get(stream_t *s){
+encore_arg_t stream_get(stream_t *s){
   struct scons *scons = future_get_actor((future_t *)s);
   return scons->element;
 }
