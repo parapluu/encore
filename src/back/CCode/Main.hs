@@ -77,6 +77,7 @@ data CCode a where
     Function     :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
     AsExpr       :: CCode Lval -> CCode Expr
     AsLval       :: CCode Name -> CCode Lval
+    AsType       :: CCode Name -> CCode Ty
     Nam          :: String -> CCode Name
     Var          :: String -> CCode Lval
     Typ          :: String -> CCode Ty

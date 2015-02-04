@@ -49,10 +49,10 @@ pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement other) =  add_semi $ pp' other
 pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$
                               switch_body ccodes def
-pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
+pp' (StructDecl name vardecls) = text "struct " <> tshow name $+$
                                  (add_semi . braced_block . vcat) (map pp' fields)
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
-pp' (Struct name) = text "struct ___" <> tshow name
+pp' (Struct name) = text "struct " <> tshow name
 pp' (Record ccodes) = braces $ commaList ccodes
 pp' (Assign lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (AssignTL lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
@@ -84,6 +84,7 @@ pp' (Function ret_ty name args body) = tshow ret_ty <+> tshow name <>
                                        (braced_block . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
+pp' (AsType c) = pp' c
 pp' (Nam st) = text st
 pp' (Var st) = text st
 pp' (Typ st) = text st
