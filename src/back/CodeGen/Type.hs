@@ -38,7 +38,7 @@ instance Translatable Ty.Type (CCode Ty) where
 runtime_type :: Ty.Type -> CCode Expr
 runtime_type ty 
     | Ty.isActiveRefType ty  = AsExpr $ Var "PONY_ACTOR"
-    | Ty.isPassiveRefType ty = Amp $ type_rec_name ty
+    | Ty.isPassiveRefType ty = Amp $ runtime_type_name ty
     | Ty.isFutureType ty ||
       Ty.isStreamType ty = Amp $ future_type_rec_name
     | Ty.isArrowType ty = Amp $ closure_type_rec_name

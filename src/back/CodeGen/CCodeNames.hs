@@ -79,21 +79,21 @@ class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_trace"
 
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-method_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"_"++show mname
+method_message_type_name cls mname = 
+    Var $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-one_way_message_type_name clazz mname = Var $ "m_"++Ty.getId clazz++"__one_way_"++show mname
+one_way_message_type_name cls mname = 
+    Var $ "_ENC__ONE_WAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 -- | for each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
-method_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"_"++show mname
+method_msg_name cls mname = 
+    Nam $ "_ENC__MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_send_msg_name clazz mname = Nam $ "MSG_"++Ty.getId clazz++"__one_way_"++show mname
-
--- | the name of the record type in which a class stores its state
-data_rec_name :: Ty.Type -> CCode Name
-data_rec_name clazz = Nam $ Ty.getId clazz ++ "_data"
+one_way_send_msg_name cls mname = 
+    Nam $ "_ENC__MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 class_type_name :: Ty.Type -> CCode Name
 class_type_name cls 
@@ -112,18 +112,6 @@ runtime_type_name cls
         Nam $ "_enc__passive_" ++ Ty.getId cls ++ "_type"
     | otherwise = error $ "Type '" ++ show cls ++ 
                           "' is neither active nor passive!" 
-
-data_rec_type :: Ty.Type -> CCode Ty
-data_rec_type clazz = Typ $ Ty.getId clazz ++ "_data"
-
-data_rec_ptr :: Ty.Type -> CCode Ty
-data_rec_ptr = Ptr . data_rec_type
-
-actor_rec_name :: Ty.Type -> CCode Name
-actor_rec_name clazz = Nam $ Ty.getId clazz ++ "_actor"
-
-type_rec_name :: Ty.Type -> CCode Name
-type_rec_name clazz = Nam $ Ty.getId clazz ++ "_type"
 
 future_type_rec_name :: CCode Name
 future_type_rec_name = Nam $ "future_type"

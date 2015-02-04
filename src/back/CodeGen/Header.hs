@@ -86,7 +86,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
           method_msg_names = map (show . (uncurry method_msg_name)) meta
           one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta
         in
-         Enum $ map Nam $ "MSG_alloc":(method_msg_names ++ one_way_msg_names)
+         Enum $ map Nam $ (method_msg_names ++ one_way_msg_names)
 
 
       class_enums =
@@ -115,7 +115,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
 
       type_decls = map type_decl $ filter (not . A.isActive) classes
           where
-            type_decl A.Class{A.cname} = DeclTL (pony_type_t, AsLval $ type_rec_name cname)
+            type_decl A.Class{A.cname} = DeclTL (pony_type_t, AsLval $ runtime_type_name cname)
 
       method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where
