@@ -53,24 +53,17 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impl methods
           where
+            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
             pony_msg_t_impl mdecl =
-                Concat
-                  [AssignTL
-                     (Decl (Static (Typ "pony_msg_t"),
-                           (method_message_type_name cname (A.mname mdecl))))
-                     (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main") then
-                          (Record 
-                           [Int $ length (A.mparams mdecl), 
-                            Record $ map (runtime_type . A.getType) (A.mparams mdecl)])
-                      else
-                          (Record
-                           [Int $ length (A.mparams mdecl) + 1, -- plus 1 for future argument
-                            Record $ Amp future_type_rec_name : map (runtime_type . A.getType) (A.mparams mdecl)])), 
-                   AssignTL 
-                     (Decl (Static (Typ "pony_msg_t"), 
-                            one_way_message_type_name cname (A.mname mdecl)))
-                     (Record [Int $ length (A.mparams mdecl), 
-                              Record $ map (runtime_type . A.getType) (A.mparams mdecl)])]
+              let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                  argnames = map (Var . show . A.pname)  (A.mparams mdecl)
+                  argspecs = zip argrttys argnames :: [CVarSpec]
+                  encoremsgtspec = (enc_msg_t, Var "msg")
+                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
+                  nameprefix = "encore_"++ (show (A.cname cdecl))
+                                ++ "_" ++ (show (A.mname mdecl))
+              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
+                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
 
       message_type_decl :: CCode Toplevel
       message_type_decl =
