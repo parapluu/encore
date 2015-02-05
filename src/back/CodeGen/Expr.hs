@@ -490,6 +490,7 @@ encore_arg_t_tag other           =
 gc_send as = [Embed $ "", 
               Embed $ "// --- GC on sending ----------------------------------------",
               Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
+              --TODO: trace outgoing future on send
               --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
               (map tracefun_call as) ++
              [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
@@ -500,4 +501,4 @@ tracefun_call (a, t)
     | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) a]
     | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ class_trace_fn_name t]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
- 
+--TODO: add cases for future type, closure etc.  
