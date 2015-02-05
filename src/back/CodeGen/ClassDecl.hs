@@ -35,33 +35,19 @@ instance Translatable A.ClassDecl (CCode FIN) where
 translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
     Program $ Concat $
       (LocalInclude "header.h") :
-      [type_struct] ++
+      [type_struct_decl] ++
       [tracefun_decl cdecl] ++
       method_impls ++
       [dispatchfun_decl] ++
-      [pony_type_t_decl cname]
+      [runtime_type_decl cname]
     where
-      type_struct :: CCode Toplevel
-      type_struct = StructDecl (AsType $ class_type_name cname) $
+      type_struct_decl :: CCode Toplevel
+      type_struct_decl = 
+          StructDecl (AsType $ class_type_name cname) $
                      ((encore_actor_t, Var "_enc__actor") :
                          zip
                          (map (translate  . A.ftype) fields)
                          (map (Var . show . A.fname) fields))
-
-      pony_msg_t_impls :: [CCode Toplevel]
-      pony_msg_t_impls = map pony_msg_t_impl methods
-          where
-            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
-            pony_msg_t_impl mdecl =
-              let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                  argnames = map (Var . ("f"++) . show)  ([1..] :: [Int])
-                  argspecs = zip argrttys argnames :: [CVarSpec]
-                  encoremsgtspec = (enc_msg_t, Var "msg")
-                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
-                  nameprefix = "encore_"++ (show (A.cname cdecl))
-                                ++ "_" ++ (show (A.mname mdecl))
-              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
-                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
 
       method_impls = map method_impl methods
           where
@@ -188,7 +174,7 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       [tracefun_decl cdecl] ++
       method_impls ++
       [dispatchfun_decl] ++
-      [pony_type_t_decl cname]
+      [runtime_type_decl cname]
 
     where
       method_impls = map method_decl methods
@@ -230,7 +216,7 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
           Cast (ty) $ (Var "this") `Arrow` (Nam $ show f)
 
 
-pony_type_t_decl cname =
+runtime_type_decl cname =
     (AssignTL
      (Decl (Typ "pony_type_t", AsLval $ runtime_type_name cname))
            (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
