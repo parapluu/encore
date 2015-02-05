@@ -160,9 +160,10 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              -- explode _enc__Foo_bar_msg_t struct into variable names
              method_unpack_arguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
              method_unpack_arguments mdecl msg_type_name = 
-               map unpack (A.mparams mdecl)
+               zipWith unpack (A.mparams mdecl) [1..]
                  where
-                   unpack A.Param{A.pname, A.ptype} = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ show pname)))
+                   unpack :: A.ParamDecl -> Int -> CCode Stat
+                   unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
                 (method_msg_name cname mname,

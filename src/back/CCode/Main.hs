@@ -99,3 +99,4 @@ data CCode a where
     String       :: String -> CCode Expr
     Double       :: Double -> CCode Expr
     Comm         :: String -> CCode a
+    Annotated    :: String -> CCode a -> CCode a
