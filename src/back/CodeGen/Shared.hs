@@ -21,7 +21,7 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       [comment_section "Global functions"] ++
       global_functions ++
 
-      [comment_section "Shared messages"] ++
+      -- [comment_section "Shared messages"] ++
       -- shared_messages ++
       [main_function]
     where
@@ -46,16 +46,10 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
       global_functions = map translate functions
 
       main_function =
-          (Function (Typ "int") (Nam "main")
-                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                    (Seq $ --[init_futures] ++
-                           init_globals ++
-                           [Return $ 
-                            Call (Nam "encore_start") [AsExpr $ Var "argc", 
-                                                       AsExpr $ Var "argv", 
-                                                       Amp (Var "_enc__active_Main_type")]]))
+          Function (Typ "int") (Nam "main")
+                   [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+                   (Seq $ init_globals ++ [Return encore_start])
           where
-            init_futures = Statement (Call (Nam "init_futures") [Int 2, AsExpr $ Var "LAZY"])
             init_globals = map init_global functions
                 where 
                   init_global A.Function{A.funname} = 
@@ -64,6 +58,12 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                                    [AsExpr $ AsLval $ global_function_name funname, 
                                     Null, 
                                     Null])
+            encore_start =
+                Call (Nam "encore_start") 
+                     [AsExpr $ Var "argc", 
+                      AsExpr $ Var "argv", 
+                      Amp (Var "_enc__active_Main_type")]
+
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
