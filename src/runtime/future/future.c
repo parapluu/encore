@@ -133,11 +133,9 @@ future_t *future_mk(pony_type_t *type)
   perr("future_mk");
 
   future_t *fut = pony_alloc(sizeof(future_t));
-  // TODO: figure out if this is necessary, of if memory is already 0'd
-  *fut = (future_t) {};
-  // fut->parent = NULL;
-  fut->type = type;
+  *fut = (future_t) { .type = type };
 
+  pthread_mutex_init(&fut->lock, NULL);
   return fut;
 }
 
