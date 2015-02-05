@@ -31,6 +31,11 @@ passive class List
   size : int
   capacity : int
 
+  def List_trace() : void
+    embed void
+      pony_trace(this->list);
+    end
+
   def init(size:int) : void
     embed void
       this->list = calloc(sizeof(int64_t), size);
@@ -63,6 +68,11 @@ passive class Bitset
   data : Data
   size : int
   capacity : int
+
+  def Bitset_trace() : void
+    embed void
+      pony_trace(this->data);
+    end
 
   def init(size:int) : void
     embed void
