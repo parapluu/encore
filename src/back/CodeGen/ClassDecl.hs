@@ -217,7 +217,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
                where 
                tracefun_call_each n t 
-                   | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Var $ show n]
+                   | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ Var $ show n]
                    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ class_trace_fn_name t]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
  
