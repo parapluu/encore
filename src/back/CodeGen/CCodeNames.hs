@@ -116,16 +116,16 @@ method_message_type_name cls mname =
 
 one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
 one_way_message_type_name cls mname =
-    Var $ "_ENC__ONE_WAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+    Var $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 -- | for each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
 method_msg_name cls mname =
-    Nam $ "_ENC__MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+    Nam $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
 one_way_send_msg_name cls mname =
-    Nam $ "_ENC__ONE_WAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+    Nam $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 class_type_name :: Ty.Type -> CCode Name
 class_type_name cls

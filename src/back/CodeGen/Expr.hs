@@ -178,7 +178,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (Var tmp, Seq [ttarg,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) (Deref ntarg `Dot` (Nam $ show name)))])
 
-  translate l@(A.Let {A.decls, A.body}) = do
+  translate (A.Let {A.decls, A.body}) = do
                      do
                        tmps_tdecls <- mapM translate_decl decls
                        let (tmps, tdecls) = unzip tmps_tdecls
@@ -197,7 +197,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          , te
                                          , Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
-  translate new@(A.New {A.ty}) 
+  translate (A.New {A.ty}) 
       | Ty.isActiveRefType ty = 
           named_tmp_var "new" ty $
                         Cast (Ptr . AsType $ class_type_name ty)
@@ -227,7 +227,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             remote_call =
                 do (ntarget, ttarget) <- translate target
                    targs <- mapM varaccess_this_to_aref args
-                   let targtys = map (translate . A.getType) args :: [CCode Ty]
                    the_fut_name <- if Ty.isStreamType $ A.getType call then
                                        Ctx.gen_named_sym "stream"
                                    else
@@ -241,7 +240,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
                    let the_arg_ty = (Typ $ "___encore_"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
-                   let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ method_message_type_name (A.getType target) name])
                    let no_args = length args
                    let arg_assignments = zipWith (\i tmp_expr -> Assign (Dot (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
@@ -270,22 +269,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             message_send =
                 do ttarget <- varaccess_this_to_aref target
                    targs <- mapM varaccess_this_to_aref args
-                   let targtys = map (translate . A.getType) args :: [CCode Ty]
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_decl' = Assign
-                                         (Decl (Typ "pony_arg_t", ArrAcc (1 + length args) (Var the_arg_name)))
-                                         (Record ((map (\(arg, ty) -> UnionInst (pony_arg_t_tag ty) arg)
-                                                       (zip targs targtys)) :: [CCode Expr]))
-                   let the_arg_ty = (Typ $ "___encore_"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
-                   let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
                    let no_args = length args
                    let arg_assignments = zipWith (\i tmp_expr -> Assign (Dot (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
+
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
                                                 Int $ length args,
                                                 AsExpr $ Var the_arg_name])
+                   let the_arg_ty = (Typ $ "___encore_"++(show (A.getType target)++"_"++(show name)++"_oneway_msg")) :: CCode Ty
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ one_way_message_type_name (A.getType target) name])
                    return (unit,
                            Seq ((Comm "message send") :
                                 the_arg_decl :
