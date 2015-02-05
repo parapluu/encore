@@ -83,6 +83,7 @@ data CCode a where
     Var          :: String -> CCode Lval
     Typ          :: String -> CCode Ty
     Static       :: CCode Ty -> CCode Ty
+    Extern       :: CCode Ty -> CCode Ty
     Embed        :: String -> CCode a
     EmbedC       :: CCode a -> CCode b
     Call         :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr

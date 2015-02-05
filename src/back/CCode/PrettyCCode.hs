@@ -90,6 +90,7 @@ pp' (Nam st) = text st
 pp' (Var st) = text st
 pp' (Typ st) = text st
 pp' (Static ty) = text "static" <+> pp' ty
+pp' (Extern ty) = text "extern" <+> pp' ty
 pp' (Embed string) = text string
 pp' (EmbedC ccode) = pp' ccode
 pp' (Call name args) = tshow name <> parens (commaList args)
