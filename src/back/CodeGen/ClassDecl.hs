@@ -261,15 +261,16 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
     where
       trace_field A.Field {A.ftype, A.fname}
           | Ty.isActiveRefType ftype =
-              Call (Nam "pony_traceactor") [get_field fname]
+              Call (Nam "pony_traceactor") [get_field fname (Ptr pony_actor_t)]
           | Ty.isPassiveRefType ftype =
-              Call (Nam "pony_traceobject") 
-                   [get_field fname, AsLval $ class_trace_fn_name ftype]
+              Call (Nam "pony_traceobject")
+                   [get_field fname (Ptr void),
+                    AsExpr . AsLval $ class_trace_fn_name ftype]
           | otherwise =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
-      get_field f = 
-          (Var "this") `Arrow` (Nam $ show f)
+      get_field f ty = 
+          Cast (ty) $ (Var "this") `Arrow` (Nam $ show f)
 
 
 pony_type_t_decl cname =
