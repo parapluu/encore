@@ -132,7 +132,7 @@ future_t *future_mk(pony_type_t *type)
 {
   perr("future_mk");
 
-  future_t *fut = pony_alloc(sizeof(future_t));
+  future_t *fut = encore_alloc(sizeof(future_t));
   *fut = (future_t) { .type = type };
 
   pthread_mutex_init(&fut->lock, NULL);
