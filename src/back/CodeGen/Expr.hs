@@ -278,8 +278,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
-                                                AsExpr . AsLval $ one_way_send_msg_name (A.getType target) name,
-                                                Int $ length args,
                                                 AsExpr $ Var the_arg_name])
                    let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_oneway_msg")) :: CCode Ty
                    let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ one_way_message_type_name (A.getType target) name])
