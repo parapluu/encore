@@ -1,3 +1,5 @@
+
+
 {-
 		Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
 		Pipe the output to lol.txt and then run the plot.py python script to
@@ -5,15 +7,21 @@
 
 -}
 
+
 class Main
   def main() : void
     let 
       N = 50 : int					  
       argc = embed int argc; end
       argv1 = embed int atoi(argv[1]); end
-    in
-      this.make_lame(argv1)
-			
+      plot = null : PlotList
+    in{
+        plot = new PlotList(argv1);
+        plot.computeSet(10);
+        plot.debugPrint()
+    }
+
+{-			
   def make_lame(N : int) : void
     let
       x_max = 1.5
@@ -35,27 +43,111 @@ class Main
       print("{}\n",iterations);
       print("{}\n",N);
       while (y < y_max) {
-	lol = new Line(step,"",N,iterations);
-        get lol.compute(x_min,x_max,y);
-	get lol.dump(true);								
+	  lol = new Line(step,"",N,iterations);
+      get lol.compute(x_min,x_max,y);
+        
+		
         y = y+dy;
-	step = step + 1;
+	   step = step + 1;
       };
     }
+-}
+
+passive class PlotList
+    size : int
+    first : Node
+    
+    def init(size : int) : void{
+        this.first = null;
+        this.size = size
+    }
+    
+    def computeSet(iterations : int) : void{
+        let
+	        x_max = 1.5
+	        x_min = -1*1.5
+	        y_max = 1.0
+	        y_min = -1*1.0
+	        x = 0.0
+	        y = 0.0
+	        dx = 0.0
+	        dy = 0.0
+	        step = 0
+	        lol = new Line
+        in {
+	        dx = (x_max - x_min) / this.size;
+	        dy = (y_max - y_min) / this.size;
+	        x = x_min;
+	        y = y_min;
+	        while (y < y_max) {
+	            this.first = new Node(this.first, this.size, iterations, x_min, x_max, y);
+	            y = y+dy;
+	            step = step + 1;
+	        };
+        }
+    }
+    
+    def debugPrint() : void
+        let
+            next = this.first
+        in
+            while (next != null){
+                next.debugPrint();
+                print "";
+                next = next.getNextNode();
+            }
+        
+            
+    
+    --def outputPBM(file_name : string) : void
+        
+
+passive class Node{
+    next : Node
+    line : Line
+    block : Fut void
+    size : int
+    
+    def setNext(next : Node) : void
+        this.next = next
+        
+    def getNextNode() : Node
+        this.next
+    
+    def init(next : Node, size : int, iterations : int, x_start : real, x_end : real , y_start : real) : void{
+        this.size = size;                                                                          
+        this.line = new Line(size, iterations);
+        this.next = next;
+        this.block = this.line.compute(x_start,x_end,y_start);
+    }
+    
+    def debugPrint() : void
+        let
+            array = get this.line.getArray()
+            i = 0
+        in
+            while(i < this.size){
+                print("{},",array.read(i));
+                i = i + 1;
+            }
+            
+                        
+        
+        
+
+}
+        
+        
 		
 --This ugly class corresponds to one row of the mandelbrot plot.
 class Line
-  absolute_Y : int
   array : IntArray
-  file : string 
   width : int
   max_iterations : int
   done : bool
 	
-  def init(Y : int, file : string, width : int, max_iterations : int) : void {
-    this.absolute_Y = Y;
+  def init(width : int, max_iterations : int) : void {
     this.array = new IntArray(width);
-    this.file = file;
     this.width = width;
     this.max_iterations = max_iterations;
     this.done = false;
@@ -75,38 +167,40 @@ class Line
       step = 0
       xtemp = 0.0
       i = 0
+      member = 0
     in {
       dx = (x_end-x_start)/this.width;
       --print argc;
       while(step < this.width) {
-	x = 0.0;
+	    x = 0.0;
         y = 0.0;
-	iteration = 0;
+        iteration = 0;
         while ((x*x + y*y < 4.0) and (iteration < this.max_iterations)) {
-	  xtemp = x*x - y*y + cx;
-          y = 2.0*x*y + cy;
-	  x = xtemp;
-          iteration = iteration + 1;
-	};
-        this.array.write(step, iteration);
+            xtemp = x*x - y*y + cx;
+            y = 2.0*x*y + cy;
+	        x = xtemp;
+            iteration = iteration + 1;
+	     };
+    
+        if(iteration == this.max_iterations) then {
+            member = 1
+        }else{
+            member = 0
+        };
+        this.array.write(step, member);
         cx = cx + dx;
         step = step+1;
       };
     }
+
+    def  getArray() : IntArray
+        this.array
 	
-  def dump( stdout : bool) : void 
-    let
-      i = 0
-    in 
-      if(stdout) then {
-	print("{}",this.absolute_Y);
-        while(i < this.width) {
-	  print(",{}", this.array.read(i));
-          i = i+1;
-	};
-        print "";
-      }
 		
+
+
+
+
 
 passive class D
 
