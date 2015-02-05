@@ -270,10 +270,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 do ttarget <- varaccess_this_to_aref target
                    targs <- mapM varaccess_this_to_aref args
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_decl' = Assign
-                                         (Decl (encore_arg_t, ArrAcc (1 + length args) (Var the_arg_name)))
-                                         (Record ((map (\(arg, ty) -> UnionInst (encore_arg_t_tag ty) arg)
-                                                       (zip targs targtys)) :: [CCode Expr]))
                    let the_arg_ty = (Typ $ "___encore_"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
                    let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
                    let no_args = length args
