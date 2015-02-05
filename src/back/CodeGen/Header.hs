@@ -90,8 +90,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
             pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
             pony_msg_t_impl mdecl =
               let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                  argnames = map (Var . show . A.pname)  (A.mparams mdecl)
-                  argspecs = zip argrttys argnames :: [CVarSpec]
+                  argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
+                  argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
                   encoremsgtspec = (enc_msg_t, Var "msg")
                   encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
                   nameprefix = "_enc__"++ (show (A.cname cdecl))

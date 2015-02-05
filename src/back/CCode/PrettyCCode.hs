@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 {-|
 Converting CCode (see "CCode.Main") to C source.
@@ -109,6 +110,8 @@ pp' (Int n) = tshow n
 pp' (String s) = tshow s
 pp' (Double d) = tshow d
 pp' (Comm s) = text ("/* "++s++" */")
+--Annotated :: CCode a -> String -> CCode a
+pp' (Annotated s ccode) = pp' ccode <+> pp' (Comm s)
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l
