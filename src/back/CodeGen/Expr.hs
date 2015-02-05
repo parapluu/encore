@@ -199,7 +199,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate new@(A.New {A.ty}) 
       | Ty.isActiveRefType ty = 
-          named_tmp_var "new" ty 
+          named_tmp_var "new" ty $
+                        Cast (Ptr . AsType $ class_type_name ty)
                         (Call (Nam "encore_create")
                               [Amp $ runtime_type_name ty])
       | otherwise = 
