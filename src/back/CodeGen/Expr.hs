@@ -212,50 +212,50 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           where
             sync_call =
                 do (ntarget, ttarget) <- translate target
-                   targs <- mapM varaccess_this_to_aref args
                    tmp <- Ctx.gen_named_sym "synccall"
-                   return (Var tmp, (Seq [ttarget,
-                                          Assign (Decl (translate (A.getType call), Var tmp))
+                   targs <- mapM translate args
+                   let (arg_names, arg_decls) = unzip targs
+                       the_assign = Assign (Decl (translate (A.getType call), Var tmp))
                                                  (Call (method_impl_name (A.getType target) name)
-                                                  ((AsExpr ntarget) : targs))]))
+                                                       (ntarget : arg_names))
+                   return (Var tmp, Seq $ ttarget :
+                                          arg_decls ++
+                                          [the_assign])
 
             remote_call :: State Ctx.Context (CCode Lval, CCode Stat)
             remote_call =
                 do (ntarget, ttarget) <- translate target
-                   targs <- mapM varaccess_this_to_aref args
+                   targs <- mapM translate args
                    the_fut_name <- if Ty.isStreamType $ A.getType call then
                                        Ctx.gen_named_sym "stream"
                                    else
                                        Ctx.gen_named_sym "fut"
-                   let the_fut_decl =
+                   let (arg_names, arg_decls) = unzip targs
+                       the_fut_decl =
                            if Ty.isStreamType $ A.getType call then
                                Assign (Decl (Ptr $ Typ "stream_t", Var the_fut_name))
                                       (Call (Nam "stream_mk") ([] :: [CCode Expr]))
                            else
                                Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name))
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
-                   the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
-                       the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
+                   the_msg_name <- Ctx.gen_named_sym "arg"
+                   let the_msg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
+                       the_msg_decl = Assign (Decl (the_msg_ty, Var the_msg_name)) (Cast the_msg_ty (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
                        no_args = length args
-                       arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
-                       args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
+                       arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_msg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] arg_names
+                       args_types = zip (map (\i -> (Arrow (Var the_msg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
                        the_arg_init = Seq $ map Statement arg_assignments
                        the_call = Call (Nam "pony_sendv")
                                        [Cast (Ptr pony_actor_t) $ AsExpr ntarget,
-                                        Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name]
+                                        Cast (Ptr pony_msg_t) $ AsExpr $ Var the_msg_name]
                    return (Var the_fut_name,
-                           Seq $ [ttarget,
-                                  the_fut_decl,
-                                  the_arg_decl,
+                           Seq $ ttarget :
+                                 arg_decls ++
+                                 [the_fut_decl,
+                                  the_msg_decl,
                                   the_arg_init] ++
                                   gc_send args_types (Statement $ Call (Nam "pony_traceobject") [Var the_fut_name, future_type_rec_name `Dot` Nam "trace"]) ++
                                  [Statement the_call])
-
-            varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref other                                     = do
-                     (ntother, tother) <- translate other
-                     return $ StatAsExpr ntother tother
 
   translate (A.MessageSend { A.target, A.name, A.args })
       | (Ty.isActiveRefType . A.getType) target = message_send
@@ -263,29 +263,27 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           where
             message_send :: State Ctx.Context (CCode Lval, CCode Stat)
             message_send =
-                do ttarget <- varaccess_this_to_aref target
-                   targs <- mapM varaccess_this_to_aref args
-                   the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_ty = Ptr . AsType $ one_way_msg_type_name (A.getType target) name
+                do (ntarg, ttarg) <- translate target
+                   targs <- mapM translate args
+                   the_msg_name <- Ctx.gen_named_sym "arg"
+                   let (arg_names, arg_decls) = unzip targs
+                       the_msg_ty = Ptr . AsType $ one_way_msg_type_name (A.getType target) name
                        no_args = length args
-                       arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
+                       arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_msg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] arg_names
                        the_arg_init = Seq $ map Statement arg_assignments
                        the_call = Call (Nam "pony_sendv")
-                                       [Cast (Ptr pony_actor_t) ttarget,
-                                        Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name]
-                       the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty $ Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
-                       args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f" ++ show i))) [1..no_args]) (map A.getType args)
+                                       [Cast (Ptr pony_actor_t) ntarg,
+                                        Cast (Ptr pony_msg_t) $ AsExpr $ Var the_msg_name]
+                       the_msg_decl = Assign (Decl (the_msg_ty, Var the_msg_name)) (Cast the_msg_ty $ Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
+                       args_types = zip (map (\i -> (Arrow (Var the_msg_name) (Nam $ "f" ++ show i))) [1..no_args]) (map A.getType args)
                    return (unit,
                            Seq ((Comm "message send") :
-                                the_arg_decl :
+                                ttarg :
+                                arg_decls ++
+                                the_msg_decl :
                                 the_arg_init :
                                 gc_send args_types (Comm "Not tracing the future in a one_way send") ++
                                 [Statement the_call]))
-
-            varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref other =
-                do (ntother, tother) <- translate other
-                   return $ StatAsExpr ntother tother
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
