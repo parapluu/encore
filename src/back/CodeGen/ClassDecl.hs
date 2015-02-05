@@ -159,8 +159,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
 
              -- explode _enc__Foo_bar_msg_t struct into variable names
              method_unpack_arguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
-             method_unpack_arguments mdecl@(A.Method{A.mname, A.mparams, A.mtype}) msg_type_name = 
-               map unpack mparams
+             method_unpack_arguments mdecl msg_type_name = 
+               map unpack (A.mparams mdecl)
                  where
                    unpack A.Param{A.pname, A.ptype} = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ show pname)))
 
@@ -177,12 +177,13 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                                               (map method_argument mparams)))]])))
              mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
                 (method_msg_name cname mname,
-                 Seq [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                      ((ArrAcc 0 ((Var "argv"))) `Dot` (Nam "p")),
-                      Statement $ Call (method_impl_name cname mname)
-                                        ((AsExpr . Var $ "p") :
-                                         (AsExpr . Var $ "fut") :
-                                         (map method_argument mparams))])
+                 Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
+                      ((method_unpack_arguments mdecl (fut_msg_type_name cdecl mdecl)) ++
+                      gc_recv mparams ++
+                      [Statement $ Call (method_impl_name cname mname)
+                                         ((AsExpr . Var $ "this") :
+                                          (AsExpr . Var $ "_fut") :
+                                          (map method_argument mparams))])))
 
              one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
                 (one_way_send_msg_name cname mname,

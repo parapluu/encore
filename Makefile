@@ -62,7 +62,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
 	cp -r $(ENCORE_LIB) $(LIB_DIR)
-	# cp -r $(STREAM_LIB) $(LIB_DIR)
+	cp -r $(STREAM_LIB) $(LIB_DIR)
 	# cp -r $(SET_LIB) $(LIB_DIR)
 
 clean:
