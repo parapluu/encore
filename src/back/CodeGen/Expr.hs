@@ -270,6 +270,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 do ttarget <- varaccess_this_to_aref target
                    targs <- mapM varaccess_this_to_aref args
                    the_arg_name <- Ctx.gen_named_sym "arg"
+                   let the_arg_decl' = Assign
+                                         (Decl (encore_arg_t, ArrAcc (1 + length args) (Var the_arg_name)))
+                                         (Record ((map (\(arg, ty) -> UnionInst (encore_arg_t_tag ty) arg)
+                                                       (zip targs targtys)) :: [CCode Expr]))
+                   let the_arg_ty = (Typ $ "___encore_"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
+                   let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
                    let no_args = length args
                    let arg_assignments = zipWith (\i tmp_expr -> Assign (Dot (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
@@ -369,7 +375,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
            let result_type = translate (Ty.getResultType $ A.getType val)
-               the_get = Cast result_type $ (Call (Nam "stream_get") [nval]) `Dot` pony_arg_t_tag result_type
+               the_get = Cast result_type $ (Call (Nam "stream_get") [nval]) `Dot` encore_arg_t_tag result_type
            tmp <- Ctx.gen_sym
            return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
     | otherwise = error $ "Cannot translate get of " ++ show val
@@ -378,7 +384,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.gen_sym
-         let yield_arg = Cast pony_arg_t $ UnionInst (pony_arg_t_tag (translate (A.getType val))) nval
+         let yield_arg = Cast encore_arg_t $ UnionInst (encore_arg_t_tag (translate (A.getType val))) nval
              tmp_stream = Assign (Decl (stream, Var tmp)) stream_handle
              update_stream = Assign (stream_handle) (Call (Nam "stream_put")
                                                           [AsExpr stream_handle, yield_arg, runtime_type $ A.getType val])
@@ -479,9 +485,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
-pony_arg_t_tag :: CCode Ty -> CCode Name
-pony_arg_t_tag (Ptr _)         = Nam "p"
-pony_arg_t_tag (Typ "int64_t") = Nam "i"
-pony_arg_t_tag (Typ "double")  = Nam "d"
-pony_arg_t_tag other           =
-    error $ "Expr.hs: no pony_arg_t_tag for " ++ show other
+encore_arg_t_tag :: CCode Ty -> CCode Name
+encore_arg_t_tag (Ptr _)         = Nam "p"
+encore_arg_t_tag (Typ "int64_t") = Nam "i"
+encore_arg_t_tag (Typ "double")  = Nam "d"
+encore_arg_t_tag other           =
+    error $ "Expr.hs: no encore_arg_t_tag for " ++ show other

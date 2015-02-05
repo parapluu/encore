@@ -48,8 +48,8 @@ pony_actor_t = Typ "pony_actor_t"
 pony_actor_type_t :: CCode Ty
 pony_actor_type_t = Typ "pony_actor_type_t"
 
-pony_arg_t :: CCode Ty
-pony_arg_t = Typ "pony_arg_t"
+encore_arg_t :: CCode Ty
+encore_arg_t = Typ "encore_arg_t"
 
 pony_msg_t :: CCode Ty
 pony_msg_t = Typ "pony_msg_t"

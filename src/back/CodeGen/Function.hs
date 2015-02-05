@@ -43,10 +43,10 @@ instance Translatable A.Function (CCode Toplevel) where
           | otherwise     = Return $ (arg_cast ty var)
           where 
             arg_cast ty var
-                | isIntType  ty = Cast (pony_arg_t) (UnionInst (Nam "i") var)
-                | isBoolType ty = Cast (pony_arg_t) (UnionInst (Nam "i") var)
-                | isRealType ty = Cast (pony_arg_t) (UnionInst (Nam "d") var)
-                | otherwise     = Cast (pony_arg_t) (UnionInst (Nam "p") var)
+                | isIntType  ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
+                | isBoolType ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
+                | isRealType ty = Cast (encore_arg_t) (UnionInst (Nam "d") var)
+                | otherwise     = Cast (encore_arg_t) (UnionInst (Nam "p") var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
