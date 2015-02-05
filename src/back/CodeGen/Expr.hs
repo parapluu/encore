@@ -243,16 +243,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
                    let no_args = length args
                    let arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
+                   let args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
                    let the_arg_init = Seq $ map Statement arg_assignments
                    the_call <- return (Call (Nam "pony_sendv")
                                                [Cast (Ptr pony_actor_t) $ AsExpr ntarget,
                                                 Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name])
                    return (Var the_fut_name,
-                           Seq [ttarget
-                               ,the_fut_decl
-                               ,the_arg_decl
-                               ,the_arg_init
-                               ,Statement the_call])
+                           Seq $ [ttarget,
+                                  the_fut_decl,
+                                  the_arg_decl,
+                                  the_arg_init] ++
+                                  gc_send args_types ++
+                                 [Statement the_call])
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
             varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
@@ -278,11 +280,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                [ttarget,
                                                 AsExpr $ Var the_arg_name])
                    let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
+                   let args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f" ++ show i))) [1..no_args]) (map A.getType args)
                    return (unit,
                            Seq ((Comm "message send") :
                                 the_arg_decl :
                                 the_arg_init :
-                                gc_send targs ++
+                                gc_send args_types ++
                                 [Statement the_call]))
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
@@ -291,15 +294,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             varaccess_this_to_aref other =
                 do (ntother, tother) <- translate other
                    return $ StatAsExpr ntother tother
-
-            gc_send as = [Embed $ "", 
-                          Embed $ "// --- GC on sending ----------------------------------------",
-                          Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
-                           --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
-                          --(map tracefun_calls as) ++
-                         [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
-                          Embed $ "// --- GC on sending ----------------------------------------",
-                          Embed $ ""]
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -492,3 +486,18 @@ encore_arg_t_tag (Typ "int64_t") = Nam "i"
 encore_arg_t_tag (Typ "double")  = Nam "d"
 encore_arg_t_tag other           =
     error $ "Expr.hs: no encore_arg_t_tag for " ++ show other
+
+gc_send as = [Embed $ "", 
+              Embed $ "// --- GC on sending ----------------------------------------",
+              Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
+              --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
+              (map tracefun_call as) ++
+             [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
+              Embed $ "// --- GC on sending ----------------------------------------",
+              Embed $ ""]
+
+tracefun_call (a, t)
+    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) a]
+    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ class_trace_fn_name t]
+    | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
+ 
