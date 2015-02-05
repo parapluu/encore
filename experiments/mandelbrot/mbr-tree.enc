@@ -1,0 +1,298 @@
+{-
+	Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
+    Just pipe the output to a .pbm file to se some minor awesomeness.
+-}
+
+
+class Main
+  def main() : void
+    let 
+      N = 50 : int					  
+      argc = embed int argc; end
+      argv1 = embed int atoi(argv[1]); end
+      --plot = null : PlotList
+      tree = null : BiTree
+    in{
+        print "lol ^^";
+        
+        tree = new BiTree(0, 4, -1*1.0 ,1.0, argv1,argv1);
+        
+        get tree.doneQ();
+        print "a motherflippin treee has ben made";
+        get tree.printDebug(tree)
+        
+       -- plot = new PlotList(argv1);
+        --plot.computeSet(50);
+        --plot.debugPrint()
+        --plot.outputPBM()
+        
+    }
+
+class BiTree
+    chunk : Chunk
+    left : BiTree
+    right : BiTree
+    done : bool
+
+    def doneQ() : bool
+        this.done
+        
+    def init(depth : int, lowest_depth :int, start_y : real ,end_y : real, height : int, width : int) : void{
+        print "im a constructor...lol ^-^"; 
+        if(depth == lowest_depth) then{
+            print "im making tree and i made node";
+            this.chunk = new Chunk(0, width, height);
+            this.chunk.compute(-1*1.5, start_y, 0.5, end_y, 50);
+            this.left = null;
+            this.right = null;
+        }else{
+            print("im making tree and i made moar treesand im at depth = {}\n",depth);
+            this.chunk = null;
+            this.left = new BiTree(depth+1, lowest_depth, start_y, start_y+(end_y-start_y)/2, height/2, width);
+            this.right = new BiTree(depth+1, lowest_depth, start_y+(end_y-start_y)/2, end_y, height/2 + (height %2), width);
+        };
+        suspend;
+        this.done = true;
+    }
+    
+    def printPBM(tree :BiTree) : void{
+        if( (this.chunk != null) ) then{
+            get this.chunk.packAndPrint();
+        }else{
+            this.printPBM(this.left);
+            this.printPBM(this.right)
+        }
+    }
+    
+    def printDebug(tree :BiTree) : void{
+        --print "horrible_debug";
+        --while(this.done == false){
+        --    suspend;
+        --}
+        if( (this.chunk == null) ) then{
+            if(this.left == null or this.right == null)then{
+                suspend;
+            };
+            this.printDebug(this.left);
+            this.printDebug(this.right);
+            
+        }else{
+            get this.chunk.printDebug();
+        }
+    }
+
+    def getChunk() : Chunk{
+        this.chunk;
+    }
+
+        
+class Chunk
+  	width : int
+  	height : int
+    array : IntArray2D
+    
+    def init(X_index : int,  width: int, height : int) : void{
+
+        this.width = width;
+        this.height = height;
+        this.array = new IntArray2D(width, height)
+    }  
+  	
+    def getArray() : IntArray2D{
+        this.array
+    }
+      
+    def compute(start_x : real, start_y : real, end_x : real, end_y : real,max_iterations : int) : void 
+	    let
+	      cx = start_x
+	      cy = start_y
+	      dx = 0.0
+	      dy = 0.0
+	      x = 0.0
+	      y = 0.0
+	      iteration = 0
+	      X_index = 0
+	      Y_index = 0
+	      xtemp = 0.0
+	      i = 0
+	      member = 0
+	    in {
+	      dx = (end_x-start_x)/this.width;
+	      dy = (end_y-start_y)/this.height;
+	      --print argc;
+	      while(Y_index < this.height){
+		      while(X_index < this.width) {
+		        x = 0.0;
+		        y = 0.0;
+		        iteration = 0;
+		        while ((x*x + y*y < 4.0) and (iteration < max_iterations)) {
+		            xtemp = x*x - y*y + cx;
+		            y = 2.0*x*y + cy;
+		            x = xtemp;
+		            iteration = iteration + 1; 
+	            };
+	            if(iteration == max_iterations) then {
+		            member = 1
+		        }else{
+		            member = 0
+		        };
+		
+		        this.array.write(X_index,Y_index, member);
+		        cx = cx + dx;
+		        X_index = X_index + 1;
+		      };
+	          X_index = 0;
+	          cx = start_x;
+	          Y_index= Y_index + 1;
+	          cy = cy + dy;
+	      }
+	    }
+    
+    def printDebug() : void{
+        print " lol ";
+    }
+    
+    def packAndPrint() : void{
+        print "laul";
+    }
+    
+    {-
+    def packAndPrint() : void
+        let
+            packed = 0
+            i = 0
+            j = 7
+            member = 0
+            shift = 0
+            --aligned_size = size - (size % 8)
+        in
+            --aligned size = size - (size % 8);
+            while(i < this.size){
+                packed = 0;
+                j = 7;
+                while(j >= 0){
+                    member = array.read(i);
+                    packed = embed int (#{member} << #{j}) | #{packed}; end; 
+                    i = i+1;
+                    j = j-1
+                };
+                embed void
+                    fwrite(&#{packed}, sizeof(char), 1, stdout);
+                end
+            }
+    -}
+		
+--This ugly class corresponds to one row of the mandelbrot plot.
+class Line
+  array : IntArray
+  width : int
+  max_iterations : int
+  done : bool
+	
+  def init(width : int, max_iterations : int) : void {
+    this.array = new IntArray(width);
+    this.width = width;
+    this.max_iterations = max_iterations;
+    this.done = false;
+  }
+    
+  def getDone() : bool
+    this.done
+	
+  def compute(x_start : real, x_end : real , y_start : real) : void 
+    let
+      cx = x_start
+      cy = y_start
+      dx = 0.0
+      x = 0.0
+      y = 0.0
+      iteration = 0
+      step = 0
+      xtemp = 0.0
+      i = 0
+      member = 0
+    in {
+      dx = (x_end-x_start)/this.width;
+      --print argc;
+      while(step < this.width) {
+	    x = 0.0;
+        y = 0.0;
+        iteration = 0;
+        while ((x*x + y*y < 4.0) and (iteration < this.max_iterations)) {
+            xtemp = x*x - y*y + cx;
+            y = 2.0*x*y + cy;
+	        x = xtemp;
+            iteration = iteration + 1;
+	     };
+    
+        if(iteration == this.max_iterations) then {
+            member = 1
+        }else{
+            member = 0
+        };
+        this.array.write(step, member);
+        cx = cx + dx;
+        step = step+1;
+      };
+    }
+
+    def  getArray() : IntArray
+        this.array
+	
+		
+
+
+
+
+
+passive class D
+
+passive class IntArray
+  slots: D
+  size: int
+  -- def IntArray_trace() : void
+  --   embed void
+  --     pony_trace(this->slots);
+  --   end
+
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(int64_t));
+      this->size = size;
+    end
+
+  def write(i:int, v:int) : void
+    embed void
+      ((int64_t*)this->slots)[i] = (int64_t)v;
+    end
+
+  def read(i:int) : int
+    embed int
+      (0 <= i && i < this->size) ? ((int64_t*)this->slots)[i] : 0;
+    end
+    
+passive class IntArray2D
+  slots: D
+  width : int
+  height : int
+  -- def IntArray_trace() : void
+  --   embed void
+  --     pony_trace(this->slots);
+  --   end
+
+  def init(width : int, height : int) : void
+    embed void
+      this->slots = pony_alloc(width * height * sizeof(int64_t));
+      this->height = height;
+      this->width = width;
+    end
+
+  def write(x:int, y:int, v:int) : void
+    embed void
+      ((int64_t*)(this->slots))[#{x} + (this->#{width})*#{y}] = (int64_t)v;
+    end
+
+  def read(x : int, y : int) : int
+    embed int
+      ((int64_t*)this->slots)[#{x} + this->#{width}*#{y}];
+    end
