@@ -404,12 +404,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate await@(A.Await{A.val}) = 
       do (nval, tval) <- translate val
-         tmp <- Ctx.gen_sym
-         return (Var tmp, Seq [(Call (Nam "future_await") [nval])])
+         return (unit, Seq [tval, Statement $ Call (Nam "future_await") [nval]])
 
   translate suspend@(A.Suspend{}) = 
-      do tmp <- Ctx.gen_sym
-         return (Var tmp, Seq [(Call (Nam "future_suspend") [Nam ""])]) --TODO: Call should support 0-arity 
+         return (unit, Seq [Call (Nam "future_suspend") ([] :: [CCode Expr])]) --TODO: Call should support 0-arity 
 
   translate futureChain@(A.FutureChain{A.future, A.chain}) = 
       do (nfuture,tfuture) <- translate future
