@@ -110,21 +110,21 @@ class_dispatch_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_dispatch"
 class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_trace"
 
-method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-method_message_type_name cls mname =
-    Var $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+fut_msg_type_name :: Ty.Type -> ID.Name -> CCode Name
+fut_msg_type_name cls mname =
+    Nam $ "_enc__fut_msg_" ++ Ty.getId cls ++ "_" ++ show mname ++ "_t"
 
-one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-one_way_message_type_name cls mname =
-    Var $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+one_way_msg_type_name :: Ty.Type -> ID.Name -> CCode Name
+one_way_msg_type_name cls mname =
+    Nam $ "_enc__oneway_msg_" ++ Ty.getId cls ++ "_" ++ show mname ++ "_t"
 
 -- | for each method, there's a corresponding message, this is its name
-method_msg_name :: Ty.Type -> ID.Name -> CCode Name
-method_msg_name cls mname =
+fut_msg_id :: Ty.Type -> ID.Name -> CCode Name
+fut_msg_id cls mname =
     Nam $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
-one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_send_msg_name cls mname =
+one_way_msg_id :: Ty.Type -> ID.Name -> CCode Name
+one_way_msg_id cls mname =
     Nam $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 class_type_name :: Ty.Type -> CCode Name

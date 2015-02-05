@@ -53,6 +53,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        runtime_type_decls ++
 
        [comment_section "Message types"] ++
+       pony_msg_t_typedefs ++
        pony_msg_t_impls ++
 
        [comment_section "Global functions"] ++
@@ -82,22 +83,31 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
            DeclTL (pony_msg_t, Var "m_resume_await"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
 
+      pony_msg_t_typedefs :: [CCode Toplevel]
+      pony_msg_t_typedefs = map pony_msg_t_typedef_class classes
+          where
+            pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) = 
+                Concat $ concatMap pony_msg_t_typedef methods
+                where
+                  pony_msg_t_typedef mdecl = 
+                      [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
+                       Typedef (Struct $ one_way_msg_type_name cname (A.mname mdecl)) (one_way_msg_type_name cname (A.mname mdecl))]
+
       pony_msg_t_impls :: [CCode Toplevel]
       pony_msg_t_impls = map pony_msg_t_impls_class classes
-      pony_msg_t_impls_class cdecl@(A.Class{A.methods}) = 
-          Concat $ map pony_msg_t_impl methods
           where
-            pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
-            pony_msg_t_impl mdecl =
-              let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                  argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
-                  argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
-                  encoremsgtspec = (enc_msg_t, Var "msg")
-                  encoremsgtspec_oneway = (enc_oneway_msg_t, Var "msg")
-                  nameprefix = "_enc__"++ (show (A.cname cdecl))
-                                ++ "_" ++ (show (A.mname mdecl))
-              in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
-                        ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
+            pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) = 
+                Concat $ map pony_msg_t_impl methods
+                where
+                  pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
+                  pony_msg_t_impl mdecl =
+                      let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                          argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
+                          argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
+                          encore_msg_t_spec = (enc_msg_t, Var "msg")
+                          encore_msg_t_spec_oneway = (enc_oneway_msg_t, Var "msg")
+                      in Concat [StructDecl (AsType $ fut_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec : argspecs)
+                                ,StructDecl (AsType $ one_way_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec_oneway : argspecs)]
 
       global_function_decls = map global_function_decl functions
           where
@@ -108,8 +118,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
       message_enums =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) classes
-          method_msg_names = map (show . (uncurry method_msg_name)) meta
-          one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta
+          method_msg_names = map (show . (uncurry fut_msg_id)) meta
+          one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
         in
          Enum $ map Nam $ (method_msg_names ++ one_way_msg_names)
 

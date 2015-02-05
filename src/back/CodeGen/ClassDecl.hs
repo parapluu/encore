@@ -63,38 +63,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
               in Concat [StructDecl (Typ $ nameprefix ++ "_fut_msg") (encoremsgtspec : argspecs)
                         ,StructDecl (Typ $ nameprefix ++ "_oneway_msg") (encoremsgtspec_oneway : argspecs)]
 
-      -- message_type_decl :: CCode Toplevel
-      -- message_type_decl =
-      --     Function (Static . Ptr . Typ $ "pony_msg_t")
-      --              (class_message_type_name cname)
-      --              [(Typ "uint64_t", Var "id")]
-      --              (Seq [Switch (Var "id")
-      --                      ((Nam "MSG_alloc", Return $ Amp $ Var "m_MSG_alloc") :
-      --                       (Nam "FUT_MSG_RESUME", Return $ Amp $ Var "m_resume_get") :
-      --                       (Nam "FUT_MSG_SUSPEND", Return $ Amp $ Var "m_resume_suspend") :
-      --                       (Nam "FUT_MSG_AWAIT", Return $ Amp $ Var "m_resume_await") :
-      --                       (Nam "FUT_MSG_RUN_CLOSURE", Return $ Amp $ Var "m_run_closure") :
-      --                       (concatMap type_clause methods))
-      --                       (Skip),
-      --                    (Return Null)])
-      --   where
-      --     type_clause mdecl =
-      --         [message_type_clause cname (A.mname mdecl),
-      --          one_way_message_type_clause cname (A.mname mdecl)]
-      --     message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
-      --     message_type_clause cname mname =
-      --         if mname == (ID.Name "main") then
-      --             (Nam "PONY_MAIN",
-      --              Return $ Amp (method_message_type_name cname mname))
-      --         else
-      --       (method_msg_name cname mname,
-      --        Return $ Amp (method_message_type_name cname mname))
-
-      --     one_way_message_type_clause :: Ty.Type -> ID.Name -> (CCode Name, CCode Stat)
-      --     one_way_message_type_clause cname mname =
-      --       (one_way_send_msg_name cname mname,
-      --        Return $ Amp (one_way_message_type_name cname mname))
-
       method_impls = map method_impl methods
           where
             method_impl mdecl = translate mdecl cdecl
@@ -166,9 +134,9 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                    unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
-                (method_msg_name cname mname,
+                (fut_msg_id cname mname,
                  Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
-                      ((method_unpack_arguments mdecl (fut_msg_type_name cdecl mdecl)) ++
+                      ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
                       gc_recv mparams ++
                       [Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"],
                        Statement $ Call (Nam "future_fulfil")
@@ -178,9 +146,9 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                                               ((AsExpr . Var $ "this") :
                                               (map method_argument mparams)))]])))
              mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
-                (method_msg_name cname mname,
+                (fut_msg_id cname mname,
                  Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
-                      ((method_unpack_arguments mdecl (fut_msg_type_name cdecl mdecl)) ++
+                      ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
                       gc_recv mparams ++
                       [Statement $ Call (method_impl_name cname mname)
                                          ((AsExpr . Var $ "this") :
@@ -188,15 +156,12 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                                           (map method_argument mparams))])))
 
              one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
-                (one_way_send_msg_name cname mname,
-                 Seq ((method_unpack_arguments mdecl (one_way_msg_type_name cdecl mdecl)) ++
+                (one_way_msg_id cname mname,
+                 Seq ((method_unpack_arguments mdecl (Ptr . AsType $ one_way_msg_type_name cname mname)) ++
                      gc_recv mparams ++
                      [Statement $ Call (method_impl_name cname mname) ((AsExpr . Var $ "this") : (map method_argument mparams))]))
 
              method_argument A.Param {A.pname} = AsExpr (Var $ show pname)
-
-             fut_msg_type_name     cdecl mdecl = Ptr $ Typ $ "struct _enc__" ++ (show (A.cname cdecl)) ++ "_" ++ (show (A.mname mdecl)) ++ "_fut_msg"
-             one_way_msg_type_name cdecl mdecl = Ptr $ Typ $ "struct _enc__" ++ (show (A.cname cdecl)) ++ "_" ++ (show (A.mname mdecl)) ++ "_oneway_msg"
 
              gc_recv ps = [Embed $ "", 
                            Embed $ "// --- GC on receive ----------------------------------------",

@@ -239,10 +239,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name))
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
-                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ method_message_type_name (A.getType target) name])
+                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name])
                    let no_args = length args
-                   let arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
+                   let arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
                    the_call <- return (Call (Nam "pony_sendv")
                                                [AsExpr ntarget,
@@ -269,8 +269,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 do ttarget <- varaccess_this_to_aref target
                    targs <- mapM varaccess_this_to_aref args
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
-                   let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
+                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
                    let no_args = length args
                    let arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
@@ -278,8 +277,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    the_call <- return (Call (Nam "pony_sendv")
                                                [ttarget,
                                                 AsExpr $ Var the_arg_name])
-                   let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_oneway_msg")) :: CCode Ty
-                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ one_way_message_type_name (A.getType target) name])
+                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
                    return (unit,
                            Seq ((Comm "message send") :
                                 the_arg_decl :
