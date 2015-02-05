@@ -169,7 +169,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                  Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
                       ((method_unpack_arguments mdecl (fut_msg_type_name cdecl mdecl)) ++
                       gc_recv mparams ++
-                      [Statement $ Call (Nam "future_fulfil")
+                      [Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"],
+                       Statement $ Call (Nam "future_fulfil")
                                         [AsExpr $ Var "_fut",
                                          Cast (Ptr void)
                                               (Call (method_impl_name cname mname)
@@ -196,7 +197,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              fut_msg_type_name     cdecl mdecl = Ptr $ Typ $ "struct _enc__" ++ (show (A.cname cdecl)) ++ "_" ++ (show (A.mname mdecl)) ++ "_fut_msg"
              one_way_msg_type_name cdecl mdecl = Ptr $ Typ $ "struct _enc__" ++ (show (A.cname cdecl)) ++ "_" ++ (show (A.mname mdecl)) ++ "_oneway_msg"
 
-
              gc_recv ps = [Embed $ "", 
                            Embed $ "// --- GC on receive ----------------------------------------",
                            Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
@@ -210,6 +210,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              gc_send ps = [Embed $ "", 
                            Embed $ "// --- GC on sending ----------------------------------------",
                            Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
+                           --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
                           (map tracefun_calls ps) ++
                           [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
                            Embed $ "// --- GC on sending ----------------------------------------",
