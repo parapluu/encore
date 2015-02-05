@@ -6,7 +6,7 @@ passive class LogArray
   def LogArray_trace() : void
     embed void
       pony_trace(this->slots);
-      for (int i = 0; i < this->size; ++i) pony_traceobject(((pony_actor_t**)this->slots)[i], LogEntry_trace);
+      for (int i = 0; i < this->size; ++i) pony_traceobject(((pony_actor_t**)this->slots)[i], _enc__LogEntry_trace);
     end
   def init(size:int) : void
     embed void

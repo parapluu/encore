@@ -156,7 +156,7 @@ class Main
 
   def main() : void 
     let
-      n       = 600000
+      n       = 6000000
       k       = 10
       workers = 2
     in 
