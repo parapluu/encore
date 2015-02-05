@@ -64,8 +64,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Passive class types"] ++
        passive_types ++ 
 
-       [comment_section "Passive class types"] ++
-       type_decls ++
+       [comment_section "Runtime types"] ++
+       runtime_type_decls ++
 
        [comment_section "Methods"] ++
        concatMap method_fwds classes ++
@@ -138,9 +138,9 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
                             (map (translate . A.ftype) fields)
                             (map (Var . show . A.fname) fields))
 
-      type_decls = map type_decl $ filter (not . A.isActive) classes
+      runtime_type_decls = map type_decl classes
           where
-            type_decl A.Class{A.cname} = DeclTL (pony_type_t, AsLval $ runtime_type_name cname)
+            type_decl A.Class{A.cname} = DeclTL (Extern pony_type_t, AsLval $ runtime_type_name cname)
 
       method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where
