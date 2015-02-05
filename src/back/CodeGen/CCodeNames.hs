@@ -17,25 +17,60 @@ import Types as Ty
 import CCode.Main
 import Data.Char
 
+
+char :: CCode Ty
 char = Typ "char"
+
+int :: CCode Ty
 int = Typ "int64_t"
+
+uint :: CCode Ty
 uint = Typ "uint64_t"
+
+bool :: CCode Ty
 bool = Typ "int64_t" -- For pony argument tag compatibility. Should be changed to something smaller
+
+double :: CCode Ty
 double = Typ "double"
+
+void :: CCode Ty
 void = Typ "void"
+
+encore_actor_t :: CCode Ty
 encore_actor_t = Typ "encore_actor_t"
+
+pony_type_t :: CCode Ty
 pony_type_t = Typ "pony_type_t"
+
+pony_actor_t :: CCode Ty
 pony_actor_t = Typ "pony_actor_t"
+
+pony_actor_type_t :: CCode Ty
 pony_actor_type_t = Typ "pony_actor_type_t"
+
+pony_arg_t :: CCode Ty
 pony_arg_t = Typ "pony_arg_t"
+
+pony_msg_t :: CCode Ty
 pony_msg_t = Typ "pony_msg_t"
+
+enc_msg_t :: CCode Ty
 enc_msg_t = Typ "encore_fut_msg_t"
+
+enc_oneway_msg_t :: CCode Ty
 enc_oneway_msg_t = Typ "encore_oneway_msg_t"
+
+closure :: CCode Ty
 closure = Ptr $ Typ "closure_t"
+
+future :: CCode Ty
 future = Ptr $ Typ "future_t"
+
+stream :: CCode Ty
 stream = Ptr $ Typ "stream_t"
+
 unit :: CCode Lval
-unit = Embed "UNIT" 
+unit = Embed "UNIT"
 
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
@@ -48,7 +83,7 @@ global_closure_name funname =
     Nam $ (show funname)
 
 global_function_name :: ID.Name -> CCode Name
-global_function_name funname = 
+global_function_name funname =
     Nam $ "_enc__global_" ++ (show funname) ++ "_fun"
 
 closure_fun_name :: String -> CCode Name
@@ -76,39 +111,39 @@ class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = Nam $ "_enc__" ++ Ty.getId clazz ++ "_trace"
 
 method_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-method_message_type_name cls mname = 
+method_message_type_name cls mname =
     Var $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 one_way_message_type_name :: Ty.Type -> ID.Name -> CCode Lval --fixme should be a name
-one_way_message_type_name cls mname = 
+one_way_message_type_name cls mname =
     Var $ "_ENC__ONE_WAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 -- | for each method, there's a corresponding message, this is its name
 method_msg_name :: Ty.Type -> ID.Name -> CCode Name
-method_msg_name cls mname = 
+method_msg_name cls mname =
     Nam $ "_ENC__MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 one_way_send_msg_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_send_msg_name cls mname = 
+one_way_send_msg_name cls mname =
     Nam $ "_ENC__ONE_WAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
 class_type_name :: Ty.Type -> CCode Name
-class_type_name cls 
+class_type_name cls
     | Ty.isActiveRefType cls =
         Nam $ "_enc__active_" ++ Ty.getId cls ++ "_t"
     | Ty.isPassiveRefType cls =
         Nam $ "_enc__passive_" ++ Ty.getId cls ++ "_t"
-    | otherwise = error $ "Type '" ++ show cls ++ 
-                          "' is neither active nor passive!" 
+    | otherwise = error $ "Type '" ++ show cls ++
+                          "' is neither active nor passive!"
 
 runtime_type_name :: Ty.Type -> CCode Name
-runtime_type_name cls 
+runtime_type_name cls
     | Ty.isActiveRefType cls =
         Nam $ "_enc__active_" ++ Ty.getId cls ++ "_type"
     | Ty.isPassiveRefType cls =
         Nam $ "_enc__passive_" ++ Ty.getId cls ++ "_type"
-    | otherwise = error $ "Type '" ++ show cls ++ 
-                          "' is neither active nor passive!" 
+    | otherwise = error $ "Type '" ++ show cls ++
+                          "' is neither active nor passive!"
 
 future_type_rec_name :: CCode Name
 future_type_rec_name = Nam $ "future_type"
