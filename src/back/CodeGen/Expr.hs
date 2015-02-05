@@ -273,7 +273,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
                    let the_arg_decl = EmbedC (Decl (the_arg_ty, Var the_arg_name))
                    let no_args = length args
-                   let arg_assignments = zipWith (\i tmp_expr -> Assign (Dot (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
+                   let arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
 
                    the_call <- return (Call (Nam "pony_sendv")
