@@ -228,12 +228,18 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
       (LocalInclude "header.h") :
       [tracefun_decl cdecl] ++
       method_impls ++
+      [dispatchfun_decl] ++
       [pony_type_t_decl cname]
 
     where
       method_impls = map method_decl methods
           where
             method_decl mdecl = translate mdecl cdecl
+      dispatchfun_decl = 
+          Function (Static void) (class_dispatch_name cname)
+                   [(Ptr pony_actor_t, Var "_a"),
+                    (Ptr pony_msg_t, Var "_m")]
+                   (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 tracefun_decl :: A.ClassDecl -> CCode Toplevel
 tracefun_decl A.Class{A.cname, A.fields, A.methods} = 
