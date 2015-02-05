@@ -85,6 +85,9 @@ struct future
   closure_entry_t *children;
 };
 
+static inline future_gc_send(future_t *fut);
+static inline future_gc_recv(future_t *fut);
+
 pony_type_t future_type = {0, sizeof(struct future), future_trace, NULL, NULL};
 
 pony_type_t *future_get_type(future_t *fut){
@@ -163,6 +166,8 @@ void future_fulfil(future_t *fut, void *value)
   fut->value = value;
   fut->fulfilled = true;
 
+  future_gc_send(fut);
+  
   // Unblock on blocked actors
   closure_entry_t *current = fut->children;
   bool blocked;
@@ -226,6 +231,8 @@ void *future_get_actor(future_t *fut)
   // early return for simple case
   if (fut->parent == NULL) {
     future_block_actor(fut);
+
+    future_gc_recv(fut);
     return fut->value;
   }
 
@@ -233,6 +240,7 @@ void *future_get_actor(future_t *fut)
     future_block_actor(fut->parent);
   }
 
+  /// TODO: in this case, we need to run future_gc_recv() too!
   return run_closure(fut->closure, future_read_value(fut->parent), fut);
 }
 
@@ -347,6 +355,38 @@ void future_await_resume(void *argv)
   } else {
     // pony_sendv(actor_current(), FUT_MSG_AWAIT, 2, argv);
   }
+}
+
+static inline future_gc_trace(future_t *fut) 
+{
+  if (fut->type == ENCORE_ACTIVE)
+    {
+      pony_traceactor(fut->value);
+    }
+  else if (fut->type == ENCORE_PRIMITIVE)
+    {
+      // Tracing not needed for primitives
+    }
+  else
+    {
+      pony_traceobject(fut->value, fut->type->trace);
+    }
+}
+
+static inline future_gc_send(future_t *fut) 
+{
+  /// These probably do not do the right thing
+  pony_gc_send();
+  future_gc_trace(fut);
+  pony_send_done();
+}
+
+static inline future_gc_recv(future_t *fut) 
+{
+  /// These probably do not do the right thing
+  pony_gc_recv();
+  future_gc_trace(fut);
+  pony_recv_done();
 }
 
 #endif
