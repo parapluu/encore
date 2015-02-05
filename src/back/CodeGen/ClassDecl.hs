@@ -206,17 +206,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                            Embed $ "// --- GC on receive ----------------------------------------",
                            Embed $ ""]
 
-             -- XXX: Add scanning the future as well as a maybe arg
-             -- XXX: Move to Expr.hs
-             gc_send ps = [Embed $ "", 
-                           Embed $ "// --- GC on sending ----------------------------------------",
-                           Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
-                           --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
-                          (map tracefun_calls ps) ++
-                          [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
-                           Embed $ "// --- GC on sending ----------------------------------------",
-                           Embed $ ""]
-
              tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
                where 
                tracefun_call_each n t 

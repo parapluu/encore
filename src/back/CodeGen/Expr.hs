@@ -239,14 +239,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name))
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let the_arg_ty = (Typ $ "_enc__"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
+                   let the_arg_ty = (Ptr $ Typ $ "struct _enc__"++(show (A.getType target)++"_"++(show name)++"_fut_msg")) :: CCode Ty
                    let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ method_message_type_name (A.getType target) name])
                    let no_args = length args
-                   let arg_assignments = zipWith (\i tmp_expr -> Assign (Dot (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
+                   let arg_assignments = zipWith (\i tmp_expr -> Assign (Arrow (Var the_arg_name) (Nam $ "f"++show i)) tmp_expr) [1..no_args] targs
                    let the_arg_init = Seq $ map Statement arg_assignments
                    the_call <- return (Call (Nam "pony_sendv")
                                                [AsExpr ntarget,
-                                                AsExpr . AsLval $ method_msg_name (A.getType target) name,
                                                 AsExpr $ Var the_arg_name])
                    return (Var the_fut_name,
                            Seq [ttarget
@@ -285,6 +284,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            Seq ((Comm "message send") :
                                 the_arg_decl :
                                 the_arg_init :
+                                gc_send targs ++
                                 [Statement the_call]))
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
@@ -293,6 +293,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             varaccess_this_to_aref other =
                 do (ntother, tother) <- translate other
                    return $ StatAsExpr ntother tother
+
+            gc_send as = [Embed $ "", 
+                          Embed $ "// --- GC on sending ----------------------------------------",
+                          Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
+                           --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
+                          --(map tracefun_calls as) ++
+                         [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
+                          Embed $ "// --- GC on sending ----------------------------------------",
+                          Embed $ ""]
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
