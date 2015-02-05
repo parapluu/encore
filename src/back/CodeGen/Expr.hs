@@ -148,9 +148,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              comment_and_te (ast, te) = Seq [comment_for ast, te]
 
   translate (A.Assign {A.lhs, A.rhs}) = do
-    (nrhs, trhs) <- if A.isThisAccess rhs && (Ty.isActiveRefType $ A.getType rhs)
-                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
-                    else translate rhs
+    (nrhs, trhs) <- translate rhs
     lval <- mk_lval lhs
     return (unit, Seq [trhs, Assign lval nrhs])
         where
@@ -187,9 +185,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return (nbody, Seq $ (concat tdecls) ++ [tbody])
                      where
                        translate_decl (name, expr) =
-                           do (ne, te) <- if A.isThisAccess expr && (Ty.isActiveRefType $ A.getType expr)
-                                          then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
-                                          else translate expr
+                           do (ne, te) <- translate expr
                               tmp <- Ctx.gen_named_sym (show name)
                               substitute_var name (Var tmp)
                               return $ (Var tmp
@@ -257,7 +253,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  [Statement the_call])
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) = return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
             varaccess_this_to_aref other                                     = do
                      (ntother, tother) <- translate other
                      return $ StatAsExpr ntother tother
@@ -289,8 +284,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 [Statement the_call]))
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
-            varaccess_this_to_aref (A.VarAccess { A.name = ID.Name "this" }) =
-                return $ AsExpr $ Deref (Var "this") `Dot` (Nam "aref")
             varaccess_this_to_aref other =
                 do (ntother, tother) <- translate other
                    return $ StatAsExpr ntother tother
@@ -467,9 +460,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
             | otherwise        = AsExpr $ e `Dot` Nam "p"
         translateArgument arg =
-            do (ntother, tother) <- if A.isThisAccess arg && (Ty.isActiveRefType $ A.getType arg)
-                                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
-                                    else translate arg
+            do (ntother, tother) <- translate arg
                return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
             where
               arg_member ty
