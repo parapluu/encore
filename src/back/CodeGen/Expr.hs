@@ -249,7 +249,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                   the_fut_decl,
                                   the_arg_decl,
                                   the_arg_init] ++
-                                  gc_send args_types ++
+                                  gc_send args_types (Statement $ Call (Nam "pony_traceobject") [Var the_fut_name, future_type_rec_name `Dot` Nam "trace"]) ++
                                  [Statement the_call])
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
@@ -280,7 +280,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            Seq ((Comm "message send") :
                                 the_arg_decl :
                                 the_arg_init :
-                                gc_send args_types ++
+                                gc_send args_types (Comm "Not tracing the future in a one_way send") ++
                                 [Statement the_call]))
 
             varaccess_this_to_aref :: A.Expr -> State Ctx.Context (CCode Expr)
@@ -478,15 +478,16 @@ encore_arg_t_tag (Typ "double")  = Nam "d"
 encore_arg_t_tag other           =
     error $ "Expr.hs: no encore_arg_t_tag for " ++ show other
 
-gc_send as = [Embed $ "", 
-              Embed $ "// --- GC on sending ----------------------------------------",
-              Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr])] ++
-              --TODO: trace outgoing future on send
-              --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
-              (map tracefun_call as) ++
-             [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
-              Embed $ "// --- GC on sending ----------------------------------------",
-              Embed $ ""]
+gc_send as fut_trace = [Embed $ "", 
+                        Embed $ "// --- GC on sending ----------------------------------------",
+                        Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
+                        fut_trace] ++
+                        --TODO: trace outgoing future on send
+                        --Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
+                        (map tracefun_call as) ++
+                       [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
+                        Embed $ "// --- GC on sending ----------------------------------------",
+                        Embed $ ""]
 
 tracefun_call (a, t)
     | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) a]

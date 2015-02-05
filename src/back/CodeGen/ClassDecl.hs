@@ -137,9 +137,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                 (fut_msg_id cname mname,
                  Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
                       ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
-                      gc_recv mparams ++
-                      [Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"],
-                       Statement $ Call (Nam "future_fulfil")
+                      gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
+                      [Statement $ Call (Nam "future_fulfil")
                                         [AsExpr $ Var "_fut",
                                          Cast (Ptr void)
                                               (Call (method_impl_name cname mname)
@@ -149,7 +148,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                 (fut_msg_id cname mname,
                  Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
                       ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
-                      gc_recv mparams ++
+                      gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (method_impl_name cname mname)
                                          ((AsExpr . Var $ "this") :
                                           (AsExpr . Var $ "_fut") :
@@ -158,18 +157,19 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
              one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
                 (one_way_msg_id cname mname,
                  Seq ((method_unpack_arguments mdecl (Ptr . AsType $ one_way_msg_type_name cname mname)) ++
-                     gc_recv mparams ++
+                     gc_recv mparams (Comm "Not tracing the future in a one_way send") ++
                      [Statement $ Call (method_impl_name cname mname) ((AsExpr . Var $ "this") : (map method_argument mparams))]))
 
              method_argument A.Param {A.pname} = AsExpr (Var $ show pname)
 
-             gc_recv ps = [Embed $ "", 
-                           Embed $ "// --- GC on receive ----------------------------------------",
-                           Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
-                          (map tracefun_calls ps) ++
-                          [Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
-                           Embed $ "// --- GC on receive ----------------------------------------",
-                           Embed $ ""]
+             gc_recv ps fut_trace = [Embed $ "", 
+                                     Embed $ "// --- GC on receive ----------------------------------------",
+                                     Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
+                                    (map tracefun_calls ps) ++
+                                    [fut_trace, 
+                                     Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
+                                     Embed $ "// --- GC on receive ----------------------------------------",
+                                     Embed $ ""]
 
              tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
                where 
