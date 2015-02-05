@@ -43,6 +43,15 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Shared messages"] ++
        shared_messages ++
 
+       [comment_section "Class types"] ++
+       class_type_decls ++ 
+
+       [comment_section "Passive class types"] ++
+       passive_types ++ 
+
+       [comment_section "Runtime types"] ++
+       runtime_type_decls ++
+
        [comment_section "Message types"] ++
        pony_msg_t_impls ++
 
@@ -57,15 +66,6 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
 
        [comment_section "Trace functions"] ++
        trace_fn_decls ++
-
-       [comment_section "Class types"] ++
-       class_type_decls ++ 
-
-       [comment_section "Passive class types"] ++
-       passive_types ++ 
-
-       [comment_section "Runtime types"] ++
-       runtime_type_decls ++
 
        [comment_section "Methods"] ++
        concatMap method_fwds classes ++
