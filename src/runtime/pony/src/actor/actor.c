@@ -31,7 +31,7 @@ struct pony_actor_t
 
 static __pony_thread_local pony_actor_t* this_actor;
 
-static bool has_flag(pony_actor_t* actor, uint8_t flag)
+bool has_flag(pony_actor_t* actor, uint8_t flag)
 {
   return (actor->flags & flag) != 0;
 }
@@ -104,6 +104,10 @@ bool actor_run(pony_actor_t* actor)
 {
   pony_msg_t* msg;
   this_actor = actor;
+
+  if (!encore_actor_run_hook(actor)) {
+    return false;
+  }
 
   if(heap_startgc(&actor->heap))
   {

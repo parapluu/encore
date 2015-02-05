@@ -43,8 +43,13 @@ solution "ponyrt"
   configuration "*"
 
   includedirs {
-    "inc/"
-    }
+    "inc/",
+    "../closure",
+    "../set",
+    "../encore",
+    "../future",
+    "src/sched"
+  }
 
   flags {
     "ExtraWarnings",
@@ -100,7 +105,7 @@ project "encore"
   buildoptions {
     "-fms-extensions"
   }
-  includedirs { "../closure", "../set", "../encore", "../future" }
+  -- includedirs { "../closure", "../set", "../encore", "../future" }
   files {
     "../encore/encore.h",
     "../encore/encore.c"

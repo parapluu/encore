@@ -1,6 +1,14 @@
 #ifndef ENCORE_H_6Q243YHL
 #define ENCORE_H_6Q243YHL
 
+#define _XOPEN_SOURCE 800
+#include <ucontext.h>
+
+typedef struct ctx_wrapper {
+  ucontext_t* ctx;
+  void* uc_link;
+} ctx_wrapper;
+
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
 
@@ -42,10 +50,20 @@ struct encore_fut_msg
   future_t    *_fut;
 };
 
+typedef struct stack_page {
+  void *stack;
+  struct stack_page *next;
+} stack_page;
+
 struct encore_actor
 {
   pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
+  ucontext_t ctx;
+  ucontext_t home_ctx;
+  bool resume;
+  bool run_to_completion;
+  stack_page *page;
 };
 
 /// Create a new Encore actor
