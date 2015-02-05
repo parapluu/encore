@@ -19,6 +19,11 @@ enum
   ACTORMSG_CONF
 };
 
+typedef struct ctx_wrapper {
+  ucontext_t* ctx;
+  void* uc_link;
+} ctx_wrapper;
+
 // future chaining
 void actor_suspend(pony_actor_t *actor);
 void actor_block(pony_actor_t *actor);

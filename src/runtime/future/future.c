@@ -15,7 +15,7 @@
 
 #include "encore.h"
 #include "future.h"
-#include "../encore/actor/actor.h"
+#include "../encore/encore.h"
 #include "../src/actor/messageq.h"
 
 #define BLOCK    pthread_mutex_lock(&fut->lock);
