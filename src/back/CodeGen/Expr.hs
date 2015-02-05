@@ -238,21 +238,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            else
                                Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name))
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
-                   the_msg_name <- Ctx.gen_named_sym "arg"
-                   let the_msg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
-                       the_msg_decl = Assign (Decl (the_msg_ty, Var the_msg_name)) (Cast the_msg_ty (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
-                       no_args = length args
-                       arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_msg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] arg_names
-                       args_types = zip (map (\i -> (Arrow (Var the_msg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
-                       the_arg_init = Seq $ map Statement arg_assignments
-                       the_call = Call (Nam "pony_sendv")
-                                       [Cast (Ptr pony_actor_t) $ AsExpr ntarget,
-                                        Cast (Ptr pony_msg_t) $ AsExpr $ Var the_msg_name]
+                   the_arg_name <- Ctx.gen_named_sym "arg"
+                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int 0, AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
+                   let no_args = length args
+                   let arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] (map fst targs)
+                   let args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
+                   let install_future = Assign (Arrow (Var the_arg_name) (Nam "_fut")) (Var the_fut_name)
+                   let the_arg_init = Seq $ (map Statement arg_assignments) ++ [install_future]
+                   the_call <- return (Call (Nam "pony_sendv")
+                                               [Cast (Ptr pony_actor_t) $ AsExpr ntarget,
+                                                Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name])
                    return (Var the_fut_name,
                            Seq $ ttarget :
                                  arg_decls ++
                                  [the_fut_decl,
-                                  the_msg_decl,
+                                  the_arg_decl,
                                   the_arg_init] ++
                                   gc_send args_types (Statement $ Call (Nam "pony_traceobject") [Var the_fut_name, future_type_rec_name `Dot` Nam "trace"]) ++
                                  [Statement the_call])

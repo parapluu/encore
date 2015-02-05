@@ -104,7 +104,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
                       let argrttys = map (translate . A.getType) (A.mparams mdecl)
                           argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
                           argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
-                          encore_msg_t_spec = (enc_msg_t, Var "msg")
+                          encore_msg_t_spec = (enc_msg_t, Var "")
                           encore_msg_t_spec_oneway = (enc_oneway_msg_t, Var "msg")
                       in Concat [StructDecl (AsType $ fut_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec : argspecs)
                                 ,StructDecl (AsType $ one_way_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec_oneway : argspecs)]
