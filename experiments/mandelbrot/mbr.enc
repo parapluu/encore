@@ -1,10 +1,8 @@
 
 
 {-
-		Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
-		Pipe the output to lol.txt and then run the plot.py python script to
-		generate a pictures
-
+	Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
+    Just pipe the output to a .pbm file to se some minor awesomeness.
 -}
 
 
@@ -17,41 +15,12 @@ class Main
       plot = null : PlotList
     in{
         plot = new PlotList(argv1);
-        plot.computeSet(10);
-        plot.debugPrint()
+        plot.computeSet(50);
+        --plot.debugPrint()
+        plot.outputPBM()
+        
     }
 
-{-			
-  def make_lame(N : int) : void
-    let
-      x_max = 1.5
-      x_min = -1*1.5
-      y_max = 1.0
-      y_min = -1*1.0
-      x = 0.0
-      y = 0.0
-      dx = 0.0
-      dy = 0.0
-      iterations = 100
-      step = 0
-      lol = new Line
-    in {
-      dx = (x_max - x_min) / N;
-      dy = (y_max - y_min) / N;
-      x = x_min;
-      y = y_min;
-      print("{}\n",iterations);
-      print("{}\n",N);
-      while (y < y_max) {
-	  lol = new Line(step,"",N,iterations);
-      get lol.compute(x_min,x_max,y);
-        
-		
-        y = y+dy;
-	   step = step + 1;
-      };
-    }
--}
 
 passive class PlotList
     size : int
@@ -64,7 +33,7 @@ passive class PlotList
     
     def computeSet(iterations : int) : void{
         let
-	        x_max = 1.5
+	        x_max = 0.5
 	        x_min = -1*1.5
 	        y_max = 1.0
 	        y_min = -1*1.0
@@ -99,7 +68,17 @@ passive class PlotList
         
             
     
-    --def outputPBM(file_name : string) : void
+    def outputPBM() : void
+        let
+            next = this.first
+        in{
+            print("P4\n{} {}\n",this.size,this.size);
+            while (next != null){
+                next.packAndPrint();
+                next = next.getNextNode();
+            };
+            print ""
+        }
         
 
 passive class Node{
@@ -117,8 +96,9 @@ passive class Node{
     def init(next : Node, size : int, iterations : int, x_start : real, x_end : real , y_start : real) : void{
         this.size = size;                                                                          
         this.line = new Line(size, iterations);
+        this.line.compute(x_start,x_end,y_start); -- needed to get rid of type error.
         this.next = next;
-        this.block = this.line.compute(x_start,x_end,y_start);
+      
     }
     
     def debugPrint() : void
@@ -131,10 +111,31 @@ passive class Node{
                 i = i + 1;
             }
             
-                        
+    def packAndPrint() : void
+        let
+            array = get this.line.getArray()
+            packed = 0
+            i = 0
+            j = 7
+            member = 0
+            shift = 0
+            --aligned_size = size - (size % 8)
+        in
+            --aligned size = size - (size % 8);
+            while(i < this.size){
+                packed = 0;
+                j = 7;
+                while(j >= 0){
+	                member = array.read(i);
+	                packed = embed int (#{member} << #{j}) | #{packed}; end; 
+	                i = i+1;
+                    j = j-1
+                };
+                embed void
+                    fwrite(&#{packed}, sizeof(char), 1, stdout);
+                end
+            }
         
-        
-
 }
         
         
