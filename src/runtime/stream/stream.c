@@ -23,7 +23,15 @@ void scons_trace(void *p){
   }
 }
 
-pony_type_t scons_type = {0, sizeof(struct scons), scons_trace, NULL, NULL};
+pony_type_t scons_type = 
+  {ID_SCONS, 
+   sizeof(struct scons), 
+   scons_trace, 
+   NULL, 
+   NULL,
+   NULL,
+   NULL
+};
 
 static struct scons *scons_mk(pony_type_t *type){
   struct scons *scons = pony_alloc(sizeof(struct scons));

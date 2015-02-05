@@ -88,7 +88,16 @@ struct future
 static inline future_gc_send(future_t *fut);
 static inline future_gc_recv(future_t *fut);
 
-pony_type_t future_type = {0, sizeof(struct future), future_trace, NULL, NULL};
+pony_type_t future_type = 
+  {
+    ID_FUTURE,
+    sizeof(struct future),
+    future_trace,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  };
 
 pony_type_t *future_get_type(future_t *fut){
   return fut->type;
@@ -98,11 +107,11 @@ void future_trace(void *p)
 {
   future_t *fut = (future_t *) p;
   if(fut->fulfilled){
-    // if(fut->type == PONY_ACTOR){
-    //   pony_traceactor(fut->value);
-    // }else if(fut->type != PONY_NONE){
-    //   pony_traceobject(fut->value, fut->type->trace);
-    // }
+    if(fut->type == ENCORE_ACTIVE){
+      pony_traceactor(fut->value);
+    }else if(fut->type != ENCORE_PRIMITIVE){
+      pony_traceobject(fut->value, fut->type->trace);
+    }
   }
   // TODO: Who traces whom?
   // for(int i = 0; i < fut->no_responsibilities; i++){

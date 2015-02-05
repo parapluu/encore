@@ -16,7 +16,9 @@ typedef union
 } encore_arg_t;
 
 typedef enum {
-  CLOSURE_ID = 0
+  ID_CLOSURE = 0,
+  ID_FUTURE,
+  ID_SCONS,
 } encore_type_id;
 
 typedef enum {
