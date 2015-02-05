@@ -121,14 +121,14 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
           method_msg_names = map (show . (uncurry fut_msg_id)) meta
           one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
         in
-         Enum $ map Nam $ (method_msg_names ++ one_way_msg_names)
+         Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
 
 
       class_enums =
         let
           names = map (("ID_"++) . Ty.getId . A.cname) classes
         in
-         Enum $ (Nam "__DUMMY__ = 1024") : map Nam names
+         Enum $ (Nam "__ID_DUMMY__ = 1024") : map Nam names
 
       trace_fn_decls = map trace_fn_decl classes
           where
