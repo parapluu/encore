@@ -21,9 +21,9 @@ def color_thing(bob):
 def lol():
     big_string = open("lol.txt","r").read()
     splitted = big_string.split("\n")
-    max_thing = int(splitted[1])
-    width = int(splitted[2])
-    splitted = splitted[3:-1]
+    max_thing = int(splitted[0])
+    width = int(splitted[1])
+    splitted = splitted[2:-1]
     #print width
     #print splitted
     data = [[0]*width]*width
