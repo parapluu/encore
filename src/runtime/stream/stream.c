@@ -13,12 +13,11 @@ void scons_trace(void *p){
   struct scons *scons = p;
   if(!scons->eos){
     pony_type_t *type = scons->type;
-    // if(type == PONY_NONE){
-    // } else if (type == PONY_ACTOR){
-    //   pony_traceactor(scons->element.p);
-    // } else{
-    //   pony_traceobject(scons->element.p, type->trace);
-    // }
+    if(type == ENCORE_ACTIVE){
+      pony_traceactor(scons->element.p);
+    } else if(type != ENCORE_PRIMITIVE){
+      pony_traceobject(scons->element.p, type->trace);
+    }
     pony_traceobject(scons->next, future_trace);
   }
 }
@@ -46,7 +45,7 @@ static struct scons *scons_mk(pony_type_t *type){
 static void scons_print(struct scons *scons){
   printf("struct scons@%p{\n", scons);
   printf("  eos     = %s\n", scons->eos? "true": "false");
-  printf("  element = %d\n", scons->element.i);
+  printf("  element = %ld\n", scons->element.i);
   printf("  type    = %p\n", scons->type);
   printf("  next    = %p\n", scons->next);
   printf("}\n");

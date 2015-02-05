@@ -211,10 +211,10 @@ static void prep_message(pony_actor_t* to, uint64_t id,
 
   for(int i = 0; i < argc; i++)
   {
-    if(mtype->type[i] == PONY_NONE)
+    if(mtype->type[i] == ENCORE_PRIMITIVE)
     {
       // no gc_send needed
-    } else if(mtype->type[i] == PONY_ACTOR) {
+    } else if(mtype->type[i] == ENCORE_ACTIVE) {
       gc_sendactor(this_actor, gc, argv[i].p);
     } else {
       gc_sendobject(this_actor, heap, gc, argv[i].p, mtype->type[i]->trace);
@@ -297,10 +297,10 @@ static bool handle_message(pony_actor_t* actor, message_t* msg)
 
         for(int i = 0; i < mtype->argc; i++)
         {
-          if(mtype->type[i] == PONY_NONE)
+          if(mtype->type[i] == ENCORE_PRIMITIVE)
           {
             // no gc_recv needed
-          } else if(mtype->type[i] == PONY_ACTOR) {
+          } else if(mtype->type[i] == ENCORE_ACTIVE) {
             gc_recvactor(actor, &actor->gc, msg->argv[i].p);
           } else {
             gc_recvobject(actor, &actor->heap, &actor->gc,

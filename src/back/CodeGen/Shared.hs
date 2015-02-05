@@ -32,16 +32,16 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                          (Record [Int 0, Record ([] :: [CCode Expr])])
             msg_fut_resume_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_resume_get"))
-                         (Record [Int 1, Record [Var "PONY_NONE"]])
+                         (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
             msg_fut_suspend_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_resume_suspend"))
-                         (Record [Int 1, Record [Var "PONY_NONE"]])
+                         (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
             msg_fut_await_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_resume_await"))
-                         (Record [Int 2, Record [Var "PONY_NONE", Var "PONY_NONE"]])
+                         (Record [Int 2, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
             msg_fut_run_closure_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
-                         (Record [Int 3, Record [Var "PONY_NONE", Var "PONY_NONE", Var "PONY_NONE"]])
+                         (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
       
       global_functions = map translate functions
 
