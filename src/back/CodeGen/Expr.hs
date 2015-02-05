@@ -272,9 +272,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let the_arg_init = Seq $ map Statement arg_assignments
 
                    the_call <- return (Call (Nam "pony_sendv")
-                                               [ttarget,
-                                                AsExpr $ Var the_arg_name])
-                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
+                                               [Cast (Ptr pony_actor_t) ttarget,
+                                                Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name])
+                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty $ Call (Nam "pony_alloc_msg") [Int 0, AsExpr . AsLval $ one_way_msg_id (A.getType target) name])
                    let args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f" ++ show i))) [1..no_args]) (map A.getType args)
                    return (unit,
                            Seq ((Comm "message send") :
