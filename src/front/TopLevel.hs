@@ -20,6 +20,7 @@ import Data.List
 import Control.Monad
 import SystemUtils
 
+import Makefile
 import Utils
 import Parser.Parser
 import AST.AST
@@ -83,9 +84,10 @@ warnUnknownFlags options =
                (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
 
 
-outputCode ast out = hPrint out ast    
+output :: Show a => a -> Handle -> IO ()
+output ast = flip hPrint ast
 
-writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (outputCode ast)
+writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (output ast)
 
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
@@ -100,24 +102,25 @@ compileProgram prog sourcePath options =
        createDirectoryIfMissing True srcDir
        let (classes, header, shared) = compile_to_c prog
        mapM (writeClass srcDir) classes
-       let classFiles = map (\(name, _) -> (srcDir </> changeFileExt name "pony.c")) classes
+       let ponyNames  = map (\(name, _) -> changeFileExt name "pony.c") classes
+           classFiles = map (srcDir </>) ponyNames
            headerFile = srcDir </> "header.h"
            sharedFile = srcDir </> "shared.c"
-       withFile headerFile WriteMode (outputCode header)
-       withFile sharedFile WriteMode (outputCode shared)
+           makefile   = srcDir </> "Makefile"
+           cc    = "clang"
+           flags = "-ggdb -Wall -Wno-unused-variable -lpthread"
+           oFlag = "-o" <+> execName
+           incs  = "-I" <+> incPath <+> "-I ."
+           libs  = libPath ++ "*.a" 
+           cmd   = cc <+> flags <+> oFlag <+> libs <+> incs
+           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile
+       withFile headerFile WriteMode (output header)
+       withFile sharedFile WriteMode (output shared)
+       withFile makefile   WriteMode (output $ generateMakefile ponyNames execName cc flags incPath libs)
        when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
-                   cmd = "clang" <+> 
-                         concat (intersperse " " classFiles) <+> 
-                         sharedFile <+>
-                         ofilesInc <+> 
-                         "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
-                         " -o" <+> execName <+>
-                         (libPath++"*.a") <+>
-                         (libPath++"*.a") <+>
-                         "-I" <+> incPath <+> "-I ."
-               exitCode <- system cmd
+               exitCode <- system $ compileCmd <+> ofilesInc
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n -> 
