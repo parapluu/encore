@@ -325,6 +325,6 @@ class Main
       f          = let t = new Filter in { t.init_(0, size, depth, u.init_(adjustment), t) ; t }
     in {
       f ! filter();
-      -- f ! avoid_gc_bug(this);
+      f ! avoid_gc_bug(this);
     }
   }
