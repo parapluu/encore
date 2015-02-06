@@ -5,7 +5,7 @@ import Identifiers
 import Utils
 import AST.AST
 import Control.Monad
-import System.Directory             ( doesFileExist )
+import System.Directory(doesFileExist)
 import Parser.Parser
 -- import AST.PrettyPrinter
 -- import AST.Util
