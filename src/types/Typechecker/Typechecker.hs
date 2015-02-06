@@ -225,12 +225,6 @@ instance Checkable Expr where
                          else
                              do assertSubtypeOf exprType ty
                                 return eExpr
-        where
-          coerceNull null ty 
-              | isNullType ty || 
-                isTypeVar ty = tcError "Cannot infer type of null valued expression"
-              | isRefType ty = return $ setType ty null
-              | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
     -- 
     -- ----------------
@@ -725,6 +719,17 @@ instance Checkable Expr where
 
     typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 
+--  classLookup(ty) = _
+-- ---------------------
+--  null : ty
+coerceNull null ty 
+    | isNullType ty || 
+      isTypeVar ty = tcError "Cannot infer type of null valued expression"
+    | isRefType ty = return $ setType ty null
+    | otherwise = 
+        tcError $ "Null valued expression cannot have type '" ++ 
+                  show ty ++ "' (must have reference type)"
+
 --  E |- arg1 : t
 --  matchTypes(B, t1, t) = B1
 --  E, B1 |- arg2 : t2 .. argn : tn -| B'
@@ -737,10 +742,16 @@ instance Checkable Expr where
 matchArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-matchArguments (arg:args) (typ:types) = do eArg <- pushTypecheck arg
-                                           bindings <- matchTypes typ (AST.getType eArg)
-                                           (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
-                                           return (eArg:eArgs, bindings')
+matchArguments (arg:args) (typ:types) = 
+    do eArg <- do eArg <- pushTypecheck arg
+                  if (isNullType (AST.getType eArg)) then
+                      coerceNull eArg typ
+                  else
+                      return eArg
+       bindings <- matchTypes typ (AST.getType eArg)
+       (eArgs, bindings') <- 
+           local (bindTypes bindings) $ matchArguments args types
+       return (eArg:eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad
 --

@@ -193,5 +193,5 @@ isNumeric ty = isRealType ty || isIntType ty
 
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
-    | isNullType ty2 = isNullType ty1 || isRefType ty1
+    | isNullType ty1 = isNullType ty2 || isRefType ty2
     | otherwise      = ty1 == ty2
