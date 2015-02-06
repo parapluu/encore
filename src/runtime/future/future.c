@@ -22,6 +22,8 @@
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
+extern pony_actor_t *actor_current(); 
+
 typedef struct chain_entry chain_entry_t;
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
