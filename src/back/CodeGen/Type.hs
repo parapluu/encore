@@ -35,6 +35,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isTypeVar ty        = Ptr void
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
+        | Ty.isNullType ty       = Ptr void
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 pony_arg_t_tag :: CCode Ty -> CCode Name
