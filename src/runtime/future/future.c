@@ -105,26 +105,45 @@ pony_type_t *future_get_type(future_t *fut){
   return fut->type;
 }
 
-void future_trace(void *p)
+void future_trace(void* p)
 {
-  future_t *fut = (future_t *) p;
-  if(fut->fulfilled){
-    if(fut->type == ENCORE_ACTIVE){
-      pony_traceactor(fut->value.p);
-    }else if(fut->type != ENCORE_PRIMITIVE){
-      pony_traceobject(fut->value.p, fut->type->trace);
+  /// TODO: find out what should actually be traced in a future.
+
+  /// Currently this does not block -- as futures grow monotonically,
+  /// concurrent access should not be a problem.
+  perr("future_trace");
+
+  future_t* fut = p;
+
+  if (future_fulfilled(fut))
+    {
+      if (fut->type == ENCORE_ACTIVE)
+        {
+          // Fut ActiveObj
+          pony_traceactor(fut->value.p);
+        }
+      else if (fut->type != ENCORE_PRIMITIVE)
+        {
+          // Fut PassiveObj
+          pony_traceobject(fut->value.p, fut->type->trace);
+        }
     }
-  }
-  // TODO: Who traces whom?
-  // for(int i = 0; i < fut->no_responsibilities; i++){
-  //   pony_traceactor(fut->responsibilities[i].message.actor);
-  // }
-  closure_entry_t *cursor = fut->children;
-  while(cursor != NULL){
-    pony_traceobject(cursor->future, future_trace);
-    closure_trace(cursor->closure);
-    cursor = cursor->next;
-  }
+
+  for (int i = 0; i < fut->no_responsibilities; ++i)
+    {
+      pony_traceactor(fut->responsibilities[i].message.actor);
+    }
+
+  for (closure_entry_t *c = fut->children; c; c = c->next) 
+    {
+      pony_traceactor(c->actor);
+      future_trace(c->future);
+      closure_trace(c->closure);
+    }
+
+  if (fut->closure) closure_trace(fut->closure);
+
+  if (fut->parent) future_trace(fut->parent);
 }
 
 // ===============================================================
