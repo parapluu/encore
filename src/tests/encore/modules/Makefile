@@ -4,19 +4,18 @@ ENCOREC=$(ROOT_PATH)/release/encorec
 #INGORE=Lib.enc
 
 #OUTFILES=$(shell ls *.out)
-OUTFILES=Importer.out DeepImporter.out
+OUTFILES=Importer.out DeepImporter.out FarImporter.out DupImporter.out
 
 #ENCORE_SOURCES=$(shell ls *.enc)
-ENCORE_SOURCES=Importer.enc DeepImporter.enc
+ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc DupImporter.enc
 
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
-
 
 #test: 	embed_tl.o
 test:
 	@$(foreach PROG,$(ENCORE_TARGETS), make -Bqk $(PROG) || make -Bk $(PROG) || true;) 
 	@echo 
-	@echo Basic tests:
+	@echo Module tests:
 	@./test.sh $(ENCORE_TARGETS)
 
 #embed_tl.o: embed_tl.c embed_tl.h
@@ -26,7 +25,7 @@ test:
 #ls -l
 	@rm -f $@
 	@echo "compiling '$@'"
-	@$(ENCOREC) $@.enc -clang -c
+	@$(ENCOREC) $@.enc -clang -c -I lib:otherlib
 
 clean:
 	rm -rf *.pony.c *.dSYM *_src $(ENCORE_TARGETS)
