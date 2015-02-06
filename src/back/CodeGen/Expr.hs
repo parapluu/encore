@@ -480,5 +480,6 @@ tracefun_call (a, t)
     | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) a]
     | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ class_trace_fn_name t]
     | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
+    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "closure_trace"]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
 --TODO: add cases for future type, closure etc.  

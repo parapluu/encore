@@ -162,6 +162,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) =
                tracefun_call_each n t 
                    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ Var $ show n]
                    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ class_trace_fn_name t]
+                   | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, future_type_rec_name `Dot` Nam "trace"]
+                   | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "closure_trace"]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
  
 -- | Translates a passive class into its C representation. Note
