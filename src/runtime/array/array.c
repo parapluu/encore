@@ -3,20 +3,28 @@
 struct array_t{
   size_t size;
   pony_type_t *type;
-  pony_arg_t *array;
+  encore_arg_t *array;
 };
 
-pony_type_t array_type = {sizeof(struct array_t), array_trace, NULL, NULL};
+pony_type_t array_type = 
+  {
+    ID_ARRAY, 
+    sizeof(struct array_t), 
+    array_trace, 
+    NULL, 
+    NULL,
+    NULL,
+    NULL
+  };
 
 void array_trace(void *p){
   struct array_t *header = p;
   pony_trace(header->array);
-  if(header->type == PONY_NONE){
-  } else if(header->type == PONY_ACTOR){
+  if(header->type == ENCORE_ACTIVE){
     for(int i = 0; i < header->size; i++){
       pony_traceactor(header->array[i].p);
     }
-  } else{
+  } else if(header->type != ENCORE_PRIMITIVE){
     for(int i = 0; i < header->size; i++){
       pony_traceobject(header->array[i].p, header->type->trace);
     }
@@ -25,7 +33,7 @@ void array_trace(void *p){
 
 array_t *array_mk(size_t size, pony_type_t *type){
   struct array_t *header = pony_alloc(sizeof(struct array_t));
-  pony_arg_t *array = pony_alloc(sizeof(pony_arg_t) * size);
+  encore_arg_t *array = pony_alloc(sizeof(encore_arg_t) * size);
   header->size = size;
   header->type = type;
   header->array = array;
@@ -36,10 +44,10 @@ inline size_t array_size(array_t *a){
   return ((struct array_t *)a)->size;
 }
 
-inline pony_arg_t array_get(array_t *a, size_t i){
+inline encore_arg_t array_get(array_t *a, size_t i){
   return ((struct array_t *)a)->array[i];
 }
 
-inline void array_set(array_t *a, size_t i, pony_arg_t element){
+inline void array_set(array_t *a, size_t i, encore_arg_t element){
   ((struct array_t *)a)->array[i] = element;
 }

@@ -23,6 +23,7 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
+import Data.List
 
 instance Translatable ID.Op (CCode Name) where
   translate op = Nam $ case op of
@@ -157,11 +158,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         the_set = 
             Statement $ 
             Call (Nam "array_set") 
-                 [AsExpr ntarg, AsExpr nindex, as_pony_arg_t ty nrhs]
+                 [AsExpr ntarg, AsExpr nindex, as_encore_arg_t ty nrhs]
     return (unit, Seq [trhs, ttarg, tindex, the_set])
       where
-        as_pony_arg_t ty rhs = Cast (pony_arg_t) $ 
-                               UnionInst (pony_arg_t_tag ty) rhs
+        as_encore_arg_t ty rhs = Cast (encore_arg_t) $ 
+                               UnionInst (encore_arg_t_tag ty) rhs
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
