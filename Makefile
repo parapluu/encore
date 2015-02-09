@@ -3,12 +3,8 @@ ENCOREC=dist/build/encorec/encorec
 
 RUNTIME_DIR=$(SRC_DIR)/runtime
 
-CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
-CLOSURE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libclosure.a
-STREAM_INC=$(RUNTIME_DIR)/stream/stream.h
-STREAM_LIB=$(RUNTIME_DIR)/pony/bin/debug/libstream.a
-ARRAY_INC=$(RUNTIME_DIR)/array/array.h
-ARRAY_LIB=$(RUNTIME_DIR)/pony/bin/debug/libarray.a
+CONFIG=debug
+CONFIG=release
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
@@ -44,13 +40,20 @@ $(LIB_DIR):
 
 PLATFORM_INC=$(RUNTIME_DIR)/pony/inc/platform
 PONY_INC=$(RUNTIME_DIR)/pony/inc/pony
-PONY_LIB=$(RUNTIME_DIR)/pony/bin/debug/libpony.a
+PONY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libpony.a
 FUTURE_INC=$(FUTURE_DIR)/future.h
-FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libfuture.a
+FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libfuture.a
 SET_INC=$(SET_DIR)/set.h
-SET_LIB=$(RUNTIME_DIR)/pony/bin/debug/libset.a
+SET_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libset.a
 ENCORE_INC=$(ENCORE_DIR)/encore.h
-ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/debug/libencore.a
+ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libencore.a
+CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
+CLOSURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libclosure.a
+STREAM_INC=$(RUNTIME_DIR)/stream/stream.h
+STREAM_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libstream.a
+ARRAY_INC=$(RUNTIME_DIR)/array/array.h
+ARRAY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libarray.a
+
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony
 	cp -r $(PLATFORM_INC) $(INC_DIR)
