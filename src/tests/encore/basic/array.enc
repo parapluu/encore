@@ -1,0 +1,22 @@
+class Foo
+  def foo() : [int]
+    let 
+      a = new [int](10)
+    in{
+      repeat i <- 10{
+        a[i] = i
+      };
+      a
+    }
+
+class Main
+  def main() : void
+    let x = new Foo
+        a = get x.foo()
+        b = ["foo", "bar"]
+    in{
+      repeat i <- |a|
+        print a[i];
+      print b[0];
+      print b[1];
+    }

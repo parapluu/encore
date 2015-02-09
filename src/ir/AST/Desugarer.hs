@@ -91,7 +91,16 @@ desugar Repeat{emeta, name, times, body} =
                                      (VarAccess emeta name)
                                      (IntLiteral emeta 1)))]))
 
-desugar NewWithInit{emeta, ty, args} = 
-    Let emeta [(Name "to_init", (New (cloneMeta emeta) ty))] (Seq (cloneMeta emeta) [(MethodCall ((cloneMeta emeta)) (VarAccess (cloneMeta emeta) (Name "to_init")) (Name "_init") (map desugar args)), (VarAccess (cloneMeta emeta) (Name "to_init"))])
+desugar NewWithInit{emeta, ty, args} 
+    | isArrayType ty &&
+      length args == 1 = ArrayNew emeta (getResultType ty) (head args)
+    | otherwise =
+        Let emeta 
+            [(Name "to_init", (New (cloneMeta emeta) ty))] 
+            (Seq (cloneMeta emeta) 
+                 [(MethodCall ((cloneMeta emeta)) 
+                              (VarAccess (cloneMeta emeta) (Name "to_init"))
+                              (Name "_init") (map desugar args)), 
+                  (VarAccess (cloneMeta emeta) (Name "to_init"))])
 
 desugar e = e

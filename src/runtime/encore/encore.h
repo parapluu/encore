@@ -27,6 +27,7 @@ typedef enum {
   ID_CLOSURE = 0,
   ID_FUTURE,
   ID_SCONS,
+  ID_ARRAY,
 } encore_type_id;
 
 typedef enum {

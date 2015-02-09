@@ -31,6 +31,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
          "set.h",
          "closure.h",
          "stream.h",
+         "array.h",
          "future.h",
          "string.h",
          "stdio.h"

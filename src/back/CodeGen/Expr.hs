@@ -23,6 +23,7 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
+import Data.List
 
 instance Translatable ID.Op (CCode Name) where
   translate op = Nam $ case op of
@@ -147,6 +148,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
              comment_and_te (ast, te) = Seq [comment_for ast, te]
 
+  translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.index}), A.rhs}) = do
+    (nrhs, trhs) <- if A.isThisAccess rhs && (Ty.isActiveRefType $ A.getType rhs)
+                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
+                    else translate rhs
+    (ntarg, ttarg) <- translate target
+    (nindex, tindex) <- translate index
+    let ty = translate $ A.getType lhs
+        the_set = 
+            Statement $ 
+            Call (Nam "array_set") 
+                 [AsExpr ntarg, AsExpr nindex, as_encore_arg_t ty nrhs]
+    return (unit, Seq [trhs, ttarg, tindex, the_set])
+      where
+        as_encore_arg_t ty rhs = Cast (encore_arg_t) $ 
+                               UnionInst (encore_arg_t_tag ty) rhs
+
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
     lval <- mk_lval lhs
@@ -205,7 +222,55 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              return $ (Var na, Assign (Decl (translate ty, Var na))
                                       (Call (Nam "encore_alloc") [size]))
 
-  translate call@(A.MethodCall { A.target, A.name, A.args })
+  translate arrNew@(A.ArrayNew {A.ty, A.size}) =
+      do arr_name <- Ctx.gen_named_sym "array"
+         size_name <- Ctx.gen_named_sym "size"
+         (nsize, tsize) <- translate size
+         let the_array_decl = 
+                 Assign (Decl (array, Var arr_name)) 
+                        (Call (Nam "array_mk") [AsExpr nsize, runtime_type ty])
+         return (Var arr_name, Seq [tsize, the_array_decl])
+
+  translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
+      do (ntarg, ttarg) <- translate target
+         (nindex, tindex) <- translate index
+         access_name <- Ctx.gen_named_sym "access"
+         let ty = translate $ A.getType arrAcc
+             the_access = 
+                 Assign (Decl (ty, Var access_name)) 
+                        (Call (Nam "array_get") [ntarg, nindex]
+                              `Dot` encore_arg_t_tag ty)
+         return (Var access_name, Seq [ttarg, tindex, the_access])
+
+  translate arrLit@(A.ArrayLiteral {A.args}) =
+      do arr_name <- Ctx.gen_named_sym "array"
+         targs <- mapM translate args
+         let len = length args
+             ty  = Ty.getResultType $ A.getType arrLit
+             the_array_decl = 
+                 Assign (Decl (array, Var arr_name)) 
+                        (Call (Nam "array_mk") [Int len, runtime_type ty])
+             the_array_content = Seq $ map (\(_, targ) -> targ) targs
+             the_array_sets =
+                 let (_, sets) = mapAccumL (array_set arr_name ty) 0 targs
+                 in sets
+         return (Var arr_name, Seq $ the_array_decl : the_array_content : the_array_sets)
+      where
+        array_set arr_name ty index (narg, _) = 
+            (index + 1, 
+             Statement $ Call (Nam "array_set") 
+                              [AsExpr $ Var arr_name, 
+                               Int index, 
+                               Cast (encore_arg_t) $ UnionInst (encore_arg_t_tag (translate ty)) narg])
+
+  translate arrSize@(A.ArraySize {A.target}) =
+      do (ntarg, ttarg) <- translate target
+         tmp <- Ctx.gen_named_sym "size"
+         let the_size = Assign (Decl (int, Var tmp)) 
+                               (Call (Nam "array_size") [ntarg])
+         return (Var tmp, the_size)
+
+  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
         (Ty.isPassiveRefType . A.getType) target = sync_call
       | otherwise = remote_call

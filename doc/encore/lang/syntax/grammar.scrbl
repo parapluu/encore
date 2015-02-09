@@ -28,6 +28,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @; Definition of my keywords
 @(encore/keyword open-paren "(")
 @(encore/keyword close-paren ")")
+@(encore/keyword open-bracket "[")
+@(encore/keyword close-bracket "]")
+@(encore/keyword bar "|")
 @(encore/keyword open-c "{")
 @(encore/keyword close-c "}")
 @(encore/keyword equal "=")
@@ -196,6 +199,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[get Expr]
 	      @seq[new Type open-paren Arguments close-paren]
 	      @seq[new Type]
+	      @seq[Expr open-bracket Expr close-bracket]
+	      @seq[open-bracket Expr @elem{, ...} close-bracket]
+	      @seq[bar Expr bar]
 	      null
 	      true
 	      false
@@ -229,7 +235,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      string int bool void RefType 
 	      @seq[Fut Type]
 	      @seq[Par Type]
-	      @seq[open-paren Type close-paren])
+	      @seq[open-paren Type close-paren]
+	      @seq[open-bracket Type close-bracket])
 
 	(list Types
 	      @alt[

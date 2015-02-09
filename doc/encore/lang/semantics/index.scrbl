@@ -380,6 +380,48 @@ repeat i <- 5
   print("i={}\n",i)
 }|
 
+@section{Arrays}
+For each type @code{T} there is a corresponding array type
+@code{[T]}. For example, @code{[int]} is the type of arrays of
+integers. You create a new array by writing @code{new [T](n)},
+where @code{n} is the length of the array. An array has a fixed
+size and can not be dynamically extended or shrunk.
+
+You access an array by using standard bracket notation
+@code{a[i]}. This is also how assignment into arrays is written.
+You get the size of an array by putting the array within bars
+@code{|a|}. You can also create array literals by writing a comma
+separated list of expressions within brackets @code{[1, 2, 1+2]}.
+This short example uses all features of arrays:
+
+@codeblock|{
+class Main
+  def bump(arr : [int]) : void
+      repeat i <- |arr|
+        arr[i] = arr[i] + 1
+
+  def main() : void{
+    let a = [1,2,3] in {
+      this.bump(a);
+      repeat i <- |a|
+        print a[i];
+      let b = new [int](3) in {
+        b[0] = 0;
+        b[1] = a[0];
+        b[2] = 42 - 19;
+      }
+    }
+  }
+}|
+
+The expected output is 
+
+@codeblock|{
+2
+3
+4
+}|
+
 @section{Classes}
 
 Classes in @tt{encore} have fields and methods. There is no

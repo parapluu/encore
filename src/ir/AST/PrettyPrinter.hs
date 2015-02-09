@@ -50,6 +50,7 @@ ppEquals = text "="
 ppSpace = text " "
 ppLambda = text "\\"
 ppArrow = text "->"
+ppBar = text "|"
 
 indent = nest 2
 
@@ -167,6 +168,10 @@ ppExpr IsEos {target} = ppExpr target <> ppDot <> ppEos <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <> parens empty
 ppExpr Suspend {} = ppSuspend
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
+ppExpr ArrayAccess {target, index} = ppExpr target <> (brackets $ ppExpr index)
+ppExpr ArraySize {target} = ppBar <> ppExpr target <> ppBar
+ppExpr ArrayNew {ty, size} = (brackets $ ppType ty) <> parens (ppExpr size)
+ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull

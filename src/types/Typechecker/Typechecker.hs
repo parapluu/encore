@@ -67,6 +67,8 @@ checkType ty
                            return $ futureType ty'
     | isStreamType ty = do ty' <- checkType $ getResultType ty
                            return $ streamType ty'
+    | isArrayType ty = do ty' <- checkType $ getResultType ty
+                          return $ arrayType ty'
     | isParType ty = do ty' <- checkType $ getResultType ty
                         return $ parType ty'
     | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
@@ -612,16 +614,67 @@ instance Checkable Expr where
     --  E |- false : bool
     typecheck false@BFalse {} = return $ setType boolType false 
 
-   ---  |- t
+
+   ---  |- ty
     --  classLookup(ty) = _
     --  ty != Main
     -- ----------------------
     --  E |- new ty : ty
-    typecheck new@(New {ty}) = 
+    typecheck new@(New {ty}) =
         do ty' <- checkType ty
-           unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
-           when (isMainType ty') $ tcError "Cannot create additional Main objects"
+           unless (isRefType ty') $ 
+                  tcError $ "Cannot create an object of type '" ++ 
+                  show ty ++ "'"
+           when (isMainType ty') $ 
+                tcError "Cannot create additional Main objects"
            return $ setType ty' new
+
+   ---  |- ty
+    --  E |- size : int
+    -- ----------------------------
+    --  E |- new [ty](size) : [ty]
+    typecheck new@(ArrayNew {ty, size}) =
+        do ty' <- checkType ty
+           eSize <- pushHasType size intType
+           return $ setType (arrayType ty') new{size = eSize}
+
+    --  E |- arg1 : ty .. E |- argn : ty
+    -- ----------------------------------
+    --  E |- [arg1, .., argn] : [ty]
+    typecheck arr@(ArrayLiteral {args}) =
+        do unless (length args > 0) $
+                  tcError $ "Array literal must have at least one element"
+           eArg1 <- typecheck (head args)
+           let ty = AST.getType eArg1
+           eArgs <- mapM (\e -> pushHasType e ty) args
+           return $ setType (arrayType ty) arr{args = eArgs}
+
+    --  E |- target : [ty]
+    --  E |- index : int
+    -- -------------------------
+    --  E |- target[index] : ty
+    typecheck arrAcc@(ArrayAccess {target, index}) =
+        do eTarget <- pushTypecheck target
+           let targetType = AST.getType eTarget
+           unless (isArrayType targetType) $
+                  tcError $ "Cannot index non-array '" ++ 
+                            (show $ ppExpr target) ++ 
+                            "' of type '" ++ show targetType ++ "'"
+           eIndex <- pushHasType index intType
+           return $ setType (getResultType targetType)
+                            arrAcc{target = eTarget, index = eIndex}
+
+    --  E |- target : [_]
+    -- -------------------------
+    --  E |- |target| : int
+    typecheck arrSize@(ArraySize {target}) =
+        do eTarget <- pushTypecheck target
+           let targetType = AST.getType eTarget
+           unless (isArrayType targetType) $
+                  tcError $ "Cannot calculate the size of non-array '" ++
+                            (show $ ppExpr target) ++ 
+                            "' of type '" ++ show targetType ++ "'"
+           return $ setType intType arrSize{target = eTarget}
 
     --  count("{}", stringLit) = n
     --  E |- arg1 : t1 .. E |- argn : tn
