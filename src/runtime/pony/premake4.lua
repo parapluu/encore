@@ -32,6 +32,7 @@ solution "ponyrt"
     buildoptions {
       "-mcx16",
       "-pthread",
+      "-std=gnu11",
       "-march=native"
       }
 
