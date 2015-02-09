@@ -4,10 +4,13 @@
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
 
+#define Stack_Size 64*1024
 typedef struct ctx_wrapper {
   ucontext_t* ctx;
   void* uc_link;
 } ctx_wrapper;
+
+#include <pony/pony.h>
 
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
@@ -56,6 +59,7 @@ typedef struct stack_page {
   struct stack_page *next;
 } stack_page;
 
+stack_page *get_local_page();
 struct encore_actor
 {
   pony_actor_pad_t;
@@ -76,4 +80,6 @@ void *encore_alloc(size_t s);
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
 
+bool encore_actor_run_hook(encore_actor_t *actor);
+bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

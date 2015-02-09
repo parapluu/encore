@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "encore.h"
 enum
 {
   FLAG_BLOCKED = 1 << 0,
@@ -48,6 +49,12 @@ static void unset_flag(pony_actor_t* actor, uint8_t flag)
 
 static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
 {
+  if (!has_flag(actor, FLAG_SYSTEM)) {
+    if (encore_actor_handle_message_hook((encore_actor_t*)actor, msg)) {
+      return true;
+    }
+  }
+
   switch(msg->id)
   {
     case ACTORMSG_ACQUIRE:
@@ -81,7 +88,7 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
     case ACTORMSG_CONF:
     {
       pony_msgi_t* m = (pony_msgi_t*)msg;
-      cycle_ack(m->i);
+      cycle_ack((size_t)m->i);
       return false;
     }
 
@@ -94,7 +101,21 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         unset_flag(actor, FLAG_BLOCKED);
       }
 
-      actor->type->dispatch(actor, msg);
+      // if (!has_flag(actor, FLAG_SYSTEM)) {
+      if (0) {
+        encore_actor_t *a = (encore_actor_t *)actor;
+        getcontext(&a->ctx);
+        a->ctx.uc_stack.ss_sp = get_local_page()->stack;
+        a->ctx.uc_stack.ss_size = Stack_Size;
+        a->ctx.uc_link = &a->home_ctx;
+        a->ctx.uc_stack.ss_flags = 0;
+        makecontext(&a->ctx, (void(*)(void))actor->type->dispatch, 2, a, msg);
+        int ret = swapcontext(&a->home_ctx, &a->ctx);
+        assert(ret == 0);
+      } else {
+        actor->type->dispatch(actor, msg);
+      }
+
       return true;
     }
   }
@@ -105,7 +126,7 @@ bool actor_run(pony_actor_t* actor)
   pony_msg_t* msg;
   this_actor = actor;
 
-  if (!encore_actor_run_hook(actor)) {
+  if (!encore_actor_run_hook((encore_actor_t *)actor)) {
     return false;
   }
 

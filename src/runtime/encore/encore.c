@@ -2,7 +2,11 @@
 #include "encore.h"
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <assert.h>
+
+extern void pool_free(size_t index, void* p);
+bool has_flag(pony_actor_t* actor, uint8_t flag);
 
 enum
 {
@@ -13,7 +17,6 @@ enum
 };
 
 #define MAX_STACK_IN_POOL 4
-#define Stack_Size 64*1024
 
 static __pony_thread_local stack_page *stack_pool = NULL;
 static __pony_thread_local unsigned int available_pages = 0;
@@ -33,6 +36,13 @@ static stack_page *pop_page()
   stack_pool = page->next;
   return page;
 }
+
+stack_page *get_local_page()
+{
+    local_page = local_page ? local_page : pop_page();
+    return local_page;
+}
+
 
 static void push_page(stack_page *page)
 {
@@ -162,10 +172,32 @@ bool encore_actor_run_hook(encore_actor_t *actor)
 {
   if(actor->resume)
   {
-    // actor_resume(actor);
-    return !has_flag(actor, FLAG_UNSCHEDULED);
+    actor_resume(actor);
+    return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
   }
 
-  // clean_pool();
+  clean_pool();
   return true;
+}
+
+bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg)
+{
+  switch(msg->id)
+  {
+    case _ENC__MSG_RESUME_SUSPEND:
+      assert(-1);
+      // future_suspend_resume(msg->argv[0].p);
+      return true;
+
+    case _ENC__MSG_RESUME_AWAIT:
+      assert(-1);
+      // future_await_resume(msg->argv);
+      return true;
+
+    case _ENC__MSG_RUN_CLOSURE:
+      assert(-1);
+      // run_closure(msg->argv[0].p, msg->argv[1].p, msg->argv[2].p);
+      return true;
+  }
+  return false;
 }
