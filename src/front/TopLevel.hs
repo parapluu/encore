@@ -40,14 +40,14 @@ import CCode.PrettyCCode
 data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run | 
-              KeepCFiles | Undefined String | 
+data Option = GCC | Clang | Run |
+              KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly
 	deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
-parseArguments args = 
+parseArguments args =
     let
         parseArguments' []   = []
         parseArguments' args = opt : (parseArguments' rest)
@@ -65,7 +65,7 @@ parseArguments args =
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
-      let (sources, aux) = partition isSource (parseArguments' args) 
+      let (sources, aux) = partition isSource (parseArguments' args)
           (imports, options) = partition isImport aux
       in
       (map getName sources, ("./" :) $ map (++ "/") $ concat $ map getDirs imports, options)
@@ -118,9 +118,9 @@ compileProgram prog sourcePath options =
            flags = "-ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
-           libs  = libPath ++ "*.a" 
+           libs  = libPath ++ "*.a"
            cmd   = cc <+> flags <+> oFlag <+> libs <+> incs
-           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile
+           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $ generateMakefile ponyNames execName cc flags incPath libs)
