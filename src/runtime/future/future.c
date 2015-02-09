@@ -1,8 +1,4 @@
-#ifndef __future__
-#define __future__
-
 #define _XOPEN_SOURCE 800
-
 #include <ucontext.h>
 
 #include <stdbool.h>
@@ -15,14 +11,13 @@
 
 #include "encore.h"
 #include "future.h"
-#include "../encore/encore.h"
 #include "../src/actor/messageq.h"
 
 #define BLOCK    pthread_mutex_lock(&fut->lock);
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
-extern pony_actor_t *actor_current(); 
+extern pony_actor_t *actor_current();
 
 typedef struct chain_entry chain_entry_t;
 typedef struct actor_entry actor_entry_t;
@@ -87,8 +82,8 @@ struct future
   closure_entry_t *children;
 };
 
-static inline future_gc_send(future_t *fut);
-static inline future_gc_recv(future_t *fut);
+static inline void future_gc_send(future_t *fut);
+static inline void future_gc_recv(future_t *fut);
 
 pony_type_t future_type = 
   {
@@ -129,17 +124,15 @@ void future_trace(void* p)
         }
     }
 
-  for (int i = 0; i < fut->no_responsibilities; ++i)
-    {
-      pony_traceactor(fut->responsibilities[i].message.actor);
-    }
+  for (int i = 0; i < fut->no_responsibilities; ++i) {
+    pony_traceactor(fut->responsibilities[i].message.actor);
+  }
 
-  for (closure_entry_t *c = fut->children; c; c = c->next) 
-    {
-      pony_traceactor(c->actor);
-      future_trace(c->future);
-      closure_trace(c->closure);
-    }
+  for (closure_entry_t *c = fut->children; c; c = c->next) {
+    pony_traceactor(c->actor);
+    future_trace(c->future);
+    closure_trace(c->closure);
+  }
 
   if (fut->closure) closure_trace(fut->closure);
 
@@ -194,9 +187,10 @@ void future_fulfil(future_t *fut, encore_arg_t value)
   fut->value = value;
   fut->fulfilled = true;
 
-  future_gc_send(fut);
-  
+  // future_gc_send(fut);
+
   // Unblock on blocked actors
+  // TODO chained futures not handled yet
   closure_entry_t *current = fut->children;
   bool blocked;
   while(current) {
@@ -215,15 +209,14 @@ void future_fulfil(future_t *fut, encore_arg_t value)
     current = current->next;
   }
 
-  for (int i = 0; i < fut->no_responsibilities; ++i)
-  {
+  for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
     switch (e.type)
     {
       case BLOCKED_MESSAGE:
         {
           perr("Unblocking");
-          /// actor_set_resume(e.message.actor);
+          actor_set_resume((encore_actor_t*)e.message.actor);
           pony_schedule(e.message.actor);
           break;
         }
@@ -242,10 +235,6 @@ void future_fulfil(future_t *fut, encore_arg_t value)
           future_fulfil(e.closure.future, result);
           break;
         }
-      default:
-        {
-          // Do nothing
-        }
     }
   }
   UNBLOCK;
@@ -260,7 +249,7 @@ encore_arg_t future_get_actor(future_t *fut)
   if (fut->parent == NULL) {
     future_block_actor(fut);
 
-    future_gc_recv(fut);
+    // future_gc_recv(fut);
     return fut->value;
   }
 
@@ -315,7 +304,7 @@ void future_block_actor(future_t *fut)
     fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
     UNBLOCK;
 
-    /// actor_block(a);
+    actor_block((encore_actor_t*)a);
   }
 
 }
@@ -385,7 +374,7 @@ void future_await_resume(void *argv)
   }
 }
 
-static inline future_gc_trace(future_t *fut) 
+static inline void future_gc_trace(future_t *fut)
 {
   if (fut->type == ENCORE_ACTIVE)
     {
@@ -401,7 +390,7 @@ static inline future_gc_trace(future_t *fut)
     }
 }
 
-static inline future_gc_send(future_t *fut) 
+static inline void future_gc_send(future_t *fut)
 {
   /// These probably do not do the right thing
   pony_gc_send();
@@ -409,12 +398,10 @@ static inline future_gc_send(future_t *fut)
   pony_send_done();
 }
 
-static inline future_gc_recv(future_t *fut) 
+static inline void future_gc_recv(future_t *fut)
 {
   /// These probably do not do the right thing
   pony_gc_recv();
   future_gc_trace(fut);
   pony_recv_done();
 }
-
-#endif

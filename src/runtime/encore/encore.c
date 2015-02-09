@@ -84,7 +84,8 @@ void actor_suspend(encore_actor_t *actor)
   // pony_sendv(actor, FUT_MSG_SUSPEND, 1, argv);
 
   actor->run_to_completion = false;
-  assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
+  int ret = swapcontext(&ctxp, ctxp.uc_link);
+  assert(ret == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
 }
 
@@ -103,7 +104,8 @@ void actor_await(encore_actor_t *actor, void *future)
   // pony_sendv(actor, FUT_MSG_AWAIT, 2, argv);
 
   actor->run_to_completion = false;
-  assert(swapcontext(&ctxp, ctxp.uc_link) == 0);
+  int ret = swapcontext(&ctxp, ctxp.uc_link);
+  assert(ret == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
 }
 
@@ -115,7 +117,8 @@ void actor_block(encore_actor_t *actor)
   }
   assert(actor->page);
   actor->run_to_completion = false;
-  assert(swapcontext(&actor->ctx, actor->ctx.uc_link) == 0);
+  int ret = swapcontext(&actor->ctx, actor->ctx.uc_link);
+  assert(ret == 0);
 }
 
 void actor_set_resume(encore_actor_t *actor)
@@ -137,7 +140,8 @@ void actor_resume(encore_actor_t *actor)
 {
   actor->resume = false;
   actor->run_to_completion = true;
-  assert(swapcontext(actor->ctx.uc_link, &actor->ctx) == 0);
+  int ret = swapcontext(actor->ctx.uc_link, &actor->ctx);
+  assert(ret == 0);
 
   if (actor->run_to_completion) {
     reclaim_page(actor);

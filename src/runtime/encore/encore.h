@@ -82,4 +82,6 @@ int encore_start(int argc, char** argv, pony_type_t *type);
 
 bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
+void actor_block(encore_actor_t *actor);
+void actor_set_resume(encore_actor_t *actor);
 #endif /* end of include guard: ENCORE_H_6Q243YHL */
