@@ -1,5 +1,5 @@
 
-module Makefile where 
+module Makefile where
 
 import Text.PrettyPrint
 
@@ -23,7 +23,7 @@ o = (text "-o" <+>)
 parent = text ".."
 
 generateMakefile :: [String] -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath libs = 
+generateMakefile classFiles progName compiler ccFlags incPath libs =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
@@ -40,7 +40,7 @@ generateMakefile classFiles progName compiler ccFlags incPath libs =
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, lib, deps, o target])
+         (cc [flags, i inc, i parent, lib, deps, lib, lib, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])
