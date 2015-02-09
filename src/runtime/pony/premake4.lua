@@ -33,6 +33,7 @@ solution "ponyrt"
       "-mcx16",
       "-pthread",
       "-std=gnu11",
+      "-fms-extensions",
       "-march=native"
       }
 
@@ -89,46 +90,29 @@ solution "ponyrt"
   -- include("test/")
 
 project "closure"
-  kind "StaticLib"
-  language "C"
-  buildoptions {
-    "-fms-extensions"
-  }
-  includedirs { "../encore", "../future", "../closure" }
+  c_lib()
   files {
     "../closure/closure.h",
     "../closure/closure.c"
   }
 
 project "encore"
-  kind "StaticLib"
-  language "C"
-  buildoptions {
-    "-fms-extensions"
-  }
-  -- includedirs { "../closure", "../set", "../encore", "../future" }
+  c_lib()
   files {
     "../encore/encore.h",
     "../encore/encore.c"
   }
 
 project "array"
-  kind "StaticLib"
-  language "C"
-  includedirs { "../encore" }
+  c_lib()
   files {
     "../array/array.h",
     "../array/array.c"
   }
 
 project "stream"
-  kind "StaticLib"
-  language "C"
-  buildoptions {
-    "-fms-extensions"
-  }
+  c_lib()
   links { "future" }
-  includedirs { "../closure", "../set", "../encore", "../future" }
   files {
     "../stream/stream.h",
     "../stream/stream.c"
@@ -144,15 +128,11 @@ project "stream"
 --   }
 
 project "future"
-  kind "StaticLib"
-  language "C"
+  c_lib()
   links { "closure", "set" }
   buildoptions {
       "-Wno-deprecated-declarations",
-      "-fms-extensions",
-      "-std=gnu11"
   }
-  includedirs { "../closure", "../set", "../encore", "../future", "src/sched" }
   files {
     "../future/future.c",
   }
