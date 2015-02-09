@@ -1,8 +1,9 @@
-
-
 {-
-	Draws the mandelbrot set from  -1.5-i to 1.5+i on a N by N thing
-    Just pipe the output to a .pbm file to se some minor awesomeness.
+	Plots the mandelbrot set from (-1.5-i) to (0.5+i) to a N*N
+	.pbm file and dumps it to stdout.
+	
+	Every row of the image is computed asynchronusly.
+
 -}
 
 
@@ -140,7 +141,7 @@ passive class Node{
         
         
 		
---This ugly class corresponds to one row of the mandelbrot plot.
+
 class Line
   array : IntArray
   width : int
