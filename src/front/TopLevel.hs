@@ -115,7 +115,7 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -lpthread -Wno-attributes"
+           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
            libs  = libPath ++ "*.a"
