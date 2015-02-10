@@ -103,6 +103,7 @@ pony_type_t *future_get_type(future_t *fut){
 void future_trace(void* p)
 {
   /// TODO: find out what should actually be traced in a future.
+    return;
 
   /// Currently this does not block -- as futures grow monotonically,
   /// concurrent access should not be a problem.
@@ -204,6 +205,7 @@ void future_fulfil(future_t *fut, encore_arg_t value)
     }
     if (!blocked) {
       encore_arg_t argv[3] = { { .p = current->closure }, value, { .p = current->future } };
+      // TODO how to send three args
       // pony_sendv(current->actor, FUT_MSG_RUN_CLOSURE, 3, argv);
     }
     current = current->next;
@@ -265,7 +267,7 @@ future_t  *future_chain_actor(future_t *fut, future_t* r, closure_t *c)
 {
   perr("future_chain_actor");
 
-  closure_entry_t *entry = pony_alloc(sizeof *entry);
+  closure_entry_t *entry = encore_alloc(sizeof *entry);
   entry->actor = actor_current();
   entry->future = r;
   entry->closure = c;

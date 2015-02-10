@@ -126,8 +126,10 @@ bool actor_run(pony_actor_t* actor)
   pony_msg_t* msg;
   this_actor = actor;
 
-  if (!encore_actor_run_hook((encore_actor_t *)actor)) {
-    return false;
+  if (!has_flag(actor, FLAG_SYSTEM)) {
+    if (!encore_actor_run_hook((encore_actor_t *)actor)) {
+      return false;
+    }
   }
 
   if(heap_startgc(&actor->heap))
