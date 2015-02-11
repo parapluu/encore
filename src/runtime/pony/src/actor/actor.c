@@ -101,8 +101,9 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         unset_flag(actor, FLAG_BLOCKED);
       }
 
-      if (!has_flag(actor, FLAG_SYSTEM)) {
-      // if (0) {
+      // if (!has_flag(actor, FLAG_SYSTEM)) {
+      if (0) {
+        printf("pony actor is %lu\n", sizeof(pony_actor_t));
         encore_actor_t *a = (encore_actor_t *)actor;
         getcontext(&a->ctx);
         a->ctx.uc_stack.ss_sp = get_local_page()->stack;
