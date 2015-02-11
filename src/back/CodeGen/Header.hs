@@ -24,6 +24,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        IfNDefine "HEADER_H" $
        Concat $ 
        HashDefine "HEADER_H" :
+       (HashDefine "_XOPEN_SOURCE 800") :
        (Includes [
          "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
          "pony/pony.h",
