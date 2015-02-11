@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 800
+#include "ucontext.h"
 #include "actor.h"
 #include "messageq.h"
 #include "../sched/scheduler.h"
