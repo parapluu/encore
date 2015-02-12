@@ -20,6 +20,7 @@ translatePrimitive :: Ty.Type -> CCode Ty
 translatePrimitive ty
     | Ty.isVoidType ty   = Ptr void
     | Ty.isIntType ty    = int
+    | Ty.isUIntType ty   = uint
     | Ty.isRealType ty   = double
     | Ty.isBoolType ty   = bool
     | Ty.isStringType ty = Ptr char

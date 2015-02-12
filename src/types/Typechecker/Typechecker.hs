@@ -700,6 +700,10 @@ instance Checkable Expr where
     typecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
     typecheck intLit@(IntLiteral {}) = return $ setType intType intLit
+    typecheck uintLit@(UIntLiteral {uintLit=lit}) =
+      do if lit < 0
+            then tcError $ "negative uint literal"
+            else return $ setType uintType uintLit
 
     typecheck realLit@(RealLiteral {}) = return $ setType realType realLit
 
@@ -774,7 +778,9 @@ instance Checkable Expr where
         coerceTypes ty1 ty2
             | isRealType ty1 = realType
             | isRealType ty2 = realType
-            | otherwise = intType
+            | isIntType ty1  = intType
+            | isIntType ty2  = intType
+            | otherwise      = uintType
 
     typecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-|
 
 Prints the source code that an "AST.AST" represents. Each node in
@@ -183,6 +183,7 @@ ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
+ppExpr UIntLiteral {uintLit} = int uintLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Unary {op, operand} = ppUnary op <+> ppExpr operand

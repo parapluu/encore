@@ -1,0 +1,14 @@
+class Foo {
+  def pruint(x: uint) : void {
+    print x
+  }
+}
+
+class Main {
+  def main() : void
+    let x = 12u
+        f = new Foo
+    in {
+      get f.pruint(x*2u)
+    }
+}

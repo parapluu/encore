@@ -342,7 +342,7 @@ The available primitive types and example literals for them are:
   (list @code{string} @code{"hello"})
   (list @code{real}   @code{1.234, -3.141592})
   (list @code{int}    @code{1, -12})
-  (list @code{uint}   @code{42})
+  (list @code{uint}   @code{42u})
   (list @code{bool}   @code{true, false})
   (list @code{void}   @code{()})
 )]

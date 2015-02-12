@@ -172,6 +172,7 @@ typ  =  try arrow
           where read "void"   = voidType
                 read "string" = stringType
                 read "int"    = intType
+                read "uint"   = uintType
                 read "real"   = realType
                 read "bool"   = boolType
                 read id 
@@ -362,6 +363,7 @@ expr  =  unit
      <|> sequence
      <|> stringLit
      <|> try real
+     <|> try uint
      <|> int
      <?> "expression"
     where
@@ -499,6 +501,11 @@ expr  =  unit
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
+      uint = do pos <- getPosition
+                n <- natural
+                _ <- char 'u'
+                whiteSpace
+                return $ UIntLiteral (meta pos) (fromInteger n)
       int = do pos <- getPosition
                n <- natural
                return $ IntLiteral (meta pos) (fromInteger n)

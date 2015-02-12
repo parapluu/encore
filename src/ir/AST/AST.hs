@@ -208,6 +208,8 @@ data Expr = Skip {emeta :: Meta Expr}
                            stringLit :: String}
           | IntLiteral {emeta :: Meta Expr, 
                         intLit :: Int}
+          | UIntLiteral {emeta :: Meta Expr,
+                         uintLit :: Int}
           | RealLiteral {emeta :: Meta Expr, 
                          realLit :: Double}
           | Embed {emeta :: Meta Expr,

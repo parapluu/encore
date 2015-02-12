@@ -45,6 +45,7 @@ instance Translatable ID.Op (CCode Name) where
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty
     | Ty.isIntType ty    = "%lli"
+    | Ty.isUIntType ty   = "%lli"
     | Ty.isRealType ty   = "%f"
     | Ty.isStringType ty = "%s"
     | Ty.isBoolType ty   = "bool<%zd>"
@@ -90,6 +91,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate true@(A.BTrue {}) = named_tmp_var "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = named_tmp_var "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)
   translate lit@(A.IntLiteral {A.intLit = i}) = named_tmp_var "literal" (A.getType lit) (Int i)
+  translate lit@(A.UIntLiteral {A.uintLit = i}) = named_tmp_var "literal" (A.getType lit) (Int i)
   translate lit@(A.RealLiteral {A.realLit = r}) = named_tmp_var "literal" (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = named_tmp_var "literal" (A.getType lit) (String s)
 
@@ -517,6 +519,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         arg_member ty e
             | Ty.isVoidType ty = e
             | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
+            | Ty.isUIntType ty = AsExpr $ e `Dot` Nam "i"
             | Ty.isBoolType ty = AsExpr $ e `Dot` Nam "i"
             | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
             | otherwise        = AsExpr $ e `Dot` Nam "p"
@@ -526,6 +529,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             where
               arg_member ty
                   | Ty.isIntType  ty = Nam "i"
+                  | Ty.isUIntType ty = Nam "i"
                   | Ty.isBoolType ty = Nam "i"
                   | Ty.isRealType ty = Nam "d"
                   | otherwise        = Nam "p"

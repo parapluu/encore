@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module Types(Type, arrowType, isArrowType, futureType, isFutureType, 
              parType, isParType, streamType, isStreamType, arrayType, isArrayType,
@@ -7,9 +8,9 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              isActiveRefType, isPassiveRefType, isMainType,
              makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
              voidType, isVoidType, nullType, isNullType, 
-             boolType, isBoolType, intType, isIntType, 
-             realType, isRealType, stringType, isStringType, 
-             isPrimitive, isNumeric, emptyType,
+             boolType, isBoolType, intType, uintType, isIntType,
+             isUIntType, realType, isRealType, stringType,
+             isStringType, isPrimitive, isNumeric, emptyType,
              getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
              typeComponents, subtypeOf, typeMap) where
 
@@ -24,7 +25,7 @@ data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity, parameter
 instance Eq RefTypeInfo where
     RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
 
-data Type = VoidType | StringType | IntType | BoolType | RealType
+data Type = VoidType | StringType | IntType | UIntType | BoolType | RealType
           | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type} 
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
@@ -83,6 +84,7 @@ instance Show Type where
     show VoidType          = "void"
     show StringType        = "string"
     show IntType           = "int"
+    show UIntType          = "uint"
     show RealType          = "real"
     show BoolType          = "bool"
     show (RefType (RefTypeInfo {refId, parameters = []})) = refId
@@ -176,8 +178,14 @@ isBoolType = (== boolType)
 intType :: Type
 intType = IntType
 
+uintType :: Type
+uintType = UIntType
+
 isIntType :: Type -> Bool
 isIntType = (== intType)
+
+isUIntType :: Type -> Bool
+isUIntType = (== uintType)
 
 realType :: Type
 realType = RealType
@@ -192,13 +200,13 @@ isStringType :: Type -> Bool
 isStringType = (== stringType)
 
 primitives :: [Type]
-primitives = [voidType, intType, realType, boolType, stringType]
+primitives = [voidType, intType, uintType, realType, boolType, stringType]
 
 isPrimitive :: Type -> Bool
 isPrimitive = flip elem primitives
 
 isNumeric :: Type -> Bool
-isNumeric ty = isRealType ty || isIntType ty
+isNumeric ty = isRealType ty || isIntType ty || isUIntType ty
 
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
