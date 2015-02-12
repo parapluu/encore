@@ -127,7 +127,7 @@ angles     = P.angles lexer
 brackets   = P.brackets lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
-natural = P.integer lexer
+integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
@@ -500,7 +500,7 @@ expr  =  unit
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
       int = do pos <- getPosition
-               n <- natural
+               n <- integer
                return $ IntLiteral (meta pos) (fromInteger n)
       real = do pos <- getPosition
                 r <- float
