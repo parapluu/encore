@@ -2,7 +2,7 @@
 	Plots the mandelbrot set from (-1.5-i) to (0.5+i) to a N*N
 	.pbm file and dumps it to stdout.
 	
-	Every row of the image is computed asynchronusly.
+	Every row of the image is computed asynchronously.
 
 -}
 
@@ -139,9 +139,6 @@ passive class Node{
         
 }
         
-        
-		
-
 class Line
   array : IntArray
   width : int
@@ -197,11 +194,6 @@ class Line
 
     def  getArray() : IntArray
         this.array
-	
-		
-
-
-
 
 
 passive class D
