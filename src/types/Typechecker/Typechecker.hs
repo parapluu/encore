@@ -119,7 +119,10 @@ instance Checkable Function where
         do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) funparams
            ty <- local (addTypeParameters typeParams) $ checkType funtype
            eParams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) funparams
-           eBody <- local (addParams eParams) $ pushHasType funbody ty
+           eBody <- local (addParams eParams) $
+                          if isVoidType ty
+                          then pushTypecheck funbody
+                          else pushHasType funbody ty
            return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
@@ -188,7 +191,10 @@ instance Checkable MethodDecl where
            Just thisType <- asks $ varLookup thisName
            when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
-           eBody <- local (addParams eMparams) $ pushHasType mbody ty
+           eBody <- local (addParams eMparams) $
+                          if isVoidType ty
+                          then pushTypecheck mbody
+                          else pushHasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
