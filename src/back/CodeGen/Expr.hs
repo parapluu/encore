@@ -268,7 +268,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          tmp <- Ctx.gen_named_sym "size"
          let the_size = Assign (Decl (int, Var tmp)) 
                                (Call (Nam "array_size") [ntarg])
-         return (Var tmp, the_size)
+         return (Var tmp, Seq [ttarg, the_size])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
       | (A.isThisAccess target) ||
