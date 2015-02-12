@@ -3,67 +3,7 @@
 {-| 
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
-following grammar:
-
-@
-    Program ::= {Imports}* {EmbedTL}? ClassDecl Program | eps
-    Imports ::= import {qualified}? Name {(Name,...)}? {as Name}?
-    EmbedTL ::= embed .* body .* end | embed .* end
-  ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
- FieldDecls ::= Name : Type FieldDecl | eps
- ParamDecls ::= Name : Type , ParamDecl | eps
-MethodDecls ::= def Name ( ParamDecls ) : Type Expr
-   Sequence ::= Expr Seq | eps
-        Seq ::= ; Expr Seq | ; | eps
-  Arguments ::= Expr Args | eps
-       Args ::= , Expr Args | eps
-   LetDecls ::= Name = Expr LetDecls | eps
-       Expr ::= ()
-              | embed Type .* end
-              | Expr . Name
-              | Expr . Name ( Arguments )
-              | Expr ! Name ( Arguments )
-              | print Expr
-              | Name ( Arguments )
-              | ( Expr )
-              | Name
-              | let LetDecls in Expr
-              | Expr = Expr
-              | { Sequence }
-              | if Expr then Expr else Expr
-              | if Expr then Expr
-              | unless Expr then Expr
-              | while Expr Expr
-              | repeat Name <- Expr Expr
-              | get Expr
-              | await Expr
-              | suspend
-              | new Type ( Arguments )
-              | new Type
-              | null
-              | true
-              | false
-              | \" String \"
-              | Int
-              | Real
-              | Expr Op Expr
-              | not Expr
-              | \\ ( ParamDecls ) -> Expr
-        Op ::= \< | \> | == | != | + | - | * | / | % | and | or
-      Name ::= [a-zA-Z][a-zA-Z0-9_]*
-       Int ::= [0-9]+
-      Real ::= Int . Int
-    String ::= ([^\"]|\\\")*
-      Type ::= Arrow | NonArrow
-     Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
-  NonArrow ::= string | int | bool | void | RefType
-             | Fut Type | Par Type | (Type)
-     Types ::= Type Tys | eps
-       Tys ::= , Type Tys | eps
-   RefType ::= [A-Z][a-zA-Z0-9_]*
-@
-
-Keywords: @ class def embed body end Fut let in passive if then else while await suspend get null new Par print @
+grammar found in @doc/encore/@
 
 -}
 
