@@ -12,7 +12,8 @@ class Main
   def main() : void
     let 
       plot_iterations = 50                        
-      tree_depth = 8                                
+      tree_depth = 8
+      argc = embed int argc; end                                
       size = embed int atoi(argv[1]); end
       tree = null : BiTree
       shared = new Shared
@@ -20,6 +21,9 @@ class Main
       done = false
     in{
     
+        if(argc == 3) then {
+             tree_depth = embed int atoi(argv[2]); end; 
+        };
         shared = new Shared(plot_iterations,tree_depth,size,-1*1.5,0.5);
 
         tree = new BiTree(0,-1*1.0 ,1.0, size,0,shared);
