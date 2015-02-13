@@ -1,6 +1,6 @@
 
 All of these test where performed on a Intel Core i7-950 (4 physical cores, 8 logical cores), 8 GB of RAM and
-running XUbuntu 14.10 (Linux 3.16.0-30-generic). All tests where performed with the same backround processes running.
+running XUbuntu 14.10 (Linux 3.16.0-30-generic). All tests where performed with the same background processes running.
 Each program was run three times with the same parameters.
 
 CPU usage
@@ -54,10 +54,10 @@ load: 257%
 
 Encore Tree
 ---
-This version of the encore program devides the plot region into halves (on the imaginary axis) and plots.
-The trre structure is generated recursivley and concurently. Each "leaf" of the tree then performs the 
-computation of the mandelbrot set in paralel and all leaves write the results asyncronysly to the same array.
-The printout isn't performed untill all of the leaves are done. The second coimmandline argument is the depth of the tree.
+This version of the encore program divides the plot region into halves (on the imaginary axis) and plots.
+The tree structure is generated recursively and concurrently. Each "leaf" of the tree then performs the 
+computation of the Mandelbrot set in parallel and all leaves write the results asynchronously to the same array.
+The printout isn't performed until all of the leaves are done. The second command line argument is the depth of the tree.
 
 ```
 ./mbr-tree --ponythreads 8 16000 10
@@ -188,10 +188,6 @@ user-time: 142.05
 system-time: 0.32
 load: 772%
 ```
-
-
-
-
 
 
 
