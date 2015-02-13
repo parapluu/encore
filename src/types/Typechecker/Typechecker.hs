@@ -119,7 +119,10 @@ instance Checkable Function where
         do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) funparams
            ty <- local (addTypeParameters typeParams) $ checkType funtype
            eParams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) funparams
-           eBody <- local (addParams eParams) $ pushHasType funbody ty
+           eBody <- local (addParams eParams) $
+                          if isVoidType ty
+                          then pushTypecheck funbody
+                          else pushHasType funbody ty
            return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
@@ -188,7 +191,10 @@ instance Checkable MethodDecl where
            Just thisType <- asks $ varLookup thisName
            when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
-           eBody <- local (addParams eMparams) $ pushHasType mbody ty
+           eBody <- local (addParams eMparams) $
+                          if isVoidType ty
+                          then pushTypecheck mbody
+                          else pushHasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
@@ -718,7 +724,8 @@ instance Checkable Expr where
         eOperand <- pushTypecheck operand
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
-                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types"
+                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types\n" ++
+                          "Expression '" ++ (show $ ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
         return $ setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}
@@ -743,7 +750,9 @@ instance Checkable Expr where
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types"
+                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
           return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` cmpOps =
           do eLoper <- pushTypecheck loper
@@ -751,7 +760,9 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
              return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` eqOps =
           do eLoper <- pushTypecheck loper
@@ -763,7 +774,9 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
              return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
       | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
       where
