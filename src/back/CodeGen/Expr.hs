@@ -526,7 +526,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (calln, the_call) <- named_tmp_var "clos" ty $ AsExpr $ from_encore_arg_t (Call (Nam "closure_call") [clos, tmp_args]) (translate ty)
     let comment = Comm ("fcall name: " ++ show name ++ " (" ++ show (Ctx.subst_lkp c name) ++ ")")
     return (if Ty.isVoidType ty then unit else calln, Seq [comment, tmp_arg_decl, the_call])
-        translateArgument arg =
+        where 
+          translateArgument arg =
             do (ntother, tother) <- translate arg
                return $ as_encore_arg_t (StatAsExpr ntother tother) (translate $ A.getType arg)
 

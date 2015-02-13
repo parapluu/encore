@@ -8,6 +8,7 @@ import CodeGen.CCodeNames
 import CodeGen.Expr
 import CodeGen.Type
 import CodeGen.Closure
+import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -22,13 +23,13 @@ import Control.Monad.State hiding(void)
 import Data.Maybe
 import Data.List
 
-instance Translatable A.Function (CCode Toplevel) where
+instance Translatable A.Function (ClassTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
-  translate fun@(A.Function {A.funtype, A.funname, A.funparams, A.funbody}) =
+  translate fun@(A.Function {A.funtype, A.funname, A.funparams, A.funbody}) ctable =
       let argTypes = map (\A.Param{A.ptype} -> ptype) funparams
           fun_name = global_function_name funname
-          ((bodyName, bodyStat), _) = runState (translate funbody) Ctx.empty
-          closures = map translateClosure (reverse (Util.filter A.isClosure funbody)) 
+          ((bodyName, bodyStat), _) = runState (translate funbody) $ Ctx.empty ctable
+          closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure funbody)) 
       in
         Concat $ 
         closures ++ 

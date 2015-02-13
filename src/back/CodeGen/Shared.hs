@@ -6,12 +6,13 @@ import CCode.Main
 import CodeGen.CCodeNames
 import CodeGen.Typeclasses
 import CodeGen.Function
+import CodeGen.ClassTable
 import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
-generate_shared :: A.Program -> CCode FIN
-generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} = 
+generate_shared :: A.Program -> ClassTable -> CCode FIN
+generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} ctable = 
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -43,7 +44,7 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
                          (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
       
-      global_functions = map translate functions
+      global_functions = map (\fun -> translate fun ctable) functions
 
       main_function =
           Function (Typ "int") (Nam "main")

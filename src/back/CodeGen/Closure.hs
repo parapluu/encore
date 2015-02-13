@@ -6,6 +6,7 @@ module CodeGen.Closure where
 import CodeGen.Typeclasses
 import CodeGen.Expr
 import CodeGen.CCodeNames
+import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 import CCode.Main
 
@@ -20,8 +21,8 @@ import Control.Monad.Reader hiding(void)
 import Control.Monad.State hiding(void)
 import Data.Maybe
 
-translateClosure :: A.Expr -> CCode Toplevel
-translateClosure closure 
+translateClosure :: A.Expr -> ClassTable -> CCode Toplevel
+translateClosure closure ctable
     | A.isClosure closure = 
            let arrowType  = A.getType closure
                resultType = Ty.getResultType arrowType
@@ -33,7 +34,7 @@ translateClosure closure
                env_name   = closure_env_name id
                trace_name = closure_trace_name id
                freeVars   = Util.freeVariables (map A.pname params) body
-               ((bodyName, bodyStat), _) = runState (translate body) Ctx.empty
+               ((bodyName, bodyStat), _) = runState (translate body) $ Ctx.empty ctable
            in
              Concat [buildEnvironment env_name freeVars,
                      tracefun_decl trace_name env_name freeVars,
