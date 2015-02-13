@@ -46,10 +46,10 @@ generateMakefile classFiles progName compiler ccFlags incPath libs =
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, lib, deps, lib, lib, o target])
+         (cc [flags, i inc, i parent, deps, lib, o target])
     $\$
     rule bench deps
-         (cc [bench_flags, i inc, i parent, lib, deps, lib, lib, o target])
+         (cc [bench_flags, i inc, i parent, deps, lib, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])
