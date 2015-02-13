@@ -523,26 +523,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     let ty = A.getType fcall
     targs <- mapM translateArgument args
     (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs
-    (calln, the_call) <- named_tmp_var "clos" ty $ arg_member ty (Call (Nam "closure_call") [clos, tmp_args])
+    (calln, the_call) <- named_tmp_var "clos" ty $ AsExpr $ from_encore_arg_t (Call (Nam "closure_call") [clos, tmp_args]) (translate ty)
     let comment = Comm ("fcall name: " ++ show name ++ " (" ++ show (Ctx.subst_lkp c name) ++ ")")
     return (if Ty.isVoidType ty then unit else calln, Seq [comment, tmp_arg_decl, the_call])
-      where
-        arg_member :: Ty.Type -> CCode Expr -> CCode Expr
-        arg_member ty e
-            | Ty.isVoidType ty = e
-            | Ty.isIntType  ty = AsExpr $ e `Dot` Nam "i"
-            | Ty.isBoolType ty = AsExpr $ e `Dot` Nam "i"
-            | Ty.isRealType ty = AsExpr $ e `Dot` Nam "d"
-            | otherwise        = AsExpr $ e `Dot` Nam "p"
         translateArgument arg =
             do (ntother, tother) <- translate arg
-               return $ UnionInst (arg_member $ A.getType arg) (StatAsExpr ntother tother)
-            where
-              arg_member ty
-                  | Ty.isIntType  ty = Nam "i"
-                  | Ty.isBoolType ty = Nam "i"
-                  | Ty.isRealType ty = Nam "d"
-                  | otherwise        = Nam "p"
+               return $ as_encore_arg_t (StatAsExpr ntother tother) (translate $ A.getType arg)
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 

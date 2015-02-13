@@ -27,7 +27,9 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym
+type SourceProgram = Program
+
+data Context = Context VarSubTable NextSym SourceProgram
 
 empty :: Context
 empty = Context [] 0
