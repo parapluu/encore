@@ -1,5 +1,5 @@
 --- The following are available to the programmer.
-
+import Utils
 -- The value that signals the stop of a computation. 
 -- stop :: Par T
 def stop() : ParT {
@@ -93,7 +93,21 @@ def pmap(f : T -> T, x : ParT) : ParT {
   else par(pmap(f, x.left()), pmap(f, x.right()) )
 }
 
-
+-- List<T> != List<Fut T>
+-- In the future we could imagine doing this operation
+-- over any kind of collection.
+def each(l: List<T>): ParT {
+  if (l.size()==0) then { 
+    stop();
+  } else {
+    let party = parone(l.pop()) in {
+      while(l.size() != 0) {
+        par(party, parone(l.pop()));
+      };
+      party
+    }
+  }
+}
 
 --
 -- data Par t = Stop                   -- empty structures
@@ -181,3 +195,6 @@ passive class ParT {
   }
 }
 
+class Main
+  def main(): void
+    print "Works"
