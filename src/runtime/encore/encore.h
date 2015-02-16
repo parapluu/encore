@@ -87,4 +87,8 @@ bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
 void actor_block(encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
+
+/// calls the pony's respond with the current object's scheduler
+void call_respond_with_current_scheduler();
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

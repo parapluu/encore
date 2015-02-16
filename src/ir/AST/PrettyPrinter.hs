@@ -21,6 +21,7 @@ import AST.AST
 
 ppClass = text "class"
 ppSkip = text "()"
+ppBreathe = text "breathe"
 ppLet = text "let"
 ppIn = text "in"
 ppIf = text "if"
@@ -128,15 +129,16 @@ ppSugared e = case getSugared e of
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
-ppExpr MethodCall {target, name, args} = 
-    maybeParens target <> ppDot <> ppName name <> 
+ppExpr Breathe {} = ppBreathe
+ppExpr MethodCall {target, name, args} =
+    maybeParens target <> ppDot <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args} = 
-    maybeParens target <> ppBang <> ppName name <> 
+ppExpr MessageSend {target, name, args} =
+    maybeParens target <> ppBang <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr FunctionCall {name, args} = 
+ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
-ppExpr Closure {eparams, body} = 
+ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Let {decls, body} = 
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
