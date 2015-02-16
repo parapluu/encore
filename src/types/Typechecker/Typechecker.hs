@@ -636,6 +636,20 @@ instance Checkable Expr where
            return $ setType ty' new
 
    ---  |- ty
+    --  classLookup(ty) = _
+    --  ty != Main
+    -- ----------------------
+    --  E |- peer ty : ty
+    typecheck peer@(Peer {ty}) =
+        do ty' <- checkType ty
+           unless (isActiveRefType ty') $
+                  tcError $ "Cannot create an object of type '" ++
+                  show ty ++ "'"
+           when (isMainType ty') $
+                tcError "Cannot create additional Main objects"
+           return $ setType ty' peer
+
+   ---  |- ty
     --  E |- size : int
     -- ----------------------------
     --  E |- new [ty](size) : [ty]

@@ -222,6 +222,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              return $ (Var na, Assign (Decl (translate ty, Var na))
                                       (Call (Nam "encore_alloc") [size]))
 
+  translate (A.Peer {A.ty})
+      | Ty.isActiveRefType ty =
+          named_tmp_var "peer" ty $
+                        Cast (Ptr . AsType $ class_type_name ty)
+                        (Call (Nam "encore_peer_create")
+                              [Amp $ runtime_type_name ty])
+
+      | otherwise =
+          error $  "can not have passive peer '"++show ty++"'"
+
   translate arrNew@(A.ArrayNew {A.ty, A.size}) =
       do arr_name <- Ctx.gen_named_sym "array"
          size_name <- Ctx.gen_named_sym "size"

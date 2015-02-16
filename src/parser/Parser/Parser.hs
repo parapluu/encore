@@ -43,7 +43,7 @@ lexer =
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "module"],
+                                  "Fut", "Par", "Stream", "import", "qualified", "module", "peer"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -296,6 +296,7 @@ expr  =  unit
      <|> yield
      <|> try newWithInit
      <|> new
+     <|> peer
      <|> null
      <|> true
      <|> false
@@ -432,6 +433,10 @@ expr  =  unit
                reserved "new"
                ty <- typ
                return $ New (meta pos) ty
+      peer = do pos <- getPosition
+                reserved "peer"
+                ty <- typ
+                return $ Peer (meta pos) ty
       print = do pos <- getPosition
                  reserved "print"
                  val <- expression
