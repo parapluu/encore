@@ -74,6 +74,9 @@ struct encore_actor
 /// Create a new Encore actor
 encore_actor_t *encore_create(pony_type_t *type);
 
+/// Create a new Encore actor in another work pool
+encore_actor_t *encore_peer_create(pony_type_t *type);
+
 /// Allocate s bytes of memory, zeroed out
 void *encore_alloc(size_t s);
 

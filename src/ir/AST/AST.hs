@@ -199,6 +199,8 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | New {emeta :: Meta Expr, 
                  ty ::Type}
+          | Peer {emeta :: Meta Expr,
+                  ty ::Type}
           | Print {emeta :: Meta Expr, 
                    stringLit :: String,
                    args :: [Expr]}
@@ -249,6 +251,7 @@ instance HasMeta Expr where
 
     setType ty' expr@(TypedExpr {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
+    setType ty' expr@(Peer {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
 
