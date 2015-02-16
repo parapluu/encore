@@ -40,14 +40,8 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
                    [bodyStat, returnStmnt bodyName funtype])]
     where
       returnStmnt var ty 
-          | isVoidType ty = Return $ (arg_cast ty unit)
-          | otherwise     = Return $ (arg_cast ty var)
-          where 
-            arg_cast ty var
-                | isIntType  ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
-                | isBoolType ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
-                | isRealType ty = Cast (encore_arg_t) (UnionInst (Nam "d") var)
-                | otherwise     = Cast (encore_arg_t) (UnionInst (Nam "p") var)
+          | isVoidType ty = Return $ (as_encore_arg_t (translate ty) unit)
+          | otherwise     = Return $ (as_encore_arg_t (translate ty) var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
@@ -56,8 +50,6 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
           where
             ty = translate ptype
             arg = Var $ show pname
-            getArgument i = ArrAcc i (Var "_args") `Dot` arg_member
-            arg_member
-                | isIntType ptype  = Nam "i"
-                | isRealType ptype = Nam "d"
-                | otherwise        = Nam "p"
+            getArgument i
+                | is_encore_arg_t ty = ArrAcc i (Var "_args")
+                | otherwise = from_encore_arg_t ty $ AsExpr $ ArrAcc i (Var "_args")

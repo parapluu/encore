@@ -127,7 +127,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                       gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (Nam "future_fulfil")
                                         [AsExpr $ Var "_fut",
-                                         Cast (encore_arg_t) $ UnionInst (encore_arg_t_tag (translate mtype))
+                                         as_encore_arg_t (translate mtype) 
                                               (Call (method_impl_name cname mname)
                                               ((AsExpr . Var $ "this") :
                                               (map method_argument mparams)))]])))

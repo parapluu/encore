@@ -53,10 +53,12 @@ encore_arg_t_tag (Typ "double")  = Nam "d"
 encore_arg_t_tag other           =
     error $ "Type.hs: no encore_arg_t_tag for " ++ show other
 
-as_encore_arg_t :: CCode Expr -> CCode Ty -> CCode Expr
-as_encore_arg_t expr ty
-    | is_encore_arg_t ty = expr
+as_encore_arg_t :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
+as_encore_arg_t ty expr
+    | is_encore_arg_t ty = EmbedC expr
     | otherwise = Cast encore_arg_t $ UnionInst (encore_arg_t_tag ty) expr
 
-from_encore_arg_t :: CCode Expr -> CCode Ty -> CCode Lval
-from_encore_arg_t expr ty = expr `Dot` (encore_arg_t_tag ty)
+from_encore_arg_t :: CCode Ty -> CCode Expr -> CCode Lval
+from_encore_arg_t ty expr
+    | is_encore_arg_t ty = EmbedC expr
+    | otherwise = expr `Dot` (encore_arg_t_tag ty)

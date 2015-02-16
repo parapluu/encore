@@ -8,6 +8,7 @@ moment. -}
 
 module CodeGen.Context (
   Context,
+  class_table,
   empty,
   subst_add,
   subst_lkp,
@@ -30,7 +31,8 @@ type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for suppo
 
 data Context = Context VarSubTable NextSym ClassTable
 
-
+class_table :: Context -> ClassTable
+class_table (Context _ _ ctable) = ctable
 
 empty :: ClassTable -> Context
 empty ctable = Context [] 0 ctable

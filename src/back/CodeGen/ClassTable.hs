@@ -1,6 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module CodeGen.ClassTable (
   ClassTable,
+  lookup_method,
+  lookup_field,
   build_class_table) where
 
 import Types
