@@ -33,13 +33,13 @@ identifier_parser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
-lexer = 
-    P.makeTokenParser $ 
+lexer =
+    P.makeTokenParser $
     emptyDef { P.commentStart = "{-",
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "stream", 
+               P.reservedNames = ["passive", "class", "def", "stream", "breathe",
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
@@ -271,6 +271,7 @@ expression = buildExpressionParser opTable expr
 
 expr :: Parser Expr
 expr  =  unit
+     <|> breathe
      <|> try embed
      <|> try path
      <|> try functionCall
@@ -312,8 +313,11 @@ expr  =  unit
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
       unit = do pos <- getPosition
-                reservedOp "()" 
+                reservedOp "()"
                 return $ Skip (meta pos)
+      breathe = do pos <- getPosition
+                   reserved "breathe"
+                   return $ Breathe (meta pos)
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess
                 dot

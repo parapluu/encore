@@ -234,16 +234,21 @@ instance Checkable Expr where
                              do assertSubtypeOf exprType ty
                                 return eExpr
         where
-          coerceNull null ty 
-              | isNullType ty || 
+          coerceNull null ty
+              | isNullType ty ||
                 isTypeVar ty = tcError "Cannot infer type of null valued expression"
               | isRefType ty = return $ setType ty null
               | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
-    -- 
+    --
     -- ----------------
     --  E |- () : void
     typecheck skip@(Skip {}) = return $ setType voidType skip
+
+    --
+    -- ----------------
+    --  E |- breathe : void
+    typecheck breathe@(Breathe {}) = return $ setType voidType breathe
 
    ---  |- t
     --  E |- body : t

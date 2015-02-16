@@ -119,6 +119,7 @@ instance HasMeta MethodDecl where
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta Expr}
+          | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}

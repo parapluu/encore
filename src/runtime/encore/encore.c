@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "../sched/scheduler.c" // ugh! Need this to call respond
 
 extern void pool_free(size_t index, void* p);
 bool has_flag(pony_actor_t* actor, uint8_t flag);
@@ -211,4 +212,9 @@ bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg)
       return true;
   }
   return false;
+}
+
+void call_respond_with_current_scheduler()
+{
+  respond(this_scheduler);
 }
