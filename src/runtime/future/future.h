@@ -23,7 +23,6 @@ void         future_fulfil     (future_t *fut, encore_arg_t value);
 encore_arg_t future_get_actor(future_t *fut);
 future_t    *future_chain_actor(future_t *fut, future_t* r, closure_t *c);
 void         future_block_actor(future_t *fut); // TODO: does this belong in the public interface?
-void         future_unblock_actor(future_t *fut);
 
 // ===============================================================
 // Possibly these functions do not belong in the future library
@@ -32,6 +31,6 @@ void         future_suspend(void);
 void         future_suspend_resume(void *);
 void         future_await(future_t *);
 void         future_await_resume(void *);
-encore_arg_t run_closure(closure_t *c, encore_arg_t value, future_t *fut);
+encore_arg_t run_closure(closure_t *c, encore_arg_t value);
 
 #endif

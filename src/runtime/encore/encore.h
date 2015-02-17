@@ -59,7 +59,7 @@ typedef struct stack_page {
   struct stack_page *next;
 } stack_page;
 
-stack_page *get_local_page();
+void *get_local_page_stack();
 struct encore_actor
 {
   pony_actor_pad_t;

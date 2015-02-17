@@ -28,22 +28,24 @@ static stack_page *pop_page()
   if (available_pages == 0) {
     stack_pool = encore_alloc(sizeof *stack_pool);
     stack_pool->next = NULL;
-    posix_memalign(&stack_pool->stack, 16, Stack_Size);
+    int ret = posix_memalign(&stack_pool->stack, 16, Stack_Size);
+    assert(ret == 0);
   } else {
-    // update the remaining number of pages
     available_pages--;
   }
   stack_page *page = stack_pool;
   stack_pool = page->next;
+  assert(page->stack);
   return page;
 }
 
-stack_page *get_local_page()
+void *get_local_page_stack()
 {
     local_page = local_page ? local_page : pop_page();
-    return local_page;
+    assert(local_page);
+    assert(local_page->stack);
+    return local_page->stack;
 }
-
 
 static void push_page(stack_page *page)
 {

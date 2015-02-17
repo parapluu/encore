@@ -104,11 +104,10 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
       }
 
       if (!has_flag(actor, FLAG_SYSTEM)) {
-      /* if (0) { */
-        /* printf("pony actor is %lu\n", sizeof(pony_actor_t)); */
+      // if (0) {
         encore_actor_t *a = (encore_actor_t *)actor;
         getcontext(&a->ctx);
-        a->ctx.uc_stack.ss_sp = get_local_page()->stack;
+        a->ctx.uc_stack.ss_sp = get_local_page_stack();
         a->ctx.uc_stack.ss_size = Stack_Size;
         a->ctx.uc_link = &a->home_ctx;
         a->ctx.uc_stack.ss_flags = 0;
