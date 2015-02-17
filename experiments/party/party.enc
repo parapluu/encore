@@ -109,6 +109,22 @@ def each(l: List<int>): ParT {
   }
 }
 
+def sync_part(l: List<int>, p: ParT): List<int> {
+  if p.isS() then l
+  else if p.isV() then l.push(p.val())
+  else if p.isF() then l.push(get p.future())
+  else {
+    sync_part(l, p.left());
+    sync_part(l, p.right());
+  }
+}
+
+def sync(p: ParT): List<int> {
+  let l = new List<int> in {
+    sync_part(l, p)
+  }
+}
+
 --
 -- data Par t = Stop                   -- empty structures
 --             | V t                    -- a single value, here
