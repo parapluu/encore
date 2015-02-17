@@ -211,6 +211,14 @@ passive class ParT {
   }
 }
 
-class Main
-  def main(): void
-    print "Works"
+-- class Main
+--   def main(): void
+--     let t = 0
+-- 	t2 = 1
+--         p = parone(t)
+--         p2 = parone(t2)
+--         pp = par(p, p2) in {
+-- 	print pp
+--     }
+
+
