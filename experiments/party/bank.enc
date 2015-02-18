@@ -1,5 +1,6 @@
 import party
 
+
 def create_customers(): List<int> {
     let l = new List<int> 
         i = 1 
@@ -12,6 +13,7 @@ def create_customers(): List<int> {
       l
     }
 }
+
 
 def fetch_accounts(element: int): List<int> {
   let l = new List<int> 
@@ -26,14 +28,14 @@ def fetch_accounts(element: int): List<int> {
   }
 }
 
-def accounts(element: int): ParT {
+
+def get_accounts(element: int): ParT
   each( fetch_accounts(element) )
-}
+
 
 -- returns the amount in the given account
-def balance(account: int): int {
+def get_balance(account: int): int 
   account / 10
-}
 
 
 def filter(p : ParT, f: int -> bool): ParT {
@@ -55,19 +57,20 @@ def sum(l: List<int>): int {
   }
 }
 
+
 class Main
   def main(): void {
     let 
-      customers = create_customers() -- get customers id
-      par = each(customers)
-      filtering = \(x: int) -> { x > 9900 }
-      l = new List<int>
+      customers = create_customers()         -- get customers id
+      par = each(customers)                  -- list t -> par t
+      filtering = \(x: int) -> { x > 9900 }  -- lambda used for filtering
+      l = new List<int>                      
     in 
     {
-      par = bindp(par, accounts); -- flatten accounts
-      par = pmap(balance, par);  -- get balance per account
-      par = filter(par, filtering);
-      l = syncp(par); -- reduce operation
-      print("Total: {}", sum(l));
+      par = bindp(par, get_accounts);        -- flatten accounts
+      par = pmap(get_balance, par);          -- get balance per account
+      par = filter(par, filtering);          -- filter accounts
+      l = syncp(par);                        -- reduce operation
+      print("Total: {}\n", sum(l));
     }
   }
