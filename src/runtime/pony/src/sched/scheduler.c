@@ -290,9 +290,16 @@ static void run(scheduler_t* sched)
     }
 
     // if this returns true, reschedule the actor on our queue
-    if(actor_run(actor))
+    if(actor_run(actor)) {
+      sched = this_scheduler;
       push(sched, actor);
+    }
   }
+}
+
+void public_run()
+{
+  run(this_scheduler);
 }
 
 static DEFINE_THREAD_FN(run_thread,

@@ -103,8 +103,11 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         unset_flag(actor, FLAG_BLOCKED);
       }
 
+#ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
-      // if (0) {
+#else
+      if (0) {
+#endif
         encore_actor_t *a = (encore_actor_t *)actor;
         getcontext(&a->ctx);
         a->ctx.uc_stack.ss_sp = get_local_page_stack();
@@ -134,8 +137,10 @@ bool actor_run(pony_actor_t* actor)
     }
   }
 
+  // if(1)
   if(heap_startgc(&actor->heap))
   {
+    printf("actor %p: ", actor);
     if(actor->type->trace != NULL)
     {
       pony_gc_mark();

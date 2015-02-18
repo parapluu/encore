@@ -107,6 +107,7 @@ pony_type_t *future_get_type(future_t *fut){
 
 static void trace_closure_entry(void *p)
 {
+  pony_trace(p);
   closure_entry_t *c = (closure_entry_t*)p;
   pony_traceactor(c->actor);
   pony_traceobject(c->future, future_trace);
@@ -118,6 +119,8 @@ void future_trace(void* p)
   /// Currently this does not block -- as futures grow monotonically,
   /// concurrent access should not be a problem.
   perr("future_trace");
+
+  pony_trace(p);
 
   future_t* fut = (future_t*)p;
 

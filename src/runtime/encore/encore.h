@@ -4,6 +4,8 @@
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
 
+#define LAZY_IMPL
+
 #define Stack_Size 64*1024
 typedef struct ctx_wrapper {
   ucontext_t* ctx;
@@ -69,6 +71,7 @@ struct encore_actor
   bool resume;
   bool run_to_completion;
   stack_page *page;
+  ucontext_t *saved;
 };
 
 /// Create a new Encore actor
@@ -87,6 +90,9 @@ bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
 void actor_block(encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
+#ifdef LAZY_IMPL
+void actor_resume(encore_actor_t *actor) __attribute__ ((noreturn));
+#endif
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();

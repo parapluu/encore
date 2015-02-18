@@ -4,10 +4,16 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "../sched/scheduler.c" // ugh! Need this to call respond
+#include <ucontext.h>
 
-extern void pool_free(size_t index, void* p);
+extern void public_run();
+
 bool has_flag(pony_actor_t* actor, uint8_t flag);
+
+typedef struct context {
+  ucontext_t ctx;
+  struct context *next;
+} context;
 
 enum
 {
@@ -17,16 +23,20 @@ enum
   FLAG_PENDINGDESTROY = 1 << 3,
 };
 
-#define MAX_STACK_IN_POOL 4
+#define MAX_IN_POOL 4
 
 static __pony_thread_local stack_page *stack_pool = NULL;
 static __pony_thread_local unsigned int available_pages = 0;
 static __pony_thread_local stack_page *local_page = NULL;
 
+static __pony_thread_local context *context_pool = NULL;
+static __pony_thread_local unsigned int available_context = 0;
+static __pony_thread_local context *this_context = NULL;
+
 static stack_page *pop_page()
 {
   if (available_pages == 0) {
-    stack_pool = encore_alloc(sizeof *stack_pool);
+    stack_pool = malloc(sizeof *stack_pool);
     stack_pool->next = NULL;
     int ret = posix_memalign(&stack_pool->stack, 16, Stack_Size);
     assert(ret == 0);
@@ -62,15 +72,31 @@ void reclaim_page(encore_actor_t *a)
 
 static void clean_pool()
 {
+#ifndef LAZY_IMPL
+
   static stack_page *page, *next;
-  while (available_pages > MAX_STACK_IN_POOL) {
+  while (available_pages > MAX_IN_POOL) {
     available_pages--;
     page = stack_pool;
     next = stack_pool->next;
     free(page->stack);
-    pool_free(sizeof(stack_page), page);
+    free(page);
     stack_pool = next;
   }
+
+#else
+
+  static context *ctx, *next;
+  while (available_context > MAX_IN_POOL) {
+    available_context--;
+    ctx = context_pool;
+    next = context_pool->next;
+    free(ctx->ctx.uc_stack.ss_sp);
+    free(ctx);
+    context_pool = next;
+  }
+
+#endif
 }
 
 void actor_suspend(encore_actor_t *actor)
@@ -112,16 +138,60 @@ void actor_await(encore_actor_t *actor, void *future)
   assert(ctxp.uc_link == &actor->home_ctx);
 }
 
+static context *pop_context()
+{
+  static context *c;
+  if (available_context == 0) {
+    context_pool = malloc(sizeof *context_pool);
+    context_pool->next = NULL;
+    getcontext(&context_pool->ctx);
+    int ret = posix_memalign((void *)&context_pool->ctx.uc_stack.ss_sp, 16, Stack_Size);
+    assert(ret == 0);
+    context_pool->ctx.uc_stack.ss_size = Stack_Size;
+    context_pool->ctx.uc_stack.ss_flags = 0;
+    makecontext(&context_pool->ctx, (void(*)(void))public_run, 0);
+  } else {
+    available_context--;
+  }
+  c = context_pool;
+  context_pool = c->next;
+  assert(c->ctx.uc_stack.ss_sp);
+  return c;
+}
+
+static void push_context(context *ctx)
+{
+  available_context++;
+  ctx->next = context_pool;
+  context_pool = ctx;
+}
+
 void actor_block(encore_actor_t *actor)
 {
+#ifndef LAZY_IMPL
+
   if (!actor->page) {
+    assert(local_page->stack);
     actor->page = local_page;
     local_page = NULL;
   }
   assert(actor->page);
+  assert(actor->page->stack);
   actor->run_to_completion = false;
   int ret = swapcontext(&actor->ctx, actor->ctx.uc_link);
   assert(ret == 0);
+
+#else
+
+  ucontext_t ctx;
+  actor->saved = &ctx;
+  context *previous = this_context;
+  this_context = pop_context();
+  int ret = swapcontext(&ctx, &this_context->ctx);
+  assert(ret == 0);
+  this_context = previous;
+
+#endif
 }
 
 void actor_set_resume(encore_actor_t *actor)
@@ -141,6 +211,8 @@ bool actor_run_to_completion(encore_actor_t *actor)
 
 void actor_resume(encore_actor_t *actor)
 {
+#ifndef LAZY_IMPL
+
   actor->resume = false;
   actor->run_to_completion = true;
   int ret = swapcontext(actor->ctx.uc_link, &actor->ctx);
@@ -149,6 +221,17 @@ void actor_resume(encore_actor_t *actor)
   if (actor->run_to_completion) {
     reclaim_page(actor);
   }
+
+#else
+
+  actor->resume = false;
+  if (this_context) {
+    push_context(this_context);
+  }
+  setcontext(actor->saved);
+  exit(1);
+
+#endif
 }
 
 encore_actor_t *encore_create(pony_type_t *type)
@@ -159,7 +242,7 @@ encore_actor_t *encore_create(pony_type_t *type)
 encore_actor_t *encore_peer_create(pony_type_t *type)
 {
   //todo: this should create an actor in another work pool
-  printf("warning: creating peer not implemented by runtime\n");
+  // printf("warning: creating peer not implemented by runtime\n");
   return (encore_actor_t *)pony_create(type);
 }
 
@@ -184,13 +267,16 @@ int encore_start(int argc, char** argv, pony_type_t *type)
 
 bool encore_actor_run_hook(encore_actor_t *actor)
 {
+  clean_pool();
+
   if(actor->resume)
   {
     actor_resume(actor);
+#ifndef LAZY_IMPL
     return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
+#endif
   }
 
-  clean_pool();
   return true;
 }
 
@@ -218,5 +304,6 @@ bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg)
 
 void call_respond_with_current_scheduler()
 {
-  respond(this_scheduler);
+  // TODO respond
+  // respond(this_scheduler);
 }
