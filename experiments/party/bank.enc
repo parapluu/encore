@@ -64,10 +64,10 @@ class Main
       l = new List<int>
     in 
     {
-      par = bind(par, accounts); -- flatten accounts
+      par = bindp(par, accounts); -- flatten accounts
       par = pmap(balance, par);  -- get balance per account
-      par = pmap(filter, par);  -- filter accounts
-      l = sync(par); -- reduce operation
+      par = filter(par, filtering);
+      l = syncp(par); -- reduce operation
       print("Total: {}", sum(l));
     }
   }

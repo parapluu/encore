@@ -31,11 +31,11 @@ def par(x : ParT, y : ParT) : ParT {
 
 
 -- >>= :: Par x -> (x -> Par y) -> Par y
-def bind(x : ParT, f : int -> ParT) : ParT {
+def bindp(x : ParT, f : int -> ParT) : ParT {
   if x.isS() then stop()
   else if x.isV() then f(x.val())
   else if x.isF() then f(get x.future())    -- should use chaining
-  else par(bind(x.left(), f), bind(x.right(), f) )
+  else par(bindp(x.left(), f), bindp(x.right(), f) )
 }
 
 -- Wait for one value to finish and kill any remaining parallel computations.
@@ -119,7 +119,7 @@ def sync_part(l: List<int>, p: ParT): List<int> {
   }
 }
 
-def sync(p: ParT): List<int> {
+def syncp(p: ParT): List<int> {
   let l = new List<int> in {
     sync_part(l, p)
   }
