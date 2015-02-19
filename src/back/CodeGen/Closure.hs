@@ -3,9 +3,11 @@
 {-| Makes @Closure@ (see "AST") an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
 module CodeGen.Closure where
 
+import CodeGen.Type
 import CodeGen.Typeclasses
 import CodeGen.Expr
 import CodeGen.CCodeNames
+import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 import CCode.Main
 
@@ -20,8 +22,8 @@ import Control.Monad.Reader hiding(void)
 import Control.Monad.State hiding(void)
 import Data.Maybe
 
-translateClosure :: A.Expr -> CCode Toplevel
-translateClosure closure 
+translateClosure :: A.Expr -> ClassTable -> CCode Toplevel
+translateClosure closure ctable
     | A.isClosure closure = 
            let arrowType  = A.getType closure
                resultType = Ty.getResultType arrowType
@@ -33,7 +35,7 @@ translateClosure closure
                env_name   = closure_env_name id
                trace_name = closure_trace_name id
                freeVars   = Util.freeVariables (map A.pname params) body
-               ((bodyName, bodyStat), _) = runState (translate body) Ctx.empty
+               ((bodyName, bodyStat), _) = runState (translate body) $ Ctx.empty ctable
            in
              Concat [buildEnvironment env_name freeVars,
                      tracefun_decl trace_name env_name freeVars,
@@ -46,14 +48,8 @@ translateClosure closure
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty 
-          | isVoidType ty = Return $ (arg_cast ty unit)
-          | otherwise     = Return $ (arg_cast ty var)
-          where 
-            arg_cast ty var
-                | isIntType  ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
-                | isBoolType ty = Cast (encore_arg_t) (UnionInst (Nam "i") var)
-                | isRealType ty = Cast (encore_arg_t) (UnionInst (Nam "d") var)
-                | otherwise     = Cast (encore_arg_t) (UnionInst (Nam "p") var)
+          | isVoidType ty = Return $ (as_encore_arg_t (translate ty) unit)
+          | otherwise     = Return $ (as_encore_arg_t (translate ty) var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
@@ -62,11 +58,7 @@ translateClosure closure
           where
             ty = translate ptype
             arg = Var $ show pname
-            getArgument i = ArrAcc i (Var "_args") `Dot` arg_member
-            arg_member
-                | isIntType ptype  = Nam "i"
-                | isRealType ptype = Nam "d"
-                | otherwise        = Nam "p"
+            getArgument i = from_encore_arg_t ty $ AsExpr $ ArrAcc i (Var "_args")
 
       buildEnvironment name members = 
           StructDecl (Typ $ show name) (map translate_binding members)

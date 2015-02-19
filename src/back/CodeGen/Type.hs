@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
 {-| Make Type (see "AST") an instance of @Translatable@ (see
 "CodeGen.Typeclasses"). -}
@@ -30,7 +30,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isPrimitive ty      = translatePrimitive ty
         | Ty.isRefType ty        = Ptr . AsType $ class_type_name ty
         | Ty.isArrowType ty      = closure
-        | Ty.isTypeVar ty        = Ptr void
+        | Ty.isTypeVar ty        = encore_arg_t
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
         | Ty.isArrayType ty      = array
@@ -52,3 +52,13 @@ encore_arg_t_tag (Typ "int64_t") = Nam "i"
 encore_arg_t_tag (Typ "double")  = Nam "d"
 encore_arg_t_tag other           =
     error $ "Type.hs: no encore_arg_t_tag for " ++ show other
+
+as_encore_arg_t :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
+as_encore_arg_t ty expr
+    | is_encore_arg_t ty = EmbedC expr
+    | otherwise = Cast encore_arg_t $ UnionInst (encore_arg_t_tag ty) expr
+
+from_encore_arg_t :: CCode Ty -> CCode Expr -> CCode Lval
+from_encore_arg_t ty expr
+    | is_encore_arg_t ty = EmbedC expr
+    | otherwise = expr `Dot` (encore_arg_t_tag ty)

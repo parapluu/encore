@@ -16,6 +16,7 @@ import CodeGen.ClassDecl
 import CodeGen.CCodeNames
 import CodeGen.Header
 import CodeGen.Shared
+import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -28,6 +29,7 @@ instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) wh
     translate prog@(A.Program{A.classes}) = (classList, header, shared)
         where
           classList = map name_and_class classes
-          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl)
+          ctable = (build_class_table prog)
+          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
           header = generate_header prog
-          shared = generate_shared prog
+          shared = generate_shared prog ctable
