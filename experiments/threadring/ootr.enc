@@ -1,0 +1,43 @@
+class Main
+  def main(): void {
+    let
+      i = 1
+      first = new Agent(i)
+      next = null : Agent
+      n = 50*1000*1000
+      N = i + 503
+      i = i + 1
+      cur = first
+    in {
+      while (i < N) {
+        next = new Agent(i);
+        cur.setNext(next);
+        cur = next;
+        i = i + 1;
+      };
+      cur.setNext(first);
+      first.run(n);
+    }
+  }
+
+class Agent
+  id : int
+  next : Agent
+
+  def init(id : int): void {
+    this.id = id
+  }
+
+  def setNext(next: Agent): void {
+    this.next = next
+  }
+
+  def run(n : int): void {
+    if (n > 0) then {
+      this.next!run(n-1);
+      ();
+    } else {
+      print this.id;
+      ();
+    }
+  }

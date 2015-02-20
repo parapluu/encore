@@ -190,6 +190,8 @@ void pony_triggergc();
  */
 void pony_schedule(pony_actor_t* actor);
 
+void pony_schedule_first(pony_actor_t* actor);
+
 /**
  * The current actor will no longer be scheduled. It will not handle messages on
  * its queue until it is rescheduled.

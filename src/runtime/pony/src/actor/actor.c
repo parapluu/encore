@@ -105,9 +105,7 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
 
 #ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
-#else
-      if (0) {
-#endif
+      // if (0) {
         encore_actor_t *a = (encore_actor_t *)actor;
         getcontext(&a->ctx);
         a->ctx.uc_stack.ss_sp = get_local_page_stack();
@@ -120,6 +118,9 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
       } else {
         actor->type->dispatch(actor, msg);
       }
+#else
+      actor->type->dispatch(actor, msg);
+#endif
 
       return true;
     }
@@ -140,7 +141,6 @@ bool actor_run(pony_actor_t* actor)
   // if(1)
   if(heap_startgc(&actor->heap))
   {
-    printf("actor %p: ", actor);
     if(actor->type->trace != NULL)
     {
       pony_gc_mark();
@@ -370,6 +370,15 @@ void pony_schedule(pony_actor_t* actor)
 
   unset_flag(actor, FLAG_UNSCHEDULED);
   scheduler_add(actor);
+}
+
+void pony_schedule_first(pony_actor_t* actor)
+{
+  if(!has_flag(actor, FLAG_UNSCHEDULED))
+    return;
+
+  unset_flag(actor, FLAG_UNSCHEDULED);
+  scheduler_add_first(actor);
 }
 
 void pony_unschedule()
