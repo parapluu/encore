@@ -100,6 +100,22 @@ static void push(scheduler_t* sched, pony_actor_t* actor)
 }
 
 /**
+ * Puts an actor on the scheduler queue in the beginning.
+ */
+static void push_first(scheduler_t* sched, pony_actor_t* actor)
+{
+  pony_actor_t* tail = sched->tail;
+
+  if(tail != NULL)
+  {
+    actor_setnext(actor, tail);
+    sched->tail = actor;
+  } else {
+    sched->head = actor;
+    sched->tail = actor;
+  }
+}
+
  * If we can terminate, return true. If all schedulers are waiting, one of
  * them will tell the cycle detector to try to terminate.
  */
@@ -269,6 +285,7 @@ static void run(scheduler_t* sched)
 {
   while(true)
   {
+    assert(sched == this_scheduler);
     // get an actor from our queue
     pony_actor_t* actor = pop(sched);
 
@@ -299,6 +316,7 @@ static void run(scheduler_t* sched)
 
 void public_run()
 {
+  assert(this_scheduler);
   run(this_scheduler);
 }
 
@@ -425,6 +443,12 @@ pony_actor_t* scheduler_worksteal()
 {
   // TODO: is this right?
   return pop(this_scheduler);
+}
+
+void scheduler_add_first(pony_actor_t* actor)
+{
+  assert(this_scheduler);
+  push_first(this_scheduler, actor);
 }
 
 void scheduler_add(pony_actor_t* actor)

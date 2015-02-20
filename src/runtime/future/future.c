@@ -199,7 +199,7 @@ void future_fulfil(future_t *fut, encore_arg_t value)
         {
           perr("Unblocking");
           actor_set_resume((encore_actor_t*)e.message.actor);
-          pony_schedule(e.message.actor);
+          pony_schedule_first(e.message.actor);
           break;
         }
         // Current design: send closure back to origin to execute (deadlock-prone)
