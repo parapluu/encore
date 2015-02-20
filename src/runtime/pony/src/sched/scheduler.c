@@ -116,6 +116,7 @@ static void push_first(scheduler_t* sched, pony_actor_t* actor)
   }
 }
 
+/**
  * If we can terminate, return true. If all schedulers are waiting, one of
  * them will tell the cycle detector to try to terminate.
  */
