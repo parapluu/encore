@@ -8,6 +8,44 @@ Encore language.
 
 @include-section{grammar.scrbl}
 
+@section{Module system}
+As of now encore supports a rudimentary module system. The keywork used to import
+modules is @code{import}.
+
+Here follows a trivial example of usage of the module system.
+
+File  @code{Lib.enc}:
+@codeblock|{
+  class Foo:
+    def boo():void {
+		print "^-^"
+    }
+  
+}|
+
+File  @code{Bar.enc}:
+@codeblock|{
+  import Lib
+  
+  class Main:
+    def main():void {
+	  let
+		f = new Foo
+	  in{
+		f.boo();
+	  }
+    }
+  
+}|
+
+Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the class @code{Foo}.
+
+To import files from different directories one needs to use the @code{-I path} argument for the compiler.
+
+As of now the module system has no notion of namespaces so all imported objects needs to have unique names.
+There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
+to ensure that each file is only imported once.
+
 @;@section{Keywords}
 @;Keywords are special words used by the Encore language and they have special meaning.
 @;In Encore, we have the following keywords:
