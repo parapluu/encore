@@ -5,15 +5,14 @@ class Main
       first = new Agent(i)
       next = null : Agent
       n = 50*1000*1000
-      N = i + 503
-      i = i + 1
+      N = 503
       cur = first
     in {
       while (i < N) {
+        i = i + 1;
         next = new Agent(i);
         cur.setNext(next);
         cur = next;
-        i = i + 1;
       };
       cur.setNext(first);
       first.run(n);
@@ -34,10 +33,8 @@ class Agent
 
   def run(n : int): void {
     if (n > 0) then {
-      this.next!run(n-1);
-      ();
+      this.next ! run(n-1)
     } else {
-      print this.id;
-      ();
+      print(this.id)
     }
   }
