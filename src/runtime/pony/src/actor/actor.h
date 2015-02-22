@@ -33,6 +33,12 @@ void actor_sweep(pony_actor_t* actor);
 
 void actor_setsystem(pony_actor_t* actor);
 
+bool actor_emptyqueue(pony_actor_t* actor);
+
+pony_actor_t* actor_dormant_next(pony_actor_t* actor);
+
+void actor_set_dormant_next(pony_actor_t* actor, pony_actor_t* dormant_next);
+
 pony_actor_t* actor_next(pony_actor_t* actor);
 
 void actor_setnext(pony_actor_t* actor, pony_actor_t* next);

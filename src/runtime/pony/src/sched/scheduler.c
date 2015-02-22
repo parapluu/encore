@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#define USE_DORMANT_LIST
+
 typedef struct scheduler_t scheduler_t;
 
 __pony_spec_align__(
@@ -19,6 +21,9 @@ __pony_spec_align__(
 
     pony_actor_t* head;
     pony_actor_t* tail;
+
+    pony_actor_t* dormant_head;
+    pony_actor_t* dormant_tail;
 
     struct scheduler_t* victim;
 
@@ -44,6 +49,8 @@ static __pony_thread_local scheduler_t* this_scheduler;
 
 // forward declaration
 static void push(scheduler_t* sched, pony_actor_t* actor);
+static void push_dormant(scheduler_t* sched, pony_actor_t* actor);
+static pony_actor_t* pop_dormant(scheduler_t* sched);
 
 /**
  * Takes all actors off the injection queue and puts them on the scheduler list
@@ -56,6 +63,7 @@ static void handle_inject(scheduler_t* sched)
     push(sched, actor);
 }
 
+static __pony_thread_local int counter = 0;
 /**
  * Gets the next actor from the scheduler queue.
  */
@@ -64,7 +72,19 @@ static pony_actor_t* pop(scheduler_t* sched)
   // clear the injection queue
   handle_inject(sched);
 
-  pony_actor_t* actor = sched->tail;
+  pony_actor_t* actor;
+#ifdef USE_DORMANT_LIST
+  counter++;
+  if (counter == 1024) {
+    counter = 0;
+    actor = pop_dormant(sched);
+    if (!actor) {
+      return actor;
+    }
+  }
+#endif
+
+  actor = sched->tail;
 
   if(actor != NULL)
   {
@@ -77,6 +97,10 @@ static pony_actor_t* pop(scheduler_t* sched)
     }
 
     actor_setnext(actor, NULL);
+  } else {
+#ifdef USE_DORMANT_LIST
+    actor = pop_dormant(sched);
+#endif
   }
 
   return actor;
@@ -115,6 +139,41 @@ static void push_first(scheduler_t* sched, pony_actor_t* actor)
     sched->tail = actor;
   }
 }
+
+static void push_dormant(scheduler_t* sched, pony_actor_t* actor)
+{
+  pony_actor_t* head = sched->dormant_head;
+
+  if(head != NULL)
+  {
+    actor_set_dormant_next(head, actor);
+    sched->dormant_head = actor;
+  } else {
+    sched->dormant_head = actor;
+    sched->dormant_tail = actor;
+  }
+}
+
+static pony_actor_t* pop_dormant(scheduler_t* sched)
+{
+  pony_actor_t* actor = sched->dormant_tail;
+
+  if(actor != NULL)
+  {
+    if(actor != sched->dormant_head)
+    {
+      sched->dormant_tail = actor_dormant_next(actor);
+    } else {
+      sched->dormant_head = NULL;
+      sched->dormant_tail = NULL;
+    }
+
+    actor_set_dormant_next(actor, NULL);
+  }
+
+  return actor;
+}
+
 
 /**
  * If we can terminate, return true. If all schedulers are waiting, one of
@@ -310,7 +369,15 @@ static void run(scheduler_t* sched)
     // if this returns true, reschedule the actor on our queue
     if(actor_run(actor)) {
       sched = this_scheduler;
+#ifdef USE_DORMANT_LIST
+      if (actor_emptyqueue(actor)) {
+        push_dormant(sched, actor);
+      } else {
+        push(sched, actor);
+      }
+#else
       push(sched, actor);
+#endif
     }
   }
 }

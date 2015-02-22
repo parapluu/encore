@@ -24,6 +24,7 @@ struct pony_actor_t
   pony_type_t* type;
   messageq_t q;
   pony_msg_t* continuation;
+  struct pony_actor_t* dormant_next;
 
   // keep things accessed by other actors on a separate cache line
   __pony_spec_align__(heap_t heap, 64);
@@ -166,8 +167,9 @@ bool actor_run(pony_actor_t* actor)
 
   while((msg = messageq_pop(&actor->q)) != NULL)
   {
-    if(handle_message(actor, msg))
+    if(handle_message(actor, msg)) {
       return !has_flag(actor, FLAG_UNSCHEDULED);
+    }
   }
 
   if(!has_flag(actor, FLAG_BLOCKED | FLAG_SYSTEM | FLAG_UNSCHEDULED))
@@ -181,6 +183,11 @@ bool actor_run(pony_actor_t* actor)
   }
 
   return !messageq_markempty(&actor->q);
+}
+
+bool actor_emptyqueue(pony_actor_t* actor)
+{
+  return messageq_markempty(&actor->q);
 }
 
 void actor_destroy(pony_actor_t* actor)
@@ -247,6 +254,16 @@ pony_actor_t* actor_next(pony_actor_t* actor)
 void actor_setnext(pony_actor_t* actor, pony_actor_t* next)
 {
   actor->next = next;
+}
+
+pony_actor_t* actor_dormant_next(pony_actor_t* actor)
+{
+  return actor->dormant_next;
+}
+
+void actor_set_dormant_next(pony_actor_t* actor, pony_actor_t* dormant_next)
+{
+  actor->dormant_next = dormant_next;
 }
 
 void actor_inc_rc()
