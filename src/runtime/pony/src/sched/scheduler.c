@@ -142,6 +142,11 @@ static void push_first(scheduler_t* sched, pony_actor_t* actor)
 
 static void push_dormant(scheduler_t* sched, pony_actor_t* actor)
 {
+  if (actor_dormant_next(actor)) {
+    // this actor exist in dormant list already
+    return;
+  }
+
   pony_actor_t* head = sched->dormant_head;
 
   if(head != NULL)
