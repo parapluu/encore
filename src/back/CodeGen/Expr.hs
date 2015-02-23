@@ -475,13 +475,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
            let result_type = translate (Ty.getResultType $ A.getType val)
-               the_get = Cast result_type $ Call (Nam "future_get_actor") [nval] `Dot` encore_arg_t_tag result_type
+               the_get = from_encore_arg_t result_type (Call (Nam "future_get_actor") [nval])
            tmp <- Ctx.gen_sym
            return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
            let result_type = translate (Ty.getResultType $ A.getType val)
-               the_get = Cast result_type $ (Call (Nam "stream_get") [nval]) `Dot` encore_arg_t_tag result_type
+               the_get = from_encore_arg_t result_type (Call (Nam "stream_get") [nval])
            tmp <- Ctx.gen_sym
            return (Var tmp, Seq [tval, Assign (Decl (result_type, Var tmp)) the_get])
     | otherwise = error $ "Cannot translate get of " ++ show val
@@ -490,7 +490,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.gen_sym
-         let yield_arg = Cast encore_arg_t $ UnionInst (encore_arg_t_tag (translate (A.getType val))) nval
+         let yield_arg = as_encore_arg_t (translate (A.getType val)) nval
              tmp_stream = Assign (Decl (stream, Var tmp)) stream_handle
              update_stream = Assign (stream_handle) (Call (Nam "stream_put")
                                                           [AsExpr stream_handle, yield_arg, runtime_type $ A.getType val])
