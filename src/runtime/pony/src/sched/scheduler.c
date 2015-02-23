@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define USE_DORMANT_LIST
+// #define USE_DORMANT_LIST
 
 typedef struct scheduler_t scheduler_t;
 
@@ -292,8 +292,6 @@ static pony_actor_t* request(scheduler_t* sched)
       break;
   }
 
-  __pony_atomic_fetch_sub(&scheduler_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);
-
   if(block)
   {
     thief = (scheduler_t*)1;
@@ -332,6 +330,7 @@ static void respond(scheduler_t* sched)
   {
     assert(thief->waiting == 1);
     push(thief, actor);
+    __pony_atomic_fetch_sub(&scheduler_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);
   }
 
   __pony_atomic_store_n(&thief->waiting, 0, PONY_ATOMIC_RELEASE,
@@ -360,8 +359,10 @@ static void run(scheduler_t* sched)
       actor = request(sched);
 
       // termination
-      if(actor == NULL)
+      if(actor == NULL) {
+        assert(pop(sched) == NULL);
         return;
+      }
     } else {
       // respond to our thief. we hold an actor for ourself, to make sure we
       // never give away our last actor.
