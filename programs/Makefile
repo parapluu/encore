@@ -15,6 +15,7 @@ $(ENCORE_TARGETS): %: %.enc
 clean:
 	rm -rf *.dSYM
 	rm -f *.pony.c
+	rm -f *.encore.c
 	rm -f *\~
 	rm -f encorec
 	rm -f $(ENCORE_TARGETS)
