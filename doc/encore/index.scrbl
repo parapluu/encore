@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:version "0.45"]{Encore Programming Language}
+@title[#:version "0.45"]{Encore Programming Language Documentation}
  
 @author["Stephan Brandauer"  "Elias Castegren"  "Dave Clarke"  "Kiko Fernandez" "Henrik Sommerland"  "Tobias Wrigstad" "Albert Yang"]
 
