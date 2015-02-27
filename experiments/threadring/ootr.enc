@@ -1,39 +1,37 @@
 class Main
   def main(): void {
     let
-      i = 1
-      first = new Agent(i)
-      next = null : Agent
-      n = 50*1000*1000
-      N = 503
-      cur = first
+      index         = 1
+      first     = new Worker(index)
+      next      = null : Worker
+      nhops     = 50*1000*1000
+      ring_size = 503
+      current   = first
     in {
-      while (i < N) {
-        i = i + 1;
-        next = new Agent(i);
-        cur.setNext(next);
-        cur = next;
+      while (index < ring_size) {
+        index = index + 1;
+        next = new Worker(index);
+        current!setNext(next);
+        current = next;
       };
-      cur.setNext(first);
-      first.run(n);
+      current!setNext(first);
+      first!run(nhops);
     }
   }
 
-class Agent
+class Worker
   id : int
-  next : Agent
+  next : Worker
 
-  def init(id : int): void {
+  def init(id : int): void
     this.id = id
-  }
 
-  def setNext(next: Agent): void {
+  def setNext(next: Worker): void
     this.next = next
-  }
 
   def run(n : int): void {
     if (n > 0) then {
-      this.next ! run(n-1)
+      this.next!run(n-1)
     } else {
       print(this.id)
     }
