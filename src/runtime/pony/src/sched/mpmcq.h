@@ -2,28 +2,33 @@
 #define sched_mpmcq_h
 
 #include <stdint.h>
+#include <platform/platform.h>
 
 typedef struct mpmcq_node_t mpmcq_node_t;
 
-typedef struct mpmcq_dwcas_t
-{
-  union
+__pony_spec_align__(
+  typedef struct mpmcq_dwcas_t
   {
-    struct
+    union
     {
-      uint64_t aba;
-      mpmcq_node_t* node;
+      struct
+      {
+        uint64_t aba;
+        mpmcq_node_t* node;
+      };
+
+      __int128_t dw;
     };
+  } mpmcq_dwcas_t, 16
+);
 
-    __int128_t dw;
-  };
-} mpmcq_dwcas_t __attribute__ ((aligned (16)));
-
-typedef struct mpmcq_t
-{
-  mpmcq_node_t* head;
-  mpmcq_dwcas_t tail;
-} mpmcq_t __attribute__ ((aligned (64)));
+__pony_spec_align__(
+  typedef struct mpmcq_t
+  {
+    mpmcq_node_t* head;
+    mpmcq_dwcas_t tail;
+  } mpmcq_t, 64
+);
 
 void mpmcq_init(mpmcq_t* q);
 

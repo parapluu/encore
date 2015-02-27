@@ -13,7 +13,7 @@ struct Stack
 
 static Stack* stack_new(Stack* prev, void* data)
 {
-  Stack* stack = POOL_ALLOC(Stack);
+  Stack* stack = (Stack*)POOL_ALLOC(Stack);
   stack->index = 1;
   stack->data[0] = data;
   stack->prev = prev;

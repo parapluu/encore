@@ -5,135 +5,154 @@
 #include <string.h>
 #include <stdio.h>
 
-enum PROTO_INTERNALS
+#ifndef PLATFORM_IS_WINDOWS
+
+enum
 {
 	MASK  = 0xF000,
   MAGIC = 0xA000,
   TYPE  = 0x0FFF
 };
 
-typedef uint16_t header_t;
-typedef uint32_t frame_len_t;
-
-typedef struct prefix_t {
-	header_t header;
-	frame_len_t length;
+typedef struct prefix_t
+{
+	uint16_t header;
+	uint32_t length;
 } prefix_t;
 
 struct proto_t
 {
 	prefix_t prefix;
+  sock_t* target;
+  size_t bookmark;
 	bool header_complete;
 };
 
-static void reset_prefix(proto_t* p)
+static proto_t* init()
 {
-	p->prefix.header = 0;
-	p->prefix.length = 0;
-	p->header_complete = false;
+	proto_t* p = POOL_ALLOC(proto_t);
+
+	proto_reset(p);
+
+	return p;
 }
 
-static uint32_t read_data(sock_t* s, streambuf_t** sb, size_t* nrp)
+static void read_header(proto_t* p, sock_t* s)
 {
-	uint32_t rc = 0;
-	size_t avail = 0;
-	struct iovec iov[1];
+ 	sock_get_data(s, &p->prefix, sizeof(p->prefix.header));
+	sock_get_data(s, &p->prefix.length, sizeof(p->prefix.length));
 
-	iov[0].iov_base = streambuf_get_space(sb, &avail);
-	iov[0].iov_len = avail;
-
-	rc = sock_read(s, iov, 1, &avail);
-
-	streambuf_write_advance(*sb, avail);
-
-	*nrp = streambuf_length(*sb);
-
-	return rc;
+ 	p->header_complete = true;
 }
 
-static void read_header(proto_t* p, streambuf_t* sb)
+static uint16_t get_message_type(proto_t* p, sock_t* s)
 {
-	streambuf_read(sb, sizeof(header_t) + sizeof(frame_len_t), p);
-	p->header_complete = true;
-}
-
-static header_t get_message(proto_t* p, streambuf_t** sb)
-{
-	header_t type = 0;
+	uint16_t type;
 
 	if((p->prefix.header & MASK) != MAGIC)
-	{
-		streambuf_free(sb);
-		return PROTO_NOP;
-	}
+	  return PROTO_NOP;
 
-  type = (p->prefix.header & TYPE);
-	reset_prefix(p);
+	type = (p->prefix.header & TYPE);
 
 	return type;
 }
 
-static bool check_for_message(proto_t* p, streambuf_t* sb)
+static bool check_for_message(proto_t* p, sock_t* s)
 {
 	if(p == NULL) return false;
 
-	size_t avail = streambuf_length(sb);
-	size_t req = sizeof(header_t) + sizeof(frame_len_t);
+	size_t avail = sock_read_buffer_size(s);
+	size_t req = sizeof(p->prefix.header) + sizeof(p->prefix.length);
 
-	if(avail >= req && !p->header_complete) read_header(p, sb);
+	if(avail >= req && !p->header_complete) read_header(p, s);
 
   if(avail >= (req + p->prefix.length)) return true;
 
 	return false;
 }
 
-uint32_t proto_receive(proto_t** p, sock_t* s, streambuf_t** sb)
+uint32_t proto_receive(proto_t** p, sock_t* s)
 {
-	uint32_t rc = 0;
-	size_t avail = 0;
+	proto_t* self = *p;
 
-	proto_t* pt = *p;
+  uint32_t rc;
 
-	//is there a message pending in the stream buffer?
-	if(check_for_message(pt, *sb)) return get_message(pt, sb);
-
-	if(pt == NULL)
+	if(self == NULL)
 	{
-		pt = *p = POOL_ALLOC(proto_t);
-
-    reset_prefix(pt);
+		self = init();
+		*p = self;
 	}
 
 	while(true)
-	{
-		rc = read_data(s, sb, &avail);
+  {
+	  rc = sock_read(s);
 
-		if(avail == 0 && rc & (ASIO_ERROR | ASIO_WOULDBLOCK)) return PROTO_NOP; //TODO: ASIO_ERROR OR ASIO_WOULDBLOCK?
+		if(check_for_message(self, s))
+			return get_message_type(self, s);
 
-    if(check_for_message(pt, *sb)) return get_message(pt, sb);
+		if(rc & (ASIO_ERROR | ASIO_WOULDBLOCK))
+			break;
 	}
+
+	return PROTO_NOP;
 }
 
-uint32_t proto_send(sock_t* s, uint16_t msg, streambuf_t* sb)
+uint32_t proto_send(uint16_t header, sock_t* s)
 {
-	uint32_t rc = 0;
-	streambuf_t* frame = NULL;
-
 	prefix_t prefix;
 
-	prefix.header = (MAGIC | msg);
-	prefix.length = (sb == NULL) ? 0 : streambuf_length(sb);
+	prefix.header = (header | MAGIC);
+	prefix.length = 0;
 
-	streambuf_write(&frame, &prefix.header, sizeof(prefix.header));
-	streambuf_write(&frame, &prefix.length, sizeof(prefix.length));
+  sock_write(s, &prefix, sizeof(prefix.header));
+	sock_write(s, &prefix.length, sizeof(prefix.length));
 
-	rc |= sock_write(s, frame);
-  if(sb != NULL) rc |= sock_write(s, sb);
-
-	return rc;
+	return sock_flush(s);
 }
 
-uint32_t proto_continue(sock_t* s)
+void proto_start(proto_t** p, uint16_t header, sock_t* s)
 {
-	return sock_write(s, NULL);
+	proto_t* self = *p;
+
+	if(self == NULL)
+	{
+		self = init();
+		*p = self;
+	}
+
+	self->prefix.header = (header | MAGIC);
+	self->prefix.length = 0;
+  self->target = s;
+
+	sock_write(s, &self->prefix.header, sizeof(self->prefix.header));
+	self->bookmark = sock_bookmark(s, sizeof(self->prefix.length));
 }
+
+void proto_record(proto_t* p, void* data, size_t len)
+{
+	sock_write(p->target, data, len);
+	p->prefix.length += len;
+}
+
+uint32_t proto_finish(proto_t* p)
+{
+	if(p == NULL || p->target == NULL)
+		return 0;
+
+	sock_bookmark_write(p->target, p->bookmark, &p->prefix.length,
+		sizeof(p->prefix.length));
+
+	return sock_flush(p->target);
+}
+
+void proto_reset(proto_t* p)
+{
+	p->prefix.header = 0;
+	p->prefix.length = 0;
+	p->target = NULL;
+	p->bookmark = 0;
+
+	p->header_complete = false;
+}
+
+#endif

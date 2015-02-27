@@ -3,10 +3,25 @@
 
 typedef struct updater_t
 {
+  pony_actor_pad_t pad;
   struct timeval start;
   uint64_t count;
   uint64_t* table;
 } updater_t;
+
+typedef struct create_msg_t
+{
+  pony_msg_t msg;
+  uint64_t index;
+  uint64_t size;
+} create_msg_t;
+
+typedef struct apply_msg_t
+{
+  pony_msg_t msg;
+  uint64_t size;
+  uint64_t* data;
+} apply_msg_t;
 
 enum
 {
@@ -16,76 +31,61 @@ enum
 };
 
 static void trace_updater(void* p);
-static pony_msg_t* msg_updater(uint64_t id);
-static void do_updater(pony_actor_t* this, void* p, uint64_t id,
-  int argc, pony_arg_t* argv);
+static void do_updater(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
   3,
-  {sizeof(updater_t), trace_updater, NULL, NULL},
-  msg_updater,
+  sizeof(updater_t),
+  trace_updater,
+  NULL,
+  NULL,
   do_updater,
   NULL
 };
 
-static pony_type_t array_uint64_type = {sizeof(uint64_t*), NULL, NULL, NULL};
-
-static pony_msg_t m_create = {2, {PONY_NONE}};
-static pony_msg_t m_apply = {2, {PONY_NONE, &array_uint64_type}};
-static pony_msg_t m_done = {1, {PONY_ACTOR}};
-
 static void trace_updater(void* p)
 {
-  updater_t* this = p;
-
-  pony_trace(this->table);
+  updater_t* self = (updater_t*)p;
+  pony_trace(self->table);
 }
 
-static pony_msg_t* msg_updater(uint64_t id)
+static void do_updater(pony_actor_t* actor, pony_msg_t* msg)
 {
-  switch(id)
-  {
-    case MSG_CREATE: return &m_create;
-    case MSG_APPLY: return &m_apply;
-    case MSG_DONE: return &m_done;
-  }
+  updater_t* self = (updater_t*)actor;
 
-  return NULL;
-}
-
-static void do_updater(pony_actor_t* actor, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
-{
-  updater_t* this = p;
-
-  switch(id)
+  switch(msg->id)
   {
     case MSG_CREATE:
     {
-      this = pony_alloc(sizeof(updater_t));
-      pony_set(this);
+      create_msg_t* m = (create_msg_t*)msg;
 
-      uint64_t index = argv[0].i;
-      uint64_t size = argv[1].i;
+      uint64_t index = m->index;
+      uint64_t size = m->size;
       uint64_t offset = index * size;
 
-      this->count = size;
-      this->table = pony_alloc(this->count * sizeof(uint64_t));
+      self->count = size;
+      self->table = (uint64_t*)pony_alloc(self->count * sizeof(uint64_t));
 
       for(uint64_t i = 0; i < size; i++)
-        this->table[i] = i + offset;
+        self->table[i] = i + offset;
 
-      gettimeofday(&this->start, NULL);
+      gettimeofday(&self->start, NULL);
       break;
     }
 
     case MSG_APPLY:
     {
-      const uint64_t size = argv[0].i;
-      const uint64_t* data = argv[1].p;
-      const uint64_t mask = this->count - 1;
-      uint64_t* table = this->table;
+      apply_msg_t* m = (apply_msg_t*)msg;
+
+      pony_gc_recv();
+      pony_trace(m->data);
+      pony_recv_done();
+
+      const uint64_t size = m->size;
+      const uint64_t* data = m->data;
+      const uint64_t mask = self->count - 1;
+      uint64_t* table = self->table;
 
 #if 0
       for(uint32_t i = 0; i < size; i++)
@@ -130,19 +130,26 @@ static void do_updater(pony_actor_t* actor, void* p, uint64_t id,
 
     case MSG_DONE:
     {
+      pony_msgp_t* m = (pony_msgp_t*)msg;
+      pony_actor_t* main_actor = (pony_actor_t*)m->p;
+
+      pony_gc_recv();
+      pony_traceactor(main_actor);
+      pony_recv_done();
+
       struct timeval now;
       gettimeofday(&now, NULL);
 
-      if(this->start.tv_usec > now.tv_usec)
+      if(self->start.tv_usec > now.tv_usec)
       {
         now.tv_usec += 1000000;
         now.tv_sec--;
       }
 
-      now.tv_sec -= this->start.tv_sec;
-      now.tv_usec -= this->start.tv_usec;
+      now.tv_sec -= self->start.tv_sec;
+      now.tv_usec -= self->start.tv_usec;
 
-      main_updaterdone(argv[0].p, &now);
+      main_updaterdone(main_actor, &now);
       break;
     }
   }
@@ -152,23 +159,32 @@ pony_actor_t* updater_create(uint64_t index, uint64_t size)
 {
   pony_actor_t* updater = pony_create(&type);
 
-  pony_arg_t argv[2];
-  argv[0].i = index;
-  argv[1].i = size;
-  pony_sendv(updater, MSG_CREATE, 2, argv);
+  create_msg_t* m = (create_msg_t*)pony_alloc_msg(0, MSG_CREATE);
+  m->index = index;
+  m->size = size;
 
+  pony_sendv(updater, &m->msg);
   return updater;
 }
 
 void updater_apply(pony_actor_t* updater, uint64_t size, uint64_t* data)
 {
-  pony_arg_t arg[2];
-  arg[0].i = size;
-  arg[1].p = data;
-  pony_sendv(updater, MSG_APPLY, 2, arg);
+  pony_gc_send();
+  pony_trace(data);
+  pony_send_done();
+
+  apply_msg_t* m = (apply_msg_t*)pony_alloc_msg(0, MSG_APPLY);
+  m->size = size;
+  m->data = data;
+
+  pony_sendv(updater, &m->msg);
 }
 
 void updater_done(pony_actor_t* updater, pony_actor_t* main)
 {
+  pony_gc_send();
+  pony_traceactor(main);
+  pony_send_done();
+
   pony_sendp(updater, MSG_DONE, main);
 }

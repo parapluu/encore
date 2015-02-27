@@ -1,21 +1,23 @@
-#if defined(__linux__)
 #define _GNU_SOURCE
+#include <platform/platform.h>
+#if defined(PLATFORM_IS_LINUX)
 #include <sched.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_IS_MACOSX)
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <mach/thread_policy.h>
+#elif defined(PLATFORM_IS_WINDOWS)
+#include <processtopologyapi.h>
 #endif
 
-#include <pthread.h>
 #include "cpu.h"
 
-#if defined(__APPLE__)
-uint32_t property(const char* key)
+#if defined(PLATFORM_IS_MACOSX)
+static uint32_t property(const char* key)
 {
   int value;
   size_t len = sizeof(int);
@@ -26,29 +28,71 @@ uint32_t property(const char* key)
 
 void cpu_count(uint32_t* physical, uint32_t* logical)
 {
-#if defined(__linux__)
+#if defined(PLATFORM_IS_LINUX)
   int count = sysconf(_SC_NPROCESSORS_ONLN);
   int res = 0;
 
   for(int i = 0; i < count; i++)
   {
-    if(cpu_physical(i)) res++;
+    if(cpu_physical(i))
+      res++;
   }
 
   *physical = res;
   *logical = count;
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_IS_MACOSX)
   *physical = property("hw.physicalcpu");
   *logical = property("hw.logicalcpu");
-#else
-  *physical = 0;
-  *logical = 0;
+#elif defined(PLATFORM_IS_WINDOWS)
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION info = NULL;
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = NULL;
+  DWORD len = 0;
+  DWORD offset = 0;
+
+  while(true)
+  {
+    DWORD rc = GetLogicalProcessorInformation(info, &len);
+
+    if(rc != FALSE)
+      break;
+
+    if(GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+    {
+      ptr = info = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(len);
+      continue;
+    }
+    else
+    {
+      *physical = 0;
+      *logical = 0;
+
+      return;
+    }
+  }
+
+  while(offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= len)
+  {
+    switch(info->Relationship)
+    {
+      case RelationProcessorCore:
+        *physical += 1;
+        *logical += (uint32_t)__pony_popcount64(info->ProcessorMask);
+        break;
+
+      default: {}
+    }
+
+    offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+    info++;
+  }
+
+  free(ptr);
 #endif
 }
 
 bool cpu_physical(uint32_t cpu)
 {
-#if defined(__linux__)
+#if defined(PLATFORM_IS_LINUX)
   char file[FILENAME_MAX];
   snprintf(file, FILENAME_MAX,
     "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list", cpu);
@@ -62,7 +106,8 @@ bool cpu_physical(uint32_t cpu)
     name[len] = '\0';
     fclose( fp );
 
-    if(cpu != atoi(name)) { return false; }
+    if(cpu != atoi(name))
+      return false;
   }
 #endif
 
@@ -71,26 +116,30 @@ bool cpu_physical(uint32_t cpu)
 
 void cpu_affinity(uint32_t cpu)
 {
-#if defined(__linux__)
+#if defined(PLATFORM_IS_LINUX)
   cpu_set_t set;
   CPU_ZERO(&set);
   CPU_SET(cpu, &set);
+
   sched_setaffinity(0, 1, &set);
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_IS_MACOSX)
   thread_affinity_policy_data_t policy;
   policy.affinity_tag = cpu;
+
   thread_policy_set(mach_thread_self(), THREAD_AFFINITY_POLICY,
     (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
+#elif defined(PLATFORM_IS_WINDOWS)
+  GROUP_AFFINITY affinity;
+  affinity.Mask = (uint64_t)1 << (cpu >> 6);
+  affinity.Group = (cpu % 64);
+
+  SetThreadGroupAffinity(pony_thread_self(), &affinity, NULL);
 #endif
 }
 
 uint64_t cpu_rdtsc()
 {
-#ifdef __clang__
-  return __builtin_readcyclecounter();
-#else
-  return __builtin_ia32_rdtsc();
-#endif
+  return __pony_rdtsc();
 }
 
 /**
@@ -104,7 +153,12 @@ bool cpu_core_pause(uint64_t tsc)
   if((tsc2 - tsc) < 10000000)
     return false;
 
+#ifndef PLATFORM_IS_WINDOWS
   struct timespec ts = {0, 0};
   nanosleep(&ts, NULL);
+#else
+  Sleep(0);
+#endif
+
   return true;
 }

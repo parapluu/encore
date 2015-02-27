@@ -2,7 +2,6 @@
 #define MAIN_H
 
 #include <pony/pony.h>
-#include <sys/time.h>
 
 void main_streamerdone(pony_actor_t* main);
 

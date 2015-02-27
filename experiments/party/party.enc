@@ -1,5 +1,5 @@
 --- The following are available to the programmer.
-
+import Utils
 -- The value that signals the stop of a computation. 
 -- stop :: Par T
 def stop() : ParT {
@@ -10,14 +10,14 @@ def stop() : ParT {
 
 -- "Upcast" a future value into a (singleton) parallel computation.
 -- lift :: Fut x -> Par x
-def lift(x : Fut T) : ParT {
+def lift(x : Fut int) : ParT {
   let r = new ParT in 
     r.mkF(x);
 }
 
 -- "Upcast" a value into a (singleton) parallel computation.
 -- parone :: x -> Par x
-def parone(x : T) : ParT {
+def parone(x : int) : ParT {
   let r = new ParT in 
     r.mkV(x);
 }
@@ -31,11 +31,11 @@ def par(x : ParT, y : ParT) : ParT {
 
 
 -- >>= :: Par x -> (x -> Par y) -> Par y
-def bind(x : ParT, f : T -> ParT) : ParT {
+def bindp(x : ParT, f : int -> ParT) : ParT {
   if x.isS() then stop()
   else if x.isV() then f(x.val())
   else if x.isF() then f(get x.future())    -- should use chaining
-  else par(bind(x.left(), f), bind(x.right(), f) )
+  else par(bindp(x.left(), f), bindp(x.right(), f) )
 }
 
 -- Wait for one value to finish and kill any remaining parallel computations.
@@ -45,13 +45,13 @@ def bind(x : ParT, f : T -> ParT) : ParT {
 -- 2) actually kill of the others.
 -- 3) What happens if there is nothing there? Currently, returns null
 
-def primprune(x : ParT) : T {
-  if x.isS() then null
+def primprune(x : ParT) : int {
+  if x.isS() then -1
   else if x.isV() then x.val()
   else if x.isF() then get x.future()
   else 
     let y = primprune(x.left()) in 
-    if y != null then y else primprune(x.right())
+    if y != -1 then y else primprune(x.right())
 }
 
 
@@ -63,9 +63,9 @@ def primprune(x : ParT) : T {
 -- A more refined type would be something like (Fut t -> Par t') -> Par t -> Par t'
 -- where the future captures the result of pruning the second argument
 
-def prune(f : T -> ParT, x : ParT) : ParT {
+def prune(f : int -> ParT, x : ParT) : ParT {
   let res = primprune(x) in 
-  if res == null then stop() else f(res)
+  if res == -1 then stop() else f(res)
 }
 
 
@@ -86,14 +86,44 @@ def isNothing(x : ParT) : bool {
   else (isNothing(x.left()) and isNothing(x.right()))
 }
 
-def pmap(f : T -> T, x : ParT) : ParT {
+def pmap(f : int -> int, x : ParT) : ParT {
   if x.isS() then stop()
   else if x.isV() then parone(f(x.val()))
   else if x.isF() then parone(f(get x.future()))    -- should use chaining
   else par(pmap(f, x.left()), pmap(f, x.right()) )
 }
 
+-- List<T> != List<Fut T>
+-- In the future we could imagine doing this operation
+-- over any kind of collection.
+def each(l: List<int>): ParT {
+  if (l.size()==0) then { 
+    stop();
+  } else {
+    let party = parone(l.pop()) in {
+      while(l.size() != 0) {
+        party = par(party, parone(l.pop()));
+      };
+      party
+    }
+  }
+}
 
+def sync_part(l: List<int>, p: ParT): List<int> {
+  if p.isS() then l
+  else if p.isV() then l.push(p.val())
+  else if p.isF() then l.push(get p.future())
+  else {
+    sync_part(l, p.left());
+    sync_part(l, p.right());
+  }
+}
+
+def syncp(p: ParT): List<int> {
+  let l = new List<int> in {
+    sync_part(l, p)
+  }
+}
 
 --
 -- data Par t = Stop                   -- empty structures
@@ -108,9 +138,9 @@ passive class ParT {
   -- union 
   -- S -- typetag == 0
   -- V -- typetag == 1
-  valv : T
+  valv : int
   -- F -- typetag == 2
-  futurev : Fut T
+  futurev : Fut int
   -- P -- typetag == 3
   leftv : ParT
   rightv : ParT
@@ -131,7 +161,7 @@ passive class ParT {
   }
 
   -- V ops
-  def mkV(x : T) : ParT {
+  def mkV(x : int) : ParT {
     this.typetag = 1;
     this.valv = x;
     this;
@@ -141,12 +171,12 @@ passive class ParT {
      (this.typetag == 1);
   }
 
-  def val() : T {
+  def val() : int {
      this.valv;
   }
    
   -- F ops
-  def mkF(x : Fut T) : ParT {
+  def mkF(x : Fut int) : ParT {
     this.typetag = 2;
     this.futurev = x;
     this;
@@ -156,7 +186,7 @@ passive class ParT {
      (this.typetag == 2);
   }
 
-  def future() : Fut T {
+  def future() : Fut int {
      this.futurev;
   }  
 
@@ -180,4 +210,15 @@ passive class ParT {
      this.rightv;
   }
 }
+
+-- class Main
+--   def main(): void
+--     let t = 0
+-- 	t2 = 1
+--         p = parone(t)
+--         p2 = parone(t2)
+--         pp = par(p, p2) in {
+-- 	print pp
+--     }
+
 

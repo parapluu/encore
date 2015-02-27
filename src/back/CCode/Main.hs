@@ -68,19 +68,22 @@ data CCode a where
     CUnary       :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
     Dot          :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
+    Arrow        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Deref        :: UsableAs e Expr => CCode e -> CCode Expr
     Cast         :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
     ArrAcc       :: Int -> CCode Lval -> CCode Lval
-    Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr
+    Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr -- | Ampersand
     Ptr          :: CCode Ty -> CCode Ty
     FunctionDecl :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Toplevel
     Function     :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
     AsExpr       :: CCode Lval -> CCode Expr
     AsLval       :: CCode Name -> CCode Lval
+    AsType       :: CCode Name -> CCode Ty
     Nam          :: String -> CCode Name
     Var          :: String -> CCode Lval
     Typ          :: String -> CCode Ty
     Static       :: CCode Ty -> CCode Ty
+    Extern       :: CCode Ty -> CCode Ty
     Embed        :: String -> CCode a
     EmbedC       :: CCode a -> CCode b
     Call         :: (UsableAs e1 Expr, UsableAs e2 Expr) => CCode e1 -> [CCode e2] -> CCode Expr
@@ -96,3 +99,4 @@ data CCode a where
     String       :: String -> CCode Expr
     Double       :: Double -> CCode Expr
     Comm         :: String -> CCode a
+    Annotated    :: String -> CCode a -> CCode a

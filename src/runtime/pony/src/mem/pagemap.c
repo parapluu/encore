@@ -2,7 +2,8 @@
 #include "heap.h"
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/mman.h>
+
+#include <platform/platform.h>
 
 #define PAGEMAP_ADDRESSBITS 48
 #define PAGEMAP_LEVELS 3
@@ -48,12 +49,10 @@ void* pagemap_get(const void* m)
   for(int i = 0; i < PAGEMAP_LEVELS; i++)
   {
     if(v == NULL)
-    {
       return NULL;
-    }
 
     uintptr_t ix = ((uintptr_t)m >> level[i].shift) & level[i].mask;
-    v = v[ix];
+    v = (void**)v[ix];
   }
 
   return v;
@@ -62,26 +61,19 @@ void* pagemap_get(const void* m)
 void pagemap_set(const void* m, void* v)
 {
   void*** pv = &root;
+  void* p;
 
   for(int i = 0; i < PAGEMAP_LEVELS; i++)
   {
     if(*pv == NULL)
     {
-      void** p = mmap(
-        0,
-        level[i].size,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANON,
-        -1,
-        0
-        );
-
+      p = virtual_alloc(level[i].size);
       void** prev = NULL;
 
-      if(!__atomic_compare_exchange_n(pv, &prev, p, false,
-        __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+      if(!__pony_atomic_compare_exchange_n(pv, &prev, p, false,
+        PONY_ATOMIC_RELAXED, PONY_ATOMIC_RELAXED, intptr_t))
       {
-        munmap(p, level[i].size);
+        virtual_free(p, level[i].size);
       }
     }
 
@@ -89,5 +81,5 @@ void pagemap_set(const void* m, void* v)
     pv = (void***)&((*pv)[ix]);
   }
 
-  *pv = v;
+  *pv = (void**)v;
 }

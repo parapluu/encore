@@ -1,0 +1,22 @@
+class Foo {
+  def work() : void {
+    print("working\n")
+  }
+}
+
+class Client {
+  def start() : void {
+    let
+      f1 = peer Foo
+      f2 = peer Foo
+    in {
+      f1.work();
+      f2.work();
+    }
+  }
+}
+
+class Main {
+  def main() : void
+    (new Client).start()
+}

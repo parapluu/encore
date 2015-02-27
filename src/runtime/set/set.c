@@ -34,7 +34,7 @@ struct set{
   struct node *root;
 };
 
-set_t *mk_set(void){
+set_t *set_mk(void){
   set_t *set = ALLOC(sizeof(set_t));
   if(set)
     set->root = NULL;
@@ -155,7 +155,7 @@ set_t *set_clone(set_t *set){
   set_t *newSet = NULL;
   if(set)
 
-    newSet = mk_set();
+    newSet = set_mk();
   if(newSet)
     cloneNode(set->root, &(newSet->root));
   return newSet;
@@ -202,7 +202,7 @@ static set_t *node_map(struct node *node, set_t *result, map_fnc f){
 
 set_t *set_map(set_t *set, map_fnc f){
   if(set)
-    return node_map(set->root, mk_set(), f);
+    return node_map(set->root, set_mk(), f);
   else
     return NULL;
 }

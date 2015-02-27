@@ -1,124 +1,87 @@
 #ifndef asio_sock_h
 #define asio_sock_h
 
-#include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <sys/uio.h>
-#include <arpa/inet.h>
-
-#include "streambuf.h"
+#include <stdint.h>
 
 /** Opaque definition of a socket.
  *
- *  This type is the runtime representation
- *  of network sockets. PonySocks of the high-level
- *  language may use this interface through a C-FFI.
  */
 typedef struct sock_t sock_t;
 
-/** Definition of a peer address
+/** Get the OS-Level file descriptor of a socket.
  *
  */
-typedef struct sock_addr_t
-{
-  char ipstr[INET6_ADDRSTRLEN];
-  uint32_t port;
-} sock_addr_t;
+intptr_t sock_get_fd(sock_t* s);
 
-/** Create a socket for a specific service.
+/** Creates a listener socket for the specified service.
  *
- *  The underlying socket is created
- *  for a given protocol. Any socket
- *  is created as stream and socket
- *  as in non-blocking. Blocking
- *  sockets are not supported.
- *
- *  Returns a pointer to a socket or NULL
- *  if an error occured.
- *
- *  So far, proto is ignored, may be later
- *  used as compile flag TCP vs. InfiniBand.
+ *  The backlog determines the size of the buffer for incomming connections.
+ *  Once the buffer is exhausted the underlying protocol may trigger reconnects.
  */
-sock_t* sock_create(uint32_t proto, char* service);
+sock_t* sock_listen(const char* service, uint32_t backlog);
 
-/** Retrieves the OS-level file descriptor
- *  of a given socket.
+/** Accept a new connection.
+ *
+ *  Returns ASIO_SUCCESS, ASIO_WOULDBLOCK or ASIO_ERROR.
  */
-intptr_t sock_get_fd(sock_t* sock);
+uint32_t sock_accept(sock_t* listener, sock_t** accepted);
 
-/** Set peer address of given socket.
+/** Establish a connection to some remote peer.
  *
+ *  Returns ASIO_SUCCESS, ASIO_WOULDBLOCK or ASIO_ERROR. If a call to connect
+ *  would block, the caller should subscribe for writability.
  */
-void sock_set_addr(sock_t* sock, char* ipstr, uint32_t port);
+uint32_t sock_connect(const char* host, const char* port, sock_t** connected);
 
-/** Retrieves the connection info of the remote peer
- *  associated with a given socket.
+/** Returns an index starting from which the caller can write at least "len"
+ *  bytes to the socket.
  *
- *  For listener sockets, the provided IP string and port
- *  is that of the local network interface on which we
- *  listen for incomming connections.
+ *  The index can be used at any point in time before flushing, even if data has
+ *  been written to the socket after bookmarking.
  */
-sock_addr_t* sock_get_addr(sock_t* sock);
+size_t sock_bookmark(sock_t* sock, size_t len);
 
-/** Listen for incomming connections on the service
- *  that this socket is bound to.
+/** Write data to a previously bookmarked location of the socket.
  *
- *  The backlog determines the size of the buffer
- *  for incomming connections. Once the buffer
- *  is exhausted, the underlying protocol triggers
- *  reconnects. Hence, the backlog parameter may
- *  be set wisely.
- *
- *  Returns 0 on success and ASIO_ERROR if an error
- *  occurded. ERRNO is set appropriately.
  */
-uint32_t sock_listen(sock_t* sock, uint32_t backlog);
+void sock_bookmark_write(sock_t* sock, size_t index, void* data, size_t len);
 
-/** Accepts a new connection.
+/** Read data from the network.
  *
- *  The resulting socket is internally allocated
- *  and stored at dest.
- *
- *  Returns 0 on success, ASIO_WOULDBLOCK
- *  if the requested operation would block
- *  or ASIO_ERROR if an error occured.
+ *  Returns the status of the operation (ASIO_ERROR, ASIO_WOULDBLOCK, ASIO_SUCCESS).
  */
-uint32_t sock_accept(sock_t* src, sock_t** dest);
+uint32_t sock_read(sock_t* sock);
 
-/** Connect to a remote peer.
+/** Gets up to "len" bytes from the pending read list.
  *
- *  Return 0 on success, ASIO_WOULDBLOCK
- *  or ASIO_ERROR if an error occured.
- *
- *  If a call to connect would block,
- *  the caller should subscribe for
- *  writability.
  */
-uint32_t sock_connect(sock_t** sock, char* host, char* port);
+void sock_get_data(sock_t* sock, void* dest, size_t len);
 
-/** Close a socket.
+/** Append data to the pending write list of a socket.
  *
- *  Closing a socket does NOT cause I/O events
- *  correlated to that socket to be unsubscribed.
  */
-void sock_close(sock_t* sock);
+void sock_write(sock_t* sock, void* data, size_t len);
 
-/** Convenience function for sock_writev.
+/** Flush a socket's buffer to the network.
  *
+ *  Returns the status of the requested operation.
  */
-uint32_t sock_write(sock_t* s, streambuf_t* sb);
+uint32_t sock_flush(sock_t* s);
 
-/** Read data from a socket.
+/** Returns the number of bytes available the be retrieved from the socket.
  *
- *  Returns ASIO_SUCCESS on success, ASIO_WOULDBLOCK
- *  if the requested operation would block
- *  ASIO_CLOSED if the remote peer closed
- *  the connection or ASIO_ERROR if an error
- *  occured.
- *
- *  The number of bytes read is written to nrp.
  */
-uint32_t sock_read(sock_t* s, struct iovec* iov, size_t chunks, size_t* nrp);
+size_t sock_read_buffer_size(sock_t* s);
+
+/** Close a socket, if no pending writes exist.
+ *
+ *  Closing a socket does not cause correlated I/O-events to be unsubscribes.
+ *  events should be unsubscribed before closing a socket.
+ *
+ *  Returns true if the socket was closed.
+ */
+bool sock_close(sock_t* sock);
 
 #endif

@@ -2,6 +2,15 @@
 Makefile
 *.make
 
+Build
+
+# Visual Studio files
+*.vcxproj*
+*.sln
+*.suo
+*.opensdf
+*.sdf
+
 # Binaries
 bin
 

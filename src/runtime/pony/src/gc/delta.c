@@ -40,7 +40,7 @@ deltamap_t* deltamap_update(deltamap_t* map, pony_actor_t* actor, size_t rc)
   if(map == NULL)
   {
     // allocate a new map with space for at least one element
-    map = POOL_ALLOC(deltamap_t);
+    map = (deltamap_t*)POOL_ALLOC(deltamap_t);
     deltamap_init(map, 1);
   }
 
@@ -53,7 +53,7 @@ deltamap_t* deltamap_update(deltamap_t* map, pony_actor_t* actor, size_t rc)
   {
     delta->rc = rc;
   } else {
-    delta = POOL_ALLOC(delta_t);
+    delta = (delta_t*)POOL_ALLOC(delta_t);
     delta->actor = actor;
     delta->rc = rc;
 

@@ -1,7 +1,7 @@
 class Main
-  def main() : Fut void
+  def main() : void
     let other = new Other in {
-       other.printTwo("Hello", "Ponyworld!")
+       other!printTwo("Hello", "Ponyworld!");
     }
 
 class Other

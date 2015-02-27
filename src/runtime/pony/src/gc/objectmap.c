@@ -24,7 +24,7 @@ static bool object_cmp(object_t* a, object_t* b)
 
 static object_t* object_alloc(void* address, size_t mark)
 {
-  object_t* obj = POOL_ALLOC(object_t);
+  object_t* obj = (object_t*)POOL_ALLOC(object_t);
   obj->address = address;
   obj->rc = 0;
 

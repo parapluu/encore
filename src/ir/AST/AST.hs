@@ -119,6 +119,7 @@ instance HasMeta MethodDecl where
 type Arguments = [Expr]
 
 data Expr = Skip {emeta :: Meta Expr}
+          | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}
@@ -176,6 +177,16 @@ data Expr = Skip {emeta :: Meta Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
                          name :: Name}
+          | ArrayAccess {emeta :: Meta Expr, 
+                         target :: Expr, 
+                         index :: Expr}
+          | ArraySize {emeta :: Meta Expr, 
+                       target :: Expr}
+          | ArrayNew {emeta :: Meta Expr, 
+                      ty :: Type,
+                      size :: Expr}
+          | ArrayLiteral {emeta :: Meta Expr, 
+                          args :: [Expr]}
           | Assign {emeta :: Meta Expr, 
                     lhs :: Expr, 
                     rhs :: Expr}
@@ -189,6 +200,8 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | New {emeta :: Meta Expr, 
                  ty ::Type}
+          | Peer {emeta :: Meta Expr,
+                  ty ::Type}
           | Print {emeta :: Meta Expr, 
                    stringLit :: String,
                    args :: [Expr]}
@@ -214,6 +227,7 @@ data Expr = Skip {emeta :: Meta Expr}
 isLval :: Expr -> Bool
 isLval VarAccess {} = True
 isLval FieldAccess {} = True
+isLval ArrayAccess {} = True
 isLval _ = False
 
 isThisAccess :: Expr -> Bool
@@ -238,6 +252,7 @@ instance HasMeta Expr where
 
     setType ty' expr@(TypedExpr {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
+    setType ty' expr@(Peer {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
 

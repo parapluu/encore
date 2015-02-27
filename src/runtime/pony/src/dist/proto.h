@@ -2,11 +2,11 @@
 #define dist_proto_h
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "../asio/sock.h"
-#include "../asio/streambuf.h"
 
-enum PROTO_MSG_T
+enum
 {
 	CONTROL_NODE_ID           = 0x0001,
 	CONTROL_NODE_ACCEPTED     = 0x0002,
@@ -23,30 +23,44 @@ enum PROTO_MSG_T
 	APP_ACTOR_RC              = 0x1000,
 
 	CONTROL_DIST_QUIESCENCE   = (1 << 14),
-	PROTO_NOP								 = (1 << 15)
+	PROTO_NOP                 = (1 << 15)
 };
 
-/** Opaque definition of a protocol (for receiving
- *  only).
+/** Opaque definition of a protocol.
  *
  */
 typedef struct proto_t proto_t;
 
-/** Receive data from a socket.
+/** Receive a message from a socket.
  *
- *  Returns the TYPE of a received message.
+ *  Returns the TYPE of a received message, or PROTO_NOP if receiving the
+ *  message was not completed yet.
  */
-uint32_t proto_receive(proto_t** p, sock_t* s, streambuf_t** sb);
+uint32_t proto_receive(proto_t** p, sock_t* s);
 
-/** Send data to a remote peer.
+/** Send a message to some remote peer that has no message body.
  *
- *  Returns the ASIO state of the operation.
  */
-uint32_t proto_send(sock_t* s, uint16_t msg, streambuf_t* sb);
+uint32_t proto_send(uint16_t header, sock_t* s);
 
-/** Continue a previously started communication phase
- *  that blocked.
+/** Start a protocol phase.
+ *
  */
-uint32_t proto_continue(sock_t* s);
+void proto_start(proto_t** p, uint16_t header, sock_t* s);
+
+/** Record a larger message for being sent to some remote peer.
+ *
+ */
+void proto_record(proto_t* p, void* data, size_t len);
+
+/** Flush a message to the network.
+ *
+ */
+uint32_t proto_finish(proto_t* p);
+
+/** Reset the internal state of a protocol.
+ *
+ */
+void proto_reset(proto_t* p);
 
 #endif

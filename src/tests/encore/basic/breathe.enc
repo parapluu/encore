@@ -1,0 +1,10 @@
+class Foo
+  def foo() : void {
+    print "out of air!";
+    breathe;
+    print "that's better"
+  }
+
+class Main
+  def main() : void
+    (new Foo).foo()

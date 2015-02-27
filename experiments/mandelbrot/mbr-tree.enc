@@ -1,0 +1,241 @@
+{-
+    Plots the Mandelbrot set from (-1.5-i) to (0.5+i) to a N*N
+    .pbm file and dumps it to stdout.
+    
+    It does this by recursively splitting plot region in half (along the imaginary axis) several times,
+    thus creating a tree structure and computing each subset of the plot-range asynchronously.
+-}
+class Main
+  def main() : void
+    let 
+      plot_iterations = 50                        
+      tree_depth = 8
+      argc = embed int argc; end                                
+      size = embed int atoi(argv[1]); end
+      tree = null : BiTree
+      shared = new Shared
+      supervisor = new Supervisor
+      done = false
+    in{
+    
+        if(argc == 3) then {
+             tree_depth = embed int atoi(argv[2]); end; 
+        };
+       
+        shared = new Shared(plot_iterations,tree_depth,size,-1*1.5,0.5);
+        tree = new BiTree(0,-1*1.0 ,1.0, size,0,shared);
+        
+        while((get shared.supervisor.doneQ()) == false){
+            embed void usleep(1000); end;
+        };
+        
+        shared.packAndPrint();
+
+    }
+
+class Supervisor
+    chunks_done : int
+    number_of_chunks : int
+    
+    def init(chunks : int) : void{
+        --this.shared = shared;
+        this.chunks_done = 0;
+        this.number_of_chunks = chunks;
+    }
+    
+    def increment() : void {
+        this.chunks_done = this.chunks_done + 1; 
+    }
+    
+    def doneQ() : bool{
+        this.chunks_done == this.number_of_chunks 
+    }
+
+class BiTree
+    chunk : Chunk
+    left : BiTree
+    right : BiTree
+    shared : Shared
+        
+    def init(depth : int,  y_start : real ,y_end : real, height : int, Y_index : int, shared : Shared ) : void{
+        if(depth == shared.max_depth) then{
+            this.chunk = new Chunk(Y_index, height, shared);
+            this.chunk.compute(y_start, y_end);
+            this.left = null;
+            this.right = null;
+        }else{
+            this.chunk = null;
+            this.left = new BiTree(depth+1, y_start, y_start+(y_end-y_start)/2, height/2, Y_index, shared );
+            this.right = new BiTree(depth+1, y_start+(y_end-y_start)/2, y_end, height/2 + (height %2), Y_index + height/2, shared);
+        };
+    }
+
+passive class Shared{
+    x_start : real
+    x_end : real
+    size : int
+    max_iterations : int
+    array : IntArray2D
+    number_of_chunks : int
+    max_depth : int
+    supervisor : Supervisor
+    
+    def init(max_iterations : int, max_depth : int, size : int, x_start : real, x_end : real) : void{
+        this.x_start = x_start;
+        this.x_end = x_end;
+        this.size = size;
+        this.max_iterations = max_iterations;
+        this.max_depth = max_depth;
+        this.number_of_chunks = embed int (1 << #{max_depth}); end;
+        this.array = new IntArray2D(size,size);
+        this.supervisor = new Supervisor(this.number_of_chunks);
+    }
+    
+    --Used for debugging
+    def print_ugly(): void{
+        let
+            x = 0
+            y = 0
+        in
+            while(y < this.size){
+                while(x < this.size){
+                    print("{}", this.array.read(x,y));
+                    x = x+1;
+                };
+                x = 0;
+                y = y +1;
+                print "";
+            }
+    }
+
+    def packAndPrint() : void
+        let
+            packed = 0
+            x = 0
+            y = 0
+            j = 7
+            member = 0
+        in{
+            print("P4\n{} {}\n",this.size,this.size);
+            
+            while(y < this.size){
+                                
+                while(x < this.size){
+                    packed = 0;
+                    j = 7;
+                    while(j >= 0){
+                        member = this.array.read(x,y);
+                        packed = embed int (#{member} << #{j}) | #{packed}; end; 
+                        x = x+1;
+                        j = j-1
+                    };
+                    embed void
+                        fwrite(&#{packed}, sizeof(char), 1, stdout);
+                    end
+                };
+                x = 0;
+                y = y + 1;
+                            
+            }
+        }
+        
+}
+
+
+class Chunk
+      width : int
+      height : int
+    shared : Shared
+    Y_index : int 
+    
+    def init(Y_index : int, height : int, shared :Shared ) : void{
+        this.shared = shared;                                                    
+        this.height = height;
+        this.Y_index = Y_index;
+    }  
+      
+
+    def compute(y_start : real, y_end : real) : void 
+        let
+            cx = this.shared.x_start
+            cy = y_start
+            dx = 0.0
+            dy = 0.0
+            x = 0.0
+            y = 0.0
+            iteration = 0
+            X_index = 0
+            Y_index = 0 
+            Y_position = this.Y_index
+            xtemp = 0.0
+            i = 0
+            member = 0
+            max_iterations = this.shared.max_iterations
+        in {
+        
+            dx = (this.shared.x_end-this.shared.x_start)/this.shared.size;
+            dy = (y_end-y_start)/this.height;
+
+            while(Y_index < this.height){
+                                         
+                while(X_index < this.shared.size) {
+                    x = 0.0;
+                    y = 0.0;
+                    iteration = 0;
+                    
+                    while ((x*x + y*y < 4.0) and (iteration < max_iterations)) {
+                        xtemp = x*x - y*y + cx;
+                        y = 2.0*x*y + cy;
+                        x = xtemp;
+                        iteration = iteration + 1; 
+                    };
+                    
+                    if(iteration == max_iterations) then {
+                        member = 1
+                    }else{
+                        member = 0
+                    };
+                    
+                    this.shared.array.write(X_index,Y_index+Y_position, member);
+                    cx = cx + dx;
+                    X_index = X_index + 1;
+                };
+                
+                X_index = 0;
+                cx = this.shared.x_start;
+                Y_index = Y_index + 1;
+                cy = cy + dy;
+                };
+            
+            get this.shared.supervisor.increment();
+          
+        }
+    
+
+passive class IntArray2D
+    slots: D
+    width : int
+    height : int
+    -- def IntArray_trace() : void
+    --   embed void
+    --     pony_trace(this->slots);
+    --   end
+    
+    def init(width : int, height : int) : void
+        embed void
+            this->slots = pony_alloc(width * height * sizeof(int64_t));
+            this->height = height;
+            this->width = width;
+        end
+    
+    def write(x:int, y:int, v:int) : void
+        embed void
+            ((int64_t*)(this->slots))[#{x} + (this->#{width})*#{y}] = (int64_t)v;
+        end
+    
+    def read(x : int, y : int) : int
+        embed int
+            ((int64_t*)this->slots)[#{x} + this->#{width}*#{y}];
+        end
+        
+passive class D

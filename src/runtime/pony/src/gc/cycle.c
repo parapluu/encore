@@ -24,6 +24,14 @@ enum
   CYCLE_TERMINATE
 };
 
+typedef struct block_msg_t
+{
+  pony_msg_t msg;
+  pony_actor_t* actor;
+  size_t rc;
+  deltamap_t* delta;
+} block_msg_t;
+
 typedef struct view_t view_t;
 typedef struct perceived_t perceived_t;
 
@@ -125,6 +133,8 @@ DEFINE_HASHMAP(perceivedmap, perceived_t, perceived_hash, perceived_cmp,
 
 typedef struct detector_t
 {
+  pony_actor_pad_t pad;
+
   size_t next_token;
   size_t next_deferred;
   size_t since_deferred;
@@ -154,7 +164,7 @@ static view_t* get_view(detector_t* d, pony_actor_t* actor)
 
   if(view == NULL)
   {
-    view = POOL_ALLOC(view_t);
+    view = (view_t*)POOL_ALLOC(view_t);
     memset(view, 0, sizeof(view_t));
     view->actor = actor;
 
@@ -194,7 +204,7 @@ static void apply_delta(detector_t* d, view_t* view)
 
       if(ref == NULL)
       {
-        ref = POOL_ALLOC(viewref_t);
+        ref = (viewref_t*)POOL_ALLOC(viewref_t);
         ref->view = find;
         viewrefmap_put(&view->map, ref);
       }
@@ -419,7 +429,7 @@ static bool detect(detector_t* d, view_t* view)
   if(count == 0)
     return false;
 
-  perceived_t* per = POOL_ALLOC(perceived_t);
+  perceived_t* per = (perceived_t*)POOL_ALLOC(perceived_t);
   per->token = d->next_token++;
   per->ack = 0;
   per->last_conf = HASHMAP_BEGIN;
@@ -639,8 +649,9 @@ static void forcecd(detector_t* d)
     scheduler_terminate();
 }
 
-static void final(detector_t* d)
+static void final(pony_actor_t* self)
 {
+  detector_t* d = (detector_t*)self;
   size_t i = HASHMAP_BEGIN;
   view_t* view;
 
@@ -653,79 +664,62 @@ static void final(detector_t* d)
   scheduler_terminate();
 }
 
-static pony_msg_t m_cycle_init = {0, {PONY_NONE}};
-static pony_msg_t m_cycle_block = {3, {PONY_NONE}};
-static pony_msg_t m_cycle_unblock = {1, {PONY_NONE}};
-static pony_msg_t m_cycle_ack = {1, {PONY_NONE}};
-static pony_msg_t m_cycle_terminate = {1, {PONY_NONE}};
-
-static pony_msg_t* cycle_msg(uint64_t id)
+static void cycle_dispatch(pony_actor_t* self, pony_msg_t* msg)
 {
-  switch(id)
-  {
-    case CYCLE_INIT: return &m_cycle_init;
-    case CYCLE_BLOCK: return &m_cycle_block;
-    case CYCLE_UNBLOCK: return &m_cycle_unblock;
-    case CYCLE_ACK: return &m_cycle_ack;
-    case CYCLE_TERMINATE: return &m_cycle_terminate;
-  }
+  detector_t* d = (detector_t*)self;
 
-  return NULL;
-}
-
-static void cycle_dispatch(pony_actor_t* this, void* p, uint64_t id,
-  int argc, pony_arg_t* argv)
-{
-  detector_t* d = p;
-
-  switch(id)
+  switch(msg->id)
   {
     case CYCLE_INIT:
     {
-      d = POOL_ALLOC(detector_t);
-      memset(d, 0, sizeof(detector_t));
       d->next_deferred = CYCLE_MIN_DEFERRED;
-      pony_set(d);
       break;
     }
 
     case CYCLE_BLOCK:
     {
+      block_msg_t* m = (block_msg_t*)msg;
       d->block_msgs++;
-      block(d, argv[0].p, argv[1].i, argv[2].p);
+      block(d, m->actor, m->rc, m->delta);
       break;
     }
 
     case CYCLE_UNBLOCK:
     {
+      pony_msgp_t* m = (pony_msgp_t*)msg;
       d->unblock_msgs++;
-      unblock(d, argv[0].p);
+      unblock(d, (pony_actor_t*)m->p);
       break;
     }
 
     case CYCLE_ACK:
     {
+      pony_msgi_t* m = (pony_msgi_t*)msg;
       d->ack_msgs++;
-      ack(d, argv[0].i);
+      ack(d, m->i);
       break;
     }
 
     case CYCLE_TERMINATE:
     {
-      if(argv[0].i != 0)
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+
+      if(m->i != 0)
         forcecd(d);
       else
-        final(d);
+        final(self);
       break;
     }
   }
 }
 
-static pony_actor_type_t cycle_type =
+static pony_type_t cycle_type =
 {
   0,
-  {sizeof(detector_t), NULL, NULL, NULL},
-  cycle_msg,
+  sizeof(detector_t),
+  NULL,
+  NULL,
+  NULL,
   cycle_dispatch,
   NULL
 };
@@ -739,12 +733,12 @@ void cycle_create()
 
 void cycle_block(pony_actor_t* actor, gc_t* gc)
 {
-  pony_arg_t argv[3];
-  argv[0].p = actor;
-  argv[1].i = gc_rc(gc);
-  argv[2].p = gc_delta(gc);
+  block_msg_t* m = (block_msg_t*)pony_alloc_msg(0, CYCLE_BLOCK);
+  m->actor = actor;
+  m->rc = gc_rc(gc);
+  m->delta = gc_delta(gc);
 
-  pony_sendv(cycle_detector, CYCLE_BLOCK, 3, argv);
+  pony_sendv(cycle_detector, &m->msg);
 }
 
 void cycle_unblock(pony_actor_t* actor)
@@ -766,6 +760,6 @@ void cycle_terminate(bool forcecd)
   else
   {
     pony_become(cycle_detector);
-    final(pony_get());
+    final(cycle_detector);
   }
 }
