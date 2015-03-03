@@ -21,7 +21,7 @@ typedef void *(*reduce_fnc)(void *elem, void *accumulator);
  *  Create a new empty set. Use set_destroy"()" to free the allocated memory.
  *  @return A new empty set
  */
-set_t *mk_set(void);
+set_t *set_mk(void);
 
 /**
  *  Insert an element in a set.

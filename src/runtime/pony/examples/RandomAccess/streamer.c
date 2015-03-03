@@ -10,6 +10,8 @@
 
 typedef struct streamer_t
 {
+  pony_actor_pad_t pad;
+
   pony_actor_t* main;
   array_actor_t* updaters;
   uint64_t shift;
@@ -18,6 +20,16 @@ typedef struct streamer_t
   uint64_t rnd;
 } streamer_t;
 
+typedef struct create_msg_t
+{
+  pony_msg_t msg;
+  pony_actor_t* main;
+  array_actor_t* updaters;
+  uint64_t size;
+  uint64_t chunk;
+  uint64_t seed;
+} create_msg_t;
+
 enum
 {
   MSG_CREATE,
@@ -25,38 +37,25 @@ enum
 };
 
 static void trace_streamer(void* p);
-static pony_msg_t* msg_streamer(uint64_t id);
-static void do_streamer(pony_actor_t* this, void* p, uint64_t id, int argc, pony_arg_t* argv);
+static void do_streamer(pony_actor_t* self, pony_msg_t* msg);
 
-static pony_actor_type_t type =
+static pony_type_t type =
 {
   2,
-  {sizeof(streamer_t), trace_streamer, NULL, NULL},
-  msg_streamer,
+  sizeof(streamer_t),
+  trace_streamer,
+  NULL,
+  NULL,
   do_streamer,
   NULL
 };
 
-static pony_msg_t m_create = {5, {PONY_ACTOR, &array_actor_type, PONY_NONE}};
-static pony_msg_t m_apply = {1, {PONY_NONE}};
-
 static void trace_streamer(void* p)
 {
-  streamer_t* this = p;
+  streamer_t* self = (streamer_t*)p;
 
-  pony_traceactor(this->main);
-  pony_traceobject(this->updaters, array_actor_trace);
-}
-
-static pony_msg_t* msg_streamer(uint64_t id)
-{
-  switch(id)
-  {
-    case MSG_CREATE: return &m_create;
-    case MSG_APPLY: return &m_apply;
-  }
-
-  return NULL;
+  pony_traceactor(self->main);
+  pony_traceobject(self->updaters, array_actor_trace);
 }
 
 static uint64_t rng_next(int64_t n)
@@ -73,76 +72,81 @@ static uint64_t rng_seed(int64_t n)
   uint64_t m2[64];
   uint64_t temp = 1;
 
-  for(int i = 0; i < 64; i++)
+  for(uint32_t i = 0; i < 64; i++)
   {
     m2[i] = temp;
     temp = rng_next(rng_next(temp));
   }
 
-  int i = 62;
+  int32_t j = 62;
 
-  while(i >= 0)
+  while(j >= 0)
   {
-    if((n >> i) & 1) break;
-    i--;
+    if((n >> j) & 1) break;
+    j--;
   }
 
   uint64_t ran = 2;
 
-  while(i > 0)
+  while(j > 0)
   {
     temp = 0;
 
-    for(int j = 0; j < 64; j++)
+    for(uint32_t k = 0; k < 64; k++)
     {
-      if((ran >> j) & 1) temp ^= m2[j];
+      if((ran >> k) & 1) temp ^= m2[k];
     }
 
     ran = temp;
-    i--;
+    j--;
 
-    if((n >> i) & 1) ran = rng_next(ran);
+    if((n >> j) & 1) ran = rng_next(ran);
   }
 
   return ran;
 }
 
-static void do_streamer(pony_actor_t* actor, void* p, uint64_t id, int argc, pony_arg_t* argv)
+static void do_streamer(pony_actor_t* actor, pony_msg_t* msg)
 {
-  streamer_t* this = p;
+  streamer_t* self = (streamer_t*)actor;
 
-  switch(id)
+  switch(msg->id)
   {
     case MSG_CREATE:
     {
-      this = pony_alloc(sizeof(streamer_t));
-      pony_set(this);
+      create_msg_t* m = (create_msg_t*)msg;
 
-      this->main = argv[0].p;
-      this->updaters = argv[1].p;
-      this->shift = __builtin_ffsl(argv[2].i) - 1;
-      this->mask = this->updaters->count - 1;
-      this->chunk = argv[3].i;
-      this->rnd = rng_seed(argv[4].i);
+      pony_gc_recv();
+      pony_traceactor(m->main);
+      pony_traceobject(m->updaters, array_actor_trace);
+      pony_recv_done();
+
+      self->main = m->main;
+      self->updaters = m->updaters;
+      self->shift = __pony_ffsl(m->size) - 1;
+      self->mask = self->updaters->count - 1;
+      self->chunk = m->chunk;
+      self->rnd = rng_seed(m->seed);
       break;
     }
 
     case MSG_APPLY:
     {
-      const uint64_t iterate = argv[0].i;
-      const uint64_t chunk = this->chunk;
-      const uint64_t count = this->updaters->count;
-      uint64_t* list[count];
-      uint64_t size[count];
+      pony_msgi_t* m = (pony_msgi_t*)msg;
+      const uint64_t iterate = m->i;
+      const uint64_t chunk = self->chunk;
+      const uint64_t count = self->updaters->count;
+      VLA(uint64_t*, list, count);
+      VLA(uint64_t, size, count);
 
       memset(size, 0, count * sizeof(uint64_t));
 
       for(uint64_t i = 0; i < count; i++)
-        list[i] = pony_alloc(chunk * sizeof(uint64_t));
+        list[i] = (uint64_t*)pony_alloc(chunk * sizeof(uint64_t));
 
-      uint64_t datum = this->rnd;
-      const uint64_t shift = this->shift;
-      const uint64_t mask = this->mask;
+      uint64_t datum = self->rnd;
+      const uint64_t shift = self->shift;
+      const uint64_t mask = self->mask;
 
       for(uint64_t i = 0; i < chunk; i++)
       {
@@ -154,8 +158,8 @@ static void do_streamer(pony_actor_t* actor, void* p, uint64_t id, int argc, pon
         list[updater][index] = datum;
       }
 
-      this->rnd = datum;
-      pony_actor_t** cur = this->updaters->array;
+      self->rnd = datum;
+      pony_actor_t** cur = self->updaters->array;
 
       for(int i = 0; i < count; i++)
       {
@@ -169,7 +173,7 @@ static void do_streamer(pony_actor_t* actor, void* p, uint64_t id, int argc, pon
       {
         streamer_apply(actor, iterate - 1);
       } else {
-        main_streamerdone(this->main);
+        main_streamerdone(self->main);
       }
       break;
     }
@@ -181,14 +185,19 @@ pony_actor_t* streamer_create(pony_actor_t* main, array_actor_t* updaters,
 {
   pony_actor_t* streamer = pony_create(&type);
 
-  pony_arg_t argv[5];
-  argv[0].p = main;
-  argv[1].p = updaters;
-  argv[2].i = size;
-  argv[3].i = chunk;
-  argv[4].i = seed;
-  pony_sendv(streamer, MSG_CREATE, 5, argv);
+  pony_gc_send();
+  pony_traceactor(main);
+  pony_traceobject(updaters, array_actor_trace);
+  pony_send_done();
 
+  create_msg_t* m = (create_msg_t*)pony_alloc_msg(0, MSG_CREATE);
+  m->main = main;
+  m->updaters = updaters;
+  m->size = size;
+  m->chunk = chunk;
+  m->seed = seed;
+
+  pony_sendv(streamer, &m->msg);
   return streamer;
 }
 

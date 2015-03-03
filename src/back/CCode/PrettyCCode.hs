@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 {-|
 Converting CCode (see "CCode.Main") to C source.
@@ -49,10 +50,10 @@ pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement other) =  add_semi $ pp' other
 pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$
                               switch_body ccodes def
-pp' (StructDecl name vardecls) = text "struct ___" <> tshow name $+$
+pp' (StructDecl name vardecls) = text "struct " <> tshow name $+$
                                  (add_semi . braced_block . vcat) (map pp' fields)
     where fields = map (\ (ty, id) -> Embed $ show ty ++ " " ++ show id ++ ";") vardecls
-pp' (Struct name) = text "struct ___" <> tshow name
+pp' (Struct name) = text "struct " <> tshow name
 pp' (Record ccodes) = braces $ commaList ccodes
 pp' (Assign lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (AssignTL lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
@@ -72,6 +73,7 @@ pp' (Parens ccode) = parens $ pp' ccode
 pp' (CUnary o e) = parens $  pp' o <+> pp' e
 pp' (BinOp o e1 e2) = parens $  pp' e1 <+> pp' o <+> pp' e2
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
+pp' (Arrow ccode id) = pp' ccode <> text "->" <> tshow id
 pp' (Deref ccode) = parens $ star <> pp' ccode 
 pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
 pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
@@ -84,10 +86,12 @@ pp' (Function ret_ty name args body) = tshow ret_ty <+> tshow name <>
                                        (braced_block . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
+pp' (AsType c) = pp' c
 pp' (Nam st) = text st
 pp' (Var st) = text st
 pp' (Typ st) = text st
 pp' (Static ty) = text "static" <+> pp' ty
+pp' (Extern ty) = text "extern" <+> pp' ty
 pp' (Embed string) = text string
 pp' (EmbedC ccode) = pp' ccode
 pp' (Call name args) = tshow name <> parens (commaList args)
@@ -106,6 +110,8 @@ pp' (Int n) = tshow n
 pp' (String s) = tshow s
 pp' (Double d) = tshow d
 pp' (Comm s) = text ("/* "++s++" */")
+--Annotated :: CCode a -> String -> CCode a
+pp' (Annotated s ccode) = pp' ccode <+> pp' (Comm s)
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l

@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -7,12 +6,13 @@
 #include "asio.h"
 #include "../mem/pool.h"
 
+#ifndef PLATFORM_IS_WINDOWS
 
 typedef ssize_t op_fn(int fd, const struct iovec *iov, int iovcnt);
 
 struct asio_base_t
 {
-	pthread_t tid;
+	pony_thread_id_t tid;
 	asio_backend_t* backend;
 	uint32_t subscriptions;
 };
@@ -21,15 +21,13 @@ static asio_base_t* running_base;
 
 /** Start an asynchronous I/O event mechanism.
  *
- *  Errors are always delegated to the owning actor
- *  of an I/O subscription and never handled within
- *  the runtime system.
+ *  Errors are always delegated to the owning actor of an I/O subscription and
+ *  never handled within the runtime system.
  *
- *  In any case (independent of the underlying backend)
- *  only one I/O dispatcher thread will be started.
- *  Since I/O events are subscribed by actors, we do not need
- *  to maintain a thread pool. Instead, I/O is processed in
- *  the context of the owning actor.
+ *  In any case (independent of the underlying backend) only one I/O dispatcher
+ *  thread will be started. Since I/O events are subscribed by actors, we do not
+ *  need to maintain a thread pool. Instead, I/O is processed in the context of
+ *  the owning actor.
  */
 static void start()
 {
@@ -40,15 +38,14 @@ static void start()
 
 	asio_base_t* existing = NULL;
 
-	if(__atomic_compare_exchange_n(&running_base, &existing, new_base, false,
-		__ATOMIC_RELAXED, __ATOMIC_RELAXED))
+	if(__pony_atomic_compare_exchange_n(&running_base, &existing,
+		new_base, false, PONY_ATOMIC_RELAXED, PONY_ATOMIC_RELAXED, intptr_t))
 	{
-		uint32_t rc = 0;
-		if((rc = pthread_create(&running_base->tid, NULL, asio_backend_dispatch,
-			running_base->backend)) != 0)
+		if(!pony_thread_create(&running_base->tid, asio_backend_dispatch,
+			running_base->backend))
 		  exit(EXIT_FAILURE);
 
-  	pthread_detach(running_base->tid);
+  	pony_thread_detach(running_base->tid);
 	}
 	else
 	{
@@ -59,39 +56,18 @@ static void start()
 
 /** Wrapper for writev and readv.
  */
-static uint32_t exec(op_fn* fn, intptr_t fd, struct iovec* iov, size_t* chunks,
+static uint32_t exec(op_fn* fn, intptr_t fd, struct iovec* iov, size_t chunks,
 	size_t* nrp)
 {
 	ssize_t ret;
 	*nrp = 0;
 
-  while(*chunks > 0)
-  {
-		ret = fn(fd, iov, *chunks);
+	ret = fn(fd, iov, chunks);
 
-    if(ret < 0 && errno != EWOULDBLOCK)
-			return ASIO_ERROR;
-	  else if(ret < 0 && errno == EWOULDBLOCK)
-			return ASIO_WOULDBLOCK;
+	if(ret < 0)
+		return (errno == EWOULDBLOCK) ? ASIO_WOULDBLOCK : ASIO_ERROR;
 
-    if(nrp != NULL) *nrp += ret;
-
-	  while(ret > 0)
-    {
-	    if(ret >= iov->iov_len)
-      {
-        ret -= iov->iov_len;
-        *chunks -= 1;
-        iov++;
-      }
-      else
-      {
-        iov->iov_len -= ret;
-        iov->iov_base += ret;
-        ret = 0;
-      }
-    }
-  }
+  if(nrp != NULL) *nrp += ret;
 
   return ASIO_SUCCESS;
 }
@@ -113,12 +89,24 @@ bool asio_stop()
 	return true;
 }
 
-uint32_t asio_writev(intptr_t fd, struct iovec* iov, size_t* chunks, size_t* nrp)
+uint32_t asio_writev(intptr_t fd, struct iovec* iov, size_t chunks, size_t* nrp)
 {
 	return exec(writev, fd, iov, chunks, nrp);
 }
 
 uint32_t asio_readv(intptr_t fd, struct iovec* iov, size_t chunks, size_t* nrp)
 {
-	return exec(readv, fd, iov, &chunks, nrp);
+	return exec(readv, fd, iov, chunks, nrp);
 }
+
+uint32_t asio_read(intptr_t fd, void* dest, size_t len, size_t* nrp)
+{
+	struct iovec iov[1];
+
+	iov[0].iov_len = len;
+  iov[0].iov_base = dest;
+
+	return asio_readv(fd, iov, 1, nrp);
+}
+
+#endif

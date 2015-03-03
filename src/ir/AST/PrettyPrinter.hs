@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-|
 
 Prints the source code that an "AST.AST" represents. Each node in
@@ -21,6 +21,7 @@ import AST.AST
 
 ppClass = text "class"
 ppSkip = text "()"
+ppBreathe = text "breathe"
 ppLet = text "let"
 ppIn = text "in"
 ppIf = text "if"
@@ -38,6 +39,7 @@ ppNull = text "null"
 ppTrue = text "true"
 ppFalse = text "false"
 ppNew = text "new"
+ppPeer = text "peer"
 ppPrint = text "print"
 ppExit = text "exit"
 ppEmbed = text "embed"
@@ -50,6 +52,7 @@ ppEquals = text "="
 ppSpace = text " "
 ppLambda = text "\\"
 ppArrow = text "->"
+ppBar = text "|"
 
 indent = nest 2
 
@@ -126,15 +129,16 @@ ppSugared e = case getSugared e of
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
-ppExpr MethodCall {target, name, args} = 
-    maybeParens target <> ppDot <> ppName name <> 
+ppExpr Breathe {} = ppBreathe
+ppExpr MethodCall {target, name, args} =
+    maybeParens target <> ppDot <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args} = 
-    maybeParens target <> ppBang <> ppName name <> 
+ppExpr MessageSend {target, name, args} =
+    maybeParens target <> ppBang <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr FunctionCall {name, args} = 
+ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
-ppExpr Closure {eparams, body} = 
+ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Let {decls, body} = 
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
@@ -167,6 +171,10 @@ ppExpr IsEos {target} = ppExpr target <> ppDot <> ppEos <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <> parens empty
 ppExpr Suspend {} = ppSuspend
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
+ppExpr ArrayAccess {target, index} = ppExpr target <> (brackets $ ppExpr index)
+ppExpr ArraySize {target} = ppBar <> ppExpr target <> ppBar
+ppExpr ArrayNew {ty, size} = (brackets $ ppType ty) <> parens (ppExpr size)
+ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
@@ -174,6 +182,7 @@ ppExpr BTrue {} = ppTrue
 ppExpr BFalse {} = ppFalse
 ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
+ppExpr Peer {ty} = ppPeer <+> ppType ty
 ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> comma <+> commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)

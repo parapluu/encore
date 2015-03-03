@@ -1,0 +1,199 @@
+passive class D
+
+passive class LogArray
+  size:int
+  slots:D
+  def LogArray_trace() : void
+    embed void
+      pony_trace(this->slots);
+      for (int i = 0; i < this->size; ++i) pony_traceobject(((pony_actor_t**)this->slots)[i], _enc__LogEntry_trace);
+    end
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(void*));      
+      for (int i = 0; i < size; ++i) ((pony_actor_t**)this->slots)[i] = NULL;
+      this->size = size;
+    end
+  def write(i:int, v:LogEntry) : void
+    embed void
+      ((void **)this->slots)[i] = v;
+    end
+  def read(i:int) : LogEntry
+    embed LogEntry
+      ((void **)this->slots)[i];
+    end
+  def size() : int
+    this.size
+
+passive class ActorArray
+  size:int
+  slots:D
+  def ActorArray_trace() : void
+    embed void
+      pony_trace(this->slots);
+      for (int i = 0; i < this->size; ++i) pony_traceactor(((pony_actor_t**)this->slots)[i]);
+    end
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(int32_t));      
+      for (int i = 0; i < size; ++i) ((pony_actor_t**)this->slots)[i] = NULL;
+      this->size = size;
+    end
+  def write(i:int, v:PreferentialActor) : void
+    embed void
+      if (i < 0 || i > this->size) fprintf(stderr, "1Write index bad %zd (size: %zd)\n", i, this->size);
+      ((void **)this->slots)[i] = v;
+    end
+  def read(i:int) : PreferentialActor
+    embed PreferentialActor
+      if (i < 0 || i > this->size) fprintf(stderr, "1Read index bad %zd (size: %zd)\n", i, this->size);
+      (0 <= i && i < this->size) ? ((pony_actor_t**)this->slots)[i] : NULL;
+    end
+  def size() : int
+    this.size
+
+passive class Array<a>
+  size:int
+  slots:a
+  def Array_trace() : void
+    embed void
+      pony_trace(this->slots);
+    end
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(int32_t));      
+      this->size = size;
+    end
+  def write(i:int, v:int) : void
+    embed void
+      if (i < 0 || i > this->size) fprintf(stderr, "2Write index bad %zd (size: %zd)\n", i, this->size);
+       __atomic_store_n(&((int32_t *)this->slots)[i], (int32_t) v, __ATOMIC_SEQ_CST);
+       // ((int32_t *)this->slots)[i] = (int32_t) v;
+    end
+  def read(i:int) : int
+    embed int
+      if (i < 0 || i > this->size) fprintf(stderr, "2Read index bad %zd (size: %zd)\n", i, this->size);
+      // (0 <= i && i < this->size) ? ((int32_t*)this->slots)[i] : -100;
+      (0 <= i && i < this->size) ? __atomic_load_n(&((int32_t*)this->slots)[i], __ATOMIC_SEQ_CST) : -100;
+    end
+  def size() : int
+    this.size
+  def dump(line:int) : void
+    embed void
+      printf("[");
+      for (int32_t i = 0; i < this->size; ++i) 
+      {
+        if (i && !(i % line)) printf("\n");
+        printf("%d, ", ((int32_t *)this->slots)[i]);
+      }
+      printf("\b\b]\n");
+    end
+
+passive class Map
+  array:ActorArray
+  range:int
+  actors:int
+  def init(connections:int, workers:int) : void {
+    this.array = new ActorArray(workers);
+    this.range = connections / workers; 
+    this.actors = 0;
+  }
+  def lookup(index:int) : PreferentialActor 
+    this.array.read(index / this.range)
+  def add(v:PreferentialActor) : void {
+    this.array.write(this.actors, v);
+    this.actors = this.actors + 1;
+  }
+
+passive class LogEntry
+  actor:PreferentialActor
+  index:int
+  next:LogEntry
+  def init(a:PreferentialActor, index:int) : void {
+    this.actor = a;
+    this.index = index;
+  }
+  def add(a:PreferentialActor, index:int) : void 
+    this.next = new LogEntry(a, index)
+  def broadcast(v:int) : void {
+    this.actor ! add_connection(this.index, v);
+    unless (this.next == null) then this.next.broadcast(v);
+  }
+    
+passive class Log
+  array:LogArray
+  workers:int
+  offset:int
+  def init(size:int, offset:int, workers:int) : void {
+    this.array = new LogArray(size);
+    this.offset = offset;
+    this.workers = workers;
+  }
+  def send_all(k:int, v:int) : void 
+    let 
+      entry = this.array.read(k-this.offset)
+    in
+      unless entry == null then entry.broadcast(v)
+  def put(local_index:int, a:PreferentialActor, remote_index:int) : void {
+    let
+      index = local_index - this.offset
+      entry = this.array.read(index)
+    in 
+    if entry == null then 
+      this.array.write(index, new LogEntry(a, remote_index))
+    else
+      entry.add(a, remote_index)
+  }
+
+-- handle duplicates
+passive class SmallerArray
+  slots:D
+  size:int
+  length:int
+  min:int
+  max:int
+  def SmallerArray_trace() : void
+    embed void
+      pony_trace(this->slots);
+    end
+  def init(size:int) : void
+    embed void
+      this->slots = pony_alloc(size * sizeof(int32_t));
+      this->size = size;
+    end
+  def write(i:int, v:int) : void
+    embed void
+      if (i < 0 || i > this->size) fprintf(stderr, "3Write index bad %zd (size: %zd)\n", i, this->size);
+      ((int32_t *)this->slots)[i] = v;
+    end
+  def reset() : void
+    this.length = 0
+  def read(i:int) : int
+    embed int
+      if (i < 0 || i > this->size) fprintf(stderr, "3Write index bad %zd (size: %zd)\n", i, this->size);
+      (0 <= i && i < this->size) ? ((int32_t *)this->slots)[i] : -1;
+    end
+  def add(v:int) : bool
+    embed bool
+      bool result = true;
+      if (v < this->min) {
+        ((int32_t *)this->slots)[this->length++] = v;
+	this->min = v;
+      } else if (v > this->max) {
+        ((int32_t *)this->slots)[this->length++] = v;
+	this->max = v;
+      } else {
+        for (int i = 0; result && i < this->length; ++i) if (((int32_t *)this->slots)[i] == v) result = false;
+        if (result) ((int32_t *)this->slots)[this->length++] = v;
+      }
+      result;
+    end
+  def dump() : void
+    embed void
+      for (int32_t i = 0; i < this->size; ++i) 
+      { 
+        printf("%d, ", ((int32_t *)this->slots)[i]);
+      }
+      printf("\b\b\n");
+    end
+

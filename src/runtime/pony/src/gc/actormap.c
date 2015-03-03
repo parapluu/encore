@@ -28,7 +28,7 @@ static bool actorref_cmp(actorref_t* a, actorref_t* b)
 
 static actorref_t* actorref_alloc(pony_actor_t* actor, size_t mark)
 {
-  actorref_t* aref = POOL_ALLOC(actorref_t);
+  actorref_t* aref = (actorref_t*)POOL_ALLOC(actorref_t);
   memset(aref, 0, sizeof(actorref_t));
   aref->actor = actor;
 

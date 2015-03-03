@@ -1,0 +1,55 @@
+passive class Node<t>
+  data: t
+  next: Node<t>
+
+  def init(x: t): void {
+    this.data = x;
+    this.next = null;
+  }
+
+passive class List<t>
+  head: Node<t>
+
+  def init(): void
+    this.head = null
+
+  def pop(): t
+    let n = this.head in {
+	this.head = n.next;
+        n.data;
+    }
+
+  def push(data: t): List<t> {
+    let node = new Node<t> in {
+	node.next = this.head;
+        node.data = data;
+	this.head = node;
+    };
+    this;
+  }
+
+  def next(): Node<t>
+    this.head.next
+
+  def index(i: int): Node<t>
+    let size = this.size()
+        node = this.head in {
+	if (i < 0) then {
+          i = size + i;
+        };
+	while ((i > 0) and (node != null)){
+          node = node.next;
+	  i = i - 1;
+        };
+        node;
+    }    
+
+  def size(): int
+    let count = 0
+        node = this.head in {
+	while(node !=null){
+          count = count + 1;
+	  node = node.next;
+        };
+        count;
+    }

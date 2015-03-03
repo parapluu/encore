@@ -57,7 +57,7 @@ static void resize(hashmap_t* map, hash_fn hash, cmp_fn cmp, alloc_fn alloc,
 
   map->count = 0;
   map->size = (s < 8) ? 8 : s << 3;
-  map->buckets = alloc(map->size * sizeof(void*));
+  map->buckets = (void**)alloc(map->size * sizeof(void*));
   memset(map->buckets, 0, map->size * sizeof(void*));
 
   for(size_t i = 0; i < s; i++)
@@ -90,7 +90,7 @@ void hashmap_init(hashmap_t* map, size_t size, alloc_fn alloc)
 
   if(size > 0)
   {
-    map->buckets = alloc(size * sizeof(void*));
+    map->buckets = (void**)alloc(size * sizeof(void*));
     memset(map->buckets, 0, size * sizeof(void*));
   } else {
     map->buckets = NULL;
@@ -219,7 +219,7 @@ size_t hashmap_size(hashmap_t* map)
 void hashmap_trace(hashmap_t* map, pony_trace_fn t)
 {
   void* elem = NULL;
-  size_t i = -1;
+  size_t i = HASHMAP_BEGIN;
 
   pony_trace(map->buckets);
 

@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <sys/mman.h>
+#include <string.h>
 #include <assert.h>
+
+#include <platform/platform.h>
 
 #define POOL_MAX_BITS 21
 #define POOL_MAX (1 << POOL_MAX_BITS)
@@ -24,8 +26,8 @@ typedef struct pool_local_t
 {
   pool_item_t* pool;
   size_t length;
-  void* start;
-  void* end;
+  char* start;
+  char* end;
 } pool_local_t;
 
 typedef struct pool_global_t
@@ -76,13 +78,13 @@ static pool_global_t pool_global[POOL_COUNT] =
 };
 
 // TODO: free on thread exit
-static __thread pool_local_t pool_local[POOL_COUNT];
+static __pony_thread_local pool_local_t pool_local[POOL_COUNT];
 
 static pool_item_t* pool_block(pool_local_t* thread, pool_global_t* global)
 {
   if(thread->start < thread->end)
   {
-    pool_item_t* p = thread->start;
+    pool_item_t* p = (pool_item_t*)thread->start;
     thread->start += global->size;
     return p;
   }
@@ -102,8 +104,8 @@ static void pool_push(pool_local_t* thread, pool_global_t* global)
     p->central = cmp.node;
     xchg.node = p;
     xchg.aba = cmp.aba + 1;
-  } while(!__atomic_compare_exchange_n(&global->central, &cmp.dw, xchg.dw,
-    false, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+  } while(!__pony_atomic_compare_exchange_n(&global->central, &cmp.dw, xchg.dw,
+    false, PONY_ATOMIC_RELAXED, PONY_ATOMIC_RELAXED, __int128_t));
 
   thread->pool = NULL;
   thread->length = 0;
@@ -124,8 +126,8 @@ static pool_item_t* pool_pull(pool_local_t* thread, pool_global_t* global)
 
     xchg.node = next->central;
     xchg.aba = cmp.aba + 1;
-  } while(!__atomic_compare_exchange_n(&global->central, &cmp.dw, xchg.dw,
-    false, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+  } while(!__pony_atomic_compare_exchange_n(&global->central, &cmp.dw, xchg.dw,
+      false, PONY_ATOMIC_RELAXED, PONY_ATOMIC_RELAXED, __int128_t));
 
   pool_item_t* p = (pool_item_t*)next;
   thread->pool = p->next;
@@ -134,38 +136,15 @@ static pool_item_t* pool_pull(pool_local_t* thread, pool_global_t* global)
   return p;
 }
 
-static void* pool_mmap(size_t size)
-{
-  void* p = mmap(
-    0,
-    size,
-    PROT_READ | PROT_WRITE,
-    MAP_PRIVATE | MAP_ANON,
-    -1,
-    0
-    );
-
-  if(p == MAP_FAILED)
-    abort();
-
-  return p;
-}
-
-static void pool_munmap(size_t size, void* p)
-{
-  if(munmap(p, size) != 0)
-    abort();
-}
-
 static pool_item_t* pool_pages(pool_local_t* thread, pool_global_t* global)
 {
-  void* p = pool_mmap(POOL_MMAP);
+  char* p = (char*)virtual_alloc(POOL_MMAP);
   thread->start = p + global->size;
   thread->end = p + POOL_MMAP;
-  return p;
+  return (pool_item_t*)p;
 }
 
-void* pool_alloc(int index)
+void* pool_alloc(size_t index)
 {
   pool_local_t* thread = &pool_local[index];
   pool_global_t* global = &pool_global[index];
@@ -187,7 +166,7 @@ void* pool_alloc(int index)
   return pool_pages(thread, global);
 }
 
-void pool_free(int index, void* p)
+void pool_free(size_t index, void* p)
 {
   pool_local_t* thread = &pool_local[index];
   pool_global_t* global = &pool_global[index];
@@ -195,9 +174,9 @@ void pool_free(int index, void* p)
   if(thread->length >= global->count)
     pool_push(thread, global);
 
-  pool_item_t* lp = p;
+  pool_item_t* lp = (pool_item_t*)p;
   lp->next = thread->pool;
-  thread->pool = p;
+  thread->pool = (pool_item_t*)p;
   thread->length++;
 }
 
@@ -209,10 +188,45 @@ void* pool_alloc_size(size_t size)
   if(size <= POOL_THRESHOLD)
   {
     size = next_pow2(size);
-    return pool_alloc(__builtin_ffsl(size) - (POOL_MIN_BITS + 1));
+    return pool_alloc(__pony_ffsl(size) - (POOL_MIN_BITS + 1));
   }
 
-  return pool_mmap(size);
+  return virtual_alloc(size);
+}
+
+void* pool_realloc_size(void* p, size_t old_size, size_t new_size)
+{
+  if(new_size <= old_size)
+    return p;
+
+  if(new_size <= POOL_MIN)
+    return p;
+
+  if(new_size <= POOL_THRESHOLD)
+  {
+    if(old_size <= POOL_THRESHOLD)
+      old_size = next_pow2(old_size);
+
+    new_size = next_pow2(new_size);
+
+    if(new_size <= old_size)
+      return p;
+
+    void* q = pool_alloc(__pony_ffsl(new_size) - (POOL_MIN_BITS + 1));
+    memcpy(q, p, old_size);
+    pool_free_size(old_size, p);
+    return q;
+  }
+
+  if(old_size <= POOL_THRESHOLD)
+  {
+    void* q = virtual_alloc(new_size);
+    memcpy(q, p, old_size);
+    pool_free_size(old_size, p);
+    return q;
+  }
+
+  return virtual_realloc(p, old_size, new_size);
 }
 
 void pool_free_size(size_t size, void* p)
@@ -223,11 +237,16 @@ void pool_free_size(size_t size, void* p)
   if(size <= POOL_THRESHOLD)
   {
     size = next_pow2(size);
-    pool_free(__builtin_ffsl(size) - (POOL_MIN_BITS + 1), p);
+    pool_free(__pony_ffsl(size) - (POOL_MIN_BITS + 1), p);
     return;
   }
 
-  pool_munmap(size, p);
+  virtual_free(p, size);
+}
+
+size_t pool_size(size_t index)
+{
+  return (size_t)1 << (POOL_MIN_BITS + index);
 }
 
 bool pool_debug_appears_freed()
@@ -240,7 +259,7 @@ bool pool_debug_appears_freed()
     size_t avail = (thread->length * global->size) +
       (thread->end - thread->start);
 
-    if((avail != 0) && (avail != POOL_MAX))
+    if((avail != 0) && (avail != POOL_MMAP))
       return false;
 
     pool_cmp_t cmp;

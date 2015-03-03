@@ -24,6 +24,7 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        IfNDefine "HEADER_H" $
        Concat $ 
        HashDefine "HEADER_H" :
+       HashDefine "_XOPEN_SOURCE 800" :
        (Includes [
          "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
          "pony/pony.h",
@@ -31,20 +32,31 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
          "set.h",
          "closure.h",
          "stream.h",
+         "array.h",
          "future.h",
          "string.h",
          "stdio.h"
         ]) :
-       (HashDefine "UNIT ((void*) -1)") :
+       HashDefine "UNIT ((void*) -1)" :
 
        [comment_section "Embedded code"] ++
        [Embed etlheader] ++
 
-       [comment_section "Shared functions"] ++
-       [create_and_send_decl] ++
-
        [comment_section "Shared messages"] ++
        shared_messages ++
+
+       [comment_section "Class types"] ++
+       class_type_decls ++ 
+
+       [comment_section "Passive class types"] ++
+       passive_types ++ 
+
+       [comment_section "Runtime types"] ++
+       runtime_type_decls ++
+
+       [comment_section "Message types"] ++
+       pony_msg_t_typedefs ++
+       pony_msg_t_impls ++
 
        [comment_section "Global functions"] ++
        global_function_decls ++
@@ -58,21 +70,13 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Trace functions"] ++
        trace_fn_decls ++
 
-       [comment_section "Data structs"] ++
-       data_struct_decls ++ 
-
-       [comment_section "Passive class data structs"] ++
-       passive_data_structs ++ 
-
-       [comment_section "Actor types"] ++
-       actor_decls ++
-
        [comment_section "Methods"] ++
-       concatMap method_fwds classes
+       concatMap method_fwds classes ++
+
+       [comment_section "Main actor rtti"] ++
+       [extern_main_rtti]
     where
-      create_and_send_decl = 
-          FunctionDecl (Ptr pony_actor_t) (Nam "create_and_send") 
-                       [Ptr pony_actor_type_t, uint]
+      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
       shared_messages = 
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
@@ -80,6 +84,32 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
            DeclTL (pony_msg_t, Var "m_resume_suspend"),
            DeclTL (pony_msg_t, Var "m_resume_await"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
+
+      pony_msg_t_typedefs :: [CCode Toplevel]
+      pony_msg_t_typedefs = map pony_msg_t_typedef_class classes
+          where
+            pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) = 
+                Concat $ concatMap pony_msg_t_typedef methods
+                where
+                  pony_msg_t_typedef mdecl = 
+                      [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
+                       Typedef (Struct $ one_way_msg_type_name cname (A.mname mdecl)) (one_way_msg_type_name cname (A.mname mdecl))]
+
+      pony_msg_t_impls :: [CCode Toplevel]
+      pony_msg_t_impls = map pony_msg_t_impls_class classes
+          where
+            pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) = 
+                Concat $ map pony_msg_t_impl methods
+                where
+                  pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
+                  pony_msg_t_impl mdecl =
+                      let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                          argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
+                          argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
+                          encore_msg_t_spec = (enc_msg_t, Var "")
+                          encore_msg_t_spec_oneway = (enc_oneway_msg_t, Var "msg")
+                      in Concat [StructDecl (AsType $ fut_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec : argspecs)
+                                ,StructDecl (AsType $ one_way_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec_oneway : argspecs)]
 
       global_function_decls = map global_function_decl functions
           where
@@ -90,50 +120,50 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
       message_enums =
         let
           meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) classes
-          method_msg_names = map (show . (uncurry method_msg_name)) meta
-          one_way_msg_names = map (show . (uncurry one_way_send_msg_name)) meta
+          method_msg_names = map (show . (uncurry fut_msg_id)) meta
+          one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
         in
-         Enum $ map Nam $ "MSG_alloc":(method_msg_names ++ one_way_msg_names)
+         Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
 
 
       class_enums =
         let
           names = map (("ID_"++) . Ty.getId . A.cname) classes
         in
-         Enum $ map Nam names
+         Enum $ (Nam "__ID_DUMMY__ = 1024") : map Nam names
 
       trace_fn_decls = map trace_fn_decl classes
           where
             trace_fn_decl A.Class{A.cname} =
                       FunctionDecl void (class_trace_fn_name cname) [Ptr void]
 
-      data_struct_decls = map data_struct_decl classes
+      class_type_decls = map class_type_decl classes
           where
-            data_struct_decl A.Class{A.cname} = 
-                Typedef (Struct $ data_rec_name cname) (data_rec_name cname)
+            class_type_decl A.Class{A.cname} = 
+                Typedef (Struct $ class_type_name cname) (class_type_name cname)
 
-      passive_data_structs = map passive_data_struct $ filter (not . A.isActive) classes
+      passive_types = map passive_type $ filter (not . A.isActive) classes
           where
-            passive_data_struct A.Class{A.cname, A.fields} = 
-                StructDecl (data_rec_type cname) 
+            passive_type A.Class{A.cname, A.fields} = 
+                StructDecl (AsType $ class_type_name cname) 
                            (zip
                             (map (translate . A.ftype) fields)
                             (map (Var . show . A.fname) fields))
 
-      actor_decls = map actor_decl $ filter A.isActive classes
+      runtime_type_decls = map type_decl classes
           where
-            actor_decl A.Class{A.cname} = DeclTL (pony_actor_type_t, AsLval $ actor_rec_name cname)
+            type_decl A.Class{A.cname} = DeclTL (Extern pony_type_t, AsLval $ runtime_type_name cname)
 
       method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
           where
             method_fwd A.Method{A.mtype, A.mname, A.mparams} =
               let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
-                           then [data_rec_ptr cname, int, Ptr $ Ptr char]
-                           else data_rec_ptr cname : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                           then [Ptr . AsType $ class_type_name cname, int, Ptr $ Ptr char]
+                           else (Ptr . AsType $ class_type_name cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl (translate mtype) (method_impl_name cname mname) params
             method_fwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
-              let params = data_rec_ptr cname : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+              let params = (Ptr . AsType $ class_type_name cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl void (method_impl_name cname mname) params
 

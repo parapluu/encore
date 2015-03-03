@@ -17,7 +17,7 @@ typedef struct chunk_t chunk_t;
 
 typedef struct heap_t
 {
-  chunk_t* small[HEAP_SIZECLASSES];
+  chunk_t* small_free[HEAP_SIZECLASSES];
   chunk_t* small_full[HEAP_SIZECLASSES];
   chunk_t* large;
 
@@ -29,12 +29,15 @@ void heap_init(heap_t* heap);
 
 void heap_destroy(heap_t* heap);
 
-void* heap_alloc(pony_actor_t* actor, heap_t* heap, size_t size)
-#ifdef __clang__
-  __attribute__((malloc));
-#else
-  __attribute__((malloc,alloc_size(3)));
-#endif
+__pony_spec_malloc__(
+  void* heap_alloc(pony_actor_t* actor, heap_t* heap, size_t size),
+  alloc_size(3)
+);
+
+__pony_spec_malloc__(
+  void* heap_realloc(pony_actor_t* actor, heap_t* heap, void* p, size_t size),
+  alloc_size(4)
+);
 
 /**
  * Adds to the used memory figure kept by the heap. This allows objects received

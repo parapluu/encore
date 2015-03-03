@@ -1,34 +1,18 @@
 #include "arrays.h"
 
-pony_type_t array_actor_type =
-{
-  sizeof(array_actor_t),
-  array_actor_trace,
-  NULL,
-  NULL
-};
-
 void array_actor_trace(void* p)
 {
-  array_actor_t* this = p;
-  pony_trace(this->array);
+  array_actor_t* self = (array_actor_t*)p;
+  pony_trace(self->array);
 
-  for(uint64_t i = 0; i < this->count; i++)
+  for(uint64_t i = 0; i < self->count; i++)
   {
-    pony_traceactor(this->array[i]);
+    pony_traceactor(self->array[i]);
   }
 }
 
-pony_type_t array_uint64_type =
-{
-  sizeof(array_uint64_t),
-  array_uint64_trace,
-  NULL,
-  NULL
-};
-
 void array_uint64_trace(void* p)
 {
-  array_uint64_t* this = p;
-  pony_trace(this->array);
+  array_uint64_t* self = (array_uint64_t*)p;
+  pony_trace(self->array);
 }

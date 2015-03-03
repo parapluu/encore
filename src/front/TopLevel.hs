@@ -21,6 +21,7 @@ import Data.List.Utils(split)
 import Control.Monad
 import SystemUtils
 
+import Makefile
 import Utils
 import Parser.Parser
 import AST.AST
@@ -36,21 +37,21 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 
-data Phase = Parsed | TypeChecked 
+data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run | 
-              KeepCFiles | Undefined String | 
+data Option = GCC | Clang | Run |
+              KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly
 	deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
-parseArguments args = 
+parseArguments args =
     let
         parseArguments' []   = []
         parseArguments' args = opt : (parseArguments' rest)
-            where 
+            where
               (opt, rest) = parseArgument args
               parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
@@ -64,7 +65,7 @@ parseArguments args =
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
-      let (sources, aux) = partition isSource (parseArguments' args) 
+      let (sources, aux) = partition isSource (parseArguments' args)
           (imports, options) = partition isImport aux
       in
       (map getName sources, ("./" :) $ map (++ "/") $ concat $ map getDirs imports, options)
@@ -77,28 +78,29 @@ parseArguments args =
       getDirs (Imports dirs) = dirs
 
 warnUnknownFlags :: [Option] -> IO ()
-warnUnknownFlags options = 
+warnUnknownFlags options =
     do
-      mapM (\flag -> case flag of 
+      mapM (\flag -> case flag of
                        Undefined flag -> putStrLn $ "Warning: Ignoring undefined option" <+> flag
                        _ -> return ()) options
-      when (GCC `elem` options && (not $ Clang `elem` options)) 
+      when (GCC `elem` options && (not $ Clang `elem` options))
                (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
-      when (Clang `elem` options && GCC `elem` options) 
+      when (Clang `elem` options && GCC `elem` options)
                (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
-      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options)) 
+      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options))
                (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
 
 
-outputCode ast out = hPrint out ast    
+output :: Show a => a -> Handle -> IO ()
+output ast = flip hPrint ast
 
-writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (outputCode ast)
+writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (output ast)
 
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
        let encorecDir = dirname encorecPath
-           incPath = encorecDir </> "inc/"
-           libPath = encorecDir </> "lib/"
+           incPath = encorecDir <> "inc/"
+           libPath = encorecDir <> "lib/"
            sourceName = changeFileExt sourcePath ""
            execName = case find (isOutput) options of
                         Just (Output file) -> file
@@ -107,27 +109,28 @@ compileProgram prog sourcePath options =
        createDirectoryIfMissing True srcDir
        let (classes, header, shared) = compile_to_c prog
        mapM (writeClass srcDir) classes
-       let classFiles = map (\(name, _) -> (srcDir </> changeFileExt name "pony.c")) classes
+       let ponyNames  = map (\(name, _) -> changeFileExt name "pony.c") classes
+           classFiles = map (srcDir </>) ponyNames
            headerFile = srcDir </> "header.h"
            sharedFile = srcDir </> "shared.c"
-       withFile headerFile WriteMode (outputCode header)
-       withFile sharedFile WriteMode (outputCode shared)
+           makefile   = srcDir </> "Makefile"
+           cc    = "clang"
+           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-microsoft -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
+           oFlag = "-o" <+> execName
+           incs  = "-I" <+> incPath <+> "-I ."
+           libs  = libPath ++ "*.a"
+           cmd   = cc <+> flags <+> oFlag <+> libs <+> incs
+           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
+       withFile headerFile WriteMode (output header)
+       withFile sharedFile WriteMode (output shared)
+       withFile makefile   WriteMode (output $ generateMakefile ponyNames execName cc flags incPath libs)
        when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
-                   cmd = "clang" <+> 
-                         concat (intersperse " " classFiles) <+> 
-                         sharedFile <+>
-                         ofilesInc <+> 
-                         "-ggdb -Wall -Wno-unused-variable -lpthread" <+>
-                         " -o" <+> execName <+>
-                         (libPath++"*.a") <+>
-                         (libPath++"*.a") <+>
-                         "-I" <+> incPath <+> "-I ."
-               exitCode <- system cmd
+               exitCode <- system $ compileCmd <+> ofilesInc
                case exitCode of
                  ExitSuccess -> return ()
-                 ExitFailure n -> 
+                 ExitFailure n ->
                      abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
        unless (KeepCFiles `elem` options)
                   (do runCommand $ "rm -rf" <+> srcDir
@@ -137,7 +140,7 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
-main = 
+main =
     do args <- getArgs
        let (programs, importDirs, options) = parseArguments args
        warnUnknownFlags options
@@ -152,8 +155,8 @@ main =
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
                 Left error -> abort $ show error
-       when (Intermediate Parsed `elem` options) 
-           (withFile (changeFileExt sourceName "AST") WriteMode 
+       when (Intermediate Parsed `elem` options)
+           (withFile (changeFileExt sourceName "AST") WriteMode
                (flip hPrint $ show ast))
        expandedAst <- expandModules importDirs ast
        let desugaredAST = desugarProgram expandedAst
@@ -161,11 +164,11 @@ main =
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
-           (withFile (changeFileExt sourceName "TAST") WriteMode 
+           (withFile (changeFileExt sourceName "TAST") WriteMode
                (flip hPrint $ show ast))
        let optimizedAST = optimizeProgram typecheckedAST
        exeName <- compileProgram optimizedAST sourceName options
-       when (Run `elem` options) 
+       when (Run `elem` options)
            (do system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())

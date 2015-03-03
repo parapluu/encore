@@ -3,67 +3,7 @@
 {-| 
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
-following grammar:
-
-@
-    Program ::= {Imports}* {EmbedTL}? ClassDecl Program | eps
-    Imports ::= import {qualified}? Name {(Name,...)}? {as Name}?
-    EmbedTL ::= embed .* body .* end | embed .* end
-  ClassDecl ::= {passive}? class Name { FieldDecls MethodDecls }
- FieldDecls ::= Name : Type FieldDecl | eps
- ParamDecls ::= Name : Type , ParamDecl | eps
-MethodDecls ::= def Name ( ParamDecls ) : Type Expr
-   Sequence ::= Expr Seq | eps
-        Seq ::= ; Expr Seq | ; | eps
-  Arguments ::= Expr Args | eps
-       Args ::= , Expr Args | eps
-   LetDecls ::= Name = Expr LetDecls | eps
-       Expr ::= ()
-              | embed Type .* end
-              | Expr . Name
-              | Expr . Name ( Arguments )
-              | Expr ! Name ( Arguments )
-              | print Expr
-              | Name ( Arguments )
-              | ( Expr )
-              | Name
-              | let LetDecls in Expr
-              | Expr = Expr
-              | { Sequence }
-              | if Expr then Expr else Expr
-              | if Expr then Expr
-              | unless Expr then Expr
-              | while Expr Expr
-              | repeat Name <- Expr Expr
-              | get Expr
-              | await Expr
-              | suspend
-              | new Type ( Arguments )
-              | new Type
-              | null
-              | true
-              | false
-              | \" String \"
-              | Int
-              | Real
-              | Expr Op Expr
-              | not Expr
-              | \\ ( ParamDecls ) -> Expr
-        Op ::= \< | \> | == | != | + | - | * | / | % | and | or
-      Name ::= [a-zA-Z][a-zA-Z0-9_]*
-       Int ::= [0-9]+
-      Real ::= Int . Int
-    String ::= ([^\"]|\\\")*
-      Type ::= Arrow | NonArrow
-     Arrow ::= (Types) -> NonArrow | NonArrow -> NonArrow
-  NonArrow ::= string | int | bool | void | RefType
-             | Fut Type | Par Type | (Type)
-     Types ::= Type Tys | eps
-       Tys ::= , Type Tys | eps
-   RefType ::= [A-Z][a-zA-Z0-9_]*
-@
-
-Keywords: @ class def embed body end Fut let in passive if then else while await suspend get null new Par print @
+grammar found in @doc/encore/@
 
 -}
 
@@ -93,17 +33,17 @@ identifier_parser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
-lexer = 
-    P.makeTokenParser $ 
+lexer =
+    P.makeTokenParser $
     emptyDef { P.commentStart = "{-",
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "stream", 
+               P.reservedNames = ["passive", "class", "def", "stream", "breathe",
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "module"],
+                                  "Fut", "Par", "Stream", "import", "qualified", "module", "peer"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -116,6 +56,7 @@ reservedOp = P.reservedOp lexer
 operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
+bar        = symbol "|"
 commaSep   = P.commaSep lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
@@ -123,11 +64,10 @@ semiSep    = P.semiSep lexer
 comma      = P.comma lexer
 parens     = P.parens lexer
 angles     = P.angles lexer
-lparen     = symbol "("
-rparen     = symbol ")"
+brackets   = P.brackets lexer
 braces     = P.braces lexer
 stringLiteral = P.stringLiteral lexer
-natural = P.integer lexer
+integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
@@ -144,6 +84,7 @@ typ  =  try arrow
               <|> par
               <|> try paramType
               <|> stream
+              <|> array
               <|> singleType
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
@@ -164,6 +105,8 @@ typ  =  try arrow
       stream = do reserved "Stream" 
                   ty <- typ 
                   return $ streamType ty
+      array = do ty <- brackets typ
+                 return $ arrayType ty
       singleType = do ty <- identifier
                       return $ read ty
           where read "void"   = voidType
@@ -281,6 +224,7 @@ expression :: Parser Expr
 expression = buildExpressionParser opTable expr
     where
       opTable = [
+                 [arrayAccess],
                  [prefix "not" Identifiers.NOT],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
@@ -304,6 +248,10 @@ expression = buildExpressionParser opTable expr
                       reservedOp ":"
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
+      arrayAccess = 
+          Postfix (do pos <- getPosition
+                      index <- brackets expression
+                      return (\e -> ArrayAccess (meta pos) e index))
       messageSend = 
           Postfix (do pos <- getPosition
                       bang
@@ -323,6 +271,7 @@ expression = buildExpressionParser opTable expr
 
 expr :: Parser Expr
 expr  =  unit
+     <|> breathe
      <|> try embed
      <|> try path
      <|> try functionCall
@@ -330,6 +279,8 @@ expr  =  unit
      <|> closure
      <|> parens expression
      <|> varAccess
+     <|> arraySize
+     <|> arrayLit
      <|> letExpression
      <|> try ifThenElse
      <|> ifThen
@@ -346,6 +297,7 @@ expr  =  unit
      <|> yield
      <|> try newWithInit
      <|> new
+     <|> peer
      <|> null
      <|> true
      <|> false
@@ -361,8 +313,11 @@ expr  =  unit
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
       unit = do pos <- getPosition
-                reservedOp "()" 
+                reservedOp "()"
                 return $ Skip (meta pos)
+      breathe = do pos <- getPosition
+                   reserved "breathe"
+                   return $ Breathe (meta pos)
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess
                 dot
@@ -456,6 +411,14 @@ expr  =  unit
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id 
+      arraySize = do pos <- getPosition
+                     bar
+                     arr <- expression
+                     bar
+                     return $ ArraySize (meta pos) arr
+      arrayLit = do pos <- getPosition
+                    args <- brackets $ commaSep expression
+                    return $ ArrayLiteral (meta pos) args
       null = do pos <- getPosition
                 reserved "null"
                 return $ Null (meta pos)
@@ -474,6 +437,10 @@ expr  =  unit
                reserved "new"
                ty <- typ
                return $ New (meta pos) ty
+      peer = do pos <- getPosition
+                reserved "peer"
+                ty <- typ
+                return $ Peer (meta pos) ty
       print = do pos <- getPosition
                  reserved "print"
                  val <- expression
@@ -482,7 +449,7 @@ expr  =  unit
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
       int = do pos <- getPosition
-               n <- natural
+               n <- integer
                return $ IntLiteral (meta pos) (fromInteger n)
       real = do pos <- getPosition
                 r <- float

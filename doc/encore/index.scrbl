@@ -1,8 +1,8 @@
 #lang scribble/manual
 
-@title[#:version "0.1"]{Encore Programming Language}
+@title[#:version "0.45"]{Encore Programming Language Documentation}
  
-@author{The UpScale Team}
+@author["Stephan Brandauer"  "Elias Castegren"  "Dave Clarke"  "Kiko Fernandez" "Henrik Sommerland"  "Tobias Wrigstad" "Albert Yang"]
 
 @include-section["lang/getting-started/index.scrbl"]
 @include-section["lang/introduction/index.scrbl"]

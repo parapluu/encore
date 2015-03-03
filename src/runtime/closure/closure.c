@@ -2,7 +2,7 @@
 
 // Control whether pony_alloc is used or not
 
-#define USE_PONY_ALLOC 
+#define USE_PONY_ALLOC
 
 extern __thread pony_actor_t* this_actor;
 
@@ -14,7 +14,7 @@ extern __thread pony_actor_t* this_actor;
   #define ALLOC(size) (actor_current() ? pony_alloc(size) : malloc(size))
   #define FREE(ptr)
 #else
-  #include <stdlib.h> 
+  #include <stdlib.h>
   #define ALLOC(size) malloc(size)
   #define FREE(ptr) free(ptr)
 #endif
@@ -22,12 +22,31 @@ extern __thread pony_actor_t* this_actor;
 struct closure{
   closure_fun call;
   void *env;
+  pony_trace_fn trace;
 };
 
-closure_t *mk_closure(closure_fun fn, void *env){
+pony_type_t closure_type = 
+  {ID_CLOSURE, 
+   sizeof(struct closure), 
+   closure_trace, 
+   NULL, 
+   NULL,
+   NULL,
+   NULL
+  };
+
+void closure_trace(void *p){
+  closure_t *c = (closure_t *) p;
+  if(c->trace != NULL){
+    c->trace(c->env);
+  }
+}
+
+closure_t *closure_mk(closure_fun fn, void *env, pony_trace_fn trace){
   closure_t *c = ALLOC(sizeof(closure_t));
   c->call = fn;
   c->env = env;
+  c->trace = trace;
   return c;
 }
 
@@ -49,7 +68,7 @@ value_t int_to_val(uint64_t n){
 }
 
 value_t dbl_to_val(double d){
-  return (value_t) {.d = d}; 
+  return (value_t) {.d = d};
 }
 
 void *val_to_ptr(value_t v){
@@ -62,9 +81,4 @@ int val_to_int(value_t v){
 
 double val_to_dbl(value_t v){
   return v.d;
-}
-
-void closure_trace(closure_t* c) {
-  pony_trace(c);
-  pony_trace(c->env);
 }

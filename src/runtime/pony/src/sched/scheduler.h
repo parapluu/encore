@@ -5,13 +5,15 @@
 
 void scheduler_init(uint32_t threads, bool forcecd);
 
-bool scheduler_run(bool spinoff);
+bool scheduler_start(pony_termination_t termination);
 
-void scheduler_finish();
+void scheduler_stop();
 
 pony_actor_t* scheduler_worksteal();
 
 void scheduler_add(pony_actor_t* actor);
+
+void scheduler_add_first(pony_actor_t* actor);
 
 uint32_t scheduler_cores();
 

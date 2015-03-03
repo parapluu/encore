@@ -67,6 +67,8 @@ checkType ty
                            return $ futureType ty'
     | isStreamType ty = do ty' <- checkType $ getResultType ty
                            return $ streamType ty'
+    | isArrayType ty = do ty' <- checkType $ getResultType ty
+                          return $ arrayType ty'
     | isParType ty = do ty' <- checkType $ getResultType ty
                         return $ parType ty'
     | isArrowType ty = do argTypes <- mapM checkType (getArgTypes ty)
@@ -117,8 +119,10 @@ instance Checkable Function where
         do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) funparams
            ty <- local (addTypeParameters typeParams) $ checkType funtype
            eParams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) funparams
-           eBody <- local (addTypeParameters typeParams) $ 
-                    local (addParams eParams) $ pushHasType funbody ty
+           eBody <- local (addParams eParams) $
+                          if isVoidType ty
+                          then pushTypecheck funbody
+                          else pushHasType funbody ty
            return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $ 
@@ -187,8 +191,10 @@ instance Checkable MethodDecl where
            Just thisType <- asks $ varLookup thisName
            when (isMainType thisType && mname == Name "main") checkMainParams
            eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
-           eBody <- local (addTypeParameters typeParams) $ 
-                    local (addParams eMparams) $ pushHasType mbody ty
+           eBody <- local (addParams eMparams) $
+                          if isVoidType ty
+                          then pushTypecheck mbody
+                          else pushHasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $ 
@@ -228,11 +234,22 @@ instance Checkable Expr where
                          else
                              do assertSubtypeOf exprType ty
                                 return eExpr
+        -- where
+        --   coerceNull null ty
+        --       | isNullType ty ||
+        --         isTypeVar ty = tcError "Cannot infer type of null valued expression"
+        --       | isRefType ty = return $ setType ty null
+        --       | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
 
-    -- 
+    --
     -- ----------------
     --  E |- () : void
     typecheck skip@(Skip {}) = return $ setType voidType skip
+
+    --
+    -- ----------------
+    --  E |- breathe : void
+    typecheck breathe@(Breathe {}) = return $ setType voidType breathe
 
    ---  |- t
     --  E |- body : t
@@ -609,16 +626,81 @@ instance Checkable Expr where
     --  E |- false : bool
     typecheck false@BFalse {} = return $ setType boolType false 
 
-   ---  |- t
+
+   ---  |- ty
     --  classLookup(ty) = _
     --  ty != Main
     -- ----------------------
     --  E |- new ty : ty
-    typecheck new@(New {ty}) = 
+    typecheck new@(New {ty}) =
         do ty' <- checkType ty
-           unless (isRefType ty') $ tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
-           when (isMainType ty') $ tcError "Cannot create additional Main objects"
+           unless (isRefType ty') $ 
+                  tcError $ "Cannot create an object of type '" ++ 
+                  show ty ++ "'"
+           when (isMainType ty') $ 
+                tcError "Cannot create additional Main objects"
            return $ setType ty' new
+
+   ---  |- ty
+    --  classLookup(ty) = _
+    --  ty != Main
+    -- ----------------------
+    --  E |- peer ty : ty
+    typecheck peer@(Peer {ty}) =
+        do ty' <- checkType ty
+           unless (isActiveRefType ty') $
+                  tcError $ "Cannot create an object of type '" ++
+                  show ty ++ "'"
+           when (isMainType ty') $
+                tcError "Cannot create additional Main objects"
+           return $ setType ty' peer
+
+   ---  |- ty
+    --  E |- size : int
+    -- ----------------------------
+    --  E |- new [ty](size) : [ty]
+    typecheck new@(ArrayNew {ty, size}) =
+        do ty' <- checkType ty
+           eSize <- pushHasType size intType
+           return $ setType (arrayType ty') new{size = eSize}
+
+    --  E |- arg1 : ty .. E |- argn : ty
+    -- ----------------------------------
+    --  E |- [arg1, .., argn] : [ty]
+    typecheck arr@(ArrayLiteral {args}) =
+        do unless (length args > 0) $
+                  tcError $ "Array literal must have at least one element"
+           eArg1 <- typecheck (head args)
+           let ty = AST.getType eArg1
+           eArgs <- mapM (\e -> pushHasType e ty) args
+           return $ setType (arrayType ty) arr{args = eArgs}
+
+    --  E |- target : [ty]
+    --  E |- index : int
+    -- -------------------------
+    --  E |- target[index] : ty
+    typecheck arrAcc@(ArrayAccess {target, index}) =
+        do eTarget <- pushTypecheck target
+           let targetType = AST.getType eTarget
+           unless (isArrayType targetType) $
+                  tcError $ "Cannot index non-array '" ++ 
+                            (show $ ppExpr target) ++ 
+                            "' of type '" ++ show targetType ++ "'"
+           eIndex <- pushHasType index intType
+           return $ setType (getResultType targetType)
+                            arrAcc{target = eTarget, index = eIndex}
+
+    --  E |- target : [_]
+    -- -------------------------
+    --  E |- |target| : int
+    typecheck arrSize@(ArraySize {target}) =
+        do eTarget <- pushTypecheck target
+           let targetType = AST.getType eTarget
+           unless (isArrayType targetType) $
+                  tcError $ "Cannot calculate the size of non-array '" ++
+                            (show $ ppExpr target) ++ 
+                            "' of type '" ++ show targetType ++ "'"
+           return $ setType intType arrSize{target = eTarget}
 
     --  count("{}", stringLit) = n
     --  E |- arg1 : t1 .. E |- argn : tn
@@ -662,7 +744,8 @@ instance Checkable Expr where
         eOperand <- pushTypecheck operand
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
-                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types"
+                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types\n" ++
+                          "Expression '" ++ (show $ ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
         return $ setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}
@@ -687,7 +770,9 @@ instance Checkable Expr where
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types"
+                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
           return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` cmpOps =
           do eLoper <- pushTypecheck loper
@@ -695,7 +780,9 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
              return $ setType boolType binop {loper = eLoper, roper = eRoper}
       | op `elem` eqOps =
           do eLoper <- pushTypecheck loper
@@ -707,7 +794,9 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator "++ show op ++ " is only defined for numeric types"
+                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
+                          "   Right type: '" ++ (show $ rType) ++ "'"
              return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
       | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
       where

@@ -1,7 +1,11 @@
 function cpp_lib()
   language "C++"
   kind "StaticLib"
-  buildoptions "-std=gnu++11"
+  
+  configuration "not windows"
+    buildoptions "-std=gnu++11"
+
+  configuration "*"
 end
 
 project "gtest"

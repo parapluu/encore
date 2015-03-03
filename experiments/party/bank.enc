@@ -1,0 +1,76 @@
+import party
+
+
+def create_customers(): List<int> {
+    let l = new List<int> 
+        i = 1 
+	max = 34
+    in {
+      while i <= max {
+	l.push(i);
+        i = i + 1;
+      };
+      l
+    }
+}
+
+
+def fetch_accounts(element: int): List<int> {
+  let l = new List<int> 
+      i = 1
+      n_accounts = 3
+  in {
+    while i <= n_accounts {
+      l.push(element*1000*i);
+      i = i+1;
+    };
+    l
+  }
+}
+
+
+def get_accounts(element: int): ParT
+  each( fetch_accounts(element) )
+
+
+-- returns the amount in the given account
+def get_balance(account: int): int 
+  account / 10
+
+
+def filter(p : ParT, f: int -> bool): ParT {
+  let lfilter = \(x: int) -> {if f(x) then parone(x) else stop() } in {
+    if p.isS() then stop()
+    else if p.isV() then lfilter(p.val())
+    else if p.isF() then lfilter(get p.future())
+    else par(filter(p.right(), f), filter(p.left(), f))
+  }
+}
+
+
+def sum(l: List<int>): int {
+  let val = 0 in {
+    while l.size() > 0 {
+      val = val + l.pop();
+    };
+    val
+  }
+}
+
+
+class Main
+  def main(): void {
+    let 
+      customers = create_customers()         -- get customers id
+      par = each(customers)                  -- list t -> par t
+      filtering = \(x: int) -> { x > 9900 }  -- lambda used for filtering
+      l = new List<int>                      
+    in 
+    {
+      par = bindp(par, get_accounts);        -- flatten accounts
+      par = pmap(get_balance, par);          -- get balance per account
+      par = filter(par, filtering);          -- filter accounts
+      l = syncp(par);                        -- reduce operation
+      print("Total: {}\n", sum(l));
+    }
+  }

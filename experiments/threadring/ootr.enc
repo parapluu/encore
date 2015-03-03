@@ -1,0 +1,38 @@
+class Main
+  def main(): void {
+    let
+      index         = 1
+      first     = new Worker(index)
+      next      = null : Worker
+      nhops     = 50*1000*1000
+      ring_size = 503
+      current   = first
+    in {
+      while (index < ring_size) {
+        index = index + 1;
+        next = new Worker(index);
+        current!setNext(next);
+        current = next;
+      };
+      current!setNext(first);
+      first!run(nhops);
+    }
+  }
+
+class Worker
+  id : int
+  next : Worker
+
+  def init(id : int): void
+    this.id = id
+
+  def setNext(next: Worker): void
+    this.next = next
+
+  def run(n : int): void {
+    if (n > 0) then {
+      this.next!run(n-1)
+    } else {
+      print(this.id)
+    }
+  }

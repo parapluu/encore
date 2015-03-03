@@ -1,9 +1,11 @@
 #include "mpmcq.h"
 #include "../mem/pool.h"
 
+typedef struct mpmcq_node_t mpmcq_node_t;
+
 struct mpmcq_node_t
 {
-  struct mpmcq_node_t* next;
+  mpmcq_node_t* next;
   void* data;
 };
 
@@ -30,8 +32,11 @@ void mpmcq_push(mpmcq_t* q, void* data)
   node->data = data;
   node->next = NULL;
 
-  mpmcq_node_t* prev = __atomic_exchange_n(&q->head, node, __ATOMIC_RELAXED);
-  __atomic_store_n(&prev->next, node, __ATOMIC_RELEASE);
+  mpmcq_node_t* prev = (mpmcq_node_t*) __pony_atomic_exchange_n(
+    &q->head, node, PONY_ATOMIC_RELAXED, intptr_t);
+
+  __pony_atomic_store_n(&prev->next, node, PONY_ATOMIC_RELEASE,
+    PONY_ATOMIC_NO_TYPE);
 }
 
 void* mpmcq_pop(mpmcq_t* q)
@@ -44,7 +49,8 @@ void* mpmcq_pop(mpmcq_t* q)
 
   do
   {
-    next = __atomic_load_n(&cmp.node->next, __ATOMIC_ACQUIRE);
+    next = (mpmcq_node_t*)__pony_atomic_load_n(&cmp.node->next,
+      PONY_ATOMIC_ACQUIRE, PONY_ATOMIC_NO_TYPE);
 
     if(next == NULL)
       return NULL;
@@ -52,8 +58,8 @@ void* mpmcq_pop(mpmcq_t* q)
     data = next->data;
     xchg.node = next;
     xchg.aba = cmp.aba + 1;
-  } while(!__atomic_compare_exchange_n(&q->tail.dw, &cmp.dw, xchg.dw, false,
-    __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+  } while(!__pony_atomic_compare_exchange_n(&q->tail.dw, &cmp.dw, xchg.dw,
+    false, PONY_ATOMIC_RELAXED, PONY_ATOMIC_RELAXED, __int128_t));
 
   POOL_FREE(mpmcq_node_t, cmp.node);
   return data;
