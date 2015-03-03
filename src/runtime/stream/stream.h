@@ -8,6 +8,12 @@ typedef void stream_t;
 #include "encore.h"
 
 /**
+ * Trace function for stream objects
+ */ 
+void scons_trace(void *p);
+
+
+/**
  *  Create a new stream
  *
  *  Relies on garbage collection for memory management

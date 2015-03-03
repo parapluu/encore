@@ -166,6 +166,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, future_type_rec_name `Dot` Nam "trace"]
                    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "closure_trace"]
                    | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "array_trace"]
+                   | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "scons_trace"]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
  
 -- | Translates a passive class into its C representation. Note

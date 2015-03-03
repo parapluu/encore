@@ -591,6 +591,7 @@ tracefun_call (a, t) expected_type
     | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
     | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "closure_trace"]
     | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "array_trace"]
+    | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "scons_trace"]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
     where
       wrap 
