@@ -164,10 +164,10 @@ contain the result of the chained `lambda`. For instance:
 In the example above, the lambda @code{lambda_fun} will be executed
 as soon as the future from @code{p.produce()} (line @code{10}) is fulfilled.
 
-@bold{WARNING}
+@margin-note{In the current implementation, we do not handle yet cyclic dependencies and they
+causes deadlock! We are working on it!}
 
-In the current implementation, we do not handle yet cyclic dependencies and they
-causes deadlock! We are working on it!
+
 
 @section{Fire and forget@code{!}}
 
