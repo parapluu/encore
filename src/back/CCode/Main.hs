@@ -72,7 +72,7 @@ data CCode a where
     Deref        :: UsableAs e Expr => CCode e -> CCode Expr
     Cast         :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
     ArrAcc       :: Int -> CCode Lval -> CCode Lval
-    Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr -- | Ampersand
+    Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr -- Ampersand
     Ptr          :: CCode Ty -> CCode Ty
     FunctionDecl :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Toplevel
     Function     :: CCode Ty -> CCode Name -> [CVarSpec] -> CCode Stat -> CCode Toplevel
