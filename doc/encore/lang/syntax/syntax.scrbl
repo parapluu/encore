@@ -6,7 +6,7 @@
 This section contains information about the grammar, keywords and literals of the
 Encore language.
 
-@margin-note{}
+
 @include-section{grammar.scrbl}
 
 @section{Module system}
@@ -74,7 +74,7 @@ Operators are special tokens that apply operations on expressions.
 The following tokens are operators:
 
 @tabular[#:sep @hspace[5]]{
-  @list[ (list "!" "&&" "||" "<" ">" "<=" ">=")
+  @list[ (list "not" "and" "or" "<" ">" "<=" ">=")
          (list "==" "!=" "+" "-" "*" "/" "%")]
 }
 
