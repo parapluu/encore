@@ -63,7 +63,7 @@ Calling a method on an active object will have that method execute concurrently 
 The return type of an active method is a future (see @secref{futures}) and not the return type in the method declaration. 
 Active classes are the default in @tt{encore}.
 
-In contrast to active classes passive clases executes methods synchronously, in the calling thread. Passive objects are similar to 
+In contrast to active classes passive classes executes methods synchronously, in the calling thread. Passive objects are similar to 
 what you'd expect in a Java-like language.
 
 Note that all fields in an active class are private but all fields are public in a passive class.
@@ -109,7 +109,7 @@ The main method  creates two @code{Foo} instances, and have them print their IDs
       }
 }|
 
-@margin-note{The behaviour of this program can be made deterministic using @tt{get}. See @secref{futures} for more information.}
+@margin-note{The behavior of this program can be made deterministic using @tt{get}. See @secref{futures} for more information.}
 Executing this program gives nondeterministic output:
 @verbatim{
     $ encorec -run ex_active.enc
@@ -161,4 +161,3 @@ Running:
     2
     a place
 }
-
