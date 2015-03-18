@@ -4,8 +4,8 @@
 @(require scribble/bnf)
 @(require (for-syntax racket/syntax))
 
-
 @title{Grammar}
+@margin-note{Please note that this grammar tree is out of date.}
 This section introduces the Encore grammar by using the BNF-grammar notation and
  show examples on how to build syntactically valid Encore programs.
 
