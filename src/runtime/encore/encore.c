@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <ucontext.h>
 #include <stdio.h>
+#include "task.h"
 
 extern void public_run(pthread_mutex_t *lock);
 
@@ -277,10 +278,12 @@ void *encore_alloc(size_t s)
   return mem;
 }
 
+
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type)
 {
   argc = pony_init(argc, argv);
+  task_setup(type);
   pony_actor_t* actor = (pony_actor_t *)encore_create(type);
   pony_sendargs(actor, _ENC__MSG_MAIN, argc, argv);
 

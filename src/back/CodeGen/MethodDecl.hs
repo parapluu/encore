@@ -8,6 +8,7 @@ import CodeGen.CCodeNames
 import CodeGen.Expr
 import CodeGen.Type
 import CodeGen.Closure
+import CodeGen.Task
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 
@@ -31,8 +32,9 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
     let ((bodyn,bodys),_) = runState (translate mbody) $ Ctx.empty ctable
         -- This reverse makes nested closures come before their enclosing closures. Not very nice...
         closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure mbody))
+        tasks = map (\tas -> translateTask tas ctable) $ reverse $ Util.filter A.isTask mbody
     in
-      Concat $ closures ++ 
+      Concat $ closures ++ tasks ++
        [Function (translate mtype) (method_impl_name cname mname)
         -- When we have a top-level main function, this should be cleaned up
            (if (A.isMainClass cdecl) && (A.mname mdecl == ID.Name "main")
@@ -49,9 +51,10 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
             ctable =
     let ((bodyn,bodys),_) = runState (translate mbody) $ Ctx.empty ctable
         -- This reverse makes nested closures come before their enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure mbody)) 
+        closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure mbody))
+        tasks = map (\tas -> translateTask tas ctable) $ reverse $ Util.filter A.isTask mbody
     in
-      Concat $ closures ++ 
+      Concat $ closures ++ tasks ++
        [Function void (method_impl_name cname mname)
            ((Ptr . AsType $ class_type_name cname, Var "this") : (stream, stream_handle) : 
             (map mparam_to_cvardecl mparams))

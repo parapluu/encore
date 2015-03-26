@@ -533,6 +533,44 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                     fut_decl,
                                     (Assign (Decl (Ptr $ Typ "future_t", Var result)) (Call (Nam "future_chain_actor") [nfuture, (Var fut_name), nchain]))])
 
+  translate async@(A.Async{A.body, A.emeta}) =
+      do task_name <- Ctx.gen_named_sym "task"
+         fut_name <- Ctx.gen_named_sym "fut"
+         msg_name <- Ctx.gen_named_sym "arg"
+         let meta_id = Meta.getMetaId emeta
+             fun_name = task_function_name meta_id
+             env_name = task_env_name meta_id
+             dependency_name = task_dependency_name meta_id
+             trace_name = task_trace_name meta_id             
+             free_vars = Util.freeVariables [] body
+             task_init = Statement (Call (Nam "init_actor_task") ([] :: [CCode Expr]))
+             task_mk = Assign (Decl (task, Var task_name))
+                       (Call (Nam "task_mk") [fun_name, env_name, dependency_name, trace_name])
+         packed_env <- mapM (pack_free_vars env_name) free_vars
+         -- TODO: no args is the pony ones + fut + task_s
+         return $ (Var fut_name, Seq $ (encore_alloc env_name) : packed_env ++
+                                       [encore_alloc dependency_name, 
+                                        task_runner async fut_name, 
+                                        task_mk,
+                                        task_init,
+                                        Statement (Call (Nam "task_attach_fut") [Var task_name, Var fut_name]),
+                                        Statement (Call (Nam "task_schedule") [Var task_name])
+                                        ])
+                    
+      where
+        encore_alloc name = Assign (Decl (Ptr $ Struct name, AsLval name))
+                                (Call (Nam "encore_alloc") 
+                                    [Sizeof $ Struct name])
+        task_runner async fut_name = Assign (Decl (Ptr $ Typ "future_t", Var fut_name))
+                                               (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ async]))
+        pack_free_vars env_name (name, _) = 
+            do c <- get
+               let tname = case Ctx.subst_lkp c name of
+                              Just subst_name -> subst_name
+                              Nothing -> Var $ show name
+               return $ Assign ((Var $ show env_name) `Arrow` (Nam $ show name)) tname
+         
+
   translate clos@(A.Closure{A.eparams, A.body}) =
       do let meta_id    = Meta.getMetaId . A.getMeta $ clos
              fun_name   = closure_fun_name meta_id

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <assert.h>
+#include "task.h"
 
 typedef struct scheduler_t scheduler_t;
 
@@ -310,12 +311,17 @@ static void run(scheduler_t* sched)
     if(actor == NULL)
     {
       // wait until we get an actor
-      actor = request(sched);
+      /* actor = request(sched); */
 
       // termination
       if(actor == NULL) {
-        assert(pop(sched) == NULL);
-        return;
+        if(taskq_empty()){
+	  assert(pop(sched) == NULL);
+	  return;
+        }else{
+	  handle_task();
+	  continue;
+	}
       }
     } else {
       // respond to our thief. we hold an actor for ourself, to make sure we
@@ -323,8 +329,11 @@ static void run(scheduler_t* sched)
 
       // TODO: if we're currently processing a system actor, we might give
       // away something we'd prefer to stay local.
-      respond(sched);
+      /* respond(sched); */
     }
+
+    // good point for getting tasks to run
+    handle_task();
 
     // if this returns true, reschedule the actor on our queue
     if(actor_run(actor)) {
@@ -373,6 +382,7 @@ void __attribute__ ((noreturn)) public_run(pthread_mutex_t *lock)
 
   jump_origin();
 }
+
 
 static void *run_thread(void *arg)
 {

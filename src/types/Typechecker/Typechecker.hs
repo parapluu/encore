@@ -421,7 +421,17 @@ instance Checkable Expr where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
                                                  do ty <- checkType ptype
                                                     return $ setType ty p)
-          addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
+          addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params 
+
+    --  E |- body : t
+    --  ------------------
+    --  E |- async body : t
+    typecheck task@(Async {body}) = 
+        do eBody <- pushTypecheck body
+           let returnType = AST.getType eBody
+           when (isNullType returnType) $
+               tcError $ "Cannot infer the return type of the task expression"
+           return $ setType (futureType returnType) task {body = eBody}
            
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t

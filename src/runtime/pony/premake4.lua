@@ -50,6 +50,7 @@ solution "ponyrt"
     "../set",
     "../encore",
     "../future",
+    "../task",
     "src/sched"
   }
 
@@ -94,6 +95,13 @@ project "closure"
   files {
     "../closure/closure.h",
     "../closure/closure.c"
+  }
+
+project "task"
+  c_lib()
+  files {
+    "../task/task.h",
+    "../task/task.c"
   }
 
 project "encore"

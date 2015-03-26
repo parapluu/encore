@@ -32,6 +32,7 @@ static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
 __pony_spec_align__(typedef struct encore_actor encore_actor_t, 64);
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
+typedef struct encore_task_msg_s encore_task_msg_s;
 
 typedef union
 {
@@ -39,6 +40,8 @@ typedef union
   intptr_t i;
   double d;
 } encore_arg_t;
+
+#include "task.h"
 
 typedef enum {
   ID_CLOSURE = 0,
@@ -53,6 +56,7 @@ typedef enum {
   _ENC__MSG_RESUME_AWAIT,
   _ENC__MSG_RUN_CLOSURE,
   _ENC__MSG_MAIN,
+  _ENC__MSG_TASK
 } encore_msg_id;
 
 struct encore_oneway_msg
@@ -66,6 +70,12 @@ struct encore_fut_msg
 {
   encore_oneway_msg_t;
   future_t    *_fut;
+};
+
+struct encore_task_msg_s
+{
+  encore_fut_msg_t;
+  encore_task_s *_task;
 };
 
 typedef struct stack_page {

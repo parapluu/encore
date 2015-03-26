@@ -9,8 +9,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include "mpmcq.h"
+#include "task.h"
 
-#include "encore.h"
 enum
 {
   FLAG_BLOCKED = 1 << 0,
@@ -32,6 +33,11 @@ struct pony_actor_t
   struct pony_actor_t* next;
   uint8_t flags;
 };
+
+// TODO: mixing actors and tasks... they are getting coupled!
+pony_type_t* encore_task_type;
+extern __thread pony_actor_t* this_encore_task;
+extern mpmcq_t taskq;
 
 static __pony_thread_local pony_actor_t* this_actor;
 
@@ -103,7 +109,8 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         cycle_unblock(actor);
         unset_flag(actor, FLAG_BLOCKED);
       }
-
+      
+      /* printf("MESSAGE: %d\n", msg->id); */
 #ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
       // if (0) {
@@ -127,6 +134,21 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
     }
   }
 }
+
+// run by an actor or the encore_task actor!
+void handle_task(){
+  if(this_encore_task==NULL){
+    this_encore_task = encore_create(encore_task_type);
+  }
+
+  // perform task
+  encore_task_msg_s* task_msg;
+  if((task_msg = (encore_task_msg_s*) mpmcq_pop(&taskq))!=NULL){
+    assert(task_msg->id == _ENC__MSG_TASK);
+    handle_message(this_encore_task, (pony_msg_t*)task_msg);
+  }
+}
+
 
 bool actor_run(pony_actor_t* actor)
 {
@@ -214,6 +236,12 @@ gc_t* actor_gc(pony_actor_t* actor)
 heap_t* actor_heap(pony_actor_t* actor)
 {
   return &actor->heap;
+}
+
+pony_type_t* actor_gettype(pony_actor_t* actor){
+  assert(this_actor!=NULL);
+  assert(this_actor->type!=NULL);
+  return this_actor->type;
 }
 
 bool actor_pendingdestroy(pony_actor_t* actor)

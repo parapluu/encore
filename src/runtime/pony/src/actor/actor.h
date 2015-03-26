@@ -43,6 +43,8 @@ pony_actor_t* actor_next(pony_actor_t* actor);
 
 void actor_setnext(pony_actor_t* actor, pony_actor_t* next);
 
+pony_type_t* actor_gettype(pony_actor_t* actor);
+
 //TODO: refactoring
 void actor_inc_rc();
 

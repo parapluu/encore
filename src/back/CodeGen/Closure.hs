@@ -16,7 +16,6 @@ import qualified AST.Util as Util
 import qualified AST.Meta as Meta
 
 import Types as Ty
-import Identifiers as Id
 
 import Control.Monad.Reader hiding(void)
 import Control.Monad.State hiding(void)
