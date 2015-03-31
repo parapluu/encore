@@ -86,32 +86,33 @@ Please find below different setups ordered by their real time (wall clock):
     ruby threadring.yarv-2.yarv 50000000
 	ruby threadring.yarv-2.yarv 50000000  352.12s user 1023.07s system 141% cpu 16:13.53 total
 
-## tr.enc (64 core) (OBSOLOTE)
+## tr.enc (64 core)
 
     /usr/bin/time --verbose ./tr --ponythreads 32
-	
+     292
     Command being timed: "./tr --ponythreads 32"
-    User time (seconds): 2554.50
-    System time (seconds): 630.74
-    Percent of CPU this job got: 276%
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 19:12.89
+    User time (seconds): 1592.73
+    System time (seconds): 97.56
+    Percent of CPU this job got: 505%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 5:34.16
     Average shared text size (kbytes): 0
     Average unshared data size (kbytes): 0
     Average stack size (kbytes): 0
     Average total size (kbytes): 0
-    Maximum resident set size (kbytes): 5338212
+    Maximum resident set size (kbytes): 2664432
     Average resident set size (kbytes): 0
     Major (requiring I/O) page faults: 0
-    Minor (reclaiming a frame) page faults: 1334727
-    Voluntary context switches: 495204614
-    Involuntary context switches: 15847042
-	Swaps: 0
+    Minor (reclaiming a frame) page faults: 666282
+    Voluntary context switches: 105197659
+    Involuntary context switches: 3007616
+    Swaps: 0
     File system inputs: 0
     File system outputs: 0
     Socket messages sent: 0
     Socket messages received: 0
     Signals delivered: 0
-     Page size (bytes): 4096
-     Exit status: 0
+    Page size (bytes): 4096
+    Exit status: 0
 
-    2554.50s user 630.74s system 276% cpu 19:12.89 total
+    1592.73s user 97.56s system 505% cpu 5:34.16 total
+
