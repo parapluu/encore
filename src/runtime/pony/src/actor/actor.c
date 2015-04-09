@@ -134,8 +134,8 @@ bool actor_run(pony_actor_t* actor)
   this_actor = actor;
 
   if (!has_flag(actor, FLAG_SYSTEM)) {
-    if (!encore_actor_run_hook((encore_actor_t *)actor)) {
-      return false;
+    if (encore_actor_run_hook((encore_actor_t *)actor)) {
+      return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
     }
   }
 
@@ -254,16 +254,6 @@ pony_actor_t* actor_next(pony_actor_t* actor)
 void actor_setnext(pony_actor_t* actor, pony_actor_t* next)
 {
   actor->next = next;
-}
-
-pony_actor_t* actor_dormant_next(pony_actor_t* actor)
-{
-  return actor->dormant_next;
-}
-
-void actor_set_dormant_next(pony_actor_t* actor, pony_actor_t* dormant_next)
-{
-  actor->dormant_next = dormant_next;
 }
 
 void actor_inc_rc()

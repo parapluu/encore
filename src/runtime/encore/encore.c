@@ -5,15 +5,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <ucontext.h>
+#include <stdio.h>
 
-extern void public_run();
-
-bool has_flag(pony_actor_t* actor, uint8_t flag);
-
-typedef struct context {
-  ucontext_t ctx;
-  struct context *next;
-} context;
+extern void public_run(pthread_mutex_t *lock);
 
 enum
 {
@@ -25,13 +19,24 @@ enum
 
 #define MAX_IN_POOL 4
 
-static __pony_thread_local stack_page *stack_pool = NULL;
-static __pony_thread_local unsigned int available_pages = 0;
-static __pony_thread_local stack_page *local_page = NULL;
+inline static void assert_swap(ucontext_t *old, ucontext_t *new)
+{
+  int ret = swapcontext(old, new);
+  assert(ret == 0);
+}
 
 static __pony_thread_local context *context_pool = NULL;
 static __pony_thread_local unsigned int available_context = 0;
-static __pony_thread_local context *this_context = NULL;
+
+__pony_thread_local context *this_context;
+__pony_thread_local ucontext_t *origin;
+__pony_thread_local ucontext_t *root;
+
+#ifndef LAZY_IMPL
+
+static __pony_thread_local stack_page *stack_pool = NULL;
+static __pony_thread_local unsigned int available_pages = 0;
+static __pony_thread_local stack_page *local_page = NULL;
 
 static stack_page *pop_page()
 {
@@ -49,6 +54,19 @@ static stack_page *pop_page()
   return page;
 }
 
+static void push_page(stack_page *page)
+{
+  available_pages++;
+  page->next = stack_pool;
+  stack_pool = page;
+}
+
+static void reclaim_page(encore_actor_t *a)
+{
+  push_page(a->page);
+  a->page = NULL;
+}
+
 void *get_local_page_stack()
 {
     local_page = local_page ? local_page : pop_page();
@@ -57,18 +75,57 @@ void *get_local_page_stack()
     return local_page->stack;
 }
 
-static void push_page(stack_page *page)
+void actor_set_run_to_completion(encore_actor_t *actor)
 {
-  available_pages++;
-  page->next = stack_pool;
-  stack_pool = page;
+  actor->run_to_completion = true;
 }
 
-void reclaim_page(encore_actor_t *a)
+bool actor_run_to_completion(encore_actor_t *actor)
 {
-  push_page(a->page);
-  a->page = NULL;
+  return actor->run_to_completion;
 }
+
+void actor_unlock(encore_actor_t *actor)
+{
+  if (actor->lock) {
+    pthread_mutex_unlock(actor->lock);
+    actor->lock = NULL;
+  }
+}
+
+#endif
+
+#ifdef LAZY_IMPL
+
+static context *pop_context(encore_actor_t *actor)
+{
+  static context *c;
+  if (available_context == 0) {
+    context_pool = malloc(sizeof *context_pool);
+    context_pool->next = NULL;
+    getcontext(&context_pool->ctx);
+    int ret = posix_memalign((void *)&context_pool->ctx.uc_stack.ss_sp, 16, Stack_Size);
+    assert(ret == 0);
+    context_pool->ctx.uc_stack.ss_size = Stack_Size;
+    context_pool->ctx.uc_stack.ss_flags = 0;
+  } else {
+    available_context--;
+  }
+  makecontext(&context_pool->ctx, (void(*)(void))public_run, 1, actor->lock);
+  c = context_pool;
+  context_pool = c->next;
+  assert(c->ctx.uc_stack.ss_sp);
+  return c;
+}
+
+static void push_context(context *ctx)
+{
+  available_context++;
+  ctx->next = context_pool;
+  context_pool = ctx;
+}
+
+#endif
 
 static void clean_pool()
 {
@@ -99,8 +156,66 @@ static void clean_pool()
 #endif
 }
 
+void actor_block(encore_actor_t *actor)
+{
+#ifndef LAZY_IMPL
+
+  if (!actor->page) {
+    assert(local_page->stack);
+    actor->page = local_page;
+    local_page = NULL;
+  }
+  assert(actor->page);
+  assert(actor->page->stack);
+  actor->run_to_completion = false;
+  assert_swap(&actor->ctx, actor->ctx.uc_link);
+
+#else
+
+  actor->saved = &this_context->ctx;
+
+  context *old = this_context;
+
+  this_context = pop_context(actor);
+  assert_swap(actor->saved, &this_context->ctx);
+
+  this_context = old;
+
+#endif
+}
+
+void actor_set_resume(encore_actor_t *actor)
+{
+  actor->resume = true;
+}
+
+void actor_resume(encore_actor_t *actor)
+{
+#ifndef LAZY_IMPL
+
+  actor->resume = false;
+  actor->run_to_completion = true;
+  assert_swap(actor->ctx.uc_link, &actor->ctx);
+
+  if (actor->run_to_completion) {
+    reclaim_page(actor);
+  }
+
+#else
+
+  actor->resume = false;
+  if (&this_context->ctx != root) {
+    push_context(this_context);
+  }
+  setcontext(actor->saved);
+  assert(0);
+
+#endif
+}
+
 void actor_suspend(encore_actor_t *actor)
 {
+#ifndef LAZY_IMPL
   // Make a copy of the current context and replace it
   ucontext_t ctxp = actor->ctx;
 
@@ -116,11 +231,13 @@ void actor_suspend(encore_actor_t *actor)
   int ret = swapcontext(&ctxp, ctxp.uc_link);
   assert(ret == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
+#endif
 }
 
 // TODO: suspend and await overlaps heavily
 void actor_await(encore_actor_t *actor, void *future)
 {
+#ifndef LAZY_IMPL
   // Make a copy of the current context and replace it
   ucontext_t ctxp = actor->ctx;
   ctx_wrapper d = { .ctx = &ctxp, .uc_link=ctxp.uc_link };
@@ -136,101 +253,6 @@ void actor_await(encore_actor_t *actor, void *future)
   int ret = swapcontext(&ctxp, ctxp.uc_link);
   assert(ret == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
-}
-
-static context *pop_context()
-{
-  static context *c;
-  if (available_context == 0) {
-    context_pool = malloc(sizeof *context_pool);
-    context_pool->next = NULL;
-    getcontext(&context_pool->ctx);
-    int ret = posix_memalign((void *)&context_pool->ctx.uc_stack.ss_sp, 16, Stack_Size);
-    assert(ret == 0);
-    context_pool->ctx.uc_stack.ss_size = Stack_Size;
-    context_pool->ctx.uc_stack.ss_flags = 0;
-    makecontext(&context_pool->ctx, (void(*)(void))public_run, 0);
-  } else {
-    available_context--;
-  }
-  c = context_pool;
-  context_pool = c->next;
-  assert(c->ctx.uc_stack.ss_sp);
-  return c;
-}
-
-static void push_context(context *ctx)
-{
-  available_context++;
-  ctx->next = context_pool;
-  context_pool = ctx;
-}
-
-void actor_block(encore_actor_t *actor)
-{
-#ifndef LAZY_IMPL
-
-  if (!actor->page) {
-    assert(local_page->stack);
-    actor->page = local_page;
-    local_page = NULL;
-  }
-  assert(actor->page);
-  assert(actor->page->stack);
-  actor->run_to_completion = false;
-  int ret = swapcontext(&actor->ctx, actor->ctx.uc_link);
-  assert(ret == 0);
-
-#else
-
-  ucontext_t ctx;
-  actor->saved = &ctx;
-  context *previous = this_context;
-  this_context = pop_context();
-  int ret = swapcontext(&ctx, &this_context->ctx);
-  assert(ret == 0);
-  this_context = previous;
-
-#endif
-}
-
-void actor_set_resume(encore_actor_t *actor)
-{
-  actor->resume = true;
-}
-
-void actor_set_run_to_completion(encore_actor_t *actor)
-{
-    actor->run_to_completion = true;
-}
-
-bool actor_run_to_completion(encore_actor_t *actor)
-{
-    return actor->run_to_completion;
-}
-
-void actor_resume(encore_actor_t *actor)
-{
-#ifndef LAZY_IMPL
-
-  actor->resume = false;
-  actor->run_to_completion = true;
-  int ret = swapcontext(actor->ctx.uc_link, &actor->ctx);
-  assert(ret == 0);
-
-  if (actor->run_to_completion) {
-    reclaim_page(actor);
-  }
-
-#else
-
-  actor->resume = false;
-  if (this_context) {
-    push_context(this_context);
-  }
-  setcontext(actor->saved);
-  exit(1);
-
 #endif
 }
 
@@ -272,12 +294,10 @@ bool encore_actor_run_hook(encore_actor_t *actor)
   if(actor->resume)
   {
     actor_resume(actor);
-#ifndef LAZY_IMPL
-    return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
-#endif
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg)
