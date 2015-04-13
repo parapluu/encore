@@ -233,16 +233,25 @@ expression = buildExpressionParser opTable expr
     where
       opTable = [
                  [arrayAccess],
-                 [prefix "not" Identifiers.NOT],
+                 [textualPrefix "not" Identifiers.NOT],
+                 [textualOperator "and" Identifiers.AND, textualOperator "or" Identifiers.OR],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT, op "<=" Identifiers.LTE, op ">=" Identifiers.GTE, op "==" Identifiers.EQ, op "!=" NEQ],
-                 [op "and" Identifiers.AND, op "or" Identifiers.OR],
                  [messageSend],
                  [typedExpression],
                  [chain],
                  [assignment]
                 ]
+                
+      textualPrefix s operator = 
+          Prefix (try(do pos <- getPosition
+                         reserved s
+                         return (\x -> Unary (meta pos) operator x)))   
+      textualOperator s binop = 
+          Infix (try(do pos <- getPosition
+                        reserved s
+                        return (\e1 e2 -> Binop (meta pos) binop e1 e2))) AssocLeft
       prefix s operator = 
           Prefix (do pos <- getPosition
                      reservedOp s
