@@ -1,0 +1,14 @@
+class Main
+    def main() : void
+        let
+            nothing = "blingbling"
+            ping = true
+            anders = true
+        in{
+            print(nothing);
+            print(not(ping));
+            print(not     ping);
+            print(not anders);
+            print(ping and anders);
+         }
+        
