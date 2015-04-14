@@ -19,11 +19,9 @@ typedef encore_arg_t value_t;
 // handle_task(): called from scheduler.c, implemented in the actor because it needs
 //                to call handle_message (actor.c, to follow with the guidelines of
 //                processing a message)
-extern void handle_task();
-
-
-// used once in the scheduler, extern because it's implementation detail
-extern bool taskq_empty(); 
+// return whether it did handled a task. If no tasks are handled, it means it can
+//        stop the program
+extern bool handle_task();
 
 
 // used in actor.c to create an encore actor if there's not one
@@ -54,7 +52,7 @@ void task_setup(pony_type_t* type){
 
 
 encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace){
-  encore_task_s* task = pony_alloc(sizeof(encore_task_s)); // allocs in the heap of the running actor
+  encore_task_s* task = malloc(sizeof(encore_task_s));
 
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};
   return task;
@@ -67,8 +65,7 @@ value_t task_runner(encore_task_s const* const task){
 
 
 void task_free(encore_task_s* const task){
-  puts("Not implemented method");
-  assert(1==0);
+  free(task);
 }
 
 
@@ -92,16 +89,4 @@ inline static void encore_send_task(encore_task_msg_s* const msg){
 void task_schedule(encore_task_s const* const task){
   encore_task_msg_s* const msg = task_mk_msg((encore_task_s* const) task);
   encore_send_task(msg);
-}
-
-
-// TODO: query the taskq in a more efficient way
-bool taskq_empty(){
-  void* data = mpmcq_pop(&taskq);
-  if(data==NULL){
-    return true;
-  }else{
-    mpmcq_push(&taskq, data);
-    return false;
-  }
 }

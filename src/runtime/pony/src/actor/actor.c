@@ -136,7 +136,7 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
 }
 
 
-void handle_task(){
+bool handle_task(){
   if(this_encore_task==NULL){
     this_encore_task = encore_create(encore_task_type);
   }
@@ -145,7 +145,9 @@ void handle_task(){
   if((task_msg = mpmcq_pop(&taskq))!=NULL){
     assert(task_msg->id == _ENC__MSG_TASK);
     handle_message(this_encore_task, task_msg);
+    return true;
   }
+  return false;
 }
 
 

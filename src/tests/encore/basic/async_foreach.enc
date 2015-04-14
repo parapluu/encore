@@ -1,0 +1,16 @@
+def plus_one(x: int): void
+  print x+1
+
+class X
+  def ass(number: int): void {
+    repeat i <- number {
+      async(plus_one(41));
+    };
+  }
+
+class Main
+  def main(): void {
+    let x = new X in {
+      x.ass(5);
+    }
+  }

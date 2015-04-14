@@ -310,18 +310,17 @@ static void run(scheduler_t* sched)
 
     if(actor == NULL)
     {
+      // Do not do work stealing if there are tasks to perform
+      if(handle_task())
+	continue;
+
       // wait until we get an actor
-      /* actor = request(sched); */
+      actor = request(sched);
 
       // termination
       if(actor == NULL) {
-        if(taskq_empty()){
-	  assert(pop(sched) == NULL);
-	  return;
-        }else{
-	  handle_task();
-	  continue;
-	}
+	assert(pop(sched) == NULL);
+	return;
       }
     } else {
       // respond to our thief. we hold an actor for ourself, to make sure we
@@ -329,7 +328,7 @@ static void run(scheduler_t* sched)
 
       // TODO: if we're currently processing a system actor, we might give
       // away something we'd prefer to stay local.
-      /* respond(sched); */
+      respond(sched);
     }
 
     // good point for getting tasks to run

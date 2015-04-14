@@ -100,7 +100,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
              pony_main_clause =
                  (Nam "_ENC__MSG_MAIN",
                   Seq $ [Assign (Decl (Ptr $ Typ "pony_main_msg_t", Var "msg")) (Cast (Ptr $ Typ "pony_main_msg_t") (Var "_m")),
---                         Statement $ Call (Nam "task_setup") [Var ""],
                          Statement $ Call ((method_impl_name (Ty.refType "Main") (ID.Name "main")))
                                           [(Cast (Ptr $ Typ "_enc__active_Main_t") (Var "_a")),
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
@@ -129,8 +128,9 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    task_runner = Statement $ Call (Nam "task_runner") [Var "_task"]
                    decl = Assign (Decl (encore_arg_t, tmp)) task_runner
                    future_fulfil = Statement $ Call (Nam "future_fulfil") [AsExpr $ Var "_fut", AsExpr tmp]
+                   task_free = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
                in  
-               (task_msg_id, Seq $ [unpack_future, unpack_task, decl, future_fulfil])
+               (task_msg_id, Seq $ [unpack_future, unpack_task, decl, future_fulfil, task_free])
 
 
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =

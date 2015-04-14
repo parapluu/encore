@@ -187,7 +187,7 @@ void future_fulfil(future_t *fut, encore_arg_t value)
   fut->value = value;
   fut->fulfilled = true;
 
-  future_gc_send_value(fut);
+  //future_gc_send_value(fut);
 
   for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
