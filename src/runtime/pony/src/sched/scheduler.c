@@ -1,13 +1,15 @@
+#define _XOPEN_SOURCE 800
+
 #include "scheduler.h"
 #include "cpu.h"
 #include "mpmcq.h"
 #include "../actor/actor.h"
 #include "../gc/cycle.h"
+#include "encore.h"
 #include <string.h>
 #include <stdio.h>
+#include <signal.h>
 #include <assert.h>
-
-// #define USE_DORMANT_LIST
 
 typedef struct scheduler_t scheduler_t;
 
@@ -22,9 +24,6 @@ __pony_spec_align__(
     pony_actor_t* head;
     pony_actor_t* tail;
 
-    pony_actor_t* dormant_head;
-    pony_actor_t* dormant_tail;
-
     struct scheduler_t* victim;
 
     // the following are accessed by other scheduler threads
@@ -38,6 +37,8 @@ static DECLARE_THREAD_FN(run_thread);
 // scheduler global data
 static uint32_t scheduler_count;
 static uint32_t scheduler_waiting; //schedulers waiting, global
+static uint32_t context_waiting = 0;
+static uint32_t thread_exit = 0;
 static scheduler_t* scheduler;
 static bool detect_quiescence;
 static bool shutdown_on_stop;
@@ -49,8 +50,6 @@ static __pony_thread_local scheduler_t* this_scheduler;
 
 // forward declaration
 static void push(scheduler_t* sched, pony_actor_t* actor);
-static void push_dormant(scheduler_t* sched, pony_actor_t* actor);
-static pony_actor_t* pop_dormant(scheduler_t* sched);
 
 /**
  * Takes all actors off the injection queue and puts them on the scheduler list
@@ -73,16 +72,6 @@ static pony_actor_t* pop(scheduler_t* sched)
   handle_inject(sched);
 
   pony_actor_t* actor;
-#ifdef USE_DORMANT_LIST
-  counter++;
-  if (counter == 1024) {
-    counter = 0;
-    actor = pop_dormant(sched);
-    if (!actor) {
-      return actor;
-    }
-  }
-#endif
 
   actor = sched->tail;
 
@@ -97,10 +86,6 @@ static pony_actor_t* pop(scheduler_t* sched)
     }
 
     actor_setnext(actor, NULL);
-  } else {
-#ifdef USE_DORMANT_LIST
-    actor = pop_dormant(sched);
-#endif
   }
 
   return actor;
@@ -139,46 +124,6 @@ static void push_first(scheduler_t* sched, pony_actor_t* actor)
     sched->tail = actor;
   }
 }
-
-static void push_dormant(scheduler_t* sched, pony_actor_t* actor)
-{
-  if (actor_dormant_next(actor)) {
-    // this actor exist in dormant list already
-    return;
-  }
-
-  pony_actor_t* head = sched->dormant_head;
-
-  if(head != NULL)
-  {
-    actor_set_dormant_next(head, actor);
-    sched->dormant_head = actor;
-  } else {
-    sched->dormant_head = actor;
-    sched->dormant_tail = actor;
-  }
-}
-
-static pony_actor_t* pop_dormant(scheduler_t* sched)
-{
-  pony_actor_t* actor = sched->dormant_tail;
-
-  if(actor != NULL)
-  {
-    if(actor != sched->dormant_head)
-    {
-      sched->dormant_tail = actor_dormant_next(actor);
-    } else {
-      sched->dormant_head = NULL;
-      sched->dormant_tail = NULL;
-    }
-
-    actor_set_dormant_next(actor, NULL);
-  }
-
-  return actor;
-}
-
 
 /**
  * If we can terminate, return true. If all schedulers are waiting, one of
@@ -278,14 +223,21 @@ static pony_actor_t* request(scheduler_t* sched)
       while(__pony_atomic_load_n(&sched->waiting, PONY_ATOMIC_ACQUIRE,
         PONY_ATOMIC_NO_TYPE) == 1)
       {
-        if(cpu_core_pause(tsc) && quiescent(sched))
+        if(cpu_core_pause(tsc) && quiescent(sched)) {
+          sched->victim = NULL;
+          __pony_atomic_store_n(&sched->thief, NULL, PONY_ATOMIC_RELAXED,
+              PONY_ATOMIC_NO_TYPE);
           return NULL;
+        }
       }
 
       sched->victim = NULL;
     } else {
-      if(cpu_core_pause(tsc) && quiescent(sched))
+      if(cpu_core_pause(tsc) && quiescent(sched)) {
+        __pony_atomic_store_n(&sched->thief, NULL, PONY_ATOMIC_RELAXED,
+            PONY_ATOMIC_NO_TYPE);
         return NULL;
+      }
     }
 
     if((actor = pop(sched)) != NULL)
@@ -320,6 +272,8 @@ static void respond(scheduler_t* sched)
 {
   scheduler_t* thief = (scheduler_t*)__pony_atomic_load_n(&sched->thief,
     PONY_ATOMIC_RELAXED, PONY_ATOMIC_NO_TYPE);
+
+  assert(thief != (void*)1);
 
   if(thief == NULL)
     return;
@@ -374,35 +328,84 @@ static void run(scheduler_t* sched)
 
     // if this returns true, reschedule the actor on our queue
     if(actor_run(actor)) {
+#ifdef LAZY_IMPL
       sched = this_scheduler;
-#ifdef USE_DORMANT_LIST
-      if (actor_emptyqueue(actor)) {
-        push_dormant(sched, actor);
-      } else {
-        push(sched, actor);
-      }
-#else
+#endif
       push(sched, actor);
+    } else {
+#ifndef LAZY_IMPL
+      actor_unlock((encore_actor_t*)actor);
 #endif
     }
   }
 }
 
-void public_run()
+static void jump_buffer()
 {
-  assert(this_scheduler);
-  run(this_scheduler);
+  __pony_atomic_fetch_add(&thread_exit, 1, PONY_ATOMIC_RELAXED, uint32_t);
+  while(__pony_atomic_load_n(&thread_exit,
+        PONY_ATOMIC_RELAXED, PONY_ATOMIC_NO_TYPE) < scheduler_count) ;
 }
 
-static DEFINE_THREAD_FN(run_thread,
+static void __attribute__ ((noreturn)) jump_origin()
+{
+  static __pony_thread_local char stack[MINSIGSTKSZ];
+  ucontext_t ctx;
+  getcontext(&ctx);
+  ctx.uc_stack.ss_sp = stack;
+  ctx.uc_stack.ss_size = MINSIGSTKSZ;
+  ctx.uc_link = origin;
+  makecontext(&ctx, (void(*)(void))&jump_buffer, 0);
+  setcontext(&ctx);
+  assert(0);
+}
+
+void __attribute__ ((noreturn)) public_run(pthread_mutex_t *lock)
+{
+  assert(lock);
+  pthread_mutex_unlock(lock);
+  assert(this_scheduler);
+  run(this_scheduler);
+
+  __pony_atomic_fetch_add(&context_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);
+  while(__pony_atomic_load_n(&context_waiting,
+        PONY_ATOMIC_RELAXED, PONY_ATOMIC_NO_TYPE) < scheduler_count) ;
+
+  jump_origin();
+}
+
+static void *run_thread(void *arg)
 {
   scheduler_t* sched = (scheduler_t*) arg;
   this_scheduler = sched;
   cpu_affinity(sched->cpu);
+
+#ifdef LAZY_IMPL
+  context ctx;
+  this_context = &ctx;
+  root = &ctx.ctx;
+  ucontext_t ucontext;
+  origin = &ucontext;
+
+  getcontext(origin);
+  if (__pony_atomic_load_n(&context_waiting,
+        PONY_ATOMIC_RELAXED, PONY_ATOMIC_NO_TYPE) == scheduler_count) {
+    return NULL;
+  }
+#endif
+
   run(sched);
 
-  return 0;
-});
+#ifdef LAZY_IMPL
+  __pony_atomic_fetch_add(&context_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);
+  while(__pony_atomic_load_n(&context_waiting,
+        PONY_ATOMIC_RELAXED, PONY_ATOMIC_NO_TYPE) < scheduler_count) ;
+
+  jump_origin();
+#endif
+
+  return NULL;
+}
 
 static void scheduler_shutdown()
 {
@@ -413,8 +416,11 @@ static void scheduler_shutdown()
   else
     start = 0;
 
-  for(uint32_t i = start; i < scheduler_count; i++)
+  for(uint32_t i = start; i < scheduler_count; i++) {
     pony_thread_join(scheduler[i].tid);
+    assert(pop(&scheduler[i]) == NULL);
+  }
+  assert(pop(&scheduler[0]) == NULL);
 
   __pony_atomic_store_n(&detect_quiescence, false, PONY_ATOMIC_RELAXED,
     PONY_ATOMIC_NO_TYPE);
@@ -446,6 +452,9 @@ void scheduler_init(uint32_t threads, bool forcecd)
     threads = physical;
 
   scheduler_count = threads;
+#if defined(SINGLE_THREAD_ON_MACOSX) && defined(PLATFORM_IS_MACOSX)
+  scheduler_count = 1;
+#endif
   scheduler_waiting = 0;
   scheduler = (scheduler_t*)calloc(scheduler_count, sizeof(scheduler_t));
 
