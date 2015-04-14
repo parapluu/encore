@@ -43,6 +43,9 @@ Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the clas
 
 To import files from different directories one needs to use the @code{-I path} argument for the compiler.
 
+Modules are hierarchical. Module @code{A.B.C} (in some directory @code{A/B/C.enc}
+in the include path) can be imported using @code{import A.B.C}.
+
 As of now the module system has no notion of name spaces so all imported objects needs to have unique names.
 There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
 to ensure that each file is only imported once.
