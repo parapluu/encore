@@ -71,6 +71,14 @@ integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
+
+-- ! For parsing qualified names such as A.B.C
+longidentifier :: Parser QName
+longidentifier = do
+    id <- identifier 
+    rest <- option [] (do { dot ; rest <- longidentifier ; return rest })
+    return $ (Name id) : rest
+
 -- Note, when we have product types (i.e. tuples), we could make
 -- an expressionParser for types (with arrow as the only infix
 -- operator)
@@ -136,11 +144,11 @@ importdecl = do
   pos <- getPosition 
   reserved "import"
 --  qualified <- option $ reserved "qualified"
-  iname <- identifier
+  iname <- longidentifier
 --  {(Name,...)}? 
 --  stringliteral "as"; qname <- name
 --  {as Name}
-  return $ Import (meta pos) (Name iname)
+  return $ Import (meta pos) iname
 
 embedTL :: Parser EmbedTL
 embedTL = do pos <- getPosition

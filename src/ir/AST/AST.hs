@@ -51,7 +51,7 @@ data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlbody   :: String} deriving (Show)
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
-                          itarget :: Name } deriving (Show, Eq)
+                          itarget :: QName } deriving (Show, Eq)
 
 data Function = Function {funmeta   :: Meta Function,
                           funname   :: Name,
