@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include "encore.h"
-#include "../src/actor/actor.h"
 
 struct encore_task_s {
   task_fn run;
@@ -17,27 +16,33 @@ struct encore_task_s {
 typedef encore_arg_t value_t;
 
 // TODO: Best practice: Put it into the header. => creates more dependencies...
+// handle_task(): called from scheduler.c, implemented in the actor because it needs
+//                to call handle_message (actor.c, to follow with the guidelines of
+//                processing a message)
 extern void handle_task();
-extern bool taskq_empty();
-extern pony_type_t* encore_task_type;
 
+
+// used once in the scheduler, extern because it's implementation detail
+extern bool taskq_empty(); 
+
+
+// used in actor.c to create an encore actor if there's not one
+extern pony_type_t* encore_task_type; // global that 
 
 
 // Global queue where actors can pick up tasks as messages
-mpmcq_t taskq;
-__thread pony_actor_t* this_encore_task;
+extern mpmcq_t taskq;
+extern __thread pony_actor_t* this_encore_task;
 
-void init_actor_task(){
-  if(this_encore_task==NULL){
-    this_encore_task = (pony_actor_t*) pony_create(encore_task_type);
-    assert(this_encore_task!=NULL);
-  }
-}
 
-static void set_encore_task_type(pony_type_t* type){
+/*
+ * Implementation
+ */
+
+
+static void set_encore_task_type(pony_type_t const* const type){
     encore_task_type = type;
 }
-
 
 void task_setup(pony_type_t* type){
   static int n_calls = 0;
@@ -47,48 +52,46 @@ void task_setup(pony_type_t* type){
   set_encore_task_type(type);
 }
 
-encore_task_s* task_mk(task_fn body, void* env, void* dependencies, pony_trace_fn trace){
+
+encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace){
   encore_task_s* task = pony_alloc(sizeof(encore_task_s)); // allocs in the heap of the running actor
 
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};
   return task;
 }
 
-value_t task_runner(encore_task_s* task){
+
+value_t task_runner(encore_task_s const* const task){
   return task->run(task->env, task->dependencies);
 }
 
-void task_free(encore_task_s* task){
+
+void task_free(encore_task_s* const task){
+  puts("Not implemented method");
+  assert(1==0);
 }
 
-void task_attach_fut(encore_task_s* t, void* fut){
-  t->fut = fut;  
+
+void task_attach_fut(encore_task_s* const task, void* const fut){
+  task->fut = fut;
 }
 
-// Forward declaration
-static encore_task_msg_s* task_mk_msg(encore_task_s* task);
-static void encore_send_task(encore_task_msg_s* msg);
 
-
-// TODO: this makes the task library non-portable (depends on msg, actors, etc)
-void task_schedule(encore_task_s* task){
-  /* if(encore_task_type==NULL) */
-  /*   set_encore_task_type(); */
-  encore_task_msg_s* msg = task_mk_msg(task);
-  encore_send_task(msg);
-}
-
-// create message
-inline static encore_task_msg_s* task_mk_msg(encore_task_s* task){
-  encore_task_msg_s* msg = (encore_task_msg_s*) pony_alloc_msg(0, _ENC__MSG_TASK);
+inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
+  encore_task_msg_s* const msg = (encore_task_msg_s* const) pony_alloc_msg(0, _ENC__MSG_TASK);
   msg->_fut = task->fut;
   msg->_task = task;
   return msg;
 }
 
-inline static void encore_send_task(encore_task_msg_s* msg){
+inline static void encore_send_task(encore_task_msg_s* const msg){
   // send message to global queue of actors
   mpmcq_push(&taskq, msg);
+}
+
+void task_schedule(encore_task_s const* const task){
+  encore_task_msg_s* const msg = task_mk_msg((encore_task_s* const) task);
+  encore_send_task(msg);
 }
 
 

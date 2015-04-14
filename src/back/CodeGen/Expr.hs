@@ -543,16 +543,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              dependency_name = task_dependency_name meta_id
              trace_name = task_trace_name meta_id             
              free_vars = Util.freeVariables [] body
-             task_init = Statement (Call (Nam "init_actor_task") ([] :: [CCode Expr]))
              task_mk = Assign (Decl (task, Var task_name))
                        (Call (Nam "task_mk") [fun_name, env_name, dependency_name, trace_name])
          packed_env <- mapM (pack_free_vars env_name) free_vars
-         -- TODO: no args is the pony ones + fut + task_s
          return $ (Var fut_name, Seq $ (encore_alloc env_name) : packed_env ++
                                        [encore_alloc dependency_name, 
                                         task_runner async fut_name, 
                                         task_mk,
-                                        task_init,
                                         Statement (Call (Nam "task_attach_fut") [Var task_name, Var fut_name]),
                                         Statement (Call (Nam "task_schedule") [Var task_name])
                                         ])

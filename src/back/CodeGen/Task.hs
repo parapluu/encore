@@ -31,11 +31,11 @@ translateTask task ctable
            env_task_name = task_env_name id
            dependency_task_name = task_dependency_name id
            trace_task_name = task_trace_name id
-           freeVars = Util.freeVariables [] body -- TODO: Get variables from the local scope
+           freeVars = Util.freeVariables [] body
            ((bodyName, bodyStat), _) = runState (translate body) $ Ctx.empty ctable
        in
         Concat [buildEnvironment env_task_name freeVars,
-                buildDependency dependency_task_name, -- TODO: Get dependencies from somewhere (spores?)
+                buildDependency dependency_task_name,
                 tracefun_decl trace_task_name env_task_name freeVars, -- TODO: Should we include dependencies?
                 Function (Typ "encore_arg_t") fun_task_name
                          [(Ptr void, Var "_env"), (Ptr void, Var "_dep")]
