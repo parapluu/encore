@@ -208,12 +208,12 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
                      map (Statement . trace_field) fields)
     where
       trace_field A.Field {A.ftype, A.fname}
-          | Ty.isActiveRefType ftype =
-              Call (Nam "pony_traceactor") [get_field fname (Ptr pony_actor_t)]
-          | Ty.isPassiveRefType ftype =
-              Call (Nam "pony_traceobject")
-                   [get_field fname (Ptr void),
-                    AsExpr . AsLval $ class_trace_fn_name ftype]
+          | Ty.isActiveRefType  ftype = Call (Nam "pony_traceactor")  [get_field fname (Ptr pony_actor_t)]
+          | Ty.isPassiveRefType ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ class_trace_fn_name ftype]
+          | Ty.isFutureType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "future_trace"]
+          | Ty.isArrowType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "closure_trace"]
+          | Ty.isArrayType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "array_trace"]
+--          | Ty.isStreamType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "scons_trace"]
           | otherwise =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
