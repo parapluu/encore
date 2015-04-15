@@ -165,6 +165,8 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ class_trace_fn_name t]
                    | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, future_type_rec_name `Dot` Nam "trace"]
                    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "closure_trace"]
+                   | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "array_trace"]
+                   | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "scons_trace"]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
  
 -- | Translates a passive class into its C representation. Note
@@ -206,12 +208,12 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
                      map (Statement . trace_field) fields)
     where
       trace_field A.Field {A.ftype, A.fname}
-          | Ty.isActiveRefType ftype =
-              Call (Nam "pony_traceactor") [get_field fname (Ptr pony_actor_t)]
-          | Ty.isPassiveRefType ftype =
-              Call (Nam "pony_traceobject")
-                   [get_field fname (Ptr void),
-                    AsExpr . AsLval $ class_trace_fn_name ftype]
+          | Ty.isActiveRefType  ftype = Call (Nam "pony_traceactor")  [get_field fname (Ptr pony_actor_t)]
+          | Ty.isPassiveRefType ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ class_trace_fn_name ftype]
+          | Ty.isFutureType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "future_trace"]
+          | Ty.isArrowType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "closure_trace"]
+          | Ty.isArrayType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "array_trace"]
+          | Ty.isStreamType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "scons_trace"]
           | otherwise =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
