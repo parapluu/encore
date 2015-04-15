@@ -9,6 +9,12 @@ import Parser.Parser
 -- for debugging
 import Debug.Trace
 
+tosrc :: FilePath -> QName -> FilePath
+tosrc dir target = dir ++ tosrc' target
+  where
+    tosrc' [(Name a)] = a ++ ".enc"
+    tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
+
 expandModules :: [FilePath] -> Program -> IO Program
 expandModules importDirs p = expand p
     where
@@ -18,12 +24,12 @@ expandModules importDirs p = expand p
              return $ foldr merge p rimpAsts
 
       importOne :: ImportDecl -> IO Program
-      importOne (Import meta (Name target)) =
-          do let sources = map (\dir -> dir ++ target ++ ".enc") importDirs
+      importOne (Import meta target) =
+          do let sources = map (\dir -> tosrc dir target) importDirs
              candidates <- filterM doesFileExist sources
              sourceName <-
                  case candidates of
-                   [] -> abort $ "Module \"" ++ target ++
+                   [] -> abort $ "Module \"" ++ qname2string target ++
                                  "\" cannot be found in imports! Aborting."
                    [src] -> do { informImport target src; return src }
                    l@(src:_) -> do { duplicateModuleWarning target l; return src }
@@ -40,10 +46,14 @@ merge (Program elt ims funs cls) (Program elt' ims' funs' cls') =
           EmbedTL meta (header ++ header) (body ++ body')
 -- TODO how to join the two meta components?
 
-informImport name src =
-        putStrLn $ "Importing module " ++ name ++ " from " ++ src
+qname2string :: QName -> String
+qname2string [(Name a)] = a
+qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
-duplicateModuleWarning :: String -> [FilePath] -> IO ()
-duplicateModuleWarning name srcs =
-    do putStrLn $ "Warning: Module " ++ name ++ " found in multiple places:"
+informImport target src =
+        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
+
+duplicateModuleWarning :: QName -> [FilePath] -> IO ()
+duplicateModuleWarning target srcs =
+    do putStrLn $ "Warning: Module " ++ (qname2string target) ++ " found in multiple places:"
        mapM_ (\src -> putStrLn $ "-- " ++ src) srcs

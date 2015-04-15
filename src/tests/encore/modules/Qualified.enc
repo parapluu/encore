@@ -1,0 +1,11 @@
+
+import A.B.QLib
+
+class Main
+  def main() : void
+    let
+      f = new QFoo 
+    in {
+      print (f.name());
+      ()
+    }

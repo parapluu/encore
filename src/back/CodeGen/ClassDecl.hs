@@ -213,7 +213,7 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
           | Ty.isFutureType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "future_trace"]
           | Ty.isArrowType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "closure_trace"]
           | Ty.isArrayType      ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "array_trace"]
---          | Ty.isStreamType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "scons_trace"]
+          | Ty.isStreamType     ftype = Call (Nam "pony_traceobject") [get_field fname (Ptr void), AsExpr . AsLval $ Nam "scons_trace"]
           | otherwise =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 

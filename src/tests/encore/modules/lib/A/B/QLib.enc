@@ -1,0 +1,4 @@
+
+passive class QFoo
+  def name() : string
+    "QFoo"

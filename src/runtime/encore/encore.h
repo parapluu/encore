@@ -6,6 +6,9 @@
 
 #define LAZY_IMPL
 
+// multithreading is not working on mac yet
+#define SINGLE_THREAD_ON_MACOSX
+
 #define Stack_Size 64*1024
 typedef struct ctx_wrapper {
   ucontext_t* ctx;
@@ -14,10 +17,19 @@ typedef struct ctx_wrapper {
 
 #include <pony/pony.h>
 
+typedef struct context {
+  ucontext_t ctx;
+  struct context *next;
+} context;
+
+extern __pony_thread_local ucontext_t *root;
+extern __pony_thread_local ucontext_t *origin;
+extern __pony_thread_local context *this_context;
+
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
 
-typedef struct encore_actor encore_actor_t;
+__pony_spec_align__(typedef struct encore_actor encore_actor_t, 64);
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
 
@@ -66,12 +78,16 @@ struct encore_actor
 {
   pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
+  bool resume;
+  pthread_mutex_t *lock;
+#ifndef LAZY_IMPL
   ucontext_t ctx;
   ucontext_t home_ctx;
-  bool resume;
   bool run_to_completion;
   stack_page *page;
+#else
   ucontext_t *saved;
+#endif
 };
 
 /// Create a new Encore actor
@@ -86,12 +102,15 @@ void *encore_alloc(size_t s);
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
 
+void actor_unlock(encore_actor_t *actor);
 bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
 void actor_block(encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
 #ifdef LAZY_IMPL
 void actor_resume(encore_actor_t *actor) __attribute__ ((noreturn));
+#else
+void actor_resume(encore_actor_t *actor);
 #endif
 
 /// calls the pony's respond with the current object's scheduler

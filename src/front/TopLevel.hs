@@ -94,7 +94,7 @@ warnUnknownFlags options =
 output :: Show a => a -> Handle -> IO ()
 output ast = flip hPrint ast
 
-writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".pony.c") WriteMode (output ast)
+writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".encore.c") WriteMode (output ast)
 
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
@@ -109,8 +109,8 @@ compileProgram prog sourcePath options =
        createDirectoryIfMissing True srcDir
        let (classes, header, shared) = compile_to_c prog
        mapM (writeClass srcDir) classes
-       let ponyNames  = map (\(name, _) -> changeFileExt name "pony.c") classes
-           classFiles = map (srcDir </>) ponyNames
+       let encoreNames  = map (\(name, _) -> changeFileExt name "encore.c") classes
+           classFiles = map (srcDir </>) encoreNames
            headerFile = srcDir </> "header.h"
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
@@ -123,7 +123,7 @@ compileProgram prog sourcePath options =
            compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
-       withFile makefile   WriteMode (output $ generateMakefile ponyNames execName cc flags incPath libs)
+       withFile makefile   WriteMode (output $ generateMakefile encoreNames execName cc flags incPath libs)
        when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)

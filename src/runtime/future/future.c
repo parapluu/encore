@@ -120,8 +120,6 @@ void future_trace(void* p)
   /// concurrent access should not be a problem.
   perr("future_trace");
 
-  pony_trace(p);
-
   future_t* fut = (future_t*)p;
 
   if (future_fulfilled(fut)) {
@@ -301,10 +299,11 @@ void future_block_actor(future_t *fut)
   pony_unschedule(a);
   assert(fut->no_responsibilities < 16);
   fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
-  UNBLOCK;
 
-  actor_block((encore_actor_t*)a);
+  encore_actor_t *actor = (encore_actor_t*) a;
 
+  actor->lock = &fut->lock;
+  actor_block(actor);
 }
 
 // ===============================================================

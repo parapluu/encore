@@ -61,6 +61,10 @@ commaSep l = cat $ punctuate (ppComma <> ppSpace) l
 ppName :: Name -> Doc
 ppName (Name x) = text x
 
+ppQName :: QName -> Doc
+ppQName [a] = ppName a 
+ppQName (a:as) = ppName a <+> text "." <+> ppQName as
+
 ppType :: Type -> Doc
 ppType = text . show
 
@@ -72,7 +76,7 @@ ppProgram (Program (EmbedTL _ header code) importDecls functions classDecls) =
          vcat (map ppClassDecl classDecls)
 
 ppImportDecl :: ImportDecl -> Doc
-ppImportDecl Import {itarget} = text "import" <+> ppName itarget
+ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
 
 ppFunction :: Function -> Doc
 ppFunction Function {funname, funtype, funparams, funbody} = 

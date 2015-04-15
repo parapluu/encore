@@ -11,6 +11,9 @@ newtype Name = Name String deriving (Read, Eq)
 instance Show Name where
   show (Name n) = n
 
+-- ! Type of qualified names
+type QName = [Name]
+
 thisName :: Name
 thisName = Name "this"
 

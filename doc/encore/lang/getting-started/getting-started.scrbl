@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title{Getting Up and Running}
+@title[#:tag "getting-started"]{Getting Up and Running}
 
 There are two ways of installing the Encore compiler. The first (@secref{building-vm}) 
 uses a virtual box image and it is easy getting the compiler up and running. The 
@@ -211,28 +211,6 @@ $ ./my_file.enc
 This will compile the file, run it and remove the executable.
 
 You can find some example programs in the programs directory @code{encore/programs}.
-
-@section{Compiler options}
-
-Running @code{encorec foo.enc} will typecheck the source and produce the executable 
-@code{foo}. The following options are supported:
-
-@itemlist[
-@item{@code{-c} -- Keep intermediate C-files}
-@item{@code{-tc} -- Typecheck only (don't produce an executable)}
-@item{@code{-o [file]} -- Specify output file}
-@item{@code{-run} -- Run the program and remove the executable}
-@item{@code{-clang} -- Use clang to build the executable (default)}
-@item{@code{-AST} -- Output the parsed AST as text to foo.AST}
-@item{@code{-TypedAST} -- Output the typechecked AST as text to foo.TAST}
-@item{@code{-I path1:path2:...} -- Directories in which to look for modules. (Not needed for modules which are in the same folder as the file being compiled.)}
-]
-
-For instance, we might want to keep the intermediate C-files:
-
-@codeblock|{
-  encorec -c foo.enc
-}|
 
 @section{Emacs Support}
 

@@ -4,8 +4,8 @@
 @(require scribble/bnf)
 @(require (for-syntax racket/syntax))
 
-
 @title{Grammar}
+@margin-note{Please note that this grammar tree is out of date.}
 This section introduces the Encore grammar by using the BNF-grammar notation and
  show examples on how to build syntactically valid Encore programs.
 
@@ -87,6 +87,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm ClassDecl)
 @(encore/nonterm eps)
 @(encore/nonterm Name)
+@(encore/nonterm QName)
 @(encore/nonterm FieldDecls)
 @(encore/nonterm MethodDecls)
 @(encore/nonterm Type)
@@ -127,7 +128,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
           (list Imports
                 @seq[import
 		         @optional{@litchar{qualified}} 
-			 Name
+			 QName
 			 @optional[open-paren Name @elem{, ...} close-paren] 
 			 @optional[@seq[as Name]]])
 
@@ -218,6 +219,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  (list Name
 	      @elem{[a-zA-Z][a-zA-Z0-9]*})
 	  
+	  (list QName
+		      @seq[Name @optional[dot QName]])
+			
 	  (list Int @elem{[0-9]+})
 
 	  (list Real @seq[Int dot Int])
