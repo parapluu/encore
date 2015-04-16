@@ -16,14 +16,24 @@ tosrc dir target = dir ++ tosrc' target
     tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
 
 expandModules :: [FilePath] -> Program -> IO Program
-expandModules importDirs p = expand p
+expandModules importDirs p = expandProgram p
     where
+      -- TODO: replace following with expandProgram
       expand p@(Program etl imps funs cls) =
           do impAsts <- mapM importOne imps
-             rimpAsts <- mapM expand impAsts
+             rimpAsts <- mapM expand (map fst impAsts)  -- removes the source file name
              return $ foldr merge p rimpAsts
 
-      importOne :: ImportDecl -> IO Program
+      expandProgram p@(Program etl imps funs cls) =
+          do exImps <- mapM expandImport imps
+             return $ Program etl exImps funs cls
+             
+      expandImport i@(Import meta target) = 
+          do (imp, src) <- importOne i
+             expImp <- expandProgram imp         
+             return $ PulledImport meta target src expImp
+
+      importOne :: ImportDecl -> IO (Program, FilePath)
       importOne (Import meta target) =
           do let sources = map (\dir -> tosrc dir target) importDirs
              candidates <- filterM doesFileExist sources
@@ -35,10 +45,11 @@ expandModules importDirs p = expand p
                    l@(src:_) -> do { duplicateModuleWarning target l; return src }
              code <- readFile sourceName
              ast <- case parseEncoreProgram sourceName code of
-                      Right ast  -> return ast
+                      Right ast  -> return (ast, sourceName)
                       Left error -> abort $ show error
              return ast
 
+-- TODO: delete this
 merge (Program elt ims funs cls) (Program elt' ims' funs' cls') =
     Program (emjoin elt elt') (ims ++ ims') (funs ++ funs') (cls ++ cls')
     where

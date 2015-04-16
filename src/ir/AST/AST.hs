@@ -51,7 +51,12 @@ data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlbody   :: String} deriving (Show)
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
-                          itarget :: QName } deriving (Show, Eq)
+                          itarget :: QName } 
+                | PulledImport {pimeta :: Meta ImportDecl,
+                                qname :: QName,
+                                isrc :: FilePath,
+                                iprogram :: Program }
+                  deriving (Show)
 
 data Function = Function {funmeta   :: Meta Function,
                           funname   :: Name,

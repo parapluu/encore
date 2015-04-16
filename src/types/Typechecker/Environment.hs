@@ -27,7 +27,8 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
-                               pushBT) where
+                               pushBT,
+                               mergeEnvironments) where
 
 import Data.List
 import Data.Maybe
@@ -166,3 +167,19 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
+
+mergeEnv :: Environment -> Environment -> Environment
+mergeEnv (Env ct globs locals binds tparams bt) (Env ct' globs' locals' binds' tparams' bt') =
+  Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals') 
+    (mergeBindings binds binds') (mergeTypeParams tparams tparams') []
+
+mergeEnvironments :: Environment -> [Environment] -> Environment
+mergeEnvironments = foldr mergeEnv 
+
+
+-- TODO: Be smarter and detect errors
+mergeClasses = (++)
+mergeGlobals = (++)
+mergeLocals = (++)
+mergeBindings = (++)
+mergeTypeParams = (++)
