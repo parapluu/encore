@@ -88,7 +88,7 @@ method_impl_name clazz mname =
 
 global_closure_name :: ID.Name -> CCode Name
 global_closure_name funname =
-    Nam $ (show funname)
+    Nam $ "_encore__global_closure_" ++ (show funname)
 
 global_function_name :: ID.Name -> CCode Name
 global_function_name funname =
