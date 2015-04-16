@@ -26,10 +26,19 @@ import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 
 instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) where
-    translate prog@(A.Program{A.classes}) = (classList, header, shared)
+    translate prog@(A.Program{A.imports, A.classes}) = (classList, header, shared)
         where
+          -- recursively translate the programs in the imports DONE, but nothing done with them
+          -- compile local stuff using new class table
+          -- do something with shared (probably one shared)
+          ctable = build_class_table prog
+          
+          translated_imports = map translate_import imports
           classList = map name_and_class classes
-          ctable = (build_class_table prog)
-          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
           header = generate_header prog
           shared = generate_shared prog ctable
+          -- TODO: do somethig with the translated imports!!!!
+
+          -- local functions
+          translate_import (A.PulledImport{A.iprogram}) = translate iprogram
+          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)

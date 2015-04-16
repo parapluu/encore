@@ -13,14 +13,16 @@ type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, MethodDecl)] 
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
+
 build_class_table :: Program -> ClassTable
-build_class_table Program {classes} = map get_class_entry classes
+build_class_table Program {classes, imports} = map get_class_entry classes ++ concat (map get_imported_classes imports)
     where 
         get_class_entry Class{cname, fields, methods} = 
             (cname, ((map get_field_entry fields), (map get_method_entry methods)))
         get_field_entry f@Field{fname} = (fname, f)
         get_method_entry m = (mname m, m)
-
+        get_imported_classes (PulledImport{iprogram}) = build_class_table iprogram
+        
 lookup_field :: ClassTable -> Type -> Name -> Maybe FieldDecl
 lookup_field ctable cls f = 
     do (fs, _) <- lookup cls ctable 

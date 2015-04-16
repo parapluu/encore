@@ -18,32 +18,58 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 -- | Generates the C header file for the translated program
+-- | This function generates all the common code, generate_header_recurser generates class specific code
 generate_header :: A.Program -> CCode FIN
-generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes} = 
-       Program $
-       IfNDefine "HEADER_H" $
-       Concat $ 
-       HashDefine "HEADER_H" :
-       HashDefine "_XOPEN_SOURCE 800" :
-       (Includes [
-         "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
-         "pony/pony.h",
-         "stdlib.h",
-         "set.h",
-         "closure.h",
-         "stream.h",
-         "array.h",
-         "future.h",
-         "string.h",
-         "stdio.h"
-        ]) :
-       HashDefine "UNIT ((void*) -1)" :
+generate_header p = 
+    Program $
+    IfNDefine "HEADER_H" $
+    Concat $ 
+    HashDefine "HEADER_H" :
+    HashDefine "_XOPEN_SOURCE 800" :
+    (Includes [
+      "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
+      "pony/pony.h",
+      "stdlib.h",
+      "set.h",
+      "closure.h",
+      "stream.h",
+      "array.h",
+      "future.h",
+      "string.h",
+      "stdio.h"
+     ]) :
+    HashDefine "UNIT ((void*) -1)" :
+    
+    [comment_section "Shared messages"] ++
+    shared_messages ++
+    
+    generate_header_recurser p ++  -- handle current class and all imports
+
+    [comment_section "Dummy IDs"] ++
+    [dummy_enums] ++
+    
+    [comment_section "Main actor rtti"] ++
+    [extern_main_rtti]
+   where
+      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
+
+      shared_messages = 
+          [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
+           DeclTL (pony_msg_t, Var "m_resume_get"),
+           DeclTL (pony_msg_t, Var "m_resume_suspend"),
+           DeclTL (pony_msg_t, Var "m_resume_await"),
+           DeclTL (pony_msg_t, Var "m_run_closure")]
+
+      dummy_enums = Enum $ [Nam "__MSG_DUMMY__ = 1024", Nam "__ID_DUMMY__ = 1024"]
+
+        
+
+-- generate_header_recurser :: A.Program -> [CCode FIN]
+generate_header_recurser A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes, A.imports} = 
+       (concat $ map generate_header_imports imports) ++
 
        [comment_section "Embedded code"] ++
        [Embed etlheader] ++
-
-       [comment_section "Shared messages"] ++
-       shared_messages ++
 
        [comment_section "Class types"] ++
        class_type_decls ++ 
@@ -54,15 +80,15 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        [comment_section "Runtime types"] ++
        runtime_type_decls ++
 
+       [comment_section "Message IDs"] ++
+       [message_enums] ++
+       
        [comment_section "Message types"] ++
        pony_msg_t_typedefs ++
        pony_msg_t_impls ++
 
        [comment_section "Global functions"] ++
        global_function_decls ++
-
-       [comment_section "Message IDs"] ++
-       [message_enums] ++
 
        [comment_section "Class IDs"] ++
        [class_enums] ++
@@ -71,19 +97,9 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
        trace_fn_decls ++
 
        [comment_section "Methods"] ++
-       concatMap method_fwds classes ++
+       concatMap method_fwds classes
 
-       [comment_section "Main actor rtti"] ++
-       [extern_main_rtti]
     where
-      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
-
-      shared_messages = 
-          [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
-           DeclTL (pony_msg_t, Var "m_resume_get"),
-           DeclTL (pony_msg_t, Var "m_resume_suspend"),
-           DeclTL (pony_msg_t, Var "m_resume_await"),
-           DeclTL (pony_msg_t, Var "m_run_closure")]
 
       pony_msg_t_typedefs :: [CCode Toplevel]
       pony_msg_t_typedefs = map pony_msg_t_typedef_class classes
@@ -116,21 +132,19 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
             global_function_decl A.Function{A.funname} = 
                 DeclTL (closure, AsLval $ global_closure_name funname)
 
-
       message_enums =
-        let
-          meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) classes
-          method_msg_names = map (show . (uncurry fut_msg_id)) meta
-          one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
-        in
-         Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
-
+          let
+              meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) classes
+              method_msg_names = map (show . (uncurry fut_msg_id)) meta
+              one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
+          in
+                 Enum $ map Nam (method_msg_names ++ one_way_msg_names)
 
       class_enums =
         let
           names = map (("ID_"++) . Ty.getId . A.cname) classes
         in
-         Enum $ (Nam "__ID_DUMMY__ = 1024") : map Nam names
+         Enum $ map Nam names
 
       trace_fn_decls = map trace_fn_decl classes
           where
@@ -166,6 +180,8 @@ generate_header A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes
               let params = (Ptr . AsType $ class_type_name cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
               in
                 FunctionDecl void (method_impl_name cname mname) params
+
+generate_header_imports A.PulledImport{A.iprogram} = generate_header_recurser iprogram
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
