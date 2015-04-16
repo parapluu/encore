@@ -129,8 +129,20 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    decl = Assign (Decl (encore_arg_t, tmp)) task_runner
                    future_fulfil = Statement $ Call (Nam "future_fulfil") [AsExpr $ Var "_fut", AsExpr tmp]
                    task_free = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
+                   trace_future = Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
+                   trace_task = Statement $ Call (Nam "pony_traceobject") [Var "_task", AsLval $ Nam "NULL"]
                in  
-               (task_msg_id, Seq $ [unpack_future, unpack_task, decl, future_fulfil, task_free])
+               (task_msg_id, Seq $ [unpack_future, unpack_task, decl] ++
+                                   [Embed $ "", 
+                                    Embed $ "// --- GC on receiving ----------------------------------------",
+                                    Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr]),
+                                    trace_future,
+                                    trace_task,
+                                    Embed $ "//---You need to trace the task env and task dependencies---",
+                                    Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
+                                    Embed $ "// --- GC on sending ----------------------------------------",
+                                    Embed $ ""]++
+                             [future_fulfil, task_free])
 
 
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =

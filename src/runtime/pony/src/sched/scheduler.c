@@ -312,7 +312,7 @@ static void run(scheduler_t* sched)
     {
       // Do not do work stealing if there are tasks to perform
       if(handle_task())
-	continue;
+      	continue;
 
       // wait until we get an actor
       actor = request(sched);

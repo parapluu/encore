@@ -1,0 +1,13 @@
+def print_side_effect(): void
+  print 42
+
+class X
+  def side_effects(): void {
+    repeat i <- 300
+      async(print_side_effect())
+  }
+
+class Main
+  def main(): void
+    let x = new X in
+      x.side_effects()

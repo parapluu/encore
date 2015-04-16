@@ -1,0 +1,7 @@
+def inc(x: int): int
+  x+1
+
+class Main
+  def main(): void {
+    print get ((async(inc(42))) ~~> \(x: int) -> inc(x))
+  }

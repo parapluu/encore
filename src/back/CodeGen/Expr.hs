@@ -545,13 +545,27 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              free_vars = Util.freeVariables [] body
              task_mk = Assign (Decl (task, Var task_name))
                        (Call (Nam "task_mk") [fun_name, env_name, dependency_name, trace_name])
+             trace_future = Statement $ Call (Nam "pony_traceobject") [Var fut_name, future_type_rec_name `Dot` Nam "trace"]
+             trace_task = Statement $ Call (Nam "pony_traceobject") [Var task_name, AsLval $ Nam "NULL" ]
+             trace_env =  Statement $ Call (Nam "pony_traceobject") [Var $ show env_name, AsLval $ Nam "NULL" ]
+             trace_dependency =  Statement $ Call (Nam "pony_traceobject") [Var $ show dependency_name, AsLval $ Nam "NULL" ]
          packed_env <- mapM (pack_free_vars env_name) free_vars
          return $ (Var fut_name, Seq $ (encore_alloc env_name) : packed_env ++
                                        [encore_alloc dependency_name, 
                                         task_runner async fut_name, 
                                         task_mk,
                                         Statement (Call (Nam "task_attach_fut") [Var task_name, Var fut_name]),
-                                        Statement (Call (Nam "task_schedule") [Var task_name])
+                                        Statement (Call (Nam "task_schedule") [Var task_name]),
+                                        Embed $ "", 
+                                        Embed $ "// --- GC on sending ----------------------------------------",
+                                        Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
+                                        trace_future,
+                                        trace_task,
+                                        trace_env,
+                                        trace_dependency,
+                                        Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
+                                        Embed $ "// --- GC on sending ----------------------------------------",
+                                        Embed $ ""
                                         ])
                     
       where

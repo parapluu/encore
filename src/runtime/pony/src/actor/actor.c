@@ -140,6 +140,23 @@ bool handle_task(){
   if(this_encore_task==NULL){
     this_encore_task = encore_create(encore_task_type);
   }
+  
+  // some gc methods rely on having `this_actor` set to
+  // the actor that handles a message.
+  this_actor = this_encore_task; 
+
+  if(heap_startgc(&this_encore_task->heap))
+  {
+    if(this_encore_task->type->trace != NULL)
+    {
+      pony_gc_mark();
+      this_encore_task->type->trace(this_encore_task);
+    }
+    gc_mark(&this_encore_task->gc);
+    gc_sweep(&this_encore_task->gc);
+    gc_done(&this_encore_task->gc);
+    heap_endgc(&this_encore_task->heap);
+  }
 
   pony_msg_t* task_msg;
   if((task_msg = mpmcq_pop(&taskq))!=NULL){

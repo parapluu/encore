@@ -74,6 +74,16 @@ void task_attach_fut(encore_task_s* const task, void* const fut){
 }
 
 
+void* task_getenv(encore_task_s* const task){
+  return task->env;
+}
+
+
+void* task_getdependencies(encore_task_s* const task){
+  return task->dependencies;
+}
+
+
 inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
   encore_task_msg_s* const msg = (encore_task_msg_s* const) pony_alloc_msg(0, _ENC__MSG_TASK);
   msg->_fut = task->fut;
