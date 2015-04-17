@@ -31,14 +31,18 @@ instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) wh
           -- recursively translate the programs in the imports DONE, but nothing done with them
           -- compile local stuff using new class table
           -- do something with shared (probably one shared)
-          ctable = build_class_table prog
+          ctable = build_class_table prog   -- builds it recursively
+
+          header = generate_header prog
           
+          (classList, shared) = translate_recurser prog ctable
+          
+translate_recurser prog@(A.Program{A.imports, A.classes}) ctable = (classList, shared)
+    where
           translated_imports = map translate_import imports
           classList = map name_and_class classes
-          header = generate_header prog
           shared = generate_shared prog ctable
-          -- TODO: do somethig with the translated imports!!!!
 
           -- local functions
-          translate_import (A.PulledImport{A.iprogram}) = translate iprogram
+          translate_import (A.PulledImport{A.iprogram}) = translate_recurser iprogram
           name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
