@@ -1,0 +1,11 @@
+def square(x: int): int
+  x * x
+
+class Main
+  def main(): void {
+    repeat i <- 5
+      async {
+        let s = square(i) in
+          print square(s)
+      }
+  }

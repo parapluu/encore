@@ -287,8 +287,69 @@ In the example above, the lambda @code{lambda_fun} will be executed
 as soon as the future from @code{p.produce()} (line @code{10}) is fulfilled.
 
 
+@section{Tasks}
+
+Tasks allows the developer to execute a function asynchronously, not
+bound to the actor that calls it. For instance, in the following code, 
+an actor calls a global function `long_computation`, which is executed
+by the actor synchronously. This means that the actor will not be able
+to continue until the computation has finished.
+
+@codeblock[#:line-numbers 1]|{
+def repeat(max_iterations: int, fn: int -> int): void {
+  repeat i <- max_iterations
+    print fn(i)
+}
+
+def inc(x: int): int
+  x+1
+
+class Main
+  def main(): void
+    repeat(300, inc);
+}|
 
 
+Sometimes you don't care who executes the function, you just want to
+schedule the function and let someone run it. This is when tasks come
+in handy, for situations such as @code{pmap}, @code{foreach}, etc.
+The next example re-writes the previous code and makes it run by different
+actors, which doesn't hog the actor that calls the global function.
+
+
+@codeblock[#:line-numbers 1]|{
+def p_repeat(max_iterations: int, fn: int -> int): void
+  repeat i <- max_iterations
+    async(print fn(i))
+
+def inc(x: int): int
+  x+1
+
+class Main
+  def main(): void
+    p_repeat(300, inc)
+}|
+
+Instead of calling a `async function`, you can write
+statements inside the `async` construct that will be performed as a 
+block of code. The following example, gets numbers from 0 to 4 and
+runs in parallel and asyncronously the quadruple of the given number.
+In this case, we do not want to block on the future, but execute the
+side effects (printing).
+
+@codeblock[#:line-numbers 1]|{
+def square(x: int): int
+  x * x
+
+class Main
+  def main(): void {
+    repeat i <- 5
+      async {
+        let s = square(i) in
+          print square(s)
+      }
+  }
+}|
 
 @section{Fire and forget@code{!}}
 
