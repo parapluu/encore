@@ -33,16 +33,25 @@ instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) wh
           -- do something with shared (probably one shared)
           ctable = build_class_table prog   -- builds it recursively
 
-          header = generate_header prog
-          
-          (classList, shared) = translate_recurser prog ctable
-          
-translate_recurser prog@(A.Program{A.imports, A.classes}) ctable = (classList, shared)
-    where
-          translated_imports = map translate_import imports
-          classList = map name_and_class classes
+          header = generate_header prog     -- generates it recursively
+
           shared = generate_shared prog ctable
+          
+          --  TODO: DELETE classList = translate_recurser prog ctable
+          
+          classList = A.traverseProgram f g prog
+            where
+                name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
+                f prog@(A.Program{A.classes}) = map name_and_class classes
+                g a b = a ++ concat b
+  
+{- TODO: DELETE
+translate_recurser prog@(A.Program{A.imports, A.classes}) ctable = classList
+    where
+          classList = map name_and_class classes ++ concat (map translate_import imports)
 
           -- local functions
-          translate_import (A.PulledImport{A.iprogram}) = translate_recurser iprogram
+          translate_import (A.PulledImport{A.iprogram}) = translate_recurser iprogram ctable
           name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
+-}
+

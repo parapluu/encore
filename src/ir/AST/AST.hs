@@ -267,3 +267,12 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
+
+-- | program_traverse (needs better name) traverse a program and its imports collecting data
+-- program_traverse f g p takes traverses p, applying f and g to collect values 
+-- f applies to one level program, ignoring imports
+-- g takes the results of recursing on imports plus the current level and combines them
+traverseProgram f g p@(Program{imports}) = g (f p) (map (lift (traverseProgram f g)) imports)
+    where lift h (PulledImport{iprogram}) = h iprogram
+        
+        
