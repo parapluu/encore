@@ -1,22 +1,29 @@
 class Foo
-  def foo() : [int]
-    let 
-      a = new [int](10)
-    in{
-      repeat i <- 10{
-        a[i] = i
-      };
-      a
+  def return() : [int]
+    new [int](10)
+  def foo(m:Main) : void
+    let
+      a = this.return()
+    in {
+      repeat i <- 10
+        a[i] = i;
+      m ! continue(a)
     }
 
 class Main
-  def main() : void
-    let x = new Foo
-        a = get x.foo()
+  def continue(a:[int]) : void
+    let
         b = ["foo", "bar"]
-    in{
+    in {
       repeat i <- |a|
         print a[i];
       print b[0];
       print b[1];
     }
+
+  def main() : void
+    let
+      x = new Foo
+    in
+      x ! foo(this)
+
