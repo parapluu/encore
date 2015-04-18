@@ -14,10 +14,10 @@ type MethodTable = [(Name, MethodDecl)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
 build_class_table :: Program -> ClassTable
-build_class_table = traverseProgram f g
+build_class_table = traverseProgram f merge
     where
         f Program{classes, imports} = map get_class_entry classes
-        g a b = a ++ concat b  -- TODO: factor out this pattern comment to many calls of traverseProgram
+        merge a b = a ++ concat b 
         get_class_entry Class{cname, fields, methods} = 
             (cname, ((map get_field_entry fields), (map get_method_entry methods)))
         get_field_entry f@Field{fname} = (fname, f)
@@ -34,15 +34,3 @@ lookup_method :: ClassTable -> Type -> Name -> Maybe MethodDecl
 lookup_method ctable cls m = 
     do (_, ms) <- lookup cls ctable 
        lookup m ms
-
-
-{-  TODO: REMOVE this code
-   build_class_table :: Program -> ClassTable
-   build_class_table Program {classes, imports} = map get_class_entry classes ++ concat (map get_imported_classes imports)
-       where 
-           get_class_entry Class{cname, fields, methods} = 
-               (cname, ((map get_field_entry fields), (map get_method_entry methods)))
-           get_field_entry f@Field{fname} = (fname, f)
-           get_method_entry m = (mname m, m)
-           get_imported_classes (PulledImport{iprogram}) = build_class_table iprogram
- -}

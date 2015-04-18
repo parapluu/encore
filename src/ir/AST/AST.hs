@@ -275,4 +275,13 @@ getSugared e = AST.Meta.getSugared (emeta e)
 traverseProgram f g p@(Program{imports}) = g (f p) (map (lift (traverseProgram f g)) imports)
     where lift h (PulledImport{iprogram}) = h iprogram
         
-        
+merge a b = a ++ concat b
+
+allClasses p = A.traverseProgram f merge p
+  where f A.Program{A.classes} = classes
+
+allFunctions p = A.traverseProgram f merge p
+    where f A.Program{A.functions} = functions
+
+allEmbedded p = A.traverseProgram f merge p
+    where f A.Program{A.etl = A.EmbedTL{A.etlheader}} = [etlheader]

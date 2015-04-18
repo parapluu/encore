@@ -17,9 +17,7 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
     Concat $
       (LocalInclude "header.h") :
 
-      A.traverseProgram f g prog ++ 
--- TODO: DELETE FOLLOWING. ALSO, RENAME g and g
---       generate_shared_recurser prog ctable ++   -- generate shared code for the program and all imported modules
+      A.traverseProgram f combine prog ++ 
 
       -- [comment_section "Shared messages"] ++
       -- shared_messages ++
@@ -34,7 +32,7 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
           where
               global_functions = map (\fun -> translate fun ctable) functions
               
-      g a b = [comment_section "Imported functions"] ++ concat b ++ a
+      combine a b = [comment_section "Imported functions"] ++ concat b ++ a
 
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
           where
@@ -73,22 +71,6 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
                       AsExpr $ Var "argv", 
                       Amp (Var "_enc__active_Main_type")]
 
-
-{- TODO: DELETE 
-generate_shared_recurser (A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions, A.imports}) ctable = 
-    [comment_section "Imported functions"] ++
-    concat (map (generate_shared_imports ctable) imports) ++
-
-    [comment_section "Embedded Code"] ++
-    [Embed etlbody] ++
-
-    [comment_section "Global functions"] ++
-    global_functions
-      where
-          global_functions = map (\fun -> translate fun ctable) functions
-
-          generate_shared_imports ctable (A.PulledImport{A.iprogram}) = generate_shared_recurser iprogram ctable
--}
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

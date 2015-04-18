@@ -28,30 +28,15 @@ import qualified CodeGen.Context as Ctx
 instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) where
     translate prog@(A.Program{A.imports, A.classes}) = (classList, header, shared)
         where
-          -- recursively translate the programs in the imports DONE, but nothing done with them
-          -- compile local stuff using new class table
-          -- do something with shared (probably one shared)
-          ctable = build_class_table prog   -- builds it recursively
+          ctable = build_class_table prog
 
-          header = generate_header prog     -- generates it recursively
+          header = generate_header prog 
 
           shared = generate_shared prog ctable
-          
-          --  TODO: DELETE classList = translate_recurser prog ctable
-          
-          classList = A.traverseProgram f g prog
+                    
+          classList = A.traverseProgram f merge prog
             where
-                name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
                 f prog@(A.Program{A.classes}) = map name_and_class classes
-                g a b = a ++ concat b
+                name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
+                merge a b = a ++ concat b
   
-{- TODO: DELETE
-translate_recurser prog@(A.Program{A.imports, A.classes}) ctable = classList
-    where
-          classList = map name_and_class classes ++ concat (map translate_import imports)
-
-          -- local functions
-          translate_import (A.PulledImport{A.iprogram}) = translate_recurser iprogram ctable
-          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
--}
-
