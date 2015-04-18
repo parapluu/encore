@@ -21,16 +21,20 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
 
       -- [comment_section "Shared messages"] ++
       -- shared_messages ++
+      [comment_section "Global functions"] ++
+      global_functions ++
+
       [main_function]
     where
-      f A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =   
+      allfunctions = A.allFunctions prog
+  
+      global_functions = map (\fun -> translate fun ctable) allfunctions
+        
+      f A.Program{A.etl = A.EmbedTL{A.etlbody}} =   
         [comment_section "Embedded Code"] ++
-        [Embed etlbody] ++
+        [Embed etlbody] 
 
-        [comment_section "Global functions"] ++
-        global_functions
           where
-              global_functions = map (\fun -> translate fun ctable) functions
               
       combine a b = [comment_section "Imported functions"] ++ concat b ++ a
 
@@ -57,7 +61,7 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
                    (Seq $ init_globals ++ [Return encore_start])
           where
-            init_globals = map init_global functions
+            init_globals = map init_global allfunctions
                 where 
                   init_global A.Function{A.funname} = 
                       Assign (global_closure_name funname)
