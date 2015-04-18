@@ -1,5 +1,8 @@
 #!/bin/bash
 
+ROOT_PATH=../../../..
+ENCOREC=${ROOT_PATH}/release/encorec
+
 function run_test {
     # the function looks for either a file called "testname.out" or a
     # script called "testname.chk".
@@ -13,7 +16,7 @@ function run_test {
     program=$1
     source=$1.enc
     # compile and, if successful, run the program:
-    output=$(encorec $source && ./$program)
+    output=$(${ENCOREC} $source && ./$program)
     checking_script=./$program.chk
     expected=$program.out
     if [ -x "$checking_script" ] ; then
@@ -27,6 +30,7 @@ function run_test {
         fi
     else
         if [ -e "$expected" ]; then
+            # echo "$output" | cmp $expected ||
             ./$program | cmp $expected ||
                 (echo "ERROR: test $program failed with output:";
                  echo "vvvvvvvvvvvvvvvvvvvv"
