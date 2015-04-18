@@ -43,8 +43,36 @@ generate_header p =
     [comment_section "Shared messages"] ++
     shared_messages ++
     
-    A.traverseProgram f g p ++
---   TODO: Remove generate_header_recurser p ++  -- handle current class and all imports
+    [comment_section "Embedded code"] ++
+    map Embed allembedded ++
+
+    [comment_section "Class types"] ++
+    class_type_decls ++ 
+
+    [comment_section "Passive class types"] ++
+    passive_types ++ 
+
+    [comment_section "Runtime types"] ++
+    runtime_type_decls ++
+
+    [comment_section "Message IDs"] ++
+    [message_enums] ++
+
+    [comment_section "Message types"] ++
+    pony_msg_t_typedefs ++
+    pony_msg_t_impls ++
+
+    [comment_section "Global functions"] ++
+    global_function_decls ++
+
+    [comment_section "Class IDs"] ++
+    [class_enums] ++
+
+    [comment_section "Trace functions"] ++
+    trace_fn_decls ++
+
+    [comment_section "Methods"] ++
+    concatMap method_fwds allclasses ++
 
     [comment_section "Main actor rtti"] ++
     [extern_main_rtti]
@@ -57,42 +85,14 @@ generate_header p =
            DeclTL (pony_msg_t, Var "m_resume_suspend"),
            DeclTL (pony_msg_t, Var "m_resume_await"),
            DeclTL (pony_msg_t, Var "m_run_closure")]
-     g a b = concat b ++ a
-     f A.Program{A.etl = A.EmbedTL{A.etlheader}, A.functions, A.classes, A.imports} = 
-              [comment_section "Embedded code"] ++
-              [Embed etlheader] ++
 
-              [comment_section "Class types"] ++
-              class_type_decls ++ 
 
-              [comment_section "Passive class types"] ++
-              passive_types ++ 
-
-              [comment_section "Runtime types"] ++
-              runtime_type_decls ++
-
-              [comment_section "Message IDs"] ++
-              [message_enums] ++
-
-              [comment_section "Message types"] ++
-              pony_msg_t_typedefs ++
-              pony_msg_t_impls ++
-
-              [comment_section "Global functions"] ++
-              global_function_decls ++
-
-              [comment_section "Class IDs"] ++
-              [class_enums] ++
-
-              [comment_section "Trace functions"] ++
-              trace_fn_decls ++
-
-              [comment_section "Methods"] ++
-              concatMap method_fwds classes
-
-       where
-         pony_msg_t_typedefs :: [CCode Toplevel]
-         pony_msg_t_typedefs = map pony_msg_t_typedef_class classes
+     allclasses = allClasses p
+     allfunctions = allFunctions p
+     allembedded = allEmbedded p
+         
+     pony_msg_t_typedefs :: [CCode Toplevel]
+     pony_msg_t_typedefs = map pony_msg_t_typedef_class allclasses
              where
                  pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) = 
                      Concat $ concatMap pony_msg_t_typedef methods
@@ -101,8 +101,8 @@ generate_header p =
                              [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
                               Typedef (Struct $ one_way_msg_type_name cname (A.mname mdecl)) (one_way_msg_type_name cname (A.mname mdecl))]
 
-         pony_msg_t_impls :: [CCode Toplevel]
-         pony_msg_t_impls = map pony_msg_t_impls_class classes
+     pony_msg_t_impls :: [CCode Toplevel]
+     pony_msg_t_impls = map pony_msg_t_impls_class allclasses
                  where
                    pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) = 
                        Concat $ map pony_msg_t_impl methods
@@ -117,36 +117,36 @@ generate_header p =
                              in Concat [StructDecl (AsType $ fut_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec : argspecs)
                                        ,StructDecl (AsType $ one_way_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec_oneway : argspecs)]
 
-         global_function_decls = map global_function_decl functions
+     global_function_decls = map global_function_decl allfunctions
             where
                 global_function_decl A.Function{A.funname} = 
                    DeclTL (closure, AsLval $ global_closure_name funname)
 
-         message_enums =
+     message_enums =
                  let
-                     meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) classes
+                     meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) allclasses
                      method_msg_names = map (show . (uncurry fut_msg_id)) meta
                      one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
                  in
                         Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
 
-         class_enums =
+     class_enums =
                let
-                 names = map (("ID_"++) . Ty.getId . A.cname) classes
+                 names = map (("ID_"++) . Ty.getId . A.cname) allclasses
                in
                 Enum $ (Nam "__ID_DUMMY__ = 1024") : map Nam names
 
-         trace_fn_decls = map trace_fn_decl classes
+     trace_fn_decls = map trace_fn_decl allclasses
                  where
                    trace_fn_decl A.Class{A.cname} =
                              FunctionDecl void (class_trace_fn_name cname) [Ptr void]
 
-         class_type_decls = map class_type_decl classes
+     class_type_decls = map class_type_decl allclasses
                  where
                    class_type_decl A.Class{A.cname} = 
                        Typedef (Struct $ class_type_name cname) (class_type_name cname)
 
-         passive_types = map passive_type $ filter (not . A.isActive) classes
+     passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
                    passive_type A.Class{A.cname, A.fields} = 
                        StructDecl (AsType $ class_type_name cname) 
@@ -154,11 +154,11 @@ generate_header p =
                                    (map (translate . A.ftype) fields)
                                    (map (Var . show . A.fname) fields))
 
-         runtime_type_decls = map type_decl classes
+     runtime_type_decls = map type_decl allclasses
                  where
                    type_decl A.Class{A.cname} = DeclTL (Extern pony_type_t, AsLval $ runtime_type_name cname)
 
-         method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
+     method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
                  where
                    method_fwd A.Method{A.mtype, A.mname, A.mparams} =
                      let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
@@ -173,6 +173,17 @@ generate_header p =
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
+
+merge a b = a ++ concat b
+
+allClasses p = A.traverseProgram f merge p
+  where f A.Program{A.classes} = classes
+
+allFunctions p = A.traverseProgram f merge p
+    where f A.Program{A.functions} = functions
+
+allEmbedded p = A.traverseProgram f merge p
+    where f A.Program{A.etl = A.EmbedTL{A.etlheader}} = [etlheader]
 
         
 {- TODO: REMOVE 
