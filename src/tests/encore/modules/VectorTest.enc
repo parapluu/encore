@@ -1,0 +1,9 @@
+#! /usr/bin/env encorec -run
+
+import Vector
+
+class Main
+  def main() : void {
+    (new Vector<int>).there();
+    print "hello"
+  }

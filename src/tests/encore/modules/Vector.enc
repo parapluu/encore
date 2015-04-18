@@ -1,0 +1,14 @@
+passive class Vector<t> {
+  data : [t]
+
+  def init() : void {
+    let b = new [int](3) in {
+        b[0] = 0;
+        b[1] = 0;
+        b[2] = 42 - 19;
+    }
+  }
+
+  def there() : void
+    print "vector reporting for duty!"
+}

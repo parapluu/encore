@@ -1,0 +1,10 @@
+
+import Utils
+
+embed
+#define ID 1
+end
+
+class Main
+  def main(): void
+    print (id(10))

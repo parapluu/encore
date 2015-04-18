@@ -4,10 +4,12 @@ ENCOREC=$(ROOT_PATH)/release/encorec
 #INGORE=Lib.enc
 
 #OUTFILES=$(shell ls *.out)
-OUTFILES=Importer.out DeepImporter.out FarImporter.out DupImporter.out Qualified.out
+OUTFILES=Importer.out DeepImporter.out FarImporter.out DupImporter.out Qualified.out \
+  VectorTest.out Embed.out
 
 #ENCORE_SOURCES=$(shell ls *.enc)
-ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc DupImporter.enc Qualified.enc
+ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc DupImporter.enc Qualified.enc \
+  VectorTest.enc Embed.enc
 
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 

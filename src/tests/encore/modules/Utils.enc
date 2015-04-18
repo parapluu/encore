@@ -1,0 +1,3 @@
+
+def id(x: int): int
+  x
