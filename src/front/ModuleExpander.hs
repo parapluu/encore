@@ -18,12 +18,6 @@ tosrc dir target = dir ++ tosrc' target
 expandModules :: [FilePath] -> Program -> IO Program
 expandModules importDirs p = expandProgram p
     where
-      -- TODO: replace following with expandProgram
-      expand p@(Program etl imps funs cls) =
-          do impAsts <- mapM importOne imps
-             rimpAsts <- mapM expand (map fst impAsts)  -- removes the source file name
-             return $ foldr merge p rimpAsts
-
       expandProgram p@(Program etl imps funs cls) =
           do exImps <- mapM expandImport imps
              return $ Program etl exImps funs cls
@@ -48,14 +42,6 @@ expandModules importDirs p = expandProgram p
                       Right ast  -> return (ast, sourceName)
                       Left error -> abort $ show error
              return ast
-
--- TODO: delete this
-merge (Program elt ims funs cls) (Program elt' ims' funs' cls') =
-    Program (emjoin elt elt') (ims ++ ims') (funs ++ funs') (cls ++ cls')
-    where
-      emjoin (EmbedTL meta header body) (EmbedTL meta' header' body') =
-          EmbedTL meta (header ++ header) (body ++ body')
--- TODO how to join the two meta components?
 
 qname2string :: QName -> String
 qname2string [(Name a)] = a

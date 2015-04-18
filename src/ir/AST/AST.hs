@@ -277,11 +277,11 @@ traverseProgram f g p@(Program{imports}) = g (f p) (map (lift (traverseProgram f
         
 merge a b = a ++ concat b
 
-allClasses p = A.traverseProgram f merge p
-  where f A.Program{A.classes} = classes
+allClasses p = traverseProgram f merge p
+  where f Program{classes} = classes
 
-allFunctions p = A.traverseProgram f merge p
-    where f A.Program{A.functions} = functions
+allFunctions p = traverseProgram f merge p
+    where f Program{functions} = functions
 
-allEmbedded p = A.traverseProgram f merge p
-    where f A.Program{A.etl = A.EmbedTL{A.etlheader}} = [etlheader]
+allEmbedded p = traverseProgram f merge p
+    where f Program{etl = EmbedTL{etlheader}} = [etlheader]
