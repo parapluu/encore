@@ -5,11 +5,11 @@ ENCOREC=$(ROOT_PATH)/release/encorec
 
 #OUTFILES=$(shell ls *.out)
 OUTFILES=Importer.out DeepImporter.out FarImporter.out DupImporter.out Qualified.out \
-  VectorTest.out Embed.out
+  VectorTest.out CallImported.out
 
 #ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_SOURCES=Importer.enc DeepImporter.enc FarImporter.enc DupImporter.enc Qualified.enc \
-  VectorTest.enc Embed.enc
+  VectorTest.enc CallImported.enc
 
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 

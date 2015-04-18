@@ -1,3 +1,3 @@
 
-def id(x: int): int
+def id(x: string): string
   x
