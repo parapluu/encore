@@ -12,20 +12,28 @@ import qualified AST.AST as A
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generate_shared :: A.Program -> ClassTable -> CCode FIN
-generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} ctable = 
+generate_shared prog@(A.Program{A.functions, A.imports}) ctable = 
     Program $
     Concat $
       (LocalInclude "header.h") :
-      [comment_section "Embedded Code"] ++
-      [Embed etlbody] ++
 
-      [comment_section "Global functions"] ++
-      global_functions ++
+      A.traverseProgram f combine prog ++ 
 
       -- [comment_section "Shared messages"] ++
       -- shared_messages ++
       [main_function]
     where
+      f A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} =   
+        [comment_section "Embedded Code"] ++
+        [Embed etlbody] ++
+
+        [comment_section "Global functions"] ++
+        global_functions
+          where
+              global_functions = map (\fun -> translate fun ctable) functions
+              
+      combine a b = [comment_section "Imported functions"] ++ concat b ++ a
+
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
           where
             msg_alloc_decl =
@@ -44,8 +52,6 @@ generate_shared A.Program{A.etl = A.EmbedTL{A.etlbody}, A.functions} ctable =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
                          (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
       
-      global_functions = map (\fun -> translate fun ctable) functions
-
       main_function =
           Function (Typ "int") (Nam "main")
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]

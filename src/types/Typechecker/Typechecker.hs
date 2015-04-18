@@ -30,8 +30,29 @@ import Typechecker.TypeError
 
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
-typecheckEncoreProgram p = do env <- buildEnvironment p
-                              runReader (runExceptT (typecheck p)) env
+-- OLD VERSION
+-- typecheckEncoreProgram p = do env <- buildEnvironment p
+--                              runReader (runExceptT (typecheck p)) env
+typecheckEncoreProgram p = 
+    do (prog, _) <- typecheckProgram p
+       return prog
+
+typecheckProgram :: Program -> Either TCError (Program, Environment)
+typecheckProgram p@(Program etl imps funs cls) = 
+    do -- check all imps, merge their environments, use that as basis of environment evn
+       checkedImps <- mapM typecheckImport imps
+       let (pImps, envs) = unzip checkedImps
+       env <- buildEnvironment p 
+       let bigenv = mergeEnvironments env envs  
+       res <- runReader (runExceptT (typecheck p)) bigenv
+       return $ (patch res pImps, env)
+       
+typecheckImport (PulledImport meta qname src program) = 
+    do
+        (p, env) <- typecheckProgram program
+        return $ (PulledImport meta qname src p, env)
+
+patch (Program etl imps funs cls) newimps = Program etl newimps funs cls
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace

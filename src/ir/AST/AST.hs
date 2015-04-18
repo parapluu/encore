@@ -51,7 +51,12 @@ data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlbody   :: String} deriving (Show)
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
-                          itarget :: QName } deriving (Show, Eq)
+                          itarget :: QName } 
+                | PulledImport {pimeta :: Meta ImportDecl,
+                                qname :: QName,
+                                isrc :: FilePath,
+                                iprogram :: Program }
+                  deriving (Show)
 
 data Function = Function {funmeta   :: Meta Function,
                           funname   :: Name,
@@ -262,3 +267,21 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
+
+-- | program_traverse (needs better name) traverse a program and its imports collecting data
+-- program_traverse f g p takes traverses p, applying f and g to collect values 
+-- f applies to one level program, ignoring imports
+-- g takes the results of recursing on imports plus the current level and combines them
+traverseProgram f g p@(Program{imports}) = g (f p) (map (lift (traverseProgram f g)) imports)
+    where lift h (PulledImport{iprogram}) = h iprogram
+        
+merge a b = a ++ concat b
+
+allClasses p = traverseProgram f merge p
+  where f Program{classes} = classes
+
+allFunctions p = traverseProgram f merge p
+    where f Program{functions} = functions
+
+allEmbedded p = traverseProgram f merge p
+    where f Program{etl = EmbedTL{etlheader}} = [etlheader]

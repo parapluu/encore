@@ -16,14 +16,18 @@ tosrc dir target = dir ++ tosrc' target
     tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
 
 expandModules :: [FilePath] -> Program -> IO Program
-expandModules importDirs p = expand p
+expandModules importDirs p = expandProgram p
     where
-      expand p@(Program etl imps funs cls) =
-          do impAsts <- mapM importOne imps
-             rimpAsts <- mapM expand impAsts
-             return $ foldr merge p rimpAsts
+      expandProgram p@(Program etl imps funs cls) =
+          do exImps <- mapM expandImport imps
+             return $ Program etl exImps funs cls
+             
+      expandImport i@(Import meta target) = 
+          do (imp, src) <- importOne i
+             expImp <- expandProgram imp         
+             return $ PulledImport meta target src expImp
 
-      importOne :: ImportDecl -> IO Program
+      importOne :: ImportDecl -> IO (Program, FilePath)
       importOne (Import meta target) =
           do let sources = map (\dir -> tosrc dir target) importDirs
              candidates <- filterM doesFileExist sources
@@ -35,16 +39,9 @@ expandModules importDirs p = expand p
                    l@(src:_) -> do { duplicateModuleWarning target l; return src }
              code <- readFile sourceName
              ast <- case parseEncoreProgram sourceName code of
-                      Right ast  -> return ast
+                      Right ast  -> return (ast, sourceName)
                       Left error -> abort $ show error
              return ast
-
-merge (Program elt ims funs cls) (Program elt' ims' funs' cls') =
-    Program (emjoin elt elt') (ims ++ ims') (funs ++ funs') (cls ++ cls')
-    where
-      emjoin (EmbedTL meta header body) (EmbedTL meta' header' body') =
-          EmbedTL meta (header ++ header) (body ++ body')
--- TODO how to join the two meta components?
 
 qname2string :: QName -> String
 qname2string [(Name a)] = a

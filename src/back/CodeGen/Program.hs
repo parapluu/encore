@@ -26,10 +26,17 @@ import Control.Monad.Reader hiding (void)
 import qualified CodeGen.Context as Ctx
 
 instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) where
-    translate prog@(A.Program{A.classes}) = (classList, header, shared)
+    translate prog@(A.Program{A.imports, A.classes}) = (classList, header, shared)
         where
-          classList = map name_and_class classes
-          ctable = (build_class_table prog)
-          name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
-          header = generate_header prog
+          ctable = build_class_table prog
+
+          header = generate_header prog 
+
           shared = generate_shared prog ctable
+                    
+          classList = A.traverseProgram f merge prog
+            where
+                f prog@(A.Program{A.classes}) = map name_and_class classes
+                name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
+                merge a b = a ++ concat b
+  
