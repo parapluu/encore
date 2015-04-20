@@ -35,7 +35,7 @@ typecheckEncoreProgram p =
        return prog
 
 typecheckProgram :: Program -> Either TCError (Program, Environment)
-typecheckProgram p@(Program etl imps funs cls) = 
+typecheckProgram p@(Program bundle etl imps funs cls) = 
     do -- check all imps, merge their environments, use that as basis of environment evn
        checkedImps <- mapM typecheckImport imps
        let (pImps, envs) = unzip checkedImps
@@ -44,7 +44,7 @@ typecheckProgram p@(Program etl imps funs cls) =
        res <- runReader (runExceptT (typecheck p)) bigenv
        return $ (patch res pImps, env)
    where
-       patch (Program etl imps funs cls) newimps = Program etl newimps funs cls
+       patch (Program bundle etl imps funs cls) newimps = Program bundle etl newimps funs cls
           
 typecheckImport (PulledImport meta qname src program) = 
     do
@@ -122,10 +122,10 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-    typecheck (Program etl imps funs classes) = 
+    typecheck (Program bundle etl imps funs classes) = 
         do efuns <- mapM pushTypecheck funs
            eclasses <- mapM pushTypecheck classes
-           return $ Program etl imps efuns eclasses
+           return $ Program bundle etl imps efuns eclasses
 
 instance Checkable Function where
    ---  |- funtype

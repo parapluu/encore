@@ -1,0 +1,7 @@
+
+import Proto.Id  -- imports from standard library
+
+
+class Main
+  def main(): void
+    print(id("Hello"))
