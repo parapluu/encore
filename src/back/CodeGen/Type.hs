@@ -30,7 +30,6 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isPrimitive ty      = translatePrimitive ty
         | Ty.isRefType ty        = Ptr . AsType $ class_type_name ty
         | Ty.isArrowType ty      = closure
-        | Ty.isTaskType ty       = task
         | Ty.isTypeVar ty        = encore_arg_t
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
