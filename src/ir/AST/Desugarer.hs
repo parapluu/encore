@@ -9,6 +9,8 @@ import AST.PrettyPrinter
 import AST.Util
 import Types
 
+import qualified Data.List as List
+
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{classes, functions, imports}) = p{classes = map desugarClass classes, 
                                                             functions = map desugarFunction functions,
@@ -109,12 +111,12 @@ desugar FinishAsync{emeta, body} =
 
     let_ish seq@Seq{eseq, emeta} =
       let sizeSeq = (length eseq)
-          -- add the returnedType to not get on those, and ignore them
-          bindings = [(Name $ "__seq__" ++ show i , eseq !! i) | i <- [0..sizeSeq-1]]
+          bindings = [((Name $ "__seq__" ++ show i , eseq !! i), getType $ eseq!!i) | i <- [0..sizeSeq-1]]
+          stmts = map fst $ List.filter (isFutureType . snd) bindings
       in
           Let emeta
-              bindings
-              (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- bindings])
+              (map fst bindings)
+              (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
 
 
 desugar NewWithInit{emeta, ty, args} 

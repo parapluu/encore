@@ -1,0 +1,11 @@
+class Main
+  def main(): void {
+    let f = async{print "Tasks are awesome"; "Outside finish"} in {
+      finish {
+	print 23;
+        f
+      };
+      print "OUT";
+      print get f
+    }
+  }
