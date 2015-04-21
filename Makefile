@@ -28,7 +28,8 @@ SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
 doc: cabal-config
-	make -C doc/encore/
+	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
+	make -C doc/encore/ && \
 	cabal haddock --all
 
 dirs: $(INC_DIR) $(LIB_DIR)
