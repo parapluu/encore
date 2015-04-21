@@ -77,7 +77,7 @@ foldr f acc e =
     in f e childResult
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
+foldrAll f e (Program _ _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
@@ -94,7 +94,7 @@ extendAccum f acc0 e =
       f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 (Program etl imps funs classes) = (acc2, Program etl imps funs' classes')
+extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Program bundle etl imps funs' classes')
     where 
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
       extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
@@ -113,7 +113,7 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program _ _ funs classes) = 
+extractTypes (Program _ _ _ funs classes) = 
     List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
     where
       extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
