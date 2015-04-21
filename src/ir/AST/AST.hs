@@ -150,6 +150,8 @@ data Expr = Skip {emeta :: Meta Expr}
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | FinishAsync {emeta :: Meta Expr,
+                         body :: Expr}
           | Let {emeta :: Meta Expr, 
                  decls :: [(Name, Expr)],
                  body :: Expr}

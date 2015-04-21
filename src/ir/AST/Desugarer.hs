@@ -93,6 +93,23 @@ desugar Repeat{emeta, name, times, body} =
                                      (VarAccess emeta name)
                                      (IntLiteral emeta 1)))]))
 
+
+--   finish { f1 = async e1; f2 = async e2 }
+-- into
+--   f1 = async e1
+--   f2 = async e2
+--   get f1
+--   get f2
+
+desugar FinishAsync{emeta, body} =
+    Seq emeta $ desugar_body body
+  where
+    desugar_body seq@Seq{eseq, emeta} = map desugar eseq
+    desugar_body a = [a]
+
+desugar task@Async{emeta, body} = Get emeta task
+
+
 desugar NewWithInit{emeta, ty, args} 
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)

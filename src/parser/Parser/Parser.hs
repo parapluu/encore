@@ -43,7 +43,7 @@ lexer =
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async"],
+                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -304,6 +304,7 @@ expr  =  unit
      <|> try print
      <|> closure
      <|> task
+     <|> finishTask
      <|> parens expression
      <|> varAccess
      <|> arraySize
@@ -439,6 +440,10 @@ expr  =  unit
                 reserved "async"
                 body <- expression
                 return $ Async (meta pos) body
+      finishTask = do pos <- getPosition
+                      reserved "finish"
+                      body <- expression
+                      return $ FinishAsync (meta pos) body                                
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id 
