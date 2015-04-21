@@ -289,6 +289,7 @@ as soon as the future from @code{p.produce()} (line @code{10}) is fulfilled.
 
 @section{Tasks}
 
+@subsection{async}
 Tasks allows the developer to execute a function asynchronously, not
 bound to the actor that calls it. For instance, in the following code, 
 an actor calls a global function `long_computation`, which is executed
@@ -350,6 +351,60 @@ class Main
       }
   }
 }|
+
+@subsection{Finish}
+There's another feature that can be used with tasks and allows you to use your
+typical fork-join parallel construct. By using the keyword @code{finish}
+and tasks in its body you are guaranteed that the tasks will be finished
+before you leave the body of it.
+
+ E.g.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main():void {
+    finish {
+      async {
+        -- perform asynchronous computation
+      };
+    };
+    -- at this point, the task is fulfilled
+    print "Finish"
+  }
+}|
+
+In this case, the asynchronous computation is performed before the program
+ prints the word @code{Finish}.
+
+In this other example (@code{async_finish.enc} in tests):
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void {
+    let f = async{print "Task declared outside finish"} in {
+      finish { 
+        async(print "Running inside finish");
+	print 23;
+        f
+      };
+      print "OUT";
+    }
+  }
+}|
+
+the program returns an output similar to this one (due to non-determinism
+ the order can change):
+
+@codeblock[#:line-numbers 1]|{
+23
+Running inside finish
+OUT
+Task declared outside finish
+}|
+
+the important point to notice here is that @code{Task declared outside finish} 
+is declared outside of the @code{finish} building block and therefore, 
+it's not guaranteed to be finished before printing @code{OUT}.
 
 @section{Fire and forget@code{!}}
 
