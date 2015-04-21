@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 
+extern bool gc_disabled();
 #include <platform/platform.h>
 
 #define HEAP_INITIALGC (1 << 14)
@@ -289,6 +290,9 @@ void heap_used(heap_t* heap, size_t size)
 
 bool heap_startgc(heap_t* heap)
 {
+  if (gc_disabled()) {
+    return false;
+  }
   if(heap->used < heap->next_gc)
     return false;
 

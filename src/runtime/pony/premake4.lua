@@ -51,7 +51,7 @@ solution "ponyrt"
     "../encore",
     "../future",
     "../task",
-    "src/sched"
+    "src"
   }
 
   flags {
