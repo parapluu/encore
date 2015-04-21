@@ -102,12 +102,19 @@ desugar Repeat{emeta, name, times, body} =
 --   get f2
 
 desugar FinishAsync{emeta, body} =
-    Seq emeta $ desugar_body body
+    Seq emeta $ [desugar_body body]
   where
-    desugar_body seq@Seq{eseq, emeta} = map desugar eseq
-    desugar_body a = [a]
+    desugar_body seq@Seq{eseq, emeta} = let_ish seq
+    desugar_body a = a
 
-desugar task@Async{emeta, body} = Get emeta task
+    let_ish seq@Seq{eseq, emeta} =
+      let sizeSeq = (length eseq)
+          -- add the returnedType to not get on those, and ignore them
+          bindings = [(Name $ "__seq__" ++ show i , eseq !! i) | i <- [0..sizeSeq-1]]
+      in
+          Let emeta
+              bindings
+              (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- bindings])
 
 
 desugar NewWithInit{emeta, ty, args} 
