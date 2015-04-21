@@ -56,6 +56,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword def)
 @(encore/keyword embed)
 @(encore/keyword import)
+@(encore/keyword where)
+@(encore/keyword bundle)
 @(encore/keyword as)
 @(encore/keyword class)
 @(encore/keyword print)
@@ -82,6 +84,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
 @; Non-terminals
 @(encore/nonterm Program)
+@(encore/nonterm BundleDecl)
 @(encore/nonterm Imports)
 @(encore/nonterm EmbedTL)
 @(encore/nonterm ClassDecl)
@@ -120,10 +123,17 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
      @BNF[(list Program
     		@alt[
 		  @seq[
+			@optional[BundleDecl]
 			@kleenestar[Imports]
 			@optional[EmbedTL]
 		  	@nonterm{ClassDecl}]
 		eps])
+
+      (list BundleDecl
+         @seq[bundle QName where])
+
+	  (list ClassDecl
+	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
 
           (list Imports
                 @seq[import

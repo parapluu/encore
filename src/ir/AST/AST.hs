@@ -17,7 +17,8 @@ import Identifiers
 import Types
 import AST.Meta hiding(Closure)
 
-data Program = Program {etl :: EmbedTL, 
+data Program = Program {bundle :: BundleDecl, 
+                        etl :: EmbedTL, 
                         imports :: [ImportDecl], 
                         functions :: [Function], 
                         classes :: [ClassDecl]} deriving(Show)
@@ -48,7 +49,12 @@ class HasMeta a where
 
 data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlheader :: String,
-                        etlbody   :: String} deriving (Show)
+                        etlbody   :: String } deriving (Show)
+
+data BundleDecl = Bundle { bmeta :: Meta BundleDecl,
+                           bname :: QName } 
+                | NoBundle 
+                deriving Show
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
                           itarget :: QName } 

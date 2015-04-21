@@ -42,8 +42,8 @@ lexer =
                P.reservedNames = ["passive", "class", "def", "stream", "breathe",
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
-				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "module", "peer"],
+				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
+                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -129,15 +129,24 @@ typ  =  try arrow
 program :: Parser Program
 program = do optional hashbang
              whiteSpace
+             bundle <- bundledecl
              importdecls <- many importdecl
              embedtl <- embedTL
              functions <- many function
              classes <- many classDecl
              eof
-             return $ Program embedtl importdecls functions classes
+             return $ Program bundle embedtl importdecls functions classes
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
+
+bundledecl :: Parser BundleDecl
+bundledecl = option NoBundle $ do 
+  pos <- getPosition 
+  reserved "bundle"
+  bname <- longidentifier
+  reserved "where"
+  return $ Bundle (meta pos) bname
 
 importdecl :: Parser ImportDecl
 importdecl = do 

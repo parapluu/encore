@@ -17,12 +17,17 @@ Here follows a trivial example of usage of the module system.
 
 File  @code{Lib.enc}:
 @codeblock|{
+  bundle Lib where
+
   class Foo:
     def boo():void {
 		print "^-^"
     }
   
 }|
+
+Line @code{bundle Lib where} declares the module name. This line is optional, though desirable 
+for library code. 
 
 File  @code{Bar.enc}:
 @codeblock|{
@@ -44,7 +49,7 @@ Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the clas
 To import files from different directories one needs to use the @code{-I path} argument for the compiler.
 
 Modules are hierarchical. Module @code{A.B.C} (in some directory @code{A/B/C.enc}
-in the include path) can be imported using @code{import A.B.C}.
+in the include path) is declared using @code{bundle A.B.C where}  and  imported using @code{import A.B.C}.
 
 As of now the module system has no notion of name spaces so all imported objects needs to have unique names.
 There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
