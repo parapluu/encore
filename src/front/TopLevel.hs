@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, TemplateHaskell #-}
 
 {-|
 
@@ -21,6 +21,9 @@ import Data.List.Utils(split)
 import Control.Monad
 import SystemUtils
 
+import System.IO.Unsafe -- for TH hackery
+import Language.Haskell.TH -- for TH hackery
+
 import Makefile
 import Utils
 import Parser.Parser
@@ -36,6 +39,8 @@ import CodeGen.ClassDecl
 import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
+
+standardLibLocation = $((stringE . init) =<< (runIO $ System.Environment.getEnv "ENCORE_BUNDLES" ))
 
 data Phase = Parsed | TypeChecked
     deriving Eq
@@ -61,14 +66,16 @@ parseArguments args =
               parseArgument ("-o":file:args)    = (Output file, args)
               parseArgument ("-AST":args)       = (Intermediate Parsed, args)
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
-              parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args) -- HERE HERE HERE
+              parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
       let (sources, aux) = partition isSource (parseArguments' args)
           (imports, options) = partition isImport aux
       in
-      (map getName sources, ("./" :) $ map (++ "/") $ concat $ map getDirs imports, options)
+      (map getName sources, 
+       ([standardLibLocation ++ "/standard/", standardLibLocation ++ "/prototype/", "./"] ++) $ map (++ "/") $ concat $ map getDirs imports, 
+       options)
     where
       isSource (Source _) = True
       isSource _ = False

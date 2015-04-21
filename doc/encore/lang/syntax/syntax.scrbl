@@ -50,6 +50,18 @@ As of now the module system has no notion of name spaces so all imported objects
 There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
 to ensure that each file is only imported once.
 
+@subsection{Standard Library}
+
+Encore supports a standard library, which is currently stored in the @code{bundles} directory
+of the @code{git} hierarchy, but in the future will be available in the directory @code{.encore/bundles}
+in a user's home directory.
+
+The @code{bundles} directory contains three subdirectories. Directory @code{standard} includes
+stable library functionality. Directory @code{prototype} contains experimental and unstable
+libraries. These libraries should all be sub-bundles of the @code{Proto} bundle to remind
+the programmer of their status. Finally, directory @code{joy} contains bundles obtained
+through the @code{enjoy} package manager (functionality to be implemented).
+
 @;@section{Keywords}
 @;Keywords are special words used by the Encore language and they have special meaning.
 @;In Encore, we have the following keywords:
