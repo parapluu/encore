@@ -1,0 +1,7 @@
+class Main
+  def main(): void {
+    let y = 5
+        sum_five = async(y+5)
+    in
+      print get sum_five
+  }

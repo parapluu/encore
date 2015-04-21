@@ -62,11 +62,16 @@ pony_msg_t = Typ "pony_msg_t"
 enc_msg_t :: CCode Ty
 enc_msg_t = Typ "encore_fut_msg_t"
 
+task_msg_t = Typ "encore_task_msg_s"
+
 enc_oneway_msg_t :: CCode Ty
 enc_oneway_msg_t = Typ "encore_oneway_msg_t"
 
 closure :: CCode Ty
 closure = Ptr $ Typ "closure_t"
+
+task :: CCode Ty
+task = Ptr $ Typ "encore_task_s"
 
 future :: CCode Ty
 future = Ptr $ Typ "future_t"
@@ -106,6 +111,18 @@ closure_trace_name :: String -> CCode Name
 closure_trace_name name =
     Nam $ "_enc__" ++ name ++ "_trace"
 
+task_function_name :: String -> CCode Name
+task_function_name name = Nam $ "_enc__" ++ name ++ "_task"
+
+task_env_name :: String -> CCode Name
+task_env_name name = Nam $ "_enc__" ++ name ++ "_env_task"
+
+task_dependency_name :: String -> CCode Name
+task_dependency_name name = Nam $ "_enc__" ++ name ++ "_dep_task"
+
+task_trace_name :: String -> CCode Name
+task_trace_name name = Nam $ "_enc__" ++ name ++ "_trace_task"
+
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
 
@@ -130,6 +147,9 @@ one_way_msg_type_name cls mname =
 fut_msg_id :: Ty.Type -> ID.Name -> CCode Name
 fut_msg_id cls mname =
     Nam $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+
+task_msg_id :: CCode Name
+task_msg_id = Nam "_ENC__MSG_TASK"
 
 one_way_msg_id :: Ty.Type -> ID.Name -> CCode Name
 one_way_msg_id cls mname =

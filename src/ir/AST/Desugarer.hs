@@ -9,6 +9,8 @@ import AST.PrettyPrinter
 import AST.Util
 import Types
 
+import qualified Data.List as List
+
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{classes, functions, imports}) = p{classes = map desugarClass classes, 
                                                             functions = map desugarFunction functions,
@@ -92,6 +94,31 @@ desugar Repeat{emeta, name, times, body} =
                                      PLUS
                                      (VarAccess emeta name)
                                      (IntLiteral emeta 1)))]))
+
+
+--   finish { f1 = async e1; f2 = async e2 }
+-- into
+--   f1 = async e1
+--   f2 = async e2
+--   get f1
+--   get f2
+
+desugar FinishAsync{emeta, body} =
+    Seq emeta $ [desugar_body body]
+  where
+    isAsyncTask (Async _ _) = True
+    isAsyncTask _ = False
+    
+    desugar_body seq@Seq{eseq, emeta} = 
+      let sizeSeq = (length eseq)
+          bindings = [((Name $ "__seq__" ++ show i , eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
+          stmts = map fst $ List.filter (\x -> (snd x) == True) bindings          
+      in 
+          Let emeta
+              (map fst bindings)
+              (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
+    desugar_body a = a
+
 
 desugar NewWithInit{emeta, ty, args} 
     | isArrayType ty &&

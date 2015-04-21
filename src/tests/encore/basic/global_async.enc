@@ -1,0 +1,9 @@
+def globl(): Fut int
+  async(3)
+
+class Main
+  def main(): void {
+    let fut = globl()
+    in
+      print get fut
+  }

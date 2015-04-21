@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Types(Type, arrowType, isArrowType, futureType, isFutureType, 
+module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              parType, isParType, streamType, isStreamType, arrayType, isArrayType,
              refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
              refType, isRefType, passiveRefType, activeRefType, 
@@ -26,7 +26,7 @@ instance Eq RefTypeInfo where
 
 data Type = VoidType | StringType | IntType | BoolType | RealType
           | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
-          | Arrow {argTypes :: [Type], resultType :: Type} 
+          | Arrow {argTypes :: [Type], resultType :: Type}
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
           | StreamType {resultType :: Type} | ArrayType {resultType :: Type}
             deriving (Eq)

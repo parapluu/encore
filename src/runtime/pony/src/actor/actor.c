@@ -9,8 +9,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-
+#include "mpmcq.h"
 #include "encore.h"
+
 enum
 {
   FLAG_BLOCKED = 1 << 0,
@@ -32,6 +33,11 @@ struct pony_actor_t
   struct pony_actor_t* next;
   uint8_t flags;
 };
+
+// TODO: mixing actors and tasks... they are getting coupled!
+pony_type_t* encore_task_type; // global
+__thread pony_actor_t* this_encore_task; // thread_local
+mpmcq_t taskq;
 
 static __pony_thread_local pony_actor_t* this_actor;
 
@@ -103,7 +109,8 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         cycle_unblock(actor);
         unset_flag(actor, FLAG_BLOCKED);
       }
-
+      
+      /* printf("MESSAGE: %d\n", msg->id); */
 #ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
       // if (0) {
@@ -127,6 +134,39 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
     }
   }
 }
+
+
+bool handle_task(){
+  if(this_encore_task==NULL){
+    this_encore_task = encore_create(encore_task_type);
+  }
+  
+  // some gc methods rely on having `this_actor` set to
+  // the actor that handles a message.
+  this_actor = this_encore_task; 
+
+  if(heap_startgc(&this_encore_task->heap))
+  {
+    if(this_encore_task->type->trace != NULL)
+    {
+      pony_gc_mark();
+      this_encore_task->type->trace(this_encore_task);
+    }
+    gc_mark(&this_encore_task->gc);
+    gc_sweep(&this_encore_task->gc);
+    gc_done(&this_encore_task->gc);
+    heap_endgc(&this_encore_task->heap);
+  }
+
+  pony_msg_t* task_msg;
+  if((task_msg = mpmcq_pop(&taskq))!=NULL){
+    assert(task_msg->id == _ENC__MSG_TASK);
+    handle_message(this_encore_task, task_msg);
+    return true;
+  }
+  return false;
+}
+
 
 bool actor_run(pony_actor_t* actor)
 {

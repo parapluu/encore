@@ -13,4 +13,6 @@ giveClosuresUniqueNames ast = snd $ Util.extendAccumProgram uniqueClosureName 0 
       uniqueClosureName acc e
           | A.isClosure e = let m = A.getMeta e
                             in (acc + 1, A.setMeta e (Meta.metaClosure ("closure" ++ show acc) m))
+          | A.isTask e = let m = A.getMeta e
+                         in (acc + 1, A.setMeta e (Meta.metaTask ("task" ++ show acc) m))
           | otherwise = (acc, e)

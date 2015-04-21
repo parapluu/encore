@@ -21,7 +21,7 @@ import Data.Char(isUpper)
 import Identifiers
 import Types
 import AST.AST
-import AST.Meta hiding(Closure)
+import AST.Meta hiding(Closure, Async)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -43,7 +43,7 @@ lexer =
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer"],
+                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -303,6 +303,8 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
+     <|> task
+     <|> finishTask
      <|> parens expression
      <|> varAccess
      <|> arraySize
@@ -434,6 +436,14 @@ expr  =  unit
                    reservedOp "->"
                    body <- expression
                    return $ Closure (meta pos) params body
+      task = do pos <- getPosition
+                reserved "async"
+                body <- expression
+                return $ Async (meta pos) body
+      finishTask = do pos <- getPosition
+                      reserved "finish"
+                      body <- expression
+                      return $ FinishAsync (meta pos) body                                
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id 

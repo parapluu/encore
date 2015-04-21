@@ -20,6 +20,7 @@ import qualified Types as Ty
 -- | Generates the C header file for the translated program
 -- | This function generates all the common code, generate_header_recurser generates class specific code
 generate_header :: A.Program -> CCode FIN
+
 generate_header p = 
     Program $
     IfNDefine "HEADER_H" $
@@ -35,6 +36,7 @@ generate_header p =
       "stream.h",
       "array.h",
       "future.h",
+      "task.h",
       "string.h",
       "stdio.h"
      ]) :
@@ -84,8 +86,8 @@ generate_header p =
            DeclTL (pony_msg_t, Var "m_resume_get"),
            DeclTL (pony_msg_t, Var "m_resume_suspend"),
            DeclTL (pony_msg_t, Var "m_resume_await"),
-           DeclTL (pony_msg_t, Var "m_run_closure")]
-
+           DeclTL (pony_msg_t, Var "m_run_closure")
+          ]
 
      allclasses = A.allClasses p
      allfunctions = A.allFunctions p

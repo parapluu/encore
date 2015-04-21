@@ -52,6 +52,7 @@ ppEquals = text "="
 ppSpace = text " "
 ppLambda = text "\\"
 ppArrow = text "->"
+ppTask = text "async"
 ppBar = text "|"
 
 indent = nest 2
@@ -149,6 +150,8 @@ ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
 ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
+ppExpr Async {body} =
+    ppTask <> parens (ppExpr body)
 ppExpr Let {decls, body} = 
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
       indent (ppExpr body)

@@ -1,0 +1,8 @@
+class Main
+  def main(): void {
+    finish {
+      print 23;
+      async(print "Tasks are awesome")
+    };
+    print "Leave finish";
+  }

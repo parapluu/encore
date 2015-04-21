@@ -15,7 +15,7 @@ import Text.Parsec(SourcePos)
 
 import Identifiers
 import Types
-import AST.Meta hiding(Closure)
+import AST.Meta hiding(Closure, Async)
 
 data Program = Program {bundle :: BundleDecl, 
                         etl :: EmbedTL, 
@@ -148,6 +148,10 @@ data Expr = Skip {emeta :: Meta Expr}
           | Closure {emeta :: Meta Expr, 
                      eparams :: [ParamDecl],
                      body :: Expr}
+          | Async {emeta :: Meta Expr,
+                   body :: Expr}
+          | FinishAsync {emeta :: Meta Expr,
+                         body :: Expr}
           | Let {emeta :: Meta Expr, 
                  decls :: [(Name, Expr)],
                  body :: Expr}
@@ -248,6 +252,11 @@ isThisAccess _ = False
 isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
+
+
+isTask :: Expr -> Bool
+isTask Async {} = True
+isTask _ = False
 
 instance HasMeta Expr where
     getMeta = emeta

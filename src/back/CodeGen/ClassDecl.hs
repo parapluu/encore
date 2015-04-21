@@ -66,6 +66,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    -- (Nam "_ENC__MSG_RESUME_SUSPEND", fut_resume_suspend_instr) :
                    -- (Nam "_ENC__MSG_RESUME_AWAIT", fut_resume_await_instr) :
                    -- (Nam "_ENC__MSG_RUN_CLOSURE", fut_run_closure_instr) :
+                   task_dispatch_clause :
                    (if (A.isMainClass cdecl)
                     then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
                     else method_clauses $ methods
@@ -104,7 +105,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]])
 
-             method_clauses :: [A.MethodDecl] -> [(CCode Name, CCode Stat)]
              method_clauses = concatMap method_clause
 
              method_clause m = (mthd_dispatch_clause m) :
@@ -120,9 +120,34 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    unpack :: A.ParamDecl -> Int -> CCode Stat
                    unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
+             -- TODO: include GC
+             -- TODO: pack in encore_arg_t the task, infering its type
+             task_dispatch_clause :: (CCode Name, CCode Stat)
+             task_dispatch_clause =
+               let tmp = Var "task_tmp"
+                   task_runner = Statement $ Call (Nam "task_runner") [Var "_task"]
+                   decl = Assign (Decl (encore_arg_t, tmp)) task_runner
+                   future_fulfil = Statement $ Call (Nam "future_fulfil") [AsExpr $ Var "_fut", AsExpr tmp]
+                   task_free = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
+                   trace_future = Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
+                   trace_task = Statement $ Call (Nam "pony_traceobject") [Var "_task", AsLval $ Nam "NULL"]
+               in  
+               (task_msg_id, Seq $ [unpack_future, unpack_task, decl] ++
+                                   [Embed $ "", 
+                                    Embed $ "// --- GC on receiving ----------------------------------------",
+                                    Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr]),
+                                    trace_future,
+                                    trace_task,
+                                    Embed $ "//---You need to trace the task env and task dependencies---",
+                                    Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
+                                    Embed $ "// --- GC on sending ----------------------------------------",
+                                    Embed $ ""]++
+                             [future_fulfil, task_free])
+
+
              mthd_dispatch_clause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
                 (fut_msg_id cname mname,
-                 Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
+                 Seq (unpack_future :
                       ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
                       gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (Nam "future_fulfil")
@@ -133,7 +158,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                                               (map method_argument mparams)))]])))
              mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
                 (fut_msg_id cname mname,
-                 Seq ((Assign (Decl (Ptr $ Typ "future_t", (Var "_fut"))) ((Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut"))) :
+                 Seq (unpack_future :
                       ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
                       gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (method_impl_name cname mname)
@@ -148,6 +173,14 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                      [Statement $ Call (method_impl_name cname mname) ((AsExpr . Var $ "this") : (map method_argument mparams))]))
 
              method_argument A.Param {A.pname} = AsExpr (Var $ show pname)
+
+             unpack_future = let lval = Decl (Ptr (Typ "future_t"), Var "_fut")
+                                 rval = (Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut")
+                             in Assign lval rval
+
+             unpack_task = let lval = Decl (task, Var "_task")
+                               rval = (Cast (Ptr task_msg_t) (Var "_m")) `Arrow` (Nam "_task")
+                           in Assign lval rval
 
              gc_recv ps fut_trace = [Embed $ "", 
                                      Embed $ "// --- GC on receive ----------------------------------------",

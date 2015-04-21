@@ -1,0 +1,11 @@
+def doubles(x: int): int
+  x * 2
+
+class Main
+  def main(): void {
+    repeat i <- 5
+      async {
+        let s = doubles(i) in
+          print doubles(s) % 2;
+      }
+  }

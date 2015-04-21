@@ -8,6 +8,7 @@ import Types
 
 data MetaInfo = Unspecified
               | Closure {metaId :: String}
+              | Async {metaId :: String}
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos, 
@@ -41,6 +42,9 @@ getSugared = sugared
 
 metaClosure :: String -> Meta a -> Meta a
 metaClosure id m = m {metaInfo = Closure id}
+
+metaTask :: String -> Meta a -> Meta a
+metaTask id m = m {metaInfo = Async id}
 
 getMetaId :: Meta a -> String
 getMetaId = metaId . metaInfo
