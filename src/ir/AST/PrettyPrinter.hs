@@ -69,11 +69,16 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram (Program (EmbedTL _ header code) importDecls functions classDecls) = 
-    text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
+ppProgram (Program bundle (EmbedTL _ header code) importDecls functions classDecls) = 
+    ppBundleDecl bundle $+$
+         text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
          vcat (map ppImportDecl importDecls) $+$
          vcat (map ppFunction functions) $+$
          vcat (map ppClassDecl classDecls)
+
+ppBundleDecl :: BundleDecl -> Doc
+ppBundleDecl NoBundle = empty
+ppBundleDecl Bundle{bname} = text "bundle" <+> ppQName bname
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
