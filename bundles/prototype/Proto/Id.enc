@@ -1,5 +1,5 @@
 
--- module Proto.Id where
+bundle Proto.Id where
 
 def id(x: string): string 
     x

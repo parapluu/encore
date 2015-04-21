@@ -20,9 +20,7 @@ import Data.List
 import Data.List.Utils(split)
 import Control.Monad
 import SystemUtils
-
-import System.IO.Unsafe -- for TH hackery
-import Language.Haskell.TH -- for TH hackery
+import Language.Haskell.TH -- for Template Haskell hackery
 
 import Makefile
 import Utils
@@ -40,6 +38,7 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 
+-- the following line of code resolves the standard path at compile time using Template Haskell
 standardLibLocation = $((stringE . init) =<< (runIO $ System.Environment.getEnv "ENCORE_BUNDLES" ))
 
 data Phase = Parsed | TypeChecked
