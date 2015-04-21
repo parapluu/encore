@@ -106,17 +106,18 @@ desugar Repeat{emeta, name, times, body} =
 desugar FinishAsync{emeta, body} =
     Seq emeta $ [desugar_body body]
   where
-    desugar_body seq@Seq{eseq, emeta} = let_ish seq
-    desugar_body a = a
-
-    let_ish seq@Seq{eseq, emeta} =
+    isAsyncTask (Async _ _) = True
+    isAsyncTask _ = False
+    
+    desugar_body seq@Seq{eseq, emeta} = 
       let sizeSeq = (length eseq)
-          bindings = [((Name $ "__seq__" ++ show i , eseq !! i), getType $ eseq!!i) | i <- [0..sizeSeq-1]]
-          stmts = map fst $ List.filter (isFutureType . snd) bindings
-      in
+          bindings = [((Name $ "__seq__" ++ show i , eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
+          stmts = map fst $ List.filter (\x -> (snd x) == True) bindings          
+      in 
           Let emeta
               (map fst bindings)
               (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
+    desugar_body a = a
 
 
 desugar NewWithInit{emeta, ty, args} 
