@@ -309,30 +309,6 @@ void future_block_actor(future_t *fut)
 // ===============================================================
 // Possibly these functions do not belong in the future library
 // ===============================================================
-void future_suspend(void)
-{
-  // FIXME: move context into message
-  // TODO: block GC'ing during suspend
-  /// actor_suspend(actor_current());
-}
-
-// FIXME: better type for this
-void future_suspend_resume(void *arg)
-{
-  ctx_wrapper *d = (ctx_wrapper *) arg;
-  ucontext_t* ctx = d->ctx;
-  ctx->uc_link = d->uc_link;
-
-  pony_actor_t *actor = actor_current();
-  /// actor_set_run_to_completion(actor);
-
-  assert(swapcontext(ctx->uc_link, ctx) == 0);
-
-
-  /// if (actor_run_to_completion(actor)) {
-  ///     reclaim_page(actor);
-  /// }
-}
 
 void future_await(future_t *fut)
 {

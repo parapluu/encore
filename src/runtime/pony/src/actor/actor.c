@@ -2,6 +2,7 @@
 #include "ucontext.h"
 #include "actor.h"
 #include "messageq.h"
+#include "../sched/mpmcq.h"
 #include "../sched/scheduler.h"
 #include "../mem/pool.h"
 #include "../gc/cycle.h"
@@ -9,7 +10,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "mpmcq.h"
 #include "encore.h"
 
 enum
@@ -109,7 +109,7 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
         cycle_unblock(actor);
         unset_flag(actor, FLAG_BLOCKED);
       }
-      
+
       /* printf("MESSAGE: %d\n", msg->id); */
 #ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
@@ -140,10 +140,10 @@ bool handle_task(){
   if(this_encore_task==NULL){
     this_encore_task = encore_create(encore_task_type);
   }
-  
+
   // some gc methods rely on having `this_actor` set to
   // the actor that handles a message.
-  this_actor = this_encore_task; 
+  this_actor = this_encore_task;
 
   if(heap_startgc(&this_encore_task->heap))
   {

@@ -1,5 +1,9 @@
 #include <pony/pony.h>
 #include "encore.h"
+#include "closure.h"
+#include "actor/actor.h"
+#include "sched/scheduler.h"
+#include "mem/pool.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -214,25 +218,72 @@ void actor_resume(encore_actor_t *actor)
 #endif
 }
 
-void actor_suspend(encore_actor_t *actor)
+void actor_suspend()
 {
+  encore_actor_t *actor = (encore_actor_t *) actor_current();
+  actor->suspend_counter++;
+
+  ucontext_t ctx;
+
 #ifndef LAZY_IMPL
-  // Make a copy of the current context and replace it
-  ucontext_t ctxp = actor->ctx;
 
-  ctx_wrapper d = { .ctx = &ctxp, .uc_link=ctxp.uc_link };
-  encore_arg_t argv[1] =  { { .p = &d } };
-  actor->page = local_page;
-  local_page = NULL;
+  if (!actor->page) {
+    assert(local_page->stack);
+    actor->page = local_page;
+    local_page = NULL;
+  }
 
-  // TODO  find out the right way of calling pond_sendv
-  // pony_sendv(actor, FUT_MSG_SUSPEND, 1, argv);
+  assert(actor->page);
+  assert(actor->page->stack);
 
   actor->run_to_completion = false;
-  int ret = swapcontext(&ctxp, ctxp.uc_link);
-  assert(ret == 0);
-  assert(ctxp.uc_link == &actor->home_ctx);
+
+  pony_sendp((pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &ctx);
+
+  assert_swap(&ctx, &actor->home_ctx);
+
+  assert(actor->suspend_counter >= 0);
+
+#else
+  context *old = this_context;
+
+  pony_sendp((pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &ctx);
+
+  this_context = pop_context(actor);
+  scheduler_add((pony_actor_t*) actor);
+  assert_swap(&ctx, &this_context->ctx);
+
+  this_context = old;
+
 #endif
+
+  actor->suspend_counter--;
+}
+
+void actor_suspend_resume(ucontext_t *ctx)
+{
+  encore_actor_t *actor = (encore_actor_t *) actor_current();
+
+#ifndef LAZY_IMPL
+
+  actor_set_run_to_completion(actor);
+
+  assert_swap(&actor->home_ctx, ctx);
+
+  if (actor_run_to_completion(actor)) {
+    reclaim_page(actor);
+  }
+
+#else
+
+  if (&this_context->ctx != root) {
+    push_context(this_context);
+  }
+  setcontext(ctx);
+  assert(0);
+
+#endif
+
 }
 
 // TODO: suspend and await overlaps heavily
@@ -255,6 +306,12 @@ void actor_await(encore_actor_t *actor, void *future)
   assert(ret == 0);
   assert(ctxp.uc_link == &actor->home_ctx);
 #endif
+}
+
+bool gc_disabled()
+{
+  encore_actor_t *actor = (encore_actor_t*) actor_current();
+  return actor->suspend_counter > 0;
 }
 
 encore_actor_t *encore_create(pony_type_t *type)
@@ -308,8 +365,7 @@ bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg)
   switch(msg->id)
   {
     case _ENC__MSG_RESUME_SUSPEND:
-      assert(-1);
-      // future_suspend_resume(msg->argv[0].p);
+      actor_suspend_resume(((pony_msgp_t*)msg)->p);
       return true;
 
     case _ENC__MSG_RESUME_AWAIT:

@@ -370,8 +370,9 @@ static void __attribute__ ((noreturn)) jump_origin()
 
 void __attribute__ ((noreturn)) public_run(pthread_mutex_t *lock)
 {
-  assert(lock);
-  pthread_mutex_unlock(lock);
+  if (lock) {
+    pthread_mutex_unlock(lock);
+  }
   assert(this_scheduler);
   run(this_scheduler);
 

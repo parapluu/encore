@@ -1,5 +1,5 @@
 #include "task.h"
-#include "mpmcq.h"
+#include "sched/mpmcq.h"
 #include <pony/pony.h>
 #include <assert.h>
 #include <stdio.h>
@@ -25,7 +25,7 @@ extern bool handle_task();
 
 
 // used in actor.c to create an encore actor if there's not one
-extern pony_type_t* encore_task_type; // global that 
+extern pony_type_t* encore_task_type; // global that
 
 
 // Global queue where actors can pick up tasks as messages

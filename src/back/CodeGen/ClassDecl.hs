@@ -43,7 +43,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
       [runtime_type_decl cname]
     where
       type_struct_decl :: CCode Toplevel
-      type_struct_decl = 
+      type_struct_decl =
           StructDecl (AsType $ class_type_name cname) $
                      ((encore_actor_t, Var "_enc__actor") :
                          zip
@@ -63,9 +63,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                         (Cast (Ptr . AsType $ class_type_name cname) (Var "_a")),
                  (Switch (Var "_m" `Arrow` Nam "id")
                   (
-                   -- (Nam "_ENC__MSG_RESUME_SUSPEND", fut_resume_suspend_instr) :
-                   -- (Nam "_ENC__MSG_RESUME_AWAIT", fut_resume_await_instr) :
-                   -- (Nam "_ENC__MSG_RUN_CLOSURE", fut_run_closure_instr) :
                    task_dispatch_clause :
                    (if (A.isMainClass cdecl)
                     then pony_main_clause : (method_clauses $ filter ((/= ID.Name "main") . A.mname) methods)
@@ -73,30 +70,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    ))
                   (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ (Var "_m") `Arrow` (Nam "id")]))]))
            where
-             fut_resume_instr =
-                 Seq
-                   [Assign (Decl (Ptr $ Typ "future_t", Var "fut"))
-                           ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                    Statement $ Call (Nam "future_resume") [Var "fut"]]
-
-             fut_resume_suspend_instr =
-                 Seq
-                   [Assign (Decl (Ptr $ Typ "void", Var "s"))
-                           ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                    Statement $ Call (Nam "future_suspend_resume") [Var "s"]]
-
-             fut_resume_await_instr =
-                 Seq
-                   [Statement $ Call (Nam "future_await_resume") [Var "argv"]]
-
-             fut_run_closure_instr =
-                 Seq
-                   [Assign (Decl (closure, Var "closure"))
-                           ((ArrAcc 0 (Var "argv")) `Dot` (Nam "p")),
-                    Assign (Decl (Typ "value_t", Var "closure_arguments[]"))
-                           (Record [UnionInst (Nam "p") (ArrAcc 1 (Var "argv") `Dot` (Nam "p"))]),
-                    Statement $ Call (Nam "closure_call") [Var "closure", Var "closure_arguments"]]
-
              pony_main_clause =
                  (Nam "_ENC__MSG_MAIN",
                   Seq $ [Assign (Decl (Ptr $ Typ "pony_main_msg_t", Var "msg")) (Cast (Ptr $ Typ "pony_main_msg_t") (Var "_m")),
@@ -114,7 +87,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
 
              -- explode _enc__Foo_bar_msg_t struct into variable names
              method_unpack_arguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
-             method_unpack_arguments mdecl msg_type_name = 
+             method_unpack_arguments mdecl msg_type_name =
                zipWith unpack (A.mparams mdecl) [1..]
                  where
                    unpack :: A.ParamDecl -> Int -> CCode Stat
@@ -131,9 +104,9 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    task_free = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
                    trace_future = Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]
                    trace_task = Statement $ Call (Nam "pony_traceobject") [Var "_task", AsLval $ Nam "NULL"]
-               in  
+               in
                (task_msg_id, Seq $ [unpack_future, unpack_task, decl] ++
-                                   [Embed $ "", 
+                                   [Embed $ "",
                                     Embed $ "// --- GC on receiving ----------------------------------------",
                                     Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr]),
                                     trace_future,
@@ -152,7 +125,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                       gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (Nam "future_fulfil")
                                         [AsExpr $ Var "_fut",
-                                         as_encore_arg_t (translate mtype) 
+                                         as_encore_arg_t (translate mtype)
                                               (Call (method_impl_name cname mname)
                                               ((AsExpr . Var $ "this") :
                                               (map method_argument mparams)))]])))
@@ -182,24 +155,24 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                                rval = (Cast (Ptr task_msg_t) (Var "_m")) `Arrow` (Nam "_task")
                            in Assign lval rval
 
-             gc_recv ps fut_trace = [Embed $ "", 
+             gc_recv ps fut_trace = [Embed $ "",
                                      Embed $ "// --- GC on receive ----------------------------------------",
                                      Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
                                     (map tracefun_calls ps) ++
-                                    [fut_trace, 
+                                    [fut_trace,
                                      Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
                                      Embed $ "// --- GC on receive ----------------------------------------",
                                      Embed $ ""]
 
              tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
-               where 
-               tracefun_call_each n t 
+               where
+               tracefun_call_each n t
                    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ Var $ show n]
                    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ class_trace_fn_name t]
                    | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, future_type_rec_name `Dot` Nam "trace"]
                    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "closure_trace"]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
- 
+
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
 -- struct for instance variables) in the file generated by
@@ -216,24 +189,24 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
       method_impls = map method_decl methods
           where
             method_decl mdecl = translate mdecl cdecl ctable
-      dispatchfun_decl = 
+      dispatchfun_decl =
           Function (Static void) (class_dispatch_name cname)
                    [(Ptr pony_actor_t, Var "_a"),
                     (Ptr pony_msg_t, Var "_m")]
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 tracefun_decl :: A.ClassDecl -> CCode Toplevel
-tracefun_decl A.Class{A.cname, A.fields, A.methods} = 
+tracefun_decl A.Class{A.cname, A.fields, A.methods} =
     case find ((== Ty.getId cname ++ "_trace") . show . A.mname) methods of
       Just mdecl@(A.Method{A.mbody, A.mname}) ->
-          Function void (class_trace_fn_name cname) 
+          Function void (class_trace_fn_name cname)
                    [(Ptr void, Var "p")]
                    (Statement $ Call (method_impl_name cname mname)
                                 [Var "p"])
-      Nothing -> 
-          Function void (class_trace_fn_name cname) 
+      Nothing ->
+          Function void (class_trace_fn_name cname)
                    [(Ptr void, Var "p")]
-                   (Seq $ 
+                   (Seq $
                     (Assign (Decl (Ptr . AsType $ class_type_name cname, Var "this"))
                             (Var "p")) :
                      map (Statement . trace_field) fields)
@@ -248,7 +221,7 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
           | otherwise =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
-      get_field f ty = 
+      get_field f ty =
           Cast (ty) $ (Var "this") `Arrow` (Nam $ show f)
 
 
@@ -259,6 +232,6 @@ runtime_type_decl cname =
                     Call (Nam "sizeof") [AsLval $ class_type_name cname],
                     AsExpr . AsLval $ (class_trace_fn_name cname),
                     Null,
-                    Null,           
+                    Null,
                     AsExpr . AsLval $ class_dispatch_name cname,
                     Null]))
