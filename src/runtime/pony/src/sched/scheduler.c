@@ -12,6 +12,9 @@
 #include <assert.h>
 #include "task.h"
 
+extern bool handle_task();
+extern bool pony_reschedule();
+
 typedef struct scheduler_t scheduler_t;
 
 __pony_spec_align__(
@@ -312,15 +315,15 @@ static void run(scheduler_t* sched)
     {
       // Do not do work stealing if there are tasks to perform
       if(handle_task())
-      	continue;
+        continue;
 
       // wait until we get an actor
       actor = request(sched);
 
       // termination
       if(actor == NULL) {
-	assert(pop(sched) == NULL);
-	return;
+        assert(pop(sched) == NULL);
+        return;
       }
     } else {
       // respond to our thief. we hold an actor for ourself, to make sure we
@@ -338,6 +341,9 @@ static void run(scheduler_t* sched)
     if(actor_run(actor)) {
 #ifdef LAZY_IMPL
       sched = this_scheduler;
+#endif
+#ifndef LAZY_IMPL
+      actor_unlock((encore_actor_t*)actor);
 #endif
       push(sched, actor);
     } else {
@@ -368,12 +374,14 @@ static void __attribute__ ((noreturn)) jump_origin()
   assert(0);
 }
 
-void __attribute__ ((noreturn)) public_run(pthread_mutex_t *lock)
+__attribute__ ((noreturn))
+void public_run(pony_actor_t *actor)
 {
-  if (lock) {
-    pthread_mutex_unlock(lock);
-  }
   assert(this_scheduler);
+  actor_unlock((encore_actor_t *)actor);
+  if (pony_reschedule()) {
+    push(this_scheduler, actor);
+  }
   run(this_scheduler);
 
   __pony_atomic_fetch_add(&context_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);

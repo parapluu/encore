@@ -67,6 +67,12 @@ struct actor_entry
   };
 };
 
+typedef struct actor_list {
+  encore_actor_t *actor;
+  ucontext_t *ctx;
+  struct actor_list *next;
+} actor_list;
+
 struct future
 {
   encore_arg_t      value;
@@ -80,6 +86,7 @@ struct future
   pthread_mutex_t lock;
   future_t *parent;
   closure_entry_t *children;
+  actor_list *awaited_actors;
 };
 
 static inline void future_gc_send_value(future_t *fut);
@@ -218,16 +225,33 @@ void future_fulfil(future_t *fut, encore_arg_t value)
     }
   }
 
-  closure_entry_t *current = fut->children;
-  while(current) {
-    encore_arg_t result = run_closure(current->closure, value);
-    future_fulfil(current->future, result);
+  {
+    closure_entry_t *current = fut->children;
+    while(current) {
+      encore_arg_t result = run_closure(current->closure, value);
+      future_fulfil(current->future, result);
 
-    pony_gc_recv();
-    trace_closure_entry(current);
-    pony_recv_done();
+      pony_gc_recv();
+      trace_closure_entry(current);
+      pony_recv_done();
 
-    current = current->next;
+      current = current->next;
+    }
+  }
+  {
+    actor_list *current = fut->awaited_actors;
+    while(current) {
+      pony_sendp((pony_actor_t *)current->actor, _ENC__MSG_RESUME_AWAIT,
+          current->ctx);
+
+      pony_gc_recv();
+      pony_trace(current);
+      pony_traceactor((pony_actor_t *)current->actor);
+      pony_trace(current->next);
+      pony_recv_done();
+
+      current = current->next;
+    }
   }
 
   UNBLOCK;
@@ -312,7 +336,29 @@ void future_block_actor(future_t *fut)
 
 void future_await(future_t *fut)
 {
-  /// actor_await(actor_current(), fut);
+  encore_actor_t *actor = (encore_actor_t *)actor_current();
+  BLOCK;
+  if (fut->fulfilled) {
+    UNBLOCK;
+    return;
+  }
+
+  ucontext_t ctx;
+
+  actor_list *entry = encore_alloc(sizeof *entry);
+  entry->actor = actor;
+  entry->ctx = &ctx;
+  entry->next = fut->awaited_actors;
+  fut->awaited_actors = entry;
+
+  pony_gc_send();
+  pony_trace(entry);
+  pony_traceactor((pony_actor_t *)entry->actor);
+  pony_trace(entry->next);
+  pony_send_done();
+
+  actor->lock = &fut->lock;
+  actor_await(&ctx);
 }
 
 // FIXME: better type for this
