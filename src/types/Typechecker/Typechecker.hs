@@ -28,29 +28,14 @@ import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 
+
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
-typecheckEncoreProgram p = 
-    do (prog, _) <- typecheckProgram p
-       return prog
-
-typecheckProgram :: Program -> Either TCError (Program, Environment)
-typecheckProgram p@(Program bundle etl imps funs cls) = 
-    do -- check all imps, merge their environments, use that as basis of environment evn
-       checkedImps <- mapM typecheckImport imps
-       let (pImps, envs) = unzip checkedImps
-       env <- buildEnvironment p 
-       let bigenv = mergeEnvironments env envs  
-       res <- runReader (runExceptT (typecheck p)) bigenv
-       return $ (patch res pImps, env)
-   where
-       patch (Program bundle etl imps funs cls) newimps = Program bundle etl newimps funs cls
+typecheckEncoreProgram p@(Program bundle etl imps funs cls) = 
+    do 
+       env <- buildEnvironment p
+       runReader (runExceptT (typecheck p)) env
           
-typecheckImport (PulledImport meta qname src program) = 
-    do
-        (p, env) <- typecheckProgram program
-        return $ (PulledImport meta qname src p, env)
-
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
@@ -123,9 +108,17 @@ instance Checkable Program where
     -- ----------------------------
     --  E |- funs classes
     typecheck (Program bundle etl imps funs classes) = 
-        do efuns <- mapM pushTypecheck funs
+        do eimps <- mapM typecheck imps   -- TODO: should probably use Pushable and pushTypecheck
+           efuns <- mapM pushTypecheck funs
            eclasses <- mapM pushTypecheck classes
-           return $ Program bundle etl imps efuns eclasses
+           return $ Program bundle etl eimps efuns eclasses
+         
+instance Checkable ImportDecl where
+     -- TODO write down type rule
+     -- TODO probably should use the Pushable mechanism
+     typecheck (PulledImport meta name src program) =
+       do eprogram <- typecheck program
+          return $ PulledImport meta name src eprogram
 
 instance Checkable Function where
    ---  |- funtype

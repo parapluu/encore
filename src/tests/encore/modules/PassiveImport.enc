@@ -1,0 +1,10 @@
+import List
+
+def getList() : List
+  new List
+
+class Main
+  def main() : void {
+    getList();
+    print("Done")
+}
