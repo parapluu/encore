@@ -328,6 +328,8 @@ pony_actor_t* pony_create(pony_type_t* type)
     actor->gc.rc = 0;
   }
 
+  actor->gc.mark = 1;
+
   return actor;
 }
 
@@ -447,4 +449,14 @@ void pony_become(pony_actor_t* actor)
 bool pony_poll()
 {
   return actor_run(this_actor);
+}
+
+bool pony_system_actor()
+{
+  return has_flag(this_actor, FLAG_SYSTEM);
+}
+
+bool pony_reschedule()
+{
+  return !has_flag(this_actor, FLAG_UNSCHEDULED);
 }

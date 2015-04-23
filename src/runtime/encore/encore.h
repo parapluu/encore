@@ -89,6 +89,7 @@ struct encore_actor
   pony_actor_pad_t;
   // Everything else that goes into an encore_actor that's not part of PonyRT
   bool resume;
+  int await_counter;
   int suspend_counter;
   pthread_mutex_t *lock;
 #ifndef LAZY_IMPL
@@ -118,23 +119,13 @@ bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
 void actor_block(encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
-#ifdef LAZY_IMPL
-void actor_resume(encore_actor_t *actor) __attribute__ ((noreturn));
-#else
-void actor_resume(encore_actor_t *actor);
-#endif
 
 #ifndef LAZY_IMPL
 void actor_set_run_to_completion(encore_actor_t *actor);
 bool actor_run_to_completion(encore_actor_t *actor);
 #endif
 void actor_suspend();
-
-#ifdef LAZY_IMPL
-void actor_suspend_resume(ucontext_t *ctx) __attribute__ ((noreturn));
-#else
-void actor_suspend_resume(ucontext_t *ctx);
-#endif
+void actor_await(ucontext_t *ctx);
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();
