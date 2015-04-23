@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns, FlexibleContexts #-}
 
 {-| Makes @Expr@ an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
 

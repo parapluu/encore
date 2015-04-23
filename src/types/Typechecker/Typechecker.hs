@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, NamedFieldPuns #-}
+{-# LANGUAGE MultiParamTypeClasses, NamedFieldPuns, FlexibleContexts #-}
 
 {-|
 
