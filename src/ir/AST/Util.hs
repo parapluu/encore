@@ -143,4 +143,5 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           where
             (freeVars, bound') = List.foldr fvDecls ([], bound) decls
             fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
+      freeVariables' bound a@(ArrayAccess {target, index}) = [(name target, getType target), (name index, getType index)]
       freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
