@@ -54,17 +54,19 @@ data Environment = Env {ctable   :: ClassTable,
                  -- TODO: Add "current control abstraction"
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment Program {functions, classes} = 
+buildEnvironment Program {functions, classes, imports} = 
     do distinctFunctions
        distinctClasses
-       return $ Env {ctable  = map getClassEntry classes,
+       return $ mergeEnvironments $ (Env {ctable  = map getClassEntry classes,
                      globals = map getFunctionType functions, 
                      locals = [], bindings = [], typeParameters = [], 
-                     bt = emptyBT}
+                     bt = emptyBT}) (map buildImportEnvironment imports)
     where
       -- Each class knows if it's passive or not, but reference
       -- types in functions, methods and fields must be given the
       -- correct activity
+      buildImportEnvironment (PulledImport meta qname src p) = buildEnvironment p
+       
       setActivity ty = 
           case find ((==ty) . cname) classes of
             Just c -> if isActiveRefType $ cname c
