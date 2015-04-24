@@ -123,6 +123,7 @@ isRefType _ = False
 
 passiveRefTypeWithParams id = makePassive . refTypeWithParams id
 passiveRefType id = passiveRefTypeWithParams id []
+
 makePassive (RefType info) = RefType $ info {activity = Passive}
 makePassive ty = ty
 
@@ -131,6 +132,7 @@ isPassiveRefType _ = False
 
 activeRefTypeWithParams id = makeActive . refTypeWithParams id
 activeRefType id = activeRefTypeWithParams id []
+
 makeActive (RefType info)  = RefType $ info {activity = Active}
 makeActive ty = ty
 
