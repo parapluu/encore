@@ -54,7 +54,7 @@ data Environment = Env {ctable   :: ClassTable,
                  -- TODO: Add "current control abstraction"
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment Program {functions, classes, imports} =    -- TODO: use traverseProgram
+buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use traverseProgram
     do distinctFunctions
        distinctClasses
        mergeEnvironments (Env {ctable  = map getClassEntry classes,
@@ -66,8 +66,10 @@ buildEnvironment Program {functions, classes, imports} =    -- TODO: use travers
       -- Each class knows if it's passive or not, but reference
       -- types in functions, methods and fields must be given the
       -- correct activity
+      allclasses = allClasses p
+      
       setActivity ty = 
-          case find ((==ty) . cname) classes of
+          case find ((==ty) . cname) allclasses of
             Just c -> if isActiveRefType $ cname c
                       then makeActive ty
                       else makePassive ty
