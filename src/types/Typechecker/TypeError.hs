@@ -62,6 +62,7 @@ instance Pushable MethodDecl where
 instance Pushable Expr where
     push expr bt = (getPos expr, BTExpr expr) : bt
 
+
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
