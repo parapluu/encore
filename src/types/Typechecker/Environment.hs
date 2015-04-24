@@ -27,8 +27,7 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
-                               pushBT,
-                               mergeEnvironments) where
+                               pushBT) where
 
 import Data.List
 import Data.Maybe
@@ -51,22 +50,26 @@ data Environment = Env {ctable   :: ClassTable,
                         bindings :: [(Type, Type)], 
                         typeParameters :: [Type],
                         bt :: Backtrace}
+                    deriving Show
                  -- TODO: Add "current control abstraction"
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment Program {functions, classes} = 
+buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use traverseProgram
     do distinctFunctions
        distinctClasses
-       return $ Env {ctable  = map getClassEntry classes,
+       mergeEnvironments (Env {ctable  = map getClassEntry classes,
                      globals = map getFunctionType functions, 
                      locals = [], bindings = [], typeParameters = [], 
-                     bt = emptyBT}
+                     bt = emptyBT}) (map (buildEnvironment . iprogram) imports)
     where
+
       -- Each class knows if it's passive or not, but reference
       -- types in functions, methods and fields must be given the
       -- correct activity
+      allclasses = allClasses p
+      
       setActivity ty = 
-          case find ((==ty) . cname) classes of
+          case find ((==ty) . cname) allclasses of
             Just c -> if isActiveRefType $ cname c
                       then makeActive ty
                       else makePassive ty
@@ -168,18 +171,22 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
 
-mergeEnv :: Environment -> Environment -> Environment
-mergeEnv (Env ct globs locals binds tparams bt) (Env ct' globs' locals' binds' tparams' bt') =
-  Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals') 
-    (mergeBindings binds binds') (mergeTypeParams tparams tparams') []
-
-mergeEnvironments :: Environment -> [Environment] -> Environment
-mergeEnvironments = foldr mergeEnv 
 
 
--- TODO: Be smarter and detect errors
-mergeClasses = (++)
-mergeGlobals = (++)
-mergeLocals = (++)
-mergeBindings = (++)
-mergeTypeParams = (++)
+mergeEnvironments :: Environment -> [Either TCError Environment] -> Either TCError Environment
+mergeEnvironments e l = foldr mergeEnv (return e) l
+  where
+      mergeEnv :: Either TCError Environment -> Either TCError Environment -> Either TCError Environment
+      mergeEnv e1 e2 =
+        do 
+           (Env ct globs locals binds tparams bt) <- e1
+           (Env ct' globs' locals' binds' tparams' bt') <- e2
+           return $ Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals') 
+                    (mergeBindings binds binds') (mergeTypeParams tparams tparams') emptyBT
+
+           -- TODO: Be smarter and detect errors 
+      mergeClasses = (++)
+      mergeGlobals = (++)
+      mergeLocals = (++)
+      mergeBindings = (++)
+      mergeTypeParams = (++)
