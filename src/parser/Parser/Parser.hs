@@ -42,7 +42,7 @@ lexer =
                P.reservedNames = ["passive", "class", "def", "stream", "breathe",
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while", 
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
-				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
+                                  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
                                   "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
