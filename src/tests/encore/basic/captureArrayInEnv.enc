@@ -1,0 +1,25 @@
+def pmap(fn: int -> int, arr: [int]): [Fut int] {
+  let result = new [Fut int](|arr|) in {
+    repeat i <- |arr| {
+      result[i] = async { fn(i) };
+    };
+    result
+  }
+}
+
+
+class Main {
+  def main() : void {
+    let arr = [1,2,3]
+	values = pmap(\(x: int) -> x+1, arr)
+	x = 3
+    in {
+      repeat i <- |arr| {
+        let fn = \() -> print arr[i] + x in fn();
+      };
+
+      repeat i <- |values|
+        print get values[i]
+    }
+  }
+}
