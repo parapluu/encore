@@ -1,0 +1,28 @@
+class Master
+  total: int
+
+  def init(): void
+    this.total = 0
+
+  def add(item: int): void
+    this.total = this.total + item
+
+  def check_total(): bool
+    if (this.total==15) then true
+    else false
+
+  def get_total(): int
+    this.total
+
+class Main
+  def main(): void {
+    let master = new Master()
+        a = [1, 2, 3, 4, 5]
+    in {
+      foreach item in a {
+        master.add(item)
+      };
+      while(not (get master.check_total())) { (); };
+      print("Total: {}", get master.get_total())
+    }
+  }

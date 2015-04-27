@@ -150,6 +150,10 @@ data Expr = Skip {emeta :: Meta Expr}
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | Foreach {emeta :: Meta Expr,
+                     item :: Name,
+                     arr :: Expr,
+                     body :: Expr}
           | FinishAsync {emeta :: Meta Expr,
                          body :: Expr}
           | Let {emeta :: Meta Expr, 
