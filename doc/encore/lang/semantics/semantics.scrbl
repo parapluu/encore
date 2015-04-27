@@ -291,7 +291,7 @@ as soon as the future from @code{p.produce()} (line @code{10}) is fulfilled.
 
 @subsection{async}
 Tasks allows the developer to execute a function asynchronously, not
-bound to the actor that calls it. For instance, in the following code, 
+bound to the actor that calls it. For instance, in the following code,
 an actor calls a global function `long_computation`, which is executed
 by the actor synchronously. This means that the actor will not be able
 to continue until the computation has finished.
@@ -332,7 +332,7 @@ class Main
 }|
 
 Instead of calling a `async function`, you can write
-statements inside the `async` construct that will be performed as a 
+statements inside the `async` construct that will be performed as a
 block of code. The following example, gets numbers from 0 to 4 and
 runs in parallel and asyncronously the quadruple of the given number.
 In this case, we do not want to block on the future, but execute the
@@ -382,7 +382,7 @@ In this other example (@code{async_finish.enc} in tests):
 class Main
   def main(): void {
     let f = async{print "Task declared outside finish"} in {
-      finish { 
+      finish {
         async(print "Running inside finish");
 	print 23;
         f
@@ -402,9 +402,34 @@ OUT
 Task declared outside finish
 }|
 
-the important point to notice here is that @code{Task declared outside finish} 
-is declared outside of the @code{finish} building block and therefore, 
+the important point to notice here is that @code{Task declared outside finish}
+is declared outside of the @code{finish} building block and therefore,
 it's not guaranteed to be finished before printing @code{OUT}.
+
+@subsection{foreach}
+@code{foreach} allows the developer to iterate over an array and execute
+the body of the foreach in parallel. It's used for performing parallel
+computations with side-effects.
+
+E.g.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void
+    let master = new Master()
+        a = [1, 2, 3, 4, 5]
+    in
+      foreach item in a {
+        master.add(item)
+      };
+}|
+
+In each iteration (line 7) @code{item} is replaced by the value
+@code{a[iteration]}. Line 7 is executed in parallel with other iterations
+and therefore, uses @code{tasks} behind the scenes. Please remember
+that this does not implies that by the end of the @code{foreach} construct
+all the tasks have finished!
+
 
 @section{Fire and forget@code{!}}
 
@@ -661,4 +686,3 @@ function:
           let bump = \ (x : int) -> x + 1 in
             print(apply(bump, 3))
 }|
-
