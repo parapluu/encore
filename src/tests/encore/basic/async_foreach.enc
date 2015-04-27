@@ -1,4 +1,4 @@
-def foreach(max_iterations: int, fn: int -> void): void {
+def foreach_f(max_iterations: int, fn: int -> void): void {
   repeat i <- max_iterations {
     async(fn(42)); -- change to i to get all numbers
   };
@@ -6,5 +6,5 @@ def foreach(max_iterations: int, fn: int -> void): void {
 
 class Main
   def main(): void {
-      foreach(300, \(x: int) -> print x)
+      foreach_f(300, \(x: int) -> print x)
   }

@@ -119,8 +119,44 @@ desugar FinishAsync{emeta, body} =
               (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
     desugar_body a = a
 
+-- foreach item in arr {
+--   stmt using item
+-- }
 
-desugar NewWithInit{emeta, ty, args} 
+-- translates to
+
+-- let __it__ = 0
+--     __arr_size = |arr|
+-- in
+--   while (__it__ > __arr_size__) {
+--     stmt where item is replaced by arr[__it__]
+--     __it__ = __it__ +1
+--   }
+desugar Foreach{emeta, item, arr, body} =
+  let it = Name "__it__"
+      arr_size = Name "__arr_size__" in
+    Let emeta
+        [(it, (IntLiteral emeta 0)),
+         (arr_size, ArraySize emeta arr),
+         (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
+       (While emeta
+             (Binop emeta
+                   Identifiers.LT
+                   (VarAccess emeta it)
+                   (VarAccess emeta arr_size))
+             (Seq emeta
+                  [(Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it))),
+                   Async emeta body,
+                   (Assign emeta
+                      (VarAccess emeta it)
+                      (Binop emeta
+                       PLUS
+                       (VarAccess emeta it)
+                       (IntLiteral emeta 1)))
+                  ]))
+
+
+desugar NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
     | otherwise =

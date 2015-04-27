@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-{-| 
+{-|
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
 grammar found in @doc/encore/@
@@ -40,10 +40,11 @@ lexer =
                P.commentLine = "--",
                P.identStart = letter,
                P.reservedNames = ["passive", "class", "def", "stream", "breathe",
-                                  "let", "in", "if", "unless", "then", "else", "repeat", "while", 
+                                  "let", "in", "if", "unless", "then", "else", "repeat", "while",
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
-                                  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where", 
-                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish"],
+				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where",
+                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish",
+                                  "foreach"],
                P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
              }
 
@@ -75,7 +76,7 @@ whiteSpace = P.whiteSpace lexer
 -- ! For parsing qualified names such as A.B.C
 longidentifier :: Parser QName
 longidentifier = do
-    id <- identifier 
+    id <- identifier
     rest <- option [] (do { dot ; rest <- longidentifier ; return rest })
     return $ (Name id) : rest
 
@@ -99,19 +100,19 @@ typ  =  try arrow
                  reservedOp "->"
                  rhs <- nonArrow
                  return $ arrowType lhs rhs
-      fut = do reserved "Fut" 
-               ty <- typ 
+      fut = do reserved "Fut"
+               ty <- typ
                return $ futureType ty
-      par = do reserved "Par" 
-               ty <- typ 
+      par = do reserved "Par"
+               ty <- typ
                return $ parType ty
       paramType = do id <- identifier
-                     if (isUpper . head $ id) 
+                     if (isUpper . head $ id)
                      then do params <- angles (commaSep typ)
                              return $ refTypeWithParams id params
                      else fail "Type with parameters must start with upper-case letter"
-      stream = do reserved "Stream" 
-                  ty <- typ 
+      stream = do reserved "Stream"
+                  ty <- typ
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
@@ -122,7 +123,7 @@ typ  =  try arrow
                 read "int"    = intType
                 read "real"   = realType
                 read "bool"   = boolType
-                read id 
+                read id
                     | isUpper . head $ id = refType id
                     | otherwise           = typeVar id
 
@@ -141,20 +142,20 @@ program = do optional hashbang
                     many (noneOf "\n\r")
 
 bundledecl :: Parser BundleDecl
-bundledecl = option NoBundle $ do 
-  pos <- getPosition 
+bundledecl = option NoBundle $ do
+  pos <- getPosition
   reserved "bundle"
   bname <- longidentifier
   reserved "where"
   return $ Bundle (meta pos) bname
 
 importdecl :: Parser ImportDecl
-importdecl = do 
-  pos <- getPosition 
+importdecl = do
+  pos <- getPosition
   reserved "import"
 --  qualified <- option $ reserved "qualified"
   iname <- longidentifier
---  {(Name,...)}? 
+--  {(Name,...)}?
 --  stringliteral "as"; qname <- name
 --  {as Name}
   return $ Import (meta pos) iname
@@ -170,7 +171,7 @@ embedTL = do pos <- getPosition
               try (do string "embed"
                       header <- manyTill anyChar $ try $ do {space; reserved "end"}
                       return $ EmbedTL (meta pos) header ""
-                 ) 
+                 )
               <|>
               (return $ EmbedTL (meta pos) "" ""))
 
@@ -186,11 +187,11 @@ function = do pos <- getPosition
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition
-               refKind <- option activeRefTypeWithParams 
+               refKind <- option activeRefTypeWithParams
                           (do {reserved "passive" ; return passiveRefTypeWithParams})
                reserved "class"
                cname <- identifier
-               params <- option [] 
+               params <- option []
                          (do ids <- angles $ commaSep identifier
                              return $ map typeVar ids)
                (fields, methods) <- braces classBody <|> classBody
@@ -199,7 +200,7 @@ classDecl = do pos <- getPosition
               classBody = do fields <- many fieldDecl
                              methods <- many methodDecl
                              return (fields, methods)
-                                     
+
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do pos <- getPosition
@@ -252,43 +253,43 @@ expression = buildExpressionParser opTable expr
                  [chain],
                  [assignment]
                 ]
-                
-      textualPrefix s operator = 
+
+      textualPrefix s operator =
           Prefix (try(do pos <- getPosition
                          reserved s
-                         return (\x -> Unary (meta pos) operator x)))   
-      textualOperator s binop = 
+                         return (\x -> Unary (meta pos) operator x)))
+      textualOperator s binop =
           Infix (try(do pos <- getPosition
                         reserved s
                         return (\e1 e2 -> Binop (meta pos) binop e1 e2))) AssocLeft
-      prefix s operator = 
+      prefix s operator =
           Prefix (do pos <- getPosition
                      reservedOp s
                      return (\x -> Unary (meta pos) operator x))
-      op s binop = 
+      op s binop =
           Infix (do pos <- getPosition
                     reservedOp s
                     return (\e1 e2 -> Binop (meta pos) binop e1 e2)) AssocLeft
-      typedExpression = 
+      typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
-      arrayAccess = 
+      arrayAccess =
           Postfix (do pos <- getPosition
                       index <- brackets expression
                       return (\e -> ArrayAccess (meta pos) e index))
-      messageSend = 
+      messageSend =
           Postfix (do pos <- getPosition
                       bang
                       name <- identifier
                       args <- parens arguments
                       return (\target -> MessageSend (meta pos) target (Name name) args))
-      chain = 
+      chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
                     return $ (\lhs rhs -> FutureChain (meta pos) lhs rhs)) AssocLeft
-      assignment = 
+      assignment =
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;
                     return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
@@ -305,6 +306,7 @@ expr  =  unit
      <|> closure
      <|> task
      <|> finishTask
+     <|> foreach
      <|> parens expression
      <|> varAccess
      <|> arraySize
@@ -403,15 +405,15 @@ expr  =  unit
       get = do pos <- getPosition
                reserved "get"
                expr <- expression
-               return $ Get (meta pos) expr 
+               return $ Get (meta pos) expr
       getNext = do pos <- getPosition
                    reserved "getNext"
                    expr <- expression
-                   return $ StreamNext (meta pos) expr 
+                   return $ StreamNext (meta pos) expr
       yield = do pos <- getPosition
                  reserved "yield"
                  expr <- expression
-                 return $ Yield (meta pos) expr 
+                 return $ Yield (meta pos) expr
       isEos = do pos <- getPosition
                  reserved "eos"
                  expr <- expression
@@ -422,10 +424,10 @@ expr  =  unit
       await = do pos <- getPosition
                  reserved "await"
                  expr <- expression
-                 return $ Await (meta pos) expr 
+                 return $ Await (meta pos) expr
       suspend = do pos <- getPosition
                    reserved "suspend"
-                   return $ Suspend (meta pos) 
+                   return $ Suspend (meta pos)
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments
@@ -440,13 +442,20 @@ expr  =  unit
                 reserved "async"
                 body <- expression
                 return $ Async (meta pos) body
+      foreach = do pos <- getPosition
+                   reserved "foreach"
+                   item <- identifier
+                   reserved "in"
+                   arr <- expression
+                   body <- expression
+                   return $ Foreach (meta pos) (Name item) arr body
       finishTask = do pos <- getPosition
                       reserved "finish"
                       body <- expression
-                      return $ FinishAsync (meta pos) body                                
+                      return $ FinishAsync (meta pos) body
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
-                     return $ VarAccess (meta pos) $ Name id 
+                     return $ VarAccess (meta pos) $ Name id
       arraySize = do pos <- getPosition
                      bar
                      arr <- expression
