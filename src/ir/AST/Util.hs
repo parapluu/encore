@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 {-# OPTIONS_GHC -Werror #-}
-{-| 
+{-|
   Utility functions for "AST.AST".
 -}
 module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
@@ -160,7 +160,7 @@ putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 el
 --------------- The functions below this line depend only on the two above --------------------
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
-foldr f acc e = 
+foldr f acc e =
     let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
     in f e childResult
 
@@ -179,14 +179,14 @@ extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
 extendAccum f acc0 e =
-    let (acc1, childResults) = 
+    let (acc1, childResults) =
             List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
-    in 
+    in
       f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
 extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Program bundle etl imps funs' classes')
-    where 
+    where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
       extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
           where
@@ -204,7 +204,7 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program _ _ _ funs classes) = 
+extractTypes (Program _ _ _ funs classes) =
     List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
     where
       extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]

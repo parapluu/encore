@@ -48,13 +48,13 @@ translateTask task ctable
     returnStmnt var ty
      | isVoidType ty = Return $ (as_encore_arg_t (translate ty) unit)
      | otherwise = Return $ (as_encore_arg_t (translate ty) var)
-                   
+
     extractEnvironment _ [] = []
     extractEnvironment envName ((name, ty):freeVars) =
       let decl = Decl (translate ty, Var $ show name)
           rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (Nam $ show name)
       in Assign decl rval : extractEnvironment envName freeVars
-      
+
     buildDependency name = StructDecl (Typ $ show name) []  -- TODO: extract dependencies
     buildEnvironment name members =
       StructDecl (Typ $ show name) (map translate_binding members)
@@ -71,5 +71,5 @@ translateTask task ctable
               Call (Nam "pony_traceobject")
               [getVar name, AsLval $ class_trace_fn_name ty]
           | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
-        getVar name = 
+        getVar name =
           (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)
