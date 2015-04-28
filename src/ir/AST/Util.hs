@@ -25,6 +25,7 @@ getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
+getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
@@ -75,6 +76,7 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
+putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
@@ -122,6 +124,7 @@ putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects 
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
+putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
