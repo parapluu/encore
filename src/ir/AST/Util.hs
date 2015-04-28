@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 {-# OPTIONS_GHC -Werror #-}
-{-| 
+{-|
   Utility functions for "AST.AST".
 -}
 module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
@@ -25,6 +25,7 @@ getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
+getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
@@ -75,6 +76,7 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
+putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
@@ -122,6 +124,7 @@ putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects 
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
+putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
@@ -157,7 +160,7 @@ putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 el
 --------------- The functions below this line depend only on the two above --------------------
 
 foldr :: (Expr -> a -> a) -> a -> Expr -> a
-foldr f acc e = 
+foldr f acc e =
     let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
     in f e childResult
 
@@ -176,14 +179,14 @@ extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
 extendAccum f acc0 e =
-    let (acc1, childResults) = 
+    let (acc1, childResults) =
             List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
-    in 
+    in
       f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
 extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Program bundle etl imps funs' classes')
-    where 
+    where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
       extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
           where
@@ -201,7 +204,7 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program _ _ _ funs classes) = 
+extractTypes (Program _ _ _ funs classes) =
     List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
     where
       extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
