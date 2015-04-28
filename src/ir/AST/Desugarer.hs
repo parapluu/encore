@@ -135,9 +135,11 @@ desugar FinishAsync{emeta, body} =
 desugar Foreach{emeta, item, arr, body} =
   let it = Name "__it__"
       arr_size = Name "__arr_size__" in
-    Let emeta
+   Let emeta [(arr_size, ArraySize emeta arr)]
+    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arr_size) (IntLiteral emeta 0))
+     (Skip (cloneMeta emeta))
+     (Let emeta
         [(it, (IntLiteral emeta 0)),
-         (arr_size, ArraySize emeta arr),
          (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
        (While emeta
              (Binop emeta
@@ -153,7 +155,7 @@ desugar Foreach{emeta, item, arr, body} =
                        PLUS
                        (VarAccess emeta it)
                        (IntLiteral emeta 1)))
-                  ]))
+                  ]))))
 
 
 desugar NewWithInit{emeta, ty, args}

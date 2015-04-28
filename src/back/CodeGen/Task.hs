@@ -64,11 +64,11 @@ translateTask task ctable
       Function void traceName [(Ptr void, Var "p")]
       (Seq $ map traceMember members)
       where
-        traceMember (name, ty) 
-          | Ty.isActiveRefType ty = 
-              Call (Nam "pony_traceactor") [getVar name]
-          | Ty.isPassiveRefType ty = 
-              Call (Nam "pony_traceobject") 
+        traceMember (name, ty)
+          | Ty.isActiveRefType ty =
+              Call (Nam "pony_traceactor") [Cast (Ptr pony_actor_t) (getVar name)]
+          | Ty.isPassiveRefType ty =
+              Call (Nam "pony_traceobject")
               [getVar name, AsLval $ class_trace_fn_name ty]
           | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
         getVar name = 
