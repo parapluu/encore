@@ -502,8 +502,6 @@ and continue processing other messages. Upon reaching the message
 that resumes the execution of the method @code{calculate_decimals}, it
 will continue from where he left off.
 
-@;{
-
 @section{Embedding of C code}
 
 For implementing low level functionality, @tt{encore} allows to
@@ -594,7 +592,6 @@ The following table documents how @tt{encore}'s types map to C types:
 	    (list "<a type parameter>"       @code{void*})
 	  )
         ]
-}
 
 @section{Formatted printing}
 
