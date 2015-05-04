@@ -98,6 +98,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.RealLiteral {A.realLit = r}) = named_tmp_var "literal" (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = named_tmp_var "literal" (A.getType lit) (String s)
 
+  translate A.TypedExpr {A.body} = translate body
+
   translate unary@(A.Unary {A.op, A.operand}) = do
     (noperand, toperand) <- translate operand
     tmp <- Ctx.gen_named_sym "unary"
