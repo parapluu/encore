@@ -264,8 +264,9 @@ instance Checkable Expr where
     --  E |- body : t
     -- ----------------------
     --  E |- (body : t) : t
-    typecheck (TypedExpr {body, ty}) = do ty' <- checkType ty
-                                          pushHasType body ty'
+    typecheck te@(TypedExpr {body, ty}) = do ty' <- checkType ty
+                                             eBody <- pushHasType body ty'
+                                             return $ setType ty' $ te{body = eBody, ty = ty'}
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
@@ -657,7 +658,7 @@ instance Checkable Expr where
                   show ty ++ "'"
            when (isMainType ty') $
                 tcError "Cannot create additional Main objects"
-           return $ setType ty' new
+           return $ setType ty' new{ty = ty'}
 
    ---  |- ty
     --  classLookup(ty) = _
@@ -671,7 +672,7 @@ instance Checkable Expr where
                   show ty ++ "'"
            when (isMainType ty') $
                 tcError "Cannot create additional Main objects"
-           return $ setType ty' peer
+           return $ setType ty' peer{ty = ty'}
 
    ---  |- ty
     --  E |- size : int
@@ -680,7 +681,7 @@ instance Checkable Expr where
     typecheck new@(ArrayNew {ty, size}) =
         do ty' <- checkType ty
            eSize <- pushHasType size intType
-           return $ setType (arrayType ty') new{size = eSize}
+           return $ setType (arrayType ty') new{ty = ty', size = eSize}
 
     --  E |- arg1 : ty .. E |- argn : ty
     -- ----------------------------------
@@ -751,8 +752,8 @@ instance Checkable Expr where
     -- ---------------------
     -- E |- embed ty _ : ty
     typecheck embed@(Embed {ty}) =
-        do eTy <- checkType ty
-           return $ setType eTy embed
+        do ty' <- checkType ty
+           return $ setType ty' embed{ty = ty'}
 
     --  E |- operand : bool
     -- -------------------------

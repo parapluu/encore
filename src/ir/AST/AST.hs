@@ -274,10 +274,6 @@ instance HasMeta Expr where
                    where
                      ty' = AST.AST.getType x
 
-    setType ty' expr@(TypedExpr {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
-    setType ty' expr@(New {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
-    setType ty' expr@(Peer {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
-    setType ty' expr@(Embed {ty}) = expr {emeta = AST.Meta.setType ty' (emeta expr), ty = ty'}
     setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
 
 setSugared :: Expr -> Expr -> Expr
