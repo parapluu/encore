@@ -32,8 +32,6 @@ typedef enum
 {
   // A closure that should be run by the producer
   DETACHED_CLOSURE,
-  // A closure that should be run ty the consumer
-  ATTACHED_CLOSURE,
   // A message blocked on this future
   BLOCKED_MESSAGE
 } responsibility_t;
@@ -207,15 +205,6 @@ void future_fulfil(future_t *fut, encore_arg_t value)
           pony_schedule_first(e.message.actor);
           break;
         }
-        // Current design: send closure back to origin to execute (deadlock-prone)
-        // Intended design: see https://github.com/parapluu/mylittlepony/wiki/Futures
-      case ATTACHED_CLOSURE:
-        {
-          encore_arg_t argv[3] = { { .p = e.closure.closure }, value, { .p = e.closure.future } };
-          // pony_sendv(e.closure.actor, FUT_MSG_RUN_CLOSURE, 3, argv);
-          break;
-        }
-        // Design 1: current thread executes closures (racy)
       case DETACHED_CLOSURE:
         {
           // value_t result = closure_call(e.closure.closure, (value_t[1]) { value });
