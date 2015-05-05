@@ -75,6 +75,12 @@ struct encore_task_msg_s
   encore_task_s *_task;
 };
 
+typedef struct default_task_env_s {
+  closure_t* fn;
+  encore_arg_t value;
+} default_task_env_s;
+
+
 typedef struct stack_page {
   void *stack;
   struct stack_page *next;
@@ -127,5 +133,8 @@ void actor_await(ucontext_t *ctx);
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();
+
+// task handler when chaining from an async future
+encore_arg_t default_task_handler(void* env, void* dep);
 
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

@@ -34,9 +34,8 @@ struct pony_actor_t
   uint8_t flags;
 };
 
-// TODO: mixing actors and tasks... they are getting coupled!
-pony_type_t* encore_task_type; // global
-__thread pony_actor_t* this_encore_task; // thread_local
+pony_type_t* encore_task_type;
+__thread pony_actor_t* this_encore_task;
 mpmcq_t taskq;
 
 static __pony_thread_local pony_actor_t* this_actor;
@@ -244,6 +243,11 @@ void actor_destroy(pony_actor_t* actor)
 pony_actor_t* actor_current()
 {
   return this_actor;
+}
+
+pony_actor_t* task_runner_current()
+{
+  return (pony_actor_t*)this_encore_task;
 }
 
 gc_t* actor_gc(pony_actor_t* actor)
