@@ -155,7 +155,7 @@ generate_header p =
                                   ((Ptr pony_type_t, AsLval $ self_type_field) :
                                    zip
                                    (map (translate . A.ftype) fields)
-                                   (map (Var . show . A.fname) fields))
+                                   (map (AsLval . field_name . A.fname) fields))
 
      runtime_type_decls = map type_decl allclasses
                  where

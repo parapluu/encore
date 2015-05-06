@@ -34,7 +34,18 @@ translateClosure closure ctable
                env_name   = closure_env_name id
                trace_name = closure_trace_name id
                freeVars   = Util.freeVariables (map A.pname params) body
-               ((bodyName, bodyStat), _) = runState (translate body) $ Ctx.empty ctable
+
+               enc_env_names = map fst freeVars
+               env_names     = map (AsLval . field_name) enc_env_names
+               enc_arg_names = map A.pname params
+               enc_arg_types = map A.ptype params
+               arg_names = map arg_name enc_arg_names
+               arg_types = map translate enc_arg_types
+               subst     = (zip enc_env_names env_names) ++ 
+                           (zip enc_arg_names arg_names)
+               ctx = Ctx.new subst ctable
+               
+               ((bodyName, bodyStat), _) = runState (translate body) ctx
            in
              Concat [buildEnvironment env_name freeVars,
                      tracefun_decl trace_name env_name freeVars,
@@ -56,20 +67,20 @@ translateClosure closure ctable
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype
-            arg = Var $ show pname
+            arg = arg_name pname
             getArgument i = from_encore_arg_t ty $ AsExpr $ ArrAcc i (Var "_args")
 
       buildEnvironment name members = 
           StructDecl (Typ $ show name) (map translate_binding members)
               where
-                translate_binding (name, ty) = (translate ty, Var $ show name)
+                translate_binding (name, ty) = (translate ty, AsLval $ field_name name)
 
       extractEnvironment _ [] = []
       extractEnvironment envName ((name, ty):vars) = 
-          (Assign (Decl (translate ty, Var $ show name)) (getVar name)) : extractEnvironment envName vars
+          (Assign (Decl (translate ty, AsLval $ field_name name)) (getVar name)) : extractEnvironment envName vars
               where
                 getVar name = 
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (Nam $ show name)
+                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (field_name name)
 
       tracefun_decl traceName envName members =
           Function void traceName [(Ptr void, Var "p")]
