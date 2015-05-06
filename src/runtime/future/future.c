@@ -385,7 +385,6 @@ void future_await_resume(void *argv)
 
   if (future_fulfilled(fut))
   {
-    pony_actor_t *actor = actor_current();
     /// actor_set_run_to_completion(actor);
 
     assert(swapcontext(ctx->uc_link, ctx) == 0);
