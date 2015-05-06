@@ -297,14 +297,18 @@ bool gc_disabled()
 
 encore_actor_t *encore_create(pony_type_t *type)
 {
-  return (encore_actor_t *)pony_create(type);
+  encore_actor_t *new = (encore_actor_t *)pony_create(type);
+  new->_enc__self_type = type;
+  return new;
 }
 
 encore_actor_t *encore_peer_create(pony_type_t *type)
 {
   //todo: this should create an actor in another work pool
   // printf("warning: creating peer not implemented by runtime\n");
-  return (encore_actor_t *)pony_create(type);
+  encore_actor_t *new = (encore_actor_t *)pony_create(type);
+  new->_enc__self_type = type;
+  return new;
 }
 
 /// Allocate s bytes of memory, zeroed out
