@@ -85,6 +85,9 @@ array = Ptr $ Typ "array_t"
 unit :: CCode Lval
 unit = Embed "UNIT"
 
+self_type_field :: CCode Name
+self_type_field = Nam "_enc__self_type"
+
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
 method_impl_name :: Ty.Type -> ID.Name -> CCode Name

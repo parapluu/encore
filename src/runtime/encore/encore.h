@@ -100,6 +100,7 @@ struct encore_actor
 #else
   ucontext_t *saved;
 #endif
+  pony_type_t *_enc__self_type;
 };
 
 /// Create a new Encore actor

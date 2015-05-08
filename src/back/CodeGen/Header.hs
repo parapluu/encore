@@ -151,8 +151,9 @@ generate_header p =
      passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
                    passive_type A.Class{A.cname, A.fields} = 
-                       StructDecl (AsType $ class_type_name cname) 
-                                  (zip
+                       StructDecl (AsType $ class_type_name cname)
+                                  ((Ptr pony_type_t, AsLval $ self_type_field) :
+                                   zip
                                    (map (translate . A.ftype) fields)
                                    (map (Var . show . A.fname) fields))
 

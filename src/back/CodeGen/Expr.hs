@@ -232,15 +232,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate (A.New {A.ty}) 
       | Ty.isActiveRefType ty = 
-          named_tmp_var "new" ty $
-                        Cast (Ptr . AsType $ class_type_name ty)
-                        (Call (Nam "encore_create")
-                              [Amp $ runtime_type_name ty])
+          named_tmp_var "new" ty $ Cast (Ptr . AsType $ class_type_name ty)
+                                        (Call (Nam "encore_create")
+                                              [Amp $ runtime_type_name ty])
       | otherwise = 
           do na <- Ctx.gen_named_sym "new"
              let size = Sizeof . AsType $ class_type_name ty
-             return $ (Var na, Assign (Decl (translate ty, Var na))
-                                      (Call (Nam "encore_alloc") [size]))
+                 the_new = Assign (Decl (translate ty, Var na))
+                                  (Call (Nam "encore_alloc") [size])
+                 init = Assign (Var na `Arrow` self_type_field) (Amp $ runtime_type_name ty)
+             return $ (Var na, Seq [the_new, init])
 
   translate (A.Peer {A.ty})
       | Ty.isActiveRefType ty =
