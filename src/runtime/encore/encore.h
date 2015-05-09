@@ -6,9 +6,6 @@
 
 #define LAZY_IMPL
 
-// multithreading is not working on mac yet
-#define SINGLE_THREAD_ON_MACOSX
-
 #define Stack_Size 64*1024
 typedef struct ctx_wrapper {
   ucontext_t* ctx;

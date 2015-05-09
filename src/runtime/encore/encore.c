@@ -178,6 +178,16 @@ static void clean_pool()
 #endif
 }
 
+static void assert_this_context(context *old)
+{
+  assert(this_context == old);
+}
+
+static void force_thread_local_variable_access(context *old)
+{
+  this_context = old;
+}
+
 void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
 {
 #ifndef LAZY_IMPL
@@ -197,7 +207,12 @@ void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
   context *old = this_context;
   this_context = pop_context(actor);
   assert_swap(ctx, &this_context->ctx);
+#if defined(PLATFORM_IS_MACOSX)
+  force_thread_local_variable_access(old);
+  assert_this_context(old);
+#else
   this_context = old;
+#endif
 
 #endif
 }
