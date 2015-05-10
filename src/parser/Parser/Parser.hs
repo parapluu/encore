@@ -39,7 +39,7 @@ lexer =
                P.commentEnd = "-}",
                P.commentLine = "--",
                P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "stream", "breathe",
+               P.reservedNames = ["passive", "class", "def", "stream", "breathe", "int", "string", "real", "bool", "void",
                                   "let", "in", "if", "unless", "then", "else", "repeat", "while",
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where",
@@ -94,7 +94,9 @@ typ  =  try arrow
               <|> try paramType
               <|> stream
               <|> array
-              <|> singleType
+              <|> primitive
+              <|> try classType
+              <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
                  reservedOp "->"
@@ -116,17 +118,17 @@ typ  =  try arrow
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
-      singleType = do ty <- identifier
-                      return $ read ty
-          where read "void"   = voidType
-                read "string" = stringType
-                read "int"    = intType
-                read "real"   = realType
-                read "bool"   = boolType
-                read id
-                    | isUpper . head $ id = refType id
-                    | otherwise           = typeVar id
-
+      primitive = do {reserved "int"; return intType} <|>
+                  do {reserved "bool"; return boolType} <|>
+                  do {reserved "string"; return stringType} <|>
+                  do {reserved "real"; return realType} <|>
+                  do {reserved "void"; return voidType} 
+      classType = do ty <- identifier
+                     if (isUpper . head $ ty) 
+                     then return $ refType ty
+                     else fail "Class types must begin with an upper case letter"
+      typeVariable = do ty <- identifier
+                        return $ typeVar ty
 program :: Parser Program
 program = do optional hashbang
              whiteSpace
@@ -192,11 +194,14 @@ classDecl = do pos <- getPosition
                reserved "class"
                cname <- identifier
                params <- option []
-                         (do ids <- angles $ commaSep identifier
-                             return $ map typeVar ids)
+                         (angles $ commaSep typeParameter)
                (fields, methods) <- braces classBody <|> classBody
                return $ Class (meta pos) (refKind cname params) fields methods
             where
+              typeParameter = do notFollowedBy upper
+                                 id <- identifier
+                                 return $ typeVar id
+                              <?> "type variable"
               classBody = do fields <- many fieldDecl
                              methods <- many methodDecl
                              return (fields, methods)
