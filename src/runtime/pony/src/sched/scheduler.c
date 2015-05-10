@@ -300,6 +300,11 @@ static void respond(scheduler_t* sched)
     PONY_ATOMIC_NO_TYPE);
 }
 
+static void assert_this_scheduler(scheduler_t *sched)
+{
+  assert(sched == this_scheduler);
+}
+
 /**
  * Run a scheduler thread until termination.
  */
@@ -345,6 +350,7 @@ static void run(scheduler_t* sched)
 #ifndef LAZY_IMPL
       actor_unlock((encore_actor_t*)actor);
 #endif
+      assert_this_scheduler(sched);
       push(sched, actor);
     } else {
 #ifndef LAZY_IMPL
@@ -364,7 +370,7 @@ static void jump_buffer()
 static void __attribute__ ((noreturn)) jump_origin()
 {
   static __pony_thread_local char stack[MINSIGSTKSZ];
-  ucontext_t ctx;
+  static __pony_thread_local ucontext_t ctx;
   getcontext(&ctx);
   ctx.uc_stack.ss_sp = stack;
   ctx.uc_stack.ss_size = MINSIGSTKSZ;
@@ -378,10 +384,10 @@ __attribute__ ((noreturn))
 void public_run(pony_actor_t *actor)
 {
   assert(this_scheduler);
-  actor_unlock((encore_actor_t *)actor);
   if (pony_reschedule()) {
     push(this_scheduler, actor);
   }
+  actor_unlock((encore_actor_t *)actor);
   run(this_scheduler);
 
   __pony_atomic_fetch_add(&context_waiting, 1, PONY_ATOMIC_RELAXED, uint32_t);
@@ -470,9 +476,6 @@ void scheduler_init(uint32_t threads, bool forcecd)
     threads = physical;
 
   scheduler_count = threads;
-#if defined(SINGLE_THREAD_ON_MACOSX) && defined(PLATFORM_IS_MACOSX)
-  scheduler_count = 1;
-#endif
   scheduler_waiting = 0;
   scheduler = (scheduler_t*)calloc(scheduler_count, sizeof(scheduler_t));
 
