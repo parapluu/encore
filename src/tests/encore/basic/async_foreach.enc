@@ -6,5 +6,6 @@ def foreach_f(max_iterations: int, fn: int -> void): void {
 
 class Main
   def main(): void {
-      foreach_f(300, \(x: int) -> print x)
+      --foreach_f(300, \(x: int) -> print x)
+    ()
   }
