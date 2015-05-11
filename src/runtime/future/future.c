@@ -218,35 +218,35 @@ void future_fulfil(future_t *fut, encore_arg_t value)
       switch ((actor_current() == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
       {
       case DETACHED_CLOSURE:
-	{
-	  encore_arg_t result = run_closure(current->closure, value);
-	  future_fulfil(current->future, result);
+        {
+          encore_arg_t result = run_closure(current->closure, value);
+          future_fulfil(current->future, result);
 
-	  pony_gc_recv();
-	  trace_closure_entry(current);
-	  pony_recv_done();
-	  break;
-	}
+          pony_gc_recv();
+          trace_closure_entry(current);
+          pony_recv_done();
+          break;
+        }
       case TASK_CLOSURE:
-	{
-	  default_task_env_s* env = malloc(sizeof *env);
-	  *env = (default_task_env_s){.fn = current->closure, .value = value};
-	  encore_task_s* task = task_mk(default_task_handler, env, NULL, NULL);
-	  task_attach_fut(task, current->future);
-	  task_schedule(task);
+        {
+          default_task_env_s* env = malloc(sizeof *env);
+          *env = (default_task_env_s){.fn = current->closure, .value = value};
+          encore_task_s* task = task_mk(default_task_handler, env, NULL, NULL);
+          task_attach_fut(task, current->future);
+          task_schedule(task);
 
-	  /* // Notify that I have received a children */
-	  pony_gc_recv();
-	  trace_closure_entry(current);
-	  pony_recv_done();
+          /* // Notify that I have received a children */
+          pony_gc_recv();
+          trace_closure_entry(current);
+          pony_recv_done();
 
-	  /* // Notify I am going to send the children */
-	  pony_gc_send();
-	  pony_traceobject(task, NULL);
-	  pony_traceobject(current->future, future_type.trace);
-	  pony_send_done();
-	  break;
-	}
+          /* // Notify I am going to send the children */
+          pony_gc_send();
+          pony_traceobject(task, NULL);
+          pony_traceobject(current->future, future_type.trace);
+          pony_send_done();
+          break;
+        }
       }
       current = current->next;
     }
