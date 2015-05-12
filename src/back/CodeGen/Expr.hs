@@ -162,16 +162,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (ntarg, ttarg) <- translate target
     (nindex, tindex) <- translate index
     let ty = translate $ A.getType lhs
-        the_set = 
-            Statement $ 
-            Call (Nam "array_set") 
+        the_set =
+            Statement $
+            Call (Nam "array_set")
                  [AsExpr ntarg, AsExpr nindex, as_encore_arg_t ty $ AsExpr nrhs]
     return (unit, Seq [trhs, ttarg, tindex, the_set])
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
-    cast_rhs <- case lhs of 
-                  A.FieldAccess {A.name, A.target} -> 
+    cast_rhs <- case lhs of
+                  A.FieldAccess {A.name, A.target} ->
                       do ctx <- get
                          let Just fld = lookup_field (Ctx.class_table ctx) (A.getType target) name
                          if Ty.isTypeVar (A.ftype fld) then
@@ -230,12 +230,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          , te
                                          , Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
-  translate (A.New {A.ty}) 
-      | Ty.isActiveRefType ty = 
+  translate (A.New {A.ty})
+      | Ty.isActiveRefType ty =
           named_tmp_var "new" ty $ Cast (Ptr . AsType $ class_type_name ty)
                                         (Call (Nam "encore_create")
                                               [Amp $ runtime_type_name ty])
-      | otherwise = 
+      | otherwise =
           do na <- Ctx.gen_named_sym "new"
              let size = Sizeof . AsType $ class_type_name ty
                  the_new = Assign (Decl (translate ty, Var na))
@@ -257,8 +257,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do arr_name <- Ctx.gen_named_sym "array"
          size_name <- Ctx.gen_named_sym "size"
          (nsize, tsize) <- translate size
-         let the_array_decl = 
-                 Assign (Decl (array, Var arr_name)) 
+         let the_array_decl =
+                 Assign (Decl (array, Var arr_name))
                         (Call (Nam "array_mk") [AsExpr nsize, runtime_type ty])
          return (Var arr_name, Seq [tsize, the_array_decl])
 
@@ -267,8 +267,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (nindex, tindex) <- translate index
          access_name <- Ctx.gen_named_sym "access"
          let ty = translate $ A.getType arrAcc
-             the_access = 
-                 Assign (Decl (ty, Var access_name)) 
+             the_access =
+                 Assign (Decl (ty, Var access_name))
                         (Call (Nam "array_get") [ntarg, nindex]
                               `Dot` encore_arg_t_tag ty)
          return (Var access_name, Seq [ttarg, tindex, the_access])
@@ -278,8 +278,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          targs <- mapM translate args
          let len = length args
              ty  = Ty.getResultType $ A.getType arrLit
-             the_array_decl = 
-                 Assign (Decl (array, Var arr_name)) 
+             the_array_decl =
+                 Assign (Decl (array, Var arr_name))
                         (Call (Nam "array_mk") [Int len, runtime_type ty])
              the_array_content = Seq $ map (\(_, targ) -> targ) targs
              the_array_sets =
@@ -287,21 +287,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  in sets
          return (Var arr_name, Seq $ the_array_decl : the_array_content : the_array_sets)
       where
-        array_set arr_name ty index (narg, _) = 
-            (index + 1, 
-             Statement $ Call (Nam "array_set") 
-                              [AsExpr $ Var arr_name, 
-                               Int index, 
+        array_set arr_name ty index (narg, _) =
+            (index + 1,
+             Statement $ Call (Nam "array_set")
+                              [AsExpr $ Var arr_name,
+                               Int index,
                                as_encore_arg_t (translate ty) $ AsExpr narg])
 
   translate arrSize@(A.ArraySize {A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.gen_named_sym "size"
-         let the_size = Assign (Decl (int, Var tmp)) 
+         let the_size = Assign (Decl (int, Var tmp))
                                (Call (Nam "array_size") [ntarg])
          return (Var tmp, Seq [ttarg, the_size])
 
-  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args }) 
+  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
       | (A.isThisAccess target) ||
         (Ty.isPassiveRefType . A.getType) target = sync_call
       | otherwise = remote_call
@@ -316,7 +316,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let expected_types = map A.ptype (A.mparams mtd)
                    let (arg_names, arg_decls) = unzip targs
                    let casted_arguments = zipWith3 cast_arguments expected_types arg_names targs_types
-                       the_call = if Ty.isTypeVar (A.mtype mtd) then 
+                       the_call = if Ty.isTypeVar (A.mtype mtd) then
                                       AsExpr $ from_encore_arg_t (translate (A.getType call))
                                                  (Call (method_impl_name (A.getType target) name)
                                                        (AsExpr ntarget : casted_arguments))
@@ -544,22 +544,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              fun_name = task_function_name meta_id
              env_name = task_env_name meta_id
              dependency_name = task_dependency_name meta_id
-             trace_name = task_trace_name meta_id             
+             trace_name = task_trace_name meta_id
              free_vars = Util.freeVariables [] body
              task_mk = Assign (Decl (task, Var task_name))
                        (Call (Nam "task_mk") [fun_name, env_name, dependency_name, trace_name])
              trace_future = Statement $ Call (Nam "pony_traceobject") [Var fut_name, future_type_rec_name `Dot` Nam "trace"]
              trace_task = Statement $ Call (Nam "pony_traceobject") [Var task_name, AsLval $ Nam "NULL" ]
-             trace_env =  Statement $ Call (Nam "pony_traceobject") [Var $ show env_name, AsLval $ Nam "NULL" ]
+             trace_env =  Statement $ Call (Nam "pony_traceobject") [Var $ show env_name, AsLval $ Nam "task_trace" ]
              trace_dependency =  Statement $ Call (Nam "pony_traceobject") [Var $ show dependency_name, AsLval $ Nam "NULL" ]
          packed_env <- mapM (pack_free_vars env_name) free_vars
          return $ (Var fut_name, Seq $ (encore_alloc env_name) : packed_env ++
-                                       [encore_alloc dependency_name, 
-                                        task_runner async fut_name, 
+                                       [encore_alloc dependency_name,
+                                        task_runner async fut_name,
                                         task_mk,
                                         Statement (Call (Nam "task_attach_fut") [Var task_name, Var fut_name]),
                                         Statement (Call (Nam "task_schedule") [Var task_name]),
-                                        Embed $ "", 
+                                        Embed $ "",
                                         Embed $ "// --- GC on sending ----------------------------------------",
                                         Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
                                         trace_future,
@@ -570,20 +570,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                         Embed $ "// --- GC on sending ----------------------------------------",
                                         Embed $ ""
                                         ])
-                    
+
       where
         encore_alloc name = Assign (Decl (Ptr $ Struct name, AsLval name))
-                                (Call (Nam "encore_alloc") 
+                                (Call (Nam "encore_alloc")
                                     [Sizeof $ Struct name])
         task_runner async fut_name = Assign (Decl (Ptr $ Typ "future_t", Var fut_name))
                                                (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ async]))
-        pack_free_vars env_name (name, _) = 
+        pack_free_vars env_name (name, _) =
             do c <- get
                let tname = case Ctx.subst_lkp c name of
                               Just subst_name -> subst_name
                               Nothing -> Var $ show name
                return $ Assign ((Var $ show env_name) `Arrow` (Nam $ show name)) tname
-         
+
 
   translate clos@(A.Closure{A.eparams, A.body}) =
       do let meta_id    = Meta.getMetaId . A.getMeta $ clos
@@ -619,15 +619,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (calln, the_call) <- named_tmp_var "clos" ty $ AsExpr $ from_encore_arg_t (translate ty) (Call (Nam "closure_call") [clos, tmp_args])
     let comment = Comm ("fcall name: " ++ show name ++ " (" ++ show (Ctx.subst_lkp c name) ++ ")")
     return (if Ty.isVoidType ty then unit else calln, Seq [comment, tmp_arg_decl, the_call])
-        where 
+        where
           translateArgument arg =
             do (ntother, tother) <- translate arg
-               return $ as_encore_arg_t (translate $ A.getType arg) (StatAsExpr ntother tother) 
+               return $ as_encore_arg_t (translate $ A.getType arg) (StatAsExpr ntother tother)
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
-gc_send as expected_types fut_trace = 
-    [Embed $ "", 
+gc_send as expected_types fut_trace =
+    [Embed $ "",
      Embed $ "// --- GC on sending ----------------------------------------",
      Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
      fut_trace] ++
@@ -637,19 +637,18 @@ gc_send as expected_types fut_trace =
      Embed $ ""]
 
 tracefun_call (a, t) expected_type
-    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  
+    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")
                               [Cast (Ptr pony_actor_t) (wrap a)]
     | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [wrap a, AsLval $ class_trace_fn_name t]
     | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
     | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "closure_trace"]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
     where
-      wrap 
+      wrap
           | Ty.isTypeVar expected_type = from_encore_arg_t (translate t) . AsExpr
           | otherwise = id
---TODO: add cases for future type, closure etc.  
+--TODO: add cases for future type, closure etc.
 
 -- Note: the 2 is for the 16 bytes of payload in pony_msg_t
 -- If the size of this struct changes, so must this calculation
 calc_pool_size_for_msg args = (args + 2) `div` 8
-

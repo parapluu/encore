@@ -18,25 +18,26 @@
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
 extern pony_actor_t *actor_current();
+extern pony_actor_t* task_runner_current();
 
-typedef struct chain_entry chain_entry_t;
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
 typedef struct message_entry message_entry_t;
+typedef enum responsibility_t responsibility_t;
 
 // Terminology:
 // Producer -- the actor responsible for fulfilling a future
 // Consumer -- an non-producer actor using a future
 
-typedef enum
+enum  responsibility_t
 {
+  // A task closure, should be run by any task runner
+  TASK_CLOSURE,
   // A closure that should be run by the producer
   DETACHED_CLOSURE,
-  // A closure that should be run ty the consumer
-  ATTACHED_CLOSURE,
   // A message blocked on this future
   BLOCKED_MESSAGE
-} responsibility_t;
+};
 
 struct closure_entry
 {
@@ -196,6 +197,7 @@ void future_fulfil(future_t *fut, encore_arg_t value)
 
   future_gc_send_value(fut);
 
+  // Responsabilities: actors that were blocked (unfulfilled future) and should be scheduled to continue
   for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
     switch (e.type)
@@ -207,34 +209,45 @@ void future_fulfil(future_t *fut, encore_arg_t value)
           pony_schedule_first(e.message.actor);
           break;
         }
-        // Current design: send closure back to origin to execute (deadlock-prone)
-        // Intended design: see https://github.com/parapluu/mylittlepony/wiki/Futures
-      case ATTACHED_CLOSURE:
-        {
-          encore_arg_t argv[3] = { { .p = e.closure.closure }, value, { .p = e.closure.future } };
-          // pony_sendv(e.closure.actor, FUT_MSG_RUN_CLOSURE, 3, argv);
-          break;
-        }
-        // Design 1: current thread executes closures (racy)
-      case DETACHED_CLOSURE:
-        {
-          // value_t result = closure_call(e.closure.closure, (value_t[1]) { value });
-          // future_fulfil(e.closure.future, result);
-          break;
-        }
     }
   }
 
   {
     closure_entry_t *current = fut->children;
     while(current) {
-      encore_arg_t result = run_closure(current->closure, value);
-      future_fulfil(current->future, result);
+      switch ((actor_current() == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
+      {
+      case DETACHED_CLOSURE:
+        {
+          encore_arg_t result = run_closure(current->closure, value);
+          future_fulfil(current->future, result);
 
-      pony_gc_recv();
-      trace_closure_entry(current);
-      pony_recv_done();
+          pony_gc_recv();
+          trace_closure_entry(current);
+          pony_recv_done();
+          break;
+        }
+      case TASK_CLOSURE:
+        {
+          default_task_env_s* env = encore_alloc(sizeof *env);
+          *env = (default_task_env_s){.fn = current->closure, .value = value};
+          encore_task_s* task = task_mk(default_task_handler, env, NULL, NULL);
+          task_attach_fut(task, current->future);
+          task_schedule(task);
 
+          // Notify that I have received a children
+          pony_gc_recv();
+          trace_closure_entry(current);
+          pony_recv_done();
+
+          // Notify I am going to send the children
+          pony_gc_send();
+          pony_traceobject(task, task_trace);
+          pony_traceobject(current->future, future_type.trace);
+          pony_send_done();
+          break;
+        }
+      }
       current = current->next;
     }
   }
@@ -289,12 +302,12 @@ future_t  *future_chain_actor(future_t *fut, future_t* r, closure_t *c)
     return r;
   }
 
+
   closure_entry_t *entry = encore_alloc(sizeof *entry);
   entry->actor = actor_current();
   entry->future = r;
   entry->closure = c;
   entry->next = fut->children;
-
   fut->children = entry;
 
   pony_gc_send();
@@ -372,7 +385,6 @@ void future_await_resume(void *argv)
 
   if (future_fulfilled(fut))
   {
-    pony_actor_t *actor = actor_current();
     /// actor_set_run_to_completion(actor);
 
     assert(swapcontext(ctx->uc_link, ctx) == 0);

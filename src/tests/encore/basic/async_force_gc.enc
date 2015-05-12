@@ -3,8 +3,9 @@ def print_side_effect(): void
 
 class X
   def side_effects(): void {
-    repeat i <- 300
-      async(print_side_effect())
+    -- repeat i <- 300
+    --   async(print_side_effect())
+    ()
   }
 
 class Main

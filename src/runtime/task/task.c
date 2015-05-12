@@ -15,20 +15,8 @@ struct encore_task_s {
 
 typedef encore_arg_t value_t;
 
-// TODO: Best practice: Put it into the header. => creates more dependencies...
-// handle_task(): called from scheduler.c, implemented in the actor because it needs
-//                to call handle_message (actor.c, to follow with the guidelines of
-//                processing a message)
-// return whether it did handled a task. If no tasks are handled, it means it can
-//        stop the program
 extern bool handle_task();
-
-
-// used in actor.c to create an encore actor if there's not one
-extern pony_type_t* encore_task_type; // global that
-
-
-// Global queue where actors can pick up tasks as messages
+extern pony_type_t* encore_task_type;
 extern mpmcq_t taskq;
 extern __thread pony_actor_t* this_encore_task;
 
@@ -58,6 +46,14 @@ encore_task_s* task_mk(task_fn const body, void* const env, void* const dependen
   return task;
 }
 
+void task_trace(void* const p){
+  struct encore_task_s* t = (struct encore_task_s*)p;
+  if(t->trace != NULL){
+    t->trace(t->env);
+  }
+  // future is traced via generated code
+  // dependencies are null at the moment
+}
 
 value_t task_runner(encore_task_s const* const task){
   return task->run(task->env, task->dependencies);

@@ -24,6 +24,8 @@ void task_attach_fut(encore_task_s* const t, void* const fut);
 // run task
 encore_arg_t task_runner(encore_task_s const* const task);
 
+void task_trace(void* const);
+
 void* task_getenv(encore_task_s* const task);
 void* task_getdependencies(encore_task_s* const task);
 
