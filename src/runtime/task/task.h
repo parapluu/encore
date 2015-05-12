@@ -7,7 +7,11 @@ typedef struct encore_task_s encore_task_s;
 
 #include "encore.h"
 
+
 typedef encore_arg_t (*task_fn)(void*, void*);
+
+extern pony_type_t* encore_task_type;
+extern __thread pony_actor_t* this_encore_task;
 
 // initializes the task dependencies (mpmcq, etc)
 void task_setup(pony_type_t const* const type);

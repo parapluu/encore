@@ -15,10 +15,11 @@ struct encore_task_s {
 
 typedef encore_arg_t value_t;
 
-extern bool handle_task();
-extern pony_type_t* encore_task_type;
+
+pony_type_t* encore_task_type;
 extern mpmcq_t taskq;
-extern __thread pony_actor_t* this_encore_task;
+mpmcq_t taskq;
+uint32_t remaining_tasks;
 
 
 /*
@@ -34,6 +35,7 @@ void task_setup(pony_type_t* type){
   static int n_calls = 0;
   assert(n_calls++ == 0);
 
+  __pony_atomic_store_n(&remaining_tasks, 0, PONY_ATOMIC_RELAXED, uint32_t);
   mpmcq_init(&taskq);
   set_encore_task_type(type);
 }
@@ -41,7 +43,7 @@ void task_setup(pony_type_t* type){
 
 encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace){
   encore_task_s* task = malloc(sizeof(encore_task_s));
-
+  __pony_atomic_fetch_add(&remaining_tasks, 1, PONY_ATOMIC_RELAXED, uint32_t);
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};
   return task;
 }
@@ -89,6 +91,7 @@ inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
 
 inline static void encore_send_task(encore_task_msg_s* const msg){
   // send message to global queue of actors
+  /* puts("send message to taskq"); */
   mpmcq_push(&taskq, msg);
 }
 
