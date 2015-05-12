@@ -636,11 +636,12 @@ gc_send as expected_types fut_trace =
      Embed $ ""]
 
 tracefun_call (a, t) expected_type
-    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")
-                              [Cast (Ptr pony_actor_t) (wrap a)]
+    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor") [Cast (Ptr pony_actor_t) (wrap a)]
     | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [wrap a, AsLval $ class_trace_fn_name t]
     | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
     | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "closure_trace"]
+    | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "array_trace"]
+    | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "scons_trace"]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
     where
       wrap

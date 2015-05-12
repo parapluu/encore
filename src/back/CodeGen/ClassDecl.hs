@@ -156,20 +156,14 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
              gc_recv ps fut_trace = [Embed $ "",
                                      Embed $ "// --- GC on receive ----------------------------------------",
                                      Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
-                                    (map tracefun_calls ps) ++
+                                    (map trace_each_param ps) ++
                                     [fut_trace,
                                      Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
                                      Embed $ "// --- GC on receive ----------------------------------------",
                                      Embed $ ""]
 
-             tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
-               where
-               tracefun_call_each n t
-                   | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ arg_name n]
-                   | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [arg_name n, AsLval $ class_trace_fn_name t]
-                   | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [arg_name n, future_type_rec_name `Dot` Nam "trace"]
-                   | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [arg_name n, AsLval $ Nam "closure_trace"]
-                   | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
+             trace_each_param A.Param{A.pname, A.ptype} =
+               Statement $ trace_variable ptype $ arg_name pname
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
@@ -209,19 +203,28 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
                             (Var "p")) :
                      map (Statement . trace_field) fields)
     where
-      trace_field A.Field {A.ftype, A.fname}
-          | Ty.isActiveRefType ftype =
-              Call (Nam "pony_traceactor") [get_field fname (Ptr pony_actor_t)]
-          | Ty.isPassiveRefType ftype =
-              Call (Nam "pony_traceobject")
-                   [get_field fname (Ptr void),
-                    AsExpr . AsLval $ class_trace_fn_name ftype]
-          | otherwise =
-              Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
+      trace_field A.Field {A.ftype, A.fname} =
+        let var = (Var "this") `Arrow` (field_name fname)
+        in trace_variable ftype var
 
-      get_field f ty =
-          Cast (ty) $ (Var "this") `Arrow` (field_name f)
+trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
+trace_variable t var
+  | Ty.isActiveRefType  t = pony_traceactor var
+  | Ty.isPassiveRefType t = pony_traceobject var $ class_trace_fn_name t
+  | Ty.isFutureType     t = pony_traceobject var future_trace_fn
+  | Ty.isArrowType      t = pony_traceobject var closure_trace_fn
+  | Ty.isArrayType      t = pony_traceobject var array_trace_fn
+  | Ty.isStreamType     t = pony_traceobject var stream_trace_fn
+  | otherwise =
+    Embed $ "/* Not tracing field '" ++ show var ++ "' */"
 
+pony_traceactor :: CCode Lval -> CCode Expr
+pony_traceactor var =
+  Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) var]
+
+pony_traceobject :: CCode Lval -> CCode Name -> CCode Expr
+pony_traceobject var f =
+  Call (Nam "pony_traceobject")  [Cast (Ptr void) var, AsExpr $ AsLval f]
 
 runtime_type_decl cname =
     (AssignTL
