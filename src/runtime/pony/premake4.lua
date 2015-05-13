@@ -34,7 +34,10 @@ solution "ponyrt"
       "-pthread",
       "-std=gnu11",
       "-fms-extensions",
-      "-march=native"
+      "-march=native",
+
+      "-Wno-unused-variable",
+      "-Wno-unused-function",
       }
 
     linkoptions {
@@ -87,7 +90,7 @@ solution "ponyrt"
 
   include("src/")
   -- include("examples/")
-  include("utils/")
+  -- include("utils/")
   -- include("test/")
 
 project "closure"

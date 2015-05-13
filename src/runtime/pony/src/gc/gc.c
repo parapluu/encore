@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 
+extern void post_gc_mark(gc_t* gc);
 static __pony_thread_local actormap_t acquire;
 
 static void acquire_actor(pony_actor_t* actor)
@@ -34,6 +35,41 @@ static void current_actor_dec(gc_t* gc)
   {
     gc->rc_mark = gc->mark;
     gc->rc--;
+  }
+}
+
+void gc_acquireactor(pony_actor_t *current, gc_t *gc, pony_actor_t *actor)
+{
+  if (current != actor) {
+    actorref_t* aref = actormap_getorput(&acquire, actor, 0);
+    if(!actorref_marked(aref, gc->mark)) {
+      actorref_mark(aref, gc->mark);
+      actorref_inc(aref);
+    }
+  }
+}
+
+void gc_acquireobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
+  void* p, pony_trace_fn f)
+{
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
+
+  // don't gc memory that wasn't pony_allocated
+  if(chunk == NULL)
+    return;
+
+  pony_actor_t* actor = heap_owner(chunk);
+  if (current != actor) {
+    heap_base(chunk, &p);
+    actorref_t* aref = actormap_getorput(&acquire, actor, 0);
+    object_t* obj = actorref_getorput(aref, p, 0);
+    if(!object_marked(obj, gc->mark)) {
+      object_mark(obj, gc->mark);
+      object_inc(obj);
+      if (f) {
+        f(p);
+      }
+    }
   }
 }
 
@@ -272,6 +308,7 @@ void gc_createactor(gc_t* gc, pony_actor_t* actor)
 void gc_mark(gc_t* gc)
 {
   objectmap_mark(&gc->local);
+  post_gc_mark(gc);
 }
 
 void gc_sweep(gc_t* gc)

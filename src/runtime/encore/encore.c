@@ -283,6 +283,7 @@ static void actor_resume_context(encore_actor_t* actor, ucontext_t *ctx)
   }
   setcontext(ctx);
   assert(0);
+  exit(-1);
 
 #endif
 }
@@ -312,6 +313,29 @@ bool gc_disabled()
 {
   encore_actor_t *actor = (encore_actor_t*) actor_current();
   return actor->suspend_counter > 0 || actor->await_counter > 0;
+}
+
+void post_gc_mark(gc_t* gc)
+{
+  encore_actor_t *actor = (encore_actor_t*) actor_current();
+  assert(actor);
+  future_t *prev = NULL;
+  future_t *cur = actor->my_future;
+  future_t *next;
+  while(cur) {
+    next = future_get_next(cur);
+    if (objectmap_getobject(&gc->local, cur) == NULL) {
+      if (prev == NULL) {
+        actor->my_future = next;
+      } else {
+        future_set_next(prev, next);
+      }
+      future_finalizer(cur);
+    } else {
+      prev = cur;
+    }
+    cur = next;
+  }
 }
 
 encore_actor_t *encore_create(pony_type_t *type)

@@ -26,6 +26,12 @@ void pony_gc_mark()
   trace_actor = gc_markactor;
 }
 
+void pony_gc_acquire()
+{
+  trace_object = gc_acquireobject;
+  trace_actor = gc_acquireactor;
+}
+
 void pony_send_done()
 {
   pony_actor_t* actor = actor_current();
