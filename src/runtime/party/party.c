@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "party.h"
 
 /*
 data Par a where
@@ -12,39 +13,24 @@ data Par a where
   
 */
 
-typedef void *box;
 
-typedef void *future_t;
-
-typedef void *function;
-
-box apply(function f, box v) {
-    /* magic */
-    return NULL;
-}
- 
-future_t chain(future_t fut, function f) {
-    /* magic */
-    return NULL;
-}
- 
 enum PTAG { S, V, F, P, J, FP, M };  // be less concise
 
 typedef struct Par_s *Par;  // forward declaration
 
 typedef struct {} Ss;
 
-typedef struct Vs { box val; } Vs;
+typedef struct Vs { value_t val; } Vs;
 
-typedef struct { future_t fut; } Fs;
+typedef struct { future_t* fut; } Fs;
 
 typedef struct { Par left; Par right; } Ps;
 
 typedef struct{ Par /* Par */ join; } Js;
 
-typedef struct { int size; int used; box *data; } Ms;
+typedef struct { int size; int used; value_t *data; /* array */ } Ms;
 
-typedef struct { future_t fut; } FPs;
+typedef struct { future_t* fut; } FPs;
 
 struct Par_s {
     enum PTAG tag;
@@ -65,14 +51,14 @@ Par newS() {
     return res;
 }
 
-Par newV(box val) {
+Par newV(value_t val) {
     Par res = (Par)malloc(sizeof (struct Par_s));
     res->tag = V;
     res->data.v.val = val;
     return res;
 }
 
-Par newF(future_t fut) {
+Par newF(future_t *fut) {
     Par res = (Par)malloc(sizeof (struct Par_s));
     res->tag = F;
     res->data.f.fut = fut;
@@ -94,22 +80,24 @@ Par newJ(Par p) {
     return res;
 }
 
-Par fmap(Par in, function f) {
+Par fmap(Par in, closure_t *f) {
     switch (in->tag) {
         case S:
         return newS();
         break;
         
         case V:
-        return newV(apply(f,in->data.v.val));
+        return newV(closure_call(f,&(in->data.v.val)));
         break; 
         
-        case F:
-        return newF(chain(in->data.f.fut,f));
+        case F: {
+            future_t *rfut = future_mk(NULL);  /* NEEDS pony_type */ 
+            return newF(future_chain_actor(in->data.f.fut, rfut, f));
+        }
         break; 
         
         case P:
-        return newP(fmap(in->data.p.left, f), fmap(in->data.p.left, f));
+        return newP(fmap(in->data.p.left, f), fmap(in->data.p.right, f));
         break;
         
         case J:
