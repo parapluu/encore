@@ -34,7 +34,7 @@ struct pony_actor_t
   uint8_t flags;
 };
 
-extern __thread pony_actor_t* this_encore_task;
+extern __thread encore_actor_t* this_encore_task;
 extern uint32_t remaining_tasks;
 extern mpmcq_t taskq;
 
@@ -227,16 +227,17 @@ pony_actor_t* actor_current()
   return this_actor;
 }
 
+// TODO: this should be in task.c. Called from future.c
 pony_actor_t* task_runner_current()
 {
   return (pony_actor_t*)this_encore_task;
 }
 
-bool is_task_runner_unscheduled(){
-  return has_flag((pony_actor_t*)this_encore_task, FLAG_UNSCHEDULED);
+bool is_unscheduled(pony_actor_t* a){
+  return has_flag(a, FLAG_UNSCHEDULED);
 }
 
-void unset_unscheduled_task_runner(pony_actor_t* runner){
+void unset_unscheduled(pony_actor_t* runner){
   unset_flag(runner, FLAG_UNSCHEDULED);
 }
 

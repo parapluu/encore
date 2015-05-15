@@ -1,6 +1,7 @@
 #include "task.h"
 #include "sched/mpmcq.h"
 #include <pony/pony.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include "encore.h"
@@ -17,21 +18,20 @@ typedef encore_arg_t value_t;
 
 
 pony_type_t* encore_task_type;
-extern mpmcq_t taskq;
 mpmcq_t taskq;
 uint32_t remaining_tasks;
 
-
-/*
- * Implementation
- */
+pony_type_t* const task_gettype(){
+  assert(encore_task_type!=NULL);
+  return encore_task_type;
+}
 
 
 static void set_encore_task_type(pony_type_t const* const type){
-    encore_task_type = type;
+  encore_task_type = type;
 }
 
-void task_setup(pony_type_t* type){
+void task_setup(pony_type_t const* const type){
   static int n_calls = 0;
   assert(n_calls++ == 0);
 
@@ -72,16 +72,6 @@ void task_attach_fut(encore_task_s* const task, void* const fut){
 }
 
 
-void* task_getenv(encore_task_s* const task){
-  return task->env;
-}
-
-
-void* task_getdependencies(encore_task_s* const task){
-  return task->dependencies;
-}
-
-
 inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
   encore_task_msg_s* const msg = (encore_task_msg_s* const) pony_alloc_msg(0, _ENC__MSG_TASK);
   msg->_fut = task->fut;
@@ -91,7 +81,6 @@ inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
 
 inline static void encore_send_task(encore_task_msg_s* const msg){
   // send message to global queue of actors
-  /* puts("send message to taskq"); */
   mpmcq_push(&taskq, msg);
 }
 

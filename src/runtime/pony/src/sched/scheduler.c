@@ -13,11 +13,10 @@
 #include "task.h"
 
 
-extern pony_type_t* encore_task_type;
-__thread pony_actor_t* this_encore_task;
 extern int remaining_tasks;
-extern void unset_unscheduled_task_runner(pony_actor_t* a);
-extern bool is_task_runner_unscheduled();
+extern void unset_unscheduled(pony_actor_t* a);
+extern bool is_unscheduled(pony_actor_t*);
+__thread encore_actor_t* this_encore_task;
 
 extern bool pony_reschedule();
 
@@ -290,10 +289,10 @@ static void respond(scheduler_t* sched)
     return;
 
   pony_actor_t* actor = pop(sched);
-  if(actor==this_encore_task){
+  if(actor==(pony_actor_t*)this_encore_task){
     actor = pop(sched);
     assert(this_encore_task!=NULL);
-    push(sched, this_encore_task);
+    push(sched, (pony_actor_t*) this_encore_task);
   }
 
 
@@ -330,9 +329,9 @@ static void run(scheduler_t* sched)
 
     // if there are message to process, schedule task runner
     uint32_t counter = __pony_atomic_load_n(&remaining_tasks, PONY_ATOMIC_RELAXED, uint32_t);
-    if(counter>0 && is_task_runner_unscheduled()){
-      unset_unscheduled_task_runner(this_encore_task);
-      push(sched, this_encore_task);
+    if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){
+      unset_unscheduled((pony_actor_t*) this_encore_task);
+      push(sched, (pony_actor_t*) this_encore_task);
     }
 
     assert(sched == this_scheduler);
@@ -436,8 +435,8 @@ static void *run_thread(void *arg)
 
   // setup task runner
   assert(this_encore_task==NULL);
-  this_encore_task = encore_create(encore_task_type);
-  scheduler_add(this_encore_task);
+  this_encore_task = encore_create(task_gettype());
+  scheduler_add((pony_actor_t*) this_encore_task);
 
   run(sched);
 
