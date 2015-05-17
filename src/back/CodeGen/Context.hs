@@ -10,6 +10,7 @@ module CodeGen.Context (
   Context,
   class_table,
   empty,
+  new,
   subst_add,
   subst_lkp,
   subst_rem,
@@ -35,8 +36,10 @@ class_table :: Context -> ClassTable
 class_table (Context _ _ ctable) = ctable
 
 empty :: ClassTable -> Context
-empty ctable = Context [] 0 ctable
+empty ctable = new [] ctable
 
+new :: VarSubTable -> ClassTable -> Context
+new subs ctable = Context subs 0 ctable
 
 gen_named_sym :: String -> State Context String
 gen_named_sym name = do

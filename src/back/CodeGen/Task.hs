@@ -32,7 +32,12 @@ translateTask task ctable
            dependency_task_name = task_dependency_name id
            trace_task_name = task_trace_name id
            freeVars = Util.freeVariables [] body
-           ((bodyName, bodyStat), _) = runState (translate body) $ Ctx.empty ctable
+
+           enc_env_names = map fst freeVars
+           env_names     = map (AsLval . field_name) enc_env_names
+           subst = zip enc_env_names env_names
+           ctx = Ctx.new subst ctable
+           ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
         Concat [buildEnvironment env_task_name freeVars,
                 buildDependency dependency_task_name,
@@ -51,15 +56,15 @@ translateTask task ctable
 
     extractEnvironment _ [] = []
     extractEnvironment envName ((name, ty):freeVars) =
-      let decl = Decl (translate ty, Var $ show name)
-          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (Nam $ show name)
+      let decl = Decl (translate ty, AsLval $ field_name name)
+          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (field_name name)
       in Assign decl rval : extractEnvironment envName freeVars
 
     buildDependency name = StructDecl (Typ $ show name) []  -- TODO: extract dependencies
     buildEnvironment name members =
       StructDecl (Typ $ show name) (map translate_binding members)
         where
-          translate_binding (name, ty) = (translate ty, Var $ show name)
+          translate_binding (name, ty) = (translate ty, AsLval $ field_name name)
     tracefun_decl traceName envName members =
       Function void traceName [(Ptr void, Var "p")]
       (Seq $ map traceMember members)
@@ -72,4 +77,4 @@ translateTask task ctable
               [getVar name, AsLval $ class_trace_fn_name ty]
           | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
         getVar name =
-          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)
+          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (field_name name)

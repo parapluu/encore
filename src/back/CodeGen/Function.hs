@@ -28,7 +28,12 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
   translate fun@(A.Function {A.funtype, A.funname, A.funparams, A.funbody}) ctable =
       let fun_name = global_function_name funname
-          ((bodyName, bodyStat), _) = runState (translate funbody) $ Ctx.empty ctable
+          enc_arg_names = map A.pname funparams
+          enc_arg_types = map A.ptype funparams
+          arg_names = map arg_name enc_arg_names
+          arg_types = map translate enc_arg_types
+          ctx = Ctx.new (zip enc_arg_names arg_names) ctable
+          ((bodyName, bodyStat), _) = runState (translate funbody) ctx
           closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas ctable) $ reverse $ Util.filter A.isTask funbody
       in
@@ -50,7 +55,7 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype
-            arg = Var $ show pname
+            arg = arg_name pname
             getArgument i
                 | is_encore_arg_t ty = ArrAcc i (Var "_args")
                 | otherwise = from_encore_arg_t ty $ AsExpr $ ArrAcc i (Var "_args")

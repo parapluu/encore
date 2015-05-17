@@ -190,7 +190,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    Nothing -> return $ Var (show name)
           mk_lval (A.FieldAccess {A.target, A.name}) =
               do (ntarg, ttarg) <- translate target
-                 return (Deref (StatAsExpr ntarg ttarg) `Dot` (Nam $ show name))
+                 return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
           mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate (A.VarAccess {A.name}) = do
@@ -199,7 +199,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Just subst_name ->
             return (subst_name , Skip)
         Nothing ->
-            return (Var $ show name, Skip)
+            return (Var . show $ global_closure_name name, Skip)
 
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
@@ -207,9 +207,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     the_access <- do ctx <- get
                      let Just fld = lookup_field (Ctx.class_table ctx) (A.getType target) name
                      if Ty.isTypeVar (A.ftype fld) then
-                         return $ from_encore_arg_t (translate . A.getType $ acc) $ AsExpr (Deref ntarg `Dot` (Nam $ show name))
+                         return $ from_encore_arg_t (translate . A.getType $ acc) $ AsExpr (Deref ntarg `Dot` (field_name name))
                      else
-                         return (Deref ntarg `Dot` (Nam $ show name))
+                         return (Deref ntarg `Dot` (field_name name))
     return (Var tmp, Seq [ttarg,
                       (Assign (Decl (translate (A.getType acc), Var tmp)) the_access)])
 
@@ -581,9 +581,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             do c <- get
                let tname = case Ctx.subst_lkp c name of
                               Just subst_name -> subst_name
-                              Nothing -> Var $ show name
-               return $ Assign ((Var $ show env_name) `Arrow` (Nam $ show name)) tname
-
+                              Nothing -> AsLval $ global_closure_name name
+               return $ Assign ((Var $ show env_name) `Arrow` (field_name name)) tname
 
   translate clos@(A.Closure{A.eparams, A.body}) =
       do let meta_id    = Meta.getMetaId . A.getMeta $ clos
@@ -605,14 +604,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             do c <- get
                let tname = case Ctx.subst_lkp c name of
                               Just subst_name -> subst_name
-                              Nothing -> Var $ show name
-               return $ Assign ((Deref $ Var $ show env_name) `Dot` (Nam $ show name)) tname
+                              Nothing -> AsLval $ global_closure_name name
+               return $ Assign ((Deref $ Var $ show env_name) `Dot` (field_name name)) tname
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
     c <- get
     let clos = Var (case Ctx.subst_lkp c name of
                       Just subst_name -> show subst_name
-                      Nothing -> show name)
+                      Nothing -> show $ global_closure_name name)
     let ty = A.getType fcall
     targs <- mapM translateArgument args
     (tmp_args, tmp_arg_decl) <- tmp_arr (Typ "value_t") targs

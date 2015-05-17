@@ -1,0 +1,17 @@
+def strlen(default : int) : void
+  let static = default in
+    default
+
+class Foo
+  default : int
+  Active_Main_t : int
+  def strcat(volatile : int) : void
+    let f = \ (default : int) -> volatile + default in
+      f(volatile)
+
+class Main
+  def main() : void
+    let default = 42 in{
+      async{strlen(default)};
+      print "Hello, Ponyworld!"
+    }

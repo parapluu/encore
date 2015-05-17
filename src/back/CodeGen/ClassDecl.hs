@@ -48,7 +48,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                      ((encore_actor_t, Var "_enc__actor") :
                          zip
                          (map (translate  . A.ftype) fields)
-                         (map (Var . show . A.fname) fields))
+                         (map (AsLval . field_name . A.fname) fields))
 
       method_impls = map method_impl methods
           where
@@ -91,7 +91,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                zipWith unpack (A.mparams mdecl) [1..]
                  where
                    unpack :: A.ParamDecl -> Int -> CCode Stat
-                   unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (Var $ show pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
+                   unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (arg_name pname))) ((Cast (msg_type_name) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
              -- TODO: include GC
              -- TODO: pack in encore_arg_t the task, infering its type
@@ -127,25 +127,23 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                                         [AsExpr $ Var "_fut",
                                          as_encore_arg_t (translate mtype)
                                               (Call (method_impl_name cname mname)
-                                              ((AsExpr . Var $ "this") :
-                                              (map method_argument mparams)))]])))
+                                              ((Var $ "this") :
+                                              (map (arg_name . A.pname) mparams)))]])))
              mthd_dispatch_clause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
                 (fut_msg_id cname mname,
                  Seq (unpack_future :
                       ((method_unpack_arguments mdecl (Ptr . AsType $ fut_msg_type_name cname mname)) ++
                       gc_recv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", future_type_rec_name `Dot` Nam "trace"]) ++
                       [Statement $ Call (method_impl_name cname mname)
-                                         ((AsExpr . Var $ "this") :
-                                          (AsExpr . Var $ "_fut") :
-                                          (map method_argument mparams))])))
+                                         ((Var $ "this") :
+                                          (Var $ "_fut") :
+                                          (map (arg_name . A.pname) mparams))])))
 
              one_way_send_dispatch_clause mdecl@A.Method{A.mname, A.mparams} =
                 (one_way_msg_id cname mname,
                  Seq ((method_unpack_arguments mdecl (Ptr . AsType $ one_way_msg_type_name cname mname)) ++
                      gc_recv mparams (Comm "Not tracing the future in a one_way send") ++
-                     [Statement $ Call (method_impl_name cname mname) ((AsExpr . Var $ "this") : (map method_argument mparams))]))
-
-             method_argument A.Param {A.pname} = AsExpr (Var $ show pname)
+                     [Statement $ Call (method_impl_name cname mname) ((Var $ "this") : (map (arg_name . A.pname) mparams))]))
 
              unpack_future = let lval = Decl (Ptr (Typ "future_t"), Var "_fut")
                                  rval = (Cast (Ptr $ enc_msg_t) (Var "_m")) `Arrow` (Nam "_fut")
@@ -167,10 +165,10 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
              tracefun_calls A.Param{A.pname, A.ptype} = tracefun_call_each pname ptype
                where
                tracefun_call_each n t
-                   | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ Var $ show n]
-                   | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ class_trace_fn_name t]
-                   | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, future_type_rec_name `Dot` Nam "trace"]
-                   | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [Var $ show n, AsLval $ Nam "closure_trace"]
+                   | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) $ arg_name n]
+                   | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [arg_name n, AsLval $ class_trace_fn_name t]
+                   | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [arg_name n, future_type_rec_name `Dot` Nam "trace"]
+                   | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [arg_name n, AsLval $ Nam "closure_trace"]
                    | otherwise             = Embed $ "/* Not tracing '" ++ show n ++ "' */"
 
 -- | Translates a passive class into its C representation. Note
@@ -222,7 +220,7 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
               Embed $ "/* Not tracing field '" ++ show fname ++ "' */"
 
       get_field f ty =
-          Cast (ty) $ (Var "this") `Arrow` (Nam $ show f)
+          Cast (ty) $ (Var "this") `Arrow` (field_name f)
 
 
 runtime_type_decl cname =
