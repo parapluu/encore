@@ -130,7 +130,7 @@ schedulers = 4
 
 -- build Par t type from list of values/ futures sequential
 seqToPar :: [t] -> Par t
-seqToPar = undefined
+seqToPar a = M (length a) 0 a
 
 -- sequential implementation of seqToPar
 -- foldl buildPar S
