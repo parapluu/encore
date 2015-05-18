@@ -12,7 +12,12 @@
 #include <assert.h>
 #include "task.h"
 
-extern bool handle_task();
+
+extern int remaining_tasks;
+extern void unset_unscheduled(pony_actor_t* a);
+extern bool is_unscheduled(pony_actor_t*);
+__thread encore_actor_t* this_encore_task;
+
 extern bool pony_reschedule();
 
 typedef struct scheduler_t scheduler_t;
@@ -150,6 +155,7 @@ static bool quiescent(scheduler_t* sched)
 
     // under these circumstances, the CD will always go on the current
     // scheduler.
+    assert(waiting <= scheduler_count);
     if(waiting == scheduler_count)
     {
       // it's safe to manipulate our victim, since we know it's paused as well
@@ -283,6 +289,12 @@ static void respond(scheduler_t* sched)
     return;
 
   pony_actor_t* actor = pop(sched);
+  if(actor==(pony_actor_t*)this_encore_task){
+    actor = pop(sched);
+    assert(this_encore_task!=NULL);
+    push(sched, (pony_actor_t*) this_encore_task);
+  }
+
 
   if(actor != NULL)
   {
@@ -305,23 +317,29 @@ static void assert_this_scheduler(scheduler_t *sched)
   assert(sched == this_scheduler);
 }
 
+
 /**
  * Run a scheduler thread until termination.
  */
 static void run(scheduler_t* sched)
 {
+
   while(true)
   {
+
+    // if there are message to process, schedule task runner
+    uint32_t counter = __pony_atomic_load_n(&remaining_tasks, PONY_ATOMIC_RELAXED, uint32_t);
+    if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){
+      unset_unscheduled((pony_actor_t*) this_encore_task);
+      push(sched, (pony_actor_t*) this_encore_task);
+    }
+
     assert(sched == this_scheduler);
     // get an actor from our queue
     pony_actor_t* actor = pop(sched);
 
     if(actor == NULL)
     {
-      // Do not do work stealing if there are tasks to perform
-      if(handle_task())
-        continue;
-
       // wait until we get an actor
       actor = request(sched);
 
@@ -338,9 +356,6 @@ static void run(scheduler_t* sched)
       // away something we'd prefer to stay local.
       respond(sched);
     }
-
-    // good point for getting tasks to run
-    handle_task();
 
     // if this returns true, reschedule the actor on our queue
     if(actor_run(actor)) {
@@ -417,6 +432,11 @@ static void *run_thread(void *arg)
     return NULL;
   }
 #endif
+
+  // setup task runner
+  assert(this_encore_task==NULL);
+  this_encore_task = encore_create(task_gettype());
+  scheduler_add((pony_actor_t*) this_encore_task);
 
   run(sched);
 

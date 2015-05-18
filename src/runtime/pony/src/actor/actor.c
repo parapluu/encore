@@ -34,9 +34,9 @@ struct pony_actor_t
   uint8_t flags;
 };
 
-pony_type_t* encore_task_type;
-__thread pony_actor_t* this_encore_task;
-mpmcq_t taskq;
+extern __thread encore_actor_t* this_encore_task;
+extern uint32_t remaining_tasks;
+extern mpmcq_t taskq;
 
 static __pony_thread_local pony_actor_t* this_actor;
 
@@ -135,38 +135,6 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg)
 }
 
 
-bool handle_task(){
-  if(this_encore_task==NULL){
-    this_encore_task = encore_create(encore_task_type);
-  }
-
-  // some gc methods rely on having `this_actor` set to
-  // the actor that handles a message.
-  this_actor = this_encore_task;
-
-  if(heap_startgc(&this_encore_task->heap))
-  {
-    if(this_encore_task->type->trace != NULL)
-    {
-      pony_gc_mark();
-      this_encore_task->type->trace(this_encore_task);
-    }
-    gc_mark(&this_encore_task->gc);
-    gc_sweep(&this_encore_task->gc);
-    gc_done(&this_encore_task->gc);
-    heap_endgc(&this_encore_task->heap);
-  }
-
-  pony_msg_t* task_msg;
-  if((task_msg = mpmcq_pop(&taskq))!=NULL){
-    assert(task_msg->id == _ENC__MSG_TASK);
-    handle_message(this_encore_task, task_msg);
-    return true;
-  }
-  return false;
-}
-
-
 bool actor_run(pony_actor_t* actor)
 {
   pony_msg_t* msg;
@@ -204,10 +172,24 @@ bool actor_run(pony_actor_t* actor)
       return !has_flag(actor, FLAG_UNSCHEDULED);
   }
 
-  while((msg = messageq_pop(&actor->q)) != NULL)
-  {
-    if(handle_message(actor, msg)) {
-      return !has_flag(actor, FLAG_UNSCHEDULED);
+  if(actor==this_encore_task){
+    assert(this_encore_task!=NULL);
+    pony_msg_t* task_msg;
+    while((task_msg = mpmcq_pop(&taskq)) != NULL){
+      __pony_atomic_fetch_sub(&remaining_tasks, 1, PONY_ATOMIC_RELAXED, uint32_t);
+      assert(task_msg->id == _ENC__MSG_TASK);
+      if(handle_message(actor, task_msg)){
+        return !has_flag(actor, FLAG_UNSCHEDULED);
+      }
+    }
+    pony_unschedule(actor);
+  }else{
+    while((msg = messageq_pop(&actor->q)) != NULL)
+    {
+      /* puts("handle ACTOR msg"); */
+      if(handle_message(actor, msg)) {
+        return !has_flag(actor, FLAG_UNSCHEDULED);
+      }
     }
   }
 
@@ -245,9 +227,18 @@ pony_actor_t* actor_current()
   return this_actor;
 }
 
+// TODO: this should be in task.c. Called from future.c
 pony_actor_t* task_runner_current()
 {
   return (pony_actor_t*)this_encore_task;
+}
+
+bool is_unscheduled(pony_actor_t* a){
+  return has_flag(a, FLAG_UNSCHEDULED);
+}
+
+void unset_unscheduled(pony_actor_t* runner){
+  unset_flag(runner, FLAG_UNSCHEDULED);
 }
 
 gc_t* actor_gc(pony_actor_t* actor)

@@ -6,30 +6,28 @@
 typedef struct encore_task_s encore_task_s;
 
 #include "encore.h"
-
 typedef encore_arg_t (*task_fn)(void*, void*);
 
-// initializes the task dependencies (mpmcq, etc)
+extern __thread encore_actor_t* this_encore_task;
+
+// ==================================================================
+// setup runtime task type
+// ==================================================================
 void task_setup(pony_type_t const* const type);
+pony_type_t* const task_gettype();
 
-// create task structure
+// ==================================================================
+// create, attach future, schedule and run task
+// ==================================================================
 encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace);
-
-// put the task into a scheduler
 void task_schedule(encore_task_s const* const t);
+void task_attach_fut(encore_task_s* const t, void* const fut);  // optional
+encore_arg_t task_runner(encore_task_s const* const task); // run task
 
-// attach future to task (optional)
-void task_attach_fut(encore_task_s* const t, void* const fut);
-
-// run task
-encore_arg_t task_runner(encore_task_s const* const task);
-
+// ==================================================================
+// clean up
+// ==================================================================
 void task_trace(void* const);
-
-void* task_getenv(encore_task_s* const task);
-void* task_getdependencies(encore_task_s* const task);
-
-// free task
 void task_free(encore_task_s* const task);
 
 #endif
