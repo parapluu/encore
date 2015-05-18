@@ -193,6 +193,18 @@ runtime_type_name cls
     | otherwise = error $ "Type '" ++ show cls ++
                           "' is neither active nor passive!"
 
+future_trace_fn :: CCode Name
+future_trace_fn = Nam "future_trace"
+
+closure_trace_fn :: CCode Name
+closure_trace_fn = Nam "closure_trace"
+
+array_trace_fn :: CCode Name
+array_trace_fn = Nam "array_trace"
+
+stream_trace_fn :: CCode Name
+stream_trace_fn = Nam "scons_trace"
+
 future_type_rec_name :: CCode Name
 future_type_rec_name = Nam $ "future_type"
 
