@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "encore.h"
 
 struct encore_task_s {

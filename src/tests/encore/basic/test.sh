@@ -48,7 +48,13 @@ passed=0
 failed=0
 failed_list=()
 
-for prog in "$@"
+skipped=(largestream async_force_gc async_foreach)
+progs="$@"
+for rm in "${skipped[@]}"
+do
+    progs=(${progs[@]/$rm})
+done
+for prog in "${progs[@]}"
 do
     if run_test $prog
     then

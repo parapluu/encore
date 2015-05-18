@@ -94,6 +94,7 @@ struct encore_actor
   bool resume;
   int await_counter;
   int suspend_counter;
+  future_t *my_future;
   pthread_mutex_t *lock;
 #ifndef LAZY_IMPL
   ucontext_t ctx;

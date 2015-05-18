@@ -20,16 +20,17 @@
 extern pony_actor_t *actor_current();
 extern pony_actor_t* task_runner_current();
 
+extern void pony_gc_acquire();
+
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
 typedef struct message_entry message_entry_t;
-typedef enum responsibility_t responsibility_t;
 
 // Terminology:
 // Producer -- the actor responsible for fulfilling a future
 // Consumer -- an non-producer actor using a future
 
-enum  responsibility_t
+typedef enum responsibility_t
 {
   // A task closure, should be run by any task runner
   TASK_CLOSURE,
@@ -37,7 +38,7 @@ enum  responsibility_t
   DETACHED_CLOSURE,
   // A message blocked on this future
   BLOCKED_MESSAGE
-};
+} responsibility_t;
 
 struct closure_entry
 {
@@ -79,7 +80,6 @@ struct future
   encore_arg_t      value;
   pony_type_t    *type;
   bool            fulfilled;
-  bool            gc_recv;
   // Stupid limitation for now
   actor_entry_t   responsibilities[16];
   int             no_responsibilities;
@@ -88,16 +88,11 @@ struct future
   future_t *parent;
   closure_entry_t *children;
   actor_list *awaited_actors;
+  future_t *next;
 };
 
 static inline void future_gc_send_value(future_t *fut);
 static inline void future_gc_recv_value(future_t *fut);
-
-// TODO call this finalizer in startgc block in actor_run
-static void final_fn(void *p)
-{
-  future_gc_recv_value(p);
-}
 
 pony_type_t future_type = {
   ID_FUTURE,
@@ -148,17 +143,31 @@ void future_trace(void* p)
   // if (fut->parent) pony_traceobject(fut->parent, future_trace);
 }
 
+static inline void future_gc_trace_value(future_t *fut)
+{
+  if (fut->type == ENCORE_ACTIVE) {
+    pony_traceactor(fut->value.p);
+  } else if (fut->type != ENCORE_PRIMITIVE) {
+    pony_traceobject(fut->value.p, fut->type->trace);
+  }
+}
+
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
 future_t *future_mk(pony_type_t *type)
 {
-  perr("future_mk");
+  encore_actor_t *actor = (encore_actor_t *) actor_current();
+  assert(actor);
 
   future_t *fut = encore_alloc(sizeof(future_t));
   *fut = (future_t) { .type = type };
 
   pthread_mutex_init(&fut->lock, NULL);
+
+  fut->next = actor->my_future;
+  actor->my_future = fut;
+
   return fut;
 }
 
@@ -200,15 +209,18 @@ void future_fulfil(future_t *fut, encore_arg_t value)
   // Responsabilities: actors that were blocked (unfulfilled future) and should be scheduled to continue
   for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
-    switch (e.type)
-    {
+    switch (e.type) {
       case BLOCKED_MESSAGE:
-        {
-          perr("Unblocking");
-          actor_set_resume((encore_actor_t*)e.message.actor);
-          pony_schedule_first(e.message.actor);
-          break;
-        }
+        perr("Unblocking");
+        actor_set_resume((encore_actor_t*)e.message.actor);
+        pony_schedule_first(e.message.actor);
+        break;
+      case DETACHED_CLOSURE:
+        assert(0);
+        exit(-1);
+      case TASK_CLOSURE:
+        assert(0);
+        exit(-1);
     }
   }
 
@@ -270,6 +282,12 @@ void future_fulfil(future_t *fut, encore_arg_t value)
   UNBLOCK;
 }
 
+static void acquire_future_value(future_t *fut)
+{
+  pony_gc_acquire();
+  future_gc_trace_value(fut);
+}
+
 // ===============================================================
 // Means for actors to get, block and chain
 // ===============================================================
@@ -279,10 +297,7 @@ encore_arg_t future_get_actor(future_t *fut)
     future_block_actor(fut);
   }
 
-  if (!fut->gc_recv) {
-    fut->gc_recv = true;
-    future_gc_recv_value(fut);
-  }
+  acquire_future_value(fut);
 
   return fut->value;
 
@@ -374,36 +389,19 @@ void future_await(future_t *fut)
   actor_await(&ctx);
 }
 
-// FIXME: better type for this
-void future_await_resume(void *argv)
+void future_finalizer(future_t *fut)
 {
-  ctx_wrapper *d = ((encore_arg_t *)argv)[0].p;
-  ucontext_t* ctx = d->ctx;
-  ctx->uc_link = d->uc_link;
-
-  future_t *fut = ((encore_arg_t *)argv)[1].p;
-
-  if (future_fulfilled(fut))
-  {
-    /// actor_set_run_to_completion(actor);
-
-    assert(swapcontext(ctx->uc_link, ctx) == 0);
-
-    /// if (actor_run_to_completion(actor)) {
-    ///     reclaim_page(actor);
-    /// }
-  } else {
-    // pony_sendv(actor_current(), FUT_MSG_AWAIT, 2, argv);
-  }
+  future_gc_recv_value(fut);
 }
 
-static inline void future_gc_trace_value(future_t *fut)
+future_t * future_get_next(future_t* fut)
 {
-  if (fut->type == ENCORE_ACTIVE) {
-    pony_traceactor(fut->value.p);
-  } else if (fut->type != ENCORE_PRIMITIVE) {
-    pony_traceobject(fut->value.p, fut->type->trace);
-  }
+  return fut->next;
+}
+
+future_t * future_set_next(future_t* fut, future_t *next)
+{
+  return fut->next = next;
 }
 
 static inline void future_gc_send_value(future_t *fut)
