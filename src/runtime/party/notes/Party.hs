@@ -124,6 +124,39 @@ workhorse k p = process k $ sift p
 -- but return a future and uses the trick inside prune to notify when
 -- the value is ready. Type: Par t -> Fut [t] instead
 
-each :: [t] -> Par t
-each = undefined
 
+
+schedulers = 4
+
+-- build Par t type from list of values/ futures sequential
+seqToPar :: [t] -> Par t
+seqToPar a = M l l a
+  where l = length a
+
+-- sequential implementation of seqToPar
+-- foldl buildPar S
+--   where
+--     buildPar p f@(Fut t) = P p (F f)
+--     buildPar p v = P p (V v)
+
+
+splitIntoChunks :: Int -> [t] -> [[t]]
+splitIntoChunks chunk_size xs =
+  if length xs < chunk_size then [xs]
+  else let (ys, zs) = splitAt chunk_size xs in ys:splitIntoChunks chunk_size zs
+
+combinePar :: Fut t -> Fut t -> Par t
+combinePar f1 f2 = P (F f1) (F f2)
+
+mapTask :: [t] -> [Fut (Par t)]
+mapTask xs = map (async . seqToPar) $ splitIntoChunks schedulers xs
+
+fut2Par :: [Fut (Par t)] -> Par t
+fut2Par fs = foldl parFut S fs
+  where
+    parFut :: Par t -> Fut (Par t) -> Par t
+    parFut S f = FP f
+    parFut p f = P p (FP f)
+
+each :: [t] -> Par t
+each xs = fut2Par $ mapTask xs
