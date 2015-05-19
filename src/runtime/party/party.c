@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include "party.h"
+#include <stdlib.h>
 #include <assert.h>
 
 /*
@@ -41,6 +41,8 @@ DECLARE_PAR(P, { struct par_s* left; struct par_s* right; });
 DECLARE_PAR(J, { struct par_s* /* Par */ join; });
 DECLARE_PAR(M, { int size; int used; box *data; });
 DECLARE_PAR(FP, { future_t fut; });
+
+struct list_s {};
 
 enum PTAG { S, V, F, P, J, FP, M };  // be less concise
 struct par_s {
@@ -141,6 +143,54 @@ par_s* new_par_general(par_s* p){
 /*     } */
 /*     return NULL; */
 /* } */
+
+// sequence :: Par t -> (t -> t') -> Par t'
+par_s* sequence(par_s* p){
+  assert(0);
+  exit(-1);
+}
+
+// pjoin :: Par (Par a) -> Par a
+par_s* pjoin(par_s* p){
+  assert(0);
+  exit(-1);
+}
+
+// extract :: Par t -> [t]
+list_s extract(par_s* t){
+  assert(0);
+  exit(-1);
+}
+
+// prune :: (Fut (Maybe t) -> Par t') -> Par t -> Par t'
+par_s* prune(prune_fn f, par_s* p){
+  assert(0);
+  exit(-1);
+}
+
+// otherwise :: Par t -> Delay (Par t) -> Par t
+par_s* otherwise(par_s* p, par_s* delay){
+  assert(0);
+  exit(-1);
+}
+
+// select :: (Maybe t -> Par t') -> Par t -> Par t'
+par_s* select(select_fn f, par_s* p){
+  assert(0);
+  exit(-1);
+}
+
+// peek :: Par t -> Fut (Maybe t)
+future_s* peek(par_s* p){
+  assert(0);
+  exit(-1);
+}
+
+// each :: [t] -> Par t
+par_s* each(list_s* l){
+  assert(0);
+  exit(-1);
+}
 
 
 int main() {
