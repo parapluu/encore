@@ -73,6 +73,7 @@ par_s* res = malloc(sizeof(par_s));	\
     return res; \
 }\
 
+
 par_s* new_parS(void){
   INIT_PAR(S);
 }
@@ -109,40 +110,48 @@ par_s* new_par_general(par_s* p){
 }
 
 
-/* Par fmap(Par in, function f) { */
-/*     switch (in->tag) { */
-/*         case S: */
-/*         return newS(); */
-/*         break; */
+par_s* fmap(par_s* in, function f) {
+    switch (in->tag) {
+    case S:
+      return new_par_empty();
+      break;
 
-/*         case V: */
-/*         return newV(apply(f,in->data.v.val)); */
-/*         break; */
+    case V:
+      return new_par(apply(f, in->data.val));
+      break;
 
-/*         case F: */
-/*         return newF(chain(in->data.f.fut,f)); */
-/*         break; */
+    case F:
+      return new_par(chain(in->data.fut, f));
+      break;
 
-/*         case P: */
-/*         return newP(fmap(in->data.p.left, f), fmap(in->data.p.left, f)); */
-/*         break; */
+    case P:
+      return new_par_p(fmap(in->data.left, f), fmap(in->data.left, f));
+      break;
 
-/*         case J: */
-/*         // not sure what to do. need to build function that will call fmap(f) */
-/*         // and pass that in */
-/*         break; */
+    case J:
+      // not sure what to do. need to build function that will call fmap(f)
+      // and pass that in
+      assert(0);
+      exit(-1);
+      break;
 
-/*         case FP: */
-/*         // not sure what to do. need to build function that will call fmap(f) */
-/*         // and pass that in */
-/*         break; */
+    case FP:
+      // not sure what to do. need to build function that will call fmap(f)
+      // and pass that in
+      assert(0);
+      exit(-1);
+      break;
 
-/*         case M: */
-/*         // TODO: do */
-/*         break; */
-/*     } */
-/*     return NULL; */
-/* } */
+    case M:
+      // TODO: do
+      assert(0);
+      exit(-1);
+      break;
+    default:
+      assert(0);
+      exit(-1);
+    }
+}
 
 // sequence :: Par t -> (t -> t') -> Par t'
 par_s* sequence(par_s* p){
