@@ -231,6 +231,8 @@ runtime_type_decl cname =
      (Decl (Typ "pony_type_t", AsLval $ runtime_type_name cname))
            (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
                     Call (Nam "sizeof") [AsLval $ class_type_name cname],
+                    Int 0,
+                    Int 0,
                     AsExpr . AsLval $ (class_trace_fn_name cname),
                     Null,
                     Null,

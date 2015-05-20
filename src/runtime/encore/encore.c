@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 800
-#include <pony/pony.h>
+#include <pony.h>
 #include "encore.h"
 #include "closure.h"
 #include "actor/actor.h"
@@ -60,6 +60,15 @@ void actor_unlock(encore_actor_t *actor)
       actor->lock = NULL;
     }
   }
+}
+
+void pony_sendargs(pony_actor_t* to, uint32_t id, int argc, char** argv)
+{
+  pony_main_msg_t* m = (pony_main_msg_t*)pony_alloc_msg(0, id);
+  m->argc = argc;
+  m->argv = argv;
+
+  pony_sendv(to, &m->msg);
 }
 
 encore_arg_t default_task_handler(void* env, void* dep){
@@ -363,7 +372,6 @@ void *encore_alloc(size_t s)
   return mem;
 }
 
-
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type)
 {
@@ -372,7 +380,7 @@ int encore_start(int argc, char** argv, pony_type_t *type)
   pony_actor_t* actor = (pony_actor_t *)encore_create(type);
   pony_sendargs(actor, _ENC__MSG_MAIN, argc, argv);
 
-  return pony_start(PONY_DONT_WAIT);
+  return pony_start(false);
 }
 
 bool encore_actor_run_hook(encore_actor_t *actor)

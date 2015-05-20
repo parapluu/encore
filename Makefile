@@ -40,13 +40,11 @@ $(INC_DIR):
 $(LIB_DIR):
 	mkdir -p $(LIB_DIR)
 
-PLATFORM_INC=$(RUNTIME_DIR)/pony/inc/platform
-PONY_INC=$(RUNTIME_DIR)/pony/inc/pony
-PONY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libpony.a
+COMMON_INC=$(RUNTIME_DIR)/common/*
+PONY_INC=$(RUNTIME_DIR)/pony/libponyrt/*.h
+PONY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libponyrt.a
 FUTURE_INC=$(FUTURE_DIR)/future.h
 FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libfuture.a
-SET_INC=$(SET_DIR)/set.h
-SET_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libset.a
 ENCORE_INC=$(ENCORE_DIR)/encore.h
 ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libencore.a
 CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
@@ -60,9 +58,8 @@ ARRAY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libarray.a
 
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony
-	cp -r $(PLATFORM_INC) $(INC_DIR)
+	cp -r $(COMMON_INC) $(INC_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)
-	cp -r $(SET_INC) $(INC_DIR)
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(TASK_INC) $(INC_DIR)
@@ -75,8 +72,6 @@ pony: dirs $(PONY_INC)
 	cp -r $(TASK_LIB) $(LIB_DIR)
 	cp -r $(ENCORE_LIB) $(LIB_DIR)
 	cp -r $(STREAM_LIB) $(LIB_DIR)
-
-	# cp -r $(SET_LIB) $(LIB_DIR)
 	cp -r $(ARRAY_LIB) $(LIB_DIR)
 
 clean:

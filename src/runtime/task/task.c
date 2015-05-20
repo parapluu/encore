@@ -1,6 +1,6 @@
 #include "task.h"
 #include "sched/mpmcq.h"
-#include <pony/pony.h>
+#include <pony.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -36,7 +36,7 @@ void task_setup(pony_type_t const* const type){
   static int n_calls = 0;
   assert(n_calls++ == 0);
 
-  __pony_atomic_store_n(&remaining_tasks, 0, PONY_ATOMIC_RELAXED, uint32_t);
+  __atomic_store_n(&remaining_tasks, 0, __ATOMIC_RELAXED);
   mpmcq_init(&taskq);
   set_encore_task_type(type);
 }
@@ -44,7 +44,7 @@ void task_setup(pony_type_t const* const type){
 
 encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace){
   encore_task_s* task = malloc(sizeof(encore_task_s));
-  __pony_atomic_fetch_add(&remaining_tasks, 1, PONY_ATOMIC_RELAXED, uint32_t);
+  __atomic_fetch_add(&remaining_tasks, 1, __ATOMIC_RELAXED);
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};
   return task;
 }

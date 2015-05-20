@@ -1,7 +1,7 @@
 #ifndef __future_using_actors_h
 #define __future_using_actors_h
 
-#include <pony/pony.h>
+#include <pony.h>
 #include "closure.h"
 
 typedef struct future future_t;

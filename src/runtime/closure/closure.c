@@ -7,8 +7,8 @@
 extern __thread pony_actor_t* this_actor;
 
 #ifdef USE_PONY_ALLOC
-  #include <pony/pony.h>
-  #include "../src/actor/actor.h"
+  #include <pony.h>
+  #include "../libponyrt/actor/actor.h"
   // Tobias: this is a hack to make top-level functions work as they are implemented as closures right now
   // This hack creates a small memory leak which we can safely ignore until top-level functions change.
   #define ALLOC(size) (actor_current() ? pony_alloc(size) : malloc(size))
@@ -25,11 +25,13 @@ struct closure{
   pony_trace_fn trace;
 };
 
-pony_type_t closure_type = 
-  {ID_CLOSURE, 
-   sizeof(struct closure), 
-   closure_trace, 
-   NULL, 
+pony_type_t closure_type =
+  {ID_CLOSURE,
+   sizeof(struct closure),
+   0,
+   0,
+   closure_trace,
+   NULL,
    NULL,
    NULL,
    NULL

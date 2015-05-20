@@ -22,11 +22,13 @@ void scons_trace(void *p){
   }
 }
 
-pony_type_t scons_type = 
-  {ID_SCONS, 
-   sizeof(struct scons), 
-   scons_trace, 
-   NULL, 
+pony_type_t scons_type =
+  {ID_SCONS,
+   sizeof(struct scons),
+   0,
+   0,
+   scons_trace,
+   NULL,
    NULL,
    NULL,
    NULL
@@ -66,7 +68,7 @@ stream_t *stream_put(stream_t *s, encore_arg_t value, pony_type_t *type){
 
 bool stream_eos(stream_t *s){
   struct scons *scons = future_get_actor((future_t *)s).p;
-  return scons->eos;  
+  return scons->eos;
 }
 
 encore_arg_t stream_get(stream_t *s){

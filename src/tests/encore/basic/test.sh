@@ -48,8 +48,8 @@ passed=0
 failed=0
 failed_list=()
 
-skipped=(largestream async_force_gc async_foreach)
-progs="$@"
+skipped=()
+progs=("$@")
 for rm in "${skipped[@]}"
 do
     progs=(${progs[@]/$rm})

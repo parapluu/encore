@@ -21,17 +21,16 @@ import qualified Types as Ty
 -- | This function generates all the common code, generate_header_recurser generates class specific code
 generate_header :: A.Program -> CCode FIN
 
-generate_header p = 
+generate_header p =
     Program $
     IfNDefine "HEADER_H" $
-    Concat $ 
+    Concat $
     HashDefine "HEADER_H" :
     HashDefine "_XOPEN_SOURCE 800" :
     (Includes [
       "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
-      "pony/pony.h",
+      "pony.h",
       "stdlib.h",
-      "set.h",
       "closure.h",
       "stream.h",
       "array.h",
@@ -41,18 +40,18 @@ generate_header p =
       "stdio.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
-    
+
     [comment_section "Shared messages"] ++
     shared_messages ++
-    
+
     [comment_section "Embedded code"] ++
     map Embed allembedded ++
 
     [comment_section "Class types"] ++
-    class_type_decls ++ 
+    class_type_decls ++
 
     [comment_section "Passive class types"] ++
-    passive_types ++ 
+    passive_types ++
 
     [comment_section "Runtime types"] ++
     runtime_type_decls ++
@@ -81,7 +80,7 @@ generate_header p =
    where
      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
-     shared_messages = 
+     shared_messages =
           [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
            DeclTL (pony_msg_t, Var "m_resume_get"),
            DeclTL (pony_msg_t, Var "m_resume_suspend"),
@@ -92,21 +91,21 @@ generate_header p =
      allclasses = A.allClasses p
      allfunctions = A.allFunctions p
      allembedded = A.allEmbedded p
-         
+
      pony_msg_t_typedefs :: [CCode Toplevel]
      pony_msg_t_typedefs = map pony_msg_t_typedef_class allclasses
              where
-                 pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) = 
+                 pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) =
                      Concat $ concatMap pony_msg_t_typedef methods
                      where
-                         pony_msg_t_typedef mdecl = 
+                         pony_msg_t_typedef mdecl =
                              [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
                               Typedef (Struct $ one_way_msg_type_name cname (A.mname mdecl)) (one_way_msg_type_name cname (A.mname mdecl))]
 
      pony_msg_t_impls :: [CCode Toplevel]
      pony_msg_t_impls = map pony_msg_t_impls_class allclasses
                  where
-                   pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) = 
+                   pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) =
                        Concat $ map pony_msg_t_impl methods
                        where
                          pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
@@ -121,7 +120,7 @@ generate_header p =
 
      global_function_decls = map global_function_decl allfunctions
             where
-                global_function_decl A.Function{A.funname} = 
+                global_function_decl A.Function{A.funname} =
                    DeclTL (closure, AsLval $ global_closure_name funname)
 
      message_enums =
@@ -145,12 +144,12 @@ generate_header p =
 
      class_type_decls = map class_type_decl allclasses
                  where
-                   class_type_decl A.Class{A.cname} = 
+                   class_type_decl A.Class{A.cname} =
                        Typedef (Struct $ class_type_name cname) (class_type_name cname)
 
      passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
-                   passive_type A.Class{A.cname, A.fields} = 
+                   passive_type A.Class{A.cname, A.fields} =
                        StructDecl (AsType $ class_type_name cname)
                                   ((Ptr pony_type_t, AsLval $ self_type_field) :
                                    zip
@@ -176,4 +175,3 @@ generate_header p =
 
 comment_section :: String -> CCode Toplevel
 comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
-

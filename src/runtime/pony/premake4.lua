@@ -25,6 +25,39 @@ if premake.override then
   end)
 end
 
+function use_flto()
+  buildoptions {
+    "-O3",
+    "-flto",
+  }
+  linkoptions {
+    "-flto",
+    "-fuse-ld=gold",
+  }
+end
+
+function c_lib()
+  kind "StaticLib"
+  language "C"
+
+  configuration "not windows"
+    buildoptions "-std=gnu11"
+
+  configuration "Release or Profile"
+    if(macosx or linux) then
+      use_flto()
+    else
+      if(optimize) then
+        optimize "Speed"
+      else
+        flags "OptimizeSpeed"
+      end
+    end
+
+
+  configuration "*"
+end
+
 solution "ponyrt"
   configurations {"Debug", "Release"}
 
@@ -48,13 +81,13 @@ solution "ponyrt"
   configuration "*"
 
   includedirs {
-    "inc/",
     "../closure",
     "../set",
     "../encore",
     "../future",
     "../task",
-    "src"
+    "libponyrt",
+    "../common",
   }
 
   flags {
@@ -88,23 +121,14 @@ solution "ponyrt"
       cppforce { "**.c" }
     end
 
-  include("src/")
-  -- include("examples/")
-  -- include("utils/")
-  -- include("test/")
-
-project "closure"
+project "ponyrt"
   c_lib()
-  files {
-    "../closure/closure.h",
-    "../closure/closure.c"
+  includedirs {
+    "./libponyrt/",
   }
-
-project "task"
-  c_lib()
   files {
-    "../task/task.h",
-    "../task/task.c"
+    "./libponyrt/**.h",
+    "./libponyrt/**.c"
   }
 
 project "encore"
@@ -121,6 +145,30 @@ project "array"
     "../array/array.c"
   }
 
+project "task"
+  c_lib()
+  files {
+    "../task/task.h",
+    "../task/task.c"
+  }
+
+project "closure"
+  c_lib()
+  files {
+    "../closure/closure.h",
+    "../closure/closure.c"
+  }
+
+project "future"
+  c_lib()
+  links { "closure" }
+  buildoptions {
+      "-Wno-deprecated-declarations",
+  }
+  files {
+    "../future/future.c",
+  }
+
 project "stream"
   c_lib()
   links { "future" }
@@ -129,21 +177,11 @@ project "stream"
     "../stream/stream.c"
   }
 
--- project "set"
---   kind "StaticLib"
---   language "C"
---   links { "closure" }
---   includedirs { "../closure" }
---   files {
---     "../set/set.c"
---   }
-
-project "future"
-  c_lib()
-  links { "closure", "set" }
-  buildoptions {
-      "-Wno-deprecated-declarations",
-  }
-  files {
-    "../future/future.c",
-  }
+-- -- project "set"
+-- --   kind "StaticLib"
+-- --   language "C"
+-- --   links { "closure" }
+-- --   includedirs { "../closure" }
+-- --   files {
+-- --     "../set/set.c"
+-- --   }

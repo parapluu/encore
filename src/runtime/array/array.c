@@ -12,6 +12,8 @@ pony_type_t array_type =
   {
     ID_ARRAY,
     sizeof(struct array_t),
+    0,
+    0,
     array_trace,
     NULL,
     NULL,
