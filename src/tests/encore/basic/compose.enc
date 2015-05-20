@@ -1,5 +1,5 @@
-def compose(g : b -> c, f : a -> b) : a -> c
-  \(x : a) -> g(f(x))
+def compose(g : int -> int, f : int -> int) : int -> int
+  \(x : int) -> g(f(x))
 
 class Main
   def main() : void

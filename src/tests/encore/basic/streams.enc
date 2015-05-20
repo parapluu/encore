@@ -16,7 +16,7 @@ class Streamer
   }
 
 class Combinator
-  stream interleave(s1 : Stream a, s2 : Stream a) : a{
+  stream interleave(s1 : Stream int, s2 : Stream int) : int{
     while ((not eos s1) and (not eos s2)) {
       yield get s1;
       yield get s2;
