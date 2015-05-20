@@ -1,7 +1,7 @@
 #ifndef task_h
 #define task_h
 
-#include <pony/pony.h>
+#include <pony.h>
 
 typedef struct encore_task_s encore_task_s;
 

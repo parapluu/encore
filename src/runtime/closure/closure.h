@@ -2,7 +2,7 @@
 #define __closure_h__
 
 #include <stdint.h>
-#include <pony/pony.h>
+#include <pony.h>
 
 typedef struct closure closure_t;
 

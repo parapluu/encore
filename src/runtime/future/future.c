@@ -7,11 +7,11 @@
 
 #include <assert.h>
 #include <pthread.h>
-#include <pony/pony.h>
+#include <pony.h>
 
 #include "encore.h"
 #include "future.h"
-#include "../src/actor/messageq.h"
+#include "../libponyrt/actor/messageq.h"
 
 #define BLOCK    pthread_mutex_lock(&fut->lock);
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
@@ -19,6 +19,7 @@
 
 extern pony_actor_t *actor_current();
 extern pony_actor_t* task_runner_current();
+void pony_schedule_first(pony_actor_t* actor);
 
 extern void pony_gc_acquire();
 
@@ -97,6 +98,8 @@ static inline void future_gc_recv_value(future_t *fut);
 pony_type_t future_type = {
   ID_FUTURE,
   sizeof(struct future),
+  0,
+  0,
   future_trace,
   NULL,
   NULL,

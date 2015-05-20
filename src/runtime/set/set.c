@@ -8,8 +8,8 @@
 #define USE_PONY_ALLOC 1
 
 #ifdef USE_PONY_ALLOC
-  #include <pony/pony.h>
-  #include "../src/actor/actor.h"
+  #include <pony.h>
+  #include "../libponyrt/actor/actor.h"
   // Tobias: this is a hack to make top-level functions work as they are implemented as closures right now
   // This hack creates a small memory leak which we can safely ignore until top-level functions change.
   #define ALLOC(size) (actor_current() ? pony_alloc(size) : malloc(size))

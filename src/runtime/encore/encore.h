@@ -12,7 +12,9 @@ typedef struct ctx_wrapper {
   void* uc_link;
 } ctx_wrapper;
 
-#include <pony/pony.h>
+#include <platform.h>
+#include <pony.h>
+#include <atomics.h>
 
 typedef struct context {
   ucontext_t ctx;
@@ -30,6 +32,15 @@ __pony_spec_align__(typedef struct encore_actor encore_actor_t, 64);
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
 typedef struct encore_task_msg_s encore_task_msg_s;
+
+typedef struct pony_main_msg_t
+{
+  pony_msg_t msg;
+  int argc;
+  char** argv;
+} pony_main_msg_t;
+
+
 
 typedef union
 {
@@ -58,20 +69,21 @@ typedef enum {
 
 struct encore_oneway_msg
 {
-  struct pony_msg_t;
+  struct pony_msg_t pad;
 };
 
 #include "future.h"
 
 struct encore_fut_msg
 {
-  encore_oneway_msg_t;
+  encore_oneway_msg_t pad;
   future_t    *_fut;
 };
 
 struct encore_task_msg_s
 {
-  encore_fut_msg_t;
+  encore_oneway_msg_t pad;
+  future_t    *_fut;
   encore_task_s *_task;
 };
 
@@ -89,7 +101,7 @@ typedef struct stack_page {
 void *get_local_page_stack();
 struct encore_actor
 {
-  pony_actor_pad_t;
+  pony_actor_pad_t pad;
   // Everything else that goes into an encore_actor that's not part of PonyRT
   bool resume;
   int await_counter;

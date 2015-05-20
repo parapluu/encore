@@ -1,7 +1,7 @@
 #ifndef __stream_h__
 #define __stream_h__
 
-#include <pony/pony.h>
+#include <pony.h>
 #include <stdbool.h>
 
 typedef void stream_t;

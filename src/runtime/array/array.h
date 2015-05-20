@@ -1,7 +1,7 @@
 #ifndef __array_h__
 #define __array_h__
 
-#include <pony/pony.h>
+#include <pony.h>
 #include <encore.h>
 
 typedef void array_t;
