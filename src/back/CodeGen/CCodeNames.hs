@@ -144,6 +144,14 @@ task_trace_name name =
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
 
+type_var_ref_name :: Ty.Type -> CCode Name
+type_var_ref_name ty = 
+    Nam $ encore_name "type" (show ty)
+
+class_id :: Ty.Type -> CCode Name
+class_id ty =
+    Nam $ encore_name "ID" (Ty.getId ty)
+
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
@@ -154,6 +162,10 @@ class_dispatch_name clazz =
 class_trace_fn_name :: Ty.Type -> CCode Name
 class_trace_fn_name clazz = 
     Nam $ encore_name "trace" (Ty.getId clazz)
+
+runtime_type_init_fn_name :: Ty.Type -> CCode Name
+runtime_type_init_fn_name clazz =
+    Nam $ encore_name "type_init" (Ty.getId clazz)
 
 fut_msg_type_name :: Ty.Type -> ID.Name -> CCode Name
 fut_msg_type_name cls mname =
