@@ -37,7 +37,8 @@ generate_header p =
       "future.h",
       "task.h",
       "string.h",
-      "stdio.h"
+      "stdio.h",
+      "stdarg.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
@@ -71,6 +72,9 @@ generate_header p =
 
     [comment_section "Trace functions"] ++
     trace_fn_decls ++
+
+    [comment_section "Runtime type init functions"] ++
+    runtime_type_fn_decls ++
 
     [comment_section "Methods"] ++
     concatMap method_fwds allclasses ++
@@ -133,14 +137,19 @@ generate_header p =
 
      class_enums =
                let
-                 names = map (("ID_"++) . Ty.getId . A.cname) allclasses
+                 class_ids = map (class_id . A.cname) allclasses
                in
-                Enum $ (Nam "__ID_DUMMY__ = 1024") : map Nam names
+                Enum $ (Nam "__ID_DUMMY__ = 1024") : class_ids
 
      trace_fn_decls = map trace_fn_decl allclasses
-                 where
-                   trace_fn_decl A.Class{A.cname} =
-                             FunctionDecl void (class_trace_fn_name cname) [Ptr void]
+         where
+           trace_fn_decl A.Class{A.cname} =
+               FunctionDecl void (class_trace_fn_name cname) [Ptr void]
+
+     runtime_type_fn_decls = map runtime_type_fn_decl allclasses
+         where
+           runtime_type_fn_decl A.Class{A.cname} =
+               FunctionDecl void (runtime_type_init_fn_name cname) [Ptr . AsType $ class_type_name cname, Embed "..."]
 
      class_type_decls = map class_type_decl allclasses
                  where
@@ -149,9 +158,11 @@ generate_header p =
 
      passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
-                   passive_type A.Class{A.cname, A.fields} =
+                   passive_type A.Class{A.cname, A.fields} = 
+                       let typeParams = Ty.getTypeParameters cname in
                        StructDecl (AsType $ class_type_name cname)
                                   ((Ptr pony_type_t, AsLval $ self_type_field) :
+                                   map (\ty -> (Ptr pony_type_t, AsLval $ type_var_ref_name ty)) typeParams ++
                                    zip
                                    (map (translate . A.ftype) fields)
                                    (map (AsLval . field_name . A.fname) fields))

@@ -37,6 +37,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
     Program $ Concat $
       (LocalInclude "header.h") :
       [type_struct_decl] ++
+      [runtime_type_init_fun_decl cdecl] ++
       [tracefun_decl cdecl] ++
       method_impls ++
       [dispatchfun_decl] ++
@@ -44,11 +45,13 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
     where
       type_struct_decl :: CCode Toplevel
       type_struct_decl =
+          let typeParams = Ty.getTypeParameters cname in
           StructDecl (AsType $ class_type_name cname) $
                      ((encore_actor_t, Var "_enc__actor") :
-                         zip
+                      (map (\ty -> (Ptr pony_type_t, AsLval $ type_var_ref_name ty)) typeParams ++
+                         zip 
                          (map (translate  . A.ftype) fields)
-                         (map (AsLval . field_name . A.fname) fields))
+                         (map (AsLval . field_name . A.fname) fields)))
 
       method_impls = map method_impl methods
           where
@@ -172,6 +175,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
 translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
     Program $ Concat $
       (LocalInclude "header.h") :
+      [runtime_type_init_fun_decl cdecl] ++
       [tracefun_decl cdecl] ++
       method_impls ++
       [dispatchfun_decl] ++
@@ -186,6 +190,20 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    [(Ptr pony_actor_t, Var "_a"),
                     (Ptr pony_msg_t, Var "_m")]
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
+
+runtime_type_init_fun_decl :: A.ClassDecl -> CCode Toplevel
+runtime_type_init_fun_decl A.Class{A.cname, A.fields, A.methods} =
+    Function void (runtime_type_init_fn_name cname)
+                 [(Ptr . AsType $ class_type_name cname, Var "this"), (Embed "...", Embed "")]
+                   (Seq $
+                    (Statement $ Decl (Typ "va_list", Var "params")) :
+                    (Statement $ Call (Nam "va_start") [Var "params", Var "this"]) :
+                     map (init_runtime_type) typeParams)
+        where
+          typeParams = Ty.getTypeParameters cname
+          init_runtime_type ty =
+              Assign (Var "this" `Arrow` type_var_ref_name ty) 
+                     (Call (Nam "va_arg") [Var "params", Var "pony_type_t *"])
 
 tracefun_decl :: A.ClassDecl -> CCode Toplevel
 tracefun_decl A.Class{A.cname, A.fields, A.methods} =
@@ -204,17 +222,18 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
                      map (Statement . trace_field) fields)
     where
       trace_field A.Field {A.ftype, A.fname} =
-        let var = (Var "this") `Arrow` (field_name fname)
-        in trace_variable ftype var
+        let field = (Var "this") `Arrow` (field_name fname)
+        in trace_variable ftype field
 
 trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
 trace_variable t var
   | Ty.isActiveRefType  t = pony_traceactor var
-  | Ty.isPassiveRefType t = pony_traceobject var $ class_trace_fn_name t
-  | Ty.isFutureType     t = pony_traceobject var future_trace_fn
-  | Ty.isArrowType      t = pony_traceobject var closure_trace_fn
-  | Ty.isArrayType      t = pony_traceobject var array_trace_fn
-  | Ty.isStreamType     t = pony_traceobject var stream_trace_fn
+  | Ty.isPassiveRefType t = pony_traceobject var (AsExpr . AsLval $ class_trace_fn_name t)
+  | Ty.isFutureType     t = pony_traceobject var (AsExpr . AsLval $ future_trace_fn)
+  | Ty.isArrowType      t = pony_traceobject var (AsExpr . AsLval $ closure_trace_fn)
+  | Ty.isArrayType      t = pony_traceobject var (AsExpr . AsLval $ array_trace_fn)
+  | Ty.isStreamType     t = pony_traceobject var (AsExpr . AsLval $ stream_trace_fn)
+  | Ty.isTypeVar        t = trace_type_var t (var `Dot` (Nam "p"))
   | otherwise =
     Embed $ "/* Not tracing field '" ++ show var ++ "' */"
 
@@ -222,14 +241,23 @@ pony_traceactor :: CCode Lval -> CCode Expr
 pony_traceactor var =
   Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) var]
 
-pony_traceobject :: CCode Lval -> CCode Name -> CCode Expr
+pony_traceobject :: CCode Lval -> CCode Expr -> CCode Expr
 pony_traceobject var f =
-  Call (Nam "pony_traceobject")  [Cast (Ptr void) var, AsExpr $ AsLval f]
+  Call (Nam "pony_traceobject")  [Cast (Ptr void) var, f]
+
+trace_type_var :: Ty.Type -> CCode Lval -> CCode Expr
+trace_type_var t val = 
+    let runtime_type = (Var "this" `Arrow` type_var_ref_name t) in
+    If (BinOp (Nam "==") runtime_type (Var "ENCORE_PRIMITIVE"))
+       (Embed $ "/* Not tracing field '" ++ show val ++ "' */")       
+       (Statement (If (BinOp (Nam "==") runtime_type (Var "ENCORE_ACTIVE"))
+                      (Statement (pony_traceactor val))
+                      (Statement (pony_traceobject val (AsExpr $ runtime_type `Arrow` Nam "trace")))))
 
 runtime_type_decl cname =
     (AssignTL
      (Decl (Typ "pony_type_t", AsLval $ runtime_type_name cname))
-           (Record [AsExpr . AsLval . Nam $ ("ID_"++(Ty.getId cname)),
+           (Record [AsExpr . AsLval $ class_id cname,
                     Call (Nam "sizeof") [AsLval $ class_type_name cname],
                     Int 0,
                     Int 0,

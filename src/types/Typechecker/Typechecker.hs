@@ -125,9 +125,8 @@ instance Checkable Function where
     -- ----------------------------------------------------------
     --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
     typecheck f@(Function {funtype, funparams, funbody}) =
-        do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) funparams
-           ty <- local (addTypeParameters typeParams) $ checkType funtype
-           eParams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) funparams
+        do ty <- checkType funtype
+           eParams <- mapM typecheckParam funparams
            eBody <- local (addParams eParams) $
                           if isVoidType ty
                           then pushTypecheck funbody
@@ -195,11 +194,10 @@ instance Checkable MethodDecl where
     -- -----------------------------------------------------
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(Method {mtype, mparams, mbody, mname}) =
-        do let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) mparams
-           ty <- local (addTypeParameters typeParams) $ checkType mtype
+        do ty <- checkType mtype
            Just thisType <- asks $ varLookup thisName
            when (isMainType thisType && mname == Name "main") checkMainParams
-           eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
+           eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $
                           if isVoidType ty
                           then pushTypecheck mbody
@@ -223,11 +221,9 @@ instance Checkable MethodDecl where
         do Just thisType <- asks $ varLookup thisName
            unless (isActiveRefType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
-           let typeParams = nub $ filter isTypeVar $ concatMap (typeComponents . ptype) mparams
-           ty <- local (addTypeParameters typeParams) $ checkType mtype
-           eMparams <- mapM (\p -> local (addTypeParameters typeParams) $ typecheckParam p) mparams
-           eBody    <- local (addTypeParameters typeParams) $
-                       local (addParams eMparams) $ pushTypecheck mbody
+           ty <- checkType mtype
+           eMparams <- mapM typecheckParam mparams
+           eBody    <- local (addParams eMparams) $ pushTypecheck mbody
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
           typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
