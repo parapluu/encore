@@ -181,7 +181,7 @@ bool actor_run(pony_actor_t* actor)
         return !has_flag(actor, FLAG_UNSCHEDULED);
       }
     }
-    pony_unschedule(actor);
+    pony_unschedule();
   }else{
     while((msg = messageq_pop(&actor->q)) != NULL)
     {
