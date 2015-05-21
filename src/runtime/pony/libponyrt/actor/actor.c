@@ -181,7 +181,7 @@ bool actor_run(pony_actor_t* actor)
         return !has_flag(actor, FLAG_UNSCHEDULED);
       }
     }
-    pony_unschedule(actor);
+    pony_unschedule();
   }else{
     while((msg = messageq_pop(&actor->q)) != NULL)
     {
@@ -429,7 +429,7 @@ void pony_schedule_first(pony_actor_t* actor)
   scheduler_add_first(actor);
 }
 
-void pony_unschedule()
+void pony_unschedule(void)
 {
   if(has_flag(this_actor, FLAG_BLOCKED))
   {

@@ -177,7 +177,7 @@ ATTRIBUTE_MALLOC(void* pony_realloc(void* p, size_t size));
 ATTRIBUTE_MALLOC(void* pony_alloc_final(size_t size, pony_final_fn final));
 
 /// Trigger GC next time the current actor is scheduled
-void pony_triggergc();
+void pony_triggergc(void);
 
 /**
  * If an actor is currently unscheduled, this will reschedule it. This is not
@@ -190,7 +190,7 @@ void pony_schedule(pony_actor_t* actor);
  * The current actor will no longer be scheduled. It will not handle messages
  * on its queue until it is rescheduled.
  */
-void pony_unschedule();
+void pony_unschedule(void);
 
 /**
  * Call this to "become" an actor on a non-scheduler thread, i.e. from outside
@@ -216,26 +216,26 @@ bool pony_poll(pony_actor_t* actor);
  * Call this before sending a message if it has anything in it that can be
  * GCed. Then trace all the GCable items, then call pony_gc_done.
  */
-void pony_gc_send();
+void pony_gc_send(void);
 
 /** Start gc tracing for receiving.
  *
  * Call this when receiving a message if it has anything in it that can be
  * GCed. Then trace all the GCable items, then call pony_gc_done.
  */
-void pony_gc_recv();
+void pony_gc_recv(void);
 
 /** Finish gc tracing for sending.
  *
  * Call this after tracing the GCable contents.
  */
-void pony_send_done();
+void pony_send_done(void);
 
 /** Finish gc tracing for receiving.
  *
  * Call this after tracing the GCable contents.
  */
-void pony_recv_done();
+void pony_recv_done(void);
 
 /** Trace memory
  *
@@ -307,7 +307,7 @@ int pony_start(bool library);
  * true. This returns the exit code, defaulting to zero. This call won't return
  * until the runtime actually terminates.
  */
-int pony_stop();
+int pony_stop(void);
 
 /** Set the exit code.
  *

@@ -18,7 +18,7 @@ bool actor_run(pony_actor_t* actor);
 
 void actor_destroy(pony_actor_t* actor);
 
-pony_actor_t* actor_current();
+pony_actor_t* actor_current(void);
 
 gc_t* actor_gc(pony_actor_t* actor);
 

@@ -351,7 +351,7 @@ void future_block_actor(future_t *fut)
     return;
   }
 
-  pony_unschedule(a);
+  pony_unschedule();
   assert(fut->no_responsibilities < 16);
   fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
 
