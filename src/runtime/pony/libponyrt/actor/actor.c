@@ -429,7 +429,7 @@ void pony_schedule_first(pony_actor_t* actor)
   scheduler_add_first(actor);
 }
 
-void pony_unschedule()
+void pony_unschedule(void)
 {
   if(has_flag(this_actor, FLAG_BLOCKED))
   {
