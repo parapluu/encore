@@ -420,12 +420,6 @@ static void run(scheduler_t* sched)
   while(true)
   {
     // if there are message to process, schedule task runner
-    uint32_t counter = __atomic_load_n(&remaining_tasks, __ATOMIC_RELAXED);
-    if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){
-      unset_unscheduled((pony_actor_t*) this_encore_task);
-      push(sched, (pony_actor_t*) this_encore_task);
-    }
-
     assert(sched == this_scheduler);
     if(actor == NULL)
     {
@@ -453,6 +447,13 @@ static void run(scheduler_t* sched)
 #ifdef LAZY_IMPL
     sched = this_scheduler;
 #endif
+
+    uint32_t counter = __atomic_load_n(&remaining_tasks, __ATOMIC_RELAXED);
+    if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){
+      unset_unscheduled((pony_actor_t*) this_encore_task);
+      push(sched, (pony_actor_t*) this_encore_task);
+    }
+
     pony_actor_t* next = pop_global(sched);
 
     if(reschedule)
