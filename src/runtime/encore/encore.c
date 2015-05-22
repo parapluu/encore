@@ -56,8 +56,9 @@ void actor_unlock(encore_actor_t *actor)
 {
   if (!pony_system_actor()) {
     if (actor->lock) {
-      pthread_mutex_unlock(actor->lock);
+      pthread_mutex_t *lock = actor->lock;
       actor->lock = NULL;
+      pthread_mutex_unlock(lock);
     }
   }
 }
