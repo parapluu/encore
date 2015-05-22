@@ -450,13 +450,13 @@ static void run(scheduler_t* sched)
 
     // Run the current actor and get the next actor.
     bool reschedule = actor_run(actor);
+#ifdef LAZY_IMPL
+    sched = this_scheduler;
+#endif
     pony_actor_t* next = pop_global(sched);
 
     if(reschedule)
     {
-#ifdef LAZY_IMPL
-      sched = this_scheduler;
-#endif
 #ifndef LAZY_IMPL
       actor_unlock((encore_actor_t*)actor);
 #endif
@@ -481,8 +481,7 @@ static void run(scheduler_t* sched)
 static void jump_buffer()
 {
   __atomic_fetch_add(&thread_exit, 1, __ATOMIC_RELAXED);
-  while(__atomic_load_n(&thread_exit,
-        __ATOMIC_RELAXED) < scheduler_count) ;
+  while(__atomic_load_n(&thread_exit, __ATOMIC_RELAXED) < scheduler_count) ;
 }
 
 static void __attribute__ ((noreturn)) jump_origin()
