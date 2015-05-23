@@ -1,26 +1,23 @@
-embed
-  #include <unistd.h>
-end
-
 class Main
+  def foo() : int {
+    0;
+  }
+
   def main() : void
-    let 
+    let
       t = new Test
-    in 
+    in
       {
-        t ! fst();
-	t ! snd();
+        t ! fst(this);
+        t ! snd();
       }
 
 class Test
-  def fst() : void {
-    -- TODO: better "fix" to make sure snd reaches Test before suspend point
-    embed void
-      sleep(1); 
-    end;
+  def fst(m:Main) : void {
     print "Before suspend";
-    suspend; 
+    get m.foo();
+    suspend;
     print "After suspend";
   }
-  def snd() : void 
+  def snd() : void
     print "Interleaving!"
