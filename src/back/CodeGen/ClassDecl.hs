@@ -49,7 +49,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
           StructDecl (AsType $ class_type_name cname) $
                      ((encore_actor_t, Var "_enc__actor") :
                       (map (\ty -> (Ptr pony_type_t, AsLval $ type_var_ref_name ty)) typeParams ++
-                         zip 
+                         zip
                          (map (translate  . A.ftype) fields)
                          (map (AsLval . field_name . A.fname) fields)))
 
@@ -202,7 +202,7 @@ runtime_type_init_fun_decl A.Class{A.cname, A.fields, A.methods} =
         where
           typeParams = Ty.getTypeParameters cname
           init_runtime_type ty =
-              Assign (Var "this" `Arrow` type_var_ref_name ty) 
+              Assign (Var "this" `Arrow` type_var_ref_name ty)
                      (Call (Nam "va_arg") [Var "params", Var "pony_type_t *"])
 
 tracefun_decl :: A.ClassDecl -> CCode Toplevel
@@ -246,10 +246,10 @@ pony_traceobject var f =
   Call (Nam "pony_traceobject")  [Cast (Ptr void) var, f]
 
 trace_type_var :: Ty.Type -> CCode Lval -> CCode Expr
-trace_type_var t val = 
+trace_type_var t val =
     let runtime_type = (Var "this" `Arrow` type_var_ref_name t) in
     If (BinOp (Nam "==") runtime_type (Var "ENCORE_PRIMITIVE"))
-       (Embed $ "/* Not tracing field '" ++ show val ++ "' */")       
+       (Embed $ "/* Not tracing field '" ++ show val ++ "' */")
        (Statement (If (BinOp (Nam "==") runtime_type (Var "ENCORE_ACTIVE"))
                       (Statement (pony_traceactor val))
                       (Statement (pony_traceobject val (AsExpr $ runtime_type `Arrow` Nam "trace")))))
