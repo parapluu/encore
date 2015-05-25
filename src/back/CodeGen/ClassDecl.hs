@@ -198,7 +198,8 @@ runtime_type_init_fun_decl A.Class{A.cname, A.fields, A.methods} =
                    (Seq $
                     (Statement $ Decl (Typ "va_list", Var "params")) :
                     (Statement $ Call (Nam "va_start") [Var "params", Var "this"]) :
-                     map (init_runtime_type) typeParams)
+                    (map (init_runtime_type) typeParams) ++
+                    [(Statement $ Call (Nam "va_end") ([Var "params"]))])
         where
           typeParams = Ty.getTypeParameters cname
           init_runtime_type ty =
