@@ -28,8 +28,4 @@ class Main
       print get pp.getFst();
       print get pp.getSnd();
     };
-     -- Workaround for Github-issue #44'
-     embed void
-       fflush(NULL);
-     end
   }

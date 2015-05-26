@@ -26,8 +26,4 @@ class Main
       assertTrue(get get x.bar());
       assertTrue(get get x.baz());
       print "Done!";
-    -- TODO: Find out why this is needed!
-    embed void
-      fflush(NULL);
-    end
     }
