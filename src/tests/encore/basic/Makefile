@@ -2,7 +2,7 @@ ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
 test: embed_tl.o
-	@./test.sh $(ENCORE_TARGETS)
+	@./test.sh $(ENCORE_SOURCES)
 
 embed_tl.o: embed_tl.c embed_tl.h
 	clang -c embed_tl.c
