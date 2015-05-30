@@ -13,8 +13,8 @@ function run_test {
     # piped into that script. The test is successful iff the script
     # returns normally (exit 0).
 
-    program=$1
-    source=$1.enc
+    source=$1
+    program=${source%.enc}
     # compile and, if successful, run the program:
     output=$(${ENCOREC} $source && ./$program)
     checking_script=./$program.chk
@@ -48,11 +48,12 @@ passed=0
 failed=0
 failed_list=()
 
+# skipped=(async.enc)
 skipped=()
 progs=("$@")
 for rm in "${skipped[@]}"
 do
-    progs=(${progs[@]/$rm})
+    progs=(${progs[@]/#$rm})
 done
 for prog in "${progs[@]}"
 do
