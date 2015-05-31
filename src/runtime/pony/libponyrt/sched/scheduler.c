@@ -399,6 +399,11 @@ static void respond(scheduler_t* sched)
 
   pony_actor_t* actor = pop_global(sched);
 
+  if (actor == (pony_actor_t*) this_encore_task) {
+    actor = pop_global(sched);
+    push_first(sched, (pony_actor_t*) this_encore_task);
+  }
+
   if(actor != NULL)
   {
     assert(thief->waiting == 1);
