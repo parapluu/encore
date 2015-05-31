@@ -46,14 +46,21 @@ static void current_actor_dec(gc_t* gc)
   }
 }
 
-void gc_acquireactor(pony_actor_t *current, heap_t* heap, gc_t *gc, pony_actor_t *actor)
+void gc_acquireactor(pony_actor_t *current, heap_t* heap, gc_t *gc,
+        pony_actor_t *actor)
 {
   (void)heap;
   if (current != actor) {
-    actorref_t* aref = actormap_getorput(&acquire, actor, 0);
+    actorref_t* aref = actormap_getorput(&gc->foreign, actor, gc->mark);
+    actorref_t* aquire_aref = actormap_getorput(&acquire, actor, 0);
     if(!actorref_marked(aref, gc->mark)) {
       actorref_mark(aref, gc->mark);
       actorref_inc(aref);
+
+      gc->delta = deltamap_update(gc->delta,
+        actorref_actor(aref), actorref_rc(aref));
+
+      actorref_inc(aquire_aref);
     }
   }
 }
@@ -70,12 +77,28 @@ void gc_acquireobject(pony_actor_t* current, heap_t* heap, gc_t* gc,
 
   pony_actor_t* actor = heap_owner(chunk);
   if (current != actor) {
-    heap_base(chunk, &p);
-    actorref_t* aref = actormap_getorput(&acquire, actor, 0);
-    object_t* obj = actorref_getorput(aref, p, 0);
+    size_t objsize = heap_base(chunk, &p);
+    actorref_t* aref = actormap_getorput(&gc->foreign, actor, gc->mark);
+    actorref_t* aquire_aref = actormap_getorput(&acquire, actor, 0);
+    if(!actorref_marked(aref, gc->mark)) {
+      actorref_mark(aref, gc->mark);
+      actorref_inc(aref);
+
+      gc->delta = deltamap_update(gc->delta,
+        actorref_actor(aref), actorref_rc(aref));
+
+      actorref_inc(aquire_aref);
+    }
+
+    object_t* obj = actorref_getorput(aref, p, gc->mark);
+    object_t* aquire_obj = actorref_getorput(aquire_aref, p, 0);
     if(!object_marked(obj, gc->mark)) {
+      if(object_rc(obj) == 0)
+        heap_used(heap, objsize);
+
       object_mark(obj, gc->mark);
       object_inc(obj);
+      object_inc(aquire_obj);
       if (f) {
         stack = gcstack_push(stack, p);
         stack = gcstack_push(stack, f);

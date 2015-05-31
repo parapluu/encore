@@ -22,7 +22,7 @@ pony_type_t* encore_task_type;
 mpmcq_t taskq;
 uint32_t remaining_tasks;
 
-pony_type_t* const task_gettype(){
+pony_type_t* task_gettype(){
   assert(encore_task_type!=NULL);
   return encore_task_type;
 }

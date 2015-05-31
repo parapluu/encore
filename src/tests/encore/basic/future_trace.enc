@@ -1,0 +1,24 @@
+passive class Node
+  e : int
+  next : Node
+
+class Agent
+  def getNode() : Node {
+    let n = new Node in {n.e = 1; n};
+  }
+
+  def f() : Node {
+    let
+      a = new Agent
+      n = get a.getNode()
+    in {
+      n.next = new Node;
+      n
+    }
+  }
+
+class Main
+  def main() : void {
+    get (new Agent).f();
+    print 0;
+  }

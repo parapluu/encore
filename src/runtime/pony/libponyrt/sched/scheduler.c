@@ -139,7 +139,7 @@ static void send_msg(uint32_t to, sched_msg_t msg, uint64_t arg)
   pony_msgi_t* m = (pony_msgi_t*)pony_alloc_msg(
     POOL_INDEX(sizeof(pony_msgi_t)), msg);
 
-  m->i = arg;
+  m->i = (intptr_t) arg;
   messageq_push(&scheduler[to].mq, &m->msg);
 }
 
@@ -177,7 +177,7 @@ static void read_msg(scheduler_t* sched)
       case SCHED_CNF:
       {
         // Echo the token back as ACK(token).
-        send_msg(0, SCHED_ACK, m->i);
+        send_msg(0, SCHED_ACK, (uint64_t) m->i);
         break;
       }
 
