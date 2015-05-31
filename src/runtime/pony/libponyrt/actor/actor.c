@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 800
-#include "ucontext.h"
+#include <ucontext.h>
 #include "actor.h"
 #include "messageq.h"
 #include "../sched/mpmcq.h"
@@ -25,7 +25,6 @@ typedef struct pony_actor_t
   pony_type_t* type;
   messageq_t q;
   pony_msg_t* continuation;
-  struct pony_actor_t* dormant_next;
 
   // keep things accessed by other actors on a separate cache line
   __pony_spec_align__(heap_t heap, 64);
@@ -152,7 +151,6 @@ bool actor_run(pony_actor_t* actor)
       actor->type->trace(actor);
 
     gc_handlestack();
-    post_gc_mark(&actor->gc);
     gc_sweep(&actor->gc);
     gc_done(&actor->gc);
     heap_endgc(&actor->heap);
@@ -450,12 +448,12 @@ bool pony_poll(pony_actor_t* actor)
   return actor_run(actor);
 }
 
-bool pony_system_actor()
+bool pony_system_actor(pony_actor_t *actor)
 {
-  return has_flag(this_actor, FLAG_SYSTEM);
+  return has_flag(actor, FLAG_SYSTEM);
 }
 
-bool pony_reschedule()
+bool pony_reschedule(pony_actor_t *actor)
 {
-  return !has_flag(this_actor, FLAG_UNSCHEDULED);
+  return !has_flag(actor, FLAG_UNSCHEDULED);
 }

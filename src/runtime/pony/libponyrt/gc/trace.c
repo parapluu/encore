@@ -35,6 +35,14 @@ void pony_gc_acquire()
   trace_actor = gc_acquireactor;
 }
 
+void pony_acquire_done()
+{
+  pony_actor_t* actor = actor_current();
+  gc_handlestack();
+  gc_sendacquire();
+  gc_done(actor_gc(actor));
+}
+
 void pony_send_done()
 {
   pony_actor_t* actor = actor_current();

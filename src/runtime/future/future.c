@@ -19,9 +19,10 @@
 
 extern pony_actor_t *actor_current();
 extern pony_actor_t* task_runner_current();
-void pony_schedule_first(pony_actor_t* actor);
+extern void pony_schedule_first(pony_actor_t* actor);
 
 extern void pony_gc_acquire();
+extern void pony_acquire_done();
 
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
@@ -89,7 +90,6 @@ struct future
   future_t *parent;
   closure_entry_t *children;
   actor_list *awaited_actors;
-  future_t *next;
 };
 
 static inline void future_gc_send_value(future_t *fut);
@@ -104,7 +104,11 @@ pony_type_t future_type = {
   NULL,
   NULL,
   NULL,
-  NULL
+  (void(*)(void *))&future_finalizer,
+  0,
+  NULL,
+  NULL,
+  {}
 };
 
 pony_type_t *future_get_type(future_t *fut){
@@ -122,20 +126,6 @@ static void trace_closure_entry(void *p)
 
 void future_trace(void* p)
 {
-  /// Currently this does not block -- as futures grow monotonically,
-  /// concurrent access should not be a problem.
-  perr("future_trace");
-
-  future_t* fut = (future_t*)p;
-
-  if (future_fulfilled(fut)) {
-    if (fut->type == ENCORE_ACTIVE) {
-      pony_traceactor(fut->value.p);
-    } else if (fut->type != ENCORE_PRIMITIVE) {
-      pony_traceobject(fut->value.p, fut->type->trace);
-    }
-  }
-
   // TODO before we deal with deadlocking and closure with attached semantics
   // any actor in responsibilities also exists in children, so only trace children
   // for (int i = 0; i < fut->no_responsibilities; ++i) {
@@ -168,9 +158,6 @@ future_t *future_mk(pony_type_t *type)
 
   pthread_mutex_init(&fut->lock, NULL);
 
-  fut->next = actor->my_future;
-  actor->my_future = fut;
-
   return fut;
 }
 
@@ -200,7 +187,6 @@ encore_arg_t future_read_value(future_t *fut)
 
 void future_fulfil(future_t *fut, encore_arg_t value)
 {
-  perr("future_fulfil");
   assert(fut->fulfilled == false);
 
   BLOCK;
@@ -209,7 +195,6 @@ void future_fulfil(future_t *fut, encore_arg_t value)
 
   future_gc_send_value(fut);
 
-  // Responsabilities: actors that were blocked (unfulfilled future) and should be scheduled to continue
   for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
     switch (e.type) {
@@ -275,7 +260,6 @@ void future_fulfil(future_t *fut, encore_arg_t value)
       pony_gc_recv();
       pony_trace(current);
       pony_traceactor((pony_actor_t *)current->actor);
-      pony_trace(current->next);
       pony_recv_done();
 
       current = current->next;
@@ -289,6 +273,7 @@ static void acquire_future_value(future_t *fut)
 {
   pony_gc_acquire();
   future_gc_trace_value(fut);
+  pony_acquire_done();
 }
 
 // ===============================================================
@@ -357,6 +342,7 @@ void future_block_actor(future_t *fut)
 
   encore_actor_t *actor = (encore_actor_t*) a;
 
+  assert(actor->lock == NULL);
   actor->lock = &fut->lock;
   actor_block(actor);
 }
@@ -385,9 +371,9 @@ void future_await(future_t *fut)
   pony_gc_send();
   pony_trace(entry);
   pony_traceactor((pony_actor_t *)entry->actor);
-  pony_trace(entry->next);
   pony_send_done();
 
+  assert(actor->lock == NULL);
   actor->lock = &fut->lock;
   actor_await(&ctx);
 }
@@ -395,16 +381,6 @@ void future_await(future_t *fut)
 void future_finalizer(future_t *fut)
 {
   future_gc_recv_value(fut);
-}
-
-future_t * future_get_next(future_t* fut)
-{
-  return fut->next;
-}
-
-future_t * future_set_next(future_t* fut, future_t *next)
-{
-  return fut->next = next;
 }
 
 static inline void future_gc_send_value(future_t *fut)
