@@ -349,20 +349,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            else
                                Assign (Decl (Ptr $ Typ "future_t", Var the_fut_name))
                                       (Call (Nam "future_mk") ([runtime_type . Ty.getResultType . A.getType $ call]))
+                       the_fut_trace = if Ty.isStreamType $ A.getType call then
+                                           (Statement $ Call (Nam "pony_traceobject")
+                                                             [Var the_fut_name, AsLval stream_trace_fn])
+                                       else
+                                           (Statement $ Call (Nam "pony_traceobject")
+                                                             [Var the_fut_name, future_type_rec_name `Dot` Nam "trace"])
                    the_arg_name <- Ctx.gen_named_sym "arg"
-                   let no_args = length args
-                   let the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
-                   let the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int (calc_pool_size_for_msg (no_args + 1)), AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
-                   let targs_types = map (translate . A.getType) args
                    ctx <- get
-                   let Just mtd = lookup_method (Ctx.class_table ctx) (A.getType target) name
-                   let expected_types = map A.ptype (A.mparams mtd)
-                   let casted_arguments = zipWith3 cast_arguments expected_types arg_names targs_types
-                   let arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] casted_arguments
+                   let no_args = length args
+                       the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
+                       the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int (calc_pool_size_for_msg (no_args + 1)), AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
+                       targs_types = map (translate . A.getType) args
+                       Just mtd = lookup_method (Ctx.class_table ctx) (A.getType target) name
+                       expected_types = map A.ptype (A.mparams mtd)
+                       casted_arguments = zipWith3 cast_arguments expected_types arg_names targs_types
+                       arg_assignments = zipWith (\i tmp_expr -> Assign ((Var the_arg_name) `Arrow` (Nam $ "f"++show i)) tmp_expr) [1..no_args] casted_arguments
 
-                   let args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
-                   let install_future = Assign (Arrow (Var the_arg_name) (Nam "_fut")) (Var the_fut_name)
-                   let the_arg_init = Seq $ (map Statement arg_assignments) ++ [install_future]
+                       args_types = zip (map (\i -> (Arrow (Var the_arg_name) (Nam $ "f"++show i))) [1..no_args]) (map A.getType args)
+                       install_future = Assign (Arrow (Var the_arg_name) (Nam "_fut")) (Var the_fut_name)
+                       the_arg_init = Seq $ (map Statement arg_assignments) ++ [install_future]
                    the_call <- return (Call (Nam "pony_sendv")
                                                [Cast (Ptr pony_actor_t) $ AsExpr ntarget,
                                                 Cast (Ptr pony_msg_t) $ AsExpr $ Var the_arg_name])
@@ -372,7 +378,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  [the_fut_decl,
                                   the_arg_decl,
                                   the_arg_init] ++
-                                  gc_send args_types expected_types (Statement $ Call (Nam "pony_traceobject") [Var the_fut_name, future_type_rec_name `Dot` Nam "trace"]) ++
+                                  gc_send args_types expected_types the_fut_trace ++
                                  [Statement the_call])
             cast_arguments expected targ targ_type
                 | Ty.isTypeVar expected = as_encore_arg_t targ_type $ AsExpr targ
@@ -644,9 +650,9 @@ tracefun_call (a, t) expected_type
     | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor") [Cast (Ptr pony_actor_t) (wrap a)]
     | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [wrap a, AsLval $ class_trace_fn_name t]
     | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
-    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "closure_trace"]
-    | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "array_trace"]
-    | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ Nam "scons_trace"]
+    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ closure_trace_fn]
+    | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ array_trace_fn]
+    | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ stream_trace_fn]
     | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
     where
       wrap
