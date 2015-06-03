@@ -65,6 +65,6 @@ bool stream_eos(stream_t *s);
 /**
  * Trace function for streams
  */
-void scons_trace(void *p);
+void stream_trace(void *p);
 
 #endif

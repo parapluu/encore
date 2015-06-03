@@ -34,6 +34,10 @@ pony_type_t scons_type =
    NULL
 };
 
+void stream_trace(void *p){
+  future_trace(p);
+}
+
 static struct scons *scons_mk(pony_type_t *type){
   struct scons *scons = pony_alloc(sizeof(struct scons));
   scons->eos = false;

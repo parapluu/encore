@@ -215,7 +215,7 @@ array_trace_fn :: CCode Name
 array_trace_fn = Nam "array_trace"
 
 stream_trace_fn :: CCode Name
-stream_trace_fn = Nam "scons_trace"
+stream_trace_fn = Nam "stream_trace"
 
 future_type_rec_name :: CCode Name
 future_type_rec_name = Nam $ "future_type"
