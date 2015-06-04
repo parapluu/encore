@@ -12,6 +12,7 @@ import CodeGen.CCodeNames
 import CodeGen.MethodDecl
 import CodeGen.ClassTable
 import CodeGen.Type
+import CodeGen.Trace (trace_variable)
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -225,35 +226,6 @@ tracefun_decl A.Class{A.cname, A.fields, A.methods} =
       trace_field A.Field {A.ftype, A.fname} =
         let field = (Var "this") `Arrow` (field_name fname)
         in trace_variable ftype field
-
-trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
-trace_variable t var
-  | Ty.isActiveRefType  t = pony_traceactor var
-  | Ty.isPassiveRefType t = pony_traceobject var (AsExpr . AsLval $ class_trace_fn_name t)
-  | Ty.isFutureType     t = pony_traceobject var (AsExpr . AsLval $ future_trace_fn)
-  | Ty.isArrowType      t = pony_traceobject var (AsExpr . AsLval $ closure_trace_fn)
-  | Ty.isArrayType      t = pony_traceobject var (AsExpr . AsLval $ array_trace_fn)
-  | Ty.isStreamType     t = pony_traceobject var (AsExpr . AsLval $ stream_trace_fn)
-  | Ty.isTypeVar        t = trace_type_var t (var `Dot` (Nam "p"))
-  | otherwise =
-    Embed $ "/* Not tracing field '" ++ show var ++ "' */"
-
-pony_traceactor :: CCode Lval -> CCode Expr
-pony_traceactor var =
-  Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) var]
-
-pony_traceobject :: CCode Lval -> CCode Expr -> CCode Expr
-pony_traceobject var f =
-  Call (Nam "pony_traceobject")  [Cast (Ptr void) var, f]
-
-trace_type_var :: Ty.Type -> CCode Lval -> CCode Expr
-trace_type_var t val =
-    let runtime_type = (Var "this" `Arrow` type_var_ref_name t) in
-    If (BinOp (Nam "==") runtime_type (Var "ENCORE_PRIMITIVE"))
-       (Embed $ "/* Not tracing field '" ++ show val ++ "' */")
-       (Statement (If (BinOp (Nam "==") runtime_type (Var "ENCORE_ACTIVE"))
-                      (Statement (pony_traceactor val))
-                      (Statement (pony_traceobject val (AsExpr $ runtime_type `Arrow` Nam "trace")))))
 
 runtime_type_decl cname =
     (AssignTL

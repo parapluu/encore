@@ -146,4 +146,16 @@ void call_respond_with_current_scheduler();
 // task handler when chaining from an async future
 encore_arg_t default_task_handler(void* env, void* dep);
 
+static inline void encore_trace_polymorphic_variable(pony_type_t *type,
+    encore_arg_t x)
+{
+  if (type != ENCORE_PRIMITIVE) {
+    if (type == ENCORE_ACTIVE) {
+      pony_traceactor(x.p);
+    } else {
+      pony_traceobject(x.p, type->trace);
+    }
+  }
+}
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

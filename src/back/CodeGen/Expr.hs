@@ -7,6 +7,7 @@ module CodeGen.Expr () where
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.Type
+import CodeGen.Trace (trace_variable)
 import qualified CodeGen.Context as Ctx
 
 import qualified Parser.Parser as P -- for string interpolation in the embed expr
@@ -646,19 +647,13 @@ gc_send as expected_types fut_trace =
      Embed $ "// --- GC on sending ----------------------------------------",
      Embed $ ""]
 
-tracefun_call (a, t) expected_type
-    | Ty.isActiveRefType  t = Statement $ Call (Nam "pony_traceactor") [Cast (Ptr pony_actor_t) (wrap a)]
-    | Ty.isPassiveRefType t = Statement $ Call (Nam "pony_traceobject") [wrap a, AsLval $ class_trace_fn_name t]
-    | Ty.isFutureType     t = Statement $ Call (Nam "pony_traceobject") [a, future_type_rec_name `Dot` Nam "trace"]
-    | Ty.isArrowType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ closure_trace_fn]
-    | Ty.isArrayType      t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ array_trace_fn]
-    | Ty.isStreamType     t = Statement $ Call (Nam "pony_traceobject") [a, AsLval $ stream_trace_fn]
-    | otherwise             = Embed $ "/* Not tracing '" ++ show a ++ "' */"
-    where
-      wrap
-          | Ty.isTypeVar expected_type = from_encore_arg_t (translate t) . AsExpr
-          | otherwise = id
---TODO: add cases for future type, closure etc.
+tracefun_call :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
+tracefun_call (a, t) expected_type =
+  let
+    need_to_unwrap = Ty.isTypeVar expected_type && not (Ty.isTypeVar t)
+    var = if need_to_unwrap then a `Dot` Nam "p" else a
+  in
+    Statement $ trace_variable t var
 
 -- Note: the 2 is for the 16 bytes of payload in pony_msg_t
 -- If the size of this struct changes, so must this calculation

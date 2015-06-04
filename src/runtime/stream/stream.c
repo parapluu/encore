@@ -22,16 +22,20 @@ void scons_trace(void *p){
   }
 }
 
-pony_type_t scons_type =
-  {ID_SCONS,
-   sizeof(struct scons),
-   0,
-   0,
-   scons_trace,
-   NULL,
-   NULL,
-   NULL,
-   NULL
+static pony_type_t scons_type = {
+  ID_SCONS,
+  sizeof(struct scons),
+  0,
+  0,
+  scons_trace,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  0,
+  NULL,
+  NULL,
+  {}
 };
 
 void stream_trace(void *p){
