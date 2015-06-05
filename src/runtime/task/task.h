@@ -14,7 +14,7 @@ extern __thread encore_actor_t* this_encore_task;
 // setup runtime task type
 // ==================================================================
 void task_setup(pony_type_t const* const type);
-pony_type_t* const task_gettype();
+pony_type_t* task_gettype();
 
 // ==================================================================
 // create, attach future, schedule and run task

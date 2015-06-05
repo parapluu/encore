@@ -21,7 +21,7 @@ extern void unset_unscheduled(pony_actor_t* a);
 extern bool is_unscheduled(pony_actor_t*);
 __thread encore_actor_t* this_encore_task;
 
-extern bool pony_reschedule();
+extern bool pony_reschedule(pony_actor_t *actor);
 
 typedef enum
 {
@@ -102,6 +102,7 @@ static void push_first(scheduler_t* sched, pony_actor_t* actor)
   if(use_mpmcq) {
     puts("push_first not support used with mpmcq");
     assert(0);
+    exit(-1);
     // mpmcq_push_single(&sched->q, actor);
   } else {
     pony_actor_t* tail = sched->tail;
@@ -138,7 +139,7 @@ static void send_msg(uint32_t to, sched_msg_t msg, uint64_t arg)
   pony_msgi_t* m = (pony_msgi_t*)pony_alloc_msg(
     POOL_INDEX(sizeof(pony_msgi_t)), msg);
 
-  m->i = arg;
+  m->i = (intptr_t) arg;
   messageq_push(&scheduler[to].mq, &m->msg);
 }
 
@@ -176,7 +177,7 @@ static void read_msg(scheduler_t* sched)
       case SCHED_CNF:
       {
         // Echo the token back as ACK(token).
-        send_msg(0, SCHED_ACK, m->i);
+        send_msg(0, SCHED_ACK, (uint64_t) m->i);
         break;
       }
 
@@ -484,6 +485,8 @@ static void run(scheduler_t* sched)
   }
 }
 
+static __pony_thread_local ucontext_t *origin;
+
 static void jump_buffer()
 {
   __atomic_fetch_add(&thread_exit, 1, __ATOMIC_RELAXED);
@@ -501,14 +504,14 @@ static void __attribute__ ((noreturn)) jump_origin()
   makecontext(&ctx, (void(*)(void))&jump_buffer, 0);
   setcontext(&ctx);
   assert(0);
-  exit(0);
+  exit(-1);
 }
 
 __attribute__ ((noreturn))
 void public_run(pony_actor_t *actor)
 {
   assert(this_scheduler);
-  if (pony_reschedule()) {
+  if (pony_reschedule(actor)) {
     push(this_scheduler, actor);
   }
   actor_unlock((encore_actor_t *)actor);
@@ -529,8 +532,7 @@ static void *run_thread(void *arg)
 
 #ifdef LAZY_IMPL
   context ctx;
-  this_context = &ctx;
-  root = &ctx.ctx;
+  root_context = this_context = &ctx;
   ucontext_t ucontext;
   origin = &ucontext;
 

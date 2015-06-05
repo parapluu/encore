@@ -33,9 +33,9 @@ static void actor_resume_context(encore_actor_t *actor, ucontext_t *ctx);
 static void actor_resume_context(encore_actor_t *actor, ucontext_t *ctx);
 #endif
 
-extern void public_run(pony_actor_t *actor, bool reschedule);
+extern void public_run(pony_actor_t *actor);
 
-extern bool pony_system_actor();
+extern bool pony_system_actor(pony_actor_t *actor);
 
 #define MAX_IN_POOL 4
 
@@ -48,13 +48,12 @@ inline static void assert_swap(ucontext_t *old, ucontext_t *new)
 static __pony_thread_local context *context_pool = NULL;
 static __pony_thread_local unsigned int available_context = 0;
 
+__pony_thread_local context *root_context;
 __pony_thread_local context *this_context;
-__pony_thread_local ucontext_t *origin;
-__pony_thread_local ucontext_t *root;
 
 void actor_unlock(encore_actor_t *actor)
 {
-  if (!pony_system_actor()) {
+  if (!pony_system_actor((pony_actor_t*) actor)) {
     if (actor->lock) {
       pthread_mutex_t *lock = actor->lock;
       actor->lock = NULL;
@@ -65,7 +64,8 @@ void actor_unlock(encore_actor_t *actor)
 
 void pony_sendargs(pony_actor_t* to, uint32_t id, int argc, char** argv)
 {
-  pony_main_msg_t* m = (pony_main_msg_t*)pony_alloc_msg(0, id);
+  pony_main_msg_t* m = (pony_main_msg_t*)pony_alloc_msg(
+          POOL_INDEX(sizeof(pony_main_msg_t)), id);
   m->argc = argc;
   m->argv = argv;
 
@@ -113,10 +113,10 @@ static void reclaim_page(encore_actor_t *a)
 
 void *get_local_page_stack()
 {
-    local_page = local_page ? local_page : pop_page();
-    assert(local_page);
-    assert(local_page->stack);
-    return local_page->stack;
+  local_page = local_page ? local_page : pop_page();
+  assert(local_page);
+  assert(local_page->stack);
+  return local_page->stack;
 }
 
 void actor_set_run_to_completion(encore_actor_t *actor)
@@ -135,7 +135,7 @@ bool actor_run_to_completion(encore_actor_t *actor)
 
 static context *pop_context(encore_actor_t *actor)
 {
-  static context *c;
+  context *c;
   if (available_context == 0) {
     context_pool = malloc(sizeof *context_pool);
     context_pool->next = NULL;
@@ -150,7 +150,6 @@ static context *pop_context(encore_actor_t *actor)
   makecontext(&context_pool->ctx, (void(*)(void))public_run, 1, actor);
   c = context_pool;
   context_pool = c->next;
-  assert(c->ctx.uc_stack.ss_sp);
   return c;
 }
 
@@ -167,7 +166,7 @@ static void clean_pool()
 {
 #ifndef LAZY_IMPL
 
-  static stack_page *page, *next;
+  stack_page *page, *next;
   while (available_pages > MAX_IN_POOL) {
     available_pages--;
     page = stack_pool;
@@ -179,7 +178,7 @@ static void clean_pool()
 
 #else
 
-  static context *ctx, *next;
+  context *ctx, *next;
   while (available_context > MAX_IN_POOL) {
     available_context--;
     ctx = context_pool;
@@ -192,14 +191,11 @@ static void clean_pool()
 #endif
 }
 
-static void assert_this_context(context *old)
+static void force_thread_local_variable_access(context *old_this_context,
+    context *old_root_context)
 {
-  assert(this_context == old);
-}
-
-static void force_thread_local_variable_access(context *old)
-{
-  this_context = old;
+  this_context = old_this_context;
+  root_context = old_root_context;
 }
 
 void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
@@ -218,15 +214,18 @@ void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
 
 #else
 
-  context *old = this_context;
+  context *old_this_context = this_context;
+  context *old_root_context = root_context;
+  encore_actor_t *old_actor = actor;
   this_context = pop_context(actor);
   assert_swap(ctx, &this_context->ctx);
 #if defined(PLATFORM_IS_MACOSX)
-  force_thread_local_variable_access(old);
-  assert_this_context(old);
+  force_thread_local_variable_access(old_this_context, old_root_context);
 #else
-  this_context = old;
+  this_context = old_this_context;
+  root_context = old_root_context;
 #endif
+  pony_become((pony_actor_t *) old_actor);
 
 #endif
 }
@@ -288,7 +287,7 @@ static void actor_resume_context(encore_actor_t* actor, ucontext_t *ctx)
 
 #else
 
-  if (&this_context->ctx != root) {
+  if (this_context != root_context) {
     push_context(this_context);
   }
   setcontext(ctx);
@@ -323,29 +322,6 @@ bool gc_disabled()
 {
   encore_actor_t *actor = (encore_actor_t*) actor_current();
   return actor->suspend_counter > 0 || actor->await_counter > 0;
-}
-
-void post_gc_mark(gc_t* gc)
-{
-  encore_actor_t *actor = (encore_actor_t*) actor_current();
-  assert(actor);
-  future_t *prev = NULL;
-  future_t *cur = actor->my_future;
-  future_t *next;
-  while(cur) {
-    next = future_get_next(cur);
-    if (objectmap_getobject(&gc->local, cur) == NULL) {
-      if (prev == NULL) {
-        actor->my_future = next;
-      } else {
-        future_set_next(prev, next);
-      }
-      future_finalizer(cur);
-    } else {
-      prev = cur;
-    }
-    cur = next;
-  }
 }
 
 encore_actor_t *encore_create(pony_type_t *type)

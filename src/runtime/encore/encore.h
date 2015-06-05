@@ -6,7 +6,7 @@
 
 #define LAZY_IMPL
 
-#define Stack_Size 64*1024
+#define Stack_Size 8*1024*1024
 typedef struct ctx_wrapper {
   ucontext_t* ctx;
   void* uc_link;
@@ -21,8 +21,7 @@ typedef struct context {
   struct context *next;
 } context;
 
-extern __pony_thread_local ucontext_t *root;
-extern __pony_thread_local ucontext_t *origin;
+extern __pony_thread_local context *root_context;
 extern __pony_thread_local context *this_context;
 
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
@@ -39,8 +38,6 @@ typedef struct pony_main_msg_t
   int argc;
   char** argv;
 } pony_main_msg_t;
-
-
 
 typedef union
 {
@@ -106,12 +103,11 @@ struct encore_actor
   bool resume;
   int await_counter;
   int suspend_counter;
-  future_t *my_future;
   pthread_mutex_t *lock;
 #ifndef LAZY_IMPL
   ucontext_t ctx;
   ucontext_t home_ctx;
-  bool run_to_completion;
+  volatile bool run_to_completion;
   stack_page *page;
 #else
   ucontext_t *saved;
