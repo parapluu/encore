@@ -50,10 +50,14 @@ failed_list=()
 
 skipped=()
 
-mem=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-if (( $mem < 3000000 ))
+os=$(uname -s)
+if [ $os == "Linux" ]
 then
-    skipped+=(largestream.enc)
+    mem=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    if (( $mem < 3000000 ))
+    then
+        skipped+=(largestream.enc)
+    fi
 fi
 
 progs=("$@")
