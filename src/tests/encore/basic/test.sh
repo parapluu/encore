@@ -48,8 +48,18 @@ passed=0
 failed=0
 failed_list=()
 
-# skipped=(async.enc)
 skipped=()
+
+os=$(uname -s)
+if [ $os == "Linux" ]
+then
+    mem=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    if (( $mem < 3000000 ))
+    then
+        skipped+=(largestream.enc)
+    fi
+fi
+
 progs=("$@")
 for rm in "${skipped[@]}"
 do

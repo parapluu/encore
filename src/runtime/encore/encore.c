@@ -191,6 +191,7 @@ static void clean_pool()
 #endif
 }
 
+__attribute__ ((noinline))
 static void force_thread_local_variable_access(context *old_this_context,
     context *old_root_context)
 {
