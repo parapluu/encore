@@ -191,13 +191,16 @@ static void clean_pool()
 #endif
 }
 
+#if defined(PLATFORM_IS_MACOSX)
 __attribute__ ((noinline))
 static void force_thread_local_variable_access(context *old_this_context,
     context *old_root_context)
 {
   this_context = old_this_context;
   root_context = old_root_context;
+  this_context->ctx.uc_stack.ss_sp = old_this_context->ss_sp;
 }
+#endif
 
 void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
 {
@@ -214,6 +217,10 @@ void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
   assert_swap(ctx, &actor->home_ctx);
 
 #else
+
+#if defined(PLATFORM_IS_MACOSX)
+  this_context->ss_sp = this_context->ctx.uc_stack.ss_sp;
+#endif
 
   context *old_this_context = this_context;
   context *old_root_context = root_context;

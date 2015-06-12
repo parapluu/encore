@@ -7,10 +7,6 @@
 #define LAZY_IMPL
 
 #define Stack_Size 8*1024*1024
-typedef struct ctx_wrapper {
-  ucontext_t* ctx;
-  void* uc_link;
-} ctx_wrapper;
 
 #include <platform.h>
 #include <pony.h>
@@ -19,6 +15,9 @@ typedef struct ctx_wrapper {
 typedef struct context {
   ucontext_t ctx;
   struct context *next;
+#if defined(PLATFORM_IS_MACOSX)
+  void *ss_sp;
+#endif
 } context;
 
 extern __pony_thread_local context *root_context;
