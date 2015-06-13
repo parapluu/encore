@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 {-# OPTIONS_GHC -Werror #-}
@@ -165,7 +164,8 @@ foldr f acc e =
     in f e childResult
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
+foldrAll f e Program{functions, classes} =
+  [map (foldFunction f e) functions] ++ (map (foldClass f e) classes)
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
@@ -185,9 +185,10 @@ extendAccum f acc0 e =
       f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Program bundle etl imps funs' classes')
+extendAccumProgram f acc0 p@Program{functions, classes} =
+  (acc2, p{functions = funs', classes = classes'})
     where
-      (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
+      (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
       extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
           where
             (acc', funbody') = extendAccum f acc funbody
@@ -204,8 +205,8 @@ filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program _ _ _ funs classes) =
-    List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
+extractTypes (Program{functions, classes}) =
+    List.nub $ concat $ concatMap extractFunctionTypes functions ++ concatMap extractClassTypes classes
     where
       extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
       extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)

@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 {-|
 
 The abstract syntax tree produced by the parser. Each node carries
@@ -17,11 +15,14 @@ import Identifiers
 import Types
 import AST.Meta hiding(Closure, Async)
 
-data Program = Program {bundle :: BundleDecl, 
-                        etl :: EmbedTL, 
-                        imports :: [ImportDecl], 
-                        functions :: [Function], 
-                        classes :: [ClassDecl]} deriving(Show)
+data Program = Program {
+  bundle :: BundleDecl,
+  etl :: EmbedTL,
+  imports :: [ImportDecl],
+  functions :: [Function],
+  traits :: [Trait],
+  classes :: [ClassDecl]
+} deriving (Show)
 
 class HasMeta a where
     getMeta :: a -> Meta a
@@ -91,9 +92,24 @@ instance HasMeta ClassDecl where
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
-data FieldDecl = Field {fmeta :: Meta FieldDecl, 
-                        fname :: Name, 
-                        ftype :: Type} deriving(Show, Eq)
+data Trait = Trait {
+  trait_meta :: Meta Trait,
+  trait_name :: String,
+  trait_fields :: [FieldDecl],
+  trait_methods :: [MethodDecl]
+} deriving (Show, Eq)
+
+instance HasMeta Trait where
+  getMeta = trait_meta
+  setMeta t m = t{trait_meta = m}
+  setType = error "AST.hs HasMeta Trait"
+
+data FieldDecl = Field {fmeta :: Meta FieldDecl,
+                        fname :: Name,
+                        ftype :: Type} deriving(Show)
+
+instance Eq FieldDecl where
+  a == b = (fname a) == (fname b)
 
 instance HasMeta FieldDecl where
     getMeta = fmeta
@@ -111,15 +127,18 @@ data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                           mname   :: Name,
                           mtype   :: Type,
                           mparams :: [ParamDecl],
-                          mbody   :: Expr} 
+                          mbody   :: Expr}
                 | StreamMethod {mmeta   :: Meta MethodDecl,
                                 mname   :: Name,
                                 mtype   :: Type,
                                 mparams :: [ParamDecl],
-                                mbody   :: Expr} deriving (Show, Eq)
+                                mbody   :: Expr} deriving (Show)
 
 isStreamMethod StreamMethod{} = True
 isStreamMethod _ = False
+
+instance Eq MethodDecl where
+  a == b = (mname a) == (mname b)
 
 instance HasMeta MethodDecl where
     getMeta = mmeta

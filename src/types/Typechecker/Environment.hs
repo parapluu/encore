@@ -1,6 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
-{-| 
+{-|
 
 The environment used by "Typechecker.Typechecker". Contains a
 class table and a list of local name-type bindings and
@@ -9,15 +7,17 @@ typevar-type bindings for doing lookups, as well as the
 
 -}
 
-module Typechecker.Environment(Environment, 
-                               buildEnvironment, 
-                               classLookup, 
-                               classTypeLookup, 
-                               classTypeParameterLookup, 
-                               methodLookup, 
-                               fieldLookup, 
+module Typechecker.Environment(Environment,
+                               buildEnvironment,
+                               classLookup,
+                               classTypeLookup,
+                               classTypeParameterLookup,
+                               methodLookup,
+                               fieldLookup,
                                varLookup,
                                isLocal,
+                               isInMain,
+                               isMainMethod,
                                typeVarLookup,
                                extendEnvironment,
                                addTypeParameters,
@@ -31,6 +31,7 @@ module Typechecker.Environment(Environment,
 
 import Data.List
 import Data.Maybe
+import Control.Monad.Reader
 import Control.Monad.Except
 
 -- Module dependencies
@@ -99,7 +100,7 @@ buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use tra
                       mtype = typeMap setActivity (mtype m)})
 
 pushBT :: Pushable a => a -> Environment -> Environment
-pushBT x env = env {bt = push x (bt env)}
+pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
 
@@ -136,6 +137,18 @@ varLookup x env = case lookup x (locals env) of
 
 isLocal :: Name -> Environment -> Bool
 isLocal x env = isJust $ lookup x (locals env)
+
+isInMain :: MonadReader Environment m => m Bool
+isInMain =
+  let
+    is_main :: Maybe Type -> Bool
+    is_main Nothing = False
+    is_main (Just t) = isMainType t
+  in
+    asks (varLookup thisName) >>= return . is_main
+
+isMainMethod :: MonadReader Environment m => MethodDecl -> m Bool
+isMainMethod method = isInMain >>= return . (&& (mname method == Name "main"))
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env 

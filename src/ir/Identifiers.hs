@@ -7,7 +7,7 @@ Types for different kinds of identifiers
 module Identifiers where
 
 -- | An identifier of a variable, a method, a parameter, etc.
-newtype Name = Name String deriving (Read, Eq)
+newtype Name = Name String deriving (Read, Eq, Ord)
 instance Show Name where
   show (Name n) = n
 

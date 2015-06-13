@@ -18,10 +18,10 @@ cabal-version:       >=1.10
 
 executable encorec
   main-is:             TopLevel.hs
---  other-modules:
+  default-extensions: NamedFieldPuns
+                    , FlexibleContexts
   other-extensions: GADTs
                   , FlexibleInstances
-                  , FlexibleContexts
                   , MultiParamTypeClasses
                   , StandaloneDeriving
                   , TypeSynonymInstances
