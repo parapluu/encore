@@ -130,9 +130,9 @@ typ  =  try arrow
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
-                  do {reserved "void"; return voidType} 
+                  do {reserved "void"; return voidType}
       classType = do ty <- identifier
-                     if (isUpper . head $ ty) 
+                     if (isUpper . head $ ty)
                      then return $ refType ty
                      else fail "Class types must begin with an upper case letter"
       typeVariable = do ty <- identifier
@@ -145,7 +145,7 @@ program = do
   imports <- many importdecl
   etl <- embedTL
   functions <- many function
-  decls <- many $ (trait >>= return . Left) <|> (classDecl >>= return .Right)
+  decls <- many $ (trait >>= return . Left) <|> (classDecl >>= return . Right)
   let (traits, classes) = partitionEithers decls
   eof
   return $ Program{bundle, etl, imports, functions, traits, classes}
@@ -202,19 +202,18 @@ trait = do
   trait_meta <- getPosition >>= return . meta
   reserved "trait"
   trait_name <- identifier
-  let
+  (trait_fields, trait_methods) <- braces' trait_body
+  return Trait{trait_meta, trait_name, trait_fields, trait_methods}
+  where
     trait_body = do
       fields <- many trait_field
       methods <- many methodDecl
       return (fields, methods)
-  (trait_fields, trait_methods) <- braces' trait_body
-  return Trait{trait_meta, trait_name, trait_fields, trait_methods}
 
 trait_field :: Parser FieldDecl
 trait_field = do
   reserved "require"
-  pos <- getPosition
-  let fmeta = meta pos
+  fmeta <- getPosition >>= return . meta
   fname <- identifier >>= return . Name
   colon
   ftype <- typ

@@ -139,13 +139,11 @@ isLocal :: Name -> Environment -> Bool
 isLocal x env = isJust $ lookup x (locals env)
 
 isInMain :: MonadReader Environment m => m Bool
-isInMain =
-  let
+isInMain = asks (varLookup thisName) >>= return . is_main
+  where
     is_main :: Maybe Type -> Bool
     is_main Nothing = False
     is_main (Just t) = isMainType t
-  in
-    asks (varLookup thisName) >>= return . is_main
 
 isMainMethod :: MonadReader Environment m => MethodDecl -> m Bool
 isMainMethod method = isInMain >>= return . (&& (mname method == Name "main"))
