@@ -16,8 +16,6 @@ module Typechecker.Environment(Environment,
                                fieldLookup,
                                varLookup,
                                isLocal,
-                               isInMain,
-                               isMainMethod,
                                typeVarLookup,
                                extendEnvironment,
                                addTypeParameters,
@@ -137,16 +135,6 @@ varLookup x env = case lookup x (locals env) of
 
 isLocal :: Name -> Environment -> Bool
 isLocal x env = isJust $ lookup x (locals env)
-
-isInMain :: MonadReader Environment m => m Bool
-isInMain = asks (varLookup thisName) >>= return . is_main
-  where
-    is_main :: Maybe Type -> Bool
-    is_main Nothing = False
-    is_main (Just t) = isMainType t
-
-isMainMethod :: MonadReader Environment m => MethodDecl -> m Bool
-isMainMethod method = isInMain >>= return . (&& (mname method == Name "main"))
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env 

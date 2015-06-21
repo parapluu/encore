@@ -15,6 +15,7 @@ import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Data.Either (partitionEithers)
+import Control.Monad (liftM)
 
 -- Module dependencies
 import Identifiers
@@ -80,6 +81,8 @@ integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
+as :: (Parser a) -> (a -> b) -> (Parser b)
+as = flip liftM
 
 -- ! For parsing qualified names such as A.B.C
 longidentifier :: Parser QName
@@ -145,7 +148,7 @@ program = do
   imports <- many importdecl
   etl <- embedTL
   functions <- many function
-  decls <- many $ (trait >>= return . Left) <|> (classDecl >>= return . Right)
+  decls <- many $ (trait `as` Left) <|> (classDecl `as` Right)
   let (traits, classes) = partitionEithers decls
   eof
   return $ Program{bundle, etl, imports, functions, traits, classes}

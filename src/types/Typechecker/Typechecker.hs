@@ -232,7 +232,7 @@ instance Checkable MethodDecl where
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(Method {mtype, mparams, mbody, mname}) =
         do ty <- checkType mtype
-           isMainMethod m >>= \b -> when b checkMainParams
+           whenM main_method checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $
                           if isVoidType ty
@@ -247,6 +247,13 @@ instance Checkable MethodDecl where
                                             do ty <- checkType ptype
                                                return $ setType ty p
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
+          main_method = do
+            this <- asks $ varLookup thisName
+            return $ is_main this && (mname == Name "main")
+              where
+                is_main Nothing = False
+                is_main (Just t) = isMainType t
+          whenM b a = b >>= flip when a
 
    ---  |- mtype
    ---  |- t1 .. |- tn
