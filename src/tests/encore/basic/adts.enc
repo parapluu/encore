@@ -1,0 +1,22 @@
+data Maybe t{
+  Just(t),
+  Nothing
+}
+
+data Twitter status, mention {
+  Status(status),
+  Mention(mention),
+  Mix(status, mention),
+  Nothing
+}
+
+class Main
+  def main(): void{
+    -- let x = Just(32)
+    -- in {
+    --   match x with
+    --    Just(x) => print n
+    --    Nothing => print "end"
+    -- }
+    ()
+  }

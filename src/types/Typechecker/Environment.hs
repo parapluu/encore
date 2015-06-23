@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-{-| 
+{-|
 
 The environment used by "Typechecker.Typechecker". Contains a
 class table and a list of local name-type bindings and
@@ -43,24 +43,29 @@ type VarTable    = [(Name, Type)]
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, MethodDecl)] 
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
+type ADTCtorTable = [ADTDataCtor]
+type ADTTable = [(Type, ADTCtorTable)]
 
-data Environment = Env {ctable   :: ClassTable, 
-                        globals  :: VarTable, 
-                        locals   :: VarTable, 
-                        bindings :: [(Type, Type)], 
+data Environment = Env {ctable   :: ClassTable,
+                        globals  :: VarTable,
+                        locals   :: VarTable,
+                        bindings :: [(Type, Type)],
                         typeParameters :: [Type],
+                        adtTable :: ADTTable,
                         bt :: Backtrace}
                     deriving Show
                  -- TODO: Add "current control abstraction"
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use traverseProgram
+buildEnvironment p@(Program {functions, classes, imports, adts}) =    -- TODO: use traverseProgram
     do distinctFunctions
        distinctClasses
        mergeEnvironments (Env {ctable  = map getClassEntry classes,
-                     globals = map getFunctionType functions, 
-                     locals = [], bindings = [], typeParameters = [], 
-                     bt = emptyBT}) (map (buildEnvironment . iprogram) imports)
+                               globals = map getFunctionType functions,
+                               adtTable = map getADTs adts,
+                               locals = [], bindings = [], typeParameters = [],
+                               bt = emptyBT})
+                         (map (buildEnvironment . iprogram) imports)
     where
 
       -- Each class knows if it's passive or not, but reference
@@ -97,6 +102,9 @@ buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use tra
       getMethod m = 
           (mname m, m{mparams = map (\p@(Param{ptype}) -> p{ptype = (typeMap setActivity) ptype}) (mparams m),
                       mtype = typeMap setActivity (mtype m)})
+
+      getADTs a@(ADTDecl {adtname, adtdata}) = (adtname, adtdata)
+
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env = env {bt = push x (bt env)}
@@ -178,15 +186,17 @@ mergeEnvironments e l = foldr mergeEnv (return e) l
   where
       mergeEnv :: Either TCError Environment -> Either TCError Environment -> Either TCError Environment
       mergeEnv e1 e2 =
-        do 
-           (Env ct globs locals binds tparams bt) <- e1
-           (Env ct' globs' locals' binds' tparams' bt') <- e2
-           return $ Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals') 
-                    (mergeBindings binds binds') (mergeTypeParams tparams tparams') emptyBT
+        do
+           (Env ct globs locals binds tparams adts bt) <- e1
+           (Env ct' globs' locals' binds' tparams' adts' bt') <- e2
+           return $ Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals')
+                    (mergeBindings binds binds') (mergeTypeParams tparams tparams')
+                    (mergeADTs adts adts') emptyBT
 
-           -- TODO: Be smarter and detect errors 
+           -- TODO: Be smarter and detect errors
       mergeClasses = (++)
       mergeGlobals = (++)
       mergeLocals = (++)
       mergeBindings = (++)
       mergeTypeParams = (++)
+      mergeADTs = (++)

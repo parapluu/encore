@@ -103,11 +103,12 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-    typecheck (Program bundle etl imps funs classes) =
+    typecheck (Program bundle etl imps adts funs classes) =
         do eimps <- mapM typecheck imps   -- TODO: should probably use Pushable and pushTypecheck
            efuns <- mapM pushTypecheck funs
            eclasses <- mapM pushTypecheck classes
-           return $ Program bundle etl eimps efuns eclasses
+           eadts <- mapM pushTypecheck adts
+           return $ Program bundle etl eimps adts efuns eclasses
 
 instance Checkable ImportDecl where
      -- TODO write down type rule
@@ -174,6 +175,28 @@ instance Checkable ClassDecl where
                 [] -> return ()
                 (m:_) -> do bt <- asks backtrace
                             throwError $ TCError ("Duplicate definition of method '" ++ show (mname m) ++ "'" , push m bt)
+
+
+instance Checkable ADTDecl where
+  typecheck adt@(ADTDecl {adtname, adtdata}) =
+    do distinctDataCtors
+       eadts <- mapM (\a -> local extendEnvWithADT $ pushTypecheck a) adtdata
+       return $ setType adtname adt {adtdata = eadts}
+    where
+      extendEnvWithADT = addTypeParameters $ getTypeParameters adtname
+      distinctDataCtors =
+        let ctors = map adtctor adtdata
+            ctorsNoDuplicates = nub ctors
+        in
+           case ctors \\ ctorsNoDuplicates of
+            [] -> return ()
+            (a:_) -> do bt <- asks backtrace
+                        throwError $ TCError ("Duplicate definition of ADT constructor '"++ show a ++ "'", push adt bt)
+
+instance Checkable ADTDataCtor where
+  typecheck d@(ADTDataCtor {adtctor, adtdatameta}) =
+    do tys <- mapM checkType $ getTypeParameters adtctor
+       return $ d { adtctor = (setTypeParameters adtctor tys)}
 
 instance Checkable FieldDecl where
    ---  |- t
