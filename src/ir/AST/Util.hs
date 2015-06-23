@@ -5,7 +5,7 @@
 {-|
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -204,17 +204,6 @@ extendAccumProgram f acc0 (Program bundle etl imps adts funs classes) = (acc2, P
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
-
-extractTypes :: Program -> [Type]
-extractTypes (Program _ _ _ funs classes) =
-    List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
-    where
-      extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
-      extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
-      extractFieldTypes Field {ftype} = typeComponents ftype
-      extractMethodTypes m = (typeComponents (mtype m)) : (map extractParamTypes (mparams m)) ++ [extractExprTypes (mbody m)]
-      extractParamTypes Param {ptype} = typeComponents ptype
-      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [] e
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
