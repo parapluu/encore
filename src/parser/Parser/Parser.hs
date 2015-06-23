@@ -122,9 +122,9 @@ typ  =  try arrow
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
-                  do {reserved "void"; return voidType} 
+                  do {reserved "void"; return voidType}
       classType = do ty <- identifier
-                     if (isUpper . head $ ty) 
+                     if (isUpper . head $ ty)
                      then return $ refType ty
                      else fail "Class types must begin with an upper case letter"
       typeVariable = do ty <- identifier

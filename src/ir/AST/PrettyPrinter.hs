@@ -8,7 +8,7 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr, ppProgram, ppParamDecl, 
+module AST.PrettyPrinter (ppExpr, ppProgram, ppParamDecl,
                           ppFieldDecl, indent, ppSugared) where
 
 -- Library dependencies
@@ -63,7 +63,7 @@ ppName :: Name -> Doc
 ppName (Name x) = text x
 
 ppQName :: QName -> Doc
-ppQName [a] = ppName a 
+ppQName [a] = ppName a
 ppQName (a:as) = ppName a <+> text "." <+> ppQName as
 
 ppType :: Type -> Doc
@@ -85,15 +85,15 @@ ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
 
 ppFunction :: Function -> Doc
-ppFunction Function {funname, funtype, funparams, funbody} = 
+ppFunction Function {funname, funtype, funparams, funbody} =
     text "def" <+>
-    ppName funname <> 
+    ppName funname <>
     parens (commaSep (map ppParamDecl funparams)) <+>
     text ":" <+> ppType funtype $+$
     (indent (ppExpr funbody))
 
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl Class {cname, fields, methods} = 
+ppClassDecl Class {cname, fields, methods} =
     ppClass <+> ppType cname $+$
              (indent $
                    vcat (map ppFieldDecl fields) $$
@@ -106,15 +106,15 @@ ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
-ppMethodDecl Method {mname, mtype, mparams, mbody} = 
+ppMethodDecl Method {mname, mtype, mparams, mbody} =
     text "def" <+>
-    ppName mname <> 
+    ppName mname <>
     parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
     (indent (ppExpr mbody))
-ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} = 
+ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} =
     text "stream" <+>
-    ppName mname <> 
+    ppName mname <>
     parens (commaSep (map ppParamDecl mparams)) <+>
     text ":" <+> ppType mtype $+$
     (indent (ppExpr mbody))
@@ -128,7 +128,7 @@ isSimple FunctionCall {} = True
 isSimple _ = False
 
 maybeParens :: Expr -> Doc
-maybeParens e 
+maybeParens e
     | isSimple e = ppExpr e
     | otherwise  = parens $ ppExpr e
 
@@ -152,28 +152,28 @@ ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
-ppExpr Let {decls, body} = 
-    ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$ 
+ppExpr Let {decls, body} =
+    ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
-ppExpr IfThenElse {cond, thn, els} = 
+ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
     ppElse $+$
          indent (ppExpr els)
-ppExpr IfThen {cond, thn} = 
+ppExpr IfThen {cond, thn} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn)
-ppExpr Unless {cond, thn} = 
+ppExpr Unless {cond, thn} =
     ppUnless <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn)
-ppExpr While {cond, body} = 
+ppExpr While {cond, body} =
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)
-ppExpr Repeat {name, times, body} = 
+ppExpr Repeat {name, times, body} =
     ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
          indent (ppExpr body)
-ppExpr FutureChain {future, chain} = 
+ppExpr FutureChain {future, chain} =
     ppExpr future <+> (text "~~>") <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val

@@ -1,7 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 {-|
-
 The abstract syntax tree produced by the parser. Each node carries
 meta-information about its type (filled in by
 "Typechecker.Typechecker") and its position in the source file
@@ -91,6 +90,7 @@ instance HasMeta ClassDecl where
     getMeta = cmeta
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
+
 
 data ADTDecl = ADTDecl {adtmeta :: Meta ADTDecl,
                         adtname :: Type,
