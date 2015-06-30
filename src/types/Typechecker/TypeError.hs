@@ -2,7 +2,7 @@
 
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling errors and backtracing. 
+The machinery used by "Typechecker.Typechecker" for handling errors and backtracing.
 
 -}
 
@@ -18,16 +18,19 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl | 
-                     BTField FieldDecl | BTMethod MethodDecl | BTExpr Expr
+data BacktraceNode = BTFunction Name Type | BTClass Type | BTParam ParamDecl |
+                     BTField FieldDecl | BTMethod MethodDecl | BTExpr Expr |
+                     BTADT ADTDecl | BTADTCtor ADTDataCtor
 instance Show BacktraceNode where
     show (BTFunction n ty) = "In function '"       ++ show n                 ++ "' of type '" ++ show ty ++ "'"
     show (BTClass ty)      = "In class '"          ++ show ty                ++ "'"
+    show (BTADT a)         = "In adt '" ++ show (adtname a) ++ "'"
+    show (BTADTCtor d)     = "In adt constructor'" ++ show (adtctor d) ++ "'"
     show (BTParam p)       = "In parameter '"      ++ (show $ ppParamDecl p) ++ "'"
     show (BTField f)       = "In field '"          ++ (show $ ppFieldDecl f) ++ "'"
     show (BTMethod Method{mname, mtype}) = "In method '" ++ show mname ++ "' of type '" ++ show mtype ++ "'"
     show (BTMethod StreamMethod{mname, mtype}) = "In stream method '" ++ show mname ++ "' of type '" ++ show mtype ++ "'"
-    show (BTExpr expr)     
+    show (BTExpr expr)
         | (isNothing . getSugared) expr = ""
         | otherwise = "In expression: \n"   ++ (show $ nest 2 $ ppSugared expr)
 
@@ -50,6 +53,13 @@ instance Pushable Function where
 instance Pushable ClassDecl where
     push c bt = (getPos c, BTClass (cname c)) : bt
 
+instance Pushable ADTDecl where
+    push a bt = (getPos a, BTADT a) : bt
+
+-- TODO: kiko: Do I really need this one?
+instance Pushable ADTDataCtor where
+    push d bt = (getPos d, BTADTCtor d) : bt
+
 instance Pushable FieldDecl where
     push f bt = (getPos f, BTField f) : bt
 
@@ -67,16 +77,16 @@ instance Pushable Expr where
 -- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
 instance Show TCError where
-    show (TCError (msg, [])) = 
+    show (TCError (msg, [])) =
         " *** Error during typechecking *** \n" ++
         msg ++ "\n"
-    show (TCError (msg, bt@((pos, _):_))) = 
+    show (TCError (msg, bt@((pos, _):_))) =
         " *** Error during typechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
         (concat $ map showBT bt)
         where
-          showBT (pos, node) = 
+          showBT (pos, node) =
               case (show node) of
                 "" -> ""
                 s  -> s ++ "\n"

@@ -3,12 +3,12 @@
 module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              parType, isParType, streamType, isStreamType, arrayType, isArrayType,
              refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
-             refType, isRefType, passiveRefType, activeRefType, 
+             refType, isRefType, passiveRefType, activeRefType, adtRefTypeWithParams,
              isActiveRefType, isPassiveRefType, isMainType,
              makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
-             voidType, isVoidType, nullType, isNullType, 
-             boolType, isBoolType, intType, isIntType, 
-             realType, isRealType, stringType, isStringType, 
+             voidType, isVoidType, nullType, isNullType,
+             boolType, isBoolType, intType, isIntType,
+             realType, isRealType, stringType, isStringType,
              isPrimitive, isNumeric, emptyType,
              getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
              typeComponents, subtypeOf, typeMap) where
@@ -41,18 +41,18 @@ typeComponents arr@(ArrayType ty)      = arr:(typeComponents ty)
 typeComponents ty                      = [ty]
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty 
-    | isArrowType ty = 
+typeMap f ty
+    | isArrowType ty =
         f (Arrow (map (typeMap f) (argTypes ty)) (typeMap f (resultType ty)))
     | isFutureType ty =
         f (FutureType (typeMap f (resultType ty)))
     | isParType ty =
         f (ParType (typeMap f (resultType ty)))
     | isRefType ty =
-        case ty of 
-          (RefType (info@(RefTypeInfo{parameters}))) -> 
+        case ty of
+          (RefType (info@(RefTypeInfo{parameters}))) ->
               f $ RefType info{parameters = map (typeMap f) parameters}
-          otherwise -> 
+          otherwise ->
               error $ "Couldn't deconstruct refType: " ++ show ty
     | isStreamType ty =
         f (StreamType (typeMap f (resultType ty)))
@@ -86,7 +86,7 @@ instance Show Type where
     show RealType          = "real"
     show BoolType          = "bool"
     show (RefType (RefTypeInfo {refId, parameters = []})) = refId
-    show (RefType (RefTypeInfo {refId, parameters})) = 
+    show (RefType (RefTypeInfo {refId, parameters})) =
         refId ++ "<" ++ (concat $ (intersperse ", " (map show parameters))) ++ ">"
     show (TypeVar t)       = t
     show NullType          = "null type"
@@ -100,7 +100,7 @@ arrowType = Arrow
 isArrowType (Arrow {}) = True
 isArrowType _ = False
 
-futureType = FutureType 
+futureType = FutureType
 isFutureType FutureType {} = True
 isFutureType _ = False
 
@@ -123,6 +123,8 @@ isRefType _ = False
 
 passiveRefTypeWithParams id = makePassive . refTypeWithParams id
 passiveRefType id = passiveRefTypeWithParams id []
+
+adtRefTypeWithParams id = refTypeWithParams id
 
 makePassive (RefType info) = RefType $ info {activity = Passive}
 makePassive ty = ty

@@ -5,7 +5,7 @@
 {-|
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -29,6 +29,7 @@ getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
+getChildren MatchClause {} = []
 getChildren IfThen {cond, thn} = [cond, thn]
 getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
@@ -81,6 +82,7 @@ putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name,
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
 putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
+putChildren _ e@(MatchClause {}) = e
 putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
@@ -165,7 +167,7 @@ foldr f acc e =
     in f e childResult
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e (Program _ _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
+foldrAll f e (Program _ _ _ _ funs classes) = [map (foldFunction f e) funs] ++ (map (foldClass f e) classes)
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
       foldClass f e (Class {methods}) = map (foldMethod f e) methods
@@ -185,7 +187,7 @@ extendAccum f acc0 e =
       f acc1 (putChildren childResults e)
 
 extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Program bundle etl imps funs' classes')
+extendAccumProgram f acc0 (Program bundle etl imps adts funs classes) = (acc2, Program bundle etl imps adts funs' classes')
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 funs
       extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
@@ -202,17 +204,6 @@ extendAccumProgram f acc0 (Program bundle etl imps funs classes) = (acc2, Progra
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
-
-extractTypes :: Program -> [Type]
-extractTypes (Program _ _ _ funs classes) =
-    List.nub $ concat $ concatMap extractFunctionTypes funs ++ concatMap extractClassTypes classes
-    where
-      extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
-      extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
-      extractFieldTypes Field {ftype} = typeComponents ftype
-      extractMethodTypes m = (typeComponents (mtype m)) : (map extractParamTypes (mparams m)) ++ [extractExprTypes (mbody m)]
-      extractParamTypes Param {ptype} = typeComponents ptype
-      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [] e
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr

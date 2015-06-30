@@ -1,7 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 {-|
-
 The abstract syntax tree produced by the parser. Each node carries
 meta-information about its type (filled in by
 "Typechecker.Typechecker") and its position in the source file
@@ -17,10 +16,11 @@ import Identifiers
 import Types
 import AST.Meta hiding(Closure, Async)
 
-data Program = Program {bundle :: BundleDecl, 
-                        etl :: EmbedTL, 
-                        imports :: [ImportDecl], 
-                        functions :: [Function], 
+data Program = Program {bundle :: BundleDecl,
+                        etl :: EmbedTL,
+                        imports :: [ImportDecl],
+                        adts :: [ADTDecl],
+                        functions :: [Function],
                         classes :: [ClassDecl]} deriving(Show)
 
 class HasMeta a where
@@ -52,12 +52,12 @@ data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlbody   :: String } deriving (Show)
 
 data BundleDecl = Bundle { bmeta :: Meta BundleDecl,
-                           bname :: QName } 
-                | NoBundle 
+                           bname :: QName }
+                | NoBundle
                 deriving Show
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
-                          itarget :: QName } 
+                          itarget :: QName }
                 | PulledImport {pimeta :: Meta ImportDecl,
                                 qname :: QName,
                                 isrc :: FilePath,
@@ -77,7 +77,7 @@ instance HasMeta Function where
 
 data ClassDecl = Class {cmeta   :: Meta ClassDecl,
                         cname   :: Type,
-                        fields  :: [FieldDecl], 
+                        fields  :: [FieldDecl],
                         methods :: [MethodDecl]} deriving(Show, Eq)
 
 isActive :: ClassDecl -> Bool
@@ -91,8 +91,28 @@ instance HasMeta ClassDecl where
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) = c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
 
-data FieldDecl = Field {fmeta :: Meta FieldDecl, 
-                        fname :: Name, 
+
+data ADTDecl = ADTDecl {adtmeta :: Meta ADTDecl,
+                        adtname :: Type,
+                        adtdata :: [ADTDataCtor]} deriving (Show)
+
+data ADTDataCtor = ADTDataCtor { adtdatameta :: Meta ADTDataCtor,
+                                 adtctor :: Type} deriving (Show, Eq)
+
+instance HasMeta ADTDecl where
+  getMeta = adtmeta
+  setMeta a m = a{adtmeta = m}
+  setType ty a@(ADTDecl {adtmeta}) = a {adtmeta = AST.Meta.setType ty adtmeta,
+                                        adtname = ty}
+
+instance HasMeta ADTDataCtor where
+  getMeta = adtdatameta
+  setMeta a m = a{adtdatameta = m}
+  setType ty a@(ADTDataCtor {adtdatameta, adtctor}) = a {adtdatameta = AST.Meta.setType ty adtdatameta,
+                                                         adtctor = ty}
+
+data FieldDecl = Field {fmeta :: Meta FieldDecl,
+                        fname :: Name,
                         ftype :: Type} deriving(Show, Eq)
 
 instance HasMeta FieldDecl where
@@ -111,7 +131,7 @@ data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                           mname   :: Name,
                           mtype   :: Type,
                           mparams :: [ParamDecl],
-                          mbody   :: Expr} 
+                          mbody   :: Expr}
                 | StreamMethod {mmeta   :: Meta MethodDecl,
                                 mname   :: Name,
                                 mtype   :: Type,
@@ -129,23 +149,27 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
+data MatchStatement = MatchStatement {matchmeta :: Meta Expr,
+                                      matchtype :: ADTDataCtor,
+                                      matchbody :: Expr} deriving (Show, Eq)
+
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}
-          | MethodCall {emeta :: Meta Expr, 
-                        target :: Expr, 
-                        name :: Name, 
+          | MethodCall {emeta :: Meta Expr,
+                        target :: Expr,
+                        name :: Name,
                         args :: Arguments}
-          | MessageSend {emeta :: Meta Expr, 
-                         target :: Expr, 
-                         name :: Name, 
+          | MessageSend {emeta :: Meta Expr,
+                         target :: Expr,
+                         name :: Name,
                          args :: Arguments}
-          | FunctionCall {emeta :: Meta Expr, 
-                          name :: Name, 
+          | FunctionCall {emeta :: Meta Expr,
+                          name :: Name,
                           args :: Arguments}
-          | Closure {emeta :: Meta Expr, 
+          | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
           | Async {emeta :: Meta Expr,
@@ -156,81 +180,85 @@ data Expr = Skip {emeta :: Meta Expr}
                      body :: Expr}
           | FinishAsync {emeta :: Meta Expr,
                          body :: Expr}
-          | Let {emeta :: Meta Expr, 
+          | Let {emeta :: Meta Expr,
                  decls :: [(Name, Expr)],
                  body :: Expr}
-          | Seq {emeta :: Meta Expr, 
+          | Seq {emeta :: Meta Expr,
                  eseq :: [Expr]}
-          | IfThenElse {emeta :: Meta Expr, 
-                        cond :: Expr, 
-                        thn :: Expr, 
+          | MatchClause { emeta :: Meta Expr,
+                          name :: Name,
+                          matches :: [MatchStatement]
+                        }
+          | IfThenElse {emeta :: Meta Expr,
+                        cond :: Expr,
+                        thn :: Expr,
                         els :: Expr}
-          | IfThen {emeta :: Meta Expr, 
-                    cond :: Expr, 
+          | IfThen {emeta :: Meta Expr,
+                    cond :: Expr,
                     thn :: Expr}
-          | Unless {emeta :: Meta Expr, 
-                    cond :: Expr, 
+          | Unless {emeta :: Meta Expr,
+                    cond :: Expr,
                     thn :: Expr}
-          | While {emeta :: Meta Expr, 
-                   cond :: Expr, 
+          | While {emeta :: Meta Expr,
+                   cond :: Expr,
                    body :: Expr}
-          | Repeat {emeta :: Meta Expr, 
-                    name :: Name, 
-                    times :: Expr, 
+          | Repeat {emeta :: Meta Expr,
+                    name :: Name,
+                    times :: Expr,
                     body :: Expr}
-          | Get {emeta :: Meta Expr, 
+          | Get {emeta :: Meta Expr,
                  val :: Expr}
-          | Yield {emeta :: Meta Expr, 
+          | Yield {emeta :: Meta Expr,
                    val :: Expr}
           | Eos {emeta :: Meta Expr}
           | IsEos {emeta :: Meta Expr,
                    target :: Expr}
           | StreamNext {emeta :: Meta Expr,
                         target :: Expr}
-          | Await {emeta :: Meta Expr, 
+          | Await {emeta :: Meta Expr,
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
-          | FutureChain {emeta :: Meta Expr, 
+          | FutureChain {emeta :: Meta Expr,
                         future :: Expr,
                          chain :: Expr}
-          | FieldAccess {emeta :: Meta Expr, 
-                         target :: Expr, 
+          | FieldAccess {emeta :: Meta Expr,
+                         target :: Expr,
                          name :: Name}
-          | ArrayAccess {emeta :: Meta Expr, 
-                         target :: Expr, 
+          | ArrayAccess {emeta :: Meta Expr,
+                         target :: Expr,
                          index :: Expr}
-          | ArraySize {emeta :: Meta Expr, 
+          | ArraySize {emeta :: Meta Expr,
                        target :: Expr}
-          | ArrayNew {emeta :: Meta Expr, 
+          | ArrayNew {emeta :: Meta Expr,
                       ty :: Type,
                       size :: Expr}
-          | ArrayLiteral {emeta :: Meta Expr, 
+          | ArrayLiteral {emeta :: Meta Expr,
                           args :: [Expr]}
-          | Assign {emeta :: Meta Expr, 
-                    lhs :: Expr, 
+          | Assign {emeta :: Meta Expr,
+                    lhs :: Expr,
                     rhs :: Expr}
-          | VarAccess {emeta :: Meta Expr, 
+          | VarAccess {emeta :: Meta Expr,
                        name :: Name}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}
-          | NewWithInit {emeta :: Meta Expr, 
+          | NewWithInit {emeta :: Meta Expr,
                          ty ::Type,
                          args :: Arguments}
-          | New {emeta :: Meta Expr, 
+          | New {emeta :: Meta Expr,
                  ty ::Type}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}
-          | Print {emeta :: Meta Expr, 
+          | Print {emeta :: Meta Expr,
                    stringLit :: String,
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
-          | StringLiteral {emeta :: Meta Expr, 
+          | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
-          | IntLiteral {emeta :: Meta Expr, 
+          | IntLiteral {emeta :: Meta Expr,
                         intLit :: Int}
-          | RealLiteral {emeta :: Meta Expr, 
+          | RealLiteral {emeta :: Meta Expr,
                          realLit :: Double}
           | Embed {emeta :: Meta Expr,
                    ty    :: Type,
@@ -284,12 +312,12 @@ getSugared e = AST.Meta.getSugared (emeta e)
 
 
 -- | program_traverse (needs better name) traverse a program and its imports collecting data
--- program_traverse f g p takes traverses p, applying f and g to collect values 
+-- program_traverse f g p takes traverses p, applying f and g to collect values
 -- f applies to one level program, ignoring imports
 -- g takes the results of recursing on imports plus the current level and combines them
 traverseProgram f g p@(Program{imports}) = g (f p) (map (lift (traverseProgram f g)) imports)
     where lift h (PulledImport{iprogram}) = h iprogram
-        
+
 merge a b = a ++ concat b
 
 allClasses p = traverseProgram f merge p

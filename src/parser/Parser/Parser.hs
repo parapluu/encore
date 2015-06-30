@@ -44,8 +44,9 @@ lexer =
                                   "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where",
                                   "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish",
-                                  "foreach"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
+                                  "foreach", "data", "match", "with"],
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+",
+                                    "-", "*", "/", "%", "->", "\\", "()", "~~>", "=>"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -122,9 +123,9 @@ typ  =  try arrow
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
-                  do {reserved "void"; return voidType} 
+                  do {reserved "void"; return voidType}
       classType = do ty <- identifier
-                     if (isUpper . head $ ty) 
+                     if (isUpper . head $ ty)
                      then return $ refType ty
                      else fail "Class types must begin with an upper case letter"
       typeVariable = do ty <- identifier
@@ -135,10 +136,11 @@ program = do optional hashbang
              bundle <- bundledecl
              importdecls <- many importdecl
              embedtl <- embedTL
+             adts <- many adtDecl
              functions <- many function
              classes <- many classDecl
              eof
-             return $ Program bundle embedtl importdecls functions classes
+             return $ Program bundle embedtl importdecls adts functions classes
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -187,6 +189,13 @@ function = do pos <- getPosition
               body <- expression
               return $ Function (meta pos) (Name name) ty params body
 
+
+typeParameter = do notFollowedBy upper
+                   id <- identifier
+                   return $ typeVar id
+                   <?> "type variable"
+
+
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition
                refKind <- option activeRefTypeWithParams
@@ -198,13 +207,19 @@ classDecl = do pos <- getPosition
                (fields, methods) <- braces classBody <|> classBody
                return $ Class (meta pos) (refKind cname params) fields methods
             where
-              typeParameter = do notFollowedBy upper
-                                 id <- identifier
-                                 return $ typeVar id
-                              <?> "type variable"
               classBody = do fields <- many fieldDecl
                              methods <- many methodDecl
                              return (fields, methods)
+
+
+
+adtDecl :: Parser ADTDecl
+adtDecl = do pos <- getPosition
+             reserved "data"
+             adtname <- identifier
+             params <- option [] $ many typeParameter
+             adtdata <- braces $ commaSep adtDataDecl
+             return $ ADTDecl (meta pos) (refTypeWithParams adtname params) adtdata
 
 
 fieldDecl :: Parser FieldDecl
@@ -220,6 +235,12 @@ paramDecl = do pos <- getPosition
                colon
                ty <- typ
                return $ Param (meta pos) (Name x) ty
+
+adtDataDecl :: Parser ADTDataCtor
+adtDataDecl = do pos <- getPosition
+                 adtname <- identifier
+                 params <- option [] $ parens (commaSep typ)
+                 return $ ADTDataCtor (meta pos) (refTypeWithParams adtname params)
 
 methodDecl :: Parser MethodDecl
 methodDecl = do pos <- getPosition
@@ -317,6 +338,7 @@ expr  =  unit
      <|> arraySize
      <|> arrayLit
      <|> letExpression
+     <|> match
      <|> try ifThenElse
      <|> ifThen
      <|> unless
@@ -375,6 +397,18 @@ expr  =  unit
       sequence = do pos <- getPosition
                     seq <- braces (do {seq <- expression `sepEndBy1` semi; return seq})
                     return $ Seq (meta pos) seq
+      match = do pos <- getPosition
+                 reserved "match"
+                 name <- identifier
+                 reserved "with"
+                 decls <- many matchClause
+                 return $ MatchClause (meta pos) (Name name) decls
+              where
+                matchClause = do pos <- getPosition
+                                 matched <- adtDataDecl
+                                 reservedOp "=>"
+                                 expr <- expression
+                                 return $ MatchStatement (meta pos) matched expr
       ifThenElse = do pos <- getPosition
                       reserved "if"
                       cond <- expression
