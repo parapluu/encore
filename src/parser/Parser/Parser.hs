@@ -45,7 +45,8 @@ lexer =
 				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where",
                                   "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish",
                                   "foreach", "data", "match", "with"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
+               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+",
+                                    "-", "*", "/", "%", "->", "\\", "()", "~~>", "=>"]
              }
 
 -- | These parsers use the lexer above and are the smallest
@@ -238,7 +239,7 @@ paramDecl = do pos <- getPosition
 adtDataDecl :: Parser ADTDataCtor
 adtDataDecl = do pos <- getPosition
                  adtname <- identifier
-                 (params) <- option [] $ parens (commaSep typ)
+                 params <- option [] $ parens (commaSep typ)
                  return $ ADTDataCtor (meta pos) (refTypeWithParams adtname params)
 
 methodDecl :: Parser MethodDecl
@@ -405,7 +406,7 @@ expr  =  unit
               where
                 matchClause = do pos <- getPosition
                                  matched <- adtDataDecl
-                                 reserved "=>"
+                                 reservedOp "=>"
                                  expr <- expression
                                  return $ MatchStatement (meta pos) matched expr
       ifThenElse = do pos <- getPosition
