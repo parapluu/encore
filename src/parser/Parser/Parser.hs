@@ -217,7 +217,7 @@ adtDecl :: Parser ADTDecl
 adtDecl = do pos <- getPosition
              reserved "data"
              adtname <- identifier
-             params <- option [] $ commaSep typeParameter
+             params <- option [] $ many typeParameter
              adtdata <- braces $ commaSep adtDataDecl
              return $ ADTDecl (meta pos) (refTypeWithParams adtname params) adtdata
 

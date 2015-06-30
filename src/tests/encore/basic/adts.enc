@@ -3,7 +3,7 @@ data Maybe t{
   Nothing
 }
 
-data Twitter status, mention {
+data Twitter status mention {
   Status(status),
   Mention(mention),
   Mix(status, mention),
