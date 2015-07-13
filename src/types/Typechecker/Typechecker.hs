@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, NamedFieldPuns, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-|
 
@@ -37,6 +37,12 @@ typecheckEncoreProgram p =
 -- current backtrace
 tcError msg = do bt <- asks backtrace
                  throwError $ TCError (msg, bt)
+
+tc_error_push :: (MonadError TCError m, MonadReader Environment m, Pushable a)
+              => String -> a -> m b
+tc_error_push msg x = do
+  bt <- asks backtrace
+  throwError $ TCError (msg, push x bt)
 
 -- | Convenience function for checking if a type is
 -- well-formed. Returns the same type with correct activity
@@ -103,11 +109,12 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-    typecheck (Program bundle etl imps funs classes) =
-        do eimps <- mapM typecheck imps   -- TODO: should probably use Pushable and pushTypecheck
-           efuns <- mapM pushTypecheck funs
+    typecheck p@Program{imports, functions, traits, classes} =
+        do eimps <- mapM typecheck imports   -- TODO: should probably use Pushable and pushTypecheck
+           efuns <- mapM pushTypecheck functions
+           traits' <- mapM pushTypecheck traits
            eclasses <- mapM pushTypecheck classes
-           return $ Program bundle etl eimps efuns eclasses
+           return $ p{imports = eimps, functions = efuns, classes = eclasses}
 
 instance Checkable ImportDecl where
      -- TODO write down type rule
@@ -138,6 +145,48 @@ instance Checkable Function where
                                                     return $ setType ty p)
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
+instance Checkable Trait where
+  typecheck t@Trait{trait_fields, trait_methods} = do
+    distinctFieldNames trait_fields
+    distinctMethodNames trait_methods
+    efields <- mapM pushTypecheck trait_fields
+    emethods <- mapM pushTypecheck trait_methods
+    return $ t{trait_fields = efields, trait_methods = emethods}
+
+duplication_field_error :: FieldDecl -> String
+duplication_field_error field =
+  "Duplicate definition of field '" ++ show (fname field) ++ "'"
+
+duplication_method_error :: MethodDecl -> String
+duplication_method_error field =
+  "Duplicate definition of method '" ++ show (mname field) ++ "'"
+
+distinctFieldNames :: (MonadError TCError m, MonadReader Environment m)
+                   => [FieldDecl] -> m ()
+distinctFieldNames fields =
+  let
+    unique_fields = nub fields
+    diff = fields \\ unique_fields
+    first = head diff
+  in
+    if null diff then
+      return ()
+    else
+      tc_error_push (duplication_field_error first) first
+
+distinctMethodNames :: (MonadError TCError m, MonadReader Environment m)
+                   => [MethodDecl] -> m ()
+distinctMethodNames methods =
+  let
+    unique_methods = nub methods
+    diff = methods \\ unique_methods
+    first = head diff
+  in
+    if null diff then
+      return ()
+    else
+      tc_error_push (duplication_method_error first) first
+
 instance Checkable ClassDecl where
     --  distinctNames(fields)
    ---  |- field1 .. |- fieldn
@@ -147,9 +196,9 @@ instance Checkable ClassDecl where
     --  E |- class cname fields methods
     typecheck c@(Class {cname, fields, methods}) =
         do distinctTypeParams
-           distinctFieldNames
+           distinctFieldNames fields
            efields <- mapM (\f -> withParams $ pushTypecheck f) fields
-           distinctMethodNames
+           distinctMethodNames methods
            emethods <- mapM typecheckMethod methods
            return $ setType cname c {fields = efields, methods = emethods}
         where
@@ -162,18 +211,6 @@ instance Checkable ClassDecl where
                 case params \\ paramsNoDuplicates of
                   [] -> return ()
                   (p:_) -> tcError $ "Duplicate type parameter '" ++ show p ++ "'"
-          distinctFieldNames =
-              let fieldsNoDuplicates = nubBy (\f1 f2 -> (fname f1 == fname f2)) fields
-              in
-                case fields \\ fieldsNoDuplicates of
-                  [] -> return ()
-                  (f:_) -> do bt <- asks backtrace
-                              throwError $ TCError ("Duplicate definition of field '" ++ show (fname f) ++ "'" , push f bt)
-          distinctMethodNames =
-              case methods \\ nubBy (\m1 m2 -> (mname m1 == mname m2)) methods of
-                [] -> return ()
-                (m:_) -> do bt <- asks backtrace
-                            throwError $ TCError ("Duplicate definition of method '" ++ show (mname m) ++ "'" , push m bt)
 
 instance Checkable FieldDecl where
    ---  |- t
@@ -195,8 +232,7 @@ instance Checkable MethodDecl where
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     typecheck m@(Method {mtype, mparams, mbody, mname}) =
         do ty <- checkType mtype
-           Just thisType <- asks $ varLookup thisName
-           when (isMainType thisType && mname == Name "main") checkMainParams
+           whenM main_method checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $
                           if isVoidType ty
@@ -211,6 +247,13 @@ instance Checkable MethodDecl where
                                             do ty <- checkType ptype
                                                return $ setType ty p
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
+          main_method = do
+            this <- asks $ varLookup thisName
+            return $ is_main this && (mname == Name "main")
+              where
+                is_main Nothing = False
+                is_main (Just t) = isMainType t
+          whenM b a = b >>= flip when a
 
    ---  |- mtype
    ---  |- t1 .. |- tn

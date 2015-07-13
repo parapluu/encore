@@ -18,13 +18,13 @@ tosrc dir target = dir ++ tosrc' target
 expandModules :: [FilePath] -> Program -> IO Program
 expandModules importDirs p = expandProgram p
     where
-      expandProgram p@(Program bundle etl imps funs cls) =
-          do exImps <- mapM expandImport imps
-             return $ Program bundle etl exImps funs cls
-             
-      expandImport i@(Import meta target) = 
+      expandProgram p@Program{imports} =
+          do exImps <- mapM expandImport imports
+             return $ p{imports = exImps}
+
+      expandImport i@(Import meta target) =
           do (imp, src) <- importOne i
-             expImp <- expandProgram imp         
+             expImp <- expandProgram imp
              return $ PulledImport meta target src expImp
 
       importOne :: ImportDecl -> IO (Program, FilePath)

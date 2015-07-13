@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 {-|
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
@@ -16,6 +14,8 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
+import Data.Either (partitionEithers)
+import Control.Monad (liftM)
 
 -- Module dependencies
 import Identifiers
@@ -34,19 +34,25 @@ identifier_parser = identifier
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
 lexer =
-    P.makeTokenParser $
-    emptyDef { P.commentStart = "{-",
-               P.commentEnd = "-}",
-               P.commentLine = "--",
-               P.identStart = letter,
-               P.reservedNames = ["passive", "class", "def", "stream", "breathe", "int", "string", "real", "bool", "void",
-                                  "let", "in", "if", "unless", "then", "else", "repeat", "while",
-                                  "get", "yield", "eos", "getNext", "new", "this", "await", "suspend",
-				  "and", "or", "not", "true", "false", "null", "embed", "body", "end", "where",
-                                  "Fut", "Par", "Stream", "import", "qualified", "bundle", "peer", "async", "finish",
-                                  "foreach"],
-               P.reservedOpNames = [":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "\\", "()", "~~>"]
-             }
+ P.makeTokenParser $
+ emptyDef {
+   P.commentStart = "{-",
+   P.commentEnd = "-}",
+   P.commentLine = "--",
+   P.identStart = letter,
+   P.reservedNames = [
+     "passive", "class", "def", "stream", "breathe", "int", "string", "real",
+     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat",
+     "while", "get", "yield", "eos", "getNext", "new", "this", "await",
+     "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
+     "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
+     "peer", "async", "finish", "foreach", "trait", "require"
+   ],
+   P.reservedOpNames = [
+     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
+     "\\", "()", "~~>"
+     ]
+  }
 
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
@@ -67,11 +73,16 @@ parens     = P.parens lexer
 angles     = P.angles lexer
 brackets   = P.brackets lexer
 braces     = P.braces lexer
+braces' :: Parser a -> Parser a
+braces' p = braces p <|> p
+
 stringLiteral = P.stringLiteral lexer
 integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
+as :: (Parser a) -> (a -> b) -> (Parser b)
+as = flip liftM
 
 -- ! For parsing qualified names such as A.B.C
 longidentifier :: Parser QName
@@ -122,23 +133,25 @@ typ  =  try arrow
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
-                  do {reserved "void"; return voidType} 
+                  do {reserved "void"; return voidType}
       classType = do ty <- identifier
-                     if (isUpper . head $ ty) 
+                     if (isUpper . head $ ty)
                      then return $ refType ty
                      else fail "Class types must begin with an upper case letter"
       typeVariable = do ty <- identifier
                         return $ typeVar ty
 program :: Parser Program
-program = do optional hashbang
-             whiteSpace
-             bundle <- bundledecl
-             importdecls <- many importdecl
-             embedtl <- embedTL
-             functions <- many function
-             classes <- many classDecl
-             eof
-             return $ Program bundle embedtl importdecls functions classes
+program = do
+  optional hashbang
+  whiteSpace
+  bundle <- bundledecl
+  imports <- many importdecl
+  etl <- embedTL
+  functions <- many function
+  decls <- many $ (trait `as` Left) <|> (classDecl `as` Right)
+  let (traits, classes) = partitionEithers decls
+  eof
+  return $ Program{bundle, etl, imports, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -186,6 +199,28 @@ function = do pos <- getPosition
               ty <- typ
               body <- expression
               return $ Function (meta pos) (Name name) ty params body
+
+trait :: Parser Trait
+trait = do
+  trait_meta <- getPosition >>= return . meta
+  reserved "trait"
+  trait_name <- identifier
+  (trait_fields, trait_methods) <- braces' trait_body
+  return Trait{trait_meta, trait_name, trait_fields, trait_methods}
+  where
+    trait_body = do
+      fields <- many trait_field
+      methods <- many methodDecl
+      return (fields, methods)
+
+trait_field :: Parser FieldDecl
+trait_field = do
+  reserved "require"
+  fmeta <- getPosition >>= return . meta
+  fname <- identifier >>= return . Name
+  colon
+  ftype <- typ
+  return Field{fmeta, fname, ftype}
 
 classDecl :: Parser ClassDecl
 classDecl = do pos <- getPosition

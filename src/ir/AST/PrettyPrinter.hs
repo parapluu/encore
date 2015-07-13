@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-|
 
 Prints the source code that an "AST.AST" represents. Each node in
@@ -70,12 +68,14 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram (Program bundle (EmbedTL _ header code) importDecls functions classDecls) = 
+ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
+  imports, functions, classes} =
     ppBundleDecl bundle $+$
-         text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end" $+$
-         vcat (map ppImportDecl importDecls) $+$
-         vcat (map ppFunction functions) $+$
-         vcat (map ppClassDecl classDecls)
+    text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end"
+    $+$
+    vcat (map ppImportDecl imports) $+$
+    vcat (map ppFunction functions) $+$
+    vcat (map ppClassDecl classes)
 
 ppBundleDecl :: BundleDecl -> Doc
 ppBundleDecl NoBundle = empty
@@ -85,9 +85,9 @@ ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
 
 ppFunction :: Function -> Doc
-ppFunction Function {funname, funtype, funparams, funbody} = 
+ppFunction Function {funname, funtype, funparams, funbody} =
     text "def" <+>
-    ppName funname <> 
+    ppName funname <>
     parens (commaSep (map ppParamDecl funparams)) <+>
     text ":" <+> ppType funtype $+$
     (indent (ppExpr funbody))

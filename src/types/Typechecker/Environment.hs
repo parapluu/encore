@@ -1,6 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
-{-| 
+{-|
 
 The environment used by "Typechecker.Typechecker". Contains a
 class table and a list of local name-type bindings and
@@ -9,13 +7,13 @@ typevar-type bindings for doing lookups, as well as the
 
 -}
 
-module Typechecker.Environment(Environment, 
-                               buildEnvironment, 
-                               classLookup, 
-                               classTypeLookup, 
-                               classTypeParameterLookup, 
-                               methodLookup, 
-                               fieldLookup, 
+module Typechecker.Environment(Environment,
+                               buildEnvironment,
+                               classLookup,
+                               classTypeLookup,
+                               classTypeParameterLookup,
+                               methodLookup,
+                               fieldLookup,
                                varLookup,
                                isLocal,
                                typeVarLookup,
@@ -31,6 +29,7 @@ module Typechecker.Environment(Environment,
 
 import Data.List
 import Data.Maybe
+import Control.Monad.Reader
 import Control.Monad.Except
 
 -- Module dependencies
@@ -99,7 +98,7 @@ buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use tra
                       mtype = typeMap setActivity (mtype m)})
 
 pushBT :: Pushable a => a -> Environment -> Environment
-pushBT x env = env {bt = push x (bt env)}
+pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
 

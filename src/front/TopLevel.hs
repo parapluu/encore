@@ -72,8 +72,8 @@ parseArguments args =
       let (sources, aux) = partition isSource (parseArguments' args)
           (imports, options) = partition isImport aux
       in
-      (map getName sources, 
-       ([standardLibLocation ++ "/standard/", standardLibLocation ++ "/prototype/", "./"] ++) $ map (++ "/") $ concat $ map getDirs imports, 
+      (map getName sources,
+       ([standardLibLocation ++ "/standard/", standardLibLocation ++ "/prototype/", "./"] ++) $ map (++ "/") $ concat $ map getDirs imports,
        options)
     where
       isSource (Source _) = True
@@ -121,7 +121,7 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
+           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
            libs  = libPath ++ "*.a"
