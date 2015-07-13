@@ -1,17 +1,11 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module CodeGen.Header(generate_header) where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import CodeGen.MethodDecl
-import CodeGen.Type
-import qualified CodeGen.Context as Ctx
+import CodeGen.Type ()
 
 import CCode.Main
-import CCode.PrettyCCode
-
-import Data.List
+import CCode.PrettyCCode ()
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
@@ -48,8 +42,11 @@ generate_header p =
     [comment_section "Embedded code"] ++
     map Embed allembedded ++
 
-    [comment_section "Class types"] ++
+    [comment_section "Class type decls"] ++
     class_type_decls ++
+
+    [comment_section "Trait type decls"] ++
+    trait_type_decls ++
 
     [comment_section "Passive class types"] ++
     passive_types ++
@@ -80,7 +77,11 @@ generate_header p =
     concatMap method_fwds allclasses ++
 
     [comment_section "Main actor rtti"] ++
-    [extern_main_rtti]
+    [extern_main_rtti] ++
+
+    [comment_section "Trait types"] ++
+    [trait_method_enums] ++
+    trait_types
    where
      extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -92,6 +93,7 @@ generate_header p =
            DeclTL (pony_msg_t, Var "m_run_closure")
           ]
 
+     allTraits = A.allTraits p
      allclasses = A.allClasses p
      allfunctions = A.allFunctions p
      allembedded = A.allEmbedded p
@@ -136,10 +138,11 @@ generate_header p =
                         Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
 
      class_enums =
-               let
-                 class_ids = map (class_id . A.cname) allclasses
-               in
-                Enum $ (Nam "__ID_DUMMY__ = 1024") : class_ids
+       let
+        class_ids = map (ref_type_id . A.getType) allclasses
+        trait_ids = map (ref_type_id . A.getType) allTraits
+       in
+        Enum $ (Nam "__ID_DUMMY__ = 1024") : class_ids ++ trait_ids
 
      trace_fn_decls = map trace_fn_decl allclasses
          where
@@ -158,7 +161,7 @@ generate_header p =
 
      passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
-                   passive_type A.Class{A.cname, A.fields} = 
+                   passive_type A.Class{A.cname, A.fields} =
                        let typeParams = Ty.getTypeParameters cname in
                        StructDecl (AsType $ class_type_name cname)
                                   ((Ptr pony_type_t, AsLval $ self_type_field) :
@@ -166,10 +169,35 @@ generate_header p =
                                    zip
                                    (map (translate . A.ftype) fields)
                                    (map (AsLval . field_name . A.fname) fields))
+     trait_method_enums =
+       let
+         dicts = map (\t -> (A.getType t, A.trait_methods t)) allTraits
+         pairs = concatMap (\(t, ms) -> zip (repeat t) (map A.mname ms)) dicts
+         syncs = map (show . (uncurry one_way_msg_id)) pairs
+       in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
 
-     runtime_type_decls = map type_decl allclasses
-                 where
-                   type_decl A.Class{A.cname} = DeclTL (Extern pony_type_t, AsLval $ runtime_type_name cname)
+     trait_type_decls = map trait_type_decl allTraits
+       where
+         trait_type_decl A.Trait{A.trait_name} =
+           let ty = ref_type_name trait_name in Typedef (Struct $ ty) ty
+
+     trait_types = map trait_type allTraits
+       where
+         trait_type A.Trait{A.trait_name} =
+           let
+             formal = Ty.getTypeParameters trait_name
+             self = (Ptr pony_type_t, AsLval $ self_type_field)
+           in
+             StructDecl (AsType $ ref_type_name trait_name) [self]
+
+     runtime_type_decls = map type_decl allclasses ++ map type_decl allTraits
+       where
+         type_decl ref =
+           let
+             ty = A.getType ref
+             runtime_ty = runtime_type_name ty
+           in
+             DeclTL (Extern pony_type_t, AsLval runtime_ty)
 
      method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
                  where

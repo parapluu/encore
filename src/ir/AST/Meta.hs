@@ -1,9 +1,7 @@
 module AST.Meta where
 
 import Text.Parsec(SourcePos, sourceLine, sourceColumn)
-import Data.Maybe
 
-import Identifiers
 import Types
 
 data MetaInfo = Unspecified
@@ -11,8 +9,8 @@ data MetaInfo = Unspecified
               | Async {metaId :: String}
                 deriving (Eq, Show)
 
-data Meta a = Meta {sourcePos :: SourcePos, 
-                    metaType  :: Type, 
+data Meta a = Meta {sourcePos :: SourcePos,
+                    metaType  :: Type,
                     sugared   :: Maybe a,
                     metaInfo  :: MetaInfo} deriving (Eq, Show)
 

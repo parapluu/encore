@@ -1,6 +1,6 @@
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling errors and backtracing. 
+The machinery used by "Typechecker.Typechecker" for handling errors and backtracing.
 
 -}
 
@@ -8,28 +8,29 @@ module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCErro
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
-import Control.Monad.Except
 import Data.Maybe
 
 import Identifiers
 import Types
 import AST.AST
-import qualified AST.Meta
 import AST.PrettyPrinter
 
 data BacktraceNode = BTFunction Name Type
+                   | BTImplementTrait ImplementTrait
                    | BTTrait Trait
                    | BTClass Type
                    | BTParam ParamDecl
                    | BTField FieldDecl
                    | BTMethod MethodDecl
                    | BTExpr Expr
+                   | BTType Type
 
 instance Show BacktraceNode where
   show (BTFunction n ty) =
     concat ["In function '", show n, "' of type '", show ty, "'"]
   show (BTClass ty) = concat ["In class '", show ty, "'"]
-  show (BTTrait t) = concat ["In trait '", trait_name t, "'"]
+  show (BTImplementTrait t) = concat ["In trait implementation '", show t, "'"]
+  show (BTTrait t) = concat ["In trait '", show t, "'"]
   show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
   show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
   show (BTMethod Method{mname, mtype}) =
@@ -58,7 +59,9 @@ currentMethod [] =
 currentMethod ((_, BTMethod m):_) = m
 currentMethod (_:bt) = currentMethod bt
 
--- | A type class for unifying the syntactic elements that can be pushed to the backtrace stack.
+-- | A type class for unifying the syntactic elements that can be pushed to the
+-- backtrace stack.
+
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
@@ -66,6 +69,12 @@ class Pushable a where
 
 instance Pushable Function where
     push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
+
+instance Pushable Type where
+  push t bt = bt
+
+instance Pushable ImplementTrait where
+  push t bt = pushMeta t (BTImplementTrait t) bt
 
 instance Pushable Trait where
   push t bt = pushMeta t (BTTrait t) bt
@@ -90,16 +99,16 @@ instance Pushable Expr where
 -- produce an error message and print the backtrace.
 newtype TCError = TCError (String, Backtrace)
 instance Show TCError where
-    show (TCError (msg, [])) = 
+    show (TCError (msg, [])) =
         " *** Error during typechecking *** \n" ++
         msg ++ "\n"
-    show (TCError (msg, bt@((pos, _):_))) = 
+    show (TCError (msg, bt@((pos, _):_))) =
         " *** Error during typechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
         (concat $ map showBT bt)
         where
-          showBT (pos, node) = 
+          showBT (pos, node) =
               case (show node) of
                 "" -> ""
                 s  -> s ++ "\n"

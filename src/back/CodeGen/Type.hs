@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, TypeSynonymInstances, FlexibleInstances, GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
 
 {-| Make Type (see "AST") an instance of @Translatable@ (see
 "CodeGen.Typeclasses"). -}
@@ -7,13 +7,10 @@ module CodeGen.Type where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import qualified CodeGen.Context as Ctx
 
 import CCode.Main
-import CCode.PrettyCCode
-import Data.Char
+import CCode.PrettyCCode ()
 
-import qualified Identifiers as ID
 import qualified Types as Ty
 
 translatePrimitive :: Ty.Type -> CCode Ty
@@ -37,7 +34,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtime_type :: Ty.Type -> CCode Expr
-runtime_type ty 
+runtime_type ty
     | Ty.isActiveRefType ty  = AsExpr $ Var "ENCORE_ACTIVE"
     | Ty.isPassiveRefType ty = Amp $ runtime_type_name ty
     | Ty.isFutureType ty ||

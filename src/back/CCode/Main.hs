@@ -8,9 +8,6 @@ will be generated, but it tries to enforce some reasonable invariants.
 
 module CCode.Main where
 
-import qualified AST.AST as AST
-import Data.Char
-
 data Toplevel
 data Stat
 data Expr
@@ -60,7 +57,7 @@ data CCode a where
     AssignTL     :: (UsableAs l Lval, UsableAs e Expr) => CCode l -> CCode e -> CCode Toplevel
     Decl         :: CVarSpec -> CCode Lval
     DeclTL       :: CVarSpec -> CCode Toplevel
-    Concat       :: [CCode Toplevel] -> CCode Toplevel 
+    Concat       :: [CCode Toplevel] -> CCode Toplevel
     Seq          :: UsableAs Stat s => [CCode s] -> CCode Stat
     Enum         :: [CCode Name] -> CCode Toplevel
     Braced       :: CCode a -> CCode a
@@ -100,3 +97,4 @@ data CCode a where
     Double       :: Double -> CCode Expr
     Comm         :: String -> CCode a
     Annotated    :: String -> CCode a -> CCode a
+    FunPtrDecl   :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Stat

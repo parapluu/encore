@@ -59,7 +59,7 @@ pp' (Assign lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (AssignTL lhs rhs) = add_semi $ pp' lhs <+> text "=" <+> pp' rhs
 pp' (Decl (ty, id)) = tshow ty <+> tshow id
 pp' (DeclTL (ty, id)) = add_semi $ tshow ty <+> tshow id
-pp' (FunTypeDef id ty argTys) = add_semi $ text "typedef" <+> tshow ty <+> parens (star <> tshow id) <> 
+pp' (FunTypeDef id ty argTys) = add_semi $ text "typedef" <+> tshow ty <+> parens (star <> tshow id) <>
                                 parens (commaList argTys)
 pp' (Concat ccodes) = vcat $ intersperse (text "\n") $ map pp' ccodes
 pp' (Seq ccodes) = vcat $ map (add_semi . pp') ccodes
@@ -74,7 +74,7 @@ pp' (CUnary o e) = parens $  pp' o <+> pp' e
 pp' (BinOp o e1 e2) = parens $  pp' e1 <+> pp' o <+> pp' e2
 pp' (Dot ccode id) = pp' ccode <> text "." <> tshow id
 pp' (Arrow ccode id) = pp' ccode <> text "->" <> tshow id
-pp' (Deref ccode) = parens $ star <> pp' ccode 
+pp' (Deref ccode) = parens $ star <> pp' ccode
 pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
 pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
 pp' (Amp ccode) = parens $ text "&" <> (parens $ pp' ccode)
@@ -110,8 +110,13 @@ pp' (Int n) = tshow n
 pp' (String s) = tshow s
 pp' (Double d) = tshow d
 pp' (Comm s) = text ("/* "++s++" */")
---Annotated :: CCode a -> String -> CCode a
 pp' (Annotated s ccode) = pp' ccode <+> pp' (Comm s)
+pp' (FunPtrDecl t name arg_types) =
+  let
+    args = parens (commaList arg_types)
+    id = text "(*" <> pp' name <> text ")"
+  in
+    pp' t <+> id <+> args
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l

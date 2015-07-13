@@ -1,11 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, NamedFieldPuns, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
 {-| Makes @Function@ (see "AST") an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
 module CodeGen.Function where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import CodeGen.Expr
+import CodeGen.Expr ()
 import CodeGen.Type
 import CodeGen.Closure
 import CodeGen.Task
@@ -16,13 +16,9 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
-import qualified Identifiers as ID
 import Types
 
---import Control.Monad.Reader
 import Control.Monad.State hiding(void)
-import Data.Maybe
-import Data.List
 
 instance Translatable A.Function (ClassTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
@@ -37,21 +33,21 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
           closures = map (\clos -> translateClosure clos ctable) (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas ctable) $ reverse $ Util.filter A.isTask funbody
       in
-        Concat $ 
+        Concat $
         closures ++ tasks ++
         [Function (Typ "value_t") fun_name
                   [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
-                  (Seq $ 
-                   extractArguments funparams ++ 
+                  (Seq $
+                   extractArguments funparams ++
                    [bodyStat, returnStmnt bodyName funtype])]
     where
-      returnStmnt var ty 
+      returnStmnt var ty
           | isVoidType ty = Return $ (as_encore_arg_t (translate ty) unit)
           | otherwise     = Return $ (as_encore_arg_t (translate ty) var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
-      extractArguments' ((A.Param{A.pname, A.ptype}):args) i = 
+      extractArguments' ((A.Param{A.pname, A.ptype}):args) i =
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype

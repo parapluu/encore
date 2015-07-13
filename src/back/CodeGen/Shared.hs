@@ -1,41 +1,70 @@
-{-# LANGUAGE NamedFieldPuns, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 module CodeGen.Shared(generate_shared) where
 
 import CCode.Main
 import CodeGen.CCodeNames
 import CodeGen.Typeclasses
-import CodeGen.Function
+import CodeGen.Function ()
 import CodeGen.ClassTable
 import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generate_shared :: A.Program -> ClassTable -> CCode FIN
-generate_shared prog@(A.Program{A.functions, A.imports}) ctable = 
+generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
     Program $
     Concat $
       (LocalInclude "header.h") :
 
-      A.traverseProgram f combine prog ++ 
+      A.traverseProgram f combine prog ++
 
       -- [comment_section "Shared messages"] ++
       -- shared_messages ++
       [comment_section "Global functions"] ++
       global_functions ++
 
+      [comment_section "Trai runtime types"] ++
+      trait_runtime_types ++
+
       [main_function]
     where
+      allTraits = A.allTraits prog
+      trait_runtime_types = map t_rt_type allTraits
+        where
+          t_rt_type trait =
+            let
+              ty = A.getType trait
+              var_ty = Typ "pony_type_t"
+              var = AsLval $ runtime_type_name ty
+              lhs = Decl (var_ty, var)
+              value = Record [
+                AsExpr . AsLval $ ref_type_id ty,
+                Call (Nam "sizeof") [AsLval $ ref_type_name ty],
+                Int 0,
+                Int 0,
+                Null,
+                Null,
+                Null,
+                Null,
+                Null,
+                Int 0,
+                Int 0,
+                Null
+                ]
+            in
+              AssignTL lhs value
+
       allfunctions = A.allFunctions prog
-  
+
       global_functions = map (\fun -> translate fun ctable) allfunctions
-        
-      f A.Program{A.etl = A.EmbedTL{A.etlbody}} =   
+
+      f A.Program{A.etl = A.EmbedTL{A.etlbody}} =
         [comment_section "Embedded Code"] ++
-        [Embed etlbody] 
+        [Embed etlbody]
 
           where
-              
+
       combine a b = [comment_section "Imported functions"] ++ concat b ++ a
 
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
@@ -55,24 +84,24 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
             msg_fut_run_closure_decl =
                 AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
                          (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
-      
+
       main_function =
           Function (Typ "int") (Nam "main")
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
                    (Seq $ init_globals ++ [Return encore_start])
           where
             init_globals = map init_global allfunctions
-                where 
-                  init_global A.Function{A.funname} = 
+                where
+                  init_global A.Function{A.funname} =
                       Assign (global_closure_name funname)
-                             (Call (Nam "closure_mk") 
-                                   [AsExpr $ AsLval $ global_function_name funname, 
-                                    Null, 
+                             (Call (Nam "closure_mk")
+                                   [AsExpr $ AsLval $ global_function_name funname,
+                                    Null,
                                     Null])
             encore_start =
-                Call (Nam "encore_start") 
-                     [AsExpr $ Var "argc", 
-                      AsExpr $ Var "argv", 
+                Call (Nam "encore_start")
+                     [AsExpr $ Var "argc",
+                      AsExpr $ Var "argv",
                       Amp (Var "_enc__active_Main_type")]
 
 

@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module AST.Desugarer(desugarProgram) where
 
 import Identifiers
@@ -12,17 +10,25 @@ import Types
 import qualified Data.List as List
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{classes, functions, imports}) = p{classes = map desugarClass classes,
-                                                            functions = map desugarFunction functions,
-                                                            imports = map desugarImports imports}
-    where
-      desugarImports f@(PulledImport{iprogram}) = f{iprogram = desugarProgram iprogram}
-      desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
-      desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
-      desugarMethod m
-          | (mname m) == Name "init" = m{mname = Name "_init", mbody = desugarExpr (mbody m)}
-          | otherwise = m{mbody = desugarExpr (mbody m)}
-      desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
+desugarProgram p@(Program{traits, classes, functions, imports}) =
+  p{
+    traits = map desugar_trait traits,
+    classes = map desugarClass classes,
+    functions = map desugarFunction functions,
+    imports = map desugarImports imports
+  }
+  where
+    desugar_trait t@Trait{trait_methods}=
+      t{trait_methods = map desugarMethod trait_methods}
+    desugarImports f@(PulledImport{iprogram}) =
+      f{iprogram = desugarProgram iprogram}
+    desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
+    desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
+    desugarMethod m
+      | (mname m) == Name "init" =
+        m{mname = Name "_init", mbody = desugarExpr (mbody m)}
+      | otherwise = m{mbody = desugarExpr (mbody m)}
+    desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
 cloneMeta m = (Meta.meta (Meta.sourcePos m))

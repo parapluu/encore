@@ -9,9 +9,13 @@ typevar-type bindings for doing lookups, as well as the
 
 module Typechecker.Environment(Environment,
                                buildEnvironment,
-                               classLookup,
+                               traitLookup,
+                               traitLookup',
+                               refTypeLookup,
+                               refTypeLookup',
+                               traitTypeLookup,
                                classTypeLookup,
-                               classTypeParameterLookup,
+                               classTypeLookup',
                                methodLookup,
                                fieldLookup,
                                varLookup,
@@ -21,16 +25,17 @@ module Typechecker.Environment(Environment,
                                addTypeParameters,
                                typeParameters,
                                replaceLocals,
-                               bindType,
                                bindTypes,
                                bindings,
                                backtrace,
-                               pushBT) where
+                               pushBT,
+                               refTypeParameters
+                               ) where
 
 import Data.List
 import Data.Maybe
-import Control.Monad.Reader
-import Control.Monad.Except
+import Control.Applicative ((<|>))
+import qualified Data.HashMap.Strict as M
 
 -- Module dependencies
 import Identifiers
@@ -40,62 +45,47 @@ import Typechecker.TypeError
 
 type VarTable    = [(Name, Type)]
 type FieldTable  = [(Name, FieldDecl)]
-type MethodTable = [(Name, MethodDecl)] 
+type MethodTable = [(Name, MethodDecl)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
-data Environment = Env {ctable   :: ClassTable, 
-                        globals  :: VarTable, 
-                        locals   :: VarTable, 
-                        bindings :: [(Type, Type)], 
-                        typeParameters :: [Type],
-                        bt :: Backtrace}
-                    deriving Show
-                 -- TODO: Add "current control abstraction"
+data Environment = Env {
+  class_table :: M.HashMap String ClassDecl,
+  trait_table :: M.HashMap String Trait,
+  globals  :: VarTable,
+  locals   :: VarTable,
+  bindings :: [(Type, Type)],
+  typeParameters :: [Type],
+  bt :: Backtrace
+} deriving Show
+
+empty_env = Env {
+  class_table = M.empty,
+  trait_table = M.empty,
+  globals = [],
+  locals = [],
+  bindings = [],
+  typeParameters = [],
+  bt = emptyBT
+}
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use traverseProgram
-    do distinctFunctions
-       distinctClasses
-       mergeEnvironments (Env {ctable  = map getClassEntry classes,
-                     globals = map getFunctionType functions, 
-                     locals = [], bindings = [], typeParameters = [], 
-                     bt = emptyBT}) (map (buildEnvironment . iprogram) imports)
-    where
+buildEnvironment p@(Program{functions, classes, imports}) =
+  merge_envs $ traverse p buildEnvironment'
+  where
+    buildEnvironment' :: Program -> [Either TCError Environment]
+    buildEnvironment' p@(Program {functions, classes, traits, imports}) =
+      return Env {
+        class_table = M.fromList [(getId (cname c), c) | c <- classes],
+        trait_table = M.fromList [(getId (trait_name t), t) | t <- traits],
+        globals = map getFunctionType functions,
+        locals = [],
+        bindings = [],
+        typeParameters = [],
+        bt = emptyBT
+      } : []
 
-      -- Each class knows if it's passive or not, but reference
-      -- types in functions, methods and fields must be given the
-      -- correct activity
-      allclasses = allClasses p
-      
-      setActivity ty = 
-          case find ((==ty) . cname) allclasses of
-            Just c -> if isActiveRefType $ cname c
-                      then makeActive ty
-                      else makePassive ty
-            Nothing -> ty
-
-      distinctFunctions = 
-          case functions \\ nubBy (\f1 f2 -> (funname f1 == funname f2)) functions of
-            [] -> return ()
-            (fun:_) -> throwError $ TCError ("Duplicate definition of function '" ++ show (funname fun) ++ "'" , push fun emptyBT)
-
-      distinctClasses = 
-          case classes \\ nubBy (\c1 c2 -> (cname c1 == cname c2)) classes of
-            [] -> return ()
-            (cls:_) -> throwError $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
-
-      getFunctionType Function {funname, funtype, funparams} = 
-          (funname, arrowType (map (setActivity . ptype) funparams) (setActivity funtype))
-
-      getClassEntry Class {cname = c, fields, methods} = 
-          (c, (map getField fields, map getMethod methods))
-
-      getField f@(Field {fname, ftype}) =
-          (fname, f{ftype = typeMap setActivity ftype})
-
-      getMethod m = 
-          (mname m, m{mparams = map (\p@(Param{ptype}) -> p{ptype = (typeMap setActivity) ptype}) (mparams m),
-                      mtype = typeMap setActivity (mtype m)})
+    getFunctionType Function {funname, funtype, funparams} =
+        (funname, arrowType (map (ptype) funparams) funtype)
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
@@ -103,30 +93,83 @@ pushBT x env@Env{bt} = env{bt = push x bt}
 backtrace = bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup cls f env = do (fields, _) <- classLookup cls env
-                           lookup f fields
+fieldLookup t f env
+  | isTrait t = do
+    trait <- M.lookup (getId t) $ trait_table env
+    find (\Field{fname} -> fname == f) $ trait_fields trait
+  | isClass t = do
+    cls <- classLookup t env
+    find (\Field{fname} -> fname == f) $ fields cls
+  | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
+
+match_method :: Name -> MethodDecl -> Bool
+match_method m Method{mname} = mname == m
+match_method m StreamMethod{mname} = mname == m
+
+trait_method_lookup :: Type -> Name -> Environment -> Maybe MethodDecl
+trait_method_lookup trait m env = do
+  trait <- traitLookup trait env
+  find (match_method m) $ trait_methods trait
 
 methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
-methodLookup cls m env = do (_, methods) <- classLookup cls env
-                            lookup m methods
+methodLookup ty m env
+  | isClass ty = do
+    cls <- classLookup ty env
+    c_m <- return $ find (match_method m) $ methods cls
+    t_ms <- return $ map (\t -> trait_method_lookup t m env) traits
+    ret <- find isJust $ (c_m:t_ms)
+    return $ fromJust ret
+  | isTrait ty = do
+    trait_method_lookup ty m env
+  | otherwise = error "methodLookup in non-ref type"
+    where
+      traits = getImplTraits ty
+
+traitLookup :: Type -> Environment -> Maybe Trait
+traitLookup t env =
+  M.lookup (getId t) $ trait_table env
+
+traitLookup' :: Type -> Environment -> Trait
+traitLookup' t env = fromJust $ M.lookup (getId t) $ trait_table env
 
 -- TODO: Merge these two functions
-classLookup :: Type -> Environment -> Maybe (FieldTable, MethodTable)
+classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
-    | isRefType cls = lookup cls (ctable env)
-    | otherwise = error $ "Tried to lookup the class of '" ++ show cls ++ "' which is not a reference type"
+    | isRefType cls = M.lookup (getId cls) $ class_table env
+    | otherwise = error $
+      "Tried to lookup the class of '" ++ show cls
+      ++ "' which is not a reference type"
+
+traitTypeLookup :: Type -> Environment -> Maybe Type
+traitTypeLookup trait env = do
+  trait <- M.lookup (getId trait) $ trait_table env
+  return $ trait_name trait
 
 classTypeLookup :: Type -> Environment -> Maybe Type
-classTypeLookup cls env 
-    | isRefType cls = do (cls', _) <- find (\(cls', _) -> getId cls == getId cls') (ctable env)
-                         return cls'
-    | otherwise = error $ "Tried to lookup the class declaration of '" ++ show cls ++ "' which is not a reference type"
+classTypeLookup cls env
+  | isRefType cls = do
+    cls <- M.lookup (getId cls) $ class_table env
+    return $ cname cls
+  | otherwise = error $ concat ["Not class type '", show cls, "'"]
 
-classTypeParameterLookup :: Type -> Environment -> [Type]
-classTypeParameterLookup cls env
-    | isRefType cls = let Just (cls', _) = find (\(cls', _) -> getId cls == getId cls') (ctable env)
-                      in getTypeParameters cls'
-    | otherwise = error $ "Tried to lookup the type parameters of '" ++ show cls ++ "' which is not a reference type"
+classTypeLookup' :: Type -> Environment -> Type
+classTypeLookup' cls env = fromJust $ classTypeLookup cls env
+
+refTypeLookup :: Type -> Environment -> Maybe Type
+refTypeLookup t env =
+  let
+    cls = fmap cname $ M.lookup (getId t) $ class_table env
+    trait = fmap trait_name $ M.lookup (getId t) $ trait_table env
+  in
+    cls <|> trait
+
+refTypeLookup' :: Type -> Environment -> Type
+refTypeLookup' t env = fromJust $ refTypeLookup t env
+
+refTypeParameters :: Type -> Environment -> [Type]
+refTypeParameters t env =
+  let Just t' = refTypeLookup t env
+  in getTypeParameters t'
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = case lookup x (locals env) of
@@ -137,13 +180,14 @@ isLocal :: Name -> Environment -> Bool
 isLocal x env = isJust $ lookup x (locals env)
 
 typeVarLookup :: Type -> Environment -> Maybe Type
-typeVarLookup ty env 
+typeVarLookup ty env
     | isTypeVar ty = lookup ty (bindings env)
-    | otherwise    = error "Tried to lookup the binding of something that was not a type variable"
+    | otherwise    = error
+      "Tried to lookup the binding of something that was not a type variable"
 
 extendEnvironment :: [(Name, Type)] -> Environment -> Environment
 extendEnvironment [] env = env
-extendEnvironment ((name, ty):newTypes) env = 
+extendEnvironment ((name, ty):newTypes) env =
     extendEnvironment newTypes $ env {locals = extend (locals env) name ty}
     where
       extend [] name' ty' = [(name', ty')]
@@ -154,10 +198,11 @@ extendEnvironment ((name, ty):newTypes) env =
 addTypeParameters :: [Type] -> Environment -> Environment
 addTypeParameters [] env = env
 addTypeParameters xs env@(Env{typeParameters}) =
-    if all isTypeVar xs then
-        env{typeParameters = xs ++ typeParameters}
-    else
-        error "Tried to add a type parameter that was not a type parameter"
+  if all isTypeVar xs then
+    env{typeParameters = xs ++ typeParameters}
+  else
+    error $ "Tried to add a type parameter that was not a type parameter" ++
+        show xs
 
 bindType :: Type -> Type -> Environment -> Environment
 bindType var ty env
@@ -170,22 +215,29 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
 
-
-
-mergeEnvironments :: Environment -> [Either TCError Environment] -> Either TCError Environment
-mergeEnvironments e l = foldr mergeEnv (return e) l
+merge_envs :: [Either TCError Environment] -> Either TCError Environment
+merge_envs envs = foldr merge (return empty_env) envs
   where
-      mergeEnv :: Either TCError Environment -> Either TCError Environment -> Either TCError Environment
-      mergeEnv e1 e2 =
-        do 
-           (Env ct globs locals binds tparams bt) <- e1
-           (Env ct' globs' locals' binds' tparams' bt') <- e2
-           return $ Env (mergeClasses ct ct') (mergeGlobals globs globs') (mergeLocals locals locals') 
-                    (mergeBindings binds binds') (mergeTypeParams tparams tparams') emptyBT
-
-           -- TODO: Be smarter and detect errors 
-      mergeClasses = (++)
-      mergeGlobals = (++)
-      mergeLocals = (++)
-      mergeBindings = (++)
-      mergeTypeParams = (++)
+    merge :: Either TCError Environment -> Either TCError Environment
+             -> Either TCError Environment
+    merge e1 e2 = do
+      Env{class_table=class_table, trait_table=trait_table,
+        globals=globs, locals=locals,
+        bindings=binds, typeParameters=tparams, bt=bt} <- e1
+      Env{class_table=class_table', trait_table=trait_table',
+        globals=globs', locals=locals',
+        bindings=binds', typeParameters=tparams', bt=bt} <- e2
+      return $ Env{
+        class_table = M.union class_table class_table',
+        trait_table = M.union trait_table trait_table',
+        globals=(mergeGlobals globs globs'),
+        locals=(mergeLocals locals locals'),
+        bindings=(mergeBindings binds binds'),
+        typeParameters=(mergeTypeParams tparams tparams'),
+        bt=emptyBT
+      }
+    -- TODO: Be smarter and detect errors
+    mergeGlobals = (++)
+    mergeLocals = (++)
+    mergeBindings = (++)
+    mergeTypeParams = (++)
