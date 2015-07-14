@@ -24,37 +24,8 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
       [comment_section "Global functions"] ++
       global_functions ++
 
-      [comment_section "Trai runtime types"] ++
-      trait_runtime_types ++
-
       [main_function]
     where
-      allTraits = A.allTraits prog
-      trait_runtime_types = map t_rt_type allTraits
-        where
-          t_rt_type trait =
-            let
-              ty = A.getType trait
-              var_ty = Typ "pony_type_t"
-              var = AsLval $ runtime_type_name ty
-              lhs = Decl (var_ty, var)
-              value = Record [
-                AsExpr . AsLval $ ref_type_id ty,
-                Call (Nam "sizeof") [AsLval $ ref_type_name ty],
-                Int 0,
-                Int 0,
-                Null,
-                Null,
-                Null,
-                Null,
-                Null,
-                Int 0,
-                Int 0,
-                Null
-                ]
-            in
-              AssignTL lhs value
-
       allfunctions = A.allFunctions prog
 
       global_functions = map (\fun -> translate fun ctable) allfunctions
@@ -62,8 +33,6 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
       f A.Program{A.etl = A.EmbedTL{A.etlbody}} =
         [comment_section "Embedded Code"] ++
         [Embed etlbody]
-
-          where
 
       combine a b = [comment_section "Imported functions"] ++ concat b ++ a
 

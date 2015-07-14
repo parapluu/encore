@@ -143,6 +143,9 @@ duplication_function_error f =
 duplication_implement_trait_error it =
   "Duplicate implementationn of trait '" ++ show (itrait it) ++ "'"
 
+trait_class_name_conflictionn_error dup =
+  printf "'%s' is defined both as class and trait" $ show dup
+
 cant_read_field_of_primitive field t =
   "Cannot read field of expression '" ++ show (ppExpr field)
     ++ "' of primitive type '" ++ show t ++ "'"
@@ -197,6 +200,17 @@ distinct_implement_trait_names ::
 distinct_implement_trait_names itraits =
   distinct_entity_or_error itraits duplication_implement_trait_error
 
+distinct_trait_and_class_names ::
+  (MonadError TCError m, MonadReader Environment m)
+  => [Trait] -> [ClassDecl] -> m ()
+distinct_trait_and_class_names trait_names class_names =
+  let
+    trait_names' = map trait_name trait_names
+    class_names' = map cname class_names
+    refs = trait_names' ++ class_names'
+  in
+    distinct_entity_or_error refs trait_class_name_conflictionn_error
+
 distinct_entity_or_error ::
   (MonadError TCError m, MonadReader Environment m, Pushable e, Eq e)
                          => [e] -> (e -> String) -> m ()
@@ -221,6 +235,7 @@ instance Checkable Program where
     etraits <- mapM pushTypecheck traits
     distinct_class_names $ allClasses p
     eclasses <- mapM pushTypecheck classes
+    distinct_trait_and_class_names (allTraits p) (allClasses p)
     eimps <- mapM typecheck imports   -- TODO: should probably use Pushable and pushTypecheck
     distinct_function_names $ allFunctions p
     efuns <- mapM pushTypecheck functions
