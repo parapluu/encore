@@ -362,9 +362,10 @@ match_field fields f =
 
 match_field_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
-match_field_or_error fields f =
-  unless (match_field fields f) $
-    tcError $ concat ["couldnt find field: '", show f, "'"]
+match_field_or_error fields f = do
+  t <- resolve_type $ ftype f
+  unless (match_field fields (setType t f)) $
+    tc_error $ concat ["couldnt find field: '", show f, "'"]
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementTrait -> m ()
