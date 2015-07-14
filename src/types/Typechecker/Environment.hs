@@ -13,9 +13,6 @@ module Typechecker.Environment(Environment,
                                traitLookup',
                                refTypeLookup,
                                refTypeLookup',
-                               traitTypeLookup,
-                               classTypeLookup,
-                               classTypeLookup',
                                methodLookup,
                                fieldLookup,
                                varLookup,
@@ -36,6 +33,7 @@ import Data.List
 import Data.Maybe
 import Control.Applicative ((<|>))
 import qualified Data.HashMap.Strict as M
+import Text.Printf (printf)
 
 -- Module dependencies
 import Identifiers
@@ -44,9 +42,6 @@ import Types
 import Typechecker.TypeError
 
 type VarTable    = [(Name, Type)]
-type FieldTable  = [(Name, FieldDecl)]
-type MethodTable = [(Name, MethodDecl)]
-type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
 data Environment = Env {
   class_table :: M.HashMap String ClassDecl,
@@ -140,21 +135,6 @@ classLookup cls env
       "Tried to lookup the class of '" ++ show cls
       ++ "' which is not a reference type"
 
-traitTypeLookup :: Type -> Environment -> Maybe Type
-traitTypeLookup trait env = do
-  trait <- M.lookup (getId trait) $ trait_table env
-  return $ trait_name trait
-
-classTypeLookup :: Type -> Environment -> Maybe Type
-classTypeLookup cls env
-  | isRefType cls = do
-    cls <- M.lookup (getId cls) $ class_table env
-    return $ cname cls
-  | otherwise = error $ concat ["Not class type '", show cls, "'"]
-
-classTypeLookup' :: Type -> Environment -> Type
-classTypeLookup' cls env = fromJust $ classTypeLookup cls env
-
 refTypeLookup :: Type -> Environment -> Maybe Type
 refTypeLookup t env =
   let
@@ -201,8 +181,8 @@ addTypeParameters xs env@(Env{typeParameters}) =
   if all isTypeVar xs then
     env{typeParameters = xs ++ typeParameters}
   else
-    error $ "Tried to add a type parameter that was not a type parameter" ++
-        show xs
+    error $ printf "'%s' is not a type parameter" $
+      show $ head $ filter (not.isTypeVar) xs
 
 bindType :: Type -> Type -> Environment -> Environment
 bindType var ty env
