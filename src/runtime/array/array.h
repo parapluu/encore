@@ -12,6 +12,8 @@ void array_trace(void *);
 
 array_t *array_mk(size_t size, pony_type_t *type);
 
+array_t *array_from_array(size_t size, pony_type_t *type, encore_arg_t arr[]);
+
 size_t array_size(array_t *a);
 
 encore_arg_t array_get(array_t *a, size_t i);

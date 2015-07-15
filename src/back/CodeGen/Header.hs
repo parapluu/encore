@@ -203,7 +203,7 @@ generate_header p =
                  where
                    method_fwd A.Method{A.mtype, A.mname, A.mparams} =
                      let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
-                                  then [Ptr . AsType $ class_type_name cname, int, Ptr $ Ptr char]
+                                  then [Ptr . AsType $ class_type_name cname, array]
                                   else (Ptr . AsType $ class_type_name cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
                      in
                        FunctionDecl (translate mtype) (method_impl_name cname mname) params
