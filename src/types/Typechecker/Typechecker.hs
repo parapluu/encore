@@ -21,7 +21,7 @@ import Control.Applicative ((<$>))
 -- Module dependencies
 import Identifiers
 import AST.AST hiding (hasType, getType)
-import qualified AST.AST as AST(getType)
+import qualified AST.AST as AST (getType, showWithKind)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -40,17 +40,40 @@ typecheckEncoreProgram p =
 tcError msg = do bt <- asks backtrace
                  throwError $ TCError (msg, bt)
 
+-- | Convenience function for asserting distinctness of a list of
+-- things. @assertDistinct "declaration" "field" [f : Foo, f :
+-- Bar]@ will throw an error with the message "Duplicate
+-- declaration of field 'f'".
+assertDistinctThing :: (MonadError TCError m, MonadReader Environment m,
+  Eq a, Show a) => String -> String -> [a] -> m ()
+assertDistinctThing something kind l =
+  let
+    duplicates = l \\ nub l
+    duplicate = head duplicates
+  in
+    unless (null duplicates) $
+      tcError $ printf "Duplicate %s of %s %s" something kind $ show duplicate
+
+-- | Convenience function for asserting distinctness of a list of
+-- things that @HasMeta@ (and thus knows how to print its own
+-- kind). @assertDistinct "declaration" [f : Foo, f : Bar]@ will
+-- throw an error with the message "Duplicate declaration of field
+-- 'f'".
+assertDistinct :: (MonadError TCError m, MonadReader Environment m,
+  Eq a, AST.AST.HasMeta a) => String -> [a] -> m ()
+assertDistinct something l =
+  let
+    duplicates = l \\ nub l
+    first = head duplicates
+  in
+    unless (null duplicates) $
+      tcError $ printf "Duplicate %s of %s" something $ AST.showWithKind first
+
 tc_error :: (MonadError TCError m, MonadReader Environment m)
               => String -> m b
 tc_error msg = do
   bt <- asks backtrace
   throwError $ TCError (msg, bt)
-
-tc_error_push :: (MonadError TCError m, MonadReader Environment m, Pushable a)
-              => String -> a -> m b
-tc_error_push msg x = do
-  bt <- asks backtrace
-  throwError $ TCError (msg, push x bt)
 
 resolve_type_or_error :: Type -> ExceptT TCError (Reader Environment) Type
 resolve_type_or_error ty
@@ -120,124 +143,21 @@ class Checkable a where
     pushHasType :: Pushable a => a -> Type -> ExceptT TCError (Reader Environment) a
     pushHasType x ty = local (pushBT x) $ hasType x ty
 
-duplication_field_error :: FieldDecl -> String
-duplication_field_error field =
-  "Duplicate definition of field '" ++ show field ++ "'"
-
-duplication_method_error :: MethodDecl -> String
-duplication_method_error f =
-  "Duplicate definition of method '" ++ show (mname f) ++ "'"
-
-duplication_class_error c =
-  "Duplicate definition of class '" ++ show (cname c) ++ "'"
-
-duplication_trait_error c =
-  "Duplicate definition of trait '" ++ show c ++ "'"
-
-duplication_type_param_error p =
-  "Duplicate definition of type parameter '" ++ show p ++ "'"
-
-duplication_function_error f =
-  "Duplicate definition of function '" ++ show (funname f) ++ "'"
-
-duplication_implement_trait_error it =
-  "Duplicate implementationn of trait '" ++ show (itrait it) ++ "'"
-
-trait_class_name_conflictionn_error dup =
-  printf "'%s' is defined both as class and trait" $ show dup
-
-cant_read_field_of_primitive field t =
-  "Cannot read field of expression '" ++ show (ppExpr field)
-    ++ "' of primitive type '" ++ show t ++ "'"
-
-cant_read_field_of_polymorphic field t =
-  "Cannot read field of expression '" ++ show (ppExpr field)
-    ++ "' of polymorphic type '" ++ show t ++ "'"
-
-cant_read_field_of_trait field t =
-  "Cannot read field of expression '" ++ show (ppExpr field)
-    ++ "' of trait type '" ++ show t ++ "'"
-
-cant_read_field_of_active field t =
-  "Cannot read field of expression '" ++ show (ppExpr field)
-    ++ "' of active object type '" ++ show t ++ "'"
-
-cant_use_traits_in_active_classes t =
-  "Cannot use traits in active class '" ++ show t ++ "'"
-
-distinct_field_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [FieldDecl] -> m ()
-distinct_field_names fields =
-  distinct_entity_or_error fields duplication_field_error
-
-distinct_method_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [MethodDecl] -> m ()
-distinct_method_names methods =
-  distinct_entity_or_error methods duplication_method_error
-
-distinct_class_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [ClassDecl] -> m ()
-distinct_class_names classes =
-  distinct_entity_or_error classes duplication_class_error
-
-distinct_trait_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [Trait] -> m ()
-distinct_trait_names traits =
-  distinct_entity_or_error traits duplication_trait_error
-
-distinct_type_param_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [Type] -> m ()
-distinct_type_param_names type_params =
-  distinct_entity_or_error type_params duplication_type_param_error
-
-distinct_function_names :: (MonadError TCError m, MonadReader Environment m)
-                   => [Function] -> m ()
-distinct_function_names functions =
-  distinct_entity_or_error functions duplication_function_error
-
-distinct_implement_trait_names ::
-  (MonadError TCError m, MonadReader Environment m) => [ImplementTrait] -> m ()
-distinct_implement_trait_names itraits =
-  distinct_entity_or_error itraits duplication_implement_trait_error
-
-distinct_trait_and_class_names ::
-  (MonadError TCError m, MonadReader Environment m)
-  => [Trait] -> [ClassDecl] -> m ()
-distinct_trait_and_class_names trait_names class_names =
-  let
-    trait_names' = map trait_name trait_names
-    class_names' = map cname class_names
-    refs = trait_names' ++ class_names'
-  in
-    distinct_entity_or_error refs trait_class_name_conflictionn_error
-
-distinct_entity_or_error ::
-  (MonadError TCError m, MonadReader Environment m, Pushable e, Eq e)
-                         => [e] -> (e -> String) -> m ()
-distinct_entity_or_error entities err =
-  let
-    unique = nub entities
-    diff = entities \\ unique
-    first = head diff
-  in
-    if null diff then
-      return ()
-    else
-      tc_error_push (err first) first
-
 instance Checkable Program where
     --  E |- fun1 .. E |- funn
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
   typecheck p@Program{imports, functions, traits, classes} = do
-    distinct_trait_names $ allTraits p
+    assertDistinct "definition" (allTraits p)
     etraits <- mapM pushTypecheck traits
-    distinct_class_names $ allClasses p
+    assertDistinct "definition" (allClasses p)
     eclasses <- mapM pushTypecheck classes
-    distinct_trait_and_class_names (allTraits p) (allClasses p)
+    assertDistinctThing "declaration" "class or trait name" $
+                        map trait_name (allTraits p) ++
+                        map cname (allClasses p)
     eimps <- mapM typecheck imports   -- TODO: should probably use Pushable and pushTypecheck
-    distinct_function_names $ allFunctions p
+    assertDistinct "definition" (allFunctions p)
     efuns <- mapM pushTypecheck functions
     return p{imports = eimps, functions = efuns,
       traits = etraits, classes = eclasses}
@@ -273,16 +193,16 @@ instance Checkable Function where
 
 instance Checkable Trait where
   typecheck t@Trait{trait_name, trait_fields, trait_methods} = do
-    distinct_type_param_names type_vars
-    distinct_field_names trait_fields
+    assertDistinctThing "declaration" "type parameter" typeParameters
+    assertDistinct "requirement" trait_fields
     efields <- mapM (local add_type_vars . pushTypecheck) trait_fields
-    distinct_method_names trait_methods
+    assertDistinct "definition" trait_methods
     emethods <- mapM typecheckMethod trait_methods
     return $ setType trait_name $
       t{trait_fields = efields, trait_methods = emethods}
     where
-      type_vars = getTypeParameters trait_name
-      add_type_vars = addTypeParameters type_vars
+      typeParameters = getTypeParameters trait_name
+      add_type_vars = addTypeParameters typeParameters
       add_this = extendEnvironment [(thisName, trait_name)]
       typecheckMethod m = local (add_type_vars . add_this) $ pushTypecheck m
 
@@ -386,13 +306,7 @@ meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementTrait -> m ()
 meet_required_fields fields t@ImplementTrait{itrait} = do
   trait <- asks $ traitLookup' $ trait_name itrait
-  mapM (match_field_or_error fields) $ trait_fields trait
-  return ()
-
-ensure_not_active_class :: (MonadError TCError m, MonadReader Environment m)
-  => Type  -> m ()
-ensure_not_active_class t = when (isActiveRefType t) $
-  tc_error $ cant_use_traits_in_active_classes t
+  mapM_ (match_field_or_error fields) $ trait_fields trait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
   => [MethodDecl] -> [ImplementTrait] -> m ()
@@ -426,10 +340,11 @@ instance Checkable ClassDecl where
   -- -----------------------------------------------------------
   --  E |- class cname fields methods
   typecheck c@(Class {cname, ctraits, fields, methods}) = do
-    distinct_type_param_names type_vars
-    distinct_implement_trait_names ctraits
-    unless (null ctraits) $ ensure_not_active_class cname
-    distinct_field_names fields
+    assertDistinctThing "declaration" "type parameter" typeParameters
+    assertDistinct "occurrence" ctraits
+    unless (isPassiveRefType cname || null ctraits) $
+           tcError $ "Traits can only be used for passive classes"
+    assertDistinct "declaration" fields
     efields <- mapM (local add_type_vars . pushTypecheck) fields
     mapM (meet_required_fields efields) ctraits
     ectraits <- mapM (local (add_type_vars . add_this) . pushTypecheck) ctraits
@@ -439,8 +354,8 @@ instance Checkable ClassDecl where
     return $ setType cname c{fields = efields, ctraits = ectraits,
       methods = emethods}
     where
-      type_vars = getTypeParameters cname
-      add_type_vars = addTypeParameters type_vars
+      typeParameters = getTypeParameters cname
+      add_type_vars = addTypeParameters typeParameters
       add_this = extendEnvironment [(thisName, cname)]
       typecheckMethod m = local (add_type_vars . add_this) $ pushTypecheck m
 
@@ -513,13 +428,6 @@ instance Checkable Expr where
                          else
                              do assertSubtypeOf exprType ty
                                 return eExpr
-        -- where
-        --   coerceNull null ty
-        --       | isNullType ty ||
-        --         isTypeVar ty = tcError "Cannot infer type of null valued expression"
-        --       | isRefType ty = return $ setType ty null
-        --       | otherwise = tcError $ "Null valued expression cannot have type '" ++ show ty ++ "' (must have reference type)"
-
     --
     -- ----------------
     --  E |- () : void
@@ -827,14 +735,9 @@ instance Checkable Expr where
     typecheck fAcc@(FieldAccess {target, name}) = do
       eTarget <- pushTypecheck target
       let targetType = AST.getType eTarget
-      when (isPrimitive targetType) $
-           tcError $ cant_read_field_of_primitive target targetType
-      when (isTypeVar targetType) $
-           tcError $ cant_read_field_of_polymorphic target targetType
-      when (isTrait targetType && (not $ isThisAccess eTarget)) $
-           tcError $ cant_read_field_of_trait target targetType
-      when (isActiveRefType targetType && (not $ isThisAccess eTarget)) $
-           tcError $ cant_read_field_of_active target targetType
+      unless (isThisAccess target || isPassiveRefType targetType) $
+        tcError $ "Cannot read field of expression '" ++
+          (show $ ppExpr target) ++ "' of " ++ Types.showWithKind targetType
       fdecl <- asks $ fieldLookup targetType name
       case fdecl of
         Just Field{ftype} -> do
@@ -1161,7 +1064,7 @@ matchTypes expected ty
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected && isTypeVar ty = do
       unless (expected == ty) $ tc_error $
-        concat ["Cant match '", show expected, "' with '", show ty, "'"]
+        concat ["Can't match '", show expected, "' with '", show ty, "'"]
       asks bindings
       -- TODO
       -- It's dangerous to mach typevar with anything other than typevar, isn't?

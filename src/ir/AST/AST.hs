@@ -27,7 +27,7 @@ data Program = Program {
   classes :: [ClassDecl]
 } deriving (Show)
 
-class HasMeta a where
+class Show a => HasMeta a where
     getMeta :: a -> Meta a
 
     setMeta :: a -> Meta a -> a
@@ -50,6 +50,9 @@ class HasMeta a where
 
     getMetaInfo :: a -> MetaInfo
     getMetaInfo = AST.Meta.metaInfo . getMeta
+
+    showWithKind :: a -> String
+    showWithKind = show
 
 data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlheader :: String,
@@ -80,9 +83,10 @@ instance Eq Function where
   a == b = (funname a) == (funname b)
 
 instance HasMeta Function where
-    getMeta = funmeta
-    setMeta f m = f{funmeta = m}
-    setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
+  getMeta = funmeta
+  setMeta f m = f{funmeta = m}
+  setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
+  showWithKind Function{funname, funtype} = "function '" ++ show funname ++ "'"
 
 data ClassDecl = Class {
   cmeta   :: Meta ClassDecl,
@@ -109,6 +113,7 @@ instance HasMeta ClassDecl where
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) =
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
+    showWithKind Class{cname} = "class '" ++ show cname ++ "'"
 
 data Trait = Trait {
   trait_meta :: Meta Trait,
@@ -128,6 +133,7 @@ instance HasMeta Trait where
   setMeta t m = t{trait_meta = m}
   setType ty t@Trait{trait_meta, trait_name} =
     t{trait_meta = AST.Meta.setType ty trait_meta, trait_name = ty}
+  showWithKind Trait{trait_name} = "trait '" ++ show trait_name ++ "'"
 
 data ImplementTrait = ImplementTrait{
   itrait_meta :: Meta ImplementTrait,
@@ -151,6 +157,8 @@ instance HasMeta ImplementTrait where
   setType ty t@ImplementTrait{itrait} =
     let itrait' = AST.AST.setType ty itrait
     in t{itrait = itrait'}
+  showWithKind ImplementTrait{itrait = Trait{trait_name}} =
+    "implemented trait '" ++ show trait_name ++ "'"
 
 instance Show ImplementTrait where
   show ImplementTrait{itrait} = show itrait
@@ -175,6 +183,7 @@ instance HasMeta FieldDecl where
     getMeta = fmeta
     setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
+    showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -186,6 +195,7 @@ instance HasMeta ParamDecl where
     getMeta = pmeta
     setMeta p m = p{pmeta = m}
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
+    showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
 data MethodDecl = Method {mmeta   :: Meta MethodDecl,
                           mname   :: Name,
@@ -205,10 +215,12 @@ instance Eq MethodDecl where
   a == b = (mname a) == (mname b)
 
 instance HasMeta MethodDecl where
-    getMeta = mmeta
-    setMeta mtd m = mtd{mmeta = m}
-    setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
-    setType ty m@(StreamMethod {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
+  getMeta = mmeta
+  setMeta mtd m = mtd{mmeta = m}
+  setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
+  setType ty m@(StreamMethod {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
+  showWithKind Method {mname} = "method '" ++ show mname ++ "'"
+  showWithKind StreamMethod {mname} = "streaming method '" ++ show mname ++ "'"
 
 type Arguments = [Expr]
 

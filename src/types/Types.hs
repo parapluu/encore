@@ -1,25 +1,33 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 module Types(
-  Type, arrowType, isArrowType, futureType, isFutureType,
-  parType, isParType, streamType, isStreamType, arrayType, isArrayType,
+  Type,
+  arrowType, isArrowType,
+  futureType, isFutureType,
+  parType, isParType,
+  streamType, isStreamType,
+  arrayType, isArrayType,
   refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
-  refType, isRefType, passiveRefType, activeRefType,
+  refType, isRefType,
+  passiveRefType, activeRefType, traitRefType,
   isActiveRefType, isPassiveRefType, isMainType,
-  makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
-  voidType, isVoidType, nullType, isNullType,
-  boolType, isBoolType, intType, isIntType,
-  realType, isRealType, stringType, isStringType,
-  isPrimitive, isNumeric, emptyType,
-  getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
-  typeComponents, subtypeOf, typeMap
-  ,traitRefType
-  ,isClass
-  ,isTrait
-  ,markTrait
-  ,passiveClass
-  ,activeClass
-  ,getImplTraits
-  ,passActivity
+  makeActive, makePassive, markTrait,
+  typeVar, isTypeVar, replaceTypeVars,
+  voidType, isVoidType,
+  nullType, isNullType,
+  boolType, isBoolType,
+  intType, isIntType,
+  realType, isRealType,
+  stringType, isStringType,
+  isPrimitive, isNumeric,
+  emptyType,
+  getArgTypes, getResultType, getId, getImplTraits,
+  getTypeParameters, setTypeParameters,
+  typeComponents, typeMap,
+  subtypeOf,
+  showWithKind,
+  isClass, isTrait,
+  passiveClass, activeClass,
+  passActivity
   ) where
 
 import Data.List
@@ -35,7 +43,7 @@ data RefTypeInfo = RefTypeInfo {
 
 getImplTraits :: Type -> [Type]
 getImplTraits (RefType RefTypeInfo{impl_trait_types}) = impl_trait_types
-getImplTraits _ = error "Cant get traits from non ref type"
+getImplTraits ty = error $ "Cant get traits from non ref type: " ++ show ty
 
 isTrait :: Type -> Bool
 isTrait (RefType RefTypeInfo{activity = Trait}) = True
@@ -125,6 +133,25 @@ instance Show Type where
     show (ParType ty)      = "Par " ++ maybeParen ty
     show (StreamType ty)   = "Stream " ++ maybeParen ty
     show (ArrayType ty)    = "[" ++ show ty ++ "]"
+
+showWithKind :: Type -> String
+showWithKind ty = kind ty ++ " " ++ show ty
+    where
+    kind VoidType     = "primitive type"
+    kind StringType   = "primitive type"
+    kind IntType      = "primitive type"
+    kind RealType     = "primitive type"
+    kind BoolType     = "primitive type"
+    kind (RefType (RefTypeInfo {activity = Active})) = "active type"
+    kind (RefType (RefTypeInfo {activity = Passive})) = "passive type"
+    kind (RefType (RefTypeInfo {activity = Trait})) = "trait type"
+    kind TypeVar{}    = "polymorphic type"
+    kind Arrow{}      = "function type"
+    kind FutureType{} = "future type"
+    kind ParType{}   = "parallel type"
+    kind StreamType{} = "stream type"
+    kind ArrayType{}  = "array type"
+    kind _ = "type"
 
 arrowType = Arrow
 isArrowType (Arrow {}) = True
