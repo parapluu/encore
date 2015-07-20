@@ -154,7 +154,7 @@ instance Checkable Program where
     assertDistinct "definition" (allClasses p)
     eclasses <- mapM pushTypecheck classes
     assertDistinctThing "declaration" "class or trait name" $
-                        map trait_name (allTraits p) ++
+                        map traitName (allTraits p) ++
                         map cname (allClasses p)
     eimps <- mapM typecheck imports   -- TODO: should probably use Pushable and pushTypecheck
     assertDistinct "definition" (allFunctions p)
@@ -192,18 +192,18 @@ instance Checkable Function where
         addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 instance Checkable Trait where
-  typecheck t@Trait{trait_name, trait_fields, trait_methods} = do
+  typecheck t@Trait{traitName, traitFields, traitMethods} = do
     assertDistinctThing "declaration" "type parameter" typeParameters
-    assertDistinct "requirement" trait_fields
-    efields <- mapM (local add_type_vars . pushTypecheck) trait_fields
-    assertDistinct "definition" trait_methods
-    emethods <- mapM typecheckMethod trait_methods
-    return $ setType trait_name $
-      t{trait_fields = efields, trait_methods = emethods}
+    assertDistinct "requirement" traitFields
+    efields <- mapM (local add_type_vars . pushTypecheck) traitFields
+    assertDistinct "definition" traitMethods
+    emethods <- mapM typecheckMethod traitMethods
+    return $ setType traitName $
+      t{traitFields = efields, traitMethods = emethods}
     where
-      typeParameters = getTypeParameters trait_name
+      typeParameters = getTypeParameters traitName
       add_type_vars = addTypeParameters typeParameters
-      add_this = extendEnvironment [(thisName, trait_name)]
+      add_this = extendEnvironment [(thisName, traitName)]
       typecheckMethod m = local (add_type_vars . add_this) $ pushTypecheck m
 
 update_fields_types :: [(Type, Type)] -> [FieldDecl] -> [FieldDecl]
@@ -228,7 +228,7 @@ formal_bindings actual = do
 find_trait_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   Trait -> m Trait
 find_trait_or_error trait = do
-    trait' <- asks $ traitLookup $ trait_name trait
+    trait' <- asks $ traitLookup $ traitName trait
     when (isNothing trait') $ tc_error $ "couldnt find trait: " ++ show trait
     return $ fromJust trait'
 
@@ -277,12 +277,12 @@ instance Checkable ImplementTrait where
     mapM checkType type_vars
     bindings <- formal_bindings ty
     ty' <- checkType $ replaceTypeVars bindings ty
-    efields <- mapM pushTypecheck $ trait_fields trait
-    emethods <- mapM pushTypecheck $ trait_methods trait
+    efields <- mapM pushTypecheck $ traitFields trait
+    emethods <- mapM pushTypecheck $ traitMethods trait
     return $ setType ty'
-      t{itrait=trait{trait_fields = efields, trait_methods = emethods}}
+      t{itrait=trait{traitFields = efields, traitMethods = emethods}}
     where
-      ty = trait_name itrait
+      ty = traitName itrait
       type_vars = getTypeParameters ty
       add_type_vars = addTypeParameters type_vars
 
@@ -305,14 +305,14 @@ match_field_or_error fields f = do
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementTrait -> m ()
 meet_required_fields fields t@ImplementTrait{itrait} = do
-  trait <- asks $ traitLookup' $ trait_name itrait
-  mapM_ (match_field_or_error fields) $ trait_fields trait
+  trait <- asks $ traitLookup' $ traitName itrait
+  mapM_ (match_field_or_error fields) $ traitFields trait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
   => [MethodDecl] -> [ImplementTrait] -> m ()
 ensure_no_method_conflict methods itraits =
   let
-    all_methods = methods ++ concatMap itrait_methods itraits
+    all_methods = methods ++ concatMap itraitMethods itraits
     unique = nub all_methods
     diff = all_methods \\ unique
     first = head diff
@@ -330,7 +330,7 @@ ensure_no_method_conflict methods itraits =
         "' is defined in trait '", show (overlapping_traits !! 0),
         "' and trait '", show (overlapping_traits !! 1), "'"]
   where
-    contain_f f ImplementTrait{itrait} = f `elem` (trait_methods itrait)
+    contain_f f ImplementTrait{itrait} = f `elem` (traitMethods itrait)
 
 instance Checkable ClassDecl where
   --  distinctNames(fields)

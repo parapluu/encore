@@ -71,7 +71,7 @@ buildEnvironment p@(Program{functions, classes, imports}) =
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =
       return Env {
         class_table = M.fromList [(getId (cname c), c) | c <- classes],
-        trait_table = M.fromList [(getId (trait_name t), t) | t <- traits],
+        trait_table = M.fromList [(getId (traitName t), t) | t <- traits],
         globals = map getFunctionType functions,
         locals = [],
         bindings = [],
@@ -91,7 +91,7 @@ fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
   | isTrait t = do
     trait <- M.lookup (getId t) $ trait_table env
-    find (\Field{fname} -> fname == f) $ trait_fields trait
+    find (\Field{fname} -> fname == f) $ traitFields trait
   | isClass t = do
     cls <- classLookup t env
     find (\Field{fname} -> fname == f) $ fields cls
@@ -104,7 +104,7 @@ match_method m StreamMethod{mname} = mname == m
 trait_method_lookup :: Type -> Name -> Environment -> Maybe MethodDecl
 trait_method_lookup trait m env = do
   trait <- traitLookup trait env
-  find (match_method m) $ trait_methods trait
+  find (match_method m) $ traitMethods trait
 
 methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 methodLookup ty m env
@@ -139,7 +139,7 @@ refTypeLookup :: Type -> Environment -> Maybe Type
 refTypeLookup t env =
   let
     cls = fmap cname $ M.lookup (getId t) $ class_table env
-    trait = fmap trait_name $ M.lookup (getId t) $ trait_table env
+    trait = fmap traitName $ M.lookup (getId t) $ trait_table env
   in
     cls <|> trait
 

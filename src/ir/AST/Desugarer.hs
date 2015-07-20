@@ -18,8 +18,8 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
     imports = map desugarImports imports
   }
   where
-    desugar_trait t@Trait{trait_methods}=
-      t{trait_methods = map desugarMethod trait_methods}
+    desugar_trait t@Trait{traitMethods}=
+      t{traitMethods = map desugarMethod traitMethods}
     desugarImports f@(PulledImport{iprogram}) =
       f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}

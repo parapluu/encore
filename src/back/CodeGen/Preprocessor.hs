@@ -16,9 +16,9 @@ inject_traits_to_classes p@A.Program{A.classes} =
       foldr inject_trait_to_class c $ map A.itrait ctraits
 
     inject_trait_to_class :: A.Trait -> A.ClassDecl -> A.ClassDecl
-    inject_trait_to_class t@A.Trait{A.trait_name} c@A.Class{A.methods} =
+    inject_trait_to_class t@A.Trait{A.traitName} c@A.Class{A.methods} =
       let
-        t_methods = A.trait_methods t
+        t_methods = A.traitMethods t
       in
         c{A.methods = methods ++ t_methods}
 

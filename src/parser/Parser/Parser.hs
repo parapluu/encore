@@ -200,13 +200,13 @@ function = do pos <- getPosition
 
 trait :: Parser Trait
 trait = do
-  trait_meta <- meta <$> getPosition
+  traitMeta <- meta <$> getPosition
   reserved "trait"
   id <- identifier
   params <- type_parameters
-  (trait_fields, trait_methods) <- braces' trait_body
-  return Trait{trait_meta, trait_name=(traitRefType id params),
-    trait_fields, trait_methods}
+  (traitFields, traitMethods) <- braces' trait_body
+  return Trait{traitMeta, traitName=(traitRefType id params),
+    traitFields, traitMethods}
   where
     trait_body = do
       fields <- many trait_field

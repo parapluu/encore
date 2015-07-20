@@ -194,10 +194,10 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 trait_case :: Ty.Type -> A.Trait -> [(CCode Name, CCode Stat)]
-trait_case cname A.Trait{A.trait_name, A.trait_methods} =
+trait_case cname A.Trait{A.traitName, A.traitMethods} =
   let
-    method_names = map A.mname trait_methods
-    name_pairs = zip (repeat trait_name) method_names
+    method_names = map A.mname traitMethods
+    name_pairs = zip (repeat traitName) method_names
     case_names = map (Nam . show . (uncurry one_way_msg_id)) name_pairs
     stmt_pairs = zip (repeat cname) method_names
     c_method_names = map (Nam . show . (uncurry method_impl_name)) stmt_pairs

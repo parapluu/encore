@@ -23,7 +23,6 @@ data BacktraceNode = BTFunction Name Type
                    | BTField FieldDecl
                    | BTMethod MethodDecl
                    | BTExpr Expr
-                   | BTType Type
 
 instance Show BacktraceNode where
   show (BTFunction n ty) =
@@ -70,9 +69,6 @@ class Pushable a where
 instance Pushable Function where
     push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
 
-instance Pushable Type where
-  push t bt = bt
-
 instance Pushable ImplementTrait where
   push t bt = pushMeta t (BTImplementTrait t) bt
 
@@ -93,7 +89,6 @@ instance Pushable MethodDecl where
 
 instance Pushable Expr where
     push expr bt = (getPos expr, BTExpr expr) : bt
-
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.

@@ -171,24 +171,24 @@ generate_header p =
                                    (map (AsLval . field_name . A.fname) fields))
      trait_method_enums =
        let
-         dicts = map (\t -> (A.getType t, A.trait_methods t)) allTraits
+         dicts = map (\t -> (A.getType t, A.traitMethods t)) allTraits
          pairs = concatMap (\(t, ms) -> zip (repeat t) (map A.mname ms)) dicts
          syncs = map (show . (uncurry one_way_msg_id)) pairs
        in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
 
      trait_type_decls = map trait_type_decl allTraits
        where
-         trait_type_decl A.Trait{A.trait_name} =
-           let ty = ref_type_name trait_name in Typedef (Struct $ ty) ty
+         trait_type_decl A.Trait{A.traitName} =
+           let ty = ref_type_name traitName in Typedef (Struct $ ty) ty
 
      trait_types = map trait_type allTraits
        where
-         trait_type A.Trait{A.trait_name} =
+         trait_type A.Trait{A.traitName} =
            let
-             formal = Ty.getTypeParameters trait_name
+             formal = Ty.getTypeParameters traitName
              self = (Ptr pony_type_t, AsLval $ self_type_field)
            in
-             StructDecl (AsType $ ref_type_name trait_name) [self]
+             StructDecl (AsType $ ref_type_name traitName) [self]
 
      runtime_type_decls = map type_decl allclasses ++ map type_decl allTraits
        where

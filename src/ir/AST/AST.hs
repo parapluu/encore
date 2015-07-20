@@ -97,7 +97,7 @@ data ClassDecl = Class {
 } deriving (Show)
 
 makeClassDecl refKind name params ctraits =
-  refKind name params (map (trait_name . itrait) ctraits)
+  refKind name params (map (traitName . itrait) ctraits)
 
 instance Eq ClassDecl where
   a == b = (cname a) == (cname b)
@@ -116,56 +116,56 @@ instance HasMeta ClassDecl where
     showWithKind Class{cname} = "class '" ++ show cname ++ "'"
 
 data Trait = Trait {
-  trait_meta :: Meta Trait,
-  trait_name :: Type,
-  trait_fields :: [FieldDecl],
-  trait_methods :: [MethodDecl]
+  traitMeta :: Meta Trait,
+  traitName :: Type,
+  traitFields :: [FieldDecl],
+  traitMethods :: [MethodDecl]
 }
 
 instance Show Trait where
-  show t@Trait{trait_name} = show trait_name
+  show t@Trait{traitName} = show traitName
 
 instance Eq Trait where
-  a == b = (trait_name a) == (trait_name b)
+  a == b = (traitName a) == (traitName b)
 
 instance HasMeta Trait where
-  getMeta = trait_meta
-  setMeta t m = t{trait_meta = m}
-  setType ty t@Trait{trait_meta, trait_name} =
-    t{trait_meta = AST.Meta.setType ty trait_meta, trait_name = ty}
-  showWithKind Trait{trait_name} = "trait '" ++ show trait_name ++ "'"
+  getMeta = traitMeta
+  setMeta t m = t{traitMeta = m}
+  setType ty t@Trait{traitMeta, traitName} =
+    t{traitMeta = AST.Meta.setType ty traitMeta, traitName = ty}
+  showWithKind Trait{traitName} = "trait '" ++ show traitName ++ "'"
 
 data ImplementTrait = ImplementTrait{
-  itrait_meta :: Meta ImplementTrait,
+  itraitMeta :: Meta ImplementTrait,
   itrait :: Trait
 }
 
-itrait_methods :: ImplementTrait -> [MethodDecl]
-itrait_methods ImplementTrait{itrait} = trait_methods itrait
+itraitMethods :: ImplementTrait -> [MethodDecl]
+itraitMethods ImplementTrait{itrait} = traitMethods itrait
 
 implementTrait :: Meta ImplementTrait -> Type -> ImplementTrait
-implementTrait itrait_meta ty =
+implementTrait itraitMeta ty =
   let
     params = (getTypeParameters ty)
-    itrait = Trait{trait_name = traitRefType (getId ty) params}
+    itrait = Trait{traitName = traitRefType (getId ty) params}
   in
-    ImplementTrait{itrait_meta, itrait}
+    ImplementTrait{itraitMeta, itrait}
 
 instance HasMeta ImplementTrait where
-  getMeta = itrait_meta
-  setMeta t m = t{itrait_meta = m}
+  getMeta = itraitMeta
+  setMeta t m = t{itraitMeta = m}
   setType ty t@ImplementTrait{itrait} =
     let itrait' = AST.AST.setType ty itrait
     in t{itrait = itrait'}
-  showWithKind ImplementTrait{itrait = Trait{trait_name}} =
-    "implemented trait '" ++ show trait_name ++ "'"
+  showWithKind ImplementTrait{itrait = Trait{traitName}} =
+    "implemented trait '" ++ show traitName ++ "'"
 
 instance Show ImplementTrait where
   show ImplementTrait{itrait} = show itrait
 
 instance Eq ImplementTrait where
   a == b = (id a) == (id b)
-    where id = getId . trait_name . itrait
+    where id = getId . traitName . itrait
 
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
@@ -395,19 +395,19 @@ traverse program f =
     programs = flatten_imports program
   in
     concatMap f programs
-
-flatten_imports :: Program -> [Program]
-flatten_imports program@Program{imports} =
-  let
-    programs = map iprogram imports
-  in
-    program : concatMap flatten_imports programs
+  where
+    flatten_imports :: Program -> [Program]
+    flatten_imports program@Program{imports} =
+      let
+        programs = map iprogram imports
+      in
+        program : concatMap flatten_imports programs
 
 getTrait :: Type -> Program -> Trait
 getTrait t p =
   let
     traits = allTraits p
-    match t trait = (getId t) == (getId $ trait_name trait)
+    match t trait = (getId t) == (getId $ traitName trait)
   in
     fromJust $ find (match t) traits
 
