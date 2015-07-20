@@ -293,7 +293,7 @@ match_field fields f =
     t = ftype f
     t' = ftype $ fromJust r
   in
-    isJust r && subtypeOf t' t
+    isJust r && t' == t
 
 match_field_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
