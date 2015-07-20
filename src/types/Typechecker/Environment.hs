@@ -125,7 +125,15 @@ traitLookup t env =
   M.lookup (getId t) $ trait_table env
 
 traitLookup' :: Type -> Environment -> Trait
-traitLookup' t env = fromJust $ M.lookup (getId t) $ trait_table env
+traitLookup' t env =
+  let
+    ret = traitLookup t env
+    found = isJust ret
+  in
+    if found then
+      fromJust ret
+    else
+      error $ printf "Can't find trait %s" $ show t
 
 -- TODO: Merge these two functions
 classLookup :: Type -> Environment -> Maybe ClassDecl
@@ -144,7 +152,15 @@ refTypeLookup t env =
     cls <|> trait
 
 refTypeLookup' :: Type -> Environment -> Type
-refTypeLookup' t env = fromJust $ refTypeLookup t env
+refTypeLookup' t env =
+  let
+    ret = refTypeLookup t env
+    found = isJust ret
+  in
+    if found then
+      fromJust ret
+    else
+      error $ printf "Can't find ref type %s" $ show t
 
 refTypeParameters :: Type -> Environment -> [Type]
 refTypeParameters t env =
