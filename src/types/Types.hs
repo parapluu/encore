@@ -23,7 +23,7 @@ module Types(
   getArgTypes, getResultType, getId, getImplTraits,
   getTypeParameters, setTypeParameters,
   typeComponents, typeMap,
-  subtypeOf,
+  subtypeOf, strictParentTypeOf,
   showWithKind,
   isClass, isTrait,
   passiveClass, activeClass,
@@ -286,6 +286,11 @@ isPrimitive = flip elem primitives
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
+
+strictParentTypeOf :: Type -> Type -> Bool
+strictParentTypeOf t1 t2
+  | isTrait t1 && isClass t2 = t1 `elem` getImplTraits t2
+  | otherwise = False
 
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2

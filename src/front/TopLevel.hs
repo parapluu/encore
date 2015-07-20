@@ -124,7 +124,7 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-incompatible-pointer-types -Wno-unused-value -lpthread -Wno-attributes"
+           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
            libs  = libPath ++ "*.a"
