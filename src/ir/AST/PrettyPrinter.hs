@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+
 {-|
 
 Prints the source code that an "AST.AST" represents. Each node in
@@ -41,6 +43,8 @@ ppPeer = text "peer"
 ppPrint = text "print"
 ppExit = text "exit"
 ppEmbed = text "embed"
+ppForeach = text "foreach"
+ppFinish = text "finish"
 ppDot = text "."
 ppBang = text "!"
 ppColon = text ":"
@@ -61,8 +65,7 @@ ppName :: Name -> Doc
 ppName (Name x) = text x
 
 ppQName :: QName -> Doc
-ppQName [a] = ppName a 
-ppQName (a:as) = ppName a <+> text "." <+> ppQName as
+ppQName q = cat $ punctuate ppDot (map ppName q)
 
 ppType :: Type -> Doc
 ppType = text . show
@@ -83,6 +86,7 @@ ppBundleDecl Bundle{bname} = text "bundle" <+> ppQName bname
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
+ppImportDecl PulledImport {} = error "Cannot pretty-print a pulled import"
 
 ppFunction :: Function -> Doc
 ppFunction Function {funname, funtype, funparams, funbody} =
@@ -201,14 +205,17 @@ ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
-ppExpr Unary {op, operand} = ppUnary op <+> ppExpr operand
-ppExpr Binop {op, loper, roper} = ppExpr loper <+> ppBinop op <+> ppExpr roper
+ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
+ppExpr Binop {binop, loper, roper} = ppExpr loper <+> ppBinop binop <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ppColon <+> ppType ty
+ppExpr Foreach {item, arr, body} = ppForeach <+> ppName item <+> ppIn <+> ppExpr arr <> 
+                                   braces (ppExpr body)
+ppExpr FinishAsync {body} = ppFinish <+> ppExpr body
 
-ppUnary :: Op -> Doc
+ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = text "not"
 
-ppBinop :: Op -> Doc
+ppBinop :: BinaryOp -> Doc
 ppBinop Identifiers.AND = text "and"
 ppBinop Identifiers.OR = text "or"
 ppBinop Identifiers.LT  = text "<"

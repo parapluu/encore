@@ -797,12 +797,12 @@ instance Checkable Expr where
     --  E |- operand : bool
     -- -------------------------
     --  E |- not operand : bool
-    typecheck unary@(Unary {op, operand})
-      | op == (Identifiers.NOT) = do
+    typecheck unary@(Unary {uop, operand})
+      | uop == (Identifiers.NOT) = do
         eOperand <- pushTypecheck operand
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
-                tcError $ "Operator '" ++ show op ++ "' is only defined for boolean types\n" ++
+                tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
                           "Expression '" ++ (show $ ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
         return $ setType boolType unary { operand = eOperand }
 
@@ -821,42 +821,42 @@ instance Checkable Expr where
     --  E |- loper op roper : bool
     --
     -- etc.
-    typecheck binop@(Binop {op, loper, roper})
-      | op `elem` boolOps = do
+    typecheck bin@(Binop {binop, loper, roper})
+      | binop `elem` boolOps = do
           eLoper <- pushTypecheck loper
           eRoper <- pushTypecheck roper
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ "Operator '"++ show op ++ "' is only defined for boolean types\n" ++
+                  tcError $ "Operator '"++ show binop ++ "' is only defined for boolean types\n" ++
                           "   Left type: '" ++ (show $ lType) ++ "'\n" ++
                           "   Right type: '" ++ (show $ rType) ++ "'"
-          return $ setType boolType binop {loper = eLoper, roper = eRoper}
-      | op `elem` cmpOps =
+          return $ setType boolType bin {loper = eLoper, roper = eRoper}
+      | binop `elem` cmpOps =
           do eLoper <- pushTypecheck loper
              eRoper <- pushTypecheck roper
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                    tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
                           "   Left type: '" ++ (show $ lType) ++ "'\n" ++
                           "   Right type: '" ++ (show $ rType) ++ "'"
-             return $ setType boolType binop {loper = eLoper, roper = eRoper}
-      | op `elem` eqOps =
+             return $ setType boolType bin {loper = eLoper, roper = eRoper}
+      | binop `elem` eqOps =
           do eLoper <- pushTypecheck loper
              eRoper <- pushHasType roper (AST.getType eLoper)
-             return $ setType boolType binop {loper = eLoper, roper = eRoper}
-      | op `elem` arithOps =
+             return $ setType boolType bin {loper = eLoper, roper = eRoper}
+      | binop `elem` arithOps =
           do eLoper <- pushTypecheck loper
              eRoper <- pushTypecheck roper
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator '"++ show op ++ "' is only defined for numeric types\n" ++
+                    tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
                           "   Left type: '" ++ (show $ lType) ++ "'\n" ++
                           "   Right type: '" ++ (show $ rType) ++ "'"
-             return $ setType (coerceTypes lType rType) binop {loper = eLoper, roper = eRoper}
-      | otherwise = tcError $ "Undefined binary operator '" ++ show op ++ "'"
+             return $ setType (coerceTypes lType rType) bin {loper = eLoper, roper = eRoper}
+      | otherwise = tcError $ "Undefined binary operator '" ++ show binop ++ "'"
       where
         boolOps  = [Identifiers.AND, Identifiers.OR]
         cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]

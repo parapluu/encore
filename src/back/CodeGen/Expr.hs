@@ -27,9 +27,8 @@ import qualified Types as Ty
 import Control.Monad.State hiding (void)
 import Data.List
 
-instance Translatable ID.Op (CCode Name) where
+instance Translatable ID.BinaryOp (CCode Name) where
   translate op = Nam $ case op of
-    ID.NOT -> "!"
     ID.AND -> "&&"
     ID.OR -> "||"
     ID.LT -> "<"
@@ -43,6 +42,10 @@ instance Translatable ID.Op (CCode Name) where
     ID.TIMES -> "*"
     ID.DIV -> "/"
     ID.MOD -> "%"
+
+instance Translatable ID.UnaryOp (CCode Name) where
+  translate op = Nam $ case op of
+    ID.NOT -> "!"
 
 type_to_printf_fstr :: Ty.Type -> String
 type_to_printf_fstr ty
@@ -101,16 +104,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate A.TypedExpr {A.body} = translate body
 
-  translate unary@(A.Unary {A.op, A.operand}) = do
+  translate unary@(A.Unary {A.uop, A.operand}) = do
     (noperand, toperand) <- translate operand
     tmp <- Ctx.gen_named_sym "unary"
     return $ (Var tmp,
               Seq [toperand,
                    Statement (Assign
                               (Decl (translate $ A.getType unary, Var tmp))
-                              (CUnary (translate op) noperand))])
+                              (CUnary (translate uop) noperand))])
 
-  translate bin@(A.Binop {A.op, A.loper, A.roper}) = do
+  translate bin@(A.Binop {A.binop, A.loper, A.roper}) = do
     (nlo, tlo) <- translate (loper :: A.Expr)
     (nro, tro) <- translate (roper :: A.Expr)
     tmp <- Ctx.gen_named_sym "binop"
@@ -119,7 +122,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    tro,
                    Statement (Assign
                               (Decl (translate $ A.getType bin, Var tmp))
-                              (BinOp (translate op) nlo nro))])
+                              (BinOp (translate binop) nlo nro))])
 
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args

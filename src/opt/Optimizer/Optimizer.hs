@@ -27,8 +27,8 @@ optimizerPasses = [constantFolding, constructors]
 constantFolding :: Expr -> Expr
 constantFolding = extend foldConst
     where
-      foldConst (Binop {emeta = meta, op = PLUS, 
-                        loper = IntLiteral{intLit = m}, 
+      foldConst (Binop {emeta = meta, binop = PLUS,
+                        loper = IntLiteral{intLit = m},
                         roper = IntLiteral{intLit = n}}) = 
           IntLiteral{emeta = meta, intLit = (m + n)}
       foldConst e = e

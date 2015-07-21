@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+
 {-|
 
 Types for different kinds of identifiers
@@ -17,18 +19,38 @@ type QName = [Name]
 thisName :: Name
 thisName = Name "this"
 
--- | The supported (infix) operators
-data Op = AND | OR | NOT | LT | GT | LTE | GTE | EQ | NEQ | PLUS | MINUS | TIMES | DIV | MOD deriving(Read, Eq)
-instance Show Op where
+-- | The supported binary operators
+data BinaryOp = AND
+              | OR
+              | LT
+              | GT
+              | LTE
+              | GTE
+              | EQ
+              | NEQ
+              | PLUS
+              | MINUS
+              | TIMES
+              | DIV
+              | MOD 
+                deriving(Read, Eq)
+
+instance Show BinaryOp where
     show Identifiers.AND = "and"
-    show Identifiers.OR = "or"
+    show Identifiers.OR  = "or"
+    show Identifiers.LT  = "<"
+    show Identifiers.GT  = ">"
+    show Identifiers.LTE = "<="
+    show Identifiers.GTE = ">="
+    show Identifiers.EQ  = "="
+    show NEQ             = "!="
+    show PLUS            = "+"
+    show MINUS           = "-"
+    show TIMES           = "*"
+    show DIV             = "/"
+    show MOD             = "%"
+
+data UnaryOp = NOT deriving(Read, Eq)
+
+instance Show UnaryOp where
     show Identifiers.NOT = "not"
-    show Identifiers.LT = "<"
-    show Identifiers.GT = ">"
-    show Identifiers.EQ = "="
-    show NEQ            = "!="
-    show PLUS           = "+"
-    show MINUS          = "-"
-    show TIMES          = "*"
-    show DIV            = "/"
-    show MOD            = "%"

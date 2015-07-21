@@ -255,10 +255,10 @@ data Expr = Skip {emeta :: Meta Expr}
                    ty    :: Type,
                    code  :: String}
           | Unary {emeta :: Meta Expr,
-                   op    :: Op,
+                   uop   :: UnaryOp,
                    operand  :: Expr }
           | Binop {emeta :: Meta Expr,
-                   op :: Op,
+                   binop :: BinaryOp,
                    loper :: Expr,
                    roper :: Expr} deriving(Show, Eq)
 
