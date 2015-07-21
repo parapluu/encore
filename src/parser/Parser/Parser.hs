@@ -222,8 +222,8 @@ trait_field = do
   ftype <- typ
   return Field{fmeta, fname, ftype}
 
-implement_traits :: Parser [ImplementTrait]
-implement_traits = do
+implemented_traits :: Parser [ImplementedTrait]
+implemented_traits = do
   reservedOp ":"
   meta_types <-  itrait `sepBy1` (reservedOp "+")
   return $ map (uncurry implementTrait) meta_types
@@ -252,7 +252,7 @@ classDecl = do
   reserved "class"
   name <- identifier
   params <- type_parameters
-  ctraits <- option [] implement_traits
+  ctraits <- option [] implemented_traits
   (fields, methods) <- braces' classBody
   return $ Class{
     cmeta,

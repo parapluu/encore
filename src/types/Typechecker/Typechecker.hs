@@ -271,8 +271,8 @@ main_method mname = do
 whenM :: (Monad m) => m Bool -> m () -> m ()
 whenM b a = b >>= flip when a
 
-instance Checkable ImplementTrait where
-  typecheck t@ImplementTrait{itrait} = do
+instance Checkable ImplementedTrait where
+  typecheck t@ImplementedTrait{itrait} = do
     trait <- find_trait_or_error itrait
     mapM checkType type_vars
     bindings <- formal_bindings ty
@@ -303,13 +303,13 @@ match_field_or_error fields f = do
     tc_error $ concat ["couldnt find field: '", show f, "'"]
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
-  [FieldDecl] -> ImplementTrait -> m ()
-meet_required_fields fields t@ImplementTrait{itrait} = do
+  [FieldDecl] -> ImplementedTrait -> m ()
+meet_required_fields fields t@ImplementedTrait{itrait} = do
   trait <- asks $ traitLookup' $ traitName itrait
   mapM_ (match_field_or_error fields) $ traitFields trait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
-  => [MethodDecl] -> [ImplementTrait] -> m ()
+  => [MethodDecl] -> [ImplementedTrait] -> m ()
 ensure_no_method_conflict methods itraits =
   let
     all_methods = methods ++ concatMap itraitMethods itraits
@@ -330,7 +330,7 @@ ensure_no_method_conflict methods itraits =
         "' is defined in trait '", show (overlapping_traits !! 0),
         "' and trait '", show (overlapping_traits !! 1), "'"]
   where
-    contain_f f ImplementTrait{itrait} = f `elem` (traitMethods itrait)
+    contain_f f ImplementedTrait{itrait} = f `elem` (traitMethods itrait)
 
 instance Checkable ClassDecl where
   --  distinctNames(fields)

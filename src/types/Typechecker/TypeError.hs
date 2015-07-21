@@ -16,7 +16,7 @@ import AST.AST
 import AST.PrettyPrinter
 
 data BacktraceNode = BTFunction Name Type
-                   | BTImplementTrait ImplementTrait
+                   | BTImplementedTrait ImplementedTrait
                    | BTTrait Trait
                    | BTClass Type
                    | BTParam ParamDecl
@@ -28,7 +28,7 @@ instance Show BacktraceNode where
   show (BTFunction n ty) =
     concat ["In function '", show n, "' of type '", show ty, "'"]
   show (BTClass ty) = concat ["In class '", show ty, "'"]
-  show (BTImplementTrait t) = concat ["In trait implementation '", show t, "'"]
+  show (BTImplementedTrait t) = concat ["In trait implementation '", show t, "'"]
   show (BTTrait t) = concat ["In trait '", show t, "'"]
   show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
   show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
@@ -69,8 +69,8 @@ class Pushable a where
 instance Pushable Function where
     push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
 
-instance Pushable ImplementTrait where
-  push t bt = pushMeta t (BTImplementTrait t) bt
+instance Pushable ImplementedTrait where
+  push t bt = pushMeta t (BTImplementedTrait t) bt
 
 instance Pushable Trait where
   push t bt = pushMeta t (BTTrait t) bt

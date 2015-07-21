@@ -91,7 +91,7 @@ instance HasMeta Function where
 data ClassDecl = Class {
   cmeta   :: Meta ClassDecl,
   cname   :: Type,
-  ctraits  :: [ImplementTrait],
+  ctraits  :: [ImplementedTrait],
   fields  :: [FieldDecl],
   methods :: [MethodDecl]
 } deriving (Show)
@@ -135,35 +135,35 @@ instance HasMeta Trait where
     t{traitMeta = AST.Meta.setType ty traitMeta, traitName = ty}
   showWithKind Trait{traitName} = "trait '" ++ show traitName ++ "'"
 
-data ImplementTrait = ImplementTrait{
-  itraitMeta :: Meta ImplementTrait,
+data ImplementedTrait = ImplementedTrait {
+  itraitMeta :: Meta ImplementedTrait,
   itrait :: Trait
 }
 
-itraitMethods :: ImplementTrait -> [MethodDecl]
-itraitMethods ImplementTrait{itrait} = traitMethods itrait
+itraitMethods :: ImplementedTrait -> [MethodDecl]
+itraitMethods ImplementedTrait{itrait} = traitMethods itrait
 
-implementTrait :: Meta ImplementTrait -> Type -> ImplementTrait
+implementTrait :: Meta ImplementedTrait -> Type -> ImplementedTrait
 implementTrait itraitMeta ty =
   let
     params = (getTypeParameters ty)
     itrait = Trait{traitName = traitRefType (getId ty) params}
   in
-    ImplementTrait{itraitMeta, itrait}
+    ImplementedTrait{itraitMeta, itrait}
 
-instance HasMeta ImplementTrait where
+instance HasMeta ImplementedTrait where
   getMeta = itraitMeta
   setMeta t m = t{itraitMeta = m}
-  setType ty t@ImplementTrait{itrait} =
+  setType ty t@ImplementedTrait{itrait} =
     let itrait' = AST.AST.setType ty itrait
     in t{itrait = itrait'}
-  showWithKind ImplementTrait{itrait = Trait{traitName}} =
+  showWithKind ImplementedTrait{itrait = Trait{traitName}} =
     "implemented trait '" ++ show traitName ++ "'"
 
-instance Show ImplementTrait where
-  show ImplementTrait{itrait} = show itrait
+instance Show ImplementedTrait where
+  show ImplementedTrait{itrait} = show itrait
 
-instance Eq ImplementTrait where
+instance Eq ImplementedTrait where
   a == b = (id a) == (id b)
     where id = getId . traitName . itrait
 
