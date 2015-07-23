@@ -26,12 +26,14 @@ import Typechecker.TypeError
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> Either TCError Program
+typecheckEncoreProgram :: Program -> Either TCError (Program, Environment)
 typecheckEncoreProgram p =
     do
        env <- buildEnvironment p
-       runReader (runExceptT (typecheck p)) env
+       p' <- runReader (runExceptT (typecheck p)) env
+       return (p', env)
 
+whenM b a = b >>= flip when a
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
@@ -58,16 +60,13 @@ checkType ty
                         params <- mapM checkType (getTypeParameters ty)
                         case result of
                           Nothing -> tcError $ "Unknown type '" ++ show ty ++ "'"
-                          Just referenceType ->
-                              do let formalParams = getTypeParameters referenceType
+                          Just refType ->
+                              do let formalParams = getTypeParameters refType
                                  unless (length params == length formalParams) $
-                                        tcError $ "Class '" ++ show referenceType ++ "' " ++
+                                        tcError $ "Class '" ++ show refType ++ "' " ++
                                                   "expects " ++ show (length formalParams) ++ " type parameters.\n" ++
                                                   "Type '" ++ show ty ++ "' has " ++ show (length params)
-                                 if isActiveRefType referenceType then
-                                     return $ makeActive $ setTypeParameters ty params
-                                 else
-                                     return $ makePassive $ setTypeParameters ty params
+                                 return $ setTypeParameters refType params
 
     | isFutureType ty = do ty' <- checkType $ getResultType ty
                            return $ futureType ty'
@@ -253,7 +252,6 @@ instance Checkable MethodDecl where
               where
                 is_main Nothing = False
                 is_main (Just t) = isMainType t
-          whenM b a = b >>= flip when a
 
    ---  |- mtype
    ---  |- t1 .. |- tn
@@ -669,6 +667,26 @@ instance Checkable Expr where
              Just ty -> return $ setType ty var
              Nothing -> tcError $ "Unbound variable '" ++ show name ++ "'"
 
+
+    --  e : t \in E
+    --  isLval e
+    -- ----------------------
+    --  E |- consume e : t
+    typecheck cons@(Consume {target}) =
+        do eTarget <- pushTypecheck target
+           unless (isLval target) $
+                  tcError $ "Cannot consume non-lval '" ++ 
+                            (show $ ppExpr target) ++ "'"
+           whenM (isGlobalVar target) $
+                 tcError $ "Can't consume global variable '" ++ 
+                           show (ppExpr target) ++ "'"
+           let ty = AST.getType eTarget
+           return $ setType ty cons {target = eTarget}
+        where
+          isGlobalVar VarAccess{name} = 
+              liftM not $ asks $ isLocal name
+          isGlobalVar _ = return False
+
     --
     -- ----------------------
     --  E |- null : nullType
@@ -875,7 +893,11 @@ instance Checkable Expr where
 coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
-    | isRefType ty = return $ setType ty null
+    | isRefType ty ||
+      isArrayType ty || 
+      isFutureType ty ||
+      isStreamType ty ||
+      isParType ty = return $ setType ty null
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"

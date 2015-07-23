@@ -52,6 +52,7 @@ ppLambda = text "\\"
 ppArrow = text "->"
 ppTask = text "async"
 ppBar = text "|"
+ppConsume = text "consume"
 
 indent = nest 2
 
@@ -188,6 +189,7 @@ ppExpr ArraySize {target} = ppBar <> ppExpr target <> ppBar
 ppExpr ArrayNew {ty, size} = (brackets $ ppType ty) <> parens (ppExpr size)
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
+ppExpr Consume {target} = ppConsume <+> ppExpr target
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs
 ppExpr Null {} = ppNull
 ppExpr BTrue {} = ppTrue

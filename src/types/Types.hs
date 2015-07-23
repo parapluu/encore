@@ -11,7 +11,7 @@ module Types(Type, arrowType, isArrowType, futureType, isFutureType,
              realType, isRealType, stringType, isStringType, 
              isPrimitive, isNumeric, emptyType,
              getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
-             typeComponents, subtypeOf, typeMap) where
+             typeComponents, subtypeOf, typeMap, makeLinear, isLinearRefType, isLinearType) where
 
 import Data.List
 
@@ -19,7 +19,10 @@ import Identifiers
 
 data Activity = Active | Passive | Unknown deriving(Eq, Show)
 
-data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity, parameters :: [Type]}
+data RefTypeInfo = RefTypeInfo {refId :: String, 
+                                activity :: Activity, 
+                                isLinear :: Bool,
+                                parameters :: [Type]}
 
 instance Eq RefTypeInfo where
     RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
@@ -108,7 +111,7 @@ parType = ParType
 isParType ParType {} = True
 isParType _ = False
 
-refTypeWithParams = \id params -> RefType $ RefTypeInfo id Unknown params
+refTypeWithParams = \id params -> RefType $ RefTypeInfo id Unknown False params
 refType id = refTypeWithParams id []
 streamType = StreamType
 isStreamType StreamType {} = True
@@ -138,6 +141,19 @@ makeActive ty = ty
 
 isActiveRefType (RefType (RefTypeInfo {activity = Active})) = True
 isActiveRefType _ = False
+
+makeLinear (RefType info)  = RefType $ info {isLinear = True}
+makeLinear ty = ty
+
+isLinearRefType (RefType (RefTypeInfo {isLinear})) = isLinear
+isLinearRefType _ = False
+
+isLinearType = (any isLinearRefType) . typeComponents . dropArrows
+    where
+      dropArrows = typeMap dropArrow
+      dropArrow ty
+          | isArrowType ty = voidType
+          | otherwise = ty
 
 isMainType (RefType (RefTypeInfo {refId = "Main"})) = True
 isMainType _ = False
@@ -204,5 +220,5 @@ isNumeric ty = isRealType ty || isIntType ty
 
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
-    | isNullType ty1 = isNullType ty2 || isRefType ty2
-    | otherwise      = ty1 == ty2
+    | isNullType ty1   = isNullType ty2 || isRefType ty2
+    | otherwise        = ty1 == ty2

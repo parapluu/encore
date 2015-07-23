@@ -1,10 +1,17 @@
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling errors and backtracing. 
+The machinery used by "Typechecker.Typechecker" and 
+"Typechecker.Capturechecker" for handling errors and backtracing. 
 
 -}
 
-module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCError), currentMethod) where
+module Typechecker.TypeError (Backtrace
+                             , emptyBT
+                             , Pushable(push)
+                             , TCError(TCError)
+                             , CCError(CCError)
+                             , currentMethod
+                             ) where
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
@@ -95,6 +102,22 @@ instance Show TCError where
         msg ++ "\n"
     show (TCError (msg, bt@((pos, _):_))) = 
         " *** Error during typechecking *** \n" ++
+        show pos ++ "\n" ++
+        msg ++ "\n" ++
+        (concat $ map showBT bt)
+        where
+          showBT (pos, node) = 
+              case (show node) of
+                "" -> ""
+                s  -> s ++ "\n"
+
+newtype CCError = CCError (String, Backtrace)
+instance Show CCError where
+    show (CCError (msg, [])) = 
+        " *** Error during capturechecking *** \n" ++
+        msg ++ "\n"
+    show (CCError (msg, bt@((pos, _):_))) = 
+        " *** Error during capturechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
         (concat $ map showBT bt)

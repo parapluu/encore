@@ -4,10 +4,22 @@
 {-|
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(foldr,
+                foldrAll,
+                filter,
+                traverse,
+                traverseAccum,
+                traverseAccumAll,
+                traverseAll,
+                traverseM,
+                traverseMAll,
+                traverseMMethods,
+                extractTypes,
+                freeVariables) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
+import Control.Monad
 
 import AST.AST
 import Types
@@ -47,6 +59,7 @@ getChildren ArrayNew {size} = [size]
 getChildren ArrayLiteral {args} = args
 getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren VarAccess {} = []
+getChildren Consume {target} = [target]
 getChildren Null {} = []
 getChildren BTrue {} = []
 getChildren BFalse {} = []
@@ -98,6 +111,7 @@ putChildren [size] e@(ArrayNew {}) = e{size = size}
 putChildren args e@(ArrayLiteral {}) = e{args = args}
 putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
 putChildren [] e@(VarAccess {}) = e
+putChildren [target] e@(Consume {}) = e{target = target}
 putChildren [] e@(Null {}) = e
 putChildren [] e@(BTrue {}) = e
 putChildren [] e@(BFalse {}) = e
@@ -144,6 +158,7 @@ putChildren _ e@(ArraySize {}) = error "'putChildren l ArraySize' expects l to h
 putChildren _ e@(ArrayNew {}) = error "'putChildren l ArrayNew' expects l to have 1 element"
 putChildren _ e@(Assign {}) = error "'putChildren l Assign' expects l to have 2 elements"
 putChildren _ e@(VarAccess {}) = error "'putChildren l VarAccess' expects l to have 0 elements"
+putChildren _ e@(Consume {}) = error "'putChildren l Consume' expects l to have 1 element"
 putChildren _ e@(Null {}) = error "'putChildren l Null' expects l to have 0 elements"
 putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 elements"
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"
@@ -173,32 +188,65 @@ foldrAll f e Program{functions, classes} =
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
--- extend f [1,2,3,4] = [f [1,2,3,4], f [2,3,4], f [3,4], f [4]].
-extend :: (Expr -> Expr) -> Expr -> Expr
-extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
+-- traverse f [1,2,3,4] = [f [1,2,3,4], f [2,3,4], f [3,4], f [4]].
+traverse :: (Expr -> Expr) -> Expr -> Expr
+traverse f = snd . (traverseAccum (\acc e -> (undefined, f e)) undefined)
 
-extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
-extendAccum f acc0 e =
+traverseAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
+traverseAccum f acc0 e =
     let (acc1, childResults) =
-            List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
+            List.mapAccumL (\acc e -> traverseAccum f acc e) acc0 (getChildren e)
     in
       f acc1 (putChildren childResults e)
 
-extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, classes} =
+traverseAccumAll :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
+traverseAccumAll f acc0 (p@Program{functions, classes}) = 
   (acc2, p{functions = funs', classes = classes'})
     where
-      (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
-      extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
+      (acc1, funs') = List.mapAccumL (traverseAccumFunction f) acc0 functions
+      traverseAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
           where
-            (acc', funbody') = extendAccum f acc funbody
-      (acc2, classes') = List.mapAccumL (extendAccumClass f) acc1 classes
-      extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
+            (acc', funbody') = traverseAccum f acc funbody
+      (acc2, classes') = List.mapAccumL (traverseAccumClass f) acc1 classes
+      traverseAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
           where
-            (acc', methods') = List.mapAccumL (extendAccumMethod f) acc methods
-            extendAccumMethod f acc mtd = (acc', mtd{mbody = mbody'})
+            (acc', methods') = List.mapAccumL (traverseAccumMethod f) acc methods
+            traverseAccumMethod f acc mtd = (acc', mtd{mbody = mbody'})
                 where
-                  (acc', mbody') = extendAccum f acc (mbody mtd)
+                  (acc', mbody') = traverseAccum f acc (mbody mtd)
+
+traverseAll :: (Expr -> Expr) -> Program -> Program
+traverseAll f = snd . (traverseAccumAll (\acc e -> (undefined, f e)) undefined)
+
+traverseM :: Monad m => (Expr -> m Expr) -> Expr -> m Expr
+traverseM f e = 
+    do childResults <- mapM (traverseM f) (getChildren e)
+       f (putChildren childResults e)
+
+traverseMAll :: Monad m => (Expr -> m Expr) -> Program -> m Program
+traverseMAll f (p@Program{functions, classes}) =
+    do classes' <- mapM (traverseMClass f) classes
+       functions' <- mapM (traverseMFunction f) functions
+       return p{functions = functions', classes = classes'}
+    where
+      traverseMFunction f (fun@Function{funbody}) = 
+          do funbody' <- traverseM f funbody
+             return fun{funbody = funbody'}
+      traverseMClass f (c@Class{methods}) = 
+          do methods' <- mapM (traverseMMethod f) methods
+             return c{methods = methods'}
+      traverseMMethod f m = 
+          do mbody' <- traverseM f (mbody m)
+             return m{mbody = mbody'}
+
+traverseMMethods :: Monad m => (MethodDecl -> m MethodDecl) -> Program -> m Program
+traverseMMethods f (p@Program{functions, classes}) =
+    do classes' <- mapM (traverseMClass f) classes
+       return p{classes = classes'}
+    where
+      traverseMClass f (c@Class{methods}) = 
+          do methods' <- mapM f methods
+             return c{methods = methods'}
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]

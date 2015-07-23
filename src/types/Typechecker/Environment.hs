@@ -62,16 +62,16 @@ buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use tra
                      bt = emptyBT}) (map (buildEnvironment . iprogram) imports)
     where
 
+      allclasses = allClasses p
+      
       -- Each class knows if it's passive or not, but reference
       -- types in functions, methods and fields must be given the
       -- correct activity
-      allclasses = allClasses p
-      
-      setActivity ty = 
+      setMode ty = 
           case find ((==ty) . cname) allclasses of
-            Just c -> if isActiveRefType $ cname c
-                      then makeActive ty
-                      else makePassive ty
+            Just Class{cname} -> 
+                let params = getTypeParameters ty in
+                setTypeParameters cname params
             Nothing -> ty
 
       distinctFunctions = 
@@ -85,17 +85,17 @@ buildEnvironment p@(Program {functions, classes, imports}) =    -- TODO: use tra
             (cls:_) -> throwError $ TCError ("Duplicate definition of class '" ++ show (cname cls) ++ "'" , push cls emptyBT)
 
       getFunctionType Function {funname, funtype, funparams} = 
-          (funname, arrowType (map (setActivity . ptype) funparams) (setActivity funtype))
+          (funname, arrowType (map (setMode . ptype) funparams) (setMode funtype))
 
       getClassEntry Class {cname = c, fields, methods} = 
           (c, (map getField fields, map getMethod methods))
 
       getField f@(Field {fname, ftype}) =
-          (fname, f{ftype = typeMap setActivity ftype})
+          (fname, f{ftype = typeMap setMode ftype})
 
       getMethod m = 
-          (mname m, m{mparams = map (\p@(Param{ptype}) -> p{ptype = (typeMap setActivity) ptype}) (mparams m),
-                      mtype = typeMap setActivity (mtype m)})
+          (mname m, m{mparams = map (\p@(Param{ptype}) -> p{ptype = (typeMap setMode) ptype}) (mparams m),
+                      mtype = typeMap setMode (mtype m)})
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}

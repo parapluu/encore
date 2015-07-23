@@ -25,7 +25,7 @@ optimizerPasses = [constantFolding, constructors]
 -- there is a serious optimization in place, please remove this
 -- function.
 constantFolding :: Expr -> Expr
-constantFolding = extend foldConst
+constantFolding = traverse foldConst
     where
       foldConst (Binop {emeta = meta, op = PLUS, 
                         loper = IntLiteral{intLit = m}, 
@@ -36,7 +36,7 @@ constantFolding = extend foldConst
 -- Calls to init are necessarily constructor calls and should
 -- therefore be future-less message sends.
 constructors :: Expr -> Expr
-constructors = extend constr
+constructors = traverse constr
     where
       constr e@(MethodCall {name = Name "_init", emeta, target, args}) 
           | (isActiveRefType . getType) target =

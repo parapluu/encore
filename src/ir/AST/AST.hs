@@ -10,6 +10,7 @@ meta-information about its type (filled in by
 module AST.AST where
 
 import Text.Parsec(SourcePos)
+import Data.Maybe
 
 import Identifiers
 import Types
@@ -45,8 +46,24 @@ class HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
+    isFree :: a -> Bool
+    isFree = AST.Meta.isFree . getMeta
+
+    isCaptured :: a -> Bool
+    isCaptured = AST.Meta.isCaptured . getMeta
+
+    makeFree :: a -> a
+    makeFree x = let meta = AST.Meta.makeFree (getMeta x)
+                 in setMeta x meta
+
+    makeCaptured :: a -> a
+    makeCaptured x = let meta = AST.Meta.makeCaptured (getMeta x)
+                     in setMeta x meta
+
     getMetaInfo :: a -> MetaInfo
-    getMetaInfo = AST.Meta.metaInfo . getMeta
+    getMetaInfo = fromJust . AST.Meta.metaInfo . getMeta
+
+    
 
 data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
                         etlheader :: String,
@@ -210,7 +227,7 @@ data Expr = Skip {emeta :: Meta Expr}
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr, 
-                        future :: Expr,
+                         future :: Expr,
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr, 
                          target :: Expr, 
@@ -230,13 +247,15 @@ data Expr = Skip {emeta :: Meta Expr}
                     rhs :: Expr}
           | VarAccess {emeta :: Meta Expr, 
                        name :: Name}
+          | Consume {emeta :: Meta Expr, 
+                     target :: Expr}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}
           | NewWithInit {emeta :: Meta Expr, 
                          ty ::Type,
                          args :: Arguments}
-          | New {emeta :: Meta Expr, 
+          | New {emeta :: Meta Expr,
                  ty ::Type}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}

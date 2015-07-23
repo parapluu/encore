@@ -22,7 +22,7 @@ desugarProgram p@(Program{classes, functions, imports}) = p{classes = map desuga
       desugarMethod m
           | (mname m) == Name "init" = m{mname = Name "_init", mbody = desugarExpr (mbody m)}
           | otherwise = m{mbody = desugarExpr (mbody m)}
-      desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
+      desugarExpr = (traverse desugar) . (traverse (\e -> setSugared e e))
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
 cloneMeta m = (Meta.meta (Meta.sourcePos m))
