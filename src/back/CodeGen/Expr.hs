@@ -332,6 +332,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var . show $ globalClosureName name, Skip)
 
+  translate (A.Consume {A.target = arrAcc@A.ArrayAccess{A.target, A.index}}) = do
+    (ntarg, ttarg) <- translate target
+    (nindex, tindex) <- translate index
+    access_name <- Ctx.genNamedSym "access"
+    let ty = translate $ A.getType arrAcc
+        the_access =
+            Assign (Decl (ty, Var access_name))
+                   (Call (Nam "array_get") [ntarg, nindex]
+                    `Dot` encoreArgTTag ty)
+        the_set =
+            Statement $
+            Call (Nam "array_set")
+                 [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty Null]
+    return (Var access_name, Seq [ttarg, tindex, the_access, the_set])
+
+  translate (A.Consume {A.target}) = do
+    (ntarg, ttarg) <- translate target
+    lval <- mk_lval target
+    access_name <- Ctx.genNamedSym "consume"
+    let ty = translate $ A.getType target
+        the_read = Assign (Decl (ty, Var access_name)) ntarg
+    return (Var access_name, Seq [ttarg, the_read, Assign lval Null])
+         where
+           mk_lval (A.VarAccess {A.name}) =
+               do ctx <- get
+                  case Ctx.substLkp ctx name of
+                    Just subst_name -> return subst_name
+                    Nothing -> error $ "Expr.hs: Unbound variable: " ++ show name
+           mk_lval (A.FieldAccess {A.target, A.name}) =
+               do (ntarg, ttarg) <- translate target
+                  return (Deref (StatAsExpr ntarg ttarg) `Dot` fieldName name)
+           mk_lval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"

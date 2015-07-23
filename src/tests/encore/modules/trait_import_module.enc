@@ -1,4 +1,4 @@
-trait Reagent {
+unsafe trait Reagent {
   def react() : void {
     ();
   }

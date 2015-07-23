@@ -2,16 +2,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Types(
-              Type
-            , Activity (..)
-            , Capability
-            , TypeTree
-            , RoseTree (..)
-            , TypeOp (..)
-            , RefInfo (..)
-            , fromTypeTree
-            , emptyCapability
-            , singleCapability
+             Type
+            ,Activity (..)
+            ,Capability
+            ,TypeTree
+            ,RoseTree (..)
+            ,TypeOp (..)
+            ,fromTypeTree
+            ,isEmptyCapability
+            ,isSingleCapability
             ,arrowType
             ,isArrowType
             ,futureType
@@ -26,14 +25,19 @@ module Types(
             ,isRangeType
             ,refTypeWithParams
             ,refType
+            ,activeClassTypeFromRefType
+            ,passiveClassTypeFromRefType
+            ,sharedClassTypeFromRefType
             ,traitTypeFromRefType
-            , classType
+            ,typeTreeFromRefType
+            ,classType
             ,isRefType
             ,isTraitType
             ,isActiveClassType
-            , isSharedClassType
+            ,isSharedClassType
             ,isPassiveClassType
             ,isClassType
+            ,isUntypedRef
             ,isMainType
             ,stringObjectType
             ,isStringObjectType
@@ -66,8 +70,9 @@ module Types(
             ,getId
             ,getTypeParameters
             ,setTypeParameters
-            , conjunctiveTypesFromCapability
+            ,conjunctiveTypesFromCapability
             ,typesFromCapability
+            ,withModeOf
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -81,12 +86,19 @@ module Types(
             ,isBottomType
             ,hasResultType
             ,setResultType
+            ,showWithoutMode
+            ,isModeless
+            ,modeSubtypeOf
+            ,makeUnsafe
+            ,makeLinear
+            ,isLinearRefType
             ) where
 
 import Data.List
 import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
+import Control.Monad
 
 data Activity = Active
               | Shared
@@ -145,16 +157,42 @@ instance Show Capability where
   show EmptyCapability = ""
   show Capability{typeTree} = show typeTree
 
+data Mode = Linear
+          | Unsafe
+            deriving(Eq)
+
+instance Show Mode where
+    show Linear = "linear"
+    show Unsafe = "unsafe"
+
+modeSubtypeOf ty1 ty2 =
+    mode (refInfo ty1) == mode (refInfo ty2)
+
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
-                      } deriving(Eq)
+                      ,mode :: Maybe Mode
+                      }
+
+-- The current modes are irrelevant for equality checks
+instance Eq RefInfo where
+    ref1 == ref2 = refId ref1 == refId ref2 &&
+                   parameters ref1 == parameters ref2
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters}
-        | null parameters = refId
-        | otherwise = refId ++ "<" ++ params ++ ">"
+    show RefInfo{mode, refId, parameters}
+        | null parameters = smode ++ refId
+        | otherwise = smode ++ refId ++ "<" ++ params ++ ">"
         where
+          smode
+              | isNothing mode = ""
+              | otherwise = show (fromJust mode) ++ " "
           params = intercalate ", " (map show parameters)
+
+showRefInfoWithoutMode RefInfo{refId, parameters}
+    | null parameters = refId
+    | otherwise = refId ++ "<" ++ params ++ ">"
+    where
+      params = intercalate ", " (map show parameters)
 
 data Type = UntypedRef{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
@@ -289,6 +327,11 @@ hasSameKind ty1 ty2
     isBottomTy2 = isBottomType ty2
     areBoth typeFun = typeFun ty1 && typeFun ty2
 
+showWithoutMode :: Type -> String
+showWithoutMode ty
+    | isRefType ty = showRefInfoWithoutMode $ refInfo ty
+    | otherwise = show ty
+
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
     arrow : (concatMap typeComponents argTys ++ typeComponents ty)
@@ -358,7 +401,7 @@ refInfoTypeMap f info@RefInfo{parameters} =
 capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
 capabilityTypeMap _ EmptyCapability = EmptyCapability
 capabilityTypeMap f cap@Capability{typeTree} =
-    cap{typeTree = fmap (refInfoTypeMap f) typeTree}
+    cap{typeTree = fmap (refInfo . typeMap f . TraitType) typeTree}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapM f ty@UntypedRef{refInfo} = do
@@ -399,7 +442,7 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
 capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
 capabilityTypeMapM f EmptyCapability = return EmptyCapability
 capabilityTypeMapM f cap@Capability{typeTree} = do
-  typeTree' <- mapM (refInfoTypeMapM f) typeTree
+  typeTree' <- mapM (liftM refInfo . typeMapM f . TraitType) typeTree
   return $ cap{typeTree = typeTree'}
 
 getTypeParameters :: Type -> [Type]
@@ -418,21 +461,19 @@ setTypeParameters ty@ClassType{refInfo} parameters =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
-emptyCapability :: Type -> Bool
-emptyCapability CapabilityType{capability=EmptyCapability} = True
-emptyCapability _ = False
+isEmptyCapability :: Type -> Bool
+isEmptyCapability CapabilityType{capability=EmptyCapability} = True
+isEmptyCapability _ = False
 
-singleCapability :: Type -> Bool
-singleCapability CapabilityType{capability=EmptyCapability} = False
-singleCapability CapabilityType{capability=Capability{typeTree}} =
+isSingleCapability :: Type -> Bool
+isSingleCapability CapabilityType{capability=Capability{typeTree}} =
   let
     leaves = toList typeTree
     first = head leaves
     single = leaves == first : []
   in
     single
-singleCapability ty =
-  error $ "Expects CapabilityType " ++ show ty
+isSingleCapability _ = False
 
 conjunctiveTypesFromCapability :: Type -> [[[Type]]]
 conjunctiveTypesFromCapability t@TraitType{} = []
@@ -460,20 +501,69 @@ typesFromCapability ty =
     error $ "Types.hs: Can't get the traits of non-capability type "
       ++ showWithKind ty
 
+withModeOf sink source
+    | isRefType sink
+    , isRefType source
+    , info <- refInfo sink
+    , m <- mode $ refInfo source
+      = sink{refInfo = info{mode = m}}
+    | otherwise =
+        error $ "Types.hs: Can't transfer modes from " ++
+                showWithKind source ++ " to " ++ showWithKind sink
+
+withTypeParametersOf sink source =
+    let formals = getTypeParameters sink
+        actuals = getTypeParameters source
+        bindings = zip formals actuals
+    in
+       replaceTypeVars bindings sink
+
 refTypeWithParams refId parameters =
-    UntypedRef{refInfo = RefInfo{refId, parameters}}
+    UntypedRef{refInfo = RefInfo{refId,
+                                 parameters,
+                                 mode = Nothing}}
 
 refType :: String -> Type
 refType id = refTypeWithParams id []
 
 classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
-  ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
+    ClassType{refInfo = RefInfo{refId = name
+                               ,parameters
+                               ,mode = Nothing}, activity}
 
-traitTypeFromRefType UntypedRef{refInfo} =
-    TraitType{refInfo}
-traitTypeFromRefType ty =
-    error $ "Types.hs: Can't make trait type from type: " ++ show ty
+activeClassTypeFromRefType :: Type -> Type
+activeClassTypeFromRefType ty
+    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Active}
+    | otherwise =
+        error $ "Types.hs: Tried to make a class type out of " ++
+                showWithKind ty
+
+passiveClassTypeFromRefType :: Type -> Type
+passiveClassTypeFromRefType ty
+    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Passive}
+    | otherwise =
+        error $ "Types.hs: Tried to make a class type out of " ++
+                showWithKind ty
+
+sharedClassTypeFromRefType :: Type -> Type
+sharedClassTypeFromRefType ty
+    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Shared}
+    | otherwise =
+        error $ "Types.hs: Tried to make a class type out of " ++
+                showWithKind ty
+
+traitTypeFromRefType :: Type -> Type
+traitTypeFromRefType ty
+    | isRefType ty = TraitType{refInfo = refInfo ty}
+    | otherwise =
+        error $ "Types.hs: Can't make trait type from type: " ++
+                showWithKind ty
+
+typeTreeFromRefType :: Type -> TypeTree
+typeTreeFromRefType ty
+    | isRefType ty = Leaf (refInfo ty)
+    | otherwise = error $ "Types.hs: Can't make typeTree from type: " ++ show ty
 
 isRefType UntypedRef {} = True
 isRefType TraitType {} = True
@@ -494,6 +584,34 @@ isPassiveClassType _ = False
 
 isClassType ClassType{} = True
 isClassType _ = False
+
+isUntypedRef UntypedRef{} = True
+isUntypedRef _ = False
+
+-- TODO: Maybe a type can have several modes?
+-- TODO: Should classes ever have modes (except the "inherited ones")?
+makeUnsafe ty
+    | isRefType ty = ty{refInfo = info{mode = Just Unsafe}}
+    | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+makeLinear ty
+    | isRefType ty = ty{refInfo = info{mode = Just Linear}}
+    | otherwise = error $ "Types.hs: Cannot make type linear: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+isModeless ty
+    | isRefType ty = isNothing $ mode (refInfo ty)
+    | otherwise = error $ "Types.hs: Cannot get modes of type: " ++
+                          show ty
+
+isLinearRefType ty
+    | isRefType ty = mode (refInfo ty) == Just Linear
+    | otherwise = False
 
 fromTypeTree :: TypeTree -> Type
 fromTypeTree typeTree =

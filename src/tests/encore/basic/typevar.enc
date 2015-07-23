@@ -1,4 +1,4 @@
-trait AB<a, b> {
+unsafe trait AB<a, b> {
   require aa : a
   require bb : b
 

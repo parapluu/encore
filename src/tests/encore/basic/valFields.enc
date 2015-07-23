@@ -1,4 +1,4 @@
-trait Mappable<v>
+unsafe trait Mappable<v>
   require value : v
   require val next : Mappable<v>
   def map(f : v -> v) : void{
@@ -31,7 +31,7 @@ passive class Link<v> : Mappable<v>
     this.next = next;
   }
 
-trait Push<v>
+unsafe trait Push<v>
   require top : Link<v>
   def push(value : v) : void
     this.top = new Link<v>(value, this.top)

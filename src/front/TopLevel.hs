@@ -31,6 +31,7 @@ import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
+import Typechecker.Capturechecker
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -197,13 +198,18 @@ main =
        showWarnings precheckingWarnings
 
        verbatim options "== Typechecking =="
-       (typecheckedAST, typecheckingWarnings) <-
+       (typecheckedAST, env, typecheckingWarnings) <-
            case typecheckEncoreProgram precheckedAST of
-             (Right ast, warnings)  -> return (ast, warnings)
+             (Right (ast, env), warnings)  -> return (ast, env, warnings)
              (Left error, warnings) -> do
                showWarnings warnings
                abort $ show error
        showWarnings typecheckingWarnings
+
+       verbatim options "== Capturechecking =="
+       capturecheckedAST <- case capturecheckEncoreProgram typecheckedAST env of
+                              Right ast  -> return ast
+                              Left error -> abort $ show error
 
        when (Intermediate TypeChecked `elem` options) $ do
          verbatim options "== Printing typed AST =="
@@ -211,7 +217,7 @@ main =
                   (flip hPrint $ show typecheckedAST)
 
        verbatim options "== Optimizing =="
-       let optimizedAST = optimizeProgram typecheckedAST
+       let optimizedAST = optimizeProgram capturecheckedAST
 
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options

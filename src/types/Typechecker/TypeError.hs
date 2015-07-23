@@ -1,7 +1,7 @@
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling
-errors and backtracing.
+The machinery used by "Typechecker.Typechecker" and
+"Typechecker.Capturechecker" for handling errors and backtracing.
 
 -}
 
@@ -11,7 +11,9 @@ module Typechecker.TypeError (Backtrace
                              ,TCError(TCError)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,currentMethodFromBacktrace) where
+                             ,CCError(CCError)
+                             ,currentMethodFromBacktrace
+                             ) where
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
@@ -128,6 +130,7 @@ instance Show TCError where
                 "" -> ""
                 s  -> s ++ "\n"
 
+
 data TCWarning = TCWarning Backtrace Warning
 instance Show TCWarning where
     show (TCWarning [] w) =
@@ -144,3 +147,19 @@ instance Show Warning where
         "Type 'string' is deprecated. Use 'String' instead."
     show StringIdentityWarning =
         "Comparing String identity. Equality should be compared using 'equals'"
+
+newtype CCError = CCError (String, Backtrace)
+instance Show CCError where
+    show (CCError (msg, [])) =
+        " *** Error during capturechecking *** \n" ++
+        msg ++ "\n"
+    show (CCError (msg, bt@((pos, _):_))) =
+        " *** Error during capturechecking *** \n" ++
+        show pos ++ "\n" ++
+        msg ++ "\n" ++
+        concatMap showBT bt
+        where
+          showBT (pos, node) =
+              case show node of
+                "" -> ""
+                s  -> s ++ "\n"

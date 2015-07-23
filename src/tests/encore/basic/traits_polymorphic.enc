@@ -1,4 +1,4 @@
-trait T<t> {
+unsafe trait T<t> {
   require x : t
 }
 

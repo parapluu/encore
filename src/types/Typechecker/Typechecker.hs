@@ -29,11 +29,13 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
+typecheckEncoreProgram :: Program -> (Either TCError (Program, Environment), [TCWarning])
 typecheckEncoreProgram p =
   case buildEnvironment p of
     (Right env, warnings) ->
-      runState (runExceptT (runReaderT (doTypecheck p) env)) warnings
+      case runState (runExceptT (runReaderT (doTypecheck p) env)) warnings of
+        (Right p', warnings') -> (Right (p', env), warnings)
+        (Left err, warnings) -> (Left err, warnings)
     (Left err, warnings) -> (Left err, warnings)
 
 -- | The actual typechecking is done using a Reader monad wrapped
@@ -900,6 +902,26 @@ instance Checkable Expr where
              Just ty -> return $ setType ty var
              Nothing -> tcError $ "Unbound variable '" ++ show name ++ "'"
 
+
+    --  e : t \in E
+    --  isLval e
+    -- ----------------------
+    --  E |- consume e : t
+    doTypecheck cons@(Consume {target}) =
+        do eTarget <- typecheck target
+           unless (isLval target) $
+                  tcError $ "Cannot consume non-lval '" ++
+                            show (ppExpr target) ++ "'"
+           whenM (isGlobalVar target) $
+                 tcError $ "Can't consume global variable '" ++
+                           show (ppExpr target) ++ "'"
+           let ty = AST.getType eTarget
+           return $ setType ty cons {target = eTarget}
+        where
+          isGlobalVar VarAccess{name} =
+              liftM not $ asks $ isLocal name
+          isGlobalVar _ = return False
+
     --
     -- ----------------------
     --  E |- null : nullType
@@ -1179,8 +1201,12 @@ instance Checkable Expr where
 coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
-    | isRefType ty || isCapabilityType ty = return $ setType ty null
-    | isMaybeType ty = return $ setType ty null
+    | isRefType ty ||
+      isCapabilityType ty ||
+      isArrayType ty ||
+      isFutureType ty ||
+      isStreamType ty ||
+      isMaybeType ty = return $ setType ty null
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"
@@ -1328,7 +1354,7 @@ assertSubtypeOf sub super =
                     then do
                       fBindings <- formalBindings sub
                       cap <- asks $ capabilityLookup sub
-                      if isJust cap && not (emptyCapability (fromJust cap))
+                      if isJust cap && not (isEmptyCapability (fromJust cap))
                       then return $ fmap (replaceTypeVars fBindings) cap
                       else return Nothing
                     else return Nothing

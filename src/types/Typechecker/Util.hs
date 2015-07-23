@@ -3,6 +3,7 @@
 -}
 
 module Typechecker.Util(TypecheckM
+                       ,CapturecheckM
                        ,whenM
                        ,anyM
                        ,unlessM
@@ -25,17 +26,17 @@ import Identifiers
 import Types as Ty
 import AST.AST as AST
 import Data.List
+import Data.Maybe
 import Text.Printf (printf)
 import Debug.Trace
-
--- Module dependencies
-import Typechecker.TypeError
-import Typechecker.Environment
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Arrow(second)
 import Control.Monad.State
-import Data.Maybe
+
+-- Module dependencies
+import Typechecker.TypeError
+import Typechecker.Environment
 
 -- Monadic versions of common functions
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
@@ -58,6 +59,9 @@ type TypecheckM a =
                 MonadError TCError m,
                 MonadReader Environment m) => m a
 
+type CapturecheckM a =
+    forall m . (MonadError CCError m, MonadReader Environment m) => m a
+
 -- | convenience function for throwing an exception with the
 -- current backtrace
 tcError msg =
@@ -76,8 +80,8 @@ matchTypeParameterLength ty1 ty2 = do
       params2 = getTypeParameters ty2
   unless (length params1 == length params2) $
     tcError $ printf "'%s' expects %d type arguments, but '%s' has %d"
-              (show ty1) (length params1)
-              (show ty2) (length params2)
+              (showWithoutMode ty1) (length params1)
+              (showWithoutMode ty2) (length params2)
 
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
@@ -96,7 +100,7 @@ resolveType = typeMapM resolveSingleType
             case result of
               Just formal -> do
                 matchTypeParameterLength formal ty
-                return $ setTypeParameters formal $ getTypeParameters ty
+                resolveRefType ty formal
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
         | isCapabilityType ty = resolveCapa ty
@@ -111,15 +115,37 @@ resolveType = typeMapM resolveSingleType
         where
           resolveCapa :: Type -> TypecheckM Type
           resolveCapa t
-            | emptyCapability t = return t
-            | singleCapability t = resolveType $ head $ typesFromCapability t
+            | isEmptyCapability t = return t
+            | isSingleCapability t = resolveType $ head $ typesFromCapability t
             | otherwise =
               mapM_ resolveSingleTrait (typesFromCapability ty) >> return ty
 
-          resolveSingleTrait t = do
-            result <- asks $ traitLookup t
-            when (isNothing result) $
-                   tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+      resolveSingleTrait t = do
+          result <- asks $ traitLookup t
+          when (isNothing result) $
+               tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+
+      resolveRefType actual formal
+          | isModeless actual && not (isModeless formal) =
+              resolveType $ actual `withModeOf` formal
+          | isActiveClassType formal && not (isClassType actual) =
+              resolveType $ activeClassTypeFromRefType actual
+          | isPassiveClassType formal && not (isClassType actual) =
+              resolveType $ passiveClassTypeFromRefType actual
+          | isSharedClassType formal && not (isClassType actual) =
+              resolveType $ sharedClassTypeFromRefType actual
+          | isTraitType formal && not (isTraitType actual) =
+              resolveType $ traitTypeFromRefType actual
+          | isClassType actual = do
+              unless (isModeless actual) $
+                     tcError "Class types can not have modes"
+              return actual
+          | isTraitType actual = do
+              when (isModeless actual) $
+                   tcError $ "No mode given to " ++ classOrTraitName actual
+              return actual
+          | otherwise =
+              error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
@@ -141,7 +167,8 @@ subtypeOf ty1 ty2
       results <- zipWithM subtypeOf argTys1 argTys2
       return $ and results
     | isTraitType ty1 && isTraitType ty2 =
-        ty1 `refSubtypeOf` ty2
+        liftM (ty1 `modeSubtypeOf` ty2 &&)
+              (ty1 `refSubtypeOf` ty2)
     | isTraitType ty1 && isCapabilityType ty2 = do
         let traits = typesFromCapability ty2
         allM (ty1 `subtypeOf`) traits
@@ -225,7 +252,7 @@ findMethodWithCalledType ty name = do
     noMethod (Name "_init") = "No constructor"
     noMethod n = concat ["No method '", show n, "'"]
 
-findCapability :: Type -> TypecheckM Type
+findCapability :: (MonadReader Environment m) => Type -> m Type
 findCapability ty = do
   result <- asks $ capabilityLookup ty
   return $ fromMaybe err result

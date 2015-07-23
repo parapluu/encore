@@ -24,7 +24,7 @@ import Control.Applicative ((<$>))
 import Identifiers
 import Types hiding(refType)
 import AST.AST
-import AST.Meta hiding(Closure, Async)
+import AST.Meta hiding(Closure, Async, getPos)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -50,8 +50,8 @@ lexer =
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract"
+     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "linear",
+     "extract", "consume", "unsafe"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -199,16 +199,19 @@ importdecl = do
 embedTL :: Parser EmbedTL
 embedTL = do
   pos <- getPosition
-  (try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; string "body"}
-           code <- manyTill anyChar $ try $ do {space; reserved "end"}
-           return $ EmbedTL (meta pos) header code
-       ) <|>
-   try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; reserved "end"}
-           return $ EmbedTL (meta pos) header ""
-       ) <|>
-   (return $ EmbedTL (meta pos) "" ""))
+  try (embedWithBody pos) <|>
+      try (embedWithoutBody pos) <|>
+      return (EmbedTL (meta pos) "" "")
+    where
+      embedWithBody pos = do
+            string "embed"
+            header <- manyTill anyChar $ try $ do {space; string "body"}
+            code <- manyTill anyChar $ try $ do {space; reserved "end"}
+            return $ EmbedTL (meta pos) header code
+      embedWithoutBody pos = do
+            string "embed"
+            header <- manyTill anyChar $ try $ do {space; reserved "end"}
+            return $ EmbedTL (meta pos) header ""
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
@@ -239,15 +242,28 @@ function = do
                  ,funbody
                  }
 
+mode :: Parser (Type -> Type)
+mode = linear
+       <|>
+       unsafe
+       <?> "mode"
+    where
+      linear = do reserved "linear"
+                  return makeLinear
+      unsafe = do reserved "unsafe"
+                  return makeUnsafe
+
 traitDecl :: Parser TraitDecl
 traitDecl = do
   tmeta <- meta <$> getPosition
+  mode <- option id mode
   reserved "trait"
   ident <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
-              ,tname = traitTypeFromRefType $
+              ,tname = mode $
+                       traitTypeFromRefType $
                        refTypeWithParams ident params
               ,treqs
               ,tmethods
@@ -288,16 +304,18 @@ capability = do
      return $ RoseTree Product ts
 
     term :: Parser TypeTree
-    term = Leaf <$> refInfo
-        <|> parens typeTree
+    term = parens typeTree
+        <|> leafType
 
-    refInfo :: Parser RefInfo
-    refInfo = do
+    leafType :: Parser TypeTree
+    leafType = do
+      mode <- option id mode
       notFollowedBy lower
       refId <- identifier
       parameters <- option [] $ angles (commaSep1 typ)
-      return $ RefInfo{refId, parameters}
-      <?> "upper case ref type"
+      return . typeTreeFromRefType . mode $
+          refTypeWithParams refId parameters
+      <?> "capability atom"
 
 classDecl :: Parser ClassDecl
 classDecl = do
@@ -391,14 +409,15 @@ expression = buildExpressionParser opTable highOrderExpr
       opTable = [
                  [arrayAccess],
                  [textualPrefix "not" Identifiers.NOT],
-                 [textualOperator "and" Identifiers.AND,
-                  textualOperator "or" Identifiers.OR],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
+                 [textualOperator "and" Identifiers.AND,
+                  textualOperator "or" Identifiers.OR],
                  [messageSend],
+                 [consume],
                  [partyLiftf, partyLiftv],
                  [typedExpression],
                  [chain],
@@ -424,6 +443,10 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition
                     reservedOp s
                     return (Binop (meta pos) binop)) AssocLeft
+      consume =
+          Prefix (do pos <- getPosition
+                     reserved "consume"
+                     return (Consume (meta pos)))
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
@@ -433,13 +456,13 @@ expression = buildExpressionParser opTable highOrderExpr
           Postfix (try (do pos <- getPosition
                            index <- brackets expression
                            return (\e -> ArrayAccess (meta pos) e index)))
+
       messageSend =
-          Postfix (do pos <- getPosition
-                      bang
+          Postfix (do bang
                       name <- identifier
                       args <- parens arguments
-                      return (\target -> MessageSend (meta pos) target
-                                                     (Name name) args))
+                      return (\target -> MessageSend (meta (getPos target))
+                                                     target (Name name) args))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;

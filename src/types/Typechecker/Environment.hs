@@ -13,8 +13,8 @@ module Typechecker.Environment(Environment,
                                traitLookup,
                                refTypeLookup,
                                refTypeLookupUnsafe,
-                               methodAndCalledTypeLookup,
                                methodLookup,
+                               methodAndCalledTypeLookup,
                                fieldLookup,
                                capabilityLookup,
                                varLookup,
@@ -36,6 +36,7 @@ module Typechecker.Environment(Environment,
 import Data.List
 import Data.Maybe
 import Control.Applicative ((<|>))
+import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Printf (printf)
@@ -159,7 +160,8 @@ methodLookup ty m env
         ms = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust ms
     return $ fromJust ret
-  | otherwise = error "methodLookup in non-ref type"
+  | otherwise = error $ "Environment.hs: methodLookup in non-ref type " ++
+                        show ty
 
 capabilityLookup :: Type -> Environment -> Maybe Type
 capabilityLookup ty env

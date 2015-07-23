@@ -8,26 +8,26 @@ passive class Container<t> {
   def This() :Maybe Container<t>
     Just this
     }
-    
-trait Letter
+
+unsafe trait Letter
   require Letter() : Maybe String
 
 passive class A : Letter {
   def init() :void
     ()
-  
+
   def Letter() : Maybe String
     Just "A"
 }
-    
+
 passive class B : Letter {
   def init() :void
     ()
-    
+
   def Letter() : Maybe String
     Just "B"
 }
-    
+
 class Main {
   def objectPatternTestWithFailingGuard() :void
     match new Container<String>("foobar") with
@@ -38,14 +38,14 @@ class Main {
     match (1, 2, "123") with
       (a, b, "123") when a > b => print "nope"
       (1, b, "123") => print("{}{}123", 1, b)
-      
+
   def evaluatesToTraitTest() :Letter{
     -- Just to test the typechecker
     match 1 with
       2 => new A() :Letter
       1 => new B()
   }
-      
+
   def main() :void {
     this.objectPatternTestWithFailingGuard();
     this.valueVariableTuplePatternsTestWithFailingGuard();

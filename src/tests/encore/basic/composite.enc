@@ -1,10 +1,10 @@
 def foo(x : T + U) : void
   ()
 
-trait T
+unsafe trait T
   require f() : Maybe int
 
-trait U
+unsafe trait U
   require g() : Maybe T + U
 
 passive class C : T + U

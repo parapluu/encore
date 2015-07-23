@@ -1,10 +1,10 @@
-trait T
+unsafe trait T
   require foo(x : int) : int
 
   def bar() : int
     this.foo(42)
 
-trait U<t>
+unsafe trait U<t>
   require fr0b() : t
 
 passive class C : T + U<T>
