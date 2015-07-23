@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 typedef T = int
-class Main
+active class Main
   def main() : unit
     let
       x = 10 : T

@@ -406,8 +406,7 @@ traitDecl = do
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
               ,tname = setRefNamespace emptyNamespace $
-                       traitTypeFromRefType $
-                       refTypeWithParams ident params
+                       traitType ident params
               ,treqs
               ,tmethods
               }
@@ -448,11 +447,9 @@ traitComposition = makeExprParser includedTrait opTable
         parameters <- option [] $ angles (commaSep1 typ)
         tcext <- option [] $ parens (commaSep1 extension)
         let tcname = if isEmptyNamespace ns
-                     then traitTypeFromRefType $
-                          refTypeWithParams refId parameters
+                     then traitType refId parameters
                      else setRefNamespace ns $
-                          traitTypeFromRefType $
-                          refTypeWithParams refId parameters
+                          traitType refId parameters
         return TraitLeaf{tcname, tcext}
         where
           extension = do
@@ -822,7 +819,7 @@ expr  =  embed
                         varDecl = do x <- identifier
                                      reservedOp "="
                                      val <- expression
-                                     return (Name x, val)
+                                     return ([VarNoType $ Name x], val)
       sequence = do pos <- getPosition
                     seq <- braces ((try miniLet <|> expression) `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
@@ -834,7 +831,7 @@ expr  =  embed
               reservedOp "="
               val <- expression
               lookAhead semi
-              return MiniLet{emeta, mutability, decl = (x, val)}
+              return MiniLet{emeta, mutability, decl = ([VarNoType x], val)}
       ifExpression = do pos <- getPosition
                         reserved "if"
                         cond <- expression

@@ -1,12 +1,10 @@
--- This file was automatically converted by encorec
-
 typedef E = D
 typedef D = T
-trait T
+local trait T
 end
-passive class C2 : E
+class C2 : E
 end
-class Main
+active class Main
   def main() : unit
     println(10)
   end

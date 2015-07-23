@@ -1,0 +1,36 @@
+linear class Foo : Id
+  var f : Foo
+  def foo() : unit
+    println("Hello, Linear world!")
+  end
+end
+
+active class Producer
+  def newFoo() : Foo
+    new Foo
+  end
+end
+
+active class Main
+  def main() : unit
+    val prod = new Producer
+    var fut = prod!newFoo()
+    var x = new Foo
+    var y = null : Foo
+    var arr = [consume x, get(consume fut)]
+    val arr2 = consume arr
+    x = consume arr2(0)
+    x.f = consume arr2(1)
+    y = consume x.f
+    if
+-- TODO: Fix consume of arrays and futures
+--      (fut == null) &&
+--      (x.f == null) &&
+--      (arr == null) &&
+      (arr2(0) == null) &&
+      (arr2(1) == null)
+    then
+      y.foo()
+    end
+  end
+end

@@ -2,7 +2,7 @@ This is a literate encore program. It consists of a single code
 block (shown below), this introduction, and a closing statement.
 
 #+begin_src encore
-class Main
+active class Main
   def main() : unit
     println("Hello literate world!")
   end

@@ -1,11 +1,11 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   def foo() : unit
     println("foo")
   end
 end
-class Main
+active class Main
   def main() : unit
     if true then
       new Foo ! foo()

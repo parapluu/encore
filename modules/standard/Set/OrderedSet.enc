@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module OrderedSet
-passive class OrderedSet[t]
+local class OrderedSet[t]
   var root : Node[t]
   var size : int
   var cmp : (t, t) -> int
@@ -46,7 +46,7 @@ passive class OrderedSet[t]
     end
   end
 end
-passive class Node[t]
+local class Node[t] : Id
   var elem : t
   var left : Node[t]
   var right : Node[t]
@@ -150,7 +150,7 @@ passive class Node[t]
     end
   end
 end
-passive class OrderedSetIterator[t]
+local class OrderedSetIterator[t]
   var cur : Node[t]
   def init(n : Node[t]) : unit
     if n == null then

@@ -1,4 +1,4 @@
-class Main
+active class Main
   def main() : unit
     var i = 1
     do

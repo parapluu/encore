@@ -1,0 +1,30 @@
+fun borrow(x : borrowed Token) : unit
+  x.foo()
+end
+
+linear class Token
+  var f : Token
+  def foo() : unit
+    println("Sharing is caring!")
+  end
+end
+
+read class Borrower
+  def lend(x : borrowed Token) : unit
+    ()
+  end
+end
+
+active class Main
+  def borrow(x : borrowed Token) : unit
+    borrow(x)
+  end
+  def main() : unit
+    val x = new Token
+    var y = new Token
+    val friend = new Borrower
+    x.f = consume y
+    friend.lend(x)
+    this.borrow(x.f)
+  end
+end

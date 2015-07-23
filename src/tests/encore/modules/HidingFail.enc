@@ -4,7 +4,7 @@ import SelectiveLib hiding(Bar)
 fun bar() : unit
   println("This is bar")
 end
-class Main
+active class Main
   def main() : unit
     foo()
     bar()

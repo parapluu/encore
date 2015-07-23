@@ -1,0 +1,16 @@
+local class Token
+end
+
+active class Other
+  def send(t : Token) : unit
+    ()
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new Token
+    val other = new Other
+    other!send(x)
+  end
+end

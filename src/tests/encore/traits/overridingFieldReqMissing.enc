@@ -1,18 +1,16 @@
--- This file was automatically converted by encorec
-
-trait T
-  require var f : int
+local trait T
+  require val f : int
   def foo() : int
     this.f
   end
 end
-trait S
-  require var g : int
+local trait S
+  require val g : int
   def foo() : int
     this.g
   end
 end
-passive class Foo : T(g) + S
+class Foo : T(g) + S
   var f : int
   var g : int
   def init(f : int, g : int) : unit
@@ -23,7 +21,7 @@ passive class Foo : T(g) + S
     this.f + this.g
   end
 end
-class Main
+active class Main
   def main() : unit
     val x = new Foo(2, 3) : T
     println("Five = {}", x.foo())

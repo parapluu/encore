@@ -29,8 +29,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors,
-                   sugarPrintedStrings, tupleMaybeIdComparison]
+optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -44,22 +43,6 @@ constantFolding = extend foldConst
                         roper = IntLiteral{intLit = n}}) =
           IntLiteral{emeta = meta, intLit = m + n}
       foldConst e = e
-
--- Calls to init are necessarily constructor calls and should
--- therefore be future-less message sends.
-constructors :: Expr -> Expr
-constructors = extend constr
-    where
-      constr e@(MethodCall {name, emeta, target, args})
-          | name == constructorName &&
-            (liftA2 (||) isActiveClassType isSharedClassType . getType) target =
-              MessageSend {name = constructorName
-                          ,emeta = emeta
-                          ,target = target
-                          ,args = args
-                          ,typeArguments = []}
-          | otherwise = e
-      constr e = e
 
 -- Desugars a == b when a : Just[t] and b : Just[t] into
 -- match (a, b) with

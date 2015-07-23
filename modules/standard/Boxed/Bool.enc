@@ -2,8 +2,8 @@
 
 module Bool
 
-passive class Bool
-  var value : bool
+read class Bool
+  val value : bool
   def init(x : bool) : unit
     this.value = x
   end

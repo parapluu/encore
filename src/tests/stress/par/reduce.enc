@@ -33,7 +33,7 @@ where
   end
 end
 
-class Accountant
+active class Accountant
   var number : int
   def init(number : int) : unit
     this.number = number
@@ -44,7 +44,7 @@ class Accountant
   end
 end
 
-class Main
+active class Main
   def main() : unit
     let
       f = reduce(sum, 0, millionItems(1000000))

@@ -1,0 +1,9 @@
+linear class C
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new C
+    val y = consume x
+  end
+end

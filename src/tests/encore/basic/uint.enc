@@ -3,7 +3,7 @@
 fun addUnsigned(x : uint, y : int) : uint
   x + y
 end
-class Main
+active class Main
   def main() : unit
     println(addUnsigned(42u, 13u))
     val large = EMBED (uint)

@@ -16,7 +16,7 @@ fun foo() : (Maybe[int], Maybe[int])
     (Nothing, Nothing)
   end
 end
-class Main
+active class Main
   def main() : unit
     match foo() with
       case (Nothing, Just(x)) =>

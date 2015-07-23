@@ -2,12 +2,12 @@ module Std
 
 -- This is currenly just a marker interface. In the future, id
 -- might contain the logic for giving objects ids.
-trait Id
+read trait Id
 end
 
 -- Equivalence is currently only supported on a given type. In
--- the future, other solutions are planned, possibly including a 
--- self type instead of this type parameter. 
-trait Eq[t]
+-- the future, other solutions are planned, possibly including a
+-- self type instead of this type parameter.
+read trait Eq[t]
   require def eq(other:t) : bool
 end

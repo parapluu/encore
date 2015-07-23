@@ -1,4 +1,4 @@
-passive class C
+local class C
   var f : int
   def init(f : int) : unit
     this.f = f
@@ -10,7 +10,7 @@ passive class C
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val x = new C(42)
     match x with

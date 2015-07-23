@@ -1,0 +1,13 @@
+linear class Token
+end
+class Borrower
+  def init(x : Token) : unit
+    ()
+  end
+end
+class Main
+  def main() : unit
+    val x = new Token
+    val friend = new Borrower(x)
+  end
+end

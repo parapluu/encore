@@ -8,7 +8,7 @@ fun split(item : String) : Par[String]
   each(item.split(" "))
 end
 
-class Main
+active class Main
   def main() : unit
     var par = empty[String]()
     val ar = getArr()

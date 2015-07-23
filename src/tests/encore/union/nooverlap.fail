@@ -1,1 +1,1 @@
-Type 'Baz + Bar' is not compatible with
+Type 'read Baz + read Bar' is not compatible with

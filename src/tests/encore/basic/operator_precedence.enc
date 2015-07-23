@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     println(123 == 100 + 23 && 789 <= 888 && 123 == 100 + 23 && 789 <= 888)
     println(1 + 1 == 2 == true || false && 1 + 1 == 2 == true || false)

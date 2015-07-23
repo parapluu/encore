@@ -1,18 +1,16 @@
--- This file was automatically converted by encorec
-
 fun showBar(b : Bar[String]) : unit
   println(b.bar())
 end
-trait Foo[t]
+local trait Foo[t]
   require var x : t
   def getX() : t
     this.x
   end
 end
-trait Bar[t]
+local trait Bar[t]
   require def bar() : t
 end
-passive class C : Foo[int] + Bar[String]
+class C : Foo[int] + Bar[String]
   var x : int
   def init() : unit
     this.x = 42
@@ -21,7 +19,7 @@ passive class C : Foo[int] + Bar[String]
     "bar"
   end
 end
-class Main
+active class Main
   def main() : unit
     val c = new C()
     println(c.getX())

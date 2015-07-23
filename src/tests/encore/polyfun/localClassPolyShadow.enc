@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-passive class Foo[a]
+read class Foo[a]
   def foo() : int
     13 + 14 + id(15)
   where
@@ -19,7 +19,7 @@ passive class Foo[a]
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     val x = new Foo[int]
     println(x.id(x.foo()))

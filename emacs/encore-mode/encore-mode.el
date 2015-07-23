@@ -52,22 +52,24 @@
 ;; Please keep these lists sorted
 (setq encore-keywords
       '(
+        "active"
         "as"
         "and"
         "async"
         "await"
+        "borrowed"
         "break"
         "by"
         "case"
         "chain"
         "class"
+        "consume"
         "def"
         "do"
         "else"
         "end"
         "eos"
         "for"
-        "foreach"
         "fun"
         "get"
         "getNext"
@@ -79,18 +81,22 @@
         "let"
         "liftf"
         "liftv"
+        "linear"
+        "local"
         "match"
         "module"
         "new"
         "not"
         "or"
-        "passive"
         "print"
         "println"
         "qualified"
+        "read"
         "repeat"
         "require"
+        "shared"
         "stream"
+        "subord"
         "suspend"
         "then"
         "this"
@@ -111,6 +117,7 @@
         "BODY"
         "EMBED"
         "END"
+        "unsafe"
         ))
 (setq encore-constants
       '(
@@ -203,12 +210,10 @@
   (if (equal first "def")
       (if (string-match "\\<def\\>" line)
           (match-beginning 0)
-      (if (string-match "\\<passive\\>" line)
+      (if (string-match "\\(\\<.+\\>\\)? *\\<class\\>" line)
           (+ (match-beginning 0) encore-tab-width)
-      (if (string-match "\\<class\\>" line)
-          (+ (match-beginning 0) encore-tab-width)
-      (if (string-match "\\<trait\\>" line)
-          (+ (match-beginning 0) encore-tab-width)))))
+      (if (string-match "\\(\\<.+\\>\\)? *\\<trait\\>" line)
+          (+ (match-beginning 0) encore-tab-width))))
 
   (if (equal first "fun")
       (if (string-match "\\<where\\>" line)
@@ -230,7 +235,7 @@
           (match-beginning 1)
       (if (string-match "\\<class\\>" line)
           (match-beginning 0)
-      (if (string-match "\\<trait\\>" line)
+      (if (string-match "\\<.+\\>? *\\<trait\\>" line)
           (match-beginning 0)))))
 
   (if (equal first "else")
@@ -305,14 +310,14 @@
 
 (setq encore-block-open-regex
       (concat "\\<def\\>"    "\\|"
-              "\\<class\\>"  "\\|"
-              "\\<passive"   "\\|"
-              "\\<trait\\>"  "\\|"
+              "\\<fun\\>"    "\\|"
+              "\\(\\<.+\\>\\)? *\\<class\\>" "\\|"
+              "\\(\\<.+\\>\\)? *\\<trait\\>" "\\|"
               "\\<while\\>"  "\\|"
               "\\<for\\>"    "\\|"
               "\\<repeat\\>" "\\|"
               "\\<do\\>"     "\\|"
-              "\\<fun\\>[^=>\n]*\\($\\|--\\)" "\\|"
+              "\\<fun\\>" "\\|"
               "\\<let\\>" "\\|"
               "\\<if\\>" "\\|"
               "\\<unless\\>" "\\|"
@@ -420,7 +425,7 @@
 (defvar encore-imenu-generic-expression
   '(("passive class" "^\s*passive\s+class\s*\\(\\<\\w+\\>\\) *\\(\\[.*\\]\\)? *:?.*" 1)
     ("active class" "^\s*class\s*\\(\\<\\w+\\>\\)" 1)
-    ("trait" "^\s*trait\s*\\(\\<\\w+\\>\\)" 1)
+    ("trait" "^\\<.+\\>?\s*trait\s*\\(\\<\\w+\\>\\)" 1)
     ("method definition" "^\s*def\s*\\(.*\s+\\)*\\(\\<\\w+\\>\\) *\\(\\[.*\\]\\)?(" 2)
     ("function definition" "^\s*fun\s*\\(\\w+\\) *\\(\\[.*\\]\\)?(" 1))
   "Contains regexes to parse Encore with imenu")
@@ -464,6 +469,9 @@
      (error "\"" (file-name) "\"" " (line " line ", column " column "):\n"
             (message))
      (error " *** Error during typechecking *** \n"
+            "\"" (file-name) "\"" " (line " line ", column " column ")\n"
+            (message))
+     (error " *** Error during capturechecking *** \n"
             "\"" (file-name) "\"" " (line " line ", column " column ")\n"
             (message))
      (info line-start "Importing module" (message) line-end)

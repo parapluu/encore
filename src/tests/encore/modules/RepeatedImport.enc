@@ -2,7 +2,7 @@
 
 import Top
 import Top
-class Main
+active class Main
   def main() : unit
     print("{}\n", top())
   end

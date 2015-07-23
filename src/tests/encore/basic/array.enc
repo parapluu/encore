@@ -1,4 +1,4 @@
-class Main
+active class Main
   def continu(a : [int]) : unit
     let
       b = ["foo", "bar"]
@@ -18,7 +18,7 @@ class Main
     end
   end
 end
-class Foo
+active class Foo
   def areturn() : [int]
     new [int](10)
   end

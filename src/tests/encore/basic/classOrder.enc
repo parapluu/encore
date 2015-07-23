@@ -1,13 +1,13 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   def foo() : Bar
     new Bar
   end
 end
-class Bar
+active class Bar
 end
-class Main
+active class Main
   def main() : unit
     println("Hello, ponyworld!")
   end

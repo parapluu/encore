@@ -2,8 +2,8 @@
 
 module Integer
 
-passive class Integer
-  var value : int
+read class Integer
+  val value : int
   def init(x : int) : unit
     this.value = x
   end

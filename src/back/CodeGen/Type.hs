@@ -44,8 +44,8 @@ instance Translatable Ty.Type (CCode Ty) where
 
 runtimeType :: Ty.Type -> CCode Expr
 runtimeType ty
-    | Ty.isActiveClassType ty  = AsExpr encoreActive
-    | Ty.isPassiveClassType ty = Amp $ runtimeTypeName ty
+    | Ty.isActiveRefType ty  = AsExpr encoreActive
+    | Ty.isClassType ty      = Amp $ runtimeTypeName ty
     | Ty.isFutureType ty ||
       Ty.isStreamType ty = Amp futureTypeRecName
     | Ty.isArrowType ty  = Amp closureTypeRecName

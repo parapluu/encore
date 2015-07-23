@@ -1,15 +1,13 @@
--- This file was automatically converted by encorec
-
-trait T
+read trait T
   require def foo(x : int) : int
   def bar() : int
     this.foo(42)
   end
 end
-trait U[t]
+read trait U[t]
   require def fr0b() : t
 end
-passive class C : T + U[T]
+class C : T + U[T]
   def foo(y : int) : int
     y
   end
@@ -17,7 +15,7 @@ passive class C : T + U[T]
     new C
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       c = new C

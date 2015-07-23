@@ -1,6 +1,4 @@
--- This file was automatically converted by encorec
-
-fun push_to(x : Push) : int -> unit
+fun push_to(x : Push) : local ((int) -> unit)
   let
     y = x
   in
@@ -10,13 +8,13 @@ end
 fun foo(x : Pop) : unit
   println(x.pop())
 end
-trait Push
+local trait Push
   require var top : Link
   def push(x : int) : unit
     this.top = new Link(x, this.top)
   end
 end
-trait Pop
+local trait Pop
   require var top : Link
   def pop() : int
     let
@@ -27,7 +25,7 @@ trait Pop
     end
   end
 end
-passive class Link
+local class Link
   var value : int
   var next : Link
   def init(v : int, n : Link) : unit
@@ -35,7 +33,7 @@ passive class Link
     this.next = n
   end
 end
-passive class Stack : Push + Pop
+local class Stack : Push + Pop
   var top : Link
   def steal(other : Pop) : unit
     var x = other
@@ -43,7 +41,7 @@ passive class Stack : Push + Pop
     this.push(x.pop())
   end
 end
-class Driver
+local class Driver
   var myPop : Pop
   var myStack : Stack
   def go(x : Stack, y : Pop) : unit
@@ -59,7 +57,7 @@ class Driver
     this.myStack
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       x = new Stack
@@ -69,8 +67,8 @@ class Main
       pushY = push_to(y)
     in
       pushY(100)
-      get(driver ! go(x, y))
-      println(get(driver ! doPop()))
+      driver . go(x, y)
+      println(driver . doPop())
       foo(x)
       println("Done!")
     end

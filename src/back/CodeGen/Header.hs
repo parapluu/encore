@@ -206,8 +206,13 @@ generateHeader p =
        let
          dicts = map (A.getType &&& A.traitInterface) traits
          pairs = concatMap (\(t, hs) -> zip (repeat t) (map A.hname hs)) dicts
-         syncs = map (show . (uncurry msgId)) pairs
-       in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
+         syncs = map (show . uncurry msgId) pairs
+         futs  = map (show . uncurry futMsgId) pairs
+         oneways = map (show . uncurry oneWayMsgId) pairs
+       in Enum $ Nam "__TRAIT_METHOD_DUMMY__ = 1024" :
+                 map Nam syncs ++
+                 map Nam futs ++
+                 map Nam oneways
 
      traitTypeDecls = map traitTypeDecl traits
        where
@@ -259,7 +264,7 @@ generateHeader p =
                  mtype = A.methodType m
 
      wrapperMethods A.Class{A.cname, A.cmethods} =
-       if Ty.isPassiveClassType $ cname then
+       if Ty.isPassiveRefType cname then
          []
        else
          map (genericMethod callMethodFutureName future) nonStreamMethods ++

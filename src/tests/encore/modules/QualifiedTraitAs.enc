@@ -2,9 +2,9 @@
 
 import qualified TraitLib as T
 import qualified A.B.QLib as Q
-passive class Z : Q.T + T.S
+local class Z : Q.T + T.S
 end
-class Main
+active class Main
   def main() : unit
     let
       z = new Z

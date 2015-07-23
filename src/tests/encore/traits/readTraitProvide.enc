@@ -1,0 +1,14 @@
+read trait R
+  require def foo() : unit
+end
+
+local trait T
+  require var f : int
+  def foo() : unit
+    this.f = 0
+  end
+end
+
+class C : R + T
+  var f : int
+end

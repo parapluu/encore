@@ -4,7 +4,7 @@ typedef A = int
 fun foo(x : A, f : A -> A) : A
   f(x)
 end
-class Main
+active class Main
   def main() : unit
     let
       f = fun (x : A) => x * 100

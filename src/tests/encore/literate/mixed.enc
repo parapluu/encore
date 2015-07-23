@@ -6,7 +6,7 @@ which is a regular program.
 import Foo
 import Bar
 
-class Main
+active class Main
   def main() : unit
     foo()
     bar()

@@ -294,8 +294,20 @@ traitMethodSelector table A.Class{A.cname, A.ccomposition} =
             methodNames = map A.hname tmethods
             caseNames   = map (msgId tname) methodNames
             caseStmts   = map (Return . methodImplName cname) methodNames
-        in
-          zip caseNames caseStmts
+        in zip caseNames caseStmts ++
+           if Ty.isActiveRefType tname then
+             let
+                 futCaseNames = map (futMsgId tname) methodNames
+                 futCaseStmts =
+                   map (Return . callMethodFutureName cname) methodNames
+                 oneWayCaseNames = map (oneWayMsgId tname) methodNames
+                 oneWayCaseStmts =
+                   map (Return . methodImplOneWayName cname) methodNames
+             in
+               zip futCaseNames futCaseStmts ++
+               zip oneWayCaseNames oneWayCaseStmts
+           else
+             []
 
 runtimeTypeInitFunDecl :: A.ClassDecl -> CCode Toplevel
 runtimeTypeInitFunDecl A.Class{A.cname, A.cfields, A.cmethods} =

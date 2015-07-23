@@ -7,7 +7,7 @@ fun strlen(default : int) : unit
     default
   end
 end
-class Foo
+active class Foo
   var default : int
   var Active_Main_t : int
   def strcat(volatile : int) : unit
@@ -18,7 +18,7 @@ class Foo
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       default = 42

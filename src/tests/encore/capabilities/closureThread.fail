@@ -1,0 +1,1 @@
+Closure 'f' captures actor local variables and cannot be passed to another active object

@@ -143,12 +143,12 @@ fun test_multiple_assignments(x : Maybe[int]) : int
 
   end
 end
-passive class Poly[t]
+read class Poly[t]
   def morphic(x : t) : Maybe[t]
     Just(x)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       x = Just(32)

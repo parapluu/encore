@@ -17,7 +17,7 @@ fun extractAndCreateOptionValue[t](op : Maybe[t], v : t) : Maybe[t]
 
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       test1 = fCreateParametricOptionType[String]("Test creation of 'Just a' inside parametric function")

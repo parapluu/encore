@@ -5,12 +5,12 @@ fun showRange(r : Range) : unit
     println(i)
   end
 end
-class Foo
+active class Foo
   def msg(m : String) : unit
     println(m)
   end
 end
-class Main
+active class Main
   var foo : int
   def main() : unit
     this.foo = 1

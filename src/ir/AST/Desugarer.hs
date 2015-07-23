@@ -85,7 +85,7 @@ optionalAccess Optional {emeta=em, optTag} =
          MatchClause {mcpattern = MaybeValue{emeta=em, mdt = JustData handlerVar}
                      ,mchandler = maybeVal
                      ,mcguard = BTrue em}]
-  in Let em Val [(targetName, target)] result
+  in Let em Val [([VarNoType targetName], target)] result
   where
     getTemplate (QuestionBang m@MessageSend{emeta, target}) = (emeta, m, target)
     getTemplate (QuestionDot m@MethodCall{emeta, target}) = (emeta, m, target)
@@ -254,9 +254,9 @@ desugar Unless{emeta, cond = originalCond, thn} =
 desugar Repeat{emeta, name, times, body} =
   desugar Seq{emeta ,eseq=[start, stop, step, loop]}
   where
-    start = MiniLet{emeta, mutability=Val, decl = (Name "__start__", IntLiteral{emeta, intLit=0})}
-    stop = MiniLet{emeta, mutability=Val, decl = (Name "__stop__", times)}
-    step = MiniLet{emeta, mutability=Var, decl = (Name "__step__", readVar "start")}
+    start = MiniLet{emeta, mutability=Val, decl = ([VarNoType $ Name "__start__"], IntLiteral{emeta, intLit=0})}
+    stop = MiniLet{emeta, mutability=Val, decl = ([VarNoType $ Name "__stop__"], times)}
+    step = MiniLet{emeta, mutability=Var, decl = ([VarNoType $ Name "__step__"], readVar "start")}
     loop = While{emeta
                 ,cond=Binop{emeta
                            ,binop=Identifiers.LT
@@ -272,9 +272,8 @@ desugar Repeat{emeta, name, times, body} =
                               ,roper=IntLiteral{emeta, intLit=1}}}
     bindUserLoopVar body = Let{emeta
                               ,mutability=Val
-                              ,decls = [(name, readVar "step")]
+                              ,decls = [([VarNoType name], readVar "step")]
                               ,body=body}
-
 
 desugar Async{emeta, body} =
   FunctionCall {emeta, typeArguments=[], qname, args}

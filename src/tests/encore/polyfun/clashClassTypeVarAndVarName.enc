@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Test[t, k]
+active class Test[t, k]
   def clashingNameAndTypes(x : t, y : k) : unit
     val nestedClosure = fun (t : k)
                           val idFn = fun (xx : t) => xx
@@ -9,7 +9,7 @@ class Test[t, k]
     nestedClosure(y)
   end
 end
-class Main
+active class Main
   def main() : unit
     ()
   end

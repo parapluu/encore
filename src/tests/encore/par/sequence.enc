@@ -24,7 +24,7 @@ fun updateParPlusFive(par : Par[PObject]) : Par[PObject]
   par >> updatePassivePlusFive
 end
 
-class AObject
+active class AObject
   def ints() : int
     21
   end
@@ -42,17 +42,17 @@ class AObject
   end
 
   def passivePar() : Par[PObject]
-    liftv(new PObject())
+    liftv(new PObject(32))
   end
 end
 
-passive class PObject
-  var tag : String
-  var value : int
+read class PObject
+  val tag : String
+  val value : int
 
-  def init() : unit
+  def init(value : int) : unit
     this.tag = "TAG"
-    this.value = 32
+    this.value = value
   end
 
   def getValue() : int
@@ -60,17 +60,15 @@ passive class PObject
   end
 
   def setValue(v : int) : PObject
-    this.value = v
-    this
+    new PObject(v)
   end
 
   def updateValuePlusFive(value : int) : PObject
-    this.value = value + 5
-    this
+    new PObject(value + 5)
   end
 end
 
-class Main
+active class Main
   def test_value_primitive() : unit
     let
       int_value = 32
@@ -85,7 +83,7 @@ class Main
 
   def test_value_passive() : unit
     let
-      pass_value1 = new PObject()
+      pass_value1 = new PObject(42)
       default_tag = "TAG"
       default_value = 42
       par_passive = liftv(pass_value1) >> updatePassivePlusFive >> updatePassivePlusFive
@@ -99,9 +97,9 @@ class Main
 
   def test_value_passive_par_par() : unit
     let
-      pass_value1 = new PObject()
-      pass_value2 = new PObject()
-      pass_value3 = new PObject()
+      pass_value1 = new PObject(32)
+      pass_value2 = new PObject(32)
+      pass_value3 = new PObject(32)
       expected_tag = "TAG"
       expected_val1 = 42
       expected_val2 = 47
@@ -196,8 +194,8 @@ class Main
 
   def test_future_passive_par() : unit
     let
-      a = new PObject()
-      b = new PObject()
+      a = new PObject(32)
+      b = new PObject(32)
       expected1 = 37
       expected2 = 42
       p1 = liftv(a) >> updatePassivePlusFive
@@ -213,7 +211,7 @@ class Main
   def test_future_passive_par_par() : unit
     let
       a = liftf(new AObject ! passivePar())
-      b = new PObject()
+      b = new PObject(32)
       expected = 42
       p1 = a >> updateParPlusFive
       p2 = liftv(liftv(b)) >> updateParPlusFive
@@ -256,8 +254,8 @@ class Main
 
   def test_par_passive() : unit
     let
-      o1 = new PObject()
-      o2 = new PObject()
+      o1 = new PObject(32)
+      o2 = new PObject(32)
       p1 = liftv(o1) >> updatePassivePlusFive
       p2 = liftv(o2) >> updatePassivePlusFive >> updatePassivePlusFive
       p12 = p1 ||| p2 >> updatePassivePlusFive

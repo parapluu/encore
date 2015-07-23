@@ -1,0 +1,15 @@
+read trait R
+  require def foo() : unit
+end
+
+linear class Unsafe
+  def mischief() : unit
+    println("Muhahaha!")
+  end
+end
+class C : R(f)
+  val f : Unsafe
+  def foo() : unit
+    this.f.mischief()
+  end
+end

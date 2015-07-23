@@ -12,7 +12,7 @@ fun apply(fn : ((int, int)) -> int) : int
   fn((2, 3))
 end
 
-class Main
+active class Main
   def main() : unit
     println(apply(add))
   end

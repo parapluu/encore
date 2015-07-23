@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     let
       failures = 0
@@ -12,7 +12,7 @@ class Main
     end
   end
 end
-class Test
+active class Test
   def run() : unit
     let
       p = new Producer
@@ -21,7 +21,7 @@ class Test
     end
   end
 end
-class Producer
+active class Producer
   def produce() : Fut[int]
     new Producer ! meta_produce()
   end

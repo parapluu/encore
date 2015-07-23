@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   var f : (int, int)
   def init() : unit
     this.f = (1, 3)
@@ -13,7 +13,7 @@ class Foo
     new [int](100000)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       f = new Foo()

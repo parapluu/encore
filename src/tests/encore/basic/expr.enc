@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     println(this.foo())
     if this.bar(this.foo()) == 2 then

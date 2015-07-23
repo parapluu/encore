@@ -1,21 +1,19 @@
--- This file was automatically converted by encorec
-
-trait T[s]
+local trait T[s]
   require def foo() : s
 end
-trait U[t]
+local trait U[t]
   require var f : t
   def foo() : t
     this.f
   end
 end
-passive class C : T[int] + U[int]
+class C : T[int] + U[int]
   var f : int
   def init(f : int) : unit
     this.f = f
   end
 end
-class Main
+active class Main
   def main(args : [String]) : unit
     val x = new C(42) : T[int]
     println(x.foo())

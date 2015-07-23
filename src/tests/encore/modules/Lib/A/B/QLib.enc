@@ -2,13 +2,13 @@ module QLib
 
 typedef X = QFoo
 
-trait T
+read trait T
   def zero() : int
     0
   end
 end
 
-passive class QFoo : T
+read class QFoo : T
   def name() : String
     "QFoo"
   end

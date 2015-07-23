@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
+{-# LANGUAGE MultiParamTypeClasses,FlexibleInstances #-}
 
 {-|
 
@@ -206,13 +207,19 @@ instance Precheckable TraitDecl where
       assertDistinctness
       let typeParams = getTypeParameters tname
       assertTypeParams typeParams
-      tname'    <- local addTypeParams $ resolveType tname
-      treqs'    <- mapM (local addTypeParams . doPrecheck) treqs
-      tmethods' <- mapM (local (addTypeParams . addThis tname') . precheck) tmethods
-      return $ setType tname' t{treqs = treqs', tmethods = tmethods'}
+      treqs'    <- mapM (local (addTypeParams . addThis tname) . doPrecheck)
+                        treqs
+      tmethods' <- mapM (local (addTypeParams . addMinorThis tname) . precheck)
+                        tmethods
+      return $ setType tname t{treqs = treqs', tmethods = tmethods'}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
+        addMinorThis self =
+            extendEnvironmentImmutable $
+              if hasMinorMode tname
+              then [(thisName, makeSubordinate self)]
+              else [(thisName, self)]
         addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
@@ -236,7 +243,15 @@ instance Precheckable TraitExtension where
 
 instance Precheckable TraitComposition where
     doPrecheck leaf@TraitLeaf{tcname, tcext} = do
-      tcname' <- resolveType tcname
+      Just (_, thisType)  <- findVar (qLocal thisName)
+
+      formal <- findFormalRefType tcname
+      tcname' <- if isModeless thisType || not (isTraitType formal) ||
+                    isTraitType formal && not (hasMinorMode formal) ||
+                    isTraitType tcname && not (isModeless tcname)
+                 then resolveType tcname
+                 else resolveType $ tcname `withModeOf` thisType
+
       let (left, right) = getTypeOperands tcname'
           tcleft = TraitLeaf{tcname = left, tcext}
           tcright = TraitLeaf{tcname = right, tcext}
@@ -244,7 +259,15 @@ instance Precheckable TraitComposition where
           doPrecheck Conjunction{tcleft, tcright}
       else if isDisjunctiveType tcname' then
           doPrecheck Disjunction{tcleft, tcright}
+      else if isTypeSynonym formal then -- recheck to unfold type synonym
+          doPrecheck leaf{tcname = tcname'}
       else do
+        unless (safeToComposeWith thisType tcname') $
+               tcError $ ManifestClassConflictError
+                         thisType tcname'
+        when (isActiveRefType tcname') $
+             unless (isActiveRefType thisType) $
+                    tcError $ ActiveTraitError tcname'
         mapM_ doPrecheck tcext
         return leaf{tcname = tcname'}
 
@@ -259,21 +282,15 @@ instance Precheckable ClassDecl where
       let typeParams = getTypeParameters cname
       assertTypeParams typeParams
       cname' <- local addTypeParams $ resolveType cname
-      let capability = capabilityFromTraitComposition ccomposition
-      capability' <- local addTypeParams $
-                           resolveType capability
-      ccomposition' <- case ccomposition of
-                         Just composition -> do
-                           composition' <-
-                             local (addTypeParams . addThis cname' .
-                                    setTraitComposition cname' capability') $
-                                   doPrecheck composition
-                           return $ Just composition'
-                         Nothing -> return Nothing
 
-      cfields' <- mapM (local addTypeParams . precheck) cfields
-      cmethods' <- mapM (local (addTypeParams . addThis cname') . precheck) cmethods
+      ccomposition' <- checkComposition cname'
+      cfields' <- mapM (local (addTypeParams . addThis cname') . precheck)
+                       cfields
+      cmethods' <- mapM (local (addTypeParams . addThis cname') . precheck)
+                        cmethods
+
       checkShadowingMethodsAndFields cfields' cmethods'
+
       return $ setType cname' c{ccomposition = ccomposition'
                                ,cfields = cfields'
                                ,cmethods = if any isConstructor cmethods'
@@ -291,6 +308,26 @@ instance Precheckable ClassDecl where
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
 
+        checkComposition thisType = do
+          let capability = capabilityFromTraitComposition ccomposition
+              resolveFormally t | isRefAtomType t = findFormalRefType t
+                                | otherwise = return t
+
+          resolvedCapability <- local addTypeParams $
+                                  typeMapM resolveFormally capability
+
+          -- The resolving above is needed to allow looking up
+          -- attributes in the traits when doing the actual
+          -- resolving of the trait composition below.
+          case ccomposition of
+            Just composition -> do
+              composition' <-
+                local (addTypeParams . addThis thisType .
+                       setTraitComposition thisType resolvedCapability) $
+                    doPrecheck composition
+              return $ Just composition'
+            Nothing -> return Nothing
+
         checkShadowingMethodsAndFields fields methods = do
           let shadowedFields = filter (`hasShadowIn` methods) fields
               shadowedField = head shadowedFields
@@ -303,6 +340,19 @@ instance Precheckable ClassDecl where
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do
       ftype' <- resolveType ftype
+      Just (_, thisType)  <- findVar (qLocal thisName)
+      when (isReadRefType thisType) $ do
+           unless (isValField f) $
+                  tcError $ NonValInReadContextError thisType
+           isSafe <- isSafeType ftype'
+           unless (isSafe && not (isArrayType ftype')) $
+                  tcError $ NonSafeInReadContextError thisType ftype'
+      isLocalField <- isLocalType ftype'
+      isLocalThis <- isLocalType thisType
+      when isLocalField $
+        unless (isModeless thisType || isLocalThis ||
+                isActiveRefType thisType) $
+          tcError $ ThreadLocalFieldError thisType
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where
@@ -312,7 +362,7 @@ instance Precheckable MethodDecl where
       when (isMainMethod thisType (methodName m))
            (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do
-           unless (isActiveClassType thisType) $
+           unless (isActiveRefType thisType) $
                   tcError PassiveStreamingMethodError
            when (isConstructor m) $
                 tcError StreamingConstructorError

@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class CreditCard
+active class CreditCard
   def printX() : unit
     println(42)
   end
@@ -9,7 +9,7 @@ class CreditCard
   end
 end
 
-passive class CreditPass
+local class CreditPass
   var fi : int -> unit
   var fii : int -> int
   def init(fi : int -> unit, fii : int -> int) : unit
@@ -38,7 +38,7 @@ passive class CreditPass
   end
 end
 
-class Main
+active class Main
   var creditcard : CreditCard
   var tupleFun : int -> (int, int)
   var maybeFun : int -> Maybe[int]

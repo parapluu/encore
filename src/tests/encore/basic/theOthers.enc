@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     let
       other = new Other(10)
@@ -9,7 +9,7 @@ class Main
     end
   end
 end
-class Other
+active class Other
   var count : int
   def init(va : int) : unit
     this.count = va

@@ -2,18 +2,18 @@ fun inc(x : int) : int
   x + 1
 end
 
-class Foo
+active class Foo
   def f() : int
     println("In f")
     10
   end
-  
+
   def g() : int
     forward((new Foo)!f())
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val foo = new Foo
     foo!g()

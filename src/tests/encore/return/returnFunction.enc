@@ -4,21 +4,23 @@ fun top_level1[t](v : t) : t
   return(v)
 end
 fun top_level2(v : Cell) : String
-  v.f = return("42")
+  return("42")
   "4711"
 end
-passive class Cell
-  var f : String
+read class Cell
+  val f : String
+  def init(f : String) : unit
+    this.f = f
+  end
   def to_s() : String
-    ("").join(["Cell(", this.f, ")"])
+    "".join(["Cell(", this.f, ")"])
   end
 end
-class Main
+active class Main
   def main() : unit
     let
-      c = new Cell
+      c = new Cell("7")
     in
-      c.f = "7"
       println(c.to_s())
       println(top_level1(c).to_s())
       println(top_level2(c))

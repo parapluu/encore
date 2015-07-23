@@ -4,7 +4,7 @@ import Top
 fun apply(f : () -> int) : int
   f()
 end
-class Main
+active class Main
   def main() : unit
     println(apply(top))
     println(apply(Top.top))

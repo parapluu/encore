@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : Fut[Fut[unit]]
     let
       o = new Other
@@ -13,7 +13,7 @@ class Main
     println("I'm Ponyworld!")
   end
 end
-class Other
+active class Other
   def greet(client : Main) : Fut[unit]
     println("Hello,")
     client ! sayName()

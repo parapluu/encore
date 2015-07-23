@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def test() : unit
     print("If you can read this, then recvNullCall failed")
   end

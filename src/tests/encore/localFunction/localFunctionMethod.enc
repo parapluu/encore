@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-passive class Foo
+local class Foo
   def foo() : int
     13 + local1() + local2(15)
   where
@@ -20,7 +20,7 @@ passive class Foo
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       x = new Foo()

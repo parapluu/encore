@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import qualified Top
-class Main
+active class Main
   def main() : unit
     println(Top.top())
   end

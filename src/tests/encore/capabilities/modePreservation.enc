@@ -1,0 +1,37 @@
+trait Inc
+  require var value : int
+  def inc() : unit
+    this.value += 1
+  end
+end
+
+read trait Get
+  require val value : int
+  def get() : int
+    this.value
+  end
+end
+
+class Counter : local Inc + Get
+  var value : int
+end
+
+active class Reader
+  def read(x : Get) : unit
+    println(x.get())
+  end
+end
+
+active class Main
+  var myCounter : Counter
+  def main(args : [String]) : unit
+    var x = new Counter
+    val y = new Reader
+    repeat i <- 10 do
+      x.inc()
+    end
+    this.myCounter = x
+    val g : Get = x
+    y!read(g)
+  end
+end

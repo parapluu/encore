@@ -12,7 +12,7 @@ fun cmpInt(x : int, y : int) : int
     end
   end
 end
-class T
+active class T
   def getValue[t](x : t) : t
     x
   end
@@ -20,7 +20,7 @@ class T
     liftv(x)
   end
 end
-class Main
+active class Main
   def testUnion() : unit
     val p1 = liftf(new T ! getValue(12)) ||| liftf(new T ! getValue(23))
     val p2 = join(liftf(new T ! getPar(42))) ||| liftv(2) ||| liftv(2) ||| liftv(3)

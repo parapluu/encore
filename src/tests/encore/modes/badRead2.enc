@@ -1,0 +1,3 @@
+read trait T
+  require val f : [int]
+end

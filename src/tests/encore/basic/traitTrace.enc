@@ -1,19 +1,17 @@
--- This file was automatically converted by encorec
-
-trait T
+read trait T
 end
 
-passive class Foo
+class Foo
   var g : T
 end
 
-class Other
+active class Other
   def pass(x : Foo) : unit
     ()
   end
 end
 
-class Main
+active class Main
   def main() : unit
     new Other ! pass(new Foo)
     println("Done!")

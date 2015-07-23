@@ -1,4 +1,4 @@
-passive class T
+class T
   def self(): T
     this
   end

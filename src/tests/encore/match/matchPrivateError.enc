@@ -1,11 +1,11 @@
 -- This file was automatically converted by encorec
 
-passive class Foo
+read class Foo
   def private foo() : Maybe[int]
     Just(42)
   end
 end
-class Main
+active class Main
   def main() : unit
     match (new Foo, 42) with
       case (foo(x), y) when x == y => println("Shouldn't compile!")

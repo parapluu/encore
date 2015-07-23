@@ -4,7 +4,7 @@ fun cmp(n1: String, n2: String): int
   n1.compare(n2)
 end
 
-class Main
+active class Main
   def main(): unit
     val magnusD = ("Magnus", "Daisy")
     val terryBa = ("Terry", "Barley")

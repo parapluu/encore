@@ -1,0 +1,9 @@
+linear class C
+end
+
+active class Main
+  val f : C
+  def main(args : [String]) : unit
+    consume this.f
+  end
+end

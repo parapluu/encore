@@ -1,6 +1,6 @@
 module DupLib
 
-passive class FarFoo
+read class FarFoo
   def name() : String
     "FarFoo"
   end

@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Regex
-class Main
+active class Main
   def findRegex(regex : Regex, s : String) : unit
     match regex.exec(s) with
       case Just(true) =>

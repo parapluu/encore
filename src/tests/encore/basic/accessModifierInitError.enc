@@ -1,11 +1,11 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     new Test
   end
 end
-class Test
+active class Test
   def private init() : unit
     ()
   end

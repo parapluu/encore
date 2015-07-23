@@ -83,7 +83,7 @@ fun fAppend[t](x : t, y : t) : [t]
   [x, y]
 end
 
-class Test[a]
+active class Test[a]
   var arg : a
 
   def init(arg : a) : unit
@@ -95,7 +95,7 @@ class Test[a]
   end
 end
 
-class Main
+active class Main
   def main() : unit
     let
       testSequence = sequencePipeline[int](liftv(42))

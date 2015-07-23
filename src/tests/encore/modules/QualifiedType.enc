@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Lib
-class Main
+active class Main
   def main() : unit
     let
       x = new Foo : Lib.Foo

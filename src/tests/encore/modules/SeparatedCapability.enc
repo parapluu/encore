@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Lib.FarLib
-class Main
+active class Main
   def main() : unit
     val x = new FarFoo
     x.foo(x.f)

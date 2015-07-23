@@ -1,0 +1,8 @@
+local trait T
+  def leak() : T
+    this
+  end
+end
+
+class C : linear T
+end

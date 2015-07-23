@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Streamer
+active class Streamer
   stream even(n : int) : int
     var i = 0
     while i < n do
@@ -17,7 +17,7 @@ class Streamer
   end
 end
 
-class Combinator
+active class Combinator
   stream interleave(s1 : Stream[int], s2 : Stream[int]) : int
     var s1 = s1
     var s2 = s2
@@ -30,7 +30,7 @@ class Combinator
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val x = new Streamer
     val even = x ! even(10)

@@ -1,0 +1,16 @@
+linear class Token
+end
+
+class Theif
+  var f : Token
+  def init(x : Token) : unit
+    this.f = x
+  end
+end
+
+active class Main
+  def main() : unit
+    val x = new Token
+    val friend = new Theif(x)
+  end
+end

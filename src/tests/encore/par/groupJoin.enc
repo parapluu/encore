@@ -1,16 +1,16 @@
 import ParT.ParT
 
-passive class Person
-  var name : String
+read class Person
+  val name : String
 
   def init(name : String) : unit
     this.name = name
   end
 end
 
-passive class Pet
-  var name : String
-  var owner : Person
+read class Pet
+  val name : String
+  val owner : Person
 
   def init(n : String, o : Person) : unit
     this.name = n
@@ -18,7 +18,7 @@ passive class Pet
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val magnus = new Person("Magnus")
     val terry = new Person("Terry")

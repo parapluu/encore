@@ -1,6 +1,6 @@
 -- This file was partially converted by encorec
 
-class Main
+active class Main
   def main() : unit
     let
       t = new Test[String]
@@ -11,7 +11,7 @@ class Main
   end
 end
 
-class Test[t]
+active class Test[t]
   def method(x : t) : t
     x
   end

@@ -1,23 +1,21 @@
--- This file was automatically converted by encorec
-
-trait Iterable[t]
+linear trait Iterable[t]
   require def iterator() : Iter[t]
 end
-trait Iter[t]
+linear trait Iter[t]
   def skip() : Skip[t]
     new Skip[t]()
   end
 end
-passive class Skip[t] : Iter[t]
+class Skip[t] : Iter[t]
 end
-passive class ArrayIter[t] : Iter[t]
+class ArrayIter[t] : Iter[t]
 end
-passive class ArrayIterable[t] : Iterable[t]
+class ArrayIterable[t] : Iterable[t]
   def iterator() : ArrayIter[t]
     new ArrayIter[t]()
   end
 end
-class Main
+active class Main
   def getIter(it : Iter[int]) : unit
     println("In getIter")
   end

@@ -3,13 +3,13 @@
 fun foo(x : T + U) : unit
   ()
 end
-trait T
+read trait T
   require def f() : Maybe[int]
 end
-trait U
+read trait U
   require def g() : Maybe[T + U]
 end
-passive class C : T + U
+read class C : T + U
   def f() : Maybe[int]
     Just(42)
   end
@@ -17,7 +17,8 @@ passive class C : T + U
     Nothing
   end
 end
-class Main
+
+active class Main
   def main() : unit
     let
       c = new C : T + U

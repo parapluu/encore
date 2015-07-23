@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
 import Task
-class Producer
+active class Producer
   def produce() : int
     42 + 1
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       p = new Producer

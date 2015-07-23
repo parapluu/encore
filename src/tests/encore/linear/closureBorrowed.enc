@@ -1,0 +1,24 @@
+active class Theif
+  def steal(f : borrowed (() -> unit)) : unit
+    f()
+  end
+end
+
+linear class Token
+  def foo() : unit
+    println("foo")
+  end
+end
+
+active class Main
+  def borrow(x : borrowed Token) : unit
+    val f = fun () => x.foo()
+    val theif = new Theif()
+    theif!steal(f)
+  end
+
+  def main() : unit
+    val x = new Token()
+    this.borrow(x)
+  end
+end

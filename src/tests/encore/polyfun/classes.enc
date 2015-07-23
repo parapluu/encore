@@ -9,7 +9,7 @@ end
 fun createTest[t](arg : t) : Test[t]
   new Test[t](arg)
 end
-class Test[a]
+active class Test[a]
   var arg : a
   def init(arg : a) : unit
     this.arg = arg
@@ -24,7 +24,7 @@ class Test[a]
     this.arg
   end
 end
-class Main
+active class Main
   def main() : unit
     val t = createTest[String]("Create Test of type 'String'")
     println(get(t ! getArg()))

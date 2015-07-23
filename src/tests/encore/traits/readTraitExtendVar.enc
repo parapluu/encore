@@ -1,0 +1,10 @@
+read trait R
+  require def foo() : unit
+end
+
+class C : R(f)
+  var f : int
+  def foo() : unit
+    this.f = 0
+  end
+end

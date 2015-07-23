@@ -1,0 +1,36 @@
+trait T
+  def foo() : unit
+    println("foo")
+  end
+end
+
+active class Theif
+  def steal(f : subord local (() -> unit)) : unit
+    f()
+  end
+end
+
+class Token : linear T
+end
+class LocalToken : local T
+end
+class PrivateToken : subord T
+end
+active class Main
+  def borrow(x : local T, y : PrivateToken) : unit
+    val f = fun () => { x.foo(); y.foo() }
+    val theif = new Theif()
+    this.local(f)
+    theif!steal(f)
+  end
+
+  def local(f : subord local (() -> unit)) : unit
+    f()
+  end
+
+  def main() : unit
+    val x = new LocalToken()
+    val y = new PrivateToken()
+    this.borrow(x, y)
+  end
+end

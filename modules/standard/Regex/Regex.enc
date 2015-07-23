@@ -13,7 +13,7 @@ END
 
 typedef PMatch = EMBED regmatch_t* END
 typedef RegexT = EMBED regex_t END
-passive class Regex
+local class Regex
   var pattern : String
   var maxSize : int
   var flagICase : bool
@@ -23,7 +23,7 @@ passive class Regex
   var executed : EMBED char* END
   def Regex_trace() : unit
     EMBED (unit)
-      _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
+      _enc__read_String_t* _enc__field_pattern = _this->_enc__field_pattern;
       encore_trace_object((*_ctx), _enc__field_pattern, _enc__trace_String);
 
       regmatch_t* _enc__field_pMatch = _this->_enc__field_pMatch;

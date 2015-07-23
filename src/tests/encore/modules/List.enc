@@ -1,6 +1,5 @@
 -- This file was automatically converted by encorec
 
 module List
-passive class List
+local class List
 end
-

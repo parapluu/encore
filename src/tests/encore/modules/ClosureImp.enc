@@ -2,7 +2,7 @@
 
 module ClosureImp
 
-class Foo
+local class Foo
   def bar() : unit
     fun () => println("ClosureImp")
   end

@@ -1,6 +1,4 @@
--- This file was automatically converted by encorec
-
-trait Mappable[v]
+local trait Mappable[v]
   require var value : v
   require val covariance : Mappable[v]
   require def next() : Mappable[v]
@@ -9,13 +7,13 @@ trait Mappable[v]
     this.next().map(f)
   end
 end
-trait Push[v]
+local trait Push[v]
   require var top : Mappable[v]
   def push(value : v) : unit
     this.top = new Link[v](value, this.top)
   end
 end
-passive class Sentinel[v] : Mappable[v]
+local class Sentinel[v] : Mappable[v]
   val covariance : Sentinel[v]
   var value : v
   def init() : unit
@@ -28,7 +26,7 @@ passive class Sentinel[v] : Mappable[v]
     ()
   end
 end
-passive class Link[v] : Mappable[v](next)
+local class Link[v] : Mappable[v](next)
   val covariance : Link[v]
   var value : v
   var next : Mappable[v]
@@ -40,7 +38,7 @@ passive class Link[v] : Mappable[v](next)
     this.next
   end
 end
-passive class Stack[v] : Push[v]
+local class Stack[v] : Push[v]
   val top : Mappable[v]
   def init() : unit
     this.top = new Sentinel[v]()
@@ -49,7 +47,7 @@ passive class Stack[v] : Push[v]
     this.top.map(f)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       l = new Stack[int]()

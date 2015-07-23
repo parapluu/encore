@@ -2,8 +2,8 @@
 
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling
-errors and backtracing.
+The machinery used by "Typechecker.Typechecker" and
+"Typechecker.Capturechecker" for handling errors and backtracing.
 
 -}
 
@@ -13,6 +13,7 @@ module Typechecker.TypeError (Backtrace
                              ,TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
+                             ,CCError(CCError)
                              ,Warning(..)
                              ,ExecutionContext(..)
                              ,currentContextFromBacktrace
@@ -196,7 +197,6 @@ data Error =
   | MainMethodArgumentsError
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
-  | TraitsInActiveClassError
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
   | ContinueOutsideOfLoopError
@@ -269,6 +269,35 @@ data Error =
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
+  | CannotHaveModeError Type
+  | ModelessError Type
+  | ModeOverrideError Type
+  | CannotConsumeError Expr
+  | ImmutableConsumeError Expr
+  | CannotGiveReadModeError Type
+  | NonValInReadContextError Type
+  | NonSafeInReadContextError Type Type
+  | NonSafeInExtendedReadTraitError Type Name Type
+  | ProvidingToReadTraitError Type Type Name
+  | SubordinateReturnError Name
+  | SubordinateArgumentError Expr
+  | SubordinateFieldError Name
+  | ThreadLocalFieldError Type
+  | ThreadLocalFieldExtensionError Type FieldDecl
+  | ThreadLocalReturnError Name
+  | ThreadLocalArgumentError Expr
+  | MalformedConjunctionError Type Type Type
+  | CannotUnpackError Type
+  | CannotInferUnpackingError Type
+  | UnsplittableTypeError Type
+  | DuplicatingSplitError Type
+  | StackboundArrayTypeError Type
+  | ManifestConflictError Type Type
+  | ManifestClassConflictError Type Type
+  | UnmodedMethodExtensionError Type Name
+  | ActiveTraitError Type
+  | NewWithModeError
+  | UnsafeTypeArgumentError Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -296,7 +325,7 @@ instance Show Error where
                (show name) expected (typeParameters expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
         printf "'%s' expects %d type %s, but '%s' has %d"
-              (show ty1) n1 (arguments n1) (show ty2) n2
+              (showWithoutMode ty1) n1 (arguments n1) (showWithoutMode ty2) n2
     show (MissingFieldRequirementError field trait) =
         printf "Cannot find field '%s' required by included %s"
                (show field) (refTypeName trait)
@@ -350,7 +379,6 @@ instance Show Error where
             printf ("Overridden method '%s' cannot be typechecked in " ++
                     "requiring %s:\n%s")
                    (show name) (refTypeName trait) (show err)
-
     show (IncludedMethodConflictError name left right) =
         printf "Conflicting inclusion of method '%s' from %s and %s"
                (show name) (refTypeName left) (refTypeName right)
@@ -408,8 +436,6 @@ instance Show Error where
                          else showWithKind ty
         in printf "No %s in %s"
                   nameWithKind targetType
-    show (TraitsInActiveClassError) =
-        "Traits can only be used for passive classes"
     show BreakUsedAsExpressionError =
         "Break is a statement and cannot be used as a value or expression"
     show BreakOutsideOfLoopError =
@@ -470,14 +496,19 @@ instance Show Error where
         printf "Compartment access %s.%d expects a tuple target, found %s"
                (show $ ppSugared target)
                compartment
-               (show $ ty)
+               (show ty)
     show (InvalidTupleAccessError target compartment) =
         printf "No .%d compartment in tuple %s"
                compartment
                (show $ ppSugared target)
     show (CannotReadFieldError target) =
-        printf "Cannot read field of expression '%s' of %s"
-          (show $ ppSugared target) (showWithKind $ getType target)
+        let targetType = getType target in
+        if isClassType targetType && isModeless targetType then
+          printf "Cannot access field of expression '%s' of unmoded class '%s'"
+                 (show $ ppSugared target) (show targetType)
+        else
+          printf "Cannot read field of expression '%s' of %s"
+                 (show $ ppSugared target) (showWithKind targetType)
     show NonAssignableLHSError =
         "Left-hand side cannot be assigned to"
     show (ValFieldAssignmentError name targetType) =
@@ -525,8 +556,21 @@ instance Show Error where
         printf "Type '%s' does not match expected type '%s'"
                (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
-        printf "Type '%s' with capability '%s' does not match expected type '%s'"
-               (show actual) (show cap) (show expected)
+        printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
+               (show actual) (show cap) (show expected) pointer
+        where
+          pointer =
+            let actualTraits = typesFromCapability cap
+                expectedTraits = typesFromCapability expected
+                remainders = actualTraits \\ expectedTraits
+                nonDroppables = filter (not . isReadRefType) remainders
+                nonDroppable = head nonDroppables
+            in if isCapabilityType expected &&
+                  all (\te -> any (\ta -> ta == te &&
+                                          ta `modeSubtypeOf` te) actualTraits)
+                       expectedTraits
+               then ". Cannot drop mode '" ++ showModeOf nonDroppable ++ "'"
+               else ""
     show (TypeVariableAmbiguityError expected ty1 ty2) =
         printf "Type variable '%s' cannot be bound to both '%s' and '%s'"
                (show expected) (show ty1) (show ty2)
@@ -574,10 +618,10 @@ instance Show Error where
           msg = "TypeError.hs: " ++ show call ++
                 " is not a function or method call"
     show (ProvidingTraitFootprintError provider requirer mname fields) =
-        printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++
+        printf ("Trait '%s' cannot provide method '%s' to %s.\n" ++
                 "'%s' can mutate fields that are marked immutable in '%s':\n%s")
-               (show provider) (show mname) (show requirer)
-               (show provider) (show requirer)
+               (getId provider) (show mname) (refTypeName requirer)
+               (getId provider) (getId requirer)
                (unlines (map (("  " ++) . show) fields))
     show (AmbiguousTypeError ty candidates) =
         printf "Ambiguous reference to %s. Possible candidates are:\n%s"
@@ -628,6 +672,115 @@ instance Show Error where
         printf "Forward can not be used in passive class '%s'"
                (show cname)
     show (ForwardInFunction) = "Forward cannot be used in functions"
+    show (CannotHaveModeError ty) =
+        printf "Cannot give mode to %s" (Types.showWithKind ty)
+    show (ModelessError ty) =
+        printf "No mode given to %s" (refTypeName ty)
+    show (ModeOverrideError ty) =
+        printf "Cannot override manifest mode '%s' of %s"
+              (showModeOf ty) (refTypeName ty)
+    show (CannotConsumeError expr) =
+        printf "Cannot consume '%s'" (show (ppSugared expr))
+    show (ImmutableConsumeError expr)
+       | VarAccess{} <- expr =
+           printf "Cannot consume immutable variable '%s'"
+                  (show (ppSugared expr))
+       | FieldAccess{} <- expr =
+           printf "Cannot consume immutable field '%s'"
+                  (show (ppSugared expr))
+       | otherwise =
+           printf "Cannot consume immutable target '%s'"
+                  (show (ppSugared expr))
+    show (CannotGiveReadModeError trait) =
+        printf ("Cannot give read mode to trait '%s'. " ++
+                "It must be manifestly declared as read")
+               (getId trait)
+    show (NonValInReadContextError ctx) =
+        printf "Read %s can only have val fields"
+               (if isTraitType ctx then "traits" else "classes")
+    show (NonSafeInReadContextError ctx ty) =
+        printf "Read %s can not have field of non-safe type '%s'"
+               (if isTraitType ctx then "trait" else "class") (show ty)
+    show (NonSafeInExtendedReadTraitError t f ty) =
+        printf "Read trait '%s' cannot be extended with field '%s' of non-safe type '%s'"
+               (getId t) (show f) (show ty)
+    show (ProvidingToReadTraitError provider requirer mname) =
+        printf "Non-read trait '%s' cannot provide method '%s' to read trait '%s'"
+               (getId provider) (show mname) (getId requirer)
+    show (SubordinateReturnError name) =
+        printf ("Method '%s' returns a subordinate capability and cannot " ++
+                "be called from outside of its aggregate")
+               (show name)
+    show (SubordinateArgumentError arg) =
+        if isArrowType (getType arg)
+        then printf ("Closure '%s' captures subordinate state " ++
+                     "and cannot be passed outside of its aggregate")
+                    (show (ppSugared arg))
+        else printf ("Cannot pass subordinate argument '%s' " ++
+                     "outside of its aggregate")
+                    (show (ppSugared arg))
+    show (SubordinateFieldError name) =
+        printf ("Field '%s' is subordinate and cannot be accessed " ++
+                "from outside of its aggregate")
+               (show name)
+    show (ThreadLocalFieldError ty) =
+        printf "%s must have manifest 'local' or 'active' mode to have actor local fields"
+               (if isTraitType ty then "Traits" else "Classes")
+    show (ThreadLocalFieldExtensionError trait field) =
+        printf ("Trait '%s' must have local mode to be extended " ++
+                "with field '%s' of actor local type '%s'")
+                (show trait) (show $ fname field)
+                (showWithoutMode $ ftype field)
+    show (ThreadLocalArgumentError arg) =
+        if isArrowType (getType arg)
+        then printf ("Closure '%s' captures actor local variables " ++
+                     "and cannot be passed to another active object")
+                    (show (ppSugared arg))
+        else printf ("Cannot pass actor local argument '%s' " ++
+                     "to another active object")
+                     (show (ppSugared arg))
+    show (ThreadLocalReturnError name) =
+        printf ("Method '%s' returns a local capability and cannot " ++
+                "be called by a different active object")
+               (show name)
+    show (MalformedConjunctionError ty nonDisjoint source) =
+        printf "Type '%s' does not form a conjunction with '%s' in %s"
+               (show ty) (show nonDisjoint) (Types.showWithKind source)
+    show (CannotUnpackError source) =
+        printf "Cannot unpack empty capability of class '%s'"
+               (show source)
+    show (CannotInferUnpackingError cap) =
+        printf ("Unpacking of %s cannot be inferred. " ++
+                "Try adding type annotations")
+               (Types.showWithKind cap)
+    show (UnsplittableTypeError ty) =
+        printf "Cannot unpack %s"
+               (Types.showWithKind ty)
+    show (DuplicatingSplitError ty) =
+        printf "Cannot duplicate linear trait '%s'"
+               (showWithoutMode ty)
+    show (StackboundArrayTypeError ty) =
+        printf "Arrays cannot store borrowed values of type '%s'"
+               (show ty)
+    show (ManifestConflictError formal conflicting) =
+        printf ("Trait '%s' with manifest mode '%s' can only be " ++
+                "composed with traits of the same mode. Found '%s'")
+               (showWithoutMode formal) (showModeOf formal) (show conflicting)
+    show (ManifestClassConflictError cls conflicting) =
+        printf "Trait '%s' cannot be included by class '%s' of manifest mode '%s'"
+               (show conflicting) (showWithoutMode cls) (showModeOf cls)
+    show (UnmodedMethodExtensionError cls name) =
+        printf ("Unmoded class '%s' cannot declare new method '%s'. " ++
+                "Possible fixes: \n" ++
+                "  - Add a mode to the class\n" ++
+                "  - Assign the method to an included trait: T(%s())")
+               (show cls) (show name) (show name)
+    show (ActiveTraitError trait) =
+        printf "Trait '%s' can only be included by active classes"
+               (show trait)
+    show (UnsafeTypeArgumentError ty) =
+        printf "Cannot use non-safe type '%s' as type argument"
+               (show ty)
     show (SimpleError msg) = msg
 
 
@@ -645,6 +798,10 @@ data Warning = StringDeprecatedWarning
              | PolymorphicIdentityWarning
              | ShadowedMethodWarning FieldDecl
              | ExpressionResultIgnoredWarning Expr
+             | ArrayTypeArgumentWarning
+             | SharedArrayWarning
+             | CapabilitySplitWarning
+
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
@@ -654,10 +811,37 @@ instance Show Warning where
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
     show (ExpressionResultIgnoredWarning expr) =
-        "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
+        "Result of '" ++ show (ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++
                 "the method of the same name")
                (show fname) (if isArrayType ftype
                              then "an array"
                              else "a function")
+    show ArrayTypeArgumentWarning =
+        "Using arrays as type arguments is pontentially unsafe. " ++
+        "This will be fixed in a later version of Encore."
+    show SharedArrayWarning =
+        "Passing arrays between actors is potentially unsafe. " ++
+        "This will be fixed in a later version of Encore."
+    show CapabilitySplitWarning =
+        "Unpacking linear capabilities is not fully supported and may be unsafe. " ++
+        "This will be fixed in a later version of Encore."
+
+
+-- TODO: Refactor into hard errors (reuse TCError?)
+newtype CCError = CCError (String, Backtrace)
+instance Show CCError where
+    show (CCError (msg, [])) =
+        " *** Error during capturechecking *** \n" ++
+        msg ++ "\n"
+    show (CCError (msg, bt@((pos, _):_))) =
+        " *** Error during capturechecking *** \n" ++
+        showSourcePos pos ++ "\n" ++
+        msg ++ "\n" ++
+        concatMap showBT bt
+        where
+          showBT (pos, node) =
+              case show node of
+                "" -> ""
+                s  -> s ++ "\n"

@@ -1,0 +1,9 @@
+trait T
+end
+
+local class Loc
+end
+
+class C : linear T(f)
+  var f : Loc
+end

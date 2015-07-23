@@ -1,7 +1,7 @@
 module InfiniteImport
 import InfiniteImport
 
-class Main
+active class Main
   def main() : unit
     println(42)
   end

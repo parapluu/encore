@@ -1,4 +1,4 @@
-passive class Foo
+local class Foo
   val arr : [int]
   def init() : unit
     this.arr = [1,2,3,4,5]
@@ -6,7 +6,7 @@ passive class Foo
   end
 end
 
-class Main
+active class Main
   def main(args : [String]) : unit
     val x = new Foo()
     for i <- [0..4] do

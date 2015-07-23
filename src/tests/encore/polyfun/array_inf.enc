@@ -22,7 +22,7 @@ end
 fun pExtractElementFromArray[t](xs : [t]) : t
   xs(0)
 end
-class Main
+active class Main
   def main() : unit
     val test1 = pArrayLit("Test array literals", 42, 12)
     repeat i <- |test1| do

@@ -7,7 +7,7 @@ fun countdown(var cnt : int) : unit
   end
   println("Boom!")
 end
-class Main
+active class Main
   def main(args : [String]) : unit
     countdown(5)
   end

@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Vector
-passive class Vector[t]
+local class Vector[t]
   var data : [t]
   def init() : unit
     let

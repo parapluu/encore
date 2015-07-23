@@ -1,4 +1,4 @@
-passive class Container[t]
+linear class Container[t]
   var f : t
   def write(f : t) : unit
     this.f = f
@@ -9,7 +9,7 @@ passive class Container[t]
   end
 end
 
-class Main
+active class Main
   def main() : unit
     let c = new Container[EMBED char* END] in
       c.write(EMBED (EMBED char* END) "Hello"; END)

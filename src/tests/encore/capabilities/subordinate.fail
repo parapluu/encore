@@ -1,0 +1,1 @@
+Method 'leak' returns a subordinate capability and cannot be called from outside of its aggregate

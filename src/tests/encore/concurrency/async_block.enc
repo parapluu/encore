@@ -4,7 +4,7 @@ import Task
 fun doubles(x : int) : int
   x * 2
 end
-class Main
+active class Main
   def main() : unit
     repeat i <- 5 do
       async

@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Utils
-class Main
+active class Main
   def main() : unit
     println(id("Hello"))
   end

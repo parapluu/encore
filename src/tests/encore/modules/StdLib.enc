@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
 import Active.Active
-passive class Greeter
+read class Greeter
   def greet() : unit
     println("Hello")
   end
 end
-class Main
+active class Main
   def main() : unit
     val a = new Active[Greeter](fun () => new Greeter)
     a ! apply(fun (g : Greeter) => g.greet())

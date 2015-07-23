@@ -24,13 +24,13 @@ fun toStr(x : int) : String
   string_from_int(x)
 end
 
-class T
+active class T
   def set(x : String) : String
     x
   end
 end
 
-class Main
+active class Main
   def testValues() : unit
     println("Testing Values:")
     val f = max(liftValues(100) >> (toStr), cmpS)

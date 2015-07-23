@@ -1,11 +1,11 @@
-passive class Foo
+local class Foo
   val fn : int -> int
   def init(fn : int -> int) : unit
     this.fn = fn
   end
 end
 
-class Main
+active class Main
   def main(args : [String]) : unit
     val x = new Foo(fun (x : int) => x * 2)
     for i <- [1..5] do

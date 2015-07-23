@@ -27,20 +27,18 @@ fun from_string_to_int(sentence : String) : int
     1
   end
 end
-passive class PassiveObject
-  var tag : String
-  var life : int
+read class PassiveObject
+  val tag : String
+  val life : int
   def init(tag : String, life : int) : unit
     this.tag = tag
     this.life = life
   end
   def update(tag : String, life : int) : PassiveObject
-    this.tag = tag
-    this.life = life
-    this
+    new PassiveObject(tag, life)
   end
 end
-class Test
+active class Test
   def number(number : int) : int
     number
   end
@@ -292,7 +290,7 @@ class Test
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       test = new Test

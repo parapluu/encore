@@ -6,23 +6,31 @@ import Text.Printf
 
 import Types
 
-data MetaInfo = Unspecified
-              | Closure {metaId :: String}
+data CaptureStatus = Captured
+                   | Free
+                     deriving (Eq, Show)
+
+data MetaInfo = Closure {metaId :: String}
               | Async {metaId :: String}
+              | MetaArrow {metaArrow :: Type}
                 deriving (Eq, Show)
 
-data Meta a = Meta {sourcePos   :: SourcePos,
-                    metaType    :: Maybe Type,
-                    sugared     :: Maybe a,
+data Meta a = Meta {sourcePos :: SourcePos,
+                    metaType  :: Maybe Type,
+                    sugared   :: Maybe a,
+                    captureStatus :: Maybe CaptureStatus,
+                    isPattern :: Bool,
                     statement   :: Bool,
-                    metaInfo    :: MetaInfo} deriving (Eq, Show)
+                    metaInfo  :: Maybe MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
 meta pos = Meta {sourcePos = pos
                 ,metaType = Nothing
                 ,sugared = Nothing
                 ,statement = False
-                ,metaInfo = Unspecified}
+                ,captureStatus = Nothing
+                ,isPattern = False
+                ,metaInfo = Nothing}
 
 showSourcePos pos =
   let line = unPos (sourceLine pos)
@@ -51,16 +59,40 @@ getSugared :: Meta a -> Maybe a
 getSugared = sugared
 
 metaClosure :: String -> Meta a -> Meta a
-metaClosure id m = m {metaInfo = Closure id}
+metaClosure id m = m {metaInfo = Just $ Closure id}
 
 metaTask :: String -> Meta a -> Meta a
-metaTask id m = m {metaInfo = Async id}
+metaTask id m = m {metaInfo = Just $ Async id}
 
 getMetaId :: Meta a -> String
-getMetaId = metaId . metaInfo
+getMetaId = metaId . fromJust . metaInfo
+
+getMetaArrowType :: Meta a -> Type
+getMetaArrowType = metaArrow . fromJust . metaInfo
+
+setMetaArrowType :: Type -> Meta a -> Meta a
+setMetaArrowType ty m
+    | isArrowType ty = m{metaInfo = Just $ MetaArrow ty}
+    | otherwise = error $ "Meta.hs: Tried to set arrow type to " ++
+                          showWithKind ty
 
 isStat :: Meta a -> Bool
 isStat Meta{statement} = statement
 
 makeStat :: Meta a -> Meta a
 makeStat m@Meta{statement} = m{statement=True}
+
+isFree :: Meta a -> Bool
+isFree m = captureStatus m == Just Free
+
+isCaptured :: Meta a -> Bool
+isCaptured m = captureStatus m == Just Captured
+
+makeFree :: Meta a -> Meta a
+makeFree m = m{captureStatus = Just Free}
+
+makeCaptured :: Meta a -> Meta a
+makeCaptured m = m{captureStatus = Just Captured}
+
+makePattern :: Meta a -> Meta a
+makePattern m = m{isPattern = True}

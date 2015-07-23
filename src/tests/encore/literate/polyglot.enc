@@ -18,7 +18,7 @@ unit foo() {
 #+end_src C
 
 #+begin_src encore
-class Main
+active class Main
   def main(args : [String]) : unit
     foo()
   end

@@ -1,29 +1,27 @@
--- This file was automatically converted by encorec
-
-trait Inc
+linear trait Inc
   require var f : int
-  require def get_() : int
+  require def get() : int
   def inc() : unit
-    this.f = this.get_() + 1
+    this.f = this.get() + 1
   end
 end
-trait Get
+read trait Get
   require val f : int
-  def get_() : int
+  def get() : int
     this.f
   end
 end
-passive class Counter : Inc + Get
+class Counter : Inc + Get
   var f : int
   def init(f : int) : unit
     this.f = f
   end
 end
-class Main
+active class Main
   def main() : unit
     val x = new Counter(42) : Inc
-    print("The answer is {}\n", x.get_())
+    print("The answer is {}\n", x.get())
     x.inc()
-    print("The answer is now {}\n", x.get_())
+    print("The answer is now {}\n", x.get())
   end
 end

@@ -3,7 +3,7 @@
 fun id(x : int) : int
   x
 end
-class Test
+active class Test
   def f() : int
     1
   end
@@ -11,7 +11,7 @@ class Test
     f(this.f())
   end
 end
-class Main
+active class Main
   def main() : unit
     var v = 0
     repeat i <- 1000 do

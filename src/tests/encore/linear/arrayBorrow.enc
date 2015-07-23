@@ -1,0 +1,16 @@
+fun foo(arr : borrowed [borrowed Token], x : borrowed Token) : unit
+  arr(0) = x
+  arr(1) = x
+end
+
+linear class Token
+end
+
+class Main
+  def main(): void
+    val arr = new [borrowed Token](2)
+    val x = new Token
+    foo(arr, x)
+    assertTrue(arr(0) == arr(1))
+  end
+end

@@ -15,13 +15,13 @@ fun generateStrings(var p : Par[String]) : Par[String]
   p ||| liftf(new T ! getString())
 end
 
-class T
+active class T
   def getString() : String
     "ab"
   end
 end
 
-class Main
+active class Main
   def testAggregatePrimitive() : unit
     let
       m = generateMillionItems(empty[int]())

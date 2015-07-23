@@ -1,10 +1,10 @@
 -- This file was automatically converted by encorec
 
 import TraitImportModule
-class Main
+active class Main
   def main() : unit
     println(1)
   end
 end
-passive class Foo : Reagent
+class Foo : Reagent
 end

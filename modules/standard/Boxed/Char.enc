@@ -2,8 +2,8 @@
 
 module Char
 
-passive class Char
-  var value : char
+read class Char
+  val value : char
   def init(x : char) : unit
     this.value = x
   end

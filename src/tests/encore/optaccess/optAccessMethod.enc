@@ -1,4 +1,4 @@
-passive class ContainerX
+local class ContainerX
   val x: X
 
   def init(x: X): unit
@@ -10,13 +10,13 @@ passive class ContainerX
   end
 end
 
-class X
+active class X
   def getInt(): int
     42
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val x = Just(new X)
     val mf = x?!getInt()

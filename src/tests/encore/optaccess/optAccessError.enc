@@ -1,11 +1,11 @@
-passive class Container
+read class Container
   val test : String
   def init(x: String): unit
     this.test = x.concatenate(" -- Working")
   end
 end
 
-passive class T
+local class T
   val c : Maybe[Container]
   val valueT: int
 
@@ -19,8 +19,7 @@ passive class T
   end
 end
 
-class Main
-
+active class Main
   def main() : unit
     val t = Just(new T(1))
     t?.c?.test

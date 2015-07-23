@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   def foo(s : String) : unit
     new [int](100000000)
     println(s)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       x = new Foo

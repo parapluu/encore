@@ -2,7 +2,7 @@
 
 import qualified A.B.QLib
 import A.B.QLib
-class Main
+active class Main
   def main() : unit
     let
       x = new A.B.QLib.QFoo() : X

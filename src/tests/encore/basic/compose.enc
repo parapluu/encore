@@ -3,7 +3,7 @@
 fun compose(g : int -> int, f : int -> int) : int -> int
   fun (x : int) => g(f(x))
 end
-class Main
+active class Main
   def main() : unit
     let
       double = fun (x : int) => x * 2

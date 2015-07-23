@@ -1,4 +1,4 @@
-class Main
+active class Main
   def main() : unit
     val v = Just(40)
     match v with
@@ -8,4 +8,3 @@ class Main
     ()
   end
 end
-  
