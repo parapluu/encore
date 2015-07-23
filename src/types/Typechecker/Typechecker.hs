@@ -217,13 +217,13 @@ update_fields_types bindings fields = map update fields
 
 formal_bindings :: Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 formal_bindings actual = do
-    origin <- asks $ refTypeLookup' actual
-    formal_vars <- return $ getTypeParameters origin
-    actual_vars <- return $ getTypeParameters actual
-    when (length formal_vars /= length actual_vars) $
-      tc_error $ printf "'%s' expects %d type arguments, but '%s' has %d"
-        (show origin) (length formal_vars) (show actual) (length actual_vars)
-    matchTypeParameters formal_vars actual_vars
+  origin <- asks $ refTypeLookup' actual
+  formal_vars <- return $ getTypeParameters origin
+  actual_vars <- return $ getTypeParameters actual
+  when (length formal_vars /= length actual_vars) $
+    tc_error $ printf "'%s' expects %d type arguments, but '%s' has %d"
+      (show origin) (length formal_vars) (show actual) (length actual_vars)
+  matchTypeParameters formal_vars actual_vars
 
 find_trait_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   Trait -> m Trait
@@ -277,14 +277,18 @@ instance Checkable ImplementedTrait where
     mapM checkType type_vars
     bindings <- formal_bindings ty
     ty' <- checkType $ replaceTypeVars bindings ty
-    efields <- mapM pushTypecheck $ traitFields trait
-    emethods <- mapM pushTypecheck $ traitMethods trait
-    return $ setType ty'
-      t{itrait=trait{traitFields = efields, traitMethods = emethods}}
+    efields <- return $ map (update_field bindings) $ traitFields trait
+    return $ setType ty' t{itrait=trait{traitFields = efields}}
     where
       ty = traitName itrait
       type_vars = getTypeParameters ty
       add_type_vars = addTypeParameters type_vars
+      update_field bindings f =
+        let
+          ft = ftype f
+          ft' = replaceTypeVars bindings ft
+        in
+          setType ft' f
 
 match_field :: [FieldDecl] -> FieldDecl -> Bool
 match_field fields f =
@@ -298,15 +302,13 @@ match_field fields f =
 match_field_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
 match_field_or_error fields f = do
-  t <- resolve_type $ ftype f
-  unless (match_field fields (setType t f)) $
+  unless (match_field fields f) $
     tc_error $ concat ["couldnt find field: '", show f, "'"]
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementedTrait -> m ()
 meet_required_fields fields t@ImplementedTrait{itrait} = do
-  trait <- asks $ traitLookup' $ traitName itrait
-  mapM_ (match_field_or_error fields) $ traitFields trait
+  mapM_ (match_field_or_error fields) $ traitFields itrait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
   => [MethodDecl] -> [ImplementedTrait] -> m ()
@@ -346,8 +348,8 @@ instance Checkable ClassDecl where
            tcError $ "Traits can only be used for passive classes"
     assertDistinct "declaration" fields
     efields <- mapM (local add_type_vars . pushTypecheck) fields
-    mapM (meet_required_fields efields) ctraits
     ectraits <- mapM (local (add_type_vars . add_this) . pushTypecheck) ctraits
+    mapM (meet_required_fields efields) ectraits
     emethods <- mapM typecheckMethod methods
     -- TODO add namespace for trait methods
     ensure_no_method_conflict emethods ectraits

@@ -182,7 +182,6 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
       method_impls ++
       [dispatchfun_decl] ++
       [runtime_type_decl cname]
-
     where
       method_impls = map method_decl methods
           where
