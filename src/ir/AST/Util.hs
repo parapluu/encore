@@ -3,12 +3,14 @@
 {-|
   Utility functions for "AST.AST".
 -}
+
 module AST.Util(
     foldrExp
     , filter
     , extend
     , extendAccum
     , extendAccumProgram
+    , extendM
     , extractTypes
     , freeVariables
     , freeTypeVars
@@ -17,6 +19,7 @@ module AST.Util(
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
+import Control.Monad
 
 import AST.AST
 import Types
@@ -74,6 +77,7 @@ getChildren ArrayNew {size} = [size]
 getChildren ArrayLiteral {args} = args
 getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren VarAccess {} = []
+getChildren Consume {target} = [target]
 getChildren Null {} = []
 getChildren BTrue {} = []
 getChildren BFalse {} = []
@@ -148,6 +152,7 @@ putChildren [size] e@(ArrayNew {}) = e{size = size}
 putChildren args e@(ArrayLiteral {}) = e{args = args}
 putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
 putChildren [] e@(VarAccess {}) = e
+putChildren [target] e@(Consume {}) = e{target = target}
 putChildren [] e@(Null {}) = e
 putChildren [] e@(BTrue {}) = e
 putChildren [] e@(BFalse {}) = e
@@ -209,6 +214,7 @@ putChildren _ e@(ArraySize {}) = error "'putChildren l ArraySize' expects l to h
 putChildren _ e@(ArrayNew {}) = error "'putChildren l ArrayNew' expects l to have 1 element"
 putChildren _ e@(Assign {}) = error "'putChildren l Assign' expects l to have 2 elements"
 putChildren _ e@(VarAccess {}) = error "'putChildren l VarAccess' expects l to have 0 elements"
+putChildren _ e@(Consume {}) = error "'putChildren l Consume' expects l to have 1 element"
 putChildren _ e@(Null {}) = error "'putChildren l Null' expects l to have 0 elements"
 putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 elements"
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"
@@ -249,8 +255,8 @@ mapProgramClass p@Program{classes} f = p{classes = map f classes}
 
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
-  (acc3, p{functions = funs', traits = traits', classes = classes', imports = imports})
+extendAccumProgram f acc0 p@Program{functions, traits, classes} =
+  (acc3, p{functions = funs', traits = traits', classes = classes'})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
       extendAccumFunction f acc fun@(Function{funbody}) =
@@ -284,6 +290,11 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         (acc', mtd{mbodies = mbodies'})
         where
           (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
+
+extendM :: Monad m => (Expr -> m Expr) -> Expr -> m Expr
+extendM f e =
+    do childResults <- mapM (extendM f) (getChildren e)
+       f (putChildren childResults e)
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@

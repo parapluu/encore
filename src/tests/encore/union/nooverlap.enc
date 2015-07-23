@@ -1,6 +1,6 @@
-trait Foo
-trait Bar
-trait Baz
+unsafe trait Foo
+unsafe trait Bar
+unsafe trait Baz
 
 passive class C1 : Foo + Bar
 passive class C2 : Foo + Baz

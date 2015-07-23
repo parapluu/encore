@@ -1,1 +1,1 @@
-Type 'Baz + Bar' is not compatible with
+Type 'unsafe Baz + unsafe Bar' is not compatible with

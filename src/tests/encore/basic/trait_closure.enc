@@ -1,4 +1,4 @@
-trait T
+unsafe trait T
   def getClosure() : () -> void
     \ () -> print "You have finally reached closure!"
 

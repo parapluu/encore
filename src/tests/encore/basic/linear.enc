@@ -1,0 +1,30 @@
+trait T
+
+passive class Foo : linear T
+  f : Foo
+  def foo() : void
+    print "Hello, Linear world!"
+
+class Producer
+  def newFoo() : Foo
+    new Foo
+
+class Main
+  def main() : void
+    let prod = new Producer
+        fut = prod.newFoo()
+        x = new Foo
+        y = null : Foo
+        arr = [consume x, get consume fut]
+        arr2 = consume arr
+    in{
+        x = consume arr2[0];
+        x.f = consume arr2[1];
+        y = consume x.f;
+        if((fut == null) and
+           (x.f == null) and
+           (arr == null) and
+           (arr2[0] == null) and
+           (arr2[1] == null))
+        then y.foo()
+    }

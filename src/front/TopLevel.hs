@@ -40,6 +40,7 @@ import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
 import Typechecker.Environment
+import Typechecker.Capturechecker
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -356,7 +357,13 @@ main =
                abort $ show error
          showWarnings typecheckingWarnings
 
-         return (newEnv, typecheckedAST)
+         verbose options "== Capturechecking =="
+         capturecheckedAST <-
+           case capturecheckEncoreProgram typecheckedAST newEnv of
+             Right ast  -> return ast
+             Left error -> abort $ show error
+
+         return (newEnv, capturecheckedAST)
 
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)

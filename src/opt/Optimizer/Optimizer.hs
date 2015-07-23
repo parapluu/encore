@@ -2,7 +2,7 @@ module Optimizer.Optimizer(optimizeProgram) where
 
 import Identifiers
 import AST.AST
-import AST.Util
+import AST.Util as Util
 import Types
 import Control.Applicative (liftA2)
 

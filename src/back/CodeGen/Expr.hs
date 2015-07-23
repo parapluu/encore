@@ -424,6 +424,42 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               (Call closureMkFn [encoreCtxVar, AsLval funName,
                                  nullVar, nullVar, rtArray])])
 
+  translate (A.Consume {A.target = arrAcc@A.ArrayAccess{A.target, A.index}}) = do
+    (ntarg, ttarg) <- translate target
+    (nindex, tindex) <- translate index
+    accessName <- Ctx.genNamedSym "access"
+    let ty = translate $ A.getType arrAcc
+        theAccess =
+            Assign (Decl (ty, Var accessName))
+                   (Call (Nam "array_get") [ntarg, nindex]
+                    `Dot` encoreArgTTag ty)
+        theSet =
+            Statement $
+            Call (Nam "array_set")
+                 [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty Null]
+    return (Var accessName, Seq [ttarg, tindex, theAccess, theSet])
+
+  translate (A.Consume {A.target}) = do
+    (ntarg, ttarg) <- translate target
+    lval <- mkLval target
+    accessName <- Ctx.genNamedSym "consume"
+    let ty = translate $ A.getType target
+        theRead = Assign (Decl (ty, Var accessName)) ntarg
+        theConsume = if Ty.isMaybeType $ A.getType target
+                     then Assign lval $ Amp (Nam "DEFAULT_NOTHING")
+                     else Assign lval Null
+    return (Var accessName, Seq [ttarg, theRead, theConsume])
+         where
+           mkLval (A.VarAccess {A.name}) =
+               do ctx <- get
+                  case Ctx.substLkp ctx name of
+                    Just substName -> return substName
+                    Nothing -> error $ "Expr.hs: Unbound variable: " ++ show name
+           mkLval (A.FieldAccess {A.target, A.name}) =
+               do (ntarg, ttarg) <- translate target
+                  return (Deref (StatAsExpr ntarg ttarg) `Dot` fieldName name)
+           mkLval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"

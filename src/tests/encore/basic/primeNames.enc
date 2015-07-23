@@ -1,6 +1,6 @@
 typedef T' = Bar'
 
-trait Bar'
+unsafe trait Bar'
 
 passive class Foo'<t'> : T'
   f' : t'

@@ -1,7 +1,7 @@
 typedef D = T
 typedef E = D
 
-trait T
+unsafe trait T
 
 passive class C : D
 

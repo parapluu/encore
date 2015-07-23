@@ -1,7 +1,7 @@
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling
-errors and backtracing.
+The machinery used by "Typechecker.Typechecker" and
+"Typechecker.Capturechecker" for handling errors and backtracing.
 
 -}
 
@@ -11,6 +11,7 @@ module Typechecker.TypeError (Backtrace
                              ,TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
+                             ,CCError(CCError)
                              ,Warning(..)
                              ,currentMethodFromBacktrace) where
 
@@ -208,6 +209,10 @@ data Error =
   | ConcreteTypeParameterError Type
   | TypeArgumentInferenceError Name Type
   | SimpleError String
+  | CannotHaveModeError Type
+  | ModelessError Type
+  | ModeOverrideError Type
+  | CannotConsumeError Expr
 
 arguments 1 = "argument"
 arguments _ = "arguments"
@@ -234,7 +239,7 @@ instance Show Error where
                (show name) expected (typeParameters expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
         printf "'%s' expects %d type %s, but '%s' has %d"
-              (show ty1) n1 (arguments n1) (show ty2) n2
+              (showWithoutMode ty1) n1 (arguments n1) (showWithoutMode ty2) n2
     show (MissingFieldRequirementError field trait) =
         printf "Cannot find field '%s' required by included %s"
                (show field) (refTypeName trait)
@@ -402,6 +407,14 @@ instance Show Error where
     show (TypeArgumentInferenceError fn param) =
         printf "Cannot infer the type of parameter '%s' of function '%s'"
                (show param) (show fn)
+    show (CannotHaveModeError ty) =
+        printf "Cannot give mode to %s" (Types.showWithKind ty)
+    show (ModelessError ty) =
+        printf "No mode given to %s" (refTypeName ty)
+    show (ModeOverrideError ty) =
+        printf "Cannot override mode of %s" (Types.showWithKind ty)
+    show (CannotConsumeError expr) =
+        printf "Cannot consume '%s'" (show (ppExpr expr))
     show (SimpleError msg) = msg
 
 
@@ -425,3 +438,20 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
+
+-- TODO: Refactor into hard errors (reuse TCError?)
+newtype CCError = CCError (String, Backtrace)
+instance Show CCError where
+    show (CCError (msg, [])) =
+        " *** Error during capturechecking *** \n" ++
+        msg ++ "\n"
+    show (CCError (msg, bt@((pos, _):_))) =
+        " *** Error during capturechecking *** \n" ++
+        show pos ++ "\n" ++
+        msg ++ "\n" ++
+        concatMap showBT bt
+        where
+          showBT (pos, node) =
+              case show node of
+                "" -> ""
+                s  -> s ++ "\n"

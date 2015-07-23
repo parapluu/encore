@@ -19,6 +19,7 @@
         "by"
         "chain"
         "class"
+        "consume"
         "def"
         "else"
         "eos"
@@ -32,6 +33,7 @@
         "let"
         "liftf"
         "liftv"
+        "linear"
         "match"
         "new"
         "not"
@@ -59,6 +61,7 @@
         "body"
         "embed"
         "end"
+        "unsafe"
         ))
 (setq encore-constants
       '(

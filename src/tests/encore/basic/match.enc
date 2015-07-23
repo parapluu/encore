@@ -56,8 +56,8 @@ passive class Container<t> {
     Just this
     }
 
-trait Letter
-  require Letter() :  Maybe String
+unsafe trait Letter
+  require Letter() : Maybe String
 
 passive class A :  Letter {
   def init() : void

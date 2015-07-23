@@ -1,1 +1,1 @@
-Error: empty receiver in x ! test(...) in "recvNullSend.enc" (line 8, column 9)
+Error: empty receiver in x ! test(...) in "recvNullSend.enc" (line 8, column 7)

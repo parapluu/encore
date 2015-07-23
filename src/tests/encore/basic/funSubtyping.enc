@@ -2,7 +2,7 @@ def fun(x : Animal) : Dog {
   new Dog
 }
 
-trait Animal
+unsafe trait Animal
   require speak() : void
 
 passive class Dog : Animal

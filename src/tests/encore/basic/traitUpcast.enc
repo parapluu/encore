@@ -1,7 +1,7 @@
-trait Iterable<t>
+unsafe trait Iterable<t>
   require iterator(): Iter<t>
 
-trait Iter<t>
+unsafe trait Iter<t>
   def skip() : Skip<t>
     new Skip<t>()
 

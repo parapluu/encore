@@ -1,5 +1,5 @@
-trait S
-trait T
+unsafe trait S
+unsafe trait T
 
 typedef MyType = embed my_c_type end
 

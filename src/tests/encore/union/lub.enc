@@ -1,13 +1,13 @@
 def global(x : Foo) : void
   print "In global"
 
-trait Foo
+unsafe trait Foo
   def foo() : void
     print "In Foo"
 
-trait Bar
+unsafe trait Bar
 
-trait Baz
+unsafe trait Baz
 
 passive class C1 : Foo + Bar + Baz
 passive class C2 : Foo + Baz

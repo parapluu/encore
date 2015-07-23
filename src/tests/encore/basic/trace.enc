@@ -2,7 +2,7 @@ class A
 
 passive class B : C
 
-trait C
+unsafe trait C
   def read() : String
     "Hello"
 

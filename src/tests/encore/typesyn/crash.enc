@@ -1,8 +1,8 @@
 typedef D = T1 + T2
 
-trait T1
-trait T2
-trait T3
+unsafe trait T1
+unsafe trait T2
+unsafe trait T3
 
 passive class C : D + T3
 

@@ -5,21 +5,26 @@ import Data.Maybe
 
 import Types
 
-data MetaInfo = Unspecified
-              | Closure {metaId :: String}
+data CaptureStatus = Free
+                   | Captured
+                     deriving (Eq, Show)
+
+data MetaInfo = Closure {metaId :: String}
               | Async {metaId :: String}
                 deriving (Eq, Show)
 
-data Meta a = Meta {sourcePos   :: SourcePos,
-                    metaType    :: Maybe Type,
-                    sugared     :: Maybe a,
-                    metaInfo    :: MetaInfo} deriving (Eq, Show)
+data Meta a = Meta {sourcePos :: SourcePos,
+                    metaType  :: Maybe Type,
+                    sugared   :: Maybe a,
+                    captureStatus :: Maybe CaptureStatus,
+                    metaInfo  :: Maybe MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
 meta pos = Meta {sourcePos = pos
                 ,metaType = Nothing
                 ,sugared = Nothing
-                ,metaInfo = Unspecified}
+                ,captureStatus = Nothing
+                ,metaInfo = Nothing}
 
 getPos :: Meta a -> SourcePos
 getPos = sourcePos
@@ -45,10 +50,22 @@ getSugared :: Meta a -> Maybe a
 getSugared = sugared
 
 metaClosure :: String -> Meta a -> Meta a
-metaClosure id m = m {metaInfo = Closure id}
+metaClosure id m = m {metaInfo = Just $ Closure id}
 
 metaTask :: String -> Meta a -> Meta a
-metaTask id m = m {metaInfo = Async id}
+metaTask id m = m {metaInfo = Just $ Async id}
 
 getMetaId :: Meta a -> String
-getMetaId = metaId . metaInfo
+getMetaId = metaId . fromJust . metaInfo
+
+isFree :: Meta a -> Bool
+isFree m = captureStatus m == Just Free
+
+isCaptured :: Meta a -> Bool
+isCaptured m = captureStatus m == Just Captured
+
+makeFree :: Meta a -> Meta a
+makeFree m = m{captureStatus = Just Free}
+
+makeCaptured :: Meta a -> Meta a
+makeCaptured m = m{captureStatus = Just Captured}

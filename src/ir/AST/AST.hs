@@ -9,6 +9,7 @@ meta-information about its type (filled in by
 
 module AST.AST where
 
+
 import Data.List
 import Data.Maybe
 import Text.Parsec(SourcePos, SourceName)
@@ -49,8 +50,24 @@ class Show a => HasMeta a where
                    where
                      ty' = AST.AST.getType x
 
+    isFree :: a -> Bool
+    isFree = AST.Meta.isFree . getMeta
+
+    isCaptured :: a -> Bool
+    isCaptured = AST.Meta.isCaptured . getMeta
+
+    makeFree :: a -> a
+    makeFree x = let meta = AST.Meta.makeFree (getMeta x)
+                 in setMeta x meta
+
+    makeCaptured :: a -> a
+    makeCaptured x = let meta = AST.Meta.makeCaptured (getMeta x)
+                     in setMeta x meta
+
     getMetaInfo :: a -> MetaInfo
-    getMetaInfo = AST.Meta.metaInfo . getMeta
+    getMetaInfo = fromJust . AST.Meta.metaInfo . getMeta
+
+
 
     showWithKind :: a -> String
     showWithKind = show
@@ -486,6 +503,8 @@ data Expr = Skip {emeta :: Meta Expr}
                     rhs :: Expr}
           | VarAccess {emeta :: Meta Expr,
                        name :: Name}
+          | Consume {emeta :: Meta Expr,
+                     target :: Expr}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}

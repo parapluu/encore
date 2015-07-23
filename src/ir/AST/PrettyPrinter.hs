@@ -212,6 +212,7 @@ ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
+ppExpr Consume {target} = "consume" <+> ppExpr target
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> "=" <+> ppExpr rhs
 ppExpr Null {} = "null"
 ppExpr BTrue {} = "true"

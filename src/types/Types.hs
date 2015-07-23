@@ -17,9 +17,9 @@ module Types(
             ,isRangeType
             ,refTypeWithParams
             ,refType
-            ,traitTypeFromRefType
             ,classType
             ,isRefAtomType
+            ,traitType
             ,isRefType
             ,isTraitType
             ,isActiveClassType
@@ -70,6 +70,7 @@ module Types(
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
+            ,withModeOf
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -91,12 +92,19 @@ module Types(
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
             ,getTypeParameterBindings
+            ,showWithoutMode
+            ,isModeless
+            ,modeSubtypeOf
+            ,makeUnsafe
+            ,makeLinear
+            ,isLinearRefType
             ) where
 
 import Data.List
 import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
+import Control.Monad
 
 import Debug.Trace
 
@@ -112,16 +120,43 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
+
+data Mode = Linear
+          | Unsafe
+            deriving(Eq)
+
+instance Show Mode where
+    show Linear = "linear"
+    show Unsafe = "unsafe"
+
+modeSubtypeOf ty1 ty2 =
+    mode (refInfo ty1) == mode (refInfo ty2)
+
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
-                      } deriving(Eq)
+                      ,mode :: Maybe Mode
+                      }
+
+-- The current modes are irrelevant for equality checks
+instance Eq RefInfo where
+    ref1 == ref2 = refId ref1 == refId ref2 &&
+                   parameters ref1 == parameters ref2
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters}
-        | null parameters = refId
-        | otherwise = refId ++ "<" ++ params ++ ">"
+    show RefInfo{mode, refId, parameters}
+        | null parameters = smode ++ refId
+        | otherwise = smode ++ refId ++ "<" ++ params ++ ">"
         where
+          smode
+              | isNothing mode = ""
+              | otherwise = show (fromJust mode) ++ " "
           params = intercalate ", " (map show parameters)
+
+showRefInfoWithoutMode RefInfo{refId, parameters}
+    | null parameters = refId
+    | otherwise = refId ++ "<" ++ params ++ ">"
+    where
+      params = intercalate ", " (map show parameters)
 
 data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
@@ -296,6 +331,11 @@ hasSameKind ty1 ty2
     isBottomTy2 = isBottomType ty2
     areBoth typeFun = typeFun ty1 && typeFun ty2
 
+showWithoutMode :: Type -> String
+showWithoutMode ty
+    | isRefAtomType ty = showRefInfoWithoutMode $ refInfo ty
+    | otherwise = show ty
+
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType typeParams argTys ty) =
     arrow : (concatMap typeComponents typeParams ++
@@ -462,20 +502,42 @@ typesFromCapability CapabilityType{ltype, rtype} =
 typesFromCapability EmptyCapability{} = []
 typesFromCapability ty = [ty]
 
+withModeOf sink source
+    | isRefAtomType sink || isTypeSynonym sink
+    , isRefAtomType source
+    , info <- refInfo sink
+    , m <- mode $ refInfo source
+      = sink{refInfo = info{mode = m}}
+    | otherwise =
+        error $ "Types.hs: Can't transfer modes from " ++
+                showWithKind source ++ " to " ++ showWithKind sink
+
+withTypeParametersOf sink source =
+    let formals = getTypeParameters sink
+        actuals = getTypeParameters source
+        bindings = zip formals actuals
+    in
+       replaceTypeVars bindings sink
+
 refTypeWithParams refId parameters =
-    Unresolved{refInfo = RefInfo{refId, parameters}}
+    Unresolved{refInfo = RefInfo{refId,
+                                 parameters,
+                                 mode = Nothing}}
 
 refType :: String -> Type
 refType id = refTypeWithParams id []
 
 classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
-  ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
+  ClassType{refInfo = RefInfo{refId = name
+                             ,parameters
+                             ,mode = Nothing}, activity}
 
-traitTypeFromRefType Unresolved{refInfo} =
-    TraitType{refInfo}
-traitTypeFromRefType ty =
-    error $ "Types.hs: Can't make trait type from type: " ++ show ty
+traitType :: String -> [Type] -> Type
+traitType name parameters =
+  TraitType{refInfo = RefInfo{refId = name
+                             ,parameters
+                             ,mode = Nothing}}
 
 isRefAtomType Unresolved {} = True
 isRefAtomType TraitType {} = True
@@ -506,6 +568,32 @@ isClassType _ = False
 
 disjunctiveType ltype rtype = CapabilityType{typeop = Addition, ltype, rtype}
 conjunctiveType ltype rtype = CapabilityType{typeop = Product, ltype, rtype}
+
+-- TODO: Maybe a type can have several modes?
+-- TODO: Should classes ever have modes (except the "inherited ones")?
+makeUnsafe ty
+    | isRefAtomType ty = ty{refInfo = info{mode = Just Unsafe}}
+    | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+makeLinear ty
+    | isRefAtomType ty = ty{refInfo = info{mode = Just Linear}}
+    | otherwise = error $ "Types.hs: Cannot make type linear: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+isModeless ty
+    |  isRefAtomType ty
+    || isTypeSynonym ty = isNothing $ mode (refInfo ty)
+    | otherwise = error $ "Types.hs: Cannot get modes of type: " ++
+                          show ty
+
+isLinearRefType ty
+    | isRefAtomType ty = mode (refInfo ty) == Just Linear
+    | otherwise = False
 
 isCapabilityType CapabilityType{} = True
 isCapabilityType TraitType{} = True
@@ -666,7 +754,10 @@ isPrintable ty
 
 typeSynonym :: String -> [Type] -> Type -> Type
 typeSynonym name parameters resolution =
-  TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
+  TypeSynonym{refInfo = RefInfo{refId = name
+                               ,parameters
+                               ,mode = Nothing}
+             ,resolvesTo = resolution}
 
 typeSynonymLHS :: Type -> (String, [Type])
 typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} = (name, parameters)

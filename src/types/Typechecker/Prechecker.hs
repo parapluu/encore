@@ -107,10 +107,10 @@ instance Precheckable Requirement where
 instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
-      tname'    <- local addTypeParams $ resolveType tname
-      treqs'  <- mapM (local addTypeParams . precheck) treqs
+--      tname'    <- local addTypeParams $ resolveType tname
+      treqs'    <- mapM (local addTypeParams . precheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
-      return $ setType tname' t{treqs = treqs', tmethods = tmethods'}
+      return $ setType tname t{treqs = treqs', tmethods = tmethods'}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters

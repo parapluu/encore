@@ -987,6 +987,24 @@ instance Checkable Expr where
                else return $ setType ty var
              Nothing -> tcError $ UnboundVariableError name
 
+
+    --  e : t \in E
+    --  isLval e
+    -- ----------------------
+    --  E |- consume e : t
+    doTypecheck cons@(Consume {target}) =
+        do eTarget <- typecheck target
+           unless (isLval target) $
+                  tcError $ CannotConsumeError target
+           whenM (isGlobalVar target) $
+                 tcError $ CannotConsumeError target
+           let ty = AST.getType eTarget
+           return $ setType ty cons {target = eTarget}
+        where
+          isGlobalVar VarAccess{name} =
+              liftM not $ asks $ isLocal name
+          isGlobalVar _ = return False
+
     --
     -- ----------------------
     --  E |- null : nullType
@@ -1252,11 +1270,16 @@ instance Checkable Expr where
 
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 
+canBeNull ty =
+  isRefType ty || isFutureType ty || isArrayType ty ||
+  isStreamType ty || isCapabilityType ty || isArrowType ty || isParType ty
+
+
 --  classLookup(ty) = _
 -- ---------------------
 --  null : ty
 coerceNull null ty
-    | isRefType ty = return $ setType ty null
+    | canBeNull ty = return $ setType ty null
     | isNullType ty = tcError NullTypeInferenceError
     | otherwise =
         tcError $ CannotBeNullError ty
@@ -1286,10 +1309,6 @@ coercedInto actual expected
   | otherwise = do
       actual `assertSubtypeOf` expected
       return actual
-  where
-    canBeNull ty =
-      isRefType ty || isFutureType ty || isArrayType ty ||
-      isStreamType ty || isArrowType ty || isParType ty
 
 --  E |- arg1 : t
 --  matchTypes(B, t1, t) = B1

@@ -1,4 +1,4 @@
-trait Result<b>
+unsafe trait Result<b>
   require Success() : Maybe b
   def Fail() : Maybe int
     Nothing
