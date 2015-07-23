@@ -118,7 +118,8 @@ methodLookup ty m env
     return $ fromJust ret
   | isTraitType ty =
     traitMethodLookup ty m env
-  | otherwise = error "methodLookup in non-ref type"
+  | otherwise = error $ "Environment.hs: methodLookup in non-ref type " ++
+                        show ty
     where
       traits = getImplementedTraits ty
 

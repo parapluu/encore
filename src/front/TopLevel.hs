@@ -31,6 +31,7 @@ import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
+import Typechecker.Capturechecker
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -172,13 +173,16 @@ main =
        precheckedAST <- case precheckEncoreProgram desugaredAST of
                           Right ast  -> return ast
                           Left error -> abort $ show error
-       typecheckedAST <- case typecheckEncoreProgram precheckedAST of
-                           Right ast  -> return ast
+       (typecheckedAST, env) <- case typecheckEncoreProgram precheckedAST of
+                           Right (ast, env)  -> return (ast, env)
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
            (withFile (changeFileExt sourceName "TAST") WriteMode
                (flip hPrint $ show ast))
-       let optimizedAST = optimizeProgram typecheckedAST
+       capturecheckedAST <- case capturecheckEncoreProgram typecheckedAST env of
+                              Right ast  -> return ast
+                              Left error -> abort $ show error
+       let optimizedAST = optimizeProgram capturecheckedAST
        exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options)
            (do system $ "./" ++ exeName

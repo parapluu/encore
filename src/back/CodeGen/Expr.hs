@@ -214,6 +214,49 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var . show $ global_closure_name name, Skip)
 
+  -- translate (A.Consume {A.target = A.VarAccess{A.name}}) = do
+  --     c <- get
+  --     case Ctx.subst_lkp c name of
+  --       Just subst_name -> do
+  --         return (subst_name , Skip)
+  --       Nothing ->
+  --           error $ "Expr.hs: Unbound variable: " ++ show name
+
+  -- translate (A.Consume {A.target}) = do
+
+  translate (A.Consume {A.target = arrAcc@A.ArrayAccess{A.target, A.index}}) = do
+    (ntarg, ttarg) <- translate target
+    (nindex, tindex) <- translate index
+    access_name <- Ctx.gen_named_sym "access"
+    let ty = translate $ A.getType arrAcc
+        the_access =
+            Assign (Decl (ty, Var access_name))
+                   (Call (Nam "array_get") [ntarg, nindex]
+                    `Dot` encore_arg_t_tag ty)
+        the_set =
+            Statement $
+            Call (Nam "array_set")
+                 [AsExpr ntarg, AsExpr nindex, as_encore_arg_t ty $ Null]
+    return (Var access_name, Seq [ttarg, tindex, the_access, the_set])
+
+  translate (A.Consume {A.target}) = do
+    (ntarg, ttarg) <- translate target
+    lval <- mk_lval target
+    access_name <- Ctx.gen_named_sym "consume"
+    let ty = translate $ A.getType target
+        the_read = Assign (Decl (ty, Var access_name)) ntarg
+    return (Var access_name, Seq [ttarg, the_read, Assign lval Null])
+        where
+          mk_lval (A.VarAccess {A.name}) =
+              do ctx <- get
+                 case Ctx.subst_lkp ctx name of
+                   Just subst_name -> return subst_name
+                   Nothing -> error $ "Expr.hs: Unbound variable: " ++ show name
+          mk_lval (A.FieldAccess {A.target, A.name}) =
+              do (ntarg, ttarg) <- translate target
+                 return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
+          mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.gen_named_sym "fieldacc"

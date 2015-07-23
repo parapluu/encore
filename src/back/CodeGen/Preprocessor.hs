@@ -72,7 +72,7 @@ convertMethod bindings thisType method =
         A.setType newType node
 
 giveClosuresUniqueNames :: A.Program -> A.Program
-giveClosuresUniqueNames = snd . Util.extendAccumProgram uniqueClosureName 0
+giveClosuresUniqueNames = snd . Util.extendAccumAll uniqueClosureName 0
     where
       uniqueClosureName acc e
           | A.isClosure e =

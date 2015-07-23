@@ -55,6 +55,9 @@ module Types(
             ,subtypeOf
             ,strictSubtypeOf
             ,showWithKind
+            ,makeLinear
+            ,isLinearRefType
+            ,isLinearType
             ) where
 
 import Data.List
@@ -74,6 +77,7 @@ instance Show Capability where
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
+                      ,isLinear :: Bool
                       } deriving(Eq)
 
 instance Show RefInfo where
@@ -295,7 +299,9 @@ getImplementedTraits ty =
     error $ "Types.hs: Can't get implemented traits of type " ++ show ty
 
 refTypeWithParams refId parameters =
-    UntypedRef{refInfo = RefInfo{refId, parameters}}
+    UntypedRef{refInfo = RefInfo{refId,
+                                 parameters,
+                                 isLinear = False}}
 refType id = refTypeWithParams id []
 
 activeClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
@@ -338,6 +344,10 @@ isPassiveClassType _ = False
 
 isClassType ClassType{} = True
 isClassType _ = False
+
+makeLinear = undefined
+isLinearRefType = undefined
+isLinearType = undefined
 
 capabilityType traits =
     CapabilityType{capability = Capability{traits = map refInfo traits}}
