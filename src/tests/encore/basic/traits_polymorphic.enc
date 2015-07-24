@@ -1,0 +1,19 @@
+trait T<t> {
+  require x : t
+}
+
+passive class C : T<int> {
+  x : int
+}
+
+class Main {
+  def main() : void {
+    -- ()
+    let
+      c = new C
+    in {
+      c.x = 1;
+      print c.x;
+    }
+  }
+}

@@ -1,30 +1,29 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
-{-| Translate a @ClassDecl@ (see "AST") to its @CCode@ (see
-"CCode.Main") equivalent.
+{-|
 
- -}
+Translate a @ClassDecl@ (see "AST") to its @CCode@ (see "CCode.Main")
+equivalent.
+
+-}
 
 module CodeGen.ClassDecl () where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import CodeGen.MethodDecl
+import CodeGen.MethodDecl ()
 import CodeGen.ClassTable
 import CodeGen.Type
 import CodeGen.Trace (trace_variable)
-import qualified CodeGen.Context as Ctx
 
 import CCode.Main
-import CCode.PrettyCCode
+import CCode.PrettyCCode ()
 
 import Data.List
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
 import qualified Types as Ty
-
-import Control.Monad.Reader hiding (void)
 
 instance Translatable A.ClassDecl (ClassTable -> CCode FIN) where
   translate cdecl ctable
@@ -37,6 +36,7 @@ instance Translatable A.ClassDecl (ClassTable -> CCode FIN) where
 translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
     Program $ Concat $
       (LocalInclude "header.h") :
+      [trait_method_selector cdecl] ++
       [type_struct_decl] ++
       [runtime_type_init_fun_decl cdecl] ++
       [tracefun_decl cdecl] ++
@@ -176,12 +176,12 @@ translateActiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
 translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
     Program $ Concat $
       (LocalInclude "header.h") :
+      [trait_method_selector cdecl] ++
       [runtime_type_init_fun_decl cdecl] ++
       [tracefun_decl cdecl] ++
       method_impls ++
       [dispatchfun_decl] ++
       [runtime_type_decl cname]
-
     where
       method_impls = map method_decl methods
           where
@@ -191,6 +191,33 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.fields, A.methods}) ctable =
                    [(Ptr pony_actor_t, Var "_a"),
                     (Ptr pony_msg_t, Var "_m")]
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
+
+trait_case :: Ty.Type -> A.Trait -> [(CCode Name, CCode Stat)]
+trait_case cname A.Trait{A.traitName, A.traitMethods} =
+  let
+    method_names = map A.mname traitMethods
+    name_pairs = zip (repeat traitName) method_names
+    case_names = map (Nam . show . (uncurry one_way_msg_id)) name_pairs
+    stmt_pairs = zip (repeat cname) method_names
+    c_method_names = map (Nam . show . (uncurry method_impl_name)) stmt_pairs
+    case_stmts = map Return c_method_names
+  in
+    zip case_names case_stmts
+
+trait_method_selector :: A.ClassDecl -> CCode Toplevel
+trait_method_selector A.Class{A.cname, A.ctraits} =
+  let
+    ret_type = (Static (Ptr void))
+    f = trait_method_selector_name
+    args = [(Typ "int" , Var "id")]
+    cond = Var "id"
+    cases = concatMap (trait_case cname) $ map A.itrait ctraits
+    err = String "error, got invalid id: %d"
+    default_case = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
+    switch = Switch cond cases default_case
+    body = Seq [ switch, Return Null ]
+  in
+    Function ret_type f args body
 
 runtime_type_init_fun_decl :: A.ClassDecl -> CCode Toplevel
 runtime_type_init_fun_decl A.Class{A.cname, A.fields, A.methods} =
@@ -238,4 +265,9 @@ runtime_type_decl cname =
                     Null,
                     Null,
                     AsExpr . AsLval $ class_dispatch_name cname,
-                    Null]))
+                    Null,
+                    Int 0,
+                    Null,
+                    Null,
+                    Record [AsExpr . AsLval $ trait_method_selector_name]
+                    ]))

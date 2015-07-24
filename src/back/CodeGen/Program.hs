@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, NamedFieldPuns #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 {-| Translate an Encore program (see "AST") into a tuple
 @(classes, header, shared)@, where @classes@ is a list of the
@@ -9,34 +9,39 @@ translated classes (one file per class) together with their names,
 "CCode.PrettyCCode"), and a C compiler might be able to compile
 the result.-}
 
-module CodeGen.Program(translate) where
+module CodeGen.Program (
+  translate,
+  Emitted,
+  classes,
+  header,
+  shared
+) where
 
 import CodeGen.Typeclasses
-import CodeGen.ClassDecl
-import CodeGen.CCodeNames
+import CodeGen.ClassDecl ()
 import CodeGen.Header
 import CodeGen.Shared
 import CodeGen.ClassTable
-import qualified CodeGen.Context as Ctx
 
 import CCode.Main
 import qualified AST.AST as A
 import qualified Types as Ty
-import Control.Monad.Reader hiding (void)
-import qualified CodeGen.Context as Ctx
 
-instance Translatable A.Program ([(String, CCode FIN)], CCode FIN, CCode FIN) where
-    translate prog@(A.Program{A.imports, A.classes}) = (classList, header, shared)
-        where
-          ctable = build_class_table prog
+data Emitted = Emitted {
+  classes :: [(String, CCode FIN)],
+  header ::  CCode FIN,
+  shared ::  CCode FIN
+} deriving (Show)
 
-          header = generate_header prog 
-
-          shared = generate_shared prog ctable
-                    
-          classList = A.traverseProgram f merge prog
-            where
-                f prog@(A.Program{A.classes}) = map name_and_class classes
-                name_and_class cdecl@(A.Class{A.cname}) = (Ty.getId cname, translate cdecl ctable)
-                merge a b = a ++ concat b
-  
+instance Translatable A.Program Emitted where
+  translate prog =
+    let
+      ctable = build_class_table prog
+      header = generate_header prog
+      shared = generate_shared prog ctable
+      name_and_class p@A.Program{A.classes} =
+        [(Ty.getId (A.cname c), translate c ctable) | c <- classes]
+      classes = A.traverse prog name_and_class
+    in
+      Emitted{classes, header, shared}
+    where

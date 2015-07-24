@@ -86,7 +86,7 @@ typedef const struct _pony_type_t
   uint32_t** traits;
   void* fields;
 #ifndef _MSC_VER
-  void* vtable[0];
+  void* vtable[];
 #else
   void* vtable;
 #endif

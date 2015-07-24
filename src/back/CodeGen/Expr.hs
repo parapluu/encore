@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, NamedFieldPuns, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs, FlexibleContexts #-}
 
 {-| Makes @Expr@ an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
 
@@ -160,9 +160,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              comment_and_te (ast, te) = Seq [comment_for ast, te]
 
   translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.index}), A.rhs}) = do
-    (nrhs, trhs) <- if A.isThisAccess rhs && (Ty.isActiveRefType $ A.getType rhs)
-                    then return (Deref (Var "this") `Dot` (Nam "aref"), Skip)
-                    else translate rhs
+    (nrhs, trhs) <- translate rhs
     (ntarg, ttarg) <- translate target
     (nindex, tindex) <- translate index
     let ty = translate $ A.getType lhs
@@ -181,21 +179,27 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                          if Ty.isTypeVar (A.ftype fld) then
                              return $ as_encore_arg_t (translate . A.getType $ rhs) $ AsExpr nrhs
                          else
-                             return $ AsExpr nrhs
-                  _ -> return $ AsExpr nrhs
+                             return $ up_cast nrhs
+                  _ -> return $ up_cast nrhs
 
     lval <- mk_lval lhs
     return (unit, Seq [trhs, Assign lval cast_rhs])
-        where
-          mk_lval (A.VarAccess {A.name}) =
-              do ctx <- get
-                 case Ctx.subst_lkp ctx name of
-                   Just subst_name -> return subst_name
-                   Nothing -> return $ Var (show name)
-          mk_lval (A.FieldAccess {A.target, A.name}) =
-              do (ntarg, ttarg) <- translate target
-                 return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
-          mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
+      where
+        up_cast e = if need_up_cast then (cast e) else AsExpr e
+          where
+            lhs_type = A.getType lhs
+            rhs_type = A.getType rhs
+            need_up_cast = lhs_type `Ty.strictParentTypeOf` rhs_type
+            cast e = Cast (translate lhs_type) e
+        mk_lval (A.VarAccess {A.name}) =
+            do ctx <- get
+               case Ctx.subst_lkp ctx name of
+                 Just subst_name -> return subst_name
+                 Nothing -> return $ Var (show name)
+        mk_lval (A.FieldAccess {A.target, A.name}) =
+            do (ntarg, ttarg) <- translate target
+               return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
+        mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate (A.VarAccess {A.name}) = do
       c <- get
@@ -311,15 +315,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp, Seq [ttarg, the_size])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
-      | (A.isThisAccess target) ||
-        (Ty.isPassiveRefType . A.getType) target = sync_call
+      | (Ty.isTrait . A.getType) target = trait_method call
+      | sync_access = sync_call
       | otherwise = remote_call
           where
+            sync_access = (A.isThisAccess target)
+              || (Ty.isPassiveRefType . A.getType) target
             sync_call =
                 do (ntarget, ttarget) <- translate target
                    tmp <- Ctx.gen_named_sym "synccall"
                    targs <- mapM translate args
-                   let targs_types = map (translate . A.getType) args
+                   let targs_types = map A.getType args
                    ctx <- get
                    let Just mtd = lookup_method (Ctx.class_table ctx) (A.getType target) name
                    let expected_types = map A.ptype (A.mparams mtd)
@@ -364,7 +370,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let no_args = length args
                        the_arg_ty = Ptr . AsType $ fut_msg_type_name (A.getType target) name
                        the_arg_decl = Assign (Decl (the_arg_ty, Var the_arg_name)) (Cast the_arg_ty (Call (Nam "pony_alloc_msg") [Int (calc_pool_size_for_msg (no_args + 1)), AsExpr $ AsLval $ fut_msg_id (A.getType target) name]))
-                       targs_types = map (translate . A.getType) args
+                       targs_types = map A.getType args
                        Just mtd = lookup_method (Ctx.class_table ctx) (A.getType target) name
                        expected_types = map A.ptype (A.mparams mtd)
                        casted_arguments = zipWith3 cast_arguments expected_types arg_names targs_types
@@ -384,9 +390,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                   the_arg_init] ++
                                   gc_send args_types expected_types the_fut_trace ++
                                  [Statement the_call])
-            cast_arguments expected targ targ_type
-                | Ty.isTypeVar expected = as_encore_arg_t targ_type $ AsExpr targ
-                | otherwise = AsExpr targ
 
   translate (A.MessageSend { A.target, A.name, A.args })
       | (Ty.isActiveRefType . A.getType) target = message_send
@@ -400,7 +403,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    let (arg_names, arg_decls) = unzip targs
                        the_msg_ty = Ptr . AsType $ one_way_msg_type_name (A.getType target) name
                        no_args = length args
-                       targs_types = map (translate . A.getType) args
+                       targs_types = map A.getType args
                    ctx <- get
                    let Just mtd = lookup_method (Ctx.class_table ctx) (A.getType target) name
                        expected_types = map A.ptype (A.mparams mtd)
@@ -420,9 +423,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 the_arg_init :
                                 gc_send args_types expected_types (Comm "Not tracing the future in a one_way send") ++
                                 [Statement the_call]))
-            cast_arguments expected targ targ_type
-                | Ty.isTypeVar expected = as_encore_arg_t targ_type $ AsExpr targ
-                | otherwise = AsExpr targ
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -639,6 +639,47 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return $ as_encore_arg_t (translate $ A.getType arg) (StatAsExpr ntother tother)
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+cast_arguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr
+cast_arguments expected targ targ_type
+  | Ty.isTypeVar expected = as_encore_arg_t (translate targ_type) $ AsExpr targ
+  | expected `Ty.strictParentTypeOf` targ_type = Cast (translate expected) targ
+  | otherwise = AsExpr targ
+
+trait_method call@(A.MethodCall{A.target=target, A.name=name, A.args=args}) =
+  let
+    ty = A.getType target
+    id = one_way_msg_id ty name
+    ty_str = Ty.getId ty
+    name_str = show name
+  in
+    do
+      (this, init_this) <- translate target
+      f <- Ctx.gen_named_sym $ concat [ty_str, "_", name_str]
+      vtable <- Ctx.gen_named_sym $ concat [ty_str, "_", "vtable"]
+      tmp <- Ctx.gen_named_sym "trait_method_call"
+      (args, init_args) <- fmap unzip $ mapM translate args
+      return $ (Var tmp,
+        Seq $
+          init_this:
+          init_args ++
+          [decl_f f] ++
+          [decl_vtable vtable] ++
+          [init_vtable this vtable] ++
+          [init_f f vtable id] ++
+          [ret tmp $ call_f f this args]
+        )
+  where
+    this_type = translate $ A.getType target
+    arg_types = map (translate . A.getType) args
+    ret_type = translate $ A.getType call
+    decl_f f = FunPtrDecl ret_type (Nam f) $ this_type:arg_types
+    decl_vtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
+    vtable this = ArrAcc 0 $ this `Arrow` self_type_field `Arrow` Nam "vtable"
+    init_vtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
+    init_f f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
+    call_f f this args = Call (Nam f) $ this:args
+    ret tmp fcall = Assign (Decl (ret_type, Var tmp)) fcall
 
 gc_send as expected_types fut_trace =
     [Embed $ "",

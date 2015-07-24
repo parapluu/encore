@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 {-| The context that several of the Translatable typeclasses use
 for compiling. It is used to generate new symbols for temporary
 variables, store the mappings from encore variables to c variables
@@ -17,10 +15,7 @@ module CodeGen.Context (
   gen_named_sym,
   gen_sym) where
 
-import AST.AST
 import Identifiers
-import Types
-import Data.Maybe
 import Control.Monad.State
 import CodeGen.ClassTable
 
@@ -47,11 +42,11 @@ gen_named_sym name = do
   case c of
     Context s n t ->
         do put $ Context s (n+1) t
-           return $ "_" ++ name ++ "_" ++ show n 
+           return $ "_" ++ name ++ "_" ++ show n
 
 gen_sym :: State Context String
 gen_sym = gen_named_sym "tmp"
-  
+
 subst_add :: Context -> Name -> C.CCode C.Lval -> Context
 subst_add c@(Context s nxt ctable) na lv = Context ((na,lv):s) nxt ctable
 

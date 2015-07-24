@@ -16,8 +16,7 @@ module CodeGen.CCodeNames where
 import qualified Identifiers as ID
 import Types as Ty
 import CCode.Main
-import Data.Char
-
+import Data.List
 
 char :: CCode Ty
 char = Typ "char"
@@ -86,7 +85,11 @@ unit :: CCode Lval
 unit = Embed "UNIT"
 
 encore_name :: String -> String -> String
-encore_name kind name = "_enc__" ++ kind ++ "_" ++ name
+encore_name kind name =
+  let
+    non_emptys = filter (not . null) ["_enc_", kind, name]
+  in
+    concat $ intersperse "_" non_emptys
 
 self_type_field :: CCode Name
 self_type_field = Nam $ encore_name "self_type" ""
@@ -98,11 +101,11 @@ method_impl_name clazz mname =
     Nam $ encore_name "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
 
 arg_name :: ID.Name -> CCode Lval
-arg_name name = 
+arg_name name =
     Var $ encore_name "arg" (show name)
 
 field_name :: ID.Name -> CCode Name
-field_name name = 
+field_name name =
     Nam $ encore_name "field" (show name)
 
 global_closure_name :: ID.Name -> CCode Name
@@ -126,41 +129,47 @@ closure_trace_name name =
     Nam $ encore_name "trace" name
 
 task_function_name :: String -> CCode Name
-task_function_name name = 
+task_function_name name =
     Nam $ encore_name "task" name
 
 task_env_name :: String -> CCode Name
-task_env_name name = 
+task_env_name name =
     Nam $ encore_name "task_env" name
 
 task_dependency_name :: String -> CCode Name
-task_dependency_name name = 
+task_dependency_name name =
     Nam $ encore_name "task_dep" name
 
 task_trace_name :: String -> CCode Name
-task_trace_name name = 
+task_trace_name name =
     Nam $ encore_name "task_trace" name
 
 stream_handle :: CCode Lval
 stream_handle = Var "_stream"
 
 type_var_ref_name :: Ty.Type -> CCode Name
-type_var_ref_name ty = 
+type_var_ref_name ty =
     Nam $ encore_name "type" (show ty)
 
 class_id :: Ty.Type -> CCode Name
 class_id ty =
     Nam $ encore_name "ID" (Ty.getId ty)
 
+ref_type_id :: Ty.Type -> CCode Name
+ref_type_id ty =
+    Nam $ encore_name "ID" (Ty.getId ty)
+
+trait_method_selector_name = Nam "trait_method_selector"
+
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
 class_dispatch_name :: Ty.Type -> CCode Name
-class_dispatch_name clazz = 
+class_dispatch_name clazz =
     Nam $ encore_name "dispatch" (Ty.getId clazz)
 
 class_trace_fn_name :: Ty.Type -> CCode Name
-class_trace_fn_name clazz = 
+class_trace_fn_name clazz =
     Nam $ encore_name "trace" (Ty.getId clazz)
 
 runtime_type_init_fn_name :: Ty.Type -> CCode Name
@@ -177,8 +186,8 @@ one_way_msg_type_name cls mname =
 
 -- | for each method, there's a corresponding message, this is its name
 fut_msg_id :: Ty.Type -> ID.Name -> CCode Name
-fut_msg_id cls mname =
-    Nam $ "_ENC__FUT_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+fut_msg_id ref mname =
+    Nam $ "_ENC__FUT_MSG_" ++ Ty.getId ref ++ "_" ++ show mname
 
 task_msg_id :: CCode Name
 task_msg_id = Nam "_ENC__MSG_TASK"
@@ -187,23 +196,25 @@ one_way_msg_id :: Ty.Type -> ID.Name -> CCode Name
 one_way_msg_id cls mname =
     Nam $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
+type_name_prefix :: Ty.Type -> String
+type_name_prefix ref
+    | Ty.isActiveRefType ref =
+        encore_name "active" $ Ty.getId ref
+    | Ty.isPassiveRefType ref =
+        encore_name "passive" $ Ty.getId ref
+    | Ty.isTrait ref =
+        encore_name "trait" $ Ty.getId ref
+    | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
+                          "' isnt reference type!"
+
+ref_type_name :: Ty.Type -> CCode Name
+ref_type_name ref = Nam $ (type_name_prefix ref) ++ "_t"
+
 class_type_name :: Ty.Type -> CCode Name
-class_type_name cls
-    | Ty.isActiveRefType cls =
-        Nam $ encore_name "active" ((Ty.getId cls) ++ "_t")
-    | Ty.isPassiveRefType cls =
-        Nam $ encore_name "passive" ((Ty.getId cls) ++ "_t")
-    | otherwise = error $ "Type '" ++ show cls ++
-                          "' is neither active nor passive!"
+class_type_name ref = Nam $ (type_name_prefix ref) ++ "_t"
 
 runtime_type_name :: Ty.Type -> CCode Name
-runtime_type_name cls
-    | Ty.isActiveRefType cls =
-        Nam $ encore_name "active" ((Ty.getId cls) ++ "_type")
-    | Ty.isPassiveRefType cls =
-        Nam $ encore_name "passive" ((Ty.getId cls) ++ "_type")
-    | otherwise = error $ "Type '" ++ show cls ++
-                          "' is neither active nor passive!"
+runtime_type_name ref = Nam $ (type_name_prefix ref) ++ "_type"
 
 future_trace_fn :: CCode Name
 future_trace_fn = Nam "future_trace"

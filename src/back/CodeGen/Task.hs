@@ -1,11 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, NamedFieldPuns, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
 module CodeGen.Task where
 
 import CCode.Main
 import CodeGen.Typeclasses
 import CodeGen.Type
-import CodeGen.Expr
+import CodeGen.Expr ()
 import CodeGen.ClassTable
 import CodeGen.CCodeNames
 import Types as Ty
@@ -17,8 +17,6 @@ import qualified CodeGen.Context as Ctx
 
 
 import Control.Monad.State hiding(void)
-import Control.Monad.Reader hiding(void)
-import Data.Maybe
 
 translateTask :: A.Expr -> ClassTable -> CCode Toplevel
 translateTask task ctable

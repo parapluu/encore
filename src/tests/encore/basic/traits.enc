@@ -1,0 +1,66 @@
+def push_to(x : Push) : int -> void
+  let y = x in
+    \(n : int) -> y.push(n)
+
+def foo(x : Pop) : void
+  print x.pop()
+
+passive class Link
+  value : int
+  next  : Link
+  def init(v : int, n : Link) : void{
+    this.value = v;
+    this.next  = n;
+  }
+
+trait Push
+  require top : Link
+  def push(x : int) : void
+    this.top = new Link(x, this.top)
+
+trait Pop
+  require top : Link
+  def pop() : int
+    let result = this.top.value in{
+      this.top = this.top.next;
+      result
+    }
+
+passive class Stack : Push + Pop
+  top : Link
+  def steal(other : Pop) : void
+    let x = other in {
+      x = other;
+      this.push(x.pop())
+    }
+
+class Driver
+  myPop : Pop
+  myStack : Stack
+  def go(x : Stack, y : Pop) : void{
+    this.myPop = x;
+    this.myStack = x;
+    x.push(42);
+    x.steal(y);
+    }
+
+  def doPop() : int
+    this.myPop.pop()
+
+ def getStack() : Stack
+   this.myStack
+
+class Main
+  def main() : void
+    let x = new Stack
+        y = new Stack
+        driver = new Driver
+        push_to = \ (p : Push) -> \ (x : int) -> p.push(x)
+        pushY = push_to(y)
+    in{
+      pushY(100);
+      get driver.go(x, y);
+      print get driver.doPop();
+      foo(x);
+      print "Done!"
+    }

@@ -113,7 +113,10 @@ compileProgram prog sourcePath options =
                         Nothing            -> sourceName
            srcDir = (sourceName ++ "_src")
        createDirectoryIfMissing True srcDir
-       let (classes, header, shared) = compile_to_c prog
+       let emitted = compile_to_c prog
+           classes = getClasses emitted
+           header = getHeader emitted
+           shared = getShared emitted
        mapM (writeClass srcDir) classes
        let encoreNames  = map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames

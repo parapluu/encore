@@ -15,7 +15,7 @@ import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Data.Either (partitionEithers)
-import Control.Monad (liftM)
+import Control.Applicative ((<$>))
 
 -- Module dependencies
 import Identifiers
@@ -65,6 +65,7 @@ dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
 commaSep   = P.commaSep lexer
+commaSep1  = P.commaSep1 lexer
 colon      = P.colon lexer
 semi       = P.semi lexer
 semiSep    = P.semiSep lexer
@@ -80,9 +81,6 @@ stringLiteral = P.stringLiteral lexer
 integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
-
-as :: (Parser a) -> (a -> b) -> (Parser b)
-as = flip liftM
 
 -- ! For parsing qualified names such as A.B.C
 longidentifier :: Parser QName
@@ -121,7 +119,7 @@ typ  =  try arrow
                return $ parType ty
       paramType = do id <- identifier
                      if (isUpper . head $ id)
-                     then do params <- angles (commaSep typ)
+                     then do params <- angles (commaSep1 typ)
                              return $ refTypeWithParams id params
                      else fail "Type with parameters must start with upper-case letter"
       stream = do reserved "Stream"
@@ -148,7 +146,7 @@ program = do
   imports <- many importdecl
   etl <- embedTL
   functions <- many function
-  decls <- many $ (trait `as` Left) <|> (classDecl `as` Right)
+  decls <- many $ (Left <$> trait) <|> (Right <$> classDecl)
   let (traits, classes) = partitionEithers decls
   eof
   return $ Program{bundle, etl, imports, functions, traits, classes}
@@ -202,11 +200,13 @@ function = do pos <- getPosition
 
 trait :: Parser Trait
 trait = do
-  trait_meta <- getPosition >>= return . meta
+  traitMeta <- meta <$> getPosition
   reserved "trait"
-  trait_name <- identifier
-  (trait_fields, trait_methods) <- braces' trait_body
-  return Trait{trait_meta, trait_name, trait_fields, trait_methods}
+  id <- identifier
+  params <- type_parameters
+  (traitFields, traitMethods) <- braces' trait_body
+  return Trait{traitMeta, traitName=(traitRefType id params),
+    traitFields, traitMethods}
   where
     trait_body = do
       fields <- many trait_field
@@ -222,25 +222,49 @@ trait_field = do
   ftype <- typ
   return Field{fmeta, fname, ftype}
 
-classDecl :: Parser ClassDecl
-classDecl = do pos <- getPosition
-               refKind <- option activeRefTypeWithParams
-                          (do {reserved "passive" ; return passiveRefTypeWithParams})
-               reserved "class"
-               cname <- identifier
-               params <- option []
-                         (angles $ commaSep typeParameter)
-               (fields, methods) <- braces classBody <|> classBody
-               return $ Class (meta pos) (refKind cname params) fields methods
-            where
-              typeParameter = do notFollowedBy upper
-                                 id <- identifier
-                                 return $ typeVar id
-                              <?> "type variable"
-              classBody = do fields <- many fieldDecl
-                             methods <- many methodDecl
-                             return (fields, methods)
+implemented_traits :: Parser [ImplementedTrait]
+implemented_traits = do
+  reservedOp ":"
+  meta_types <-  itrait `sepBy1` (reservedOp "+")
+  return $ map (uncurry implementTrait) meta_types
+  where
+    itrait = do
+      meta <- meta <$> getPosition
+      t <- typ
+      return (meta, t)
 
+type_parameters :: Parser [Type]
+type_parameters = do
+  params <- option [] (angles $ commaSep1 type_parameter)
+  return params
+    where
+      type_parameter = do
+        notFollowedBy upper
+        id <- identifier
+        return $ typeVar id
+        <?> "lower case type variable"
+
+classDecl :: Parser ClassDecl
+classDecl = do
+  cmeta <- meta <$> getPosition
+  refKind <- option activeClass
+             (reserved "passive" >> return passiveClass)
+  reserved "class"
+  name <- identifier
+  params <- type_parameters
+  ctraits <- option [] implemented_traits
+  (fields, methods) <- braces' classBody
+  return $ Class{
+    cmeta,
+    cname=makeClassDecl refKind name params ctraits,
+    ctraits,
+    fields,
+    methods
+  }
+  where
+    classBody = do fields <- many fieldDecl
+                   methods <- many methodDecl
+                   return (fields, methods)
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do pos <- getPosition

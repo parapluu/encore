@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
 module CodeGen.Trace (trace_variable) where
@@ -6,7 +5,7 @@ module CodeGen.Trace (trace_variable) where
 import CCode.Main
 import CodeGen.CCodeNames
 import qualified Types as Ty
-import CCode.PrettyCCode
+import CCode.PrettyCCode ()
 
 trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
 trace_variable t var

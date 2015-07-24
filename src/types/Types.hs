@@ -1,31 +1,68 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
-module Types(Type, arrowType, isArrowType, futureType, isFutureType,
-             parType, isParType, streamType, isStreamType, arrayType, isArrayType,
-             refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
-             refType, isRefType, passiveRefType, activeRefType, 
-             isActiveRefType, isPassiveRefType, isMainType,
-             makeActive, makePassive, typeVar, isTypeVar, replaceTypeVars,
-             voidType, isVoidType, nullType, isNullType, 
-             boolType, isBoolType, intType, isIntType, 
-             realType, isRealType, stringType, isStringType, 
-             isPrimitive, isNumeric, emptyType,
-             getArgTypes, getResultType, getId, getTypeParameters, setTypeParameters,
-             typeComponents, subtypeOf, typeMap) where
+{-# OPTIONS_GHC -fno-warn-missing-fields #-}
+module Types(
+  Type,
+  arrowType, isArrowType,
+  futureType, isFutureType,
+  parType, isParType,
+  streamType, isStreamType,
+  arrayType, isArrayType,
+  refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
+  refType, isRefType,
+  passiveRefType, activeRefType, traitRefType,
+  isActiveRefType, isPassiveRefType, isMainType,
+  makeActive, makePassive, markTrait,
+  typeVar, isTypeVar, replaceTypeVars,
+  voidType, isVoidType,
+  nullType, isNullType,
+  boolType, isBoolType,
+  intType, isIntType,
+  realType, isRealType,
+  stringType, isStringType,
+  isPrimitive, isNumeric,
+  emptyType,
+  getArgTypes, getResultType, getId, getImplTraits,
+  getTypeParameters, setTypeParameters,
+  typeComponents, typeMap,
+  subtypeOf, strictParentTypeOf,
+  showWithKind,
+  isClass, isTrait,
+  passiveClass, activeClass,
+  passActivity
+  ) where
 
 import Data.List
 
-import Identifiers
+data Activity = Active | Passive | Trait | Unknown deriving(Eq, Show)
 
-data Activity = Active | Passive | Unknown deriving(Eq, Show)
+data RefTypeInfo = RefTypeInfo {
+  refId :: String,
+  activity :: Activity,
+  parameters :: [Type],
+  impl_trait_types :: [Type]
+}
 
-data RefTypeInfo = RefTypeInfo {refId :: String, activity :: Activity, parameters :: [Type]}
+getImplTraits :: Type -> [Type]
+getImplTraits (RefType RefTypeInfo{impl_trait_types}) = impl_trait_types
+getImplTraits ty = error $ "Cant get traits from non ref type: " ++ show ty
+
+isTrait :: Type -> Bool
+isTrait (RefType RefTypeInfo{activity = Trait}) = True
+isTrait _ = False
+
+markTrait :: Type -> Type
+markTrait (RefType info) = RefType $ info {activity = Trait}
+markTrait ty = ty
+
+isClass :: Type -> Bool
+isClass (RefType RefTypeInfo{activity = Active}) = True
+isClass (RefType RefTypeInfo{activity = Passive}) = True
+isClass _ = False
 
 instance Eq RefTypeInfo where
     RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
 
 data Type = VoidType | StringType | IntType | BoolType | RealType
-          | NullType | RefType RefTypeInfo | TypeVar {ident :: String}
+          | NullType | RefType {info :: RefTypeInfo} | TypeVar {ident :: String}
           | Arrow {argTypes :: [Type], resultType :: Type}
           | FutureType {resultType :: Type} | ParType {resultType :: Type}
           | StreamType {resultType :: Type} | ArrayType {resultType :: Type}
@@ -41,18 +78,18 @@ typeComponents arr@(ArrayType ty)      = arr:(typeComponents ty)
 typeComponents ty                      = [ty]
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty 
-    | isArrowType ty = 
+typeMap f ty
+    | isArrowType ty =
         f (Arrow (map (typeMap f) (argTypes ty)) (typeMap f (resultType ty)))
     | isFutureType ty =
         f (FutureType (typeMap f (resultType ty)))
     | isParType ty =
         f (ParType (typeMap f (resultType ty)))
     | isRefType ty =
-        case ty of 
-          (RefType (info@(RefTypeInfo{parameters}))) -> 
+        case ty of
+          (RefType (info@(RefTypeInfo{parameters}))) ->
               f $ RefType info{parameters = map (typeMap f) parameters}
-          otherwise -> 
+          otherwise ->
               error $ "Couldn't deconstruct refType: " ++ show ty
     | isStreamType ty =
         f (StreamType (typeMap f (resultType ty)))
@@ -65,6 +102,7 @@ getResultType = resultType
 getId (RefType info) = refId info
 getId TypeVar {ident} = ident
 
+getTypeParameters :: Type -> [Type]
 getTypeParameters (RefType RefTypeInfo{parameters}) = parameters
 getTypeParameters ty = error $ "Can't get type parameters from type: " ++ show ty
 
@@ -86,7 +124,7 @@ instance Show Type where
     show RealType          = "real"
     show BoolType          = "bool"
     show (RefType (RefTypeInfo {refId, parameters = []})) = refId
-    show (RefType (RefTypeInfo {refId, parameters})) = 
+    show (RefType (RefTypeInfo {refId, parameters})) =
         refId ++ "<" ++ (concat $ (intersperse ", " (map show parameters))) ++ ">"
     show (TypeVar t)       = t
     show NullType          = "null type"
@@ -96,11 +134,30 @@ instance Show Type where
     show (StreamType ty)   = "Stream " ++ maybeParen ty
     show (ArrayType ty)    = "[" ++ show ty ++ "]"
 
+showWithKind :: Type -> String
+showWithKind ty = kind ty ++ " " ++ show ty
+    where
+    kind VoidType     = "primitive type"
+    kind StringType   = "primitive type"
+    kind IntType      = "primitive type"
+    kind RealType     = "primitive type"
+    kind BoolType     = "primitive type"
+    kind (RefType (RefTypeInfo {activity = Active})) = "active type"
+    kind (RefType (RefTypeInfo {activity = Passive})) = "passive type"
+    kind (RefType (RefTypeInfo {activity = Trait})) = "trait type"
+    kind TypeVar{}    = "polymorphic type"
+    kind Arrow{}      = "function type"
+    kind FutureType{} = "future type"
+    kind ParType{}   = "parallel type"
+    kind StreamType{} = "stream type"
+    kind ArrayType{}  = "array type"
+    kind _ = "type"
+
 arrowType = Arrow
 isArrowType (Arrow {}) = True
 isArrowType _ = False
 
-futureType = FutureType 
+futureType = FutureType
 isFutureType FutureType {} = True
 isFutureType _ = False
 
@@ -108,7 +165,8 @@ parType = ParType
 isParType ParType {} = True
 isParType _ = False
 
-refTypeWithParams = \id params -> RefType $ RefTypeInfo id Unknown params
+refTypeWithParams refId parameters =
+  RefType $ RefTypeInfo{refId, activity=Unknown, parameters}
 refType id = refTypeWithParams id []
 streamType = StreamType
 isStreamType StreamType {} = True
@@ -121,6 +179,29 @@ isArrayType _ = False
 isRefType RefType {} = True
 isRefType _ = False
 
+passActivity :: Type -> Type -> Type
+passActivity RefType{info} y@RefType{info=info'} =
+  y{info = passActivity' info info'}
+  where
+    passActivity' RefTypeInfo{activity} info = info{activity}
+passActivity _ y = y
+
+passiveClass :: String -> [Type] -> [Type] -> Type
+passiveClass id params itraits = makePassive $
+  RefType $ RefTypeInfo{
+    refId = id,
+    parameters = params,
+    impl_trait_types = itraits
+  }
+
+activeClass :: String -> [Type] -> [Type] -> Type
+activeClass id params itraits = makeActive $
+  RefType $ RefTypeInfo{
+    refId = id,
+    parameters = params,
+    impl_trait_types = itraits
+  }
+
 passiveRefTypeWithParams id = makePassive . refTypeWithParams id
 passiveRefType id = passiveRefTypeWithParams id []
 
@@ -129,6 +210,10 @@ makePassive ty = ty
 
 isPassiveRefType (RefType (RefTypeInfo {activity = Passive})) = True
 isPassiveRefType _ = False
+
+traitRefType :: String -> [Type] -> Type
+traitRefType refId parameters =
+  RefType $ RefTypeInfo{refId, activity=Trait, parameters}
 
 activeRefTypeWithParams id = makeActive . refTypeWithParams id
 activeRefType id = activeRefTypeWithParams id []
@@ -202,7 +287,13 @@ isPrimitive = flip elem primitives
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
 
+strictParentTypeOf :: Type -> Type -> Bool
+strictParentTypeOf t1 t2
+  | isTrait t1 && isClass t2 = t1 `elem` getImplTraits t2
+  | otherwise = False
+
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
     | isNullType ty1 = isNullType ty2 || isRefType ty2
+    | isClass ty1 && isTrait ty2 = ty2 `elem` getImplTraits ty1
     | otherwise      = ty1 == ty2
