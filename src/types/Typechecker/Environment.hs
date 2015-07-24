@@ -10,9 +10,9 @@ typevar-type bindings for doing lookups, as well as the
 module Typechecker.Environment(Environment,
                                buildEnvironment,
                                traitLookup,
-                               traitLookup',
+                               traitLookupUnsafe,
                                refTypeLookup,
-                               refTypeLookup',
+                               refTypeLookupUnsafe,
                                methodLookup,
                                fieldLookup,
                                varLookup,
@@ -124,8 +124,8 @@ traitLookup :: Type -> Environment -> Maybe Trait
 traitLookup t env =
   M.lookup (getId t) $ trait_table env
 
-traitLookup' :: Type -> Environment -> Trait
-traitLookup' t env =
+traitLookupUnsafe :: Type -> Environment -> Trait
+traitLookupUnsafe t env =
   let
     ret = traitLookup t env
     found = isJust ret
@@ -151,8 +151,8 @@ refTypeLookup t env =
   in
     cls <|> trait
 
-refTypeLookup' :: Type -> Environment -> Type
-refTypeLookup' t env =
+refTypeLookupUnsafe :: Type -> Environment -> Type
+refTypeLookupUnsafe t env =
   let
     ret = refTypeLookup t env
     found = isJust ret

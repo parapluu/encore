@@ -89,7 +89,7 @@ resolve_type_or_error ty
 resolve_type :: MonadReader Environment m => Type -> m Type
 resolve_type ty
   | isRefType ty = do
-      ty' <- asks $ refTypeLookup' ty
+      ty' <- asks $ refTypeLookupUnsafe ty
       return $ setTypeParameters ty' type_vars
   | otherwise = return ty
       where
@@ -217,7 +217,7 @@ update_fields_types bindings fields = map update fields
 
 formal_bindings :: Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 formal_bindings actual = do
-  origin <- asks $ refTypeLookup' actual
+  origin <- asks $ refTypeLookupUnsafe actual
   formal_vars <- return $ getTypeParameters origin
   actual_vars <- return $ getTypeParameters actual
   when (length formal_vars /= length actual_vars) $
