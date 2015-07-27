@@ -246,14 +246,8 @@ match_args_or_error method args = do
     to_str (Name "_init") = "Constructor"
     to_str n = concat ["Method '", show n, "'"]
 
-main_method :: (MonadError TCError m, MonadReader Environment m) =>
-  Name -> m Bool
-main_method mname = do
-  this <- asks $ varLookup thisName
-  return $ is_main this && (mname == Name "main")
-    where
-      is_main Nothing = False
-      is_main (Just t) = isMainType t
+isMainMethod :: Type -> Name -> Bool
+isMainMethod ty name = isMainType ty && (name == Name "main")
 
 whenM :: (Monad m) => m Bool -> m () -> m ()
 whenM b a = b >>= flip when a
@@ -374,7 +368,8 @@ instance Checkable MethodDecl where
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
     doTypecheck m@(Method {mtype, mparams, mbody, mname}) =
         do ty <- checkType mtype
-           whenM (main_method mname) checkMainParams
+           Just thisType <- asks $ varLookup thisName
+           when (isMainMethod thisType mname) checkMainParams
            eMparams <- mapM typecheckParam mparams
            eBody <- local (addParams eMparams) $
                           if isVoidType ty
@@ -476,7 +471,7 @@ instance Checkable Expr where
         tcError $ "Cannot call method on expression '" ++
                   (show $ ppExpr target) ++
                   "' of type '" ++ show targetType ++ "'"
-      whenM (main_method name) $ tcError "Cannot call the main method"
+      when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
       mdecl <- find_method_or_error targetType name
