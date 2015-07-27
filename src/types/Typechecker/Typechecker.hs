@@ -31,21 +31,22 @@ import Typechecker.TypeError
 -- | The top-level type checking function
 typecheckEncoreProgram :: Program -> Either TCError Program
 typecheckEncoreProgram p =
-    do
-       env <- buildEnvironment p
+    do env <- buildEnvironment p
        runReader (runExceptT (typecheck p)) env
 
 -- | Convenience function for throwing an exception with the
 -- current backtrace
-tcError msg = do bt <- asks backtrace
-                 throwError $ TCError (msg, bt)
+tcError msg =
+    do bt <- asks backtrace
+       throwError $ TCError (msg, bt)
 
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
 -- Bar]@ will throw an error with the message "Duplicate
 -- declaration of field 'f'".
-assertDistinctThing :: (MonadError TCError m, MonadReader Environment m,
-  Eq a, Show a) => String -> String -> [a] -> m ()
+assertDistinctThing :: 
+    (MonadError TCError m, MonadReader Environment m, Eq a, Show a) => 
+    String -> String -> [a] -> m ()
 assertDistinctThing something kind l =
   let
     duplicates = l \\ nub l
@@ -69,17 +70,11 @@ assertDistinct something l =
     unless (null duplicates) $
       tcError $ printf "Duplicate %s of %s" something $ AST.showWithKind first
 
-tc_error :: (MonadError TCError m, MonadReader Environment m)
-              => String -> m b
-tc_error msg = do
-  bt <- asks backtrace
-  throwError $ TCError (msg, bt)
-
 resolve_type_or_error :: Type -> ExceptT TCError (Reader Environment) Type
 resolve_type_or_error ty
   | isRefType ty = do
       ty' <- asks $ refTypeLookup ty
-      when (isNothing ty') $ tc_error $
+      when (isNothing ty') $ tcError $
         concat ["Unknown type '", show ty, "'"]
       return $ setTypeParameters (fromJust ty') type_vars
   | otherwise = return ty
@@ -221,7 +216,7 @@ formal_bindings actual = do
   formal_vars <- return $ getTypeParameters origin
   actual_vars <- return $ getTypeParameters actual
   when (length formal_vars /= length actual_vars) $
-    tc_error $ printf "'%s' expects %d type arguments, but '%s' has %d"
+    tcError $ printf "'%s' expects %d type arguments, but '%s' has %d"
       (show origin) (length formal_vars) (show actual) (length actual_vars)
   matchTypeParameters formal_vars actual_vars
 
@@ -229,14 +224,14 @@ find_trait_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   Trait -> m Trait
 find_trait_or_error trait = do
     trait' <- asks $ traitLookup $ traitName trait
-    when (isNothing trait') $ tc_error $ "couldnt find trait: " ++ show trait
+    when (isNothing trait') $ tcError $ "couldnt find trait: " ++ show trait
     return $ fromJust trait'
 
 find_method_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   Type -> Name -> m MethodDecl
 find_method_or_error ty name = do
   m' <- asks $ methodLookup ty name
-  when (isNothing m') $ tc_error $
+  when (isNothing m') $ tcError $
     concat [no_method name, " in ", ref, " '", show ty, "'"]
   return $ fromJust m'
   where
@@ -249,7 +244,7 @@ find_method_or_error ty name = do
 match_args_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   MethodDecl -> Arguments -> m ()
 match_args_or_error method args = do
-  unless (actual == expected) $ tc_error $
+  unless (actual == expected) $ tcError $
     concat [to_str name, " expect ", show expected, " but got ", show actual]
   where
     actual = length args
@@ -303,7 +298,7 @@ match_field_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
 match_field_or_error fields f = do
   unless (match_field fields f) $
-    tc_error $ concat ["couldnt find field: '", show f, "'"]
+    tcError $ concat ["couldnt find field: '", show f, "'"]
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementedTrait -> m ()
@@ -324,11 +319,11 @@ ensure_no_method_conflict methods itraits =
     if null diff then
       return ()
     else if in_this_class then
-      tc_error $ concat ["'", show (mname first),
+      tcError $ concat ["'", show (mname first),
         "' is defined in current class and trait '",
         show (overlapping_traits !! 0), "'"]
     else
-      tc_error $ concat ["'", show (mname first),
+      tcError $ concat ["'", show (mname first),
         "' is defined in trait '", show (overlapping_traits !! 0),
         "' and trait '", show (overlapping_traits !! 1), "'"]
   where
@@ -1065,7 +1060,7 @@ matchTypes expected ty
             argBindings <- matchArguments expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected && isTypeVar ty = do
-      unless (expected == ty) $ tc_error $
+      unless (expected == ty) $ tcError $
         concat ["Can't match '", show expected, "' with '", show ty, "'"]
       asks bindings
       -- TODO
