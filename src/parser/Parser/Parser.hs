@@ -140,6 +140,7 @@ typ  =  try arrow
                         return $ typeVar ty
 program :: Parser Program
 program = do
+  source <- sourceName <$> getPosition
   optional hashbang
   whiteSpace
   bundle <- bundledecl
@@ -149,7 +150,7 @@ program = do
   decls <- many $ (Left <$> trait) <|> (Right <$> classDecl)
   let (traits, classes) = partitionEithers decls
   eof
-  return $ Program{bundle, etl, imports, functions, traits, classes}
+  return $ Program{source, bundle, etl, imports, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
