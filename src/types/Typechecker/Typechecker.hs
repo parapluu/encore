@@ -230,8 +230,8 @@ find_method_or_error ty name = do
     ref
       | isClass ty = "class"
       | isTrait ty = "trait"
-    no_method (Name "_init") = "No construct"
-    no_method n = concat ["No methad '", show n, "'"]
+    no_method (Name "_init") = "No constructor"
+    no_method n = concat ["No method '", show n, "'"]
 
 match_args_or_error :: (MonadError TCError m, MonadReader Environment m) =>
   MethodDecl -> Arguments -> m ()
