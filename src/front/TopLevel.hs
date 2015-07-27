@@ -48,7 +48,7 @@ data Option = GCC | Clang | Run |
               KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly
-	deriving Eq
+              deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
 parseArguments args =
