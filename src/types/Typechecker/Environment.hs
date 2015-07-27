@@ -65,7 +65,7 @@ empty_env = Env {
 
 buildEnvironment :: Program -> Either TCError Environment
 buildEnvironment p@(Program{functions, classes, imports}) =
-  merge_envs $ traverse p buildEnvironment'
+  merge_envs $ mapProgram p buildEnvironment'
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =

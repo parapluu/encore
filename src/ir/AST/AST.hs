@@ -389,8 +389,8 @@ traverseProgram f g p@(Program{imports}) =
       lift :: (Program -> b) -> ImportDecl -> b
       lift h (PulledImport{iprogram}) = h iprogram
 
-traverse :: Program -> (Program -> [a]) -> [a]
-traverse program f =
+mapProgram :: Program -> (Program -> [a]) -> [a]
+mapProgram program f =
   let
     programs = flatten_imports program
   in
@@ -412,7 +412,7 @@ getTrait t p =
     fromJust $ find (match t) traits
 
 allTraits :: Program -> [Trait]
-allTraits p = traverse p traits
+allTraits p = mapProgram p traits
 
 merge a b = a ++ concat b
 
