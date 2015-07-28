@@ -12,13 +12,14 @@ module AST.AST where
 
 import Data.List
 import Data.Maybe
-import Text.Parsec(SourcePos)
+import Text.Parsec(SourcePos, SourceName)
 
 import Identifiers
 import Types
 import AST.Meta hiding(Closure, Async)
 
 data Program = Program {
+  source :: SourceName,
   bundle :: BundleDecl,
   etl :: EmbedTL,
   imports :: [ImportDecl],
@@ -378,19 +379,8 @@ getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
 
--- | program_traverse (needs better name) traverse a program and its imports collecting data
--- traverseProgram f g p takes traverses p, applying f and g to collect values
--- f applies to one level program, ignoring imports
--- g takes the results of recursing on imports plus the current level and combines them
-traverseProgram :: (Program -> t) -> (t -> [b] -> b) -> Program -> b
-traverseProgram f g p@(Program{imports}) =
-  g (f p) (map (lift (traverseProgram f g)) imports)
-    where
-      lift :: (Program -> b) -> ImportDecl -> b
-      lift h (PulledImport{iprogram}) = h iprogram
-
-traverse :: Program -> (Program -> [a]) -> [a]
-traverse program f =
+traverseProgram :: (Program -> [a]) -> Program -> [a]
+traverseProgram f program =
   let
     programs = flatten_imports program
   in
@@ -411,16 +401,10 @@ getTrait t p =
   in
     fromJust $ find (match t) traits
 
-allTraits :: Program -> [Trait]
-allTraits p = traverse p traits
+allClasses = traverseProgram classes
 
-merge a b = a ++ concat b
+allTraits = traverseProgram traits
 
-allClasses p = traverseProgram f merge p
-  where f Program{classes} = classes
+allFunctions = traverseProgram functions
 
-allFunctions p = traverseProgram f merge p
-    where f Program{functions} = functions
-
-allEmbedded p = traverseProgram f merge p
-    where f Program{etl = EmbedTL{etlheader}} = [etlheader]
+allEmbedded = traverseProgram ((:[]) . etlheader . etl)

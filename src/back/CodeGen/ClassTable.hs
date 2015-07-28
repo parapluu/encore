@@ -13,10 +13,8 @@ type MethodTable = [(Name, MethodDecl)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
 build_class_table :: Program -> ClassTable
-build_class_table = traverseProgram f merge
+build_class_table = traverseProgram ((map get_class_entry) . classes)
   where
-    f Program{classes} = map get_class_entry classes
-    merge a b = a ++ concat b
     get_class_entry Class{cname, fields, methods} =
       (cname, ((map get_field_entry fields), (map get_method_entry methods)))
     get_field_entry f@Field{fname} = (fname, f)

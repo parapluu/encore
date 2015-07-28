@@ -17,7 +17,7 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
     Concat $
       (LocalInclude "header.h") :
 
-      A.traverseProgram f combine prog ++
+      embedded_code ++
 
       -- [comment_section "Shared messages"] ++
       -- shared_messages ++
@@ -30,11 +30,11 @@ generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
 
       global_functions = map (\fun -> translate fun ctable) allfunctions
 
-      f A.Program{A.etl = A.EmbedTL{A.etlbody}} =
-        [comment_section "Embedded Code"] ++
-        [Embed etlbody]
-
-      combine a b = [comment_section "Imported functions"] ++ concat b ++ a
+      embedded_code = A.traverseProgram embedded prog
+        where
+          embedded A.Program{A.source, A.etl = A.EmbedTL{A.etlbody}} =
+              [comment_section $ "Embedded Code from " ++ show source] ++
+              [Embed etlbody]
 
       shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
           where

@@ -64,8 +64,8 @@ empty_env = Env {
 }
 
 buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment p@(Program{functions, classes, imports}) =
-  merge_envs $ traverse p buildEnvironment'
+buildEnvironment =
+  merge_envs . (traverseProgram buildEnvironment')
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =

@@ -41,7 +41,7 @@ instance Translatable A.Program Emitted where
       shared = generate_shared prog ctable
       name_and_class p@A.Program{A.classes} =
         [(Ty.getId (A.cname c), translate c ctable) | c <- classes]
-      classes = A.traverse prog name_and_class
+      classes = A.traverseProgram name_and_class prog
     in
       Emitted{classes, header, shared}
     where
