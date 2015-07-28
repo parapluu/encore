@@ -194,16 +194,16 @@ formal_bindings actual = do
       (show origin) (length formal_vars) (show actual) (length actual_vars)
   matchTypeParameters formal_vars actual_vars
 
-find_trait_or_error :: (MonadError TCError m, MonadReader Environment m) =>
+findTrait :: (MonadError TCError m, MonadReader Environment m) =>
   Trait -> m Trait
-find_trait_or_error trait = do
+findTrait trait = do
     trait' <- asks $ traitLookup $ traitName trait
     when (isNothing trait') $ tcError $ "couldnt find trait: " ++ show trait
     return $ fromJust trait'
 
-find_method_or_error :: (MonadError TCError m, MonadReader Environment m) =>
+findMethod :: (MonadError TCError m, MonadReader Environment m) =>
   Type -> Name -> m MethodDecl
-find_method_or_error ty name = do
+findMethod ty name = do
   m' <- asks $ methodLookup ty name
   when (isNothing m') $ tcError $
     concat [no_method name, " in ", ref, " '", show ty, "'"]
@@ -215,9 +215,9 @@ find_method_or_error ty name = do
     no_method (Name "_init") = "No constructor"
     no_method n = concat ["No method '", show n, "'"]
 
-match_args_or_error :: (MonadError TCError m, MonadReader Environment m) =>
+matchArgs :: (MonadError TCError m, MonadReader Environment m) =>
   MethodDecl -> Arguments -> m ()
-match_args_or_error method args = do
+matchArgs method args = do
   unless (actual == expected) $ tcError $
     concat [to_str name, " expect ", show expected, " but got ", show actual]
   where
@@ -233,7 +233,7 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 
 instance Checkable ImplementedTrait where
   doTypecheck t@ImplementedTrait{itrait} = do
-    trait <- find_trait_or_error itrait
+    trait <- findTrait itrait
     mapM checkType type_vars
     bindings <- formal_bindings ty
     ty' <- checkType $ replaceTypeVars bindings ty
@@ -453,8 +453,8 @@ instance Checkable Expr where
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
-      mdecl <- find_method_or_error targetType name
-      match_args_or_error mdecl args
+      mdecl <- findMethod targetType name
+      matchArgs mdecl args
       f_bindings <- formal_bindings targetType
       paramTypes <- mapM (resolveType . ptype) (mparams mdecl)
       methodType <- resolveType $ mtype mdecl
@@ -487,9 +487,9 @@ instance Checkable Expr where
            tcError $ "Cannot send message to expression '" ++
                      (show $ ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
-      mdecl <- find_method_or_error targetType name
+      mdecl <- findMethod targetType name
       paramTypes <- mapM (resolveType . ptype) (mparams mdecl)
-      match_args_or_error mdecl args
+      matchArgs mdecl args
       bindings <- formal_bindings targetType
       (eArgs, _) <- local (bindTypes bindings) $ matchArguments args paramTypes
       return $ setType voidType msend {target = eTarget, args = eArgs}
