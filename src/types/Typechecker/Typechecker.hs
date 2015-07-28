@@ -395,9 +395,9 @@ instance Checkable MethodDecl where
                           else pushHasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          checkMainParams = unless ((map ptype mparams) `elem` [[] {-, [intType, arrayType stringType]-}]) $
+          checkMainParams = unless ((map ptype mparams) `elem` [[], [arrayType stringType]]) $
                               tcError $
-                                "Main method must have argument type () or (int, string[]) (but arrays are not supported yet)"
+                                "Main method must have argument type () or ([string])"
           typecheckParam p@(Param{ptype}) = local (pushBT p) $
                                             do ty <- checkType ptype
                                                return $ setType ty p

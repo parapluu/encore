@@ -44,6 +44,15 @@ array_t *array_mk(size_t size, pony_type_t *type)
   return array;
 }
 
+array_t *array_from_array(size_t size, pony_type_t *type, encore_arg_t arr[])
+{
+  struct array_t *array = array_mk(size, type);
+  for(int i = 0; i < size; i++) {
+    array_set(array, i, arr[i]);
+  }
+  return array;
+}
+
 inline size_t array_size(array_t *a)
 {
   return ((struct array_t *)a)->size;
