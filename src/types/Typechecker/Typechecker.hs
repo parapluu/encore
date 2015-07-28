@@ -250,25 +250,25 @@ instance Checkable ImplementedTrait where
         in
           setType ft' f
 
-match_field :: [FieldDecl] -> FieldDecl -> Bool
-match_field fields f =
-  let
-    r = find (==f) fields
-    t = ftype f
-    t' = ftype $ fromJust r
-  in
-    isJust r && t' == t
-
-match_field_or_error :: (MonadError TCError m, MonadReader Environment m) =>
+matchField :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
-match_field_or_error fields f = do
-  unless (match_field fields f) $
+matchField fields f = do
+  unless (match fields f) $
     tcError $ concat ["couldnt find field: '", show f, "'"]
+  where
+    match fields f =
+        let
+            r = find (==f) fields
+            t = ftype f
+            t' = ftype $ fromJust r
+        in
+          isJust r && t' == t
+
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementedTrait -> m ()
 meet_required_fields fields t@ImplementedTrait{itrait} = do
-  mapM_ (match_field_or_error fields) $ traitFields itrait
+  mapM_ (matchField fields) $ traitFields itrait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
   => [MethodDecl] -> [ImplementedTrait] -> m ()
