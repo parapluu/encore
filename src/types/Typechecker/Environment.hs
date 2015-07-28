@@ -10,7 +10,6 @@ typevar-type bindings for doing lookups, as well as the
 module Typechecker.Environment(Environment,
                                buildEnvironment,
                                traitLookup,
-                               traitLookupUnsafe,
                                refTypeLookup,
                                refTypeLookupUnsafe,
                                methodLookup,
@@ -124,18 +123,6 @@ traitLookup :: Type -> Environment -> Maybe Trait
 traitLookup t env =
   M.lookup (getId t) $ traitTable env
 
-traitLookupUnsafe :: Type -> Environment -> Trait
-traitLookupUnsafe t env =
-  let
-    ret = traitLookup t env
-    found = isJust ret
-  in
-    if found then
-      fromJust ret
-    else
-      error $ printf "Can't find trait %s" $ show t
-
--- TODO: Merge these two functions
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
     | isRefType cls = M.lookup (getId cls) $ classTable env
