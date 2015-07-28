@@ -70,22 +70,13 @@ assertDistinct something l =
     unless (null duplicates) $
       tcError $ printf "Duplicate %s of %s" something $ AST.showWithKind first
 
-resolve_type_or_error :: Type -> ExceptT TCError (Reader Environment) Type
-resolve_type_or_error ty
+resolveType :: Type -> ExceptT TCError (Reader Environment) Type
+resolveType ty
   | isRefType ty = do
-      ty' <- asks $ refTypeLookup ty
-      when (isNothing ty') $ tcError $
-        concat ["Unknown type '", show ty, "'"]
-      return $ setTypeParameters (fromJust ty') type_vars
-  | otherwise = return ty
-      where
-        type_vars = getTypeParameters ty
-
-resolve_type :: MonadReader Environment m => Type -> m Type
-resolve_type ty
-  | isRefType ty = do
-      ty' <- asks $ refTypeLookupUnsafe ty
-      return $ setTypeParameters ty' type_vars
+      result <- asks $ refTypeLookup ty
+      case result of
+        Nothing -> tcError $ concat ["Unknown type '", show ty, "'"]
+        Just ty' -> return $ setTypeParameters ty' type_vars
   | otherwise = return ty
       where
         type_vars = getTypeParameters ty
@@ -103,7 +94,7 @@ checkType ty
       return ty
     | isTrait ty = return ty
     | isClass ty = return ty
-    | isRefType ty = resolve_type_or_error ty
+    | isRefType ty = resolveType ty
     | isFutureType ty = futureType <$> checkType result_type
     | isStreamType ty = streamType <$> checkType result_type
     | isArrayType ty = arrayType <$> checkType result_type
@@ -193,15 +184,6 @@ instance Checkable Trait where
       add_this = extendEnvironment [(thisName, traitName)]
       typecheckMethod m = local (add_type_vars . add_this) $ typecheck m
 
-update_fields_types :: [(Type, Type)] -> [FieldDecl] -> [FieldDecl]
-update_fields_types bindings fields = map update fields
-  where
-    update field@Field{ftype} =
-      let
-        ftype' = replaceTypeVars bindings ftype
-      in
-        field{ftype = ftype'}
-
 formal_bindings :: Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 formal_bindings actual = do
   origin <- asks $ refTypeLookupUnsafe actual
@@ -248,9 +230,6 @@ match_args_or_error method args = do
 
 isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
-
-whenM :: (Monad m) => m Bool -> m () -> m ()
-whenM b a = b >>= flip when a
 
 instance Checkable ImplementedTrait where
   doTypecheck t@ImplementedTrait{itrait} = do
@@ -477,11 +456,11 @@ instance Checkable Expr where
       mdecl <- find_method_or_error targetType name
       match_args_or_error mdecl args
       f_bindings <- formal_bindings targetType
-      paramTypes <- mapM (resolve_type . ptype) (mparams mdecl)
-      methodType <- resolve_type $ mtype mdecl
+      paramTypes <- mapM (resolveType . ptype) (mparams mdecl)
+      methodType <- resolveType $ mtype mdecl
       (eArgs, bindings) <- local (bindTypes f_bindings) $
         matchArguments args paramTypes
-      resultType <- resolve_type $ replaceTypeVars bindings methodType
+      resultType <- resolveType $ replaceTypeVars bindings methodType
       let returnType = ret_type targetType mdecl resultType
       return $ setType returnType mcall {target = eTarget, args = eArgs}
       where
@@ -509,7 +488,7 @@ instance Checkable Expr where
                      (show $ ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
       mdecl <- find_method_or_error targetType name
-      paramTypes <- mapM (resolve_type . ptype) (mparams mdecl)
+      paramTypes <- mapM (resolveType . ptype) (mparams mdecl)
       match_args_or_error mdecl args
       bindings <- formal_bindings targetType
       (eArgs, _) <- local (bindTypes bindings) $ matchArguments args paramTypes
@@ -528,7 +507,7 @@ instance Checkable Expr where
         Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
       unless (isArrowType ty) $
         tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
-      argTypes <- mapM resolve_type $ getArgTypes ty
+      argTypes <- mapM resolveType $ getArgTypes ty
       unless (length args == length argTypes) $
              tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
                        "' expects " ++ show (length argTypes) ++ " arguments. Got " ++
@@ -546,9 +525,9 @@ instance Checkable Expr where
       eEparams <- mapM (local add_type_vars . typecheck) eparams
       eBody <- local (add_type_vars . (addParams eEparams)) $ typecheck body
       let returnType = AST.getType eBody
+          ty = arrowType (map ptype eEparams) returnType
       when (isNullType returnType) $
            tcError $ "Cannot infer return type of closure with null-valued body"
-      ty <- return $ closure_type eEparams returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
         all_param_types = concatMap (typeComponents . ptype) eparams
@@ -556,7 +535,6 @@ instance Checkable Expr where
         add_type_vars = addTypeParameters type_vars
         to_tuple params = map (\Param{pname, ptype} -> (pname, ptype)) params
         addParams = extendEnvironment . to_tuple
-        closure_type ins ret_type = arrowType (map ptype ins) ret_type
 
     --  E |- body : t
     --  ------------------
