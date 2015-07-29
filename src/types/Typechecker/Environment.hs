@@ -64,11 +64,11 @@ emptyEnv = Env {
 
 buildEnvironment :: Program -> Either TCError Environment
 buildEnvironment =
-  mergeEnvs . (traverseProgram buildEnvironment')
+  mergeEnvs . traverseProgram buildEnvironment'
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =
-      return Env {
+      [return Env {
         classTable = M.fromList [(getId (cname c), c) | c <- classes],
         traitTable = M.fromList [(getId (traitName t), t) | t <- traits],
         globals = map getFunctionType functions,
@@ -76,10 +76,10 @@ buildEnvironment =
         bindings = [],
         typeParameters = [],
         bt = emptyBT
-      } : []
+      }]
 
     getFunctionType Function {funname, funtype, funparams} =
-        (funname, arrowType (map (ptype) funparams) funtype)
+        (funname, arrowType (map ptype funparams) funtype)
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
@@ -109,11 +109,11 @@ methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 methodLookup ty m env
   | isClass ty = do
     cls <- classLookup ty env
-    c_m <- return $ find (matchMethod m) $ methods cls
-    t_ms <- return $ map (\t -> traitMethodLookup t m env) traits
-    ret <- find isJust $ (c_m:t_ms)
+    let c_m = find (matchMethod m) $ methods cls
+        t_ms = map (\t -> traitMethodLookup t m env) traits
+    ret <- find isJust (c_m:t_ms)
     return $ fromJust ret
-  | isTrait ty = do
+  | isTrait ty =
     traitMethodLookup ty m env
   | otherwise = error "methodLookup in non-ref type"
     where
@@ -175,8 +175,8 @@ extendEnvironment ((name, ty):newTypes) env =
     where
       extend [] name' ty' = [(name', ty')]
       extend ((name, ty):locals) name' ty'
-          | name == name' = (name', ty'):locals
-          | otherwise     = (name, ty):(extend locals name' ty')
+          | name == name' = (name', ty') : locals
+          | otherwise     = (name, ty) : extend locals name' ty'
 
 addTypeParameters :: [Type] -> Environment -> Environment
 addTypeParameters [] env = env
@@ -189,7 +189,7 @@ addTypeParameters xs env@(Env{typeParameters}) =
 
 bindType :: Type -> Type -> Environment -> Environment
 bindType var ty env
-    | isTypeVar var = env {bindings = (var, ty) : (bindings env)}
+    | isTypeVar var = env {bindings = (var, ty) : bindings env}
     | otherwise     = error "Tried to bind something that was not a type variable"
 
 bindTypes :: [(Type, Type)] -> Environment -> Environment
@@ -220,7 +220,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
           typeParameters = tparams',
           bt             = bt} <- e2
 
-      return $ Env{
+      return Env{
         classTable     = M.union classTable classTable',
         traitTable     = M.union traitTable traitTable',
         globals        = mergeGlobals globs globs',

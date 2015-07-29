@@ -164,9 +164,9 @@ instance Checkable Function where
                      else hasType funbody ty
       return $ setType ty f {funtype = ty, funbody = eBody, funparams = eParams}
       where
-        typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
-                                               do ty <- checkType ptype
-                                                  return $ setType ty p)
+        typecheckParam p@(Param{ptype}) = local (pushBT p) $
+                                          do ty <- checkType ptype
+                                             return $ setType ty p
         addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 instance Checkable Trait where
@@ -187,8 +187,8 @@ instance Checkable Trait where
 formal_bindings :: Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
 formal_bindings actual = do
   origin <- asks $ refTypeLookupUnsafe actual
-  formal_vars <- return $ getTypeParameters origin
-  actual_vars <- return $ getTypeParameters actual
+  let formal_vars = getTypeParameters origin
+      actual_vars = getTypeParameters actual
   when (length formal_vars /= length actual_vars) $
     tcError $ printf "'%s' expects %d type arguments, but '%s' has %d"
       (show origin) (length formal_vars) (show actual) (length actual_vars)
@@ -217,7 +217,7 @@ findMethod ty name = do
 
 matchArgs :: (MonadError TCError m, MonadReader Environment m) =>
   MethodDecl -> Arguments -> m ()
-matchArgs method args = do
+matchArgs method args =
   unless (actual == expected) $ tcError $
     concat [to_str name, " expect ", show expected, " but got ", show actual]
   where
@@ -234,10 +234,10 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 instance Checkable ImplementedTrait where
   doTypecheck t@ImplementedTrait{itrait} = do
     trait <- findTrait itrait
-    mapM checkType type_vars
+    mapM_ checkType type_vars
     bindings <- formal_bindings ty
     ty' <- checkType $ replaceTypeVars bindings ty
-    efields <- return $ map (update_field bindings) $ traitFields trait
+    let efields = map (update_field bindings) $ traitFields trait
     return $ setType ty' t{itrait=trait{traitFields = efields}}
     where
       ty = traitName itrait
@@ -252,7 +252,7 @@ instance Checkable ImplementedTrait where
 
 matchField :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> FieldDecl -> m ()
-matchField fields f = do
+matchField fields f =
   unless (match fields f) $
     tcError $ concat ["couldnt find field: '", show f, "'"]
   where
@@ -267,7 +267,7 @@ matchField fields f = do
 
 meet_required_fields :: (MonadError TCError m, MonadReader Environment m) =>
   [FieldDecl] -> ImplementedTrait -> m ()
-meet_required_fields fields t@ImplementedTrait{itrait} = do
+meet_required_fields fields t@ImplementedTrait{itrait} =
   mapM_ (matchField fields) $ traitFields itrait
 
 ensure_no_method_conflict :: (MonadError TCError m, MonadReader Environment m)
@@ -281,18 +281,17 @@ ensure_no_method_conflict methods itraits =
     in_this_class = first `elem` methods
     overlapping_traits = filter (contain_f first) itraits
   in
-    if null diff then
-      return ()
-    else if in_this_class then
+    unless (null diff) $
+    if in_this_class then
       tcError $ concat ["'", show (mname first),
         "' is defined in current class and trait '",
-        show (overlapping_traits !! 0), "'"]
+        show (head overlapping_traits), "'"]
     else
       tcError $ concat ["'", show (mname first),
-        "' is defined in trait '", show (overlapping_traits !! 0),
+        "' is defined in trait '", show (head overlapping_traits),
         "' and trait '", show (overlapping_traits !! 1), "'"]
   where
-    contain_f f ImplementedTrait{itrait} = f `elem` (traitMethods itrait)
+    contain_f f ImplementedTrait{itrait} = f `elem` traitMethods itrait
 
 instance Checkable ClassDecl where
   --  distinctNames(fields)
@@ -305,11 +304,11 @@ instance Checkable ClassDecl where
     assertDistinctThing "declaration" "type parameter" typeParameters
     assertDistinct "occurrence" ctraits
     unless (isPassiveRefType cname || null ctraits) $
-           tcError $ "Traits can only be used for passive classes"
+           tcError "Traits can only be used for passive classes"
     assertDistinct "declaration" fields
     efields <- mapM (local add_type_vars . typecheck) fields
     ectraits <- mapM (local (add_type_vars . add_this) . typecheck) ctraits
-    mapM (meet_required_fields efields) ectraits
+    mapM_ (meet_required_fields efields) ectraits
     emethods <- mapM typecheckMethod methods
     -- TODO add namespace for trait methods
     ensure_no_method_conflict emethods ectraits
@@ -356,9 +355,9 @@ instance Checkable MethodDecl where
                           else hasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          checkMainParams = unless ((map ptype mparams) `elem` [[], [arrayType stringType]]) $
-                              tcError $
-                                "Main method must have argument type () or ([string])"
+          checkMainParams = 
+              unless (map ptype mparams `elem` [[], [arrayType stringType]]) $
+                tcError "Main method must have argument type () or ([string])"
           typecheckParam p@(Param{ptype}) = local (pushBT p) $
                                             do ty <- checkType ptype
                                                return $ setType ty p
@@ -378,9 +377,9 @@ instance Checkable MethodDecl where
            eBody    <- local (addParams eMparams) $ typecheck mbody
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          typecheckParam = (\p@(Param{ptype}) -> local (pushBT p) $
-                                                 do ty <- checkType ptype
-                                                    return $ setType ty p)
+          typecheckParam p@(Param{ptype}) = local (pushBT p) $
+                                            do ty <- checkType ptype
+                                               return $ setType ty p
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 -- | 'hasType e ty' typechecks 'e' (with backtrace) and returns
@@ -448,7 +447,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isRefType targetType) $
         tcError $ "Cannot call method on expression '" ++
-                  (show $ ppExpr target) ++
+                  show (ppExpr target) ++
                   "' of type '" ++ show targetType ++ "'"
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
@@ -485,7 +484,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isActiveRefType targetType) $
            tcError $ "Cannot send message to expression '" ++
-                     (show $ ppExpr target) ++
+                     show (ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
       mdecl <- findMethod targetType name
       paramTypes <- mapM (resolveType . ptype) (mparams mdecl)
@@ -523,17 +522,17 @@ instance Checkable Expr where
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
       eEparams <- mapM (local add_type_vars . typecheck) eparams
-      eBody <- local (add_type_vars . (addParams eEparams)) $ typecheck body
+      eBody <- local (add_type_vars . addParams eEparams) $ typecheck body
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       when (isNullType returnType) $
-           tcError $ "Cannot infer return type of closure with null-valued body"
+           tcError "Cannot infer return type of closure with null-valued body"
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
         all_param_types = concatMap (typeComponents . ptype) eparams
         type_vars = nub $ filter isTypeVar all_param_types
         add_type_vars = addTypeParameters type_vars
-        to_tuple params = map (\Param{pname, ptype} -> (pname, ptype)) params
+        to_tuple = map (\Param{pname, ptype} -> (pname, ptype))
         addParams = extendEnvironment . to_tuple
 
     --  E |- body : t
@@ -543,7 +542,7 @@ instance Checkable Expr where
         do eBody <- typecheck body
            let returnType = AST.getType eBody
            when (isNullType returnType) $
-               tcError $ "Cannot infer the return type of the task expression"
+               tcError "Cannot infer the return type of the task expression"
            return $ setType (futureType returnType) task {body = eBody}
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
@@ -556,7 +555,7 @@ instance Checkable Expr where
            let declNames = map fst eDecls
                declTypes = map (AST.getType . snd) eDecls
            when (any isNullType declTypes) $
-                tcError $ "Cannot infer type of null-valued expression"
+                tcError "Cannot infer type of null-valued expression"
            eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
            return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
         where
@@ -591,7 +590,7 @@ instance Checkable Expr where
         where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
-                  tcError $ "Cannot infer result type of if-statement"
+                  tcError "Cannot infer result type of if-statement"
               | isNullType ty1 && isRefType ty2 = return ty2
               | isNullType ty2 && isRefType ty1 = return ty1
               | otherwise = if ty2 == ty1
@@ -669,7 +668,7 @@ instance Checkable Expr where
     --    ------------------ :: suspend
     --    suspend : void
     doTypecheck suspend@(Suspend {}) =
-        do return $ setType voidType suspend
+        return $ setType voidType suspend
 
     --    f : Fut T
     --    ------------------ :: await
@@ -707,7 +706,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveRefType targetType) $
         tcError $ "Cannot read field of expression '" ++
-          (show $ ppExpr target) ++ "' of " ++ Types.showWithKind targetType
+          show (ppExpr target) ++ "' of " ++ Types.showWithKind targetType
       fdecl <- asks $ fieldLookup targetType name
       case fdecl of
         Just Field{ftype} -> do
@@ -775,7 +774,7 @@ instance Checkable Expr where
       when (isMainType ty') $
            tcError "Cannot create additional Main objects"
       bindings <- formal_bindings ty'
-      ty'' <- return $ replaceTypeVars bindings ty'
+      let ty'' = replaceTypeVars bindings ty'
       return $ setType ty'' new{ty = ty''}
 
    ---  |- ty
@@ -805,11 +804,11 @@ instance Checkable Expr where
     -- ----------------------------------
     --  E |- [arg1, .., argn] : [ty]
     doTypecheck arr@(ArrayLiteral {args}) =
-        do unless (length args > 0) $
-                  tcError $ "Array literal must have at least one element"
+        do when (null args) $
+                tcError "Array literal must have at least one element"
            eArg1 <- doTypecheck (head args)
            let ty = AST.getType eArg1
-           eArgs <- mapM (\e -> hasType e ty) args
+           eArgs <- mapM (`hasType` ty) args
            return $ setType (arrayType ty) arr{args = eArgs}
 
     --  E |- target : [ty]
@@ -821,7 +820,7 @@ instance Checkable Expr where
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
                   tcError $ "Cannot index non-array '" ++
-                            (show $ ppExpr target) ++
+                            show (ppExpr target) ++
                             "' of type '" ++ show targetType ++ "'"
            eIndex <- hasType index intType
            return $ setType (getResultType targetType)
@@ -835,7 +834,7 @@ instance Checkable Expr where
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
                   tcError $ "Cannot calculate the size of non-array '" ++
-                            (show $ ppExpr target) ++
+                            show (ppExpr target) ++
                             "' of type '" ++ show targetType ++ "'"
            return $ setType intType arrSize{target = eTarget}
 
@@ -856,8 +855,8 @@ instance Checkable Expr where
     --  E |- exit(arg) : void
     doTypecheck exit@(Exit {args}) =
         do eArgs <- mapM typecheck args
-           unless (length eArgs == 1 && (isIntType $ AST.getType (head eArgs))) $
-                  tcError $ "exit expects a single integer argument"
+           unless (length eArgs == 1 && isIntType (AST.getType (head eArgs))) $
+                  tcError "exit expects a single integer argument"
            return $ setType voidType exit {args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
@@ -877,12 +876,12 @@ instance Checkable Expr where
     -- -------------------------
     --  E |- not operand : bool
     doTypecheck unary@(Unary {uop, operand})
-      | uop == (Identifiers.NOT) = do
+      | uop == Identifiers.NOT = do
         eOperand <- typecheck operand
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
                 tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
-                          "Expression '" ++ (show $ ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
+                          "Expression '" ++ show (ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
         return $ setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}
@@ -908,32 +907,32 @@ instance Checkable Expr where
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
                   tcError $ "Operator '"++ show binop ++ "' is only defined for boolean types\n" ++
-                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
-                          "   Right type: '" ++ (show $ rType) ++ "'"
+                          "   Left type: '" ++ show lType ++ "'\n" ++
+                          "   Right type: '" ++ show rType ++ "'"
           return $ setType boolType bin {loper = eLoper, roper = eRoper}
-      | binop `elem` cmpOps =
-          do eLoper <- typecheck loper
+      | binop `elem` cmpOps = do 
+             eLoper <- typecheck loper
              eRoper <- typecheck roper
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
                     tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
-                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
-                          "   Right type: '" ++ (show $ rType) ++ "'"
+                          "   Left type: '" ++ show lType ++ "'\n" ++
+                          "   Right type: '" ++ show rType ++ "'"
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
-      | binop `elem` eqOps =
-          do eLoper <- typecheck loper
+      | binop `elem` eqOps = do
+             eLoper <- typecheck loper
              eRoper <- hasType roper (AST.getType eLoper)
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
-      | binop `elem` arithOps =
-          do eLoper <- typecheck loper
+      | binop `elem` arithOps = do
+             eLoper <- typecheck loper
              eRoper <- typecheck roper
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
                     tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
-                          "   Left type: '" ++ (show $ lType) ++ "'\n" ++
-                          "   Right type: '" ++ (show $ rType) ++ "'"
+                          "   Left type: '" ++ show lType ++ "'\n" ++
+                          "   Right type: '" ++ show rType ++ "'"
              return $ setType (coerceTypes lType rType) bin {loper = eLoper, roper = eRoper}
       | otherwise = tcError $ "Undefined binary operator '" ++ show binop ++ "'"
       where
@@ -946,7 +945,7 @@ instance Checkable Expr where
             | isRealType ty2 = realType
             | otherwise = intType
 
-    doTypecheck e = error $ "Cannot typecheck expression " ++ (show $ ppExpr e)
+    doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 
 --  classLookup(ty) = _
 -- ---------------------
@@ -973,7 +972,7 @@ matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
 matchArguments (arg:args) (typ:types) =
     do eArg <- do eArg <- typecheck arg
-                  if (isNullType (AST.getType eArg)) then
+                  if isNullType (AST.getType eArg) then
                       coerceNull eArg typ
                   else
                       return eArg
@@ -1061,7 +1060,7 @@ matchTypes expected ty
 matchTypeParameters :: [Type] -> [Type] ->
                        ExceptT TCError (Reader Environment) [(Type, Type)]
 matchTypeParameters formals params = do
-  bindings <- mapM (uncurry matchTypes) $ zip formals params
+  bindings <- zipWithM matchTypes formals params
   return $ concat bindings
 
 assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()

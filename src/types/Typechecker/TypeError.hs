@@ -40,7 +40,7 @@ instance Show BacktraceNode where
     | (isNothing . getSugared) expr = ""
     | otherwise =
       let str = show $ nest 2 $ ppSugared expr
-      in concat ["In expression: \n", str]
+      in "In expression: \n" ++ str
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -70,10 +70,10 @@ instance Pushable Function where
     push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
 
 instance Pushable ImplementedTrait where
-  push t bt = pushMeta t (BTImplementedTrait t) bt
+  push t = pushMeta t (BTImplementedTrait t)
 
 instance Pushable Trait where
-  push t bt = pushMeta t (BTTrait t) bt
+  push t = pushMeta t (BTTrait t)
 
 instance Pushable ClassDecl where
     push c bt = (getPos c, BTClass (cname c)) : bt
@@ -101,9 +101,9 @@ instance Show TCError where
         " *** Error during typechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
-        (concat $ map showBT bt)
+        concatMap showBT bt
         where
           showBT (pos, node) =
-              case (show node) of
+              case show node of
                 "" -> ""
                 s  -> s ++ "\n"
