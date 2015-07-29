@@ -44,8 +44,8 @@ tcError msg =
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
 -- Bar]@ will throw an error with the message "Duplicate
 -- declaration of field 'f'".
-assertDistinctThing :: 
-    (MonadError TCError m, MonadReader Environment m, Eq a, Show a) => 
+assertDistinctThing ::
+    (MonadError TCError m, MonadReader Environment m, Eq a, Show a) =>
     String -> String -> [a] -> m ()
 assertDistinctThing something kind l =
   let
@@ -74,12 +74,11 @@ resolveType :: Type -> ExceptT TCError (Reader Environment) Type
 resolveType ty
   | isRefType ty = do
       result <- asks $ refTypeLookup ty
+      type_vars <- mapM resolveType $ getTypeParameters ty
       case result of
         Nothing -> tcError $ concat ["Unknown type '", show ty, "'"]
         Just ty' -> return $ setTypeParameters ty' type_vars
   | otherwise = return ty
-      where
-        type_vars = getTypeParameters ty
 
 -- | Convenience function for checking if a type is
 -- well-formed. Returns the same type with correct activity
@@ -355,7 +354,7 @@ instance Checkable MethodDecl where
                           else hasType mbody ty
            return $ setType ty m {mtype = ty, mbody = eBody, mparams = eMparams}
         where
-          checkMainParams = 
+          checkMainParams =
               unless (map ptype mparams `elem` [[], [arrayType stringType]]) $
                 tcError "Main method must have argument type () or ([string])"
           typecheckParam p@(Param{ptype}) = local (pushBT p) $
@@ -383,11 +382,11 @@ instance Checkable MethodDecl where
           addParams params = extendEnvironment $ map (\(Param {pname, ptype}) -> (pname, ptype)) params
 
 -- | 'hasType e ty' typechecks 'e' (with backtrace) and returns
--- the result if 'e' is a subtype of 'ty' 
+-- the result if 'e' is a subtype of 'ty'
 hasType :: Expr -> Type -> ExceptT TCError (Reader Environment) Expr
 hasType e ty = local (pushBT e) $ checkHasType e ty
     where
-      checkHasType expr ty = 
+      checkHasType expr ty =
           do eExpr <- doTypecheck expr
              let exprType = AST.getType eExpr
              if isNullType exprType then
@@ -910,7 +909,7 @@ instance Checkable Expr where
                           "   Left type: '" ++ show lType ++ "'\n" ++
                           "   Right type: '" ++ show rType ++ "'"
           return $ setType boolType bin {loper = eLoper, roper = eRoper}
-      | binop `elem` cmpOps = do 
+      | binop `elem` cmpOps = do
              eLoper <- typecheck loper
              eRoper <- typecheck roper
              let lType = AST.getType eLoper
