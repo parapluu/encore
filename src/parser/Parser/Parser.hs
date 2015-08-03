@@ -49,11 +49,12 @@ lexer =
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require", "val"
+     "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "Maybe", "Just", "Nothing", "match", "with"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
-     "\\", "()", "~~>"
+     "\\", "()", "~~>", "=>"
      ]
   }
 
@@ -96,11 +97,14 @@ longidentifier = do
 -- an expressionParser for types (with arrow as the only infix
 -- operator)
 typ :: Parser Type
-typ  =  try arrow
-    <|> parens typ
-    <|> nonArrow
-    <?> "type"
+typ  = adtTypes
+       <|> firstOrderTyp
     where
+      adtTypes = maybe
+      firstOrderTyp = try arrow
+                   <|> parens typ
+                   <|> nonArrow
+                   <?> "type"
       nonArrow =  fut
               <|> par
               <|> stream
@@ -118,6 +122,10 @@ typ  =  try arrow
       fut = do reserved "Fut"
                ty <- typ
                return $ futureType ty
+      maybe = do
+         reserved "Maybe"
+         ty <- firstOrderTyp
+         return $ maybeType ty
       par = do reserved "Par"
                ty <- typ
                return $ parType ty
@@ -330,7 +338,7 @@ arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
 expression :: Parser Expr
-expression = buildExpressionParser opTable expr
+expression = buildExpressionParser opTable highOrderExpr
     where
       opTable = [
                  [arrayAccess],
@@ -390,6 +398,22 @@ expression = buildExpressionParser opTable expr
                     return (Assign (meta pos))) AssocRight
 
 
+highOrderExpr :: Parser Expr
+highOrderExpr = adtExpr
+                <|> expr
+  where
+    adtExpr = justExpr
+              <|> nothingExpr
+    justExpr = do
+      pos <- getPosition
+      reserved "Just"
+      body <- expr <|> nothingExpr
+      return $ MaybeValue (meta pos) (JustData body)
+    nothingExpr = do
+      pos <- getPosition
+      reserved "Nothing"
+      return $ MaybeValue (meta pos) NothingData
+
 
 expr :: Parser Expr
 expr  =  unit
@@ -399,6 +423,7 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
+     <|> match
      <|> task
      <|> finishTask
      <|> for
@@ -537,6 +562,18 @@ expr  =  unit
                    reservedOp "->"
                    body <- expression
                    return $ Closure (meta pos) params body
+      match = do pos <- getPosition
+                 reserved "match"
+                 argDecl <- expression
+                 reserved "with"
+                 body <- maybeBraces $ many matchingExpr
+                 return $ MatchDecl (meta pos) argDecl body
+             where
+               matchingExpr = do
+                 patternMatching <- expression
+                 reservedOp "=>"
+                 body <- expression
+                 return (patternMatching, body)
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression

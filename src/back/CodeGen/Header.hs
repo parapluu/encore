@@ -31,6 +31,7 @@ generate_header p =
       "range.h",
       "future.h",
       "task.h",
+      "option.h",
       "string.h",
       "stdio.h",
       "stdarg.h"

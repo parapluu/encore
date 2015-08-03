@@ -86,6 +86,7 @@ solution "ponyrt"
     "../encore",
     "../future",
     "../task",
+    "../adt",
     "libponyrt",
     "../common",
   }
@@ -159,8 +160,17 @@ project "task"
     "../task/task.c"
   }
 
+project "optiontype"
+  c_lib()
+  links { "encore" }
+  files {
+    "../adt/option.h",
+    "../adt/option.c"
+  }
+
 project "closure"
   c_lib()
+
   files {
     "../closure/closure.h",
     "../closure/closure.c"

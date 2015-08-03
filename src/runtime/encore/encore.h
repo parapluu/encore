@@ -38,12 +38,12 @@ typedef struct pony_main_msg_t
   char** argv;
 } pony_main_msg_t;
 
-typedef union
-{
-  void* p;
-  intptr_t i;
-  double d;
-} encore_arg_t;
+#define encore_arg_t_content			\
+    void* p;					\
+    intptr_t i;         			\
+    double d;					\
+
+typedef union { encore_arg_t_content; } encore_arg_t;
 
 #include "task.h"
 

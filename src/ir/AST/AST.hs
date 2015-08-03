@@ -213,6 +213,9 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
+data MaybeContainer = JustData { e :: Expr}
+                   | NothingData deriving(Eq, Show)
+
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
@@ -229,11 +232,16 @@ data Expr = Skip {emeta :: Meta Expr}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
                           args :: Arguments}
+          | MatchDecl {emeta :: Meta Expr,
+                       arg :: Expr,
+                       matchbody :: [(Expr, Expr)]}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | MaybeValue {emeta :: Meta Expr,
+                       mdt :: MaybeContainer }
           | Foreach {emeta :: Meta Expr,
                      item :: Name,
                      arr :: Expr,
