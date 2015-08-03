@@ -54,6 +54,10 @@ module Types(
             ,typeMap
             ,typeMapM
             ,showWithKind
+            ,maybeType
+            ,isMaybeType
+            ,bottomType
+            ,isBottomType
             ) where
 
 import Data.List
@@ -97,12 +101,14 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | StreamType{resultType :: Type}
           | ArrayType{resultType :: Type}
           | RangeType
+          | MaybeType {resultType :: Type}
           | VoidType
           | StringType
           | IntType
           | BoolType
           | RealType
           | NullType
+          | BottomType
             deriving(Eq)
 
 getArgTypes = argTypes
@@ -128,12 +134,14 @@ instance Show Type where
     show StreamType{resultType} = "Stream " ++ maybeParen resultType
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
     show RangeType   = "Range"
+    show (MaybeType ty)    = "Maybe " ++ maybeParen ty
     show VoidType   = "void"
     show StringType = "string"
     show IntType    = "int"
     show RealType   = "real"
     show BoolType   = "bool"
     show NullType   = "null type"
+    show BottomType      = "Bottom"
 
 maybeParen :: Type -> String
 maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
@@ -341,6 +349,14 @@ isArrowType _ = False
 futureType = FutureType
 isFutureType FutureType {} = True
 isFutureType _ = False
+
+maybeType = MaybeType
+isMaybeType MaybeType {} = True
+isMaybeType _ = False
+
+bottomType = BottomType
+isBottomType BottomType {} = True
+isBottomType _ = False
 
 parType = ParType
 isParType ParType {} = True

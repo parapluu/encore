@@ -24,6 +24,7 @@ import AST.PrettyPrinter
 data BacktraceNode = BTPulledImport QName
                    | BTFunction Name Type
                    | BTTrait Type
+                   | BTMaybe MaybeDataType
                    | BTClass Type
                    | BTParam ParamDecl
                    | BTField FieldDecl
@@ -93,6 +94,9 @@ instance Pushable MethodDecl where
 
 instance Pushable Expr where
     push expr = pushMeta expr (BTExpr expr)
+
+instance Pushable MaybeDataType where
+    push m bt = (getPos m, BTMaybe m) : bt
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.

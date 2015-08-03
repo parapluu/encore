@@ -49,7 +49,8 @@ lexer =
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require", "val"
+     "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "Maybe", "Just", "Nothing"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -108,6 +109,7 @@ typ  =  try arrow
               <|> primitive
               <|> range
               <|> try refType
+              <|> maybe
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -118,6 +120,10 @@ typ  =  try arrow
       fut = do reserved "Fut"
                ty <- typ
                return $ futureType ty
+      maybe = do
+         reserved "Maybe"
+         ty <- typ
+         return $ maybeType ty
       par = do reserved "Par"
                ty <- typ
                return $ parType ty
@@ -412,6 +418,7 @@ expr  =  unit
      <|> yield
      <|> try newWithInit
      <|> new
+     <|> maybeExpression
      <|> peer
      <|> null
      <|> true
@@ -427,6 +434,17 @@ expr  =  unit
                  ty <- typ
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
+      maybeExpression = do
+        pos <- getPosition
+        let metapos = meta pos
+        body <- (do reserved "Just"
+                    body <- expression
+                    return (JustType metapos body))
+                <|>
+                (do reserved "Nothing"
+                    return (NothingType metapos))
+        return $ MaybeData (meta pos) body
+
       unit = do pos <- getPosition
                 reservedOp "()"
                 return $ Skip (meta pos)

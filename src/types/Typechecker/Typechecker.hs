@@ -216,9 +216,23 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
              let exprType = AST.getType eExpr
              if isNullType exprType then
                  coerceNull eExpr ty
+             else if ((isMaybeType exprType) && (isBottomType $ getResultType exprType)) then
+                   coerceNull eExpr ty
              else
                  do assertSubtypeOf exprType ty
                     return eExpr
+
+
+instance Checkable MaybeDataType where
+    doTypecheck just@(JustType mdtmeta e) = do
+      eBody <- typecheck e
+      let returnType = AST.getType eBody
+      when (isNullType returnType) $
+        tcError "Cannot infer the return type of the maybe expression"
+      return $ setType returnType (just { e = eBody })
+
+    doTypecheck nothing@(NothingType mdtmeta) =
+      return $ setType bottomType nothing
 
 instance Checkable Expr where
     --
@@ -319,6 +333,14 @@ instance Checkable Expr where
       (eArgs, _) <- local (bindTypes fBindings) $
                     matchArguments args expectedTypes
       return $ setType voidType msend {target = eTarget, args = eArgs}
+
+    doTypecheck maybeData@(MaybeData {mdt}) = do
+      eBody <- typecheck mdt
+      let returnType = AST.getType eBody
+      when (isNullType returnType) $
+        tcError "Cannot infer the return type of the maybe expression"
+      return $ setType (maybeType returnType) maybeData { mdt = eBody }
+
 
     --  E |- f : (t1 .. tn) -> t
     --  typeVarBindings() = B
@@ -554,6 +576,7 @@ instance Checkable Expr where
                             "' is a global variable and cannot be assigned to"
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+
     doTypecheck assign@(Assign {lhs, rhs}) =
         do unless (isLval lhs) $
              tcError $ "Left hand side '" ++ show (ppExpr lhs) ++
@@ -833,6 +856,7 @@ coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
     | isRefType ty = return $ setType ty null
+    | isMaybeType ty = return $ setType ty null
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"

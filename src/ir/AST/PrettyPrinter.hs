@@ -57,6 +57,9 @@ ppLambda = text "\\"
 ppArrow = text "->"
 ppTask = text "async"
 ppBar = text "|"
+ppJust = text "Just"
+ppNothing = text "Nothing"
+
 
 indent = nest 2
 
@@ -157,6 +160,8 @@ ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
+ppExpr (MaybeData _ (JustType _ a)) = ppJust <+> ppExpr a
+ppExpr (MaybeData _ (NothingType _)) = ppNothing
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)

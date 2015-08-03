@@ -213,6 +213,16 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
+data MaybeDataType = JustType { mdtmeta :: Meta MaybeDataType, e :: Expr}
+                   | NothingType {mdtmeta :: Meta MaybeDataType } deriving(Eq, Show)
+
+instance HasMeta MaybeDataType where
+  getMeta = mdtmeta
+  setMeta mdt m = mdt{mdtmeta = m}
+  setType ty m@(JustType {mdtmeta}) = m {mdtmeta = AST.Meta.setType ty mdtmeta}
+  setType ty m@(NothingType {mdtmeta}) = m {mdtmeta = AST.Meta.setType ty mdtmeta}
+
+
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
@@ -234,6 +244,8 @@ data Expr = Skip {emeta :: Meta Expr}
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | MaybeData {emeta :: Meta Expr,
+                       mdt :: MaybeDataType }
           | Foreach {emeta :: Meta Expr,
                      item :: Name,
                      arr :: Expr,
