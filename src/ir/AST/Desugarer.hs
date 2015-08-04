@@ -12,26 +12,26 @@ import qualified Data.List as List
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions, imports}) =
   p{
-    traits = map desugar_trait traits,
+    traits = map desugarTrait traits,
     classes = map desugarClass classes,
     functions = map desugarFunction functions,
     imports = map desugarImports imports
   }
   where
-    desugar_trait t@Trait{traitMethods}=
-      t{traitMethods = map desugarMethod traitMethods}
+    desugarTrait t@Trait{tmethods}=
+      t{tmethods = map desugarMethod tmethods}
     desugarImports f@(PulledImport{iprogram}) =
       f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
-    desugarClass c@(Class{methods}) = c{methods = map desugarMethod methods}
+    desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
     desugarMethod m
-      | (mname m) == Name "init" =
+      | mname m == Name "init" =
         m{mname = Name "_init", mbody = desugarExpr (mbody m)}
       | otherwise = m{mbody = desugarExpr (mbody m)}
-    desugarExpr = (extend desugar) . (extend (\e -> setSugared e e))
+    desugarExpr = extend desugar . extend (\e -> setSugared e e)
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
-cloneMeta m = (Meta.meta (Meta.sourcePos m))
+cloneMeta m = Meta.meta (Meta.sourcePos m)
 
 desugar :: Expr -> Expr
 

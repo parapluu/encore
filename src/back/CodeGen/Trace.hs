@@ -7,10 +7,11 @@ import CodeGen.CCodeNames
 import qualified Types as Ty
 import CCode.PrettyCCode ()
 
+-- TODO: Tracing of trait typed variables?
 trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
 trace_variable t var
-  | Ty.isActiveRefType  t = pony_traceactor var
-  | Ty.isPassiveRefType t = pony_traceobject var $ class_trace_fn_name t
+  | Ty.isActiveClassType  t = pony_traceactor var
+  | Ty.isPassiveClassType t = pony_traceobject var $ class_trace_fn_name t
   | Ty.isFutureType     t = pony_traceobject var future_trace_fn
   | Ty.isArrowType      t = pony_traceobject var closure_trace_fn
   | Ty.isArrayType      t = pony_traceobject var array_trace_fn

@@ -198,11 +198,11 @@ one_way_msg_id cls mname =
 
 type_name_prefix :: Ty.Type -> String
 type_name_prefix ref
-    | Ty.isActiveRefType ref =
+    | Ty.isActiveClassType ref =
         encore_name "active" $ Ty.getId ref
-    | Ty.isPassiveRefType ref =
+    | Ty.isPassiveClassType ref =
         encore_name "passive" $ Ty.getId ref
-    | Ty.isTrait ref =
+    | Ty.isTraitType ref =
         encore_name "trait" $ Ty.getId ref
     | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                           "' isnt reference type!"

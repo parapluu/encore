@@ -35,12 +35,12 @@ instance Translatable Ty.Type (CCode Ty) where
 
 runtime_type :: Ty.Type -> CCode Expr
 runtime_type ty
-    | Ty.isActiveRefType ty  = AsExpr $ Var "ENCORE_ACTIVE"
-    | Ty.isPassiveRefType ty = Amp $ runtime_type_name ty
+    | Ty.isActiveClassType ty  = AsExpr $ Var "ENCORE_ACTIVE"
+    | Ty.isPassiveClassType ty = Amp $ runtime_type_name ty
     | Ty.isFutureType ty ||
-      Ty.isStreamType ty = Amp $ future_type_rec_name
-    | Ty.isArrowType ty = Amp $ closure_type_rec_name
-    | Ty.isArrayType ty = Amp $ array_type_rec_name
+      Ty.isStreamType ty = Amp future_type_rec_name
+    | Ty.isArrowType ty  = Amp closure_type_rec_name
+    | Ty.isArrayType ty  = Amp array_type_rec_name
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
 encore_arg_t_tag :: CCode Ty -> CCode Name

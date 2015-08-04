@@ -163,57 +163,95 @@ foldr f acc e =
     let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
     in f e childResult
 
-foldrAll :: (Expr -> a -> a) -> a -> Program -> [[a]]
-foldrAll f e Program{functions, classes} =
-  [map (foldFunction f e) functions] ++ (map (foldClass f e) classes)
+foldrAll :: (Expr -> a -> a) -> a -> Program -> [a]
+foldrAll f e Program{functions, traits, classes} =
+  map (foldFunction f e) functions ++
+  concatMap (foldTrait f e) traits ++
+  concatMap (foldClass f e) classes
     where
       foldFunction f e (Function {funbody}) = foldr f e funbody
-      foldClass f e (Class {methods}) = map (foldMethod f e) methods
+      foldClass f e (Class {cmethods}) = map (foldMethod f e) cmethods
+      foldTrait f e (Trait {tmethods}) = map (foldMethod f e) tmethods
       foldMethod f e m = foldr f e (mbody m)
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
 -- extend f [1,2,3,4] = [f [1,2,3,4], f [2,3,4], f [3,4], f [4]].
 extend :: (Expr -> Expr) -> Expr -> Expr
-extend f = snd . (extendAccum (\acc e -> (undefined, f e)) undefined)
+extend f = snd . extendAccum (\acc e -> (undefined, f e)) undefined
 
 extendAccum :: (acc -> Expr -> (acc, Expr)) -> acc -> Expr -> (acc, Expr)
 extendAccum f acc0 e =
     let (acc1, childResults) =
-            List.mapAccumL (\acc e -> extendAccum f acc e) acc0 (getChildren e)
+            List.mapAccumL (extendAccum f) acc0 (getChildren e)
     in
       f acc1 (putChildren childResults e)
 
-extendAccumProgram :: (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, classes} =
-  (acc2, p{functions = funs', classes = classes'})
+extendAccumProgram ::
+    (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
+extendAccumProgram f acc0 p@Program{functions, traits, classes} =
+  (acc3, p{functions = funs', traits = traits', classes = classes'})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
-      extendAccumFunction f acc fun@(Function{funbody}) = (acc', fun{funbody = funbody'})
-          where
-            (acc', funbody') = extendAccum f acc funbody
-      (acc2, classes') = List.mapAccumL (extendAccumClass f) acc1 classes
-      extendAccumClass f acc cls@(Class{methods}) = (acc', cls{methods = methods'})
-          where
-            (acc', methods') = List.mapAccumL (extendAccumMethod f) acc methods
-            extendAccumMethod f acc mtd = (acc', mtd{mbody = mbody'})
-                where
-                  (acc', mbody') = extendAccum f acc (mbody mtd)
+      extendAccumFunction f acc fun@(Function{funbody}) =
+        (acc', fun{funbody = funbody'})
+        where
+          (acc', funbody') = extendAccum f acc funbody
 
--- | @filter cond e@ returns a list of all sub expressions @e'@ of @e@ for which @cond e'@ returns @True@
+      (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
+      extendAccumTrait f acc trt@(Trait{tmethods}) =
+        (acc', trt{tmethods = tmethods'})
+        where
+          (acc', tmethods') = List.mapAccumL (extendAccumMethod f) acc tmethods
+
+      (acc3, classes') = List.mapAccumL (extendAccumClass f) acc2 classes
+      extendAccumClass f acc cls@(Class{cmethods}) =
+        (acc', cls{cmethods = cmethods'})
+        where
+          (acc', cmethods') = List.mapAccumL (extendAccumMethod f) acc cmethods
+
+      extendAccumMethod f acc mtd =
+        (acc', mtd{mbody = mbody'})
+        where
+          (acc', mbody') = extendAccum f acc (mbody mtd)
+
+-- | @filter cond e@ returns a list of all sub expressions @e'@ of
+-- @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
 filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
-extractTypes (Program{functions, classes}) =
-    List.nub $ concat $ concatMap extractFunctionTypes functions ++ concatMap extractClassTypes classes
+extractTypes (Program{functions, traits, classes}) =
+    List.nub $ concat $ concatMap extractFunctionTypes functions ++
+                        concatMap extractTraitTypes traits ++
+                        concatMap extractClassTypes classes
     where
-      extractFunctionTypes Function {funtype, funparams, funbody} = (typeComponents funtype) : (map extractParamTypes funparams) ++ [extractExprTypes funbody]
-      extractClassTypes Class {cname, fields, methods} = [cname] : (map extractFieldTypes fields) ++ (concatMap extractMethodTypes methods)
+      extractFunctionTypes Function {funtype, funparams, funbody} =
+          typeComponents funtype :
+          map extractParamTypes funparams ++
+          [extractExprTypes funbody]
+
+      extractTraitTypes Trait {tname, tfields, tmethods} =
+          typeComponents tname :
+          map extractFieldTypes tfields ++
+          concatMap extractMethodTypes tmethods
+
+      extractClassTypes Class {cname, cfields, cmethods} =
+          typeComponents cname :
+          map extractFieldTypes cfields ++
+          concatMap extractMethodTypes cmethods
       extractFieldTypes Field {ftype} = typeComponents ftype
-      extractMethodTypes m = (typeComponents (mtype m)) : (map extractParamTypes (mparams m)) ++ [extractExprTypes (mbody m)]
+
+      extractMethodTypes m =
+          typeComponents (mtype m) :
+          map extractParamTypes (mparams m) ++
+          [extractExprTypes (mbody m)]
+
       extractParamTypes Param {ptype} = typeComponents ptype
-      extractExprTypes e = foldr (\e acc -> (typeComponents . getType) e ++ acc) [] e
+
+      extractExprTypes = foldr collectTypes []
+          where
+            collectTypes e acc = (typeComponents . getType) e ++ acc
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr

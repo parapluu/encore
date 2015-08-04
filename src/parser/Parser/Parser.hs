@@ -5,7 +5,10 @@ grammar found in @doc/encore/@
 
 -}
 
-module Parser.Parser(parseEncoreProgram ,identifier_parser) where
+module Parser.Parser(
+                      parseEncoreProgram
+                    , identifierParser
+                    ) where
 
 -- Library dependencies
 import Text.Parsec
@@ -19,7 +22,7 @@ import Control.Applicative ((<$>))
 
 -- Module dependencies
 import Identifiers
-import Types
+import Types hiding(refType)
 import AST.AST
 import AST.Meta hiding(Closure, Async)
 
@@ -29,7 +32,7 @@ import AST.Meta hiding(Closure, Async)
 parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
 
-identifier_parser = identifier
+identifierParser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
@@ -74,8 +77,7 @@ parens     = P.parens lexer
 angles     = P.angles lexer
 brackets   = P.brackets lexer
 braces     = P.braces lexer
-braces' :: Parser a -> Parser a
-braces' p = braces p <|> p
+maybeBraces p = braces p <|> p
 
 stringLiteral = P.stringLiteral lexer
 integer = P.integer lexer
@@ -86,8 +88,8 @@ whiteSpace = P.whiteSpace lexer
 longidentifier :: Parser QName
 longidentifier = do
     id <- identifier
-    rest <- option [] (do { dot ; rest <- longidentifier ; return rest })
-    return $ (Name id) : rest
+    rest <- option [] (do { dot ; longidentifier })
+    return $ Name id : rest
 
 -- Note, when we have product types (i.e. tuples), we could make
 -- an expressionParser for types (with arrow as the only infix
@@ -100,14 +102,14 @@ typ  =  try arrow
     where
       nonArrow =  fut
               <|> par
-              <|> try paramType
               <|> stream
               <|> array
               <|> primitive
-              <|> try classType
+              <|> try refType
               <|> typeVariable
               <|> parens nonArrow
-      arrow = do lhs <- parens (commaSep typ) <|> do {ty <- nonArrow ; return [ty]}
+      arrow = do lhs <- parens (commaSep typ)
+                     <|> do {ty <- nonArrow ; return [ty]}
                  reservedOp "->"
                  rhs <- nonArrow
                  return $ arrowType lhs rhs
@@ -117,11 +119,6 @@ typ  =  try arrow
       par = do reserved "Par"
                ty <- typ
                return $ parType ty
-      paramType = do id <- identifier
-                     if (isUpper . head $ id)
-                     then do params <- angles (commaSep1 typ)
-                             return $ refTypeWithParams id params
-                     else fail "Type with parameters must start with upper-case letter"
       stream = do reserved "Stream"
                   ty <- typ
                   return $ streamType ty
@@ -132,12 +129,24 @@ typ  =  try arrow
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
                   do {reserved "void"; return voidType}
-      classType = do ty <- identifier
-                     if (isUpper . head $ ty)
-                     then return $ refType ty
-                     else fail "Class types must begin with an upper case letter"
-      typeVariable = do ty <- identifier
-                        return $ typeVar ty
+
+refType :: Parser Type
+refType = do
+  id <- identifier
+  if isUpper . head $ id
+  then do
+    params <- option [] $ angles (commaSep1 typ)
+    return $ refTypeWithParams id params
+  else fail "Class and trait types must begin with an upper case letter"
+  <?> "class or trait type"
+
+typeVariable :: Parser Type
+typeVariable = do
+  notFollowedBy upper
+  id <- identifier
+  return $ typeVar id
+  <?> "lower case type variable"
+
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
@@ -147,10 +156,10 @@ program = do
   imports <- many importdecl
   etl <- embedTL
   functions <- many function
-  decls <- many $ (Left <$> trait) <|> (Right <$> classDecl)
+  decls <- many $ (Left <$> traitDecl) <|> (Right <$> classDecl)
   let (traits, classes) = partitionEithers decls
   eof
-  return $ Program{source, bundle, etl, imports, functions, traits, classes}
+  return Program{source, bundle, etl, imports, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -175,97 +184,88 @@ importdecl = do
   return $ Import (meta pos) iname
 
 embedTL :: Parser EmbedTL
-embedTL = do pos <- getPosition
-             (try (do string "embed"
-                      header <- manyTill anyChar $ try $ do {space; string "body"}
-                      code <- manyTill anyChar $ try $ do {space; reserved "end"}
-                      return $ EmbedTL (meta pos) header code
-                 )
-              <|>
-              try (do string "embed"
-                      header <- manyTill anyChar $ try $ do {space; reserved "end"}
-                      return $ EmbedTL (meta pos) header ""
-                 )
-              <|>
-              (return $ EmbedTL (meta pos) "" ""))
+embedTL = do
+  pos <- getPosition
+  (try (do string "embed"
+           header <- manyTill anyChar $ try $ do {space; string "body"}
+           code <- manyTill anyChar $ try $ do {space; reserved "end"}
+           return $ EmbedTL (meta pos) header code
+       ) <|>
+   try (do string "embed"
+           header <- manyTill anyChar $ try $ do {space; reserved "end"}
+           return $ EmbedTL (meta pos) header ""
+       ) <|>
+   (return $ EmbedTL (meta pos) "" ""))
 
 function :: Parser Function
-function = do pos <- getPosition
-              reserved "def"
-              name <- identifier
-              params <- parens (commaSep paramDecl)
-              colon
-              ty <- typ
-              body <- expression
-              return $ Function (meta pos) (Name name) ty params body
+function = do
+  funmeta <- meta <$> getPosition
+  reserved "def"
+  funname <- Name <$> identifier
+  funparams <- parens (commaSep paramDecl)
+  colon
+  funtype <- typ
+  funbody <- expression
+  return Function{funmeta
+                 ,funname
+                 ,funparams
+                 ,funtype
+                 ,funbody
+                 }
 
-trait :: Parser Trait
-trait = do
-  traitMeta <- meta <$> getPosition
+traitDecl :: Parser TraitDecl
+traitDecl = do
+  tmeta <- meta <$> getPosition
   reserved "trait"
-  id <- identifier
-  params <- type_parameters
-  (traitFields, traitMethods) <- braces' trait_body
-  return Trait{traitMeta, traitName=(traitRefType id params),
-    traitFields, traitMethods}
+  ident <- identifier
+  params <- option [] (angles $ commaSep1 typeVariable)
+  (tfields, tmethods) <- maybeBraces traitBody
+  return Trait{tmeta
+              ,tname = traitTypeFromRefType $
+                       refTypeWithParams ident params
+              ,tfields
+              ,tmethods
+              }
   where
-    trait_body = do
-      fields <- many trait_field
+    traitBody = do
+      fields <- many traitField
       methods <- many methodDecl
       return (fields, methods)
 
-trait_field :: Parser FieldDecl
-trait_field = do
+traitField :: Parser FieldDecl
+traitField = do
   reserved "require"
-  fmeta <- getPosition >>= return . meta
-  fname <- identifier >>= return . Name
+  fmeta <- meta <$> getPosition
+  fname <- Name <$> identifier
   colon
   ftype <- typ
   return Field{fmeta, fname, ftype}
 
-implemented_traits :: Parser [ImplementedTrait]
-implemented_traits = do
-  reservedOp ":"
-  meta_types <-  itrait `sepBy1` (reservedOp "+")
-  return $ map (uncurry implementTrait) meta_types
-  where
-    itrait = do
-      meta <- meta <$> getPosition
-      t <- typ
-      return (meta, t)
-
-type_parameters :: Parser [Type]
-type_parameters = do
-  params <- option [] (angles $ commaSep1 type_parameter)
-  return params
-    where
-      type_parameter = do
-        notFollowedBy upper
-        id <- identifier
-        return $ typeVar id
-        <?> "lower case type variable"
+capability :: Parser Type
+capability = do
+  traits <- refType `sepBy1` reservedOp "+"
+  return $ capabilityType traits
 
 classDecl :: Parser ClassDecl
 classDecl = do
   cmeta <- meta <$> getPosition
-  refKind <- option activeClass
-             (reserved "passive" >> return passiveClass)
+  refKind <- option activeClassTypeFromRefType
+             (reserved "passive" >> return passiveClassTypeFromRefType)
   reserved "class"
   name <- identifier
-  params <- type_parameters
-  ctraits <- option [] implemented_traits
-  (fields, methods) <- braces' classBody
-  return $ Class{
-    cmeta,
-    cname=makeClassDecl refKind name params ctraits,
-    ctraits,
-    fields,
-    methods
-  }
+  params <- option [] (angles $ commaSep1 typeVariable)
+  capability <- option incapability (do{reservedOp ":"; capability})
+  (cfields, cmethods) <- maybeBraces classBody
+  return Class{cmeta
+              ,cname = refKind (refTypeWithParams name params) capability
+              ,cfields
+              ,cmethods
+              }
   where
-    classBody = do fields <- many fieldDecl
-                   methods <- many methodDecl
-                   return (fields, methods)
+    classBody = do
+              fields <- many fieldDecl
+              methods <- many methodDecl
+              return (fields, methods)
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do pos <- getPosition
@@ -309,10 +309,13 @@ expression = buildExpressionParser opTable expr
       opTable = [
                  [arrayAccess],
                  [textualPrefix "not" Identifiers.NOT],
-                 [textualOperator "and" Identifiers.AND, textualOperator "or" Identifiers.OR],
+                 [textualOperator "and" Identifiers.AND,
+                  textualOperator "or" Identifiers.OR],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" Identifiers.LT, op ">" Identifiers.GT, op "<=" Identifiers.LTE, op ">=" Identifiers.GTE, op "==" Identifiers.EQ, op "!=" NEQ],
+                 [op "<" Identifiers.LT, op ">" Identifiers.GT,
+                  op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
+                  op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
                  [typedExpression],
                  [chain],
@@ -322,19 +325,19 @@ expression = buildExpressionParser opTable expr
       textualPrefix s operator =
           Prefix (try(do pos <- getPosition
                          reserved s
-                         return (\x -> Unary (meta pos) operator x)))
+                         return (Unary (meta pos) operator)))
       textualOperator s binop =
           Infix (try(do pos <- getPosition
                         reserved s
-                        return (\e1 e2 -> Binop (meta pos) binop e1 e2))) AssocLeft
+                        return (Binop (meta pos) binop))) AssocLeft
       prefix s operator =
           Prefix (do pos <- getPosition
                      reservedOp s
-                     return (\x -> Unary (meta pos) operator x))
+                     return (Unary (meta pos) operator))
       op s binop =
           Infix (do pos <- getPosition
                     reservedOp s
-                    return (\e1 e2 -> Binop (meta pos) binop e1 e2)) AssocLeft
+                    return (Binop (meta pos) binop)) AssocLeft
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
@@ -349,15 +352,16 @@ expression = buildExpressionParser opTable expr
                       bang
                       name <- identifier
                       args <- parens arguments
-                      return (\target -> MessageSend (meta pos) target (Name name) args))
+                      return (\target -> MessageSend (meta pos) target
+                                                     (Name name) args))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
-                    return $ (\lhs rhs -> FutureChain (meta pos) lhs rhs)) AssocLeft
+                    return (FutureChain (meta pos))) AssocLeft
       assignment =
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;
-                    return (\lhs rhs -> Assign (meta pos) lhs rhs)) AssocRight
+                    return (Assign (meta pos))) AssocRight
 
 
 
@@ -419,8 +423,10 @@ expr  =  unit
                 path <- (try functionCall <|> varAccess) `sepBy1` dot
                 return $ foldl (buildPath pos) root path
              where
-               buildPath pos target (VarAccess{name}) = FieldAccess (meta pos) target name
-               buildPath pos target (FunctionCall{name, args}) = MethodCall (meta pos) target name args
+               buildPath pos target (VarAccess{name}) =
+                   FieldAccess (meta pos) target name
+               buildPath pos target (FunctionCall{name, args}) =
+                   MethodCall (meta pos) target name args
       letExpression = do pos <- getPosition
                          reserved "let"
                          decls <- many varDecl
@@ -433,7 +439,7 @@ expr  =  unit
                                      val <- expression
                                      return (Name x, val)
       sequence = do pos <- getPosition
-                    seq <- braces (do {seq <- expression `sepEndBy1` semi; return seq})
+                    seq <- braces (expression `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
       ifThenElse = do pos <- getPosition
                       reserved "if"

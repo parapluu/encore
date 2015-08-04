@@ -13,11 +13,16 @@ module CodeGen.Context (
   subst_lkp,
   subst_rem,
   gen_named_sym,
-  gen_sym) where
+  gen_sym,
+  lookup_field,
+  lookup_method
+) where
 
 import Identifiers
+import Types
+import AST.AST
 import Control.Monad.State
-import CodeGen.ClassTable
+import qualified CodeGen.ClassTable as Tbl
 
 import qualified CCode.Main as C
 
@@ -25,15 +30,15 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym ClassTable
+data Context = Context VarSubTable NextSym Tbl.ClassTable
 
-class_table :: Context -> ClassTable
+class_table :: Context -> Tbl.ClassTable
 class_table (Context _ _ ctable) = ctable
 
-empty :: ClassTable -> Context
+empty :: Tbl.ClassTable -> Context
 empty ctable = new [] ctable
 
-new :: VarSubTable -> ClassTable -> Context
+new :: VarSubTable -> Tbl.ClassTable -> Context
 new subs ctable = Context subs 0 ctable
 
 gen_named_sym :: String -> State Context String
@@ -58,3 +63,9 @@ subst_rem (Context ((na, lv):s) nxt ctable) na'
 
 subst_lkp :: Context -> Name -> Maybe (C.CCode C.Lval)
 subst_lkp (Context s _ _) n = lookup n s
+
+lookup_field :: Type -> Name -> Context -> FieldDecl
+lookup_field ty f = Tbl.lookup_field ty f . class_table
+
+lookup_method :: Type -> Name -> Context -> MethodDecl
+lookup_method ty m = Tbl.lookup_method ty m . class_table

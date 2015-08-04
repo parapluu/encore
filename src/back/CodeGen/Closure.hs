@@ -78,16 +78,16 @@ translateClosure closure ctable
           (Assign (Decl (translate ty, AsLval $ field_name name)) (getVar name)) : extractEnvironment envName vars
               where
                 getVar name =
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (field_name name)
+                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` field_name name
 
       tracefun_decl traceName envName members =
           Function void traceName [(Ptr void, Var "p")]
                    (Seq $ map traceMember members)
               where
                 traceMember (name, ty)
-                    | Ty.isActiveRefType ty =
+                    | Ty.isActiveClassType ty =
                         Call (Nam "pony_traceactor") [getVar name]
-                    | Ty.isPassiveRefType ty =
+                    | Ty.isPassiveClassType ty =
                         Call (Nam "pony_traceobject")
                              [getVar name, AsLval $ class_trace_fn_name ty]
                     | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
