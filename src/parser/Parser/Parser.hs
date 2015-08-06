@@ -50,11 +50,11 @@ lexer =
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
      "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing"
+     "Maybe", "Just", "Nothing", "match", "with"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
-     "\\", "()", "~~>"
+     "\\", "()", "~~>", "=>"
      ]
   }
 
@@ -338,6 +338,7 @@ expression = buildExpressionParser opTable expr
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
                  [typedExpression],
+                 [matchCond],
                  [chain],
                  [assignment]
                 ]
@@ -374,6 +375,11 @@ expression = buildExpressionParser opTable expr
                       args <- parens arguments
                       return (\target -> MessageSend (meta pos) target
                                                      (Name name) args))
+      matchCond =
+          Infix (do pos <- getPosition
+                    reservedOp "=>"
+                    return $ (\lhs rhs -> MatchClause (meta pos) lhs rhs)) AssocLeft
+
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
@@ -393,6 +399,7 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
+     <|> match
      <|> task
      <|> finishTask
      <|> for
@@ -543,6 +550,12 @@ expr  =  unit
                    reservedOp "->"
                    body <- expression
                    return $ Closure (meta pos) params body
+      match = do pos <- getPosition
+                 reserved "match"
+                 argDecl <- identifier
+                 reserved "with"
+                 body <- expression
+                 return $ MatchDecl (meta pos) (Name argDecl) body
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression

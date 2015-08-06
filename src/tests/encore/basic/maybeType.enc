@@ -1,42 +1,51 @@
--- def fun(x: Maybe t): Maybe t {
---   Nothing
--- }
-
-def nothing(x: Maybe int) : Maybe int {
-  -- let y = Nothing : Maybe int
-  --     z = Just 32
-  -- in {
-  --   x = y;
-  --   y = Just 23;
-  --   y = x;
-  --   y = z;
-  --   x = Nothing;
-  --   y
-  -- }
-  x;
+def fun(x: Maybe t): Maybe t {
+  Nothing
 }
 
--- def other(x: Maybe int): Maybe int
---   x
+def nothing(x: Maybe int) : Maybe int {
+  let y = Nothing : Maybe int
+      z = Just 32
+  in {
+    x = y;
+    y = Just 23;
+    y = x;
+    y = z;
+    x = Nothing;
+    y;
+    match x with {
+      z => 42;
+    };
+  };
+  x
+}
 
--- class Test
---   z: Maybe int
+def other(x: Maybe int): Maybe int
+  x
 
---   def init(x: Maybe int): void
---     this.z = x
+class Test
+  z: Maybe int
 
---   def other(x: Maybe int) : Maybe int
---     x
+  def init(x: Maybe int): void
+    this.z = x
+
+  def other(x: Maybe int) : Maybe int
+    x
 
 class Main
   def main(): void {
-    -- let x = Nothing
-    --     y = Just 24
-    --     z = new Test(y)
-    -- in {
-    --   new Test(x);
-    --   nothing(y);
+    let x = Nothing
+        y = Just 24
+        z = new Test(y)
+    in {
+      new Test(x);
+      nothing(y);
       nothing(Nothing);
-    --   nothing(Just 32);
-    -- }
+      nothing(Just 32);
+      };
+    fun(Nothing);
+    match x with {
+	 Just 32 => 23;
+         Nothing => 22;
+    };
+    Nothing
   }

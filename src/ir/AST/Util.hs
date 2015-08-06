@@ -24,6 +24,8 @@ getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
 getChildren (MaybeData _ (JustType _ e)) = [e]
 getChildren (MaybeData _ (NothingType _)) = []
+getChildren MatchDecl {matchbody} = [matchbody]
+getChildren MatchClause {matchitem, body} = [matchitem, body]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
@@ -81,6 +83,9 @@ putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
 putChildren [body] e@(MaybeData _ (JustType mdtmeta _)) = e{mdt = JustType mdtmeta body}
 putChildren [] e@(MaybeData _ (NothingType mdtmeta)) = e
+putChildren [body] e@(MatchDecl {matchbody}) =  e { matchbody = body}
+putChildren [item, b] e@(MatchClause {matchitem, body}) = e {matchitem = item,
+                                                             body = b}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
@@ -126,6 +131,8 @@ putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 element
 putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeData {}) = error "'putChildren l MaybeData' expects l to have 1 element"
+putChildren x e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have 3 elements" ++ show x
+putChildren x e@(MatchClause {}) = error $  "'putChildren l MatchDecl' expects l to have 2 elements" ++ show x
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
