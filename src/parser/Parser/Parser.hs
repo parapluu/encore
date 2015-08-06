@@ -552,10 +552,10 @@ expr  =  unit
                    return $ Closure (meta pos) params body
       match = do pos <- getPosition
                  reserved "match"
-                 argDecl <- identifier
+                 argDecl <- expression
                  reserved "with"
                  body <- expression
-                 return $ MatchDecl (meta pos) (Name argDecl) body
+                 return $ MatchDecl (meta pos) argDecl body
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression

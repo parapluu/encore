@@ -243,7 +243,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          matchitem :: Expr,
                          body :: Expr }
           | MatchDecl {emeta :: Meta Expr,
-                       arg :: Name,
+                       arg :: Expr,
                        matchbody :: Expr
                       }
           | Closure {emeta :: Meta Expr,

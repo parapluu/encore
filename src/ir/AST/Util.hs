@@ -24,7 +24,7 @@ getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
 getChildren (MaybeData _ (JustType _ e)) = [e]
 getChildren (MaybeData _ (NothingType _)) = []
-getChildren MatchDecl {matchbody} = [matchbody]
+getChildren MatchDecl {arg, matchbody} = [arg, matchbody]
 getChildren MatchClause {matchitem, body} = [matchitem, body]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
@@ -83,7 +83,7 @@ putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
 putChildren [body] e@(MaybeData _ (JustType mdtmeta _)) = e{mdt = JustType mdtmeta body}
 putChildren [] e@(MaybeData _ (NothingType mdtmeta)) = e
-putChildren [body] e@(MatchDecl {matchbody}) =  e { matchbody = body}
+putChildren [body] e@(MatchDecl {arg, matchbody}) =  e { arg = arg, matchbody = body}
 putChildren [item, b] e@(MatchClause {matchitem, body}) = e {matchitem = item,
                                                              body = b}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}

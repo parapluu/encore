@@ -164,7 +164,7 @@ ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
 ppExpr (MaybeData _ (JustType _ a)) = ppJust <+> ppExpr a
 ppExpr (MaybeData _ (NothingType _)) = ppNothing
-ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppName arg <+> ppWith <+> ppExpr matchbody
+ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppExpr arg <+> ppWith <+> ppExpr matchbody
 ppExpr MatchClause {matchitem, body} = ppExpr matchitem <+> ppMatchArrow <+> ppExpr body
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
