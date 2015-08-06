@@ -101,8 +101,8 @@ generate_header p =
      pony_msg_t_typedefs :: [CCode Toplevel]
      pony_msg_t_typedefs = map pony_msg_t_typedef_class allclasses
              where
-                 pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.methods}) =
-                     Concat $ concatMap pony_msg_t_typedef methods
+                 pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.cmethods}) =
+                     Concat $ concatMap pony_msg_t_typedef cmethods
                      where
                          pony_msg_t_typedef mdecl =
                              [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
@@ -111,8 +111,8 @@ generate_header p =
      pony_msg_t_impls :: [CCode Toplevel]
      pony_msg_t_impls = map pony_msg_t_impls_class allclasses
                  where
-                   pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.methods}) =
-                       Concat $ map pony_msg_t_impl methods
+                   pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.cmethods}) =
+                       Concat $ map pony_msg_t_impl cmethods
                        where
                          pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
                          pony_msg_t_impl mdecl =
@@ -131,7 +131,7 @@ generate_header p =
 
      message_enums =
                  let
-                     meta = concat $ map (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.methods cdecl))) allclasses
+                     meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.cmethods cdecl))) allclasses
                      method_msg_names = map (show . (uncurry fut_msg_id)) meta
                      one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
                  in
@@ -161,34 +161,34 @@ generate_header p =
 
      passive_types = map passive_type $ filter (not . A.isActive) allclasses
                  where
-                   passive_type A.Class{A.cname, A.fields} =
+                   passive_type A.Class{A.cname, A.cfields} =
                        let typeParams = Ty.getTypeParameters cname in
                        StructDecl (AsType $ class_type_name cname)
                                   ((Ptr pony_type_t, AsLval $ self_type_field) :
                                    map (\ty -> (Ptr pony_type_t, AsLval $ type_var_ref_name ty)) typeParams ++
                                    zip
-                                   (map (translate . A.ftype) fields)
-                                   (map (AsLval . field_name . A.fname) fields))
+                                   (map (translate . A.ftype) cfields)
+                                   (map (AsLval . field_name . A.fname) cfields))
      trait_method_enums =
        let
-         dicts = map (\t -> (A.getType t, A.traitMethods t)) allTraits
+         dicts = map (\t -> (A.getType t, A.tmethods t)) allTraits
          pairs = concatMap (\(t, ms) -> zip (repeat t) (map A.mname ms)) dicts
          syncs = map (show . (uncurry one_way_msg_id)) pairs
        in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
 
      trait_type_decls = map trait_type_decl allTraits
        where
-         trait_type_decl A.Trait{A.traitName} =
-           let ty = ref_type_name traitName in Typedef (Struct $ ty) ty
+         trait_type_decl A.Trait{A.tname} =
+           let ty = ref_type_name tname in Typedef (Struct $ ty) ty
 
      trait_types = map trait_type allTraits
        where
-         trait_type A.Trait{A.traitName} =
+         trait_type A.Trait{A.tname} =
            let
-             formal = Ty.getTypeParameters traitName
+             formal = Ty.getTypeParameters tname
              self = (Ptr pony_type_t, AsLval $ self_type_field)
            in
-             StructDecl (AsType $ ref_type_name traitName) [self]
+             StructDecl (AsType $ ref_type_name tname) [self]
 
      runtime_type_decls = map type_decl allclasses ++ map type_decl allTraits
        where
@@ -199,7 +199,7 @@ generate_header p =
            in
              DeclTL (Extern pony_type_t, AsLval runtime_ty)
 
-     method_fwds cdecl@(A.Class{A.cname, A.methods}) = map method_fwd methods
+     method_fwds cdecl@(A.Class{A.cname, A.cmethods}) = map method_fwd cmethods
                  where
                    method_fwd A.Method{A.mtype, A.mname, A.mparams} =
                      let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
@@ -213,4 +213,4 @@ generate_header p =
                        FunctionDecl void (method_impl_name cname mname) params
 
 comment_section :: String -> CCode Toplevel
-comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
+comment_section s = Embed $ (replicate (5 + length s) '/') ++ "\n// " ++ s

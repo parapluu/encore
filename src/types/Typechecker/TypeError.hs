@@ -1,23 +1,29 @@
 {-|
 
-The machinery used by "Typechecker.Typechecker" for handling errors and backtracing.
+The machinery used by "Typechecker.Typechecker" for handling
+errors and backtracing.
 
 -}
 
-module Typechecker.TypeError (Backtrace, emptyBT, Pushable(push), TCError(TCError), currentMethod) where
+module Typechecker.TypeError (Backtrace
+                             ,emptyBT
+                             ,Pushable(push)
+                             ,TCError(TCError)
+                             ,currentMethod) where
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
 import Data.Maybe
+import Data.List
 
 import Identifiers
 import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTFunction Name Type
-                   | BTImplementedTrait ImplementedTrait
-                   | BTTrait Trait
+data BacktraceNode = BTPulledImport QName
+                   | BTFunction Name Type
+                   | BTTrait Type
                    | BTClass Type
                    | BTParam ParamDecl
                    | BTField FieldDecl
@@ -25,11 +31,12 @@ data BacktraceNode = BTFunction Name Type
                    | BTExpr Expr
 
 instance Show BacktraceNode where
+  show (BTPulledImport qname) =
+    concat ["In imported module '", intercalate "." (map show qname), "'"]
   show (BTFunction n ty) =
     concat ["In function '", show n, "' of type '", show ty, "'"]
   show (BTClass ty) = concat ["In class '", show ty, "'"]
-  show (BTImplementedTrait t) = concat ["In trait implementation '", show t, "'"]
-  show (BTTrait t) = concat ["In trait '", show t, "'"]
+  show (BTTrait ty) = concat ["In trait '", show ty, "'"]
   show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
   show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
   show (BTMethod Method{mname, mtype}) =
@@ -66,29 +73,31 @@ class Pushable a where
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
     pushMeta m n bt = (getPos m, n) : bt
 
+instance Pushable ImportDecl where
+  push i@(PulledImport {qname}) =
+    pushMeta i (BTPulledImport qname)
+
 instance Pushable Function where
-    push fun@(Function {funname, funtype}) bt = (getPos fun, BTFunction funname funtype) : bt
+  push fun@(Function {funname, funtype}) =
+    pushMeta fun (BTFunction funname funtype)
 
-instance Pushable ImplementedTrait where
-  push t = pushMeta t (BTImplementedTrait t)
-
-instance Pushable Trait where
-  push t = pushMeta t (BTTrait t)
+instance Pushable TraitDecl where
+  push t = pushMeta t (BTTrait (tname t))
 
 instance Pushable ClassDecl where
-    push c bt = (getPos c, BTClass (cname c)) : bt
+    push c = pushMeta c (BTClass (cname c))
 
 instance Pushable FieldDecl where
-    push f bt = (getPos f, BTField f) : bt
+    push f = pushMeta f (BTField f)
 
 instance Pushable ParamDecl where
-    push p bt = (getPos p, BTParam p) : bt
+    push p = pushMeta p (BTParam p)
 
 instance Pushable MethodDecl where
-    push m bt = (getPos m, BTMethod m) : bt
+    push m = pushMeta m (BTMethod m)
 
 instance Pushable Expr where
-    push expr bt = (getPos expr, BTExpr expr) : bt
+    push expr = pushMeta expr (BTExpr expr)
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.

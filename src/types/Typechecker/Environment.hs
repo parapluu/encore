@@ -8,6 +8,7 @@ typevar-type bindings for doing lookups, as well as the
 -}
 
 module Typechecker.Environment(Environment,
+                               emptyEnv,
                                buildEnvironment,
                                traitLookup,
                                refTypeLookup,
@@ -18,6 +19,7 @@ module Typechecker.Environment(Environment,
                                isLocal,
                                typeVarLookup,
                                extendEnvironment,
+                               addParams,
                                addTypeParameters,
                                typeParameters,
                                replaceLocals,
@@ -31,7 +33,8 @@ module Typechecker.Environment(Environment,
 import Data.List
 import Data.Maybe
 import Control.Applicative ((<|>))
-import qualified Data.HashMap.Strict as M
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Text.Printf (printf)
 
 -- Module dependencies
@@ -43,8 +46,8 @@ import Typechecker.TypeError
 type VarTable    = [(Name, Type)]
 
 data Environment = Env {
-  classTable :: M.HashMap String ClassDecl,
-  traitTable :: M.HashMap String Trait,
+  classTable :: Map String ClassDecl,
+  traitTable :: Map String TraitDecl,
   globals  :: VarTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
@@ -53,8 +56,8 @@ data Environment = Env {
 } deriving Show
 
 emptyEnv = Env {
-  classTable = M.empty,
-  traitTable = M.empty,
+  classTable = Map.empty,
+  traitTable = Map.empty,
   globals = [],
   locals = [],
   bindings = [],
@@ -68,15 +71,15 @@ buildEnvironment =
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =
-      [return Env {
-        classTable = M.fromList [(getId (cname c), c) | c <- classes],
-        traitTable = M.fromList [(getId (traitName t), t) | t <- traits],
-        globals = map getFunctionType functions,
-        locals = [],
-        bindings = [],
-        typeParameters = [],
-        bt = emptyBT
-      }]
+        [return Env {
+           classTable = Map.fromList [(getId (cname c), c) | c <- classes],
+           traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
+           globals = map getFunctionType functions,
+           locals = [],
+           bindings = [],
+           typeParameters = [],
+           bt = emptyBT
+         }]
 
     getFunctionType Function {funname, funtype, funparams} =
         (funname, arrowType (map ptype funparams) funtype)
@@ -88,12 +91,12 @@ backtrace = bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
-  | isTrait t = do
-    trait <- M.lookup (getId t) $ traitTable env
-    find (\Field{fname} -> fname == f) $ traitFields trait
-  | isClass t = do
+  | isTraitType t = do
+    trait <- Map.lookup (getId t) $ traitTable env
+    find (\Field{fname} -> fname == f) $ tfields trait
+  | isClassType t = do
     cls <- classLookup t env
-    find (\Field{fname} -> fname == f) $ fields cls
+    find (\Field{fname} -> fname == f) $ cfields cls
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
 
 matchMethod :: Name -> MethodDecl -> Bool
@@ -103,29 +106,29 @@ matchMethod m StreamMethod{mname} = mname == m
 traitMethodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 traitMethodLookup trait m env = do
   trait <- traitLookup trait env
-  find (matchMethod m) $ traitMethods trait
+  find (matchMethod m) $ tmethods trait
 
 methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 methodLookup ty m env
-  | isClass ty = do
+  | isClassType ty = do
     cls <- classLookup ty env
-    let c_m = find (matchMethod m) $ methods cls
+    let c_m = find (matchMethod m) $ cmethods cls
         t_ms = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust (c_m:t_ms)
     return $ fromJust ret
-  | isTrait ty =
+  | isTraitType ty =
     traitMethodLookup ty m env
   | otherwise = error "methodLookup in non-ref type"
     where
-      traits = getImplTraits ty
+      traits = getImplementedTraits ty
 
-traitLookup :: Type -> Environment -> Maybe Trait
+traitLookup :: Type -> Environment -> Maybe TraitDecl
 traitLookup t env =
-  M.lookup (getId t) $ traitTable env
+  Map.lookup (getId t) $ traitTable env
 
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
-    | isRefType cls = M.lookup (getId cls) $ classTable env
+    | isRefType cls = Map.lookup (getId cls) $ classTable env
     | otherwise = error $
       "Tried to lookup the class of '" ++ show cls
       ++ "' which is not a reference type"
@@ -133,8 +136,8 @@ classLookup cls env
 refTypeLookup :: Type -> Environment -> Maybe Type
 refTypeLookup t env =
   let
-    cls = fmap cname $ M.lookup (getId t) $ classTable env
-    trait = fmap traitName $ M.lookup (getId t) $ traitTable env
+    cls = fmap cname $ Map.lookup (getId t) $ classTable env
+    trait = fmap tname $ Map.lookup (getId t) $ traitTable env
   in
     cls <|> trait
 
@@ -177,6 +180,11 @@ extendEnvironment ((name, ty):newTypes) env =
       extend ((name, ty):locals) name' ty'
           | name == name' = (name', ty') : locals
           | otherwise     = (name, ty) : extend locals name' ty'
+
+-- | Convenience function for extending the environment with a
+-- list of parameter declarations
+addParams :: [ParamDecl] -> Environment -> Environment
+addParams = extendEnvironment . map (\(Param {pname, ptype}) -> (pname, ptype))
 
 addTypeParameters :: [Type] -> Environment -> Environment
 addTypeParameters [] env = env
@@ -221,8 +229,8 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
           bt             = bt} <- e2
 
       return Env{
-        classTable     = M.union classTable classTable',
-        traitTable     = M.union traitTable traitTable',
+        classTable     = Map.union classTable classTable',
+        traitTable     = Map.union traitTable traitTable',
         globals        = mergeGlobals globs globs',
         locals         = mergeLocals locals locals',
         bindings       = mergeBindings binds binds',

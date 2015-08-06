@@ -39,9 +39,9 @@ instance Translatable A.Program Emitted where
       ctable = build_class_table prog
       header = generate_header prog
       shared = generate_shared prog ctable
-      name_and_class p@A.Program{A.classes} =
-        [(Ty.getId (A.cname c), translate c ctable) | c <- classes]
-      classes = A.traverseProgram name_and_class prog
+      classes = A.traverseProgram (name_and_class ctable) prog
     in
       Emitted{classes, header, shared}
     where
+      name_and_class ctable A.Program{A.classes} =
+        [(Ty.getId (A.cname c), translate c ctable) | c <- classes]

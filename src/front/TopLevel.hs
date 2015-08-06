@@ -9,7 +9,6 @@ file I/O.
 
 module Main where
 
-import System.Exit
 import System.Environment
 import System.Directory
 import System.IO
@@ -30,6 +29,7 @@ import AST.PrettyPrinter
 import AST.Util
 import AST.Desugarer
 import ModuleExpander
+import Typechecker.Prechecker
 import Typechecker.Typechecker
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -158,7 +158,7 @@ main =
                abort "No program specified! Aborting.")
        let sourceName = head programs
        sourceExists <- doesFileExist sourceName
-       when (not sourceExists)
+       unless sourceExists
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
        code <- readFile sourceName
        ast <- case parseEncoreProgram sourceName code of
@@ -169,7 +169,10 @@ main =
                (flip hPrint $ show ast))
        expandedAst <- expandModules importDirs ast
        let desugaredAST = desugarProgram expandedAst
-       typecheckedAST <- case typecheckEncoreProgram desugaredAST of
+       precheckedAST <- case precheckEncoreProgram desugaredAST of
+                          Right ast  -> return ast
+                          Left error -> abort $ show error
+       typecheckedAST <- case typecheckEncoreProgram precheckedAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)

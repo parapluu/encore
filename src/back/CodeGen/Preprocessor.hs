@@ -1,75 +1,86 @@
 module CodeGen.Preprocessor(preprocess) where
 
-import qualified Data.List as L (lookup)
-import Data.Maybe (fromJust)
+import Data.List
+import Data.Maybe
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
 import qualified AST.Meta as Meta
-import qualified Types as T
+import qualified Types as Ty
 
+-- | Functions run on the entire AST before code generation.
 preprocess :: A.Program -> A.Program
-preprocess = inject_traits_to_classes . giveClosuresUniqueNames
+preprocess = injectTraitsToClasses . giveClosuresUniqueNames
 
-inject_traits_to_classes :: A.Program -> A.Program
-inject_traits_to_classes p@A.Program{A.classes} =
-  p{A.classes = map inject_traits_to_class classes}
+injectTraitsToClasses :: A.Program -> A.Program
+injectTraitsToClasses p@A.Program{A.classes} =
+  p{A.classes = map injectTraitsToClass classes}
   where
-    inject_traits_to_class :: A.ClassDecl -> A.ClassDecl
-    inject_traits_to_class c@A.Class{A.cname, A.ctraits} =
-      foldr inject_trait_to_class c $ map (A.traitName . A.itrait) ctraits
+    injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
+    injectTraitsToClass c@A.Class{A.cname} =
+        foldr injectTraitToClass c (Ty.getImplementedTraits cname)
 
-    inject_trait_to_class :: T.Type -> A.ClassDecl -> A.ClassDecl
-    inject_trait_to_class ty c@A.Class{A.methods} =
-      let
-        trait_template = A.getTrait ty p
-        t_methods = get_trait_methods c ty trait_template
-      in
-        c{A.methods = methods ++ t_methods}
+    injectTraitToClass :: Ty.Type -> A.ClassDecl -> A.ClassDecl
+    injectTraitToClass traitType c@A.Class{A.cname, A.cmethods} =
+        let
+            traitTemplate = A.getTrait traitType p
+            injectedMethods = flattenTrait cname traitType traitTemplate
+        in
+          c{A.cmethods = cmethods ++ injectedMethods}
 
-get_trait_methods :: A.ClassDecl -> T.Type -> A.Trait -> [A.MethodDecl]
-get_trait_methods c ty template =
+-- | @flattenTrait c t tdecl@ returns the methods of
+-- @tdecl@, translated to appear as if they were declared in class
+-- @c@ with any type parameters of @tdecl@ instantiated to the
+-- type arguments of @t@.
+flattenTrait :: Ty.Type -> Ty.Type -> A.TraitDecl -> [A.MethodDecl]
+flattenTrait c traitType template =
   let
-    formals = T.getTypeParameters $ A.traitName template
-    actuals = T.getTypeParameters ty
-    this_binding = (ty, (A.getType c))
-    bindings = this_binding : zip formals actuals
-    converter old =
-      case L.lookup old bindings of
-        Just new -> new
-        _ -> old
-    methods = A.traitMethods template
+    formals = Ty.getTypeParameters $ A.tname template
+    actuals = Ty.getTypeParameters traitType
+    bindings = zip formals actuals
+    methods = A.tmethods template
   in
-    map (substitute_types converter) methods
-  where
-    lookup x xs = fromJust $ L.lookup x xs
+    map (convertMethod bindings c) methods
 
-substitute_types :: (T.Type -> T.Type) -> A.MethodDecl -> A.MethodDecl
-substitute_types converter method =
+-- | @convertMethod bindings thisType m@ converts all types
+-- appearing in @m@ using @bindings@ as a convertion table, and
+-- also gives the type @thisType@ to all accesses of @this@.
+convertMethod ::
+    [(Ty.Type, Ty.Type)] -> Ty.Type -> A.MethodDecl -> A.MethodDecl
+convertMethod bindings thisType method =
   let
-    ret_type = A.mtype method
-    ret_type' = T.typeMap converter ret_type
-    params = A.mparams method
-    params' = map convert_node params
-    body = A.mbody method
-    body' = Util.extend convert_node body
+    mtype = convertType $ A.mtype method
+    mparams = map convertNode $ A.mparams method
+    mbody = Util.extend convertExpr $ A.mbody method
   in
-    method{A.mtype = ret_type', A.mparams = params', A.mbody = body'}
+    method{A.mtype, A.mparams, A.mbody}
   where
-    convert_node :: A.HasMeta n => n -> n
-    convert_node node =
+    convertType :: Ty.Type -> Ty.Type
+    convertType = Ty.typeMap (\ty -> fromMaybe ty (lookup ty bindings))
+
+    convertExpr :: A.Expr -> A.Expr
+    convertExpr e
+        | A.isThisAccess e = A.setType thisType $ convertNode e
+        | otherwise = convertNode e
+
+    convertNode :: A.HasMeta n => n -> n
+    convertNode node =
       let
-        old = A.getType node
-        new = converter old
+        oldType = A.getType node
+        newType = convertType oldType
       in
-        A.setType new node
+        A.setType newType node
 
 giveClosuresUniqueNames :: A.Program -> A.Program
-giveClosuresUniqueNames ast = snd $ Util.extendAccumProgram uniqueClosureName 0 ast
+giveClosuresUniqueNames = snd . Util.extendAccumProgram uniqueClosureName 0
     where
       uniqueClosureName acc e
-          | A.isClosure e = let m = A.getMeta e
-                            in (acc + 1, A.setMeta e (Meta.metaClosure ("closure" ++ show acc) m))
-          | A.isTask e = let m = A.getMeta e
-                         in (acc + 1, A.setMeta e (Meta.metaTask ("task" ++ show acc) m))
+          | A.isClosure e =
+              let m = A.getMeta e
+                  mclosure = Meta.metaClosure ("closure" ++ show acc) m
+              in (acc + 1, A.setMeta e mclosure)
+          | A.isTask e =
+              let m = A.getMeta e
+                  mtask = Meta.metaTask ("task" ++ show acc) m
+              in (acc + 1, A.setMeta e mtask)
           | otherwise = (acc, e)

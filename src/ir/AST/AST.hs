@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-missing-fields#-}
 {-|
 
 The abstract syntax tree produced by the parser. Each node carries
@@ -24,7 +23,7 @@ data Program = Program {
   etl :: EmbedTL,
   imports :: [ImportDecl],
   functions :: [Function],
-  traits :: [Trait],
+  traits :: [TraitDecl],
   classes :: [ClassDecl]
 } deriving (Show)
 
@@ -66,11 +65,19 @@ data BundleDecl = Bundle { bmeta :: Meta BundleDecl,
 
 data ImportDecl = Import {imeta   :: Meta ImportDecl,
                           itarget :: QName }
-                | PulledImport {pimeta :: Meta ImportDecl,
+                | PulledImport {imeta :: Meta ImportDecl,
                                 qname :: QName,
                                 isrc :: FilePath,
                                 iprogram :: Program }
                   deriving (Show)
+
+instance HasMeta ImportDecl where
+    getMeta = imeta
+
+    setMeta i m = i{imeta = m}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of an ImportDecl"
 
 data Function = Function {
   funmeta   :: Meta Function,
@@ -81,7 +88,7 @@ data Function = Function {
 } deriving (Show)
 
 instance Eq Function where
-  a == b = (funname a) == (funname b)
+  a == b = funname a == funname b
 
 instance HasMeta Function where
   getMeta = funmeta
@@ -92,19 +99,15 @@ instance HasMeta Function where
 data ClassDecl = Class {
   cmeta   :: Meta ClassDecl,
   cname   :: Type,
-  ctraits  :: [ImplementedTrait],
-  fields  :: [FieldDecl],
-  methods :: [MethodDecl]
+  cfields  :: [FieldDecl],
+  cmethods :: [MethodDecl]
 } deriving (Show)
 
-makeClassDecl refKind name params ctraits =
-  refKind name params (map (traitName . itrait) ctraits)
-
 instance Eq ClassDecl where
-  a == b = (cname a) == (cname b)
+  a == b = getId (cname a) == getId (cname b)
 
 isActive :: ClassDecl -> Bool
-isActive = isActiveRefType . cname
+isActive = isActiveClassType . cname
 
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl = (== "Main") . getId . cname $ cdecl
@@ -114,59 +117,24 @@ instance HasMeta ClassDecl where
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) =
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
-    showWithKind Class{cname} = "class '" ++ show cname ++ "'"
+    showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
-data Trait = Trait {
-  traitMeta :: Meta Trait,
-  traitName :: Type,
-  traitFields :: [FieldDecl],
-  traitMethods :: [MethodDecl]
-}
+data TraitDecl = Trait {
+  tmeta :: Meta TraitDecl,
+  tname :: Type,
+  tfields :: [FieldDecl],
+  tmethods :: [MethodDecl]
+} deriving (Show)
 
-instance Show Trait where
-  show t@Trait{traitName} = show traitName
+instance Eq TraitDecl where
+  a == b = getId (tname a) == getId (tname b)
 
-instance Eq Trait where
-  a == b = (traitName a) == (traitName b)
-
-instance HasMeta Trait where
-  getMeta = traitMeta
-  setMeta t m = t{traitMeta = m}
-  setType ty t@Trait{traitMeta, traitName} =
-    t{traitMeta = AST.Meta.setType ty traitMeta, traitName = ty}
-  showWithKind Trait{traitName} = "trait '" ++ show traitName ++ "'"
-
-data ImplementedTrait = ImplementedTrait {
-  itraitMeta :: Meta ImplementedTrait,
-  itrait :: Trait
-}
-
-itraitMethods :: ImplementedTrait -> [MethodDecl]
-itraitMethods ImplementedTrait{itrait} = traitMethods itrait
-
-implementTrait :: Meta ImplementedTrait -> Type -> ImplementedTrait
-implementTrait itraitMeta ty =
-  let
-    params = (getTypeParameters ty)
-    itrait = Trait{traitName = traitRefType (getId ty) params}
-  in
-    ImplementedTrait{itraitMeta, itrait}
-
-instance HasMeta ImplementedTrait where
-  getMeta = itraitMeta
-  setMeta t m = t{itraitMeta = m}
-  setType ty t@ImplementedTrait{itrait} =
-    let itrait' = AST.AST.setType ty itrait
-    in t{itrait = itrait'}
-  showWithKind ImplementedTrait{itrait = Trait{traitName}} =
-    "implemented trait '" ++ show traitName ++ "'"
-
-instance Show ImplementedTrait where
-  show ImplementedTrait{itrait} = show itrait
-
-instance Eq ImplementedTrait where
-  a == b = (id a) == (id b)
-    where id = getId . traitName . itrait
+instance HasMeta TraitDecl where
+  getMeta = tmeta
+  setMeta t m = t{tmeta = m}
+  setType ty t@Trait{tmeta, tname} =
+    t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
+  showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
@@ -178,7 +146,7 @@ instance Show FieldDecl where
   show f@Field{fname,ftype} = show fname ++ " : " ++ show ftype
 
 instance Eq FieldDecl where
-  a == b = (fname a) == (fname b)
+  a == b = fname a == fname b
 
 instance HasMeta FieldDecl where
     getMeta = fmeta
@@ -212,8 +180,11 @@ data MethodDecl = Method {mmeta   :: Meta MethodDecl,
 isStreamMethod StreamMethod{} = True
 isStreamMethod _ = False
 
+isMainMethod :: Type -> Name -> Bool
+isMainMethod ty name = isMainType ty && (name == Name "main")
+
 instance Eq MethodDecl where
-  a == b = (mname a) == (mname b)
+  a == b = mname a == mname b
 
 instance HasMeta MethodDecl where
   getMeta = mmeta
@@ -393,11 +364,11 @@ traverseProgram f program =
       in
         program : concatMap flatten_imports programs
 
-getTrait :: Type -> Program -> Trait
+getTrait :: Type -> Program -> TraitDecl
 getTrait t p =
   let
     traits = allTraits p
-    match t trait = (getId t) == (getId $ traitName trait)
+    match t trait = getId t == getId (tname trait)
   in
     fromJust $ find (match t) traits
 

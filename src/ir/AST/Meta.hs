@@ -1,6 +1,7 @@
 module AST.Meta where
 
 import Text.Parsec(SourcePos, sourceLine, sourceColumn)
+import Data.Maybe
 
 import Types
 
@@ -10,12 +11,15 @@ data MetaInfo = Unspecified
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos,
-                    metaType  :: Type,
+                    metaType  :: Maybe Type,
                     sugared   :: Maybe a,
                     metaInfo  :: MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
-meta pos = Meta {sourcePos = pos, metaType = emptyType, sugared = Nothing, metaInfo = Unspecified}
+meta pos = Meta {sourcePos = pos
+                ,metaType = Nothing
+                ,sugared = Nothing
+                ,metaInfo = Unspecified}
 
 getPos :: Meta a -> SourcePos
 getPos = sourcePos
@@ -27,10 +31,12 @@ getCol :: Meta a -> Int
 getCol = sourceColumn . sourcePos
 
 setType :: Type -> Meta a -> Meta a
-setType newType m = m {metaType = newType}
+setType newType m = m {metaType = Just newType}
 
 getType :: Meta a -> Type
-getType = metaType
+getType m = fromMaybe err (metaType m)
+    where
+      err = error "Meta.hs: No type given to node"
 
 setSugared :: a -> Meta a -> Meta a
 setSugared s m = m {sugared = Just s}

@@ -1,160 +1,353 @@
-{-# OPTIONS_GHC -fno-warn-missing-fields #-}
 module Types(
-  Type,
-  arrowType, isArrowType,
-  futureType, isFutureType,
-  parType, isParType,
-  streamType, isStreamType,
-  arrayType, isArrayType,
-  refTypeWithParams, passiveRefTypeWithParams, activeRefTypeWithParams,
-  refType, isRefType,
-  passiveRefType, activeRefType, traitRefType,
-  isActiveRefType, isPassiveRefType, isMainType,
-  makeActive, makePassive, markTrait,
-  typeVar, isTypeVar, replaceTypeVars,
-  voidType, isVoidType,
-  nullType, isNullType,
-  boolType, isBoolType,
-  intType, isIntType,
-  realType, isRealType,
-  stringType, isStringType,
-  isPrimitive, isNumeric,
-  emptyType,
-  getArgTypes, getResultType, getId, getImplTraits,
-  getTypeParameters, setTypeParameters,
-  typeComponents, typeMap,
-  subtypeOf, strictParentTypeOf,
-  showWithKind,
-  isClass, isTrait,
-  passiveClass, activeClass,
-  passActivity
-  ) where
+             Type
+            ,Capability
+            ,arrowType
+            ,isArrowType
+            ,futureType
+            ,isFutureType
+            ,parType
+            ,isParType
+            ,streamType
+            ,isStreamType
+            ,arrayType
+            ,isArrayType
+            ,refTypeWithParams
+            ,refType
+            ,traitTypeFromRefType
+            ,passiveClassTypeFromRefType
+            ,activeClassTypeFromRefType
+            ,getCapability
+            ,isRefType
+            ,isTraitType
+            ,isActiveClassType
+            ,isPassiveClassType
+            ,isClassType
+            ,isMainType
+            ,capabilityType
+            ,isCapabilityType
+            ,incapability
+            ,typeVar
+            ,isTypeVar
+            ,replaceTypeVars
+            ,voidType
+            ,isVoidType
+            ,nullType
+            ,isNullType
+            ,boolType
+            ,isBoolType
+            ,intType
+            ,isIntType
+            ,realType
+            ,isRealType
+            ,stringType
+            ,isStringType
+            ,isPrimitive
+            ,isNumeric
+            ,getArgTypes
+            ,getResultType
+            ,getId
+            ,getImplementedTraits
+            ,getTypeParameters
+            ,setTypeParameters
+            ,typeComponents
+            ,typeMap
+            ,typeMapM
+            ,subtypeOf
+            ,strictSubtypeOf
+            ,showWithKind
+            ) where
 
 import Data.List
+import Data.Maybe
 
-data Activity = Active | Passive | Trait | Unknown deriving(Eq, Show)
+data Activity = Active
+              | Passive
+                deriving(Eq, Show)
 
-data RefTypeInfo = RefTypeInfo {
-  refId :: String,
-  activity :: Activity,
-  parameters :: [Type],
-  impl_trait_types :: [Type]
-}
+data Capability = Capability{traits :: [RefInfo]}
+                deriving(Eq)
 
-getImplTraits :: Type -> [Type]
-getImplTraits (RefType RefTypeInfo{impl_trait_types}) = impl_trait_types
-getImplTraits ty = error $ "Cant get traits from non ref type: " ++ show ty
+instance Show Capability where
+    show Capability{traits}
+        | null traits = "I"
+        | otherwise   = intercalate " + " (map show traits)
 
-isTrait :: Type -> Bool
-isTrait (RefType RefTypeInfo{activity = Trait}) = True
-isTrait _ = False
+data RefInfo = RefInfo{refId :: String
+                      ,parameters :: [Type]
+                      } deriving(Eq)
 
-markTrait :: Type -> Type
-markTrait (RefType info) = RefType $ info {activity = Trait}
-markTrait ty = ty
+instance Show RefInfo where
+    show RefInfo{refId, parameters}
+        | null parameters = refId
+        | otherwise = refId ++ "<" ++ params ++ ">"
+        where
+          params = intercalate ", " (map show parameters)
 
-isClass :: Type -> Bool
-isClass (RefType RefTypeInfo{activity = Active}) = True
-isClass (RefType RefTypeInfo{activity = Passive}) = True
-isClass _ = False
-
-instance Eq RefTypeInfo where
-    RefTypeInfo {refId = id1} == RefTypeInfo {refId = id2} = id1 == id2
-
-data Type = VoidType | StringType | IntType | BoolType | RealType
-          | NullType | RefType {info :: RefTypeInfo} | TypeVar {ident :: String}
-          | Arrow {argTypes :: [Type], resultType :: Type}
-          | FutureType {resultType :: Type} | ParType {resultType :: Type}
-          | StreamType {resultType :: Type} | ArrayType {resultType :: Type}
-            deriving (Eq)
-
-typeComponents :: Type -> [Type]
-typeComponents arrow@(Arrow argTys ty) = arrow:(concatMap typeComponents argTys ++ typeComponents ty)
-typeComponents fut@(FutureType ty)     = fut:(typeComponents ty)
-typeComponents par@(ParType ty)        = par:(typeComponents ty)
-typeComponents ref@(RefType RefTypeInfo{parameters}) = ref : (concatMap typeComponents parameters)
-typeComponents str@(StreamType ty)     = str:(typeComponents ty)
-typeComponents arr@(ArrayType ty)      = arr:(typeComponents ty)
-typeComponents ty                      = [ty]
-
-typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty
-    | isArrowType ty =
-        f (Arrow (map (typeMap f) (argTypes ty)) (typeMap f (resultType ty)))
-    | isFutureType ty =
-        f (FutureType (typeMap f (resultType ty)))
-    | isParType ty =
-        f (ParType (typeMap f (resultType ty)))
-    | isRefType ty =
-        case ty of
-          (RefType (info@(RefTypeInfo{parameters}))) ->
-              f $ RefType info{parameters = map (typeMap f) parameters}
-          otherwise ->
-              error $ "Couldn't deconstruct refType: " ++ show ty
-    | isStreamType ty =
-        f (StreamType (typeMap f (resultType ty)))
-    | isArrayType ty =
-        f (ArrayType (typeMap f (resultType ty)))
-    | otherwise = f ty
+data Type = UntypedRef{refInfo :: RefInfo}
+          | TraitType{refInfo :: RefInfo}
+          | ClassType{refInfo :: RefInfo
+                     ,capability :: Capability
+                     ,activity   :: Activity
+                     }
+          | CapabilityType{capability :: Capability}
+          | TypeVar{ident :: String}
+          | ArrowType{argTypes   :: [Type]
+                     ,resultType :: Type
+                     }
+          | FutureType{resultType :: Type}
+          | ParType{resultType :: Type}
+          | StreamType{resultType :: Type}
+          | ArrayType{resultType :: Type}
+          | VoidType
+          | StringType
+          | IntType
+          | BoolType
+          | RealType
+          | NullType
+            deriving(Eq)
 
 getArgTypes = argTypes
 getResultType = resultType
-getId (RefType info) = refId info
-getId TypeVar {ident} = ident
-
-getTypeParameters :: Type -> [Type]
-getTypeParameters (RefType RefTypeInfo{parameters}) = parameters
-getTypeParameters ty = error $ "Can't get type parameters from type: " ++ show ty
-
-setTypeParameters (RefType info@(RefTypeInfo{})) params = RefType info{parameters = params}
-setTypeParameters ty _ = error $ "Can't set type parameters from type: " ++ show ty
-
-maybeParen :: Type -> String
-maybeParen arr@(Arrow _ _)    = "(" ++ show arr ++ ")"
-maybeParen fut@(FutureType _) = "(" ++ show fut ++ ")"
-maybeParen par@(ParType _)    = "(" ++ show par ++ ")"
-maybeParen str@(StreamType _) = "(" ++ show str ++ ")"
-maybeParen arr@(ArrayType _)  = "(" ++ show arr ++ ")"
-maybeParen ty = show ty
+getId UntypedRef{refInfo} = refId refInfo
+getId TraitType{refInfo} = refId refInfo
+getId ClassType{refInfo} = refId refInfo
+getId TypeVar{ident} = ident
 
 instance Show Type where
-    show VoidType          = "void"
-    show StringType        = "string"
-    show IntType           = "int"
-    show RealType          = "real"
-    show BoolType          = "bool"
-    show (RefType (RefTypeInfo {refId, parameters = []})) = refId
-    show (RefType (RefTypeInfo {refId, parameters})) =
-        refId ++ "<" ++ (concat $ (intersperse ", " (map show parameters))) ++ ">"
-    show (TypeVar t)       = t
-    show NullType          = "null type"
-    show (Arrow argTys ty) = "(" ++ (concat $ (intersperse ", " (map show argTys))) ++ ") -> " ++ show ty
-    show (FutureType ty)   = "Fut " ++ maybeParen ty
-    show (ParType ty)      = "Par " ++ maybeParen ty
-    show (StreamType ty)   = "Stream " ++ maybeParen ty
-    show (ArrayType ty)    = "[" ++ show ty ++ "]"
+    show UntypedRef{refInfo} = show refInfo
+    show TraitType{refInfo} = show refInfo
+    show ClassType{refInfo} = show refInfo
+    show CapabilityType{capability} = show capability
+    show TypeVar{ident} = ident
+    show ArrowType{argTypes, resultType} =
+        "(" ++ args ++ ") -> " ++ show resultType
+        where
+          args = intercalate ", " (map show argTypes)
+    show FutureType{resultType} = "Fut " ++ maybeParen resultType
+    show ParType{resultType}    = "Par " ++ maybeParen resultType
+    show StreamType{resultType} = "Stream " ++ maybeParen resultType
+    show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
+    show VoidType   = "void"
+    show StringType = "string"
+    show IntType    = "int"
+    show RealType   = "real"
+    show BoolType   = "bool"
+    show NullType   = "null type"
+
+maybeParen :: Type -> String
+maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
+maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
+maybeParen par@(ParType _)     = "(" ++ show par ++ ")"
+maybeParen str@(StreamType _)  = "(" ++ show str ++ ")"
+maybeParen arr@(ArrayType _)   = "(" ++ show arr ++ ")"
+maybeParen ty = show ty
 
 showWithKind :: Type -> String
 showWithKind ty = kind ty ++ " " ++ show ty
     where
-    kind VoidType     = "primitive type"
-    kind StringType   = "primitive type"
-    kind IntType      = "primitive type"
-    kind RealType     = "primitive type"
-    kind BoolType     = "primitive type"
-    kind (RefType (RefTypeInfo {activity = Active})) = "active type"
-    kind (RefType (RefTypeInfo {activity = Passive})) = "passive type"
-    kind (RefType (RefTypeInfo {activity = Trait})) = "trait type"
-    kind TypeVar{}    = "polymorphic type"
-    kind Arrow{}      = "function type"
-    kind FutureType{} = "future type"
-    kind ParType{}   = "parallel type"
-    kind StreamType{} = "stream type"
-    kind ArrayType{}  = "array type"
-    kind _ = "type"
+    kind VoidType                      = "primitive type"
+    kind StringType                    = "primitive type"
+    kind IntType                       = "primitive type"
+    kind RealType                      = "primitive type"
+    kind BoolType                      = "primitive type"
+    kind TraitType{}                   = "trait type"
+    kind ClassType{activity = Active}  = "active class type"
+    kind ClassType{activity = Passive} = "passive class type"
+    kind CapabilityType{}              = "capability type"
+    kind TypeVar{}                     = "polymorphic type"
+    kind ArrowType{}                   = "function type"
+    kind FutureType{}                  = "future type"
+    kind ParType{}                     = "parallel type"
+    kind StreamType{}                  = "stream type"
+    kind ArrayType{}                   = "array type"
+    kind _                             = "type"
 
-arrowType = Arrow
-isArrowType (Arrow {}) = True
+typeComponents :: Type -> [Type]
+typeComponents arrow@(ArrowType argTys ty) =
+    arrow : (concatMap typeComponents argTys ++ typeComponents ty)
+typeComponents fut@(FutureType ty) =
+    fut : typeComponents ty
+typeComponents par@(ParType ty) =
+    par : typeComponents ty
+typeComponents ref@(UntypedRef{refInfo}) =
+    ref : refInfoTypeComponents refInfo
+typeComponents ref@(TraitType{refInfo}) =
+    ref : refInfoTypeComponents refInfo
+typeComponents ref@(ClassType{refInfo, capability}) =
+    ref : capabilityComponents capability ++ refInfoTypeComponents refInfo
+typeComponents ref@(CapabilityType{capability}) =
+    ref : capabilityComponents capability
+typeComponents str@(StreamType ty) =
+    str : typeComponents ty
+typeComponents arr@(ArrayType ty)  =
+    arr : typeComponents ty
+typeComponents ty = [ty]
+
+refInfoTypeComponents = concatMap typeComponents . parameters
+
+-- TODO: Should maybe extract the power set?
+capabilityComponents :: Capability -> [Type]
+capabilityComponents Capability{traits} =
+    concatMap traitToType traits
+    where
+      traitToType t@RefInfo{parameters} =
+          CapabilityType{capability = Capability{traits = [t]}} : parameters
+
+typeMap :: (Type -> Type) -> Type -> Type
+typeMap f ty@UntypedRef{refInfo} =
+    f ty{refInfo = refInfoTypeMap f refInfo}
+typeMap f ty@TraitType{refInfo} =
+    f ty{refInfo = refInfoTypeMap f refInfo}
+typeMap f ty@ClassType{refInfo, capability} =
+    f ty{refInfo = refInfoTypeMap f refInfo
+         ,capability = capabilityTypeMap f capability}
+typeMap f ty@CapabilityType{capability} =
+    f ty{capability = capabilityTypeMap f capability}
+typeMap f ty@ArrowType{argTypes, resultType} =
+    f ty{argTypes = map (typeMap f) argTypes
+        ,resultType = typeMap f resultType}
+typeMap f ty@FutureType{resultType} =
+    f ty{resultType = typeMap f resultType}
+typeMap f ty@ParType{resultType} =
+    f ty{resultType = typeMap f resultType}
+typeMap f ty@StreamType{resultType} =
+    f ty{resultType = typeMap f resultType}
+typeMap f ty@ArrayType{resultType} =
+    f ty{resultType = typeMap f resultType}
+typeMap f ty = f ty
+
+refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
+refInfoTypeMap f info@RefInfo{parameters} =
+    info{parameters = map (typeMap f) parameters}
+
+capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
+capabilityTypeMap f cap@Capability{traits} =
+    cap{traits = map (refInfoTypeMap f) traits}
+
+typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
+typeMapM f ty@UntypedRef{refInfo} = do
+  refInfo' <- refInfoTypeMapM f refInfo
+  f ty{refInfo = refInfo'}
+typeMapM f ty@TraitType{refInfo} = do
+  refInfo' <- refInfoTypeMapM f refInfo
+  f ty{refInfo = refInfo'}
+typeMapM f ty@ClassType{refInfo, capability} = do
+  refInfo' <- refInfoTypeMapM f refInfo
+  capability' <- capabilityTypeMapM f capability
+  f ty{refInfo = refInfo'
+               ,capability = capability'}
+typeMapM f ty@CapabilityType{capability} = do
+  capability' <- capabilityTypeMapM f capability
+  f ty{capability = capability'}
+typeMapM f ty@ArrowType{argTypes, resultType} = do
+  argTypes' <- mapM (typeMapM f) argTypes
+  resultType' <- f resultType
+  f ty{argTypes = argTypes'
+               ,resultType = resultType'}
+typeMapM f ty@FutureType{resultType} =
+  typeMapMResultType f ty
+typeMapM f ty@ParType{resultType} =
+  typeMapMResultType f ty
+typeMapM f ty@StreamType{resultType} =
+  typeMapMResultType f ty
+typeMapM f ty@ArrayType{resultType} =
+  typeMapMResultType f ty
+typeMapM f ty = f ty
+
+typeMapMResultType :: Monad m => (Type -> m Type) -> Type -> m Type
+typeMapMResultType f ty = do
+  resultType' <- f $ resultType ty
+  f ty{resultType = resultType'}
+
+refInfoTypeMapM :: Monad m => (Type -> m Type) -> RefInfo -> m RefInfo
+refInfoTypeMapM f info@RefInfo{parameters} = do
+  parameters' <- mapM (typeMapM f) parameters
+  return info{parameters = parameters'}
+
+capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
+capabilityTypeMapM f cap@Capability{traits} = do
+  traits' <- mapM (refInfoTypeMapM f) traits
+  return cap{traits = traits'}
+
+getTypeParameters :: Type -> [Type]
+getTypeParameters UntypedRef{refInfo} = parameters refInfo
+getTypeParameters TraitType{refInfo} = parameters refInfo
+getTypeParameters ClassType{refInfo} = parameters refInfo
+getTypeParameters ty =
+    error $ "Types.hs: Can't get type parameters from type " ++ show ty
+
+setTypeParameters ty@UntypedRef{refInfo} parameters =
+    ty{refInfo = refInfo{parameters}}
+setTypeParameters ty@TraitType{refInfo} parameters =
+    ty{refInfo = refInfo{parameters}}
+setTypeParameters ty@ClassType{refInfo} parameters =
+    ty{refInfo = refInfo{parameters}}
+setTypeParameters ty _ =
+    error $ "Types.hs: Can't set type parameters of type " ++ show ty
+
+getImplementedTraits :: Type -> [Type]
+getImplementedTraits ty@TraitType{} = [ty]
+getImplementedTraits ty@ClassType{capability} =
+    map TraitType (traits capability)
+getImplementedTraits ty@CapabilityType{capability} =
+    map TraitType (traits capability)
+getImplementedTraits ty =
+    error $ "Types.hs: Can't get implemented traits of type " ++ show ty
+
+refTypeWithParams refId parameters =
+    UntypedRef{refInfo = RefInfo{refId, parameters}}
+refType id = refTypeWithParams id []
+
+activeClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
+      ClassType{refInfo, activity = Active, capability}
+activeClassTypeFromRefType ty _ =
+    error $ "Types.hs: Can't make active type from type: " ++ show ty
+
+passiveClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
+      ClassType{refInfo, activity = Passive, capability}
+passiveClassTypeFromRefType ty _ =
+    error $ "Types.hs: Can't make passive type from type: " ++ show ty
+
+getCapability ty
+    | isClassType ty = CapabilityType $ capability ty
+    | isCapabilityType ty = ty
+    | isTraitType ty =
+        CapabilityType{capability = Capability{traits = [refInfo ty]}}
+    | otherwise =
+        error $ "Types.hs: Can't get capability from type: " ++ show ty
+
+traitTypeFromRefType UntypedRef{refInfo} =
+    TraitType{refInfo}
+traitTypeFromRefType ty =
+    error $ "Types.hs: Can't make trait type from type: " ++ show ty
+
+isRefType UntypedRef {} = True
+isRefType TraitType {} = True
+isRefType ClassType {} = True
+isRefType CapabilityType {} = True
+isRefType _ = False
+
+isTraitType TraitType{} = True
+isTraitType _ = False
+
+isActiveClassType ClassType{activity = Active} = True
+isActiveClassType _ = False
+
+isPassiveClassType ClassType{activity = Passive} = True
+isPassiveClassType _ = False
+
+isClassType ClassType{} = True
+isClassType _ = False
+
+capabilityType traits =
+    CapabilityType{capability = Capability{traits = map refInfo traits}}
+isCapabilityType CapabilityType{} = True
+isCapabilityType _ = False
+
+incapability = CapabilityType{capability = Capability{traits = []}}
+
+arrowType = ArrowType
+isArrowType (ArrowType {}) = True
 isArrowType _ = False
 
 futureType = FutureType
@@ -165,9 +358,6 @@ parType = ParType
 isParType ParType {} = True
 isParType _ = False
 
-refTypeWithParams refId parameters =
-  RefType $ RefTypeInfo{refId, activity=Unknown, parameters}
-refType id = refTypeWithParams id []
 streamType = StreamType
 isStreamType StreamType {} = True
 isStreamType _ = False
@@ -176,71 +366,16 @@ arrayType = ArrayType
 isArrayType ArrayType {} = True
 isArrayType _ = False
 
-isRefType RefType {} = True
-isRefType _ = False
-
-passActivity :: Type -> Type -> Type
-passActivity RefType{info} y@RefType{info=info'} =
-  y{info = passActivity' info info'}
-  where
-    passActivity' RefTypeInfo{activity} info = info{activity}
-passActivity _ y = y
-
-passiveClass :: String -> [Type] -> [Type] -> Type
-passiveClass id params itraits = makePassive $
-  RefType $ RefTypeInfo{
-    refId = id,
-    parameters = params,
-    impl_trait_types = itraits
-  }
-
-activeClass :: String -> [Type] -> [Type] -> Type
-activeClass id params itraits = makeActive $
-  RefType $ RefTypeInfo{
-    refId = id,
-    parameters = params,
-    impl_trait_types = itraits
-  }
-
-passiveRefTypeWithParams id = makePassive . refTypeWithParams id
-passiveRefType id = passiveRefTypeWithParams id []
-
-makePassive (RefType info) = RefType $ info {activity = Passive}
-makePassive ty = ty
-
-isPassiveRefType (RefType (RefTypeInfo {activity = Passive})) = True
-isPassiveRefType _ = False
-
-traitRefType :: String -> [Type] -> Type
-traitRefType refId parameters =
-  RefType $ RefTypeInfo{refId, activity=Trait, parameters}
-
-activeRefTypeWithParams id = makeActive . refTypeWithParams id
-activeRefType id = activeRefTypeWithParams id []
-
-makeActive (RefType info)  = RefType $ info {activity = Active}
-makeActive ty = ty
-
-isActiveRefType (RefType (RefTypeInfo {activity = Active})) = True
-isActiveRefType _ = False
-
-isMainType (RefType (RefTypeInfo {refId = "Main"})) = True
-isMainType _ = False
-
 typeVar = TypeVar
 isTypeVar (TypeVar _) = True
 isTypeVar _ = False
 
-replaceTypeVars :: [(Type, Type)] -> Type -> Type
-replaceTypeVars bindings ty = typeMap replace ty
-    where replace ty = case lookup ty bindings of
-                         Just ty' -> ty'
-                         Nothing  -> ty
+isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
+isMainType _ = False
 
--- | Used to give types to AST nodes during parsing (i.e. before
--- typechecking)
-emptyType :: Type
-emptyType = refType "*** UN-TYPED ***"
+replaceTypeVars :: [(Type, Type)] -> Type -> Type
+replaceTypeVars bindings = typeMap replace
+    where replace ty = fromMaybe ty (lookup ty bindings)
 
 voidType :: Type
 voidType = VoidType
@@ -287,13 +422,27 @@ isPrimitive = flip elem primitives
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
 
-strictParentTypeOf :: Type -> Type -> Bool
-strictParentTypeOf t1 t2
-  | isTrait t1 && isClass t2 = t1 `elem` getImplTraits t2
+strictSubtypeOf :: Type -> Type -> Bool
+strictSubtypeOf ty1 ty2
+  | isClassType ty1 && isTraitType ty2 =
+      ty2 `elem` getImplementedTraits ty1
   | otherwise = False
 
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
     | isNullType ty1 = isNullType ty2 || isRefType ty2
-    | isClass ty1 && isTrait ty2 = ty2 `elem` getImplTraits ty1
-    | otherwise      = ty1 == ty2
+    | isClassType ty1 && isTraitType ty2 =
+        ty2 `elem` getImplementedTraits ty1
+    | isClassType ty1 && isCapabilityType ty2 =
+        capability ty1 `capabilitySubtypeOf` capability ty2
+    | isCapabilityType ty1 && isCapabilityType ty2 =
+        capability ty1 `capabilitySubtypeOf` capability ty2
+    | otherwise = ty1 == ty2
+    where
+      capabilitySubtypeOf cap1 cap2 =
+      -- TODO: Needs to handle parameters as well!
+          let
+              traits1 = traits cap1
+              traits2 = traits cap2
+        in
+          all (`elem` traits1) traits2
