@@ -7,13 +7,12 @@
 module AST.Util(foldr,
                 foldrAll,
                 filter,
-                extend,
                 extendAccum,
-                extendAccumAll,
-                extendAll,
+                extendAccumProgram,
+                extend,
+                extendProgram,
                 extendM,
-                extendMAll,
-                extendMMethods,
+                extendMProgram,
                 extractTypes,
                 freeVariables) where
 
@@ -202,9 +201,9 @@ extendAccum f acc0 e =
     in
       f acc1 (putChildren childResults e)
 
-extendAccumAll ::
+extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumAll f acc0 p@Program{functions, traits, classes} =
+extendAccumProgram f acc0 p@Program{functions, traits, classes} =
   (acc3, p{functions = funs', traits = traits', classes = classes'})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
@@ -230,16 +229,16 @@ extendAccumAll f acc0 p@Program{functions, traits, classes} =
         where
           (acc', mbody') = extendAccum f acc (mbody mtd)
 
-extendAll :: (Expr -> Expr) -> Program -> Program
-extendAll f = snd . extendAccumAll (\acc e -> (undefined, f e)) undefined
+extendProgram :: (Expr -> Expr) -> Program -> Program
+extendProgram f = snd . extendAccumProgram (\acc e -> (undefined, f e)) undefined
 
 extendM :: Monad m => (Expr -> m Expr) -> Expr -> m Expr
 extendM f e =
     do childResults <- mapM (extendM f) (getChildren e)
        f (putChildren childResults e)
 
-extendMAll :: Monad m => (Expr -> m Expr) -> Program -> m Program
-extendMAll f (p@Program{functions, classes}) =
+extendMProgram :: Monad m => (Expr -> m Expr) -> Program -> m Program
+extendMProgram f (p@Program{functions, classes}) =
     do classes' <- mapM (extendMClass f) classes
        functions' <- mapM (extendMFunction f) functions
        return p{functions = functions', classes = classes'}
@@ -253,15 +252,6 @@ extendMAll f (p@Program{functions, classes}) =
       extendMMethod f m =
           do mbody' <- extendM f (mbody m)
              return m{mbody = mbody'}
-
-extendMMethods :: Monad m => (MethodDecl -> m MethodDecl) -> Program -> m Program
-extendMMethods f (p@Program{functions, classes}) =
-    do classes' <- mapM (extendMClass f) classes
-       return p{classes = classes'}
-    where
-      extendMClass f (c@Class{cmethods}) =
-          do cmethods' <- mapM f cmethods
-             return c{cmethods = cmethods'}
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@

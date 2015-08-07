@@ -1,6 +1,5 @@
 module Types(
              Type
-            ,Capability
             ,arrowType
             ,isArrowType
             ,futureType
@@ -22,6 +21,7 @@ module Types(
             ,isActiveClassType
             ,isPassiveClassType
             ,isClassType
+            ,isUntypedRef
             ,isMainType
             ,capabilityType
             ,isCapabilityType
@@ -49,12 +49,16 @@ module Types(
             ,getImplementedTraits
             ,getTypeParameters
             ,setTypeParameters
+            ,withTypeParametersOf
             ,typeComponents
             ,typeMap
             ,typeMapM
             ,subtypeOf
             ,strictSubtypeOf
             ,showWithKind
+            ,showWithoutMode
+            ,isModeless
+            ,makeUnsafe
             ,makeLinear
             ,isLinearRefType
             ,isLinearType
@@ -62,6 +66,7 @@ module Types(
 
 import Data.List
 import Data.Maybe
+import Control.Monad
 
 data Activity = Active
               | Passive
@@ -75,17 +80,39 @@ instance Show Capability where
         | null traits = "I"
         | otherwise   = intercalate " + " (map show traits)
 
+data Mode = Linear
+          | Unsafe
+            deriving(Eq)
+
+instance Show Mode where
+    show Linear = "linear"
+    show Unsafe = "unsafe"
+
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
-                      ,isLinear :: Bool
-                      } deriving(Eq)
+                      ,mode :: Maybe Mode
+                      }
+
+-- The current modes are irrelevant for equality checks
+instance Eq RefInfo where
+    ref1 == ref2 = refId ref1 == refId ref2 &&
+                   parameters ref1 == parameters ref2
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters}
-        | null parameters = refId
-        | otherwise = refId ++ "<" ++ params ++ ">"
+    show RefInfo{mode, refId, parameters}
+        | null parameters = smode ++ refId
+        | otherwise = smode ++ refId ++ "<" ++ params ++ ">"
         where
+          smode
+              | isNothing mode = ""
+              | otherwise = show (fromJust mode) ++ " "
           params = intercalate ", " (map show parameters)
+
+showRefInfoWithoutMode RefInfo{refId, parameters}
+    | null parameters = refId
+    | otherwise = refId ++ "<" ++ params ++ ">"
+    where
+      params = intercalate ", " (map show parameters)
 
 data Type = UntypedRef{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
@@ -166,6 +193,11 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind ArrayType{}                   = "array type"
     kind _                             = "type"
 
+showWithoutMode :: Type -> String
+showWithoutMode ty
+    | isRefType ty = showRefInfoWithoutMode $ refInfo ty
+    | otherwise = show ty
+
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
     arrow : (concatMap typeComponents argTys ++ typeComponents ty)
@@ -192,10 +224,10 @@ refInfoTypeComponents = concatMap typeComponents . parameters
 -- TODO: Should maybe extract the power set?
 capabilityComponents :: Capability -> [Type]
 capabilityComponents Capability{traits} =
-    concatMap traitToType traits
+    concatMap atomComponents traits
     where
-      traitToType t@RefInfo{parameters} =
-          CapabilityType{capability = Capability{traits = [t]}} : parameters
+      atomComponents atom =
+          typeComponents $ traitTypeFromRefType UntypedRef{refInfo = atom}
 
 typeMap :: (Type -> Type) -> Type -> Type
 typeMap f ty@UntypedRef{refInfo} =
@@ -226,7 +258,7 @@ refInfoTypeMap f info@RefInfo{parameters} =
 
 capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
 capabilityTypeMap f cap@Capability{traits} =
-    cap{traits = map (refInfoTypeMap f) traits}
+    cap{traits = map (refInfo . typeMap f . TraitType) traits}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapM f ty@UntypedRef{refInfo} = do
@@ -239,7 +271,7 @@ typeMapM f ty@ClassType{refInfo, capability} = do
   refInfo' <- refInfoTypeMapM f refInfo
   capability' <- capabilityTypeMapM f capability
   f ty{refInfo = refInfo'
-               ,capability = capability'}
+      ,capability = capability'}
 typeMapM f ty@CapabilityType{capability} = do
   capability' <- capabilityTypeMapM f capability
   f ty{capability = capability'}
@@ -247,7 +279,7 @@ typeMapM f ty@ArrowType{argTypes, resultType} = do
   argTypes' <- mapM (typeMapM f) argTypes
   resultType' <- f resultType
   f ty{argTypes = argTypes'
-               ,resultType = resultType'}
+      ,resultType = resultType'}
 typeMapM f ty@FutureType{resultType} =
   typeMapMResultType f ty
 typeMapM f ty@ParType{resultType} =
@@ -270,7 +302,7 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
 
 capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
 capabilityTypeMapM f cap@Capability{traits} = do
-  traits' <- mapM (refInfoTypeMapM f) traits
+  traits' <- mapM (liftM refInfo . typeMapM f . TraitType) traits
   return cap{traits = traits'}
 
 getTypeParameters :: Type -> [Type]
@@ -289,10 +321,17 @@ setTypeParameters ty@ClassType{refInfo} parameters =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
+withTypeParametersOf sink source =
+    let formals = getTypeParameters sink
+        actuals = getTypeParameters source
+        bindings = zip formals actuals
+    in
+       replaceTypeVars bindings sink
+
 getImplementedTraits :: Type -> [Type]
 getImplementedTraits ty@TraitType{} = [ty]
 getImplementedTraits ty@ClassType{capability} =
-    map TraitType (traits capability)
+    getImplementedTraits CapabilityType{capability}
 getImplementedTraits ty@CapabilityType{capability} =
     map TraitType (traits capability)
 getImplementedTraits ty =
@@ -301,16 +340,28 @@ getImplementedTraits ty =
 refTypeWithParams refId parameters =
     UntypedRef{refInfo = RefInfo{refId,
                                  parameters,
-                                 isLinear = False}}
+                                 mode = Nothing}}
 refType id = refTypeWithParams id []
 
 activeClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
-      ClassType{refInfo, activity = Active, capability}
+      ClassType{refInfo
+               ,activity = Active
+               ,capability}
+activeClassTypeFromRefType UntypedRef{refInfo} UntypedRef{refInfo = cap} =
+      ClassType{refInfo
+               ,activity = Active
+               ,capability = Capability [cap]}
 activeClassTypeFromRefType ty _ =
     error $ "Types.hs: Can't make active type from type: " ++ show ty
 
 passiveClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
-      ClassType{refInfo, activity = Passive, capability}
+      ClassType{refInfo
+               ,activity = Passive
+               ,capability}
+passiveClassTypeFromRefType UntypedRef{refInfo} UntypedRef{refInfo = cap} =
+      ClassType{refInfo
+               ,activity = Passive
+               ,capability = Capability [cap]}
 passiveClassTypeFromRefType ty _ =
     error $ "Types.hs: Can't make passive type from type: " ++ show ty
 
@@ -330,7 +381,6 @@ traitTypeFromRefType ty =
 isRefType UntypedRef {} = True
 isRefType TraitType {} = True
 isRefType ClassType {} = True
-isRefType CapabilityType {} = True
 isRefType _ = False
 
 isTraitType TraitType{} = True
@@ -345,9 +395,43 @@ isPassiveClassType _ = False
 isClassType ClassType{} = True
 isClassType _ = False
 
-makeLinear = undefined
-isLinearRefType = undefined
-isLinearType = undefined
+isUntypedRef UntypedRef{} = True
+isUntypedRef _ = False
+
+-- TODO: Maybe a type can have several modes?
+-- TODO: Should classes ever have modes (except the "inherited ones")?
+makeUnsafe ty
+    | isRefType ty = ty{refInfo = info{mode = Just Unsafe}}
+    | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+makeLinear ty
+    | isRefType ty = ty{refInfo = info{mode = Just Linear}}
+    | otherwise = error $ "Types.hs: Cannot make type linear: " ++
+                          show ty
+    where
+      info = refInfo ty
+
+isModeless ty
+    | isTraitType ty ||
+      isUntypedRef ty = isNothing $ mode (refInfo ty)
+    | isClassType ty = False
+    | otherwise = error $ "Types.hs: Cannot get modes of type: " ++
+                          show ty
+
+isLinearRefType ty
+    | isRefType ty = mode (refInfo ty) == Just Linear
+    | otherwise = False
+
+isLinearType = any isLinearRefType . typeComponents . dropArrows
+    where
+      dropArrows = typeMap dropArrow
+      dropArrow ty
+          | isArrowType ty = voidType
+          | otherwise = ty
+
 
 capabilityType traits =
     CapabilityType{capability = Capability{traits = map refInfo traits}}
@@ -433,26 +517,33 @@ isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
 
 strictSubtypeOf :: Type -> Type -> Bool
-strictSubtypeOf ty1 ty2
-  | isClassType ty1 && isTraitType ty2 =
-      ty2 `elem` getImplementedTraits ty1
-  | otherwise = False
+strictSubtypeOf ty1 ty2 =
+    ty1 `subtypeOf` ty2 &&
+    ty1 /= ty2
 
+-- TODO: Extend to match all combinations
 subtypeOf :: Type -> Type -> Bool
 subtypeOf ty1 ty2
     | isNullType ty1 = isNullType ty2 || isRefType ty2
     | isClassType ty1 && isTraitType ty2 =
-        ty2 `elem` getImplementedTraits ty1
+        getImplementedTraits ty1 `containsTraitMatching` ty2
     | isClassType ty1 && isCapabilityType ty2 =
         capability ty1 `capabilitySubtypeOf` capability ty2
     | isCapabilityType ty1 && isCapabilityType ty2 =
         capability ty1 `capabilitySubtypeOf` capability ty2
+    | isCapabilityType ty1 && isTraitType ty2 =
+        getImplementedTraits ty1 `containsTraitMatching` ty2
+    | isTraitType ty1 && isTraitType ty2 =
+        ty1 == ty2 && ty1 `modeSubtypeOf` ty2
     | otherwise = ty1 == ty2
     where
+      matchesTrait ty1 ty2 = ty1 == ty2 && ty1 `modeSubtypeOf` ty2
+      containsTraitMatching ts t = any (matchesTrait t) ts
+      modeSubtypeOf ty1 ty2 =
+          mode (refInfo ty1) == mode (refInfo ty2)
       capabilitySubtypeOf cap1 cap2 =
-      -- TODO: Needs to handle parameters as well!
           let
-              traits1 = traits cap1
-              traits2 = traits cap2
-        in
-          all (`elem` traits1) traits2
+              traits1 = map TraitType $ traits cap1
+              traits2 = map TraitType $ traits cap2
+          in
+            all (traits1 `containsTraitMatching`) traits2

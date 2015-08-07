@@ -157,4 +157,12 @@ static inline void encore_trace_polymorphic_variable(pony_type_t *type,
   }
 }
 
+// Runtime representation of capability types
+typedef struct _enc__capability_t _enc__capability_t;
+
+struct _enc__capability_t
+{
+  pony_type_t* _enc__self_type;
+};
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

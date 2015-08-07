@@ -105,7 +105,7 @@ typ  =  try arrow
               <|> stream
               <|> array
               <|> primitive
-              <|> try refType
+              <|> try capability
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -147,6 +147,18 @@ typeVariable = do
   return $ typeVar id
   <?> "lower case type variable"
 
+capability :: Parser Type
+capability = do
+  traits <- capAtom `sepBy1` reservedOp "+"
+  return $ if length traits == 1
+           then head traits
+           else capabilityType traits
+    where
+      capAtom = do
+        mode <- option id mode
+        ref <- refType
+        return $ mode ref
+
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
@@ -186,16 +198,19 @@ importdecl = do
 embedTL :: Parser EmbedTL
 embedTL = do
   pos <- getPosition
-  (try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; string "body"}
-           code <- manyTill anyChar $ try $ do {space; reserved "end"}
-           return $ EmbedTL (meta pos) header code
-       ) <|>
-   try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; reserved "end"}
-           return $ EmbedTL (meta pos) header ""
-       ) <|>
-   (return $ EmbedTL (meta pos) "" ""))
+  try (embedWithBody pos) <|>
+      try (embedWithoutBody pos) <|>
+      return (EmbedTL (meta pos) "" "")
+    where
+      embedWithBody pos = do
+            string "embed"
+            header <- manyTill anyChar $ try $ do {space; string "body"}
+            code <- manyTill anyChar $ try $ do {space; reserved "end"}
+            return $ EmbedTL (meta pos) header code
+      embedWithoutBody pos = do
+            string "embed"
+            header <- manyTill anyChar $ try $ do {space; reserved "end"}
+            return $ EmbedTL (meta pos) header ""
 
 function :: Parser Function
 function = do
@@ -213,15 +228,28 @@ function = do
                  ,funbody
                  }
 
+mode :: Parser (Type -> Type)
+mode = linear
+       <|>
+       unsafe
+       <?> "mode"
+    where
+      linear = do reserved "linear"
+                  return makeLinear
+      unsafe = do reserved "unsafe"
+                  return makeUnsafe
+
 traitDecl :: Parser TraitDecl
 traitDecl = do
   tmeta <- meta <$> getPosition
+  mode <- option id mode
   reserved "trait"
   ident <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
   (tfields, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
-              ,tname = traitTypeFromRefType $
+              ,tname = mode $
+                       traitTypeFromRefType $
                        refTypeWithParams ident params
               ,tfields
               ,tmethods
@@ -241,14 +269,10 @@ traitField = do
   ftype <- typ
   return Field{fmeta, fname, ftype}
 
-capability :: Parser Type
-capability = do
-  traits <- refType `sepBy1` reservedOp "+"
-  return $ capabilityType traits
-
 classDecl :: Parser ClassDecl
 classDecl = do
   cmeta <- meta <$> getPosition
+  linearity <- option id (do{reserved "linear"; return makeLinear})
   refKind <- option activeClassTypeFromRefType
              (reserved "passive" >> return passiveClassTypeFromRefType)
   reserved "class"
@@ -317,6 +341,7 @@ expression = buildExpressionParser opTable expr
                  [textualOperator "and" Identifiers.AND,
                   textualOperator "or" Identifiers.OR],
                  [messageSend],
+                 [consume],
                  [typedExpression],
                  [chain],
                  [assignment]
@@ -338,6 +363,10 @@ expression = buildExpressionParser opTable expr
           Infix (do pos <- getPosition
                     reservedOp s
                     return (Binop (meta pos) binop)) AssocLeft
+      consume =
+          Prefix (do pos <- getPosition
+                     reserved "consume"
+                     return (Consume (meta pos)))
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
@@ -370,7 +399,6 @@ expr  =  unit
      <|> try path
      <|> try functionCall
      <|> try print
-     <|> try consume
      <|> closure
      <|> task
      <|> finishTask
@@ -526,10 +554,6 @@ expr  =  unit
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
                      return $ VarAccess (meta pos) $ Name id
-      consume = do pos <- getPosition
-                   reserved "consume"
-                   target <- expression
-                   return $ Consume (meta pos) target
       arraySize = do pos <- getPosition
                      bar
                      arr <- expression

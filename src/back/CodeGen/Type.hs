@@ -25,7 +25,9 @@ translatePrimitive ty
 instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty      = translatePrimitive ty
-        | Ty.isRefType ty        = Ptr . AsType $ class_type_name ty
+        | Ty.isTraitType ty      = capability
+        | Ty.isCapabilityType ty = capability
+        | Ty.isClassType ty      = Ptr . AsType $ class_type_name ty
         | Ty.isArrowType ty      = closure
         | Ty.isTypeVar ty        = encore_arg_t
         | Ty.isFutureType ty     = future

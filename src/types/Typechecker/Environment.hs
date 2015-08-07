@@ -14,6 +14,7 @@ module Typechecker.Environment(Environment,
                                refTypeLookup,
                                refTypeLookupUnsafe,
                                methodLookup,
+                               methodAndCalledTypeLookup,
                                fieldLookup,
                                varLookup,
                                isLocal,
@@ -33,6 +34,7 @@ module Typechecker.Environment(Environment,
 import Data.List
 import Data.Maybe
 import Control.Applicative ((<|>))
+import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Printf (printf)
@@ -100,8 +102,7 @@ fieldLookup t f env
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
 
 matchMethod :: Name -> MethodDecl -> Bool
-matchMethod m Method{mname} = mname == m
-matchMethod m StreamMethod{mname} = mname == m
+matchMethod m = ( == m ) . mname
 
 traitMethodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 traitMethodLookup trait m env = do
@@ -114,14 +115,25 @@ methodLookup ty m env
     cls <- classLookup ty env
     let c_m = find (matchMethod m) $ cmethods cls
         t_ms = map (\t -> traitMethodLookup t m env) traits
-    ret <- find isJust (c_m:t_ms)
-    return $ fromJust ret
+    join $ find isJust (c_m:t_ms)
   | isTraitType ty =
     traitMethodLookup ty m env
   | otherwise = error $ "Environment.hs: methodLookup in non-ref type " ++
                         show ty
     where
       traits = getImplementedTraits ty
+
+methodAndCalledTypeLookup ::
+    Type -> Name -> Environment -> Maybe (MethodDecl, Type)
+methodAndCalledTypeLookup ty m env
+    | isCapabilityType ty = do
+        let traits = getImplementedTraits ty
+            results = map (\t -> (traitMethodLookup t m env, t)) traits
+        (ret, ty') <- find (isJust . fst) results
+        return (fromJust ret, ty')
+    | otherwise = do
+        ret <- methodLookup ty m env
+        return (ret, ty)
 
 traitLookup :: Type -> Environment -> Maybe TraitDecl
 traitLookup t env =

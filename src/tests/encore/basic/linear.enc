@@ -1,4 +1,6 @@
-linear passive class Foo
+trait T
+
+passive class Foo : linear T
   f : Foo
   def foo() : void
     print "Hello, Linear world!"

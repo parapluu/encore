@@ -1,9 +1,9 @@
-trait Foo
+unsafe trait Foo
   require x : int
   def foo() : int
     this.x
 
-trait Bar
+unsafe trait Bar
   def bar(x : Foo) : int
     x.foo()
 

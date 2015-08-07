@@ -13,12 +13,12 @@ passive class Link
     this.next  = n;
   }
 
-trait Push
+unsafe trait Push
   require top : Link
   def push(x : int) : void
     this.top = new Link(x, this.top)
 
-trait Pop
+unsafe trait Pop
   require top : Link
   def pop() : int
     let result = this.top.value in{

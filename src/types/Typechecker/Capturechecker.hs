@@ -123,8 +123,8 @@ instance CaptureCheckable Expr where
                freeLins = List.filter (isLinearType . snd) freeVars
                firstLin = head freeLins
            unless (null freeLins) $
-             ccError $ "Cannot capture variable '" ++ (show $ fst firstLin) ++
-                       "' of linear type '" ++ (show $ snd firstLin) ++
+             ccError $ "Cannot capture variable '" ++ show (fst firstLin) ++
+                       "' of linear type '" ++ show (snd firstLin) ++
                        "' in a closure"
            capture body
            free e
@@ -175,8 +175,10 @@ capture e =
     when (isLinearType ty) $
       unless (isFree e) $
         pushError e $
-          "Cannot capture expression '" ++ (show $ ppExpr e) ++
-          "' of linear type '" ++ (show ty) ++ "'"
+          "Cannot capture expression '" ++ show (ppExpr e) ++
+          if isClassType ty
+          then "' of linear type '" ++ show ty ++ "'"
+          else "' of type '" ++ show ty ++ "'"
 
 -- | An expression of linear type can be marked 'free' to signal
 -- that it is safe to 'capture' its result

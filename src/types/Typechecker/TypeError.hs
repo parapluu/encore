@@ -128,9 +128,9 @@ instance Show CCError where
         " *** Error during capturechecking *** \n" ++
         show pos ++ "\n" ++
         msg ++ "\n" ++
-        (concat $ map showBT bt)
+        concatMap showBT bt
         where
           showBT (pos, node) =
-              case (show node) of
+              case show node of
                 "" -> ""
                 s  -> s ++ "\n"

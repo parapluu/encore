@@ -101,12 +101,12 @@ formalBindings actual = do
   return $ zip formals actuals
 
 findMethod :: (MonadError TCError m, MonadReader Environment m) =>
-  Type -> Name -> m MethodDecl
+  Type -> Name -> m (MethodDecl, Type)
 findMethod ty name = do
-  m' <- asks $ methodLookup ty name
-  when (isNothing m') $ tcError $
+  ret <- asks $ methodAndCalledTypeLookup ty name
+  when (isNothing ret) $ tcError $
     concat [no_method name, " in ", ref, " '", show ty, "'"]
-  return $ fromJust m'
+  return $ fromJust ret
   where
     ref
       | isClassType ty = "class"
@@ -246,6 +246,8 @@ instance Checkable Expr where
     --  E |- (body : t) : t
     doTypecheck te@(TypedExpr {body, ty}) =
         do ty' <- resolveType ty
+           assertResolvedTraits ty'
+           assertResolvedModes ty'
            eBody <- hasType body ty'
            return $ setType ty' $ te{body = eBody, ty = ty'}
 
@@ -278,24 +280,26 @@ instance Checkable Expr where
     doTypecheck mcall@(MethodCall {target, name, args}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isRefType targetType) $
+      unless (isRefType targetType || isCapabilityType targetType) $
         tcError $ "Cannot call method on expression '" ++
                   show (ppExpr target) ++
                   "' of type '" ++ show targetType ++ "'"
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
-      mdecl <- findMethod targetType name
+      (mdecl, calledType) <- findMethod targetType name
+      let specializedTarget = setType calledType eTarget
       matchArgumentLength mdecl args
-      fBindings <- formalBindings targetType
+      fBindings <- formalBindings calledType
       let paramTypes = map ptype (mparams mdecl)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
           methodType = mtype mdecl
       (eArgs, bindings) <- local (bindTypes fBindings) $
                                  matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings methodType
-          returnType = ret_type targetType mdecl resultType
-      return $ setType returnType mcall {target = eTarget, args = eArgs}
+          returnType = ret_type calledType mdecl resultType
+      return $ setType returnType mcall {target = specializedTarget
+                                        ,args = eArgs}
       where
         ret_type targetType method t
           | is_sync_call targetType = t
@@ -320,14 +324,15 @@ instance Checkable Expr where
            tcError $ "Cannot send message to expression '" ++
                      show (ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
-      mdecl <- findMethod targetType name
-      matchArgumentLength mdecl args
-      fBindings <- formalBindings targetType
-      let paramTypes = map ptype (mparams mdecl)
+      (mdecl, calledType) <- findMethod targetType name
+      let specializedTarget = setType calledType eTarget
+          paramTypes = map ptype (mparams mdecl)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
+      matchArgumentLength mdecl args
+      fBindings <- formalBindings calledType
       (eArgs, _) <- local (bindTypes fBindings) $
                     matchArguments args expectedTypes
-      return $ setType voidType msend {target = eTarget, args = eArgs}
+      return $ setType voidType msend {target = specializedTarget, args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
     --  typeVarBindings() = B
@@ -588,15 +593,15 @@ instance Checkable Expr where
     doTypecheck cons@(Consume {target}) =
         do eTarget <- typecheck target
            unless (isLval target) $
-                  tcError $ "Cannot consume non-lval '" ++ 
-                            (show $ ppExpr target) ++ "'"
+                  tcError $ "Cannot consume non-lval '" ++
+                            show (ppExpr target) ++ "'"
            whenM (isGlobalVar target) $
-                 tcError $ "Can't consume global variable '" ++ 
+                 tcError $ "Can't consume global variable '" ++
                            show (ppExpr target) ++ "'"
            let ty = AST.getType eTarget
            return $ setType ty cons {target = eTarget}
         where
-          isGlobalVar VarAccess{name} = 
+          isGlobalVar VarAccess{name} =
               liftM not $ asks $ isLocal name
           isGlobalVar _ = return False
 
@@ -808,7 +813,7 @@ coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
     | isRefType ty ||
-      isArrayType ty || 
+      isArrayType ty ||
       isFutureType ty ||
       isStreamType ty ||
       isParType ty = return $ setType ty null
@@ -920,4 +925,11 @@ assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()
 assertSubtypeOf sub super =
     unless (sub `subtypeOf` super) $
            tcError $ "Type '" ++ show sub ++
-                     "' does not match expected type '" ++ show super ++ "'"
+                     "' " ++ maybeCap sub ++
+                     "does not match expected type '" ++ show super ++ "'"
+    where
+      maybeCap ty
+          | (isTraitType super || isCapabilityType super) &&
+            isClassType ty =
+                "with capability '" ++ show (getCapability ty) ++ "' "
+          | otherwise = ""

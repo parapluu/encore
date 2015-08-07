@@ -71,6 +71,8 @@ instance Precheckable Function where
 instance Precheckable ParamDecl where
     doPrecheck p@Param{ptype} = do
       ptype' <- resolveType ptype
+      when (isRefType ptype') $
+           assertResolvedModes ptype'
       return $ setType ptype' p
 
 instance Precheckable TraitDecl where
@@ -95,16 +97,18 @@ instance Precheckable ClassDecl where
       cname'    <- local addTypeParams $ resolveType cname
       cfields'  <- mapM (local addTypeParams . precheck) cfields
       cmethods' <- mapM (local (addTypeParams . addThis) . precheck) cmethods
+      assertResolvedTraits cname'
+      assertResolvedModes cname'
       return $ setType cname' t{cfields = cfields', cmethods = cmethods'}
       where
         typeParameters = getTypeParameters cname
         addTypeParams = addTypeParameters typeParameters
         addThis = extendEnvironment [(thisName, cname)]
         assertDistinctness = do
-            assertDistinctThing "declaration" "type parameter" typeParameters
-            assertDistinctThing "inclusion" "trait" $ getImplementedTraits cname
-            assertDistinct "declaration" cfields
-            assertDistinct "declaration" cmethods
+          assertDistinctThing "declaration" "type parameter" typeParameters
+          assertDistinctThing "inclusion" "trait" $ getImplementedTraits cname
+          assertDistinct "declaration" cfields
+          assertDistinct "declaration" cmethods
 
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do

@@ -7,6 +7,7 @@ module Typechecker.Util where
 import Types
 import qualified AST.AST as AST
 import Data.List
+import Data.Maybe
 import Text.Printf (printf)
 
 -- Module dependencies
@@ -30,8 +31,8 @@ matchTypeParameterLength ty1 ty2 = do
       params2 = getTypeParameters ty2
   unless (length params1 == length params2) $
     tcError $ printf "'%s' expects %d type arguments, but '%s' has %d"
-              (show ty1) (length params1)
-              (show ty2) (length params2)
+              (showWithoutMode ty1) (length params1)
+              (showWithoutMode ty2) (length params2)
 
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
@@ -50,10 +51,44 @@ resolveType = typeMapM resolveSingleType
               case result of
                 Just formal -> do
                     matchTypeParameterLength formal ty
-                    return $ setTypeParameters formal $ getTypeParameters ty
+                    resolveRefType ty formal
                 Nothing ->
                     tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
           | otherwise = return ty
+
+      resolveRefType actual formal
+          | not (isClassType actual) &&
+            isModeless actual && not (isModeless formal) =
+              resolveType $ formal `withTypeParametersOf` actual
+          | not $ isUntypedRef actual =
+              return actual
+          | isActiveClassType formal =
+              resolveType $ activeClassTypeFromRefType actual capability
+          | isPassiveClassType formal =
+              resolveType $ passiveClassTypeFromRefType actual capability
+          | isTraitType formal =
+              resolveType $ traitTypeFromRefType actual
+          | otherwise =
+              error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal
+          where
+            capability = getCapability (formal `withTypeParametersOf` actual)
+
+assertResolvedTraits :: Type -> ExceptT TCError (Reader Environment) ()
+assertResolvedTraits ty = mapM_ resolve $ getImplementedTraits ty
+    where
+      resolve t = do
+        result <- asks $ traitLookup t
+        unless (isJust result) $
+               tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+
+assertResolvedModes :: Type -> ExceptT TCError (Reader Environment) ()
+assertResolvedModes ty =
+    let
+        modeless = filter isModeless (getImplementedTraits ty)
+        first = head modeless
+    in
+      unless (null modeless) $
+             tcError $ "No mode given to trait '" ++ show first ++ "'"
 
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :

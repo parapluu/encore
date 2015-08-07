@@ -66,6 +66,9 @@ task_msg_t = Typ "encore_task_msg_s"
 enc_oneway_msg_t :: CCode Ty
 enc_oneway_msg_t = Typ "encore_oneway_msg_t"
 
+capability :: CCode Ty
+capability = Ptr $ Typ "_enc__capability_t"
+
 closure :: CCode Ty
 closure = Ptr $ Typ "closure_t"
 
