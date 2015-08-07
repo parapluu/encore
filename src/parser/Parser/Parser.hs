@@ -338,7 +338,6 @@ expression = buildExpressionParser opTable expr
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
                  [typedExpression],
-                 [matchCond],
                  [chain],
                  [assignment]
                 ]
@@ -375,11 +374,6 @@ expression = buildExpressionParser opTable expr
                       args <- parens arguments
                       return (\target -> MessageSend (meta pos) target
                                                      (Name name) args))
-      matchCond =
-          Infix (do pos <- getPosition
-                    reservedOp "=>"
-                    return $ (\lhs rhs -> MatchClause (meta pos) lhs rhs)) AssocLeft
-
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
@@ -399,7 +393,7 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
-     <|> match
+     <|> try match
      <|> task
      <|> finishTask
      <|> for
@@ -554,8 +548,14 @@ expr  =  unit
                  reserved "match"
                  argDecl <- expression
                  reserved "with"
-                 body <- expression
+                 body <- braces $ many matchingExpr
                  return $ MatchDecl (meta pos) argDecl body
+             where
+               matchingExpr = do
+                 patternMatching <- expression
+                 reservedOp "=>"
+                 body <- expression
+                 return (patternMatching, body)
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression

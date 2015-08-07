@@ -239,13 +239,9 @@ data Expr = Skip {emeta :: Meta Expr}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
                           args :: Arguments}
-          | MatchClause {emeta :: Meta Expr,
-                         matchitem :: Expr,
-                         body :: Expr }
           | MatchDecl {emeta :: Meta Expr,
                        arg :: Expr,
-                       matchbody :: Expr
-                      }
+                       matchbody :: [(Expr, Expr)]}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
