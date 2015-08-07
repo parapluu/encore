@@ -58,6 +58,7 @@ module Types(
             ,isMaybeType
             ,bottomType
             ,isBottomType
+            ,hasResultType
             ) where
 
 import Data.List
@@ -110,6 +111,15 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | NullType
           | BottomType
             deriving(Eq)
+
+class ResultType a where
+  hasResultType :: a -> Bool
+
+instance ResultType Type where
+  hasResultType = allowedTypes
+    where
+      allowedTypes x = (isArrowType x || isFutureType x || isParType x ||
+                        isStreamType x || isArrowType x || isMaybeType x)
 
 getArgTypes = argTypes
 getResultType = resultType

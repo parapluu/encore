@@ -254,6 +254,46 @@ instance Checkable Expr where
            eBody <- hasType body ty'
            return $ setType ty' $ te{body = eBody, ty = ty'}
 
+    doTypecheck m@(MatchDecl {arg, matchbody}) =
+      do eArg <- typecheck arg
+         let eArgType = AST.getType eArg
+         unless (isMaybeType eArgType) $
+           tcError $ "Match clause needs to match on an Option type, not on " ++  (show eArgType)
+         eMatchBody <- mapM (tuplecheck eArg) matchbody
+         targetType <- checkSameBranchType eMatchBody
+         return $ setType targetType m {arg = eArg, matchbody = eMatchBody}
+      where
+        checkSameBranchType ((_,e):t) = do
+          case foldl fn (Right (AST.getType e)) t of
+            Left err -> tcError err
+            Right result -> return result
+        fn (Right acc) (_, e) = if (acc == (AST.getType e)) then Right acc
+                                else (Left "Match clause must return same type in all branches")
+        fn (Left err) _ = Left err
+        tuplecheck parent (x@(MaybeData _ (JustType _ v@(VarAccess {}))), y) = do
+          let varName = (name . e . mdt) x
+          let targetType = (getResultType . AST.getType) parent
+          x' <- local (extendEnvironment [(varName, targetType)]) $ typecheck x
+          y' <- local (extendEnvironment [(varName, targetType)]) $ typecheck y
+          -- TODO: the error is not quite right if there was nested option types
+          -- We should return Either StringMessage (Expr, Expr)
+          unless ((hasResultType . AST.getType) parent) $
+            tcError $ "Type mismatch in `match` expression, matching: " ++
+                      (show $ AST.getType parent) ++
+                      " with " ++ (show $ AST.getType x')
+          matchTypes (AST.getType parent) (AST.getType x')
+          return (x', y')
+        tuplecheck parent (x@(MaybeData _ (JustType _ md@(MaybeData {}))), y) = do
+          let targetType = (getResultType . AST.getType) parent
+              parent' = setType targetType parent
+          (x', y') <- tuplecheck parent' (md, y)
+          return (x', y')
+        tuplecheck parent (x@(MaybeData _ (NothingType {})), y) = do
+          y' <- typecheck y
+          return (x, y')
+        tuplecheck parent (x, _) = do
+          tcError $ "Matching on something different than Option type: " ++ (show $ AST.getType x)
+
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
     --  E |- arg1 : t1 .. E |- argn : tn
