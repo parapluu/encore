@@ -99,8 +99,7 @@ resolveType = typeMapM resolveSingleType
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
-    | isMaybeType ty1 &&
-      (isBottomType $ getResultType ty1) && (not.isNullType) ty2 = return True
+    | isMaybeType ty1 = maybeSubtypeOf ty1 ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
         ty1 `refSubtypeOf` ty2
@@ -122,6 +121,9 @@ subtypeOf ty1 ty2
         ty1 `capabilitySubtypeOf` ty2
     | otherwise = return (ty1 == ty2)
     where
+      maybeSubtypeOf t1 t2
+        | (isBottomType $ getResultType t1) && (not.isNullType) t2 = return True
+        | otherwise = return $ (getResultType t1) == (getResultType t2)
       refSubtypeOf ref1 ref2
           | getId ref1 == getId ref2
           , params1 <- getTypeParameters ref1
