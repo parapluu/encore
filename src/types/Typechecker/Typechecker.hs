@@ -17,7 +17,7 @@ import Control.Monad.Except
 -- Module dependencies
 import Identifiers
 import AST.AST hiding (hasType, getType)
-import qualified AST.AST as AST (getType, showWithKind)
+import qualified AST.AST as AST (getType)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -95,7 +95,7 @@ formalBindings actual = do
   matchTypeParameterLength origin actual
   let formals = getTypeParameters origin
       actuals = getTypeParameters actual
-  matchTypeParameters formals actuals
+  return $ zip formals actuals
 
 findMethod :: (MonadError TCError m, MonadReader Environment m) =>
   Type -> Name -> m MethodDecl
@@ -111,9 +111,9 @@ findMethod ty name = do
     no_method (Name "_init") = "No constructor"
     no_method n = concat ["No method '", show n, "'"]
 
-matchArgs :: (MonadError TCError m, MonadReader Environment m) =>
+matchArgumentLength :: (MonadError TCError m, MonadReader Environment m) =>
   MethodDecl -> Arguments -> m ()
-matchArgs method args =
+matchArgumentLength method args =
   unless (actual == expected) $ tcError $
     concat [to_str name, " expects ", show expected,
             "arguments. Got ", show actual]
@@ -283,14 +283,15 @@ instance Checkable Expr where
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
       mdecl <- findMethod targetType name
-      matchArgs mdecl args
-      f_bindings <- formalBindings targetType
+      matchArgumentLength mdecl args
+      fBindings <- formalBindings targetType
       let paramTypes = map ptype (mparams mdecl)
+          expectedTypes = map (replaceTypeVars fBindings) paramTypes
           methodType = mtype mdecl
-      (eArgs, bindings) <- local (bindTypes f_bindings) $
-        matchArguments args paramTypes
+      (eArgs, bindings) <- local (bindTypes fBindings) $
+                                 matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings methodType
-      let returnType = ret_type targetType mdecl resultType
+          returnType = ret_type targetType mdecl resultType
       return $ setType returnType mcall {target = eTarget, args = eArgs}
       where
         ret_type targetType method t
@@ -317,10 +318,12 @@ instance Checkable Expr where
                      show (ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
       mdecl <- findMethod targetType name
+      matchArgumentLength mdecl args
+      fBindings <- formalBindings targetType
       let paramTypes = map ptype (mparams mdecl)
-      matchArgs mdecl args
-      bindings <- formalBindings targetType
-      (eArgs, _) <- local (bindTypes bindings) $ matchArguments args paramTypes
+          expectedTypes = map (replaceTypeVars fBindings) paramTypes
+      (eArgs, _) <- local (bindTypes fBindings) $
+                    matchArguments args expectedTypes
       return $ setType voidType msend {target = eTarget, args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
@@ -351,17 +354,17 @@ instance Checkable Expr where
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
-      eEparams <- mapM (local add_type_vars . typecheck) eparams
-      eBody <- local (add_type_vars . addParams eEparams) $ typecheck body
+      eEparams <- mapM (local addTypeVars . typecheck) eparams
+      eBody <- local (addTypeVars . addParams eEparams) $ typecheck body
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       when (isNullType returnType) $
            tcError "Cannot infer return type of closure with null-valued body"
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
-        all_param_types = concatMap (typeComponents . ptype) eparams
-        type_vars = nub $ filter isTypeVar all_param_types
-        add_type_vars = addTypeParameters type_vars
+        typeParams = concatMap (typeComponents . ptype) eparams
+        typeVars = nub $ filter isTypeVar typeParams
+        addTypeVars = addTypeParameters typeVars
 
     --  E |- body : t
     --  ------------------
@@ -857,34 +860,34 @@ matchTypes expected ty
             resTy       = getResultType ty
         in
           do
-            argBindings <- matchArguments expArgTypes argTypes
+            argBindings <- matchArgs expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
-      result <- asks $ typeVarLookup expected
-      case result of
-        Just boundType -> do
-          unless (ty `subtypeOf` boundType) $
-            tcError $ "Type variable '" ++ show expected ++
-              "' cannot be bound to both '" ++ show ty ++
+      params <- asks typeParameters
+      if expected `elem` params then
+          assertMatch expected ty
+      else do
+        result <- asks $ typeVarLookup expected
+        case result of
+          Just boundType -> do
+            unless (ty `subtypeOf` boundType) $
+              tcError $ "Type variable '" ++ show expected ++
+                "' cannot be bound to both '" ++ show ty ++
                 "' and '" ++ show boundType ++ "'"
-          asks bindings
-        Nothing -> do
-          bindings <- asks bindings
-          return $ (expected, ty) : bindings
-    | otherwise = do bindings <- asks bindings
-                     assertSubtypeOf ty (replaceTypeVars bindings expected)
-                     return bindings
+            asks bindings
+          Nothing -> do
+            bindings <- asks bindings
+            return $ (expected, ty) : bindings
+    | otherwise = assertMatch expected ty
     where
-      matchArguments [] [] = asks bindings
-      matchArguments (ty1:types1) (ty2:types2) = do
+      matchArgs [] [] = asks bindings
+      matchArgs (ty1:types1) (ty2:types2) = do
         bindings <- matchTypes ty1 ty2
-        local (bindTypes bindings) $ matchArguments types1 types2
+        local (bindTypes bindings) $ matchArgs types1 types2
 
-matchTypeParameters :: [Type] -> [Type] ->
-                       ExceptT TCError (Reader Environment) [(Type, Type)]
-matchTypeParameters formals params = do
-  bindings <- zipWithM matchTypes formals params
-  return $ concat bindings
+      assertMatch expected ty = do
+        assertSubtypeOf ty expected
+        asks bindings
 
 assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()
 assertSubtypeOf sub super =
