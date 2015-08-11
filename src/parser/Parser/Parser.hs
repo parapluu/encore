@@ -393,7 +393,7 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
-     <|> try match
+     <|> match
      <|> task
      <|> finishTask
      <|> for
