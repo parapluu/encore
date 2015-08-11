@@ -259,6 +259,8 @@ instance Checkable Expr where
          let eArgType = AST.getType eArg
          unless (isMaybeType eArgType) $
            tcError $ "Match clause needs to match on an Option type, not on " ++  (show eArgType)
+         unless (length matchbody > 0) $
+           tcError $ "Match clause has no pattern to match against"
          eMatchBody <- mapM (tuplecheck eArg) matchbody
          targetType <- checkSameBranchType eMatchBody
          return $ setType targetType m {arg = eArg, matchbody = eMatchBody}
