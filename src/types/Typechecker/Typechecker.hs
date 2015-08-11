@@ -250,16 +250,11 @@ instance Checkable Expr where
          unless (length matchbody > 0) $
            tcError $ "Match clause has no pattern to match against"
          eMatchBody <- mapM (tuplecheck eArg) matchbody
-         targetType <- checkSameBranchType eMatchBody
-         return $ setType targetType m {arg = eArg, matchbody = eMatchBody}
+         let resultType = (AST.getType . snd . head) eMatchBody
+         unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
+           tcError $ "Match clause must return same type in all branches"
+         return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
-        checkSameBranchType ((_,e):t) = do
-          case foldl fn (Right (AST.getType e)) t of
-            Left err -> tcError err
-            Right result -> return result
-        fn (Right acc) (_, e) = if (acc == (AST.getType e)) then Right acc
-                                else (Left "Match clause must return same type in all branches")
-        fn (Left err) _ = Left err
         tuplecheck parent (x@(MaybeData _ (JustType _ v@(VarAccess {}))), y) = do
           let varName = (name . e . mdt) x
           let targetType = (getResultType . AST.getType) parent
