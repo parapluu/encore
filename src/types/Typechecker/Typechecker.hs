@@ -222,18 +222,6 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
                  do assertSubtypeOf exprType ty
                     return eExpr
 
-
-instance Checkable MaybeDataType where
-    doTypecheck just@(JustType mdtmeta e) = do
-      eBody <- typecheck e
-      let returnType = AST.getType eBody
-      when (isNullType returnType) $
-        tcError "Cannot infer the return type of the maybe expression"
-      return $ setType returnType (just { e = eBody })
-
-    doTypecheck nothing@(NothingType mdtmeta) =
-      return $ setType bottomType nothing
-
 instance Checkable Expr where
     --
     -- ----------------
@@ -377,11 +365,22 @@ instance Checkable Expr where
       return $ setType voidType msend {target = eTarget, args = eArgs}
 
     doTypecheck maybeData@(MaybeData {mdt}) = do
-      eBody <- typecheck mdt
+      eBody <- maybeTypecheck mdt
       let returnType = AST.getType eBody
       when (isNullType returnType) $
         tcError "Cannot infer the return type of the maybe expression"
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
+        where
+          maybeTypecheck just@(JustType mdtmeta e) = do
+            eBody <- typecheck e
+            let returnType = AST.getType eBody
+            when (isNullType returnType) $
+              tcError "Cannot infer the return type of the maybe expression"
+            return $ setType returnType (just { e = eBody })
+
+          maybeTypecheck nothing@(NothingType mdtmeta) =
+            return $ setType bottomType nothing
+
 
 
     --  E |- f : (t1 .. tn) -> t
