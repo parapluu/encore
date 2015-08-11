@@ -219,8 +219,7 @@ data MaybeDataType = JustType { mdtmeta :: Meta MaybeDataType, e :: Expr}
 instance HasMeta MaybeDataType where
   getMeta = mdtmeta
   setMeta mdt m = mdt{mdtmeta = m}
-  setType ty m@(JustType {mdtmeta}) = m {mdtmeta = AST.Meta.setType ty mdtmeta}
-  setType ty m@(NothingType {mdtmeta}) = m {mdtmeta = AST.Meta.setType ty mdtmeta}
+  setType ty m = m {mdtmeta = AST.Meta.setType ty (mdtmeta m)}
 
 
 data Expr = Skip {emeta :: Meta Expr}
