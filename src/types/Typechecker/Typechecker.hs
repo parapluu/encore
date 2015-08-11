@@ -859,12 +859,6 @@ matchTypes expected ty
           do
             argBindings <- matchArguments expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
-    | isTypeVar expected && isTypeVar ty = do
-      unless (expected == ty) $ tcError $
-        concat ["Can't match '", show expected, "' with '", show ty, "'"]
-      asks bindings
-      -- TODO
-      -- It's dangerous to mach typevar with anything other than typevar, isn't?
     | isTypeVar expected = do
       result <- asks $ typeVarLookup expected
       case result of
@@ -877,8 +871,9 @@ matchTypes expected ty
         Nothing -> do
           bindings <- asks bindings
           return $ (expected, ty) : bindings
-    | otherwise = do assertSubtypeOf ty expected
-                     asks bindings
+    | otherwise = do bindings <- asks bindings
+                     assertSubtypeOf ty (replaceTypeVars bindings expected)
+                     return bindings
     where
       matchArguments [] [] = asks bindings
       matchArguments (ty1:types1) (ty2:types2) = do
