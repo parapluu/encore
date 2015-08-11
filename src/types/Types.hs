@@ -180,6 +180,8 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind StreamType{}                  = "stream type"
     kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
+    kind MaybeType{}                   = "maybe type"
+    kind BottomType{}                  = "bottom type"
     kind _                             = "type"
 
 typeComponents :: Type -> [Type]
