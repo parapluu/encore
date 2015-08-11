@@ -112,14 +112,10 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | BottomType
             deriving(Eq)
 
-class ResultType a where
-  hasResultType :: a -> Bool
-
-instance ResultType Type where
-  hasResultType = allowedTypes
-    where
-      allowedTypes x = (isArrowType x || isFutureType x || isParType x ||
-                        isStreamType x || isArrowType x || isMaybeType x)
+hasResultType x
+  | (isArrowType x || isFutureType x || isParType x ||
+     isStreamType x || isArrowType x || isMaybeType x) = True
+  | otherwise = False
 
 getArgTypes = argTypes
 getResultType = resultType
