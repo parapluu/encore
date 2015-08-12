@@ -228,7 +228,7 @@ ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val
-ppExpr Eos {} = ppEos <> parens empty
+ppExpr Eos {} = ppEos
 ppExpr Await {val} = ppAwait <+> ppExpr val
 ppExpr IsEos {target} = ppExpr target <> ppDot <> ppEos <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <> parens empty

@@ -8,9 +8,9 @@ module Types(
             ,TypeTree
             ,RoseTree (..)
             ,TypeOp (..)
-            ,fromTypeTree
             ,isEmptyCapability
             ,isSingleCapability
+            ,refTypeFromSingletonCapability
             ,arrowType
             ,isArrowType
             ,futureType
@@ -92,6 +92,8 @@ module Types(
             ,makeUnsafe
             ,makeLinear
             ,isLinearRefType
+            ,makeStackbound
+            ,isStackboundType
             ) where
 
 import Data.List
@@ -165,8 +167,10 @@ instance Show Mode where
     show Linear = "linear"
     show Unsafe = "unsafe"
 
-modeSubtypeOf ty1 ty2 =
-    mode (refInfo ty1) == mode (refInfo ty2)
+modeSubtypeOf ty1 ty2
+--    | isLinearType ty1 &&
+--      isStackboundType ty2 = True
+    | otherwise = mode (refInfo (inner ty1)) == mode (refInfo (inner ty2))
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
@@ -194,33 +198,65 @@ showRefInfoWithoutMode RefInfo{refId, parameters}
     where
       params = intercalate ", " (map show parameters)
 
-data Type = UntypedRef{refInfo :: RefInfo}
-          | TraitType{refInfo :: RefInfo}
-          | ClassType{refInfo :: RefInfo
-                     ,activity   :: Activity
-                     }
-          | CapabilityType{capability :: Capability}
-          | TypeVar{ident :: String}
-          | ArrowType{argTypes   :: [Type]
-                     ,resultType :: Type
-                     }
-          | FutureType{resultType :: Type}
-          | ParType{resultType :: Type}
-          | StreamType{resultType :: Type}
-          | ArrayType{resultType :: Type}
-          | RangeType
-          | MaybeType {resultType :: Type}
-          | TupleType {argTypes :: [Type]}
-          | CType{ident :: String}
-          | VoidType
-          | StringType
-          | CharType
-          | IntType
-          | BoolType
-          | RealType
-          | NullType
-          | BottomType
-            deriving(Eq)
+data Box = Stackbound deriving(Eq)
+
+instance Show Box where
+    show Stackbound = "S"
+
+data Type = Type {inner :: InnerType
+                 ,box   :: Maybe Box}
+
+typ ity = Type{inner = ity, box = Nothing}
+
+transferBox ty1 ty2 = ty2{box = box ty1}
+
+instance Eq Type where
+    ty1 == ty2 = inner ty1 == inner ty2
+
+instance Show Type where
+    show Type{inner, box = Nothing} = show inner
+    show Type{inner, box = Just s} =
+        show s ++ "(" ++ show inner ++ ")"
+
+data InnerType =
+          UntypedRef{refInfo :: RefInfo}
+        | TraitType{refInfo :: RefInfo}
+        | ClassType{refInfo :: RefInfo
+                   ,activity   :: Activity
+                   }
+        | CapabilityType{capability :: Capability}
+        | TypeVar{ident :: String}
+        | ArrowType{argTypes   :: [Type]
+                   ,resultType :: Type
+                   }
+        | FutureType{resultType :: Type}
+        | ParType{resultType :: Type}
+        | StreamType{resultType :: Type}
+        | ArrayType{resultType :: Type}
+        | RangeType
+        | MaybeType {resultType :: Type}
+        | TupleType {argTypes :: [Type]}
+        | CType{ident :: String}
+        | VoidType
+        | StringType
+        | CharType
+        | IntType
+        | BoolType
+        | RealType
+        | NullType
+        | BottomType
+          deriving(Eq)
+
+getArgTypes = argTypes . inner
+getResultType ty
+    | hasResultType ty = resultType $ inner ty
+    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
+getId ty
+    | isRefType ty = refId . refInfo . inner $ ty
+    | isTypeVar ty = ident . inner $ ty
+    | isCType ty = ident . inner $ ty
+    | otherwise = error $ "Types.hs: Tried to get the id of " ++
+                          showWithKind ty
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
@@ -228,21 +264,12 @@ hasResultType x
   | otherwise = False
 
 setResultType ty res
-  | hasResultType ty = ty { resultType = res}
+  | hasResultType ty = ty{inner = iType{resultType = res}}
   | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
+  where
+    iType = inner ty
 
-getArgTypes = argTypes
-getResultType ty
-    | hasResultType ty = resultType ty
-    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
-getId UntypedRef{refInfo} = refId refInfo
-getId TraitType{refInfo} = refId refInfo
-getId ClassType{refInfo} = refId refInfo
-getId TypeVar{ident} = ident
-getId CType{ident} = ident
-getId ty = error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
-
-instance Show Type where
+instance Show InnerType where
     show UntypedRef{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
@@ -272,16 +299,16 @@ instance Show Type where
     show BottomType = "Bottom"
 
 maybeParen :: Type -> String
-maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
-maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
-maybeParen par@(ParType _)     = "(" ++ show par ++ ")"
-maybeParen str@(StreamType _)  = "(" ++ show str ++ ")"
-maybeParen arr@(ArrayType _)   = "(" ++ show arr ++ ")"
-maybeParen opt@(MaybeType _)   = "(" ++ show opt ++ ")"
-maybeParen ty = show ty
+maybeParen ty
+    | isArrowType ty  ||
+      isFutureType ty ||
+      isParType ty    ||
+      isMaybeType ty    ||
+      isStreamType ty = "(" ++ show ty ++ ")"
+    | otherwise = show ty
 
 showWithKind :: Type -> String
-showWithKind ty = kind ty ++ " " ++ show ty
+showWithKind ty = kind (inner ty) ++ " " ++ show ty
     where
     kind VoidType                      = "primitive type"
     kind StringType                    = "primitive type"
@@ -329,35 +356,31 @@ hasSameKind ty1 ty2
 
 showWithoutMode :: Type -> String
 showWithoutMode ty
-    | isRefType ty = showRefInfoWithoutMode $ refInfo ty
+    | isRefType ty = showRefInfoWithoutMode $ refInfo (inner ty)
     | otherwise = show ty
 
 typeComponents :: Type -> [Type]
-typeComponents arrow@(ArrowType argTys ty) =
-    arrow : (concatMap typeComponents argTys ++ typeComponents ty)
-typeComponents fut@(FutureType ty) =
-    fut : typeComponents ty
-typeComponents par@(ParType ty) =
-    par : typeComponents ty
-typeComponents ref@(UntypedRef{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(TraitType{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(ClassType{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(CapabilityType{capability}) =
-    ref : capabilityComponents capability
-typeComponents str@(StreamType ty) =
-    str : typeComponents ty
-typeComponents arr@(ArrayType ty)  =
-    arr : typeComponents ty
-typeComponents maybe@(MaybeType ty) =
-    maybe : typeComponents ty
-typeComponents tuple@(TupleType{argTypes}) =
-    tuple : (concatMap typeComponents argTypes)
-typeComponents ty = [ty]
+typeComponents ty
+    |  isFutureType ty
+    || isParType ty
+    || isStreamType ty
+    || isArrayType ty
+    || isMaybeType ty =
+        ty : typeComponents (getResultType ty)
+    | isArrowType ty =
+        ty : concatMap typeComponents (getArgTypes ty) ++
+             typeComponents (getResultType ty)
+    | isTupleType ty =
+        ty : concatMap typeComponents (getArgTypes ty)
+    | isRefType ty =
+        ty : refInfoTypeComponents (refInfo iType)
+    | isCapabilityType ty =
+        ty : capabilityComponents (capability iType)
+    | otherwise = [ty]
+    where
+      iType = inner ty
 
-refInfoTypeComponents = concatMap typeComponents . parameters
+      refInfoTypeComponents = concatMap typeComponents . parameters
 
 -- TODO: Should maybe extract the power set?
 capabilityComponents :: Capability -> [Type]
@@ -366,308 +389,345 @@ capabilityComponents Capability{typeTree} =
   concatMap traitToType $ toList typeTree
   where
     traitToType :: RefInfo -> [Type]
-    traitToType t@RefInfo{parameters} = TraitType t : parameters
+    traitToType t@RefInfo{parameters} = typ (TraitType t) : parameters
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty@UntypedRef{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@TraitType{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@ClassType{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@CapabilityType{capability} =
-    f ty{capability = capabilityTypeMap f capability}
-typeMap f ty@ArrowType{argTypes, resultType} =
-    f ty{argTypes = map (typeMap f) argTypes
-        ,resultType = typeMap f resultType}
-typeMap f ty@FutureType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@ParType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@StreamType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@ArrayType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@MaybeType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@TupleType{argTypes} =
-    f ty{argTypes = map (typeMap f) argTypes}
-typeMap f ty = f ty
+typeMap f ty
+    | isRefType ty =
+        f ty{inner = refTypeMap f iType}
+    | isCapabilityType ty =
+        f ty{inner = capabilityTypeMap f iType}
+    | isArrowType ty =
+        f ty{inner = resultTypeMap f . argTypesMap f $ iType}
+    |  isFutureType ty
+    || isParType ty
+    || isStreamType ty
+    || isArrayType ty
+    || isMaybeType ty =
+        f ty{inner = resultTypeMap f iType}
+    | isTupleType ty =
+        f ty{inner = argTypesMap f iType}
+    | otherwise = f ty
+    where
+      iType = inner ty
 
-refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
-refInfoTypeMap f info@RefInfo{parameters} =
-    info{parameters = map (typeMap f) parameters}
+      refTypeMap f ity =
+          ity{refInfo = refInfoTypeMap f (refInfo ity)}
 
-capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
-capabilityTypeMap _ EmptyCapability = EmptyCapability
-capabilityTypeMap f cap@Capability{typeTree} =
-    cap{typeTree = fmap (refInfo . typeMap f . TraitType) typeTree}
+      capabilityTypeMap f ity@CapabilityType{capability = EmptyCapability} = ity
+      capabilityTypeMap f ity@CapabilityType{capability} =
+          ity{capability = capability'}
+          where
+            capability' = capability{typeTree = typeTree'}
+            typeTree' = fmap (traitMapAndBack f) (typeTree capability)
+            traitMapAndBack f =
+                refInfo . inner . typeMap f . typ . TraitType
+      capabilityTypeMap f ity =
+          error $ "Types.hs: Cannot call capabilityTypeMap on " ++
+                  showWithKind (typ ity)
+
+      resultTypeMap f ity =
+          ity{resultType = typeMap f (resultType ity)}
+
+      argTypesMap f ity =
+          ity{argTypes = map (typeMap f) (argTypes ity)}
+
+      refInfoTypeMap f info@RefInfo{parameters} =
+          info{parameters = map (typeMap f) parameters}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapM f ty@UntypedRef{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@TraitType{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@ClassType{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@CapabilityType{capability} = do
-  capability' <- capabilityTypeMapM f capability
-  f ty{capability = capability'}
-typeMapM f ty@ArrowType{argTypes, resultType} = do
-  argTypes' <- mapM (typeMapM f) argTypes
-  resultType' <- f resultType
-  f ty{argTypes = argTypes'
-      ,resultType = resultType'}
-typeMapM f ty@TupleType{argTypes} = do
-  argTypes' <- mapM (typeMapM f) argTypes
-  f ty{argTypes = argTypes'}
 typeMapM f ty
-  | isFutureType ty || isParType ty || isStreamType ty ||
-    isArrayType ty || isMaybeType ty = typeMapMResultType f ty
-  | otherwise = f ty
+    | isRefType ty = do
+        iType' <- refTypeMapM f iType
+        f ty{inner = iType'}
+    | isCapabilityType ty = do
+        iType' <- capabilityTypeMapM f iType
+        f ty{inner = iType'}
+    | isArrowType ty = do
+        iType' <- argTypesMapM f iType >>=
+                  resultTypeMapM f
+        f ty{inner = iType'}
+    |  isFutureType ty
+    || isParType ty
+    || isStreamType ty
+    || isMaybeType ty
+    || isArrayType ty = do
+        iType' <- resultTypeMapM f iType
+        f ty{inner = iType'}
+    | isTupleType ty = do
+        iType' <- argTypesMapM f iType
+        f ty{inner = iType'}
+    | otherwise = f ty
+    where
+      iType = inner ty
 
-typeMapMResultType :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapMResultType f ty = do
-  resultType' <- typeMapM f $ resultType ty
-  f ty{resultType = resultType'}
+      capabilityTypeMapM f ity@CapabilityType{capability = EmptyCapability} =
+          return ity
+      capabilityTypeMapM f ity@CapabilityType{capability} = do
+        typeTree' <- mapM (traitMapMAndBack f) (typeTree capability)
+        return ity{capability = capability{typeTree = typeTree'}}
+        where
+          traitMapMAndBack f =
+              liftM (refInfo . inner) . typeMapM f . typ . TraitType
+      capabilityTypeMapM f ity =
+          error $ "Types.hs: Cannot call capabilityTypeMapM on" ++
+                  showWithKind (typ ity)
 
-refInfoTypeMapM :: Monad m => (Type -> m Type) -> RefInfo -> m RefInfo
-refInfoTypeMapM f info@RefInfo{parameters} = do
-  parameters' <- mapM (typeMapM f) parameters
-  return info{parameters = parameters'}
+      refTypeMapM f ity = do
+        refInfo' <- refInfoTypeMapM f (refInfo ity)
+        return ity{refInfo = refInfo'}
 
-capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
-capabilityTypeMapM f EmptyCapability = return EmptyCapability
-capabilityTypeMapM f cap@Capability{typeTree} = do
-  typeTree' <- mapM (liftM refInfo . typeMapM f . TraitType) typeTree
-  return $ cap{typeTree = typeTree'}
+      refInfoTypeMapM f info@RefInfo{parameters} = do
+        parameters' <- mapM (typeMapM f) parameters
+        return info{parameters = parameters'}
+
+      argTypesMapM f ity = do
+        argTypes' <- mapM (typeMapM f) (argTypes ity)
+        return ity{argTypes = argTypes'}
+
+      resultTypeMapM f ity = do
+        resultType' <- typeMapM f $ resultType ity
+        return ity{resultType = resultType'}
 
 getTypeParameters :: Type -> [Type]
-getTypeParameters UntypedRef{refInfo} = parameters refInfo
-getTypeParameters TraitType{refInfo} = parameters refInfo
-getTypeParameters ClassType{refInfo} = parameters refInfo
-getTypeParameters ty =
-    error $ "Types.hs: Can't get type parameters from type " ++ show ty
+getTypeParameters ty
+    | isRefType ty = parameters $ refInfo (inner ty)
+    | otherwise =
+        error $ "Types.hs: Can't get type parameters from type " ++ show ty
 
-setTypeParameters ty@UntypedRef{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@TraitType{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@ClassType{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty _ =
-    error $ "Types.hs: Can't set type parameters of type " ++ show ty
+setTypeParameters :: Type -> [Type] -> Type
+setTypeParameters ty parameters
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{parameters}}}
+    | otherwise =
+        error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
 isEmptyCapability :: Type -> Bool
-isEmptyCapability CapabilityType{capability=EmptyCapability} = True
+isEmptyCapability Type{inner =
+                       CapabilityType{capability = EmptyCapability}} = True
 isEmptyCapability _ = False
 
 isSingleCapability :: Type -> Bool
-isSingleCapability CapabilityType{capability=Capability{typeTree}} =
+isSingleCapability Type{inner =
+                        CapabilityType{capability = Capability{typeTree}}} =
   let
     leaves = toList typeTree
-    first = head leaves
-    single = leaves == first : []
   in
-    single
+    length leaves == 1
 isSingleCapability _ = False
 
+refTypeFromSingletonCapability :: Type -> Type
+refTypeFromSingletonCapability ty
+    | isSingleCapability ty
+    , refInfo <- head . toList . typeTree . capability . inner $ ty =
+        typ UntypedRef{refInfo}
+    | otherwise = error $ "Types.hs: " ++ showWithKind ty ++
+                          " is not a singleton capability"
+
 conjunctiveTypesFromCapability :: Type -> [[[Type]]]
-conjunctiveTypesFromCapability t@TraitType{} = []
-conjunctiveTypesFromCapability CapabilityType{capability=EmptyCapability} = []
-conjunctiveTypesFromCapability ty@CapabilityType{capability} =
-  collect $ typeTree capability
-  where
-    collect :: TypeTree -> [[[Type]]]
-    collect (Leaf _) = []
-    collect (RoseTree Addition ts) = concatMap collect ts
-    collect (RoseTree Product ts) =
-      let
-        parTypes = map toList $ map (fmap TraitType) ts
-      in
-        concatMap collect ts ++ [parTypes]
-conjunctiveTypesFromCapability ty =
-  error $ "Types.hs: Cannot get conjunctive types from " ++ showWithKind ty
+conjunctiveTypesFromCapability ty
+    | TraitType{} <- inner ty = []
+    | CapabilityType{capability = EmptyCapability} <- inner ty = []
+    | CapabilityType{capability} <- inner ty =
+        collect $ typeTree capability
+    | otherwise = error $ "Types.hs: Cannot get conjunctive types from " ++
+                          showWithKind ty
+    where
+      collect :: TypeTree -> [[[Type]]]
+      collect (Leaf _) = []
+      collect (RoseTree Addition ts) = concatMap collect ts
+      collect (RoseTree Product ts) =
+        let
+          parTypes = map (toList . fmap (typ . TraitType)) ts
+        in
+          concatMap collect ts ++ [parTypes]
 
 typesFromCapability :: Type -> [Type]
-typesFromCapability t@TraitType{} = [t]
-typesFromCapability CapabilityType{capability=EmptyCapability} = []
-typesFromCapability ty@CapabilityType{capability} =
-    map TraitType ((toList . typeTree) capability)
-typesFromCapability ty =
-    error $ "Types.hs: Can't get the traits of non-capability type "
-      ++ showWithKind ty
+typesFromCapability ty
+    | ity@TraitType{} <- inner ty = [transferBox ty (typ ity)]
+    | CapabilityType{capability=EmptyCapability} <- inner ty = []
+    | ity@CapabilityType{capability} <- inner ty =
+        map (typ . TraitType) ((toList . typeTree) capability)
+    | otherwise =
+        error $ "Types.hs: Can't get the traits of non-capability type " ++
+                showWithKind ty
 
 withModeOf sink source
     | isRefType sink
     , isRefType source
-    , info <- refInfo sink
-    , m <- mode $ refInfo source
-      = sink{refInfo = info{mode = m}}
+    , iType <- inner sink
+    , info <- refInfo iType
+    , mode <- mode $ refInfo (inner source)
+      = sink{inner = iType{refInfo = info{mode}}}
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink
 
-withTypeParametersOf sink source =
-    let formals = getTypeParameters sink
-        actuals = getTypeParameters source
-        bindings = zip formals actuals
-    in
-       replaceTypeVars bindings sink
-
 refTypeWithParams refId parameters =
-    UntypedRef{refInfo = RefInfo{refId,
-                                 parameters,
-                                 mode = Nothing}}
+    typ UntypedRef{refInfo}
+    where
+      refInfo = RefInfo{refId
+                       ,parameters
+                       ,mode = Nothing
+                       }
 
-refType :: String -> Type
 refType id = refTypeWithParams id []
 
 classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
-    ClassType{refInfo = RefInfo{refId = name
-                               ,parameters
-                               ,mode = Nothing}, activity}
+    Type{inner = ClassType{refInfo = RefInfo{refId = name
+                                            ,parameters
+                                            ,mode = Nothing}
+                          , activity}
+        ,box = Nothing
+        }
 
-activeClassTypeFromRefType :: Type -> Type
-activeClassTypeFromRefType ty
-    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Active}
+activeClassTypeFromRefType ref
+    | isRefType ref
+    , refInfo <- refInfo $ inner ref
+      = Type{inner = ClassType{refInfo
+                              ,activity = Active}
+            ,box = box ref}
     | otherwise =
-        error $ "Types.hs: Tried to make a class type out of " ++
-                showWithKind ty
+        error $ "Types.hs: Can't make active type from type: " ++ show ref
 
-passiveClassTypeFromRefType :: Type -> Type
-passiveClassTypeFromRefType ty
-    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Passive}
+passiveClassTypeFromRefType ref
+    | isRefType ref
+    , refInfo <- refInfo $ inner ref
+      = Type{inner = ClassType{refInfo
+                              ,activity = Passive}
+            ,box = box ref}
     | otherwise =
-        error $ "Types.hs: Tried to make a class type out of " ++
-                showWithKind ty
+        error $ "Types.hs: Can't make passive type from type: " ++ show ref
 
-sharedClassTypeFromRefType :: Type -> Type
-sharedClassTypeFromRefType ty
-    | isRefType ty = ClassType{refInfo = refInfo ty, activity = Shared}
+sharedClassTypeFromRefType ref
+    | isRefType ref
+    , refInfo <- refInfo $ inner ref
+      = Type{inner = ClassType{refInfo
+                              ,activity = Shared}
+            ,box = box ref}
     | otherwise =
-        error $ "Types.hs: Tried to make a class type out of " ++
-                showWithKind ty
+        error $ "Types.hs: Can't make shared type from type: " ++ show ref
 
-traitTypeFromRefType :: Type -> Type
 traitTypeFromRefType ty
-    | isRefType ty = TraitType{refInfo = refInfo ty}
+    | isRefType ty
+    , refInfo <- refInfo $ inner ty
+      = Type{inner = TraitType{refInfo}
+            ,box = box ty}
     | otherwise =
-        error $ "Types.hs: Can't make trait type from type: " ++
-                showWithKind ty
+        error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
 typeTreeFromRefType :: Type -> TypeTree
 typeTreeFromRefType ty
-    | isRefType ty = Leaf (refInfo ty)
+    | isRefType ty = Leaf (refInfo $ inner ty)
     | otherwise = error $ "Types.hs: Can't make typeTree from type: " ++ show ty
 
-isRefType UntypedRef {} = True
-isRefType TraitType {} = True
-isRefType ClassType {} = True
-isRefType _ = False
+isRefType ty = isUntypedRef ty ||
+               isTraitType ty ||
+               isClassType ty
 
-isTraitType TraitType{} = True
+isTraitType Type{inner = TraitType{}} = True
 isTraitType _ = False
 
-isActiveClassType ClassType{activity = Active} = True
+isActiveClassType Type{inner = ClassType{activity = Active}} = True
 isActiveClassType _ = False
 
-isSharedClassType ClassType{activity = Shared} = True
+isSharedClassType Type{inner = ClassType{activity = Shared}} = True
 isSharedClassType _ = False
 
-isPassiveClassType ClassType{activity = Passive} = True
+isPassiveClassType Type{inner = ClassType{activity = Passive}} = True
 isPassiveClassType _ = False
 
-isClassType ClassType{} = True
+isClassType Type{inner = ClassType{}} = True
 isClassType _ = False
 
-isUntypedRef UntypedRef{} = True
+isUntypedRef Type{inner = UntypedRef{}} = True
 isUntypedRef _ = False
 
 -- TODO: Maybe a type can have several modes?
 -- TODO: Should classes ever have modes (except the "inherited ones")?
 makeUnsafe ty
-    | isRefType ty = ty{refInfo = info{mode = Just Unsafe}}
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{mode = Just Unsafe}}}
     | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
                           show ty
-    where
-      info = refInfo ty
 
 makeLinear ty
-    | isRefType ty = ty{refInfo = info{mode = Just Linear}}
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{mode = Just Linear}}}
     | otherwise = error $ "Types.hs: Cannot make type linear: " ++
                           show ty
-    where
-      info = refInfo ty
 
 isModeless ty
-    | isRefType ty = isNothing $ mode (refInfo ty)
-    | otherwise = error $ "Types.hs: Cannot get modes of type: " ++
-                          show ty
+    | isRefType ty = isNothing . mode . refInfo . inner $ ty
+    | otherwise = True
 
 isLinearRefType ty
-    | isRefType ty = mode (refInfo ty) == Just Linear
+    | isRefType ty = (mode . refInfo . inner) ty == Just Linear
     | otherwise = False
-
-fromTypeTree :: TypeTree -> Type
-fromTypeTree typeTree =
-  CapabilityType{capability = Capability{typeTree}}
 
 capabilityType :: TypeTree -> Type
 capabilityType typeTree =
-    CapabilityType{capability = Capability{typeTree}}
+    typ CapabilityType{capability = Capability{typeTree}}
 
-isCapabilityType CapabilityType{} = True
+isCapabilityType Type{inner = CapabilityType{}} = True
 isCapabilityType _ = False
 
 incapability :: Type
-incapability = CapabilityType{capability = EmptyCapability}
+incapability = Type{inner = CapabilityType{capability = EmptyCapability}
+                   ,box = Nothing}
 
-arrowType = ArrowType
-isArrowType (ArrowType {}) = True
+isStackboundType ty = box ty == Just Stackbound
+
+makeStackbound ty = ty{box = Just Stackbound}
+
+arrowType args ty = typ (ArrowType args ty)
+isArrowType Type{inner = ArrowType {}} = True
 isArrowType _ = False
 
-futureType = FutureType
-isFutureType FutureType {} = True
+futureType = typ . FutureType
+isFutureType Type{inner = FutureType {}} = True
 isFutureType _ = False
 
-maybeType = MaybeType
-isMaybeType MaybeType {} = True
+maybeType = typ . MaybeType
+isMaybeType Type{inner = MaybeType {}} = True
 isMaybeType _ = False
 
-tupleType = TupleType
-isTupleType TupleType {} = True
+tupleType = typ . TupleType
+isTupleType Type{inner = TupleType {}} = True
 isTupleType _ = False
 
-bottomType = BottomType
-isBottomType BottomType {} = True
+bottomType = typ BottomType
+isBottomType Type{inner = BottomType {}} = True
 isBottomType _ = False
 
-parType = ParType
-isParType ParType {} = True
+parType = typ . ParType
+isParType Type{inner = ParType {}} = True
 isParType _ = False
 
-streamType = StreamType
-isStreamType StreamType {} = True
+streamType = typ . StreamType
+isStreamType Type{inner = StreamType {}} = True
 isStreamType _ = False
 
-rangeType = RangeType
-isRangeType RangeType = True
-isRangeType _         = False
+rangeType = typ RangeType
+isRangeType Type{inner = RangeType {}} = True
+isRangeType _ = False
 
-arrayType = ArrayType
-isArrayType ArrayType {} = True
+arrayType = typ . ArrayType
+isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = TypeVar
-isTypeVar (TypeVar _) = True
+typeVar = typ . TypeVar
+isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
-isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
+isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
 isMainType _ = False
 
 stringObjectType = classType Passive "String" []
@@ -676,52 +736,36 @@ isStringObjectType = (==stringObjectType)
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-    where replace ty = fromMaybe ty (lookup ty bindings)
+    where replace ty =
+              transferBox ty $
+              fromMaybe ty (lookup ty bindings)
 
 ctype :: String -> Type
-ctype = CType
+ctype = typ . CType
 
-isCType CType{} = True
+isCType Type{inner = CType{}} = True
 isCType _ = False
 
-voidType :: Type
-voidType = VoidType
-
-isVoidType :: Type -> Bool
+voidType = typ VoidType
 isVoidType = (== voidType)
 
-nullType :: Type
-nullType = NullType
-
-isNullType :: Type -> Bool
+nullType = typ NullType
 isNullType = (== nullType)
 
-boolType :: Type
-boolType = BoolType
-
-isBoolType :: Type -> Bool
+boolType = typ BoolType
 isBoolType = (== boolType)
 
-intType :: Type
-intType = IntType
-
-isIntType :: Type -> Bool
+intType = typ IntType
 isIntType = (== intType)
 
-realType :: Type
-realType = RealType
-
-isRealType :: Type -> Bool
+realType = typ RealType
 isRealType = (== realType)
 
-stringType :: Type
-stringType = StringType
-
-isStringType :: Type -> Bool
+stringType = typ StringType
 isStringType = (== stringType)
 
 charType :: Type
-charType = CharType
+charType = typ CharType
 
 isCharType :: Type -> Bool
 isCharType = (== charType)

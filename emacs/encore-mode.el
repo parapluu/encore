@@ -12,7 +12,7 @@
 
 (setq encore-keywords '("and" "async" "await" "by" "class" "chain" "consume" "def" "else"
                         "eos" "for" "foreach" "get" "getNext" "if" "in" "join"
-                        "let" "liftf" "liftv" "linear" "match" "new" "not" "or" "passive"
+                        "let" "liftf" "liftv" "linear" "match" "new" "not" "or" "passive" "S"
                         "print" "repeat" "require" "stream" "suspend" "then"
                         "this" "trait" "unless" "val" "when" "while" "with"
                         "yield"))

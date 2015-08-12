@@ -24,7 +24,7 @@ import Control.Applicative ((<$>))
 import Identifiers
 import Types hiding(refType)
 import AST.AST
-import AST.Meta hiding(Closure, Async, getPos)
+import AST.Meta hiding(Closure, Async)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "linear",
-     "extract", "consume", "unsafe"
+     "extract", "consume", "unsafe", "S"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -115,7 +115,8 @@ typ  = adtTypes
               <|> embed
               <|> primitive
               <|> range
-              <|> capability
+              <|> capabilityOrRef
+              <|> stackbound
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -146,6 +147,14 @@ typ  = adtTypes
       embed = do reserved "embed"
                  ty <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ ctype ty
+      stackbound = do reserved "S"
+                      ty <- parens typ
+                      return $ makeStackbound ty
+      capabilityOrRef = do
+        cap <- capability
+        if isSingleCapability cap
+        then return $ refTypeFromSingletonCapability cap
+        else return cap
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
@@ -291,7 +300,7 @@ traitDecl = do
 capability :: Parser Type
 capability = do
   tree <- typeTree
-  return $ fromTypeTree tree
+  return $ capabilityType tree
   where
     typeTree :: Parser TypeTree
     typeTree = do
@@ -458,11 +467,12 @@ expression = buildExpressionParser opTable highOrderExpr
                            return (\e -> ArrayAccess (meta pos) e index)))
 
       messageSend =
-          Postfix (do bang
+          Postfix (do pos <- getPosition
+                      bang
                       name <- identifier
                       args <- parens arguments
-                      return (\target -> MessageSend (meta (getPos target))
-                                                     target (Name name) args))
+                      return (\target -> MessageSend (meta pos) target
+                                                     (Name name) args))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;

@@ -260,7 +260,7 @@ streamHandle = Var "_stream"
 
 typeVarRefName :: Ty.Type -> CCode Name
 typeVarRefName ty =
-    Nam $ encoreName "type" (show ty)
+    Nam $ encoreName "type" (Ty.getId ty)
 
 classId :: Ty.Type -> CCode Name
 classId ty =
