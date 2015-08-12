@@ -213,14 +213,8 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
-data MaybeDataType = JustType { mdtmeta :: Meta MaybeDataType, e :: Expr}
-                   | NothingType {mdtmeta :: Meta MaybeDataType } deriving(Eq, Show)
-
-instance HasMeta MaybeDataType where
-  getMeta = mdtmeta
-  setMeta mdt m = mdt{mdtmeta = m}
-  setType ty m = m {mdtmeta = AST.Meta.setType ty (mdtmeta m)}
-
+data MaybeDataType = JustType { e :: Expr}
+                   | NothingType deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}

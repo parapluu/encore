@@ -1,5 +1,5 @@
-def fun(x: Maybe t): Maybe t {
-  Nothing
+def fun(x: Maybe int): Maybe int {
+  Nothing : Maybe int
 }
 
 def nothing(x: Maybe int) : int {
@@ -30,17 +30,17 @@ def other(x: Maybe int): Maybe int
 def testing() : Maybe int
   Just 32
 
--- class Test
---   z: Maybe int
+-- -- class Test
+-- --   z: Maybe int
 
---   def init(x: Maybe int): void
---     this.z = x
+-- --   def init(x: Maybe int): void
+-- --     this.z = x
 
---   def other(x: Maybe int) : Maybe int
---     x
+-- --   def other(x: Maybe int) : Maybe int
+-- --     x
 
 class Main
-  def main(): int {
+  def main(): void {
     let x = Nothing : Maybe int
         y = Just 24
         -- z = new Test(y)
@@ -52,13 +52,14 @@ class Main
     };
     fun(Nothing);
    let
-	 -- x = Just 32
+   	 -- x = Just 32
        x = Just Just 32
    in {
       match Just testing() with {
        Just Just z => 32
        Just Nothing => 23
         Nothing => 22
-       }
-    }
+     }
+   };
+    ()
   }

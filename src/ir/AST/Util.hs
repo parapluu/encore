@@ -22,8 +22,8 @@ getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
-getChildren (MaybeData _ (JustType _ e)) = [e]
-getChildren (MaybeData _ (NothingType _)) = []
+getChildren (MaybeData _ (JustType e)) = [e]
+getChildren (MaybeData _ NothingType) = []
 getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
@@ -80,8 +80,8 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
-putChildren [body] e@(MaybeData _ (JustType mdtmeta _)) = e{mdt = JustType mdtmeta body}
-putChildren [] e@(MaybeData _ (NothingType mdtmeta)) = e
+putChildren [body] e@(MaybeData _ (JustType _)) = e{mdt = JustType body}
+putChildren [] e@(MaybeData _ NothingType) = e
 putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
   where
     pair :: [Expr] -> [(Expr, Expr)]

@@ -251,7 +251,7 @@ instance Checkable Expr where
            tcError $ "Match clause must return same type in all branches"
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
-        tuplecheck parent (x@(MaybeData _ (JustType _ v@(VarAccess {}))), y) = do
+        tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
           let varName = (name . e . mdt) x
           let targetType = (getResultType . AST.getType) parent
           x' <- local (extendEnvironment [(varName, targetType)]) $ typecheck x
@@ -264,7 +264,7 @@ instance Checkable Expr where
                       " with " ++ (show $ AST.getType x')
           matchTypes (AST.getType parent) (AST.getType x')
           return (x', y')
-        tuplecheck parent (x@(MaybeData _ (JustType _ md@(MaybeData {}))), y) = do
+        tuplecheck parent (x@(MaybeData _ (JustType md@(MaybeData {}))), y) = do
           let targetType = (getResultType . AST.getType) parent
               parent' = setType targetType parent
           (x', y') <- tuplecheck parent' (md, y)
@@ -357,20 +357,21 @@ instance Checkable Expr where
 
     doTypecheck maybeData@(MaybeData {mdt}) = do
       eBody <- maybeTypecheck mdt
-      let returnType = AST.getType eBody
+      let returnType = case eBody of
+                         (JustType exp) -> AST.getType exp
+                         NothingType -> bottomType
       when (isNullType returnType) $
         tcError "Cannot infer the return type of the maybe expression"
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
         where
-          maybeTypecheck just@(JustType mdtmeta e) = do
+          maybeTypecheck just@(JustType e) = do
             eBody <- typecheck e
             let returnType = AST.getType eBody
             when (isNullType returnType) $
               tcError "Cannot infer the return type of the maybe expression"
-            return $ setType returnType (just { e = eBody })
+            return $ just { e = eBody }
 
-          maybeTypecheck nothing@(NothingType mdtmeta) =
-            return $ setType bottomType nothing
+          maybeTypecheck nothing@(NothingType) = return nothing
 
 
 

@@ -437,13 +437,12 @@ expr  =  unit
                  return $ Embed (meta pos) ty code
       maybeExpression = do
         pos <- getPosition
-        let metapos = meta pos
         body <- (do reserved "Just"
                     body <- expression
-                    return (JustType metapos body))
+                    return (JustType body))
                 <|>
                 (do reserved "Nothing"
-                    return (NothingType metapos))
+                    return NothingType)
         return $ MaybeData (meta pos) body
 
       unit = do pos <- getPosition
