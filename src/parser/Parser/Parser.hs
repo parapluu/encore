@@ -23,7 +23,7 @@ import Control.Applicative ((<$>))
 import Identifiers
 import Types hiding(refType)
 import AST.AST
-import AST.Meta hiding(Closure, Async, getPos)
+import AST.Meta hiding(Closure, Async)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -107,6 +107,7 @@ lexer =
     ,"linear"
     ,"consume"
     ,"unsafe"
+    ,"borrowed"
    ],
    P.reservedOpNames = [
      ":"
@@ -179,6 +180,7 @@ typ = buildExpressionParser opTable singleType
                  ,typeConstructor "Par" parType
                  ,typeConstructor "Stream" streamType
                  ],
+                 [typeConstructor "borrowed" makeStackbound],
                  [arrow]
                 ]
       typeOp op constructor =
@@ -607,11 +609,12 @@ expression = buildExpressionParser opTable highOrderExpr
                            return (\e -> ArrayAccess (meta pos) e index)))
 
       messageSend =
-          Postfix (do bang
+          Postfix (do pos <- getPosition
+                      bang
                       name <- identifier
                       args <- parens arguments
-                      return (\target -> MessageSend (meta (getPos target))
-                                                     target (Name name) args))
+                      return (\target -> MessageSend (meta pos) target
+                                                     (Name name) args))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;

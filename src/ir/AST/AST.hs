@@ -9,14 +9,13 @@ meta-information about its type (filled in by
 
 module AST.AST where
 
-
 import Data.List
 import Data.Maybe
 import Text.Parsec(SourcePos, SourceName)
 
 import Identifiers
 import Types
-import AST.Meta hiding(Closure, Async)
+import AST.Meta as Meta hiding(Closure, Async)
 
 data Program = Program {
   source :: SourceName,
@@ -35,10 +34,10 @@ class Show a => HasMeta a where
     setMeta :: a -> Meta a -> a
 
     getPos :: a -> SourcePos
-    getPos = AST.Meta.getPos . getMeta
+    getPos = Meta.getPos . getMeta
 
     getType :: a -> Type
-    getType = AST.Meta.getType . getMeta
+    getType = Meta.getType . getMeta
 
     setType :: Type -> a -> a
 
@@ -51,23 +50,25 @@ class Show a => HasMeta a where
                      ty' = AST.AST.getType x
 
     isFree :: a -> Bool
-    isFree = AST.Meta.isFree . getMeta
+    isFree = Meta.isFree . getMeta
 
     isCaptured :: a -> Bool
-    isCaptured = AST.Meta.isCaptured . getMeta
+    isCaptured = Meta.isCaptured . getMeta
 
     makeFree :: a -> a
-    makeFree x = let meta = AST.Meta.makeFree (getMeta x)
+    makeFree x = let meta = Meta.makeFree (getMeta x)
                  in setMeta x meta
 
     makeCaptured :: a -> a
-    makeCaptured x = let meta = AST.Meta.makeCaptured (getMeta x)
+    makeCaptured x = let meta = Meta.makeCaptured (getMeta x)
                      in setMeta x meta
 
-    getMetaInfo :: a -> MetaInfo
-    getMetaInfo = fromJust . AST.Meta.metaInfo . getMeta
+    getArrowType :: a -> Type
+    getArrowType = Meta.getMetaArrowType . getMeta
 
-
+    setArrowType :: Type -> a -> a
+    setArrowType ty x = let meta = getMeta x
+                        in setMeta x $ Meta.setMetaArrowType ty meta
 
     showWithKind :: a -> String
     showWithKind = show
@@ -163,10 +164,12 @@ instance Eq Function where
 instance HasMeta Function where
   getMeta = funmeta
   setMeta f m = f{funmeta = m}
-  setType ty f@(Function {funmeta}) =
-      f{funmeta = AST.Meta.setType ty funmeta}
-  setType ty f@(MatchingFunction {funmeta}) =
-      f{funmeta = AST.Meta.setType ty funmeta}
+  setType ty f@(Function {funmeta, funheader}) =
+      f{funmeta = Meta.setType ty funmeta
+       ,funheader = setHeaderType ty funheader}
+  setType ty f@(MatchingFunction {funmeta, matchfunheaders}) =
+      f{funmeta = Meta.setType ty funmeta
+       ,matchfunheaders = map (setHeaderType ty) matchfunheaders}
   showWithKind Function{funheader} =
       "function '" ++ show (hname funheader) ++ "'"
   showWithKind MatchingFunction{matchfunheaders} =
@@ -202,7 +205,7 @@ instance HasMeta ClassDecl where
     getMeta = cmeta
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) =
-      c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
+      c {cmeta = Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
 data Requirement =
@@ -235,9 +238,9 @@ instance HasMeta Requirement where
     getMeta = rmeta
     setMeta r m = r{rmeta = m}
     setType ty r@(RequiredField{rmeta, rfield}) =
-      r{rmeta = AST.Meta.setType ty rmeta, rfield = AST.AST.setType ty rfield}
+      r{rmeta = Meta.setType ty rmeta, rfield = AST.AST.setType ty rfield}
     setType ty r@(RequiredMethod{rmeta, rheader}) =
-      r{rmeta = AST.Meta.setType ty rmeta, rheader = setHeaderType ty rheader}
+      r{rmeta = Meta.setType ty rmeta, rheader = setHeaderType ty rheader}
     showWithKind RequiredField{rfield} =
         "required field '" ++ show rfield ++ "'"
     showWithKind RequiredMethod{rheader} =
@@ -269,7 +272,7 @@ instance HasMeta TraitDecl where
   getMeta = tmeta
   setMeta t m = t{tmeta = m}
   setType ty t@Trait{tmeta, tname} =
-    t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
+    t{tmeta = Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
 data Modifier = Val
@@ -297,7 +300,7 @@ instance Eq FieldDecl where
 instance HasMeta FieldDecl where
     getMeta = fmeta
     setMeta f m = f{fmeta = m}
-    setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
+    setType ty f@(Field {fmeta, ftype}) = f {fmeta = Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
 isValField :: FieldDecl -> Bool
@@ -312,7 +315,7 @@ data ParamDecl = Param {
 instance HasMeta ParamDecl where
     getMeta = pmeta
     setMeta p m = p{pmeta = m}
-    setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
+    setType ty p@(Param {pmeta, ptype}) = p {pmeta = Meta.setType ty pmeta, ptype = ty}
     showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
 data MethodDecl =
@@ -370,7 +373,7 @@ instance HasMeta MethodDecl where
       let header = mheader m
           meta = mmeta m
       in
-        m{mmeta = AST.Meta.setType ty meta
+        m{mmeta = Meta.setType ty meta
          ,mheader = setHeaderType ty header}
   showWithKind m
       | isStreamMethod m = "streaming method '" ++ show (methodName m) ++ "'"
@@ -483,7 +486,7 @@ data Expr = Skip {emeta :: Meta Expr}
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr,
-                         future :: Expr,
+                        future :: Expr,
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr,
                          target :: Expr,
@@ -558,6 +561,10 @@ isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
 
+isNull :: Expr -> Bool
+isNull Null{} = True
+isNull _ = False
+
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
@@ -614,13 +621,13 @@ instance HasMeta Expr where
                    where
                      ty' = AST.AST.getType x
 
-    setType ty expr = expr {emeta = AST.Meta.setType ty (emeta expr)}
+    setType ty expr = expr {emeta = Meta.setType ty (emeta expr)}
 
 setSugared :: Expr -> Expr -> Expr
-setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
+setSugared e sugared = e {emeta = Meta.setSugared sugared (emeta e)}
 
 getSugared :: Expr -> Maybe Expr
-getSugared e = AST.Meta.getSugared (emeta e)
+getSugared e = Meta.getSugared (emeta e)
 
 traverseProgram :: (Program -> [a]) -> Program -> [a]
 traverseProgram f program = f program

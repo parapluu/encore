@@ -16,6 +16,7 @@
         "and"
         "async"
         "await"
+        "borrowed"
         "by"
         "chain"
         "class"

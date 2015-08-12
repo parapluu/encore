@@ -1,0 +1,24 @@
+def borrow(x : borrowed Token) : void
+  x.foo()
+
+trait Foo
+ def foo() : void
+   print "Sharing is caring!"
+
+passive class Token : linear Foo
+
+passive class Borrower<t>
+  def lend(x : borrowed t) : void
+    ()
+
+class Main
+  def borrow(x : borrowed Token) : void
+    borrow(x)
+
+  def main() : void
+    let x = new Token
+        friend = new Borrower<Token>
+    in{
+      friend.lend(x);
+      this.borrow(x);
+    }

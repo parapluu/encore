@@ -23,7 +23,7 @@ import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
 import AST.PrettyPrinter
-import Types
+import Types as Ty
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
@@ -412,7 +412,7 @@ instance Checkable Expr where
               ty <- case funType of
                   Just ty -> return ty
                   Nothing -> tcError $ UnboundFunctionError funname
-              let formalTypeParams = getTypeParams ty
+              let formalTypeParams = getTypeParameters ty
 
               unless (length formalTypeParams == length actualTypeParams) $
                  tcError $ WrongNumberOfFunctionTypeArgumentsError funname
@@ -470,7 +470,8 @@ instance Checkable Expr where
       (eArgs, bindings) <- matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings mType
           returnType = retType calledType header resultType
-      return $ setType returnType mcall {target = specializedTarget
+      return $ setArrowType (arrowType expectedTypes mType) $
+               setType returnType mcall {target = specializedTarget
                                         ,args = eArgs}
       where
         retType targetType header t
@@ -498,7 +499,8 @@ instance Checkable Expr where
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, _) <- matchArguments args expectedTypes
-      return $ setType voidType msend {target = eTarget, args = eArgs}
+      return $ setArrowType (arrowType expectedTypes voidType) $
+               setType voidType msend {target = eTarget, args = eArgs}
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
       eBody <- maybeTypecheck mdt
@@ -567,7 +569,8 @@ instance Checkable Expr where
               let resultType = replaceTypeVars bindings (getResultType ty)
               return (eArgs, resultType, typeArgs')
 
-      return $ setType resultType fcall {args = eArgs,
+      return $ setArrowType ty $
+               setType resultType fcall {args = eArgs,
                                          typeArguments = Just typeArgs}
 
       where
@@ -760,7 +763,8 @@ instance Checkable Expr where
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
-          return $ setType extractedType pattern {args = [eArg]}
+          return $ setArrowType (arrowType [] hType) $
+                   setType extractedType pattern {args = [eArg]}
 
         doCheckPattern pattern@(FunctionCall {name, args}) argty = do
           let tupMeta = getMeta $ head args
@@ -998,6 +1002,8 @@ instance Checkable Expr where
                   tcError $ CannotConsumeError target
            whenM (isGlobalVar target) $
                  tcError $ CannotConsumeError target
+           when (isThisAccess target) $
+                tcError $ CannotConsumeError target
            let ty = AST.getType eTarget
            return $ setType ty cons {target = eTarget}
         where
