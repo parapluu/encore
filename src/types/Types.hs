@@ -59,6 +59,7 @@ module Types(
             ,bottomType
             ,isBottomType
             ,hasResultType
+            ,setResultType
             ) where
 
 import Data.List
@@ -116,6 +117,10 @@ hasResultType x
   | (isArrowType x || isFutureType x || isParType x ||
      isStreamType x || isArrowType x || isMaybeType x) = True
   | otherwise = False
+
+setResultType ty res
+  | hasResultType ty = ty { resultType = res}
+  | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
 getArgTypes = argTypes
 getResultType = resultType

@@ -214,13 +214,9 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
       checkHasType expr ty =
           do eExpr <- doTypecheck expr
              let exprType = AST.getType eExpr
-             if isNullType exprType then
-                 coerceNull eExpr ty
-             else if ((isMaybeType exprType) && (isBottomType $ getResultType exprType)) then
-                   coerceNull eExpr ty
-             else
-                 do assertSubtypeOf exprType ty
-                    return eExpr
+             resultType <- coerce ty exprType
+             assertSubtypeOf exprType ty
+             return $ setType resultType eExpr
 
 instance Checkable Expr where
     --
@@ -896,6 +892,32 @@ coerceNull null ty
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"
+
+coerce :: Type -> Type -> ExceptT TCError (Reader Environment) Type
+coerce expected actual
+  | isRefType actual && isRefType expected = do
+     resultTypeParams <- zipWithM coerce (getTypeParameters expected)
+                                         (getTypeParameters actual)
+     return $ setTypeParameters actual resultTypeParams
+  | hasResultType expected && hasResultType actual = do
+       resultType <- coerce (getResultType expected) (getResultType actual)
+       return $ setResultType actual resultType
+  | isNullType actual = do
+      when (isNullType expected || isTypeVar expected) $
+        tcError "Cannot infer type of null valued expression"
+      unless (canBeNull expected) $
+        tcError $ "Null valued expression cannot have type '" ++
+        (show actual) ++ "' (must have reference type)"
+      return expected
+  | isBottomType actual = do
+      when (isBottomType expected) $
+        tcError $ "something"
+      return expected
+  | otherwise = return actual
+  where
+    canBeNull ty =
+      isRefType ty || isFutureType ty || isArrayType ty ||
+      isStreamType ty || isCapabilityType ty || isArrowType ty || isParType ty
 
 --  E |- arg1 : t
 --  matchTypes(B, t1, t) = B1
