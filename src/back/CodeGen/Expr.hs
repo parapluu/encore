@@ -25,6 +25,7 @@ import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
 import Data.List
+import Control.Applicative((<$>))
 
 instance Translatable ID.BinaryOp (CCode Name) where
   translate op = Nam $ case op of

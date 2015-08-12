@@ -152,7 +152,7 @@ stream_handle = Var "_stream"
 
 type_var_ref_name :: Ty.Type -> CCode Name
 type_var_ref_name ty =
-    Nam $ encore_name "type" (show ty)
+    Nam $ encore_name "type" (Ty.getId ty)
 
 class_id :: Ty.Type -> CCode Name
 class_id ty =

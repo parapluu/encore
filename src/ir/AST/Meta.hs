@@ -5,12 +5,13 @@ import Data.Maybe
 
 import Types
 
-data CaptureStatus = Free
-                   | Captured
+data CaptureStatus = Captured
+                   | Free
                      deriving (Eq, Show)
 
 data MetaInfo = Closure {metaId :: String}
               | Async {metaId :: String}
+              | MetaArrow {metaArrow :: Type}
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos,
@@ -57,6 +58,15 @@ metaTask id m = m {metaInfo = Just $ Async id}
 
 getMetaId :: Meta a -> String
 getMetaId = metaId . fromJust . metaInfo
+
+getMetaArrowType :: Meta a -> Type
+getMetaArrowType = metaArrow . fromJust . metaInfo
+
+setMetaArrowType :: Type -> Meta a -> Meta a
+setMetaArrowType ty m
+    | isArrowType ty = m{metaInfo = Just $ MetaArrow ty}
+    | otherwise = error $ "Meta.hs: Tried to set arrow type to " ++
+                          showWithKind ty
 
 isFree :: Meta a -> Bool
 isFree m = captureStatus m == Just Free

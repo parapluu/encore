@@ -24,7 +24,7 @@ import Control.Applicative ((<$>))
 import Identifiers
 import Types hiding(refType)
 import AST.AST
-import AST.Meta hiding(Closure, Async, getPos)
+import AST.Meta hiding(Closure, Async)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -49,7 +49,8 @@ lexer =
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require", "linear", "consume"
+     "peer", "async", "finish", "foreach", "trait", "require", "linear",
+     "consume", "S"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
@@ -106,6 +107,7 @@ typ  =  try arrow
               <|> array
               <|> primitive
               <|> try capability
+              <|> stackbound
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -124,6 +126,9 @@ typ  =  try arrow
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
+      stackbound = do reserved "S"
+                      ty <- parens typ
+                      return $ makeStackbound ty
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
@@ -373,14 +378,16 @@ expression = buildExpressionParser opTable expr
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
-          Postfix (do index <- brackets expression
-                      return (\e -> ArrayAccess (meta (getPos e)) e index))
+          Postfix (do pos <- getPosition
+                      index <- brackets expression
+                      return (\e -> ArrayAccess (meta pos) e index))
       messageSend =
-          Postfix (do bang
+          Postfix (do pos <- getPosition
+                      bang
                       name <- identifier
                       args <- parens arguments
-                      return (\target -> MessageSend (meta (getPos target))
-                                                     target (Name name) args))
+                      return (\target -> MessageSend (meta pos) target
+                                                     (Name name) args))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;

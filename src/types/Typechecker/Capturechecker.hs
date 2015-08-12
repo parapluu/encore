@@ -10,14 +10,15 @@ exception with a meaningful error message if it fails.
 module Typechecker.Capturechecker(capturecheckEncoreProgram) where
 
 import Data.List as List
+import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.Except
 
 -- Module dependencies
-import AST.AST
+import AST.AST as AST
 import AST.PrettyPrinter
 import AST.Util
-import Types
+import Types as Ty
 import Typechecker.Environment
 import Typechecker.TypeError
 
@@ -58,9 +59,16 @@ instance CaptureCheckable Function where
            return fun{funbody = funbody'}
 
 instance CaptureCheckable ClassDecl where
-    doCapturecheck c@Class{cmethods} =
+    doCapturecheck c@Class{cmethods, cfields} =
         do cmethods' <- mapM capturecheck cmethods
+           mapM_ notStackbound cfields
            return c{cmethods = cmethods'}
+        where
+          notStackbound f@Field{ftype} =
+              local (pushBT f) $
+              when (isStackboundType ftype) $
+                   ccError $ "Cannot have field of stackbound type '" ++
+                             show ftype ++ "'"
 
 -- TODO: Find all smallest result expressions for better error
 -- messages. resultOf (let x = 42 in x + 1) = x + 1
@@ -96,26 +104,37 @@ instance CaptureCheckable Expr where
         free e
 
     doCapturecheck e@Assign{lhs, rhs} =
-        do capture rhs
+        do let lType = getType lhs
+               rType = getType rhs
+           matchStackBoundedness lType rType
+           capture rhs
            return e
 
     doCapturecheck e@Let{decls, body} =
         do mapM_ (capture . snd) decls
            e `returns` body
 
-    doCapturecheck e@TypedExpr{body} =
-        e `returns` body
+    doCapturecheck e@TypedExpr{body, ty} =
+        do let bodyType = getType body
+           matchStackBoundedness bodyType ty
+           e `returns` body
 
-    doCapturecheck e@MethodCall{args} =
-        do mapM_ capture args
+    doCapturecheck e@MethodCall{target, name, args} =
+        do let funType = getArrowType e
+               argTypes = getArgTypes funType
+           zipWithM_ (sendArgument target) args argTypes
            free e
 
-    doCapturecheck e@MessageSend{args} =
-        do mapM_ capture args
+    doCapturecheck e@MessageSend{target, name, args} =
+        do let funType = getArrowType e
+               argTypes = getArgTypes funType
+           zipWithM_ (sendArgument target) args argTypes
            return e
 
     doCapturecheck e@FunctionCall{args} =
-        do mapM_ capture args
+        do let funType = getArrowType e
+               argTypes = getArgTypes funType
+           zipWithM_ captureOrBorrow args argTypes
            free e
 
     doCapturecheck e@Closure{eparams, body} =
@@ -170,8 +189,8 @@ instance CaptureCheckable Expr where
 -- also free (see 'capturecheck'). A non-linear expression is
 -- trivially captured. Successful capturing has no effect.
 capture :: Expr -> ExceptT CCError (Reader Environment) ()
-capture e =
-    let ty = getType e in
+capture e = do
+    let ty = getType e
     when (isLinearType ty) $
       unless (isFree e) $
         pushError e $
@@ -179,6 +198,9 @@ capture e =
           if isClassType ty
           then "' of linear type '" ++ show ty ++ "'"
           else "' of type '" ++ show ty ++ "'"
+    when (isStackboundType ty) $
+      pushError e $
+        "Cannot alias borrowed expression '" ++ show (ppExpr e) ++ "'"
 
 -- | An expression of linear type can be marked 'free' to signal
 -- that it is safe to 'capture' its result
@@ -187,6 +209,53 @@ free e =
     return $ if isLinearType (getType e)
              then makeFree e
              else makeCaptured e
+
+captureOrBorrow ::
+    Expr -> Type -> ExceptT CCError (Reader Environment) ()
+captureOrBorrow e ty
+    | isStackboundType ty = return ()
+    | otherwise =
+        do when (isStackboundType (getType e)) $
+             ccError $ "Cannot pass stack-bound expression '" ++
+                       show (ppExpr e) ++ "' as non-stackbound parameter"
+           capture e
+
+sendArgument ::
+    Expr -> Expr -> Type -> ExceptT CCError (Reader Environment) ()
+sendArgument target arg paramType
+    | isStackboundType paramType
+    , isLinearType (getType arg)
+    , not (isFree arg) =
+        unless isSyncCall $
+             ccError $ "Expression '" ++ show (ppExpr arg) ++
+                       "' cannot be borrowed by active object " ++
+                       "of type '" ++ show targetType ++ "'"
+    | isStackboundType (getType arg) =
+        unless isSyncCall $
+             ccError $ "Cannot send stack-bound expression '" ++
+                       show (ppExpr arg) ++ "' to active object " ++
+                       "of type '" ++ show targetType ++ "'"
+    | otherwise = captureOrBorrow arg paramType
+    where
+      targetType = getType target
+      isSyncCall = isThisAccess target ||
+                   isPassiveClassType targetType
+
+matchStackBoundedness :: Type -> Type -> ExceptT CCError (Reader Environment) ()
+matchStackBoundedness expected ty
+    |  isStackboundType expected &&
+       not (isStackboundType ty)
+    || not (isStackboundType expected) &&
+       isStackboundType ty =
+          ccError $ kindOf ty ++ " does not match " ++ kindOf' expected
+    | otherwise = return ()
+    where
+      kindOf ty
+          | isStackboundType ty = "Stack-bound type '" ++ show ty ++ "'"
+          | otherwise = "Non stack-bound type '" ++ show ty ++ "'"
+      kindOf' ty
+          | isStackboundType ty = "stack-bound type '" ++ show ty ++ "'"
+          | otherwise = "non stack-bound type '" ++ show ty ++ "'"
 
 
 -- | Convenience function for when a node inherits the same

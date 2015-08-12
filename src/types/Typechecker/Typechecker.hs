@@ -19,7 +19,7 @@ import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
 import AST.PrettyPrinter
-import Types
+import Types as Ty
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
@@ -283,7 +283,7 @@ instance Checkable Expr where
       unless (isRefType targetType || isCapabilityType targetType) $
         tcError $ "Cannot call method on expression '" ++
                   show (ppExpr target) ++
-                  "' of type '" ++ show targetType ++ "'"
+                  "' of " ++ Ty.showWithKind targetType
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
@@ -298,7 +298,8 @@ instance Checkable Expr where
                                  matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings methodType
           returnType = ret_type calledType mdecl resultType
-      return $ setType returnType mcall {target = specializedTarget
+      return $ setArrowType (arrowType expectedTypes methodType) $
+               setType returnType mcall {target = specializedTarget
                                         ,args = eArgs}
       where
         ret_type targetType method t
@@ -323,16 +324,18 @@ instance Checkable Expr where
       unless (isActiveClassType targetType) $
            tcError $ "Cannot send message to expression '" ++
                      show (ppExpr target) ++
-                     "' of type '" ++ show targetType ++ "'"
+                     "' of " ++ Ty.showWithKind targetType
       (mdecl, calledType) <- findMethod targetType name
+      fBindings <- formalBindings calledType
       let specializedTarget = setType calledType eTarget
           paramTypes = map ptype (mparams mdecl)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
       matchArgumentLength mdecl args
-      fBindings <- formalBindings calledType
       (eArgs, _) <- local (bindTypes fBindings) $
                     matchArguments args expectedTypes
-      return $ setType voidType msend {target = specializedTarget, args = eArgs}
+      return $ setArrowType (arrowType expectedTypes voidType) $
+               setType voidType msend {target = specializedTarget
+                                      ,args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
     --  typeVarBindings() = B
@@ -354,7 +357,8 @@ instance Checkable Expr where
                        show (length args)
       (eArgs, bindings) <- matchArguments args argTypes
       let resultType = replaceTypeVars bindings (getResultType ty)
-      return $ setType resultType fcall {args = eArgs}
+      return $ setArrowType ty $
+               setType resultType fcall {args = eArgs}
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -545,7 +549,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveClassType targetType) $
         tcError $ "Cannot read field of expression '" ++
-          show (ppExpr target) ++ "' of " ++ Types.showWithKind targetType
+          show (ppExpr target) ++ "' of " ++ Ty.showWithKind targetType
       fdecl <- asks $ fieldLookup targetType name
       case fdecl of
         Just Field{ftype} -> do
@@ -903,7 +907,7 @@ matchTypes expected ty
         case result of
           Just boundType -> do
             unless (ty `subtypeOf` boundType) $
-              tcError $ "Type variable '" ++ show expected ++
+              tcError $ "Type variable '" ++ getId expected ++
                 "' cannot be bound to both '" ++ show ty ++
                 "' and '" ++ show boundType ++ "'"
             asks bindings
