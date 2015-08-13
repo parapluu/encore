@@ -241,18 +241,20 @@ instance Checkable Expr where
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
          let eArgType = AST.getType eArg
-         unless (isMaybeType eArgType) $
-           tcError $ "Match clause needs to match on an Option type, not on " ++ show eArgType
-         unless (length matchbody > 0) $
-           tcError "Match clause has no pattern to match against"
+         checkErrors eArgType matchbody
          let bindings = catMaybes $ map (getBindings eArg . fst) matchbody
          eMatchBody <- local (extendEnvironment bindings) $ mapM (tuplecheck eArg) matchbody
+         mapM (checkTypes eArg) eMatchBody
          let resultType = (AST.getType . snd . head) eMatchBody
          unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
            tcError "Match clause must return same type in all branches"
-         tcError $ show eMatchBody
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
+        checkErrors eArgType matchbody = do
+          unless (isMaybeType eArgType) $
+            tcError $ "Match clause needs to match on an Option type, not on " ++ show eArgType
+          unless (length matchbody > 0) $
+            tcError "Match clause has no pattern to match against"
         getBindings :: Expr -> Expr -> Maybe (Name, Type)
         getBindings parent (MaybeData _ (JustType exp)) =
           let targetType = (getResultType . AST.getType) parent
@@ -265,13 +267,20 @@ instance Checkable Expr where
 
         getBindings parent _ = Nothing
 
+        checkTypes parent (x, y) = do
+          let parentType = AST.getType parent
+              xType = AST.getType x
+          unless (parentType == xType) $
+            tcError $ "Type mismatch in `match` expression, matching: " ++
+                      show parentType ++ " with " ++ show xType
+          return (x,y)
 
         tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
           let parentType = AST.getType parent
               binding = (name v, (getResultType . AST.getType) parent)
           x' <- typecheck x
           y' <- typecheck y
-          unless (hasResultType parentType) $
+          unless (hasResultType parentType && parentType == AST.getType x') $
             tcError $ "Type mismatch in `match` expression, matching: " ++
                       show parentType ++ " with " ++ show (AST.getType x')
           return (x', y')
@@ -279,13 +288,11 @@ instance Checkable Expr where
         tuplecheck parent (x@(MaybeData _ (JustType innerMaybe@(MaybeData {}))), y) = do
           let targetType = (getResultType . AST.getType) parent
               parent' = setType targetType parent
-          (x', y') <- tuplecheck parent' (innerMaybe, y)
-          typedX <- typecheck x --{mdt = JustType x'}
-
-          -- TODO: seems weird that if we don't add mdt = Just x', the TypedX
-          -- does not annotate the children
-          return (typedX, y')
-          -- return (typedX {mdt = JustType x'}, y')
+          (innerMaybe', y') <- tuplecheck parent' (innerMaybe, y)
+          eX <- typecheck x
+          let eX' = eX {mdt = JustType innerMaybe'}
+              eX'' = setType (maybeType (AST.getType innerMaybe')) eX'
+          return (eX'', y')
 
         tuplecheck parent (x@(MaybeData _ (NothingType {})), y) = do
           y' <- typecheck y
@@ -293,8 +300,25 @@ instance Checkable Expr where
           x'' <- hasType x' (AST.getType parent)
           return (x'', y')
 
-        tuplecheck parent (x, _) =
-          tcError $ "Matching on something different than Option type: " ++ show (AST.getType x)
+        tuplecheck parent (x@(MaybeData {}), y) = do
+          x' <- typecheck x
+          y' <- typecheck y
+          let typeX = getResultType $ AST.getType x'
+          unless (isPrimitive typeX) $
+            tcError $ "Cannot pattern match on something different " ++
+                      "from primitive and option types, trying to match" ++
+                      show (AST.getType parent) ++ " and " ++ show typeX
+          return (x', y')
+
+        tuplecheck parent (x, y) = do
+          x' <- typecheck x
+          y' <- typecheck y
+          let typeX = getResultType $ AST.getType x'
+          tcError $ "Cannot pattern match on something different from primitive" ++
+                    " and option types, trying to match " ++ show (AST.getType parent)
+                    ++ " and " ++ show typeX
+
+
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
