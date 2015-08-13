@@ -204,6 +204,8 @@ typeComponents str@(StreamType ty) =
     str : typeComponents ty
 typeComponents arr@(ArrayType ty)  =
     arr : typeComponents ty
+typeComponents maybe@(MaybeType ty) =
+    maybe : typeComponents ty
 typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters

@@ -277,7 +277,6 @@ instance Checkable Expr where
 
         tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
           let parentType = AST.getType parent
-              binding = (name v, (getResultType . AST.getType) parent)
           x' <- typecheck x
           y' <- typecheck y
           unless (hasResultType parentType && parentType == AST.getType x') $
@@ -481,6 +480,8 @@ instance Checkable Expr where
                declTypes = map (AST.getType . snd) eDecls
            when (any isNullType declTypes) $
                 tcError "Cannot infer type of null-valued expression"
+           when (any isBottomType (concatMap typeComponents declTypes)) $
+                tcError "Cannot infer type of `Nothing`"
            eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
            return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
         where
