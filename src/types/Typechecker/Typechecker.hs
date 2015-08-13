@@ -242,38 +242,59 @@ instance Checkable Expr where
       do eArg <- typecheck arg
          let eArgType = AST.getType eArg
          unless (isMaybeType eArgType) $
-           tcError $ "Match clause needs to match on an Option type, not on " ++  (show eArgType)
+           tcError $ "Match clause needs to match on an Option type, not on " ++ show eArgType
          unless (length matchbody > 0) $
-           tcError $ "Match clause has no pattern to match against"
-         eMatchBody <- mapM (tuplecheck eArg) matchbody
+           tcError "Match clause has no pattern to match against"
+         let bindings = catMaybes $ map (getBindings eArg . fst) matchbody
+         eMatchBody <- local (extendEnvironment bindings) $ mapM (tuplecheck eArg) matchbody
          let resultType = (AST.getType . snd . head) eMatchBody
          unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
-           tcError $ "Match clause must return same type in all branches"
+           tcError "Match clause must return same type in all branches"
+         tcError $ show eMatchBody
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
-        tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
-          let varName = (name . e . mdt) x
-          let targetType = (getResultType . AST.getType) parent
-          x' <- local (extendEnvironment [(varName, targetType)]) $ typecheck x
-          y' <- local (extendEnvironment [(varName, targetType)]) $ typecheck y
-          -- TODO: the error is not quite right if there was nested option types
-          -- We should return Either StringMessage (Expr, Expr)
-          unless ((hasResultType . AST.getType) parent) $
-            tcError $ "Type mismatch in `match` expression, matching: " ++
-                      (show $ AST.getType parent) ++
-                      " with " ++ (show $ AST.getType x')
-          matchTypes (AST.getType parent) (AST.getType x')
-          return (x', y')
-        tuplecheck parent (x@(MaybeData _ (JustType md@(MaybeData {}))), y) = do
+        getBindings :: Expr -> Expr -> Maybe (Name, Type)
+        getBindings parent (MaybeData _ (JustType exp)) =
           let targetType = (getResultType . AST.getType) parent
               parent' = setType targetType parent
-          (x', y') <- tuplecheck parent' (md, y)
+          in
+             getBindings parent' exp
+
+        getBindings parent var@(VarAccess {name}) =
+          Just (name, AST.getType parent)
+
+        getBindings parent _ = Nothing
+
+
+        tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
+          let parentType = AST.getType parent
+              binding = (name v, (getResultType . AST.getType) parent)
+          x' <- typecheck x
+          y' <- typecheck y
+          unless (hasResultType parentType) $
+            tcError $ "Type mismatch in `match` expression, matching: " ++
+                      show parentType ++ " with " ++ show (AST.getType x')
           return (x', y')
+
+        tuplecheck parent (x@(MaybeData _ (JustType innerMaybe@(MaybeData {}))), y) = do
+          let targetType = (getResultType . AST.getType) parent
+              parent' = setType targetType parent
+          (x', y') <- tuplecheck parent' (innerMaybe, y)
+          typedX <- typecheck x --{mdt = JustType x'}
+
+          -- TODO: seems weird that if we don't add mdt = Just x', the TypedX
+          -- does not annotate the children
+          return (typedX, y')
+          -- return (typedX {mdt = JustType x'}, y')
+
         tuplecheck parent (x@(MaybeData _ (NothingType {})), y) = do
           y' <- typecheck y
-          return (x, y')
-        tuplecheck parent (x, _) = do
-          tcError $ "Matching on something different than Option type: " ++ (show $ AST.getType x)
+          x' <- typecheck x
+          x'' <- hasType x' (AST.getType parent)
+          return (x'', y')
+
+        tuplecheck parent (x, _) =
+          tcError $ "Matching on something different than Option type: " ++ show (AST.getType x)
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
@@ -364,8 +385,8 @@ instance Checkable Expr where
         tcError "Cannot infer the return type of the maybe expression"
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
         where
-          maybeTypecheck just@(JustType e) = do
-            eBody <- typecheck e
+          maybeTypecheck just@(JustType exp) = do
+            eBody <- typecheck exp
             let returnType = AST.getType eBody
             when (isNullType returnType) $
               tcError "Cannot infer the return type of the maybe expression"
