@@ -97,17 +97,23 @@ formalBindings actual = do
       actuals = getTypeParameters actual
   return $ zip formals actuals
 
+findField :: (MonadError TCError m, MonadReader Environment m) =>
+  Type -> Name -> m FieldDecl
+findField ty f = do
+  result <- asks $ fieldLookup ty f
+  case result of
+    Just fdecl -> return fdecl
+    Nothing -> tcError $ "No field '" ++ show f ++ "' in " ++
+                         classOrTraitName ty
+
 findMethod :: (MonadError TCError m, MonadReader Environment m) =>
   Type -> Name -> m MethodDecl
 findMethod ty name = do
   m' <- asks $ methodLookup ty name
   when (isNothing m') $ tcError $
-    concat [no_method name, " in ", ref, " '", show ty, "'"]
+    concat [no_method name, " in ", classOrTraitName ty]
   return $ fromJust m'
   where
-    ref
-      | isClassType ty = "class"
-      | isTraitType ty = "trait"
     no_method (Name "_init") = "No constructor"
     no_method n = concat ["No method '", show n, "'"]
 
@@ -127,22 +133,40 @@ matchArgumentLength method args =
 
 meetRequiredFields :: (MonadError TCError m, MonadReader Environment m) =>
                       [FieldDecl] -> Type -> TraitDecl -> m ()
-meetRequiredFields fields ty tdecl =
-    mapM_ matchField $ tfields tdecl
+meetRequiredFields cFields trait tdecl =
+    mapM_ matchField (tfields tdecl)
   where
-    matchField f =
+    matchField tField =
       let
         formals = getTypeParameters (tname tdecl)
-        actuals = getTypeParameters ty
+        actuals = getTypeParameters trait
         bindings = zip formals actuals
-        result = find (==f) fields
-        expected = replaceTypeVars bindings $ ftype f
-        actual = ftype $ fromJust result
+        expected = replaceTypeVars bindings (ftype tField)
+        expField = tField{ftype = expected}
+        result = find (==expField) cFields
+        cField = fromJust result
+        cFieldType = ftype cField
       in
-        unless (isJust result && expected == actual) $
-               tcError $ "Couldn't find field: '" ++ show f{ftype = expected} ++
-                         "' required by included trait '" ++
-                         show ty ++ "'"
+        if isNothing result then
+            tcError $
+              "Cannot find field '" ++ show expField ++
+              "' required by included " ++ classOrTraitName trait
+        else if isValField expField then
+            unless (cFieldType `subtypeOf` expected) $
+              tcError $
+                "Field '" ++ show cField ++ "' must have a subtype of '" ++
+                show expected ++ "' to meet the requirements of " ++
+                "included " ++ classOrTraitName trait
+        else
+            unless (cFieldType == expected) $
+              tcError $
+                "Field '" ++ show cField ++ "' must exactly match type '" ++
+                show expected ++ "' to meet the requirements of " ++
+                "included " ++ classOrTraitName trait ++
+                if cFieldType `subtypeOf` expected
+                then ". Consider turning '" ++ show (fname expField) ++
+                     "' into a val-field in " ++ classOrTraitName trait
+                else ""
 
 ensureNoMethodConflict :: (MonadError TCError m, MonadReader Environment m) =>
                          [MethodDecl] -> [TraitDecl] -> m ()
@@ -156,14 +180,14 @@ ensureNoMethodConflict methods tdecls =
   unless (null diff) $
          if dup `elem` methods then
              tcError $ "Method '" ++ show (mname dup) ++
-                       "' is defined both in current class and trait '" ++
-                       show (head overlappingTraits) ++ "'"
+                       "' is defined both in current class and " ++
+                       classOrTraitName (tname $ head overlappingTraits)
          else
              tcError $ "Conflicting inclusion of method '" ++
-                       show (mname dup) ++ "' from trait '" ++
-                       show (tname (head overlappingTraits)) ++
-                       "' and trait '" ++
-                       show (tname (overlappingTraits !! 1)) ++ "'"
+                       show (mname dup) ++ "' from " ++
+                       classOrTraitName (tname (head overlappingTraits)) ++
+                       " and " ++
+                       classOrTraitName (tname (overlappingTraits !! 1))
 
 instance Checkable ClassDecl where
   -- TODO: Update this rule!
@@ -455,9 +479,8 @@ instance Checkable Expr where
     --  E |- yield val : void
     doTypecheck yield@(Yield {val}) =
         do eVal <- typecheck val
-           bt <- asks backtrace
-           let mtd   = currentMethod bt
-               mType = mtype mtd
+           mtd <- asks currentMethod
+           let mType = mtype mtd
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
                   tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
@@ -470,8 +493,7 @@ instance Checkable Expr where
     -- ----------------------------
     --  E |- eos : void
     doTypecheck eos@(Eos {}) =
-        do bt <- asks backtrace
-           let mtd = currentMethod bt
+        do mtd <- asks currentMethod
            unless (isStreamMethod mtd) $
                   tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
            return $ setType voidType eos
@@ -538,14 +560,10 @@ instance Checkable Expr where
       unless (isThisAccess target || isPassiveClassType targetType) $
         tcError $ "Cannot read field of expression '" ++
           show (ppExpr target) ++ "' of " ++ Types.showWithKind targetType
-      fdecl <- asks $ fieldLookup targetType name
-      case fdecl of
-        Just Field{ftype} -> do
-          bindings <- formalBindings targetType
-          let ty' = replaceTypeVars bindings ftype
-          return $ setType ty' fAcc {target = eTarget}
-        Nothing -> tcError $ "No field '" ++ show name ++
-          "' in ref type '" ++ show targetType ++ "'"
+      fdecl <- findField targetType name
+      bindings <- formalBindings targetType
+      let ty' = replaceTypeVars bindings (ftype fdecl)
+      return $ setType ty' fAcc {target = eTarget}
 
     --  E |- lhs : t
     --  isLval(lhs)
@@ -561,12 +579,25 @@ instance Checkable Expr where
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
     doTypecheck assign@(Assign {lhs, rhs}) =
-        do eLhs <- typecheck lhs
-           unless (isLval lhs) $
+        do unless (isLval lhs) $
              tcError $ "Left hand side '" ++ show (ppExpr lhs) ++
                "' cannot be assigned to"
+           eLhs <- typecheck lhs
+           mtd <- asks currentMethod
+           unless (isConstructor mtd) $
+                  assertNotValField eLhs
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+        where
+          assertNotValField f
+              | FieldAccess {target, name} <- f = do
+                  let targetType = AST.getType target
+                  fdecl <- findField targetType name
+                  when (isValField fdecl) $
+                       tcError $ "Cannot assign to val-field '" ++
+                                 show name ++ "' in " ++
+                                 classOrTraitName targetType
+              | otherwise = return ()
 
     --  name : t \in E
     -- ----------------

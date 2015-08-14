@@ -117,9 +117,11 @@ instance Precheckable MethodDecl where
       mparams' <- mapM precheck $ mparams m
       thisType <- liftM fromJust $ asks $ varLookup thisName
       when (isMainMethod thisType (mname m)) checkMainParams
-      when (isStreamMethod m) $
+      when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
+           when (isConstructor m) $
+                tcError "Constructor cannot be streaming"
       return $ setType mtype' m{mparams = mparams'}
       where
         checkMainParams =

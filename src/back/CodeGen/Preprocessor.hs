@@ -21,33 +21,34 @@ injectTraitsToClasses p@A.Program{A.classes} =
         foldr injectTraitToClass c (Ty.getImplementedTraits cname)
 
     injectTraitToClass :: Ty.Type -> A.ClassDecl -> A.ClassDecl
-    injectTraitToClass traitType c@A.Class{A.cname, A.cmethods} =
+    injectTraitToClass traitType c@A.Class{A.cmethods} =
         let
             traitTemplate = A.getTrait traitType p
-            injectedMethods = flattenTrait cname traitType traitTemplate
+            injectedMethods = flattenTrait c traitType traitTemplate
         in
           c{A.cmethods = cmethods ++ injectedMethods}
 
--- | @flattenTrait c t tdecl@ returns the methods of
--- @tdecl@, translated to appear as if they were declared in class
--- @c@ with any type parameters of @tdecl@ instantiated to the
+-- | @flattenTrait cdecl t tdecl@ returns the methods of
+-- @tdecl@, translated to appear as if they were declared in
+-- @cdecl@ with any type parameters of @tdecl@ instantiated to the
 -- type arguments of @t@.
-flattenTrait :: Ty.Type -> Ty.Type -> A.TraitDecl -> [A.MethodDecl]
-flattenTrait c traitType template =
+flattenTrait :: A.ClassDecl -> Ty.Type -> A.TraitDecl -> [A.MethodDecl]
+flattenTrait cdecl traitType template =
   let
     formals = Ty.getTypeParameters $ A.tname template
     actuals = Ty.getTypeParameters traitType
     bindings = zip formals actuals
     methods = A.tmethods template
   in
-    map (convertMethod bindings c) methods
+    map (convertMethod bindings cdecl) methods
 
--- | @convertMethod bindings thisType m@ converts all types
--- appearing in @m@ using @bindings@ as a convertion table, and
--- also gives the type @thisType@ to all accesses of @this@.
+-- | @convertMethod bindings cdecl m@ converts all types
+-- appearing in @m@ using @bindings@ as a convertion table. It
+-- also gives all accesses of or through @this@ types as if
+-- @cdecl@ was the current enclosing class.
 convertMethod ::
-    [(Ty.Type, Ty.Type)] -> Ty.Type -> A.MethodDecl -> A.MethodDecl
-convertMethod bindings thisType method =
+    [(Ty.Type, Ty.Type)] -> A.ClassDecl -> A.MethodDecl -> A.MethodDecl
+convertMethod bindings cdecl method =
   let
     mtype = convertType $ A.mtype method
     mparams = map convertNode $ A.mparams method
@@ -60,8 +61,22 @@ convertMethod bindings thisType method =
 
     convertExpr :: A.Expr -> A.Expr
     convertExpr e
-        | A.isThisAccess e = A.setType thisType $ convertNode e
+        | A.isThisAccess e = A.setType (A.cname cdecl) $ convertNode e
+        | isThisFieldAccess e =
+            let f = A.name e
+                ty = getFieldType f (A.cfields cdecl)
+            in A.setType ty $ convertNode e
         | otherwise = convertNode e
+
+    isThisFieldAccess e
+        | A.FieldAccess{A.target} <- e
+          = A.isThisAccess target
+        | otherwise = False
+
+    getFieldType f =
+        A.ftype . fromMaybe err . find ((== f) . A.fname)
+            where
+              err = error $ "Preprocessor.hs: Could not find field: " ++ show f
 
     convertNode :: A.HasMeta n => n -> n
     convertNode node =

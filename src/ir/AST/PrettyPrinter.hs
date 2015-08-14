@@ -104,7 +104,7 @@ ppClassDecl Class {cname, cfields, cmethods} =
                    vcat (map ppMethodDecl cmethods))
 
 ppFieldDecl :: FieldDecl -> Doc
-ppFieldDecl Field {fname, ftype} = ppName fname <+> ppColon <+> ppType ftype
+ppFieldDecl = text . show
 
 ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype

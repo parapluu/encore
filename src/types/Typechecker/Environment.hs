@@ -26,6 +26,7 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
+                               currentMethod,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -88,6 +89,9 @@ pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
+
+currentMethod :: Environment -> MethodDecl
+currentMethod = currentMethodFromBacktrace . bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
