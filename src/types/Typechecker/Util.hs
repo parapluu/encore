@@ -4,7 +4,7 @@
 
 module Typechecker.Util where
 
-import Types
+import Types as Ty
 import qualified AST.AST as AST
 import Data.List
 import Text.Printf (printf)
@@ -84,3 +84,10 @@ assertDistinct something l =
   in
     unless (null duplicates) $
       tcError $ printf "Duplicate %s of %s" something $ AST.showWithKind first
+
+classOrTraitName :: Type -> String
+classOrTraitName ty
+    | isClassType ty = "class '" ++ getId ty ++ "'"
+    | isTraitType ty = "trait '" ++ getId ty ++ "'"
+    | otherwise = error $ "Util.hs: No class or trait name for " ++
+                          Ty.showWithKind ty

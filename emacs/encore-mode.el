@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("and" "await" "class" "chain" "def" "else" "eos" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "stream" "suspend" "then" "this" "unless" "while" "yield" "async" "foreach"))
+(setq encore-keywords '("and" "async" "await" "class" "chain" "def" "else" "eos" "foreach" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "while" "yield" ))
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))

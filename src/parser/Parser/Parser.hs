@@ -49,7 +49,7 @@ lexer =
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require"
+     "peer", "async", "finish", "foreach", "trait", "require", "val"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
@@ -235,11 +235,7 @@ traitDecl = do
 traitField :: Parser FieldDecl
 traitField = do
   reserved "require"
-  fmeta <- meta <$> getPosition
-  fname <- Name <$> identifier
-  colon
-  ftype <- typ
-  return Field{fmeta, fname, ftype}
+  fieldDecl
 
 capability :: Parser Type
 capability = do
@@ -267,12 +263,25 @@ classDecl = do
               methods <- many methodDecl
               return (fields, methods)
 
+modifier :: Parser Modifier
+modifier = val
+           <?>
+           "modifier"
+    where
+      val = do
+        reserved "val"
+        return Val
+
 fieldDecl :: Parser FieldDecl
-fieldDecl = do pos <- getPosition
-               f <- identifier
+fieldDecl = do fmeta <- meta <$> getPosition
+               fmods <- many modifier
+               fname <- Name <$> identifier
                colon
-               ty <- typ
-               return $ Field (meta pos) (Name f) ty
+               ftype <- typ
+               return Field{fmeta
+                           ,fmods
+                           ,fname
+                           ,ftype}
 
 paramDecl :: Parser ParamDecl
 paramDecl = do pos <- getPosition

@@ -122,13 +122,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate bin@(A.Binop {A.binop, A.loper, A.roper}) = do
     (nlo, tlo) <- translate (loper :: A.Expr)
     (nro, tro) <- translate (roper :: A.Expr)
+    let ltype = A.getType loper
+        rcast = if Ty.isRefType ltype
+                then Cast (translate ltype) nro
+                else AsExpr nro
     tmp <- Ctx.gen_named_sym "binop"
     return $ (Var tmp,
               Seq [tlo,
                    tro,
                    Statement (Assign
                               (Decl (translate $ A.getType bin, Var tmp))
-                              (BinOp (translate binop) nlo nro))])
+                              (BinOp (translate binop) (AsExpr nlo) rcast))])
 
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args

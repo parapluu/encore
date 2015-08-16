@@ -136,14 +136,24 @@ instance HasMeta TraitDecl where
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
+data Modifier = Val
+                deriving(Eq)
+
+instance Show Modifier where
+    show Val = "val"
+
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
+  fmods :: [Modifier],
   fname :: Name,
   ftype :: Type
 }
 
 instance Show FieldDecl where
-  show f@Field{fname,ftype} = show fname ++ " : " ++ show ftype
+  show f@Field{fmods,fname,ftype} =
+      smods ++ show fname ++ " : " ++ show ftype
+    where
+      smods = concatMap ((++ " ") . show) fmods
 
 instance Eq FieldDecl where
   a == b = fname a == fname b
@@ -153,6 +163,9 @@ instance HasMeta FieldDecl where
     setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
+
+isValField :: FieldDecl -> Bool
+isValField = (Val `elem`) . fmods
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -182,6 +195,9 @@ isStreamMethod _ = False
 
 isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
+
+isConstructor :: MethodDecl -> Bool
+isConstructor m = mname m == Name "_init"
 
 instance Eq MethodDecl where
   a == b = mname a == mname b
