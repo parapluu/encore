@@ -247,9 +247,14 @@ instance Checkable Expr where
          mapM (checkTypes eArg) eMatchBody
          let resultType = (AST.getType . snd . head) eMatchBody
          unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
-           tcError "Match clause must return same type in all branches"
+           tcError $ "Match clause must return same type in all branches. " ++
+                     tipSentence resultType
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
+        tipSentence resultType
+          | isMaybeType resultType = "Did you forget to cast a 'Nothing' expression?"
+          | otherwise = ""
+
         checkErrors eArg matchbody = do
           let eArgType = AST.getType eArg
           unless (isMaybeType eArgType) $
