@@ -438,7 +438,7 @@ expr  =  unit
       maybeExpression = do
         pos <- getPosition
         body <- (do reserved "Just"
-                    body <- expression
+                    body <- parens expression
                     return (JustType body))
                 <|>
                 (do reserved "Nothing"

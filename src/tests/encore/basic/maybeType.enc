@@ -29,15 +29,21 @@ def foo(): void
 class Main
   def main(): void
    let
-     x = Just 32
+     x = Just(32)
    in {
       match (Nothing : Maybe int) with {
-       (Just z) => 12
-       Just 12 => 23
-       Just 0 => 0
+       Just(z) => 12
+       Just(12) => 23
+       Just(0) => 0
        Nothing => 22
       };
+      match Just(Just(32)) with {
+       Nothing => "nothing"
+       Just(Nothing) => "just nothing"
+       Just(Just(0)) => "zero"
+       Just(z) => "z"
+      };
       match x with
-       Just 32 => 1
+       Just(32) => 1
        Nothing => 0
   }
