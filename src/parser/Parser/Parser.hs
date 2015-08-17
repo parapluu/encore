@@ -547,7 +547,7 @@ expr  =  unit
                  reserved "match"
                  argDecl <- expression
                  reserved "with"
-                 body <- braces $ many matchingExpr
+                 body <- maybeBraces $ many matchingExpr
                  return $ MatchDecl (meta pos) argDecl body
              where
                matchingExpr = do

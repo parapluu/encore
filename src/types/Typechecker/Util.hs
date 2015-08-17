@@ -86,6 +86,10 @@ resolveType = typeMapM resolveSingleType
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
+        -- | isMaybeType ty = do
+        --     let resultType = getResultType ty
+        --     resolveSingleType resultType
+        --     return ty
         | isCapabilityType ty = do
             let traits = traitsFromCapability ty
             mapM_ resolveSingleTrait traits

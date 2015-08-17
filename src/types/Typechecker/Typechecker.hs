@@ -240,9 +240,9 @@ instance Checkable Expr where
 
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
-         let eArgType = AST.getType eArg
-         checkErrors eArgType matchbody
-         let bindings = catMaybes $ map (getBindings eArg . fst) matchbody
+         checkErrors eArg matchbody
+         maybeBinding <- mapM (getBindings eArg . fst) matchbody
+         let bindings = catMaybes maybeBinding
          eMatchBody <- local (extendEnvironment bindings) $ mapM (tuplecheck eArg) matchbody
          mapM (checkTypes eArg) eMatchBody
          let resultType = (AST.getType . snd . head) eMatchBody
@@ -250,28 +250,33 @@ instance Checkable Expr where
            tcError "Match clause must return same type in all branches"
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
-        checkErrors eArgType matchbody = do
+        checkErrors eArg matchbody = do
+          let eArgType = AST.getType eArg
           unless (isMaybeType eArgType) $
             tcError $ "Match clause needs to match on an Option type, not on " ++ show eArgType
           unless (length matchbody > 0) $
             tcError "Match clause has no pattern to match against"
-        getBindings :: Expr -> Expr -> Maybe (Name, Type)
-        getBindings parent (MaybeData _ (JustType exp)) =
-          let targetType = (getResultType . AST.getType) parent
+          when (any isBottomType (typeComponents eArgType)) $
+            tcError $ "Matching argument of ambiguous type; " ++
+                      "did you forget to cast a 'Nothing' expression?"
+        getBindings parent m@(MaybeData _ (JustType exp)) = do
+          let parentType = AST.getType parent
+          unless (hasResultType parentType) $
+            tcError "Type mismatch in 'match' expression"
+          let targetType = getResultType parentType
               parent' = setType targetType parent
-          in
-             getBindings parent' exp
+          getBindings parent' exp
 
         getBindings parent var@(VarAccess {name}) =
-          Just (name, AST.getType parent)
+          return $ Just (name, AST.getType parent)
 
-        getBindings parent _ = Nothing
+        getBindings parent _ = return Nothing
 
         checkTypes parent (x, y) = do
           let parentType = AST.getType parent
               xType = AST.getType x
           unless (parentType == xType) $
-            tcError $ "Type mismatch in `match` expression, matching: " ++
+            tcError $ "Type mismatch in match expression, matching: " ++
                       show parentType ++ " with " ++ show xType
           return (x,y)
 
@@ -280,11 +285,14 @@ instance Checkable Expr where
           x' <- typecheck x
           y' <- typecheck y
           unless (hasResultType parentType && parentType == AST.getType x') $
-            tcError $ "Type mismatch in `match` expression, matching: " ++
+            tcError $ "Type mismatch in match expression, matching: " ++
                       show parentType ++ " with " ++ show (AST.getType x')
           return (x', y')
 
         tuplecheck parent (x@(MaybeData _ (JustType innerMaybe@(MaybeData {}))), y) = do
+          unless (hasResultType (AST.getType parent)) $
+            tcError $ "Error matching '" ++ show (AST.getType parent) ++ "' type to '"
+                      ++ show (AST.getType x) ++ "'"
           let targetType = (getResultType . AST.getType) parent
               parent' = setType targetType parent
           (innerMaybe', y') <- tuplecheck parent' (innerMaybe, y)
@@ -940,12 +948,17 @@ coerceNull null ty
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"
 
-coerce :: Type -> Type -> ExceptT TCError (Reader Environment) Type
+coerce :: Type -> Type -> TypecheckM Type
 coerce expected actual
   | isRefType actual && isRefType expected = do
      resultTypeParams <- zipWithM coerce (getTypeParameters expected)
                                          (getTypeParameters actual)
      return $ setTypeParameters actual resultTypeParams
+  | isMaybeType actual = do
+      unless (isMaybeType expected) $
+        tcError $ "Cannot cast a 'Maybe' type to '" ++ show expected ++ "' type"
+      resultType <- coerce (getResultType expected) (getResultType actual)
+      return $ setResultType actual resultType
   | hasResultType expected && hasResultType actual = do
        resultType <- coerce (getResultType expected) (getResultType actual)
        return $ setResultType actual resultType
@@ -958,7 +971,7 @@ coerce expected actual
       return expected
   | isBottomType actual = do
       when (isBottomType expected) $
-        tcError $ "something"
+        tcError $ "Cannot infer type of 'Nothing'"
       return expected
   | otherwise = return actual
   where
