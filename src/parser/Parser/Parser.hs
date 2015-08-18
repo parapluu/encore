@@ -250,10 +250,11 @@ classDecl = do
   reserved "class"
   name <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
-  capability <- option incapability (do{reservedOp ":"; capability})
+  ccapability <- option incapability (do{reservedOp ":"; capability})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = refKind (refTypeWithParams name params) capability
+              ,cname = refKind (refTypeWithParams name params)
+              ,ccapability
               ,cfields
               ,cmethods
               }
