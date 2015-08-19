@@ -198,7 +198,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           where
             lhs_type = A.getType lhs
             rhs_type = A.getType rhs
-            need_up_cast = rhs_type `Ty.strictSubtypeOf` lhs_type
+            need_up_cast = rhs_type /= lhs_type
             cast = Cast (translate lhs_type)
         mk_lval (A.VarAccess {A.name}) =
             do ctx <- get
@@ -648,7 +648,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 cast_arguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr
 cast_arguments expected targ targ_type
   | Ty.isTypeVar expected = as_encore_arg_t (translate targ_type) $ AsExpr targ
-  | targ_type `Ty.strictSubtypeOf` expected = Cast (translate expected) targ
+  | targ_type /= expected = Cast (translate expected) targ
   | otherwise = AsExpr targ
 
 trait_method call@(A.MethodCall{A.target=target, A.name=name, A.args=args}) =

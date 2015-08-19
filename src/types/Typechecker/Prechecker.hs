@@ -29,9 +29,9 @@ precheckEncoreProgram p = do
   runReader (runExceptT (doPrecheck p)) env
 
 class Precheckable a where
-    doPrecheck :: a -> ExceptT TCError (Reader Environment) a
+    doPrecheck :: a -> TypecheckM a
 
-    precheck :: Pushable a => a -> ExceptT TCError (Reader Environment) a
+    precheck :: Pushable a => a -> TypecheckM a
     precheck x = local (pushBT x) $ doPrecheck x
 
 instance Precheckable Program where
@@ -90,19 +90,24 @@ instance Precheckable TraitDecl where
           assertDistinct "definition" tmethods
 
 instance Precheckable ClassDecl where
-    doPrecheck t@Class{cname, cfields, cmethods} = do
+    doPrecheck c@Class{cname, ccapability, cfields, cmethods} = do
       assertDistinctness
-      cname'    <- local addTypeParams $ resolveType cname
-      cfields'  <- mapM (local addTypeParams . precheck) cfields
-      cmethods' <- mapM (local (addTypeParams . addThis) . precheck) cmethods
-      return $ setType cname' t{cfields = cfields', cmethods = cmethods'}
+      cname'       <- local addTypeParams $ resolveType cname
+      ccapability' <- local addTypeParams $ resolveType ccapability
+      cfields'     <- mapM (local addTypeParams . precheck) cfields
+      cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
+      return $ setType cname' c{cfields = cfields'
+                               ,cmethods = cmethods'
+                               ,ccapability = ccapability'
+                               }
       where
         typeParameters = getTypeParameters cname
         addTypeParams = addTypeParameters typeParameters
         addThis = extendEnvironment [(thisName, cname)]
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" typeParameters
-            assertDistinctThing "inclusion" "trait" $ getImplementedTraits cname
+            assertDistinctThing "inclusion" "trait" $
+                                traitsFromCapability ccapability
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
 

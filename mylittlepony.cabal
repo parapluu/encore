@@ -21,6 +21,7 @@ executable encorec
   default-extensions: NamedFieldPuns
                     , FlexibleContexts
                     , GADTs
+                    , Rank2Types
   other-extensions: FlexibleInstances
                   , MultiParamTypeClasses
                   , StandaloneDeriving

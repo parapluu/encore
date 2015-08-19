@@ -196,13 +196,13 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 trait_method_selector :: ClassTable -> A.ClassDecl -> CCode Toplevel
-trait_method_selector ctable A.Class{A.cname} =
+trait_method_selector ctable A.Class{A.cname, A.ccapability} =
   let
     ret_type = Static (Ptr void)
     fname = trait_method_selector_name
     args = [(Typ "int" , Var "id")]
     cond = Var "id"
-    trait_types = Ty.getImplementedTraits cname
+    trait_types = Ty.traitsFromCapability ccapability
     trait_methods = map (`lookup_methods` ctable) trait_types
     cases = concat $ zipWith (trait_case cname) trait_types trait_methods
     err = String "error, got invalid id: %d"

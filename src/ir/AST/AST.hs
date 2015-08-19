@@ -97,10 +97,11 @@ instance HasMeta Function where
   showWithKind Function{funname, funtype} = "function '" ++ show funname ++ "'"
 
 data ClassDecl = Class {
-  cmeta   :: Meta ClassDecl,
-  cname   :: Type,
-  cfields  :: [FieldDecl],
-  cmethods :: [MethodDecl]
+  cmeta       :: Meta ClassDecl,
+  cname       :: Type,
+  ccapability :: Type,
+  cfields     :: [FieldDecl],
+  cmethods    :: [MethodDecl]
 } deriving (Show)
 
 instance Eq ClassDecl where

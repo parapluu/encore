@@ -38,11 +38,11 @@ typecheckEncoreProgram p =
 class Checkable a where
     -- | Returns the typechecked version of its argument (i.e. an
     -- AST-node extended with type information)
-    doTypecheck :: a -> ExceptT TCError (Reader Environment) a
+    doTypecheck :: a -> TypecheckM a
 
     -- | Like 'doTypecheck' but records the backtrace for better
     -- error messages
-    typecheck :: Pushable a => a -> ExceptT TCError (Reader Environment) a
+    typecheck :: Pushable a => a -> TypecheckM a
     typecheck x = local (pushBT x) $ doTypecheck x
 
 instance Checkable Program where
@@ -89,40 +89,11 @@ instance Checkable TraitDecl where
       addThis = extendEnvironment [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
-formalBindings :: Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
-formalBindings actual = do
-  origin <- asks $ refTypeLookupUnsafe actual
-  matchTypeParameterLength origin actual
-  let formals = getTypeParameters origin
-      actuals = getTypeParameters actual
-  return $ zip formals actuals
-
-findField :: (MonadError TCError m, MonadReader Environment m) =>
-  Type -> Name -> m FieldDecl
-findField ty f = do
-  result <- asks $ fieldLookup ty f
-  case result of
-    Just fdecl -> return fdecl
-    Nothing -> tcError $ "No field '" ++ show f ++ "' in " ++
-                         classOrTraitName ty
-
-findMethod :: (MonadError TCError m, MonadReader Environment m) =>
-  Type -> Name -> m MethodDecl
-findMethod ty name = do
-  m' <- asks $ methodLookup ty name
-  when (isNothing m') $ tcError $
-    concat [no_method name, " in ", classOrTraitName ty]
-  return $ fromJust m'
-  where
-    no_method (Name "_init") = "No constructor"
-    no_method n = concat ["No method '", show n, "'"]
-
-matchArgumentLength :: (MonadError TCError m, MonadReader Environment m) =>
-  MethodDecl -> Arguments -> m ()
+matchArgumentLength :: MethodDecl -> Arguments -> TypecheckM ()
 matchArgumentLength method args =
   unless (actual == expected) $ tcError $
     concat [to_str name, " expects ", show expected,
-            "arguments. Got ", show actual]
+            " arguments. Got ", show actual]
   where
     actual = length args
     expected = length sig_types
@@ -131,8 +102,7 @@ matchArgumentLength method args =
     to_str (Name "_init") = "Constructor"
     to_str n = concat ["Method '", show n, "'"]
 
-meetRequiredFields :: (MonadError TCError m, MonadReader Environment m) =>
-                      [FieldDecl] -> Type -> TraitDecl -> m ()
+meetRequiredFields :: [FieldDecl] -> Type -> TraitDecl -> TypecheckM ()
 meetRequiredFields cFields trait tdecl =
     mapM_ matchField (tfields tdecl)
   where
@@ -152,24 +122,24 @@ meetRequiredFields cFields trait tdecl =
               "Cannot find field '" ++ show expField ++
               "' required by included " ++ classOrTraitName trait
         else if isValField expField then
-            unless (cFieldType `subtypeOf` expected) $
+            unlessM (cFieldType `subtypeOf` expected) $
               tcError $
                 "Field '" ++ show cField ++ "' must have a subtype of '" ++
                 show expected ++ "' to meet the requirements of " ++
                 "included " ++ classOrTraitName trait
-        else
-            unless (cFieldType == expected) $
-              tcError $
-                "Field '" ++ show cField ++ "' must exactly match type '" ++
-                show expected ++ "' to meet the requirements of " ++
-                "included " ++ classOrTraitName trait ++
-                if cFieldType `subtypeOf` expected
-                then ". Consider turning '" ++ show (fname expField) ++
-                     "' into a val-field in " ++ classOrTraitName trait
-                else ""
+        else do
+          isSub <- cFieldType `subtypeOf` expected
+          unless (cFieldType == expected) $
+            tcError $
+              "Field '" ++ show cField ++ "' must exactly match type '" ++
+              show expected ++ "' to meet the requirements of " ++
+              "included " ++ classOrTraitName trait ++
+              if isSub
+              then ". Consider turning '" ++ show (fname expField) ++
+                   "' into a val-field in " ++ classOrTraitName trait
+              else ""
 
-ensureNoMethodConflict :: (MonadError TCError m, MonadReader Environment m) =>
-                         [MethodDecl] -> [TraitDecl] -> m ()
+ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
 ensureNoMethodConflict methods tdecls =
   let allMethods = methods ++ concatMap tmethods tdecls
       unique = nub allMethods
@@ -194,8 +164,8 @@ instance Checkable ClassDecl where
   --  E, this : cname |- method1 .. E, this : cname |- methodm
   -- -----------------------------------------------------------
   --  E |- class cname fields methods
-  doTypecheck c@(Class {cname, cfields, cmethods}) = do
-    let traits = getImplementedTraits cname
+  doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
+    let traits = traitsFromCapability ccapability
     unless (isPassiveClassType cname || null traits) $
            tcError "Traits can only be used for passive classes"
     tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
@@ -238,7 +208,7 @@ instance Checkable ParamDecl where
 
 -- | 'hasType e ty' typechecks 'e' (with backtrace) and returns
 -- the result if 'e' is a subtype of 'ty'
-hasType :: Expr -> Type -> ExceptT TCError (Reader Environment) Expr
+hasType :: Expr -> Type -> TypecheckM Expr
 hasType e ty = local (pushBT e) $ checkHasType e ty
     where
       checkHasType expr ty =
@@ -484,7 +454,7 @@ instance Checkable Expr where
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
                   tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
-           unless (eType `subtypeOf` mType) $
+           unlessM (eType `subtypeOf` mType) $
                   tcError $ "Cannot yield value of type '" ++ show eType ++
                             "' in streaming method of type '" ++ show mType ++ "'"
            return $ setType voidType yield {val = eVal}
@@ -829,7 +799,7 @@ coerceNull null ty
 -- @type_i@ and throws a type checking error if they don't.
 -- Returns the type checked arguments and a list of inferred
 -- bindings, i.e. type variables to types.
-matchArguments :: [Expr] -> [Type] -> ExceptT TCError (Reader Environment) ([Expr], [(Type, Type)])
+matchArguments :: [Expr] -> [Type] -> TypecheckM ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
 matchArguments (arg:args) (typ:types) =
@@ -875,7 +845,7 @@ matchArguments (arg:args) (typ:types) =
 -- error if it is already bound to a different type. Returns the
 -- list of inferred bindings, i.e. type variables to types,
 -- together with the preexisting bindings.
-matchTypes :: Type -> Type -> ExceptT TCError (Reader Environment) [(Type, Type)]
+matchTypes :: Type -> Type -> TypecheckM [(Type, Type)]
 matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
       isParType expected    && isParType ty    ||
@@ -901,7 +871,7 @@ matchTypes expected ty
         result <- asks $ typeVarLookup expected
         case result of
           Just boundType -> do
-            unless (ty `subtypeOf` boundType) $
+            unlessM (ty `subtypeOf` boundType) $
               tcError $ "Type variable '" ++ show expected ++
                 "' cannot be bound to both '" ++ show ty ++
                 "' and '" ++ show boundType ++ "'"
@@ -920,8 +890,8 @@ matchTypes expected ty
         assertSubtypeOf ty expected
         asks bindings
 
-assertSubtypeOf :: Type -> Type -> ExceptT TCError (Reader Environment) ()
+assertSubtypeOf :: Type -> Type -> TypecheckM ()
 assertSubtypeOf sub super =
-    unless (sub `subtypeOf` super) $
+    unlessM (sub `subtypeOf` super) $
            tcError $ "Type '" ++ show sub ++
                      "' does not match expected type '" ++ show super ++ "'"
