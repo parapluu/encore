@@ -3,8 +3,6 @@ def fun(x: Maybe int): Maybe int {
   Just(z) => Just(z)
   Nothing => Nothing : Maybe int
   }
-
-
 }
 
 def another(x: Maybe int) : Maybe int {
@@ -13,16 +11,16 @@ def another(x: Maybe int) : Maybe int {
 
 def nothing(x: Maybe int) : int {
   let y = Nothing : Maybe int
-      z = Just 32
+      z = Just(32)
   in {
     x = y;
-    y = Just 23;
+    y = Just(23);
     y = x;
     y = z;
     x = Nothing : Maybe int;
     y;
     match x with {
-    	Just z => 23
+    	Just(z) => 23
         Nothing => 34
     }
   }
@@ -32,7 +30,7 @@ def foo(): void
    (Nothing : Maybe int) == (Nothing : Maybe int)
 
 class Main
-  def main(): void
+  def main(): void {
    let
      x = Just(32)
    in {
@@ -51,4 +49,6 @@ class Main
       match x with
        Just(32) => 1
        Nothing => 0
-  }
+       z => 2
+   }
+ }

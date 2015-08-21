@@ -326,11 +326,7 @@ instance Checkable Expr where
           x' <- typecheck x
           y' <- typecheck y
           let typeX = getResultType $ AST.getType x'
-          tcError $ "Cannot pattern match on something different from primitive" ++
-                    " and option types, trying to match " ++ show (AST.getType parent)
-                    ++ " and " ++ show typeX
-
-
+          tuplecheck parent (x', y')
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
