@@ -38,7 +38,7 @@ To exit the VM:
 After playing around with Encore, you want to suspend or halt the machine
 (so that it does not consume resources).
 
-In you local machine:
+In your local machine:
 
     localhost$ vagrant halt
 
