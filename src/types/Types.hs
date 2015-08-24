@@ -1,6 +1,15 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Types(
-             Type
-            ,Capability
+              Type
+            , Capability
+            , TypeTree
+            , RoseTree (..)
+            , TypeOp (..)
+            , RefInfo (..)
+            , fromTypeTree
+            , emptyCapability
+            , singleCapability
             ,arrowType
             ,isArrowType
             ,futureType
@@ -49,7 +58,8 @@ module Types(
             ,getId
             ,getTypeParameters
             ,setTypeParameters
-            ,traitsFromCapability
+            , parallelTypesFromCapability
+            ,typesFromCapability
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -58,18 +68,63 @@ module Types(
 
 import Data.List
 import Data.Maybe
+import Data.Foldable (toList)
+import Data.Traversable
 
 data Activity = Active
               | Passive
                 deriving(Eq, Show)
 
-data Capability = Capability{traits :: [RefInfo]}
-                deriving(Eq)
+data TypeOp = Product | Addition
+  deriving (Eq)
+
+instance Show TypeOp where
+  show Product = "*"
+  show Addition = "+"
+
+type TypeTree = RoseTree RefInfo
+
+data RoseTree t = Leaf t
+                | RoseTree TypeOp [RoseTree t]
+              deriving (Eq)
+
+instance Functor RoseTree where
+  fmap f (Leaf i) = Leaf $ f i
+  fmap f (RoseTree op ts) = RoseTree op $ map (fmap f) ts
+
+instance Foldable RoseTree where
+  foldMap f (Leaf i) = f i
+  foldMap f (RoseTree _ ts) = mconcat $ map (foldMap f) ts
+
+instance Traversable RoseTree where
+  traverse f (Leaf i) = Leaf <$> f i
+  traverse f (RoseTree op ts) = RoseTree op <$> traverse (traverse f) ts
+
+instance Show TypeTree where
+  show = remove_parens . pp'
+    where
+      remove_parens :: String -> String
+      remove_parens = init . tail
+
+      pp' :: TypeTree -> String
+      pp' (Leaf t) = show t
+      pp' (RoseTree op ts) =
+        let
+          op_str = concat $ [" ", show op, " "]
+          strings = map pp' ts
+          result = concat $ intersperse op_str strings
+          need_parens = op == Addition
+        in
+          if need_parens then parens result else result
+        where
+          parens str = concat ["(", str, ")"]
+
+data Capability = Capability { typeTree :: TypeTree }
+                | EmptyCapability
+  deriving (Eq)
 
 instance Show Capability where
-    show Capability{traits}
-        | null traits = "I"
-        | otherwise   = intercalate " + " (map show traits)
+  show Capability{typeTree} = show typeTree
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
@@ -151,6 +206,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind IntType                       = "primitive type"
     kind RealType                      = "primitive type"
     kind BoolType                      = "primitive type"
+    kind UntypedRef{}                  = "untyped type"
     kind TraitType{}                   = "trait type"
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
@@ -162,7 +218,6 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind StreamType{}                  = "stream type"
     kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
-    kind _                             = "type"
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
@@ -189,11 +244,11 @@ refInfoTypeComponents = concatMap typeComponents . parameters
 
 -- TODO: Should maybe extract the power set?
 capabilityComponents :: Capability -> [Type]
-capabilityComponents Capability{traits} =
-    concatMap traitToType traits
-    where
-      traitToType t@RefInfo{parameters} =
-          CapabilityType{capability = Capability{traits = [t]}} : parameters
+capabilityComponents Capability{typeTree} =
+  concatMap traitToType $ toList typeTree
+  where
+    traitToType :: RefInfo -> [Type]
+    traitToType t@RefInfo{parameters} = TraitType t : parameters
 
 typeMap :: (Type -> Type) -> Type -> Type
 typeMap f ty@UntypedRef{refInfo} =
@@ -222,8 +277,8 @@ refInfoTypeMap f info@RefInfo{parameters} =
     info{parameters = map (typeMap f) parameters}
 
 capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
-capabilityTypeMap f cap@Capability{traits} =
-    cap{traits = map (refInfoTypeMap f) traits}
+capabilityTypeMap f cap@Capability{typeTree} =
+    cap{typeTree = fmap (refInfoTypeMap f) typeTree}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapM f ty@UntypedRef{refInfo} = do
@@ -264,11 +319,10 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
   return info{parameters = parameters'}
 
 capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
-capabilityTypeMapM f cap@Capability{traits} = do
-  let traitTypes = map TraitType traits
-  traitTypes' <- mapM (typeMapM f) traitTypes
-  let traits' = map refInfo traitTypes'
-  return cap{traits = traits'}
+capabilityTypeMapM f EmptyCapability = return EmptyCapability
+capabilityTypeMapM f cap@Capability{typeTree} = do
+  typeTree' <- mapM (refInfoTypeMapM f) typeTree
+  return $ cap{typeTree = typeTree'}
 
 getTypeParameters :: Type -> [Type]
 getTypeParameters UntypedRef{refInfo} = parameters refInfo
@@ -286,13 +340,50 @@ setTypeParameters ty@ClassType{refInfo} parameters =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
-traitsFromCapability ty@CapabilityType{capability} =
-    map TraitType (traits capability)
-traitsFromCapability ty =
-    error $ "Types.hs: Can't get the traits of non-capability type " ++ show ty
+emptyCapability :: Type -> Bool
+emptyCapability CapabilityType{capability=EmptyCapability} = True
+emptyCapability _ = False
+
+singleCapability :: Type -> Bool
+singleCapability CapabilityType{capability=EmptyCapability} = False
+singleCapability CapabilityType{capability=Capability{typeTree}} =
+  let
+    leaves = toList typeTree
+    first = head leaves
+    single = leaves == first : []
+  in
+    single
+singleCapability ty =
+  error $ "Expects CapabilityType " ++ show ty
+
+parallelTypesFromCapability :: Type -> [[[Type]]]
+parallelTypesFromCapability t@TraitType{} = []
+parallelTypesFromCapability CapabilityType{capability=EmptyCapability} = []
+parallelTypesFromCapability ty@CapabilityType{capability} =
+  collect $ typeTree capability
+  where
+    collect :: TypeTree -> [[[Type]]]
+    collect (Leaf _) = []
+    collect (RoseTree Addition ts) = concatMap collect ts
+    collect (RoseTree Product ts) =
+      let
+        par_types = map toList $ map (fmap TraitType) ts
+      in
+        concatMap collect ts ++ [par_types]
+
+typesFromCapability :: Type -> [Type]
+typesFromCapability t@TraitType{} = [t]
+typesFromCapability CapabilityType{capability=EmptyCapability} = []
+typesFromCapability ty@CapabilityType{capability} =
+    map TraitType ((toList . typeTree) capability)
+typesFromCapability ty =
+    error $ "Types.hs: Can't get the traits of non-capability type "
+      ++ showWithKind ty
 
 refTypeWithParams refId parameters =
     UntypedRef{refInfo = RefInfo{refId, parameters}}
+
+refType :: String -> Type
 refType id = refTypeWithParams id []
 
 activeClassTypeFromRefType UntypedRef{refInfo} =
@@ -327,12 +418,19 @@ isPassiveClassType _ = False
 isClassType ClassType{} = True
 isClassType _ = False
 
-capabilityType traits =
-    CapabilityType{capability = Capability{traits = map refInfo traits}}
+fromTypeTree :: TypeTree -> Type
+fromTypeTree typeTree =
+  CapabilityType{capability = Capability{typeTree}}
+
+capabilityType :: TypeTree -> Type
+capabilityType typeTree =
+    CapabilityType{capability = Capability{typeTree}}
+
 isCapabilityType CapabilityType{} = True
 isCapabilityType _ = False
 
-incapability = CapabilityType{capability = Capability{traits = []}}
+incapability :: Type
+incapability = CapabilityType{capability = EmptyCapability}
 
 arrowType = ArrowType
 isArrowType (ArrowType {}) = True

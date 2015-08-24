@@ -107,7 +107,7 @@ instance Precheckable ClassDecl where
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" typeParameters
             assertDistinctThing "inclusion" "trait" $
-                                traitsFromCapability ccapability
+                                typesFromCapability ccapability
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
 

@@ -18,7 +18,7 @@ injectTraitsToClasses p@A.Program{A.classes} =
   where
     injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
     injectTraitsToClass c@A.Class{A.cname, A.ccapability} =
-        foldr injectTraitToClass c (Ty.traitsFromCapability ccapability)
+        foldr injectTraitToClass c (Ty.typesFromCapability ccapability)
 
     injectTraitToClass :: Ty.Type -> A.ClassDecl -> A.ClassDecl
     injectTraitToClass traitType c@A.Class{A.cmethods} =

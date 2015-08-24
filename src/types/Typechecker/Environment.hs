@@ -117,7 +117,7 @@ methodLookup ty m env
   | isClassType ty = do
     cls <- classLookup ty env
     let c_m = find (matchMethod m) $ cmethods cls
-        traits = traitsFromCapability $ ccapability cls
+        traits = typesFromCapability $ ccapability cls
         t_ms = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust (c_m:t_ms)
     return $ fromJust ret

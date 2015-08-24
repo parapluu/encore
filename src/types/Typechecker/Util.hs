@@ -86,12 +86,16 @@ resolveType = typeMapM resolveSingleType
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
-        | isCapabilityType ty = do
-            let traits = traitsFromCapability ty
-            mapM_ resolveSingleTrait traits
-            return ty
+        | isCapabilityType ty = resovle_capa ty
         | otherwise = return ty
         where
+          resovle_capa :: Type -> TypecheckM Type
+          resovle_capa t
+            | emptyCapability t = return t
+            | singleCapability t = resolveType $ head $ typesFromCapability t
+            | otherwise =
+              mapM_ resolveSingleTrait (typesFromCapability ty) >> return ty
+
           resolveSingleTrait t = do
             result <- asks $ traitLookup t
             when (isNothing result) $
@@ -111,10 +115,10 @@ subtypeOf ty1 ty2
     | isTraitType ty1 && isTraitType ty2 =
         ty1 `refSubtypeOf` ty2
     | isTraitType ty1 && isCapabilityType ty2 = do
-        let traits = traitsFromCapability ty2
+        let traits = typesFromCapability ty2
         allM (ty1 `subtypeOf`) traits
     | isCapabilityType ty1 && isTraitType ty2 = do
-        let traits = traitsFromCapability ty1
+        let traits = typesFromCapability ty1
         anyM (`subtypeOf` ty2) traits
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
@@ -130,8 +134,8 @@ subtypeOf ty1 ty2
           | otherwise = return False
 
       capabilitySubtypeOf cap1 cap2 = do
-        let traits1 = traitsFromCapability cap1
-            traits2 = traitsFromCapability cap2
+        let traits1 = typesFromCapability cap1
+            traits2 = typesFromCapability cap2
         allM (\t2 -> anyM (`subtypeOf` t2) traits1) traits2
 
 -- | Convenience function for asserting distinctness of a list of
@@ -209,6 +213,6 @@ getImplementedTraits ty
         capability <- findCapability ty
         fBindings <- formalBindings ty
         let capability' = replaceTypeVars fBindings capability
-        return $ traitsFromCapability capability'
+        return $ typesFromCapability capability'
     | otherwise =
         error $ "Types.hs: Can't get implemented traits of type " ++ show ty

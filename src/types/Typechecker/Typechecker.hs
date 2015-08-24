@@ -23,6 +23,7 @@ import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
+import Text.Printf (printf)
 
 
 -- | The top-level type checking function
@@ -139,6 +140,46 @@ meetRequiredFields cFields trait tdecl =
                    "' into a val-field in " ++ classOrTraitName trait
               else ""
 
+no_overlap_fields :: Type -> TypecheckM ()
+no_overlap_fields capability =
+  let
+    par_traits = parallelTypesFromCapability capability
+  in
+    mapM_ per_level par_traits
+  where
+    per_level :: [[Type]] -> TypecheckM ()
+    per_level level = mapM_ per_pair $ pair level
+
+    per_pair :: ([Type], [Type]) -> TypecheckM ()
+    per_pair pair = do
+      first_fields <- get_fields_from_item $ fst pair
+      second_fields <- get_fields_from_item $ snd pair
+      no_overlapping first_fields second_fields
+
+    no_overlapping :: [FieldDecl] -> [FieldDecl] -> TypecheckM ()
+    no_overlapping first second =
+      let
+        common = intersect first second
+        first_common = [f | f <- first, f `elem` common]
+        second_common = [f | f <- second, f `elem` common]
+      in
+        mapM_ is_val first_common >> mapM_ is_val second_common
+
+    is_val :: FieldDecl -> TypecheckM ()
+    is_val f = unless (isValField f) $ tcError $
+      printf "'%s' is not val field" $ show f
+
+    get_fields_from_item :: [Type] -> TypecheckM [FieldDecl]
+    get_fields_from_item types = do
+      traits <- mapM (liftM fromJust . asks . traitLookup) types
+      return $ concatMap tfields traits
+
+    pair :: [[Type]] -> [([Type], [Type])]
+    pair list = pair' $ tail list
+      where
+        pair' [] = []
+        pair' shadow = zip list shadow ++ (pair' $ tail shadow)
+
 ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
 ensureNoMethodConflict methods tdecls =
   let allMethods = methods ++ concatMap tmethods tdecls
@@ -165,11 +206,12 @@ instance Checkable ClassDecl where
   -- -----------------------------------------------------------
   --  E |- class cname fields methods
   doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
-    let traits = traitsFromCapability ccapability
+    let traits = typesFromCapability ccapability
     unless (isPassiveClassType cname || null traits) $
            tcError "Traits can only be used for passive classes"
     tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
     zipWithM_ (meetRequiredFields cfields) traits tdecls
+    no_overlap_fields ccapability
     -- TODO: Add namespace for trait methods
     ensureNoMethodConflict cmethods tdecls
 
