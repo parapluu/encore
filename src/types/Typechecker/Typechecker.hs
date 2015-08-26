@@ -328,10 +328,14 @@ instance Checkable Expr where
                       show (AST.getType parent) ++ " and " ++ show typeX
           return (x', y')
 
+        tuplecheck parent (x@VarAccess {}, y) = do
+          x' <- typecheck x
+          y' <- typecheck y
+          return (x', y')
+
         tuplecheck parent (x, y) = do
           x' <- typecheck x
           y' <- typecheck y
-          let typeX = getResultType $ AST.getType x'
           tuplecheck parent (x', y')
 
     --  E |- e : t

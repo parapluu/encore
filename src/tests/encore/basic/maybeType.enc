@@ -1,24 +1,56 @@
-def nested_maybe(): string
+--
+-- Test all branches of the match expression
+--
+def test_match_decl(): void
   match Just(Just(32)) with
-  Nothing => "nothing"
-  Just(Nothing) => "just nothing"
-  Just(Just(z)) => "nothing again"
-  Just(Just(0)) => "zero"
-  Just(z) => "z"
+  Nothing => print "nothing"
+  Just(Nothing) => print "just nothing"
+  Just(Just(z)) => print "nothing again"
+  Just(Just(0)) => print "zero"
+  Just(z) => print "z"
+  z => print ""
 
+--
+-- Test precedence of the match expression; write the general cases at the end
+-- since it follows sequential order
+--
+def test_precedence_of_match(): void
+  match Just(Just(32)) with
+  z => print "catch all"
+  Nothing => print "nothing"
+  Just(Nothing) => print "just nothing"
+  Just(Just(z)) => print "nothing again"
+  Just(Just(0)) => print "zero"
+  Just(z) => print "z"
 
-def fun(x: Maybe int): Maybe int {
-  match Just(32) with {
-  Just(z) => Just(z)
-  Nothing => Nothing : Maybe int
-  }
-}
+--
+-- Test a match clause that has Nothing as the main argument
+--
+def test_match_nothing_decl() : void
+  match (Nothing : Maybe int) with
+  Just(z) => 12
+  Just(12) => 23
+  Just(0) => 0
+  Nothing => 22
 
-def another(x: Maybe int) : Maybe int {
+--
+-- Test that we can pass arguments and return a value of Option type
+--
+def test_pass_args_and_return_of_maybe(x: Maybe int): Maybe int
+  match Just(32) with
+  Just(z) => { print "Just(z)"; Just(z) }
+  Nothing => { print "Nothing"; Nothing : Maybe int }
+
+--
+--  Test unification of the last expression
+--
+def test_unification_last_expression(x: Maybe int) : Maybe int
  Nothing
-}
 
-def nothing(x: Maybe int) : int {
+--
+-- Test multiple assignments and changes between them
+--
+def test_multiple_assignments(x: Maybe int) : int {
   let y = Nothing : Maybe int
       z = Just(32)
   in {
@@ -35,29 +67,19 @@ def nothing(x: Maybe int) : int {
   }
 }
 
-def foo(): void
-   (Nothing : Maybe int) == (Nothing : Maybe int)
+-- def equality_test(): void {
+--   Nothing == Just(42)
+-- }
 
 class Main
-  def main(): void {
+  def main(): void
    let
      x = Just(32)
    in {
-      match (Nothing : Maybe int) with {
-       Just(z) => 12
-       Just(12) => 23
-       Just(0) => 0
-       Nothing => 22
-      };
-      match Just(Just(32)) with {
-       Nothing => "nothing"
-       Just(Nothing) => "just nothing"
-       Just(Just(z)) => "nothing again"
-       Just(Just(0)) => "zero"
-       Just(z) => "z"
-      };
-      match x with
-       Just(32) => 1
-       Nothing => 0
+     test_match_decl();
+     test_precedence_of_match();
+     test_match_nothing_decl();
+     test_pass_args_and_return_of_maybe(x);
+     test_unification_last_expression(x);
+     test_multiple_assignments(x);
    }
- }
