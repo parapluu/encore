@@ -419,8 +419,6 @@ instance Checkable Expr where
       let returnType = case eBody of
                          (JustType exp) -> AST.getType exp
                          NothingType -> bottomType
-      when (isNullType returnType) $
-        tcError "Cannot infer the return type of the maybe expression"
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
         where
           maybeTypecheck just@(JustType exp) = do
