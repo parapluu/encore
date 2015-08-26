@@ -241,9 +241,7 @@ instance Checkable Expr where
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
          checkErrors eArg matchbody
-         maybeBinding <- mapM (getBindings eArg . fst) matchbody
-         let bindings = catMaybes maybeBinding
-         eMatchBody <- local (extendEnvironment bindings) $ mapM (tuplecheck eArg) matchbody
+         eMatchBody <- mapM (tuplecheckE eArg) matchbody
          mapM (checkTypes eArg) eMatchBody
          let resultType = (AST.getType . snd . head) eMatchBody
          unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
@@ -284,6 +282,14 @@ instance Checkable Expr where
             tcError $ "Type mismatch in match expression, matching: " ++
                       show parentType ++ " with " ++ show xType
           return (x,y)
+
+        tuplecheckE parent (lhs, rhs) = do
+          bindings <- getBindings parent lhs
+          let bindings' = case bindings of
+                           Just x -> [x]
+                           Nothing -> []
+          tBody <- local (extendEnvironment bindings') (tuplecheck parent (lhs, rhs))
+          return tBody
 
         tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
           let parentType = AST.getType parent

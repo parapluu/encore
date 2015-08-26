@@ -1,3 +1,12 @@
+def nested_maybe(): string
+  match Just(Just(32)) with
+  Nothing => "nothing"
+  Just(Nothing) => "just nothing"
+  Just(Just(z)) => "nothing again"
+  Just(Just(0)) => "zero"
+  Just(z) => "z"
+
+
 def fun(x: Maybe int): Maybe int {
   match Just(32) with {
   Just(z) => Just(z)
@@ -43,12 +52,12 @@ class Main
       match Just(Just(32)) with {
        Nothing => "nothing"
        Just(Nothing) => "just nothing"
+       Just(Just(z)) => "nothing again"
        Just(Just(0)) => "zero"
        Just(z) => "z"
       };
       match x with
        Just(32) => 1
        Nothing => 0
-       z => 2
    }
  }
