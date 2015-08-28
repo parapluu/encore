@@ -262,7 +262,7 @@ instance Checkable Expr where
           when (any isBottomType (typeComponents eArgType)) $
             tcError $ "Matching argument of ambiguous type; " ++
                       "did you forget to cast a 'Nothing' expression?"
-        getBindings parent m@(MaybeData _ (JustType exp)) = do
+        getBindings parent m@(MaybeValue _ (JustData exp)) = do
           let parentType = AST.getType parent
           unless (hasResultType parentType) $
             tcError "Type mismatch in 'match' expression"
@@ -291,7 +291,7 @@ instance Checkable Expr where
           tBody <- local (extendEnvironment bindings') (tuplecheck parent (lhs, rhs))
           return tBody
 
-        tuplecheck parent (x@(MaybeData _ (JustType v@(VarAccess {}))), y) = do
+        tuplecheck parent (x@(MaybeValue _ (JustData v@(VarAccess {}))), y) = do
           let parentType = AST.getType parent
           x' <- typecheck x
           y' <- typecheck y
@@ -300,7 +300,7 @@ instance Checkable Expr where
                       show parentType ++ " with " ++ show (AST.getType x')
           return (x', y')
 
-        tuplecheck parent (x@(MaybeData _ (JustType innerMaybe@(MaybeData {}))), y) = do
+        tuplecheck parent (x@(MaybeValue _ (JustData innerMaybe@(MaybeValue {}))), y) = do
           unless (hasResultType (AST.getType parent)) $
             tcError $ "Error matching '" ++ show (AST.getType parent) ++ "' type to '"
                       ++ show (AST.getType x) ++ "'"
@@ -308,17 +308,17 @@ instance Checkable Expr where
               parent' = setType targetType parent
           (innerMaybe', y') <- tuplecheck parent' (innerMaybe, y)
           eX <- typecheck x
-          let eX' = eX {mdt = JustType innerMaybe'}
+          let eX' = eX {mdt = JustData innerMaybe'}
               eX'' = setType (maybeType (AST.getType innerMaybe')) eX'
           return (eX'', y')
 
-        tuplecheck parent (x@(MaybeData _ (NothingType {})), y) = do
+        tuplecheck parent (x@(MaybeValue _ (NothingData {})), y) = do
           y' <- typecheck y
           x' <- typecheck x
           x'' <- hasType x' (AST.getType parent)
           return (x'', y')
 
-        tuplecheck parent (x@(MaybeData {}), y) = do
+        tuplecheck parent (x@(MaybeValue {}), y) = do
           x' <- typecheck x
           y' <- typecheck y
           let typeX = getResultType $ AST.getType x'
@@ -418,21 +418,21 @@ instance Checkable Expr where
                     matchArguments args expectedTypes
       return $ setType voidType msend {target = eTarget, args = eArgs}
 
-    doTypecheck maybeData@(MaybeData {mdt}) = do
+    doTypecheck maybeData@(MaybeValue {mdt}) = do
       eBody <- maybeTypecheck mdt
       let returnType = case eBody of
-                         (JustType exp) -> AST.getType exp
-                         NothingType -> bottomType
+                         (JustData exp) -> AST.getType exp
+                         NothingData -> bottomType
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
         where
-          maybeTypecheck just@(JustType exp) = do
+          maybeTypecheck just@(JustData exp) = do
             eBody <- typecheck exp
             let returnType = AST.getType eBody
             when (isNullType returnType) $
               tcError "Cannot infer the return type of the maybe expression"
             return $ just { e = eBody }
 
-          maybeTypecheck nothing@(NothingType) = return nothing
+          maybeTypecheck nothing@(NothingData) = return nothing
 
 
 

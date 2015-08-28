@@ -22,8 +22,8 @@ getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
-getChildren (MaybeData _ (JustType e)) = [e]
-getChildren (MaybeData _ NothingType) = []
+getChildren (MaybeValue _ (JustData e)) = [e]
+getChildren (MaybeValue _ NothingData) = []
 getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
@@ -80,8 +80,8 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
-putChildren [body] e@(MaybeData _ (JustType _)) = e{mdt = JustType body}
-putChildren [] e@(MaybeData _ NothingType) = e
+putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
+putChildren [] e@(MaybeValue _ NothingData) = e
 putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
   where
     pair :: [Expr] -> [(Expr, Expr)]
@@ -133,7 +133,7 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
 putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
-putChildren _ e@(MaybeData {}) = error "'putChildren l MaybeData' expects l to have 1 element"
+putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
 putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have at least 1 elements"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"

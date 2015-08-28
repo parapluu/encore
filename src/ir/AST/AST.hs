@@ -213,8 +213,8 @@ instance HasMeta MethodDecl where
 
 type Arguments = [Expr]
 
-data MaybeDataType = JustType { e :: Expr}
-                   | NothingType deriving(Eq, Show)
+data MaybeContainer = JustData { e :: Expr}
+                   | NothingData deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
@@ -240,8 +240,8 @@ data Expr = Skip {emeta :: Meta Expr}
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
-          | MaybeData {emeta :: Meta Expr,
-                       mdt :: MaybeDataType }
+          | MaybeValue {emeta :: Meta Expr,
+                       mdt :: MaybeContainer }
           | Foreach {emeta :: Meta Expr,
                      item :: Name,
                      arr :: Expr,

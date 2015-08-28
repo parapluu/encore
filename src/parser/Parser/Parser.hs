@@ -396,11 +396,11 @@ highOrderExpr = adtExpr
       pos <- getPosition
       reserved "Just"
       body <- expr <|> nothingExpr
-      return $ MaybeData (meta pos) (JustType body)
+      return $ MaybeValue (meta pos) (JustData body)
     nothingExpr = do
       pos <- getPosition
       reserved "Nothing"
-      return $ MaybeData (meta pos) NothingType
+      return $ MaybeValue (meta pos) NothingData
 
 
 expr :: Parser Expr

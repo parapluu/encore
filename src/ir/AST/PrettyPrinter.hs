@@ -162,8 +162,8 @@ ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
-ppExpr (MaybeData _ (JustType a)) = ppJust <+> ppExpr a
-ppExpr (MaybeData _ (NothingType)) = ppNothing
+ppExpr (MaybeValue _ (JustData a)) = ppJust <+> ppExpr a
+ppExpr (MaybeValue _ NothingData) = ppNothing
 ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppExpr arg <+> ppWith $+$ ppMatchWith matchbody
   where
    ppMatchWith ls = vcat $ map (\(decl, mbody) -> indent $ ppExpr decl <+> ppMatchArrow <+> ppExpr mbody) ls
