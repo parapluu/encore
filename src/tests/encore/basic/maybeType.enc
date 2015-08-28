@@ -2,13 +2,14 @@
 -- Test all branches of the match expression
 --
 def test_match_decl(): void
-  match Just(Just(32)) with
+  match Just(Just 32) with
   Nothing => print "nothing"
   Just(Nothing) => print "just nothing"
-  Just(Just(z)) => print "nothing again"
-  Just(Just(0)) => print "zero"
+  Just(Just z) => print "nothing again"
+  Just(Just 0) => print "zero"
   Just(z) => print "z"
   z => print ""
+
 
 --
 -- Test precedence of the match expression; write the general cases at the end
@@ -19,7 +20,7 @@ def test_precedence_of_match(): void
   z => print "catch all"
   Nothing => print "nothing"
   Just(Nothing) => print "just nothing"
-  Just(Just(z)) => print "nothing again"
+  Just(Just z) => print "nothing again"
   Just(Just(0)) => print "zero"
   Just(z) => print "z"
 
@@ -28,9 +29,9 @@ def test_precedence_of_match(): void
 --
 def test_match_nothing_decl() : void
   match (Nothing : Maybe int) with
-  Just(z) => 12
-  Just(12) => 23
-  Just(0) => 0
+  Just z => 12
+  Just 12 => 23
+  Just 0 => 0
   Nothing => 22
 
 --
@@ -55,7 +56,7 @@ def test_multiple_assignments(x: Maybe int) : int {
       z = Just(32)
   in {
     x = y;
-    y = Just(23);
+    y = (Just 23);
     y = x;
     y = z;
     x = Nothing : Maybe int;
@@ -73,13 +74,14 @@ def test_multiple_assignments(x: Maybe int) : int {
 
 class Main
   def main(): void
-   let
-     x = Just(32)
-   in {
-     test_match_decl();
-     test_precedence_of_match();
-     test_match_nothing_decl();
-     test_pass_args_and_return_of_maybe(x);
-     test_unification_last_expression(x);
-     test_multiple_assignments(x);
-   }
+   -- let
+   --   x = Just(32)
+   -- in {
+   --   test_match_decl();
+   --   test_precedence_of_match();
+   --   test_match_nothing_decl();
+   --   test_pass_args_and_return_of_maybe(x);
+   --   test_unification_last_expression(x);
+   --   test_multiple_assignments(x);
+   -- }
+  ()

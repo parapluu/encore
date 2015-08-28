@@ -97,11 +97,14 @@ longidentifier = do
 -- an expressionParser for types (with arrow as the only infix
 -- operator)
 typ :: Parser Type
-typ  =  try arrow
-    <|> parens typ
-    <|> nonArrow
-    <?> "type"
+typ  = adtTypes
+       <|> firstOrderTyp
     where
+      adtTypes = maybe
+      firstOrderTyp = try arrow
+                   <|> parens typ
+                   <|> nonArrow
+                   <?> "type"
       nonArrow =  fut
               <|> par
               <|> stream
@@ -109,7 +112,6 @@ typ  =  try arrow
               <|> primitive
               <|> range
               <|> try refType
-              <|> maybe
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -122,7 +124,7 @@ typ  =  try arrow
                return $ futureType ty
       maybe = do
          reserved "Maybe"
-         ty <- typ
+         ty <- firstOrderTyp
          return $ maybeType ty
       par = do reserved "Par"
                ty <- typ
@@ -324,7 +326,7 @@ arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
 expression :: Parser Expr
-expression = buildExpressionParser opTable expr
+expression = buildExpressionParser opTable highOrderExpr
     where
       opTable = [
                  [arrayAccess],
@@ -384,6 +386,22 @@ expression = buildExpressionParser opTable expr
                     return (Assign (meta pos))) AssocRight
 
 
+highOrderExpr :: Parser Expr
+highOrderExpr = adtExpr
+                <|> expr
+  where
+    adtExpr = justExpr
+              <|> nothingExpr
+    justExpr = do
+      pos <- getPosition
+      reserved "Just"
+      body <- expr <|> nothingExpr
+      return $ MaybeData (meta pos) (JustType body)
+    nothingExpr = do
+      pos <- getPosition
+      reserved "Nothing"
+      return $ MaybeData (meta pos) NothingType
+
 
 expr :: Parser Expr
 expr  =  unit
@@ -419,7 +437,6 @@ expr  =  unit
      <|> yield
      <|> try newWithInit
      <|> new
-     <|> maybeExpression
      <|> peer
      <|> null
      <|> true
@@ -435,16 +452,6 @@ expr  =  unit
                  ty <- typ
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
-      maybeExpression = do
-        pos <- getPosition
-        body <- (do reserved "Just"
-                    body <- parens expression
-                    return (JustType body))
-                <|>
-                (do reserved "Nothing"
-                    return NothingType)
-        return $ MaybeData (meta pos) body
-
       unit = do pos <- getPosition
                 reservedOp "()"
                 return $ Skip (meta pos)
