@@ -10,6 +10,13 @@ def test_match_decl(): void
   Just(z) => print "z"
   z => print ""
 
+--
+-- Test matching on objects
+--
+def test_match_on_object(o: Main): void
+  match (Just o) with
+  Just(z) => print "just z"
+  z => print "z"
 
 --
 -- Test precedence of the match expression; write the general cases at the end

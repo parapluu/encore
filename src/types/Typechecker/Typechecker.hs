@@ -241,7 +241,7 @@ instance Checkable Expr where
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
          checkErrors eArg matchbody
-         eMatchBody <- mapM (tuplecheckE eArg) matchbody
+         eMatchBody <- mapM (tuplecheckE (AST.getType eArg)) matchbody
          mapM (checkTypes eArg) eMatchBody
          let resultType = (AST.getType . snd . head) eMatchBody
          unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
@@ -262,18 +262,16 @@ instance Checkable Expr where
           when (any isBottomType (typeComponents eArgType)) $
             tcError $ "Matching argument of ambiguous type; " ++
                       "did you forget to cast a 'Nothing' expression?"
-        getBindings parent m@(MaybeValue _ (JustData exp)) = do
-          let parentType = AST.getType parent
+
+        getBindings parentType m@(MaybeValue _ (JustData exp)) = do
           unless (hasResultType parentType) $
             tcError "Type mismatch in 'match' expression"
-          let targetType = getResultType parentType
-              parent' = setType targetType parent
-          getBindings parent' exp
+          getBindings (getResultType parentType) exp
 
-        getBindings parent var@(VarAccess {name}) =
-          return $ Just (name, AST.getType parent)
+        getBindings parentType var@(VarAccess {name}) =
+          return $ Just (name, parentType)
 
-        getBindings parent _ = return Nothing
+        getBindings parentType _ = return Nothing
 
         checkTypes parent (x, y) = do
           let parentType = AST.getType parent
@@ -283,16 +281,15 @@ instance Checkable Expr where
                       show parentType ++ " with " ++ show xType
           return (x,y)
 
-        tuplecheckE parent (lhs, rhs) = do
-          bindings <- getBindings parent lhs
+        tuplecheckE parentType (lhs, rhs) = do
+          bindings <- getBindings parentType lhs
           let bindings' = case bindings of
                            Just x -> [x]
                            Nothing -> []
-          tBody <- local (extendEnvironment bindings') (tuplecheck parent (lhs, rhs))
+          tBody <- local (extendEnvironment bindings') (tuplecheck parentType (lhs, rhs))
           return tBody
 
-        tuplecheck parent (x@(MaybeValue _ (JustData v@(VarAccess {}))), y) = do
-          let parentType = AST.getType parent
+        tuplecheck parentType (x@(MaybeValue _ (JustData v@(VarAccess {}))), y) = do
           x' <- typecheck x
           y' <- typecheck y
           unless (hasResultType parentType && parentType == AST.getType x') $
@@ -300,43 +297,45 @@ instance Checkable Expr where
                       show parentType ++ " with " ++ show (AST.getType x')
           return (x', y')
 
-        tuplecheck parent (x@(MaybeValue _ (JustData innerMaybe@(MaybeValue {}))), y) = do
-          unless (hasResultType (AST.getType parent)) $
-            tcError $ "Error matching '" ++ show (AST.getType parent) ++ "' type to '"
+        tuplecheck parentType (x@(MaybeValue _ (JustData innerMaybe@(MaybeValue {}))), y) = do
+          unless (hasResultType parentType) $
+            tcError $ "Error matching '" ++ show parentType ++ "' type to '"
                       ++ show (AST.getType x) ++ "'"
-          let targetType = (getResultType . AST.getType) parent
-              parent' = setType targetType parent
-          (innerMaybe', y') <- tuplecheck parent' (innerMaybe, y)
-          eX <- typecheck x
-          let eX' = eX {mdt = JustData innerMaybe'}
-              eX'' = setType (maybeType (AST.getType innerMaybe')) eX'
-          return (eX'', y')
+          typedX <- typecheck x
+          (typedInnerMaybe', y') <- tuplecheck (getResultType parentType) (innerMaybe, y)
 
-        tuplecheck parent (x@(MaybeValue _ (NothingData {})), y) = do
+          -- update typedX with typed values from the inner maybe
+          let typedX' = setType (maybeType $ AST.getType typedInnerMaybe')
+                                (typedX {mdt = JustData typedInnerMaybe'})
+          return (typedX', y')
+
+        tuplecheck parentType (x@(MaybeValue _ (NothingData {})), y) = do
           y' <- typecheck y
           x' <- typecheck x
-          x'' <- hasType x' (AST.getType parent)
+
+          x'' <- hasType x' parentType
           return (x'', y')
 
-        tuplecheck parent (x@(MaybeValue {}), y) = do
+        tuplecheck parentType (x@(MaybeValue {}), y) = do
           x' <- typecheck x
           y' <- typecheck y
           let typeX = getResultType $ AST.getType x'
+              tip = "If you would like to match an object, pattern match on a variable, e.g. 'Just z'"
           unless (isPrimitive typeX) $
             tcError $ "Cannot pattern match on something different " ++
-                      "from primitive and option types, trying to match" ++
-                      show (AST.getType parent) ++ " and " ++ show typeX
+                      "from primitive and option types, trying to match '" ++
+                      show parentType ++ "' and '" ++ show typeX ++ "'." ++ tip
           return (x', y')
 
-        tuplecheck parent (x@VarAccess {}, y) = do
+        tuplecheck _ (x@VarAccess {}, y) = do
           x' <- typecheck x
           y' <- typecheck y
           return (x', y')
 
-        tuplecheck parent (x, y) = do
+        tuplecheck parentType (x, y) = do
           x' <- typecheck x
           y' <- typecheck y
-          tuplecheck parent (x', y')
+          tuplecheck parentType (x', y')
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')

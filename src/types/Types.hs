@@ -54,6 +54,7 @@ module Types(
             ,typeMap
             ,typeMapM
             ,showWithKind
+            ,hasSameKind
             ,maybeType
             ,isMaybeType
             ,bottomType
@@ -184,6 +185,15 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind MaybeType{}                   = "maybe type"
     kind BottomType{}                  = "bottom type"
     kind _                             = "type"
+
+hasSameKind :: Type -> Type -> Bool
+hasSameKind ty1 ty2
+  | isMaybeType ty1 && isMaybeType ty2 = getResultType ty1 `hasSameKind` getResultType ty2
+  | (isBottomTy1 || isBottomTy2) && not (isBottomTy1 && isBottomTy2) = True -- xor
+  | otherwise = ty1 == ty2
+  where
+    isBottomTy1 = isBottomType ty1
+    isBottomTy2 = isBottomType ty2
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
