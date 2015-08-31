@@ -242,11 +242,18 @@ instance Checkable Expr where
       do eArg <- typecheck arg
          checkErrors eArg matchbody
          eMatchBody <- mapM (tuplecheckE (AST.getType eArg)) matchbody
-         mapM (checkTypes eArg) eMatchBody
+
          let resultType = (AST.getType . snd . head) eMatchBody
-         unless (all ((== resultType) . AST.getType . snd) eMatchBody) $
+             patternMatchingTypes = map (AST.getType . fst) eMatchBody
+
+         -- check pattern matching branches have same type as the parent type
+         mapM (checkTypes (AST.getType eArg)) patternMatchingTypes
+
+         -- check returning type of match conditions are of the same kind
+         unless (all ((hasSameKind resultType) . AST.getType . snd) eMatchBody) $
            tcError $ "Match clause must return same type in all branches. " ++
                      tipSentence resultType
+
          return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
       where
         tipSentence resultType
@@ -273,13 +280,10 @@ instance Checkable Expr where
 
         getBindings parentType _ = return Nothing
 
-        checkTypes parent (x, y) = do
-          let parentType = AST.getType parent
-              xType = AST.getType x
+        checkTypes parentType xType = do
           unless (parentType == xType) $
             tcError $ "Type mismatch in match expression, matching: " ++
                       show parentType ++ " with " ++ show xType
-          return (x,y)
 
         tuplecheckE parentType (lhs, rhs) = do
           bindings <- getBindings parentType lhs
@@ -289,7 +293,7 @@ instance Checkable Expr where
           tBody <- local (extendEnvironment bindings') (tuplecheck parentType (lhs, rhs))
           return tBody
 
-        tuplecheck parentType (x@(MaybeValue _ (JustData v@(VarAccess {}))), y) = do
+        tuplecheck parentType (x@(MaybeValue _ (JustData (VarAccess {}))), y) = do
           x' <- typecheck x
           y' <- typecheck y
           unless (hasResultType parentType && parentType == AST.getType x') $

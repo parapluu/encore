@@ -188,12 +188,16 @@ showWithKind ty = kind ty ++ " " ++ show ty
 
 hasSameKind :: Type -> Type -> Bool
 hasSameKind ty1 ty2
-  | isMaybeType ty1 && isMaybeType ty2 = getResultType ty1 `hasSameKind` getResultType ty2
-  | (isBottomTy1 || isBottomTy2) && not (isBottomTy1 && isBottomTy2) = True -- xor
-  | otherwise = ty1 == ty2
+  | areBoth isMaybeType ||
+    areBoth isFutureType ||
+    areBoth isParType ||
+    areBoth isCapabilityType = getResultType ty1 `hasSameKind` getResultType ty2
+  | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
+  | otherwise = True
   where
     isBottomTy1 = isBottomType ty1
     isBottomTy2 = isBottomType ty2
+    areBoth typeFun = typeFun ty1 && typeFun ty2
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =

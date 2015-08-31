@@ -32,6 +32,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isStreamType ty     = stream
         | Ty.isArrayType ty      = array
         | Ty.isRangeType ty      = range
+        | Ty.isMaybeType ty      = option
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtime_type :: Ty.Type -> CCode Expr

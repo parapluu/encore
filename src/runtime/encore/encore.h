@@ -45,6 +45,21 @@ typedef union
   double d;
 } encore_arg_t;
 
+// Option types
+typedef struct option_t option_t;
+typedef enum {JUST, NOTHING} option_tag;
+
+struct option_t {
+  union {
+    encore_arg_t;
+    encore_arg_t val;
+  };
+  option_tag tag;
+};
+
+// end option types
+
+
 #include "task.h"
 
 typedef enum {

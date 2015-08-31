@@ -211,6 +211,115 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
         mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
+  translate maybe@(A.MaybeValue _ (A.JustData e)) = do
+    let createOption = Call (Nam "encore_alloc") [(Sizeof . AsType) (Nam "option_t")]
+    (nalloc, talloc) <- named_tmp_var "option" (A.getType maybe) createOption
+    let tag = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "JUST")
+    (nE, tE) <- translate e
+    let tJust = Assign (Deref nalloc `Dot` (Nam "val")) (as_encore_arg_t (translate $ A.getType e) nE)
+    return (nalloc, Seq [talloc, tag, tE, tJust])
+
+  translate maybe@(A.MaybeValue _ (A.NothingData {})) = do
+    -- TODO: use predefined Nothing at the C level
+    let createOption = Call (Nam "encore_alloc") [(Sizeof . AsType) (Nam "option_t")]
+    (nalloc, talloc) <- named_tmp_var "option" (A.getType maybe) createOption
+    let result = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "NOTHING")
+    return (nalloc, Seq [talloc, result])
+
+  translate match@(A.MatchDecl {A.arg, A.matchbody}) = do
+    (nArg, tArg) <- translate arg
+    (resultVar, resultType) <- getResult match
+    eMatch <- mapM (translateMatch (AsExpr nArg)) matchbody
+    return (resultVar,
+            Seq $ [Statement $ Decl (resultType, resultVar),
+                   tArg,
+                   Statement (convertToIf resultVar eMatch)])
+    where
+      getResult :: A.Expr -> State Ctx.Context (CCode Lval, CCode Ty)
+      getResult match = do
+        resultVarName <- Ctx.gen_named_sym "match"
+        let resultVar = Var resultVarName
+            matchType = translate (A.getType match)
+        return (resultVar, matchType)
+
+      convertToIf :: CCode Lval -> [(CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))] -> CCode Expr
+      convertToIf _ [] = Embed ""
+      convertToIf resultVar ((cond, binding, body):rest) =
+        let tBody = snd body
+            nBody = fst body
+            declBinding = case binding of
+                            Nothing -> Comm "Nothing"
+                            Just b -> Assign (fst b) (snd b)
+        in
+          If cond
+            (Seq [declBinding, tBody, Assign resultVar nBody])
+            (Statement $ convertToIf resultVar rest)
+
+      translateMatch :: CCode Expr -> (A.Expr, A.Expr) -> State Ctx.Context (CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))
+      translateMatch nArg (patternMatch, body)
+        | null freeVars = do
+            tCond <- translateCond nArg patternMatch
+            tBody <- translate body
+            return (tCond, Nothing, tBody)
+        | otherwise = do
+            let (freeVarName, freeVarType) = head freeVars
+            tCond <- translateCond nArg patternMatch
+
+            (tmpVar, tBinding) <- (do tmpVar <- getTmpVars freeVarName
+                                      return (tmpVar, translateBind nArg patternMatch))
+            let lhs = Decl (translate freeVarType, tmpVar)
+            tBody <- eval_with_context (freeVarName, tmpVar) body
+            return (tCond, Just (lhs, tBinding), tBody)
+        where
+          freeVars = Util.freeVariables [] patternMatch
+
+          eval_with_context (freeVarName, tmpVar) body = do
+            substitute_var freeVarName tmpVar
+            tBody <- translate body
+            unsubstitute_var freeVarName
+            return tBody
+
+      getTmpVars :: ID.Name -> State Ctx.Context (CCode Lval)
+      getTmpVars name = do
+        name' <- (Ctx.gen_named_sym . show) name
+        return (Var name')
+
+      createCond :: A.Expr -> CCode Expr -> CCode Expr -> State Ctx.Context (CCode Expr)
+      createCond e cond cast
+        | A.isLval e = return cond
+        | Ty.isMaybeType (A.getType e) || Ty.isPrimitive (A.getType e) = do
+            transCond <- translateCond cast e
+            return $ BinOp (Nam "&&") cond transCond
+        | otherwise = return cond
+
+      translateCond :: CCode Expr -> A.Expr -> State Ctx.Context (CCode Expr)
+      translateCond nArg p@(A.MaybeValue meta (A.JustData e)) = do
+        let cond = BinOp (Nam "==") (nArg `Arrow` Nam "tag") (AsLval $ Nam "JUST")
+            expr = from_encore_arg_t (translate $ A.getType e) (AsExpr $ nArg `Arrow` Nam "val")
+            cast = Cast (Ptr . AsType $ Nam "option_t") expr
+            ext = if (Ty.isPrimitive (A.getType e)) then (AsExpr expr) else cast
+        resultCond <- createCond e cond ext
+        return resultCond
+
+      translateCond nArg p@(A.MaybeValue meta (A.NothingData {})) =
+        return $ BinOp (Nam "==") (nArg `Arrow` (Nam "tag")) (AsLval $ Nam "NOTHING")
+
+      translateCond nArg v
+        | A.isLval v = return nArg
+        | Ty.isPrimitive (A.getType v) = do
+          (nBody, tBody) <- translate v :: State Ctx.Context (CCode Lval, CCode Stat)
+          return $ BinOp (Nam "==") nArg (StatAsExpr nBody tBody)
+
+      -- TODO: what happens with primitive types
+      translateBind nArg p@(A.MaybeValue meta (A.JustData e)) =
+        let cast = AsExpr $ from_encore_arg_t (translate (A.getType e)) (Deref nArg)
+            containedType = A.getType e
+        in
+          case (Ty.isMaybeType containedType) of
+                  True -> translateBind cast e
+                  False -> AsExpr $ from_encore_arg_t (translate containedType) (Deref (Cast option nArg))
+      translateBind nArg v@(A.VarAccess {}) = nArg
+
   translate (A.VarAccess {A.name}) = do
       c <- get
       case Ctx.subst_lkp c name of
