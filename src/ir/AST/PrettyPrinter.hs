@@ -181,9 +181,7 @@ ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
 ppExpr (MaybeValue _ (JustData a)) = ppJust <+> ppExpr a
 ppExpr (MaybeValue _ NothingData) = ppNothing
-ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppExpr arg <+> ppWith $+$ ppMatchWith matchbody
-  where
-   ppMatchWith ls = vcat $ map (\(decl, mbody) -> indent $ ppExpr decl <+> ppMatchArrow <+> ppExpr mbody) ls
+ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
@@ -203,7 +201,7 @@ ppExpr While {cond, body} =
     ppWhile <+> ppExpr cond $+$
          indent (ppExpr body)
 ppExpr Repeat {name, times, body} =
-    ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
+    ppRepeat <+> ppName name <+> text "<-" <+> ppExpr times $+$
          indent (ppExpr body)
 ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
     ppFor <+> ppName name <+> ppIn <+> ppExpr src $+$
@@ -211,8 +209,15 @@ ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
 ppExpr For {name, step, src, body} =
     ppFor <+> ppName name <+> ppIn <+> ppExpr src <+> text "by" <+> ppExpr step $+$
          indent (ppExpr body)
+ppExpr Match {arg, clauses} =
+    ppMatch <+> ppExpr arg <+> text "with" $+$
+         ppMatchClauses clauses
+    where
+      ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
+        indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+> text "=>" <+> ppExpr mchandler)
+      ppMatchClauses = foldr (($+$) . ppClause) (text "")
 ppExpr FutureChain {future, chain} =
-    ppExpr future <+> (text "~~>") <+> ppExpr chain
+    ppExpr future <+> text "~~>" <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val
 ppExpr Eos {} = ppEos <> parens empty
@@ -221,9 +226,9 @@ ppExpr IsEos {target} = ppExpr target <> ppDot <> ppEos <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> ppDot <> text "next" <> parens empty
 ppExpr Suspend {} = ppSuspend
 ppExpr FieldAccess {target, name} = maybeParens target <> ppDot <> ppName name
-ppExpr ArrayAccess {target, index} = ppExpr target <> (brackets $ ppExpr index)
+ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
 ppExpr ArraySize {target} = ppBar <> ppExpr target <> ppBar
-ppExpr ArrayNew {ty, size} = (brackets $ ppType ty) <> parens (ppExpr size)
+ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> ppEquals <+> ppExpr rhs

@@ -33,6 +33,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isArrayType ty      = array
         | Ty.isRangeType ty      = range
         | Ty.isMaybeType ty      = option
+        | Ty.isTupleType ty      = tuple
         | Ty.isCType ty          = Embed $ Ty.getId ty
         | Ty.isParType ty        = par
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"

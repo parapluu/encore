@@ -79,6 +79,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword else)
 @(encore/keyword unless)
 @(encore/keyword while)
+@(encore/keyword match)
+@(encore/keyword with)
+@(encore/keyword when)
+@(encore/keyword bold-arrow "=>")
 @(encore/keyword null)
 @(encore/keyword true)
 @(encore/keyword false)
@@ -119,6 +123,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm String)
 @(encore/nonterm Arrow)
 @(encore/nonterm NonArrow)
+@(encore/nonterm MatchClause)
 @(encore/nonterm Types)
 @(encore/nonterm Tys)
 @(encore/nonterm RefType)
@@ -229,6 +234,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[if Expr then Expr]
 	      @seq[unless Expr then Expr]
 	      @seq[while Expr Expr]
+	      @seq[match Expr with @kleenestar[MatchClause]]
 	      @seq[get Expr]
 	      @seq[new Type open-paren Arguments close-paren]
 	      @seq[new Type]
@@ -256,6 +262,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  (list QName
 		      @seq[Name @optional[dot QName]])
 
+	  (list MatchClause @seq[Expr @optional[when Expr] bold-arrow Expr])
+	  
 	  (list Int @elem{[0-9]+})
 
 	  (list Real @seq[Int dot Int])

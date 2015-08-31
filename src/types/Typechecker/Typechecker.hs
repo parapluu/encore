@@ -394,111 +394,6 @@ instance Checkable Expr where
           getArgType = head . getArgTypes . AST.getType
           numberArgsFun = length . getArgTypes . AST.getType
 
-
-    doTypecheck m@(MatchDecl {arg, matchbody}) =
-      do eArg <- typecheck arg
-         checkErrors eArg matchbody
-         eMatchBody <- mapM (tuplecheckE (AST.getType eArg)) matchbody
-
-         let resultType = (AST.getType . snd . head) eMatchBody
-             patternMatchingTypes = map (AST.getType . fst) eMatchBody
-
-         -- check pattern matching branches have same type as the parent type
-         mapM (checkTypes (AST.getType eArg)) patternMatchingTypes
-
-         -- check returning type of match conditions are of the same kind
-         unless (all ((hasSameKind resultType) . AST.getType . snd) eMatchBody) $
-           tcError $ "Match clause must return same type in all branches. " ++
-                     tipSentence resultType
-
-         return $ setType resultType m {arg = eArg, matchbody = eMatchBody}
-      where
-        tipSentence resultType
-          | isMaybeType resultType = "Did you forget to cast a 'Nothing' expression?"
-          | otherwise = ""
-
-        checkErrors eArg matchbody = do
-          let eArgType = AST.getType eArg
-          unless (isMaybeType eArgType) $
-            tcError $ "Match clause needs to match on an Option type, not on " ++ show eArgType
-          unless (length matchbody > 0) $
-            tcError "Match clause has no pattern to match against"
-          when (any isBottomType (typeComponents eArgType)) $
-            tcError $ "Matching argument of ambiguous type; " ++
-                      "did you forget to cast a 'Nothing' expression?"
-
-        getBindings parentType m@(MaybeValue _ (JustData exp)) = do
-          unless (hasResultType parentType) $
-            tcError "Type mismatch in 'match' expression"
-          getBindings (getResultType parentType) exp
-
-        getBindings parentType var@(VarAccess {name}) =
-          return $ Just (name, parentType)
-
-        getBindings parentType _ = return Nothing
-
-        checkTypes parentType xType = do
-          unless (parentType == xType) $
-            tcError $ "Type mismatch in match expression, matching: " ++
-                      show parentType ++ " with " ++ show xType
-
-        tuplecheckE parentType (lhs, rhs) = do
-          bindings <- getBindings parentType lhs
-          let bindings' = case bindings of
-                           Just x -> [x]
-                           Nothing -> []
-          tBody <- local (extendEnvironment bindings') (tuplecheck parentType (lhs, rhs))
-          return tBody
-
-        tuplecheck parentType (x@(MaybeValue _ (JustData (VarAccess {}))), y) = do
-          x' <- typecheck x
-          y' <- typecheck y
-          unless (hasResultType parentType && parentType == AST.getType x') $
-            tcError $ "Type mismatch in match expression, matching: " ++
-                      show parentType ++ " with " ++ show (AST.getType x')
-          return (x', y')
-
-        tuplecheck parentType (x@(MaybeValue _ (JustData innerMaybe@(MaybeValue {}))), y) = do
-          unless (hasResultType parentType) $
-            tcError $ "Error matching '" ++ show parentType ++ "' type to '"
-                      ++ show (AST.getType x) ++ "'"
-          typedX <- typecheck x
-          (typedInnerMaybe', y') <- tuplecheck (getResultType parentType) (innerMaybe, y)
-
-          -- update typedX with typed values from the inner maybe
-          let typedX' = setType (maybeType $ AST.getType typedInnerMaybe')
-                                (typedX {mdt = JustData typedInnerMaybe'})
-          return (typedX', y')
-
-        tuplecheck parentType (x@(MaybeValue _ (NothingData {})), y) = do
-          y' <- typecheck y
-          x' <- typecheck x
-
-          x'' <- hasType x' parentType
-          return (x'', y')
-
-        tuplecheck parentType (x@(MaybeValue {}), y) = do
-          x' <- typecheck x
-          y' <- typecheck y
-          let typeX = getResultType $ AST.getType x'
-              tip = "If you would like to match an object, pattern match on a variable, e.g. 'Just z'"
-          unless (isPrimitive typeX) $
-            tcError $ "Cannot pattern match on something different " ++
-                      "from primitive and option types, trying to match '" ++
-                      show parentType ++ "' and '" ++ show typeX ++ "'." ++ tip
-          return (x', y')
-
-        tuplecheck _ (x@VarAccess {}, y) = do
-          x' <- typecheck x
-          y' <- typecheck y
-          return (x', y')
-
-        tuplecheck parentType (x, y) = do
-          x' <- typecheck x
-          tcError $ "Cannot pattern match on expression of type '" ++
-                    show parentType ++ "' with expression of type '" ++
-                    show (AST.getType x') ++ "'"
-
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
     --  E |- arg1 : t1 .. E |- argn : tn
@@ -592,7 +487,15 @@ instance Checkable Expr where
 
           maybeTypecheck nothing@NothingData = return nothing
 
-
+    -- E |- arg1 :ty1 .. E |- argn : tyn
+    -- ---------------------------------
+    -- E |- (arg1, .., argn) : (ty1, .., tyn)
+    doTypecheck tuple@(Tuple {args}) = do
+      when (null args) $
+        tcError "Tuple literal must have at least one element"
+      eArgs <- mapM typecheck args
+      let argTypes = map AST.getType eArgs
+      return $ setType (tupleType argTypes) tuple{args = eArgs}
 
     --  E |- f : (t1 .. tn) -> t
     --  typeVarBindings() = B
@@ -695,6 +598,117 @@ instance Checkable Expr where
                             else tcError $ "Type mismatch in different branches of if-statement:\n" ++
                                            "  then:  " ++ show ty1 ++ "\n" ++
                                            "  else:  " ++ show ty2
+
+    --  E |- arg : t'
+    --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
+    --  not isActiveRefType(t')
+    --  not null clauses
+    --  E |- pattern1 : t', ..., patternN : t'
+    --  E |- guard1 : bool, .. , guardN : bool
+    --  E |- expr1 : t, ..., exprN : t
+    ---------------------------------------
+    --  E |- match arg clauses : t
+    doTypecheck match@(Match {arg, clauses}) = do
+        when (null clauses) $
+          tcError "Match statement must have at least one clause"
+        eArg <- typecheck arg
+        let argType = AST.getType eArg
+        when (isActiveClassType argType) $
+          tcError "Cannot match on an active object"
+        eClauses <- mapM (checkClause argType) clauses
+        resultType <- checkAllHandlersSameType eClauses
+        return $ setType resultType match {arg = eArg, clauses = eClauses}
+      where
+        checkAllHandlersSameType (clause:clauses) = do
+          let ty = AST.getType $ mchandler clause
+              errorClauses = filter ((/= ty) . AST.getType . mchandler) clauses
+              errorHandler = mchandler $ head errorClauses
+          unless (null errorClauses) $
+                 tcError $ "Expression '" ++ show (ppExpr errorHandler) ++
+                           "' does not match expected type '" ++ show ty ++
+                           "'. All clauses must have agreeing types"
+          return ty
+
+        getPatternVars pt va@(VarAccess {name}) = return [(name, pt)]
+
+        getPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
+            | isMaybeType pt =
+                let innerType = getResultType pt
+                in getPatternVars innerType e
+            | otherwise =
+                tcError $ "Pattern '" ++ show (ppExpr mcp) ++
+                          "' does not match expected type '" ++
+                          show pt ++ "'"
+
+        getPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
+          unless (isRefType pt) $
+            tcError $ "Cannot match an extractor pattern against " ++
+                      "non-reference type '" ++ show pt ++ "'"
+          mdecl <- findMethod pt name
+          bindings <- formalBindings pt
+          let methodType = replaceTypeVars bindings $ mtype mdecl
+          unless (isMaybeType methodType) $
+            tcError $ "Pattern '" ++ show (ppExpr fcall) ++
+                      "' is not a proper extractor pattern"
+          let extractedType = getResultType methodType
+          getPatternVars extractedType arg
+
+        getPatternVars pt fcall@(FunctionCall {name, args}) = do
+          let tupMeta = getMeta $ head args
+              tupArg = Tuple {emeta = tupMeta, args}
+          getPatternVars pt (fcall {args = [tupArg]})
+
+        getPatternVars pt tuple@(Tuple {args}) = do
+          unless (isTupleType pt) $
+            tcError $ "Cannot match a tuple against non-tuple type " ++ show pt
+          let elemTypes = getArgTypes pt
+
+          varLists <- zipWithM getPatternVars elemTypes args
+          return $ concat $ reverse varLists
+
+        getPatternVars pt pattern = return []
+
+        checkPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
+          mdecl <- findMethod argty name
+          bindings <- formalBindings argty
+          let methodType = replaceTypeVars bindings $ mtype mdecl
+              extractedType = getResultType methodType
+          eArg <- checkPattern arg extractedType
+          matchArgumentLength mdecl []
+          return $ setType extractedType pattern {args = [eArg]}
+
+        checkPattern pattern@(FunctionCall {name, args}) argty = do
+          let tupMeta = getMeta $ head args
+              tupArg = Tuple {emeta = tupMeta, args = args}
+          checkPattern (pattern {args = [tupArg]}) argty
+        checkPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
+          unless (isMaybeType argty) $
+            tcError $ "Pattern '" ++ show (ppExpr pattern) ++
+                      "' does not match expected type '" ++ show argty ++ "'"
+          let innerType = getResultType argty
+          eExpr <- checkPattern e innerType
+          return $ setType argty (pattern {mdt = JustData {e = eExpr}})
+
+        checkPattern pattern@(Tuple{args = args}) tupty = do
+          let argTypes = getArgTypes tupty
+          unless (length argTypes == length args) $
+            tcError $ "Pattern '" ++ show (ppExpr pattern) ++
+                      "' does not match expected type " ++ show tupty ++
+                      ". Wrong tuple size"
+          eArgs <- zipWithM checkPattern args argTypes
+          return $ setType tupty (pattern {args=eArgs})
+
+        checkPattern pattern argty = hasType pattern argty
+
+        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
+                      vars <- getPatternVars pt mcpattern
+                      let withLocalEnv = local (extendEnvironment vars)
+                      ePattern <- withLocalEnv $ checkPattern mcpattern pt
+                      eHandler <- withLocalEnv $ typecheck mchandler
+                      eGuard <- withLocalEnv $ hasType mcguard boolType
+                      return $ clause {mcpattern = ePattern
+                                      ,mchandler = eHandler
+                                      ,mcguard = eGuard}
 
     --  E |- cond : bool
     --  E |- body : t

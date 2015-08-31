@@ -132,6 +132,6 @@ class Main
      test_unification_last_expression(x);
      test_multiple_assignments(x);
      match poly.morphic(32) with
-     Just z => print z
-     Nothing => print 0
+       Just z => print z
+       Nothing => print 0
    }

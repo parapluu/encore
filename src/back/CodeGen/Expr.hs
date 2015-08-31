@@ -26,6 +26,8 @@ import qualified Types as Ty
 import Control.Monad.State hiding (void)
 import Control.Applicative((<$>))
 import Data.List
+import qualified Data.Set as Set
+import Data.Maybe
 
 instance Translatable ID.BinaryOp (CCode Name) where
   translate op = Nam $ case op of
@@ -94,6 +96,15 @@ newParty (A.Liftf {}) = partyNewParF
 newParty (A.PartyPar {}) = partyNewParP
 newParty _ = error $ "ERROR in 'Expr.hs': node is different from 'Liftv', " ++
                      "'Liftf' or 'PartyPar'"
+
+translateDecl (name, expr) = do
+  (ne, te) <- translate expr
+  tmp <- Ctx.genNamedSym (show name)
+  substituteVar name (Var tmp)
+  return (Var tmp,
+          [Comm $ show name ++ " = " ++ show (PP.ppExpr expr)
+          ,te
+          ,Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- | Translate an expression into the corresponding C code
@@ -274,100 +285,30 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nalloc, talloc) <- namedTmpVar "option" (A.getType maybe) createOption
     return (nalloc, talloc)
 
-  translate match@(A.MatchDecl {A.arg, A.matchbody}) = do
-    (nArg, tArg) <- translate arg
-    (resultVar, resultType) <- getResult match
-    eMatch <- mapM (translateMatch (AsExpr nArg)) matchbody
-    return (resultVar,
-            Seq $ [Statement $ Decl (resultType, resultVar),
-                   tArg,
-                   Statement (convertToIf resultVar eMatch)])
-    where
-      getResult :: A.Expr -> State Ctx.Context (CCode Lval, CCode Ty)
-      getResult match = do
-        resultVarName <- Ctx.genNamedSym "match"
-        let resultVar = Var resultVarName
-            matchType = translate (A.getType match)
-        return (resultVar, matchType)
-
-      convertToIf :: CCode Lval -> [(CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))] -> CCode Expr
-      convertToIf resultVar [] = StatAsExpr resultVar (Assign resultVar (Int 0))
-      convertToIf resultVar ((cond, binding, body):rest) =
-        let tBody = snd body
-            nBody = fst body
-            declBinding = case binding of
-                            Nothing -> Comm "Nothing"
-                            Just b -> Assign (fst b) (snd b)
-        in
-          If cond
-            (Seq [declBinding, tBody, Assign resultVar nBody])
-            (Statement $ convertToIf resultVar rest)
-
-      translateMatch :: CCode Expr -> (A.Expr, A.Expr) -> State Ctx.Context (CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))
-      translateMatch nArg (patternMatch, body)
-        | null freeVars = do
-            tCond <- translateCond nArg patternMatch
-            tBody <- translate body
-            return (tCond, Nothing, tBody)
-        | otherwise = do
-            let (freeVarName, freeVarType) = head freeVars
-            tCond <- translateCond nArg patternMatch
-
-            (tmpVar, tBinding) <- (do tmpVar <- getTmpVars freeVarName
-                                      return (tmpVar, translateBind nArg patternMatch))
-            let lhs = Decl (translate freeVarType, tmpVar)
-            tBody <- evalWithContext (freeVarName, tmpVar) body
-            return (tCond, Just (lhs, tBinding), tBody)
-        where
-          freeVars = Util.freeVariables [] patternMatch
-
-          evalWithContext (freeVarName, tmpVar) body = do
-            substituteVar freeVarName tmpVar
-            tBody <- translate body
-            unsubstituteVar freeVarName
-            return tBody
-
-      getTmpVars :: ID.Name -> State Ctx.Context (CCode Lval)
-      getTmpVars name = do
-        name' <- (Ctx.genNamedSym . show) name
-        return (Var name')
-
-      createCond :: A.Expr -> CCode Expr -> CCode Expr -> State Ctx.Context (CCode Expr)
-      createCond e cond cast
-        | A.isLval e = return cond
-        | Ty.isMaybeType (A.getType e) || Ty.isPrimitive (A.getType e) = do
-            transCond <- translateCond cast e
-            return $ BinOp (Nam "&&") cond transCond
-        | otherwise = return cond
-
-      translateCond :: CCode Expr -> A.Expr -> State Ctx.Context (CCode Expr)
-      translateCond nArg p@(A.MaybeValue meta (A.JustData e)) = do
-        let cond = BinOp (Nam "==") (nArg `Arrow` Nam "tag") (AsLval $ Nam "JUST")
-            expr = fromEncoreArgT (translate $ A.getType e) (AsExpr $ nArg `Arrow` Nam "val")
-            cast = Cast option expr
-            ext = if (Ty.isPrimitive (A.getType e)) then (AsExpr expr) else cast
-        resultCond <- createCond e cond ext
-        return resultCond
-
-      translateCond nArg p@(A.MaybeValue meta (A.NothingData {})) =
-        return $ BinOp (Nam "==") (nArg `Arrow` (Nam "tag")) (AsLval $ Nam "NOTHING")
-
-      translateCond nArg v
-        | A.isLval v = return nArg
-        | Ty.isPrimitive (A.getType v) = do
-          (nBody, tBody) <- translate v
-          return $ BinOp (Nam "==") nArg (StatAsExpr nBody tBody)
-
-      -- TODO: what happens with primitive types
-      translateBind nArg p@(A.MaybeValue meta (A.JustData e)) =
-        let cast = AsExpr $ fromEncoreArgT (translate (A.getType e)) (Deref nArg)
-            containedType = A.getType e
-        in
-          if (Ty.isMaybeType containedType) then
-            translateBind cast e
-          else
-            AsExpr $ fromEncoreArgT (translate containedType) (Deref (Cast option nArg))
-      translateBind nArg v@(A.VarAccess {}) = nArg
+  translate tuple@(A.Tuple {A.args}) = do
+    tupleName <- Ctx.genNamedSym "tuple"
+    transArgs <- mapM translate args
+    let elemTypes = map A.getType args
+        realTypes = map runtimeType elemTypes
+        tupLen = Int $ length args
+        tupType = A.getType tuple
+    let eAlloc = Call (Nam "tuple_mk") [tupLen]
+        theTupleDecl = Assign (Decl (translate tupType, Var tupleName)) eAlloc
+        tSetTupleType = Seq $ zipWith (tupleSetType tupleName) [0..] realTypes
+        (theTupleVars, theTupleContent) = unzip transArgs
+        theTupleInfo = zip theTupleVars elemTypes
+        theTupleSets = zipWith (tupleSet tupleName) [0..] theTupleInfo
+    return (Var tupleName, Seq $ theTupleDecl : tSetTupleType :
+                                 theTupleContent ++ theTupleSets)
+      where
+        tupleSetType name index ty =
+          Statement $ Call (Nam "tuple_set_type")
+                           [AsExpr $ Var name, Int index, ty]
+        tupleSet tupleName index (narg, ty) =
+          Statement $ Call (Nam "tuple_set")
+                           [AsExpr $ Var tupleName,
+                            Int index,
+                            asEncoreArgT (translate ty) $ AsExpr narg]
 
   translate (A.VarAccess {A.name}) = do
       c <- get
@@ -395,15 +336,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        (nbody, tbody) <- translate body
                        mapM_ unsubstituteVar (map fst decls)
                        return (nbody, Seq $ (concat tdecls) ++ [tbody])
-                     where
-                       translateDecl (name, expr) =
-                           do (ne, te) <- translate expr
-                              tmp <- Ctx.genNamedSym (show name)
-                              substituteVar name (Var tmp)
-                              return $ (Var tmp
-                                       , [ Comm ((show name) ++ " = " ++ (show $ PP.ppExpr expr))
-                                         , te
-                                         , Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
   translate (A.New {A.ty})
       | Ty.isActiveClassType ty =
@@ -466,8 +398,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let ty = translate $ A.getType arrAcc
              theAccess =
                 Assign (Decl (ty, Var accessName))
-                       (Call (Nam "array_get") [ntarg, nindex]
-                             `Dot` encoreArgTTag ty)
+                       (fromEncoreArgT ty (Call (Nam "array_get") [ntarg, nindex]))
          return (Var accessName, Seq [ttarg, tindex, theAccess])
 
   translate arrLit@(A.ArrayLiteral {A.args}) =
@@ -671,8 +602,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            Assign (Decl (eltType, eltVar))
                   (if Ty.isRangeType srcType
                    then AsExpr indexVar
-                   else AsExpr $ Call (Nam "array_get") [srcN, indexVar]
-                                 `Dot` encoreArgTTag eltType)
+                   else AsExpr $ fromEncoreArgT eltType (Call (Nam "array_get") [srcN, indexVar]))
         inc = Assign indexVar (BinOp (translate ID.PLUS) indexVar stepVar)
         theBody = Seq [eltDecl
                       ,Statement bodyT
@@ -706,6 +636,185 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
+
+  translate m@(A.Match {A.arg, A.clauses}) =
+      do retTmp <- Ctx.genNamedSym "match"
+         (narg, targ) <- translate arg
+         let argty = A.getType arg
+         tIfChain <- ifChain clauses narg argty retTmp
+         let mType = translate (A.getType m)
+             lRetDecl = Decl (mType, Var retTmp)
+             eZeroInit = Cast mType (Int 0)
+             tRetDecl = Assign lRetDecl eZeroInit
+         return (Var retTmp, Seq [targ, Statement lRetDecl, tIfChain])
+      where
+        withPatDecls assocs expr = do
+          mapM_ (\name -> substituteVar name $ lookupVar name) varNames
+          (nexpr, texpr) <- translate expr
+          mapM_ unsubstituteVar varNames
+          return (nexpr, texpr)
+            where
+              varNames = map (ID.Name . fst) assocs
+              lookupVar name = fromJust $ lookup (show name) assocs
+
+        translateMaybePattern e derefedArg argty assocs usedVars = do
+          optionVar <- Ctx.genNamedSym "optionVal"
+          nCheck <- Ctx.genNamedSym "optionCheck"
+          let eMaybeVal = AsExpr $ Dot derefedArg (Nam "val")
+              valType = Ty.getResultType argty
+              eMaybeField = fromEncoreArgT (translate valType) eMaybeVal
+              tVal = Assign (Decl (translate valType, Var optionVar)) eMaybeField
+
+          (nRest, tRest, newUsedVars) <- translatePattern e (Var optionVar) valType assocs usedVars
+
+          let expectedTag = AsExpr $ AsLval $ Nam "JUST"
+              actualTag = AsExpr $ Dot derefedArg $ Nam "tag"
+              eTagsCheck = BinOp (translate ID.EQ) expectedTag actualTag
+              intTy = translate Ty.intType
+              tDecl = Statement $ Decl (intTy, nRest)
+              tRestWithDecl = Seq [tDecl, tVal, tRest]
+              eRest = StatAsExpr nRest tRestWithDecl
+              eCheck = BinOp (translate ID.AND) eTagsCheck eRest
+              tCheck = Assign (Var nCheck) eCheck
+
+          return (Var nCheck, tCheck, newUsedVars)
+
+        translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
+          tmp <- Ctx.genNamedSym "extractedOption"
+
+          let eSelfArg = AsExpr narg
+              eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
+              tmpTy = Ty.maybeType innerTy
+              eCall = Call (methodImplName argty name) [eSelfArg]
+              nCall = Var tmp
+              tCall = Assign (Decl (translate tmpTy, nCall)) eCall
+              derefedCall = Deref nCall
+
+              innerExpr = head args -- args is known to only contain one element
+              innerTy = A.getType innerExpr
+
+          (nRest, tRest, newUsedVars) <- translateMaybePattern innerExpr derefedCall tmpTy assocs usedVars
+
+          nCheck <- Ctx.genNamedSym "extractoCheck"
+          let tDecl = Statement $ Decl (translate Ty.intType, nRest)
+              tRestWithDecl = Seq [tDecl, tCall, tRest]
+              eCheck = BinOp (translate ID.AND) eNullCheck $ StatAsExpr nRest tRestWithDecl
+              tAssign = Assign (Var nCheck) eCheck
+
+          return (Var nCheck, tAssign, newUsedVars)
+
+        translatePattern (tuple@A.Tuple {A.args}) larg argty assocs usedVars = do
+          tmp <- Ctx.genNamedSym "tupleCheck"
+
+          let elemTypes = Ty.getArgTypes $ A.getType tuple
+              elemInfo = zip elemTypes args
+              theInit = Assign (Var tmp) (Int 1)
+
+          (tChecks, newUsedVars) <- checkElems elemInfo (Var tmp) larg assocs usedVars 0
+          return (Var tmp, Seq $ theInit:tChecks, newUsedVars)
+            where
+              checkElems [] _ _ _ usedVars _ = return ([], usedVars)
+              checkElems ((ty, arg):rest) retVar larg assocs usedVars index = do
+                accessName <- Ctx.genNamedSym "tupleAccess"
+                let elemTy = translate ty
+                    theDecl = Decl (elemTy, Var accessName)
+                    theCall = fromEncoreArgT elemTy (Call (Nam "tuple_get") [AsExpr larg, Int index])
+                    theCast = Cast elemTy theCall
+                    theAssign = Assign theDecl theCall
+
+                (ncheck, tcheck, newUsedVars) <- translatePattern arg (Var accessName) ty assocs usedVars
+                (tRest, newNewUsedVars) <- checkElems rest retVar larg assocs newUsedVars (index + 1)
+
+                let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)
+                    theRetAssign = Assign retVar theAnd
+                    theHelpDecl = Statement $ Decl (translate Ty.intType, ncheck)
+                return (theAssign : theHelpDecl : tcheck : theRetAssign : tRest, newNewUsedVars)
+
+        translatePattern (A.MaybeValue {A.mdt=A.JustData{A.e}}) larg argty assocs usedVars = do
+          let derefedArg = Deref larg
+          translateMaybePattern e derefedArg argty assocs usedVars
+
+        translatePattern (A.VarAccess{A.name}) larg _ assocs usedVars
+          | Set.member name usedVars = do
+              tmp <- Ctx.genNamedSym "varBinding"
+              let eVar = AsExpr $ fromJust $ lookup (show name) assocs
+                  eArg = AsExpr larg
+                  eComp = BinOp (translate ID.EQ) eVar eArg
+                  tBindRet = Assign (Var tmp) eComp
+              return (Var tmp, tBindRet, usedVars)
+          | otherwise = do
+              tmp <- Ctx.genNamedSym "varBinding"
+              let lVar = fromJust $ lookup (show name) assocs
+                  eArg = AsExpr larg
+                  tBindVar = Assign lVar eArg
+                  tBindRet = Assign (Var tmp) (Int 1)
+                  newUsedVars = Set.insert name usedVars
+                  tBindAll = Seq [tBindVar, tBindRet]
+              return (Var tmp, tBindAll, newUsedVars)
+
+        translatePattern value larg argty _ usedVars = do
+          tmp <- Ctx.genNamedSym "valueCheck"
+          (nvalue, tvalue) <- translate value
+          let eValue = StatAsExpr nvalue tvalue
+              eArg = AsExpr larg
+          eComp <- translateComparison eValue eArg argty
+          let tAssign = Assign (Var tmp) eComp
+          return (Var tmp, tAssign, usedVars)
+            where
+              translateComparison e1 e2 ty
+                | Ty.isStringType ty  = do
+                    let strcmpCall = Call (Nam "strcmp") [e1, e2]
+                    return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
+                | otherwise =
+                    return (BinOp (translate ID.EQ) e1 e2)
+
+        translateIfCond (A.MatchClause {A.mcpattern, A.mcguard})
+                        narg argty assocs = do
+          (nPattern, tPatternNoDecl, _) <- translatePattern mcpattern narg argty assocs Set.empty
+
+          -- The binding expression should evaluate to true,
+          -- regardless of the values that are bound.
+          let ty = translate Ty.intType
+              eDeclPattern = AsExpr $ Decl (ty, nPattern)
+              tPattern = Seq [Statement eDeclPattern, tPatternNoDecl]
+              ePattern = StatAsExpr nPattern tPattern
+
+          (nguard, tguard) <- withPatDecls assocs mcguard
+          let eGuard = StatAsExpr nguard tguard
+              eCond = BinOp (translate ID.AND) ePattern eGuard
+          return eCond
+
+        translateHandler clause handlerReturnVar assocs = do
+          (nexpr, texpr) <- withPatDecls assocs (A.mchandler clause)
+          let eExpr = StatAsExpr nexpr texpr
+              tAssign = Statement $ Assign (Var handlerReturnVar) eExpr
+          return tAssign
+
+        ifChain [] _ _ _ = do
+          let errorCode = Int 1
+              exitCall = Statement $ Call (Nam "exit") [errorCode]
+              errorMsg = String "*** Runtime error: No matching clause was found ***\n"
+              errorPrint = Statement $ Call (Nam "printf") [errorMsg]
+          return $ Seq [errorPrint, exitCall]
+
+        ifChain (clause:rest) narg argty retTmp = do
+          let freeVars = filter (not . Ty.isArrowType . snd) $
+                                Util.freeVariables [] (A.mcpattern clause)
+          assocs <- mapM createAssoc freeVars
+          thenExpr <- translateHandler clause retTmp assocs
+          elseExpr <- ifChain rest narg argty retTmp
+          eCond <- translateIfCond clause narg argty assocs
+          let tIf = Statement $ If eCond thenExpr elseExpr
+              tDecls = Seq $ map (fwdDecl assocs) freeVars
+          return $ Seq [tDecls, tIf]
+            where
+              createAssoc (name, _) = do
+                let varName = show name
+                tmp <- Ctx.genNamedSym varName
+                return (varName, Var tmp)
+              fwdDecl assocs (name, ty) =
+                  let tname = fromJust $ lookup (show name) assocs
+                  in Statement $ Decl (translate ty, tname)
 
   translate e@(A.Embed {A.code=code}) = do
     interpolated <- interpolate code

@@ -227,10 +227,19 @@ instance HasMeta MethodDecl where
   showWithKind Method {mname} = "method '" ++ show mname ++ "'"
   showWithKind StreamMethod {mname} = "streaming method '" ++ show mname ++ "'"
 
+data MatchClause = MatchClause {mcmeta    :: Meta MatchClause,
+                                mcpattern :: Expr,
+                                mchandler :: Expr,
+                                mcguard   :: Expr} deriving (Show, Eq)
+instance HasMeta MatchClause where
+    getMeta = mcmeta
+    setMeta mc m = mc{mcmeta = m}
+    setType ty mc@MatchClause{mchandler} = mc {mchandler = AST.AST.setType ty mchandler}
+
 type Arguments = [Expr]
 
 data MaybeContainer = JustData { e :: Expr}
-                   | NothingData deriving(Eq, Show)
+                    | NothingData deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
@@ -248,9 +257,6 @@ data Expr = Skip {emeta :: Meta Expr}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
                           args :: Arguments}
-          | MatchDecl {emeta :: Meta Expr,
-                       arg :: Expr,
-                       matchbody :: [(Expr, Expr)]}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
@@ -271,7 +277,9 @@ data Expr = Skip {emeta :: Meta Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
           | MaybeValue {emeta :: Meta Expr,
-                       mdt :: MaybeContainer }
+                        mdt :: MaybeContainer }
+          | Tuple {emeta :: Meta Expr,
+                   args :: [Expr]}
           | Foreach {emeta :: Meta Expr,
                      item :: Name,
                      arr :: Expr,
@@ -305,6 +313,9 @@ data Expr = Skip {emeta :: Meta Expr}
                  step   :: Expr,
                  src    :: Expr,
                  body   :: Expr}
+          | Match {emeta :: Meta Expr,
+                   arg :: Expr,
+                   clauses :: [MatchClause]}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Yield {emeta :: Meta Expr,
