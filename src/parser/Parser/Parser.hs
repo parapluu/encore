@@ -50,7 +50,7 @@ lexer =
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
      "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with"
+     "Maybe", "Just", "Nothing", "match", "with", "when"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -95,13 +95,14 @@ longidentifier = do
 
 -- Note, when we have product types (i.e. tuples), we could make
 -- an expressionParser for types (with arrow as the only infix
--- operator)
+-- operator.)
 typ :: Parser Type
 typ  = adtTypes
        <|> firstOrderTyp
     where
       adtTypes = maybe
       firstOrderTyp = try arrow
+                   <|> try tuple
                    <|> parens typ
                    <|> nonArrow
                    <?> "type"
@@ -127,6 +128,9 @@ typ  = adtTypes
          reserved "Maybe"
          ty <- firstOrderTyp
          return $ maybeType ty
+      tuple = do
+        ty <- parens (typ `sepBy2` comma)
+        return $ tupleType ty
       par = do reserved "Par"
                ty <- typ
                return $ parType ty
@@ -341,6 +345,26 @@ methodDecl = do pos <- getPosition
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
+sepBy2 p sep = do first <- p
+                  sep
+                  last <- p `sepBy1` sep
+                  return $ first:last
+
+matchClause :: Parser MatchClause
+matchClause = do pos <- getPosition
+                 lhs <- expression <|> dontCare
+                 posGuard <- getPosition
+                 grd <- option (BTrue (meta posGuard)) guard
+                 reserved "=>"
+                 rhs <- expression
+                 return $ MatchClause (meta pos) lhs rhs grd
+    where
+      guard = do reserved "when"
+                 expression
+      dontCare = do pos <- getPosition
+                    symbol "_"
+                    return (VarAccess (meta pos) (Name "_"))
+
 expression :: Parser Expr
 expression = buildExpressionParser opTable highOrderExpr
     where
@@ -426,7 +450,8 @@ expr  =  unit
      <|> try path
      <|> try functionCall
      <|> try print
-     <|> closure
+     <|> try closure
+     <|> try tupleLit
      <|> match
      <|> task
      <|> finishTask
@@ -443,6 +468,7 @@ expr  =  unit
      <|> unless
      <|> repeat
      <|> while
+     <|> match
      <|> get
      <|> yield
      <|> try isEos
@@ -530,6 +556,15 @@ expr  =  unit
                  cond <- expression
                  expr <- expression
                  return $ While (meta pos) cond expr
+      match = do pos <- getPosition
+                 reserved "match"
+                 arg <- expression
+                 reserved "with"
+                 clauses <- maybeBraces $ many matchClause
+                 return $ Match (meta pos) arg clauses
+      tupleLit = do pos <- getPosition
+                    args <- parens (expression `sepBy2` comma) 
+                    return $ Tuple (meta pos) args
       get = do pos <- getPosition
                reserved "get"
                expr <- expression
@@ -566,18 +601,6 @@ expr  =  unit
                    reservedOp "->"
                    body <- expression
                    return $ Closure (meta pos) params body
-      match = do pos <- getPosition
-                 reserved "match"
-                 argDecl <- expression
-                 reserved "with"
-                 body <- maybeBraces $ many matchingExpr
-                 return $ MatchDecl (meta pos) argDecl body
-             where
-               matchingExpr = do
-                 patternMatching <- expression
-                 reservedOp "=>"
-                 body <- expression
-                 return (patternMatching, body)
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression

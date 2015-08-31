@@ -146,6 +146,14 @@ project "array"
     "../array/array.c"
   }
 
+project "tuple"
+  c_lib()
+  files {
+    "../tuple/tuple.h",
+    "../tuple/tuple.c"
+  }
+
+
 project "range"
   c_lib()
   files {

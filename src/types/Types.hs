@@ -70,6 +70,8 @@ module Types(
             ,hasSameKind
             ,maybeType
             ,isMaybeType
+            ,tupleType
+            ,isTupleType
             ,bottomType
             ,isBottomType
             ,hasResultType
@@ -164,6 +166,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | ArrayType{resultType :: Type}
           | RangeType
           | MaybeType {resultType :: Type}
+          | TupleType {argTypes :: [Type]}
           | CType{ident :: String}
           | VoidType
           | StringType
@@ -208,6 +211,9 @@ instance Show Type where
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
     show RangeType   = "Range"
     show (MaybeType ty)    = "Maybe " ++ maybeParen ty
+    show (TupleType{argTypes}) = "(" ++ args ++ ")"
+      where
+        args = intercalate ", " (map show argTypes)
     show (CType ty) = ty
     show VoidType   = "void"
     show StringType = "string"
@@ -246,6 +252,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
     kind MaybeType{}                   = "maybe type"
+    kind TupleType{}                   = "tuple type"
     kind BottomType{}                  = "bottom type"
     kind CType{}                       = "embedded type"
     kind _                             = "type"
@@ -284,6 +291,8 @@ typeComponents arr@(ArrayType ty)  =
     arr : typeComponents ty
 typeComponents maybe@(MaybeType ty) =
     maybe : typeComponents ty
+typeComponents tuple@(TupleType{argTypes}) =
+    tuple : (concatMap typeComponents argTypes)
 typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters
@@ -319,6 +328,8 @@ typeMap f ty@ArrayType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty@MaybeType{resultType} =
     f ty{resultType = typeMap f resultType}
+typeMap f ty@TupleType{argTypes} =
+    f ty{argTypes = map (typeMap f) argTypes}
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
@@ -347,7 +358,10 @@ typeMapM f ty@ArrowType{argTypes, resultType} = do
   argTypes' <- mapM (typeMapM f) argTypes
   resultType' <- f resultType
   f ty{argTypes = argTypes'
-               ,resultType = resultType'}
+      ,resultType = resultType'}
+typeMapM f ty@TupleType{argTypes} = do
+  argTypes' <- mapM (typeMapM f) argTypes
+  f ty{argTypes = argTypes'}
 typeMapM f ty
   | isFutureType ty || isParType ty || isStreamType ty ||
     isArrayType ty || isMaybeType ty = typeMapMResultType f ty
@@ -355,7 +369,7 @@ typeMapM f ty
 
 typeMapMResultType :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapMResultType f ty = do
-  resultType' <- f $ resultType ty
+  resultType' <- typeMapM f $ resultType ty
   f ty{resultType = resultType'}
 
 refInfoTypeMapM :: Monad m => (Type -> m Type) -> RefInfo -> m RefInfo
@@ -490,6 +504,10 @@ isFutureType _ = False
 maybeType = MaybeType
 isMaybeType MaybeType {} = True
 isMaybeType _ = False
+
+tupleType = TupleType
+isTupleType TupleType {} = True
+isTupleType _ = False
 
 bottomType = BottomType
 isBottomType BottomType {} = True

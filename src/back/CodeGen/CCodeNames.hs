@@ -81,6 +81,10 @@ stream = Ptr $ Typ "stream_t"
 array :: CCode Ty
 array = Ptr $ Typ "array_t"
 
+tuple :: CCode Ty
+tuple = Ptr $ Typ "tuple_t"
+
+
 rangeT :: CCode Ty
 rangeT = Typ "range_t"
 

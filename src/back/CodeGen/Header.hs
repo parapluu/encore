@@ -28,6 +28,7 @@ generateHeader p =
       "closure.h",
       "stream.h",
       "array.h",
+      "tuple.h",
       "range.h",
       "future.h",
       "task.h",

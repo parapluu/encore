@@ -111,7 +111,7 @@ subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
     | hasResultType ty1 && hasResultType ty2 =
         liftM (ty1 `hasSameKind` ty2 &&) $
-              getResultType ty1 `subtypeOf` getResultType ty1
+              getResultType ty1 `subtypeOf` getResultType ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
         ty1 `refSubtypeOf` ty2
@@ -121,6 +121,11 @@ subtypeOf ty1 ty2
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
         ty1 `capabilitySubtypeOf` ty2
+    | isTupleType ty1 && isTupleType ty2 = do
+      let argTys1 = getArgTypes ty1
+          argTys2 = getArgTypes ty2
+      results <- zipWithM subtypeOf argTys1 argTys2
+      return $ and results
     | isTraitType ty1 && isTraitType ty2 =
         ty1 `refSubtypeOf` ty2
     | isTraitType ty1 && isCapabilityType ty2 = do
@@ -232,9 +237,9 @@ propagateResultType ty e
     | hasResultingBody e =
         let body' = propagateResultType ty (body e)
         in setType ty e{body = body'}
-    | MatchDecl{matchbody} <- e =
-        let matchbody' = map (second $ propagateResultType ty) matchbody
-        in setType ty e{matchbody = matchbody'}
+    | Match{clauses} <- e =
+        let clauses' = map propagateMatchClause clauses
+        in setType ty e{clauses = clauses'}
     | Seq{eseq} <- e =
         let result = propagateResultType ty (last eseq)
         in setType ty e{eseq = init eseq ++ [result]}
@@ -248,3 +253,6 @@ propagateResultType ty e
       hasResultingBody While{} = True
       hasResultingBody For{} = True
       hasResultingBody _ = False
+
+      propagateMatchClause mc@MatchClause{mchandler} =
+          mc{mchandler = propagateResultType ty mchandler}
