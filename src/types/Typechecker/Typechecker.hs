@@ -962,11 +962,6 @@ coerce expected actual
      resultTypeParams <- zipWithM coerce (getTypeParameters expected)
                                          (getTypeParameters actual)
      return $ setTypeParameters actual resultTypeParams
-  | isMaybeType actual = do
-      unless (isMaybeType expected) $
-        tcError $ "Cannot cast a 'Maybe' type to '" ++ show expected ++ "' type"
-      resultType <- coerce (getResultType expected) (getResultType actual)
-      return $ setResultType actual resultType
   | hasResultType expected && hasResultType actual = do
        resultType <- coerce (getResultType expected) (getResultType actual)
        return $ setResultType actual resultType
