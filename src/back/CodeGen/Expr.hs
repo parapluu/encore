@@ -243,7 +243,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         return (resultVar, matchType)
 
       convertToIf :: CCode Lval -> [(CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))] -> CCode Expr
-      convertToIf _ [] = Embed ""
+      convertToIf resultVar [] = StatAsExpr resultVar (Assign resultVar (Int 0))
       convertToIf resultVar ((cond, binding, body):rest) =
         let tBody = snd body
             nBody = fst body
