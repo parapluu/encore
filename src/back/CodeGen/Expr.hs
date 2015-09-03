@@ -220,11 +220,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (nalloc, Seq [talloc, tag, tE, tJust])
 
   translate maybe@(A.MaybeValue _ (A.NothingData {})) = do
-    -- TODO: use predefined Nothing at the C level
-    let createOption = Call (Nam "encore_alloc") [(Sizeof . AsType) (Nam "option_t")]
+    let createOption = Amp (Nam "DEFAULT_NOTHING")
     (nalloc, talloc) <- named_tmp_var "option" (A.getType maybe) createOption
-    let result = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "NOTHING")
-    return (nalloc, Seq [talloc, result])
+    return (nalloc, talloc)
 
   translate match@(A.MatchDecl {A.arg, A.matchbody}) = do
     (nArg, tArg) <- translate arg

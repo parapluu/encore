@@ -57,6 +57,8 @@ struct option_t {
   option_tag tag;
 };
 
+extern option_t DEFAULT_NOTHING;
+
 // end option types
 
 
