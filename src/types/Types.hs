@@ -9,8 +9,10 @@ module Types(
             ,isParType
             ,streamType
             ,isStreamType
+            ,rangeType
             ,arrayType
             ,isArrayType
+            ,isRangeType
             ,refTypeWithParams
             ,refType
             ,traitTypeFromRefType
@@ -94,6 +96,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | ParType{resultType :: Type}
           | StreamType{resultType :: Type}
           | ArrayType{resultType :: Type}
+          | RangeType
           | VoidType
           | StringType
           | IntType
@@ -124,6 +127,7 @@ instance Show Type where
     show ParType{resultType}    = "Par " ++ maybeParen resultType
     show StreamType{resultType} = "Stream " ++ maybeParen resultType
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
+    show RangeType   = "Range"
     show VoidType   = "void"
     show StringType = "string"
     show IntType    = "int"
@@ -156,6 +160,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind FutureType{}                  = "future type"
     kind ParType{}                     = "parallel type"
     kind StreamType{}                  = "stream type"
+    kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
     kind _                             = "type"
 
@@ -344,6 +349,10 @@ isParType _ = False
 streamType = StreamType
 isStreamType StreamType {} = True
 isStreamType _ = False
+
+rangeType = RangeType
+isRangeType RangeType = True
+isRangeType _         = False
 
 arrayType = ArrayType
 isArrayType ArrayType {} = True

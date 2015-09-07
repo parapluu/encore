@@ -145,6 +145,13 @@ project "array"
     "../array/array.c"
   }
 
+project "range"
+  c_lib()
+  files {
+    "../range/range.h",
+    "../range/range.c"
+  }
+
 project "task"
   c_lib()
   files {

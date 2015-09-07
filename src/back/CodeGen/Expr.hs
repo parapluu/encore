@@ -283,6 +283,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                         (Call (Nam "array_mk") [AsExpr nsize, runtime_type ty])
          return (Var arr_name, Seq [tsize, the_array_decl])
 
+  translate range_lit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
+      (nstart, tstart) <- translate start
+      (nstop, tstop)   <- translate stop
+      (nstep, tstep)   <- translate step
+      range_literal    <- Ctx.gen_named_sym "range_literal"
+      let ty = translate $ A.getType range_lit
+      return (Var range_literal, Seq [tstart, tstop, tstep,
+                                 Assign (Decl (ty, Var range_literal))
+                                        (Call (Nam "range_mk") [nstart, nstop, nstep])])
+
   translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
       do (ntarg, ttarg) <- translate target
          (nindex, tindex) <- translate index
@@ -437,6 +447,77 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp,
                  Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
                       (While (StatAsExpr ncond tcond) (Statement export_body))])
+
+  -- TODO: refactor the three different for cases into just one
+  translate for@(A.For {A.name, A.step, A.src = A.RangeLiteral {A.start = range_start, A.stop = range_stop, A.step = range_step }, A.body}) =
+      do (step_n, step_t) <- translate step
+         substitute_var name (Var $ show name)
+         (body_n, body_t) <- translate body
+         unsubstitute_var name
+         (range_start_n, range_start_t) <- translate range_start
+         (range_stop_n,  range_stop_t)  <- translate range_stop
+         (range_step_n,  range_step_t)  <- translate range_step
+         tmp <- Ctx.gen_named_sym "for";
+         cond  <- Ctx.gen_named_sym "cond";
+         start <- Ctx.gen_named_sym "start";
+         stop  <- Ctx.gen_named_sym "stop";
+         step  <- Ctx.gen_named_sym "step";
+         index <- Ctx.gen_named_sym "index";
+         let v1 = Assign (Decl (int, Var start)) range_start_n
+         let v2 = Assign (Decl (int, Var stop )) range_stop_n
+         let v3 = Assign (Decl (int, Var step )) (BinOp (translate ID.TIMES) (AsExpr range_step_n) (AsExpr step_n))
+         let v4 = Assign (Decl (int, Var index)) (Var start)
+         let v5 = Assign (Decl (int, Var (show name))) (Var index)
+         let inc = Assign (Var index) (BinOp (translate ID.PLUS) (Var index) (Var step))
+         return (Var tmp,
+                Seq $ [step_t, range_step_t, range_stop_t, range_start_t, v1, v2, v3, v4, While (BinOp (translate ID.LTE) (Var index) (Var stop)) (Seq [v5, Statement body_t, inc])])
+
+  translate for@(A.For {A.name, A.step, A.src, A.body}) =
+    if Ty.isArrayType $ A.getType src
+    then array_iteration name step src body
+    else range_iteration name step src body
+      where
+        range_iteration name step src body = 
+          do (step_n, step_t) <- translate step
+             substitute_var name (Var $ show name)
+             (body_n, body_t) <- translate body
+             unsubstitute_var name
+             (src_n,  src_t)    <- translate src
+             tmp <- Ctx.gen_named_sym "for";
+             cond  <- Ctx.gen_named_sym "cond";
+             start <- Ctx.gen_named_sym "start";
+             stop  <- Ctx.gen_named_sym "stop";
+             step  <- Ctx.gen_named_sym "step";
+             index <- Ctx.gen_named_sym "index";
+             let v1 = Assign (Decl (int, Var start)) (Call (Nam "range_start") [src_n]) 
+             let v2 = Assign (Decl (int, Var stop )) (Call (Nam "range_stop") [src_n]) 
+             let v3 = Assign (Decl (int, Var step )) (BinOp (translate ID.TIMES) (Call (Nam "range_step") [src_n]) (AsExpr step_n))
+             let v4 = Assign (Decl (int, Var index)) (Var start)
+             let v5 = Assign (Decl (int, Var (show name))) (Var index)
+             let inc = Assign (Var index) (BinOp (translate ID.PLUS) (Var index) (Var step))
+             return (Var tmp,
+                    Seq $ [step_t, src_t, v1, v2, v3, v4, While (BinOp (translate ID.LTE) (Var index) (Var stop)) (Seq [v5, Statement body_t, inc])])
+        array_iteration name step src body =
+          do (step_n, step_t) <- translate step
+             substitute_var name (Var $ show name)
+             (body_n, body_t) <- translate body
+             unsubstitute_var name
+             (src_n,  src_t)    <- translate src
+             tmp <- Ctx.gen_named_sym "for";
+             cond  <- Ctx.gen_named_sym "cond";
+             start <- Ctx.gen_named_sym "start";
+             stop  <- Ctx.gen_named_sym "stop";
+             step  <- Ctx.gen_named_sym "step";
+             index <- Ctx.gen_named_sym "index";
+             let v1 = Assign (Decl (int, Var start)) (Int 0) -- arrays start at 0
+             let v2 = Assign (Decl (int, Var stop )) (Call (Nam "array_size") [src_n]) -- array
+             let v3 = Assign (Decl (int, Var step )) step_n 
+             let v4 = Assign (Decl (int, Var index)) (Var start)
+             let elem_type = translate $ Ty.getResultType $ A.getType src
+             let v5 = Assign (Decl (elem_type, Var (show name))) (Call (Nam "array_get") [src_n, (Var index)] `Dot` encore_arg_t_tag elem_type) -- array, TODO "i" 
+             let inc = Assign (Var index) (BinOp (translate ID.PLUS) (Var index) (Var step))
+             return (Var tmp,
+                    Seq $ [step_t, v1, v2, v3, v4, While (BinOp (translate ID.LT) (Var index) (Var stop)) (Seq [v5, Statement body_t, inc])])
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_named_sym "ite"

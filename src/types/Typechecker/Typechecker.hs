@@ -623,6 +623,40 @@ instance Checkable Expr where
                 tcError "Cannot create additional Main objects"
            return $ setType ty' peer{ty = ty'}
 
+    --  E |- n : int
+    --  E |- m : int
+    --  E |- k : int
+    -- ----------------------------
+    --  E |- [n..m by k] : Range
+    doTypecheck range@(RangeLiteral {start, stop, step}) =
+        do eStart <- hasType start intType
+           eStop  <- hasType stop  intType
+           eStep  <- hasType step  intType
+           return $ setType rangeType range{start = eStart, stop = eStop, step = eStep}
+
+    --  E |- n : int
+    --  E |- m : int
+    --  E |- k : int
+    -- ----------------------------
+    --  E |- [n..m by k] : Range
+    doTypecheck for@(For {name, step, src, body}) =
+        do step_typed <- doTypecheck step
+           src_typed  <- doTypecheck src
+           step_typed <- doTypecheck step
+           let src_t = AST.getType src_typed
+
+           unless ((isArrayType src_t) || (isRangeType src_t)) $
+             tcError "For loops can only iterate over ranges or arrays"
+
+           if isRangeType src_t
+           then do body_typed <- typecheckz body intType
+                   return $ setType voidType for{step = step_typed, src = src_typed, body = body_typed}
+           else do body_typed <- typecheckz body (getResultType $ AST.getType src_typed)
+                   return $ setType voidType for{step = step_typed, src = src_typed, body = body_typed}
+        where
+          add_iterator_variable ty = extendEnvironment [(name, ty)]
+          typecheckz b ty = local (add_iterator_variable ty) $ typecheck b
+
    ---  |- ty
     --  E |- size : int
     -- ----------------------------

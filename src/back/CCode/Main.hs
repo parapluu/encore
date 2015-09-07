@@ -98,3 +98,4 @@ data CCode a where
     Comm         :: String -> CCode a
     Annotated    :: String -> CCode a -> CCode a
     FunPtrDecl   :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Stat
+    RangeLiteral :: CCode Expr -> CCode Expr -> CCode Expr -> CCode Expr

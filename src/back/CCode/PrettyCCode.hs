@@ -104,6 +104,7 @@ pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
                    braced_block (pp' t) $+$
                  text "else" $+$
                    braced_block (pp' e)
+pp' (RangeLiteral start stop step) = text "[" <+> pp' start <+> pp' stop <+> pp' step <+> text "]"
 pp' (Return e) = text "return" <+> pp' e <> text ";"
 pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
 pp' (Int n) = tshow n

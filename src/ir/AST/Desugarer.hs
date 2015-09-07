@@ -73,6 +73,48 @@ desugar IfThen{emeta, cond, thn} =
 desugar Unless{emeta, cond, thn} =
     IfThenElse emeta (Unary (cloneMeta emeta) Identifiers.NOT cond) thn (Skip (cloneMeta emeta))
 
+-- -- Desugars
+-- --   for id <- [e1..e2] e3
+-- -- into
+-- --   let id = e1 in while id < e2 { e3; id = id + 1 }
+-- desugar For{emeta, name, step = s, src = RangeLiteral{emeta = _, start, stop, step}, body} =
+--     Let emeta
+--         [(name, start), (Name "__gub__", stop), (Name "__step__", s)] -- TODO: s * step
+--        (While emeta
+--              (Binop emeta
+--                    Identifiers.LTE
+--                    (VarAccess emeta name)
+--                    (VarAccess emeta (Name "__gub__")))
+--              (Seq emeta
+--                   [body, (Assign emeta
+--                                (VarAccess emeta name)
+--                                (Binop emeta
+--                                      PLUS
+--                                      (VarAccess emeta name)
+--                                      (VarAccess emeta (Name "__step__"))))]))
+
+-- -- Desugars
+-- --   for id <- e1 e2
+-- -- into
+-- --   let id = e1 in while id < e2 { e3; id = id + 1 }
+-- desugar For{emeta, name, step, src, body} =
+--     Let emeta
+--         [(name, MethodCall emeta src (Name "start") []),
+--          (Name "__gub__", MethodCall emeta src (Name "stop") []),
+--          (Name "__step__", step)] -- TODO: s * step
+--        (While emeta
+--              (Binop emeta
+--                    Identifiers.LTE
+--                    (VarAccess emeta name)
+--                    (VarAccess emeta (Name "__gub__")))
+--              (Seq emeta
+--                   [body, (Assign emeta
+--                                (VarAccess emeta name)
+--                                (Binop emeta
+--                                      PLUS
+--                                      (VarAccess emeta name)
+--                                      (VarAccess emeta (Name "__step__"))))]))
+
 -- Desugars
 --   repeat id <- e1 e2
 -- into

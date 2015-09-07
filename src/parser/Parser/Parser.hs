@@ -45,14 +45,14 @@ lexer =
    P.identStart = letter,
    P.reservedNames = [
      "passive", "class", "def", "stream", "breathe", "int", "string", "real",
-     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat",
+     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat", "for",
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
      "peer", "async", "finish", "foreach", "trait", "require", "val"
    ],
    P.reservedOpNames = [
-     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
+     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..", 
      "\\", "()", "~~>"
      ]
   }
@@ -67,6 +67,7 @@ operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
+dotdot     = symbol ".."
 commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
 colon      = P.colon lexer
@@ -385,10 +386,12 @@ expr  =  unit
      <|> closure
      <|> task
      <|> finishTask
+     <|> for
      <|> foreach
      <|> parens expression
      <|> varAccess
      <|> arraySize
+     <|> try rangeLit
      <|> arrayLit
      <|> letExpression
      <|> try ifThenElse
@@ -580,3 +583,34 @@ expr  =  unit
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
+      for = try for_by <|> for_each
+      for_by = do pos <- getPosition -- for i <- 1..10 by 2 expr
+                  reserved "for"
+                  name <- identifier
+                  symbol "<-"
+                  src <- expression
+                  reserved "by"
+                  step <- expression
+                  body <- expression
+                  return $ For (meta pos) (Name name) step src body
+      for_each = do pos <- getPosition -- for i <- 1..10 expr
+                    reserved "for"
+                    name <- identifier
+                    symbol "<-"
+                    src <- expression
+                    body <- expression
+                    return $ For (meta pos) (Name name) (IntLiteral (meta pos) 1) src body
+      rangeLit = try (brackets rangeWithStride) <|> brackets rangeWithoutStride
+      rangeWithoutStride = do pos <- getPosition
+                              start <- expression
+                              dotdot
+                              stop <- expression
+                              return $ RangeLiteral (meta pos) start stop (IntLiteral (meta pos) 1)
+      rangeWithStride = do pos <- getPosition
+                           start <- expression
+                           dotdot
+                           stop <- expression
+                           reserved "by"
+                           step <- expression
+                           return $ RangeLiteral (meta pos) start stop step
+

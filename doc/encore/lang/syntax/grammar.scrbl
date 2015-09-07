@@ -39,10 +39,13 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword exc "!")
 @(encore/keyword k_let "let")
 @(encore/keyword repeat "repeat")
+@(encore/keyword for "for")
+@(encore/keyword by "by")
 @(encore/keyword arrow "->")
 @(encore/keyword larrow "<-")
 @(encore/keyword lamb "\\")
 @(encore/keyword dot ".")
+@(encore/keyword dotdot "..")
 @(encore/keyword l "<")
 @(encore/keyword b ">")
 @(encore/keyword equals "==")
@@ -201,6 +204,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[Name]
 	      @seq[let LetDecls in Expr]
 	      @seq[repeat Name larrow Expr Expr]
+	      @seq[for Name larrow Expr Expr]
+	      @seq[for Name larrow Expr by Expr Expr]
 	      @seq[Expr equal Expr]
 	      @seq[open-c Sequence close-c]
 	      @seq[if Expr then Expr else Expr]
@@ -210,6 +215,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[get Expr]
 	      @seq[new Type open-paren Arguments close-paren]
 	      @seq[new Type]
+	      @seq[new open-bracket Expr dotdot Expr close-bracket]
+	      @seq[new open-bracket Expr dotdot Expr by Expr close-bracket]
 	      @seq[Expr open-bracket Expr close-bracket]
 	      @seq[open-bracket Expr @elem{, ...} close-bracket]
 	      @seq[bar Expr bar]

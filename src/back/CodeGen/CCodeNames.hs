@@ -81,6 +81,9 @@ stream = Ptr $ Typ "stream_t"
 array :: CCode Ty
 array = Ptr $ Typ "array_t"
 
+range :: CCode Ty
+range = Ptr $ Typ "struct range_t"
+
 unit :: CCode Lval
 unit = Embed "UNIT"
 
@@ -236,3 +239,6 @@ closure_type_rec_name = Nam $ "closure_type"
 
 array_type_rec_name :: CCode Name
 array_type_rec_name = Nam $ "array_type"
+
+range_type_rec_name :: CCode Name
+range_type_rec_name = Nam $ "range_type"

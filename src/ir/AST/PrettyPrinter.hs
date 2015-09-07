@@ -30,6 +30,7 @@ ppElse = text "else"
 ppUnless = text "unless"
 ppWhile = text "while"
 ppRepeat = text "repeat"
+ppFor = text "for"
 ppGet = text "get"
 ppYield = text "yield"
 ppEos = text "eos"
@@ -177,6 +178,9 @@ ppExpr While {cond, body} =
 ppExpr Repeat {name, times, body} =
     ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
          indent (ppExpr body)
+ppExpr For {name, step, src, body} =
+    ppFor <+> (ppName name) <+> (text "<-") <+> (text "by") <+> (ppExpr step) <+> (ppExpr src) $+$
+         indent (ppExpr body)
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> (text "~~>") <+> ppExpr chain
 ppExpr Get {val} = ppGet <+> ppExpr val
@@ -204,6 +208,7 @@ ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
+ppExpr RangeLiteral {start, stop, step} = text "[" <+> ppExpr start <+> text "," <+> ppExpr stop <+> text " by " <+> ppExpr step <+> text"]"
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
 ppExpr Binop {binop, loper, roper} = ppExpr loper <+> ppBinop binop <+> ppExpr roper
