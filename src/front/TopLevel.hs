@@ -44,7 +44,7 @@ standardLibLocation = $((stringE . init) =<< (runIO $ System.Environment.getEnv 
 data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run |
+data Option = GCC | Clang | Run | Bench | Profile |
               KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly | Verbatim
@@ -57,6 +57,8 @@ parseArguments args =
         parseArguments' args = opt : parseArguments' rest
             where
               (opt, rest) = parseArgument args
+              parseArgument ("-bench":args)      = (Bench, args)
+              parseArgument ("-pg":args)        = (Profile, args)
               parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
               parseArgument ("-gcc":args)       = (GCC, args)
@@ -128,8 +130,10 @@ compileProgram prog sourcePath options =
            flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
+           pg = if (Profile `elem` options) then "-pg" else ""
+           bench = if (Bench `elem` options) then "-O3" else ""
            libs  = libPath ++ "*.a"
-           cmd   = cc <+> flags <+> oFlag <+> libs <+> incs
+           cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
            compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
