@@ -640,22 +640,21 @@ instance Checkable Expr where
     -- ----------------------------
     --  E |- [n..m by k] : Range
     doTypecheck for@(For {name, step, src, body}) =
-        do step_typed <- doTypecheck step
-           src_typed  <- doTypecheck src
-           step_typed <- doTypecheck step
-           let src_t = AST.getType src_typed
+        do stepTyped <- doTypecheck step
+           srcTyped  <- doTypecheck src
+           let src_t = AST.getType srcTyped
 
            unless ((isArrayType src_t) || (isRangeType src_t)) $
              tcError "For loops can only iterate over ranges or arrays"
 
            if isRangeType src_t
-           then do body_typed <- typecheckz body intType
-                   return $ setType voidType for{step = step_typed, src = src_typed, body = body_typed}
-           else do body_typed <- typecheckz body (getResultType $ AST.getType src_typed)
-                   return $ setType voidType for{step = step_typed, src = src_typed, body = body_typed}
+           then do bodyTyped <- typecheckz body intType
+                   return $ setType voidType for{step = stepTyped, src = srcTyped, body = bodyTyped}
+           else do bodyTyped <- typecheckz body (getResultType $ AST.getType srcTyped)
+                   return $ setType voidType for{step = stepTyped, src = srcTyped, body = bodyTyped}
         where
-          add_iterator_variable ty = extendEnvironment [(name, ty)]
-          typecheckz b ty = local (add_iterator_variable ty) $ typecheck b
+          addIteratorVariable ty = extendEnvironment [(name, ty)]
+          typecheckz b ty = local (addIteratorVariable ty) $ typecheck b
 
    ---  |- ty
     --  E |- size : int

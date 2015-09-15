@@ -583,34 +583,19 @@ expr  =  unit
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
-      for = try for_by <|> for_each
-      for_by = do pos <- getPosition -- for i <- 1..10 by 2 expr
-                  reserved "for"
-                  name <- identifier
-                  symbol "<-"
-                  src <- expression
-                  reserved "by"
-                  step <- expression
-                  body <- expression
-                  return $ For (meta pos) (Name name) step src body
-      for_each = do pos <- getPosition -- for i <- 1..10 expr
-                    reserved "for"
-                    name <- identifier
-                    symbol "<-"
-                    src <- expression
-                    body <- expression
-                    return $ For (meta pos) (Name name) (IntLiteral (meta pos) 1) src body
-      rangeLit = try (brackets rangeWithStride) <|> brackets rangeWithoutStride
-      rangeWithoutStride = do pos <- getPosition
-                              start <- expression
-                              dotdot
-                              stop <- expression
-                              return $ RangeLiteral (meta pos) start stop (IntLiteral (meta pos) 1)
-      rangeWithStride = do pos <- getPosition
-                           start <- expression
-                           dotdot
-                           stop <- expression
-                           reserved "by"
-                           step <- expression
-                           return $ RangeLiteral (meta pos) start stop step
+      for = do pos <- getPosition -- for i <- 1..10 by 2 expr
+               reserved "for"
+               name <- identifier
+               symbol "<-"
+               src <- expression
+               step <- option (IntLiteral (meta pos) 1) (do {reserved "by"; expression})
+               body <- expression
+               return $ For (meta pos) (Name name) step src body
+      rangeLit = brackets range
+      range = do pos <- getPosition
+                 start <- expression
+                 dotdot
+                 stop <- expression
+                 step <- option (IntLiteral (meta pos) 1) (do {reserved "by"; expression})
+                 return $ RangeLiteral (meta pos) start stop step
 
