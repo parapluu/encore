@@ -26,4 +26,3 @@ class Main
       x = new Foo
     in
       x ! foo(this)
-

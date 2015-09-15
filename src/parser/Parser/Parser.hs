@@ -50,7 +50,7 @@ lexer =
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "join",
+     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
      "extract"
    ],
    P.reservedOpNames = [
@@ -682,8 +682,8 @@ expr  =  unit
                 return $ Peer (meta pos) ty
       print = do pos <- getPosition
                  reserved "print"
-                 val <- expression
-                 return $ Print (meta pos) "{}\n" [val]
+                 arg <- option [] ((:[]) <$> expression)
+                 return $ Print (meta pos) arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

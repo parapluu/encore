@@ -16,5 +16,5 @@ class Main
     in {
       null : Foo;
       x = foo();
-      print("I ain't scared of no null!\n");
+      print "I ain't scared of no null!";
     }

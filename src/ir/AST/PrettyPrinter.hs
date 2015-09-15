@@ -238,10 +238,7 @@ ppExpr BFalse {} = ppFalse
 ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Peer {ty} = ppPeer <+> ppType ty
-ppExpr Print {stringLit, args} =
-  if stringLit == "{}\n" && length args == 1
-  then text "print" <+> ppExpr (head args)
-  else ppPrint <> parens (text (show stringLit) <> comma <+> commaSep (map ppExpr args))
+ppExpr Print {args} = ppPrint <> parens (commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text (show stringLit)
 ppExpr IntLiteral {intLit} = int intLit

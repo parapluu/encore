@@ -33,4 +33,3 @@ class Test
         print "After await";
         print get f
       }
-

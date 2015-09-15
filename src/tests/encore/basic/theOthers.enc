@@ -1,4 +1,4 @@
-class Main 
+class Main
   def main() : void
     let other = new Other(10) in
       other!work()

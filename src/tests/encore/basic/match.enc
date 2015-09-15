@@ -11,7 +11,7 @@ passive class Container<t>
 
 class Main
   def test1() :void
-    match new Container<string>("foobar") with
+    match new Container<String>("foobar") with
       _ when false => print "baaaad"
       This(This(This(This(c)))) => print c.elem
 
@@ -19,9 +19,8 @@ class Main
     match (1, 2, "123") with
       (a, b, "123") when a > b => print "nope"
       (1, b, c) => print("{}{}{}", 1, b, c)
-      
+
   def main() :void {
     this.test1();
     this.test2();
     }
-   

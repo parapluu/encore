@@ -35,6 +35,7 @@ module Types(
             ,isPassiveClassType
             ,isClassType
             ,isMainType
+            ,isStringObjectType
             ,capabilityType
             ,isCapabilityType
             ,incapability
@@ -539,6 +540,9 @@ isTypeVar _ = False
 
 isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
 isMainType _ = False
+
+isStringObjectType ClassType{refInfo = RefInfo{refId = "String"}} = True
+isStringObjectType _ = False
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace

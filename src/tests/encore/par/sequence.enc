@@ -1,5 +1,5 @@
-def assertEqualsPassive(p: PObject, tag: string): void {
-  assertTrue(p.tag == tag);
+def assertEqualsPassive(p: PObject, tag: String): void {
+  assertTrue(p.tag.equals(tag));
 }
 
 def inc(i: int): int
@@ -24,7 +24,7 @@ class AObject
   def passivePar(): Par PObject liftv(new PObject())
 
 passive class PObject
-  tag: string
+  tag: String
   value: int
 
   def init(): void {

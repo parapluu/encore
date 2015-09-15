@@ -1,6 +1,6 @@
 class Main
   def main() : void
     let app = \(f : a -> b, x : a) -> {f(x)}
-        printer = \(s : string) -> print s 
+        printer = \(s : String) -> print s
     in
       app(printer, "Hello ponyworld")

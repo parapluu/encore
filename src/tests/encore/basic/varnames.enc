@@ -1,15 +1,15 @@
--- testing that _ works in varnames
+-- test!ing that _ works in varnames
 -- (but not leading)
 class Under_Score
   under_score:int
   def getty() : int
     this.under_score
-  def under_score(under_score:int) : void 
+  def under_score(under_score:int) : void
     this.under_score = under_score
 
 class Main
   def main() : void
-    let 
+    let
       under_score = new Under_Score
     in
       {

@@ -2,5 +2,5 @@
 import DeepLib
 
 passive class Bar
-  def name() : string
+  def name() : String
      (new Foo).name()

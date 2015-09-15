@@ -1006,13 +1006,37 @@ instance Checkable Expr where
     --  E |- arg1 : t1 .. E |- argn : tn
     -- ---------------------------------------------
     --  E |- print(stringLit, arg1 .. argn) : void
-    doTypecheck e@(Print {stringLit, args}) =
-        do let noArgs = T.count (T.pack "{}") (T.pack stringLit)
-           unless (noArgs == length args) $
+    doTypecheck e@(Print {args = []}) = do
+        let meta = emeta e
+            eFormatString = setType stringType $ StringLiteral meta "\n"
+        return $ setType voidType e {args = [eFormatString]}
+
+    doTypecheck e@(Print {args = [arg]}) =
+        do eArg <- doTypecheck arg
+           let meta = emeta e
+               eFormatString = setType stringType $ StringLiteral meta "{}\n"
+           let newArgs = [eFormatString, eArg]
+           return $ setType voidType e {args = newArgs}
+
+    doTypecheck e@(Print {args}) =
+        do eArgs <- mapM typecheck args
+           let meta = emeta e
+               fst = head eArgs
+               rest = tail eArgs
+               sugaredFst = fromJust $ getSugared fst
+           unless (isStringLiteral sugaredFst) $
+                  tcError $ "Formatted printing expects first argument '" ++
+                            show (ppExpr fst) ++ "' to be a string literal"
+           let formatString = stringLit sugaredFst
+               noArgs = T.count (T.pack "{}") (T.pack formatString)
+           unless (noArgs == length rest) $
                   tcError $ "Wrong number of arguments to format string. " ++
-                            "Expected " ++ show (length args) ++ ", got " ++ show noArgs ++ "."
-           eArgs <- mapM typecheck args
-           return $ setType voidType e {args = eArgs}
+                            "Expected " ++ show noArgs ++ ", got " ++
+                            show (length rest) ++ "."
+           let eFormatString = setType stringType $
+                               StringLiteral meta formatString
+               newArgs = eFormatString : rest
+           return $ setType voidType e {args = newArgs}
 
     --  E |- arg : int
     -- ------------------------

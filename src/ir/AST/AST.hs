@@ -360,7 +360,6 @@ data Expr = Skip {emeta :: Meta Expr}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}
           | Print {emeta :: Meta Expr,
-                   stringLit :: String,
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
@@ -399,7 +398,6 @@ isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
 
-
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
@@ -411,6 +409,9 @@ isRangeLiteral _ = False
 isCallable :: Expr -> Bool
 isCallable e = isArrowType (AST.AST.getType e)
 
+isStringLiteral :: Expr -> Bool
+isStringLiteral StringLiteral {} = True
+isStringLiteral _ = False
 
 instance HasMeta Expr where
     getMeta = emeta
@@ -431,7 +432,6 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
-
 
 traverseProgram :: (Program -> [a]) -> Program -> [a]
 traverseProgram f program =

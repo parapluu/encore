@@ -51,12 +51,13 @@ instance Translatable ID.UnaryOp (CCode Name) where
 
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
-    | Ty.isIntType ty    = "%lli"
-    | Ty.isRealType ty   = "%f"
-    | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty   = "bool<%zd>"
-    | Ty.isRefType ty    = show ty ++ "<%p>"
-    | Ty.isFutureType ty = "fut<%p>"
+    | Ty.isIntType ty          = "%lli"
+    | Ty.isRealType ty         = "%f"
+    | Ty.isStringObjectType ty = "%s"
+    | Ty.isStringType ty       = "%s"
+    | Ty.isBoolType ty         = "bool<%zd>"
+    | Ty.isRefType ty          = show ty ++ "<%p>"
+    | Ty.isFutureType ty       = "fut<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
@@ -196,22 +197,31 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 Call partySequence [AsExpr npar, AsExpr nseqfunc, runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
-  translate (A.Print {A.stringLit = s, A.args}) = do
-      targs <- mapM translate args
-      let argNames = map (AsExpr . fst) targs
+  translate (A.Print {A.args}) = do
+      let string = head args
+          rest = tail args
+      unless (Ty.isStringType $ A.getType string) $
+             error $ "Expr.hs: Print expects first argument to be a string literal"
+      targs <- mapM translate rest
+      let argNames = map fst targs
       let argDecls = map snd targs
-      let argTys   = map A.getType args
-      let fstring = formatString s argTys
+      let argTys   = map A.getType rest
+      let fstring   = formatString (A.stringLit string) argTys
+      let argNamesWithoutStringObjects = zipWith extractStringFromString rest argNames
       return $ (unit,
                 Seq $ argDecls ++
                      [Statement
                       (Call (Nam "printf")
-                       ((String fstring) : argNames))])
+                       ((String fstring) : argNamesWithoutStringObjects))])
       where
         formatString s [] = s
-        formatString "" (ty:tys) = error "Wrong number of arguments to printf"
+        formatString "" (ty:tys) = error "Expr.hs: Wrong number of arguments to printf"
         formatString ('{':'}':s) (ty:tys) = (typeToPrintfFstr ty) ++ (formatString s tys)
         formatString (c:s) tys = c : (formatString s tys)
+
+        extractStringFromString arg argName
+          | Ty.isStringObjectType (A.getType arg) = AsExpr $ argName `Arrow` (fieldName $ ID.Name "data")
+          | otherwise                             = AsExpr argName
 
   translate exit@(A.Exit {A.args = [arg]}) = do
       (narg, targ) <- translate arg

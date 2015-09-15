@@ -1,0 +1,234 @@
+embed
+#include <string.h>
+#include <strings.h>
+#include <alloca.h>
+#include <ctype.h>
+end
+-- This is a utility library for working with strings.
+-- [x] build a wrapper around string.h
+-- [x] build tests for wrapper
+-- [x] expose these functions to the Encore compiler
+-- [x] change this.length(a) ==> a.length()
+-- [ ] Write proper docs
+-- Be aware of issue #204
+passive class String
+  data:string
+
+  def init(s:string) : void
+    this.data = s
+
+  def concatenate(b:String) : String
+    let
+      t_len = this.length()
+      b_len = b.length()
+      data  = this.data
+      b_data  = b.data
+    in
+      new String(embed string
+        void *str = encore_alloc(#{t_len} + #{b_len} + 1);
+        strncpy(str, (char *)#{data}, #{t_len});
+        strncpy(str + #{t_len}, (char *)#{b_data}, #{b_len} + 1);
+        str;
+      end)
+
+  def copy() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed string
+        char *str = encore_alloc(#{t_len} + 1);
+        strncpy(str, (char *)#{data}, #{t_len} + 1);
+        str;
+      end)
+
+  def contains(b:String) : bool
+    let
+      data  = this.data
+      b_data  = b.data
+    in
+      embed bool
+        strstr((char *)#{data}, (char *)#{b_data}) != NULL;
+      end
+
+  def contains_ignore_case(b:String) : bool
+    this.to_upper().contains(b.to_upper())
+
+  def compare(b:String) : int
+    let
+      t_len = this.length()
+      b_len = b.length()
+      data  = this.data
+      b_data  = b.data
+    in
+      embed int
+        strncmp((char *)#{data}, (char *)#{b_data}, #{t_len} > #{b_len} ? #{t_len} : #{b_len});
+      end
+
+  def compare_ignore_case(b:String) : int
+    this.to_upper().compare(b.to_upper())
+
+  def to_upper() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed string
+        char *str = encore_alloc(#{t_len} + 1);
+        for (int i = 0; i < #{t_len}; ++i)
+          {
+            str[i] = toupper(((char *)#{data})[i]);
+          }
+        str[#{t_len}] = '\0';
+        str;
+      end)
+
+  def to_lower() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed string
+        char *str = encore_alloc(#{t_len} + 1);
+        for (int i = 0; i < #{t_len}; ++i)
+          {
+            str[i] = tolower(((char *)#{data})[i]);
+          }
+        str[#{t_len}] = '\0';
+        str;
+      end)
+
+  def length() : int
+    let
+      data  = this.data
+    in
+      embed int
+        strlen(#{data});
+      end
+
+  def size() : int
+    this.length()
+
+  def get_() : String
+    this
+
+  def substring(from:int, to:int) : String
+    if to < from
+    then ""
+    else
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed string
+        int siz = #{to} - #{from};
+        siz = siz < #{t_len} ? siz : #{t_len};
+        char *str = encore_alloc(siz + 1);
+        strncpy(str, ((char *)#{data})+#{from}, siz);
+        str[siz] = '\0';
+        str;
+      end)
+  def equals(s:String) : bool
+    this.compare(s) == 0
+
+  -- Calculates the number of occurrences of s in the string
+  def occurrences(s:String) : int
+    let
+      counter = 0
+      i       = this.find(s)
+      s_len   = s.length()
+    in {
+      while i >= 0 { counter = counter + 1; i = this.find_from(s, i + s_len); };
+      counter
+    }
+
+  -- TODO: [ABA].split("A") => ["", "B"] not ["", "B", ""]
+  def split(s:String) : [String]
+    let
+      splits = new [String](this.occurrences(s) + 1)
+      p      = 0
+      i      = this.find(s)
+      occs   = 0
+      s_len  = s.length()
+    in {
+      while i >= 0 {
+        splits[occs] = this.substring(p, i);
+        occs = occs + 1;
+        p = i + s_len;
+        i = this.find_from(s, i + s_len);
+      };
+      splits[occs] = this.substring(p, this.length());
+      splits;
+    }
+
+
+  -- lots of intermediate string creations
+  def join(strings:[String]) : String
+    if |strings| == 0
+    then ""
+    else
+      let
+        result = strings[0]
+      in {
+        for i in [1..|strings|-1]
+          result = result.concatenate(this).concatenate(strings[i]);
+        result;
+      }
+
+  def trim() : String
+    let
+      len = this.length()
+      str = this.data
+      start_index = embed int int s = 0;        while (#{str}[s] && isspace(#{str}[s])) ++s; s; end
+      stop_index  = embed int int s = #{len}-1; while (#{str}[s] && isspace(#{str}[s])) --s; s; end
+    in
+      this.substring(start_index, stop_index + 1)
+  def replace(a:String, b:String) : String
+    b.join(this.split(a))
+
+  -- Returns -1 if not found
+  def find(a:String) : int
+    this.find_from(a, 0)
+
+  -- Returns -1 if not found
+  def find_from(a:String, b:int) : int
+    if (b < 0) or (b >= this.length())
+    then -1
+    else embed int
+      char *str = _this->_enc__field_data;
+      char *pattern = #{a}->_enc__field_data;
+      char *loc = strstr(str + #{b}, pattern);
+      loc ? loc - str : -1;
+    end
+
+  -- Terrible code
+  def delete(s:String) : String
+    let
+      to_len = this.length()
+      s_len = s.length()
+    in
+      new String(embed string
+      const int STACK_ALLOC_MAX = 16536;
+      char *from = _this->_enc__field_data;
+      char *pattern  = #{s}->_enc__field_data;
+      char *tmp = NULL;
+
+      if (#{to_len} > STACK_ALLOC_MAX) { tmp = encore_alloc(#{to_len} + 1); } else { tmp = alloca(#{to_len}); }
+
+      int copied = 0;
+      int skipped = 0;
+      for (char *next = strstr(from, pattern); next; next = strstr(next+#{s_len}, pattern))
+        {
+          strncpy(tmp + copied, from + copied + skipped, next - from - copied - skipped);
+          copied  = next - from - skipped;
+          skipped += #{s_len};
+        }
+      strcpy(tmp + copied, from + copied + skipped);
+
+      char *result = encore_alloc(copied + 1);
+      strcpy(result, tmp);
+      result;
+    end)
+
+  def format(b:[String]) : String
+    "To be implemented"
