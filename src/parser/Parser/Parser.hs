@@ -589,7 +589,7 @@ expr  =  unit
       for = do pos <- getPosition -- for i <- 1..10 by 2 expr
                reserved "for"
                name <- identifier
-               symbol "<-"
+               reserved "in"
                src <- expression
                step <- option (IntLiteral (meta pos) 1)
                               (do {reserved "by"; expression})

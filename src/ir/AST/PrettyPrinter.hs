@@ -178,8 +178,11 @@ ppExpr While {cond, body} =
 ppExpr Repeat {name, times, body} =
     ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
          indent (ppExpr body)
+ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
+    ppFor <+> ppName name <+> ppIn <+> ppExpr src $+$
+         indent (ppExpr body)
 ppExpr For {name, step, src, body} =
-    ppFor <+> (ppName name) <+> (text "<-") <+> (ppExpr src) <+> (text "by") <+> (ppExpr step) $+$
+    ppFor <+> ppName name <+> ppIn <+> ppExpr src <+> text "by" <+> ppExpr step $+$
          indent (ppExpr body)
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> (text "~~>") <+> ppExpr chain
