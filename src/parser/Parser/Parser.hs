@@ -355,9 +355,9 @@ expression = buildExpressionParser opTable expr
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
-          Postfix (do pos <- getPosition
-                      index <- brackets expression
-                      return (\e -> ArrayAccess (meta pos) e index))
+          Postfix (try (do pos <- getPosition
+                           index <- brackets expression
+                           return (\e -> ArrayAccess (meta pos) e index)))
       messageSend =
           Postfix (do pos <- getPosition
                       bang
