@@ -23,16 +23,16 @@ File  @code{Lib.enc}:
     def boo():void {
 		print "^-^"
     }
-  
+
 }|
 
-Line @code{bundle Lib where} declares the module name. This line is optional, though desirable 
-for library code. 
+Line @code{bundle Lib where} declares the module name. This line is optional, though desirable
+for library code.
 
 File  @code{Bar.enc}:
 @codeblock|{
   import Lib
-  
+
   class Main:
     def main():void {
 	  let
@@ -41,7 +41,7 @@ File  @code{Bar.enc}:
 		f.boo();
 	  }
     }
-  
+
 }|
 
 Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the class @code{Foo}.
@@ -52,7 +52,7 @@ Modules are hierarchical. Module @code{A.B.C} (in some directory @code{A/B/C.enc
 in the include path) is declared using @code{bundle A.B.C where}  and  imported using @code{import A.B.C}.
 
 As of now the module system has no notion of name spaces so all imported objects needs to have unique names.
-There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
+There is also no support for cyclic imports and no "include guards" so it's up to the programmer
 to ensure that each file is only imported once.
 
 @subsection{Standard Library}
@@ -121,6 +121,18 @@ Par
 }|
 
 }
+
+@section{Comments}
+Comments in Encore are written by using @code{--}. For instance:
+
+@codeblock|{
+-- this expression prints numbers from 0 to 5
+let i = 0 in
+  while i < 5 {
+    print("i={}\n",i)
+    i = i+1
+  }
+}|
 
 @section{Primitive Types}
 The available primitive types and example literals for them are:
@@ -202,7 +214,7 @@ class Main
   }
 }|
 
-The expected output is 
+The expected output is
 
 @codeblock|{
 2
