@@ -52,7 +52,7 @@ lexer =
      "peer", "async", "finish", "foreach", "trait", "require", "val"
    ],
    P.reservedOpNames = [
-     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..", 
+     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
      "\\", "()", "~~>"
      ]
   }
@@ -588,7 +588,8 @@ expr  =  unit
                name <- identifier
                symbol "<-"
                src <- expression
-               step <- option (IntLiteral (meta pos) 1) (do {reserved "by"; expression})
+               step <- option (IntLiteral (meta pos) 1)
+                              (do {reserved "by"; expression})
                body <- expression
                return $ For (meta pos) (Name name) step src body
       rangeLit = brackets range
@@ -596,6 +597,6 @@ expr  =  unit
                  start <- expression
                  dotdot
                  stop <- expression
-                 step <- option (IntLiteral (meta pos) 1) (do {reserved "by"; expression})
+                 step <- option (IntLiteral (meta pos) 1)
+                                (do {reserved "by"; expression})
                  return $ RangeLiteral (meta pos) start stop step
-
