@@ -560,6 +560,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                      Seq [tmp_decl
                          ,step_t
                          ,step_assert
+                         ,src_t
                          ,v1, v2, v3, v4
                          ,the_loop])
 
