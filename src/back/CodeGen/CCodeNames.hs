@@ -81,14 +81,14 @@ stream = Ptr $ Typ "stream_t"
 array :: CCode Ty
 array = Ptr $ Typ "array_t"
 
+range_t :: CCode Ty
+range_t = Typ "range_t"
+
 range :: CCode Ty
-range = Ptr $ Typ "struct range_t"
+range = Ptr $ range_t
 
 unit :: CCode Lval
 unit = Embed "UNIT"
-
-range_assert_step :: CCode Name
-range_assert_step = Nam "range_assert_step"
 
 encore_name :: String -> String -> String
 encore_name kind name =

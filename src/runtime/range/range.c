@@ -7,7 +7,7 @@ struct range_t
 {
   size_t start;
   size_t stop;
-  size_t step;
+  int64_t step;
 };
 
 pony_type_t range_type =
@@ -28,7 +28,7 @@ void range_trace(void *p)
   // No pointers
 }
 
-struct range_t *range_mk(size_t start, size_t stop, size_t step)
+struct range_t *range_mk(size_t start, size_t stop, int64_t step)
 {
   range_assert_step(step);
   struct range_t *r = encore_alloc(sizeof(struct range_t));
@@ -36,7 +36,7 @@ struct range_t *range_mk(size_t start, size_t stop, size_t step)
   return r;
 }
 
-void range_assert_step(size_t step)
+void range_assert_step(int64_t step)
 {
   if(step == 0)
     {
@@ -45,6 +45,6 @@ void range_assert_step(size_t step)
     }
 }
 
-size_t range_start (struct range_t *a) { return a->start; }
-size_t range_stop  (struct range_t *a) { return a->stop;  }
-size_t range_step  (struct range_t *a) { return a->step;  }
+size_t  range_start (struct range_t *a) { return a->start; }
+size_t  range_stop  (struct range_t *a) { return a->stop;  }
+int64_t range_step  (struct range_t *a) { return a->step;  }
