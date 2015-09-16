@@ -16,4 +16,5 @@ size_t range_start (range_t *a);
 size_t range_stop  (range_t *a);
 size_t range_step  (range_t *a);
 
+pony_type_t range_type;
 #endif

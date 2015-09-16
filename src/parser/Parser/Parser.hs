@@ -106,6 +106,7 @@ typ  =  try arrow
               <|> stream
               <|> array
               <|> primitive
+              <|> range
               <|> try refType
               <|> typeVariable
               <|> parens nonArrow
@@ -125,6 +126,8 @@ typ  =  try arrow
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
+      range = do reserved "Range"
+                 return rangeType
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
