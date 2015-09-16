@@ -632,29 +632,37 @@ instance Checkable Expr where
         do eStart <- hasType start intType
            eStop  <- hasType stop  intType
            eStep  <- hasType step  intType
-           return $ setType rangeType range{start = eStart, stop = eStop, step = eStep}
+           return $ setType rangeType range{start = eStart
+                                           ,stop = eStop
+                                           ,step = eStep}
 
-    --  E |- n : int
-    --  E |- m : int
-    --  E |- k : int
-    -- ----------------------------
-    --  E |- [n..m by k] : Range
+    --  E |- rng : Range
+    --  E, x : int |- e : ty
+    -- --------------------------
+    --  E |- for x <- rng e : ty
+
+    --  E |- arr : [ty]
+    --  E, x : int |- e : ty
+    -- --------------------------
+    --  E |- for x <- arr e : ty
     doTypecheck for@(For {name, step, src, body}) =
         do stepTyped <- doTypecheck step
            srcTyped  <- doTypecheck src
-           let src_t = AST.getType srcTyped
+           let srcType = AST.getType srcTyped
 
-           unless ((isArrayType src_t) || (isRangeType src_t)) $
+           unless (isArrayType srcType || isRangeType srcType) $
              tcError "For loops can only iterate over ranges or arrays"
 
-           if isRangeType src_t
-           then do bodyTyped <- typecheckz body intType
-                   return $ setType voidType for{step = stepTyped, src = srcTyped, body = bodyTyped}
-           else do bodyTyped <- typecheckz body (getResultType $ AST.getType srcTyped)
-                   return $ setType voidType for{step = stepTyped, src = srcTyped, body = bodyTyped}
+           let elementType = if isRangeType srcType
+                             then intType
+                             else getResultType srcType
+           bodyTyped <- typecheckBody elementType body
+           return $ setType voidType for{step = stepTyped
+                                        ,src  = srcTyped
+                                        ,body = bodyTyped}
         where
           addIteratorVariable ty = extendEnvironment [(name, ty)]
-          typecheckz b ty = local (addIteratorVariable ty) $ typecheck b
+          typecheckBody ty = local (addIteratorVariable ty) . typecheck
 
    ---  |- ty
     --  E |- size : int
