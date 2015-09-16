@@ -122,6 +122,18 @@ Par
 
 }
 
+@section{Comments}
+Comments in Encore are written by using @code{--}. For instance:
+
+@codeblock|{
+-- this expression prints numbers from 0 to 5
+let i = 0 in
+  while i < 5 {
+    print("i={}\n",i)
+    i = i+1
+  }
+}|
+
 @section{Primitive Types}
 The available primitive types and example literals for them are:
 

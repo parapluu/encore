@@ -44,6 +44,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword arrow "->")
 @(encore/keyword larrow "<-")
 @(encore/keyword lamb "\\")
+@(encore/keyword comment "--")
 @(encore/keyword dot ".")
 @(encore/keyword dotdot "..")
 @(encore/keyword l "<")
@@ -193,6 +194,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			eps])
 
 	(list Expr
+              @seq[comment "(this is a comment)"]
 	      @seq[open-paren close-paren]
 	      @seq[embed Type @elem{.*} end]
 	      @seq[Expr dot Name]
