@@ -1,13 +1,14 @@
 class Foo
   def msg(m:string) : void
     print m
-    
+
 class Main
   def main() : void
     let
       fs = [new Foo, new Foo, new Foo, new Foo]
       a = [false, false, true, false, true]
       nums = [1, 2, 3, 4, 7, 8, 9, 1, 12]
+      twelve = for i <- nums i
       r = [1..10]
     in {
       for b <- a
@@ -15,6 +16,8 @@ class Main
       print "--------------";
       for n <- nums by 2
         print n;
+      print "--------------";
+      print twelve;
       print "--------------";
       for i <- r
         print i;

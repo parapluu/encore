@@ -447,7 +447,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let export_body = Seq $ tbody : [Assign (Var tmp) nbody]
          return (Var tmp,
                  Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
-                      (While (StatAsExpr ncond tcond) (Statement export_body))])
+                      While (StatAsExpr ncond tcond) (Statement export_body)])
 
   -- TODO: refactor the three different for cases into just one
   -- TODO: Generate a name for the loop variable
@@ -464,14 +464,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (range_start_n, range_start_t) <- translate range_start
          (range_stop_n,  range_stop_t)  <- translate range_stop
          (range_step_n,  range_step_t)  <- translate range_step
-         tmp <- Ctx.gen_named_sym "for"
+         tmp_var   <- Var <$> Ctx.gen_named_sym "for"
          cond_var  <- Var <$> Ctx.gen_named_sym "cond"
          start_var <- Var <$> Ctx.gen_named_sym "start"
          stop_var  <- Var <$> Ctx.gen_named_sym "stop"
          step_var  <- Var <$> Ctx.gen_named_sym "step"
          index_var <- Var <$> Ctx.gen_named_sym "index"
-         let range_assert = Statement $ Call range_assert_step [range_step_n]
-             step_assert = Statement $ Call range_assert_step [step_n]
+         let tmp_decl = Statement $ Decl ((translate (A.getType for)), tmp_var)
+             range_assert = Statement $ Call range_assert_step [range_step_n]
+             step_assert  = Statement $ Call range_assert_step [step_n]
              v1 = Assign (Decl (int, start_var)) range_start_n
              v2 = Assign (Decl (int, stop_var )) range_stop_n
              v3 = Assign (Decl (int, step_var))
@@ -482,9 +483,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              inc = Assign index_var
                           (BinOp (translate ID.PLUS) index_var step_var)
              the_loop = While (BinOp (translate ID.LTE) index_var stop_var)
-                              (Seq [v5, Statement body_t, inc])
-         return (Var tmp,
-                 Seq [step_t
+                              (Seq [v5, Statement body_t, Assign tmp_var body_n, inc])
+         return (tmp_var,
+                 Seq [tmp_decl
+                     ,step_t
                      ,step_assert
                      ,range_step_t
                      ,range_assert
@@ -504,13 +506,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              (body_n, body_t) <- translate body
              unsubstitute_var name
              (src_n,  src_t)  <- translate src
-             tmp   <- Ctx.gen_named_sym "for";
+             tmp_var   <- Var <$> Ctx.gen_named_sym "for";
              cond_var  <- Var <$> Ctx.gen_named_sym "cond"
              start_var <- Var <$> Ctx.gen_named_sym "start"
              stop_var  <- Var <$> Ctx.gen_named_sym "stop"
              step_var  <- Var <$> Ctx.gen_named_sym "step"
              index_var <- Var <$> Ctx.gen_named_sym "index"
-             let step_assert = Statement $ Call range_assert_step [step_n]
+             let tmp_decl = Statement $ Decl ((translate (A.getType for)), tmp_var)
+                 step_assert = Statement $ Call range_assert_step [step_n]
                  v1 = Assign (Decl (int, start_var)) (Call (Nam "range_start") [src_n])
                  v2 = Assign (Decl (int, stop_var)) (Call (Nam "range_stop") [src_n])
                  v3 = Assign (Decl (int, step_var))
@@ -521,9 +524,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  v5 = Assign (Decl (int, Var (show name))) index_var
                  inc = Assign index_var (BinOp (translate ID.PLUS) index_var step_var)
                  the_loop = While (BinOp (translate ID.LTE) index_var stop_var)
-                                  (Seq [v5, Statement body_t, inc])
-             return (Var tmp,
-                    Seq [step_t
+                                  (Seq [v5, Statement body_t, Assign tmp_var body_n, inc])
+             return (tmp_var,
+                    Seq [tmp_decl
+                        ,step_t
                         ,step_assert
                         ,src_t
                         ,v1, v2, v3, v4
@@ -534,13 +538,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              (body_n, body_t) <- translate body
              unsubstitute_var name
              (src_n,  src_t)    <- translate src
-             tmp <- Ctx.gen_named_sym "for";
+             tmp_var   <- Var <$> Ctx.gen_named_sym "for";
              cond_var  <- Var <$> Ctx.gen_named_sym "cond"
              start_var <- Var <$> Ctx.gen_named_sym "start"
              stop_var  <- Var <$> Ctx.gen_named_sym "stop"
              step_var  <- Var <$> Ctx.gen_named_sym "step"
              index_var <- Var <$> Ctx.gen_named_sym "index"
-             let step_assert = Statement $ Call range_assert_step [step_n]
+             let tmp_decl = Statement $ Decl ((translate (A.getType for)), tmp_var)
+                 step_assert = Statement $ Call range_assert_step [step_n]
                  v1 = Assign (Decl (int, start_var)) (Int 0) -- arrays start at 0
                  v2 = Assign (Decl (int, stop_var )) (Call (Nam "array_size") [src_n]) -- array
                  v3 = Assign (Decl (int, step_var )) step_n
@@ -550,12 +555,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                              (Call (Nam "array_get") [src_n, index_var] `Dot` encore_arg_t_tag elem_type) -- array, TODO "i"
                  inc = Assign index_var (BinOp (translate ID.PLUS) index_var step_var)
                  the_loop = While (BinOp (translate ID.LT) index_var stop_var)
-                            (Seq [v5, Statement body_t, inc])
-             return (Var tmp,
-                    Seq [step_t
-                        ,step_assert
-                        ,v1, v2, v3, v4
-                        ,the_loop])
+                            (Seq [v5, Statement body_t, Assign tmp_var body_n, inc])
+             return (tmp_var,
+                     Seq [tmp_decl
+                         ,step_t
+                         ,step_assert
+                         ,v1, v2, v3, v4
+                         ,the_loop])
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_named_sym "ite"

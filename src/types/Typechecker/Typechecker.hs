@@ -657,9 +657,9 @@ instance Checkable Expr where
                              then intType
                              else getResultType srcType
            bodyTyped <- typecheckBody elementType body
-           return $ setType voidType for{step = stepTyped
-                                        ,src  = srcTyped
-                                        ,body = bodyTyped}
+           return $ setType (AST.getType bodyTyped) for{step = stepTyped
+                                                       ,src  = srcTyped
+                                                       ,body = bodyTyped}
         where
           addIteratorVariable ty = extendEnvironment [(name, ty)]
           typecheckBody ty = local (addIteratorVariable ty) . typecheck
