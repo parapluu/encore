@@ -87,6 +87,9 @@ range = Ptr $ Typ "struct range_t"
 unit :: CCode Lval
 unit = Embed "UNIT"
 
+range_assert_step :: CCode Name
+range_assert_step = Nam "range_assert_step"
+
 encore_name :: String -> String -> String
 encore_name kind name =
   let
