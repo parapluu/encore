@@ -355,6 +355,10 @@ isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
 
+isRangeLiteral :: Expr -> Bool
+isRangeLiteral RangeLiteral {} = True
+isRangeLiteral _ = False
+
 instance HasMeta Expr where
     getMeta = emeta
     setMeta e m = e{emeta = m}
