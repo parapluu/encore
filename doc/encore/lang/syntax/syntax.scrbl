@@ -23,16 +23,16 @@ File  @code{Lib.enc}:
     def boo():void {
 		print "^-^"
     }
-  
+
 }|
 
-Line @code{bundle Lib where} declares the module name. This line is optional, though desirable 
-for library code. 
+Line @code{bundle Lib where} declares the module name. This line is optional, though desirable
+for library code.
 
 File  @code{Bar.enc}:
 @codeblock|{
   import Lib
-  
+
   class Main:
     def main():void {
 	  let
@@ -41,7 +41,7 @@ File  @code{Bar.enc}:
 		f.boo();
 	  }
     }
-  
+
 }|
 
 Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the class @code{Foo}.
@@ -52,7 +52,7 @@ Modules are hierarchical. Module @code{A.B.C} (in some directory @code{A/B/C.enc
 in the include path) is declared using @code{bundle A.B.C where}  and  imported using @code{import A.B.C}.
 
 As of now the module system has no notion of name spaces so all imported objects needs to have unique names.
-There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
+There is also no support for cyclic imports and no "include guards" so it's up to the programmer
 to ensure that each file is only imported once.
 
 @subsection{Standard Library}
@@ -174,7 +174,7 @@ strides and arrays. They generalise @code{repeat} loops. To use
 (inclusive), we can write:
 
 @codeblock|{
-for i <- [1..10]
+for i in [1..10]
   print i
 }|
 
@@ -193,7 +193,7 @@ keyword. To modify the example above to iterate in strides of 3,
 we can write:
 
 @codeblock|{
-for i <- [1..10] by 3
+for i in [1..10] by 3
   print i
 }|
 
@@ -212,22 +212,22 @@ The following two code snippets are equivalent to the two code
 snippets above. So, this prints 1 through 10 on the terminal:
 
 @codeblock|{
-for i <- arr
+for i in arr
   print i
 }|
 
 And this prints 1, 3, 7, and 10 on the terminal:
 
 @codeblock|{
-for i <- arr by 3
+for i in arr by 3
   print i
 }|
 
 It is possible to loop over non-literal ranges as well. Notably,
-if @code{rng} is the range @code{[1..10 by 3]} then 
+if @code{rng} is the range @code{[1..10 by 3]} then
 
 @codeblock|{
-for i <- rng 
+for i in rng
   print i
 }|
 
@@ -243,7 +243,7 @@ prints
 and
 
 @codeblock|{
-for i <- rng by 2
+for i in rng by 2
   print i
 }|
 
@@ -290,7 +290,7 @@ class Main
   }
 }|
 
-The expected output is 
+The expected output is
 
 @verbatim|{
 2
@@ -319,4 +319,3 @@ their array equivalents, we can explain ranges by examples thus
 When ranges are used in @code{for} loops for iteration, they are
 optimised out, meaning there is no memory allocation due to a
 temporary range object.
-
