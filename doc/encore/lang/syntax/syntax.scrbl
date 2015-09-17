@@ -123,16 +123,25 @@ Par
 }
 
 @section{Comments}
-Comments in Encore are written by using @code{--}. For instance:
+@;{TODO: Figure out how to write '{' and '}' inside @code}
+In Encore you have one-liner comments and block comments.
+One-liner comments are written by using @code{--} while block comments
+are written starting with {- followed by the text of the comment
+and closing the comment with -}. For instance:
+
 
 @codeblock|{
--- this expression prints numbers from 0 to 5
+-- one-liner comment: this expression prints numbers from 0 to 5
 let i = 0 in
+  {- block comment:
+     this loop iterates 5 times
+   -}
   while i < 5 {
     print("i={}\n",i)
     i = i+1
   }
 }|
+
 
 @section{Primitive Types}
 The available primitive types and example literals for them are:
