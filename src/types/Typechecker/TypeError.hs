@@ -53,16 +53,11 @@ type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
 
-currentMethodFromBacktrace :: Backtrace -> MethodDecl
-currentMethodFromBacktrace [] =
-  let
-    err = unlines
-      [
-        "*** Internal error ***",
-        "to get current method when not in a method"
-      ]
-  in error err
-currentMethodFromBacktrace ((_, BTMethod m):_) = m
+currentMethodFromBacktrace :: Backtrace -> Maybe MethodDecl
+currentMethodFromBacktrace [] = Nothing
+currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
+currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
+currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
 currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
