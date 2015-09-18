@@ -449,8 +449,11 @@ instance Checkable Expr where
     --  E |- yield val : void
     doTypecheck yield@(Yield {val}) =
         do eVal <- typecheck val
-           mtd <- asks currentMethod
-           let mType = mtype mtd
+           result <- asks currentMethod
+           when (isNothing result) $
+                tcError "Can only yield from (streaming) methods"
+           let mtd = fromJust result
+               mType = mtype mtd
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
                   tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
@@ -463,7 +466,10 @@ instance Checkable Expr where
     -- ----------------------------
     --  E |- eos : void
     doTypecheck eos@(Eos {}) =
-        do mtd <- asks currentMethod
+        do result <- asks currentMethod
+           when (isNothing result) $
+                tcError "Can only yield from (streaming) methods"
+           let mtd = fromJust result
            unless (isStreamMethod mtd) $
                   tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
            return $ setType voidType eos
@@ -554,7 +560,7 @@ instance Checkable Expr where
                "' cannot be assigned to"
            eLhs <- typecheck lhs
            mtd <- asks currentMethod
-           unless (isConstructor mtd) $
+           unless (isNothing mtd || isConstructor (fromJust mtd)) $
                   assertNotValField eLhs
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}

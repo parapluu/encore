@@ -91,7 +91,7 @@ pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
 
-currentMethod :: Environment -> MethodDecl
+currentMethod :: Environment -> Maybe MethodDecl
 currentMethod = currentMethodFromBacktrace . bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
