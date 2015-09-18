@@ -1,0 +1,27 @@
+The chameneos benchmark:
+(http://benchmarksgame.alioth.debian.org/u32/performance.php?test=chameneosredux)
+
+Consists of C number of chameneos objects, all wanting to meet another
+chameneos object in the mall (represented as an actor). All chameneos
+will try to meet another chameneos in the mall and mutate (change its
+colour) M amount of times.
+
+Benchmarks the performance of a constrained system where one object
+must handle a lot of requests from other objects.
+
+Execution: 
+Two alternative versions exists: 
+
+Alt.1  <programName M C> where M is the amount of meetings that each chameneos 
+       will execute and C is the amount of chameneos to be used in the benchmark.
+
+Alt.2  <programName M> where M is the amount of meetings that each
+       chameneos will execute. Runs the default version (one run with
+       3 chameneos and one run with 10 chameneos before termination)
+       found at
+       http://benchmarksgame.alioth.debian.org/u32/performance.php?test=chameneosredux
+
+Known issues: 
+      The encore version of Alt.2 above will sometimes
+      prematurely exit as described in
+      https://github.com/parapluu/encore/issues/184
