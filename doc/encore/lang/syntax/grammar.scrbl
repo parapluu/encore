@@ -196,8 +196,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			eps])
 
 	(list Expr
-              @seq[comment "(this is a comment)"]
-              @seq[open-bcomment "write block comment" close-bcomment]
+              @seq[comment "this is a comment"]
+              @seq[open-bcomment "this is a block comment" close-bcomment]
 	      @seq[open-paren close-paren]
 	      @seq[embed Type @elem{.*} end]
 	      @seq[Expr dot Name]

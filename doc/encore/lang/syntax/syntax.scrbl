@@ -131,9 +131,9 @@ and closing the comment with -}. For instance:
 
 
 @codeblock|{
--- one-liner comment: this expression prints numbers from 0 to 5
+-- this expression prints numbers from 0 to 5
 let i = 0 in
-  {- block comment:
+  {-
      this loop iterates 5 times
    -}
   while i < 5 {
