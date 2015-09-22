@@ -252,6 +252,8 @@ typeMap f ty@StreamType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty@ArrayType{resultType} =
     f ty{resultType = typeMap f resultType}
+typeMap f ty@MaybeType{resultType} =
+    f ty{resultType = typeMap f resultType}
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo

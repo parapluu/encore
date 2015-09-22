@@ -93,10 +93,15 @@ def test_multiple_assignments(x: Maybe int) : int {
   }
 }
 
+passive class Poly<t>
+  def morphic(x: t): Maybe t
+    Just x
+
 class Main
   def main(): void
    let
      x = Just(32)
+     poly = new Poly<int>
    in {
      print test_catch_all(x);
      print test_catch_specific_val(x);
@@ -107,4 +112,7 @@ class Main
      test_pass_args_and_return_of_maybe(x);
      test_unification_last_expression(x);
      test_multiple_assignments(x);
+     match poly.morphic(32) with
+     Just z => print z
+     Nothing => print 0
    }
