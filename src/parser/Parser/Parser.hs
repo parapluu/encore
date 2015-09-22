@@ -586,7 +586,7 @@ expr  =  unit
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
-      for = do pos <- getPosition -- for i <- 1..10 by 2 expr
+      for = do pos <- getPosition
                reserved "for"
                name <- identifier
                reserved "in"

@@ -478,18 +478,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     then Call (Nam "range_step") [src_n]
                     else Int 1
 
-    (src_start_n, src_start_t) <-
-        if A.isRangeLiteral src
-        then translate (A.start src)
-        else return (start_var, Assign (Decl (int, start_var)) src_start)
-    (src_stop_n,  src_stop_t) <-
-        if A.isRangeLiteral src
-        then translate (A.stop src)
-        else return (stop_var, Assign (Decl (int, stop_var)) src_stop)
-    (src_step_n,  src_step_t) <-
-        if A.isRangeLiteral src
-        then translate (A.step src)
-        else return (src_step_var, Assign (Decl (int, src_step_var)) src_step)
+    (src_start_n, src_start_t) <- translate_src src A.start start_var src_start
+    (src_stop_n,  src_stop_t)  <- translate_src src A.stop stop_var src_stop
+    (src_step_n,  src_step_t)  <- translate_src src A.step src_step_var src_step
 
     (step_n, step_t) <- translate step
     substitute_var name elt_var
@@ -531,6 +522,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                          ,step_assert
                          ,index_decl
                          ,the_loop])
+    where
+      translate_src src selector var rhs
+          | A.isRangeLiteral src = translate (selector src)
+          | otherwise = return (var, Assign (Decl (int, var)) rhs)
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_named_sym "ite"
