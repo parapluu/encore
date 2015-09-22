@@ -39,6 +39,8 @@ extern bool pony_system_actor(pony_actor_t *actor);
 
 #define MAX_IN_POOL 4
 
+option_t DEFAULT_NOTHING = {.tag = NOTHING};
+
 inline static void assert_swap(ucontext_t *old, ucontext_t *new)
 {
   int ret = swapcontext(old, new);

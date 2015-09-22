@@ -9,14 +9,15 @@ module Types(
             ,isParType
             ,streamType
             ,isStreamType
+            ,rangeType
             ,arrayType
             ,isArrayType
+            ,isRangeType
             ,refTypeWithParams
             ,refType
             ,traitTypeFromRefType
             ,passiveClassTypeFromRefType
             ,activeClassTypeFromRefType
-            ,getCapability
             ,isRefType
             ,isTraitType
             ,isActiveClassType
@@ -46,15 +47,20 @@ module Types(
             ,getArgTypes
             ,getResultType
             ,getId
-            ,getImplementedTraits
             ,getTypeParameters
             ,setTypeParameters
+            ,traitsFromCapability
             ,typeComponents
             ,typeMap
             ,typeMapM
-            ,subtypeOf
-            ,strictSubtypeOf
             ,showWithKind
+            ,hasSameKind
+            ,maybeType
+            ,isMaybeType
+            ,bottomType
+            ,isBottomType
+            ,hasResultType
+            ,setResultType
             ) where
 
 import Data.List
@@ -86,7 +92,6 @@ instance Show RefInfo where
 data Type = UntypedRef{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
-                     ,capability :: Capability
                      ,activity   :: Activity
                      }
           | CapabilityType{capability :: Capability}
@@ -98,13 +103,25 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | ParType{resultType :: Type}
           | StreamType{resultType :: Type}
           | ArrayType{resultType :: Type}
+          | RangeType
+          | MaybeType {resultType :: Type}
           | VoidType
           | StringType
           | IntType
           | BoolType
           | RealType
           | NullType
+          | BottomType
             deriving(Eq)
+
+hasResultType x
+  | (isArrowType x || isFutureType x || isParType x ||
+     isStreamType x || isArrowType x || isMaybeType x) = True
+  | otherwise = False
+
+setResultType ty res
+  | hasResultType ty = ty { resultType = res}
+  | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
 getArgTypes = argTypes
 getResultType = resultType
@@ -112,6 +129,7 @@ getId UntypedRef{refInfo} = refId refInfo
 getId TraitType{refInfo} = refId refInfo
 getId ClassType{refInfo} = refId refInfo
 getId TypeVar{ident} = ident
+getId ty = error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
 
 instance Show Type where
     show UntypedRef{refInfo} = show refInfo
@@ -127,12 +145,15 @@ instance Show Type where
     show ParType{resultType}    = "Par " ++ maybeParen resultType
     show StreamType{resultType} = "Stream " ++ maybeParen resultType
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
+    show RangeType   = "Range"
+    show (MaybeType ty)    = "Maybe " ++ maybeParen ty
     show VoidType   = "void"
     show StringType = "string"
     show IntType    = "int"
     show RealType   = "real"
     show BoolType   = "bool"
     show NullType   = "null type"
+    show BottomType      = "Bottom"
 
 maybeParen :: Type -> String
 maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
@@ -159,8 +180,24 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind FutureType{}                  = "future type"
     kind ParType{}                     = "parallel type"
     kind StreamType{}                  = "stream type"
+    kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
+    kind MaybeType{}                   = "maybe type"
+    kind BottomType{}                  = "bottom type"
     kind _                             = "type"
+
+hasSameKind :: Type -> Type -> Bool
+hasSameKind ty1 ty2
+  | areBoth isMaybeType ||
+    areBoth isFutureType ||
+    areBoth isParType ||
+    areBoth isCapabilityType = getResultType ty1 `hasSameKind` getResultType ty2
+  | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
+  | otherwise = True
+  where
+    isBottomTy1 = isBottomType ty1
+    isBottomTy2 = isBottomType ty2
+    areBoth typeFun = typeFun ty1 && typeFun ty2
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
@@ -173,14 +210,16 @@ typeComponents ref@(UntypedRef{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents ref@(TraitType{refInfo}) =
     ref : refInfoTypeComponents refInfo
-typeComponents ref@(ClassType{refInfo, capability}) =
-    ref : capabilityComponents capability ++ refInfoTypeComponents refInfo
+typeComponents ref@(ClassType{refInfo}) =
+    ref : refInfoTypeComponents refInfo
 typeComponents ref@(CapabilityType{capability}) =
     ref : capabilityComponents capability
 typeComponents str@(StreamType ty) =
     str : typeComponents ty
 typeComponents arr@(ArrayType ty)  =
     arr : typeComponents ty
+typeComponents maybe@(MaybeType ty) =
+    maybe : typeComponents ty
 typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters
@@ -198,9 +237,8 @@ typeMap f ty@UntypedRef{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@TraitType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@ClassType{refInfo, capability} =
-    f ty{refInfo = refInfoTypeMap f refInfo
-         ,capability = capabilityTypeMap f capability}
+typeMap f ty@ClassType{refInfo} =
+    f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@CapabilityType{capability} =
     f ty{capability = capabilityTypeMap f capability}
 typeMap f ty@ArrowType{argTypes, resultType} =
@@ -213,6 +251,8 @@ typeMap f ty@ParType{resultType} =
 typeMap f ty@StreamType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty@ArrayType{resultType} =
+    f ty{resultType = typeMap f resultType}
+typeMap f ty@MaybeType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty = f ty
 
@@ -231,11 +271,9 @@ typeMapM f ty@UntypedRef{refInfo} = do
 typeMapM f ty@TraitType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
-typeMapM f ty@ClassType{refInfo, capability} = do
+typeMapM f ty@ClassType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
-  capability' <- capabilityTypeMapM f capability
-  f ty{refInfo = refInfo'
-               ,capability = capability'}
+  f ty{refInfo = refInfo'}
 typeMapM f ty@CapabilityType{capability} = do
   capability' <- capabilityTypeMapM f capability
   f ty{capability = capability'}
@@ -266,7 +304,9 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
 
 capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
 capabilityTypeMapM f cap@Capability{traits} = do
-  traits' <- mapM (refInfoTypeMapM f) traits
+  let traitTypes = map TraitType traits
+  traitTypes' <- mapM (typeMapM f) traitTypes
+  let traits' = map refInfo traitTypes'
   return cap{traits = traits'}
 
 getTypeParameters :: Type -> [Type]
@@ -285,36 +325,24 @@ setTypeParameters ty@ClassType{refInfo} parameters =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
-getImplementedTraits :: Type -> [Type]
-getImplementedTraits ty@TraitType{} = [ty]
-getImplementedTraits ty@ClassType{capability} =
+traitsFromCapability ty@CapabilityType{capability} =
     map TraitType (traits capability)
-getImplementedTraits ty@CapabilityType{capability} =
-    map TraitType (traits capability)
-getImplementedTraits ty =
-    error $ "Types.hs: Can't get implemented traits of type " ++ show ty
+traitsFromCapability ty =
+    error $ "Types.hs: Can't get the traits of non-capability type " ++ show ty
 
 refTypeWithParams refId parameters =
     UntypedRef{refInfo = RefInfo{refId, parameters}}
 refType id = refTypeWithParams id []
 
-activeClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
-      ClassType{refInfo, activity = Active, capability}
-activeClassTypeFromRefType ty _ =
+activeClassTypeFromRefType UntypedRef{refInfo} =
+      ClassType{refInfo, activity = Active}
+activeClassTypeFromRefType ty =
     error $ "Types.hs: Can't make active type from type: " ++ show ty
 
-passiveClassTypeFromRefType UntypedRef{refInfo} CapabilityType{capability} =
-      ClassType{refInfo, activity = Passive, capability}
-passiveClassTypeFromRefType ty _ =
+passiveClassTypeFromRefType UntypedRef{refInfo}  =
+      ClassType{refInfo, activity = Passive}
+passiveClassTypeFromRefType ty =
     error $ "Types.hs: Can't make passive type from type: " ++ show ty
-
-getCapability ty
-    | isClassType ty = CapabilityType $ capability ty
-    | isCapabilityType ty = ty
-    | isTraitType ty =
-        CapabilityType{capability = Capability{traits = [refInfo ty]}}
-    | otherwise =
-        error $ "Types.hs: Can't get capability from type: " ++ show ty
 
 traitTypeFromRefType UntypedRef{refInfo} =
     TraitType{refInfo}
@@ -324,7 +352,6 @@ traitTypeFromRefType ty =
 isRefType UntypedRef {} = True
 isRefType TraitType {} = True
 isRefType ClassType {} = True
-isRefType CapabilityType {} = True
 isRefType _ = False
 
 isTraitType TraitType{} = True
@@ -354,6 +381,14 @@ futureType = FutureType
 isFutureType FutureType {} = True
 isFutureType _ = False
 
+maybeType = MaybeType
+isMaybeType MaybeType {} = True
+isMaybeType _ = False
+
+bottomType = BottomType
+isBottomType BottomType {} = True
+isBottomType _ = False
+
 parType = ParType
 isParType ParType {} = True
 isParType _ = False
@@ -361,6 +396,10 @@ isParType _ = False
 streamType = StreamType
 isStreamType StreamType {} = True
 isStreamType _ = False
+
+rangeType = RangeType
+isRangeType RangeType = True
+isRangeType _         = False
 
 arrayType = ArrayType
 isArrayType ArrayType {} = True
@@ -421,28 +460,3 @@ isPrimitive = flip elem primitives
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
-
-strictSubtypeOf :: Type -> Type -> Bool
-strictSubtypeOf ty1 ty2
-  | isClassType ty1 && isTraitType ty2 =
-      ty2 `elem` getImplementedTraits ty1
-  | otherwise = False
-
-subtypeOf :: Type -> Type -> Bool
-subtypeOf ty1 ty2
-    | isNullType ty1 = isNullType ty2 || isRefType ty2
-    | isClassType ty1 && isTraitType ty2 =
-        ty2 `elem` getImplementedTraits ty1
-    | isClassType ty1 && isCapabilityType ty2 =
-        capability ty1 `capabilitySubtypeOf` capability ty2
-    | isCapabilityType ty1 && isCapabilityType ty2 =
-        capability ty1 `capabilitySubtypeOf` capability ty2
-    | otherwise = ty1 == ty2
-    where
-      capabilitySubtypeOf cap1 cap2 =
-      -- TODO: Needs to handle parameters as well!
-          let
-              traits1 = traits cap1
-              traits2 = traits cap2
-        in
-          all (`elem` traits1) traits2

@@ -1,0 +1,118 @@
+--
+-- Test match executes the catch all statement first
+--
+def test_catch_all(z: Maybe int): string
+  match z with
+  z => "catchall"
+  Just 32 => "Error, general condition should have been catched first"
+
+
+--
+-- Test match executes the specific val statement
+--
+def test_catch_specific_val(x: Maybe int): string
+  match x with
+  Just 32 => "32"
+  z => "error, should catch specific value"
+
+--
+-- Test all branches of the match expression
+-- More related to typechecking than the actual result
+--
+def test_match_decl(): void
+  match Just(Just 32) with
+  Nothing => print "nothing"
+  Just(z) => print "just z"
+  Just(Nothing) => print "just nothing"
+  Just(Just z) => print "just just z"
+  Just(Just 0) => print "just just zero"
+  z => ()
+
+--
+-- Test matching on objects
+--
+def test_match_on_object(o: Main): Maybe Main
+  match (Just o) with
+  Just z => Just o
+  z => Nothing : Maybe Main
+
+--
+-- Test precedence of the match expression; write the general cases at the end
+-- since it follows sequential order
+--
+def test_precedence_of_match(): void
+  match Just(Just(32)) with
+  Nothing => print "nothing"
+  Just(Nothing) => print "just nothing"
+  Just(Just z) => print "just just z"
+  Just(Just(0)) => print "just just zero"
+  Just(z) => print "just z"
+  z => print "catch all"
+
+--
+-- Test a match clause that has Nothing as the main argument
+--
+def test_match_nothing_decl() : void
+  match (Nothing : Maybe int) with
+  Just z => print 12
+  Just 12 => print 23
+  Just 0 => print 0
+  Nothing => print "Nothing"
+
+--
+-- Test that we can pass arguments and return a value of Option type
+--
+def test_pass_args_and_return_of_maybe(x: Maybe int): Maybe int
+  match Just(32) with
+  Just(z) => { print "Just(z)"; Just(z) }
+  Nothing => { print "Nothing"; Nothing : Maybe int }
+
+--
+--  Test unification of the last expression
+--
+def test_unification_last_expression(x: Maybe int) : Maybe int
+ Nothing
+
+--
+-- Test multiple assignments and changes between them
+--
+def test_multiple_assignments(x: Maybe int) : int {
+  let y = Nothing : Maybe int
+      z = Just(32)
+  in {
+    x = y;
+    y = (Just 23);
+    y = x;
+    y = z;
+    x = Nothing : Maybe int;
+    y;
+    match x with {
+    	Just(z) => 23
+        Nothing => 34
+    }
+  }
+}
+
+passive class Poly<t>
+  def morphic(x: t): Maybe t
+    Just x
+
+class Main
+  def main(): void
+   let
+     x = Just(32)
+     poly = new Poly<int>
+   in {
+     print test_catch_all(x);
+     print test_catch_specific_val(x);
+     test_match_decl();
+     test_match_on_object(this);
+     test_precedence_of_match();
+     test_match_nothing_decl();
+     test_pass_args_and_return_of_maybe(x);
+     test_unification_last_expression(x);
+     test_multiple_assignments(x);
+     match poly.morphic(32) with
+     Just z => print z
+     Nothing => print 0
+   }

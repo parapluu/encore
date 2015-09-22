@@ -15,6 +15,7 @@ module Typechecker.Environment(Environment,
                                refTypeLookupUnsafe,
                                methodLookup,
                                fieldLookup,
+                               capabilityLookup,
                                varLookup,
                                isLocal,
                                typeVarLookup,
@@ -26,6 +27,7 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
+                               currentMethod,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -89,6 +91,9 @@ pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
 
+currentMethod :: Environment -> Maybe MethodDecl
+currentMethod = currentMethodFromBacktrace . bt
+
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
   | isTraitType t = do
@@ -100,8 +105,7 @@ fieldLookup t f env
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
 
 matchMethod :: Name -> MethodDecl -> Bool
-matchMethod m Method{mname} = mname == m
-matchMethod m StreamMethod{mname} = mname == m
+matchMethod m = (==m) . mname
 
 traitMethodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 traitMethodLookup trait m env = do
@@ -113,14 +117,21 @@ methodLookup ty m env
   | isClassType ty = do
     cls <- classLookup ty env
     let c_m = find (matchMethod m) $ cmethods cls
+        traits = traitsFromCapability $ ccapability cls
         t_ms = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust (c_m:t_ms)
     return $ fromJust ret
   | isTraitType ty =
     traitMethodLookup ty m env
   | otherwise = error "methodLookup in non-ref type"
-    where
-      traits = getImplementedTraits ty
+
+capabilityLookup :: Type -> Environment -> Maybe Type
+capabilityLookup ty env
+    | isClassType ty = do
+        cls <- Map.lookup (getId ty) $ classTable env
+        return $ ccapability cls
+    | otherwise = error $ "Environment.hs: Tried to look up the capability " ++
+                          "of non-class type " ++ show ty
 
 traitLookup :: Type -> Environment -> Maybe TraitDecl
 traitLookup t env =

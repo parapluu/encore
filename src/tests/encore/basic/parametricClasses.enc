@@ -1,10 +1,10 @@
 class Cell<a>
-  val : a
-  def init(val : a) : void
-    this.val = val
+  value : a
+  def init(value : a) : void
+    this.value = value
 
   def getVal() : a
-    this.val
+    this.value
 
 class Pair<a, b>
   fst : a

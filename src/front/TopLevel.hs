@@ -44,19 +44,21 @@ standardLibLocation = $((stringE . init) =<< (runIO $ System.Environment.getEnv 
 data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run |
+data Option = GCC | Clang | Run | Bench | Profile |
               KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
-              Intermediate Phase | TypecheckOnly
+              Intermediate Phase | TypecheckOnly | Verbatim
               deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
 parseArguments args =
     let
         parseArguments' []   = []
-        parseArguments' args = opt : (parseArguments' rest)
+        parseArguments' args = opt : parseArguments' rest
             where
               (opt, rest) = parseArgument args
+              parseArgument ("-bench":args)      = (Bench, args)
+              parseArgument ("-pg":args)        = (Profile, args)
               parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
               parseArgument ("-gcc":args)       = (GCC, args)
@@ -66,6 +68,7 @@ parseArguments args =
               parseArgument ("-AST":args)       = (Intermediate Parsed, args)
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
               parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
+              parseArgument ("-v":args)         = (Verbatim, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
@@ -127,8 +130,10 @@ compileProgram prog sourcePath options =
            flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
+           pg = if (Profile `elem` options) then "-pg" else ""
+           bench = if (Bench `elem` options) then "-O3" else ""
            libs  = libPath ++ "*.a"
-           cmd   = cc <+> flags <+> oFlag <+> libs <+> incs
+           cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
            compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
@@ -160,29 +165,41 @@ main =
        sourceExists <- doesFileExist sourceName
        unless sourceExists
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
+       verbatim options $ "== Reading file '" ++ sourceName ++ "' =="
        code <- readFile sourceName
+       verbatim options "== Parsing =="
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
                 Left error -> abort $ show error
        when (Intermediate Parsed `elem` options)
            (withFile (changeFileExt sourceName "AST") WriteMode
                (flip hPrint $ show ast))
+       verbatim options "== Expanding modules =="
        expandedAst <- expandModules importDirs ast
+       verbatim options "== Desugaring =="
        let desugaredAST = desugarProgram expandedAst
+       verbatim options "== Prechecking =="
        precheckedAST <- case precheckEncoreProgram desugaredAST of
                           Right ast  -> return ast
                           Left error -> abort $ show error
+       verbatim options "== Typechecking =="
        typecheckedAST <- case typecheckEncoreProgram precheckedAST of
                            Right ast  -> return ast
                            Left error -> abort $ show error
        when (Intermediate TypeChecked `elem` options)
            (withFile (changeFileExt sourceName "TAST") WriteMode
-               (flip hPrint $ show ast))
+               (flip hPrint $ show typecheckedAST))
+       verbatim options "== Optimizing =="
        let optimizedAST = optimizeProgram typecheckedAST
+       verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options)
-           (do system $ "./" ++ exeName
+           (do verbatim options $ "== Running '" ++ exeName ++ "' =="
+               system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())
+       verbatim options "== Done =="
     where
       usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | -AST | -TypedAST ] file"
+      verbatim options str = when (Verbatim `elem` options)
+                                  (putStrLn str)

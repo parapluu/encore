@@ -1,0 +1,275 @@
+def stringToInt(s : string) : int {
+  embed int
+    atoi(#{s});
+  end;
+}
+
+def split(fact: int, i: int) : int {
+  (fact + i - 1)/i
+}
+
+-- Creates an array of the form [0!, 1!, 2!, ..., (size-1)!]
+def initArr(size: int) : [int] {
+  let
+    factArr = new [int](size)
+    i = 1
+  in {
+    factArr[0] = 1;
+    while (i < |factArr|) {
+      factArr[i] = factArr[i-1] * i;
+      i = i + 1;
+    };
+    factArr
+  }
+}
+
+-- returns smallest of x & y, x if equal
+def min(x : int, y : int) : int { 
+  if (x > y) then
+    y
+  else
+    x
+}
+
+-- returns biggest of x & y, x if equal
+def max(x : int, y : int) : int { 
+  if (x < y) then
+    y
+  else
+    x
+}
+
+-- Workers report results to this class
+class Manager {
+  workers : int
+  n : int
+
+  cksum : int
+  highestFlip : int 
+  counter : int
+
+  def printArr(worker: Fannkuch, arr:[int]) : void {
+    print("worker: {}[", worker);
+    repeat i <- |arr|
+      print(" {} ", arr[i]);
+    print("]\n");
+  }
+
+  def init(workers : int, n : int) : void {
+    this.workers = workers;
+    this.n = n;
+    
+    this.cksum = 0;
+    this.highestFlip = 0;
+    this.counter = 0;
+  }
+
+  def report(cksum : int, flips : int) : void {
+    this.cksum = this.cksum + cksum;
+    this.highestFlip = max(this.highestFlip, flips);
+    this.counter = this.counter + 1;
+
+    if (this.counter == this.workers) then {
+      print("{}\nPfannkuchen({}) = {}\n",this.cksum,this.n,this.highestFlip);
+    }
+  }
+}
+
+class Fannkuch {
+  p : [int]
+  pp : [int]
+  count : [int]
+
+  flips : int
+  cksum : int
+
+  n : int
+
+  chunksize : int
+
+  F : [int]
+
+  nTasks : int
+
+  manager : Manager
+
+  def init(n : int, chunksize : int, F : [int], nTasks : int, manager : Manager) : void {
+    this.p = new [int](n);
+    this.pp = new [int](n);
+    this.count = new [int](n);
+
+    this.F = F;
+
+    this.flips = 0;
+    this.cksum = 0;
+
+    this.n = n;
+    this.chunksize = chunksize;
+    this.nTasks = nTasks;
+    this.manager = manager;
+  }
+
+  def direct(inputIdx : int, lo : int) : void {
+    let
+      i = lo
+      idx = inputIdx
+    in {
+      while (i > 0) {
+        let
+          d = (idx / this.F[i])
+          j = 0
+        in {
+          this.count[i] = d;
+          while (j < d) {
+            this.pp[j] = this.p[j];
+            j = j + 1;
+          };
+          j = 0;
+          while (j+d <= i) {
+            this.p[j] = this.p[j+d];
+            j = j + 1;
+          };
+          while (j <= i) {
+            this.p[j] = this.pp[j+d-i-1];
+            j = j + 1;
+          };
+       
+          idx = idx % this.F[i];
+          i = i - 1;
+        }
+      }
+    }
+  }
+
+  def permute() : void {
+    let
+      first = this.p[1]
+      i = 1
+      j = 1
+      next = 0 -- initial value
+    in {
+      this.p[1] = this.p[0];
+      this.p[0] = first;
+      this.count[i] = this.count[i] + 1;
+      while (this.count[i] > i) {
+        this.count[i] = 0;
+        i = i + 1;
+        this.p[0] = this.p[1];
+        next = this.p[1];
+        j = 1;
+        
+        while (j < i) {
+          this.p[j] = this.p[j+1];
+          j = j + 1;
+        };
+
+        this.p[i] = first;
+        first = next;
+        this.count[i] = this.count[i] + 1;
+      }
+    }
+  }
+
+  def fCount() : int {
+    let
+      flips = 1
+      first = this.p[0]
+      
+      i = 0
+      lo = 1
+      hi = first - 1
+      temp = 0 -- initial value
+      breakLoop = false
+    in {
+      if (this.p[first] != 0) then {
+        while (i < this.n) {
+          this.pp[i] = this.p[i];
+          i = i + 1;
+        };
+        
+        while (not breakLoop) {
+          flips = flips + 1;
+          lo = 1;
+          hi = first - 1;
+          
+          while (lo < hi) {
+            temp = this.pp[lo];
+            this.pp[lo] = this.pp[hi];
+            this.pp[hi] = temp;
+            lo = lo + 1;
+            hi = hi - 1;
+          };
+          
+          temp = this.pp[first];
+          this.pp[first] = first;
+          first = temp;
+          if (this.pp[first] == 0) then
+            breakLoop = true
+        };
+      };
+      flips
+    }
+  }
+
+  def runTask(task : int) : void {
+    let
+      lo = task*this.chunksize
+      hi = min(this.F[this.n], (lo + this.chunksize))
+      j = 0
+      i = lo
+      f = 0 --initial value
+      breakLoop = false
+    in {
+      while (j < |this.p|) {
+        this.p[j] = j;
+        j = j + 1;
+      };
+
+      this.direct(lo, |this.p|-1);
+      while (not breakLoop) {
+        if (this.p[0] != 0) then {
+          f = this.fCount();
+          this.flips = max(this.flips, f);
+          this.cksum = (if ((i%2)==0) then this.cksum + f else this.cksum - f);
+        };
+        i = i + 1;
+        if (i == hi) then 
+          breakLoop = true
+        else
+          this.permute();
+      }
+    };
+    this.manager ! report(this.cksum, this.flips);
+  }
+
+  def run(taskID : int) : void {
+    this.runTask(taskID);
+    this.manager ! report(this.cksum, this.flips);
+  }
+}
+
+class Main {
+  def main(argv : [string]) : void { 
+    let
+      temp = if |argv| > 1 then stringToInt(argv[1]) else 7
+      n = if temp >= 20 then 19 else temp -- make sure that n < 20
+
+      -- CPU utilization seems to increase when this is increased, but execution time is also increased with it
+      nChunks = 200 -- increase this to increase amount of actors/tasks (one actor per task)
+
+      factArr = initArr(20)
+      chunksize = split(factArr[n], nChunks)
+      nTasks = split(factArr[n], chunksize)
+      FannkuchArr = new [Fannkuch](nTasks)
+      i = 0
+      manager = new Manager(nTasks, n)
+    in {
+      print("chunk size: {}, nTasks: {}\n", chunksize, nTasks);
+      while (i < nTasks) {
+        FannkuchArr[i] = new Fannkuch(n, chunksize, factArr, nTasks, manager);
+        (FannkuchArr[i]) ! runTask(i);
+        i = i + 1;
+      };
+    }
+  }
+}

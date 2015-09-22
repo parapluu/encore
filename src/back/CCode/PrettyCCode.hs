@@ -136,4 +136,3 @@ braced_block doc = lbrace $+$
 
 instance Show (CCode a) where
   show = pp
-

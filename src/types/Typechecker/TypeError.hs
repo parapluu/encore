@@ -9,7 +9,7 @@ module Typechecker.TypeError (Backtrace
                              ,emptyBT
                              ,Pushable(push)
                              ,TCError(TCError)
-                             ,currentMethod) where
+                             ,currentMethodFromBacktrace) where
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
@@ -53,17 +53,12 @@ type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
 
-currentMethod :: Backtrace -> MethodDecl
-currentMethod [] =
-  let
-    err = unlines
-      [
-        "*** Internal error ***",
-        "to get current method when not in a method"
-      ]
-  in error err
-currentMethod ((_, BTMethod m):_) = m
-currentMethod (_:bt) = currentMethod bt
+currentMethodFromBacktrace :: Backtrace -> Maybe MethodDecl
+currentMethodFromBacktrace [] = Nothing
+currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
+currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
+currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
+currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.

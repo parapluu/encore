@@ -20,4 +20,6 @@ encore_arg_t array_get(array_t *a, size_t i);
 
 void array_set(array_t *a, size_t i, encore_arg_t element);
 
+void array_qsort(array_t *a, int64_t start, int64_t end);
+
 #endif

@@ -24,6 +24,7 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
+import Control.Applicative((<$>))
 import Data.List
 
 instance Translatable ID.BinaryOp (CCode Name) where
@@ -122,13 +123,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate bin@(A.Binop {A.binop, A.loper, A.roper}) = do
     (nlo, tlo) <- translate (loper :: A.Expr)
     (nro, tro) <- translate (roper :: A.Expr)
+    let ltype = A.getType loper
+        rcast = if Ty.isRefType ltype
+                then Cast (translate ltype) nro
+                else AsExpr nro
     tmp <- Ctx.gen_named_sym "binop"
     return $ (Var tmp,
               Seq [tlo,
                    tro,
                    Statement (Assign
                               (Decl (translate $ A.getType bin, Var tmp))
-                              (BinOp (translate binop) nlo nro))])
+                              (BinOp (translate binop) (AsExpr nlo) rcast))])
 
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args
@@ -194,7 +199,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           where
             lhs_type = A.getType lhs
             rhs_type = A.getType rhs
-            need_up_cast = rhs_type `Ty.strictSubtypeOf` lhs_type
+            need_up_cast = rhs_type /= lhs_type
             cast = Cast (translate lhs_type)
         mk_lval (A.VarAccess {A.name}) =
             do ctx <- get
@@ -205,6 +210,113 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             do (ntarg, ttarg) <- translate target
                return (Deref (StatAsExpr ntarg ttarg) `Dot` (field_name name))
         mk_lval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
+
+  translate maybe@(A.MaybeValue _ (A.JustData e)) = do
+    let createOption = Call (Nam "encore_alloc") [(Sizeof . AsType) (Nam "option_t")]
+    (nalloc, talloc) <- named_tmp_var "option" (A.getType maybe) createOption
+    let tag = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "JUST")
+    (nE, tE) <- translate e
+    let tJust = Assign (Deref nalloc `Dot` (Nam "val")) (as_encore_arg_t (translate $ A.getType e) nE)
+    return (nalloc, Seq [talloc, tag, tE, tJust])
+
+  translate maybe@(A.MaybeValue _ (A.NothingData {})) = do
+    let createOption = Amp (Nam "DEFAULT_NOTHING")
+    (nalloc, talloc) <- named_tmp_var "option" (A.getType maybe) createOption
+    return (nalloc, talloc)
+
+  translate match@(A.MatchDecl {A.arg, A.matchbody}) = do
+    (nArg, tArg) <- translate arg
+    (resultVar, resultType) <- getResult match
+    eMatch <- mapM (translateMatch (AsExpr nArg)) matchbody
+    return (resultVar,
+            Seq $ [Statement $ Decl (resultType, resultVar),
+                   tArg,
+                   Statement (convertToIf resultVar eMatch)])
+    where
+      getResult :: A.Expr -> State Ctx.Context (CCode Lval, CCode Ty)
+      getResult match = do
+        resultVarName <- Ctx.gen_named_sym "match"
+        let resultVar = Var resultVarName
+            matchType = translate (A.getType match)
+        return (resultVar, matchType)
+
+      convertToIf :: CCode Lval -> [(CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))] -> CCode Expr
+      convertToIf resultVar [] = StatAsExpr resultVar (Assign resultVar (Int 0))
+      convertToIf resultVar ((cond, binding, body):rest) =
+        let tBody = snd body
+            nBody = fst body
+            declBinding = case binding of
+                            Nothing -> Comm "Nothing"
+                            Just b -> Assign (fst b) (snd b)
+        in
+          If cond
+            (Seq [declBinding, tBody, Assign resultVar nBody])
+            (Statement $ convertToIf resultVar rest)
+
+      translateMatch :: CCode Expr -> (A.Expr, A.Expr) -> State Ctx.Context (CCode Expr, Maybe (CCode Lval, CCode Expr), (CCode Lval, CCode Stat))
+      translateMatch nArg (patternMatch, body)
+        | null freeVars = do
+            tCond <- translateCond nArg patternMatch
+            tBody <- translate body
+            return (tCond, Nothing, tBody)
+        | otherwise = do
+            let (freeVarName, freeVarType) = head freeVars
+            tCond <- translateCond nArg patternMatch
+
+            (tmpVar, tBinding) <- (do tmpVar <- getTmpVars freeVarName
+                                      return (tmpVar, translateBind nArg patternMatch))
+            let lhs = Decl (translate freeVarType, tmpVar)
+            tBody <- eval_with_context (freeVarName, tmpVar) body
+            return (tCond, Just (lhs, tBinding), tBody)
+        where
+          freeVars = Util.freeVariables [] patternMatch
+
+          eval_with_context (freeVarName, tmpVar) body = do
+            substitute_var freeVarName tmpVar
+            tBody <- translate body
+            unsubstitute_var freeVarName
+            return tBody
+
+      getTmpVars :: ID.Name -> State Ctx.Context (CCode Lval)
+      getTmpVars name = do
+        name' <- (Ctx.gen_named_sym . show) name
+        return (Var name')
+
+      createCond :: A.Expr -> CCode Expr -> CCode Expr -> State Ctx.Context (CCode Expr)
+      createCond e cond cast
+        | A.isLval e = return cond
+        | Ty.isMaybeType (A.getType e) || Ty.isPrimitive (A.getType e) = do
+            transCond <- translateCond cast e
+            return $ BinOp (Nam "&&") cond transCond
+        | otherwise = return cond
+
+      translateCond :: CCode Expr -> A.Expr -> State Ctx.Context (CCode Expr)
+      translateCond nArg p@(A.MaybeValue meta (A.JustData e)) = do
+        let cond = BinOp (Nam "==") (nArg `Arrow` Nam "tag") (AsLval $ Nam "JUST")
+            expr = from_encore_arg_t (translate $ A.getType e) (AsExpr $ nArg `Arrow` Nam "val")
+            cast = Cast (Ptr . AsType $ Nam "option_t") expr
+            ext = if (Ty.isPrimitive (A.getType e)) then (AsExpr expr) else cast
+        resultCond <- createCond e cond ext
+        return resultCond
+
+      translateCond nArg p@(A.MaybeValue meta (A.NothingData {})) =
+        return $ BinOp (Nam "==") (nArg `Arrow` (Nam "tag")) (AsLval $ Nam "NOTHING")
+
+      translateCond nArg v
+        | A.isLval v = return nArg
+        | Ty.isPrimitive (A.getType v) = do
+          (nBody, tBody) <- translate v :: State Ctx.Context (CCode Lval, CCode Stat)
+          return $ BinOp (Nam "==") nArg (StatAsExpr nBody tBody)
+
+      -- TODO: what happens with primitive types
+      translateBind nArg p@(A.MaybeValue meta (A.JustData e)) =
+        let cast = AsExpr $ from_encore_arg_t (translate (A.getType e)) (Deref nArg)
+            containedType = A.getType e
+        in
+          case (Ty.isMaybeType containedType) of
+                  True -> translateBind cast e
+                  False -> AsExpr $ from_encore_arg_t (translate containedType) (Deref (Cast option nArg))
+      translateBind nArg v@(A.VarAccess {}) = nArg
 
   translate (A.VarAccess {A.name}) = do
       c <- get
@@ -278,6 +390,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  Assign (Decl (array, Var arr_name))
                         (Call (Nam "array_mk") [AsExpr nsize, runtime_type ty])
          return (Var arr_name, Seq [tsize, the_array_decl])
+
+  translate range_lit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
+      (nstart, tstart) <- translate start
+      (nstop, tstop)   <- translate stop
+      (nstep, tstep)   <- translate step
+      range_literal    <- Ctx.gen_named_sym "range_literal"
+      let ty = translate $ A.getType range_lit
+      return (Var range_literal, Seq [tstart, tstop, tstep,
+                                 Assign (Decl (ty, Var range_literal))
+                                        (Call (Nam "range_mk") [nstart, nstop, nstep])])
 
   translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
       do (ntarg, ttarg) <- translate target
@@ -432,7 +554,85 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let export_body = Seq $ tbody : [Assign (Var tmp) nbody]
          return (Var tmp,
                  Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
-                      (While (StatAsExpr ncond tcond) (Statement export_body))])
+                      While (StatAsExpr ncond tcond) (Statement export_body)])
+
+  translate for@(A.For {A.name, A.step, A.src, A.body}) = do
+    tmp_var   <- Var <$> Ctx.gen_named_sym "for";
+    index_var <- Var <$> Ctx.gen_named_sym "index"
+    elt_var   <- Var <$> Ctx.gen_named_sym (show name)
+    start_var <- Var <$> Ctx.gen_named_sym "start"
+    stop_var  <- Var <$> Ctx.gen_named_sym "stop"
+    step_var  <- Var <$> Ctx.gen_named_sym "step"
+    src_step_var <- Var <$> Ctx.gen_named_sym "src_step"
+
+    (src_n, src_t) <- if A.isRangeLiteral src
+                      then return (undefined, Comm "Range not generated")
+                      else translate src
+
+    let src_type = A.getType src
+        elt_type = if Ty.isRangeType src_type
+                   then int
+                   else translate $ Ty.getResultType (A.getType src)
+        src_start = if Ty.isRangeType src_type
+                    then Call (Nam "range_start") [src_n]
+                    else Int 0 -- Arrays start at 0
+        src_stop  = if Ty.isRangeType src_type
+                    then Call (Nam "range_stop") [src_n]
+                    else BinOp (translate ID.MINUS)
+                               (Call (Nam "array_size") [src_n])
+                               (Int 1)
+        src_step  = if Ty.isRangeType src_type
+                    then Call (Nam "range_step") [src_n]
+                    else Int 1
+
+    (src_start_n, src_start_t) <- translate_src src A.start start_var src_start
+    (src_stop_n,  src_stop_t)  <- translate_src src A.stop stop_var src_stop
+    (src_step_n,  src_step_t)  <- translate_src src A.step src_step_var src_step
+
+    (step_n, step_t) <- translate step
+    substitute_var name elt_var
+    (body_n, body_t) <- translate body
+    unsubstitute_var name
+
+    let step_decl = Assign (Decl (int, step_var))
+                           (BinOp (translate ID.TIMES) step_n src_step_n)
+        step_assert = Statement $ Call (Nam "range_assert_step") [step_var]
+        index_decl = Seq [AsExpr $ Decl (int, index_var)
+                         ,If (BinOp (translate ID.GT)
+                                    (AsExpr step_var) (Int 0))
+                             (Assign index_var src_start_n)
+                             (Assign index_var src_stop_n)]
+        cond = BinOp (translate ID.AND)
+                     (BinOp (translate ID.GTE) index_var src_start_n)
+                     (BinOp (translate ID.LTE) index_var src_stop_n)
+        elt_decl =
+            Assign (Decl (elt_type, elt_var))
+                   (if Ty.isRangeType src_type
+                    then AsExpr index_var
+                    else AsExpr $ Call (Nam "array_get") [src_n, index_var]
+                                  `Dot` encore_arg_t_tag elt_type)
+        inc = Assign index_var (BinOp (translate ID.PLUS) index_var step_var)
+        the_body = Seq [elt_decl
+                       ,Statement body_t
+                 ,Assign tmp_var body_n
+                     ,inc]
+        the_loop = While cond the_body
+        tmp_decl  = Statement $ Decl (translate (A.getType for), tmp_var)
+
+    return (tmp_var, Seq [tmp_decl
+                         ,src_t
+                         ,src_start_t
+                         ,src_stop_t
+                         ,src_step_t
+                         ,step_t
+                         ,step_decl
+                         ,step_assert
+                         ,index_decl
+                         ,the_loop])
+    where
+      translate_src src selector var rhs
+          | A.isRangeLiteral src = translate (selector src)
+          | otherwise = return (var, Assign (Decl (int, var)) rhs)
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_named_sym "ite"
@@ -644,7 +844,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 cast_arguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr
 cast_arguments expected targ targ_type
   | Ty.isTypeVar expected = as_encore_arg_t (translate targ_type) $ AsExpr targ
-  | targ_type `Ty.strictSubtypeOf` expected = Cast (translate expected) targ
+  | targ_type /= expected = Cast (translate expected) targ
   | otherwise = AsExpr targ
 
 trait_method call@(A.MethodCall{A.target=target, A.name=name, A.args=args}) =

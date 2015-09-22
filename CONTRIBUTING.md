@@ -22,6 +22,7 @@ when implementing a large feature, please use a feature branch.
 ## Guidelines (taken from [here](http://www.booleanknot.com/blog/2013/09/07/pull-requests.html))
 
 ### Stay on target
+
 A pull request should be focused on a single bug fix or feature.
 
 Resist the temptation **to clean up whitespace**, or **fix formatting errors**, or **add
@@ -74,7 +75,7 @@ some.
 
 You might love tabs in your source code. You might
 really, really love them. But if re submitting a pull request to a project that
-uses tabs, you're going have to suck it up and use them.
+uses spaces, you're going have to suck it up and use them.
 
 Aside from coding style, projects might have more subtle conventions that it
 makes sense to follow. Perhaps private functions never have docstrings, or

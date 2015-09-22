@@ -31,6 +31,8 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
         | Ty.isArrayType ty      = array
+        | Ty.isRangeType ty      = range
+        | Ty.isMaybeType ty      = option
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtime_type :: Ty.Type -> CCode Expr
@@ -41,6 +43,7 @@ runtime_type ty
       Ty.isStreamType ty = Amp future_type_rec_name
     | Ty.isArrowType ty  = Amp closure_type_rec_name
     | Ty.isArrayType ty  = Amp array_type_rec_name
+    | Ty.isRangeType ty  = Amp range_type_rec_name
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
 encore_arg_t_tag :: CCode Ty -> CCode Name

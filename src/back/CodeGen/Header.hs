@@ -28,6 +28,7 @@ generate_header p =
       "closure.h",
       "stream.h",
       "array.h",
+      "range.h",
       "future.h",
       "task.h",
       "string.h",

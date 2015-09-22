@@ -21,6 +21,25 @@ pony_type_t array_type =
     NULL
   };
 
+/* int int_cmp(const void *a, const void *b) {  */
+/*   const intptr_t *ia = (const intptr_t*) __atomic_load_n(&a, __ATOMIC_SEQ_CST);  */
+/*   const intptr_t *ib = (const intptr_t*) __atomic_load_n(&b, __ATOMIC_SEQ_CST);  */
+/*   return *ia - *ib; */
+/* } */
+
+int int_cmp(const void *a, const void *b) { 
+  const intptr_t *ia = (const intptr_t*) a;
+  const intptr_t *ib = (const intptr_t*) b;
+  return *ia - *ib;
+}
+
+/// Only works on arrays of integers, only callable through embed at the present
+void array_qsort(array_t *a, int64_t start, int64_t end) 
+{
+  struct array_t *p = a;
+  qsort(p->elements + start, end, sizeof(encore_arg_t*), int_cmp); 
+}
+
 void array_trace(void *p)
 {
   struct array_t *array = p;
@@ -58,6 +77,18 @@ inline size_t array_size(array_t *a)
   return ((struct array_t *)a)->size;
 }
 
+/* inline encore_arg_t array_get(array_t *a, size_t i) */
+/* { */
+/*   encore_arg_t result; */
+/*   __atomic_load(&((struct array_t *)a)->elements[i], &result, __ATOMIC_SEQ_CST); */
+/*   return result; */
+/* } */
+
+/* inline void array_set(array_t *a, size_t i, encore_arg_t element) */
+/* { */
+/*   __atomic_store(&((struct array_t *)a)->elements[i], &element, __ATOMIC_SEQ_CST); */
+/* } */
+
 inline encore_arg_t array_get(array_t *a, size_t i)
 {
   return ((struct array_t *)a)->elements[i];
@@ -67,3 +98,4 @@ inline void array_set(array_t *a, size_t i, encore_arg_t element)
 {
   ((struct array_t *)a)->elements[i] = element;
 }
+

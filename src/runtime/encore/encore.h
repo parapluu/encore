@@ -38,12 +38,30 @@ typedef struct pony_main_msg_t
   char** argv;
 } pony_main_msg_t;
 
-typedef union
-{
-  void* p;
-  intptr_t i;
-  double d;
-} encore_arg_t;
+#define encore_arg_t_content			\
+    void* p;					\
+    intptr_t i;         			\
+    double d;					\
+
+
+typedef union { encore_arg_t_content; } encore_arg_t;
+
+// Option types
+typedef struct option_t option_t;
+typedef enum {JUST, NOTHING} option_tag;
+
+struct option_t {
+  union {
+    encore_arg_t_content;
+    encore_arg_t val;
+  };
+  option_tag tag;
+};
+
+extern option_t DEFAULT_NOTHING;
+
+// end option types
+
 
 #include "task.h"
 
@@ -52,6 +70,7 @@ typedef enum {
   ID_FUTURE,
   ID_SCONS,
   ID_ARRAY,
+  ID_RANGE,
 } encore_type_id;
 
 typedef enum {

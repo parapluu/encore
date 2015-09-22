@@ -1,0 +1,14 @@
+Ping-pong benchmark. Sends messages back and forth between actors and
+has a "sinkActor" which all actors reports to when they are done with
+sending ping messages to other actors. 
+
+The benchmark works in chunks of sizes at most 1999 as a result of a
+drastic increase in memory usage in the Encore version if an actor was
+"aware" (in form of references to those in its neighbor array) of more
+than 2043 other actors.
+
+Every actor sends 16 000 ping messages before terminating.
+
+Execution: 
+      <programName N> where N is the amount of actors to use in
+      the benchmark.

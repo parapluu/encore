@@ -30,6 +30,7 @@ ppElse = text "else"
 ppUnless = text "unless"
 ppWhile = text "while"
 ppRepeat = text "repeat"
+ppFor = text "for"
 ppGet = text "get"
 ppYield = text "yield"
 ppEos = text "eos"
@@ -56,6 +57,11 @@ ppLambda = text "\\"
 ppArrow = text "->"
 ppTask = text "async"
 ppBar = text "|"
+ppJust = text "Just"
+ppNothing = text "Nothing"
+ppMatch = text "match"
+ppWith = text "with"
+ppMatchArrow = text "=>"
 
 indent = nest 2
 
@@ -104,7 +110,7 @@ ppClassDecl Class {cname, cfields, cmethods} =
                    vcat (map ppMethodDecl cmethods))
 
 ppFieldDecl :: FieldDecl -> Doc
-ppFieldDecl Field {fname, ftype} = ppName fname <+> ppColon <+> ppType ftype
+ppFieldDecl = text . show
 
 ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype
@@ -156,6 +162,11 @@ ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
+ppExpr (MaybeValue _ (JustData a)) = ppJust <+> ppExpr a
+ppExpr (MaybeValue _ NothingData) = ppNothing
+ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppExpr arg <+> ppWith $+$ ppMatchWith matchbody
+  where
+   ppMatchWith ls = vcat $ map (\(decl, mbody) -> indent $ ppExpr decl <+> ppMatchArrow <+> ppExpr mbody) ls
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
@@ -176,6 +187,12 @@ ppExpr While {cond, body} =
          indent (ppExpr body)
 ppExpr Repeat {name, times, body} =
     ppRepeat <+> (ppName name) <+> (text "<-") <+> (ppExpr times) $+$
+         indent (ppExpr body)
+ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
+    ppFor <+> ppName name <+> ppIn <+> ppExpr src $+$
+         indent (ppExpr body)
+ppExpr For {name, step, src, body} =
+    ppFor <+> ppName name <+> ppIn <+> ppExpr src <+> text "by" <+> ppExpr step $+$
          indent (ppExpr body)
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> (text "~~>") <+> ppExpr chain
@@ -204,6 +221,7 @@ ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
+ppExpr RangeLiteral {start, stop, step} = text "[" <+> ppExpr start <+> text "," <+> ppExpr stop <+> text " by " <+> ppExpr step <+> text"]"
 ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
 ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
 ppExpr Binop {binop, loper, roper} = ppExpr loper <+> ppBinop binop <+> ppExpr roper

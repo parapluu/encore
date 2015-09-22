@@ -97,10 +97,11 @@ instance HasMeta Function where
   showWithKind Function{funname, funtype} = "function '" ++ show funname ++ "'"
 
 data ClassDecl = Class {
-  cmeta   :: Meta ClassDecl,
-  cname   :: Type,
-  cfields  :: [FieldDecl],
-  cmethods :: [MethodDecl]
+  cmeta       :: Meta ClassDecl,
+  cname       :: Type,
+  ccapability :: Type,
+  cfields     :: [FieldDecl],
+  cmethods    :: [MethodDecl]
 } deriving (Show)
 
 instance Eq ClassDecl where
@@ -136,14 +137,24 @@ instance HasMeta TraitDecl where
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
+data Modifier = Val
+                deriving(Eq)
+
+instance Show Modifier where
+    show Val = "val"
+
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
+  fmods :: [Modifier],
   fname :: Name,
   ftype :: Type
 }
 
 instance Show FieldDecl where
-  show f@Field{fname,ftype} = show fname ++ " : " ++ show ftype
+  show f@Field{fmods,fname,ftype} =
+      smods ++ show fname ++ " : " ++ show ftype
+    where
+      smods = concatMap ((++ " ") . show) fmods
 
 instance Eq FieldDecl where
   a == b = fname a == fname b
@@ -153,6 +164,9 @@ instance HasMeta FieldDecl where
     setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = AST.Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
+
+isValField :: FieldDecl -> Bool
+isValField = (Val `elem`) . fmods
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -183,6 +197,9 @@ isStreamMethod _ = False
 isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
 
+isConstructor :: MethodDecl -> Bool
+isConstructor m = mname m == Name "_init"
+
 instance Eq MethodDecl where
   a == b = mname a == mname b
 
@@ -195,6 +212,9 @@ instance HasMeta MethodDecl where
   showWithKind StreamMethod {mname} = "streaming method '" ++ show mname ++ "'"
 
 type Arguments = [Expr]
+
+data MaybeContainer = JustData { e :: Expr}
+                   | NothingData deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
@@ -212,11 +232,16 @@ data Expr = Skip {emeta :: Meta Expr}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
                           args :: Arguments}
+          | MatchDecl {emeta :: Meta Expr,
+                       arg :: Expr,
+                       matchbody :: [(Expr, Expr)]}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | MaybeValue {emeta :: Meta Expr,
+                       mdt :: MaybeContainer }
           | Foreach {emeta :: Meta Expr,
                      item :: Name,
                      arr :: Expr,
@@ -245,6 +270,11 @@ data Expr = Skip {emeta :: Meta Expr}
                     name :: Name,
                     times :: Expr,
                     body :: Expr}
+          | For {emeta  :: Meta Expr,
+                 name   :: Name,
+                 step   :: Expr,
+                 src    :: Expr,
+                 body   :: Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Yield {emeta :: Meta Expr,
@@ -295,6 +325,10 @@ data Expr = Skip {emeta :: Meta Expr}
                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
+          | RangeLiteral {emeta :: Meta Expr,
+                          start  :: Expr,
+                          stop   :: Expr,
+                          step   :: Expr}
           | IntLiteral {emeta :: Meta Expr,
                         intLit :: Int}
           | RealLiteral {emeta :: Meta Expr,
@@ -328,6 +362,10 @@ isClosure _ = False
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
+
+isRangeLiteral :: Expr -> Bool
+isRangeLiteral RangeLiteral {} = True
+isRangeLiteral _ = False
 
 instance HasMeta Expr where
     getMeta = emeta

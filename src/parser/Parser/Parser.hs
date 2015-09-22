@@ -45,15 +45,16 @@ lexer =
    P.identStart = letter,
    P.reservedNames = [
      "passive", "class", "def", "stream", "breathe", "int", "string", "real",
-     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat",
+     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat", "for",
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require"
+     "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "Maybe", "Just", "Nothing", "match", "with"
    ],
    P.reservedOpNames = [
-     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
-     "\\", "()", "~~>"
+     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
+     "\\", "()", "~~>", "=>"
      ]
   }
 
@@ -67,6 +68,7 @@ operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
+dotdot     = symbol ".."
 commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
 colon      = P.colon lexer
@@ -95,16 +97,20 @@ longidentifier = do
 -- an expressionParser for types (with arrow as the only infix
 -- operator)
 typ :: Parser Type
-typ  =  try arrow
-    <|> parens typ
-    <|> nonArrow
-    <?> "type"
+typ  = adtTypes
+       <|> firstOrderTyp
     where
+      adtTypes = maybe
+      firstOrderTyp = try arrow
+                   <|> parens typ
+                   <|> nonArrow
+                   <?> "type"
       nonArrow =  fut
               <|> par
               <|> stream
               <|> array
               <|> primitive
+              <|> range
               <|> try refType
               <|> typeVariable
               <|> parens nonArrow
@@ -116,6 +122,10 @@ typ  =  try arrow
       fut = do reserved "Fut"
                ty <- typ
                return $ futureType ty
+      maybe = do
+         reserved "Maybe"
+         ty <- firstOrderTyp
+         return $ maybeType ty
       par = do reserved "Par"
                ty <- typ
                return $ parType ty
@@ -124,6 +134,8 @@ typ  =  try arrow
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
+      range = do reserved "Range"
+                 return rangeType
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
@@ -235,11 +247,7 @@ traitDecl = do
 traitField :: Parser FieldDecl
 traitField = do
   reserved "require"
-  fmeta <- meta <$> getPosition
-  fname <- Name <$> identifier
-  colon
-  ftype <- typ
-  return Field{fmeta, fname, ftype}
+  fieldDecl
 
 capability :: Parser Type
 capability = do
@@ -254,10 +262,11 @@ classDecl = do
   reserved "class"
   name <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
-  capability <- option incapability (do{reservedOp ":"; capability})
+  ccapability <- option incapability (do{reservedOp ":"; capability})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = refKind (refTypeWithParams name params) capability
+              ,cname = refKind (refTypeWithParams name params)
+              ,ccapability
               ,cfields
               ,cmethods
               }
@@ -267,12 +276,25 @@ classDecl = do
               methods <- many methodDecl
               return (fields, methods)
 
+modifier :: Parser Modifier
+modifier = val
+           <?>
+           "modifier"
+    where
+      val = do
+        reserved "val"
+        return Val
+
 fieldDecl :: Parser FieldDecl
-fieldDecl = do pos <- getPosition
-               f <- identifier
+fieldDecl = do fmeta <- meta <$> getPosition
+               fmods <- many modifier
+               fname <- Name <$> identifier
                colon
-               ty <- typ
-               return $ Field (meta pos) (Name f) ty
+               ftype <- typ
+               return Field{fmeta
+                           ,fmods
+                           ,fname
+                           ,ftype}
 
 paramDecl :: Parser ParamDecl
 paramDecl = do pos <- getPosition
@@ -304,7 +326,7 @@ arguments :: Parser Arguments
 arguments = expression `sepBy` comma
 
 expression :: Parser Expr
-expression = buildExpressionParser opTable expr
+expression = buildExpressionParser opTable highOrderExpr
     where
       opTable = [
                  [arrayAccess],
@@ -344,9 +366,9 @@ expression = buildExpressionParser opTable expr
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
-          Postfix (do pos <- getPosition
-                      index <- brackets expression
-                      return (\e -> ArrayAccess (meta pos) e index))
+          Postfix (try (do pos <- getPosition
+                           index <- brackets expression
+                           return (\e -> ArrayAccess (meta pos) e index)))
       messageSend =
           Postfix (do pos <- getPosition
                       bang
@@ -364,6 +386,22 @@ expression = buildExpressionParser opTable expr
                     return (Assign (meta pos))) AssocRight
 
 
+highOrderExpr :: Parser Expr
+highOrderExpr = adtExpr
+                <|> expr
+  where
+    adtExpr = justExpr
+              <|> nothingExpr
+    justExpr = do
+      pos <- getPosition
+      reserved "Just"
+      body <- expr <|> nothingExpr
+      return $ MaybeValue (meta pos) (JustData body)
+    nothingExpr = do
+      pos <- getPosition
+      reserved "Nothing"
+      return $ MaybeValue (meta pos) NothingData
+
 
 expr :: Parser Expr
 expr  =  unit
@@ -373,12 +411,15 @@ expr  =  unit
      <|> try functionCall
      <|> try print
      <|> closure
+     <|> match
      <|> task
      <|> finishTask
+     <|> for
      <|> foreach
      <|> parens expression
      <|> varAccess
      <|> arraySize
+     <|> try rangeLit
      <|> arrayLit
      <|> letExpression
      <|> try ifThenElse
@@ -509,6 +550,18 @@ expr  =  unit
                    reservedOp "->"
                    body <- expression
                    return $ Closure (meta pos) params body
+      match = do pos <- getPosition
+                 reserved "match"
+                 argDecl <- expression
+                 reserved "with"
+                 body <- maybeBraces $ many matchingExpr
+                 return $ MatchDecl (meta pos) argDecl body
+             where
+               matchingExpr = do
+                 patternMatching <- expression
+                 reservedOp "=>"
+                 body <- expression
+                 return (patternMatching, body)
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression
@@ -570,3 +623,20 @@ expr  =  unit
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
+      for = do pos <- getPosition
+               reserved "for"
+               name <- identifier
+               reserved "in"
+               src <- expression
+               step <- option (IntLiteral (meta pos) 1)
+                              (do {reserved "by"; expression})
+               body <- expression
+               return $ For (meta pos) (Name name) step src body
+      rangeLit = brackets range
+      range = do pos <- getPosition
+                 start <- expression
+                 dotdot
+                 stop <- expression
+                 step <- option (IntLiteral (meta pos) 1)
+                                (do {reserved "by"; expression})
+                 return $ RangeLiteral (meta pos) start stop step

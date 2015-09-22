@@ -1,0 +1,66 @@
+passive class Data<t> {
+  elem : t
+  def getValue() : t
+    this.elem
+}
+
+passive class Link<t> {
+  data : Data<t>
+  next : Link<t>
+  def init(elem : t, next : Link<t>) : void
+    let data = new Data<t> in{
+      data.elem = elem;
+      this.data = data;
+      this.next = next
+    }
+  def getData() : Data<t>
+    this.data
+  def getNextLink() : Link<t>
+    this.next
+  def show() : void{
+    print this.data.getValue();
+    if this.next != null then
+      this.next.show()
+    else
+      ()
+  }
+}
+
+passive class List<t> {
+  first : Link<t>
+  size : int
+
+  def init() : void {
+    this.first = null : Link<t>;
+    this.size = 0;
+  }
+
+  def prepend(elem : t) : void {
+    let newFirst = new Link<t>(elem, this.first) in{
+      this.first = newFirst
+    };
+    this.size = this.size + 1;
+  }
+
+  def nth(n : int) : Data<t>
+    let cursor = this.first in{
+      while n > 0{
+        cursor = cursor.getNextLink();
+        n = n - 1
+      };
+      cursor.getData()
+    }
+
+  def pop() : Data<t> {
+    let 
+      head = this.first
+    in {
+      this.first = this.first.getNextLink();
+      this.size = this.size - 1;
+      head.getData();
+    };
+  }
+
+  def show() : void
+    this.first.show()
+}

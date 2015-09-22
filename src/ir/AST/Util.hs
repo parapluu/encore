@@ -22,6 +22,9 @@ getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
+getChildren (MaybeValue _ (JustData e)) = [e]
+getChildren (MaybeValue _ NothingData) = []
+getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
@@ -32,6 +35,7 @@ getChildren IfThen {cond, thn} = [cond, thn]
 getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
+getChildren For {name, step, src, body} = [step, src, body]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
@@ -58,6 +62,7 @@ getChildren Exit {args} = args
 getChildren StringLiteral {} = []
 getChildren IntLiteral {} = []
 getChildren RealLiteral {} = []
+getChildren RangeLiteral {start, stop, step} = [start, stop, step]
 getChildren Embed {} = []
 getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
@@ -75,6 +80,15 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
+putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
+putChildren [] e@(MaybeValue _ NothingData) = e
+putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
+  where
+    pair :: [Expr] -> [(Expr, Expr)]
+    pair l =
+      let patternMatches = [l!!x | x <- [0..length l], x `mod` 2 == 0]
+          bodies = [l!!x | x <- [0..length l], x `mod` 2 == 1] in
+      zip patternMatches bodies
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
@@ -83,6 +97,7 @@ putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
 putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
+putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
@@ -106,6 +121,7 @@ putChildren [] e@(New {}) = e
 putChildren [] e@(Peer {}) = e
 putChildren args e@(Print {}) = e{args = args}
 putChildren args e@(Exit {}) = e{args = args}
+putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
 putChildren [] e@(StringLiteral {}) = e
 putChildren [] e@(IntLiteral {}) = e
 putChildren [] e@(RealLiteral {}) = e
@@ -117,6 +133,8 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
 putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
+putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
+putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have at least 1 elements"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
@@ -130,6 +148,7 @@ putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 
 putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 elements"
 putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
+putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
@@ -152,6 +171,7 @@ putChildren _ e@(Peer {}) = error "'putChildren l Peer' expects l to have 0 elem
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"
 putChildren _ e@(RealLiteral {}) = error "'putChildren l RealLiteral' expects l to have 0 elements"
+putChildren _ e@(RangeLiteral {}) = error "'putChildren l RangeLiteral' expects l to have 3 elements"
 putChildren _ e@(Embed {}) = error "'putChildren l Embed' expects l to have 0 elements"
 putChildren _ e@(Unary {}) = error "'putChildren l Unary' expects l to have 1 element"
 putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 elements"
