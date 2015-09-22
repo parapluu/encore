@@ -39,10 +39,13 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword exc "!")
 @(encore/keyword k_let "let")
 @(encore/keyword repeat "repeat")
+@(encore/keyword for "for")
+@(encore/keyword by "by")
 @(encore/keyword arrow "->")
 @(encore/keyword larrow "<-")
 @(encore/keyword lamb "\\")
 @(encore/keyword dot ".")
+@(encore/keyword dotdot "..")
 @(encore/keyword l "<")
 @(encore/keyword b ">")
 @(encore/keyword equals "==")
@@ -137,19 +140,19 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
           (list Imports
                 @seq[import
-		         @optional{@litchar{qualified}} 
+		         @optional{@litchar{qualified}}
 			 QName
-			 @optional[open-paren Name @elem{, ...} close-paren] 
+			 @optional[open-paren Name @elem{, ...} close-paren]
 			 @optional[@seq[as Name]]])
 
 	  (list EmbedTL
 	  	@alt[
 			@seq[embed @elem{.* body .*} end]
 			@seq[embed @elem{.*} end]])
-	  
+
 	  (list ClassDecl
 	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
-	
+
 	  (list FieldDecls
 	  	@alt[
   		 	@seq[Name colon Type FieldDecls]
@@ -201,6 +204,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[Name]
 	      @seq[let LetDecls in Expr]
 	      @seq[repeat Name larrow Expr Expr]
+	      @seq[for Name in Expr Expr]
+	      @seq[for Name in Expr by Expr Expr]
 	      @seq[Expr equal Expr]
 	      @seq[open-c Sequence close-c]
 	      @seq[if Expr then Expr else Expr]
@@ -210,6 +215,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[get Expr]
 	      @seq[new Type open-paren Arguments close-paren]
 	      @seq[new Type]
+	      @seq[new open-bracket Expr dotdot Expr close-bracket]
+	      @seq[new open-bracket Expr dotdot Expr by Expr close-bracket]
 	      @seq[Expr open-bracket Expr close-bracket]
 	      @seq[open-bracket Expr @elem{, ...} close-bracket]
 	      @seq[bar Expr bar]
@@ -228,10 +235,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
 	  (list Name
 	      @elem{[a-zA-Z][a-zA-Z0-9]*})
-	  
+
 	  (list QName
 		      @seq[Name @optional[dot QName]])
-			
+
 	  (list Int @elem{[0-9]+})
 
 	  (list Real @seq[Int dot Int])
@@ -246,7 +253,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[NonArrow arrow NonArrow]])
 
 	(list NonArrow
-	      string int bool void RefType 
+	      string int bool void RefType
 	      @seq[Fut Type]
 	      @seq[Par Type]
 	      @seq[open-paren Type close-paren]
@@ -257,12 +264,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[Type Tys]
 			eps])
 
-	(list Tys 
+	(list Tys
 	      @alt[
 			@seq[comma Type Tys]
 			eps])
 
 	(list RefType @seq[@elem{[A-Z]} @kleenestar[@elem{[a-zA-Z0-9_]}]])
 ])
-
-

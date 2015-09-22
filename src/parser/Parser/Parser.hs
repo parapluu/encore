@@ -45,14 +45,14 @@ lexer =
    P.identStart = letter,
    P.reservedNames = [
      "passive", "class", "def", "stream", "breathe", "int", "string", "real",
-     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat",
+     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat", "for",
      "while", "get", "yield", "eos", "getNext", "new", "this", "await",
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
      "peer", "async", "finish", "foreach", "trait", "require", "val"
    ],
    P.reservedOpNames = [
-     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->",
+     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
      "\\", "()", "~~>"
      ]
   }
@@ -67,6 +67,7 @@ operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
+dotdot     = symbol ".."
 commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
 colon      = P.colon lexer
@@ -105,6 +106,7 @@ typ  =  try arrow
               <|> stream
               <|> array
               <|> primitive
+              <|> range
               <|> try refType
               <|> typeVariable
               <|> parens nonArrow
@@ -124,6 +126,8 @@ typ  =  try arrow
                   return $ streamType ty
       array = do ty <- brackets typ
                  return $ arrayType ty
+      range = do reserved "Range"
+                 return rangeType
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
@@ -354,9 +358,9 @@ expression = buildExpressionParser opTable expr
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
-          Postfix (do pos <- getPosition
-                      index <- brackets expression
-                      return (\e -> ArrayAccess (meta pos) e index))
+          Postfix (try (do pos <- getPosition
+                           index <- brackets expression
+                           return (\e -> ArrayAccess (meta pos) e index)))
       messageSend =
           Postfix (do pos <- getPosition
                       bang
@@ -385,10 +389,12 @@ expr  =  unit
      <|> closure
      <|> task
      <|> finishTask
+     <|> for
      <|> foreach
      <|> parens expression
      <|> varAccess
      <|> arraySize
+     <|> try rangeLit
      <|> arrayLit
      <|> letExpression
      <|> try ifThenElse
@@ -580,3 +586,20 @@ expr  =  unit
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
+      for = do pos <- getPosition
+               reserved "for"
+               name <- identifier
+               reserved "in"
+               src <- expression
+               step <- option (IntLiteral (meta pos) 1)
+                              (do {reserved "by"; expression})
+               body <- expression
+               return $ For (meta pos) (Name name) step src body
+      rangeLit = brackets range
+      range = do pos <- getPosition
+                 start <- expression
+                 dotdot
+                 stop <- expression
+                 step <- option (IntLiteral (meta pos) 1)
+                                (do {reserved "by"; expression})
+                 return $ RangeLiteral (meta pos) start stop step

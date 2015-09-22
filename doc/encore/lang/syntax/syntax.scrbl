@@ -23,16 +23,16 @@ File  @code{Lib.enc}:
     def boo():void {
 		print "^-^"
     }
-  
+
 }|
 
-Line @code{bundle Lib where} declares the module name. This line is optional, though desirable 
-for library code. 
+Line @code{bundle Lib where} declares the module name. This line is optional, though desirable
+for library code.
 
 File  @code{Bar.enc}:
 @codeblock|{
   import Lib
-  
+
   class Main:
     def main():void {
 	  let
@@ -41,7 +41,7 @@ File  @code{Bar.enc}:
 		f.boo();
 	  }
     }
-  
+
 }|
 
 Here the file @code{Bar.enc} imports @code{Lib.enc} and can thus access the class @code{Foo}.
@@ -52,7 +52,7 @@ Modules are hierarchical. Module @code{A.B.C} (in some directory @code{A/B/C.enc
 in the include path) is declared using @code{bundle A.B.C where}  and  imported using @code{import A.B.C}.
 
 As of now the module system has no notion of name spaces so all imported objects needs to have unique names.
-There is also no support for cyclic imports and no "include guards" so it's up to the programmer 
+There is also no support for cyclic imports and no "include guards" so it's up to the programmer
 to ensure that each file is only imported once.
 
 @subsection{Standard Library}
@@ -136,7 +136,7 @@ The available primitive types and example literals for them are:
 )]
 
 @section{Loops}
-There are @code{while} and @code{repeat} loops.
+There are @code{while}, @code{repeat} and @code{for} loops.
 
 A while loop takes a boolean loop condition, and evaluates its body
 expression repeatedly -- as long as the loop condition evaluates to
@@ -167,6 +167,94 @@ integers simpler. The following example is equivalent to the @code{while} loop a
 repeat i <- 5
   print("i={}\n",i)
 }|
+
+Encore for loops can iterate over ranges of integers with uniform
+strides and arrays. They generalise @code{repeat} loops. To use
+@code{for} loops to iterate over the values 1 through 10
+(inclusive), we can write:
+
+@codeblock|{
+for i in [1..10]
+  print i
+}|
+
+This prints:
+
+@verbatim{
+1
+2
+3
+...
+10
+}
+
+For loops can be given an optional stride length using the @code{by}
+keyword. To modify the example above to iterate in strides of 3,
+we can write:
+
+@codeblock|{
+for i in [1..10] by 3
+  print i
+}|
+
+This prints:
+
+@verbatim{
+1
+4
+7
+10
+}
+
+Arrays can be sources of values for @code{for} loops. In the code
+below, let @code{arr} be an array @code{[1,2,3,4,5,6,7,8,9,10]}.
+The following two code snippets are equivalent to the two code
+snippets above. So, this prints 1 through 10 on the terminal:
+
+@codeblock|{
+for i in arr
+  print i
+}|
+
+And this prints 1, 3, 7, and 10 on the terminal:
+
+@codeblock|{
+for i in arr by 3
+  print i
+}|
+
+It is possible to loop over non-literal ranges as well. Notably,
+if @code{rng} is the range @code{[1..10 by 3]} then
+
+@codeblock|{
+for i in rng
+  print i
+}|
+
+prints
+
+@verbatim|{
+1
+3
+7
+10
+}|
+
+and
+
+@codeblock|{
+for i in rng by 2
+  print i
+}|
+
+prints
+
+@verbatim|{
+1
+7
+}|
+
+
 
 @section{Arrays}
 For each type @code{T} there is a corresponding array type
@@ -202,10 +290,32 @@ class Main
   }
 }|
 
-The expected output is 
+The expected output is
 
-@codeblock|{
+@verbatim|{
 2
 3
 4
 }|
+
+
+@section{Ranges}
+
+Ranges are Encore objects which are currently only useful for
+iterating over using @code{for} loops. There are currently no
+surface-level operations on ranges. Ranges may be passed around
+like normal objects. Pretending that ranges can be turned into
+their array equivalents, we can explain ranges by examples thus
+(ranges left, arrays right):
+
+@codeblock|{
+[1..5] == [1,2,3,4,5]
+[0..4] == [0,1,2,3,4]
+[2..6] == [2,3,4,5,6]
+[0..100 by 30] == [0,30,60,90]
+[0..4, by 2] == [0,2,4]
+}|
+
+When ranges are used in @code{for} loops for iteration, they are
+optimised out, meaning there is no memory allocation due to a
+temporary range object.

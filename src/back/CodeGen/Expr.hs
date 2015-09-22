@@ -24,6 +24,7 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
+import Control.Applicative((<$>))
 import Data.List
 
 instance Translatable ID.BinaryOp (CCode Name) where
@@ -283,6 +284,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                         (Call (Nam "array_mk") [AsExpr nsize, runtime_type ty])
          return (Var arr_name, Seq [tsize, the_array_decl])
 
+  translate range_lit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
+      (nstart, tstart) <- translate start
+      (nstop, tstop)   <- translate stop
+      (nstep, tstep)   <- translate step
+      range_literal    <- Ctx.gen_named_sym "range_literal"
+      let ty = translate $ A.getType range_lit
+      return (Var range_literal, Seq [tstart, tstop, tstep,
+                                 Assign (Decl (ty, Var range_literal))
+                                        (Call (Nam "range_mk") [nstart, nstop, nstep])])
+
   translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
       do (ntarg, ttarg) <- translate target
          (nindex, tindex) <- translate index
@@ -436,7 +447,85 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let export_body = Seq $ tbody : [Assign (Var tmp) nbody]
          return (Var tmp,
                  Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
-                      (While (StatAsExpr ncond tcond) (Statement export_body))])
+                      While (StatAsExpr ncond tcond) (Statement export_body)])
+
+  translate for@(A.For {A.name, A.step, A.src, A.body}) = do
+    tmp_var   <- Var <$> Ctx.gen_named_sym "for";
+    index_var <- Var <$> Ctx.gen_named_sym "index"
+    elt_var   <- Var <$> Ctx.gen_named_sym (show name)
+    start_var <- Var <$> Ctx.gen_named_sym "start"
+    stop_var  <- Var <$> Ctx.gen_named_sym "stop"
+    step_var  <- Var <$> Ctx.gen_named_sym "step"
+    src_step_var <- Var <$> Ctx.gen_named_sym "src_step"
+
+    (src_n, src_t) <- if A.isRangeLiteral src
+                      then return (undefined, Comm "Range not generated")
+                      else translate src
+
+    let src_type = A.getType src
+        elt_type = if Ty.isRangeType src_type
+                   then int
+                   else translate $ Ty.getResultType (A.getType src)
+        src_start = if Ty.isRangeType src_type
+                    then Call (Nam "range_start") [src_n]
+                    else Int 0 -- Arrays start at 0
+        src_stop  = if Ty.isRangeType src_type
+                    then Call (Nam "range_stop") [src_n]
+                    else BinOp (translate ID.MINUS)
+                               (Call (Nam "array_size") [src_n])
+                               (Int 1)
+        src_step  = if Ty.isRangeType src_type
+                    then Call (Nam "range_step") [src_n]
+                    else Int 1
+
+    (src_start_n, src_start_t) <- translate_src src A.start start_var src_start
+    (src_stop_n,  src_stop_t)  <- translate_src src A.stop stop_var src_stop
+    (src_step_n,  src_step_t)  <- translate_src src A.step src_step_var src_step
+
+    (step_n, step_t) <- translate step
+    substitute_var name elt_var
+    (body_n, body_t) <- translate body
+    unsubstitute_var name
+
+    let step_decl = Assign (Decl (int, step_var))
+                           (BinOp (translate ID.TIMES) step_n src_step_n)
+        step_assert = Statement $ Call (Nam "range_assert_step") [step_var]
+        index_decl = Seq [AsExpr $ Decl (int, index_var)
+                         ,If (BinOp (translate ID.GT)
+                                    (AsExpr step_var) (Int 0))
+                             (Assign index_var src_start_n)
+                             (Assign index_var src_stop_n)]
+        cond = BinOp (translate ID.AND)
+                     (BinOp (translate ID.GTE) index_var src_start_n)
+                     (BinOp (translate ID.LTE) index_var src_stop_n)
+        elt_decl =
+            Assign (Decl (elt_type, elt_var))
+                   (if Ty.isRangeType src_type
+                    then AsExpr index_var
+                    else AsExpr $ Call (Nam "array_get") [src_n, index_var]
+                                  `Dot` encore_arg_t_tag elt_type)
+        inc = Assign index_var (BinOp (translate ID.PLUS) index_var step_var)
+        the_body = Seq [elt_decl
+                       ,Statement body_t
+                 ,Assign tmp_var body_n
+                     ,inc]
+        the_loop = While cond the_body
+        tmp_decl  = Statement $ Decl (translate (A.getType for), tmp_var)
+
+    return (tmp_var, Seq [tmp_decl
+                         ,src_t
+                         ,src_start_t
+                         ,src_stop_t
+                         ,src_step_t
+                         ,step_t
+                         ,step_decl
+                         ,step_assert
+                         ,index_decl
+                         ,the_loop])
+    where
+      translate_src src selector var rhs
+          | A.isRangeLiteral src = translate (selector src)
+          | otherwise = return (var, Assign (Decl (int, var)) rhs)
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.gen_named_sym "ite"

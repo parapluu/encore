@@ -1,0 +1,36 @@
+def showRange(r : Range) : void
+  for i in r
+    print i
+
+class Foo
+  def msg(m:string) : void
+    print m
+
+class Main
+  def main() : void
+    let
+      fs = [new Foo, null, new Foo, null]
+      a = [false, false, true, false, true]
+      nums = [1, 2, 3, 4, 7, 8, 9, 1, 12]
+      twelve = for i in nums i
+      r = [1..10]
+    in {
+      for b in a
+        print b;
+      print "--------------";
+      for n in nums by 2
+        print n;
+      print "--------------";
+      print twelve;
+      print "--------------";
+      showRange(r);
+      print "--------------";
+      for i in [1..3] by 2
+        print i;
+      print "--------------";
+      for i in [0..100 by 10] by -3
+        print i;
+      print "--------------";
+      for f in fs by 2
+        f ! msg("Foo");
+}

@@ -262,6 +262,11 @@ data Expr = Skip {emeta :: Meta Expr}
                     name :: Name,
                     times :: Expr,
                     body :: Expr}
+          | For {emeta  :: Meta Expr,
+                 name   :: Name,
+                 step   :: Expr,
+                 src    :: Expr,
+                 body   :: Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Yield {emeta :: Meta Expr,
@@ -312,6 +317,10 @@ data Expr = Skip {emeta :: Meta Expr}
                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
+          | RangeLiteral {emeta :: Meta Expr,
+                          start  :: Expr,
+                          stop   :: Expr,
+                          step   :: Expr}
           | IntLiteral {emeta :: Meta Expr,
                         intLit :: Int}
           | RealLiteral {emeta :: Meta Expr,
@@ -345,6 +354,10 @@ isClosure _ = False
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
+
+isRangeLiteral :: Expr -> Bool
+isRangeLiteral RangeLiteral {} = True
+isRangeLiteral _ = False
 
 instance HasMeta Expr where
     getMeta = emeta
