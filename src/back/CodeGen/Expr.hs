@@ -55,12 +55,13 @@ typeToPrintfFstr ty
     | Ty.isRealType ty         = "%f"
     | Ty.isStringObjectType ty = "%s"
     | Ty.isStringType ty       = "%s"
+    | Ty.isCharType ty         = "%c"
     | Ty.isBoolType ty         = "bool<%zd>"
     | Ty.isRefType ty          = show ty ++ "<%p>"
     | Ty.isFutureType ty       = "fut<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
-                    _ -> "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
+                    _ -> error $ "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
 
 -- | If the type is not void, create a variable to store it in. If it is void, return the lval UNIT
 namedTmpVar :: String -> Ty.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
@@ -114,12 +115,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     namedTmpVar "breathe"
                 (A.getType breathe)
                 (Call (Nam "call_respond_with_current_scheduler") ([] :: [CCode Expr]))
+
   translate null@(A.Null {}) = namedTmpVar "literal" (A.getType null) Null
   translate true@(A.BTrue {}) = namedTmpVar "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = namedTmpVar "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)
   translate lit@(A.IntLiteral {A.intLit = i}) = namedTmpVar "literal" (A.getType lit) (Int i)
   translate lit@(A.RealLiteral {A.realLit = r}) = namedTmpVar "literal" (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
+  translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
   translate tye@(A.TypedExpr {A.body}) = do
     (nbody, tbody) <- translate body

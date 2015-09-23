@@ -1,0 +1,10 @@
+def id(c : char) : char
+  c
+
+class Main
+  def main() : void
+    let break = '\n'
+        bang = '!'
+    in{
+      print("Hello char world{}{}", bang, id(break));
+    }

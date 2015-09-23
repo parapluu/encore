@@ -19,7 +19,7 @@
 
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
-(setq encore-primitives '("int" "string" "void" "bool"))
+(setq encore-primitives '("bool" "char" "int" "string" "void" ))
 (setq encore-operators '("||" ">>"))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'symbols))
@@ -32,10 +32,13 @@
 (setq encore-function-regexp "\\<\\(def\\|stream\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
 (setq encore-comment-regexp "--.?*")
+(setq encore-char-regexp "'\\(\\\\.\\|.\\)'")
 
 (setq encore-font-lock-keywords
       `(
+
         (,encore-comment-regexp    . font-lock-comment-face)
+        (,encore-char-regexp       . font-lock-string-face)
         (,encore-keywords-regexp   . font-lock-keyword-face)
         (,encore-danger-regexp     . font-lock-warning-face)
         (,encore-constants-regexp  . font-lock-constant-face)

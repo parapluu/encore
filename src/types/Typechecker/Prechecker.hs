@@ -121,7 +121,7 @@ instance Precheckable MethodDecl where
       mtype'   <- resolveType $ mtype m
       mparams' <- mapM precheck $ mparams m
       thisType <- liftM fromJust $ asks $ varLookup thisName
-      when (isMainMethod thisType (mname m)) checkMainParams
+      when (isMainMethod thisType (mname m)) (checkMainParams mparams')
       when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
@@ -129,6 +129,6 @@ instance Precheckable MethodDecl where
                 tcError "Constructor cannot be streaming"
       return $ setType mtype' m{mparams = mparams'}
       where
-        checkMainParams =
-            unless (map ptype (mparams m) `elem` [[], [arrayType stringType]]) $
-              tcError "Main method must have argument type () or ([string])"
+        checkMainParams mparams =
+            unless (map ptype mparams `elem` [[], [arrayType stringObjectType]]) $
+              tcError "Main method must have argument type () or ([String])"

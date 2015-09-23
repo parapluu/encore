@@ -1049,6 +1049,8 @@ instance Checkable Expr where
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
+    doTypecheck charLit@(CharLiteral {}) = return $ setType charType charLit
+
     doTypecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
     doTypecheck realLit@(RealLiteral {}) = return $ setType realType realLit

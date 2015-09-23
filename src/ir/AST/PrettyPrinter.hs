@@ -241,6 +241,7 @@ ppExpr Peer {ty} = ppPeer <+> ppType ty
 ppExpr Print {args} = ppPrint <> parens (commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text (show stringLit)
+ppExpr CharLiteral {charLit} = text $ show charLit
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} = text "[" <+> ppExpr start <+> text "," <+> ppExpr stop <+> text " by " <+> ppExpr step <+> text"]"

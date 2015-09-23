@@ -83,6 +83,7 @@ braces     = P.braces lexer
 maybeBraces p = braces p <|> p
 
 stringLiteral = P.stringLiteral lexer
+charLiteral = P.charLiteral lexer
 integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
@@ -148,6 +149,7 @@ typ  = adtTypes
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
+                  do {reserved "char"; return charType} <|>
                   do {reserved "real"; return realType} <|>
                   do {reserved "void"; return voidType}
 
@@ -512,6 +514,7 @@ expr  =  unit
      <|> false
      <|> sequence
      <|> stringLit
+     <|> charLit
      <|> try real
      <|> int
      <?> "expression"
@@ -687,6 +690,9 @@ expr  =  unit
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
+      charLit = do pos <- getPosition
+                   char <- charLiteral
+                   return $ CharLiteral (meta pos) char
       int = do pos <- getPosition
                n <- integer
                return $ IntLiteral (meta pos) (fromInteger n)

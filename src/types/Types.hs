@@ -35,6 +35,7 @@ module Types(
             ,isPassiveClassType
             ,isClassType
             ,isMainType
+            ,stringObjectType
             ,isStringObjectType
             ,capabilityType
             ,isCapabilityType
@@ -54,6 +55,8 @@ module Types(
             ,isIntType
             ,realType
             ,isRealType
+            ,charType
+            ,isCharType
             ,stringType
             ,isStringType
             ,isPrimitive
@@ -173,6 +176,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | CType{ident :: String}
           | VoidType
           | StringType
+          | CharType
           | IntType
           | BoolType
           | RealType
@@ -220,11 +224,12 @@ instance Show Type where
     show (CType ty) = ty
     show VoidType   = "void"
     show StringType = "string"
+    show CharType   = "char"
     show IntType    = "int"
     show RealType   = "real"
     show BoolType   = "bool"
     show NullType   = "null type"
-    show BottomType      = "Bottom"
+    show BottomType = "Bottom"
 
 maybeParen :: Type -> String
 maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
@@ -232,6 +237,7 @@ maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
 maybeParen par@(ParType _)     = "(" ++ show par ++ ")"
 maybeParen str@(StreamType _)  = "(" ++ show str ++ ")"
 maybeParen arr@(ArrayType _)   = "(" ++ show arr ++ ")"
+maybeParen opt@(MaybeType _)   = "(" ++ show opt ++ ")"
 maybeParen ty = show ty
 
 showWithKind :: Type -> String
@@ -239,6 +245,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     where
     kind VoidType                      = "primitive type"
     kind StringType                    = "primitive type"
+    kind CharType                      = "primitive type"
     kind IntType                       = "primitive type"
     kind RealType                      = "primitive type"
     kind BoolType                      = "primitive type"
@@ -541,8 +548,9 @@ isTypeVar _ = False
 isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
 isMainType _ = False
 
-isStringObjectType ClassType{refInfo = RefInfo{refId = "String"}} = True
-isStringObjectType _ = False
+stringObjectType = classType Passive "String" []
+
+isStringObjectType = (==stringObjectType)
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
@@ -590,11 +598,17 @@ stringType = StringType
 isStringType :: Type -> Bool
 isStringType = (== stringType)
 
+charType :: Type
+charType = CharType
+
+isCharType :: Type -> Bool
+isCharType = (== charType)
+
 primitives :: [Type]
-primitives = [voidType, intType, realType, boolType, stringType]
+primitives = [voidType, intType, realType, boolType, stringType, charType]
 
 isPrimitive :: Type -> Bool
-isPrimitive = flip elem primitives
+isPrimitive = (`elem` primitives)
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty

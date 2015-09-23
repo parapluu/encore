@@ -3,7 +3,44 @@ embed
 #include <strings.h>
 #include <alloca.h>
 #include <ctype.h>
+array_t *_init_argv(size_t argc, char **argv);
+body
+array_t *_init_argv(size_t argc, char **argv) {
+  array_t *arr = array_mk(argc, &_enc__passive_String_type);
+  for(int i = 0; i < argc; i++) {
+    _enc__passive_String_t* s = encore_alloc(sizeof(_enc__passive_String_t));
+    s->_enc__self_type = &_enc__passive_String_type;
+    _enc__method_String__init(s, argv[i]);
+    array_set(arr, i, (encore_arg_t){.p = s});
+  }
+  return arr;
+}
 end
+
+-- private function for the string library
+def PRIVATE_overwrite_and_skip(data:string, loc:int, pattern_len:int) : string
+embed string
+  #{data}[#{loc}] = '\0';
+  #{data} + #{loc} + #{pattern_len};
+end
+
+def string_from_char(c : char) : String
+  let
+    s = embed string encore_alloc(2); end
+  in
+    new String(embed string *#{s} = #{c}; #{s}; end)
+
+def string_from_array(arr : [char]) : String
+  let
+    len = |arr|
+    s = embed string encore_alloc(#{len} + 1); end
+    p = s
+  in
+    new String(
+      for c in arr
+        embed string *#{p}++ = #{c}; #{s}; end
+      )
+
 -- This is a utility library for working with strings.
 -- [x] build a wrapper around string.h
 -- [x] build tests for wrapper
@@ -13,24 +50,33 @@ end
 -- Be aware of issue #204
 passive class String
   data:string
+  length:int
 
   def init(s:string) : void
-    this.data = s
+  {
+    this.data = s;
+    this.length = embed int; strlen(#{s}); end;
+  }
 
+  def is_empty() : bool
+    this.length == 0
+
+  -- Returns a new string which is the concatenation of the
+  -- current string and b
   def concatenate(b:String) : String
     let
-      t_len = this.length()
-      b_len = b.length()
-      data  = this.data
-      b_data  = b.data
+      t_len  = this.length()
+      b_len  = b.length()
+      t_data = this.data
+      b_data = b.data
     in
       new String(embed string
         void *str = encore_alloc(#{t_len} + #{b_len} + 1);
-        strncpy(str, (char *)#{data}, #{t_len});
-        strncpy(str + #{t_len}, (char *)#{b_data}, #{b_len} + 1);
+        strncpy(str, (char *)#{t_data}, #{t_len});
+        strncat(str, (char *)#{b_data}, #{b_len});
         str;
       end)
-
+  -- Returns a copy of the current string
   def copy() : String
     let
       t_len = this.length()
@@ -42,6 +88,7 @@ passive class String
         str;
       end)
 
+  -- Returns true if b is a substring of the current string
   def contains(b:String) : bool
     let
       data  = this.data
@@ -51,23 +98,26 @@ passive class String
         strstr((char *)#{data}, (char *)#{b_data}) != NULL;
       end
 
+  -- As contains, but ignores case
   def contains_ignore_case(b:String) : bool
     this.to_upper().contains(b.to_upper())
 
+  -- Performs a string comparison á la man 3 strncmp
   def compare(b:String) : int
     let
-      t_len = this.length()
-      b_len = b.length()
-      data  = this.data
-      b_data  = b.data
+      t_len  = this.length
+      b_len  = b.length
+      len = if t_len > b_len then t_len else b_len
+      t_data = this.data
+      b_data = b.data
     in
-      embed int
-        strncmp((char *)#{data}, (char *)#{b_data}, #{t_len} > #{b_len} ? #{t_len} : #{b_len});
-      end
+      embed int strncmp((char *)#{t_data}, (char *)#{b_data}, #{len}); end
 
+  -- As compare, but ignores case
   def compare_ignore_case(b:String) : int
     this.to_upper().compare(b.to_upper())
 
+  -- Returns a copy of the string in uppercase
   def to_upper() : String
     let
       t_len = this.length()
@@ -83,6 +133,7 @@ passive class String
         str;
       end)
 
+  -- Returns a copy of the string in lowercase
   def to_lower() : String
     let
       t_len = this.length()
@@ -98,20 +149,16 @@ passive class String
         str;
       end)
 
+  -- Returns the length of a string in O(1) time
   def length() : int
-    let
-      data  = this.data
-    in
-      embed int
-        strlen(#{data});
-      end
+    this.length
 
+  -- See length()
   def size() : int
-    this.length()
+    this.length
 
-  def get_() : String
-    this
-
+  -- Returns a substring from the current string starting
+  -- in index from, ending in index to (inclusive).
   def substring(from:int, to:int) : String
     if to < from
     then ""
@@ -128,12 +175,16 @@ passive class String
         str[siz] = '\0';
         str;
       end)
+
+  -- Checks structural equivalence between this and s
   def equals(s:String) : bool
     this.compare(s) == 0
 
   -- Calculates the number of occurrences of s in the string
   def occurrences(s:String) : int
-    let
+    if s.length() == 0
+    then this.length()
+    else let
       counter = 0
       i       = this.find(s)
       s_len   = s.length()
@@ -142,27 +193,10 @@ passive class String
       counter
     }
 
-  -- TODO: [ABA].split("A") => ["", "B"] not ["", "B", ""]
-  def split(s:String) : [String]
-    let
-      splits = new [String](this.occurrences(s) + 1)
-      p      = 0
-      i      = this.find(s)
-      occs   = 0
-      s_len  = s.length()
-    in {
-      while i >= 0 {
-        splits[occs] = this.substring(p, i);
-        occs = occs + 1;
-        p = i + s_len;
-        i = this.find_from(s, i + s_len);
-      };
-      splits[occs] = this.substring(p, this.length());
-      splits;
-    }
-
-
-  -- lots of intermediate string creations
+  -- Joins a given list of strings over the current string,
+  -- e.g., ",".join(["A", "B", "C"]) ==> "A, B, C".
+  -- The current implementation creates many intermediate
+  -- strings.
   def join(strings:[String]) : String
     if |strings| == 0
     then ""
@@ -175,6 +209,8 @@ passive class String
         result;
       }
 
+  -- Removes trailing whitespace
+  -- The definition of whitespace can be found in man 3 isspace.
   def trim() : String
     let
       len = this.length()
@@ -183,13 +219,19 @@ passive class String
       stop_index  = embed int int s = #{len}-1; while (#{str}[s] && isspace(#{str}[s])) --s; s; end
     in
       this.substring(start_index, stop_index + 1)
+
+  -- Replaces all occurrences of a by b in the string.
+  -- The current implementation creates many intermediate
+  -- strings.
   def replace(a:String, b:String) : String
     b.join(this.split(a))
 
+  -- Searches for the first occurrence of a
   -- Returns -1 if not found
   def find(a:String) : int
     this.find_from(a, 0)
 
+  -- Searches for the first occurrence of a, from index b forward.
   -- Returns -1 if not found
   def find_from(a:String, b:int) : int
     if (b < 0) or (b >= this.length())
@@ -232,3 +274,80 @@ passive class String
 
   def format(b:[String]) : String
     "To be implemented"
+
+  def char_at(i : int) : char
+    let s = this.data
+    in embed char #{s}[#{i}]; end
+
+  def to_array() : [char]
+    let
+      len = this.length()
+      arr = new [char](len)
+    in
+      for i in [0..len-1] {
+        arr[i] = this.char_at(i); arr
+      }
+
+  -- Splits a string over a pattern p, e.g., "A, B, C" turns
+  -- into ["A", "B", "C"].
+  --
+  -- Uses the lower level methods split_copying (which does not
+  -- waste memory but is slow), or split_inplace (which may waste
+  -- memory but is faster. The fast method is chosen for patterns
+  -- of length < 3 or when <= 4% of the existing string space is
+  -- wasted.
+  def split(p:String) : [String]
+    let
+      occurrences = this.occurrences(p)
+      pattern_len = p.length()
+    in
+    if (occurrences == 0)
+    then [this]
+    else if (pattern_len == 0)
+    then let s_arr = new [String](this.length())
+         in
+           for i in [0..|s_arr|-1] {
+             s_arr[i] = string_from_char(this.char_at(i));
+             s_arr;
+           }
+    else
+      let
+        wasteage_percent = occurrences / pattern_len
+      in if (pattern_len < 3) or (wasteage_percent > 4) -- What is a good THRESHOLD?
+         then this.split_copying(p, occurrences, pattern_len)
+         else this.split_inplace(p, occurrences, pattern_len)
+
+  -- Not intended to be called from outside of String
+  def split_copying(p:String, occurrences:int, pattern_len:int) : [String]
+    let
+      result = new [String](occurrences + 1)
+      start  = 0
+      stop   = 0
+    in {
+      repeat i <- occurrences
+      {
+        stop = this.find_from(p, start);
+        result[i] = this.substring(start, stop);
+        start = stop + pattern_len;
+      };
+      result[occurrences] = this.substring(start, this.length());
+      result;
+    }
+
+  -- Not intended to be called from outside of String
+  def split_inplace(p:String, occurrences:int, pattern_len:int) : [String]
+    let
+      copy   = this.copy()
+      result = new [String](occurrences + 1)
+      loc    = 0
+    in {
+      repeat i <- occurrences
+      {
+        loc = copy.find(p);
+        result[i] = new String(copy.data);
+        copy.data = PRIVATE_overwrite_and_skip(copy.data, loc, pattern_len);
+      };
+      copy.length = loc;
+      result[occurrences] = copy;
+      result;
+    }

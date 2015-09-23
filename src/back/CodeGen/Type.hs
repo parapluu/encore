@@ -19,6 +19,7 @@ translatePrimitive ty
     | Ty.isIntType ty    = int
     | Ty.isRealType ty   = double
     | Ty.isBoolType ty   = bool
+    | Ty.isCharType ty   = char
     | Ty.isStringType ty = Ptr char
     | otherwise = error $ show ty ++ " is not a primitive"
 
@@ -55,6 +56,7 @@ encoreArgTTag (Ptr _)         = Nam "p"
 encoreArgTTag (Typ "int64_t") = Nam "i"
 encoreArgTTag (Typ "double")  = Nam "d"
 encoreArgTTag (Embed _)       = Nam "p"
+encoreArgTTag (Typ "char")    = Nam "i"
 encoreArgTTag other           =
     error $ "Type.hs: no encoreArgTTag for " ++ show other
 
