@@ -143,7 +143,7 @@ meetRequiredFields cFields trait tdecl =
 no_overlap_fields :: Type -> TypecheckM ()
 no_overlap_fields capability =
   let
-    par_traits = parallelTypesFromCapability capability
+    par_traits = conjunctiveTypesFromCapability capability
   in
     mapM_ per_level par_traits
   where
@@ -152,27 +152,45 @@ no_overlap_fields capability =
 
     per_pair :: ([Type], [Type]) -> TypecheckM ()
     per_pair pair = do
-      first_fields <- get_fields_from_item $ fst pair
-      second_fields <- get_fields_from_item $ snd pair
-      no_overlapping first_fields second_fields
+      left_pairs <- mapM pair_type_fields $ fst pair
+      right_pairs <- mapM pair_type_fields $ snd pair
+      mapM_ conjunctive_var_err $ common_var_fields left_pairs right_pairs
 
-    no_overlapping :: [FieldDecl] -> [FieldDecl] -> TypecheckM ()
-    no_overlapping first second =
+    find_type_has_field :: [(Type, [FieldDecl])] -> FieldDecl -> Type
+    find_type_has_field pairs field =
+      head $ [fst pair | pair <- pairs, field `elem` snd pair]
+
+    common_var_fields :: [(Type, [FieldDecl])] -> [(Type, [FieldDecl])]
+      -> [(Type, Type, FieldDecl)]
+    common_var_fields left_pairs right_pairs =
       let
-        common = intersect first second
-        first_common = [f | f <- first, f `elem` common]
-        second_common = [f | f <- second, f `elem` common]
+        left_fields = concatMap snd left_pairs
+        right_fields = concatMap snd right_pairs
+        common = intersect left_fields right_fields
+        left_common = [f | f <- left_fields, f `elem` common, not_val f]
+        right_common = [f | f <- right_fields, f `elem` common, not_val f]
+        first_err_field = if (not . null) left_common then head left_common else head right_common
+        left_type = find_type_has_field left_pairs first_err_field
+        right_type = find_type_has_field right_pairs first_err_field
       in
-        mapM_ is_val first_common >> mapM_ is_val second_common
+        if null left_common && null right_common then
+          []
+        else
+          [(left_type, right_type, first_err_field)]
 
-    is_val :: FieldDecl -> TypecheckM ()
-    is_val f = unless (isValField f) $ tcError $
-      printf "'%s' is not val field" $ show f
+    conjunctive_var_err :: (Type, Type, FieldDecl) -> TypecheckM ()
+    conjunctive_var_err (left, right, field) =
+      tcError $ printf
+        "'%s' needs to be defined as val field in both conjunctive traits '%s' and '%s'"
+        (show field) (show left) (show right)
 
-    get_fields_from_item :: [Type] -> TypecheckM [FieldDecl]
-    get_fields_from_item types = do
-      traits <- mapM (liftM fromJust . asks . traitLookup) types
-      return $ concatMap tfields traits
+    not_val :: FieldDecl -> Bool
+    not_val = not . isValField
+
+    pair_type_fields :: Type -> TypecheckM (Type, [FieldDecl])
+    pair_type_fields t = do
+      trait <- liftM fromJust . asks . traitLookup $ t
+      return (t, tfields trait)
 
     pair :: [[Type]] -> [([Type], [Type])]
     pair list = pair' $ tail list

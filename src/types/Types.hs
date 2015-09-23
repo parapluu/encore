@@ -58,7 +58,7 @@ module Types(
             ,getId
             ,getTypeParameters
             ,setTypeParameters
-            , parallelTypesFromCapability
+            , conjunctiveTypesFromCapability
             ,typesFromCapability
             ,typeComponents
             ,typeMap
@@ -356,10 +356,10 @@ singleCapability CapabilityType{capability=Capability{typeTree}} =
 singleCapability ty =
   error $ "Expects CapabilityType " ++ show ty
 
-parallelTypesFromCapability :: Type -> [[[Type]]]
-parallelTypesFromCapability t@TraitType{} = []
-parallelTypesFromCapability CapabilityType{capability=EmptyCapability} = []
-parallelTypesFromCapability ty@CapabilityType{capability} =
+conjunctiveTypesFromCapability :: Type -> [[[Type]]]
+conjunctiveTypesFromCapability t@TraitType{} = []
+conjunctiveTypesFromCapability CapabilityType{capability=EmptyCapability} = []
+conjunctiveTypesFromCapability ty@CapabilityType{capability} =
   collect $ typeTree capability
   where
     collect :: TypeTree -> [[[Type]]]
