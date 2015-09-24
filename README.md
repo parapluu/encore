@@ -3,7 +3,7 @@ encorec
 
 The Encore compiler.
 
-There are two ways of installing the Encore compiler. The first ([**Playing around with Encore**](https://github.com/parapluu/encore/blob/master/README.md#playing-around-with-encore)) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach ([**Building Encore from Source**](https://github.com/parapluu/encore/blob/master/README.md#building-encore-from-source)) is a proper installation of all the dependencies (Haskell, llvm, etc). 
+There are two ways of installing the Encore compiler. The first ([**Playing around with Encore**](https://github.com/parapluu/encore/blob/master/README.md#playing-around-with-encore)) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach ([**Building Encore from Source**](https://github.com/parapluu/encore/blob/master/README.md#building-encore-from-source)) is a proper installation of all the dependencies (Haskell, llvm, etc).
 
 This readme concludes with a discussion of the Encore command line arguments and details of the documentation.
 
@@ -62,11 +62,11 @@ We're using:
 
  - doxygen v1.8.6
  - clang:
-    Apple LLVM version 5.1 (clang-503.0.40) (based on LLVM 3.4svn)
-    Target: x86_64-apple-darwin13.1.0
+    Apple LLVM version 7.0.0 (clang-700.0.72)
+    Target: x86_64-apple-darwin14.5.0
     Thread model: posix
  - g++ 4.8
- - ghc: The Glorious Glasgow Haskell Compilation System, version 7.6.3
+ - ghc: The Glorious Glasgow Haskell Compilation System, version 7.10.2
  - premake4 (Premake Build Script Generator) 4.3
  - `scribble` -- only for building the documentation
 
@@ -93,16 +93,18 @@ distribution.
 
 Run: `brew update; brew install llvm`
 
-- If you have a newer version of clang (clang-600.0.1), please downgrade to clang-503.0.40 by installing the [Command Line Tools for Xcode - April 2014](https://developer.apple.com/downloads/index.action).
-
 ##### Installing `ghc`
 
-You need at least version `7.6.3`.
+You need at least version `7.10.2`.
 
 - If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
 - If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to uninstall stuff easily once you don't need it any more.
 
-Then install the newest version, saying `brew update && brew install cabal && cabal install cabal-install`.
+Then install the newest version:
+
+```
+brew update && brew install cabal && cabal install cabal-install && brew install ghc
+```
 
 #### Installing the preliminaries on Linux
 
@@ -110,12 +112,15 @@ It's only tested on Ubuntu 14.04, and hopefully it works as well on other
 distributions based on Ubuntu or Debian.
 
 
-    # sync with the online repo source
-    apt-get update
+    # add sources
+    sudo add-apt-repository -y ppa:hvr/ghc
+    # update
+    sudo apt-get update
     # set up the building infrastructure
-    apt-get install -y clang g++ premake4 haskell-platform
-    # if you also want to see the HTML doc
-    apt-apt install -y doxygen
+    sudo apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 racket doxygen
+	# update cabal packages
+	cabal update && cabal install cabal-install
+
 
 ##### Version checking
 
@@ -173,7 +178,7 @@ Have fun!
 
 Running `encorec foo.enc` will typecheck the source and produce the executable
 `foo`. The following options are supported:
- 
+
 * `-c` -- Keep intermediate C-files
 * `-tc` -- Typecheck only (don't produce an executable)
 * `-o [file]` -- Specify output file

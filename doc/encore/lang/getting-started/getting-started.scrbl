@@ -2,9 +2,9 @@
 
 @title[#:tag "getting-started"]{Getting Up and Running}
 
-There are two ways of installing the Encore compiler. The first (@secref{building-vm}) 
-uses a virtual box image and it is easy getting the compiler up and running. The 
-disadvantage of this approach is that benchmarks are meaningless. The second approach 
+There are two ways of installing the Encore compiler. The first (@secref{building-vm})
+uses a virtual box image and it is easy getting the compiler up and running. The
+disadvantage of this approach is that benchmarks are meaningless. The second approach
 (@secref{building-source}) is a proper installation of all the dependencies (Haskell, llvm, etc).
 
 @section[#:tag "building-vm"]{Playing Around with Encore}
@@ -59,7 +59,7 @@ disadvantage of this approach is that benchmarks are meaningless. The second app
     @code{halt} stops the VM as in turning off the computer while @code{suspend} saves the current state of the VM and allows you to get a
     faster boot up next time you run @code{vagrant up}.
   }
-  
+
   @item{To connect to the VM:
     @codeblock|{
       localhost$ vagrant up && vagrant ssh
@@ -67,7 +67,7 @@ disadvantage of this approach is that benchmarks are meaningless. The second app
   }
 ]
 
-You can work on your @code{localhost} machine with your favorite editor and use the 
+You can work on your @code{localhost} machine with your favorite editor and use the
 terminal with the @code{vm} only for compilation purposes.
 
 Please take into account that your local folder is shared with the VM, so any files you remove from the VM will be removed
@@ -85,9 +85,9 @@ Make sure you have installed:
 
 @itemlist[#:style 'ordered
   @item{@code{doxygen v1.8.6}}
-  @item{@code{clang}: Apple LLVM version 5.1 (clang-503.0.40) (based on LLVM 3.4svn) Target: x86_64-apple-darwin13.1.0 Thread model: posix}
+  @item{@code{clang}: Apple LLVM version 7.0.0 (clang-700.0.72) Target: x86_64-apple-darwin14.5.0 Thread model: posix}
   @item{@code{g++ 4.8}}
-  @item{@code{ghc} The Glorious Glasgow Haskell Compilation System, version 7.8.3}
+  @item{@code{ghc} The Glorious Glasgow Haskell Compilation System, version 7.10.2}
   @item{@code{premake4} (Premake Build Script Generator) 4.3}
 ]
 
@@ -95,8 +95,8 @@ Make sure you have installed:
 
 @bold{Installing homebrew}
 
-Go to @hyperlink["http://brew.sh/"]{http://brew.sh/}, the instructions there work nicely. 
-Make sure that your normal user is an admin (that you can use @code{sudo}). You should 
+Go to @hyperlink["http://brew.sh/"]{http://brew.sh/}, the instructions there work nicely.
+Make sure that your normal user is an admin (that you can use @code{sudo}). You should
 not need @code{sudo} to use @code{brew} in the future.
 
 @bold{Installing @code{doxygen}}
@@ -108,32 +108,28 @@ Run: @code{brew update; brew install doxygen}
 
 Run: @code{brew update; brew install llvm}
 
-If you have a newer version of clang (clang-600.0.1), please downgrade to clang-503.0.40 
-by installing the @hyperlink["Command Line Tools for Xcode - April 2014."]{https://developer.apple.com/downloads/index.action}
-
-
 @bold{Installing ghc}
 
-You need at least version @code{7.6.3}.
+You need version @code{7.10.2}.
 
-If you have an older version of @code{ghc} installed with @code{homebrew}: get rid of 
+If you have an older version of @code{ghc} installed with @code{homebrew}: get rid of
 it by saying:
 
 @codeblock|{
 brew uninstall haskell-platform; brew uninstall ghc
 }|
 
-If you have an older version of @code{ghc} installed downloaded from the haskell webpage: 
+If you have an older version of @code{ghc} installed downloaded from the haskell webpage:
 you need to remove it. Here is a @hyperlink["discussion thread on how to do that"]{http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html}.
 
-@bold{Warning}: we did not test this, and even if we did, every computer is configured differently. 
-In the future: please use homebrew for every installation where a formula is available. 
+@bold{Warning}: we did not test this, and even if we did, every computer is configured differently.
+In the future: please use homebrew for every installation where a formula is available.
 It allows you to uninstall stuff easily once you don't need it any more.
 
 Then install the newest version:
 
 @codeblock|{
-brew update; brew install cabal; cabal install cabal-install.
+brew update && brew install cabal && cabal install cabal-install && brew install ghc
 }|
 
 @subsubsection[#:style 'unnumbered]{Installing dependencies on Linux}
@@ -142,16 +138,19 @@ It's only tested on Ubuntu 14.04 and hopefully it works on other distributions b
 
 @codeblock|{
 sudo add-apt-repository -y ppa:hvr/ghc
-apt-get update
 
-apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev \
-	ghc-7.8.3 cabal-install-1.22 unzip valgrind git emacs vim
+sudo apt-get update
+
+sudo apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev \
+                        ghc-7.10.2 cabal-install-1.22 racket doxygen
+
+cabal update && cabal install cabal-install
 
 ln -s /usr/bin/cabal-1.22 /usr/bin/cabal
 ln -s /usr/bin/lldb-3.5 /usr/bin/lldb
 
-export PATH=/opt/ghc/7.8.3/bin:$PATH
-cabal update && cabal install cabal-install
+export PATH=/opt/ghc/7.10.2/bin:$PATH
+cabal update
 }|
 
 @subsection{Compiling and installing Encore}
@@ -171,7 +170,7 @@ This will allow you to invoke the compiler:
   $ encorec my_file.enc
 }|
 
-in any directory. To do this, add this line to your @code{~/.bashrc} file, inserting 
+in any directory. To do this, add this line to your @code{~/.bashrc} file, inserting
 the proper path for @code{<SOME_DIR>}:
 
 @codeblock|{
@@ -194,7 +193,7 @@ This will produce an executable that you can run as usual:
 Alternatively, you can use the .enc-file as a script by adding:
 
 @codeblock|{
-#! /usr/bin/env encorec -run 
+#! /usr/bin/env encorec -run
 }|
 
 as its FIRST line. After you made the file executable:
