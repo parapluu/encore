@@ -107,7 +107,7 @@ typ  =  try arrow
               <|> array
               <|> primitive
               <|> range
-              <|> try refType
+              <|> capability
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -133,16 +133,6 @@ typ  =  try arrow
                   do {reserved "string"; return stringType} <|>
                   do {reserved "real"; return realType} <|>
                   do {reserved "void"; return voidType}
-
-refType :: Parser Type
-refType = do
-  id <- identifier
-  if isUpper . head $ id
-  then do
-    params <- option [] $ angles (commaSep1 typ)
-    return $ refTypeWithParams id params
-  else fail "Class and trait types must begin with an upper case letter"
-  <?> "class or trait type"
 
 typeVariable :: Parser Type
 typeVariable = do
@@ -243,8 +233,30 @@ traitField = do
 
 capability :: Parser Type
 capability = do
-  traits <- refType `sepBy1` reservedOp "+"
-  return $ capabilityType traits
+  tree <- type_tree
+  return $ fromTypeTree tree
+  where
+    type_tree :: Parser TypeTree
+    type_tree = do
+      ts <- product_type `sepBy1` reservedOp "+"
+      return $ RoseTree Addition ts
+
+    product_type :: Parser TypeTree
+    product_type = do
+      ts <- term `sepBy1` reservedOp "*"
+      return $ RoseTree Product ts
+
+    term :: Parser TypeTree
+    term = Leaf <$> refInfo
+        <|> parens type_tree
+
+    refInfo :: Parser RefInfo
+    refInfo = do
+      notFollowedBy lower
+      refId <- identifier
+      parameters <- option [] $ angles (commaSep1 typ)
+      return $ RefInfo{refId, parameters}
+      <?> "upper case ref type"
 
 classDecl :: Parser ClassDecl
 classDecl = do

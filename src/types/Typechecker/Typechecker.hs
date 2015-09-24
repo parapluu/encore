@@ -23,6 +23,7 @@ import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
+import Text.Printf (printf)
 
 
 -- | The top-level type checking function
@@ -139,6 +140,64 @@ meetRequiredFields cFields trait tdecl =
                    "' into a val-field in " ++ classOrTraitName trait
               else ""
 
+no_overlap_fields :: Type -> TypecheckM ()
+no_overlap_fields capability =
+  let
+    par_traits = conjunctiveTypesFromCapability capability
+  in
+    mapM_ per_level par_traits
+  where
+    per_level :: [[Type]] -> TypecheckM ()
+    per_level level = mapM_ per_pair $ pair level
+
+    per_pair :: ([Type], [Type]) -> TypecheckM ()
+    per_pair pair = do
+      left_pairs <- mapM pair_type_fields $ fst pair
+      right_pairs <- mapM pair_type_fields $ snd pair
+      mapM_ conjunctive_var_err $ common_var_fields left_pairs right_pairs
+
+    find_type_has_field :: [(Type, [FieldDecl])] -> FieldDecl -> Type
+    find_type_has_field pairs field =
+      head $ [fst pair | pair <- pairs, field `elem` snd pair]
+
+    common_var_fields :: [(Type, [FieldDecl])] -> [(Type, [FieldDecl])]
+      -> [(Type, Type, FieldDecl)]
+    common_var_fields left_pairs right_pairs =
+      let
+        left_fields = concatMap snd left_pairs
+        right_fields = concatMap snd right_pairs
+        common = intersect left_fields right_fields
+        left_common = [f | f <- left_fields, f `elem` common, not_val f]
+        right_common = [f | f <- right_fields, f `elem` common, not_val f]
+        first_err_field = if (not . null) left_common then head left_common else head right_common
+        left_type = find_type_has_field left_pairs first_err_field
+        right_type = find_type_has_field right_pairs first_err_field
+      in
+        if null left_common && null right_common then
+          []
+        else
+          [(left_type, right_type, first_err_field)]
+
+    conjunctive_var_err :: (Type, Type, FieldDecl) -> TypecheckM ()
+    conjunctive_var_err (left, right, field) =
+      tcError $ printf
+        "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
+         (show left) (show right) (show field)
+
+    not_val :: FieldDecl -> Bool
+    not_val = not . isValField
+
+    pair_type_fields :: Type -> TypecheckM (Type, [FieldDecl])
+    pair_type_fields t = do
+      trait <- liftM fromJust . asks . traitLookup $ t
+      return (t, tfields trait)
+
+    pair :: [[Type]] -> [([Type], [Type])]
+    pair list = pair' $ tail list
+      where
+        pair' [] = []
+        pair' shadow = zip list shadow ++ (pair' $ tail shadow)
+
 ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
 ensureNoMethodConflict methods tdecls =
   let allMethods = methods ++ concatMap tmethods tdecls
@@ -165,11 +224,12 @@ instance Checkable ClassDecl where
   -- -----------------------------------------------------------
   --  E |- class cname fields methods
   doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
-    let traits = traitsFromCapability ccapability
+    let traits = typesFromCapability ccapability
     unless (isPassiveClassType cname || null traits) $
            tcError "Traits can only be used for passive classes"
     tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
     zipWithM_ (meetRequiredFields cfields) traits tdecls
+    no_overlap_fields ccapability
     -- TODO: Add namespace for trait methods
     ensureNoMethodConflict cmethods tdecls
 
