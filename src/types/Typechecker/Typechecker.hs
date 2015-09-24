@@ -181,8 +181,8 @@ no_overlap_fields capability =
     conjunctive_var_err :: (Type, Type, FieldDecl) -> TypecheckM ()
     conjunctive_var_err (left, right, field) =
       tcError $ printf
-        "'%s' needs to be defined as val field in both conjunctive traits '%s' and '%s'"
-        (show field) (show left) (show right)
+        "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
+         (show left) (show right) (show field)
 
     not_val :: FieldDecl -> Bool
     not_val = not . isValField

@@ -86,11 +86,11 @@ resolveType = typeMapM resolveSingleType
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
-        | isCapabilityType ty = resovle_capa ty
+        | isCapabilityType ty = resolve_capa ty
         | otherwise = return ty
         where
-          resovle_capa :: Type -> TypecheckM Type
-          resovle_capa t
+          resolve_capa :: Type -> TypecheckM Type
+          resolve_capa t
             | emptyCapability t = return t
             | singleCapability t = resolveType $ head $ typesFromCapability t
             | otherwise =
