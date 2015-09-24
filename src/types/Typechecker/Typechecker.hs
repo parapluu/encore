@@ -398,8 +398,9 @@ instance Checkable Expr where
 
         tuplecheck parentType (x, y) = do
           x' <- typecheck x
-          y' <- typecheck y
-          tuplecheck parentType (x', y')
+          tcError $ "Cannot pattern match on expression of type '" ++
+                    show parentType ++ "' with expression of type '" ++
+                    show (AST.getType x') ++ "'"
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
