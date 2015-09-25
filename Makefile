@@ -45,6 +45,8 @@ PONY_INC=$(RUNTIME_DIR)/pony/libponyrt/*.h
 PONY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libponyrt.a
 FUTURE_INC=$(FUTURE_DIR)/future.h
 FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libfuture.a
+OPTION_INC=$(RUNTIME_DIR)/adt/option.h
+OPTION_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/liboptiontype.a
 ENCORE_INC=$(ENCORE_DIR)/encore.h
 ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libencore.a
 CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
@@ -63,6 +65,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(COMMON_INC) $(INC_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)
 	cp -r $(FUTURE_INC) $(INC_DIR)
+	cp -r $(OPTION_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(TASK_INC) $(INC_DIR)
 	cp -r $(STREAM_INC) $(INC_DIR)
@@ -73,6 +76,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
 	cp -r $(TASK_LIB) $(LIB_DIR)
+	cp -r $(OPTION_LIB) $(LIB_DIR)
 	cp -r $(ENCORE_LIB) $(LIB_DIR)
 	cp -r $(STREAM_LIB) $(LIB_DIR)
 	cp -r $(ARRAY_LIB) $(LIB_DIR)

@@ -22,6 +22,9 @@ getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
+getChildren (MaybeValue _ (JustData e)) = [e]
+getChildren (MaybeValue _ NothingData) = []
+getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
@@ -77,6 +80,15 @@ putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
+putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
+putChildren [] e@(MaybeValue _ NothingData) = e
+putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
+  where
+    pair :: [Expr] -> [(Expr, Expr)]
+    pair l =
+      let patternMatches = [l!!x | x <- [0..length l], x `mod` 2 == 0]
+          bodies = [l!!x | x <- [0..length l], x `mod` 2 == 1] in
+      zip patternMatches bodies
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
@@ -121,6 +133,8 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
 putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
+putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
+putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have at least 1 elements"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"

@@ -64,6 +64,13 @@ module Types(
             ,typeMap
             ,typeMapM
             ,showWithKind
+            ,hasSameKind
+            ,maybeType
+            ,isMaybeType
+            ,bottomType
+            ,isBottomType
+            ,hasResultType
+            ,setResultType
             ) where
 
 import Data.List
@@ -152,13 +159,24 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | StreamType{resultType :: Type}
           | ArrayType{resultType :: Type}
           | RangeType
+          | MaybeType {resultType :: Type}
           | VoidType
           | StringType
           | IntType
           | BoolType
           | RealType
           | NullType
+          | BottomType
             deriving(Eq)
+
+hasResultType x
+  | (isArrowType x || isFutureType x || isParType x ||
+     isStreamType x || isArrowType x || isMaybeType x) = True
+  | otherwise = False
+
+setResultType ty res
+  | hasResultType ty = ty { resultType = res}
+  | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
 getArgTypes = argTypes
 getResultType = resultType
@@ -183,12 +201,14 @@ instance Show Type where
     show StreamType{resultType} = "Stream " ++ maybeParen resultType
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
     show RangeType   = "Range"
+    show (MaybeType ty)    = "Maybe " ++ maybeParen ty
     show VoidType   = "void"
     show StringType = "string"
     show IntType    = "int"
     show RealType   = "real"
     show BoolType   = "bool"
     show NullType   = "null type"
+    show BottomType      = "Bottom"
 
 maybeParen :: Type -> String
 maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
@@ -218,6 +238,22 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind StreamType{}                  = "stream type"
     kind RangeType{}                   = "range type"
     kind ArrayType{}                   = "array type"
+    kind MaybeType{}                   = "maybe type"
+    kind BottomType{}                  = "bottom type"
+    kind _                             = "type"
+
+hasSameKind :: Type -> Type -> Bool
+hasSameKind ty1 ty2
+  | areBoth isMaybeType ||
+    areBoth isFutureType ||
+    areBoth isParType ||
+    areBoth isCapabilityType = getResultType ty1 `hasSameKind` getResultType ty2
+  | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
+  | otherwise = True
+  where
+    isBottomTy1 = isBottomType ty1
+    isBottomTy2 = isBottomType ty2
+    areBoth typeFun = typeFun ty1 && typeFun ty2
 
 typeComponents :: Type -> [Type]
 typeComponents arrow@(ArrowType argTys ty) =
@@ -238,6 +274,8 @@ typeComponents str@(StreamType ty) =
     str : typeComponents ty
 typeComponents arr@(ArrayType ty)  =
     arr : typeComponents ty
+typeComponents maybe@(MaybeType ty) =
+    maybe : typeComponents ty
 typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters
@@ -270,6 +308,8 @@ typeMap f ty@StreamType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty@ArrayType{resultType} =
     f ty{resultType = typeMap f resultType}
+typeMap f ty@MaybeType{resultType} =
+    f ty{resultType = typeMap f resultType}
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
@@ -298,15 +338,10 @@ typeMapM f ty@ArrowType{argTypes, resultType} = do
   resultType' <- f resultType
   f ty{argTypes = argTypes'
                ,resultType = resultType'}
-typeMapM f ty@FutureType{resultType} =
-  typeMapMResultType f ty
-typeMapM f ty@ParType{resultType} =
-  typeMapMResultType f ty
-typeMapM f ty@StreamType{resultType} =
-  typeMapMResultType f ty
-typeMapM f ty@ArrayType{resultType} =
-  typeMapMResultType f ty
-typeMapM f ty = f ty
+typeMapM f ty
+  | isFutureType ty || isParType ty || isStreamType ty ||
+    isArrayType ty || isMaybeType ty = typeMapMResultType f ty
+  | otherwise = f ty
 
 typeMapMResultType :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapMResultType f ty = do
@@ -439,6 +474,14 @@ isArrowType _ = False
 futureType = FutureType
 isFutureType FutureType {} = True
 isFutureType _ = False
+
+maybeType = MaybeType
+isMaybeType MaybeType {} = True
+isMaybeType _ = False
+
+bottomType = BottomType
+isBottomType BottomType {} = True
+isBottomType _ = False
 
 parType = ParType
 isParType ParType {} = True

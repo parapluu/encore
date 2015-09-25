@@ -87,6 +87,9 @@ range_t = Typ "range_t"
 range :: CCode Ty
 range = Ptr $ range_t
 
+option :: CCode Ty
+option = Ptr $ Typ "option_t"
+
 unit :: CCode Lval
 unit = Embed "UNIT"
 

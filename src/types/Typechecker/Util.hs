@@ -87,6 +87,10 @@ resolveType = typeMapM resolveSingleType
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
         | isCapabilityType ty = resolve_capa ty
+        | isMaybeType ty = do
+            let resultType = getResultType ty
+            resolveSingleType resultType
+            return ty
         | otherwise = return ty
         where
           resolve_capa :: Type -> TypecheckM Type
@@ -103,6 +107,9 @@ resolveType = typeMapM resolveSingleType
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
+    | hasResultType ty1 && hasResultType ty2 =
+        liftM (ty1 `hasSameKind` ty2 &&) $
+              getResultType ty1 `subtypeOf` getResultType ty1
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
         ty1 `refSubtypeOf` ty2
@@ -122,6 +129,7 @@ subtypeOf ty1 ty2
         anyM (`subtypeOf` ty2) traits
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
+    | isBottomType ty1 && (not . isBottomType $ ty2) = return True
     | otherwise = return (ty1 == ty2)
     where
       refSubtypeOf ref1 ref2

@@ -57,6 +57,11 @@ ppLambda = text "\\"
 ppArrow = text "->"
 ppTask = text "async"
 ppBar = text "|"
+ppJust = text "Just"
+ppNothing = text "Nothing"
+ppMatch = text "match"
+ppWith = text "with"
+ppMatchArrow = text "=>"
 
 indent = nest 2
 
@@ -157,6 +162,11 @@ ppExpr Closure {eparams, body} =
     ppLambda <> parens (commaSep (map ppParamDecl eparams)) <+> ppArrow <+> ppExpr body
 ppExpr Async {body} =
     ppTask <> parens (ppExpr body)
+ppExpr (MaybeValue _ (JustData a)) = ppJust <+> ppExpr a
+ppExpr (MaybeValue _ NothingData) = ppNothing
+ppExpr MatchDecl {arg, matchbody} = ppMatch <+> ppExpr arg <+> ppWith $+$ ppMatchWith matchbody
+  where
+   ppMatchWith ls = vcat $ map (\(decl, mbody) -> indent $ ppExpr decl <+> ppMatchArrow <+> ppExpr mbody) ls
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
