@@ -1,6 +1,6 @@
 encorec
 ============
-TEST
+
 The Encore compiler.
 
 There are two ways of installing the Encore compiler. The first ([**Playing around with Encore**](https://github.com/parapluu/encore/blob/master/README.md#playing-around-with-encore)) uses a virtual box image and it is easy getting the compiler up and running. The disadvantage of this approach is that benchmarks are meaningless. The second approach ([**Building Encore from Source**](https://github.com/parapluu/encore/blob/master/README.md#building-encore-from-source)) is a proper installation of all the dependencies (Haskell, llvm, etc).
