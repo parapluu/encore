@@ -14,7 +14,7 @@ maintainer:          tobias.wrigstad@gmail.com
 category:            Language
 build-type:          Simple
 extra-source-files:  README.md
-cabal-version:       >=1.10
+cabal-version:       >=1.22
 
 executable encorec
   main-is:             TopLevel.hs
