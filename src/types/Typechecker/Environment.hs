@@ -98,19 +98,23 @@ fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
   | isTraitType t = do
     trait <- Map.lookup (getId t) $ traitTable env
-    find (\Field{fname} -> fname == f) $ tfields trait
+    find ((== f) . fname) $ tfields trait
   | isClassType t = do
     cls <- classLookup t env
-    find (\Field{fname} -> fname == f) $ cfields cls
+    find ((== f) . fname) $ cfields cls
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
 
 matchMethod :: Name -> MethodDecl -> Bool
 matchMethod m = (==m) . mname
 
 traitMethodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
-traitMethodLookup trait m env = do
-  trait <- traitLookup trait env
-  find (matchMethod m) $ tmethods trait
+traitMethodLookup ty m env = do
+  trait <- traitLookup ty env
+  mdecl <- find (matchMethod m) $ tmethods trait
+  let formals = getTypeParameters $ tname trait
+      actuals = getTypeParameters ty
+      bindings = zip formals actuals
+  return $ replaceMethodTypes bindings mdecl
 
 methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
 methodLookup ty m env
