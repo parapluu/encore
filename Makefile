@@ -54,6 +54,8 @@ CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
 CLOSURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libclosure.a
 TASK_INC=$(RUNTIME_DIR)/task/task.h
 TASK_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libtask.a
+PARTY_INC=$(RUNTIME_DIR)/party/party.h
+PARTY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libparty.a
 STREAM_INC=$(RUNTIME_DIR)/stream/stream.h
 STREAM_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libstream.a
 ARRAY_INC=$(RUNTIME_DIR)/array/array.h
@@ -70,6 +72,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(OPTION_INC) $(INC_DIR)
 	cp -r $(CLOSURE_INC) $(INC_DIR)
 	cp -r $(TASK_INC) $(INC_DIR)
+	cp -r $(PARTY_INC) $(INC_DIR)
 	cp -r $(STREAM_INC) $(INC_DIR)
 	cp -r $(ENCORE_INC) $(INC_DIR)
 	cp -r $(ARRAY_INC) $(INC_DIR)
@@ -79,6 +82,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
 	cp -r $(TASK_LIB) $(LIB_DIR)
 	cp -r $(OPTION_LIB) $(LIB_DIR)
+	cp -r $(PARTY_LIB) $(LIB_DIR)
 	cp -r $(ENCORE_LIB) $(LIB_DIR)
 	cp -r $(STREAM_LIB) $(LIB_DIR)
 	cp -r $(ARRAY_LIB) $(LIB_DIR)
