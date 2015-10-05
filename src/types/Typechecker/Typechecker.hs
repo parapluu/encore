@@ -297,6 +297,35 @@ instance Checkable Expr where
            eBody <- hasType body ty'
            return $ setType ty' $ te{body = eBody, ty = ty'}
 
+    doTypecheck l@(Liftf {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      unless (isFutureType typ) $ tcError $ "expression '" ++ show (ppExpr e) ++
+        "' of type '" ++ show typ ++ "' should be of type 'Future'"
+      return $ setType (parType $ getResultType typ) l {val = e}
+
+    doTypecheck l@(Liftv {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      return $ setType (parType typ) l {val = e}
+
+    doTypecheck p@(PartyPar {parl, parr}) = do
+      pl <- typecheck parl
+      pr <- hasType parr (AST.getType pl)
+      let [plType, prType] = map AST.getType [pl, pr]
+
+      sameTypes <- plType `subtypeOf` prType
+      unless ((hasSameKind (AST.getType pl) (AST.getType pr)) && sameTypes) $
+        tcError $ "at least one of the parallel collections is of a non-parallel type"
+      return $ setType (AST.getType pl) p {parl = pl, parr = pr}
+
+    doTypecheck s@(PartySeq {par, seqfunc}) = do
+      ePar <- typecheck par
+      eSeqFunc <- typecheck seqfunc
+      unless (((getResultType . AST.getType) ePar) == ((head . getArgTypes . AST.getType) eSeqFunc)) $
+        tcError $ "result type of parallel computation does not match entry type of next function"
+      return $ setType ((parType . getResultType . AST.getType) eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
+
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
          checkErrors eArg matchbody

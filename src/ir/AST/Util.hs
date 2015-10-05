@@ -21,6 +21,10 @@ getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
+getChildren Liftf {val} = [val]
+getChildren Liftv {val} = [val]
+getChildren PartySeq {par, seqfunc} = [par, seqfunc]
+getChildren PartyPar {parl, parr} = [parl, parr]
 getChildren Closure {body} = [body]
 getChildren (MaybeValue _ (JustData e)) = [e]
 getChildren (MaybeValue _ NothingData) = []
@@ -77,6 +81,10 @@ putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren args e@(FunctionCall {}) = e{args = args}
+putChildren [body] e@(Liftf {}) = e{val = body}
+putChildren [body] e@(Liftv {}) = e{val = body}
+putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
+putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
@@ -138,6 +146,10 @@ putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l t
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
+putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 element"
+putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
+putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
+putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"

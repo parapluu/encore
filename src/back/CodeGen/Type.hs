@@ -34,6 +34,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isRangeType ty      = range
         | Ty.isMaybeType ty      = option
         | Ty.isCType ty          = Embed $ Ty.getId ty
+        | Ty.isParType ty        = par
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtimeType :: Ty.Type -> CCode Expr
@@ -45,6 +46,7 @@ runtimeType ty
     | Ty.isArrowType ty  = Amp closureTypeRecName
     | Ty.isArrayType ty  = Amp arrayTypeRecName
     | Ty.isRangeType ty  = Amp rangeTypeRecName
+    | Ty.isParType ty    = Amp partyTypeRecName
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
 encoreArgTTag :: CCode Ty -> CCode Name

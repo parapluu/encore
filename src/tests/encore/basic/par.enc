@@ -1,0 +1,36 @@
+def my_global_func(x:int): int {
+  print("seq_comb {}\n", x+1);
+  x+1
+}
+
+def par_change_type(x: int): string
+  "sss"
+
+class X
+  def foo(): int {
+    print("future executed: {}\n", 34);
+    34
+    }
+
+  def foo2(): string
+    "foo2"
+
+  def t(p: Par int): Par int
+    p
+
+
+class Main
+  def main(): void {
+  let x = new X
+      f = x.foo()
+      f2 = x.foo2()
+      par = liftf f
+      pp = liftv 32
+  in {
+      liftf f;
+      (par || par || pp) >> my_global_func >> my_global_func;
+      x.t(par || pp);
+      (pp >> par_change_type) || liftf x.foo2();
+      print get f;
+  }
+}

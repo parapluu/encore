@@ -33,14 +33,14 @@ typedef struct message_entry message_entry_t;
 // Consumer -- an non-producer actor using a future
 
 typedef enum responsibility_t
-{
-  // A task closure, should be run by any task runner
-  TASK_CLOSURE,
-  // A closure that should be run by the producer
-  DETACHED_CLOSURE,
-  // A message blocked on this future
-  BLOCKED_MESSAGE
-} responsibility_t;
+  {
+    // A task closure, should be run by any task runner
+    TASK_CLOSURE,
+    // A closure that should be run by the producer
+    DETACHED_CLOSURE,
+    // A message blocked on this future
+      BLOCKED_MESSAGE
+  } responsibility_t;
 
 struct closure_entry
 {

@@ -50,7 +50,7 @@ lexer =
      "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
      "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
      "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with"
+     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -354,6 +354,8 @@ expression = buildExpressionParser opTable highOrderExpr
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
+                 [party_sequence],
+                 [party_parallel],
                  [messageSend],
                  [typedExpression],
                  [chain],
@@ -396,6 +398,15 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
                     return (FutureChain (meta pos))) AssocLeft
+
+      party_sequence =
+          Infix (do pos <- getPosition ;
+                    reservedOp ">>" ;
+                    return (PartySeq (meta pos))) AssocLeft
+      party_parallel =
+          Infix (do pos <- getPosition ;
+                    reservedOp "||" ;
+                    return (PartyPar (meta pos))) AssocLeft
       assignment =
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;
@@ -404,6 +415,7 @@ expression = buildExpressionParser opTable highOrderExpr
 
 highOrderExpr :: Parser Expr
 highOrderExpr = adtExpr
+                <|> parExpr
                 <|> expr
   where
     adtExpr = justExpr
@@ -417,6 +429,17 @@ highOrderExpr = adtExpr
       pos <- getPosition
       reserved "Nothing"
       return $ MaybeValue (meta pos) NothingData
+    parExpr = try liftfExpr <|> liftvExpr
+    liftfExpr = do
+      pos <- getPosition
+      reserved "liftf"
+      f <- expr
+      return $ Liftf (meta pos) f
+    liftvExpr = do
+      pos <- getPosition
+      reserved "liftv"
+      f <- expr
+      return $ Liftv (meta pos) f
 
 
 expr :: Parser Expr

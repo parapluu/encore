@@ -248,6 +248,16 @@ data Expr = Skip {emeta :: Meta Expr}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
+          | Liftf {emeta :: Meta Expr,
+                   val :: Expr}
+          | Liftv {emeta :: Meta Expr,
+                   val :: Expr}
+          | PartySeq {emeta :: Meta Expr,
+                      par :: Expr,
+                      seqfunc :: Expr}
+          | PartyPar {emeta :: Meta Expr,
+                      parl :: Expr,
+                      parr :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
           | MaybeValue {emeta :: Meta Expr,

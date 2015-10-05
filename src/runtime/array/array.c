@@ -56,8 +56,13 @@ void array_trace(void *p)
 
 array_t *array_mk(size_t size, pony_type_t *type)
 {
+#ifndef NDEBUG
   struct array_t *array = encore_alloc(
       sizeof(struct array_t) + sizeof(encore_arg_t) * size);
+#else
+  struct array_t *array = malloc(
+      sizeof(struct array_t) + sizeof(encore_arg_t) * size);
+#endif
   array->size = size;
   array->type = type;
   return array;
