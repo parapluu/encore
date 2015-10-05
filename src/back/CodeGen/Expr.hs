@@ -135,6 +135,37 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Decl (translate $ A.getType bin, Var tmp))
                               (BinOp (translate binop) (AsExpr nlo) rcast))])
 
+  translate l@(A.Liftf {A.val}) = do
+    (nval, tval) <- translate val
+    let runtimeT = (runtimeType . Ty.getResultType . A.getType) val
+    (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $ Call (Nam "new_par_f") [AsExpr nval, runtimeT]
+    return (nliftf, Seq [tval, tliftf])
+
+  translate l@(A.Liftv {A.val}) = do
+    (nval, tval) <- translate val
+    let runtimeT = (runtimeType . A.getType) val
+    (nliftv, tliftv) <- namedTmpVar "par" (A.getType l) $
+                        Call (Nam "new_par_v") [asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
+    return (nliftv, Seq [tval, tliftv])
+
+  translate p@(A.PartyPar {A.parl, A.parr}) = do
+    (nleft, tleft) <- translate parl
+    (nright, tright) <- translate parr
+    let runtimeT = (runtimeType . Ty.getResultType . A.getType) p
+    (npar, tpar) <- namedTmpVar "par" (A.getType p) $
+                        Call (Nam "new_par_p") [AsExpr nleft, AsExpr nright, runtimeT]
+    return (npar, Seq [tleft, tright, tpar])
+
+  translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
+    (npar, tpar) <- translate par
+    (nseqfunc, tseqfunc) <- translate seqfunc
+    let runtimeT = (runtimeType . A.getType) seqfunc
+    (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
+                                Call (Nam "party_sequence") [AsExpr npar, AsExpr nseqfunc, runtimeT]
+    return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
+
+
+
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args
       let argNames = map (AsExpr . fst) targs
