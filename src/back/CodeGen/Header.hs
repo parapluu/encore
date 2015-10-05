@@ -33,6 +33,7 @@ generateHeader p =
       "future.h",
       "task.h",
       "option.h",
+      "party.h",
       "string.h",
       "stdio.h",
       "stdarg.h"

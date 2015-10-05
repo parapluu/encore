@@ -82,11 +82,12 @@ solution "ponyrt"
 
   includedirs {
     "../closure",
-    "../set",
+    "../array",
     "../encore",
     "../future",
     "../task",
     "../adt",
+    "../party",
     "libponyrt",
     "../common",
   }
@@ -176,9 +177,17 @@ project "closure"
     "../closure/closure.c"
   }
 
+project "party"
+  c_lib()
+  links { "future", "closure", "array" }
+  files {
+    "../party/party.h",
+    "../party/party.c",
+  }
+
 project "future"
   c_lib()
-  links { "closure" }
+  links { "closure", "array" }
   buildoptions {
       "-Wno-deprecated-declarations",
   }
