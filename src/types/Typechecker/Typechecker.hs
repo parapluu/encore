@@ -794,9 +794,7 @@ instance Checkable Expr where
              tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
       when (isMainType ty') $
            tcError "Cannot create additional Main objects"
-      bindings <- formalBindings ty'
-      let ty'' = replaceTypeVars bindings ty'
-      return $ setType ty'' new{ty = ty''}
+      return $ setType ty' new{ty = ty'}
 
    ---  |- ty
     --  classLookup(ty) = _

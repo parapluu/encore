@@ -200,6 +200,16 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 isConstructor :: MethodDecl -> Bool
 isConstructor m = mname m == Name "_init"
 
+replaceMethodTypes :: [(Type, Type)] -> MethodDecl -> MethodDecl
+replaceMethodTypes bindings m =
+    let mparams' = map (replaceParamType bindings) (mparams m)
+        mtype' = replaceTypeVars bindings (mtype m)
+    in
+      m{mparams = mparams', mtype = mtype'}
+    where
+      replaceParamType bindings p@Param{ptype} =
+          p{ptype = replaceTypeVars bindings ptype}
+
 instance Eq MethodDecl where
   a == b = mname a == mname b
 
