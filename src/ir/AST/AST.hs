@@ -391,16 +391,16 @@ getSugared e = AST.Meta.getSugared (emeta e)
 traverseProgram :: (Program -> [a]) -> Program -> [a]
 traverseProgram f program =
   let
-    programs = flatten_imports program
+    programs = flattenImports program
   in
     concatMap f programs
   where
-    flatten_imports :: Program -> [Program]
-    flatten_imports program@Program{imports} =
+    flattenImports :: Program -> [Program]
+    flattenImports program@Program{imports} =
       let
         programs = map iprogram imports
       in
-        program : concatMap flatten_imports programs
+        program : concatMap flattenImports programs
 
 getTrait :: Type -> Program -> TraitDecl
 getTrait t p =

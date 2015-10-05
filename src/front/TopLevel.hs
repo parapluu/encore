@@ -116,7 +116,7 @@ compileProgram prog sourcePath options =
                         Nothing            -> sourceName
            srcDir = (sourceName ++ "_src")
        createDirectoryIfMissing True srcDir
-       let emitted = compile_to_c prog
+       let emitted = compileToC prog
            classes = getClasses emitted
            header = getHeader emitted
            shared = getShared emitted

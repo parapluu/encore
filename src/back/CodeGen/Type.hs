@@ -25,9 +25,9 @@ translatePrimitive ty
 instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty      = translatePrimitive ty
-        | Ty.isRefType ty        = Ptr . AsType $ class_type_name ty
+        | Ty.isRefType ty        = Ptr . AsType $ classTypeName ty
         | Ty.isArrowType ty      = closure
-        | Ty.isTypeVar ty        = encore_arg_t
+        | Ty.isTypeVar ty        = encoreArgT
         | Ty.isFutureType ty     = future
         | Ty.isStreamType ty     = stream
         | Ty.isArrayType ty      = array
@@ -35,30 +35,30 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isMaybeType ty      = option
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
-runtime_type :: Ty.Type -> CCode Expr
-runtime_type ty
+runtimeType :: Ty.Type -> CCode Expr
+runtimeType ty
     | Ty.isActiveClassType ty  = AsExpr $ Var "ENCORE_ACTIVE"
-    | Ty.isPassiveClassType ty = Amp $ runtime_type_name ty
+    | Ty.isPassiveClassType ty = Amp $ runtimeTypeName ty
     | Ty.isFutureType ty ||
-      Ty.isStreamType ty = Amp future_type_rec_name
-    | Ty.isArrowType ty  = Amp closure_type_rec_name
-    | Ty.isArrayType ty  = Amp array_type_rec_name
-    | Ty.isRangeType ty  = Amp range_type_rec_name
+      Ty.isStreamType ty = Amp futureTypeRecName
+    | Ty.isArrowType ty  = Amp closureTypeRecName
+    | Ty.isArrayType ty  = Amp arrayTypeRecName
+    | Ty.isRangeType ty  = Amp rangeTypeRecName
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
-encore_arg_t_tag :: CCode Ty -> CCode Name
-encore_arg_t_tag (Ptr _)         = Nam "p"
-encore_arg_t_tag (Typ "int64_t") = Nam "i"
-encore_arg_t_tag (Typ "double")  = Nam "d"
-encore_arg_t_tag other           =
-    error $ "Type.hs: no encore_arg_t_tag for " ++ show other
+encoreArgTTag :: CCode Ty -> CCode Name
+encoreArgTTag (Ptr _)         = Nam "p"
+encoreArgTTag (Typ "int64_t") = Nam "i"
+encoreArgTTag (Typ "double")  = Nam "d"
+encoreArgTTag other           =
+    error $ "Type.hs: no encoreArgTTag for " ++ show other
 
-as_encore_arg_t :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
-as_encore_arg_t ty expr
-    | is_encore_arg_t ty = EmbedC expr
-    | otherwise = Cast encore_arg_t $ UnionInst (encore_arg_t_tag ty) expr
+asEncoreArgT :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
+asEncoreArgT ty expr
+   | isEncoreArgT ty = EmbedC expr
+   | otherwise = Cast encoreArgT $ UnionInst (encoreArgTTag ty) expr
 
-from_encore_arg_t :: CCode Ty -> CCode Expr -> CCode Lval
-from_encore_arg_t ty expr
-    | is_encore_arg_t ty = EmbedC expr
-    | otherwise = expr `Dot` (encore_arg_t_tag ty)
+fromEncoreArgT :: CCode Ty -> CCode Expr -> CCode Lval
+fromEncoreArgT ty expr
+    | isEncoreArgT ty = EmbedC expr
+    | otherwise = expr `Dot` (encoreArgTTag ty)

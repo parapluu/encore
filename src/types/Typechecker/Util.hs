@@ -86,15 +86,15 @@ resolveType = typeMapM resolveSingleType
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
-        | isCapabilityType ty = resolve_capa ty
+        | isCapabilityType ty = resolveCapa ty
         | isMaybeType ty = do
             let resultType = getResultType ty
             resolveSingleType resultType
             return ty
         | otherwise = return ty
         where
-          resolve_capa :: Type -> TypecheckM Type
-          resolve_capa t
+          resolveCapa :: Type -> TypecheckM Type
+          resolveCapa t
             | emptyCapability t = return t
             | singleCapability t = resolveType $ head $ typesFromCapability t
             | otherwise =
@@ -194,11 +194,11 @@ findMethod :: Type -> Name -> TypecheckM MethodDecl
 findMethod ty name = do
   m' <- asks $ methodLookup ty name
   when (isNothing m') $ tcError $
-    concat [no_method name, " in ", classOrTraitName ty]
+    concat [noMethod name, " in ", classOrTraitName ty]
   return $ fromJust m'
   where
-    no_method (Name "_init") = "No constructor"
-    no_method n = concat ["No method '", show n, "'"]
+    noMethod (Name "_init") = "No constructor"
+    noMethod n = concat ["No method '", show n, "'"]
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do

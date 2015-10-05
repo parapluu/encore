@@ -25,20 +25,20 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
   translate mdecl@(A.Method {A.mtype, A.mname, A.mparams, A.mbody})
             cdecl@(A.Class {A.cname})
             ctable =
-    let return_type = translate mtype
-        name = (method_impl_name cname mname)
-        enc_arg_names = map A.pname mparams
-        enc_arg_types = map A.ptype mparams
-        arg_names = map arg_name enc_arg_names
-        arg_types = map translate enc_arg_types
-        args = (Ptr . AsType $ class_type_name cname, Var "_this") :
+    let returnType = translate mtype
+        name = (methodImplName cname mname)
+        encArgNames = map A.pname mparams
+        encArgTypes = map A.ptype mparams
+        argNames = map argName encArgNames
+        argTypes = map translate encArgTypes
+        args = (Ptr . AsType $ classTypeName cname, Var "_this") :
                if A.isMainClass cdecl && mname == ID.Name "main"
-               then if null arg_names
+               then if null argNames
                     then [(array, Var "_argv")]
-                    else zip arg_types arg_names
-               else zip arg_types arg_names
+                    else zip argTypes argNames
+               else zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       (zip enc_arg_names arg_names)) ctable
+                       (zip encArgNames argNames)) ctable
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
@@ -46,24 +46,24 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                        (reverse (Util.filter A.isClosure mbody))
         tasks = map (\tas -> translateTask tas ctable) $
                     reverse $ Util.filter A.isTask mbody
-        ret_stmt = Return $ if Ty.isVoidType mtype then unit else bodyn
+        retStmt = Return $ if Ty.isVoidType mtype then unit else bodyn
     in
       Concat $ closures ++ tasks ++
-               [Function return_type name args (Seq $ [bodys, ret_stmt])]
+               [Function returnType name args (Seq $ [bodys, retStmt])]
 
   translate mdecl@(A.StreamMethod {A.mtype, A.mname, A.mparams, A.mbody})
             cdecl@(A.Class {A.cname})
             ctable =
-    let name = (method_impl_name cname mname)
-        enc_arg_names = map A.pname mparams
-        enc_arg_types = map A.ptype mparams
-        arg_names = map arg_name enc_arg_names
-        arg_types = map translate enc_arg_types
-        args = (Ptr . AsType $ class_type_name cname, Var "_this") :
-               (stream, stream_handle) :
-               zip arg_types arg_names
+    let name = (methodImplName cname mname)
+        encArgNames = map A.pname mparams
+        encArgTypes = map A.ptype mparams
+        argNames = map argName encArgNames
+        argTypes = map translate encArgTypes
+        args = (Ptr . AsType $ classTypeName cname, Var "_this") :
+               (stream, streamHandle) :
+               zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       (zip enc_arg_names arg_names)) ctable
+                       (zip encArgNames argNames)) ctable
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
@@ -71,7 +71,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                        (reverse (Util.filter A.isClosure mbody))
         tasks = map (\tas -> translateTask tas ctable) $
                     reverse $ Util.filter A.isTask mbody
-        stream_close = Statement $ Call (Nam "stream_close") [stream_handle]
+        streamClose = Statement $ Call (Nam "stream_close") [streamHandle]
     in
       Concat $ closures ++ tasks ++
-       [Function void name args (Seq $ [bodys, stream_close])]
+       [Function void name args (Seq $ [bodys, streamClose])]

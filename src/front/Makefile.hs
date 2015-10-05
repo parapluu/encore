@@ -16,7 +16,7 @@ rm args = (text "rm -rf" <+> hsep args)
 phony = text ".PHONY"
 cc args = (text "$(CC)" <+> hsep args)
 flags = text "$(FLAGS)"
-bench_flags = text "$(BENCH_FLAGS)"
+benchFlags = text "$(BENCH_FLAGS)"
 target = text "$(TARGET)"
 inc = text "$(INC)"
 lib = text "$(LIB)"
@@ -49,7 +49,7 @@ generateMakefile classFiles progName compiler ccFlags incPath libs =
          (cc [flags, i inc, i parent, deps, lib, o target])
     $\$
     rule bench deps
-         (cc [bench_flags, i inc, i parent, deps, lib, o target])
+         (cc [benchFlags, i inc, i parent, deps, lib, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])

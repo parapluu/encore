@@ -1,4 +1,4 @@
-module CodeGen.Header(generate_header) where
+module CodeGen.Header(generateHeader) where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -12,10 +12,10 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 -- | Generates the C header file for the translated program
--- | This function generates all the common code, generate_header_recurser generates class specific code
-generate_header :: A.Program -> CCode FIN
+-- | This function generates all the common code, generateHeaderRecurser generates class specific code
+generateHeader :: A.Program -> CCode FIN
 
-generate_header p =
+generateHeader p =
     Program $
     IfNDefine "HEADER_H" $
     Concat $
@@ -38,61 +38,61 @@ generate_header p =
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
-    [comment_section "Shared messages"] ++
-    shared_messages ++
+    [commentSection "Shared messages"] ++
+    sharedMessages ++
 
-    [comment_section "Embedded code"] ++
+    [commentSection "Embedded code"] ++
     map Embed allembedded ++
 
-    [comment_section "Class type decls"] ++
-    class_type_decls ++
+    [commentSection "Class type decls"] ++
+    classTypeDecls ++
 
-    [comment_section "Trait type decls"] ++
-    trait_type_decls ++
+    [commentSection "Trait type decls"] ++
+    traitTypeDecls ++
 
-    [comment_section "Passive class types"] ++
-    passive_types ++
+    [commentSection "Passive class types"] ++
+    passiveTypes ++
 
-    [comment_section "Runtime types"] ++
-    runtime_type_decls ++
+    [commentSection "Runtime types"] ++
+    runtimeTypeDecls ++
 
-    [comment_section "Message IDs"] ++
-    [message_enums] ++
+    [commentSection "Message IDs"] ++
+    [messageEnums] ++
 
-    [comment_section "Message types"] ++
-    pony_msg_t_typedefs ++
-    pony_msg_t_impls ++
+    [commentSection "Message types"] ++
+    ponyMsgTTypedefs ++
+    ponyMsgTImpls ++
 
-    [comment_section "Global functions"] ++
-    global_function_decls ++
+    [commentSection "Global functions"] ++
+    globalFunctionDecls ++
 
-    [comment_section "Class IDs"] ++
-    [class_enums] ++
+    [commentSection "Class IDs"] ++
+    [classEnums] ++
 
-    [comment_section "Trace functions"] ++
-    trace_fn_decls ++
+    [commentSection "Trace functions"] ++
+    traceFnDecls ++
 
-    [comment_section "Runtime type init functions"] ++
-    runtime_type_fn_decls ++
+    [commentSection "Runtime type init functions"] ++
+    runtimeTypeFnDecls ++
 
-    [comment_section "Methods"] ++
-    concatMap method_fwds allclasses ++
+    [commentSection "Methods"] ++
+    concatMap methodFwds allclasses ++
 
-    [comment_section "Main actor rtti"] ++
-    [extern_main_rtti] ++
+    [commentSection "Main actor rtti"] ++
+    [externMainRtti] ++
 
-    [comment_section "Trait types"] ++
-    [trait_method_enums] ++
-    trait_types
+    [commentSection "Trait types"] ++
+    [traitMethodEnums] ++
+    traitTypes
    where
-     extern_main_rtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
+     externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
-     shared_messages =
-          [DeclTL (pony_msg_t, Var "m_MSG_alloc"),
-           DeclTL (pony_msg_t, Var "m_resume_get"),
-           DeclTL (pony_msg_t, Var "m_resume_suspend"),
-           DeclTL (pony_msg_t, Var "m_resume_await"),
-           DeclTL (pony_msg_t, Var "m_run_closure")
+     sharedMessages =
+          [DeclTL (ponyMsgT, Var "m_MSG_alloc"),
+           DeclTL (ponyMsgT, Var "m_resume_get"),
+           DeclTL (ponyMsgT, Var "m_resume_suspend"),
+           DeclTL (ponyMsgT, Var "m_resume_await"),
+           DeclTL (ponyMsgT, Var "m_run_closure")
           ]
 
      allTraits = A.allTraits p
@@ -100,119 +100,119 @@ generate_header p =
      allfunctions = A.allFunctions p
      allembedded = A.allEmbedded p
 
-     pony_msg_t_typedefs :: [CCode Toplevel]
-     pony_msg_t_typedefs = map pony_msg_t_typedef_class allclasses
-             where
-                 pony_msg_t_typedef_class cdecl@(A.Class{A.cname, A.cmethods}) =
-                     Concat $ concatMap pony_msg_t_typedef cmethods
-                     where
-                         pony_msg_t_typedef mdecl =
-                             [Typedef (Struct $ fut_msg_type_name cname (A.mname mdecl)) (fut_msg_type_name cname (A.mname mdecl)),
-                              Typedef (Struct $ one_way_msg_type_name cname (A.mname mdecl)) (one_way_msg_type_name cname (A.mname mdecl))]
-
-     pony_msg_t_impls :: [CCode Toplevel]
-     pony_msg_t_impls = map pony_msg_t_impls_class allclasses
-                 where
-                   pony_msg_t_impls_class cdecl@(A.Class{A.cname, A.cmethods}) =
-                       Concat $ map pony_msg_t_impl cmethods
-                       where
-                         pony_msg_t_impl :: A.MethodDecl -> CCode Toplevel
-                         pony_msg_t_impl mdecl =
-                             let argrttys = map (translate . A.getType) (A.mparams mdecl)
-                                 argnames_w_comments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
-                                 argspecs = zip argrttys argnames_w_comments :: [CVarSpec]
-                                 encore_msg_t_spec = (enc_msg_t, Var "")
-                                 encore_msg_t_spec_oneway = (enc_oneway_msg_t, Var "msg")
-                             in Concat [StructDecl (AsType $ fut_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec : argspecs)
-                                       ,StructDecl (AsType $ one_way_msg_type_name cname (A.mname mdecl)) (encore_msg_t_spec_oneway : argspecs)]
-
-     global_function_decls = map global_function_decl allfunctions
+     ponyMsgTTypedefs :: [CCode Toplevel]
+     ponyMsgTTypedefs = map ponyMsgTTypedefClass allclasses
             where
-                global_function_decl A.Function{A.funname} =
-                   DeclTL (closure, AsLval $ global_closure_name funname)
+                ponyMsgTTypedefClass cdecl@(A.Class{A.cname, A.cmethods}) =
+                    Concat $ concatMap ponyMsgTTypedef cmethods
+                    where
+                        ponyMsgTTypedef mdecl =
+                            [Typedef (Struct $ futMsgTypeName cname (A.mname mdecl)) (futMsgTypeName cname (A.mname mdecl)),
+                             Typedef (Struct $ oneWayMsgTypeName cname (A.mname mdecl)) (oneWayMsgTypeName cname (A.mname mdecl))]
 
-     message_enums =
-                 let
-                     meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.cmethods cdecl))) allclasses
-                     method_msg_names = map (show . (uncurry fut_msg_id)) meta
-                     one_way_msg_names = map (show . (uncurry one_way_msg_id)) meta
-                 in
-                        Enum $ (Nam "__MSG_DUMMY__ = 1024") : map Nam (method_msg_names ++ one_way_msg_names)
+     ponyMsgTImpls :: [CCode Toplevel]
+     ponyMsgTImpls = map ponyMsgTImplsClass allclasses
+              where
+                ponyMsgTImplsClass cdecl@(A.Class{A.cname, A.cmethods}) =
+                    Concat $ map ponyMsgTImpl cmethods
+                    where
+                      ponyMsgTImpl :: A.MethodDecl -> CCode Toplevel
+                      ponyMsgTImpl mdecl =
+                          let argrttys = map (translate . A.getType) (A.mparams mdecl)
+                              argnamesWComments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.mparams mdecl)
+                              argspecs = zip argrttys argnamesWComments :: [CVarSpec]
+                              encoreMsgTSpec = (encMsgT, Var "")
+                              encoreMsgTSpecOneway = (encOnewayMsgT, Var "msg")
+                          in Concat [StructDecl (AsType $ futMsgTypeName cname (A.mname mdecl)) (encoreMsgTSpec : argspecs)
+                                    ,StructDecl (AsType $ oneWayMsgTypeName cname (A.mname mdecl)) (encoreMsgTSpecOneway : argspecs)]
 
-     class_enums =
+     globalFunctionDecls = map globalFunctionDecl allfunctions
+           where
+               globalFunctionDecl A.Function{A.funname} =
+                  DeclTL (closure, AsLval $ globalClosureName funname)
+
+     messageEnums =
+                let
+                    meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.mname (A.cmethods cdecl))) allclasses
+                    methodMsgNames = map (show . (uncurry futMsgId)) meta
+                    oneWayMsgNames = map (show . (uncurry oneWayMsgId)) meta
+                in
+                       Enum $ (Nam "_MSG_DUMMY__ = 1024") : map Nam (methodMsgNames ++ oneWayMsgNames)
+
+     classEnums =
        let
-        class_ids = map (ref_type_id . A.getType) allclasses
-        trait_ids = map (ref_type_id . A.getType) allTraits
+        classIds = map (refTypeId . A.getType) allclasses
+        traitIds = map (refTypeId . A.getType) allTraits
        in
-        Enum $ (Nam "__ID_DUMMY__ = 1024") : class_ids ++ trait_ids
+        Enum $ (Nam "__ID_DUMMY__ = 1024") : classIds ++ traitIds
 
-     trace_fn_decls = map trace_fn_decl allclasses
+     traceFnDecls = map traceFnDecl allclasses
          where
-           trace_fn_decl A.Class{A.cname} =
-               FunctionDecl void (class_trace_fn_name cname) [Ptr void]
+           traceFnDecl A.Class{A.cname} =
+               FunctionDecl void (classTraceFnName cname) [Ptr void]
 
-     runtime_type_fn_decls = map runtime_type_fn_decl allclasses
+     runtimeTypeFnDecls = map runtimeTypeFnDecl allclasses
          where
-           runtime_type_fn_decl A.Class{A.cname} =
-               FunctionDecl void (runtime_type_init_fn_name cname) [Ptr . AsType $ class_type_name cname, Embed "..."]
+           runtimeTypeFnDecl A.Class{A.cname} =
+               FunctionDecl void (runtimeTypeInitFnName cname) [Ptr . AsType $ classTypeName cname, Embed "..."]
 
-     class_type_decls = map class_type_decl allclasses
-                 where
-                   class_type_decl A.Class{A.cname} =
-                       Typedef (Struct $ class_type_name cname) (class_type_name cname)
+     classTypeDecls = map classTypeDecl allclasses
+               where
+                 classTypeDecl A.Class{A.cname} =
+                     Typedef (Struct $ classTypeName cname) (classTypeName cname)
 
-     passive_types = map passive_type $ filter (not . A.isActive) allclasses
-                 where
-                   passive_type A.Class{A.cname, A.cfields} =
-                       let typeParams = Ty.getTypeParameters cname in
-                       StructDecl (AsType $ class_type_name cname)
-                                  ((Ptr pony_type_t, AsLval $ self_type_field) :
-                                   map (\ty -> (Ptr pony_type_t, AsLval $ type_var_ref_name ty)) typeParams ++
-                                   zip
-                                   (map (translate . A.ftype) cfields)
-                                   (map (AsLval . field_name . A.fname) cfields))
-     trait_method_enums =
+     passiveTypes = map passiveType $ filter (not . A.isActive) allclasses
+                where
+                  passiveType A.Class{A.cname, A.cfields} =
+                      let typeParams = Ty.getTypeParameters cname in
+                      StructDecl (AsType $ classTypeName cname)
+                                 ((Ptr ponyTypeT, AsLval $ selfTypeField) :
+                                  map (\ty -> (Ptr ponyTypeT, AsLval $ typeVarRefName ty)) typeParams ++
+                                  zip
+                                  (map (translate . A.ftype) cfields)
+                                  (map (AsLval . fieldName . A.fname) cfields))
+     traitMethodEnums =
        let
          dicts = map (\t -> (A.getType t, A.tmethods t)) allTraits
          pairs = concatMap (\(t, ms) -> zip (repeat t) (map A.mname ms)) dicts
-         syncs = map (show . (uncurry one_way_msg_id)) pairs
+         syncs = map (show . (uncurry oneWayMsgId)) pairs
        in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
 
-     trait_type_decls = map trait_type_decl allTraits
+     traitTypeDecls = map traitTypeDecl allTraits
        where
-         trait_type_decl A.Trait{A.tname} =
-           let ty = ref_type_name tname in Typedef (Struct $ ty) ty
+         traitTypeDecl A.Trait{A.tname} =
+           let ty = refTypeName tname in Typedef (Struct $ ty) ty
 
-     trait_types = map trait_type allTraits
+     traitTypes = map traitType allTraits
        where
-         trait_type A.Trait{A.tname} =
+         traitType A.Trait{A.tname} =
            let
              formal = Ty.getTypeParameters tname
-             self = (Ptr pony_type_t, AsLval $ self_type_field)
+             self = (Ptr ponyTypeT, AsLval $ selfTypeField)
            in
-             StructDecl (AsType $ ref_type_name tname) [self]
+             StructDecl (AsType $ refTypeName tname) [self]
 
-     runtime_type_decls = map type_decl allclasses ++ map type_decl allTraits
+     runtimeTypeDecls = map typeDecl allclasses ++ map typeDecl allTraits
        where
-         type_decl ref =
+         typeDecl ref =
            let
              ty = A.getType ref
-             runtime_ty = runtime_type_name ty
+             runtimeTy = runtimeTypeName ty
            in
-             DeclTL (Extern pony_type_t, AsLval runtime_ty)
+             DeclTL (Extern ponyTypeT, AsLval runtimeTy)
 
-     method_fwds cdecl@(A.Class{A.cname, A.cmethods}) = map method_fwd cmethods
-                 where
-                   method_fwd A.Method{A.mtype, A.mname, A.mparams} =
-                     let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
-                                  then [Ptr . AsType $ class_type_name cname, array]
-                                  else (Ptr . AsType $ class_type_name cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
-                     in
-                       FunctionDecl (translate mtype) (method_impl_name cname mname) params
-                   method_fwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
-                     let params = (Ptr . AsType $ class_type_name cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
-                     in
-                       FunctionDecl void (method_impl_name cname mname) params
+     methodFwds cdecl@(A.Class{A.cname, A.cmethods}) = map methodFwd cmethods
+                where
+                  methodFwd A.Method{A.mtype, A.mname, A.mparams} =
+                    let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
+                                 then [Ptr . AsType $ classTypeName cname, array]
+                                 else (Ptr . AsType $ classTypeName cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                    in
+                      FunctionDecl (translate mtype) (methodImplName cname mname) params
+                  methodFwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
+                    let params = (Ptr . AsType $ classTypeName cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                    in
+                      FunctionDecl void (methodImplName cname mname) params
 
-comment_section :: String -> CCode Toplevel
-comment_section s = Embed $ (replicate (5 + length s) '/') ++ "\n// " ++ s
+commentSection :: String -> CCode Toplevel
+commentSection s = Embed $ (replicate (5 + length s) '/') ++ "\n// " ++ s

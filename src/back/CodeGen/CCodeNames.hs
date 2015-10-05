@@ -36,35 +36,35 @@ double = Typ "double"
 void :: CCode Ty
 void = Typ "void"
 
-encore_actor_t :: CCode Ty
-encore_actor_t = Typ "encore_actor_t"
+encoreActorT :: CCode Ty
+encoreActorT = Typ "encore_actor_t"
 
-pony_type_t :: CCode Ty
-pony_type_t = Typ "pony_type_t"
+ponyTypeT :: CCode Ty
+ponyTypeT = Typ "pony_type_t"
 
-pony_actor_t :: CCode Ty
-pony_actor_t = Typ "pony_actor_t"
+ponyActorT :: CCode Ty
+ponyActorT = Typ "pony_actor_t"
 
-pony_actor_type_t :: CCode Ty
-pony_actor_type_t = Typ "pony_actor_type_t"
+ponyActorTypeT :: CCode Ty
+ponyActorTypeT = Typ "pony_actor_type_t"
 
-encore_arg_t :: CCode Ty
-encore_arg_t = Typ "encore_arg_t"
+encoreArgT :: CCode Ty
+encoreArgT = Typ "encore_arg_t"
 
-is_encore_arg_t :: CCode Ty -> Bool
-is_encore_arg_t (Typ "encore_arg_t") = True
-is_encore_arg_t _ = False
+isEncoreArgT :: CCode Ty -> Bool
+isEncoreArgT (Typ "encore_arg_t") = True
+isEncoreArgT _ = False
 
-pony_msg_t :: CCode Ty
-pony_msg_t = Typ "pony_msg_t"
+ponyMsgT :: CCode Ty
+ponyMsgT = Typ "pony_msg_t"
 
-enc_msg_t :: CCode Ty
-enc_msg_t = Typ "encore_fut_msg_t"
+encMsgT :: CCode Ty
+encMsgT = Typ "encore_fut_msg_t"
 
-task_msg_t = Typ "encore_task_msg_s"
+taskMsgT = Typ "encore_task_msg_s"
 
-enc_oneway_msg_t :: CCode Ty
-enc_oneway_msg_t = Typ "encore_oneway_msg_t"
+encOnewayMsgT :: CCode Ty
+encOnewayMsgT = Typ "encore_oneway_msg_t"
 
 closure :: CCode Ty
 closure = Ptr $ Typ "closure_t"
@@ -81,11 +81,11 @@ stream = Ptr $ Typ "stream_t"
 array :: CCode Ty
 array = Ptr $ Typ "array_t"
 
-range_t :: CCode Ty
-range_t = Typ "range_t"
+rangeT :: CCode Ty
+rangeT = Typ "range_t"
 
 range :: CCode Ty
-range = Ptr $ range_t
+range = Ptr $ rangeT
 
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
@@ -93,158 +93,158 @@ option = Ptr $ Typ "option_t"
 unit :: CCode Lval
 unit = Embed "UNIT"
 
-encore_name :: String -> String -> String
-encore_name kind name =
+encoreName :: String -> String -> String
+encoreName kind name =
   let
-    non_emptys = filter (not . null) ["_enc_", kind, name]
+    nonEmptys = filter (not . null) ["_enc_", kind, name]
   in
-    concat $ intersperse "_" non_emptys
+    concat $ intersperse "_" nonEmptys
 
-self_type_field :: CCode Name
-self_type_field = Nam $ encore_name "self_type" ""
+selfTypeField :: CCode Name
+selfTypeField = Nam $ encoreName "self_type" ""
 
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
-method_impl_name :: Ty.Type -> ID.Name -> CCode Name
-method_impl_name clazz mname =
-    Nam $ encore_name "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
+methodImplName :: Ty.Type -> ID.Name -> CCode Name
+methodImplName clazz mname =
+    Nam $ encoreName "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
 
-arg_name :: ID.Name -> CCode Lval
-arg_name name =
-    Var $ encore_name "arg" (show name)
+argName :: ID.Name -> CCode Lval
+argName name =
+    Var $ encoreName "arg" (show name)
 
-field_name :: ID.Name -> CCode Name
-field_name name =
-    Nam $ encore_name "field" (show name)
+fieldName :: ID.Name -> CCode Name
+fieldName name =
+    Nam $ encoreName "field" (show name)
 
-global_closure_name :: ID.Name -> CCode Name
-global_closure_name funname =
-    Nam $ encore_name "closure" (show funname)
+globalClosureName :: ID.Name -> CCode Name
+globalClosureName funname =
+    Nam $ encoreName "closure" (show funname)
 
-global_function_name :: ID.Name -> CCode Name
-global_function_name funname =
-    Nam $ encore_name "global_fun" (show funname)
+globalFunctionName :: ID.Name -> CCode Name
+globalFunctionName funname =
+    Nam $ encoreName "global_fun" (show funname)
 
-closure_fun_name :: String -> CCode Name
-closure_fun_name name =
-    Nam $ encore_name "closure_fun" name
+closureFunName :: String -> CCode Name
+closureFunName name =
+    Nam $ encoreName "closure_fun" name
 
-closure_env_name :: String -> CCode Name
-closure_env_name name =
-    Nam $ encore_name "env" name
+closureEnvName :: String -> CCode Name
+closureEnvName name =
+    Nam $ encoreName "env" name
 
-closure_trace_name :: String -> CCode Name
-closure_trace_name name =
-    Nam $ encore_name "trace" name
+closureTraceName :: String -> CCode Name
+closureTraceName name =
+    Nam $ encoreName "trace" name
 
-task_function_name :: String -> CCode Name
-task_function_name name =
-    Nam $ encore_name "task" name
+taskFunctionName :: String -> CCode Name
+taskFunctionName name =
+    Nam $ encoreName "task" name
 
-task_env_name :: String -> CCode Name
-task_env_name name =
-    Nam $ encore_name "task_env" name
+taskEnvName :: String -> CCode Name
+taskEnvName name =
+    Nam $ encoreName "task_env" name
 
-task_dependency_name :: String -> CCode Name
-task_dependency_name name =
-    Nam $ encore_name "task_dep" name
+taskDependencyName :: String -> CCode Name
+taskDependencyName name =
+    Nam $ encoreName "task_dep" name
 
-task_trace_name :: String -> CCode Name
-task_trace_name name =
-    Nam $ encore_name "task_trace" name
+taskTraceName :: String -> CCode Name
+taskTraceName name =
+    Nam $ encoreName "task_trace" name
 
-stream_handle :: CCode Lval
-stream_handle = Var "_stream"
+streamHandle :: CCode Lval
+streamHandle = Var "_stream"
 
-type_var_ref_name :: Ty.Type -> CCode Name
-type_var_ref_name ty =
-    Nam $ encore_name "type" (show ty)
+typeVarRefName :: Ty.Type -> CCode Name
+typeVarRefName ty =
+    Nam $ encoreName "type" (show ty)
 
-class_id :: Ty.Type -> CCode Name
-class_id ty =
-    Nam $ encore_name "ID" (Ty.getId ty)
+classId :: Ty.Type -> CCode Name
+classId ty =
+    Nam $ encoreName "ID" (Ty.getId ty)
 
-ref_type_id :: Ty.Type -> CCode Name
-ref_type_id ty =
-    Nam $ encore_name "ID" (Ty.getId ty)
+refTypeId :: Ty.Type -> CCode Name
+refTypeId ty =
+    Nam $ encoreName "ID" (Ty.getId ty)
 
-trait_method_selector_name = Nam "trait_method_selector"
+traitMethodSelectorName = Nam "trait_method_selector"
 
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
 -- function.
-class_dispatch_name :: Ty.Type -> CCode Name
-class_dispatch_name clazz =
-    Nam $ encore_name "dispatch" (Ty.getId clazz)
+classDispatchName :: Ty.Type -> CCode Name
+classDispatchName clazz =
+    Nam $ encoreName "dispatch" (Ty.getId clazz)
 
-class_trace_fn_name :: Ty.Type -> CCode Name
-class_trace_fn_name clazz =
-    Nam $ encore_name "trace" (Ty.getId clazz)
+classTraceFnName :: Ty.Type -> CCode Name
+classTraceFnName clazz =
+    Nam $ encoreName "trace" (Ty.getId clazz)
 
-runtime_type_init_fn_name :: Ty.Type -> CCode Name
-runtime_type_init_fn_name clazz =
-    Nam $ encore_name "type_init" (Ty.getId clazz)
+runtimeTypeInitFnName :: Ty.Type -> CCode Name
+runtimeTypeInitFnName clazz =
+    Nam $ encoreName "type_init" (Ty.getId clazz)
 
-fut_msg_type_name :: Ty.Type -> ID.Name -> CCode Name
-fut_msg_type_name cls mname =
-    Nam $ encore_name "fut_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
+futMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
+futMsgTypeName cls mname =
+    Nam $ encoreName "fut_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
 
-one_way_msg_type_name :: Ty.Type -> ID.Name -> CCode Name
-one_way_msg_type_name cls mname =
-    Nam $ encore_name "oneway_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
+oneWayMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
+oneWayMsgTypeName cls mname =
+    Nam $ encoreName "oneway_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
 
 -- | for each method, there's a corresponding message, this is its name
-fut_msg_id :: Ty.Type -> ID.Name -> CCode Name
-fut_msg_id ref mname =
+futMsgId :: Ty.Type -> ID.Name -> CCode Name
+futMsgId ref mname =
     Nam $ "_ENC__FUT_MSG_" ++ Ty.getId ref ++ "_" ++ show mname
 
-task_msg_id :: CCode Name
-task_msg_id = Nam "_ENC__MSG_TASK"
+taskMsgId :: CCode Name
+taskMsgId = Nam "_ENC__MSG_TASK"
 
-one_way_msg_id :: Ty.Type -> ID.Name -> CCode Name
-one_way_msg_id cls mname =
+oneWayMsgId :: Ty.Type -> ID.Name -> CCode Name
+oneWayMsgId cls mname =
     Nam $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
 
-type_name_prefix :: Ty.Type -> String
-type_name_prefix ref
+typeNamePrefix :: Ty.Type -> String
+typeNamePrefix ref
     | Ty.isActiveClassType ref =
-        encore_name "active" $ Ty.getId ref
+        encoreName "active" $ Ty.getId ref
     | Ty.isPassiveClassType ref =
-        encore_name "passive" $ Ty.getId ref
+        encoreName "passive" $ Ty.getId ref
     | Ty.isTraitType ref =
-        encore_name "trait" $ Ty.getId ref
+        encoreName "trait" $ Ty.getId ref
     | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                           "' isnt reference type!"
 
-ref_type_name :: Ty.Type -> CCode Name
-ref_type_name ref = Nam $ (type_name_prefix ref) ++ "_t"
+refTypeName :: Ty.Type -> CCode Name
+refTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
 
-class_type_name :: Ty.Type -> CCode Name
-class_type_name ref = Nam $ (type_name_prefix ref) ++ "_t"
+classTypeName :: Ty.Type -> CCode Name
+classTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
 
-runtime_type_name :: Ty.Type -> CCode Name
-runtime_type_name ref = Nam $ (type_name_prefix ref) ++ "_type"
+runtimeTypeName :: Ty.Type -> CCode Name
+runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"
 
-future_trace_fn :: CCode Name
-future_trace_fn = Nam "future_trace"
+futureTraceFn :: CCode Name
+futureTraceFn = Nam "future_trace"
 
-closure_trace_fn :: CCode Name
-closure_trace_fn = Nam "closure_trace"
+closureTraceFn :: CCode Name
+closureTraceFn = Nam "closure_trace"
 
-array_trace_fn :: CCode Name
-array_trace_fn = Nam "array_trace"
+arrayTraceFn :: CCode Name
+arrayTraceFn = Nam "array_trace"
 
-stream_trace_fn :: CCode Name
-stream_trace_fn = Nam "stream_trace"
+streamTraceFn :: CCode Name
+streamTraceFn = Nam "stream_trace"
 
-future_type_rec_name :: CCode Name
-future_type_rec_name = Nam $ "future_type"
+futureTypeRecName :: CCode Name
+futureTypeRecName = Nam $ "future_type"
 
-closure_type_rec_name :: CCode Name
-closure_type_rec_name = Nam $ "closure_type"
+closureTypeRecName :: CCode Name
+closureTypeRecName = Nam $ "closure_type"
 
-array_type_rec_name :: CCode Name
-array_type_rec_name = Nam $ "array_type"
+arrayTypeRecName :: CCode Name
+arrayTypeRecName = Nam $ "array_type"
 
-range_type_rec_name :: CCode Name
-range_type_rec_name = Nam $ "range_type"
+rangeTypeRecName :: CCode Name
+rangeTypeRecName = Nam $ "range_type"

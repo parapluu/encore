@@ -80,11 +80,16 @@ ppProgram :: Program -> Doc
 ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
   imports, functions, classes} =
     ppBundleDecl bundle $+$
-    text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end"
-    $+$
+    ppHeader header code <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppFunction functions) $+$
-    vcat (map ppClassDecl classes)
+    vcat (map ppClassDecl classes) $+$
+    text "" -- new line at end of file
+
+ppHeader header code =
+  if ((null header) && (null code))
+  then empty
+  else text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end\n"
 
 ppBundleDecl :: BundleDecl -> Doc
 ppBundleDecl NoBundle = empty
@@ -216,9 +221,12 @@ ppExpr BFalse {} = ppFalse
 ppExpr NewWithInit {ty, args} = ppNew <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = ppNew <+> ppType ty
 ppExpr Peer {ty} = ppPeer <+> ppType ty
-ppExpr Print {stringLit, args} = ppPrint <> parens (doubleQuotes (text stringLit) <> comma <+> commaSep (map ppExpr args))
+ppExpr Print {stringLit, args} =
+  if stringLit == "{}\n" && length args == 1
+  then text "print" <+> ppExpr (head args)
+  else ppPrint <> parens (text (show stringLit) <> comma <+> commaSep (map ppExpr args))
 ppExpr Exit {args} = ppExit <> parens (commaSep (map ppExpr args))
-ppExpr StringLiteral {stringLit} = doubleQuotes (text stringLit)
+ppExpr StringLiteral {stringLit} = text (show stringLit)
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} = text "[" <+> ppExpr start <+> text "," <+> ppExpr stop <+> text " by " <+> ppExpr step <+> text"]"

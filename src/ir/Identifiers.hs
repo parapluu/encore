@@ -32,7 +32,7 @@ data BinaryOp = AND
               | MINUS
               | TIMES
               | DIV
-              | MOD 
+              | MOD
                 deriving(Read, Eq)
 
 instance Show BinaryOp where
