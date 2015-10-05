@@ -39,6 +39,8 @@ module Types(
             ,typeVar
             ,isTypeVar
             ,replaceTypeVars
+            ,ctype
+            ,isCType
             ,voidType
             ,isVoidType
             ,nullType
@@ -160,6 +162,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | ArrayType{resultType :: Type}
           | RangeType
           | MaybeType {resultType :: Type}
+          | CType{ident :: String}
           | VoidType
           | StringType
           | IntType
@@ -184,6 +187,7 @@ getId UntypedRef{refInfo} = refId refInfo
 getId TraitType{refInfo} = refId refInfo
 getId ClassType{refInfo} = refId refInfo
 getId TypeVar{ident} = ident
+getId CType{ident} = ident
 getId ty = error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
 
 instance Show Type where
@@ -202,6 +206,7 @@ instance Show Type where
     show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
     show RangeType   = "Range"
     show (MaybeType ty)    = "Maybe " ++ maybeParen ty
+    show (CType ty) = ty
     show VoidType   = "void"
     show StringType = "string"
     show IntType    = "int"
@@ -240,6 +245,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind ArrayType{}                   = "array type"
     kind MaybeType{}                   = "maybe type"
     kind BottomType{}                  = "bottom type"
+    kind CType{}                       = "embedded type"
     kind _                             = "type"
 
 hasSameKind :: Type -> Type -> Bool
@@ -509,6 +515,12 @@ isMainType _ = False
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
     where replace ty = fromMaybe ty (lookup ty bindings)
+
+ctype :: String -> Type
+ctype = CType
+
+isCType CType{} = True
+isCType _ = False
 
 voidType :: Type
 voidType = VoidType
