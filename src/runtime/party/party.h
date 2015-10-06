@@ -4,15 +4,15 @@
 #include "encore.h"
 #include <array.h>
 
-typedef struct par_s par_s;
+typedef struct par_t par_t;
 typedef struct future* future_s;
 pony_type_t party_type;
 
-extern par_s* new_par_general(par_s* p, pony_type_t*);
+extern par_t* new_par_general(par_t* p, pony_type_t*);
 #define new_parT(x, rtype) _Generic((x),	\
     encore_arg_t: new_par_v,   	                \
     future_s: new_par_f,                        \
-    par_s*: new_par_general)(x, rtype)
+    par_t*: new_par_general)(x, rtype)
 
 typedef void maybe;
 typedef maybe* (*maybe_fn)(maybe*);
@@ -24,13 +24,13 @@ void party_trace(void*);
 // -------------------------------------------
 
 #define new_par(x, rtype) new_parT(x, rtype)
-par_s* new_par_empty(pony_type_t* rtype);
-par_s* new_par_v(encore_arg_t val, pony_type_t* rtype);
-par_s* new_par_f(future_s fut, pony_type_t* rtype);
-par_s* new_par_p(par_s* p1, par_s* p2, pony_type_t* rtype);
-par_s* new_par_fp(future_s f, pony_type_t* rtype);
-par_s* new_par_join(par_s* p, pony_type_t* rtype);
-par_s* new_par_m(int size, int used, value_t* l, pony_type_t* rtype);
+par_t* new_par_empty(pony_type_t* rtype);
+par_t* new_par_v(encore_arg_t val, pony_type_t* rtype);
+par_t* new_par_f(future_s fut, pony_type_t* rtype);
+par_t* new_par_p(par_t* p1, par_t* p2, pony_type_t* rtype);
+par_t* new_par_fp(future_s f, pony_type_t* rtype);
+par_t* new_par_join(par_t* p, pony_type_t* rtype);
+par_t* new_par_m(int size, int used, value_t* l, pony_type_t* rtype);
 
 // -------------------------------------------
 // Combinators
@@ -46,7 +46,7 @@ par_s* new_par_m(int size, int used, value_t* l, pony_type_t* rtype);
  *  @return Par t'
  */
 
-par_s* party_sequence(par_s* p, closure_t* f, pony_type_t* rtype);
+par_t* party_sequence(par_t* p, closure_t* f, pony_type_t* rtype);
 
 
 /**
@@ -58,7 +58,7 @@ par_s* party_sequence(par_s* p, closure_t* f, pony_type_t* rtype);
  *  @return new par type
  */
 
-par_s* party_pjoin(par_s* p);
+par_t* party_pjoin(par_t* p);
 
 /**
  *  extract :: Par t -> [t]
@@ -69,13 +69,13 @@ par_s* party_pjoin(par_s* p);
  *  @return array of t data type items
  */
 
-array_t* party_extract(par_s* t);
+array_t* party_extract(par_t* t);
 
 // prune :: (Fut (Maybe t) -> Par t') -> Par t -> Par t'
-par_s* party_prune(closure_t* f, par_s* p);
+par_t* party_prune(closure_t* f, par_t* p);
 
 // otherwise :: Par t -> Delay (Par t) -> Par t
-par_s* party_otherwise(par_s* p, par_s* delay);
+par_t* party_otherwise(par_t* p, par_t* delay);
 
 
 /**
@@ -86,7 +86,7 @@ par_s* party_otherwise(par_s* p, par_s* delay);
  *  @return par s containing a future
  */
 
-par_s* party_select(closure_fun f, par_s* p);
+par_t* party_select(closure_fun f, par_t* p);
 
 /**
  *  peek :: Par t -> Fut (Maybe t)
@@ -98,9 +98,9 @@ par_s* party_select(closure_fun f, par_s* p);
  *  @return future
  */
 
-future_t* party_peek(par_s* p);
+future_t* party_peek(par_t* p);
 
 // each :: [t] -> Par t
-par_s* party_each(array_t* l);
+par_t* party_each(array_t* l);
 
 #endif

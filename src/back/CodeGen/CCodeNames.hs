@@ -91,7 +91,7 @@ option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
 par :: CCode Ty
-par = (Ptr . Typ) "par_s"
+par = (Ptr . Typ) "par_t"
 
 unit :: CCode Lval
 unit = Embed "UNIT"

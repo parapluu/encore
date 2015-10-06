@@ -1,8 +1,3 @@
-seq_comb 33
-seq_comb 34
-future executed: 34
-seq_comb 35
-seq_comb 36
-seq_comb 35
-seq_comb 36
-34
+bool<0>
+bool<0>
+bool<1>

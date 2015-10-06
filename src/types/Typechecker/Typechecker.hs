@@ -312,6 +312,8 @@ instance Checkable Expr where
     doTypecheck p@(PartyPar {parl, parr}) = do
       pl <- typecheck parl
       pr <- hasType parr (AST.getType pl)
+      unless ((all isParType . map AST.getType) [pl, pr]) $
+        tcError $ "using parallel combinator with non-parallel expression"
       let [plType, prType] = map AST.getType [pl, pr]
 
       sameTypes <- plType `subtypeOf` prType
@@ -322,9 +324,17 @@ instance Checkable Expr where
     doTypecheck s@(PartySeq {par, seqfunc}) = do
       ePar <- typecheck par
       eSeqFunc <- typecheck seqfunc
-      unless (((getResultType . AST.getType) ePar) == ((head . getArgTypes . AST.getType) eSeqFunc)) $
-        tcError $ "result type of parallel computation does not match entry type of next function"
+      unless ((leftIsPar ePar) && (outputTypeMatchesInput ePar eSeqFunc)) $
+        tcError $ "Type '"++ (show . AST.getType) ePar ++
+                  "' of parallel computation does not match the expected type '"++
+                  show (getArgType eSeqFunc) ++"' of function"
       return $ setType ((parType . getResultType . AST.getType) eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
+        where
+          outputTypeMatchesInput ePar eSeqFunc =
+            ((getResultType . AST.getType) ePar) == (getArgType eSeqFunc)
+          leftIsPar = (isParType . AST.getType)
+          getArgType = head . getArgTypes . AST.getType
+
 
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg

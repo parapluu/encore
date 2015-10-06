@@ -81,8 +81,8 @@ putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren args e@(FunctionCall {}) = e{args = args}
-putChildren [body] e@(Liftf {}) = e{val = body}
-putChildren [body] e@(Liftv {}) = e{val = body}
+putChildren [val] e@(Liftf {}) = e{val}
+putChildren [val] e@(Liftv {}) = e{val}
 putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
 putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [body] e@(Closure {}) = e{body = body}
