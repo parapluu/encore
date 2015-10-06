@@ -10,15 +10,18 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else" "eos" "for" "foreach" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "while" "yield" ))
+(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else" "eos" "for" "foreach" "get" "getNext" "if" "in" "let" "liftf" "liftv" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "while" "yield" ))
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
+(setq encore-operators '("||" ">>"))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'symbols))
 (setq encore-danger-regexp (regexp-opt encore-danger-words 'symbols))
 (setq encore-constants-regexp (regexp-opt encore-constants 'symbols))
 (setq encore-primitives-regexp (regexp-opt encore-primitives 'symbols))
+(setq encore-operators-regexp (regexp-opt encore-operators 'symbols))
+
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
 (setq encore-function-regexp "\\<\\(def\\|stream\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
@@ -31,6 +34,7 @@
 	(,encore-danger-regexp     . font-lock-warning-face)
 	(,encore-constants-regexp  . font-lock-constant-face)
 	(,encore-primitives-regexp . font-lock-type-face)
+	(,encore-operators-regexp  . font-lock-builtin-face)
 	(,encore-types-regexp      . font-lock-type-face)
 	(,encore-function-regexp   2 font-lock-function-name-face)
 	(,encore-variable-regexp   1 font-lock-variable-name-face)
