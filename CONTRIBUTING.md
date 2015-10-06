@@ -71,14 +71,38 @@ If you submit a pull request without tests, to a project with tests, you're
 guaranteed to get a grumpy project maintainer telling you to go away and write
 some.
 
-### Respect conventions
+### Code formatting
 
-You might love tabs in your source code. You might
-really, really love them. But if re submitting a pull request to a project that
-uses spaces, you're going have to suck it up and use them.
+We have not been enforcing any rules before, but we are now. All new
+Haskell code has to adhere to these conventions. No excuses.
 
-Aside from coding style, projects might have more subtle conventions that it
-makes sense to follow. Perhaps private functions never have docstrings, or
-perhaps commit messages are always written in the imperative, present tense. Try
-to ensure your contributions to the project don't stand out as
-unusual.
+ - No snake cases anywhere. We use camel case.
+ - Type signatures on top level functions.
+ - We strongly recommend using `hlint`, but without the "Eta reduce" warning (run `hlint --ignore="Eta reduce" File.hs`).
+
+#### Indentation
+
+##### Bad
+```
+foo = do ..
+         ..
+         return ()
+```
+##### Good
+
+```
+foo = do
+  ..
+  ..
+  return ()
+```
+
+##### Rationale
+
+If the name of the function changes, in the bad version you need to
+change all code in the body, too. This hides who has actually written
+the code (and why). *This also holds for `case` expressions (do a line
+break after `of`) and `if-then-else`.* When implementing a function,
+the same might apply: starting the implementation in the same line
+might cause git history problems. However, for functions, this choice
+remains up to the programmer.

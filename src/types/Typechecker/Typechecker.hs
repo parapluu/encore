@@ -93,15 +93,15 @@ instance Checkable TraitDecl where
 matchArgumentLength :: MethodDecl -> Arguments -> TypecheckM ()
 matchArgumentLength method args =
   unless (actual == expected) $ tcError $
-    concat [to_str name, " expects ", show expected,
+    concat [toStr name, " expects ", show expected,
             " arguments. Got ", show actual]
   where
     actual = length args
-    expected = length sig_types
-    sig_types = map ptype $ mparams method
+    expected = length sigTypes
+    sigTypes = map ptype $ mparams method
     name = mname method
-    to_str (Name "_init") = "Constructor"
-    to_str n = concat ["Method '", show n, "'"]
+    toStr (Name "_init") = "Constructor"
+    toStr n = concat ["Method '", show n, "'"]
 
 meetRequiredFields :: [FieldDecl] -> Type -> TraitDecl -> TypecheckM ()
 meetRequiredFields cFields trait tdecl =
@@ -140,55 +140,54 @@ meetRequiredFields cFields trait tdecl =
                    "' into a val-field in " ++ classOrTraitName trait
               else ""
 
-no_overlap_fields :: Type -> TypecheckM ()
-no_overlap_fields capability =
+noOverlapFields :: Type -> TypecheckM ()
+noOverlapFields capability =
   let
-    par_traits = conjunctiveTypesFromCapability capability
+    parTraits = conjunctiveTypesFromCapability capability
   in
-    mapM_ per_level par_traits
+    mapM_ perLevel parTraits
   where
-    per_level :: [[Type]] -> TypecheckM ()
-    per_level level = mapM_ per_pair $ pair level
+    perLevel :: [[Type]] -> TypecheckM ()
+    perLevel level = mapM_ perPair $ pair level
 
-    per_pair :: ([Type], [Type]) -> TypecheckM ()
-    per_pair pair = do
-      left_pairs <- mapM pair_type_fields $ fst pair
-      right_pairs <- mapM pair_type_fields $ snd pair
-      mapM_ conjunctive_var_err $ common_var_fields left_pairs right_pairs
+    perPair :: ([Type], [Type]) -> TypecheckM ()
+    perPair pair = do
+      leftPairs <- mapM pairTypeFields $ fst pair
+      rightPairs <- mapM pairTypeFields $ snd pair
+      mapM_ conjunctiveVarErr $ commonVarFields leftPairs rightPairs
 
-    find_type_has_field :: [(Type, [FieldDecl])] -> FieldDecl -> Type
-    find_type_has_field pairs field =
+    findTypeHasField :: [(Type, [FieldDecl])] -> FieldDecl -> Type
+    findTypeHasField pairs field =
       head $ [fst pair | pair <- pairs, field `elem` snd pair]
 
-    common_var_fields :: [(Type, [FieldDecl])] -> [(Type, [FieldDecl])]
-      -> [(Type, Type, FieldDecl)]
-    common_var_fields left_pairs right_pairs =
+    commonVarFields :: [(Type, [FieldDecl])] -> [(Type, [FieldDecl])] -> [(Type, Type, FieldDecl)]
+    commonVarFields leftPairs rightPairs =
       let
-        left_fields = concatMap snd left_pairs
-        right_fields = concatMap snd right_pairs
-        common = intersect left_fields right_fields
-        left_common = [f | f <- left_fields, f `elem` common, not_val f]
-        right_common = [f | f <- right_fields, f `elem` common, not_val f]
-        first_err_field = if (not . null) left_common then head left_common else head right_common
-        left_type = find_type_has_field left_pairs first_err_field
-        right_type = find_type_has_field right_pairs first_err_field
+        leftFields = concatMap snd leftPairs
+        rightFields = concatMap snd rightPairs
+        common = intersect leftFields rightFields
+        leftCommon = [f | f <- leftFields, f `elem` common, notVal f]
+        rightCommon = [f | f <- rightFields, f `elem` common, notVal f]
+        firstErrField = if (not . null) leftCommon then head leftCommon else head rightCommon
+        leftType = findTypeHasField leftPairs firstErrField
+        rightType = findTypeHasField rightPairs firstErrField
       in
-        if null left_common && null right_common then
+        if null leftCommon && null rightCommon then
           []
         else
-          [(left_type, right_type, first_err_field)]
+          [(leftType, rightType, firstErrField)]
 
-    conjunctive_var_err :: (Type, Type, FieldDecl) -> TypecheckM ()
-    conjunctive_var_err (left, right, field) =
+    conjunctiveVarErr :: (Type, Type, FieldDecl) -> TypecheckM ()
+    conjunctiveVarErr (left, right, field) =
       tcError $ printf
         "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
          (show left) (show right) (show field)
 
-    not_val :: FieldDecl -> Bool
-    not_val = not . isValField
+    notVal :: FieldDecl -> Bool
+    notVal = not . isValField
 
-    pair_type_fields :: Type -> TypecheckM (Type, [FieldDecl])
-    pair_type_fields t = do
+    pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
+    pairTypeFields t = do
       trait <- liftM fromJust . asks . traitLookup $ t
       return (t, tfields trait)
 
@@ -229,7 +228,7 @@ instance Checkable ClassDecl where
            tcError "Traits can only be used for passive classes"
     tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
     zipWithM_ (meetRequiredFields cfields) traits tdecls
-    no_overlap_fields ccapability
+    noOverlapFields ccapability
     -- TODO: Add namespace for trait methods
     ensureNoMethodConflict cmethods tdecls
 
@@ -237,9 +236,9 @@ instance Checkable ClassDecl where
     return c{cmethods = emethods}
     where
       typeParameters = getTypeParameters cname
-      add_type_vars = addTypeParameters typeParameters
-      add_this = extendEnvironment [(thisName, cname)]
-      typecheckMethod m = local (add_type_vars . add_this) $ typecheck m
+      addTypeVars = addTypeParameters typeParameters
+      addThis = extendEnvironment [(thisName, cname)]
+      typecheckMethod m = local (addTypeVars . addThis) $ typecheck m
 
 instance Checkable MethodDecl where
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
@@ -447,14 +446,14 @@ instance Checkable Expr where
       (eArgs, bindings) <- local (bindTypes fBindings) $
                                  matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings methodType
-          returnType = ret_type targetType mdecl resultType
+          returnType = retType targetType mdecl resultType
       return $ setType returnType mcall {target = eTarget, args = eArgs}
       where
-        ret_type targetType method t
-          | is_sync_call targetType = t
-          | isStreamMethod method = streamType t
-          | otherwise = futureType t
-        is_sync_call targetType =
+        retType targetType method t
+         | isSyncCall targetType = t
+         | isStreamMethod method = streamType t
+         | otherwise = futureType t
+        isSyncCall targetType =
           isThisAccess target ||
           isPassiveClassType targetType ||
           isTraitType targetType -- TODO now all trait methods calls are sync
@@ -1057,8 +1056,8 @@ coerce expected actual
 --  E, B1 |- arg2 : t2 .. argn : tn -| B'
 -- ------------------------------------------------
 --  E, B |- arg1 : t1 arg2 : t2 .. argn : tn -| B'
--- | @matchArguments args types@ checks if @arg_i@ matches
--- @type_i@ and throws a type checking error if they don't.
+-- | @matchArguments args types@ checks if @argI@ matches
+-- @typeI@ and throws a type checking error if they don't.
 -- Returns the type checked arguments and a list of inferred
 -- bindings, i.e. type variables to types.
 matchArguments :: [Expr] -> [Type] -> TypecheckM ([Expr], [(Type, Type)])

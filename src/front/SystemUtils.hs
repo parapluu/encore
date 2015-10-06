@@ -1,27 +1,27 @@
 {-# LANGUAGE CPP, ScopedTypeVariables #-}
--- 
+--
 -- Copyright (C) 2004 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- 
+--
 -- This library is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU Lesser General Public
 -- License as published by the Free Software Foundation; either
 -- version 2.1 of the License, or (at your option) any later version.
--- 
+--
 -- This library is distributed in the hope that it will be useful,
 -- but WITHOUT ANY WARRANTY; without even the implied warranty of
 -- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 -- Lesser General Public License for more details.
--- 
+--
 -- You should have received a copy of the GNU Lesser General Public
 -- License along with this library; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 -- USA
--- 
+--
 
 -- This module has was created from System.Plugins.Utils, but has
 -- had certain functions (with dependencies) removed.
 
-module SystemUtils ( 
+module SystemUtils (
     Arg,
 
     hWrite,
@@ -218,12 +218,12 @@ isPathSeparator ch =
 --
 newer :: FilePath -> FilePath -> IO Bool
 newer a b = do
-    a_t      <- getModificationTime a
-    b_exists <- doesFileExist b
-    if not b_exists
+    aT      <- getModificationTime a
+    bExists <- doesFileExist b
+    if not bExists
         then return True                -- needs compiling
-        else do b_t <- getModificationTime b
-                return ( a_t > b_t )    -- maybe need recompiling
+        else do bT <- getModificationTime b
+                return ( aT > bT )    -- maybe need recompiling
 
 ------------------------------------------------------------------------
 --
@@ -235,7 +235,7 @@ type EncodedString = String
 
 encode :: String -> EncodedString
 encode []     = []
-encode (c:cs) = encode_ch c ++ encode cs
+encode (c:cs) = encodeCh c ++ encode cs
 
 unencodedChar :: Char -> Bool   -- True for chars that don't need encoding
 unencodedChar 'Z' = False
@@ -249,89 +249,89 @@ unencodedChar c   =  c >= 'a' && c <= 'z'
 --
 decode :: EncodedString -> String
 decode [] = []
-decode ('Z' : d : rest) | isDigit d = decode_tuple   d rest
-                        | otherwise = decode_upper   d : decode rest
-decode ('z' : d : rest) | isDigit d = decode_num_esc d rest
-                        | otherwise = decode_lower   d : decode rest
+decode ('Z' : d : rest) | isDigit d = decodeTuple   d rest
+                        | otherwise = decodeUpper   d : decode rest
+decode ('z' : d : rest) | isDigit d = decodeNumEsc d rest
+                        | otherwise = decodeLower   d : decode rest
 decode (c  : rest) = c : decode rest
 
-decode_upper, decode_lower :: Char -> Char
+decodeUpper, decodeLower :: Char -> Char
 
-decode_upper 'L' = '('
-decode_upper 'R' = ')'
-decode_upper 'M' = '['
-decode_upper 'N' = ']'
-decode_upper 'C' = ':'
-decode_upper 'Z' = 'Z'
-decode_upper ch  = error $ "decode_upper can't handle this char `"++[ch]++"'"
-            
-decode_lower 'z' = 'z'
-decode_lower 'a' = '&'
-decode_lower 'b' = '|'
-decode_lower 'c' = '^'
-decode_lower 'd' = '$'
-decode_lower 'e' = '='
-decode_lower 'g' = '>'
-decode_lower 'h' = '#'
-decode_lower 'i' = '.'
-decode_lower 'l' = '<'
-decode_lower 'm' = '-'
-decode_lower 'n' = '!'
-decode_lower 'p' = '+'
-decode_lower 'q' = '\''
-decode_lower 'r' = '\\'
-decode_lower 's' = '/'
-decode_lower 't' = '*'
-decode_lower 'u' = '_'
-decode_lower 'v' = '%'
-decode_lower ch  = error $ "decode_lower can't handle this char `"++[ch]++"'"
+decodeUpper 'L' = '('
+decodeUpper 'R' = ')'
+decodeUpper 'M' = '['
+decodeUpper 'N' = ']'
+decodeUpper 'C' = ':'
+decodeUpper 'Z' = 'Z'
+decodeUpper ch  = error $ "decodeUpper can't handle this char `"++[ch]++"'"
+
+decodeLower 'z' = 'z'
+decodeLower 'a' = '&'
+decodeLower 'b' = '|'
+decodeLower 'c' = '^'
+decodeLower 'd' = '$'
+decodeLower 'e' = '='
+decodeLower 'g' = '>'
+decodeLower 'h' = '#'
+decodeLower 'i' = '.'
+decodeLower 'l' = '<'
+decodeLower 'm' = '-'
+decodeLower 'n' = '!'
+decodeLower 'p' = '+'
+decodeLower 'q' = '\''
+decodeLower 'r' = '\\'
+decodeLower 's' = '/'
+decodeLower 't' = '*'
+decodeLower 'u' = '_'
+decodeLower 'v' = '%'
+decodeLower ch  = error $ "decodeLower can't handle this char `"++[ch]++"'"
 
 -- Characters not having a specific code are coded as z224U
-decode_num_esc :: Char -> [Char] -> String
-decode_num_esc d cs
+decodeNumEsc :: Char -> [Char] -> String
+decodeNumEsc d cs
   = go (digitToInt d) cs
   where
     go n (c : rest) | isDigit c = go (10*n + digitToInt c) rest
     go n ('U' : rest)           = chr n : decode rest
     go _ other = error $
-        "decode_num_esc can't handle this: \""++other++"\""
+        "decodeNumEsc can't handle this: \""++other++"\""
 
 
-encode_ch :: Char -> EncodedString
-encode_ch c | unencodedChar c = [c]     -- Common case first
+encodeCh :: Char -> EncodedString
+encodeCh c | unencodedChar c = [c]     -- Common case first
 
 -- Constructors
-encode_ch '('  = "ZL"   -- Needed for things like (,), and (->)
-encode_ch ')'  = "ZR"   -- For symmetry with (
-encode_ch '['  = "ZM"
-encode_ch ']'  = "ZN"
-encode_ch ':'  = "ZC"
-encode_ch 'Z'  = "ZZ"
+encodeCh '('  = "ZL"   -- Needed for things like (,), and (->)
+encodeCh ')'  = "ZR"   -- For symmetry with (
+encodeCh '['  = "ZM"
+encodeCh ']'  = "ZN"
+encodeCh ':'  = "ZC"
+encodeCh 'Z'  = "ZZ"
 
 -- Variables
-encode_ch 'z'  = "zz"
-encode_ch '&'  = "za"
-encode_ch '|'  = "zb"
-encode_ch '^'  = "zc"
-encode_ch '$'  = "zd"
-encode_ch '='  = "ze"
-encode_ch '>'  = "zg"
-encode_ch '#'  = "zh"
-encode_ch '.'  = "zi"
-encode_ch '<'  = "zl"
-encode_ch '-'  = "zm"
-encode_ch '!'  = "zn"
-encode_ch '+'  = "zp"
-encode_ch '\'' = "zq"
-encode_ch '\\' = "zr"
-encode_ch '/'  = "zs"
-encode_ch '*'  = "zt"
-encode_ch '_'  = "zu"
-encode_ch '%'  = "zv"
-encode_ch c    = 'z' : shows (ord c) "U"
+encodeCh 'z'  = "zz"
+encodeCh '&'  = "za"
+encodeCh '|'  = "zb"
+encodeCh '^'  = "zc"
+encodeCh '$'  = "zd"
+encodeCh '='  = "ze"
+encodeCh '>'  = "zg"
+encodeCh '#'  = "zh"
+encodeCh '.'  = "zi"
+encodeCh '<'  = "zl"
+encodeCh '-'  = "zm"
+encodeCh '!'  = "zn"
+encodeCh '+'  = "zp"
+encodeCh '\'' = "zq"
+encodeCh '\\' = "zr"
+encodeCh '/'  = "zs"
+encodeCh '*'  = "zt"
+encodeCh '_'  = "zu"
+encodeCh '%'  = "zv"
+encodeCh c    = 'z' : shows (ord c) "U"
 
-decode_tuple :: Char -> EncodedString -> String
-decode_tuple d cs
+decodeTuple :: Char -> EncodedString -> String
+decodeTuple d cs
   = go (digitToInt d) cs
   where
     go n (c : rest) | isDigit c = go (10*n + digitToInt c) rest
@@ -339,7 +339,7 @@ decode_tuple d cs
     go n ['T']          = '(' : replicate (n-1) ',' ++ ")"
     go 1 ['H']          = "(# #)"
     go n ['H']          = '(' : '#' : replicate (n-1) ',' ++ "#)"
-    go _ other = error $ "decode_tuple \'"++other++"'"
+    go _ other = error $ "decodeTuple \'"++other++"'"
 
 -- ---------------------------------------------------------------------
 

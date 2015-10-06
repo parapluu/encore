@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module CodeGen.Shared(generate_shared) where
+module CodeGen.Shared(generateShared) where
 
 import CCode.Main
 import CodeGen.CCodeNames
@@ -11,68 +11,68 @@ import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
-generate_shared :: A.Program -> ClassTable -> CCode FIN
-generate_shared prog@(A.Program{A.functions, A.imports}) ctable =
+generateShared :: A.Program -> ClassTable -> CCode FIN
+generateShared prog@(A.Program{A.functions, A.imports}) ctable =
     Program $
     Concat $
       (LocalInclude "header.h") :
 
-      embedded_code ++
+      embeddedCode ++
 
-      -- [comment_section "Shared messages"] ++
-      -- shared_messages ++
-      [comment_section "Global functions"] ++
-      global_functions ++
+      -- [commentSection "Shared messages"] ++
+      -- sharedMessages ++
+      [commentSection "Global functions"] ++
+      globalFunctions ++
 
-      [main_function]
+      [mainFunction]
     where
       allfunctions = A.allFunctions prog
 
-      global_functions = map (\fun -> translate fun ctable) allfunctions
+      globalFunctions = map (\fun -> translate fun ctable) allfunctions
 
-      embedded_code = A.traverseProgram embedded prog
+      embeddedCode = A.traverseProgram embedded prog
         where
           embedded A.Program{A.source, A.etl = A.EmbedTL{A.etlbody}} =
-              [comment_section $ "Embedded Code from " ++ show source] ++
+              [commentSection $ "Embedded Code from " ++ show source] ++
               [Embed etlbody]
 
-      shared_messages = [msg_alloc_decl, msg_fut_resume_decl, msg_fut_suspend_decl, msg_fut_await_decl, msg_fut_run_closure_decl]
+      sharedMessages = [msgAllocDecl, msgFutResumeDecl, msgFutSuspendDecl, msgFutAwaitDecl, msgFutRunClosureDecl]
           where
-            msg_alloc_decl =
-                AssignTL (Decl (pony_msg_t, Var "m_MSG_alloc"))
-                         (Record [Int 0, Record ([] :: [CCode Expr])])
-            msg_fut_resume_decl =
-                AssignTL (Decl (pony_msg_t, Var "m_resume_get"))
-                         (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
-            msg_fut_suspend_decl =
-                AssignTL (Decl (pony_msg_t, Var "m_resume_suspend"))
-                         (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
-            msg_fut_await_decl =
-                AssignTL (Decl (pony_msg_t, Var "m_resume_await"))
-                         (Record [Int 2, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
-            msg_fut_run_closure_decl =
-                AssignTL (Decl (pony_msg_t, Var "m_run_closure"))
-                         (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
+            msgAllocDecl =
+               AssignTL (Decl (ponyMsgT, Var "m_MSG_alloc"))
+                        (Record [Int 0, Record ([] :: [CCode Expr])])
+            msgFutResumeDecl =
+               AssignTL (Decl (ponyMsgT, Var "m_resume_get"))
+                        (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
+            msgFutSuspendDecl =
+               AssignTL (Decl (ponyMsgT, Var "m_resume_suspend"))
+                        (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
+            msgFutAwaitDecl =
+               AssignTL (Decl (ponyMsgT, Var "m_resume_await"))
+                        (Record [Int 2, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
+            msgFutRunClosureDecl =
+               AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
+                        (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
 
-      main_function =
+      mainFunction =
           Function (Typ "int") (Nam "main")
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                   (Seq $ init_globals ++ [Return encore_start])
+                   (Seq $ initGlobals ++ [Return encoreStart])
           where
-            init_globals = map init_global allfunctions
+            initGlobals = map initGlobal allfunctions
                 where
-                  init_global A.Function{A.funname} =
-                      Assign (global_closure_name funname)
+                  initGlobal A.Function{A.funname} =
+                      Assign (globalClosureName funname)
                              (Call (Nam "closure_mk")
-                                   [AsExpr $ AsLval $ global_function_name funname,
+                                   [AsExpr $ AsLval $ globalFunctionName funname,
                                     Null,
                                     Null])
-            encore_start =
+            encoreStart =
                 Call (Nam "encore_start")
                      [AsExpr $ Var "argc",
                       AsExpr $ Var "argv",
                       Amp (Var "_enc__active_Main_type")]
 
 
-comment_section :: String -> CCode Toplevel
-comment_section s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
+commentSection :: String -> CCode Toplevel
+commentSection s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module CodeGen.Trace (trace_variable) where
+module CodeGen.Trace (traceVariable) where
 
 import CCode.Main
 import CodeGen.CCodeNames
@@ -8,39 +8,39 @@ import qualified Types as Ty
 import CCode.PrettyCCode ()
 
 -- TODO: Tracing of trait typed variables?
-trace_variable :: Ty.Type -> CCode Lval -> CCode Expr
-trace_variable t var
-  | Ty.isActiveClassType  t = pony_traceactor var
-  | Ty.isPassiveClassType t = pony_traceobject var $ class_trace_fn_name t
-  | Ty.isFutureType     t = pony_traceobject var future_trace_fn
-  | Ty.isArrowType      t = pony_traceobject var closure_trace_fn
-  | Ty.isArrayType      t = pony_traceobject var array_trace_fn
-  | Ty.isStreamType     t = pony_traceobject var stream_trace_fn
-  | Ty.isTypeVar        t = trace_type_var t var
+traceVariable :: Ty.Type -> CCode Lval -> CCode Expr
+traceVariable t var
+  | Ty.isActiveClassType  t = ponyTraceactor var
+  | Ty.isPassiveClassType t = ponyTraceobject var $ classTraceFnName t
+  | Ty.isFutureType     t = ponyTraceobject var futureTraceFn
+  | Ty.isArrowType      t = ponyTraceobject var closureTraceFn
+  | Ty.isArrayType      t = ponyTraceobject var arrayTraceFn
+  | Ty.isStreamType     t = ponyTraceobject var streamTraceFn
+  | Ty.isTypeVar        t = traceTypeVar t var
   | otherwise =
     Embed $ "/* Not tracing field '" ++ show var ++ "' */"
 
-pony_traceactor :: CCode Lval -> CCode Expr
-pony_traceactor var =
-  Call (Nam "pony_traceactor")  [Cast (Ptr pony_actor_t) var]
+ponyTraceactor :: CCode Lval -> CCode Expr
+ponyTraceactor var =
+  Call (Nam "pony_traceactor")  [Cast (Ptr ponyActorT) var]
 
-pony_traceobject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Expr
-pony_traceobject var f =
+ponyTraceobject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Expr
+ponyTraceobject var f =
   let
-    to_expr :: (UsableAs e Expr) => CCode e -> CCode Expr
-    to_expr e@(Nam _) = AsExpr . AsLval $ e
-    to_expr e@(AsExpr _) = e
-    to_expr _ = undefined
+    toExpr :: (UsableAs e Expr) => CCode e -> CCode Expr
+    toExpr e@(Nam _) = AsExpr . AsLval $ e
+    toExpr e@(AsExpr _) = e
+    toExpr _ = undefined
   in
-    Call (Nam "pony_traceobject")  [AsExpr var, to_expr f]
+    Call (Nam "pony_traceobject")  [AsExpr var, toExpr f]
 
-encore_trace_polymorphic_variable :: CCode Lval -> CCode Lval  -> CCode Expr
-encore_trace_polymorphic_variable var t =
+encoreTracePolymorphicVariable :: CCode Lval -> CCode Lval  -> CCode Expr
+encoreTracePolymorphicVariable var t =
   Call (Nam "encore_trace_polymorphic_variable")  [t, var]
 
-trace_type_var :: Ty.Type -> CCode Lval -> CCode Expr
-trace_type_var t var =
+traceTypeVar :: Ty.Type -> CCode Lval -> CCode Expr
+traceTypeVar t var =
   let
-    runtime_type = Var "this" `Arrow` type_var_ref_name t
+    runtimeType = Var "this" `Arrow` typeVarRefName t
   in
-    encore_trace_polymorphic_variable var runtime_type
+    encoreTracePolymorphicVariable var runtimeType

@@ -108,21 +108,21 @@ instance Traversable RoseTree where
   traverse f (RoseTree op ts) = RoseTree op <$> traverse (traverse f) ts
 
 instance Show TypeTree where
-  show = remove_parens . pp'
+  show = removeParens . pp'
     where
-      remove_parens :: String -> String
-      remove_parens = init . tail
+      removeParens :: String -> String
+      removeParens = init . tail
 
       pp' :: TypeTree -> String
       pp' (Leaf t) = show t
       pp' (RoseTree op ts) =
         let
-          op_str = concat $ [" ", show op, " "]
+          opStr = concat $ [" ", show op, " "]
           strings = map pp' ts
-          result = concat $ intersperse op_str strings
-          need_parens = op == Addition
+          result = concat $ intersperse opStr strings
+          needParens = op == Addition
         in
-          if need_parens then parens result else result
+          if needParens then parens result else result
         where
           parens str = concat ["(", str, ")"]
 
@@ -402,9 +402,9 @@ conjunctiveTypesFromCapability ty@CapabilityType{capability} =
     collect (RoseTree Addition ts) = concatMap collect ts
     collect (RoseTree Product ts) =
       let
-        par_types = map toList $ map (fmap TraitType) ts
+        parTypes = map toList $ map (fmap TraitType) ts
       in
-        concatMap collect ts ++ [par_types]
+        concatMap collect ts ++ [parTypes]
 
 typesFromCapability :: Type -> [Type]
 typesFromCapability t@TraitType{} = [t]

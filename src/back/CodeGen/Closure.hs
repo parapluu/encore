@@ -28,36 +28,36 @@ translateClosure closure ctable
                params     = A.eparams closure
                body       = A.body closure
                id         = Meta.getMetaId . A.getMeta $ closure
-               fun_name   = closure_fun_name id
-               env_name   = closure_env_name id
-               trace_name = closure_trace_name id
+               funName   = closureFunName id
+               envName   = closureEnvName id
+               traceName = closureTraceName id
                freeVars   = Util.freeVariables (map A.pname params) body
 
-               enc_env_names = map fst freeVars
-               env_names     = map (AsLval . field_name) enc_env_names
-               enc_arg_names = map A.pname params
-               enc_arg_types = map A.ptype params
-               arg_names = map arg_name enc_arg_names
-               arg_types = map translate enc_arg_types
-               subst     = (zip enc_env_names env_names) ++
-                           (zip enc_arg_names arg_names)
+               encEnvNames = map fst freeVars
+               envNames     = map (AsLval . fieldName) encEnvNames
+               encArgNames = map A.pname params
+               encArgTypes = map A.ptype params
+               argNames = map argName encArgNames
+               --argTypes = map translate encArgTypes
+               subst     = (zip encEnvNames envNames) ++
+                           (zip encArgNames argNames)
                ctx = Ctx.new subst ctable
 
                ((bodyName, bodyStat), _) = runState (translate body) ctx
            in
-             Concat [buildEnvironment env_name freeVars,
-                     tracefun_decl trace_name env_name freeVars,
-                     Function (Typ "value_t") fun_name
+             Concat [buildEnvironment envName freeVars,
+                     tracefunDecl traceName envName freeVars,
+                     Function (Typ "value_t") funName
                               [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
                               (Seq $
                                 extractArguments params ++
-                                extractEnvironment env_name freeVars ++
+                                extractEnvironment envName freeVars ++
                                 [bodyStat, returnStmnt bodyName resultType])]
     | otherwise = error "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty
-          | isVoidType ty = Return $ (as_encore_arg_t (translate ty) unit)
-          | otherwise     = Return $ (as_encore_arg_t (translate ty) var)
+          | isVoidType ty = Return $ (asEncoreArgT (translate ty) unit)
+          | otherwise     = Return $ (asEncoreArgT (translate ty) var)
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
@@ -65,22 +65,22 @@ translateClosure closure ctable
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype
-            arg = arg_name pname
-            getArgument i = from_encore_arg_t ty $ AsExpr $ ArrAcc i (Var "_args")
+            arg = argName pname
+            getArgument i = fromEncoreArgT ty $ AsExpr $ ArrAcc i (Var "_args")
 
       buildEnvironment name members =
-          StructDecl (Typ $ show name) (map translate_binding members)
+          StructDecl (Typ $ show name) (map translateBinding members)
               where
-                translate_binding (name, ty) = (translate ty, AsLval $ field_name name)
+                translateBinding (name, ty) = (translate ty, AsLval $ fieldName name)
 
       extractEnvironment _ [] = []
       extractEnvironment envName ((name, ty):vars) =
-          (Assign (Decl (translate ty, AsLval $ field_name name)) (getVar name)) : extractEnvironment envName vars
+          (Assign (Decl (translate ty, AsLval $ fieldName name)) (getVar name)) : extractEnvironment envName vars
               where
                 getVar name =
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` field_name name
+                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` fieldName name
 
-      tracefun_decl traceName envName members =
+      tracefunDecl traceName envName members =
           Function void traceName [(Ptr void, Var "p")]
                    (Seq $ map traceMember members)
               where
@@ -89,7 +89,7 @@ translateClosure closure ctable
                         Call (Nam "pony_traceactor") [getVar name]
                     | Ty.isPassiveClassType ty =
                         Call (Nam "pony_traceobject")
-                             [getVar name, AsLval $ class_trace_fn_name ty]
+                             [getVar name, AsLval $ classTraceFnName ty]
                     | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
                 getVar name =
                     (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)

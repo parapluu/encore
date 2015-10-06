@@ -110,12 +110,12 @@ desugar Repeat{emeta, name, times, body} =
 --   get f2
 
 desugar FinishAsync{emeta, body} =
-    Seq emeta $ [desugar_body body]
+    Seq emeta $ [desugarBody body]
   where
     isAsyncTask (Async _ _) = True
     isAsyncTask _ = False
 
-    desugar_body seq@Seq{eseq, emeta} =
+    desugarBody seq@Seq{eseq, emeta} =
       let sizeSeq = (length eseq)
           bindings = [((Name $ "__seq__" ++ show i , eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
           stmts = map fst $ List.filter (\x -> (snd x) == True) bindings
@@ -123,7 +123,7 @@ desugar FinishAsync{emeta, body} =
           Let emeta
               (map fst bindings)
               (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
-    desugar_body a = a
+    desugarBody a = a
 
 -- foreach item in arr {
 --   stmt using item
@@ -140,9 +140,9 @@ desugar FinishAsync{emeta, body} =
 --   }
 desugar Foreach{emeta, item, arr, body} =
   let it = Name "__it__"
-      arr_size = Name "__arr_size__" in
-   Let emeta [(arr_size, ArraySize emeta arr)]
-    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arr_size) (IntLiteral emeta 0))
+      arrSize = Name "__arr_size__" in
+   Let emeta [(arrSize, ArraySize emeta arr)]
+    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arrSize) (IntLiteral emeta 0))
      (Skip (cloneMeta emeta))
      (Let emeta
         [(it, (IntLiteral emeta 0)),
@@ -151,7 +151,7 @@ desugar Foreach{emeta, item, arr, body} =
              (Binop emeta
                    Identifiers.LT
                    (VarAccess emeta it)
-                   (VarAccess emeta arr_size))
+                   (VarAccess emeta arrSize))
              (Seq emeta
                   [(Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it))),
                    Async emeta body,

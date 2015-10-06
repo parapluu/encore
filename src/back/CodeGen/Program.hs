@@ -36,12 +36,12 @@ data Emitted = Emitted {
 instance Translatable A.Program Emitted where
   translate prog =
     let
-      ctable = build_class_table prog
-      header = generate_header prog
-      shared = generate_shared prog ctable
-      classes = A.traverseProgram (name_and_class ctable) prog
+      ctable = buildClassTable prog
+      header = generateHeader prog
+      shared = generateShared prog ctable
+      classes = A.traverseProgram (nameAndClass ctable) prog
     in
       Emitted{classes, header, shared}
     where
-      name_and_class ctable A.Program{A.classes} =
+      nameAndClass ctable A.Program{A.classes} =
         [(Ty.getId (A.cname c), translate c ctable) | c <- classes]

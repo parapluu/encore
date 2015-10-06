@@ -5,7 +5,7 @@ Translating an Encore program to its CCode representation (see "CCode.Main")
 -}
 
 module CodeGen.Main (
-  compile_to_c,
+  compileToC,
   Emitted,
   getClasses,
   getHeader,
@@ -21,5 +21,5 @@ getClasses = classes
 getHeader = header
 getShared = shared
 
-compile_to_c :: A.Program -> Emitted
-compile_to_c = translate . preprocess
+compileToC :: A.Program -> Emitted
+compileToC = translate . preprocess

@@ -241,22 +241,22 @@ traitField = do
 
 capability :: Parser Type
 capability = do
-  tree <- type_tree
+  tree <- typeTree
   return $ fromTypeTree tree
   where
-    type_tree :: Parser TypeTree
-    type_tree = do
-      ts <- product_type `sepBy1` reservedOp "+"
-      return $ RoseTree Addition ts
+    typeTree :: Parser TypeTree
+    typeTree = do
+     ts <- productType `sepBy1` reservedOp "+"
+     return $ RoseTree Addition ts
 
-    product_type :: Parser TypeTree
-    product_type = do
-      ts <- term `sepBy1` reservedOp "*"
-      return $ RoseTree Product ts
+    productType :: Parser TypeTree
+    productType = do
+     ts <- term `sepBy1` reservedOp "*"
+     return $ RoseTree Product ts
 
     term :: Parser TypeTree
     term = Leaf <$> refInfo
-        <|> parens type_tree
+        <|> parens typeTree
 
     refInfo :: Parser RefInfo
     refInfo = do
