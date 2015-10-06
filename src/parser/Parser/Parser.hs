@@ -109,6 +109,7 @@ typ  = adtTypes
               <|> par
               <|> stream
               <|> array
+              <|> embed
               <|> primitive
               <|> range
               <|> capability
@@ -136,6 +137,9 @@ typ  = adtTypes
                  return $ arrayType ty
       range = do reserved "Range"
                  return rangeType
+      embed = do reserved "embed"
+                 ty <- manyTill anyChar $ try $ do {space; reserved "end"}
+                 return $ ctype ty
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>

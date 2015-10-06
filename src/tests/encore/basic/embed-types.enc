@@ -1,0 +1,16 @@
+passive class Container<t>
+  f : t
+  def write(f : t) : void
+    this.f = f
+
+  def read() : t
+    this.f
+
+class Main
+  def main() : void
+    let c = new Container<embed char* end>
+    in{
+      c.write(embed (embed char* end) "Hello"; end);
+      let s = c.read() in
+        embed void puts(#{s}); end
+    }

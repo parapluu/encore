@@ -33,6 +33,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isArrayType ty      = array
         | Ty.isRangeType ty      = range
         | Ty.isMaybeType ty      = option
+        | Ty.isCType ty          = Embed $ Ty.getId ty
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtimeType :: Ty.Type -> CCode Expr
@@ -50,6 +51,7 @@ encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"
 encoreArgTTag (Typ "int64_t") = Nam "i"
 encoreArgTTag (Typ "double")  = Nam "d"
+encoreArgTTag (Embed _)       = Nam "p"
 encoreArgTTag other           =
     error $ "Type.hs: no encoreArgTTag for " ++ show other
 
