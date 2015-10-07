@@ -387,6 +387,12 @@ isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True
 isRangeLiteral _ = False
 
+isCallable :: Expr -> Bool
+isCallable m@(Closure {}) = True
+isCallable f@(FieldAccess {}) = isArrowType (AST.AST.getType f)
+isCallable v@(VarAccess {}) = isArrowType (AST.AST.getType v)
+isCallable _ = False
+
 instance HasMeta Expr where
     getMeta = emeta
     setMeta e m = e{emeta = m}

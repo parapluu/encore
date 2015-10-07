@@ -32,10 +32,12 @@ class CreditCard
 
 
 class Main
+
   def main(): void {
     let c = new CreditCard("KIKO FERNANDEZ REYES", "INVALID_CARD",
 	["Online", "Clothes", "Food", "Party"])
 	show = \(b: bool) -> print b
-    in
-      (get c.check()) >> show
+    in {
+	(get c.check()) >> show;
+    }
   }

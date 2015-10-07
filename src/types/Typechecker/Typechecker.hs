@@ -324,16 +324,34 @@ instance Checkable Expr where
     doTypecheck s@(PartySeq {par, seqfunc}) = do
       ePar <- typecheck par
       eSeqFunc <- typecheck seqfunc
-      unless ((leftIsPar ePar) && (outputTypeMatchesInput ePar eSeqFunc)) $
+
+      unless (isCallable eSeqFunc) $
+        tcError $ "Parallel combinator '>>' expected a callable expresion but found '" ++
+                  show (ppExpr eSeqFunc) ++ "' of type '" ++
+                  show (AST.getType eSeqFunc) ++ "'instead."
+
+      unless (leftIsPar ePar) $
+        tcError $ "Parallel combinator '>>' expected a parallel expression but found " ++
+                  "expression '" ++show (ppExpr ePar) ++ "' of type '" ++
+                  show (AST.getType ePar) ++ "'"
+
+      let nargs = numberArgsFun eSeqFunc
+      unless (nargs == 1) $
+        tcError $ "Parallel combinator expects a function with a single argument " ++
+                  "but found a function that takes " ++ show nargs ++ " arguments"
+
+      unless (outputTypeMatchesInput ePar eSeqFunc) $
         tcError $ "Type '"++ (show . AST.getType) ePar ++
                   "' of parallel computation does not match the expected type '"++
                   show (getArgType eSeqFunc) ++"' of function"
+
       return $ setType ((parType . getResultType . AST.getType) eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
         where
           outputTypeMatchesInput ePar eSeqFunc =
             ((getResultType . AST.getType) ePar) == (getArgType eSeqFunc)
           leftIsPar = (isParType . AST.getType)
           getArgType = head . getArgTypes . AST.getType
+          numberArgsFun = length . getArgTypes . AST.getType
 
 
     doTypecheck m@(MatchDecl {arg, matchbody}) =
