@@ -90,6 +90,9 @@ range = Ptr $ rangeT
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
+par :: CCode Ty
+par = (Ptr . Typ) "par_t"
+
 unit :: CCode Lval
 unit = Embed "UNIT"
 
@@ -248,3 +251,6 @@ arrayTypeRecName = Nam $ "array_type"
 
 rangeTypeRecName :: CCode Name
 rangeTypeRecName = Nam $ "range_type"
+
+partyTypeRecName :: CCode Name
+partyTypeRecName = Nam $ "party_type"

@@ -297,6 +297,63 @@ instance Checkable Expr where
            eBody <- hasType body ty'
            return $ setType ty' $ te{body = eBody, ty = ty'}
 
+    doTypecheck l@(Liftf {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      unless (isFutureType typ) $ tcError $ "expression '" ++ show (ppExpr e) ++
+        "' of type '" ++ show typ ++ "' should be of type 'Future'"
+      return $ setType (parType $ getResultType typ) l {val = e}
+
+    doTypecheck l@(Liftv {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      return $ setType (parType typ) l {val = e}
+
+    doTypecheck p@(PartyPar {parl, parr}) = do
+      pl <- typecheck parl
+      pr <- hasType parr (AST.getType pl)
+      unless ((all isParType . map AST.getType) [pl, pr]) $
+        tcError $ "using parallel combinator with non-parallel expression"
+      let [plType, prType] = map AST.getType [pl, pr]
+
+      sameTypes <- plType `subtypeOf` prType
+      unless ((hasSameKind (AST.getType pl) (AST.getType pr)) && sameTypes) $
+        tcError $ "at least one of the parallel collections is of a non-parallel type"
+      return $ setType (AST.getType pl) p {parl = pl, parr = pr}
+
+    doTypecheck s@(PartySeq {par, seqfunc}) = do
+      ePar <- typecheck par
+      eSeqFunc <- typecheck seqfunc
+
+      unless (isCallable eSeqFunc) $
+        tcError $ "Parallel combinator '>>' expected a callable expresion but found '" ++
+                  show (ppExpr eSeqFunc) ++ "' of type '" ++
+                  show (AST.getType eSeqFunc) ++ "'instead."
+
+      unless (leftIsPar ePar) $
+        tcError $ "Parallel combinator '>>' expected a parallel expression but found " ++
+                  "expression '" ++show (ppExpr ePar) ++ "' of type '" ++
+                  show (AST.getType ePar) ++ "'"
+
+      let nargs = numberArgsFun eSeqFunc
+      unless (nargs == 1) $
+        tcError $ "Parallel combinator expects a function with a single argument " ++
+                  "but found a function that takes " ++ show nargs ++ " arguments"
+
+      unless (outputTypeMatchesInput ePar eSeqFunc) $
+        tcError $ "Type '"++ (show . AST.getType) ePar ++
+                  "' of parallel computation does not match the expected type '"++
+                  show (getArgType eSeqFunc) ++"' of function"
+
+      return $ setType ((parType . getResultType . AST.getType) eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
+        where
+          outputTypeMatchesInput ePar eSeqFunc =
+            ((getResultType . AST.getType) ePar) == (getArgType eSeqFunc)
+          leftIsPar = (isParType . AST.getType)
+          getArgType = head . getArgTypes . AST.getType
+          numberArgsFun = length . getArgTypes . AST.getType
+
+
     doTypecheck m@(MatchDecl {arg, matchbody}) =
       do eArg <- typecheck arg
          checkErrors eArg matchbody

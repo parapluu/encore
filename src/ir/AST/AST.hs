@@ -248,6 +248,16 @@ data Expr = Skip {emeta :: Meta Expr}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
+          | Liftf {emeta :: Meta Expr,
+                   val :: Expr}
+          | Liftv {emeta :: Meta Expr,
+                   val :: Expr}
+          | PartySeq {emeta :: Meta Expr,
+                      par :: Expr,
+                      seqfunc :: Expr}
+          | PartyPar {emeta :: Meta Expr,
+                      parl :: Expr,
+                      parr :: Expr}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
           | MaybeValue {emeta :: Meta Expr,
@@ -376,6 +386,12 @@ isTask _ = False
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True
 isRangeLiteral _ = False
+
+isCallable :: Expr -> Bool
+isCallable m@(Closure {}) = True
+isCallable f@(FieldAccess {}) = isArrowType (AST.AST.getType f)
+isCallable v@(VarAccess {}) = isArrowType (AST.AST.getType v)
+isCallable _ = False
 
 instance HasMeta Expr where
     getMeta = emeta

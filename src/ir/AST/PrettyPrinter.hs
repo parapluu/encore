@@ -55,7 +55,11 @@ ppEquals = text "="
 ppSpace = text " "
 ppLambda = text "\\"
 ppArrow = text "->"
+ppSeq = text ">>"
+ppLiftf = text "liftf"
+ppLiftv = text "liftv"
 ppTask = text "async"
+ppPar = text "||"
 ppBar = text "|"
 ppJust = text "Just"
 ppNothing = text "Nothing"
@@ -161,6 +165,10 @@ ppExpr MethodCall {target, name, args} =
 ppExpr MessageSend {target, name, args} =
     maybeParens target <> ppBang <> ppName name <>
       parens (commaSep (map ppExpr args))
+ppExpr Liftf {val} = ppLiftf <+> ppExpr val
+ppExpr Liftv {val} = ppLiftv <+> ppExpr val
+ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ppSeq <+> ppExpr seqfunc
+ppExpr PartyPar {parl, parr} = ppExpr parl <+> ppPar <+> ppExpr parr
 ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
 ppExpr Closure {eparams, body} =

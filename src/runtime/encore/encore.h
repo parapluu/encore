@@ -53,6 +53,7 @@ typedef enum {
   ID_SCONS,
   ID_ARRAY,
   ID_RANGE,
+  ID_PARTY
 } encore_type_id;
 
 typedef enum {
