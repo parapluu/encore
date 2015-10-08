@@ -26,7 +26,7 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
       let funName = globalFunctionName funname
           encArgNames = map A.pname funparams
           encArgTypes = map A.ptype funparams
-          argNames = map argName encArgNames
+          argNames = map (AsLval . argName) encArgNames
           argTypes = map translate encArgTypes
           ctx = Ctx.new (zip encArgNames argNames) ctable
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
@@ -51,7 +51,7 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype
-            arg = argName pname
+            arg = AsLval $ argName pname
             getArgument i
                 | isEncoreArgT ty = ArrAcc i (Var "_args")
                 | otherwise = fromEncoreArgT ty $ AsExpr $ ArrAcc i (Var "_args")

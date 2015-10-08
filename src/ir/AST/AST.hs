@@ -110,6 +110,12 @@ instance Eq ClassDecl where
 isActive :: ClassDecl -> Bool
 isActive = isActiveClassType . cname
 
+isShared :: ClassDecl -> Bool
+isShared = isSharedClassType . cname
+
+isPassive :: ClassDecl -> Bool
+isPassive = isPassiveClassType . cname
+
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl = (== "Main") . getId . cname $ cdecl
 

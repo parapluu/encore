@@ -4,6 +4,7 @@ import Identifiers
 import AST.AST
 import AST.Util
 import Types
+import Control.Applicative (liftA2)
 
 optimizeProgram :: Program -> Program
 optimizeProgram p@(Program{classes, traits, functions}) =
@@ -49,7 +50,7 @@ constructors :: Expr -> Expr
 constructors = extend constr
     where
       constr e@(MethodCall {name = Name "_init", emeta, target, args})
-          | (isActiveClassType . getType) target =
+          | (liftA2 (||) isActiveClassType isSharedClassType . getType) target =
               MessageSend {name = Name "_init"
                           ,emeta = emeta
                           ,target = target

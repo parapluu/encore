@@ -1,16 +1,31 @@
 {-# LANGUAGE GADTs #-}
 
-module CodeGen.Trace (traceVariable) where
+module CodeGen.Trace (
+  traceVariable
+  , traceFuture
+  , ponyGcSend
+  , ponySendDone
+) where
 
 import CCode.Main
 import CodeGen.CCodeNames
 import qualified Types as Ty
 import CCode.PrettyCCode ()
 
+ponyGcSend :: CCode Stat
+ponyGcSend = Statement $ Call ponyGcSendName ([] :: [CCode Expr])
+
+ponySendDone :: CCode Stat
+ponySendDone = Statement $ Call ponySendDoneName ([] :: [CCode Expr])
+
+traceFuture :: CCode Lval -> CCode Expr
+traceFuture var = ponyTraceobject var futureTraceFn
+
 -- TODO: Tracing of trait typed variables?
 traceVariable :: Ty.Type -> CCode Lval -> CCode Expr
 traceVariable t var
   | Ty.isActiveClassType  t = ponyTraceactor var
+  | Ty.isSharedClassType  t = ponyTraceactor var
   | Ty.isPassiveClassType t = ponyTraceobject var $ classTraceFnName t
   | Ty.isFutureType     t = ponyTraceobject var futureTraceFn
   | Ty.isArrowType      t = ponyTraceobject var closureTraceFn

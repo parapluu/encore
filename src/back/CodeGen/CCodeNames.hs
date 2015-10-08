@@ -106,12 +106,36 @@ selfTypeField = Nam $ encoreName "self_type" ""
 -- | each method is implemented as a function with a `this`
 -- pointer. This is the name of that function
 methodImplName :: Ty.Type -> ID.Name -> CCode Name
-methodImplName clazz mname =
-    Nam $ encoreName "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
+methodImplName clazz mname = Nam $ methodImplNameStr clazz mname
 
-argName :: ID.Name -> CCode Lval
-argName name =
-    Var $ encoreName "arg" (show name)
+methodImplFutureName :: Ty.Type -> ID.Name -> CCode Name
+methodImplFutureName clazz mname =
+  Nam $ methodImplFutureNameStr clazz mname
+
+methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
+methodImplOneWayName clazz mname =
+  Nam $ methodImplOneWayNameStr clazz mname
+
+methodImplNameStr :: Ty.Type -> ID.Name -> String
+methodImplNameStr clazz mname =
+  encoreName "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
+
+methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
+methodImplFutureNameStr clazz mname =
+  methodImplNameStr clazz mname ++ "_future"
+
+methodImplOneWayNameStr :: Ty.Type -> ID.Name -> String
+methodImplOneWayNameStr clazz mname =
+  methodImplNameStr clazz mname ++ "_one_way"
+
+constructorImplName :: Ty.Type -> CCode Name
+constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
+
+encoreCreateName :: CCode Name
+encoreCreateName = Nam "encore_create"
+
+argName :: ID.Name -> CCode Name
+argName name = Nam $ encoreName "arg" (show name)
 
 fieldName :: ID.Name -> CCode Name
 fieldName name =
@@ -185,6 +209,12 @@ runtimeTypeInitFnName :: Ty.Type -> CCode Name
 runtimeTypeInitFnName clazz =
     Nam $ encoreName "type_init" (Ty.getId clazz)
 
+ponyAllocMsgName :: CCode Name
+ponyAllocMsgName = Nam "pony_alloc_msg"
+
+poolIndexName :: CCode Name
+poolIndexName = Nam "POOL_INDEX"
+
 futMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 futMsgTypeName cls mname =
     Nam $ encoreName "fut_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
@@ -207,14 +237,23 @@ oneWayMsgId cls mname =
 
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
-    | Ty.isActiveClassType ref =
-        encoreName "active" $ Ty.getId ref
-    | Ty.isPassiveClassType ref =
-        encoreName "passive" $ Ty.getId ref
-    | Ty.isTraitType ref =
-        encoreName "trait" $ Ty.getId ref
-    | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
-                          "' isnt reference type!"
+  | Ty.isActiveClassType ref = encoreName "active" id
+  | Ty.isSharedClassType ref = encoreName "shared" id
+  | Ty.isPassiveClassType ref = encoreName "passive" id
+  | Ty.isTraitType ref = encoreName "trait" id
+  | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
+                        "' isnt reference type!"
+  where
+    id = Ty.getId ref
+
+ponySendvName :: CCode Name
+ponySendvName = Nam "pony_sendv"
+
+ponyGcSendName :: CCode Name
+ponyGcSendName = Nam "pony_gc_send"
+
+ponySendDoneName :: CCode Name
+ponySendDoneName = Nam "pony_send_done"
 
 refTypeName :: Ty.Type -> CCode Name
 refTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
@@ -227,6 +266,9 @@ runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"
 
 futureTraceFn :: CCode Name
 futureTraceFn = Nam "future_trace"
+
+futureMkFn :: CCode Name
+futureMkFn = Nam "future_mk"
 
 closureTraceFn :: CCode Name
 closureTraceFn = Nam "closure_trace"
