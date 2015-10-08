@@ -29,7 +29,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
         name = (methodImplName cname mname)
         encArgNames = map A.pname mparams
         encArgTypes = map A.ptype mparams
-        argNames = map argName encArgNames
+        argNames = map (AsLval . argName) encArgNames
         argTypes = map translate encArgTypes
         args = (Ptr . AsType $ classTypeName cname, Var "_this") :
                if A.isMainClass cdecl && mname == ID.Name "main"
@@ -57,7 +57,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
     let name = (methodImplName cname mname)
         encArgNames = map A.pname mparams
         encArgTypes = map A.ptype mparams
-        argNames = map argName encArgNames
+        argNames = map (AsLval . argName) encArgNames
         argTypes = map translate encArgTypes
         args = (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) :
