@@ -415,7 +415,8 @@ conjunctiveTypesFromCapability ty@CapabilityType{capability} =
         parTypes = map toList $ map (fmap TraitType) ts
       in
         concatMap collect ts ++ [parTypes]
-conjunctiveTypesFromCapability _ = error "non-trait type"
+conjunctiveTypesFromCapability ty =
+  error $ "Types.hs: Cannot get conjunctive types from " ++ showWithKind ty
 
 typesFromCapability :: Type -> [Type]
 typesFromCapability t@TraitType{} = [t]
