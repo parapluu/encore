@@ -41,6 +41,7 @@ $(LIB_DIR):
 	mkdir -p $(LIB_DIR)
 
 COMMON_INC=$(RUNTIME_DIR)/common/*
+POOL_INC=$(RUNTIME_DIR)/pony/libponyrt/mem/pool.h
 PONY_INC=$(RUNTIME_DIR)/pony/libponyrt/*.h
 PONY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libponyrt.a
 FUTURE_INC=$(FUTURE_DIR)/future.h
@@ -63,6 +64,7 @@ RANGE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/librange.a
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony
 	cp -r $(COMMON_INC) $(INC_DIR)
+	cp -r $(POOL_INC) $(INC_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)
 	cp -r $(FUTURE_INC) $(INC_DIR)
 	cp -r $(OPTION_INC) $(INC_DIR)
