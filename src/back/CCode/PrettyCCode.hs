@@ -28,10 +28,11 @@ star :: Doc
 star = text "*"
 
 switchBody :: [(CCode Name, CCode Stat)] -> CCode Stat -> Doc
-switchBody ccodes defCase = lbrace $+$ (nest 2 $ vcat (map switchClause ccodes) $+$
-                                          text "default:" $+$
-                                                   (bracedBlock . vcat . map pp') [defCase]) $+$
-                              rbrace
+switchBody ccodes defCase =
+  lbrace $+$ (nest 2 $ vcat (map switchClause ccodes) $+$
+      text "default:" $+$
+      (bracedBlock . vcat . map pp') [defCase]) $+$
+  rbrace
   where
     switchClause :: (CCode Name, CCode Stat) -> Doc
     switchClause (lhs,rhs) =
@@ -79,11 +80,13 @@ pp' (Cast ty e) = parens $ (parens $ pp' ty) <+> pp' e
 pp' (ArrAcc i l) = parens $  pp' l <> brackets (tshow i)
 pp' (Amp ccode) = parens $ text "&" <> (parens $ pp' ccode)
 pp' (Ptr ty) = pp' ty <> star
-pp' (FunctionDecl retTy name args) = tshow retTy <+> tshow name <>
-                                      parens (commaList args) <> text ";"
-pp' (Function retTy name args body) = tshow retTy <+> tshow name <>
-                                       parens (ppArgs args)  $+$
-                                       (bracedBlock . pp') body
+pp' (FunctionDecl retTy name args) =
+  tshow retTy <+> tshow name <>
+  parens (commaList args) <> text ";"
+pp' (Function retTy name args body) =
+  tshow retTy <+> tshow name <>
+  parens (ppArgs args)  $+$
+  (bracedBlock . pp') body
 pp' (AsExpr c) = pp' c
 pp' (AsLval c) = pp' c
 pp' (AsType c) = pp' c
