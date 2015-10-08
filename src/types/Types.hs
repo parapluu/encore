@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Types(
               Type
             , Capability
@@ -133,6 +134,7 @@ data Capability = Capability { typeTree :: TypeTree }
   deriving (Eq)
 
 instance Show Capability where
+  show EmptyCapability = ""
   show Capability{typeTree} = show typeTree
 
 data RefInfo = RefInfo{refId :: String
@@ -288,6 +290,7 @@ refInfoTypeComponents = concatMap typeComponents . parameters
 
 -- TODO: Should maybe extract the power set?
 capabilityComponents :: Capability -> [Type]
+capabilityComponents EmptyCapability = []
 capabilityComponents Capability{typeTree} =
   concatMap traitToType $ toList typeTree
   where
@@ -323,6 +326,7 @@ refInfoTypeMap f info@RefInfo{parameters} =
     info{parameters = map (typeMap f) parameters}
 
 capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
+capabilityTypeMap _ EmptyCapability = EmptyCapability
 capabilityTypeMap f cap@Capability{typeTree} =
     cap{typeTree = fmap (refInfoTypeMap f) typeTree}
 
@@ -411,6 +415,7 @@ conjunctiveTypesFromCapability ty@CapabilityType{capability} =
         parTypes = map toList $ map (fmap TraitType) ts
       in
         concatMap collect ts ++ [parTypes]
+conjunctiveTypesFromCapability _ = error "non-trait type"
 
 typesFromCapability :: Type -> [Type]
 typesFromCapability t@TraitType{} = [t]
