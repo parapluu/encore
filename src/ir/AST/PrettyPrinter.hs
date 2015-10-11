@@ -58,6 +58,7 @@ ppArrow = text "->"
 ppSeq = text ">>"
 ppLiftf = text "liftf"
 ppLiftv = text "liftv"
+ppJoin = text "join"
 ppTask = text "async"
 ppPar = text "||"
 ppBar = text "|"
@@ -167,6 +168,7 @@ ppExpr MessageSend {target, name, args} =
       parens (commaSep (map ppExpr args))
 ppExpr Liftf {val} = ppLiftf <+> ppExpr val
 ppExpr Liftv {val} = ppLiftv <+> ppExpr val
+ppExpr PartyJoin {val} = ppJoin <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ppSeq <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> ppPar <+> ppExpr parr
 ppExpr FunctionCall {name, args} =

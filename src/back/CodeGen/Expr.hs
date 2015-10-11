@@ -88,6 +88,13 @@ unsubstituteVar na = do
 type ParsedEmbed = [Either String VarLkp]
 newtype VarLkp = VarLkp String
 
+newParty :: A.Expr -> CCode Name
+newParty (A.Liftv {}) = partyNewParV
+newParty (A.Liftf {}) = partyNewParF
+newParty (A.PartyPar {}) = partyNewParP
+newParty _ = error $ "ERROR in 'Expr.hs': node is different from 'Liftv', " ++
+                     "'Liftf' or 'PartyPar'"
+
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- | Translate an expression into the corresponding C code
   translate skip@(A.Skip {}) = namedTmpVar "skip" (A.getType skip) (AsExpr unit)
@@ -138,22 +145,29 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate l@(A.Liftf {A.val}) = do
     (nval, tval) <- translate val
     let runtimeT = (runtimeType . Ty.getResultType . A.getType) val
-    (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $ Call (Nam "new_par_f") [AsExpr nval, runtimeT]
+    (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $
+                        Call (newParty l) [AsExpr nval, runtimeT]
     return (nliftf, Seq [tval, tliftf])
 
   translate l@(A.Liftv {A.val}) = do
     (nval, tval) <- translate val
     let runtimeT = (runtimeType . A.getType) val
     (nliftv, tliftv) <- namedTmpVar "par" (A.getType l) $
-                        Call (Nam "new_par_v") [asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
+                        Call (newParty l) [asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
     return (nliftv, Seq [tval, tliftv])
+
+  translate p@(A.PartyJoin {A.val}) = do
+    (nexpr, texpr) <- translate val
+    let typ = A.getType p
+    (nJoin, tJoin) <- namedTmpVar "par" typ $ Call partyJoin [nexpr]
+    return (nJoin, Seq [texpr, tJoin])
 
   translate p@(A.PartyPar {A.parl, A.parr}) = do
     (nleft, tleft) <- translate parl
     (nright, tright) <- translate parr
     let runtimeT = (runtimeType . Ty.getResultType . A.getType) p
     (npar, tpar) <- namedTmpVar "par" (A.getType p) $
-                        Call (Nam "new_par_p") [AsExpr nleft, AsExpr nright, runtimeT]
+                        Call (newParty p) [AsExpr nleft, AsExpr nright, runtimeT]
     return (npar, Seq [tleft, tright, tpar])
 
   translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
@@ -161,10 +175,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nseqfunc, tseqfunc) <- translate seqfunc
     let runtimeT = (runtimeType . A.getType) seqfunc
     (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
-                                Call (Nam "party_sequence") [AsExpr npar, AsExpr nseqfunc, runtimeT]
+                                Call partySequence [AsExpr npar, AsExpr nseqfunc, runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
-
-
 
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args
