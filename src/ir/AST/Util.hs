@@ -23,6 +23,7 @@ getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
 getChildren Liftf {val} = [val]
 getChildren Liftv {val} = [val]
+getChildren PartyJoin {val} = [val]
 getChildren PartySeq {par, seqfunc} = [par, seqfunc]
 getChildren PartyPar {parl, parr} = [parl, parr]
 getChildren Closure {body} = [body]
@@ -83,6 +84,7 @@ putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [val] e@(Liftf {}) = e{val}
 putChildren [val] e@(Liftv {}) = e{val}
+putChildren [val] e@(PartyJoin {}) = e{val}
 putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
 putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [body] e@(Closure {}) = e{body = body}
@@ -148,6 +150,7 @@ putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l 
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
 putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 element"
 putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
+putChildren _ e@(PartyJoin {}) = error "'putChildren l PartyJoin' expects l to have 1 element"
 putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
 putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"

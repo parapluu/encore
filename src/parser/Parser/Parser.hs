@@ -50,7 +50,7 @@ lexer =
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv"
+     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv", "join"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -362,6 +362,7 @@ expression = buildExpressionParser opTable highOrderExpr
                  [chain],
                  [partySequence],
                  [partyParallel],
+                 [partyJoin],
                  [assignment]
                 ]
 
@@ -417,6 +418,10 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition ;
                     reservedOp "||" ;
                     return (PartyPar (meta pos))) AssocLeft
+      partyJoin =
+          Prefix (do pos <- getPosition
+                     reserved "join"
+                     return (PartyJoin (meta pos)))
       assignment =
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;

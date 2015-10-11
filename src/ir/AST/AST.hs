@@ -258,6 +258,8 @@ data Expr = Skip {emeta :: Meta Expr}
                    val :: Expr}
           | Liftv {emeta :: Meta Expr,
                    val :: Expr}
+          | PartyJoin {emeta :: Meta Expr,
+                       val :: Expr}
           | PartySeq {emeta :: Meta Expr,
                       par :: Expr,
                       seqfunc :: Expr}
