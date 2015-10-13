@@ -13,6 +13,7 @@ import Data.Maybe
 import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.State
 
 -- Module dependencies
 import Identifiers
@@ -27,10 +28,12 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> Either TCError Program
+typecheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
 typecheckEncoreProgram p =
-    do env <- buildEnvironment p
-       runReader (runExceptT (doTypecheck p)) env
+  case buildEnvironment p of
+    (Right env, warnings) ->
+      runState (runExceptT (runReaderT (doTypecheck p) env)) warnings
+    (Left err, warnings) -> (Left err, warnings)
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the

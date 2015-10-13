@@ -11,6 +11,7 @@ module Typechecker.Prechecker(precheckEncoreProgram) where
 
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.State
 import Data.Maybe
 
 -- Module dependencies
@@ -23,10 +24,13 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Program -> Either TCError Program
-precheckEncoreProgram p = do
-  env <- buildEnvironment p
-  runReader (runExceptT (doPrecheck p)) env
+precheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
+precheckEncoreProgram p =
+  -- TODO: We should be able to write this using do-notation!
+  case buildEnvironment p of
+    (Right env, warnings) ->
+      runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
+    (Left err, warnings) -> (Left err, warnings)
 
 class Precheckable a where
     doPrecheck :: a -> TypecheckM a

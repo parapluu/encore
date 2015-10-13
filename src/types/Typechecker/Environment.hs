@@ -67,9 +67,9 @@ emptyEnv = Env {
   bt = emptyBT
 }
 
-buildEnvironment :: Program -> Either TCError Environment
-buildEnvironment =
-  mergeEnvs . traverseProgram buildEnvironment'
+buildEnvironment :: Program -> (Either TCError Environment, [TCWarning])
+buildEnvironment p =
+  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {functions, classes, traits, imports}) =

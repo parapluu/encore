@@ -9,6 +9,8 @@ module Typechecker.TypeError (Backtrace
                              ,emptyBT
                              ,Pushable(push)
                              ,TCError(TCError)
+                             ,TCWarning(TCWarning)
+                             ,Warning(StringDeprecatedWarning)
                              ,currentMethodFromBacktrace) where
 
 import Text.PrettyPrint
@@ -111,3 +113,17 @@ instance Show TCError where
               case show node of
                 "" -> ""
                 s  -> s ++ "\n"
+
+data TCWarning = TCWarning Backtrace Warning
+instance Show TCWarning where
+    show (TCWarning [] w) =
+        " Warning:\n" ++
+        show w
+    show (TCWarning ((pos, _):_) w) =
+        " Warning at " ++ show pos ++ ":\n" ++
+        show w
+
+data Warning = StringDeprecatedWarning
+instance Show Warning where
+    show StringDeprecatedWarning =
+        "Type 'string' is deprecated. Use 'String' instead."

@@ -175,26 +175,44 @@ main =
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
                 Left error -> abort $ show error
-       when (Intermediate Parsed `elem` options)
-           (withFile (changeFileExt sourceName "AST") WriteMode
-               (flip hPrint $ show ast))
+
+       when (Intermediate Parsed `elem` options) $ do
+         verbatim options "== Printing AST =="
+         withFile (changeFileExt sourceName "AST") WriteMode
+                  (flip hPrint $ show ast)
+
        verbatim options "== Expanding modules =="
        expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
+
        verbatim options "== Desugaring =="
        let desugaredAST = desugarProgram expandedAst
+
        verbatim options "== Prechecking =="
-       precheckedAST <- case precheckEncoreProgram desugaredAST of
-                          Right ast  -> return ast
-                          Left error -> abort $ show error
+       (precheckedAST, precheckingWarnings) <-
+           case precheckEncoreProgram desugaredAST of
+             (Right ast, warnings)  -> return (ast, warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
+       showWarnings precheckingWarnings
+
        verbatim options "== Typechecking =="
-       typecheckedAST <- case typecheckEncoreProgram precheckedAST of
-                           Right ast  -> return ast
-                           Left error -> abort $ show error
-       when (Intermediate TypeChecked `elem` options)
-           (withFile (changeFileExt sourceName "TAST") WriteMode
-               (flip hPrint $ show typecheckedAST))
+       (typecheckedAST, typecheckingWarnings) <-
+           case typecheckEncoreProgram precheckedAST of
+             (Right ast, warnings)  -> return (ast, warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
+       showWarnings typecheckingWarnings
+
+       when (Intermediate TypeChecked `elem` options) $ do
+         verbatim options "== Printing typed AST =="
+         withFile (changeFileExt sourceName "TAST") WriteMode
+                  (flip hPrint $ show typecheckedAST)
+
        verbatim options "== Optimizing =="
        let optimizedAST = optimizeProgram typecheckedAST
+
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options)
@@ -210,3 +228,5 @@ main =
       addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
       -- TODO: move this elsewhere
       stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
+
+      showWarnings = mapM print
