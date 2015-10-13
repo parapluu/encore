@@ -28,10 +28,6 @@ void         future_block_actor(future_t *fut); // TODO: does this belong in the
 // Possibly these functions do not belong in the future library
 // ===============================================================
 void         future_await(future_t *);
-void         future_await_resume(void *);
 encore_arg_t run_closure(closure_t *c, encore_arg_t value);
-
 void future_finalizer(future_t *fut);
-future_t * future_get_next(future_t* fut);
-future_t * future_set_next(future_t* fut, future_t *next);
 #endif
