@@ -171,7 +171,7 @@ desugar Foreach{emeta, item, arr, body} =
     (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arrSize) (IntLiteral emeta 0))
      (Skip (cloneMeta emeta))
      (Let emeta
-        [(it, (IntLiteral emeta 0)),
+        [(it, IntLiteral emeta 0),
          (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
        (While emeta
              (Binop emeta
@@ -179,37 +179,26 @@ desugar Foreach{emeta, item, arr, body} =
                    (VarAccess emeta it)
                    (VarAccess emeta arrSize))
              (Seq emeta
-                  [(Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it))),
+                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it)),
                    Async emeta body,
-                   (Assign emeta
+                   Assign emeta
                       (VarAccess emeta it)
                       (Binop emeta
                        PLUS
                        (VarAccess emeta it)
-                       (IntLiteral emeta 1)))
+                       (IntLiteral emeta 1))
                   ]))))
 
+desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 
-desugar NewWithInit{emeta, ty, args}
+desugar new@NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
-    | otherwise =
-        Let emeta
-            [(Name "to_init", (New (cloneMeta emeta) ty))]
-            (Seq (cloneMeta emeta)
-                 [(MethodCall ((cloneMeta emeta))
-                              (VarAccess (cloneMeta emeta) (Name "to_init"))
-                              (Name "_init") (map desugar args)),
-                  (VarAccess (cloneMeta emeta) (Name "to_init"))])
+    | otherwise = new
 
 desugar s@StringLiteral{emeta, stringLit} =
-        Let emeta
-            [(Name "to_init", New (cloneMeta emeta) (refType "String"))]
-            (Seq (cloneMeta emeta)
-                 [MethodCall (cloneMeta emeta)
-                             (VarAccess (cloneMeta emeta) (Name "to_init"))
-                             (Name "_init") [s],
-                  VarAccess (cloneMeta emeta) (Name "to_init")])
-  -- desugar NewWithInit{emeta, ty=, args=[s]}
+    NewWithInit{emeta
+               ,ty = stringObjectType
+               ,args = [Embed emeta (ctype "char*") $ show stringLit ++ ";"]}
 
 desugar e = e

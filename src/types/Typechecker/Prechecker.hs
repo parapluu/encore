@@ -100,9 +100,11 @@ instance Precheckable ClassDecl where
       ccapability' <- local addTypeParams $ resolveType ccapability
       cfields'     <- mapM (local addTypeParams . precheck) cfields
       cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
-      return $ setType cname' c{cfields = cfields'
-                               ,cmethods = cmethods'
-                               ,ccapability = ccapability'
+      return $ setType cname' c{ccapability = ccapability'
+                               ,cfields = cfields'
+                               ,cmethods = if any isConstructor cmethods'
+                                           then cmethods'
+                                           else emptyConstructor c : cmethods'
                                }
       where
         typeParameters = getTypeParameters cname

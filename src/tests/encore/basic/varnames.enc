@@ -1,4 +1,4 @@
--- test!ing that _ works in varnames
+-- testing that _ works in varnames
 -- (but not leading)
 class Under_Score
   under_score:int

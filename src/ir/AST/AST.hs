@@ -206,6 +206,15 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 isConstructor :: MethodDecl -> Bool
 isConstructor m = mname m == Name "_init"
 
+emptyConstructor :: ClassDecl -> MethodDecl
+emptyConstructor cdecl =
+    let pos = AST.AST.getPos cdecl
+    in Method{mmeta = meta pos
+             ,mname = Name "_init"
+             ,mparams = []
+             ,mtype = voidType
+             ,mbody = Skip (meta pos)}
+
 replaceMethodTypes :: [(Type, Type)] -> MethodDecl -> MethodDecl
 replaceMethodTypes bindings m =
     let mparams' = map (replaceParamType bindings) (mparams m)

@@ -18,27 +18,27 @@ array_t *_init_argv(size_t argc, char **argv) {
 end
 
 -- private function for the string library
-def PRIVATE_overwrite_and_skip(data:string, loc:int, pattern_len:int) : string
-embed string
+def PRIVATE_overwrite_and_skip(data:(embed char* end), loc:int, pattern_len:int) : (embed char* end)
+embed (embed char* end)
   #{data}[#{loc}] = '\0';
   #{data} + #{loc} + #{pattern_len};
 end
 
 def string_from_char(c : char) : String
   let
-    s = embed string encore_alloc(2); end
+    s = embed (embed char* end) encore_alloc(2); end
   in
-    new String(embed string *#{s} = #{c}; #{s}; end)
+    new String(embed (embed char* end) *#{s} = #{c}; #{s}; end)
 
 def string_from_array(arr : [char]) : String
   let
     len = |arr|
-    s = embed string encore_alloc(#{len} + 1); end
+    s = embed (embed char* end) encore_alloc(#{len} + 1); end
     p = s
   in
     new String(
       for c in arr
-        embed string *#{p}++ = #{c}; #{s}; end
+        embed (embed char* end) *#{p}++ = #{c}; #{s}; end
       )
 
 -- This is a utility library for working with strings.
@@ -49,10 +49,10 @@ def string_from_array(arr : [char]) : String
 -- [ ] Write proper docs
 -- Be aware of issue #204
 passive class String
-  data:string
-  length:int
+  data : embed char* end
+  length : int
 
-  def init(s:string) : void
+  def init(s:embed char* end) : void
   {
     this.data = s;
     this.length = embed int; strlen(#{s}); end;
@@ -70,7 +70,7 @@ passive class String
       t_data = this.data
       b_data = b.data
     in
-      new String(embed string
+      new String(embed (embed char* end)
         void *str = encore_alloc(#{t_len} + #{b_len} + 1);
         strncpy(str, (char *)#{t_data}, #{t_len});
         strncat(str, (char *)#{b_data}, #{b_len});
@@ -82,7 +82,7 @@ passive class String
       t_len = this.length()
       data  = this.data
     in
-      new String(embed string
+      new String(embed (embed char* end)
         char *str = encore_alloc(#{t_len} + 1);
         strncpy(str, (char *)#{data}, #{t_len} + 1);
         str;
@@ -123,7 +123,7 @@ passive class String
       t_len = this.length()
       data  = this.data
     in
-      new String(embed string
+      new String(embed (embed char* end)
         char *str = encore_alloc(#{t_len} + 1);
         for (int i = 0; i < #{t_len}; ++i)
           {
@@ -139,7 +139,7 @@ passive class String
       t_len = this.length()
       data  = this.data
     in
-      new String(embed string
+      new String(embed (embed char* end)
         char *str = encore_alloc(#{t_len} + 1);
         for (int i = 0; i < #{t_len}; ++i)
           {
@@ -167,7 +167,7 @@ passive class String
       t_len = this.length()
       data  = this.data
     in
-      new String(embed string
+      new String(embed (embed char* end)
         int siz = #{to} - #{from};
         siz = siz < #{t_len} ? siz : #{t_len};
         char *str = encore_alloc(siz + 1);
@@ -249,7 +249,7 @@ passive class String
       to_len = this.length()
       s_len = s.length()
     in
-      new String(embed string
+      new String(embed (embed char* end)
       const int STACK_ALLOC_MAX = 16536;
       char *from = _this->_enc__field_data;
       char *pattern  = #{s}->_enc__field_data;

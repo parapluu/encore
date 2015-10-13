@@ -101,11 +101,11 @@ instance Checkable TraitDecl where
       addThis = extendEnvironment [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
-matchArgumentLength :: MethodDecl -> Arguments -> TypecheckM ()
-matchArgumentLength method args =
+matchArgumentLength :: Type -> MethodDecl -> Arguments -> TypecheckM ()
+matchArgumentLength targetType method args =
   unless (actual == expected) $ tcError $
-    concat [toStr name, " expects ", show expected,
-            " arguments. Got ", show actual]
+    concat [toStr name, " in ", show targetType, " expects ",
+            show expected, " arguments. Got ", show actual]
   where
     actual = length args
     expected = length sigTypes
@@ -434,7 +434,7 @@ instance Checkable Expr where
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
       mdecl <- findMethod targetType name
-      matchArgumentLength mdecl args
+      matchArgumentLength targetType mdecl args
       fBindings <- formalBindings targetType
       let paramTypes = map ptype (mparams mdecl)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
@@ -469,7 +469,7 @@ instance Checkable Expr where
                      show (ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
       mdecl <- findMethod targetType name
-      matchArgumentLength mdecl args
+      matchArgumentLength targetType mdecl args
       fBindings <- formalBindings targetType
       let paramTypes = map ptype (mparams mdecl)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
@@ -677,7 +677,7 @@ instance Checkable Expr where
           let methodType = replaceTypeVars bindings $ mtype mdecl
               extractedType = getResultType methodType
           eArg <- checkPattern arg extractedType
-          matchArgumentLength mdecl []
+          matchArgumentLength argty mdecl []
           return $ setType extractedType pattern {args = [eArg]}
 
         checkPattern pattern@(FunctionCall {name, args}) argty = do
@@ -889,19 +889,35 @@ instance Checkable Expr where
     --  E |- false : bool
     doTypecheck false@BFalse {} = return $ setType boolType false
 
-
    ---  |- ty
     --  classLookup(ty) = _
+    --  methodLookup(ty, "_init") = (t1 .. tn, _)
+    --  E |- arg1 : t1 .. argn : tn
     --  ty != Main
-    -- ----------------------
-    --  E |- new ty : ty
-    doTypecheck new@(New {ty}) = do
+    -- -----------------------
+    --  E |- new ty(args) : ty
+    doTypecheck new@(NewWithInit {ty, args}) = do
       ty' <- resolveType ty
       unless (isClassType ty') $
              tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
       when (isMainType ty') $
            tcError "Cannot create additional Main objects"
-      return $ setType ty' new{ty = ty'}
+      constructor <- findMethod ty' (Name "_init")
+      matchArgumentLength ty constructor args
+      fBindings <- formalBindings ty'
+      let paramTypes = map ptype (mparams constructor)
+          expectedTypes = map (replaceTypeVars fBindings) paramTypes
+          args' = if isStringObjectType ty'
+                  then stringArg args
+                  else args
+      (eArgs, bindings) <- local (bindTypes fBindings) $
+                                 matchArguments args' expectedTypes
+      return $ setType ty' new{ty = ty', args = eArgs}
+      where
+        stringArg [NewWithInit{args}] = args
+        stringArg args = args
+--            error $ "Typechecker.hs: Incorrect arguments to new String: " ++
+--                    show args
 
    ---  |- ty
     --  classLookup(ty) = _
@@ -1173,7 +1189,7 @@ coerce expected actual
       return expected
   | isBottomType actual = do
       when (isBottomType expected) $
-        tcError $ "Cannot infer type of 'Nothing'"
+        tcError "Cannot infer type of 'Nothing'"
       return expected
   | otherwise = do
       unless (actual == expected) $

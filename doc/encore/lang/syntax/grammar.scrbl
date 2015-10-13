@@ -91,7 +91,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword not)
 @(encore/keyword and)
 @(encore/keyword or)
-@(encore/keyword string)
+@(encore/keyword char)
 @(encore/keyword int)
 @(encore/keyword bool)
 @(encore/keyword void)
@@ -120,6 +120,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm Int)
 @(encore/nonterm Real)
 @(encore/nonterm Op)
+@(encore/nonterm Char)
 @(encore/nonterm String)
 @(encore/nonterm Arrow)
 @(encore/nonterm NonArrow)
@@ -246,6 +247,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      null
 	      true
 	      false
+              Char
 	      @elem{"String"}
 	      Int
 	      Real
@@ -268,7 +270,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 
 	  (list Real @seq[Int dot Int])
 
-	  (list String @kleenestar[open-paren @alt[@elem{[^\"]} @elem{\\\"}] close-paren])
+	  (list Char @alt[@elem{[^']} @elem{\'}])
+
+	  (list String @kleenestar[open-paren @alt[@elem{[^"]} @elem{\"}] close-paren])
 
 	  (list Type @alt[Arrow NonArrow])
 
@@ -278,7 +282,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[NonArrow arrow NonArrow]])
 
 	(list NonArrow
-	      string int bool void RefType
+	      char int bool void RefType
 	      @seq[Fut Type]
 	      @seq[Par Type]
 	      @seq[open-paren Type close-paren]
