@@ -2,6 +2,7 @@
 #define PARTY_H_412139
 
 #include "encore.h"
+#include <array.h>
 
 typedef struct par_t par_t;
 extern pony_type_t party_type;
@@ -36,4 +37,14 @@ par_t* party_sequence(par_t* const p, closure_t* const closure,
 
 par_t* party_join(par_t* const p);
 
+/**
+ * extract :: Par t -> [t]
+ *
+ * Given a Par t, return an array of the computed elements in the collection
+ *
+ * @param p Parallel collection
+ * @param type Runtime type
+ * @return Pointer to an array
+ */
+array_t* party_extract(par_t* p, pony_type_t *type);
 #endif

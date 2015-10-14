@@ -44,10 +44,13 @@ class Main
     let c = new CreditCard("KIKO FERNANDEZ REYES", "INVALID_CARD",
                            ["Online", "Clothes", "Food", "Party"])
         par_check_anomalies = liftv (get c.check())
+	x = extract(liftv true)
     in {
         (liftv true) >> show;
         (join (liftv (liftv true))) >> show;
         (join (liftf c.check())) >> show;
         (join (par_check_anomalies || par_check_anomalies)) >> show;
         (join (join (liftf c.checkP()))) >> show;
+        for itemp in x
+          print itemp;
     }

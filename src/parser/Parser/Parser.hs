@@ -50,7 +50,8 @@ lexer =
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv", "join"
+     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv", "join",
+     "extract"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -458,6 +459,7 @@ expr  =  unit
      <|> finishTask
      <|> for
      <|> foreach
+     <|> extract
      <|> parens expression
      <|> varAccess
      <|> arraySize
@@ -556,6 +558,10 @@ expr  =  unit
                  cond <- expression
                  expr <- expression
                  return $ While (meta pos) cond expr
+      extract = do pos <- getPosition
+                   reserved "extract"
+                   expr <- expression
+                   return $ PartyExtract (meta pos) expr
       get = do pos <- getPosition
                reserved "get"
                expr <- expression

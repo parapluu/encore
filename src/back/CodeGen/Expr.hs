@@ -144,7 +144,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate l@(A.Liftf {A.val}) = do
     (nval, tval) <- translate val
-    let runtimeT = (runtimeType . Ty.getResultType . A.getType) val
+    let runtimeT = (runtimeType . A.getType) val
     (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $
                         Call (newParty l) [AsExpr nval, runtimeT]
     return (nliftf, Seq [tval, tliftf])
@@ -162,10 +162,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nJoin, tJoin) <- namedTmpVar "par" typ $ Call partyJoin [nexpr]
     return (nJoin, Seq [texpr, tJoin])
 
+  translate p@(A.PartyExtract {A.val}) = do
+    (nval, tval) <- translate val
+    let runtimeT = (runtimeType . A.getType) p
+    (nExtract, tExtract) <- namedTmpVar "arr" (A.getType p) $
+                            Call partyExtract [AsExpr nval, runtimeT]
+    return (nExtract, Seq [tval, tExtract])
+
   translate p@(A.PartyPar {A.parl, A.parr}) = do
     (nleft, tleft) <- translate parl
     (nright, tright) <- translate parr
-    let runtimeT = (runtimeType . Ty.getResultType . A.getType) p
+    let runtimeT = (runtimeType . A.getType) p
     (npar, tpar) <- namedTmpVar "par" (A.getType p) $
                         Call (newParty p) [AsExpr nleft, AsExpr nright, runtimeT]
     return (npar, Seq [tleft, tright, tpar])
@@ -173,7 +180,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
     (npar, tpar) <- translate par
     (nseqfunc, tseqfunc) <- translate seqfunc
-    let runtimeT = (runtimeType . A.getType) seqfunc
+    let runtimeT = (runtimeType . A.getType) ps
     (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
                                 Call partySequence [AsExpr npar, AsExpr nseqfunc, runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
