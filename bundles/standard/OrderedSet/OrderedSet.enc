@@ -1,0 +1,138 @@
+bundle OrderedSet where
+
+-- an implementation not very clever for an OrderedSet
+passive class OrderedSet<t>
+  root: Node<t>
+  size : int
+
+  goesLeft: (t, t) -> bool
+
+  def init(	goesLeft: (t, t) -> bool
+  			--compare: (t, t) -> bool
+  			) : void {
+  	this.goesLeft = goesLeft;
+  	this.size = 0
+  }
+
+  def add(e: t): void {
+   	this.size = this.size + 1;
+   	if (this.root == null) then
+   	  this.root = new Node<t>(e)
+    else
+      this.root.add(e, this.goesLeft)
+  }
+
+  def remove(e: t): void {
+    ()
+  }
+
+  --def iterator(): OrderedSetIterator<t> {
+  --	new OrderedSetIterator<t>(this)
+  --}
+
+  def forEach(f: t -> void): void {
+  	this.root.forEach(f)
+  }
+
+  def size(): int {
+  	this.size
+  }
+
+passive class Node<t> {
+  elem: t
+  left: Node<t>
+  right: Node<t>
+
+  def init(e: t): void {
+  	this.elem = e
+  }
+
+  def add(e: t, goesLeft: (t, t) -> bool): void {
+    if goesLeft(e, this.elem) then {
+      if this.left == null then 
+        this.left = new Node<t>(e)
+      else 
+        this.left.add(e, goesLeft) 
+    } else {
+      if this.right == null then
+    	this.right = new Node<t>(e)
+      else
+    	this.right.add(e, goesLeft)
+    }
+  }
+
+  def forEach(f : t -> void) : void {
+    if this.left != null then {
+      this.left.forEach(f)
+    } else {
+      ()
+    };
+    f(this.elem);
+    if this.right != null then {
+      this.right.forEach(f)
+    } else {
+      ()
+    }
+  }
+}
+
+-- some tests
+
+class Main 
+
+  def getEmpty() : OrderedSet<int> {
+    let goesLeft = \ (x : int, y : int) -> x < y
+        os = new OrderedSet<int>(goesLeft) in
+      os
+  }
+
+  def get123() : OrderedSet<int> {
+    let os = this.getEmpty() in {
+      os.add(2);
+      os.add(1);
+      os.add(3);
+      os
+    }
+  }
+
+  def testInit() : bool {
+    let os = this.getEmpty() in
+      true
+  }
+
+  def testAdd() : bool {
+    let os = this.get123() in {
+      true
+    }
+  }
+
+  def testSize() : bool {
+    (this.getEmpty().size() == 0) and (this.get123().size() == 3)
+  }
+
+--  def testMin() : bool {
+--    let os = this.get123() in {
+--      os.getMin() == 1
+--    }
+--  } 
+
+  def testGetMin() : bool {
+    let os = this.getEmpty() in {
+      os.add(12)
+    };
+    true
+  }
+
+  def assert(subj : string, x : bool) : void {
+    if x then
+      ()
+    else
+      print("test {} failed!", subj)
+  }
+
+  def main(): void {
+    this.assert("init", this.testInit());
+    this.assert("add", this.testAdd());
+    this.assert("size", this.testSize())
+  }
+
