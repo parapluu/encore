@@ -1,0 +1,41 @@
+passive class List <t>
+  data: t
+  next: List<t>
+  last: List<t>
+  counter: List<t>
+
+  def init(data: t): void {       
+    this.data = data;   
+  }
+
+  def append(data: t): t{
+    let next_item = new List<t>(this.data) in {
+      next_item.next = this.next;
+      this.data = data;
+      this.next = next_item;
+      this.last = this;
+      this.data;
+    }
+  }
+
+  def remove(): t {
+    let data = this.data in {
+      this.last = this.next;
+      this.next = this.next.next;
+      data;
+    }
+  }
+
+  def size(): int {             
+    let size = 0  in {
+      this.counter = this.last;
+      while this.counter.next !=  null {                 
+        size = size+1;
+        this.counter = this.counter.next;
+      };  
+      size;
+    }
+  }
+
+
+
