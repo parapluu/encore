@@ -1,0 +1,150 @@
+import Set.OrderedSet
+
+def getEmpty() : OrderedSet<int> {
+  let cmp = \ (x : int, y : int) -> if x == y then
+                                      0
+                                    else
+                                      (if x < y then -1 else 1)
+                                    in
+    new OrderedSet<int>(cmp)
+}
+
+def get123() : OrderedSet<int> {
+  let os = getEmpty() in {
+    os.add(2);
+    os.add(1);
+    os.add(3);
+    os
+  }
+}
+
+def testInit() : bool {
+  let os = getEmpty() in
+    true
+}
+
+def testAdd() : bool {
+  let os = get123() in {
+    true
+  }
+}
+
+def testSize() : bool {
+  -- (getEmpty().size() == 0)-- and
+  (get123().size() == 3)
+}
+
+def testGetMinEmpty() : bool {
+  getEmpty().getMin() == Nothing
+}
+
+def testGetMin123() : bool {
+  match getEmpty().getMin() with
+    Just x  => false
+    Nothing => true
+}
+
+def testGetIterInit() : bool {
+  --getEmpty().iter();
+  get123().iter();
+  true
+}
+
+def testHasNextEmpty() : bool {
+  not getEmpty().iter().hasNext()
+}
+
+def testHasNext123() : bool {
+  let it = get123().iter()
+      ret = true
+  in {
+    ret = ret and it.hasNext() and (it.next() == 1);
+    ret = ret and it.hasNext() and (it.next() == 2);
+    ret = ret and (it.hasNext()) and (it.next() == 3);
+    ret = ret and (not it.hasNext());
+    ret
+  }
+}
+
+def doTestGetIterCount(steps : int, it : OrderedSetIterator<int>) : bool {
+  while (it.hasNext()) {
+    it.step();
+    steps = steps - 1;
+  };
+  steps == 0
+}
+
+def testGetIterCount() : bool {
+  doTestGetIterCount(0, getEmpty().iter())
+  and
+  doTestGetIterCount(3, get123().iter())
+}
+
+def testGetNextNode() : bool {
+  let os = get123() in {
+    let t1 = (os.root.left.getNextNode() == os.root) and
+             (os.root.getNextNode() == os.root.right) and
+             (os.root.right.getNextNode() == null) in {
+      os.add(4);
+      t1 and (os.root.right.getNextNode().elem == 4)
+    }
+  }
+}
+
+def testLookup() : bool {
+  let os = get123() in {
+    let mx = os.lookup(1) in {
+      match mx with
+        Just x => (x == 1)
+        Nothing => false
+    } and
+    let mx = os.lookup(2) in {
+      match mx with
+        Just x => (x == 2)
+        Nothing => false
+    } and
+    let mx = os.lookup(3) in {
+      match mx with
+        Just x => (x == 3)
+        Nothing => false
+    } and
+    let mx = os.lookup(4) in {
+      match mx with
+        Just x => false
+        Nothing => true
+    }
+  } and
+  let os = getEmpty() in {
+    let mx = os.lookup(1) in {
+      match mx with
+        Just x => false
+        Nothing => true
+    }
+  }
+}
+
+def testSetSemantics() : bool {
+  let os = get123() in {
+    os.add(1);
+    os.add(4);
+    (os.size() == 4)
+  }
+}
+
+class Main {
+  def main(): void {
+    assertTrue(testInit());
+    assertTrue(testAdd());
+    assertTrue(testSize());
+    assertTrue(testGetMinEmpty());
+    assertTrue(testGetMin123());
+    assertTrue(testGetIterInit());
+    assertTrue(testGetNextNode());
+    assertTrue(testHasNextEmpty());
+    assertTrue(testHasNext123());
+    assertTrue(testGetIterCount());
+    assertTrue(testLookup());
+    assertTrue(testSetSemantics());
+    print "done"
+  }
+}
