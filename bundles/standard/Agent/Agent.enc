@@ -1,0 +1,29 @@
+bundle Agent where
+
+-- An Agent wraps any object into an active object.
+--
+-- This class is useful to make passive implementations active.
+class Agent<inner> {
+  state : inner
+
+  -- Constructor
+  --
+  -- The constructor receives a factory that it will use to create an instance
+  -- of the inner class. This factory must return a thread safe or unique object.
+  def init(factory : () -> inner) : void {
+    this.state = factory();
+  }
+
+  -- Apply a function to the state, asynchronously.
+  --
+  -- The function will be applied to the agent's state at some time in the
+  -- future.
+  def apply(f : inner -> inner) : void {
+    this.state = f(this.state)
+  }
+
+  -- Retrieve the agents state, asynchronously.
+  def getState() : inner {
+    this.state
+  }
+}
