@@ -1,0 +1,25 @@
+import Agent.Agent
+import Assert.Assert
+
+def getIntAgent() : Agent<int> {
+  new Agent<int>(\ () -> 1)
+}
+
+def testInit() : void {
+  getIntAgent();
+}
+
+def testGetState() : void {
+  let a = getIntAgent() in {
+    assert("state must be 1", 1 == get a.getState());
+    a.apply(\ (i:int) -> i+1);
+    assert("state must be 2 after increment", 2 == get a.getState());
+  }
+}
+
+class Main {
+  def main() : void {
+    testInit();
+    testGetState();
+  }
+}
