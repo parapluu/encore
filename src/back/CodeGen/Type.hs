@@ -35,6 +35,7 @@ instance Translatable Ty.Type (CCode Ty) where
         | Ty.isMaybeType ty      = option
         | Ty.isCType ty          = Embed $ Ty.getId ty
         | Ty.isParType ty        = par
+        | Ty.isNullType ty       = error $ "Don't know type of 'null'. Please annotate: 'null : someType'."
         | otherwise = error $ "I don't know how to translate "++ show ty ++" to pony.c"
 
 runtimeType :: Ty.Type -> CCode Expr
