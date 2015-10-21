@@ -15,6 +15,7 @@ module Typechecker.Util(TypecheckM
                        ,findMethod
                        ,findCapability
                        ,formalBindings
+                       ,propagateResultType
                        ) where
 
 import Identifiers
@@ -28,6 +29,7 @@ import Typechecker.TypeError
 import Typechecker.Environment
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Arrow(second)
 import Data.Maybe
 
 -- Monadic versions of common functions
@@ -224,3 +226,25 @@ getImplementedTraits ty
         return $ typesFromCapability capability'
     | otherwise =
         error $ "Types.hs: Can't get implemented traits of type " ++ show ty
+
+propagateResultType :: Type -> Expr -> Expr
+propagateResultType ty e
+    | hasResultingBody e =
+        let body' = propagateResultType ty (body e)
+        in setType ty e{body = body'}
+    | MatchDecl{matchbody} <- e =
+        let matchbody' = map (second $ propagateResultType ty) matchbody
+        in setType ty e{matchbody = matchbody'}
+    | Seq{eseq} <- e =
+        let result = propagateResultType ty (last eseq)
+        in setType ty e{eseq = init eseq ++ [result]}
+    | IfThenElse{thn, els} <- e =
+        setType ty e{thn = propagateResultType ty thn
+                    ,els = propagateResultType ty els}
+    | otherwise = setType ty e
+    where
+      hasResultingBody TypedExpr{} = True
+      hasResultingBody Let{} = True
+      hasResultingBody While{} = True
+      hasResultingBody For{} = True
+      hasResultingBody _ = False
