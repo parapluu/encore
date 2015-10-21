@@ -1,9 +1,10 @@
-bundle Agent where
+bundle Active where
 
--- An Agent wraps any object into an active object.
+-- This class wraps any object into an active object.
 --
--- This class is useful to make passive implementations active.
-class Agent<inner> {
+-- This class is useful to make passive implementations behave asynchronously,
+-- like global counters and such.
+class Active<inner> {
   state : inner
 
   -- Constructor
@@ -16,13 +17,13 @@ class Agent<inner> {
 
   -- Apply a function to the state, asynchronously.
   --
-  -- The function will be applied to the agent's state at some time in the
+  -- The function will be applied to the inner state at some time in the
   -- future.
   def apply(f : inner -> inner) : void {
     this.state = f(this.state)
   }
 
-  -- Retrieve the agents state, asynchronously.
+  -- Retrieve the inner state, asynchronously.
   def getState() : inner {
     this.state
   }
