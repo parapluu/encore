@@ -8,12 +8,12 @@ extern pony_type_t party_type;
 
 void party_trace(void*);
 
-par_t* new_par_empty(pony_type_t const * const rtype);
+/* par_t* new_par_empty(pony_type_t const * const rtype); */
 par_t* new_par_v(encore_arg_t val, pony_type_t const * const rtype);
 par_t* new_par_f(future_t* const fut, pony_type_t const * const rtype);
 par_t* new_par_p(par_t* const p1, par_t* const p2, pony_type_t const * const rtype);
 par_t* new_par_fp(future_t* const f, pony_type_t const * const rtype);
-par_t* new_par_join(par_t* const p, pony_type_t const * const rtype);
+/* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype); */
 
 /**
  *  sequence :: Par t -> (t -> t') -> Par t'

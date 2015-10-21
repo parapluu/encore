@@ -7,27 +7,30 @@
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
 
-enum PTAG { EMPTY_PAR, VALUE_PAR, FUTURE_PAR, PAR_PAR, FUTUREPAR_PAR, JOIN_PAR};
+// TODO: add EMPTY_PAR, JOIN_PAR
+enum PTAG { VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR};
 enum VAL_OR_PAR {VAL, PAR};
 
-typedef struct EMPTY_PARs {} EMPTY_PARs;
+// TODO: uncomment once we handle the empty par case
+/* typedef struct EMPTY_PARs {} EMPTY_PARs; */
+
 typedef struct VALUE_PARs { value_t val; enum VAL_OR_PAR tag;} VALUE_PARs;
 typedef struct FUTURE_PARs { future_t* fut; } FUTURE_PARs;
-typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
+typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct JOIN_PARs { struct par_t* join; } JOIN_PARs;
 
 struct par_t {
     enum PTAG tag;
     pony_type_t* rtype;
     union ParU {
-      EMPTY_PARs s;
+      /* EMPTY_PARs s; */
       VALUE_PARs v;
       FUTURE_PARs f;
       PAR_PARs p;
       FUTUREPAR_PARs fp;
       JOIN_PARs j;
-      struct EMPTY_PARs;
+      /* struct EMPTY_PARs; */
       struct VALUE_PARs;
       struct FUTURE_PARs;
       struct PAR_PARs;
@@ -44,19 +47,13 @@ pony_type_t party_type =
 
 #define get_rtype(x) (x)->rtype
 
-__attribute__ ((noreturn))
-static inline void assert_error(){
-  assert(0);
-  exit(-1);
-}
-
 void party_trace(void* p){
   par_t *obj = p;
   if(obj->rtype == ENCORE_ACTIVE){
     pony_traceactor((pony_actor_t*) obj->data.v.val.p);
   }else if(obj->rtype != ENCORE_PRIMITIVE){
     switch(obj->tag){
-    case EMPTY_PAR: break;
+    /* case EMPTY_PAR: break; */
     case VALUE_PAR: {
       pony_traceobject(obj->data.v.val.p, obj->rtype->trace);
       break;
@@ -74,14 +71,10 @@ void party_trace(void* p){
       pony_traceobject(obj->data.fp.fut, obj->rtype->trace);
       break;
     }
-    case JOIN_PAR: {
-      party_trace(obj->data.j.join);
-      break;
-    }
-    default: {
-      assert(0);
-      exit(-1);
-    }
+    /* case JOIN_PAR: { */
+    /*   party_trace(obj->data.j.join); */
+    /*   break; */
+    /* } */
     }
   }
 }
@@ -102,9 +95,10 @@ static par_t* init_par(enum PTAG tag, pony_type_t const * const rtype){
   return res;
 }
 
-par_t* new_par_empty(pony_type_t const * const rtype){
-  return init_par(EMPTY_PAR, rtype);
-}
+// TODO: (kiko) uncomment once we can create empty computations
+/* par_t* new_par_empty(pony_type_t const * const rtype){ */
+/*   return init_par(EMPTY_PAR, rtype); */
+/* } */
 
 par_t* new_par_v(encore_arg_t val, pony_type_t const * const rtype){
   par_t* p = init_par(VALUE_PAR, rtype);
@@ -119,7 +113,8 @@ par_t* new_par_f(future_t* const f, pony_type_t const * const rtype){
   return p;
 }
 
-par_t* new_par_p(par_t* const p1, par_t* const p2, pony_type_t const * const rtype){
+par_t* new_par_p(par_t* const p1, par_t* const p2,
+                 pony_type_t const * const rtype){
   par_t* p = init_par(PAR_PAR, rtype);
   p->data.left = p1;
   p->data.right = p2;
@@ -132,18 +127,20 @@ par_t* new_par_fp(future_t* const f, pony_type_t const * const rtype){
   return p;
 }
 
-par_t* new_par_join(par_t* const p, pony_type_t const * const rtype){
-  par_t* par = init_par(JOIN_PAR, rtype);
-  par->data.join = p;
-  return par;
-}
+// TODO: enable once we can create J
+/* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype){ */
+/*   par_t* par = init_par(JOIN_PAR, rtype); */
+/*   par->data.join = p; */
+/*   return par; */
+/* } */
 
 //---------------------------------------
 // SEQUENCE COMBINATOR
 //---------------------------------------
 
 // Forward declaration
-static par_t* fmap(closure_t* const f, par_t* const in, pony_type_t const * const rtype);
+static par_t* fmap(closure_t* const f, par_t* const in,
+                   pony_type_t const * const rtype);
 
 static value_t fmap_party_closure(value_t args[], void* const env){
   par_t* p = (par_t*)args[0].p;
@@ -151,10 +148,17 @@ static value_t fmap_party_closure(value_t args[], void* const env){
   return (value_t){.p = fmap(fm->fn, p, get_rtype(fm))};
 }
 
-static inline future_t* chain_party_to_function(par_t* const in, fmap_s* const fm, closure_fun clos){
+static inline future_t* chain_party_to_function(par_t* const in,
+                                                fmap_s* const fm,
+                                                closure_fun clos){
   future_t* rf = (future_t*)future_mk(in->rtype);
   closure_t* cp = closure_mk(clos, fm, NULL);
   return future_chain_actor(in->data.fut, (future_t*)rf, cp);
+}
+
+static inline par_t* fmap_run_fp(par_t* const in, fmap_s* const f){
+  future_t* fut = chain_party_to_function(in, f, fmap_party_closure);
+  return new_par_fp(fut, get_rtype(f));
 }
 
 static inline par_t* fmap_run_v(par_t* const in, fmap_s* const f){
@@ -168,27 +172,22 @@ static inline par_t* fmap_run_f(par_t* const in, fmap_s* const f){
   return new_par_f(chained_fut, get_rtype(f));
 }
 
-static inline par_t* fmap_run_fp(par_t* const in, fmap_s* const f){
-  future_t* fut = chain_party_to_function(in, f, fmap_party_closure);
-  return new_par_fp(fut, get_rtype(f));
-}
-
 // WARNING:
 // this function is only used for fmap J, which guarantees
 // that args is of: {.p = par_t* }
-static encore_arg_t fmap_fmap_closure(value_t args[], void* const env){
-  fmap_s* fm = env;
-  encore_arg_t arg = args[0];
-  return (encore_arg_t) {.p = fmap(fm->fn, (par_t*) arg.p, fm->rtype)};
-}
+/* static encore_arg_t fmap_fmap_closure(value_t args[], void* const env){ */
+/*   fmap_s* fm = env; */
+/*   encore_arg_t arg = args[0]; */
+/*   return (encore_arg_t) {.p = fmap(fm->fn, (par_t*) arg.p, fm->rtype)}; */
+/* } */
 
-static inline par_t* fmap_run_j(par_t* const in, fmap_s* const f){
-  fmap_s* fm = (fmap_s*)encore_alloc(sizeof* fm);
-  *fm = (fmap_s){.fn=f->fn, .rtype = f->rtype};
-  closure_t* clos = closure_mk(fmap_fmap_closure, fm, NULL);
-  par_t* p = fmap(clos, in->data.join, get_rtype(fm));
-  return new_par_join(p, get_rtype(f));
-}
+/* static inline par_t* fmap_run_j(par_t* const in, fmap_s* const f){ */
+/*   fmap_s* fm = (fmap_s*)encore_alloc(sizeof* fm); */
+/*   *fm = (fmap_s){.fn=f->fn, .rtype = f->rtype}; */
+/*   closure_t* clos = closure_mk(fmap_fmap_closure, fm, NULL); */
+/*   par_t* p = fmap(clos, in->data.join, get_rtype(fm)); */
+/*   return new_par_join(p, get_rtype(f)); */
+/* } */
 
 /**
  *  fmap: (a -> b) -> Par a -> Par b
@@ -199,12 +198,13 @@ static inline par_t* fmap_run_j(par_t* const in, fmap_s* const f){
  *  @return a pointer to a new parallel collection of \p rtype runtime type
  */
 
+// TODO: enable EMPTY_PAR and JOIN_PAR once it is added to the language
 static par_t* fmap(closure_t* const f, par_t* const in,
                    pony_type_t const * const rtype){
   fmap_s *fm = (fmap_s*) encore_alloc(sizeof* fm);
   *fm = (fmap_s){.fn = f, .rtype=rtype};
   switch(in->tag){
-  case EMPTY_PAR: return new_par_empty(rtype);
+  /* case EMPTY_PAR: return new_par_empty(rtype); */
   case VALUE_PAR: return fmap_run_v(in, fm);
   case FUTURE_PAR: return fmap_run_f(in, fm);
   case PAR_PAR: {
@@ -213,11 +213,9 @@ static par_t* fmap(closure_t* const f, par_t* const in,
     return new_par_p(left, right, rtype);
   }
   case FUTUREPAR_PAR: return fmap_run_fp(in, fm);
-  case JOIN_PAR: return fmap_run_j(in, fm);
-  default: assert(0); exit(-1);
+  /* case JOIN_PAR: return fmap_run_j(in, fm); */
   }
 }
-
 
 par_t* party_sequence(par_t* const p, closure_t* const f,
                       pony_type_t const * const rtype){
@@ -232,17 +230,18 @@ static inline par_t* party_join_v(par_t* const p){
    return ((par_t*)p->data.val.p);
 }
 
+// TODO: uncomment when the empty par is added to the language
 static inline par_t* party_join_p(par_t* const p){
-  if(p->data.left->tag == EMPTY_PAR){
-    return party_join(p->data.right);
-  }else if(p->data.right->tag == EMPTY_PAR){
-    return party_join(p->data.left);
-  }else{
+  /* if(p->data.left->tag == EMPTY_PAR){ */
+  /*   return party_join(p->data.right); */
+  /* }else if(p->data.right->tag == EMPTY_PAR){ */
+  /*   return party_join(p->data.left); */
+  /* }else{ */
     par_t* pleft = party_join(p->data.left);
     par_t* pright = party_join(p->data.right);
     assert(get_rtype(pleft) == get_rtype(pright));
     return new_par_p(pleft, pright, get_rtype(pleft));
-  }
+  /* } */
 }
 
 static value_t party_join_fp_closure(value_t args[],
@@ -261,12 +260,11 @@ static inline par_t* party_join_fp(par_t* const p){
 
 par_t* party_join(par_t* const p){
   switch(p->tag){
-  case EMPTY_PAR: return p;
+  /* case EMPTY_PAR: return p; */
   case VALUE_PAR: return party_join_v(p);
   case FUTURE_PAR: return new_par_fp(p->data.fut, get_rtype(p));
   case PAR_PAR: return party_join_p(p);
   case FUTUREPAR_PAR: return party_join_fp(p);
-  case JOIN_PAR: return party_join(party_join(p->data.join));
-  default: assert_error(); return NULL;
+  /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   }
 }
