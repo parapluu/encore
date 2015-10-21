@@ -1,16 +1,16 @@
-import Agent.Agent
+import Active.Active
 import Assert.Assert
 
-def getIntAgent() : Agent<int> {
-  new Agent<int>(\ () -> 1)
+def getActiveInt() : Active<int> {
+  new Active<int>(\ () -> 1)
 }
 
 def testInit() : void {
-  getIntAgent();
+  getActiveInt();
 }
 
 def testGetState() : void {
-  let a = getIntAgent() in {
+  let a = getActiveInt() in {
     assert("state must be 1", 1 == get a.getState());
     a.apply(\ (i:int) -> i+1);
     assert("state must be 2 after increment", 2 == get a.getState());
