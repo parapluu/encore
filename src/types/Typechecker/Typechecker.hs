@@ -70,6 +70,14 @@ instance Checkable ImportDecl where
      doTypecheck (Import _ _) =
          error "BUG: Import AST Nodes should not exist during typechecking"
 
+typecheckNotNull :: Expr -> TypecheckM Expr
+typecheckNotNull expr = do
+  eExpr <- typecheck expr
+  let ty = AST.getType eExpr
+  if isNullType ty
+  then local (pushBT expr) $ coerceNull eExpr ty
+  else return eExpr
+
 instance Checkable Function where
     --  E, x1 : t1, .., xn : tn |- funbody : funtype
     -- ----------------------------------------------------------
@@ -77,7 +85,7 @@ instance Checkable Function where
     doTypecheck f@(Function {funtype, funparams, funbody}) = do
       eBody   <- local (addParams funparams) $
                      if isVoidType funtype
-                     then typecheck funbody
+                     then typecheckNotNull funbody
                      else hasType funbody funtype
       return $ f{funbody = eBody}
 
@@ -247,7 +255,7 @@ instance Checkable MethodDecl where
     doTypecheck m@(Method {mtype, mparams, mbody}) =
         do eBody <- local (addParams mparams) $
                           if isVoidType mtype
-                          then typecheck mbody
+                          then typecheckNotNull mbody
                           else hasType mbody mtype
            return $ m{mbody = eBody}
 
@@ -274,8 +282,9 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
           do eExpr <- doTypecheck expr
              let exprType = AST.getType eExpr
              resultType <- coerce ty exprType
-             assertSubtypeOf exprType ty
-             return $ setType resultType eExpr
+             assertSubtypeOf resultType ty
+             let result = propagateResultType resultType eExpr
+             return $ setType resultType result
 
 instance Checkable Expr where
     --
@@ -489,13 +498,10 @@ instance Checkable Expr where
       return $ setType (maybeType returnType) maybeData { mdt = eBody }
         where
           maybeTypecheck just@(JustData exp) = do
-            eBody <- typecheck exp
-            let returnType = AST.getType eBody
-            when (isNullType returnType) $
-              tcError "Cannot infer the return type of the maybe expression"
+            eBody <- typecheckNotNull exp
             return $ just { e = eBody }
 
-          maybeTypecheck nothing@(NothingData) = return nothing
+          maybeTypecheck nothing@NothingData = return nothing
 
 
 
@@ -528,11 +534,9 @@ instance Checkable Expr where
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
       eEparams <- mapM (local addTypeVars . typecheck) eparams
-      eBody <- local (addTypeVars . addParams eEparams) $ typecheck body
+      eBody <- local (addTypeVars . addParams eEparams) $ typecheckNotNull body
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
-      when (isNullType returnType) $
-           tcError "Cannot infer return type of closure with null-valued body"
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
         typeParams = concatMap (typeComponents . ptype) eparams
@@ -543,10 +547,8 @@ instance Checkable Expr where
     --  ------------------
     --  E |- async body : t
     doTypecheck task@(Async {body}) =
-        do eBody <- typecheck body
+        do eBody <- typecheckNotNull body
            let returnType = AST.getType eBody
-           when (isNullType returnType) $
-               tcError "Cannot infer the return type of the task expression"
            return $ setType (futureType returnType) task {body = eBody}
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
@@ -558,16 +560,14 @@ instance Checkable Expr where
         do eDecls <- typecheckDecls decls
            let declNames = map fst eDecls
                declTypes = map (AST.getType . snd) eDecls
-           when (any isNullType declTypes) $
-                tcError "Cannot infer type of null-valued expression"
            when (any isBottomType (concatMap typeComponents declTypes)) $
-                tcError "Cannot infer type of `Nothing`"
+                tcError "Cannot infer type of 'Nothing'"
            eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
            return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
         where
           typecheckDecls [] = return []
           typecheckDecls ((name, expr):decls') =
-              do eExpr <- typecheck expr
+              do eExpr <- typecheckNotNull expr
                  eDecls <- local (extendEnvironment [(name, AST.getType eExpr)]) $ typecheckDecls decls'
                  return $ (name, eExpr):eDecls
 
@@ -575,8 +575,10 @@ instance Checkable Expr where
     -- ------------------------
     --  E |- {e1; ..; en} : t
     doTypecheck e@(Seq {eseq}) =
-        do eEseq <- mapM typecheck eseq
-           let seqType = AST.getType (last eEseq)
+        do eInit <- mapM typecheckNotNull (init eseq)
+           eResult <- typecheck (last eseq)
+           let seqType = AST.getType eResult
+               eEseq = eInit ++ [eResult]
            return $ setType seqType e {eseq = eEseq}
 
     --  E |- cond : bool
@@ -1035,7 +1037,7 @@ coerce expected actual
         tcError "Cannot infer type of null valued expression"
       unless (canBeNull expected) $
         tcError $ "Null valued expression cannot have type '" ++
-        (show actual) ++ "' (must have reference type)"
+        show actual ++ "' (must have reference type)"
       return expected
   | isBottomType actual = do
       when (isBottomType expected) $
