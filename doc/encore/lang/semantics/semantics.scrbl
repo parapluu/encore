@@ -252,11 +252,12 @@ fulfilled and @code{run1} continues from where it left off.
 
 @bold{NOTE}
 
-The current implementation uses a polling strategy for the @code{await} semantics.
-Therefore, the actor (instead of being awoken by the future)
-sends a message to itself to check the status of the future on which it depends.
-If this future is not fulfilled then, send (again) a message to yourself to check the future
-in the future. If the future is fulfilled, then continue where you left off.
+In the current implementation, @code{await} would cause the actor to save the
+context and process other messages in the mailbox if the future is not
+fulfilled. Otherwise, @code{await} would behave like a no-op. When the future
+is fulfilled, the producer (the actor who fulfills the future) would send a
+message to awaited actor, who would resume the save context on processing this
+message.
 
 @subsection{@code{chain} on a @code{future}}
 
