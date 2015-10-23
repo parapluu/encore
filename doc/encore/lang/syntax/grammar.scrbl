@@ -39,6 +39,11 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword exc "!")
 @(encore/keyword k_let "let")
 @(encore/keyword repeat "repeat")
+@(encore/keyword party_par "||")
+@(encore/keyword party_seq ">>")
+@(encore/keyword party_join "join")
+@(encore/keyword party_liftv "liftv")
+@(encore/keyword party_liftf "liftf")
 @(encore/keyword for "for")
 @(encore/keyword by "by")
 @(encore/keyword arrow "->")
@@ -207,6 +212,11 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[Name open-paren Arguments close-paren]
 	      @seq[open-paren Expr close-paren]
 	      @seq[Name]
+              @seq[party_liftv Expr]
+              @seq[party_liftf Expr]
+              @seq[party_join Expr]
+              @seq[Expr party_seq Arrow]
+              @seq[Expr party_par Expr]
 	      @seq[let LetDecls in Expr]
 	      @seq[repeat Name larrow Expr Expr]
 	      @seq[for Name in Expr Expr]

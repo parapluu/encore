@@ -502,6 +502,98 @@ and continue processing other messages. Upon reaching the message
 that resumes the execution of the method @code{calculate_decimals}, it
 will continue from where he left off.
 
+@section{Parallel Combinators}
+Parallel combinators provide high- and low-level coordination of parallel
+computations. There are different operators that lift values and futures
+into a parallel collection. Other combinators are in charge of performing
+low-level coordination of this parallel collection.
+
+@subsection{liftv}
+The @code{liftv} combinator lifts a value to a parallel collection. Its
+signature is: @code{liftv :: t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+  let p = liftv 42 in
+    p
+}|
+
+@subsection{liftf}
+The @code{liftf} combinator lifts a value to a parallel collection. Its
+signature is: @code{liftf :: Fut t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Card
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card = new Card in
+      liftf(card.valid())
+}|
+
+@subsection{||}
+The @code{||} combinator (named @code{par}) merges two parallel computations into a single
+parallel collection. Its type signature is: @code{|| :: Par t -> Par t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Card
+  card: int
+
+  def init(card: int): void
+    this.card = card
+
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card1 = new Card(1234)
+        card2 = new Card(4567)
+    in
+      liftf(card1.valid()) || liftf(card2.valid())
+}|
+
+@subsection{>>}
+The @code{>>} combinator (named @code{sequence}) performs a @code{pmap} operation on the
+parallel collection. Its type signature is: @code{>> :: Par a -> (a -> b) -> Par b}.
+
+@codeblock[#:line-numbers 1]|{
+-- prints if the card is valid
+def show(valid: bool): void
+  print valid
+
+class Card
+  card: int
+
+  def init(card: int): void
+    this.card = card
+
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card1 = new Card(1234)
+        card2 = new Card(4567)
+        p = liftf(card1.valid()) || liftf(card2.valid())
+    in
+      p >> show
+}|
+
+@subsection{join}
+The @code{join} combinator merges two parallel computations into a single one.
+Its type signature is: @code{Par Par t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void
+    let par = liftv 42  -- :: Par int
+        par_par = liftv par  -- :: Par Par in
+    in
+      (join par_par)  -- :: Par Par int -> Par int
+}|
+
 @section{Embedding of C code}
 
 For implementing low level functionality, @tt{encore} allows to
