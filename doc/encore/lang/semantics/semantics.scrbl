@@ -595,6 +595,25 @@ class Main
       (join par_par)  -- :: Par Par int -> Par int
 }|
 
+@subsection{extract}
+The @code{extract} combinator returns the parallel computations into a
+single array. This operation might block some threads since you are
+going from the parallel world to the sequential world. Whether the
+runtime uses @code{get} or @code{await} is not under the control of the
+developer and the runtime will try to choose the one that gets better performance
+taking into account different metrics.
+Its type signature is: @code{Par t -> [t]}.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void
+    let par = liftv 42 || liftv 23 -- : Par int
+        arr = extract par
+    in
+      for value in arr
+        print value
+}|
+
 @section{Embedding of C code}
 
 For implementing low level functionality, @tt{encore} allows to
