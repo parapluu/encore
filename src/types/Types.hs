@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Types(
               Type
+            , Activity (..)
             , Capability
             , TypeTree
             , RoseTree (..)
@@ -26,11 +27,11 @@ module Types(
             ,refTypeWithParams
             ,refType
             ,traitTypeFromRefType
-            ,passiveClassTypeFromRefType
-            ,activeClassTypeFromRefType
+            , classType
             ,isRefType
             ,isTraitType
             ,isActiveClassType
+            , isSharedClassType
             ,isPassiveClassType
             ,isClassType
             ,isMainType
@@ -82,6 +83,7 @@ import Data.Foldable (toList)
 import Data.Traversable
 
 data Activity = Active
+              | Shared
               | Passive
                 deriving(Eq, Show)
 
@@ -255,9 +257,14 @@ hasSameKind ty1 ty2
   | areBoth isMaybeType ||
     areBoth isFutureType ||
     areBoth isParType ||
-    areBoth isCapabilityType = getResultType ty1 `hasSameKind` getResultType ty2
+    areBoth isCapabilityType ||
+    areBoth isStreamType = getResultType ty1 `hasSameKind` getResultType ty2
   | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
-  | otherwise = True
+  | areBoth isPrimitive ||
+    areBoth isTypeVar ||
+    areBoth isRefType ||
+    areBoth isArrowType = True
+  | otherwise = False
   where
     isBottomTy1 = isBottomType ty1
     isBottomTy2 = isBottomType ty2
@@ -433,15 +440,9 @@ refTypeWithParams refId parameters =
 refType :: String -> Type
 refType id = refTypeWithParams id []
 
-activeClassTypeFromRefType UntypedRef{refInfo} =
-      ClassType{refInfo, activity = Active}
-activeClassTypeFromRefType ty =
-    error $ "Types.hs: Can't make active type from type: " ++ show ty
-
-passiveClassTypeFromRefType UntypedRef{refInfo}  =
-      ClassType{refInfo, activity = Passive}
-passiveClassTypeFromRefType ty =
-    error $ "Types.hs: Can't make passive type from type: " ++ show ty
+classType :: Activity -> String -> [Type] -> Type
+classType activity name parameters =
+  ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
 
 traitTypeFromRefType UntypedRef{refInfo} =
     TraitType{refInfo}
@@ -458,6 +459,9 @@ isTraitType _ = False
 
 isActiveClassType ClassType{activity = Active} = True
 isActiveClassType _ = False
+
+isSharedClassType ClassType{activity = Shared} = True
+isSharedClassType _ = False
 
 isPassiveClassType ClassType{activity = Passive} = True
 isPassiveClassType _ = False

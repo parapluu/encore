@@ -44,13 +44,13 @@ lexer =
    P.commentLine = "--",
    P.identStart = letter,
    P.reservedNames = [
-     "passive", "class", "def", "stream", "breathe", "int", "string", "real",
-     "bool", "void", "let", "in", "if", "unless", "then", "else", "repeat", "for",
-     "while", "get", "yield", "eos", "getNext", "new", "this", "await",
-     "suspend", "and", "or", "not", "true", "false", "null", "embed", "body",
-     "end", "where", "Fut", "Par", "Stream", "import", "qualified", "bundle",
-     "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with"
+     "shared", "passive", "class", "def", "stream", "breathe", "int", "string",
+     "real", "bool", "void", "let", "in", "if", "unless", "then", "else",
+     "repeat", "for", "while", "get", "yield", "eos", "getNext", "new", "this",
+     "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
+     "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
+     "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "Maybe", "Just", "Nothing", "match", "with", "liftf", "liftv"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -273,20 +273,22 @@ capability = do
 classDecl :: Parser ClassDecl
 classDecl = do
   cmeta <- meta <$> getPosition
-  refKind <- option activeClassTypeFromRefType
-             (reserved "passive" >> return passiveClassTypeFromRefType)
+  activity <- parseActivity
   reserved "class"
   name <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
   ccapability <- option incapability (do{reservedOp ":"; capability})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = refKind (refTypeWithParams name params)
+              ,cname = classType activity name params
               ,ccapability
               ,cfields
               ,cmethods
               }
   where
+    parseActivity = (reserved "shared" >> return Shared)
+      <|> (reserved "passive" >> return Passive)
+      <|> return Active
     classBody = do
               fields <- many fieldDecl
               methods <- many methodDecl
@@ -355,8 +357,11 @@ expression = buildExpressionParser opTable highOrderExpr
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
+                 [partyLiftf, partyLiftv],
                  [typedExpression],
                  [chain],
+                 [partySequence],
+                 [partyParallel],
                  [assignment]
                 ]
 
@@ -396,6 +401,22 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
                     return (FutureChain (meta pos))) AssocLeft
+      partyLiftf =
+          Prefix (do pos <- getPosition
+                     reserved "liftf"
+                     return (Liftf (meta pos)))
+      partyLiftv =
+          Prefix (do pos <- getPosition
+                     reserved "liftv"
+                     return (Liftv (meta pos)))
+      partySequence =
+          Infix (do pos <- getPosition ;
+                    reservedOp ">>" ;
+                    return (PartySeq (meta pos))) AssocLeft
+      partyParallel =
+          Infix (do pos <- getPosition ;
+                    reservedOp "||" ;
+                    return (PartyPar (meta pos))) AssocLeft
       assignment =
           Infix (do pos <- getPosition ;
                     reservedOp "=" ;

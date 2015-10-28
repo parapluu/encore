@@ -1,0 +1,43 @@
+def show(b: bool): void
+  print b
+
+def check_numbers(numbers: string): bool
+  if (numbers == "INVALID_CARD") then false
+  else true
+
+def check_name(name: string): bool
+  if (name == "FRANCISCO FERNANDEZ REYES") then true
+  else false
+
+def check_profile(purchases: [string]): bool
+  let suspicious_purchase = false in {
+    repeat i <- |purchases| {
+      if (purchases[i] == "Online") then
+        suspicious_purchase = true
+    };
+    suspicious_purchase
+  }
+
+class CreditCard
+  name: string
+  card_number: string
+  purchases: [string]
+
+  def init(name: string, card_number: string, purchases: [string]): void {
+    this.name = name;
+    this.card_number = card_number;
+    this.purchases = purchases;
+  }
+
+  def check(): Par bool {
+    liftv check_numbers(this.card_number) || liftv check_name(this.name) || liftv check_profile(this.purchases)
+    }
+
+class Main
+
+  def main(): void {
+    let c = new CreditCard("KIKO FERNANDEZ REYES", "INVALID_CARD",
+	["Online", "Clothes", "Food", "Party"])
+    in
+      (get c.check()) >> show;
+  }

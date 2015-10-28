@@ -135,6 +135,37 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Decl (translate $ A.getType bin, Var tmp))
                               (BinOp (translate binop) (AsExpr nlo) rcast))])
 
+  translate l@(A.Liftf {A.val}) = do
+    (nval, tval) <- translate val
+    let runtimeT = (runtimeType . Ty.getResultType . A.getType) val
+    (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $ Call (Nam "new_par_f") [AsExpr nval, runtimeT]
+    return (nliftf, Seq [tval, tliftf])
+
+  translate l@(A.Liftv {A.val}) = do
+    (nval, tval) <- translate val
+    let runtimeT = (runtimeType . A.getType) val
+    (nliftv, tliftv) <- namedTmpVar "par" (A.getType l) $
+                        Call (Nam "new_par_v") [asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
+    return (nliftv, Seq [tval, tliftv])
+
+  translate p@(A.PartyPar {A.parl, A.parr}) = do
+    (nleft, tleft) <- translate parl
+    (nright, tright) <- translate parr
+    let runtimeT = (runtimeType . Ty.getResultType . A.getType) p
+    (npar, tpar) <- namedTmpVar "par" (A.getType p) $
+                        Call (Nam "new_par_p") [AsExpr nleft, AsExpr nright, runtimeT]
+    return (npar, Seq [tleft, tright, tpar])
+
+  translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
+    (npar, tpar) <- translate par
+    (nseqfunc, tseqfunc) <- translate seqfunc
+    let runtimeT = (runtimeType . A.getType) seqfunc
+    (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
+                                Call (Nam "party_sequence") [AsExpr npar, AsExpr nseqfunc, runtimeT]
+    return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
+
+
+
   translate (A.Print {A.stringLit = s, A.args}) = do
       targs <- mapM translate args
       let argNames = map (AsExpr . fst) targs
@@ -363,6 +394,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              let typeParams = Ty.getTypeParameters ty
                  typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map runtimeType typeParams)
              return (nnew, Seq [tnew, Statement typeParamInit])
+      | Ty.isSharedClassType ty =
+          let
+            fName = constructorImplName ty
+            args = [] :: [CCode Expr]
+            call = Call fName args
+          in
+            namedTmpVar "new" ty call
       | otherwise =
           do na <- Ctx.genNamedSym "new"
              let size = Sizeof . AsType $ classTypeName ty
@@ -444,10 +482,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
       | (Ty.isTraitType . A.getType) target = traitMethod call
       | syncAccess = syncCall
+      | sharedAccess = sharedObjectMethodFut call
       | otherwise = remoteCall
           where
             syncAccess = (A.isThisAccess target)
               || (Ty.isPassiveClassType . A.getType) target
+            sharedAccess = Ty.isSharedClassType $ A.getType target
             syncCall =
                 do (ntarget, ttarget) <- translate target
                    tmp <- Ctx.genNamedSym "synccall"
@@ -516,10 +556,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                   gcSend argsTypes expectedTypes theFutTrace ++
                                  [Statement theCall])
 
-  translate (A.MessageSend { A.target, A.name, A.args })
+  translate call@(A.MessageSend { A.target, A.name, A.args })
       | (Ty.isActiveClassType . A.getType) target = messageSend
+      | sharedAccess = sharedObjectMethodOneWay call
       | otherwise = error "Tried to send a message to something that was not an active reference"
           where
+            sharedAccess = Ty.isSharedClassType $ A.getType target
             messageSend :: State Ctx.Context (CCode Lval, CCode Stat)
             messageSend =
                 do (ntarg, ttarg) <- translate target
@@ -848,7 +890,45 @@ castArguments expected targ targType
   | targType /= expected = Cast (translate expected) targ
   | otherwise = AsExpr targ
 
-traitMethod call@(A.MethodCall{A.target=target, A.name=name, A.args=args}) =
+sharedObjectMethodFut call@(A.MethodCall{A.target, A.name, A.args}) =
+  let
+    clazz = A.getType target
+    f = methodImplFutureName clazz name
+  in
+    do
+    (this, initThis) <- translate target
+    result <- Ctx.genNamedSym "so_call"
+    (args, initArgs) <- fmap unzip $ mapM translate args
+    return (Var result,
+      Seq $
+        initThis:
+        initArgs ++
+        [ret result $ callF f this args]
+      )
+  where
+    retType = translate $ A.getType call
+    callF f this args = Call f $ this:args
+    ret result fcall = Assign (Decl (retType, Var result)) fcall
+
+sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
+  let
+    clazz = A.getType target
+    f = methodImplOneWayName clazz name
+  in
+    do
+    (this, initThis) <- translate target
+    (args, initArgs) <- fmap unzip $ mapM translate args
+    return (unit,
+      Seq $
+        initThis:
+        initArgs ++
+        [callF f this args]
+      )
+  where
+    retType = translate $ A.getType call
+    callF f this args = Statement $ Call f $ this:args
+
+traitMethod call@(A.MethodCall{A.target, A.name, A.args}) =
   let
     ty = A.getType target
     id = oneWayMsgId ty name

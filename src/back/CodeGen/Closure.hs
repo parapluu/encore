@@ -37,8 +37,7 @@ translateClosure closure ctable
                envNames     = map (AsLval . fieldName) encEnvNames
                encArgNames = map A.pname params
                encArgTypes = map A.ptype params
-               argNames = map argName encArgNames
-               --argTypes = map translate encArgTypes
+               argNames = map (AsLval . argName) encArgNames
                subst     = (zip encEnvNames envNames) ++
                            (zip encArgNames argNames)
                ctx = Ctx.new subst ctable
@@ -65,7 +64,7 @@ translateClosure closure ctable
           (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
           where
             ty = translate ptype
-            arg = argName pname
+            arg = AsLval $ argName pname
             getArgument i = fromEncoreArgT ty $ AsExpr $ ArrAcc i (Var "_args")
 
       buildEnvironment name members =
@@ -89,7 +88,7 @@ translateClosure closure ctable
                         Call (Nam "pony_traceactor") [getVar name]
                     | Ty.isPassiveClassType ty =
                         Call (Nam "pony_traceobject")
-                             [getVar name, AsLval $ classTraceFnName ty]
+                             [getVar name, AsExpr $ AsLval $ classTraceFnName ty]
                     | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
                 getVar name =
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)
+                    Cast (Ptr ponyActorT) $ (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (fieldName name)

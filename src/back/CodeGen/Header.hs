@@ -24,6 +24,7 @@ generateHeader p =
     (Includes [
       "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
       "pony.h",
+      "pool.h",
       "stdlib.h",
       "closure.h",
       "stream.h",
@@ -32,6 +33,7 @@ generateHeader p =
       "future.h",
       "task.h",
       "option.h",
+      "party.h",
       "string.h",
       "stdio.h",
       "stdarg.h"
@@ -77,6 +79,10 @@ generateHeader p =
 
     [commentSection "Methods"] ++
     concatMap methodFwds allclasses ++
+    concatMap publicMethods allclasses ++
+
+    [commentSection "Constructors"] ++
+    concatMap constructors allclasses ++
 
     [commentSection "Main actor rtti"] ++
     [externMainRtti] ++
@@ -157,20 +163,20 @@ generateHeader p =
                FunctionDecl void (runtimeTypeInitFnName cname) [Ptr . AsType $ classTypeName cname, Embed "..."]
 
      classTypeDecls = map classTypeDecl allclasses
-               where
-                 classTypeDecl A.Class{A.cname} =
-                     Typedef (Struct $ classTypeName cname) (classTypeName cname)
+                 where
+                   classTypeDecl A.Class{A.cname} =
+                       Typedef (Struct $ classTypeName cname) (classTypeName cname)
 
-     passiveTypes = map passiveType $ filter (not . A.isActive) allclasses
-                where
-                  passiveType A.Class{A.cname, A.cfields} =
-                      let typeParams = Ty.getTypeParameters cname in
-                      StructDecl (AsType $ classTypeName cname)
-                                 ((Ptr ponyTypeT, AsLval $ selfTypeField) :
-                                  map (\ty -> (Ptr ponyTypeT, AsLval $ typeVarRefName ty)) typeParams ++
-                                  zip
-                                  (map (translate . A.ftype) cfields)
-                                  (map (AsLval . fieldName . A.fname) cfields))
+     passiveTypes = map passiveType $ filter (A.isPassive) allclasses
+                 where
+                   passiveType A.Class{A.cname, A.cfields} =
+                       let typeParams = Ty.getTypeParameters cname in
+                       StructDecl (AsType $ classTypeName cname)
+                                  ((Ptr ponyTypeT, AsLval $ selfTypeField) :
+                                   map (\ty -> (Ptr ponyTypeT, AsLval $ typeVarRefName ty)) typeParams ++
+                                   zip
+                                   (map (translate . A.ftype) cfields)
+                                   (map (AsLval . fieldName . A.fname) cfields))
      traitMethodEnums =
        let
          dicts = map (\t -> (A.getType t, A.tmethods t)) allTraits
@@ -202,17 +208,52 @@ generateHeader p =
              DeclTL (Extern ponyTypeT, AsLval runtimeTy)
 
      methodFwds cdecl@(A.Class{A.cname, A.cmethods}) = map methodFwd cmethods
-                where
-                  methodFwd A.Method{A.mtype, A.mname, A.mparams} =
-                    let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
-                                 then [Ptr . AsType $ classTypeName cname, array]
-                                 else (Ptr . AsType $ classTypeName cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
-                    in
-                      FunctionDecl (translate mtype) (methodImplName cname mname) params
-                  methodFwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
-                    let params = (Ptr . AsType $ classTypeName cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
-                    in
-                      FunctionDecl void (methodImplName cname mname) params
+                 where
+                   methodFwd A.Method{A.mtype, A.mname, A.mparams} =
+                     let params = if (A.isMainClass cdecl) && (mname == ID.Name "main")
+                                  then [Ptr . AsType $ classTypeName cname, array]
+                                  else (Ptr . AsType $ classTypeName cname) : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                     in
+                       FunctionDecl (translate mtype) (methodImplName cname mname) params
+                   methodFwd A.StreamMethod{A.mtype, A.mname, A.mparams} =
+                     let params = (Ptr . AsType $ classTypeName cname) : stream : map (\(A.Param {A.ptype}) -> (translate ptype)) mparams
+                     in
+                       FunctionDecl void (methodImplName cname mname) params
+
+     publicMethods A.Class{A.cname, A.cmethods} =
+       if not . Ty.isSharedClassType $ cname then
+         []
+       else
+       map futureMethod cmethods ++ map oneWayMethod cmethods
+       where
+         futureMethod A.Method{A.mtype, A.mname, A.mparams} =
+           let
+             thisType = Ptr . AsType $ classTypeName cname
+             rest = map (translate . A.ptype) mparams
+             args = thisType : rest
+             retType = future
+             f = methodImplFutureName cname mname
+           in
+             FunctionDecl retType f args
+
+         oneWayMethod A.Method{A.mtype, A.mname, A.mparams} =
+           let
+             thisType = Ptr . AsType $ classTypeName cname
+             rest = map (translate . A.ptype) mparams
+             args = thisType : rest
+             retType = void
+             f = methodImplOneWayName cname mname
+           in
+             FunctionDecl retType f args
+
+     constructors A.Class{A.cname, A.cmethods} = [ctr]
+       where
+         ctr =
+           let
+             retType = Ptr. AsType $ classTypeName cname
+             f = constructorImplName cname
+           in
+             FunctionDecl retType f []
 
 commentSection :: String -> CCode Toplevel
 commentSection s = Embed $ (replicate (5 + length s) '/') ++ "\n// " ++ s
