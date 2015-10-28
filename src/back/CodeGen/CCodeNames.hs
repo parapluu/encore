@@ -137,6 +137,21 @@ constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
 
+partySequence :: CCode Name
+partySequence = Nam "party_sequence"
+
+partyJoin :: CCode Name
+partyJoin = Nam "party_join"
+
+partyNewParP :: CCode Name
+partyNewParP = Nam "new_par_p"
+
+partyNewParV :: CCode Name
+partyNewParV = Nam "new_par_v"
+
+partyNewParF :: CCode Name
+partyNewParF = Nam "new_par_f"
+
 argName :: ID.Name -> CCode Name
 argName name = Nam $ encoreName "arg" (show name)
 

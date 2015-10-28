@@ -318,6 +318,19 @@ instance Checkable Expr where
       let typ = AST.getType e
       return $ setType (parType typ) l {val = e}
 
+    doTypecheck p@(PartyJoin {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      unless (isParType  typ) $ tcError (errorMsg (ppExpr val) typ typ)
+      unless ((isParType . getResultType) typ) $
+        tcError (errorMsg (ppExpr val) (getResultType typ) typ)
+      return $ setType (getResultType typ) p {val = e}
+        where
+          errorMsg expr expectedType foundType =
+            "Error: expression '" ++ show expr ++ "' as argument in " ++
+            "'join' combinator was expecting type 'Par Par " ++
+            show expectedType ++ "' but found type '" ++ show foundType ++ "' instead."
+
     doTypecheck p@(PartyPar {parl, parr}) = do
       pl <- typecheck parl
       pr <- hasType parr (AST.getType pl)
