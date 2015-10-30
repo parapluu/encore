@@ -1,11 +1,11 @@
 class Main
-  def main(): void 
-    let 
+  def main(): void
+    let
       maxDepth = 20
     in {
       new StretchMemory(maxDepth + 1);
-      let 
-        ll = new LongLived(maxDepth) 
+      let
+        ll = new LongLived(maxDepth)
       in {
       	for depth in [4 .. maxDepth] by 2 {
 	      new Worker(embed int 16 << (#{maxDepth} - #{depth}); end, depth)
@@ -17,9 +17,9 @@ class Main
 
 class StretchMemory
   def init(stretchDepth: int): void {
-  	let 
-  	  bt = (new TreeFactory()).fillTree(0, stretchDepth) 
-  	in 
+  	let
+  	  bt = (new TreeFactory()).fillTree(0, stretchDepth)
+  	in
   	  print ("Stretch: {}\n", bt.size())
   }
 
@@ -29,12 +29,12 @@ class LongLived
   def init(maxDepth: int): void
   	this.tree = (new TreeFactory()).fillTree(0, maxDepth)
 
-  def apply(): void 
+  def apply(): void
   	print("Long lived: {}\n", this.tree.size())
 
 class Worker
-  size: int 
-  iterations: int 
+  size: int
+  iterations: int
   depth: int
 
   def init(iterations: int, depth: int): void {
@@ -47,22 +47,22 @@ class Worker
   }
 
   def apply(i: int): void {
-  	let tf = new TreeFactory in 
-    this.size = this.size 
-    		  + tf.fillTree(i, this.depth).size() 
+  	let tf = new TreeFactory in
+    this.size = this.size
+    		  + tf.fillTree(i, this.depth).size()
     		  + tf.fillTree((0-i), this.depth).size()
   }
- 
+
   def done(): void {
-  	let it = this.iterations in 
-    print ("{} trees of depth {} size: {}\n", 
+  	let it = this.iterations in
+    print ("{} trees of depth {} size: {}\n",
     	embed int (#{it} << 1); end,
     	this.depth,
     	this.size)
   }
 
 
-passive class BinaryTree 
+passive class BinaryTree
   item : int
   left : BinaryTree
   right: BinaryTree
@@ -75,33 +75,33 @@ passive class BinaryTree
 
   -- visiting the tree
   def size(): int {
-  	1 + 
-  	if this.left == null then 0 else this.left.size() + 
+  	1 +
+  	if this.left == null then 0 else this.left.size() +
   	this.right.size()
   }
 
-passive class TreeFactory 
+passive class TreeFactory
 
   def init(): void {()}
 
   def fillTree(i: int, depth: int): BinaryTree {
-  	let 
+  	let
   	  result = new BinaryTree(i)
   	  queue = new [BinaryTree](embed int (1 << #{depth}) - 1; end)
   	  head = 0
   	  nodes = 0
   	  target = (embed int (1 << #{depth}) - 1; end) - 1
-  	  it = i 
+  	  it = i
   	in {
   	  queue[0] = result;
   	  while nodes < target {
-  	  	it = embed int 1 << #{it}; end;
-  	  	let 
-  	  	  n = queue[head] 
+  	  	it = embed int #{it} << 1; end;
+  	  	let
+  	  	  n = queue[head]
   	  	  l = new BinaryTree(it - 1)
   	  	  r = new BinaryTree(it)
   	  	in {
-  	  	  head = head + 1; 
+  	  	  head = head + 1;
   	  	  n.left = l;
   	  	  n.right = r;
   	  	  queue[nodes+1] = n.left;
