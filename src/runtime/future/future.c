@@ -176,15 +176,6 @@ bool future_fulfilled(future_t *fut)
   return r;
 }
 
-encore_arg_t future_read_value(future_t *fut)
-{
-  perr("future_read_value");
-  BLOCK;
-  encore_arg_t v = fut->value;
-  UNBLOCK;
-  return v;
-}
-
 void future_fulfil(future_t *fut, encore_arg_t value)
 {
   assert(fut->fulfilled == false);
@@ -288,9 +279,6 @@ encore_arg_t future_get_actor(future_t *fut)
   acquire_future_value(fut);
 
   return fut->value;
-
-  // /// TODO: in this case, we need to run future_gc_recv_value() too!
-  // return run_closure(fut->closure, future_read_value(fut->parent), fut);
 }
 
 future_t  *future_chain_actor(future_t *fut, future_t* r, closure_t *c)
