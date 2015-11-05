@@ -21,20 +21,19 @@ import Control.Monad.State hiding(void)
 translateTask :: A.Expr -> ClassTable -> CCode Toplevel
 translateTask task ctable
   |  A.isTask task =
-       let taskType = A.getType task
-           body = A.body task
-           resultType = Ty.getResultType taskType
-           id = Meta.getMetaId . A.getMeta $ task
-           funTaskName = taskFunctionName id
-           envTaskName = taskEnvName id
+       let taskType      = A.getType task
+           body          = A.body task
+           resultType    = Ty.getResultType taskType
+           id            = Meta.getMetaId . A.getMeta $ task
+           funTaskName   = taskFunctionName id
+           envTaskName   = taskEnvName id
            dependencyTaskName = taskDependencyName id
            traceTaskName = taskTraceName id
-           freeVars = Util.freeVariables [] body
-
-           encEnvNames = map fst freeVars
-           envNames     = map (AsLval . fieldName) encEnvNames
-           subst = zip encEnvNames envNames
-           ctx = Ctx.new subst ctable
+           freeVars      = Util.freeVariables [] body
+           encEnvNames   = map fst freeVars
+           envNames      = map (AsLval . fieldName) encEnvNames
+           subst         = zip encEnvNames envNames
+           ctx           = Ctx.new subst ctable
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
         Concat [buildEnvironment envTaskName freeVars,
@@ -49,13 +48,14 @@ translateTask task ctable
   | otherwise = error "Tried to translate Task from something that wasn't a task"
   where
     returnStmnt var ty
-     | isVoidType ty = Return $ (asEncoreArgT (translate ty) unit)
-     | otherwise = Return $ (asEncoreArgT (translate ty) var)
+     | isVoidType ty = Return $ asEncoreArgT (translate ty) unit
+     | otherwise = Return $ asEncoreArgT (translate ty) var
 
     extractEnvironment _ [] = []
     extractEnvironment envName ((name, ty):freeVars) =
       let decl = Decl (translate ty, AsLval $ fieldName name)
-          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (fieldName name)
+          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env"))
+                 `Dot` fieldName name
       in Assign decl rval : extractEnvironment envName freeVars
 
     buildDependency name = StructDecl (Typ $ show name) []  -- TODO: extract dependencies
@@ -75,4 +75,4 @@ translateTask task ctable
               [getVar name, AsLval $ classTraceFnName ty]
           | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
         getVar name =
-          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (fieldName name)
+          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` fieldName name

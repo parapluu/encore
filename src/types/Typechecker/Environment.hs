@@ -83,8 +83,12 @@ buildEnvironment =
            bt = emptyBT
          }]
 
-    getFunctionType Function {funname, funtype, funparams} =
-        (funname, arrowType (map ptype funparams) funtype)
+    getFunctionType f =
+        let funname   = functionName f
+            funparams = functionParams f
+            funtype   = functionType f
+        in
+          (funname, arrowType (map ptype funparams) funtype)
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
@@ -98,29 +102,31 @@ fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
   | isTraitType t = do
     trait <- Map.lookup (getId t) $ traitTable env
-    find ((== f) . fname) $ tfields trait
+    find ((== f) . fname) $ requiredFields trait
   | isClassType t = do
     cls <- classLookup t env
     find ((== f) . fname) $ cfields cls
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
 
-matchMethod :: Name -> MethodDecl -> Bool
-matchMethod m = (==m) . mname
+matchHeader :: Name -> FunctionHeader -> Bool
+matchHeader m = (==m) . hname
 
-traitMethodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
+traitMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 traitMethodLookup ty m env = do
   trait <- traitLookup ty env
-  mdecl <- find (matchMethod m) $ tmethods trait
+  let headers = requiredMethods trait ++ map mheader (tmethods trait)
+  header <- find (matchHeader m) headers
   let formals = getTypeParameters $ tname trait
       actuals = getTypeParameters ty
       bindings = zip formals actuals
-  return $ replaceMethodTypes bindings mdecl
+  return $ replaceHeaderTypes bindings header
 
-methodLookup :: Type -> Name -> Environment -> Maybe MethodDecl
+methodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 methodLookup ty m env
   | isClassType ty = do
     cls <- classLookup ty env
-    let cM = find (matchMethod m) $ cmethods cls
+    let headers = map mheader $ cmethods cls
+        cM = find (matchHeader m) headers
         traits = typesFromCapability $ ccapability cls
         tMs = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust (cM:tMs)

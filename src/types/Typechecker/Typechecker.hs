@@ -82,7 +82,9 @@ instance Checkable Function where
     --  E, x1 : t1, .., xn : tn |- funbody : funtype
     -- ----------------------------------------------------------
     --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
-    doTypecheck f@(Function {funtype, funparams, funbody}) = do
+    doTypecheck f@(Function {funheader, funbody}) = do
+      let funtype = functionType f
+          funparams = functionParams f
       eBody   <- local (addParams funparams) $
                      if isVoidType funtype
                      then typecheckNotNull funbody
@@ -90,7 +92,7 @@ instance Checkable Function where
       return $ f{funbody = eBody}
 
 instance Checkable TraitDecl where
-  doTypecheck t@Trait{tname, tfields, tmethods} = do
+  doTypecheck t@Trait{tname, tmethods} = do
     emethods <- mapM typecheckMethod tmethods
     return t{tmethods = emethods}
     where
@@ -98,47 +100,43 @@ instance Checkable TraitDecl where
       addThis = extendEnvironment [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
-matchArgumentLength :: MethodDecl -> Arguments -> TypecheckM ()
-matchArgumentLength method args =
-  unless (actual == expected) $ tcError $
-    concat [toStr name, " expects ", show expected,
-            " arguments. Got ", show actual]
+matchArgumentLength :: FunctionHeader -> Arguments -> TypecheckM ()
+matchArgumentLength header args =
+  unless (actual == expected) $
+         tcError $ concat [toStr (hname header), " expects ", show expected,
+                           " arguments. Got ", show actual]
   where
     actual = length args
     expected = length sigTypes
-    sigTypes = map ptype $ mparams method
-    name = mname method
+    sigTypes = map ptype (hparams header)
     toStr (Name "_init") = "Constructor"
     toStr n = concat ["Method '", show n, "'"]
 
-meetRequiredFields :: [FieldDecl] -> Type -> TraitDecl -> TypecheckM ()
-meetRequiredFields cFields trait tdecl =
-    mapM_ matchField (tfields tdecl)
-  where
-    matchField tField =
-      let
-        formals = getTypeParameters (tname tdecl)
-        actuals = getTypeParameters trait
-        bindings = zip formals actuals
-        expected = replaceTypeVars bindings (ftype tField)
-        expField = tField{ftype = expected}
-        result = find (==expField) cFields
-        cField = fromJust result
-        cFieldType = ftype cField
-      in
-        if isNothing result then
-            tcError $
+meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
+meetRequiredFields cFields trait = do
+  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  mapM_ matchField (requiredFields tdecl)
+    where
+    matchField tField = do
+      bindings <- formalBindings trait
+      let expected = replaceTypeVars bindings (ftype tField)
+          expField = tField{ftype = expected}
+          result = find (==expField) cFields
+          cField = fromJust result
+          cFieldType = ftype cField
+      if isNothing result then
+          tcError $
               "Cannot find field '" ++ show expField ++
               "' required by included " ++ classOrTraitName trait
-        else if isValField expField then
-            unlessM (cFieldType `subtypeOf` expected) $
+      else if isValField expField then
+          unlessM (cFieldType `subtypeOf` expected) $
               tcError $
                 "Field '" ++ show cField ++ "' must have a subtype of '" ++
                 show expected ++ "' to meet the requirements of " ++
                 "included " ++ classOrTraitName trait
-        else do
-          isSub <- cFieldType `subtypeOf` expected
-          unless (cFieldType == expected) $
+      else do
+        isSub <- cFieldType `subtypeOf` expected
+        unless (cFieldType == expected) $
             tcError $
               "Field '" ++ show cField ++ "' must exactly match type '" ++
               show expected ++ "' to meet the requirements of " ++
@@ -197,7 +195,7 @@ noOverlapFields capability =
     pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
     pairTypeFields t = do
       trait <- liftM fromJust . asks . traitLookup $ t
-      return (t, tfields trait)
+      return (t, requiredFields trait)
 
     pair :: [[Type]] -> [([Type], [Type])]
     pair list = pair' $ tail list
@@ -215,15 +213,39 @@ ensureNoMethodConflict methods tdecls =
   in
   unless (null diff) $
          if dup `elem` methods then
-             tcError $ "Method '" ++ show (mname dup) ++
+             tcError $ "Method '" ++ show (methodName dup) ++
                        "' is defined both in current class and " ++
                        classOrTraitName (tname $ head overlappingTraits)
          else
              tcError $ "Conflicting inclusion of method '" ++
-                       show (mname dup) ++ "' from " ++
+                       show (methodName dup) ++ "' from " ++
                        classOrTraitName (tname (head overlappingTraits)) ++
                        " and " ++
                        classOrTraitName (tname (overlappingTraits !! 1))
+
+meetRequiredMethods :: [MethodDecl] -> Type -> TypecheckM ()
+meetRequiredMethods cMethods trait = do
+  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  mapM_ matchMethod (requiredMethods tdecl)
+  where
+    matchMethod reqHeader = do
+      bindings <- formalBindings trait
+      let expHeader = replaceHeaderTypes bindings reqHeader
+      unlessM (anyM (matchesHeader expHeader) cMethods) $
+           tcError $
+               "Cannot find method '" ++ show (ppFunctionHeader expHeader) ++
+               "' required by included " ++ classOrTraitName trait
+    matchesHeader header mdecl =
+      let
+        mName = methodName mdecl
+        mType = methodType mdecl
+        mParamTypes = map ptype (methodParams mdecl)
+        hName = hname header
+        hType = htype header
+        hParamTypes = map ptype (hparams header)
+      in
+        liftM ((mName == hName && mParamTypes == hParamTypes) &&) $
+              mType `subtypeOf` hType
 
 instance Checkable ClassDecl where
   -- TODO: Update this rule!
@@ -234,10 +256,11 @@ instance Checkable ClassDecl where
     let traits = typesFromCapability ccapability
     unless (isPassiveClassType cname || null traits) $
            tcError "Traits can only be used for passive classes"
-    tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
-    zipWithM_ (meetRequiredFields cfields) traits tdecls
+    mapM_ (meetRequiredFields cfields) traits
+    mapM_ (meetRequiredMethods cmethods) traits
     noOverlapFields ccapability
     -- TODO: Add namespace for trait methods
+    tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
     ensureNoMethodConflict cmethods tdecls
 
     emethods <- mapM typecheckMethod cmethods
@@ -252,21 +275,20 @@ instance Checkable MethodDecl where
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
     -- -----------------------------------------------------
     --  E |- def mname(x1 : t1, .., xn : tn) : mtype mbody
-    doTypecheck m@(Method {mtype, mparams, mbody}) =
-        do eBody <- local (addParams mparams) $
-                          if isVoidType mtype
-                          then typecheckNotNull mbody
-                          else hasType mbody mtype
-           return $ m{mbody = eBody}
-
+    --
     --  E |- this : C
     --  isActiveClass(C)
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
     -- -----------------------------------------------------
     --  E |- stream mname(x1 : t1, .., xn : tn) : mtype mbody
-    doTypecheck m@(StreamMethod {mtype, mparams, mbody}) =
-        do eBody <- local (addParams mparams) $ typecheck mbody
-           return $ m{mbody = eBody}
+    doTypecheck m@(Method {mbody}) = do
+        let mType   = methodType m
+            mparams = methodParams m
+        eBody <- local (addParams mparams) $
+                       if isVoidType mType || isStreamMethod m
+                       then typecheckNotNull mbody
+                       else hasType mbody mType
+        return $ m{mbody = eBody}
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do
@@ -446,21 +468,21 @@ instance Checkable Expr where
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
-      mdecl <- findMethod targetType name
-      matchArgumentLength mdecl args
+      header <- findMethod targetType name
+      matchArgumentLength header args
       fBindings <- formalBindings targetType
-      let paramTypes = map ptype (mparams mdecl)
+      let paramTypes = map ptype (hparams header)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
-          methodType = mtype mdecl
+          mType = htype header
       (eArgs, bindings) <- local (bindTypes fBindings) $
                                  matchArguments args expectedTypes
-      let resultType = replaceTypeVars bindings methodType
-          returnType = retType targetType mdecl resultType
+      let resultType = replaceTypeVars bindings mType
+          returnType = retType targetType header resultType
       return $ setType returnType mcall {target = eTarget, args = eArgs}
       where
-        retType targetType method t
+        retType targetType header t
          | isSyncCall targetType = t
-         | isStreamMethod method = streamType t
+         | isStreamMethodHeader header = streamType t
          | otherwise = futureType t
         isSyncCall targetType =
           isThisAccess target ||
@@ -481,10 +503,10 @@ instance Checkable Expr where
            tcError $ "Cannot send message to expression '" ++
                      show (ppExpr target) ++
                      "' of type '" ++ show targetType ++ "'"
-      mdecl <- findMethod targetType name
-      matchArgumentLength mdecl args
+      header <- findMethod targetType name
+      matchArgumentLength header args
       fBindings <- formalBindings targetType
-      let paramTypes = map ptype (mparams mdecl)
+      let paramTypes = map ptype (hparams header)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
       (eArgs, _) <- local (bindTypes fBindings) $
                     matchArguments args expectedTypes
@@ -636,10 +658,11 @@ instance Checkable Expr where
            when (isNothing result) $
                 tcError "Can only yield from (streaming) methods"
            let mtd = fromJust result
-               mType = mtype mtd
+               mType = methodType mtd
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
-                  tcError $ "Cannot yield in non-streaming method '" ++ show (mname mtd) ++ "'"
+                  tcError $ "Cannot yield in non-streaming method '" ++
+                            show (methodName mtd) ++ "'"
            unlessM (eType `subtypeOf` mType) $
                   tcError $ "Cannot yield value of type '" ++ show eType ++
                             "' in streaming method of type '" ++ show mType ++ "'"
@@ -654,7 +677,8 @@ instance Checkable Expr where
                 tcError "Can only yield from (streaming) methods"
            let mtd = fromJust result
            unless (isStreamMethod mtd) $
-                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++ show (mname mtd) ++ "'"
+                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++
+                            show (methodName mtd) ++ "'"
            return $ setType voidType eos
 
     --  E |- s : Stream t

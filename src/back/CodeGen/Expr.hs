@@ -452,12 +452,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 do (ntarget, ttarget) <- translate target
                    tmp <- Ctx.genNamedSym "synccall"
                    targs <- mapM translate args
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
+                   header <- gets $ Ctx.lookupMethod (A.getType target) name
                    let targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
+                       expectedTypes = map A.ptype (A.hparams header)
                        (argNames, argDecls) = unzip targs
                        castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-                       theCall = if Ty.isTypeVar (A.mtype mtd) then
+                       theCall = if Ty.isTypeVar (A.htype header) then
                                      AsExpr $ fromEncoreArgT (translate (A.getType call))
                                                 (Call (methodImplName (A.getType target) name)
                                                       (AsExpr ntarget : castedArguments))
@@ -492,12 +492,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                          (Statement $ Call (Nam "pony_traceobject")
                                                            [Var theFutName, futureTypeRecName `Dot` Nam "trace"])
                    theArgName <- Ctx.genNamedSym "arg"
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
+                   header <- gets $ Ctx.lookupMethod (A.getType target) name
                    let noArgs = length args
                        theArgTy = Ptr . AsType $ futMsgTypeName (A.getType target) name
                        theArgDecl = Assign (Decl (theArgTy, Var theArgName)) (Cast theArgTy (Call (Nam "pony_alloc_msg") [Int (calcPoolSizeForMsg (noArgs + 1)), AsExpr $ AsLval $ futMsgId (A.getType target) name]))
                        targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
+                       expectedTypes = map A.ptype (A.hparams header)
                        castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
                        argAssignments = zipWith (\i tmpExpr -> Assign ((Var theArgName) `Arrow` (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
 
@@ -525,12 +525,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 do (ntarg, ttarg) <- translate target
                    targs <- mapM translate args
                    theMsgName <- Ctx.genNamedSym "arg"
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
+                   header <- gets $ Ctx.lookupMethod (A.getType target) name
                    let (argNames, argDecls) = unzip targs
                        theMsgTy = Ptr . AsType $ oneWayMsgTypeName (A.getType target) name
                        noArgs = length args
                        targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
+                       expectedTypes = map A.ptype (A.hparams header)
                        castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
                        argAssignments = zipWith (\i tmpExpr -> Assign (Arrow (Var theMsgName) (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
                        theArgInit = Seq $ map Statement argAssignments
@@ -851,7 +851,7 @@ castArguments expected targ targType
 traitMethod call@(A.MethodCall{A.target=target, A.name=name, A.args=args}) =
   let
     ty = A.getType target
-    id = oneWayMsgId ty name
+    id = msgId ty name
     tyStr = Ty.getId ty
     nameStr = show name
   in

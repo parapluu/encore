@@ -67,5 +67,5 @@ substLkp (Context s _ _) n = lookup n s
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . classTable
 
-lookupMethod :: Type -> Name -> Context -> MethodDecl
+lookupMethod :: Type -> Name -> Context -> FunctionHeader
 lookupMethod ty m = Tbl.lookupMethod ty m . classTable

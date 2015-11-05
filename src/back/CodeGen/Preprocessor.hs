@@ -50,11 +50,13 @@ convertMethod ::
     [(Ty.Type, Ty.Type)] -> A.ClassDecl -> A.MethodDecl -> A.MethodDecl
 convertMethod bindings cdecl method =
   let
-    mtype = convertType $ A.mtype method
-    mparams = map convertNode $ A.mparams method
+    header = A.mheader method
+    htype = convertType $ A.methodType method
+    hparams = map convertNode $ A.methodParams method
+    mheader = header{A.htype, A.hparams}
     mbody = Util.extend convertExpr $ A.mbody method
   in
-    method{A.mtype, A.mparams, A.mbody}
+    method{A.mheader, A.mbody}
   where
     convertType :: Ty.Type -> Ty.Type
     convertType = Ty.typeMap (\ty -> fromMaybe ty (lookup ty bindings))

@@ -242,33 +242,47 @@ filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
 extractTypes (Program{functions, traits, classes}) =
-    List.nub $ concat $ concatMap extractFunctionTypes functions ++
-                        concatMap extractTraitTypes traits ++
-                        concatMap extractClassTypes classes
+    List.nub $ concatMap extractFunctionTypes functions ++
+               concatMap extractTraitTypes traits ++
+               concatMap extractClassTypes classes
     where
-      extractFunctionTypes Function {funtype, funparams, funbody} =
-          typeComponents funtype :
-          map extractParamTypes funparams ++
-          [extractExprTypes funbody]
+      extractHeaderTypes :: FunctionHeader -> [Type]
+      extractHeaderTypes header =
+          typeComponents (htype header) ++
+          concatMap extractParamTypes (hparams header)
 
-      extractTraitTypes Trait {tname, tfields, tmethods} =
-          typeComponents tname :
-          map extractFieldTypes tfields ++
+      extractFunctionTypes :: Function -> [Type]
+      extractFunctionTypes Function{funheader, funbody} =
+          extractHeaderTypes funheader ++
+          extractExprTypes funbody
+
+      extractTraitTypes :: TraitDecl -> [Type]
+      extractTraitTypes Trait {tname, treqs, tmethods} =
+          typeComponents tname ++
+          concatMap extractReqType treqs ++
           concatMap extractMethodTypes tmethods
 
+      extractReqType RequiredField {rfield} = extractFieldTypes rfield
+      extractReqType RequiredMethod {rheader} = extractHeaderTypes rheader
+
+      extractClassTypes :: ClassDecl -> [Type]
       extractClassTypes Class {cname, cfields, cmethods} =
-          typeComponents cname :
-          map extractFieldTypes cfields ++
+          typeComponents cname ++
+          concatMap extractFieldTypes cfields ++
           concatMap extractMethodTypes cmethods
+
+      extractFieldTypes :: FieldDecl -> [Type]
       extractFieldTypes Field {ftype} = typeComponents ftype
 
+      extractMethodTypes :: MethodDecl -> [Type]
       extractMethodTypes m =
-          typeComponents (mtype m) :
-          map extractParamTypes (mparams m) ++
-          [extractExprTypes (mbody m)]
+          extractHeaderTypes (mheader m) ++
+          extractExprTypes (mbody m)
 
+      extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype
 
+      extractExprTypes :: Expr -> [Type]
       extractExprTypes = foldr collectTypes []
           where
             collectTypes e acc = (typeComponents . getType) e ++ acc
