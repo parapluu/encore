@@ -248,7 +248,10 @@ oneWayMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgTypeName cls mname =
     Nam $ encoreName "oneway_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
 
--- | for each method, there's a corresponding message, this is its name
+msgId :: Ty.Type -> ID.Name -> CCode Name
+msgId ref mname =
+    Nam $ "_ENC__MSG_" ++ Ty.getId ref ++ "_" ++ show mname
+
 futMsgId :: Ty.Type -> ID.Name -> CCode Name
 futMsgId ref mname =
     Nam $ "_ENC__FUT_MSG_" ++ Ty.getId ref ++ "_" ++ show mname

@@ -4,6 +4,7 @@
 
 module Typechecker.Util(TypecheckM
                        ,whenM
+                       ,anyM
                        ,unlessM
                        ,tcError
                        ,resolveType
@@ -207,12 +208,12 @@ findField ty f = do
     Nothing -> tcError $ "No field '" ++ show f ++ "' in " ++
                          classOrTraitName ty
 
-findMethod :: Type -> Name -> TypecheckM MethodDecl
+findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty name = do
-  m' <- asks $ methodLookup ty name
-  when (isNothing m') $ tcError $
+  h' <- asks $ methodLookup ty name
+  when (isNothing h') $ tcError $
     concat [noMethod name, " in ", classOrTraitName ty]
-  return $ fromJust m'
+  return $ fromJust h'
   where
     noMethod (Name "_init") = "No constructor"
     noMethod n = concat ["No method '", show n, "'"]

@@ -1,0 +1,24 @@
+trait T
+  require foo(x : int) : int
+
+  def bar() : int
+    this.foo(42)
+
+trait U<t>
+  require fr0b() : t
+
+passive class C : T + U<T>
+  def foo(y : int) : int
+    y
+
+  def fr0b() : C
+    new C
+
+class Main
+  def main() : void
+    let c = new C
+        u = c : U<T>
+    in{
+      print c.bar();
+      print u.fr0b().bar();
+    }
