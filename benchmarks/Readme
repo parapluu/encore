@@ -30,8 +30,14 @@ config.rb:
 
         Each file also implements an optional 'expected' function
         which takes the same array as 'sample' and returns an expected
-        output given the input in args. The return value should be an
-        expected substring of the program output.
+        output given the input in args. The return value of the
+        'expected' function should be one of the following: 
+                   1) an expected substring of the program output or 
+
+                   2) a list of expected substrings of the program
+                      output, to be used if order of program output is
+                      not essential. That is, a list of partial
+                      matches.
 
         One example file is given and is located at
         /rbfiles/example.rb. For an example with a defined 'expected'
