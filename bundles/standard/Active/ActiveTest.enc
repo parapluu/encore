@@ -1,5 +1,4 @@
 import Active.Active
-import Assert.Assert
 
 def getActiveInt() : Active<int> {
   new Active<int>(\ () -> 1)
@@ -11,9 +10,9 @@ def testInit() : void {
 
 def testGetState() : void {
   let a = getActiveInt() in {
-    assert("state must be 1", 1 == get a.getState());
+    assertTrue(1 == get a.getState());
     a.apply(\ (i:int) -> i+1);
-    assert("state must be 2 after increment", 2 == get a.getState());
+    assertTrue(2 == get a.getState());
   }
 }
 
