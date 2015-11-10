@@ -17,7 +17,9 @@ INCLUDE_OUTPUT = true # includes program output in data file
 
 PONYTHREADS_DEFAULT = 2 # default amount of ponythreads to use
 
-PL_FANNKUCH_CONF = [ 
+UNUSED = [0]
+
+PL_FANNKUCH_CONF = [
   ["n=7", [7]],
   ["n=8", [8]],
   ["n=9", [9]],
@@ -44,7 +46,7 @@ PL_BENCHMARKS = [
 ]
 
 GC_GCBENCH_CONF = [
-
+  ["gc_bench", UNUSED]
 ]
 
 GC_BENCHMARKS = [
