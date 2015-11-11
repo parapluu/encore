@@ -14,7 +14,6 @@ pony_type_t *future_get_type(future_t *fut);
 // ===============================================================
 future_t    *future_mk(pony_type_t *type);
 bool         future_fulfilled  (future_t *fut);
-encore_arg_t future_read_value (future_t *fut);
 void         future_fulfil     (future_t *fut, encore_arg_t value);
 
 // ===============================================================
