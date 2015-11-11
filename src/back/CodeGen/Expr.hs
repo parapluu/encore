@@ -184,6 +184,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Call partyExtract [AsExpr nval, runtimeT]
     return (nExtract, Seq [tval, tExtract])
 
+  translate p@(A.PartyEach {A.val}) = do
+    (nval, tval) <- translate val
+    (nEach, tEach) <- namedTmpVar "par" (A.getType p) $ Call partyEach [nval]
+    return (nEach, Seq [tval, tEach])
+
   translate p@(A.PartyPar {A.parl, A.parr}) = do
     (nleft, tleft) <- translate parl
     (nright, tright) <- translate parr

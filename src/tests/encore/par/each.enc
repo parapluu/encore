@@ -1,0 +1,8 @@
+class Main
+  def main(): void
+    let rng = [1..2000]
+        arr = new [int](2000)
+    in {
+        for i in rng arr[i] = i;
+        extract((each(arr)) >> \(i: int) -> print i)
+    }

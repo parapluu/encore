@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract"
+     "extract", "each"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -501,6 +501,7 @@ expr  =  unit
      <|> finishTask
      <|> for
      <|> foreach
+     <|> each
      <|> extract
      <|> parens expression
      <|> varAccess
@@ -614,6 +615,10 @@ expr  =  unit
       tupleLit = do pos <- getPosition
                     args <- parens (expression `sepBy2` comma)
                     return $ Tuple (meta pos) args
+      each = do pos <- getPosition
+                reserved "each"
+                expr <- expression
+                return $ PartyEach (meta pos) expr
       get = do pos <- getPosition
                reserved "get"
                expr <- expression

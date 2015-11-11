@@ -1,5 +1,6 @@
 #include "array.h"
 #include "encore.h"
+#include <assert.h>
 
 struct array_t
 {
@@ -21,17 +22,17 @@ pony_type_t array_type =
 /*   return *ia - *ib; */
 /* } */
 
-int int_cmp(const void *a, const void *b) { 
+int int_cmp(const void *a, const void *b) {
   const intptr_t *ia = (const intptr_t*) a;
   const intptr_t *ib = (const intptr_t*) b;
   return *ia - *ib;
 }
 
 /// Only works on arrays of integers, only callable through embed at the present
-void array_qsort(array_t *a, int64_t start, int64_t end) 
+void array_qsort(array_t *a, int64_t start, int64_t end)
 {
   struct array_t *p = a;
-  qsort(p->elements + start, end, sizeof(encore_arg_t*), int_cmp); 
+  qsort(p->elements + start, end, sizeof(encore_arg_t*), int_cmp);
 }
 
 void array_trace(void *p)
@@ -66,6 +67,28 @@ array_t *array_from_array(size_t size, pony_type_t *type, encore_arg_t arr[])
   return array;
 }
 
+
+array_t *array_get_chunk(size_t start, size_t end, array_t* a){
+  assert(start <= end);
+
+  struct array_t* arr = a;
+  size_t total_size = array_size(arr);
+  size_t local_size = end - start + 1;
+
+  if((start < total_size) && (end < total_size)){
+    array_t* new_array = array_mk(local_size, arr->type);
+    size_t pivot = total_size - start;
+    value_t* elements = arr->elements;
+
+    for(; start<=end; start++){
+      size_t index = pivot + start - total_size;
+      array_set(new_array, index, elements[start]);
+    }
+    return new_array;
+  }
+  exit(-1);
+}
+
 inline size_t array_size(array_t *a)
 {
   return ((struct array_t *)a)->size;
@@ -88,8 +111,11 @@ inline encore_arg_t array_get(array_t *a, size_t i)
   return ((struct array_t *)a)->elements[i];
 }
 
+pony_type_t* array_get_type(array_t *a){
+  return ((struct array_t *)a)->type;
+}
+
 inline void array_set(array_t *a, size_t i, encore_arg_t element)
 {
   ((struct array_t *)a)->elements[i] = element;
 }
-

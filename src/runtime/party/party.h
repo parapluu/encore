@@ -14,6 +14,7 @@ par_t* new_par_v(encore_arg_t val, pony_type_t const * const rtype);
 par_t* new_par_f(future_t* const fut, pony_type_t const * const rtype);
 par_t* new_par_p(par_t* const p1, par_t* const p2, pony_type_t const * const rtype);
 par_t* new_par_fp(future_t* const f, pony_type_t const * const rtype);
+par_t* new_par_array(array_t* arr, pony_type_t const * const rtype);
 /* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype); */
 
 /**
@@ -46,5 +47,16 @@ par_t* party_join(par_t* const p);
  * @param type Runtime type
  * @return Pointer to an array
  */
-array_t* party_extract(par_t* p, pony_type_t *type);
+array_t* party_extract(par_t* const p, pony_type_t const * const type);
+
+/**
+ * each :: [t] -> Par t
+ *
+ * Given an array of type t, return a Par t
+ *
+ * @param array Array to convert to a parallel collection
+ * @return Parallel collection
+ */
+par_t* party_each(array_t * const array);
+
 #endif
