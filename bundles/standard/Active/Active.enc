@@ -19,7 +19,16 @@ class Active<inner> {
   --
   -- The function will be applied to the inner state at some time in the
   -- future.
-  def apply(f : inner -> inner) : void {
+  def apply(f : inner -> void) : void {
+    f(this.state)
+  }
+
+  -- Apply a function to the state and replace the state with its
+  -- result, asynchronously.
+  --
+  -- The function will be applied to the inner state at some time in the
+  -- future.
+  def map(f : inner -> inner) : void {
     this.state = f(this.state)
   }
 
