@@ -1,0 +1,57 @@
+def show_string(x: string, const: string, type: string): void
+  if x == const then
+    print("{} {}: OK\n", x, type)
+  else
+    print("{} {}: ERROR\n", const, type)
+
+def show_passive(x: PassiveTest, const: string, type: string): void
+  if x.elem == const then
+    print("{} {}: OK\n", x.elem, type)
+  else
+    print("{} {}: ERROR\n", x.elem, type)
+
+def primitive_const(): string
+  "Primitive Test"
+
+def passive_const(): string
+  "Passive Test"
+
+passive class PassiveTest
+  elem: string
+
+  def init(s: string):void
+    this.elem = s
+
+class Test
+  elem: string
+  passiveTest: PassiveTest
+
+  def init(s: string): void {
+    this.elem = s;
+    this.passiveTest = new PassiveTest(s);
+  }
+
+  def get_string(): string
+    this.passiveTest.elem
+
+  def get_pasive(): PassiveTest
+    this.passiveTest
+
+class Main
+
+  def test_primitive_liftf(): void
+    let testContentFuture = new Test("Liftf")
+        primitive_par = liftf(testContentFuture.get_string())
+    in
+        extract(primitive_par >> \(x:string) -> show_string(x, "Liftf", primitive_const()))
+
+  def test_passive_liftf(): void
+    let test = new Test("Liftf")
+        passive_par = liftf(test.get_pasive())
+    in
+        extract(passive_par >> \(x: PassiveTest) -> show_passive(x, "Liftf", passive_const()))
+
+  def main(): void {
+    this.test_primitive_liftf();
+    this.test_passive_liftf();
+  }

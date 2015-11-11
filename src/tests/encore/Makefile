@@ -1,9 +1,11 @@
-test: 
-	make -C basic clean test
-	make -C modules clean test
+TEST_DIRECTORY=basic modules par
+
+test: $(TEST_DIRECTORY)
+
+$(TEST_DIRECTORY):
+	@make -C $@ clean test
 
 clean:
-	make -C basic clean
-	make -C modules clean
+	@$(foreach FOLDER,$(TEST_DIRECTORY), make -C $(FOLDER) clean;)
 
-.PHONY: test all
+.PHONY: test clean $(TEST_DIRECTORY)

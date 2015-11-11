@@ -143,6 +143,9 @@ partySequence = Nam "party_sequence"
 partyJoin :: CCode Name
 partyJoin = Nam "party_join"
 
+partyExtract :: CCode Name
+partyExtract = Nam "party_extract"
+
 partyNewParP :: CCode Name
 partyNewParP = Nam "new_par_p"
 

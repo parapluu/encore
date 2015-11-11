@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include "closure.h"
+#include "list.h"
+#include <array.h>
 
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
@@ -46,6 +48,37 @@ pony_type_t party_type =
   };
 
 #define get_rtype(x) (x)->rtype
+
+// MACRO for setting the parallel collection. Needs gcc-4.9
+/* #define set_par(elem1, elem2, par) \ */
+/*   _Generic((elem1),                \ */
+/*   future_t*: set_par_future,       \ */
+/*   par_t*: set_par_par,             \ */
+/*   encore_arg_t: set_par_value)(elem1, elem2, par) */
+
+static inline void set_par_value(encore_arg_t val,
+                                 void * __attribute__((unused))null,
+                                 par_t * const par){
+  par->data.val = val;
+}
+
+static inline void set_par_future(future_t * const fut,
+                                  void * __attribute__((unused)) null,
+                                  par_t *par){
+  par->data.fut = fut;
+}
+
+static inline void set_par_par(par_t * const rpar, par_t * const lpar,
+                               par_t * const par){
+  switch(par->tag){
+  case PAR_PAR: {
+      par->data.left = lpar;
+      par->data.right = rpar;
+      break;
+  }
+  default: assert(0);
+  }
+}
 
 void party_trace(void* p){
   par_t *obj = p;
@@ -102,28 +135,26 @@ static par_t* init_par(enum PTAG tag, pony_type_t const * const rtype){
 
 par_t* new_par_v(encore_arg_t val, pony_type_t const * const rtype){
   par_t* p = init_par(VALUE_PAR, rtype);
-  p->data.val = val;
-  p->data.tag = VAL;
+  set_par_value(val, NULL, p);
   return p;
 }
 
-par_t* new_par_f(future_t* const f, pony_type_t const * const rtype){
+par_t* new_par_f(future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(FUTURE_PAR, rtype);
-  p->data.fut = f;
+  set_par_future(f, NULL, p);
   return p;
 }
 
-par_t* new_par_p(par_t* const p1, par_t* const p2,
+par_t* new_par_p(par_t* p1, par_t* p2,
                  pony_type_t const * const rtype){
   par_t* p = init_par(PAR_PAR, rtype);
-  p->data.left = p1;
-  p->data.right = p2;
+  set_par_par(p1, p2, p);
   return p;
 }
 
-par_t* new_par_fp(future_t* const f, pony_type_t const * const rtype){
+par_t* new_par_fp(future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(FUTUREPAR_PAR, rtype);
-  p->data.fut = f;
+  set_par_future(f, NULL, p);
   return p;
 }
 
@@ -267,4 +298,53 @@ par_t* party_join(par_t* const p){
   case FUTUREPAR_PAR: return party_join_fp(p);
   /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   }
+}
+
+//----------------------------------------
+// EXTRACT COMBINATOR
+//----------------------------------------
+
+static inline list_t* extract_helper(list_t * const list, par_t * const p,
+                                     pony_type_t const * const type){
+  switch(p->tag){
+  /* case EMPTY_PAR: return list; */
+  case VALUE_PAR: return list_push(list, p->data.v.val);
+  case FUTURE_PAR: {
+    future_t *fut = p->data.f.fut;
+    value_t val = future_get_actor(fut);
+    return list_push(list, val);
+  }
+  case PAR_PAR: {
+    par_t *left = p->data.left;
+    par_t *right = p->data.right;
+    list_t* tmp_list = extract_helper(list, left, type);
+    return extract_helper(tmp_list, right, type);
+  }
+  case FUTUREPAR_PAR: {
+    future_t *fut = p->data.f.fut;
+    par_t* par = future_get_actor(fut).p;
+    return extract_helper(list, par, type);
+  }
+  }
+}
+
+static inline array_t* list_to_array(list_t* const list,
+                                     pony_type_t const * const type){
+  size_t size = list_length(list);
+  array_t* arr = array_mk(size, type);
+  list_t* temp_list = list_index(list, 0);
+
+  // TODO: If the list is too big, distribute work using tasks
+  for(size_t i=0; i<size; i++) {
+    array_set(arr, i, list_data(temp_list));
+    temp_list = list_index(temp_list, 1);
+  }
+  return arr;
+}
+
+array_t* party_extract(par_t * const p, pony_type_t const * const type){
+  list_t *list = NULL;
+  list_t* const tmp_list = extract_helper(list, p, type);
+
+  return list_to_array(tmp_list, type);
 }

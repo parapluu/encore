@@ -179,10 +179,9 @@ project "closure"
 
 project "party"
   c_lib()
-  links { "future", "closure", "array" }
+  links { "future", "array" }
   files {
-    "../party/party.h",
-    "../party/party.c",
+    "../party/party.*",
   }
 
 project "future"
