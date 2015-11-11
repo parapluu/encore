@@ -6,6 +6,11 @@
 
 #define LAZY_IMPL
 
+// Only useful when using `party_each` on an array.
+// It will split up the array into chunks and start processing the chunk using
+// a task. Otherwise, the behaviour of `party_each` is sequential.
+/* #define PARTY_ARRAY_PARALLEL */
+
 #define Stack_Size 8*1024*1024
 
 #include <platform.h>

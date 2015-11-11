@@ -157,6 +157,9 @@ partyJoin = Nam "party_join"
 partyExtract :: CCode Name
 partyExtract = Nam "party_extract"
 
+partyEach :: CCode Name
+partyEach = Nam "party_each"
+
 partyNewParP :: CCode Name
 partyNewParP = Nam "new_par_p"
 

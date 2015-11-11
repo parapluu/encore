@@ -5,12 +5,14 @@
 #include "closure.h"
 #include "list.h"
 #include <array.h>
+#include <math.h>
+#include <encore.h>
 
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
 
 // TODO: add EMPTY_PAR, JOIN_PAR
-enum PTAG { VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR};
+enum PTAG { VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR, ARRAY_PAR};
 enum VAL_OR_PAR {VAL, PAR};
 
 // TODO: uncomment once we handle the empty par case
@@ -21,6 +23,7 @@ typedef struct FUTURE_PARs { future_t* fut; } FUTURE_PARs;
 typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
 typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct JOIN_PARs { struct par_t* join; } JOIN_PARs;
+typedef struct ARRAY_PARs { struct array_t* array; } ARRAY_PARs;
 
 struct par_t {
     enum PTAG tag;
@@ -32,20 +35,23 @@ struct par_t {
       PAR_PARs p;
       FUTUREPAR_PARs fp;
       JOIN_PARs j;
+      ARRAY_PARs a;
       /* struct EMPTY_PARs; */
       struct VALUE_PARs;
       struct FUTURE_PARs;
       struct PAR_PARs;
       struct JOIN_PARs;
+      struct ARRAY_PARs;
     } data;
 };
 
 pony_type_t party_type =
-  {
-    .id=ID_PARTY,
-    .size=sizeof(struct par_t),
-    .trace=party_trace
-  };
+{
+  .id=ID_PARTY,
+  .size=sizeof(struct par_t),
+  .trace=party_trace
+};
+
 
 #define get_rtype(x) (x)->rtype
 
@@ -54,17 +60,20 @@ pony_type_t party_type =
 /*   _Generic((elem1),                \ */
 /*   future_t*: set_par_future,       \ */
 /*   par_t*: set_par_par,             \ */
+/*   array_t*: set_par_array,         \ */
 /*   encore_arg_t: set_par_value)(elem1, elem2, par) */
 
 static inline void set_par_value(encore_arg_t val,
                                  void * __attribute__((unused))null,
                                  par_t * const par){
+  assert(par->tag == VALUE_PAR);
   par->data.val = val;
 }
 
 static inline void set_par_future(future_t * const fut,
                                   void * __attribute__((unused)) null,
                                   par_t *par){
+  assert(par->tag == FUTURE_PAR);
   par->data.fut = fut;
 }
 
@@ -76,14 +85,42 @@ static inline void set_par_par(par_t * const rpar, par_t * const lpar,
       par->data.right = rpar;
       break;
   }
-  default: assert(0);
+  default: assert(0); exit(-1);
+  }
+}
+
+
+static inline void set_par_array(array_t* const arr,
+                   void * __attribute__((unused)) null,
+                   par_t* const p){
+  assert(p->tag == ARRAY_PAR);
+  p->data.array = arr;
+}
+
+
+static inline void trace_array_par(par_t* obj){
+  array_t* ar = obj->data.array;
+  if(obj->rtype == ENCORE_PRIMITIVE){
+    for(size_t i = 0; i<array_size(ar); i++){
+      void* val = array_get(ar, i).p;
+      pony_traceactor(val);
+    }
+  }else{
+    pony_trace_fn trace_fn = obj->rtype->trace;
+    for(size_t i = 0; i<array_size(ar); i++){
+      void* val = array_get(ar, i).p;
+      pony_traceobject(val, trace_fn);
+    }
   }
 }
 
 void party_trace(void* p){
   par_t *obj = p;
   if(obj->rtype == ENCORE_ACTIVE){
-    pony_traceactor((pony_actor_t*) obj->data.v.val.p);
+    if(obj->tag == VALUE_PAR)
+      pony_traceactor((pony_actor_t*) obj->data.v.val.p);
+    else
+      trace_array_par(obj);
   }else if(obj->rtype != ENCORE_PRIMITIVE){
     switch(obj->tag){
     /* case EMPTY_PAR: break; */
@@ -102,6 +139,10 @@ void party_trace(void* p){
     }
     case FUTUREPAR_PAR: {
       pony_traceobject(obj->data.fp.fut, obj->rtype->trace);
+      break;
+    }
+    case ARRAY_PAR: {
+      trace_array_par(obj);
       break;
     }
     /* case JOIN_PAR: { */
@@ -158,6 +199,12 @@ par_t* new_par_fp(future_t* f, pony_type_t const * const rtype){
   return p;
 }
 
+par_t* new_par_array(array_t* arr, pony_type_t const * const rtype){
+  par_t* p = init_par(ARRAY_PAR, rtype);
+  set_par_array(arr, NULL, p);
+  return p;
+}
+
 // TODO: enable once we can create J
 /* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype){ */
 /*   par_t* par = init_par(JOIN_PAR, rtype); */
@@ -203,6 +250,22 @@ static inline par_t* fmap_run_f(par_t* const in, fmap_s* const f){
   return new_par_f(chained_fut, get_rtype(f));
 }
 
+static inline par_t* fmap_run_array(par_t* const in, fmap_s* const f){
+  array_t* old_array = in->data.array;
+  size_t size = array_size(old_array);
+  pony_type_t* type = get_rtype(f);
+  array_t* new_array = array_mk(size, type);
+  closure_t* clos = f->fn;
+
+  for(size_t i = 0; i < size; i++){
+    value_t value = array_get(old_array, i);
+    value_t new_value = closure_call(clos, (value_t[]){value});
+    array_set(new_array, i, new_value);
+  }
+
+  return new_par_array(new_array, type);
+}
+
 // WARNING:
 // this function is only used for fmap J, which guarantees
 // that args is of: {.p = par_t* }
@@ -244,6 +307,7 @@ static par_t* fmap(closure_t* const f, par_t* const in,
     return new_par_p(left, right, rtype);
   }
   case FUTUREPAR_PAR: return fmap_run_fp(in, fm);
+  case ARRAY_PAR: return fmap_run_array(in, fm);
   /* case JOIN_PAR: return fmap_run_j(in, fm); */
   }
 }
@@ -256,6 +320,9 @@ par_t* party_sequence(par_t* const p, closure_t* const f,
 //---------------------------------------
 // JOIN COMBINATOR
 //---------------------------------------
+
+// Forward declaration of party_join
+par_t* party_join(par_t* const p);
 
 static inline par_t* party_join_v(par_t* const p){
    return ((par_t*)p->data.val.p);
@@ -289,6 +356,16 @@ static inline par_t* party_join_fp(par_t* const p){
   return new_par_fp(chained_fut, p->rtype);
 }
 
+static value_t closure_join(value_t val[],
+                                void* __attribute__ ((unused)) env){
+  return (value_t){.p = party_join(val[0].p)};
+}
+
+static inline par_t* party_join_array(par_t* const p){
+  closure_t* clos = closure_mk(closure_join, NULL, party_trace);
+  return party_sequence(p, clos, get_rtype(p));
+}
+
 par_t* party_join(par_t* const p){
   switch(p->tag){
   /* case EMPTY_PAR: return p; */
@@ -296,6 +373,7 @@ par_t* party_join(par_t* const p){
   case FUTURE_PAR: return new_par_fp(p->data.fut, get_rtype(p));
   case PAR_PAR: return party_join_p(p);
   case FUTUREPAR_PAR: return party_join_fp(p);
+  case ARRAY_PAR: return party_join_array(p);
   /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   }
 }
@@ -325,6 +403,16 @@ static inline list_t* extract_helper(list_t * const list, par_t * const p,
     par_t* par = future_get_actor(fut).p;
     return extract_helper(list, par, type);
   }
+  case ARRAY_PAR: {
+    array_t* ar = p->data.array;
+    size_t size = array_size(ar);
+    list_t* new_list = list;
+    for(size_t i=0; i<size; i++){
+      value_t value = array_get(ar, i);
+      new_list = list_push(new_list, value);
+    }
+    return new_list;
+  }
   }
 }
 
@@ -347,4 +435,63 @@ array_t* party_extract(par_t * const p, pony_type_t const * const type){
   list_t* const tmp_list = extract_helper(list, p, type);
 
   return list_to_array(tmp_list, type);
+}
+
+//----------------------------------------
+// EACH COMBINATOR
+//----------------------------------------
+
+#define SPLIT_THRESHOLD 1000
+#define MARGIN 1.3
+
+static void build_party_tree(par_t** root, par_t* node){
+  if(*root == NULL)
+    *root = node;
+  else
+    *root = new_par_p(*root, node, get_rtype(*root));
+}
+
+#ifdef PARTY_ARRAY_PARALLEL
+typedef struct env_par {
+  par_t* p;
+} env_par;
+
+static value_t id_as_task(void* env, void* __attribute__((unused)) null){
+  par_t* par = ((env_par*)env)->p;
+  return (value_t){.p = par};
+}
+#endif
+
+par_t* party_each(array_t* const ar){
+  size_t start, end;
+  par_t* root = NULL;
+
+  size_t size = array_size(ar);
+  pony_type_t* type = array_get_type(ar);
+  size_t groups = (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
+
+  for(size_t i=0; i<groups; i++){
+    start = i * SPLIT_THRESHOLD;
+    end = (i+1 == groups) ? size-1 : (i+1) * (SPLIT_THRESHOLD-1);
+
+    array_t* const chunk = array_get_chunk(start, end, ar);
+    par_t* par = new_par_array(chunk, type);
+#ifdef PARTY_ARRAY_PARALLEL
+    future_t* fut = future_mk(array_get_type(ar));
+    env_par* env = encore_alloc(sizeof* env);
+    env->p = par;
+    encore_task_s* task = task_mk(id_as_task, env, NULL, NULL);
+    task_attach_fut(task, fut);
+    task_schedule(task);
+
+    pony_gc_send();
+    pony_traceobject(fut, future_type.trace);
+    pony_traceobject(task, NULL);
+    pony_send_done();
+
+    par = new_par_fp(fut, type);
+#endif
+    build_party_tree(&root, par);
+  }
+  return root;
 }

@@ -361,6 +361,8 @@ data Expr = Skip {emeta :: Meta Expr}
                        val :: Expr}
           | PartyExtract {emeta :: Meta Expr,
                           val :: Expr}
+          | PartyEach {emeta :: Meta Expr,
+                       val :: Expr}
           | PartySeq {emeta :: Meta Expr,
                       par :: Expr,
                       seqfunc :: Expr}

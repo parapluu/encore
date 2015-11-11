@@ -358,6 +358,15 @@ instance Checkable Expr where
             "'join' combinator was expecting type 'Par Par " ++
             show expectedType ++ "' but found type '" ++ show foundType ++ "' instead."
 
+    doTypecheck p@(PartyEach {val}) = do
+      e <- typecheck val
+      let typ = AST.getType e
+      unless (isArrayType typ) $
+        tcError $ "Parallel combinator 'each' was expecting an array type " ++
+                  "from expression '" ++ show (ppExpr e) ++ "' but found " ++
+                  "type '" ++ show typ ++ "'"
+      return $ setType ((parType.getResultType) typ) p {val = e}
+
     doTypecheck p@(PartyExtract {val}) = do
       e <- typecheck val
       let typ = AST.getType e
