@@ -24,7 +24,7 @@ getChildren FunctionCall {args} = args
 getChildren Closure {body} = [body]
 getChildren (MaybeValue _ (JustData e)) = [e]
 getChildren (MaybeValue _ NothingData) = []
-getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
+getChildren Tuple {args} = args
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
@@ -36,6 +36,11 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren For {name, step, src, body} = [step, src, body]
+getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
+  where
+    getChildrenClauses = concatMap getChildrenClause
+
+    getChildrenClause MatchClause {mcpattern, mchandler, mcguard} = [mcpattern, mchandler, mcguard]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
@@ -82,13 +87,7 @@ putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
 putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
 putChildren [] e@(MaybeValue _ NothingData) = e
-putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
-  where
-    pair :: [Expr] -> [(Expr, Expr)]
-    pair l =
-      let patternMatches = [l!!x | x <- [0..length l], x `mod` 2 == 0]
-          bodies = [l!!x | x <- [0..length l], x `mod` 2 == 1] in
-      zip patternMatches bodies
+putChildren args e@(Tuple {}) = e{args = args}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
@@ -98,6 +97,10 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
+putChildren (arg:clauseList) e@(Match {clauses}) = e{arg = arg, clauses=putClausesChildren clauseList clauses}
+  where putClausesChildren [] [] = []
+        putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) = (mc{mcpattern=pattern, mchandler=handler, mcguard=guard}):putClausesChildren rest rClauses
+        putClausesChildren _ _ = error "Wrong number of children of of match clause"
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
@@ -134,7 +137,7 @@ putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 element
 putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
-putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have at least 1 elements"
+putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
@@ -149,6 +152,7 @@ putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 
 putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
+putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"

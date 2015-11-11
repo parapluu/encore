@@ -10,7 +10,7 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else" "eos" "for" "foreach" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "while" "yield" ))
+(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else" "eos" "for" "foreach" "get" "getNext" "if" "in" "let" "match" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "when" "while" "with"  "yield"))
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("int" "string" "void" "bool"))
@@ -90,34 +90,37 @@
 		    (if (string-match "\\<while\\>" line)
 			(+ (match-beginning 0) encore-tab-width)
 
-		      (if (string-match "\\<let\\>.*\\<in\\>$" line)
+		      (if (string-match "\\<match\\>" line)
 			  (+ (match-beginning 0) encore-tab-width)
 
-			(if (string-match "\\<embed\\>.*\\<end\\>" line)
-			    (match-beginning 0)
-			  (if (string-match "\\<embed\\>" line)
-			      (if (equal first "end")
-				  (match-beginning 0)
-				(+ (match-beginning 0) encore-tab-width))
+			(if (string-match "\\<let\\>.*\\<in\\>$" line)
+			    (+ (match-beginning 0) encore-tab-width)
 
-			    (if (string-match "\\<let\\>\\W*\\(\\w+\\)" line)
-				(if (equal "in" first)
+			  (if (string-match "\\<embed\\>.*\\<end\\>" line)
+			      (match-beginning 0)
+			    (if (string-match "\\<embed\\>" line)
+				(if (equal first "end")
 				    (match-beginning 0)
-				  (match-beginning 1))
-			      (if (string-match "\\<let\\>" line)
+				  (+ (match-beginning 0) encore-tab-width))
+
+			      (if (string-match "\\<let\\>\\W*\\(\\w+\\)" line)
 				  (if (equal "in" first)
 				      (match-beginning 0)
-				    (+ (match-beginning 0) encore-tab-width))
-				(if (string-match "\\<in\\>[ \t]*$" line)
-				    (+ (match-beginning 0) encore-tab-width)
-
-				  (if (string-match "\\<def\\>" line)
+				    (match-beginning 1))
+				(if (string-match "\\<let\\>" line)
+				    (if (equal "in" first)
+					(match-beginning 0)
+				      (+ (match-beginning 0) encore-tab-width))
+				  (if (string-match "\\<in\\>[ \t]*$" line)
 				      (+ (match-beginning 0) encore-tab-width)
 
-				    (if (string-match "\\W*\\([^;]*\\);" line)
-					(match-beginning 1)
-				      (if (bobp)
-					  0))))))))))))))))))))
+				    (if (string-match "\\<def\\>" line)
+					(+ (match-beginning 0) encore-tab-width)
+
+				      (if (string-match "\\W*\\([^;]*\\);" line)
+					  (match-beginning 1)
+					(if (bobp)
+					    0)))))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)

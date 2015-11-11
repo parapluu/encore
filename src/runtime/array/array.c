@@ -10,15 +10,9 @@ struct array_t
 
 pony_type_t array_type =
   {
-    ID_ARRAY,
-    sizeof(struct array_t),
-    0,
-    0,
-    array_trace,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    .id = ID_ARRAY,
+    .size = sizeof(struct array_t),
+    .trace = array_trace,
   };
 
 /* int int_cmp(const void *a, const void *b) {  */
@@ -66,7 +60,7 @@ array_t *array_mk(size_t size, pony_type_t *type)
 array_t *array_from_array(size_t size, pony_type_t *type, encore_arg_t arr[])
 {
   struct array_t *array = array_mk(size, type);
-  for(int i = 0; i < size; i++) {
+  for(size_t i = 0; i < size; i++) {
     array_set(array, i, arr[i]);
   }
   return array;

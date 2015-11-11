@@ -52,6 +52,7 @@ typedef enum {
   ID_FUTURE,
   ID_SCONS,
   ID_ARRAY,
+  ID_TUPLE,
   ID_RANGE,
 } encore_type_id;
 
