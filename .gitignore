@@ -38,5 +38,8 @@ src/tests/encore/basic/*
 src/tests/encore/modules/*
 !src/tests/encore/modules/*.enc
 !src/tests/encore/modules/*.out
+src/tests/encore/par/*
+!src/tests/encore/par/*.enc
+!src/tests/encore/par/*.out
 /.dist-buildwrapper/
 .project
