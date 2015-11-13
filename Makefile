@@ -60,6 +60,8 @@ STREAM_INC=$(RUNTIME_DIR)/stream/stream.h
 STREAM_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libstream.a
 ARRAY_INC=$(RUNTIME_DIR)/array/array.h
 ARRAY_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libarray.a
+TUPLE_INC=$(RUNTIME_DIR)/tuple/tuple.h
+TUPLE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libtuple.a
 RANGE_INC=$(RUNTIME_DIR)/range/range.h
 RANGE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/librange.a
 
@@ -76,6 +78,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(STREAM_INC) $(INC_DIR)
 	cp -r $(ENCORE_INC) $(INC_DIR)
 	cp -r $(ARRAY_INC) $(INC_DIR)
+	cp -r $(TUPLE_INC) $(INC_DIR)
 	cp -r $(RANGE_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
@@ -86,6 +89,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(ENCORE_LIB) $(LIB_DIR)
 	cp -r $(STREAM_LIB) $(LIB_DIR)
 	cp -r $(ARRAY_LIB) $(LIB_DIR)
+	cp -r $(TUPLE_LIB) $(LIB_DIR)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:

@@ -1,0 +1,27 @@
+passive class Container<t>
+  elem :t
+
+  def init(elem :t) :void
+    this.elem = elem
+
+  -- The extractor
+  def This() :Maybe Container<t>
+    Just this
+
+
+class Main
+  def test1() :void
+    match new Container<string>("foobar") with
+      _ when false => print "baaaad"
+      This(This(This(This(c)))) => print c.elem
+
+  def test2() :void
+    match (1, 2, "123") with
+      (a, b, "123") when a > b => print "nope"
+      (1, b, c) => print("{}{}{}", 1, b, c)
+      
+  def main() :void {
+    this.test1();
+    this.test2();
+    }
+   
