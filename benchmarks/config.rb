@@ -1,10 +1,13 @@
+# Amount of times each benchmark configuration will be executed
 REPS = 5
 
 # The tool that will measure execution time and load of each program
 # that is executed, result saved in data files. If you change this
 # tool to another, please make sure that the parsing routines in
 # run.rb works for the new tool.
-TIME = "/usr/bin/time --verbose"
+TIMEPATH = "/usr/bin/time"
+DEPENDENCIES = [TIMEPATH] # Add dependencies to this list
+TIME = "#{TIMEPATH} --verbose"
 
 WD = Dir.pwd # Working directory
 VERBOSE = false
