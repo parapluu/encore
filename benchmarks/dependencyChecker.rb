@@ -17,12 +17,19 @@ def printMissingDependencies(deps)
   end
 end
 
+def checkOS()
+  RUBY_PLATFORM
+end
+
 def checkDependencies()
   missing = checkMissingDependencies(DEPENDENCIES)
   if not missing.empty?
     return true, missing
   end
+
+  current_os = checkOS()
+  if not OS_SUPPORT.any? { |os| current_os.include? os}
+    return true, OS_SUPPORT
+  end
   return false
 end
-
-

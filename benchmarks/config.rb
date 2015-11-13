@@ -7,6 +7,7 @@ REPS = 5
 # run.rb works for the new tool.
 TIMEPATH = "/usr/bin/time"
 DEPENDENCIES = [TIMEPATH] # Add dependencies to this list
+OS_SUPPORT = ["linux"]
 TIME = "#{TIMEPATH} --verbose"
 
 WD = Dir.pwd # Working directory
