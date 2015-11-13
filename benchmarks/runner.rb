@@ -24,21 +24,32 @@ REPS.times do
   puts "-------"
   
   err = false
+  missingSubstrings = []
   if expectedOutput.is_a?(String)
     if programOutput.include? expectedOutput 
       puts "#{result}"
     else
-      puts "Measurement failed due to erroneous program output.\nOutput:\n#{programOutput}\nExpected to contain substring:\n#{expectedOutput}"
+      puts "Measurement failed due to erroneous program output.\n"\
+      "Program output:\n#{programOutput}\n"\
+      "Expected to contain substring:\n#{expectedOutput}"
     end
   else
     expectedOutput.each do |substring|
       if not programOutput.include? substring
-        puts "Measurement failed due to erroneous program output.\nOutput:\n#{programOutput}\nExpected to contain substring:\n#{substring}"
+        missingSubstrings.push(substring)
         err = true
       end
     end
-    if not err 
+    if not err
       puts "#{result}"
+    else
+      missingOutput = ""
+      missingSubstrings.each do |substring|
+        missingOutput.concat(substring).concat("\n")
+      end
+      puts "Measurement failed due to erroneous program output.\n"\
+      "Program output:\n#{programOutput}\n"\
+      "Expected to contain substring:\n#{missingOutput}"
     end
   end
 end
