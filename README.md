@@ -93,6 +93,11 @@ distribution.
 
 Run: `brew update; brew install llvm`
 
+##### Installing `premake4`
+
+Go to the[Premake4 Download page](http://premake.github.io/download.html),
+download and install `premake4`. 
+
 ##### Installing `ghc`
 
 You need at least version `7.10.2`.
@@ -103,7 +108,7 @@ You need at least version `7.10.2`.
 Then install the newest version:
 
 ```
-brew update && brew install cabal && cabal install cabal-install && brew install ghc
+brew update && brew install cabal-install && cabal update && brew install ghc
 ```
 
 #### Installing the preliminaries on Linux
