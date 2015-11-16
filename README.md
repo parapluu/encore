@@ -106,6 +106,10 @@ Then install the newest version:
 brew update && brew install cabal && cabal install cabal-install && brew install ghc
 ```
 
+##### Installing `premake4`:
+
+Run: `brew update; brew install premake`
+
 #### Installing the preliminaries on Linux
 
 It's only tested on Ubuntu 14.04, and hopefully it works as well on other
