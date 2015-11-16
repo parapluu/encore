@@ -62,31 +62,51 @@ instance Precheckable ImportDecl where
     doPrecheck Import{} =
       error "Prechecker.hs: Import AST Nodes should not exist during typechecking"
 
+instance Precheckable FunctionHeader where
+    doPrecheck header = do
+      htype' <- resolveType (htype header)
+      hparams' <- mapM precheck (hparams header)
+      return $ header{htype = htype', hparams = hparams'}
+
 instance Precheckable Function where
-    doPrecheck f@Function{funtype, funparams} = do
-      funtype'   <- resolveType funtype
-      funparams' <- mapM precheck funparams
-      return $ setType funtype' f{funparams = funparams'}
+    doPrecheck f@Function{funheader} = do
+      funheader' <- doPrecheck funheader
+      let funtype = htype funheader'
+      return $ setType funtype f{funheader = funheader'}
 
 instance Precheckable ParamDecl where
     doPrecheck p@Param{ptype} = do
       ptype' <- resolveType ptype
       return $ setType ptype' p
 
+instance Precheckable Requirement where
+    doPrecheck req
+        | isRequiredField req = do
+            rfield' <- doPrecheck $ rfield req
+            let ty = AST.getType rfield'
+            return $ setType ty req{rfield = rfield'}
+        | isRequiredMethod req = do
+            rheader' <- doPrecheck $ rheader req
+            let ty = htype rheader'
+            return $ setType ty req{rheader = rheader'}
+        | otherwise =
+            error $ "Prechecker.hs: requirement '" ++ show req ++
+                    "' is neither a field, nor a method"
+
 instance Precheckable TraitDecl where
-    doPrecheck t@Trait{tname, tfields, tmethods} = do
+    doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
       tname'    <- local addTypeParams $ resolveType tname
-      tfields'  <- mapM (local addTypeParams . precheck) tfields
+      treqs'  <- mapM (local addTypeParams . precheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
-      return $ setType tname' t{tfields = tfields', tmethods = tmethods'}
+      return $ setType tname' t{treqs = treqs', tmethods = tmethods'}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
         addThis = extendEnvironment [(thisName, tname)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
-          assertDistinct "requirement" tfields
+          assertDistinct "requirement" treqs
           assertDistinct "definition" tmethods
 
 instance Precheckable ClassDecl where
@@ -117,18 +137,19 @@ instance Precheckable FieldDecl where
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where
-    doPrecheck m = do
-      mtype'   <- resolveType $ mtype m
-      mparams' <- mapM precheck $ mparams m
+    doPrecheck m@Method{mheader} = do
+      mheader' <- doPrecheck mheader
       thisType <- liftM fromJust $ asks $ varLookup thisName
-      when (isMainMethod thisType (mname m)) checkMainParams
+      when (isMainMethod thisType (methodName m)) checkMainParams
       when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
            when (isConstructor m) $
                 tcError "Constructor cannot be streaming"
-      return $ setType mtype' m{mparams = mparams'}
+      let mtype = htype mheader'
+      return $ setType mtype m{mheader = mheader'}
       where
         checkMainParams =
-            unless (map ptype (mparams m) `elem` [[], [arrayType stringType]]) $
+            unless (map ptype (methodParams m) `elem` allowedMainArguments) $
               tcError "Main method must have argument type () or ([string])"
+        allowedMainArguments = [[], [arrayType stringType]]

@@ -20,7 +20,7 @@
 (setq encore-constants-regexp (regexp-opt encore-constants 'symbols))
 (setq encore-primitives-regexp (regexp-opt encore-primitives 'symbols))
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
-(setq encore-function-regexp "\\<\\(def\\|stream\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
+(setq encore-function-regexp "\\<\\(def\\|stream\\|require\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
 (setq encore-comment-regexp "--.?*")
 

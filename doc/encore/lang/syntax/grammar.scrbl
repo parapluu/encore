@@ -66,6 +66,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword bundle)
 @(encore/keyword as)
 @(encore/keyword class)
+@(encore/keyword trait)
+@(encore/keyword require)
 @(encore/keyword print)
 @(encore/keyword in)
 @(encore/keyword if)

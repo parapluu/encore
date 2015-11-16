@@ -70,7 +70,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
                    taskDispatchClause :
                    (if (A.isMainClass cdecl)
                     then ponyMainClause :
-                         (methodClauses $ filter ((/= ID.Name "main") . A.mname) cmethods)
+                         (methodClauses $ filter ((/= ID.Name "main") . A.methodName) cmethods)
                     else methodClauses $ cmethods
                    ))
                   (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ (Var "_m") `Arrow` (Nam "id")]))]))
@@ -95,7 +95,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
              -- explode _enc__Foo_bar_msg_t struct into variable names
              methodUnpackArguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
              methodUnpackArguments mdecl msgTypeName =
-               zipWith unpack (A.mparams mdecl) [1..]
+               zipWith unpack (A.methodParams mdecl) [1..]
                  where
                    unpack :: A.ParamDecl -> Int -> CCode Stat
                    unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (argName pname))) ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
@@ -125,32 +125,57 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
                            [futureFulfil, taskFree])
 
 
-             mthdDispatchClause mdecl@(A.Method{A.mname, A.mparams, A.mtype})  =
-                (futMsgId cname mname,
-                 Seq (unpackFuture :
-                      ((methodUnpackArguments mdecl (Ptr . AsType $ futMsgTypeName cname mname)) ++
-                      gcRecv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", futureTypeRecName `Dot` Nam "trace"]) ++
-                      [Statement $ Call (Nam "future_fulfil")
-                                        [AsExpr $ Var "_fut",
-                                         asEncoreArgT (translate mtype)
-                                             (Call (methodImplName cname mname)
-                                             ((Var $ "this") :
-                                             (map (argName . A.pname) mparams)))]])))
-             mthdDispatchClause mdecl@(A.StreamMethod{A.mname, A.mparams})  =
-                (futMsgId cname mname,
-                 Seq (unpackFuture :
-                      ((methodUnpackArguments mdecl (Ptr . AsType $ futMsgTypeName cname mname)) ++
-                      gcRecv mparams (Statement $ Call (Nam "pony_traceobject") [Var "_fut", futureTypeRecName `Dot` Nam "trace"]) ++
-                      [Statement $ Call (methodImplName cname mname)
-                                         ((Var $ "this") :
-                                          (Var $ "_fut") :
-                                          (map (argName . A.pname) mparams))])))
+             mthdDispatchClause mdecl
+                 | A.isStreamMethod mdecl =
+                     (futMsgId cname mName,
+                      Seq $ unpackFuture : args ++
+                            gcRecieve ++ [streamMethodCall])
+                 | otherwise =
+                     (futMsgId cname mName,
+                      Seq $ unpackFuture : args ++
+                            gcRecieve ++ [methodCall])
+                 where
+                   args =
+                       methodUnpackArguments mdecl
+                       (Ptr . AsType $ futMsgTypeName cname mName)
+                   gcRecieve  =
+                       gcRecv mParams
+                       (Statement $ Call (Nam "pony_traceobject")
+                                         [Var "_fut",
+                                          futureTypeRecName `Dot` Nam "trace"])
+                   streamMethodCall =
+                       Statement $ Call (methodImplName cname mName)
+                                        (Var "this" :
+                                         Var "_fut" :
+                                         map (argName . A.pname) mParams)
+                   methodCall =
+                       Statement $
+                         Call (Nam "future_fulfil")
+                              [AsExpr $ Var "_fut",
+                               asEncoreArgT (translate mType)
+                               (Call (methodImplName cname mName)
+                                     (Var "this" :
+                                      map (argName . A.pname) mParams))]
+                   mName   = A.methodName mdecl
+                   mParams = A.methodParams mdecl
+                   mType   = A.methodType mdecl
 
-             oneWaySendDispatchClause mdecl@A.Method{A.mname, A.mparams} =
-                (oneWayMsgId cname mname,
-                 Seq ((methodUnpackArguments mdecl (Ptr . AsType $ oneWayMsgTypeName cname mname)) ++
-                     gcRecv mparams (Comm "Not tracing the future in a oneWay send") ++
-                     [Statement $ Call (methodImplName cname mname) ((Var $ "this") : (map (argName . A.pname) mparams))]))
+             oneWaySendDispatchClause mdecl =
+                (oneWayMsgId cname mName,
+                 Seq $ args ++ gcRecieve ++ [methodCall])
+                 where
+                   args =
+                       methodUnpackArguments mdecl
+                       (Ptr . AsType $ oneWayMsgTypeName cname mName)
+                   gcRecieve =
+                       gcRecv mParams
+                       (Comm "Not tracing the future in a oneWay send")
+                   methodCall =
+                       Statement $
+                         Call (methodImplName cname mName)
+                              (Var "this" : map (argName . A.pname) mParams)
+                   mName   = A.methodName mdecl
+                   mParams = A.methodParams mdecl
 
              unpackFuture = let lval = Decl (Ptr (Typ "future_t"), Var "_fut")
                                 rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
@@ -212,13 +237,13 @@ traitMethodSelector ctable A.Class{A.cname, A.ccapability} =
   in
     Function retType fname args body
   where
-    traitCase :: Ty.Type -> Ty.Type -> [A.MethodDecl] ->
+    traitCase :: Ty.Type -> Ty.Type -> [A.FunctionHeader] ->
                  [(CCode Name, CCode Stat)]
     traitCase cname tname tmethods =
         let
-            methodNames = map A.mname tmethods
-            caseNames = map (oneWayMsgId tname) methodNames
-            caseStmts = map (Return . methodImplName cname) methodNames
+            methodNames = map A.hname tmethods
+            caseNames   = map (msgId tname) methodNames
+            caseStmts   = map (Return . methodImplName cname) methodNames
         in
           zip caseNames caseStmts
 
@@ -239,11 +264,11 @@ runtimeTypeInitFunDecl A.Class{A.cname, A.cfields, A.cmethods} =
 
 tracefunDecl :: A.ClassDecl -> CCode Toplevel
 tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
-    case find ((== Ty.getId cname ++ "_trace") . show . A.mname) cmethods of
-      Just mdecl@(A.Method{A.mbody, A.mname}) ->
+    case find ((== Ty.getId cname ++ "_trace") . show . A.methodName) cmethods of
+      Just mdecl@(A.Method{A.mbody}) ->
           Function void (classTraceFnName cname)
                    [(Ptr void, Var "p")]
-                   (Statement $ Call (methodImplName cname mname)
+                   (Statement $ Call (methodImplName cname (A.methodName mdecl))
                                 [Var "p"])
       Nothing ->
           Function void (classTraceFnName cname)

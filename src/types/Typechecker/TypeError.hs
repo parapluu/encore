@@ -28,6 +28,7 @@ data BacktraceNode = BTPulledImport QName
                    | BTParam ParamDecl
                    | BTField FieldDecl
                    | BTMethod MethodDecl
+                   | BTRequirement Requirement
                    | BTExpr Expr
 
 instance Show BacktraceNode where
@@ -39,10 +40,20 @@ instance Show BacktraceNode where
   show (BTTrait ty) = concat ["In trait '", show ty, "'"]
   show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
   show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
-  show (BTMethod Method{mname, mtype}) =
-    concat ["In method '", show mname, "' of type '", show mtype, "'"]
-  show (BTMethod StreamMethod{mname, mtype}) =
-    concat ["In stream method '", show mname, "' of type '", show mtype, "'"]
+  show (BTMethod m) =
+      let name = hname $ mheader m
+          ty   = htype $ mheader m
+          method | isStreamMethod m = "stream method"
+                 | otherwise = "method"
+      in
+        concat ["In ", method, " '", show name, "' of type '", show ty, "'"]
+  show (BTRequirement req)
+      | isRequiredField req =
+          concat ["In required field '", show . ppFieldDecl . rfield $ req, "'"]
+      | isRequiredMethod req =
+          concat ["In required method '"
+                 ,show . ppFunctionHeader . rheader $ req
+                 , "'"]
   show (BTExpr expr)
     | (isNothing . getSugared) expr = ""
     | otherwise =
@@ -73,8 +84,8 @@ instance Pushable ImportDecl where
     pushMeta i (BTPulledImport qname)
 
 instance Pushable Function where
-  push fun@(Function {funname, funtype}) =
-    pushMeta fun (BTFunction funname funtype)
+  push fun =
+    pushMeta fun (BTFunction (functionName fun) (functionType fun))
 
 instance Pushable TraitDecl where
   push t = pushMeta t (BTTrait (tname t))
@@ -90,6 +101,9 @@ instance Pushable ParamDecl where
 
 instance Pushable MethodDecl where
     push m = pushMeta m (BTMethod m)
+
+instance Pushable Requirement where
+    push m = pushMeta m (BTRequirement m)
 
 instance Pushable Expr where
     push expr = pushMeta expr (BTExpr expr)
