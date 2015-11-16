@@ -1,0 +1,100 @@
+embed
+  #include<math.h>
+  #include<limits.h>
+  #include<stdint.h>
+  #include<stdbool.h>
+  #include<float.h>
+  bool approximatelyEqual(double a, double b, double epsilon);
+  bool essentiallyEqual(double a, double b, double epsilon);
+  bool definitelyGreaterThan(double a, double b, double epsilon);
+  bool definitelyLessThan(double a, double b, double epsilon);
+body
+  // The following definitions are from 
+  // The art of computer programming by Knuth:
+  // http://stackoverflow.com/questions/17333/most-effective-way-for-float-and-double-comparison
+  bool approximatelyEqual(double a, double b, double epsilon)
+  {
+    return fabs(a - b) <= ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * epsilon);
+  }
+
+  bool essentiallyEqual(double a, double b, double epsilon)
+  {
+    return fabs(a - b) <= ( (fabs(a) > fabs(b) ? fabs(b) : fabs(a)) * epsilon);
+  }
+
+  bool definitelyGreaterThan(double a, double b, double epsilon)
+  {
+    return (a - b) > ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * epsilon);
+  }
+
+  bool definitelyLessThan(double a, double b, double epsilon)
+  {
+    return (b - a) > ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * epsilon);
+  }
+end
+
+passive class Math
+
+  def pi(): real { 3.14159265358979323846 }
+
+  def e(): real { 2.7182818284590452354 }
+
+  def epsilon(): real { 0.00001 }
+
+  def maxInt(a: int, b: int): int
+    if a >= b then a else b 
+
+  def maxReal(a: real, b: real): real
+    let 
+      e = this.epsilon() 
+      pred = embed bool definitelyGreaterThan(#{a}, #{b}, #{e}); end
+    in
+      if pred then a else b
+
+  def minInt(a: int , b: int): int 
+    if a <=b then a else b
+
+  def minReal(a: real, b: real): real
+    let 
+      e = this.epsilon() 
+      pred = embed bool definitelyLessThan(#{a}, #{b}, #{e}); end
+    in
+      if pred then a else b
+
+  def iabs(a: int): int 
+    if a < 0 then (0-a) else a -- there is no -a in encore...
+ 
+  def rabs(r: real): real
+    let 
+      e = this.epsilon() 
+      pred = embed bool definitelyLessThan(#{a}, #{b}, #{e}); end
+    in
+      if pred then 0 - r else r
+
+  def imax(): int 
+    embed int INT64_MAX; end 
+
+  def imin(): int
+    embed int INT64_MIN; end
+
+  def rmax(): real
+    embed real DBL_MAX; end
+
+  def rmin(): real
+    embed real DBL_MIN; end
+
+{--
+log10
+log2
+sq
+pow
+cos,sin,...
+
+	--}
+
+class Main
+
+  def main(): void {
+  	-- some nice tests here
+  	print "Hi"
+  }
