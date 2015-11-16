@@ -43,6 +43,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword party_seq ">>")
 @(encore/keyword party_join "join")
 @(encore/keyword party_extract "extract")
+@(encore/keyword party_each "each")
 @(encore/keyword party_liftv "liftv")
 @(encore/keyword party_liftf "liftf")
 @(encore/keyword for "for")
@@ -222,6 +223,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
               @seq[party_liftf Expr]
               @seq[party_join Expr]
               @seq[party_extract Expr]
+              @seq[party_each Expr]
               @seq[Expr party_seq Arrow]
               @seq[Expr party_par Expr]
 	      @seq[let LetDecls in Expr]
@@ -264,7 +266,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 		      @seq[Name @optional[dot QName]])
 
 	  (list MatchClause @seq[Expr @optional[when Expr] bold-arrow Expr])
-	  
+
 	  (list Int @elem{[0-9]+})
 
 	  (list Real @seq[Int dot Int])

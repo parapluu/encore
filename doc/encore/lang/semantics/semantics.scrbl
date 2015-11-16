@@ -669,6 +669,38 @@ class Main
         print value
 }|
 
+@subsection{each}
+The @code{each} combinator lifts an @code{array} to a parallel collection.
+Currently, this combinator runs in a single thread. If the collection
+is too big, this is not performant. As a temporary fix, you can
+define a flag (@code{PARTY_ARRAY_PARALLEL}) in @code{encore.h}
+to create workers that process a fixed amount of items from the array.
+Future work will improve this to create and remove workers based on some
+runtime metrics, instead of on a fixed amount of items.
+Its type signature is: @code{[t] -> Par t}.
+
+The following example shows how to calculate the euclidian distance
+for the K-means algorithm using the @code{each} combinator:
+
+@codeblock[#:line-numbers 1]|{
+class Kmeans
+
+  def _euclidian(xs: (int, int), ks: (int, int)): int
+    let x1 = get_first(xs)
+        x2 = get_second(xs)
+
+        k1 = get_first(ks)
+        k2 = get_first(ks)
+
+        z1 = square(x1-k1)
+        z2 = square(x2-k2)
+    in
+      square_root(z1 + z2)
+
+  def distance(observations: [(int, int)], ks: (int, int)): int
+    each(observations) >> \ (xs: (int, int) -> _euclidian(xs, ks))
+}|
+
 @section{Embedding of C code}
 
 For implementing low level functionality, @tt{encore} allows to
