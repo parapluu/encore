@@ -71,6 +71,26 @@ Finally, directory @code{joy} contains bundles obtained through
 the @code{enjoy} package manager (functionality to be
 implemented).
 
+
+@section{Type Synonyms}
+
+Type synonyms allow abbreviations to be used for types.
+These take one of the two forms, where a single name can be
+used to abbreviate another type, or where a name has parameters.
+
+@codeblock|{
+  typedef Fint = Foo<int,int>
+}|
+or
+@codeblock|{
+  typedef F<x,y> = Foo<y,x>
+}|
+
+The types @code{Fint} and @code{F<type1,type2>} can be used in code as synonyms
+for @code{Foo<int,int>} and @code{Foo<type2,type1>}, respectively.
+
+Type synonyms cannot be recursive.
+
 @section{Operators}
 Operators are special tokens that apply operations on expressions.
 

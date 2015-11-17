@@ -84,6 +84,9 @@ resolveType :: Type -> TypecheckM Type
 resolveType = typeMapM resolveSingleType
     where
       resolveSingleType ty
+        | isTypeSynonym ty = do
+            let unfolded = unfoldTypeSynonyms ty
+            resolveSingleType unfolded
         | isTypeVar ty = do
             params <- asks typeParameters
             unless (ty `elem` params) $
@@ -96,7 +99,8 @@ resolveType = typeMapM resolveSingleType
                 matchTypeParameterLength formal ty
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
-                tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
+                tcError $ "Couldn't find class, trait or typedef '" ++
+                          show ty ++ "'"
         | isCapabilityType ty = resolveCapa ty
         | isMaybeType ty = do
             let resultType = getResultType ty
@@ -121,6 +125,8 @@ resolveType = typeMapM resolveSingleType
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
+    | isTypeSynonym ty1 = subtypeOf (unfoldTypeSynonyms ty1) ty2
+    | isTypeSynonym ty2 = subtypeOf ty1 (unfoldTypeSynonyms ty2)
     | hasResultType ty1 && hasResultType ty2 =
         liftM (ty1 `hasSameKind` ty2 &&) $
               getResultType ty1 `subtypeOf` getResultType ty2
@@ -149,7 +155,7 @@ subtypeOf ty1 ty2
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
-    | otherwise = return (ty1 == ty2)
+    | otherwise = return (ty1 =~= ty2)
     where
       refSubtypeOf ref1 ref2
           | getId ref1 == getId ref2

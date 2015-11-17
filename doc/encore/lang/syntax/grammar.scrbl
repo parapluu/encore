@@ -99,6 +99,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword void)
 @(encore/keyword passive)
 @(encore/keyword end)
+@(encore/keyword typedef)
 
 @; Non-terminals
 @(encore/nonterm Program)
@@ -132,6 +133,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm RefType)
 @(encore/nonterm Fut)
 @(encore/nonterm Par)
+@(encore/nonterm TypeDef)
+@(encore/nonterm TypeParams)
+@(encore/nonterm TypeVar)
 
 
 @(define seq (lambda xs (apply BNF-seq xs)))
@@ -141,16 +145,18 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
        [let @litchar{let}]
        [lambda @litchar["\\"]])
      @BNF[(list Program
-    		@alt[
 		  @seq[
 			@optional[BundleDecl]
 			@kleenestar[Imports]
 			@optional[EmbedTL]
-		  	@nonterm{ClassDecl}]
-		eps])
+            @kleenestar[TypeDef]
+		  	@kleenestar{ClassDecl}])
 
       (list BundleDecl
          @seq[bundle QName where])
+
+      (list TypeDef
+         @seq[typedef Name @optional[TypeParams] equal Type])
 
 	  (list ClassDecl
 	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
@@ -297,5 +303,13 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[comma Type Tys]
 			eps])
 
+
+	(list TypeParams 
+          @seq[l TypeVar @kleenestar[@BNF-group[comma TypeVar]] b])
+
+
 	(list RefType @seq[@elem{[A-Z]} @kleenestar[@elem{[a-zA-Z0-9_]}]])
+
+	(list TypeVar @seq[@elem{[a-z]} @kleenestar[@elem{[a-zA-Z0-9_]}]])
+
 ])
