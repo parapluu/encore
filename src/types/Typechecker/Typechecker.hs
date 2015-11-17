@@ -55,12 +55,14 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-  doTypecheck p@Program{imports, functions, traits, classes} = do
+  doTypecheck p@Program{imports, typedefs, functions, traits, classes} = do
+    etypedefs <- mapM typecheck typedefs
     etraits  <- mapM typecheck traits
     eclasses <- mapM typecheck classes
     eimps    <- mapM typecheck imports
     efuns    <- mapM typecheck functions
     return p{imports = eimps
+            ,typedefs = etypedefs
             ,functions = efuns
             ,traits = etraits
             ,classes = eclasses
@@ -72,7 +74,7 @@ instance Checkable ImportDecl where
        do eprogram <- doTypecheck program
           return $ PulledImport meta name src eprogram
      doTypecheck (Import _ _) =
-         error "BUG: Import AST Nodes should not exist during typechecking"
+         error "Type.hs: Import AST Nodes should not exist during typechecking"
 
 typecheckNotNull :: Expr -> TypecheckM Expr
 typecheckNotNull expr = do
@@ -94,6 +96,18 @@ instance Checkable Function where
                      then typecheckNotNull funbody
                      else hasType funbody funtype
       return $ f{funbody = eBody}
+
+instance Checkable Typedef where
+  doTypecheck t@Typedef{typedefdef} = do
+    let RefInfo{refId, parameters} = typeSynonymLHS typedefdef
+    unless (distinctParams parameters) $ tcError $
+              "Parameters of type synonyms '" ++ show t ++ "' must be distinct."
+    let rhs = typeSynonymRHS typedefdef
+    let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
+    rhs' <- local addTypeParams $ resolveType rhs
+    return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs'}
+      where
+        distinctParams p = length p == length (nub p)
 
 instance Checkable TraitDecl where
   doTypecheck t@Trait{tname, tmethods} = do
@@ -934,7 +948,7 @@ instance Checkable Expr where
     doTypecheck new@(NewWithInit {ty, args}) = do
       ty' <- resolveType ty
       unless (isClassType ty') $
-             tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
+             tcError $ "Cannot create an object of type '" ++ show ty' ++ "'"
       when (isMainType ty') $
            tcError "Cannot create additional Main objects"
       header <- findMethod ty' (Name "_init")
@@ -1213,7 +1227,11 @@ coerce expected actual
       when (isBottomType expected) $
         tcError "Cannot infer type of 'Nothing'"
       return expected
-  | otherwise = return actual
+  | otherwise = do
+      unless (actual =~= expected) $
+        tcError $ "Type '" ++ show actual ++ "' does not match expected type '" ++
+                  show expected ++ "'"
+      return actual
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||

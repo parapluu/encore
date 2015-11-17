@@ -41,7 +41,7 @@ lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
 lookupEntry ty ctable =
     let fail = error $ "ClassTable.hs: No entry for " ++ Types.showWithKind ty
     in snd $
-       fromMaybe fail $ find ((== getId ty) . getId . fst) ctable
+       fromMaybe fail $ find ((== (getId . unfoldTypeSynonyms) ty) . getId . fst) ctable
 
 lookupField :: Type -> Name -> ClassTable -> FieldDecl
 lookupField ty f ctable =

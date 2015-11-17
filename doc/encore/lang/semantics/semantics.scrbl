@@ -572,6 +572,7 @@ that resumes the execution of the method @code{calculate_decimals}, it
 will continue from where he left off.
 
 @section{Parallel Combinators}
+
 Parallel combinators provide high- and low-level coordination of parallel
 computations. There are different operators that lift values and futures
 into a parallel collection. Other combinators are in charge of performing

@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract", "each"
+     "extract", "each", "typedef"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -168,11 +168,12 @@ program = do
   bundle <- bundledecl
   imports <- many importdecl
   etl <- embedTL
+  typedefs <- many typedef
   functions <- many function
   decls <- many $ (Left <$> traitDecl) <|> (Right <$> classDecl)
   let (traits, classes) = partitionEithers decls
   eof
-  return Program{source, bundle, etl, imports, functions, traits, classes}
+  return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -227,6 +228,17 @@ streamMethodHeader :: Parser FunctionHeader
 streamMethodHeader = do
   FunctionHeader{hname, hparams, htype} <- functionHeader
   return StreamMethodHeader{hname, hparams, htype}
+
+typedef :: Parser Typedef
+typedef = do
+  typedefmeta <- meta <$> getPosition
+  reserved "typedef"
+  name <- identifier
+  params <- option [] (angles $ commaSep1 typeVariable) 
+  reservedOp "="
+  typedeftype <- typ
+  let typedefdef = typeSynonym name params typedeftype
+  return Typedef{typedefmeta, typedefdef}
 
 function :: Parser Function
 function = do

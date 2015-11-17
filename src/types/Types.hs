@@ -28,6 +28,12 @@ module Types(
             ,refType
             ,traitTypeFromRefType
             , classType
+            ,typeSynonym
+            ,isTypeSynonym
+            ,typeSynonymLHS
+            ,typeSynonymRHS
+            ,typeSynonymSetRHS
+            ,unfoldTypeSynonyms
             ,isRefType
             ,isTraitType
             ,isActiveClassType
@@ -81,12 +87,14 @@ module Types(
             ,isBottomType
             ,hasResultType
             ,setResultType
-            ) where
+            ,(=~=)) where
 
 import Data.List
 import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
+
+import Debug.Trace
 
 data Activity = Active
               | Shared
@@ -156,11 +164,12 @@ instance Show RefInfo where
         where
           params = intercalate ", " (map show parameters)
 
-data Type = UntypedRef{refInfo :: RefInfo}
+data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
                      ,activity   :: Activity
                      }
+          | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
           | CapabilityType{capability :: Capability}
           | TypeVar{ident :: String}
           | ArrowType{argTypes   :: [Type]
@@ -198,16 +207,20 @@ getResultType ty
     | hasResultType ty = resultType ty
     | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
 getId UntypedRef{refInfo} = refId refInfo
+getId Unresolved{refInfo} = refId refInfo
 getId TraitType{refInfo} = refId refInfo
 getId ClassType{refInfo} = refId refInfo
+getId TypeSynonym{refInfo} = refId refInfo -- TODO: might be a bug
 getId TypeVar{ident} = ident
 getId CType{ident} = ident
 getId ty = error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
 
+
 instance Show Type where
-    show UntypedRef{refInfo} = show refInfo
+    show Unresolved{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
+    show TypeSynonym{refInfo, resolvesTo} = show refInfo ++ "(= " ++ show resolvesTo ++ ")"
     show CapabilityType{capability} = show capability
     show TypeVar{ident} = ident
     show ArrowType{argTypes, resultType} =
@@ -233,6 +246,7 @@ instance Show Type where
     show NullType   = "null type"
     show BottomType = "Bottom"
 
+
 maybeParen :: Type -> String
 maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
 maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
@@ -251,10 +265,11 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind IntType                       = "primitive type"
     kind RealType                      = "primitive type"
     kind BoolType                      = "primitive type"
-    kind UntypedRef{}                  = "untyped type"
+    kind Unresolved{}                  = "unresolved type"
     kind TraitType{}                   = "trait type"
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
+    kind TypeSynonym{}                 = "type synonym"
     kind CapabilityType{}              = "capability type"
     kind TypeVar{}                     = "polymorphic type"
     kind ArrowType{}                   = "function type"
@@ -296,7 +311,7 @@ typeComponents fut@(FutureType ty) =
     fut : typeComponents ty
 typeComponents par@(ParType ty) =
     par : typeComponents ty
-typeComponents ref@(UntypedRef{refInfo}) =
+typeComponents ref@(Unresolved{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents ref@(TraitType{refInfo}) =
     ref : refInfoTypeComponents refInfo
@@ -326,12 +341,14 @@ capabilityComponents Capability{typeTree} =
     traitToType t@RefInfo{parameters} = TraitType t : parameters
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty@UntypedRef{refInfo} =
+typeMap f ty@Unresolved{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@TraitType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@ClassType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
+typeMap f ty@TypeSynonym{refInfo, resolvesTo} =
+    f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}
 typeMap f ty@CapabilityType{capability} =
     f ty{capability = capabilityTypeMap f capability}
 typeMap f ty@ArrowType{argTypes, resultType} =
@@ -361,7 +378,7 @@ capabilityTypeMap f cap@Capability{typeTree} =
     cap{typeTree = fmap (refInfoTypeMap f) typeTree}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapM f ty@UntypedRef{refInfo} = do
+typeMapM f ty@Unresolved{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
 typeMapM f ty@TraitType{refInfo} = do
@@ -370,6 +387,10 @@ typeMapM f ty@TraitType{refInfo} = do
 typeMapM f ty@ClassType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
+typeMapM f ty@TypeSynonym{refInfo, resolvesTo} = do
+    refInfo' <- refInfoTypeMapM f refInfo
+    resolvesTo' <- typeMapM f resolvesTo
+    f ty{refInfo = refInfo', resolvesTo = resolvesTo'}
 typeMapM f ty@CapabilityType{capability} = do
   capability' <- capabilityTypeMapM f capability
   f ty{capability = capability'}
@@ -403,36 +424,84 @@ capabilityTypeMapM f cap@Capability{typeTree} = do
   return $ cap{typeTree = typeTree'}
 
 getTypeParameters :: Type -> [Type]
-getTypeParameters UntypedRef{refInfo} = parameters refInfo
-getTypeParameters TraitType{refInfo} = parameters refInfo
-getTypeParameters ClassType{refInfo} = parameters refInfo
+getTypeParameters Unresolved{refInfo} = parameters refInfo
+getTypeParameters TraitType{refInfo}  = parameters refInfo
+getTypeParameters ClassType{refInfo}  = parameters refInfo
+getTypeParameters TypeSynonym{refInfo} = parameters refInfo
 getTypeParameters ty =
     error $ "Types.hs: Can't get type parameters from type " ++ show ty
 
-setTypeParameters ty@UntypedRef{refInfo} parameters =
+setTypeParameters ty@Unresolved{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@TraitType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@ClassType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
+setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
+    let subst = zip (parameters refInfo) params
+    in ty{refInfo = refInfo{parameters = params}, resolvesTo=apply subst resolvesTo}
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
+
+class TypeSubstitution t where
+  apply :: [(Type, Type)] -> t -> t
+
+instance TypeSubstitution Type where
+  apply subst t@TypeVar{} =
+      case lookup t subst of
+          Nothing -> t
+          Just t' -> t'
+  apply subst t@Unresolved{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@TraitType{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@ClassType{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@TypeSynonym{refInfo, resolvesTo} =
+      t{refInfo = apply subst refInfo, resolvesTo = apply subst resolvesTo}
+  apply subst t@CapabilityType{capability} = t{capability = apply subst capability}
+  apply subst t@ArrowType{argTypes, resultType} =
+      t{argTypes = apply subst argTypes, resultType = apply subst resultType}
+  apply subst t@FutureType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@ParType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@StreamType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@ArrayType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@MaybeType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@TupleType{argTypes} = t{argTypes = apply subst argTypes}
+  apply _ t = t
+
+instance TypeSubstitution RefInfo where
+  apply subst r@RefInfo{parameters} = r{parameters=map (apply subst) parameters}
+
+instance TypeSubstitution t => TypeSubstitution [t] where
+  apply subst l = map (apply subst) l
+
+instance TypeSubstitution Capability where
+  apply subst EmptyCapability = EmptyCapability
+  apply subst t@Capability{typeTree} = t{typeTree = apply subst typeTree}
+
+instance TypeSubstitution t => TypeSubstitution (RoseTree t) where
+  apply subst (Leaf t) = Leaf (apply subst t)
+  apply subst (RoseTree op l) = RoseTree op (apply subst l)
+
+
 emptyCapability :: Type -> Bool
-emptyCapability CapabilityType{capability=EmptyCapability} = True
-emptyCapability _ = False
+emptyCapability = emptyCapability' . unfoldTypeSynonyms
+  where
+    emptyCapability' CapabilityType{capability=EmptyCapability} = True
+    emptyCapability' _ = False
 
 singleCapability :: Type -> Bool
-singleCapability CapabilityType{capability=EmptyCapability} = False
-singleCapability CapabilityType{capability=Capability{typeTree}} =
-  let
-    leaves = toList typeTree
-    first = head leaves
-    single = leaves == first : []
-  in
-    single
-singleCapability ty =
-  error $ "Expects CapabilityType " ++ show ty
+singleCapability = singleCapability' . unfoldTypeSynonyms
+  where
+    singleCapability' CapabilityType{capability=EmptyCapability} = False
+    singleCapability' CapabilityType{capability=Capability{typeTree}} =
+      let
+        leaves = toList typeTree
+        first = head leaves
+        single = leaves == first : []
+      in
+        single
+    singleCapability' ty =
+      error $ "Expects CapabilityType " ++ show ty
 
 conjunctiveTypesFromCapability :: Type -> [[[Type]]]
 conjunctiveTypesFromCapability t@TraitType{} = []
@@ -461,7 +530,7 @@ typesFromCapability ty =
       ++ showWithKind ty
 
 refTypeWithParams refId parameters =
-    UntypedRef{refInfo = RefInfo{refId, parameters}}
+    Unresolved{refInfo = RefInfo{refId, parameters}}
 
 refType :: String -> Type
 refType id = refTypeWithParams id []
@@ -470,30 +539,61 @@ classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
   ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
 
-traitTypeFromRefType UntypedRef{refInfo} =
+typeSynonym :: String -> [Type] -> Type -> Type
+typeSynonym name parameters resolution =
+  TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
+
+typeSynonymLHS :: Type -> RefInfo
+typeSynonymLHS TypeSynonym{refInfo} = refInfo
+typeSynonymLHS _ = error $ "Types.hs: Expected type synonym"
+
+typeSynonymRHS :: Type -> Type
+typeSynonymRHS TypeSynonym{resolvesTo} = resolvesTo
+typeSynonymRHS _ = error $ "Types.hs: Expected type synonymm"
+
+typeSynonymSetRHS :: Type -> Type -> Type
+typeSynonymSetRHS t@TypeSynonym{} rhs = t{resolvesTo = rhs}
+typeSynonymSetRHS _ _ = error $ "Types.hs: Expected type synonymm"
+
+isTypeSynonym TypeSynonym{} = True
+isTypeSynonym _ = False
+
+traitTypeFromRefType Unresolved{refInfo} =
     TraitType{refInfo}
 traitTypeFromRefType ty =
     error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
-isRefType UntypedRef {} = True
-isRefType TraitType {} = True
-isRefType ClassType {} = True
-isRefType _ = False
+isRefType = isRefType' . unfoldTypeSynonyms
+  where
+    isRefType' Unresolved {} = error "Type.hs: Don't know about unresolved types"
+    isRefType' TraitType {} = True
+    isRefType' ClassType {} = True
+    isRefType' _ = False
 
-isTraitType TraitType{} = True
-isTraitType _ = False
+isTraitType = isTraitType' . unfoldTypeSynonyms
+  where
+    isTraitType' TraitType{} = True
+    isTraitType' _ = False
 
-isActiveClassType ClassType{activity = Active} = True
-isActiveClassType _ = False
+isActiveClassType = isActiveClassType' . unfoldTypeSynonyms
+  where
+    isActiveClassType' ClassType{activity = Active} = True
+    isActiveClassType' _ = False
 
-isSharedClassType ClassType{activity = Shared} = True
-isSharedClassType _ = False
+isSharedClassType = isSharedClassType' . unfoldTypeSynonyms
+  where
+    isSharedClassType' ClassType{activity = Shared} = True
+    isSharedClassType' _ = False
 
-isPassiveClassType ClassType{activity = Passive} = True
-isPassiveClassType _ = False
+isPassiveClassType = isPassiveClassType' . unfoldTypeSynonyms
+  where
+    isPassiveClassType' ClassType{activity = Passive} = True
+    isPassiveClassType' _ = False
 
-isClassType ClassType{} = True
-isClassType _ = False
+isClassType = isClassType' . unfoldTypeSynonyms
+  where
+    isClassType' ClassType{} = True
+    isClassType' _ = False
 
 fromTypeTree :: TypeTree -> Type
 fromTypeTree typeTree =
@@ -503,58 +603,80 @@ capabilityType :: TypeTree -> Type
 capabilityType typeTree =
     CapabilityType{capability = Capability{typeTree}}
 
-isCapabilityType CapabilityType{} = True
-isCapabilityType _ = False
+isCapabilityType = isCapabilityType' . unfoldTypeSynonyms
+  where
+    isCapabilityType' CapabilityType{} = True
+    isCapabilityType' _ = False
 
 incapability :: Type
 incapability = CapabilityType{capability = EmptyCapability}
 
 arrowType = ArrowType
-isArrowType (ArrowType {}) = True
-isArrowType _ = False
+isArrowType = isArrowType' . unfoldTypeSynonyms
+  where
+    isArrowType' (ArrowType {}) = True
+    isArrowType' _ = False
 
 futureType = FutureType
-isFutureType FutureType {} = True
-isFutureType _ = False
+isFutureType = isFutureType' . unfoldTypeSynonyms
+  where
+    isFutureType' FutureType {} = True
+    isFutureType' _ = False
 
 maybeType = MaybeType
-isMaybeType MaybeType {} = True
-isMaybeType _ = False
+isMaybeType = isMaybeType' . unfoldTypeSynonyms
+  where
+    isMaybeType' MaybeType {} = True
+    isMaybeType' _ = False
 
 tupleType = TupleType
-isTupleType TupleType {} = True
-isTupleType _ = False
+isTupleType = isTupleType' . unfoldTypeSynonyms
+  where
+    isTupleType' TupleType {} = True
+    isTupleType' _ = False
 
 bottomType = BottomType
-isBottomType BottomType {} = True
-isBottomType _ = False
+isBottomType = isBottomType' . unfoldTypeSynonyms
+  where
+    isBottomType' BottomType {} = True
+    isBottomType' _ = False
 
 parType = ParType
-isParType ParType {} = True
-isParType _ = False
+isParType = isParType' . unfoldTypeSynonyms
+  where
+    isParType' ParType {} = True
+    isParType' _ = False
 
 streamType = StreamType
-isStreamType StreamType {} = True
-isStreamType _ = False
+isStreamType = isStreamType' . unfoldTypeSynonyms
+  where
+    isStreamType' StreamType {} = True
+    isStreamType' _ = False
 
 rangeType = RangeType
-isRangeType RangeType = True
-isRangeType _         = False
+isRangeType = isRangeType' . unfoldTypeSynonyms
+  where
+    isRangeType' RangeType = True
+    isRangeType' _         = False
 
 arrayType = ArrayType
-isArrayType ArrayType {} = True
-isArrayType _ = False
+isArrayType = isArrayType' . unfoldTypeSynonyms
+  where
+    isArrayType' ArrayType {} = True
+    isArrayType' _ = False
 
 typeVar = TypeVar
-isTypeVar (TypeVar _) = True
-isTypeVar _ = False
+isTypeVar = isTypeVar' . unfoldTypeSynonyms
+  where
+    isTypeVar' (TypeVar _) = True
+    isTypeVar' _ = False
 
 isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
 isMainType _ = False
 
 stringObjectType = classType Passive "String" []
 
-isStringObjectType = (==stringObjectType)
+isStringObjectType = (== stringObjectType)
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
@@ -563,44 +685,46 @@ replaceTypeVars bindings = typeMap replace
 ctype :: String -> Type
 ctype = CType
 
-isCType CType{} = True
-isCType _ = False
+isCType = isCType' . unfoldTypeSynonyms
+  where
+    isCType' CType{} = True
+    isCType' _ = False
 
 voidType :: Type
 voidType = VoidType
 
 isVoidType :: Type -> Bool
-isVoidType = (== voidType)
+isVoidType = (=~= voidType)
 
 nullType :: Type
 nullType = NullType
 
 isNullType :: Type -> Bool
-isNullType = (== nullType)
+isNullType = (=~= nullType)
 
 boolType :: Type
 boolType = BoolType
 
 isBoolType :: Type -> Bool
-isBoolType = (== boolType)
+isBoolType = (=~= boolType)
 
 intType :: Type
 intType = IntType
 
 isIntType :: Type -> Bool
-isIntType = (== intType)
+isIntType = (=~= intType)
 
 realType :: Type
 realType = RealType
 
 isRealType :: Type -> Bool
-isRealType = (== realType)
+isRealType = (=~= realType)
 
 stringType :: Type
 stringType = StringType
 
 isStringType :: Type -> Bool
-isStringType = (== stringType)
+isStringType = (=~= stringType)
 
 charType :: Type
 charType = CharType
@@ -612,7 +736,17 @@ primitives :: [Type]
 primitives = [voidType, intType, realType, boolType, stringType, charType]
 
 isPrimitive :: Type -> Bool
-isPrimitive = (`elem` primitives)
+isPrimitive = (`elem` primitives) . unfoldTypeSynonyms
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
+
+-- TODO: recursively unfold type synonyms
+unfoldTypeSynonyms :: Type -> Type
+unfoldTypeSynonyms = typeMap unfoldSingleSynonym
+    where
+      unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
+      unfoldSingleSynonym t = t
+
+(=~=) :: Type -> Type -> Bool
+t =~= t' = unfoldTypeSynonyms t == unfoldTypeSynonyms t'
