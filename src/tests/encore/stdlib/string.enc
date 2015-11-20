@@ -113,24 +113,24 @@ passive class Test
       }
 
   def test_contains() : void {
-    assertTrue(("foobarbaz").contains("bar")); 
-    assertFalse(("foobarbaz").contains("Bar")); 
-    assertTrue(("").contains("")); 
-    assertFalse(("").contains("nonempty")); 
+    assertTrue(("foobarbaz").contains("bar"));
+    assertFalse(("foobarbaz").contains("Bar"));
+    assertTrue(("").contains(""));
+    assertFalse(("").contains("nonempty"));
  }
 
   def test_contains_ignore_case() : void {
-    assertTrue(("foobarbaz").contains_ignore_case("bar")); 
-    assertTrue(("foobarbaz").contains_ignore_case("Bar")); 
-    assertTrue(("").contains_ignore_case("")); 
-    assertFalse(("").contains_ignore_case("nonempty")); 
+    assertTrue(("foobarbaz").contains_ignore_case("bar"));
+    assertTrue(("foobarbaz").contains_ignore_case("Bar"));
+    assertTrue(("").contains_ignore_case(""));
+    assertFalse(("").contains_ignore_case("nonempty"));
  }
-        
+
   def test_compare() : void {
-    assertTrue(("foobarbaz").compare("foobarbaz") == 0); 
-    assertTrue(("foobarbaz").compare("Foobarbaz") > 0); 
-    assertTrue(("").compare("") == 0); 
-    assertTrue(("foobarbaz").compare("something") < 0); 
+    assertTrue(("foobarbaz").compare("foobarbaz") == 0);
+    assertTrue(("foobarbaz").compare("Foobarbaz") > 0);
+    assertTrue(("").compare("") == 0);
+    assertTrue(("foobarbaz").compare("something") < 0);
  }
 
   def test_compare_ignore_case() : void {
@@ -139,7 +139,7 @@ passive class Test
     assertTrue(("").compare_ignore_case("") == 0);
     assertTrue(("foobarbaz").compare_ignore_case("something") < 0);
  }
-    
+
   def test_to_upper() : void {
     assertTrue(strcmp(("uppercase").to_upper(), "UPPERCASE"));
     assertTrue(strcmp(("UPPERCASE").to_upper(), "UPPERCASE"));
@@ -162,13 +162,12 @@ passive class Test
   def test_substring() : void {
     assertTrue(strcmp(("abcdefghijklmnop").substring(0, 0), ""));
     assertTrue(strcmp(("abcdefghijklmnop").substring(0, 10), "abcdefghij"));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(0, 0), ""));
     assertTrue(strcmp(("abcdefghijklmnop").substring(0, 20), "abcdefghijklmnop"));
     assertTrue(strcmp(("abcdefghijklmnop").substring(100, 0), ""));
     assertTrue(strcmp(("abcdefghijklmnop").substring(10,12), "kl"));
     assertTrue(strcmp(("abcdefghijklmnop").substring(10, 20), "klmnop"));
   }
-    
+
   def test_equals() : void {
     assertTrue(("foo").equals("foo"));
     assertFalse(("foo").equals("foo1"));
@@ -184,7 +183,7 @@ passive class Test
       assertTrue(s.occurrences(" lorem ") == 0);
       assertTrue(s.occurrences(" ") == 3);
     }
-      
+
   def test_split() : void
     let
       s = "lorem ipsum dolor lorem"
@@ -198,12 +197,12 @@ passive class Test
     assertTrue(strcmp((" \n \t foo \n\t\t\t\n     \t").trim(), "foo"));
     assertTrue(strcmp(("foo").trim(), "foo"));
   }
-    
+
   def test_replace() : void
     let
       s = "lorem ipsum dolor lorem"
     in {
-      -- assertTrue(strcmp(s.replace("ipsum", "dolor").replace("dolor", "lorem"), "lorem lorem lorem lorem"));
+      assertTrue(strcmp(s.replace("ipsum", "dolor").replace("dolor", "lorem"), "lorem lorem lorem lorem"));
       assertTrue(strcmp(s.replace(" ", "").replace("dolOR", "lorem"), "loremipsumdolorlorem"));
      ();
     }
@@ -214,13 +213,13 @@ passive class Test
     assertFalse(("gggggggggghgggg").find("hggggggggggggg") == 10);
     assertTrue(("gggggggggghgggg").find("g") == 0);
   }
-    
+
   def test_find_from() : void {
     assertTrue(("0123456789").find_from("2", 10) == -1);
     assertTrue(("0123456789").find_from("2", 1) == 2);
     assertTrue(("gggggggggghgggg").find_from("g", 10) == 11);
   }
-    
+
   def test_delete() : void
     let
       s = "foo bar  baz"
@@ -231,7 +230,7 @@ passive class Test
       assertTrue(strcmp(s.delete("baz"), "foo bar  "));
     }
 
-  def test_join() : void 
+  def test_join() : void
     let
       s  = ["A"]
       ss = ["A", "B", "C"]

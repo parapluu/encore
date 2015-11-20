@@ -290,12 +290,6 @@ passive class String
 
   -- Splits a string over a pattern p, e.g., "A, B, C" turns
   -- into ["A", "B", "C"].
-  --
-  -- Uses the lower level methods split_copying (which does not
-  -- waste memory but is slow), or split_inplace (which may waste
-  -- memory but is faster. The fast method is chosen for patterns
-  -- of length < 3 or when <= 4% of the existing string space is
-  -- wasted.
   def split(p:String) : [String]
     let
       occurrences = this.occurrences(p)
@@ -304,50 +298,24 @@ passive class String
     if (occurrences == 0)
     then [this]
     else if (pattern_len == 0)
-    then let s_arr = new [String](this.length())
-         in
-           for i in [0..|s_arr|-1] {
-             s_arr[i] = string_from_char(this.char_at(i));
-             s_arr;
-           }
+    then
+      let s_arr = new [String](this.length())
+      in
+        for i in [0..|s_arr|-1] {
+          s_arr[i] = string_from_char(this.char_at(i));
+          s_arr;
+        }
     else
       let
-        wasteage_percent = occurrences / pattern_len
-      in if (pattern_len < 3) or (wasteage_percent > 4) -- What is a good THRESHOLD?
-         then this.split_copying(p, occurrences, pattern_len)
-         else this.split_inplace(p, occurrences, pattern_len)
-
-  -- Not intended to be called from outside of String
-  def split_copying(p:String, occurrences:int, pattern_len:int) : [String]
-    let
-      result = new [String](occurrences + 1)
-      start  = 0
-      stop   = 0
-    in {
-      repeat i <- occurrences
-      {
-        stop = this.find_from(p, start);
-        result[i] = this.substring(start, stop);
-        start = stop + pattern_len;
-      };
-      result[occurrences] = this.substring(start, this.length());
-      result;
-    }
-
-  -- Not intended to be called from outside of String
-  def split_inplace(p:String, occurrences:int, pattern_len:int) : [String]
-    let
-      copy   = this.copy()
-      result = new [String](occurrences + 1)
-      loc    = 0
-    in {
-      repeat i <- occurrences
-      {
-        loc = copy.find(p);
-        result[i] = new String(copy.data);
-        copy.data = PRIVATE_overwrite_and_skip(copy.data, loc, pattern_len);
-      };
-      copy.length = loc;
-      result[occurrences] = copy;
-      result;
-    }
+        result = new [String](occurrences + 1)
+        start  = 0
+        stop   = 0
+      in {
+        repeat i <- occurrences {
+          stop = this.find_from(p, start);
+          result[i] = this.substring(start, stop);
+          start = stop + pattern_len;
+        };
+        result[occurrences] = this.substring(start, this.length());
+        result;
+      }
