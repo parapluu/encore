@@ -160,12 +160,27 @@ passive class Test
   }
 
   def test_substring() : void {
-    assertTrue(strcmp(("abcdefghijklmnop").substring(0, 0), ""));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(0, 10), "abcdefghij"));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(0, 20), "abcdefghijklmnop"));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(100, 0), ""));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(10,12), "kl"));
-    assertTrue(strcmp(("abcdefghijklmnop").substring(10, 20), "klmnop"));
+    assertTrue(match ("abcdefghijklmnop").substring(0, 0) with
+                 Just s => strcmp(s, "")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(0, 10) with
+                 Just s => strcmp(s, "abcdefghij")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(0, 20) with
+                 Just s => strcmp(s, "abcdefghijklmnop")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(100, 0) with
+                 Just s => strcmp(s, "")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(10,12) with
+                 Just s => strcmp(s, "kl")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(10, 20) with
+                 Just s => strcmp(s, "klmnop")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(-1, 5) with
+                 Nothing => true
+                 _       => false);
   }
 
   def test_equals() : void {
@@ -254,9 +269,21 @@ passive class Test
     let
       s = "Hello, world!"
     in {
-      assertTrue(s.char_at(0) == 'H');
-      assertTrue(s.char_at(4) == 'o');
-      assertTrue(s.char_at(12) == '!');
+      assertTrue(match s.char_at(0) with
+                   Just c => c == 'H'
+                   Nothing => false);
+      assertTrue(match s.char_at(4) with
+                   Just c => c == 'o'
+                   Nothing => false);
+      assertTrue(match s.char_at(12) with
+                   Just c => c == '!'
+                   Nothing => false);
+      assertTrue(match s.char_at(-1) with
+                   Just c => false
+                   Nothing => true);
+      assertTrue(match s.char_at(13) with
+                   Just c => false
+                   Nothing => true);
     }
 
   def test_to_array() : void

@@ -17,13 +17,6 @@ array_t *_init_argv(size_t argc, char **argv) {
 }
 end
 
--- private function for the string library
-def PRIVATE_overwrite_and_skip(data:(embed char* end), loc:int, pattern_len:int) : (embed char* end)
-embed (embed char* end)
-  #{data}[#{loc}] = '\0';
-  #{data} + #{loc} + #{pattern_len};
-end
-
 def string_from_char(c : char) : String
   let
     s = embed (embed char* end) encore_alloc(2); end
@@ -159,22 +152,24 @@ passive class String
 
   -- Returns a substring from the current string starting
   -- in index from, ending in index to (inclusive).
-  def substring(from:int, to:int) : String
+  def substring(from:int, to:int) : Maybe String
     if to < from
-    then ""
+    then Just ""
     else
     let
       t_len = this.length()
       data  = this.data
     in
-      new String(embed (embed char* end)
-        int siz = #{to} - #{from};
-        siz = siz < #{t_len} ? siz : #{t_len};
-        char *str = encore_alloc(siz + 1);
-        strncpy(str, ((char *)#{data})+#{from}, siz);
-        str[siz] = '\0';
-        str;
-      end)
+      if from >= 0
+      then Just new String(embed (embed char* end)
+          int siz = #{to} - #{from};
+          siz = siz < #{t_len} ? siz : #{t_len};
+          char *str = encore_alloc(siz + 1);
+          strncpy(str, ((char *)#{data})+#{from}, siz);
+          str[siz] = '\0';
+          str;
+        end)
+      else Nothing : Maybe String
 
   -- Checks structural equivalence between this and s
   def equals(s:String) : bool
@@ -218,7 +213,8 @@ passive class String
       start_index = embed int int s = 0;        while (#{str}[s] && isspace(#{str}[s])) ++s; s; end
       stop_index  = embed int int s = #{len}-1; while (#{str}[s] && isspace(#{str}[s])) --s; s; end
     in
-      this.substring(start_index, stop_index + 1)
+      match this.substring(start_index, stop_index + 1) with
+        Just s => s
 
   -- Replaces all occurrences of a by b in the string.
   -- The current implementation creates many intermediate
@@ -275,9 +271,12 @@ passive class String
   def format(b:[String]) : String
     "To be implemented"
 
-  def char_at(i : int) : char
+  def char_at(i : int) : Maybe char
     let s = this.data
-    in embed char #{s}[#{i}]; end
+        len = this.length()
+    in if (i >= 0) and (i < len)
+       then Just (embed char #{s}[#{i}]; end)
+       else Nothing : Maybe char
 
   def to_array() : [char]
     let
@@ -285,7 +284,7 @@ passive class String
       arr = new [char](len)
     in {
       for i in [0..len-1]
-        arr[i] = this.char_at(i);
+        arr[i] = match this.char_at(i) with Just c => c;
       arr
     }
 
@@ -303,7 +302,7 @@ passive class String
       let s_arr = new [String](this.length())
       in{
         for i in [0..|s_arr|-1]
-          s_arr[i] = string_from_char(this.char_at(i));
+          s_arr[i] = string_from_char(match this.char_at(i) with Just c => c);
         s_arr
       }
     else
@@ -314,9 +313,9 @@ passive class String
       in {
         repeat i <- occurrences {
           stop = this.find_from(p, start);
-          result[i] = this.substring(start, stop);
+          result[i] = match this.substring(start, stop) with Just s => s;
           start = stop + pattern_len;
         };
-        result[occurrences] = this.substring(start, this.length());
+        result[occurrences] = match this.substring(start, this.length()) with Just s => s;
         result;
       }
