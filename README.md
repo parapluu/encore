@@ -95,7 +95,7 @@ Run: `brew update; brew install llvm`
 
 ##### Installing `premake4`
 
-Go to the[Premake4 Download page](http://premake.github.io/download.html),
+Go to the [Premake4 Download page](http://premake.github.io/download.html),
 download and install `premake4`. 
 
 Alternatively, run: `brew update; brew install premake`
