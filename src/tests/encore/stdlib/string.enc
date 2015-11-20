@@ -190,7 +190,11 @@ passive class Test
     in {
       assertTrue(arraycmp(s.split("lorem"), ["", " ipsum dolor ",""]));
       assertTrue(arraycmp(s.split(" "), ["lorem", "ipsum", "dolor", "lorem"]));
-      assertTrue(s.equals(("").join(s.split(""))))
+      assertTrue(s.equals(("").join(s.split(""))));
+      assertTrue(arraycmp(s.split(""), ["l", "o", "r", "e", "m", " ",
+                                        "i", "p", "s", "u", "m", " ",
+                                        "d", "o", "l", "o", "r", " ",
+                                        "l", "o", "r", "e", "m"]));
     }
 
   def test_trim() : void {
@@ -260,17 +264,23 @@ passive class Test
       s = "Hello, world!"
       arr1 = s.to_array()
       arr2 = ['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']
-    in
+      empty = ("").to_array()
+    in{
       for i in [0..|arr1|-1]
-        assertTrue(arr1[i] == arr2[i])
+        assertTrue(arr1[i] == arr2[i]);
+      assertTrue(|empty| == 0);
+    }
 
   def test_from_array() : void
     let
       s1 = "Hello, world!"
       arr = ['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']
       s2 = string_from_array(arr)
-    in
-      assertTrue(s1.equals(s2))
+      empty = string_from_array(new [char](0))
+    in{
+      assertTrue(s1.equals(s2));
+      assertTrue(empty.equals(""));
+    }
 
   def test_from_char() : void
     let

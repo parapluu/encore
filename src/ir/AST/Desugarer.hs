@@ -50,7 +50,7 @@ desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
                 [Print (cloneMeta emeta)
                        [StringLiteral (cloneMeta emeta) $
                                       "Assertion failed: " ++
-                                      show (ppExpr fCall) ++ "\n"],
+                                      show (ppSugared fCall) ++ "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
 desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
@@ -59,7 +59,7 @@ desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
                 [Print (cloneMeta emeta)
                        [StringLiteral (cloneMeta emeta) $
                                       "Assertion failed: " ++
-                                      show (ppExpr fCall) ++ "\n"],
+                                      show (ppSugared fCall) ++ "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 

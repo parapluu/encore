@@ -35,11 +35,11 @@ def string_from_array(arr : [char]) : String
     len = |arr|
     s = embed (embed char* end) encore_alloc(#{len} + 1); end
     p = s
-  in
-    new String(
-      for c in arr
-        embed (embed char* end) *#{p}++ = #{c}; #{s}; end
-      )
+  in{
+    for c in arr
+      embed void *#{p}++ = #{c}; end;
+    new String(s)
+  }
 
 -- This is a utility library for working with strings.
 -- [x] build a wrapper around string.h
@@ -283,10 +283,11 @@ passive class String
     let
       len = this.length()
       arr = new [char](len)
-    in
-      for i in [0..len-1] {
-        arr[i] = this.char_at(i); arr
-      }
+    in {
+      for i in [0..len-1]
+        arr[i] = this.char_at(i);
+      arr
+    }
 
   -- Splits a string over a pattern p, e.g., "A, B, C" turns
   -- into ["A", "B", "C"].
@@ -300,11 +301,11 @@ passive class String
     else if (pattern_len == 0)
     then
       let s_arr = new [String](this.length())
-      in
-        for i in [0..|s_arr|-1] {
+      in{
+        for i in [0..|s_arr|-1]
           s_arr[i] = string_from_char(this.char_at(i));
-          s_arr;
-        }
+        s_arr
+      }
     else
       let
         result = new [String](occurrences + 1)

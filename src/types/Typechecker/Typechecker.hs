@@ -312,7 +312,7 @@ instance Checkable Expr where
     doTypecheck l@(Liftf {val}) = do
       e <- typecheck val
       let typ = AST.getType e
-      unless (isFutureType typ) $ tcError $ "expression '" ++ show (ppExpr e) ++
+      unless (isFutureType typ) $ tcError $ "expression '" ++ show (ppSugared e) ++
         "' of type '" ++ show typ ++ "' should be of type 'Future'"
       return $ setType (parType $ getResultType typ) l {val = e}
 
@@ -324,9 +324,9 @@ instance Checkable Expr where
     doTypecheck p@(PartyJoin {val}) = do
       e <- typecheck val
       let typ = AST.getType e
-      unless (isParType  typ) $ tcError (errorMsg (ppExpr val) typ typ)
+      unless (isParType  typ) $ tcError (errorMsg (ppSugared val) typ typ)
       unless ((isParType . getResultType) typ) $
-        tcError (errorMsg (ppExpr val) (getResultType typ) typ)
+        tcError (errorMsg (ppSugared val) (getResultType typ) typ)
       return $ setType (getResultType typ) p {val = e}
         where
           errorMsg expr expectedType foundType =
@@ -339,7 +339,7 @@ instance Checkable Expr where
       let typ = AST.getType e
       unless (isParType typ) $
         tcError $ "Parallel combinator `extract` was expecting type 'Par' type" ++
-                  " from expression '" ++ show (ppExpr e) ++
+                  " from expression '" ++ show (ppSugared e) ++
                   "' but found type '" ++ show typ
       return $ setType ((arrayType.getResultType) typ) p {val = e}
 
@@ -349,16 +349,16 @@ instance Checkable Expr where
 
       unless ((isParType . AST.getType) pl) $
         tcError $ "using parallel combinator '||' with non-parallel expression '"
-                  ++ show (ppExpr pl) ++ "'"
+                  ++ show (ppSugared pl) ++ "'"
       unless ((isParType . AST.getType) pr) $
         tcError $ "using parallel combinator '||' with non-parallel expression '"
-                  ++ show (ppExpr pr) ++ "'"
+                  ++ show (ppSugared pr) ++ "'"
       let [plType, prType] = map AST.getType [pl, pr]
 
       sameTypes <- plType `subtypeOf` prType
       unless sameTypes $
-        tcError $ "at least one of the parallel collections ('" ++ show (ppExpr pl)
-                  ++ "' or '"++ show (ppExpr pr) ++"') is of a non-parallel type"
+        tcError $ "at least one of the parallel collections ('" ++ show (ppSugared pl)
+                  ++ "' or '"++ show (ppSugared pr) ++"') is of a non-parallel type"
       return $ setType (AST.getType pl) p {parl = pl, parr = pr}
 
     doTypecheck s@(PartySeq {par, seqfunc}) = do
@@ -367,27 +367,27 @@ instance Checkable Expr where
 
       unless (isCallable eSeqFunc) $
         tcError $ "Parallel combinator '>>' expected a callable expresion but found '" ++
-                  show (ppExpr eSeqFunc) ++ "' of type '" ++
+                  show (ppSugared eSeqFunc) ++ "' of type '" ++
                   show (AST.getType eSeqFunc) ++ "'instead."
 
       unless (leftIsPar ePar) $
         tcError $ "Parallel combinator '>>' expected a parallel expression but found " ++
-                  "expression '" ++show (ppExpr ePar) ++ "' of type '" ++
+                  "expression '" ++show (ppSugared ePar) ++ "' of type '" ++
                   show (AST.getType ePar) ++ "'"
 
       let nargs = numberArgsFun eSeqFunc
       unless (nargs == 1) $
-        tcError $ "Parallel combinator '"++ show (ppExpr ePar) ++
-                  "' expects function '"++ show (ppExpr eSeqFunc) ++
+        tcError $ "Parallel combinator '"++ show (ppSugared ePar) ++
+                  "' expects function '"++ show (ppSugared eSeqFunc) ++
                   "' to have a single argument " ++
                   "but found that the function " ++ show nargs ++ " arguments"
 
       unless (outputTypeMatchesInput ePar eSeqFunc) $
         tcError $ "Type '"++ (show . AST.getType) ePar ++
-                  "' of parallel computation '" ++ show (ppExpr ePar) ++
+                  "' of parallel computation '" ++ show (ppSugared ePar) ++
                   "' does not match the expected type '"++
                   show (getArgType eSeqFunc) ++"' of function '" ++
-                  show (ppExpr eSeqFunc) ++ "'"
+                  show (ppSugared eSeqFunc) ++ "'"
       let getParType = parType . getResultType . AST.getType
       return $ setType (getParType eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
         where
@@ -428,7 +428,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isRefType targetType) $
         tcError $ "Cannot call method on expression '" ++
-                  show (ppExpr target) ++
+                  show (ppSugared target) ++
                   "' of type '" ++ show targetType ++ "'"
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
@@ -466,7 +466,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isActiveClassType targetType) $
            tcError $ "Cannot send message to expression '" ++
-                     show (ppExpr target) ++
+                     show (ppSugared target) ++
                      "' of type '" ++ show targetType ++ "'"
       mdecl <- findMethod targetType name
       matchArgumentLength targetType mdecl args
@@ -627,7 +627,7 @@ instance Checkable Expr where
               errorClauses = filter ((/= ty) . AST.getType . mchandler) clauses
               errorHandler = mchandler $ head errorClauses
           unless (null errorClauses) $
-                 tcError $ "Expression '" ++ show (ppExpr errorHandler) ++
+                 tcError $ "Expression '" ++ show (ppSugared errorHandler) ++
                            "' does not match expected type '" ++ show ty ++
                            "'. All clauses must have agreeing types"
           return ty
@@ -639,7 +639,7 @@ instance Checkable Expr where
                 let innerType = getResultType pt
                 in getPatternVars innerType e
             | otherwise =
-                tcError $ "Pattern '" ++ show (ppExpr mcp) ++
+                tcError $ "Pattern '" ++ show (ppSugared mcp) ++
                           "' does not match expected type '" ++
                           show pt ++ "'"
 
@@ -651,7 +651,7 @@ instance Checkable Expr where
           bindings <- formalBindings pt
           let methodType = replaceTypeVars bindings $ mtype mdecl
           unless (isMaybeType methodType) $
-            tcError $ "Pattern '" ++ show (ppExpr fcall) ++
+            tcError $ "Pattern '" ++ show (ppSugared fcall) ++
                       "' is not a proper extractor pattern"
           let extractedType = getResultType methodType
           getPatternVars extractedType arg
@@ -686,7 +686,7 @@ instance Checkable Expr where
           checkPattern (pattern {args = [tupArg]}) argty
         checkPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
-            tcError $ "Pattern '" ++ show (ppExpr pattern) ++
+            tcError $ "Pattern '" ++ show (ppSugared pattern) ++
                       "' does not match expected type '" ++ show argty ++ "'"
           let innerType = getResultType argty
           eExpr <- checkPattern e innerType
@@ -695,7 +695,7 @@ instance Checkable Expr where
         checkPattern pattern@(Tuple{args = args}) tupty = do
           let argTypes = getArgTypes tupty
           unless (length argTypes == length args) $
-            tcError $ "Pattern '" ++ show (ppExpr pattern) ++
+            tcError $ "Pattern '" ++ show (ppSugared pattern) ++
                       "' does not match expected type " ++ show tupty ++
                       ". Wrong tuple size"
           eArgs <- zipWithM checkPattern args argTypes
@@ -769,7 +769,8 @@ instance Checkable Expr where
     doTypecheck iseos@(IsEos {target}) =
         do eTarget <- typecheck target
            unless (isStreamType $ AST.getType eTarget) $
-                  tcError $ "Cannot check end of stream on non-stream target '" ++ show (ppExpr target) ++ "'"
+                  tcError $ "Cannot check end of stream on non-stream target '"
+                            ++ show (ppSugared target) ++ "'"
            return $ setType boolType iseos{target = eTarget}
 
     --  E |- s : Stream t
@@ -779,7 +780,8 @@ instance Checkable Expr where
         do eTarget <- typecheck target
            let eType = AST.getType eTarget
            unless (isStreamType eType) $
-                  tcError $ "Cannot get next value from non-stream target '" ++ show (ppExpr target) ++ "'"
+                  tcError $ "Cannot get next value from non-stream target '" ++
+                            show (ppSugared target) ++ "'"
            return $ setType eType next{target = eTarget}
 
     --
@@ -824,7 +826,7 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveClassType targetType) $
         tcError $ "Cannot read field of expression '" ++
-          show (ppExpr target) ++ "' of " ++ Types.showWithKind targetType
+          show (ppSugared target) ++ "' of " ++ Types.showWithKind targetType
       fdecl <- findField targetType name
       bindings <- formalBindings targetType
       let ty' = replaceTypeVars bindings (ftype fdecl)
@@ -839,14 +841,14 @@ instance Checkable Expr where
         do eLhs <- typecheck lhs
            varIsLocal <- asks $ isLocal name
            unless varIsLocal $
-                  tcError $ "Left hand side '" ++ show (ppExpr lhs) ++
+                  tcError $ "Left hand side '" ++ show (ppSugared lhs) ++
                             "' is a global variable and cannot be assigned to"
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
     doTypecheck assign@(Assign {lhs, rhs}) =
         do unless (isLval lhs) $
-             tcError $ "Left hand side '" ++ show (ppExpr lhs) ++
+             tcError $ "Left hand side '" ++ show (ppSugared lhs) ++
                "' cannot be assigned to"
            eLhs <- typecheck lhs
            mtd <- asks currentMethod
@@ -1003,7 +1005,7 @@ instance Checkable Expr where
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
                   tcError $ "Cannot index non-array '" ++
-                            show (ppExpr target) ++
+                            show (ppSugared target) ++
                             "' of type '" ++ show targetType ++ "'"
            eIndex <- hasType index intType
            return $ setType (getResultType targetType)
@@ -1017,7 +1019,7 @@ instance Checkable Expr where
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
                   tcError $ "Cannot calculate the size of non-array '" ++
-                            show (ppExpr target) ++
+                            show (ppSugared target) ++
                             "' of type '" ++ show targetType ++ "'"
            return $ setType intType arrSize{target = eTarget}
 
@@ -1045,7 +1047,7 @@ instance Checkable Expr where
                sugaredFst = fromJust $ getSugared fst
            unless (isStringLiteral sugaredFst) $
                   tcError $ "Formatted printing expects first argument '" ++
-                            show (ppExpr fst) ++ "' to be a string literal"
+                            show (ppSugared fst) ++ "' to be a string literal"
            let formatString = stringLit sugaredFst
                noArgs = T.count (T.pack "{}") (T.pack formatString)
            unless (noArgs == length rest) $
@@ -1090,7 +1092,7 @@ instance Checkable Expr where
         let eType = AST.getType eOperand
         unless (isBoolType eType) $
                 tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
-                          "Expression '" ++ show (ppExpr eOperand) ++ "' has type '" ++ show eType ++ "'"
+                          "Expression '" ++ show (ppSugared eOperand) ++ "' has type '" ++ show eType ++ "'"
         return $ setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}

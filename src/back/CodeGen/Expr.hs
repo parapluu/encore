@@ -104,7 +104,7 @@ translateDecl (name, expr) = do
   tmp <- Ctx.genNamedSym (show name)
   substituteVar name (Var tmp)
   return (Var tmp,
-          [Comm $ show name ++ " = " ++ show (PP.ppExpr expr)
+          [Comm $ show name ++ " = " ++ show (PP.ppSugared expr)
           ,te
           ,Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
@@ -234,13 +234,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate seq@(A.Seq {A.eseq}) = do
     ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes
---    let comms = map (Comm . show . PP.ppExpr) eseq
---    map commentAndTe (zip eseq tes)
     return (last nes, Seq $ map commentAndTe (zip eseq tes))
            where
---             merge comms tes = concat $ zipWith (\(comm, te) -> (Seq [comm,te])) comms tes
 
-             commentFor = (Comm . show . PP.ppExpr)
+             commentFor = (Comm . show . PP.ppSugared)
 
              commentAndTe (ast, te) = Seq [commentFor ast, te]
 
