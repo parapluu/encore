@@ -13,8 +13,8 @@ preprocess :: A.Program -> A.Program
 preprocess = injectTraitsToClasses . giveClosuresUniqueNames
 
 injectTraitsToClasses :: A.Program -> A.Program
-injectTraitsToClasses p@A.Program{A.classes} =
-  p{A.classes = map injectTraitsToClass classes}
+injectTraitsToClasses p =
+  Util.mapProgramClass p injectTraitsToClass
   where
     injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
     injectTraitsToClass c@A.Class{A.cname, A.ccapability} =

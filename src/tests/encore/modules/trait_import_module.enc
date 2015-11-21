@@ -1,0 +1,8 @@
+trait Reagent {
+  def react() : void {
+    ();
+  }
+}
+
+passive class Foo2 : Reagent {
+}

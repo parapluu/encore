@@ -4,7 +4,17 @@
 {-|
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(
+    foldr
+    , foldrAll
+    , filter
+    , extend
+    , extendAccum
+    , extendAccumProgram
+    , extractTypes
+    , freeVariables
+    , mapProgramClass
+    ) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -228,6 +238,14 @@ extendAccum f acc0 e =
             List.mapAccumL (extendAccum f) acc0 (getChildren e)
     in
       f acc1 (putChildren childResults e)
+
+mapProgramClass :: Program -> (ClassDecl -> ClassDecl) -> Program
+mapProgramClass p@Program{classes, imports} f =
+  p{classes = map f classes, imports = map i2i imports}
+  where
+    i2i i@PulledImport{iprogram} = i{iprogram = p2p iprogram}
+    i2i _ = error "Non desugared imports"
+    p2p p@Program{classes} = p{classes = map f classes}
 
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
