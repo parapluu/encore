@@ -26,7 +26,6 @@ executable encorec
                   , MultiParamTypeClasses
                   , StandaloneDeriving
                   , TypeSynonymInstances
-                  , NamedFieldPuns
                   , FunctionalDependencies
                   , CPP
                   , ScopedTypeVariables
