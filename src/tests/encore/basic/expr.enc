@@ -9,11 +9,11 @@ class Main {
     }
   }
 
-  def foo () : string {
+  def foo () : String {
     "Hello"
   }
 
-  def bar (f:string) : int {
+  def bar (f:String) : int {
     print "Ponyworld!";
     2
   }

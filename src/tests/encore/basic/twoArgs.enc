@@ -5,8 +5,7 @@ class Main
     }
 
 class Other
-  def printTwo(a : string, b : string) : void {
+  def printTwo(a : String, b : String) : void {
     print a;
     print b
   }
-

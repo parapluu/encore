@@ -1,4 +1,4 @@
 
 passive class FarFoo
-  def name() : string
+  def name() : String
     "FarFoo"

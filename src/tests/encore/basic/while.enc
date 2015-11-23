@@ -4,4 +4,3 @@ class Main
       while i > 0
         {print "Hello Ponyworld!";
          i = i - 1}
-  

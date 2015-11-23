@@ -1,6 +1,6 @@
 class Foo {
   def work() : void {
-    print("working\n")
+    print("working")
   }
 }
 

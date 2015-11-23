@@ -1,7 +1,7 @@
 --
 -- Test match executes the catch all statement first
 --
-def test_catch_all(z: Maybe int): string
+def test_catch_all(z: Maybe int): String
   match z with
   z => "catchall"
   Just 32 => "Error, general condition should have been catched first"
@@ -10,7 +10,7 @@ def test_catch_all(z: Maybe int): string
 --
 -- Test match executes the specific val statement
 --
-def test_catch_specific_val(x: Maybe int): string
+def test_catch_specific_val(x: Maybe int): String
   match x with
   Just 32 => "32"
   z => "error, should catch specific value"
@@ -95,7 +95,7 @@ def test_multiple_assignments(x: Maybe int) : int {
 
 -- def bad2() : Maybe int
 --   let x = Just(42)
---       y = Nothing : Maybe string
+--       y = Nothing : Maybe String
 --   in{
 --       y = Just 42;
 --       y
@@ -105,7 +105,7 @@ def test_multiple_assignments(x: Maybe int) : int {
 --   let y = Nothing : Maybe (Maybe ThisTypeDoesNotExist) in
 --         ()
 
--- def foo(x : Maybe string) : Maybe int
+-- def foo(x : Maybe String) : Maybe int
 --   x
 
 passive class Poly<t> {

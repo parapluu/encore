@@ -3,7 +3,7 @@ def showRange(r : Range) : void
     print i
 
 class Foo
-  def msg(m:string) : void
+  def msg(m:String) : void
     print m
 
 class Main

@@ -11,6 +11,7 @@ module Typechecker.Prechecker(precheckEncoreProgram) where
 
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.State
 import Data.Maybe
 
 -- Module dependencies
@@ -23,10 +24,13 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Program -> Either TCError Program
-precheckEncoreProgram p = do
-  env <- buildEnvironment p
-  runReader (runExceptT (doPrecheck p)) env
+precheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
+precheckEncoreProgram p =
+  -- TODO: We should be able to write this using do-notation!
+  case buildEnvironment p of
+    (Right env, warnings) ->
+      runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
+    (Left err, warnings) -> (Left err, warnings)
 
 class Precheckable a where
     doPrecheck :: a -> TypecheckM a
@@ -96,9 +100,11 @@ instance Precheckable ClassDecl where
       ccapability' <- local addTypeParams $ resolveType ccapability
       cfields'     <- mapM (local addTypeParams . precheck) cfields
       cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
-      return $ setType cname' c{cfields = cfields'
-                               ,cmethods = cmethods'
-                               ,ccapability = ccapability'
+      return $ setType cname' c{ccapability = ccapability'
+                               ,cfields = cfields'
+                               ,cmethods = if any isConstructor cmethods'
+                                           then cmethods'
+                                           else emptyConstructor c : cmethods'
                                }
       where
         typeParameters = getTypeParameters cname
@@ -121,7 +127,7 @@ instance Precheckable MethodDecl where
       mtype'   <- resolveType $ mtype m
       mparams' <- mapM precheck $ mparams m
       thisType <- liftM fromJust $ asks $ varLookup thisName
-      when (isMainMethod thisType (mname m)) checkMainParams
+      when (isMainMethod thisType (mname m)) (checkMainParams mparams')
       when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
@@ -129,6 +135,6 @@ instance Precheckable MethodDecl where
                 tcError "Constructor cannot be streaming"
       return $ setType mtype' m{mparams = mparams'}
       where
-        checkMainParams =
-            unless (map ptype (mparams m) `elem` [[], [arrayType stringType]]) $
-              tcError "Main method must have argument type () or ([string])"
+        checkMainParams mparams =
+            unless (map ptype mparams `elem` [[], [arrayType stringObjectType]]) $
+              tcError "Main method must have argument type () or ([String])"

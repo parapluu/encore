@@ -2,17 +2,17 @@ def show(b: bool): void
   print b
 
 -- combinator
-def check_numbers(numbers: string): bool
+def check_numbers(numbers: String): bool
   if (numbers == "INVALID_CARD") then false
   else true
 
 -- combinator
-def check_name(name: string): bool
+def check_name(name: String): bool
   if (name == "FRANCISCO FERNANDEZ REYES") then true
   else false
 
 -- combinator
-def check_profile(purchases: [string]): bool
+def check_profile(purchases: [String]): bool
   let suspicious_purchase = false in {
     repeat i <- |purchases| {
       if (purchases[i] == "Online") then
@@ -22,11 +22,11 @@ def check_profile(purchases: [string]): bool
   }
 
 class CreditCard
-  name: string
-  card_number: string
-  purchases: [string]
+  name: String
+  card_number: String
+  purchases: [String]
 
-  def init(name: string, card_number: string, purchases: [string]): void {
+  def init(name: String, card_number: String, purchases: [String]): void {
     this.name = name;
     this.card_number = card_number;
     this.purchases = purchases;

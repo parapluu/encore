@@ -206,6 +206,15 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 isConstructor :: MethodDecl -> Bool
 isConstructor m = mname m == Name "_init"
 
+emptyConstructor :: ClassDecl -> MethodDecl
+emptyConstructor cdecl =
+    let pos = AST.AST.getPos cdecl
+    in Method{mmeta = meta pos
+             ,mname = Name "_init"
+             ,mparams = []
+             ,mtype = voidType
+             ,mbody = Skip (meta pos)}
+
 replaceMethodTypes :: [(Type, Type)] -> MethodDecl -> MethodDecl
 replaceMethodTypes bindings m =
     let mparams' = map (replaceParamType bindings) (mparams m)
@@ -360,12 +369,13 @@ data Expr = Skip {emeta :: Meta Expr}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}
           | Print {emeta :: Meta Expr,
-                   stringLit :: String,
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
+          | CharLiteral {emeta :: Meta Expr,
+                         charLit :: Char}
           | RangeLiteral {emeta :: Meta Expr,
                           start  :: Expr,
                           stop   :: Expr,
@@ -399,7 +409,6 @@ isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
 
-
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
@@ -411,6 +420,9 @@ isRangeLiteral _ = False
 isCallable :: Expr -> Bool
 isCallable e = isArrowType (AST.AST.getType e)
 
+isStringLiteral :: Expr -> Bool
+isStringLiteral StringLiteral {} = True
+isStringLiteral _ = False
 
 instance HasMeta Expr where
     getMeta = emeta
@@ -431,7 +443,6 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
-
 
 traverseProgram :: (Program -> [a]) -> Program -> [a]
 traverseProgram f program =

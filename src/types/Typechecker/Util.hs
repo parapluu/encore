@@ -30,6 +30,7 @@ import Typechecker.Environment
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Arrow(second)
+import Control.Monad.State
 import Data.Maybe
 
 -- Monadic versions of common functions
@@ -49,13 +50,19 @@ unlessM cond action = cond >>= (`unless` action)
 -- of return type @TypecheckM Bar@ may read from an 'Environment'
 -- and returns a @Bar@ or throws a typechecking exception.
 type TypecheckM a =
-    forall m . (MonadError TCError m, MonadReader Environment m) => m a
+    forall m . (MonadState [TCWarning] m,
+                MonadError TCError m,
+                MonadReader Environment m) => m a
 
 -- | convenience function for throwing an exception with the
 -- current backtrace
 tcError msg =
     do bt <- asks backtrace
        throwError $ TCError (msg, bt)
+
+tcWarning wrn =
+    do bt <- asks backtrace
+       modify (TCWarning bt wrn:)
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.
@@ -92,6 +99,9 @@ resolveType = typeMapM resolveSingleType
         | isMaybeType ty = do
             let resultType = getResultType ty
             resolveSingleType resultType
+            return ty
+        | isStringType ty = do
+            tcWarning StringDeprecatedWarning
             return ty
         | otherwise = return ty
         where

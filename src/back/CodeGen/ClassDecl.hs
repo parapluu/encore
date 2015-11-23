@@ -81,10 +81,9 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
             Seq $ [Assign (Decl (Ptr $ Typ "pony_main_msg_t", Var "msg")) (Cast (Ptr $ Typ "pony_main_msg_t") (Var "_m")),
                    Statement $ Call ((methodImplName (Ty.refType "Main") (ID.Name "main")))
                                     [(Cast (Ptr $ Typ "_enc__active_Main_t") (Var "_a")),
-                                     Call (Nam "array_from_array")
+                                     Call (Nam "_init_argv")
                                           [AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
-                                           AsExpr $ Var "ENCORE_PRIMITIVE",
-                                           Cast (Ptr encoreArgT) $ (Var "msg") `Arrow` (Nam "argv")]]])
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
 
        methodClauses = concatMap methodClause
 

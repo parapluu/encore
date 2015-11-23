@@ -111,6 +111,7 @@ pp' (Return e) = text "return" <+> pp' e <> text ";"
 pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
 pp' (Int n) = tshow n
 pp' (String s) = tshow s
+pp' (Char c) = tshow c
 pp' (Double d) = tshow d
 pp' (Comm s) = text ("/* "++s++" */")
 pp' (Annotated s ccode) = pp' ccode <+> pp' (Comm s)

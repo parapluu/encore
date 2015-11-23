@@ -50,7 +50,7 @@ lexer =
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "join",
+     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
      "extract"
    ],
    P.reservedOpNames = [
@@ -83,6 +83,7 @@ braces     = P.braces lexer
 maybeBraces p = braces p <|> p
 
 stringLiteral = P.stringLiteral lexer
+charLiteral = P.charLiteral lexer
 integer = P.integer lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
@@ -148,6 +149,7 @@ typ  = adtTypes
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
                   do {reserved "string"; return stringType} <|>
+                  do {reserved "char"; return charType} <|>
                   do {reserved "real"; return realType} <|>
                   do {reserved "void"; return voidType}
 
@@ -512,6 +514,7 @@ expr  =  unit
      <|> false
      <|> sequence
      <|> stringLit
+     <|> charLit
      <|> try real
      <|> int
      <?> "expression"
@@ -682,11 +685,14 @@ expr  =  unit
                 return $ Peer (meta pos) ty
       print = do pos <- getPosition
                  reserved "print"
-                 val <- expression
-                 return $ Print (meta pos) "{}\n" [val]
+                 arg <- option [] ((:[]) <$> expression)
+                 return $ Print (meta pos) arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
+      charLit = do pos <- getPosition
+                   char <- charLiteral
+                   return $ CharLiteral (meta pos) char
       int = do pos <- getPosition
                n <- integer
                return $ IntLiteral (meta pos) (fromInteger n)

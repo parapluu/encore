@@ -1,4 +1,4 @@
-class Main 
+class Main
   count : int
   def main() : void
     {print "Hello Ponyworld!";

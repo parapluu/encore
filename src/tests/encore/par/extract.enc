@@ -12,7 +12,7 @@ def switch_life(p: PassiveObject): PassiveObject
   if p.life == 42 then p.update(p.tag, 1)
   else p.update(p.tag, 42)
 
-def from_string_to_int(sentence: string): int
+def from_string_to_int(sentence: String): int
   if (sentence == "Liftv String") then 7
   else 1
 
@@ -20,15 +20,15 @@ def formatted_print(p: PassiveObject): void
   print("{}: {}\n", p.tag, p.life)
 
 passive class PassiveObject
-  tag: string
+  tag: String
   life: int
 
-  def init(tag: string, life: int): void {
+  def init(tag: String, life: int): void {
     this.tag = tag;
     this.life = life;
   }
 
-  def update(tag: string, life: int): PassiveObject {
+  def update(tag: String, life: int): PassiveObject {
     this.tag = tag;
     this.life = life;
     this
@@ -36,7 +36,7 @@ passive class PassiveObject
 
 class Test
   def number(number: int): int number
-  def stringf(sentence: string): string sentence
+  def stringf(sentence: String): String sentence
   def passive_object(pObject: PassiveObject): PassiveObject pObject
   def par_int_case(): Par int (liftv 42) || (liftv 30)
   def par_passive_case(pObject: PassiveObject): Par PassiveObject

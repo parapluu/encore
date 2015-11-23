@@ -66,7 +66,6 @@ example, 2-tuples:
 
 @codeblock|{
 passive class Pair<a, b>
-passive class Pair<a,b>
   fst : a
   snd : b
   def init(fst_ : a, snd_ : b) : void{
@@ -80,7 +79,7 @@ We can now use the class like this:
 @codeblock|{
 class Main
   def main() : void
-    let pair = new (Pair int string)(65, "a") in
+    let pair = new (Pair<int, String>)(65, "a") in
       print("({},{})\n", pair.fst, pair.snd)
 }|
 @subsection{Methods}
@@ -694,14 +693,14 @@ The following table documents how @tt{encore}'s types map to C types:
 @tabular[#:sep @hspace[5]
 	  (list
 	    (list @bold{encore}              @bold{C})
-	    (list @code{string}              @tt{char*})
+	    (list @code{char}                @tt{char})
 	    (list @code{real}                @tt{double})
  	    (list @code{int}                 @tt{int64_t})
             (list @code{uint}                @tt{uint64_t})
             (list @code{bool}                @tt{int64_t})
 	    (list "<any active class type>"  @code{pony_actor_t*})
 	    (list "<any passive class type>" @code{CLASSNAME_data*})
-	    (list "<a type parameter>"       @code{void*})
+	    (list "<a type variable> "       @code{encore_arg_t})
 	  )
         ]
 
@@ -744,9 +743,14 @@ Encore has anonymous functions:
 }|
 
 
-The backslash @literal{\} syntax is borrowed from Haskell and is supposed to resemble a lambda. It is followed by a comma separated list of parameter declarations, an arrow @code{->} and an expression that is the function body.
+The backslash @literal{\} syntax is borrowed from Haskell and is
+supposed to resemble a lambda. It is followed by a comma separated
+list of parameter declarations, an arrow @code{->} and an
+expression that is the function body.
 
-The type of a function is declared similarly. The function @code{f} above has type @code{int -> int}. Multi-argument functions have types such as @code{(int, string) -> bool}.
+The type of a function is declared similarly. The function
+@code{f} above has type @code{int -> int}. Multi-argument
+functions have types such as @code{(int, String) -> bool}.
 
 @codeblock|{
   #! /usr/bin/env encorec -run

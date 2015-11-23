@@ -47,10 +47,10 @@ passive class Stack<v> : Push<v>
 class Main
   def main() : void
     let l = new List<int>(1, null)
-        s = new Stack<string>()
+        s = new Stack<String>()
         bump = \ (x : int) -> x + 1
         showNum = \ (x : int) -> {print x; x}
-        showString = \ (x : string) -> {print x; x}
+        showString = \ (x : String) -> {print x; x}
     in{
       l.add(2);
       l.add(3);

@@ -1,4 +1,4 @@
-class Main 
+class Main
   def main() : Fut (Fut void)
     let other = new Other
         another = new Other
@@ -6,9 +6,9 @@ class Main
       {other.setOther(another);
        other.work()}
 
-class Other 
+class Other
   other : Other
-  def setOther(va : Other) : void 
+  def setOther(va : Other) : void
     this.other = va
   def work() : Fut void
     let othertmp = this.other in

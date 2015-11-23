@@ -1,5 +1,5 @@
 
 bundle Proto.Id where
 
-def id(x: string): string 
+def id(x: String): String
     x

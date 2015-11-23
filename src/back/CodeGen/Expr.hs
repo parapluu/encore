@@ -51,15 +51,17 @@ instance Translatable ID.UnaryOp (CCode Name) where
 
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
-    | Ty.isIntType ty    = "%lli"
-    | Ty.isRealType ty   = "%f"
-    | Ty.isStringType ty = "%s"
-    | Ty.isBoolType ty   = "bool<%zd>"
-    | Ty.isRefType ty    = show ty ++ "<%p>"
-    | Ty.isFutureType ty = "fut<%p>"
+    | Ty.isIntType ty          = "%lli"
+    | Ty.isRealType ty         = "%f"
+    | Ty.isStringObjectType ty = "%s"
+    | Ty.isStringType ty       = "%s"
+    | Ty.isCharType ty         = "%c"
+    | Ty.isBoolType ty         = "bool<%zd>"
+    | Ty.isRefType ty          = show ty ++ "<%p>"
+    | Ty.isFutureType ty       = "fut<%p>"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
-                    _ -> "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
+                    _ -> error $ "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
 
 -- | If the type is not void, create a variable to store it in. If it is void, return the lval UNIT
 namedTmpVar :: String -> Ty.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
@@ -102,7 +104,7 @@ translateDecl (name, expr) = do
   tmp <- Ctx.genNamedSym (show name)
   substituteVar name (Var tmp)
   return (Var tmp,
-          [Comm $ show name ++ " = " ++ show (PP.ppExpr expr)
+          [Comm $ show name ++ " = " ++ show (PP.ppSugared expr)
           ,te
           ,Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
@@ -113,12 +115,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     namedTmpVar "breathe"
                 (A.getType breathe)
                 (Call (Nam "call_respond_with_current_scheduler") ([] :: [CCode Expr]))
+
   translate null@(A.Null {}) = namedTmpVar "literal" (A.getType null) Null
   translate true@(A.BTrue {}) = namedTmpVar "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = namedTmpVar "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)
   translate lit@(A.IntLiteral {A.intLit = i}) = namedTmpVar "literal" (A.getType lit) (Int i)
   translate lit@(A.RealLiteral {A.realLit = r}) = namedTmpVar "literal" (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
+  translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
   translate tye@(A.TypedExpr {A.body}) = do
     (nbody, tbody) <- translate body
@@ -196,22 +200,31 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 Call partySequence [AsExpr npar, AsExpr nseqfunc, runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
-  translate (A.Print {A.stringLit = s, A.args}) = do
-      targs <- mapM translate args
-      let argNames = map (AsExpr . fst) targs
+  translate (A.Print {A.args}) = do
+      let string = head args
+          rest = tail args
+      unless (Ty.isStringType $ A.getType string) $
+             error $ "Expr.hs: Print expects first argument to be a string literal"
+      targs <- mapM translate rest
+      let argNames = map fst targs
       let argDecls = map snd targs
-      let argTys   = map A.getType args
-      let fstring = formatString s argTys
+      let argTys   = map A.getType rest
+      let fstring   = formatString (A.stringLit string) argTys
+      let argNamesWithoutStringObjects = zipWith extractStringFromString rest argNames
       return $ (unit,
                 Seq $ argDecls ++
                      [Statement
                       (Call (Nam "printf")
-                       ((String fstring) : argNames))])
+                       ((String fstring) : argNamesWithoutStringObjects))])
       where
         formatString s [] = s
-        formatString "" (ty:tys) = error "Wrong number of arguments to printf"
+        formatString "" (ty:tys) = error "Expr.hs: Wrong number of arguments to printf"
         formatString ('{':'}':s) (ty:tys) = (typeToPrintfFstr ty) ++ (formatString s tys)
         formatString (c:s) tys = c : (formatString s tys)
+
+        extractStringFromString arg argName
+          | Ty.isStringObjectType (A.getType arg) = AsExpr $ argName `Arrow` (fieldName $ ID.Name "data")
+          | otherwise                             = AsExpr argName
 
   translate exit@(A.Exit {A.args = [arg]}) = do
       (narg, targ) <- translate arg
@@ -221,13 +234,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate seq@(A.Seq {A.eseq}) = do
     ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes
---    let comms = map (Comm . show . PP.ppExpr) eseq
---    map commentAndTe (zip eseq tes)
     return (last nes, Seq $ map commentAndTe (zip eseq tes))
            where
---             merge comms tes = concat $ zipWith (\(comm, te) -> (Seq [comm,te])) comms tes
 
-             commentFor = (Comm . show . PP.ppExpr)
+             commentFor = (Comm . show . PP.ppSugared)
 
              commentAndTe (ast, te) = Seq [commentFor ast, te]
 
@@ -337,14 +347,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        mapM_ unsubstituteVar (map fst decls)
                        return (nbody, Seq $ (concat tdecls) ++ [tbody])
 
-  translate (A.New {A.ty})
+  translate (A.NewWithInit {A.ty, A.args})
       | Ty.isActiveClassType ty =
           do (nnew, tnew) <- namedTmpVar "new" ty $ Cast (Ptr . AsType $ classTypeName ty)
                                                     (Call (Nam "encore_create")
                                                     [Amp $ runtimeTypeName ty])
              let typeParams = Ty.getTypeParameters ty
                  typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map runtimeType typeParams)
-             return (nnew, Seq [tnew, Statement typeParamInit])
+             constructorCall <-
+                 activeMessageSend nnew ty (ID.Name "_init") args
+             return (nnew, Seq [tnew, Statement typeParamInit, constructorCall])
       | Ty.isSharedClassType ty =
           let
             fName = constructorImplName ty
@@ -354,13 +366,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             namedTmpVar "new" ty call
       | otherwise =
           do na <- Ctx.genNamedSym "new"
+             (argDecls, constructorCall) <-
+                 passiveMethodCall (Var na) ty (ID.Name "_init")
+                            args Ty.voidType
              let size = Sizeof . AsType $ classTypeName ty
                  theNew = Assign (Decl (translate ty, Var na))
                                  (Call (Nam "encore_alloc") [size])
                  typeParams = Ty.getTypeParameters ty
                  init = [Assign (Var na `Arrow` selfTypeField) (Amp $ runtimeTypeName ty),
-                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map runtimeType typeParams)]
-             return $ (Var na, Seq $ theNew : init)
+                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map runtimeType typeParams),
+                         Statement constructorCall]
+             return $ (Var na, Seq $ theNew : argDecls ++ init)
 
   translate (A.Peer {A.ty})
       | Ty.isActiveClassType ty =
@@ -435,26 +451,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | sharedAccess = sharedObjectMethodFut call
       | otherwise = remoteCall
           where
-            syncAccess = (A.isThisAccess target)
-              || (Ty.isPassiveClassType . A.getType) target
+            syncAccess = A.isThisAccess target ||
+                         (Ty.isPassiveClassType . A.getType) target
             sharedAccess = Ty.isSharedClassType $ A.getType target
             syncCall =
                 do (ntarget, ttarget) <- translate target
                    tmp <- Ctx.genNamedSym "synccall"
-                   targs <- mapM translate args
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
-                   let targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
-                       (argNames, argDecls) = unzip targs
-                       castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-                       theCall = if Ty.isTypeVar (A.mtype mtd) then
-                                     AsExpr $ fromEncoreArgT (translate (A.getType call))
-                                                (Call (methodImplName (A.getType target) name)
-                                                      (AsExpr ntarget : castedArguments))
-                                 else
-                                     (Call (methodImplName (A.getType target) name)
-                                           (AsExpr ntarget : castedArguments))
-                       theAssign = Assign (Decl (translate (A.getType call), Var tmp)) theCall
+                   (argDecls, theCall) <-
+                       passiveMethodCall ntarget (A.getType target)
+                                         name args (A.getType call)
+                   let theAssign =
+                           Assign (Decl (translate (A.getType call), Var tmp))
+                                  theCall
                    return (Var tmp, Seq $ ttarget :
                                           argDecls ++
                                           [theAssign])
@@ -515,30 +523,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             messageSend :: State Ctx.Context (CCode Lval, CCode Stat)
             messageSend =
                 do (ntarg, ttarg) <- translate target
-                   targs <- mapM translate args
-                   theMsgName <- Ctx.genNamedSym "arg"
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
-                   let (argNames, argDecls) = unzip targs
-                       theMsgTy = Ptr . AsType $ oneWayMsgTypeName (A.getType target) name
-                       noArgs = length args
-                       targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
-                       castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-                       argAssignments = zipWith (\i tmpExpr -> Assign (Arrow (Var theMsgName) (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
-                       theArgInit = Seq $ map Statement argAssignments
-                       theCall = Call (Nam "pony_sendv")
-                                      [Cast (Ptr ponyActorT) ntarg,
-                                       Cast (Ptr ponyMsgT) $ AsExpr $ Var theMsgName]
-                       theMsgDecl = Assign (Decl (theMsgTy, Var theMsgName)) (Cast theMsgTy $ Call (Nam "pony_alloc_msg") [Int (calcPoolSizeForMsg noArgs), AsExpr . AsLval $ oneWayMsgId (A.getType target) name])
-                       argsTypes = zip (map (\i -> (Arrow (Var theMsgName) (Nam $ "f" ++ show i))) [1..noArgs]) (map A.getType args)
+                   theSend <-
+                       activeMessageSend ntarg (A.getType target)
+                                         name args
                    return (unit,
-                           Seq ((Comm "message send") :
+                           Seq (Comm "message send" :
                                 ttarg :
-                                argDecls ++
-                                theMsgDecl :
-                                theArgInit :
-                                gcSend argsTypes expectedTypes (Comm "Not tracing the future in a oneWay send") ++
-                                [Statement theCall]))
+                                [theSend]))
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -1011,6 +1002,48 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return $ asEncoreArgT (translate $ A.getType arg) (StatAsExpr ntother tother)
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+activeMessageSend targetName targetType name args = do
+  targs <- mapM translate args
+  theMsgName <- Ctx.genNamedSym "arg"
+  mtd <- gets $ Ctx.lookupMethod targetType name
+  let (argNames, argDecls) = unzip targs
+      theMsgTy = Ptr . AsType $ oneWayMsgTypeName targetType name
+      noArgs = length args
+      targsTypes = map A.getType args
+      expectedTypes = map A.ptype (A.mparams mtd)
+      castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
+      argAssignments = zipWith (\i tmpExpr -> Assign (Arrow (Var theMsgName) (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
+      theArgInit = Seq $ map Statement argAssignments
+      theCall = Call (Nam "pony_sendv")
+                     [Cast (Ptr ponyActorT) targetName,
+                      Cast (Ptr ponyMsgT) $ AsExpr $ Var theMsgName]
+      theMsgDecl = Assign (Decl (theMsgTy, Var theMsgName)) (Cast theMsgTy $ Call (Nam "pony_alloc_msg") [Int (calcPoolSizeForMsg noArgs), AsExpr . AsLval $ oneWayMsgId targetType name])
+      argsTypes = zip (map (\i -> (Arrow (Var theMsgName) (Nam $ "f" ++ show i))) [1..noArgs]) (map A.getType args)
+  return $ Seq $ argDecls ++
+                 theMsgDecl :
+                 theArgInit :
+                 gcSend argsTypes expectedTypes (Comm "Not tracing the future in a oneWay send") ++
+                 [Statement theCall]
+
+
+passiveMethodCall targetName targetType name args resultType = do
+  targs <- mapM translate args
+  mtd <- gets $ Ctx.lookupMethod targetType name
+  let targsTypes = map A.getType args
+      expectedTypes = map A.ptype (A.mparams mtd)
+      (argNames, argDecls) = unzip targs
+      castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
+      theCall =
+          if Ty.isTypeVar (A.mtype mtd) then
+              AsExpr $ fromEncoreArgT (translate resultType)
+                                      (Call (methodImplName targetType name)
+                                      (AsExpr targetName : castedArguments))
+          else
+              Call (methodImplName targetType name)
+                   (AsExpr targetName : castedArguments)
+  return (argDecls, theCall)
+
 
 castArguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr
 castArguments expected targ targType
