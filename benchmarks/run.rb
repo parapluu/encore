@@ -2,6 +2,7 @@
 require "optparse"
 
 require_relative "config"
+require_relative "dependencyChecker"
 
 ENV['ponythreads'] = PONYTHREADS_DEFAULT.to_s
 @tag = ""
@@ -43,6 +44,13 @@ def commandParser(commandList)
 end
 
 def run(benchmarks)
+  isMissing, missingDeps = checkDependencies()
+  if isMissing
+    printMissingDependencies(missingDeps)
+    puts "Resolve dependencies and try again"
+    abort # if dependencies are missing, exit
+  end
+
   benchmarks.each do |benchmark, configuration|
     if not @silent
       puts "running #{benchmark} benchmark"

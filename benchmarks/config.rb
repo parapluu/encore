@@ -1,10 +1,14 @@
+# Amount of times each benchmark configuration will be executed
 REPS = 5
 
 # The tool that will measure execution time and load of each program
 # that is executed, result saved in data files. If you change this
 # tool to another, please make sure that the parsing routines in
 # run.rb works for the new tool.
-TIME = "/usr/bin/time --verbose"
+TIMEPATH = "/usr/bin/time"
+DEPENDENCIES = [TIMEPATH] # Add dependencies to this list
+OS_SUPPORT = ["linux"]
+TIME = "#{TIMEPATH} --verbose"
 
 WD = Dir.pwd # Working directory
 VERBOSE = false
@@ -17,7 +21,9 @@ INCLUDE_OUTPUT = true # includes program output in data file
 
 PONYTHREADS_DEFAULT = 2 # default amount of ponythreads to use
 
-PL_FANNKUCH_CONF = [ 
+UNUSED = [0]
+
+PL_FANNKUCH_CONF = [
   ["n=7", [7]],
   ["n=8", [8]],
   ["n=9", [9]],
@@ -43,9 +49,16 @@ PL_BENCHMARKS = [
   ["pl_fannkuch_scala", PL_FANNKUCH_CONF]
 ]
 
+GC_GCBENCH_CONF = [
+  ["gc_bench", UNUSED]
+]
+
+GC_BENCHMARKS = [
+  ["gc_gcbench", GC_GCBENCH_CONF],
+]
+
 IGNORES = [
 
 ]
 
-BENCHMARKS = PL_BENCHMARKS
-
+BENCHMARKS = PL_BENCHMARKS + GC_BENCHMARKS
