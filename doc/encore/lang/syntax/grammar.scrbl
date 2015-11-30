@@ -165,9 +165,6 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[embed @elem{.* body .*} end]
 			@seq[embed @elem{.*} end]])
 
-	  (list ClassDecl
-	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
-
 	  (list FieldDecls
 	  	@alt[
   		 	@seq[Name colon Type FieldDecls]
