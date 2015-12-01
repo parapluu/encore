@@ -270,6 +270,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
 hasSameKind :: Type -> Type -> Bool
 hasSameKind ty1 ty2
   | areBoth isMaybeType ||
+    areBoth isTupleType ||
     areBoth isFutureType ||
     areBoth isParType ||
     areBoth isCapabilityType ||
