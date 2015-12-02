@@ -270,13 +270,13 @@ showWithKind ty = kind ty ++ " " ++ show ty
 hasSameKind :: Type -> Type -> Bool
 hasSameKind ty1 ty2
   | areBoth isMaybeType ||
-    areBoth isTupleType ||
     areBoth isFutureType ||
     areBoth isParType ||
     areBoth isCapabilityType ||
     areBoth isStreamType = getResultType ty1 `hasSameKind` getResultType ty2
   | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
   | areBoth isPrimitive ||
+    areBoth isTupleType ||
     areBoth isTypeVar ||
     areBoth isRefType ||
     areBoth isArrowType = True
