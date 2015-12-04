@@ -197,8 +197,7 @@ generateHeader p =
        where
          traitType A.Trait{A.tname} =
            let
-             formal = Ty.getTypeParameters tname
-             self = (Ptr ponyTypeT, AsLval $ selfTypeField)
+             self = (Ptr ponyTypeT, AsLval selfTypeField)
            in
              StructDecl (AsType $ refTypeName tname) [self]
 

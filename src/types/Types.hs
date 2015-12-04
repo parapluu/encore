@@ -69,6 +69,7 @@ module Types(
             ,getResultType
             ,getId
             ,getTypeParameters
+            ,getMode
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
@@ -87,11 +88,15 @@ module Types(
             ,hasResultType
             ,setResultType
             ,showWithoutMode
+            ,isSafeType
             ,isModeless
             ,modeSubtypeOf
             ,makeUnsafe
             ,makeLinear
+            ,makeRead
+            ,makeSafe
             ,isLinearRefType
+            ,isReadRefType
             ,makeStackbound
             ,isStackboundType
             ) where
@@ -101,6 +106,7 @@ import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
 import Control.Monad
+import Control.Arrow(first)
 
 data Activity = Active
               | Shared
@@ -161,16 +167,25 @@ instance Show Capability where
 
 data Mode = Linear
           | Unsafe
+          | Read
+          | Safe
             deriving(Eq)
 
 instance Show Mode where
     show Linear = "linear"
     show Unsafe = "unsafe"
+    show Read   = "read"
+    show Safe   = "safe"
 
 modeSubtypeOf ty1 ty2
---    | isLinearType ty1 &&
---      isStackboundType ty2 = True
-    | otherwise = mode (refInfo (inner ty1)) == mode (refInfo (inner ty2))
+    | isPrimitive ty1 = True
+    | Just Read <- getMode ty1
+    , Just Safe <- getMode ty2 = True
+    | otherwise = getMode ty1 == getMode ty2
+
+modeIsSafe Read = True
+modeIsSafe Safe = True
+modeIsSafe _    = False
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
@@ -201,7 +216,7 @@ showRefInfoWithoutMode RefInfo{refId, parameters}
 data Box = Stackbound deriving(Eq)
 
 instance Show Box where
-    show Stackbound = "S"
+    show Stackbound = "borrowed"
 
 data Type = Type {inner :: InnerType
                  ,box   :: Maybe Box}
@@ -225,7 +240,8 @@ data InnerType =
                    ,activity   :: Activity
                    }
         | CapabilityType{capability :: Capability}
-        | TypeVar{ident :: String}
+        | TypeVar{ident :: String
+                 ,tmode :: Maybe Mode}
         | ArrowType{argTypes   :: [Type]
                    ,resultType :: Type
                    }
@@ -257,6 +273,11 @@ getId ty
     | isCType ty = ident . inner $ ty
     | otherwise = error $ "Types.hs: Tried to get the id of " ++
                           showWithKind ty
+getMode ty
+    | isRefType ty = mode . refInfo . inner $ ty
+    | isTypeVar ty = tmode . inner $ ty
+    | otherwise = error $ "Types.hs: Cannot get mode of " ++
+                          showWithKind ty
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
@@ -274,7 +295,8 @@ instance Show InnerType where
     show TraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
     show CapabilityType{capability} = show capability
-    show TypeVar{ident} = ident
+    show TypeVar{tmode = Nothing, ident} = ident
+    show TypeVar{tmode = Just mode, ident} = show mode ++ " " ++ ident
     show ArrowType{argTypes, resultType} =
         "(" ++ args ++ ") -> " ++ show resultType
         where
@@ -561,6 +583,11 @@ withModeOf sink source
     , info <- refInfo iType
     , mode <- mode $ refInfo (inner source)
       = sink{inner = iType{refInfo = info{mode}}}
+    | isTypeVar sink
+    , isTypeVar source
+    , iType <- inner sink
+    , tmode <- (tmode . inner) source
+      = sink{inner = iType{tmode}}
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink
@@ -653,6 +680,9 @@ makeUnsafe ty
     , iType <- inner ty
     , info <- refInfo iType
       = ty{inner = iType{refInfo = info{mode = Just Unsafe}}}
+    | isTypeVar ty
+    , iType <- inner ty
+      = ty{inner = iType{tmode = Just Unsafe}}
     | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
                           show ty
 
@@ -661,15 +691,60 @@ makeLinear ty
     , iType <- inner ty
     , info <- refInfo iType
       = ty{inner = iType{refInfo = info{mode = Just Linear}}}
+    | isTypeVar ty
+    , iType <- inner ty
+      = ty{inner = iType{tmode = Just Linear}}
     | otherwise = error $ "Types.hs: Cannot make type linear: " ++
                           show ty
 
+makeRead ty
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{mode = Just Read}}}
+    | isTypeVar ty
+    , iType <- inner ty
+      = ty{inner = iType{tmode = Just Read}}
+    | otherwise = error $ "Types.hs: Cannot make type read: " ++
+                          show ty
+
+makeSafe ty
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{mode = Just Safe}}}
+    | isTypeVar ty
+    , iType <- inner ty
+      = ty{inner = iType{tmode = Just Safe}}
+    | otherwise = error $ "Types.hs: Cannot make type safe: " ++
+                          show ty
+
+isSafeType ty
+    | isCapabilityType ty
+    , traits <- typesFromCapability ty = all isSafeType traits
+    | isModeless ty = isPrimitive ty || isActiveClassType ty
+    | otherwise = let mode = getMode ty in
+                  isJust mode && modeIsSafe (fromJust mode)
+    -- TODO: More cases?
+
 isModeless ty
     | isRefType ty = isNothing . mode . refInfo . inner $ ty
+    | isTypeVar ty = isNothing . tmode . inner $ ty
     | otherwise = True
 
 isLinearRefType ty
     | isRefType ty = (mode . refInfo . inner) ty == Just Linear
+    | isTypeVar ty = (tmode . inner) ty == Just Linear
+    | otherwise = False
+
+isReadRefType ty
+    | isRefType ty = (mode . refInfo . inner) ty == Just Read
+    | isTypeVar ty = (tmode . inner) ty == Just Read
+    | otherwise = False
+
+isSafeRefType ty
+    | isRefType ty = (mode . refInfo . inner) ty == Just Safe
+    | isTypeVar ty = (tmode . inner) ty == Just Safe
     | otherwise = False
 
 capabilityType :: TypeTree -> Type
@@ -723,7 +798,7 @@ arrayType = typ . ArrayType
 isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = typ . TypeVar
+typeVar ident = Type{inner = TypeVar{ident, tmode = Nothing}, box = Nothing}
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
@@ -736,9 +811,12 @@ isStringObjectType = (==stringObjectType)
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-    where replace ty =
+    where
+      replace ty
+          | isTypeVar ty =
               transferBox ty $
-              fromMaybe ty (lookup ty bindings)
+                  fromMaybe ty (lookup (getId ty) (map (first getId) bindings))
+          | otherwise = ty
 
 ctype :: String -> Type
 ctype = typ . CType

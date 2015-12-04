@@ -67,7 +67,7 @@ convertMethod bindings cdecl method =
         | isThisFieldAccess e =
             let f = A.name e
                 ty = getFieldType f (A.cfields cdecl)
-            in A.setType ty $ convertNode e
+            in convertNode e -- A.setType ty $ convertNode e
         | otherwise = convertNode e
 
     isThisFieldAccess e

@@ -92,14 +92,15 @@ resolveType = typeMapM resolveSingleType
       resolveSingleType ty
         | isTypeVar ty = do
             params <- asks typeParameters
-            unless (ty `elem` params) $
-                   tcError $ "Free type variables in type '" ++ show ty ++ "'"
-            return ty
+            let ty' = find ((== getId ty) . getId) params
+            when (isNothing ty') $
+                 tcError $ "Free type variables in type '" ++ show ty ++ "'"
+            return (ty `withModeOf` fromJust ty')
         | isRefType ty = do
             result <- asks $ refTypeLookup ty
             case result of
               Just formal -> do
-                matchTypeParameterLength formal ty
+                formalBindings ty
                 resolveRefType ty formal
               Nothing ->
                 tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
@@ -143,6 +144,13 @@ resolveType = typeMapM resolveSingleType
           | isTraitType actual = do
               when (isModeless actual) $
                    tcError $ "No mode given to " ++ classOrTraitName actual
+              when (isReadRefType actual) $ do
+                   tdecl <- liftM fromJust . asks $ traitLookup actual
+                   unless (isReadRefType formal ||
+                           all safeValField (requiredFields tdecl)) $
+                          tcError $ "Cannot give read mode to " ++
+                                    classOrTraitName actual ++
+                                    ". It has fields that are not val and safe"
               return actual
           | otherwise =
               error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal
@@ -265,7 +273,15 @@ formalBindings actual = do
   matchTypeParameterLength origin actual
   let formals = getTypeParameters origin
       actuals = getTypeParameters actual
-  return $ zip formals actuals
+      bindings = zip formals actuals
+  mapM_ matchModes bindings
+  return bindings
+  where
+    matchModes (x, ty) =
+        unless (isModeless x || ty `modeSubtypeOf` x) $
+               tcError $ "Mode of type '" ++ show ty ++
+                         "' does not match expected mode of type '" ++
+                         show x ++ "'"
 
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty

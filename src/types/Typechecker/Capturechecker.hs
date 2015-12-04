@@ -14,12 +14,14 @@ import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad
+import Debug.Trace
 
 -- Module dependencies
 import AST.AST as AST
 import AST.PrettyPrinter
 import AST.Util
 import Types as Ty
+import Identifiers
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
@@ -48,17 +50,20 @@ class CaptureCheckable a where
         a -> CapturecheckM a
 
 instance CaptureCheckable Program where
-    doCapturecheck p@Program{classes, functions} =
+    doCapturecheck p@Program{classes, traits, functions} =
         do functions' <- mapM capturecheck functions
            classes' <- mapM capturecheck classes
-           return p{classes = classes', functions = functions'}
+           traits' <- mapM capturecheck traits
+           return p{classes   = classes'
+                   ,traits    = traits'
+                   ,functions = functions'}
 
 instance CaptureCheckable Function where
     doCapturecheck fun@Function{funbody, funheader} =
         do let fType = htype funheader
            when (any isStackboundType (typeComponents fType)) $
                 ccError $ "Reverse borrowing (returning stackbounds) " ++
-                          "is currently not supported"
+                          "from functions is currently not supported"
            funbody' <- local (pushBT funbody) $
                        extendM capturecheck funbody
            unless (isVoidType fType) $
@@ -67,26 +72,44 @@ instance CaptureCheckable Function where
                matchStackBoundedness (getType funbody') fType
            return fun{funbody = funbody'}
 
+instance CaptureCheckable Requirement where
+    doCapturecheck r@RequiredField{rfield} = do
+        rfield' <- capturecheck rfield
+        return r{rfield = rfield'}
+    doCapturecheck r@RequiredMethod{} =
+        return r
+
+instance CaptureCheckable FieldDecl where
+    doCapturecheck f@Field{ftype} = do
+        when (isStackboundType ftype) $
+             ccError $ "Cannot have field of stackbound type '" ++
+                       show ftype ++ "'"
+        return f
+
 instance CaptureCheckable ClassDecl where
-    doCapturecheck c@Class{cmethods, cfields} =
-        do cmethods' <- mapM capturecheck cmethods
-           mapM_ notStackbound cfields
-           return c{cmethods = cmethods'}
+    doCapturecheck c@Class{cname, cmethods, cfields} =
+        do cfields' <- mapM (local addThis . capturecheck) cfields
+           cmethods' <- mapM (local addThis . capturecheck) cmethods
+           return c{cfields = cfields'
+                   ,cmethods = cmethods'}
         where
-          notStackbound f@Field{ftype} =
-              local (pushBT f) $
-              when (isStackboundType ftype) $
-                   ccError $ "Cannot have field of stackbound type '" ++
-                             show ftype ++ "'"
+          addThis = extendEnvironment [(thisName, cname)]
+
+instance CaptureCheckable TraitDecl where
+    doCapturecheck t@Trait{tname, treqs, tmethods} =
+        do treqs' <- mapM (local addThis . capturecheck) treqs
+           tmethods' <- mapM (local addThis . capturecheck) tmethods
+           return t{treqs = treqs'
+                   ,tmethods = tmethods'}
+        where
+          addThis = extendEnvironment [(thisName, tname)]
 
 -- TODO: Find all smallest result expressions for better error
 -- messages. resultOf (let x = 42 in x + 1) = x + 1
 instance CaptureCheckable MethodDecl where
     doCapturecheck m@Method{mbody} =
         do let mType = methodType m
-           when (any isStackboundType (typeComponents mType)) $
-                ccError $ "Reverse borrowing (returning stackbounds) " ++
-                          "is currently not supported"
+           checkReverseBorrowing mType
            mbody' <- local (pushBT mbody) $
                      extendM capturecheck mbody
            unless (isVoidType mType) $
@@ -94,6 +117,14 @@ instance CaptureCheckable MethodDecl where
                capture mbody'
                matchStackBoundedness (getType mbody') mType
            return m{mbody = mbody'}
+        where
+          checkReverseBorrowing mtype = do
+            thisType <- liftM fromJust . asks $ varLookup thisName
+            unless (isReadRefType thisType && isTypeVar mtype) $
+                   when (any isStackboundType (typeComponents mtype)) $
+                        ccError $ "Reverse borrowing (returning stackbounds) " ++
+                                  "is currently only supported for read traits " ++
+                                  "returning polymorphic values (C'est la vie)"
 
 instance CaptureCheckable Expr where
     doCapturecheck e@Null{} =
@@ -109,8 +140,13 @@ instance CaptureCheckable Expr where
     doCapturecheck e@VarAccess{} =
         return $ makeCaptured e
 
-    doCapturecheck e@FieldAccess{} =
-        return $ makeCaptured e
+    doCapturecheck e@FieldAccess{} = do
+        thisType <- liftM fromJust . asks $ varLookup thisName
+        if isReadRefType thisType &&
+           isTypeVar (getType e) && isModeless (getType e)
+        then let ty' = makeStackbound (getType e)
+             in return $ setType ty' $ makeCaptured e
+        else return $ makeCaptured e
 
     doCapturecheck e@Consume{} =
         free e

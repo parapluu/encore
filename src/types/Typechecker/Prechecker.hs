@@ -100,7 +100,7 @@ instance Precheckable Requirement where
 instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
-      treqs'  <- mapM (local addTypeParams . precheck) treqs
+      treqs'  <- mapM (local (addTypeParams . addThis) . precheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
       return $ setType tname t{treqs = treqs', tmethods = tmethods'}
       where
@@ -117,7 +117,7 @@ instance Precheckable ClassDecl where
       assertDistinctness
       cname'       <- local addTypeParams $ resolveType cname
       ccapability' <- local addTypeParams $ resolveType ccapability
-      cfields'     <- mapM (local addTypeParams . precheck) cfields
+      cfields'     <- mapM (local (addTypeParams . addThis) . precheck) cfields
       cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
       return $ setType cname' c{ccapability = ccapability'
                                ,cfields = cfields'
@@ -138,8 +138,19 @@ instance Precheckable ClassDecl where
 
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do
+      when (isTypeVar ftype) $
+           unless (isModeless ftype) $
+                  tcError "Type variables can only have manifest modes"
       ftype' <- resolveType ftype
+      thisType <- liftM fromJust . asks . varLookup $ thisName
+      when (isReadRefType thisType) $ do
+           unless (isValField f) $
+                  tcError "Read traits can only have val fields"
+           unless (isModeless ftype' && isTypeVar ftype' || isSafeType ftype') $
+                  tcError $ "Read trait can not have field of non-safe type '" ++
+                            show ftype' ++ "'"
       return $ setType ftype' f
+
 
 instance Precheckable MethodDecl where
     doPrecheck m@Method{mheader} = do

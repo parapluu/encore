@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "linear",
-     "extract", "consume", "unsafe", "S"
+     "extract", "consume", "unsafe", "S", "break"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -147,7 +147,7 @@ typ  = adtTypes
       embed = do reserved "embed"
                  ty <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ ctype ty
-      stackbound = do reserved "S"
+      stackbound = do reserved "borrowed"
                       ty <- parens typ
                       return $ makeStackbound ty
       capabilityOrRef = do
@@ -164,9 +164,10 @@ typ  = adtTypes
 
 typeVariable :: Parser Type
 typeVariable = do
+  mode <- option id mode
   notFollowedBy upper
   id <- identifier
-  return $ typeVar id
+  return $ mode (typeVar id)
   <?> "lower case type variable"
 
 program :: Parser Program
@@ -255,12 +256,20 @@ mode :: Parser (Type -> Type)
 mode = linear
        <|>
        unsafe
+       <|>
+       read
+       <|>
+       safe
        <?> "mode"
     where
       linear = do reserved "linear"
                   return makeLinear
       unsafe = do reserved "unsafe"
                   return makeUnsafe
+      read   = do reserved "read"
+                  return makeRead
+      safe   = do reserved "safe"
+                  return makeSafe
 
 traitDecl :: Parser TraitDecl
 traitDecl = do

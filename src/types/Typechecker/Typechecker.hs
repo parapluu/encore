@@ -331,7 +331,7 @@ instance Checkable Expr where
     -- ----------------------
     --  E |- (body : t) : t
     doTypecheck te@(TypedExpr {body, ty}) =
-        do ty' <- resolveType ty
+        do ty'   <- resolveType ty
            eBody <- hasType body ty'
            return $ setType ty' $ te{body = eBody, ty = ty'}
 
@@ -1234,7 +1234,9 @@ coerce expected actual
       when (isBottomType expected) $
         tcError "Cannot infer type of 'Nothing'"
       return expected
-  | otherwise = return actual
+  | otherwise = do
+      actual `assertSubtypeOf` expected
+      return actual
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||
@@ -1352,16 +1354,14 @@ matchTypes expected ty
         asks bindings
 
 assertSubtypeOf :: Type -> Type -> TypecheckM ()
-assertSubtypeOf sub super =
-    unlessM (sub `subtypeOf` super) $ do
-      capability <- if isClassType sub
-                    then do
-                      fBindings <- formalBindings sub
-                      cap <- asks $ capabilityLookup sub
-                      if isJust cap && not (isEmptyCapability (fromJust cap))
-                      then return $ fmap (replaceTypeVars fBindings) cap
-                      else return Nothing
-                    else return Nothing
-      let subMsg = "Type '" ++ show sub ++ "'" ++
-                   maybe "" ((" with capability " ++) . show) capability
-      tcError $ subMsg ++ " does not match expected type '" ++ show super ++ "'"
+assertSubtypeOf sub super = do
+    cap <- findCapability sub
+    unlessM (sub `subtypeOf` super) $
+            tcError $ "Type '" ++ show sub ++ "' " ++ maybeCap cap ++
+                      "does not match expected type '" ++ show super ++ "'"
+    where
+      maybeCap cap
+          | (isTraitType super || isCapabilityType super) &&
+            isClassType sub && not (isEmptyCapability cap) =
+                "with capability '" ++ show cap ++ "' "
+          | otherwise = ""

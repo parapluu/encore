@@ -1,5 +1,6 @@
-def borrow(x : S(Token)) : void
-  x.foo()
+def borrow(x : borrowed(Token)) : void
+  let y = x in
+    y.foo()
 
 trait Foo
  def foo() : void
@@ -8,11 +9,11 @@ trait Foo
 passive class Token : linear Foo
 
 passive class Borrower<t>
-  def lend(x : S(t)) : void
+  def lend(x : borrowed(t)) : void
     ()
 
 class Main
-  def borrow(x : S(Token)) : void
+  def borrow(x : borrowed(Token)) : void
     borrow(x)
 
   def main() : void

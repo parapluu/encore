@@ -368,21 +368,23 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
-    theAccess <- do fld <- gets $ Ctx.lookupField (A.getType target) name
-                    if Ty.isTypeVar (A.ftype fld) then
-                        return $ fromEncoreArgT (translate . A.getType $ acc) $ AsExpr (Deref ntarg `Dot` (fieldName name))
-                    else
-                        return (Deref ntarg `Dot` (fieldName name))
-    return (Var tmp, Seq [ttarg,
-                      (Assign (Decl (translate (A.getType acc), Var tmp)) theAccess)])
+    fld <- gets $ Ctx.lookupField (A.getType target) name
+    let theAccess = AsExpr $ Deref ntarg `Dot` fieldName name
+        theCast | Ty.isTypeVar (A.ftype fld) =
+                    AsExpr $ fromEncoreArgT (translate . A.getType $ acc)
+                                            theAccess
+                | A.getType acc /= A.ftype fld =
+                    Cast (translate . A.getType $ acc) theAccess
+                | otherwise = theAccess
+        theAssign = Assign (Decl (translate (A.getType acc), Var tmp)) theCast
+    return (Var tmp, Seq [ttarg, theAssign])
 
   translate (A.Let {A.decls, A.body}) = do
-                     do
-                       tmpsTdecls <- mapM translateDecl decls
-                       let (tmps, tdecls) = unzip tmpsTdecls
-                       (nbody, tbody) <- translate body
-                       mapM_ unsubstituteVar (map fst decls)
-                       return (nbody, Seq $ (concat tdecls) ++ [tbody])
+    tmpsTdecls <- mapM translateDecl decls
+    let (tmps, tdecls) = unzip tmpsTdecls
+    (nbody, tbody) <- translate body
+    mapM_ (unsubstituteVar . fst) decls
+    return (nbody, Seq $ concat tdecls ++ [tbody])
 
   translate (A.NewWithInit {A.ty, A.args})
     | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
@@ -1174,25 +1176,28 @@ traitMethod this targetType name args resultType =
       f <- Ctx.genNamedSym $ concat [tyStr, "_", nameStr]
       vtable <- Ctx.genNamedSym $ concat [tyStr, "_", "vtable"]
       tmp <- Ctx.genNamedSym "trait_method_call"
-      (args, initArgs) <- fmap unzip $ mapM translate args
-      return $ (Var tmp,
+      (argNames, initArgs) <- unzip <$> mapM translate args
+      header <- gets $ Ctx.lookupMethod targetType name
+      let expectedTypes = map A.ptype (A.hparams header)
+          argTypes = map A.getType args
+          castThis = Cast capability this
+          castedArguments = zipWith3 castArguments expectedTypes argNames argTypes
+      return (Var tmp,
         Seq $
           initArgs ++
           [declF f] ++
           [declVtable vtable] ++
           [initVtable this vtable] ++
           [initF f vtable id] ++
-          [ret tmp $ callF f this args]
+          [ret tmp $ Call (Nam f) (AsExpr encoreCtxVar : castThis : castedArguments)]
         )
   where
-    thisType = translate targetType
     argTypes = map (translate . A.getType) args
-    declF f = FunPtrDecl resultType (Nam f) $ (Ptr encoreCtxT):thisType:argTypes
+    declF f = FunPtrDecl resultType (Nam f) $ Ptr encoreCtxT:capability:argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 msgSize :: CCode Ty -> CCode Expr

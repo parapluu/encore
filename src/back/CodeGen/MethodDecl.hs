@@ -71,7 +71,11 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                        (reverse (Util.filter A.isClosure mbody))
         tasks = map (\tas -> translateTask tas ctable) $
                     reverse $ Util.filter A.isTask mbody
-        retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
+        retStmt = Return $ if Ty.isVoidType mType
+                           then AsExpr unit
+                           else if mType == A.getType mbody
+                                then AsExpr bodyn
+                                else Cast (translate mType) bodyn
     in
       Concat $ closures ++ tasks ++
                [Function returnType name args (Seq [bodys, retStmt])]
