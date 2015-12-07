@@ -157,13 +157,14 @@ instance HasMeta ClassDecl where
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
-data Requirement = RequiredField {rmeta :: Meta Requirement
-                                 ,rfield :: FieldDecl
-                                 }
-                 | RequiredMethod {rmeta :: Meta Requirement
-                                  ,rheader :: FunctionHeader
-                                  }
-                   deriving(Show)
+data Requirement = RequiredField {
+       rmeta :: Meta Requirement
+      ,rfield :: FieldDecl
+    }
+    | RequiredMethod {
+       rmeta :: Meta Requirement
+      ,rheader :: FunctionHeader
+    } deriving(Show)
 
 isRequiredField RequiredField{} = True
 isRequiredField _ = False
@@ -265,10 +266,11 @@ instance HasMeta ParamDecl where
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
     showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
-data MethodDecl = Method {mmeta   :: Meta MethodDecl
-                         ,mheader :: FunctionHeader
-                         ,mbody   :: Expr}
-                  deriving (Show)
+data MethodDecl = Method {
+      mmeta   :: Meta MethodDecl
+     ,mheader :: FunctionHeader
+     ,mbody   :: Expr
+    } deriving (Show)
 
 methodName = hname . mheader
 methodParams = hparams . mheader
