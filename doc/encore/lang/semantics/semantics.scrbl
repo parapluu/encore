@@ -67,8 +67,9 @@ Passive objects may implement one or several @italic{traits}. A
 trait is like an interface with default implementations. It
 @code{require}s fields and methods and provides implemented
 methods. The class that implements a trait must provide all the
-fields and methods required by the trait, but will also have its
-own interface extended with the methods provided by the trait:
+fields and methods required by the trait (methods may have a more
+specialized return type), and will have its own interface extended
+with the methods provided by the trait:
 
 @codeblock|{
 trait Introduce
@@ -918,7 +919,7 @@ defines an extractor pattern with the same name.
     passive class Link
       assoc : (int, string)
       next : Link
-    
+
       def link() : Maybe((int, string), Link)
         Just (this.assoc, this.next)
 }|
