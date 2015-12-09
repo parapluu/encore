@@ -61,7 +61,8 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
           where
             initGlobals = map initGlobal allfunctions
                 where
-                  initGlobal A.Function{A.funname} =
+                  initGlobal fun =
+                      let funname = A.functionName fun in
                       Assign (globalClosureName funname)
                              (Call (Nam "closure_mk")
                                    [AsExpr $ AsLval $ globalFunctionName funname,

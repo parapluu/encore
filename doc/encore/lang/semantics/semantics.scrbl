@@ -9,14 +9,16 @@ This section describes the semantics of the language.
 
 @section{Classes}
 
-Classes in @tt{encore} have fields and methods. There is no
-inheritance. A class is either active or passive, all objects of an
-active class are active objects with asynchronous method calls and all
-objects of a passive class are passive objects with synchronous method
-calls.
+Classes in @tt{encore} have fields and methods. There is no class
+inheritance (but there are traits, see below). A class is either
+active or passive; all objects of an active class are active
+objects with asynchronous method calls and all objects of a
+passive class are passive objects with synchronous method calls.
 
-Every encore program needs a class @tt{Main} with an argument-less,
-@tt{void} method @tt{main}, which is the starting point of a program.
+Every encore program needs a class @tt{Main} with a method
+@tt{main}, which is the starting point of a program. The @tt{main}
+method may take an array of strings as arguments. This array
+contains the command line arguments to the program.
 
 
 
@@ -58,6 +60,60 @@ class Main
     let f = new Foo(12) in
       print("f.sum={}\n", f.sum) -- prints "f.sum=12"
 }|
+
+@subsection{Traits}
+
+Passive objects may implement one or several @italic{traits}. A
+trait is like an interface with default implementations. It
+@code{require}s fields and methods and provides implemented
+methods. The class that implements a trait must provide all the
+fields and methods required by the trait (methods may have a more
+specialized return type), and will have its own interface extended
+with the methods provided by the trait:
+
+@codeblock|{
+trait Introduce
+  require name : string
+  require greeting() : string
+  def introduce() : void
+    print("{}! My name is {}\n", this.greeting(), this.name)
+
+trait HasName
+  require name : string
+
+passive class Person : HasName + Introduce
+  name : string
+  def init(name : string) : void
+    this.name = name
+
+  def greeting() : string
+    "Hello"
+
+passive class Dog : HasName + Introduce
+  name : string
+  def init(name : string) : void
+    this.name = name
+
+  def greeting() : string
+    "Woof"
+
+class Main
+  def meeting(x : Introduce, y : Introduce) : void{
+    x.introduce();
+    y.introduce();
+  }
+
+  def main() : void
+    let p = new Person("Bob")
+        d = new Dog("Fido")
+    in
+      this.meeting(p, d)
+}|
+
+In this example, both @code{Person} and @code{Dog} are subtypes of
+the traits @code{Introduce} (and @code{HasName}) and can use the
+method @code{introduce}. Traits are (currently) only available for
+passive classes.
 
 @subsection{Parametric Class Polymorphism}
 
@@ -863,7 +919,7 @@ defines an extractor pattern with the same name.
     passive class Link
       assoc : (int, string)
       next : Link
-    
+
       def link() : Maybe((int, string), Link)
         Just (this.assoc, this.next)
 }|

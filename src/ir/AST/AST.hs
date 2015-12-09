@@ -54,22 +54,28 @@ class Show a => HasMeta a where
     showWithKind :: a -> String
     showWithKind = show
 
-data EmbedTL = EmbedTL {etlmeta   :: Meta EmbedTL,
-                        etlheader :: String,
-                        etlbody   :: String } deriving (Show)
+data EmbedTL = EmbedTL {
+      etlmeta   :: Meta EmbedTL,
+      etlheader :: String,
+      etlbody   :: String
+    } deriving (Show)
 
-data BundleDecl = Bundle { bmeta :: Meta BundleDecl,
-                           bname :: QName }
-                | NoBundle
-                deriving Show
+data BundleDecl = Bundle {
+      bmeta :: Meta BundleDecl,
+      bname :: QName
+    }
+  | NoBundle deriving Show
 
-data ImportDecl = Import {imeta   :: Meta ImportDecl,
-                          itarget :: QName }
-                | PulledImport {imeta :: Meta ImportDecl,
-                                qname :: QName,
-                                isrc :: FilePath,
-                                iprogram :: Program }
-                  deriving (Show)
+data ImportDecl = Import {
+      imeta   :: Meta ImportDecl,
+      itarget :: QName
+    }
+    | PulledImport {
+      imeta :: Meta ImportDecl,
+      qname :: QName,
+      isrc :: FilePath,
+      iprogram :: Program
+    } deriving (Show)
 
 instance HasMeta ImportDecl where
     getMeta = imeta
@@ -79,22 +85,47 @@ instance HasMeta ImportDecl where
     setType ty i =
         error "AST.hs: Cannot set the type of an ImportDecl"
 
+data FunctionHeader = FunctionHeader {
+        hname   :: Name,
+        htype   :: Type,
+        hparams :: [ParamDecl]
+    }
+    | MethodHeader {
+        hname   :: Name,
+        htype   :: Type,
+        hparams :: [ParamDecl]
+    }
+    | StreamMethodHeader {
+        hname   :: Name,
+        htype   :: Type,
+        hparams :: [ParamDecl]
+    } deriving(Eq, Show)
+
+setHeaderType ty h = h{htype = ty}
+
+isStreamMethodHeader StreamMethodHeader{} = True
+isStreamMethodHeader _ = False
+
 data Function = Function {
   funmeta   :: Meta Function,
-  funname   :: Name,
-  funtype   :: Type,
-  funparams :: [ParamDecl],
+  funheader :: FunctionHeader,
   funbody   :: Expr
 } deriving (Show)
 
+functionName = hname . funheader
+functionParams = hparams . funheader
+functionType = htype . funheader
+
 instance Eq Function where
-  a == b = funname a == funname b
+  a == b = (hname . funheader $ a) == (hname . funheader $ b)
 
 instance HasMeta Function where
   getMeta = funmeta
   setMeta f m = f{funmeta = m}
-  setType ty f@(Function {funmeta, funtype}) = f {funmeta = AST.Meta.setType ty funmeta, funtype = ty}
-  showWithKind Function{funname, funtype} = "function '" ++ show funname ++ "'"
+  setType ty f@(Function {funmeta, funheader}) =
+      f{funmeta = AST.Meta.setType ty funmeta}
+  showWithKind Function{funheader} =
+      "function '" ++ show (hname funheader) ++ "'"
 
 data ClassDecl = Class {
   cmeta       :: Meta ClassDecl,
@@ -126,12 +157,61 @@ instance HasMeta ClassDecl where
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
+data Requirement = RequiredField {
+       rmeta :: Meta Requirement
+      ,rfield :: FieldDecl
+    }
+    | RequiredMethod {
+       rmeta :: Meta Requirement
+      ,rheader :: FunctionHeader
+    } deriving(Show)
+
+isRequiredField RequiredField{} = True
+isRequiredField _ = False
+
+isRequiredMethod RequiredMethod{} = True
+isRequiredMethod _ = False
+
+instance Eq Requirement where
+    a == b
+        | isRequiredField a
+        , isRequiredField b =
+            rfield a == rfield b
+        | isRequiredMethod a
+        , isRequiredMethod b =
+            rheader a == rheader b
+        | otherwise = False
+
+instance HasMeta Requirement where
+    getMeta = rmeta
+    setMeta r m = r{rmeta = m}
+    setType ty r@(RequiredField{rmeta, rfield}) =
+      r{rmeta = AST.Meta.setType ty rmeta, rfield = AST.AST.setType ty rfield}
+    setType ty r@(RequiredMethod{rmeta, rheader}) =
+      r{rmeta = AST.Meta.setType ty rmeta, rheader = setHeaderType ty rheader}
+    showWithKind RequiredField{rfield} =
+        "required field '" ++ show rfield ++ "'"
+    showWithKind RequiredMethod{rheader} =
+        "required method '" ++ show (hname rheader) ++ "'"
+
 data TraitDecl = Trait {
   tmeta :: Meta TraitDecl,
   tname :: Type,
-  tfields :: [FieldDecl],
+  treqs :: [Requirement],
   tmethods :: [MethodDecl]
 } deriving (Show)
+
+requiredFields :: TraitDecl -> [FieldDecl]
+requiredFields Trait{treqs} =
+    map rfield $ filter isRequiredField treqs
+
+requiredMethods :: TraitDecl -> [FunctionHeader]
+requiredMethods Trait{treqs} =
+    map rheader $ filter isRequiredMethod treqs
+
+traitInterface :: TraitDecl -> [FunctionHeader]
+traitInterface t@Trait{tmethods} =
+    requiredMethods t ++ map mheader tmethods
 
 instance Eq TraitDecl where
   a == b = getId (tname a) == getId (tname b)
@@ -186,55 +266,59 @@ instance HasMeta ParamDecl where
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
     showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
-data MethodDecl = Method {mmeta   :: Meta MethodDecl,
-                          mname   :: Name,
-                          mtype   :: Type,
-                          mparams :: [ParamDecl],
-                          mbody   :: Expr}
-                | StreamMethod {mmeta   :: Meta MethodDecl,
-                                mname   :: Name,
-                                mtype   :: Type,
-                                mparams :: [ParamDecl],
-                                mbody   :: Expr} deriving (Show)
+data MethodDecl = Method {
+      mmeta   :: Meta MethodDecl
+     ,mheader :: FunctionHeader
+     ,mbody   :: Expr
+    } deriving (Show)
 
-isStreamMethod StreamMethod{} = True
-isStreamMethod _ = False
+methodName = hname . mheader
+methodParams = hparams . mheader
+methodType = htype . mheader
+
+isStreamMethod Method{mheader} = isStreamMethodHeader mheader
 
 isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
 
 isConstructor :: MethodDecl -> Bool
-isConstructor m = mname m == Name "_init"
+isConstructor m = methodName m == Name "_init"
 
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
-             ,mname = Name "_init"
-             ,mparams = []
-             ,mtype = voidType
+             ,mheader = MethodHeader{hname = Name "_init"
+                                    ,hparams = []
+                                    ,htype = voidType
+                                    }
              ,mbody = Skip (meta pos)}
 
-replaceMethodTypes :: [(Type, Type)] -> MethodDecl -> MethodDecl
-replaceMethodTypes bindings m =
-    let mparams' = map (replaceParamType bindings) (mparams m)
-        mtype' = replaceTypeVars bindings (mtype m)
+replaceHeaderTypes :: [(Type, Type)] -> FunctionHeader -> FunctionHeader
+replaceHeaderTypes bindings header =
+    let hparams' = map (replaceParamType bindings) (hparams header)
+        htype' = replaceTypeVars bindings (htype header)
     in
-      m{mparams = mparams', mtype = mtype'}
+      header{hparams = hparams', htype = htype'}
     where
       replaceParamType bindings p@Param{ptype} =
           p{ptype = replaceTypeVars bindings ptype}
 
 instance Eq MethodDecl where
-  a == b = mname a == mname b
+  a == b = methodName a == methodName b
 
 instance HasMeta MethodDecl where
   getMeta = mmeta
   setMeta mtd m = mtd{mmeta = m}
-  setType ty m@(Method {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
-  setType ty m@(StreamMethod {mmeta, mtype}) = m {mmeta = AST.Meta.setType ty mmeta, mtype = ty}
-  showWithKind Method {mname} = "method '" ++ show mname ++ "'"
-  showWithKind StreamMethod {mname} = "streaming method '" ++ show mname ++ "'"
+  setType ty m =
+      let header = mheader m
+          meta = mmeta m
+      in
+        m{mmeta = AST.Meta.setType ty meta
+         ,mheader = setHeaderType ty header}
+  showWithKind m
+      | isStreamMethod m = "streaming method '" ++ show (methodName m) ++ "'"
+      | otherwise = "method '" ++ show (methodName m) ++ "'"
 
 data MatchClause = MatchClause {mcmeta    :: Meta MatchClause,
                                 mcpattern :: Expr,

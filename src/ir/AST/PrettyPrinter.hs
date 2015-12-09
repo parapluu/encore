@@ -8,8 +8,14 @@ the abstract syntax tree has a corresponding pretty-print function
 
 -}
 
-module AST.PrettyPrinter (ppExpr, ppProgram, ppParamDecl,
-                          ppFieldDecl, indent, ppSugared) where
+module AST.PrettyPrinter (ppExpr
+                         ,ppProgram
+                         ,ppParamDecl
+                         ,ppFieldDecl
+                         ,indent
+                         ,ppSugared
+                         ,ppFunctionHeader
+                         ) where
 
 -- Library dependencies
 import Text.PrettyPrint
@@ -93,7 +99,7 @@ ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
     text "" -- new line at end of file
 
 ppHeader header code =
-  if ((null header) && (null code))
+  if null header && null code
   then empty
   else text "embed" $+$ text header $+$ text "body" $+$ text code $+$ text "end\n"
 
@@ -105,20 +111,23 @@ ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
 ppImportDecl PulledImport {} = error "Cannot pretty-print a pulled import"
 
+ppFunctionHeader :: FunctionHeader -> Doc
+ppFunctionHeader header =
+    ppName (hname header) <>
+    parens (commaSep (map ppParamDecl (hparams header))) <+>
+    text ":" <+> ppType (htype header)
+
 ppFunction :: Function -> Doc
-ppFunction Function {funname, funtype, funparams, funbody} =
-    text "def" <+>
-    ppName funname <>
-    parens (commaSep (map ppParamDecl funparams)) <+>
-    text ":" <+> ppType funtype $+$
-    (indent (ppExpr funbody))
+ppFunction Function {funheader, funbody} =
+    text "def" <+> ppFunctionHeader funheader $+$
+        indent (ppExpr funbody)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods} =
     ppClass <+> ppType cname $+$
-             (indent $
-                   vcat (map ppFieldDecl cfields) $$
-                   vcat (map ppMethodDecl cmethods))
+        (indent $
+                vcat (map ppFieldDecl cfields) $$
+                vcat (map ppMethodDecl cmethods))
 
 ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl = text . show
@@ -127,18 +136,14 @@ ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pname, ptype}) =  ppName pname <+> text ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
-ppMethodDecl Method {mname, mtype, mparams, mbody} =
-    text "def" <+>
-    ppName mname <>
-    parens (commaSep (map ppParamDecl mparams)) <+>
-    text ":" <+> ppType mtype $+$
-    (indent (ppExpr mbody))
-ppMethodDecl StreamMethod {mname, mtype, mparams, mbody} =
-    text "stream" <+>
-    ppName mname <>
-    parens (commaSep (map ppParamDecl mparams)) <+>
-    text ":" <+> ppType mtype $+$
-    (indent (ppExpr mbody))
+ppMethodDecl m =
+    let header = mheader m
+        body = mbody m
+        def | isStreamMethod m = text "stream"
+            | otherwise = text "def"
+    in
+      def <+> ppFunctionHeader header $+$
+          indent (ppExpr body)
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True

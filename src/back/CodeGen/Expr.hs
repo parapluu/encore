@@ -482,29 +482,34 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                      (Call (Nam "stream_mk") ([] :: [CCode Expr]))
                           else
                               Assign (Decl (Ptr $ Typ "future_t", Var theFutName))
-                                     (Call (Nam "future_mk") ([runtimeType . Ty.getResultType . A.getType $ call]))
+                                     (Call (Nam "future_mk") [runtimeType . Ty.getResultType . A.getType $ call])
                        theFutTrace = if Ty.isStreamType $ A.getType call then
-                                         (Statement $ Call (Nam "pony_traceobject")
-                                                           [Var theFutName, AsLval streamTraceFn])
+                                         Statement $ Call (Nam "pony_traceobject")
+                                                          [Var theFutName, AsLval streamTraceFn]
                                      else
-                                         (Statement $ Call (Nam "pony_traceobject")
-                                                           [Var theFutName, futureTypeRecName `Dot` Nam "trace"])
-                   theArgName <- Ctx.genNamedSym "arg"
-                   mtd <- gets $ Ctx.lookupMethod (A.getType target) name
+                                         Statement $ Call (Nam "pony_traceobject")
+                                                          [Var theFutName, futureTypeRecName `Dot` Nam "trace"]
+                   theArgName <- Var <$> Ctx.genNamedSym "arg"
+                   header <- gets $ Ctx.lookupMethod (A.getType target) name
                    let noArgs = length args
                        theArgTy = Ptr . AsType $ futMsgTypeName (A.getType target) name
-                       theArgDecl = Assign (Decl (theArgTy, Var theArgName)) (Cast theArgTy (Call (Nam "pony_alloc_msg") [Int (calcPoolSizeForMsg (noArgs + 1)), AsExpr $ AsLval $ futMsgId (A.getType target) name]))
+                       theAlloc = Call (Nam "pony_alloc_msg")
+                                       [Int (calcPoolSizeForMsg (noArgs + 1))
+                                       ,AsExpr $ AsLval $ futMsgId (A.getType target) name]
+                       theArgDecl = Assign (Decl (theArgTy, theArgName))
+                                           (Cast theArgTy theAlloc)
                        targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.mparams mtd)
+                       expectedTypes = map A.ptype (A.hparams header)
                        castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-                       argAssignments = zipWith (\i tmpExpr -> Assign ((Var theArgName) `Arrow` (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
+                       indexedArguments = map (indexArgument theArgName) [1..]
+                       argAssignments = zipWith Assign indexedArguments castedArguments
 
-                       argsTypes = zip (map (\i -> (Arrow (Var theArgName) (Nam $ "f"++show i))) [1..noArgs]) (map A.getType args)
-                       installFuture = Assign (Arrow (Var theArgName) (Nam "_fut")) (Var theFutName)
-                       theArgInit = Seq $ (map Statement argAssignments) ++ [installFuture]
-                   theCall <- return (Call (Nam "pony_sendv")
-                                              [Cast (Ptr ponyActorT) $ AsExpr ntarget,
-                                               Cast (Ptr ponyMsgT) $ AsExpr $ Var theArgName])
+                       argsTypes = zip indexedArguments (map A.getType args)
+                       installFuture = Assign (Arrow theArgName (Nam "_fut")) (Var theFutName)
+                       theArgInit = Seq $ map Statement argAssignments ++ [installFuture]
+                       theCall = Call (Nam "pony_sendv")
+                                      [Cast (Ptr ponyActorT) ntarget,
+                                       Cast (Ptr ponyMsgT) theArgName]
                    return (Var theFutName,
                            Seq $ ttarget :
                                  argDecls ++
@@ -537,7 +542,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          tmp <- Ctx.genNamedSym "while";
          let exportBody = Seq $ tbody : [Assign (Var tmp) nbody]
          return (Var tmp,
-                 Seq [Statement $ Decl ((translate (A.getType w)), Var tmp),
+                 Seq [Statement $ Decl (translate (A.getType w), Var tmp),
                       While (StatAsExpr ncond tcond) (Statement exportBody)])
 
   translate for@(A.For {A.name, A.step, A.src, A.body}) = do
@@ -1003,39 +1008,47 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
+indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
+
 activeMessageSend targetName targetType name args = do
   targs <- mapM translate args
-  theMsgName <- Ctx.genNamedSym "arg"
-  mtd <- gets $ Ctx.lookupMethod targetType name
+  theMsgName <- Var <$> Ctx.genNamedSym "arg"
+  header <- gets $ Ctx.lookupMethod targetType name
   let (argNames, argDecls) = unzip targs
       theMsgTy = Ptr . AsType $ oneWayMsgTypeName targetType name
       noArgs = length args
       targsTypes = map A.getType args
-      expectedTypes = map A.ptype (A.mparams mtd)
+      expectedTypes = map A.ptype (A.hparams header)
       castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-      argAssignments = zipWith (\i tmpExpr -> Assign (Arrow (Var theMsgName) (Nam $ "f"++show i)) tmpExpr) [1..noArgs] castedArguments
+      indexedArguments = map (indexArgument theMsgName) [1..]
+      argAssignments = zipWith Assign indexedArguments castedArguments
       theArgInit = Seq $ map Statement argAssignments
       theCall = Call (Nam "pony_sendv")
                      [Cast (Ptr ponyActorT) targetName,
-                      Cast (Ptr ponyMsgT) $ AsExpr $ Var theMsgName]
-      theMsgDecl = Assign (Decl (theMsgTy, Var theMsgName)) (Cast theMsgTy $ Call (Nam "pony_alloc_msg") [Int (calcPoolSizeForMsg noArgs), AsExpr . AsLval $ oneWayMsgId targetType name])
-      argsTypes = zip (map (\i -> (Arrow (Var theMsgName) (Nam $ "f" ++ show i))) [1..noArgs]) (map A.getType args)
+                      Cast (Ptr ponyMsgT) $ AsExpr theMsgName]
+      theMsgDecl =
+          Assign (Decl (theMsgTy, theMsgName)) $
+                 Cast theMsgTy $ Call (Nam "pony_alloc_msg")
+                                 [Int (calcPoolSizeForMsg noArgs)
+                                 ,AsExpr . AsLval $ oneWayMsgId targetType name]
+      argsTypes = zip indexedArguments (map A.getType args)
+      theTrace = gcSend argsTypes expectedTypes
+                        (Comm "Not tracing the future in a oneWay send")
   return $ Seq $ argDecls ++
                  theMsgDecl :
                  theArgInit :
-                 gcSend argsTypes expectedTypes (Comm "Not tracing the future in a oneWay send") ++
+                 theTrace ++
                  [Statement theCall]
-
 
 passiveMethodCall targetName targetType name args resultType = do
   targs <- mapM translate args
-  mtd <- gets $ Ctx.lookupMethod targetType name
+  header <- gets $ Ctx.lookupMethod targetType name
   let targsTypes = map A.getType args
-      expectedTypes = map A.ptype (A.mparams mtd)
+      expectedTypes = map A.ptype (A.hparams header)
       (argNames, argDecls) = unzip targs
       castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
       theCall =
-          if Ty.isTypeVar (A.mtype mtd) then
+          if Ty.isTypeVar (A.htype header) then
               AsExpr $ fromEncoreArgT (translate resultType)
                                       (Call (methodImplName targetType name)
                                       (AsExpr targetName : castedArguments))
@@ -1092,7 +1105,7 @@ sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
 traitMethod call@(A.MethodCall{A.target, A.name, A.args}) =
   let
     ty = A.getType target
-    id = oneWayMsgId ty name
+    id = msgId ty name
     tyStr = Ty.getId ty
     nameStr = show name
   in

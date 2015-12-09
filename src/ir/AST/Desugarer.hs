@@ -25,8 +25,11 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
     desugarMethod m
-      | mname m == Name "init" =
-        m{mname = Name "_init", mbody = desugarExpr (mbody m)}
+      | methodName m == Name "init" =
+          let header  = mheader m
+              header' = header{hname = Name "_init"}
+          in
+        m{mheader = header', mbody = desugarExpr (mbody m)}
       | otherwise = m{mbody = desugarExpr (mbody m)}
     desugarExpr = extend desugar . extend selfSugar
 

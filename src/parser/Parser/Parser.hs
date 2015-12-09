@@ -210,19 +210,32 @@ embedTL = do
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
 
+functionHeader :: Parser FunctionHeader
+functionHeader = do
+  hname <- Name <$> identifier
+  hparams <- parens (commaSep paramDecl)
+  colon
+  htype <- typ
+  return FunctionHeader{hname, hparams, htype}
+
+methodHeader :: Parser FunctionHeader
+methodHeader = do
+  FunctionHeader{hname, hparams, htype} <- functionHeader
+  return MethodHeader{hname, hparams, htype}
+
+streamMethodHeader :: Parser FunctionHeader
+streamMethodHeader = do
+  FunctionHeader{hname, hparams, htype} <- functionHeader
+  return StreamMethodHeader{hname, hparams, htype}
+
 function :: Parser Function
 function = do
   funmeta <- meta <$> getPosition
   reserved "def"
-  funname <- Name <$> identifier
-  funparams <- parens (commaSep paramDecl)
-  colon
-  funtype <- typ
+  funheader <- functionHeader
   funbody <- expression
   return Function{funmeta
-                 ,funname
-                 ,funparams
-                 ,funtype
+                 ,funheader
                  ,funbody
                  }
 
@@ -232,23 +245,32 @@ traitDecl = do
   reserved "trait"
   ident <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
-  (tfields, tmethods) <- maybeBraces traitBody
+  (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
               ,tname = traitTypeFromRefType $
                        refTypeWithParams ident params
-              ,tfields
+              ,treqs
               ,tmethods
               }
   where
     traitBody = do
-      fields <- many traitField
+      reqs    <- many (try reqField <|> reqMethod <?> "requirement")
       methods <- many methodDecl
-      return (fields, methods)
-
-traitField :: Parser FieldDecl
-traitField = do
-  reserved "require"
-  fieldDecl
+      return (reqs, methods)
+    reqField = do
+      rmeta <- meta <$> getPosition
+      reserved "require"
+      rfield <- fieldDecl
+      return RequiredField{rmeta
+                          ,rfield
+                          }
+    reqMethod = do
+      rmeta <- meta <$> getPosition
+      reserved "require"
+      rheader <- methodHeader
+      return RequiredMethod{rmeta
+                           ,rheader
+                           }
 
 capability :: Parser Type
 capability = do
@@ -329,23 +351,16 @@ paramDecl = do pos <- getPosition
                return $ Param (meta pos) (Name x) ty
 
 methodDecl :: Parser MethodDecl
-methodDecl = do pos <- getPosition
-                reserved "def"
-                name <- identifier
-                params <- parens (commaSep paramDecl)
-                colon
-                ty <- typ
-                body <- expression
-                return $ Method (meta pos) (Name name) ty params body
-             <|>
-             do pos <- getPosition
-                reserved "stream"
-                name <- identifier
-                params <- parens (commaSep paramDecl)
-                colon
-                ty <- typ
-                body <- expression
-                return $ StreamMethod (meta pos) (Name name) ty params body
+methodDecl = do mmeta <- meta <$> getPosition
+                mheader <- do reserved "def"
+                              methodHeader
+                       <|> do reserved "stream"
+                              streamMethodHeader
+                mbody <- expression
+                return Method{mmeta
+                             ,mheader
+                             ,mbody
+                             }
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
