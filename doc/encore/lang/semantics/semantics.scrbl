@@ -329,7 +329,7 @@ contain the result of the chained `lambda`. For instance:
 
   class Main
     def main(): void {
-      let p = new Producer in
+      let p = new Producer
           l = \ (x:int) -> { print x; x + 1 } in {
         print get p.produce() ~~> l;
       }
@@ -860,7 +860,7 @@ function:
 Pattern matching allows the programmer to branch on both the value of data,
 as well as its structure, while binding local names to sub-structures. Encore's
 match expression looks like this:
-\codeblock|{
+@codeblock|{
      match theArgument with
        pattern when optionalGuard => handler -- First match clause
        pattern2 => handler2 -- Second match clause
@@ -872,7 +872,7 @@ and no more clauses are checked. The match expression will evaluated to the same
 as the selected handler. If no clause matches a runtime error will the thrown and the
 program will crash.
 
-\subsection{Patterns}
+@subsection{Patterns}
 In Encore there are 5 different types of patterns. First is the value pattern,
 it matches whenever the value in the pattern is equal to the match expression's
 argument. Equality is checked using C's @code{==} except for on strings when C's @code{strcmp}
@@ -944,7 +944,7 @@ case they will function exactly like any other method.
 Regular functions may not be called inside a pattern. Anything that looks like a function
 call will be interpretted and typechecked as an extractor pattern.
 
-\@subsection{Guards}
+@subsection{Guards}
 Each match clause may have an optional guard. If there is a guard present, it must evaluate
 to @code{true} for the handler to be executed. If it evaluates to @code{false} the matcher
 will proceed to check the next clause. The following code demonstrates how to use guards in Encore:
