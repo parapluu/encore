@@ -6,7 +6,6 @@ def test_catch_all(z: Maybe (int,int)): String
   z => "catchall"
   Just (32,32) => "Error, general condition should have been catched first"
 
-
 --
 -- Test match executes the specific val statement
 --
@@ -62,7 +61,7 @@ def test_match_nothing_decl() : void
 --
 -- Test that we can pass arguments and return a value of Option type
 --
-def test_pass_args_and_return_of_maybe(x: Maybe (int,int)): Maybe (int,int)
+def test_pass_args_and_return_of_maybe(): Maybe (int,int)
   match Just((32,32)) with
   Just(z) => { print "Just(z)"; Just(z) }
   Nothing => { print "Nothing"; Nothing : Maybe (int,int) }
@@ -70,7 +69,7 @@ def test_pass_args_and_return_of_maybe(x: Maybe (int,int)): Maybe (int,int)
 --
 --  Test unification of the last expression
 --
-def test_unification_last_expression(x: Maybe (int,int)) : Maybe (int,int)
+def test_unification_last_expression() : Maybe (int,int)
  Nothing
 
 --
@@ -93,21 +92,6 @@ def test_multiple_assignments(x: Maybe (int,int)) : (int,int) {
   }
 }
 
--- def bad2() : Maybe (int,int)
---   let x = Just((42,42))
---       y = Nothing : Maybe (String,String)
---   in{
---       y = Just (42,42);
---       y
---   }
-
--- def bad1() : void
---   let y = Nothing : Maybe (Maybe ThisTypeDoesNotExist) in
---         ()
-
--- def foo(x : Maybe (String,String)) : Maybe (int,int)
---   x
-
 passive class Poly<t> {
   def morphic(x: t): Maybe t {
     Just x
@@ -121,15 +105,14 @@ class Main
      poly = new Poly<(int,int)>
      -- u = foo(Just (32,32))
    in {
-
      print test_catch_all(x);
      print test_catch_specific_val(x);
      test_match_decl();
      test_match_on_object(this);
      test_precedence_of_match();
      test_match_nothing_decl();
-     test_pass_args_and_return_of_maybe(x);
-     test_unification_last_expression(x);
+     test_pass_args_and_return_of_maybe();
+     test_unification_last_expression();
      test_multiple_assignments(x);
      match poly.morphic((32,32)) with
        Just (y,z) => print ("{},{}\n",y,z)
