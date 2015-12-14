@@ -276,6 +276,7 @@ hasSameKind ty1 ty2
     areBoth isStreamType = getResultType ty1 `hasSameKind` getResultType ty2
   | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
   | areBoth isPrimitive ||
+    areBoth isTupleType ||
     areBoth isTypeVar ||
     areBoth isRefType ||
     areBoth isArrowType = True
