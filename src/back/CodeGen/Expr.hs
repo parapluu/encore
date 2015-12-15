@@ -446,7 +446,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp, Seq [ttarg, theSize])
 
   translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
-      | (Ty.isTraitType . A.getType) target = traitMethod call
+      | (Ty.isTraitType . A.getType) target = do
+          (ntarget, ttarget) <- translate target
+          (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
+                                        (translate (A.getType call))
+          return (nCall, Seq $ ttarget : [tCall])
       | syncAccess = syncCall
       | sharedAccess = sharedObjectMethodFut call
       | otherwise = remoteCall
@@ -676,20 +680,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           return (Var nCheck, tCheck, newUsedVars)
 
         translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
-          tmp <- Ctx.genNamedSym "extractedOption"
-
           let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              tmpTy = Ty.maybeType innerTy
-              eCall = Call (methodImplName argty name) [eSelfArg]
-              nCall = Var tmp
-              tCall = Assign (Decl (translate tmpTy, nCall)) eCall
-              derefedCall = Deref nCall
-
               innerExpr = head args -- args is known to only contain one element
               innerTy = A.getType innerExpr
+              tmpTy = Ty.maybeType innerTy
+              noArgs = [] :: [A.Expr]
 
-          (nRest, tRest, newUsedVars) <- translateMaybePattern innerExpr derefedCall tmpTy assocs usedVars
+          (nCall, tCall) <-
+              if Ty.isTraitType argty
+              then traitMethod narg argty name noArgs (translate tmpTy)
+              else do
+                tmp <- Ctx.genNamedSym "extractedOption"
+                (argDecls, theCall) <-
+                    passiveMethodCall narg argty name noArgs tmpTy
+                let theAssign = Assign (Decl (translate tmpTy, Var tmp)) theCall
+                return (Var tmp, Seq $ argDecls ++ [theAssign])
+
+          let derefedCall = Deref nCall
+          (nRest, tRest, newUsedVars) <-
+              translateMaybePattern innerExpr derefedCall tmpTy assocs usedVars
 
           nCheck <- Ctx.genNamedSym "extractoCheck"
           let tDecl = Statement $ Decl (translate Ty.intType, nRest)
@@ -1102,22 +1112,19 @@ sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
     retType = translate $ A.getType call
     callF f this args = Statement $ Call f $ this:args
 
-traitMethod call@(A.MethodCall{A.target, A.name, A.args}) =
+traitMethod this targetType name args resultType =
   let
-    ty = A.getType target
-    id = msgId ty name
-    tyStr = Ty.getId ty
+    id = msgId targetType name
+    tyStr = Ty.getId targetType
     nameStr = show name
   in
     do
-      (this, initThis) <- translate target
       f <- Ctx.genNamedSym $ concat [tyStr, "_", nameStr]
       vtable <- Ctx.genNamedSym $ concat [tyStr, "_", "vtable"]
       tmp <- Ctx.genNamedSym "trait_method_call"
       (args, initArgs) <- fmap unzip $ mapM translate args
       return $ (Var tmp,
         Seq $
-          initThis:
           initArgs ++
           [declF f] ++
           [declVtable vtable] ++
@@ -1126,16 +1133,15 @@ traitMethod call@(A.MethodCall{A.target, A.name, A.args}) =
           [ret tmp $ callF f this args]
         )
   where
-    thisType = translate $ A.getType target
+    thisType = translate targetType
     argTypes = map (translate . A.getType) args
-    retType = translate $ A.getType call
-    declF f = FunPtrDecl retType (Nam f) $ thisType:argTypes
+    declF f = FunPtrDecl resultType (Nam f) $ thisType:argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = ArrAcc 0 $ this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
     callF f this args = Call (Nam f) $ this:args
-    ret tmp fcall = Assign (Decl (retType, Var tmp)) fcall
+    ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 gcSend as expectedTypes futTrace =
     [Embed $ "",
