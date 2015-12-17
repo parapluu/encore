@@ -183,8 +183,6 @@
 ;; Open "*.enc" in encore-mode
 (add-to-list 'auto-mode-alist '("\\.enc\\'" . encore-mode))
 
-(provide 'encore-mode)
-
 (defvar encore-imenu-generic-expression
   '(("passive class" "^\s*passive\s+class\s*\\(.*\\)" 1)
     ("active class" "^\s*class\s*\\(.*\\)" 1)
@@ -216,3 +214,24 @@
           (lambda ()
             (add-to-list 'compilation-error-regexp-alist-alist encorec-error-regexp)
             (add-to-list 'compilation-error-regexp-alist 'encorec)))
+
+;; If you use flycheck-mode, add the following lines to your init file:
+;(flycheck-define-checker encorec
+;  "The Encore compiler"
+;  :command ("encorec" source)
+;  :error-patterns
+;    ((warning "Warning at" "\"" (file-name) "\"" " (line " line ", column " column "):\n"
+;              (message))
+;     (error "\"" (file-name) "\"" " (line " line ", column " column "):\n"
+;            (message))
+;     (error " *** Error during typechecking *** \n"
+;            "\"" (file-name) "\"" " (line " line ", column " column ")\n"
+;            (message))
+;     (info line-start "Importing module" (message) line-end)
+;     )
+;  :modes encore-mode)
+
+;(add-to-list 'flycheck-checkers 'encorec)
+
+(provide 'encore-mode)
+;;; encore-mode.el ends here
