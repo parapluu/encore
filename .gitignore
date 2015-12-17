@@ -35,11 +35,14 @@ GTAGS
 src/tests/encore/basic/*
 !src/tests/encore/basic/*.enc
 !src/tests/encore/basic/*.out
+!src/tests/encore/basic/*.chk
 src/tests/encore/modules/*
 !src/tests/encore/modules/*.enc
 !src/tests/encore/modules/*.out
+!src/tests/encore/modules/*.chk
 src/tests/encore/par/*
 !src/tests/encore/par/*.enc
 !src/tests/encore/par/*.out
+!src/tests/encore/par/*.chk
 /.dist-buildwrapper/
 .project
