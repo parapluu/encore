@@ -546,7 +546,7 @@ expr  =  unit
                    reserved "breathe"
                    return $ Breathe (meta pos)
       path = do pos <- getPosition
-                root <- parens expression <|> try functionCall <|> varAccess
+                root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
                 dot
                 path <- (try functionCall <|> varAccess) `sepBy1` dot
                 return $ foldl (buildPath pos) root path
