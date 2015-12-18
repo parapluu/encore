@@ -1157,6 +1157,8 @@ instance Checkable Expr where
       | binop `elem` eqOps = do
              eLoper <- typecheck loper
              eRoper <- hasType roper (AST.getType eLoper)
+             when (isStringObjectType $ AST.getType eLoper) $
+                  tcWarning StringIdentityWarning
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` arithOps = do
              eLoper <- typecheck loper

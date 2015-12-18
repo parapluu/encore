@@ -7,6 +7,7 @@ module Typechecker.Util(TypecheckM
                        ,anyM
                        ,unlessM
                        ,tcError
+                       ,tcWarning
                        ,resolveType
                        ,subtypeOf
                        ,assertDistinctThing

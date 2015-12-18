@@ -10,7 +10,7 @@ module Typechecker.TypeError (Backtrace
                              ,Pushable(push)
                              ,TCError(TCError)
                              ,TCWarning(TCWarning)
-                             ,Warning(StringDeprecatedWarning)
+                             ,Warning(..)
                              ,currentMethodFromBacktrace) where
 
 import Text.PrettyPrint
@@ -131,13 +131,16 @@ instance Show TCError where
 data TCWarning = TCWarning Backtrace Warning
 instance Show TCWarning where
     show (TCWarning [] w) =
-        " Warning:\n" ++
+        "Warning:\n" ++
         show w
     show (TCWarning ((pos, _):_) w) =
-        " Warning at " ++ show pos ++ ":\n" ++
+        "Warning at " ++ show pos ++ ":\n" ++
         show w
 
 data Warning = StringDeprecatedWarning
+             | StringIdentityWarning
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
+    show StringIdentityWarning =
+        "Comparing String identity. Equality should be compared using 'equals'"
