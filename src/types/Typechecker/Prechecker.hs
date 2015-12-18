@@ -146,7 +146,8 @@ instance Precheckable MethodDecl where
     doPrecheck m@Method{mheader} = do
       mheader' <- doPrecheck mheader
       thisType <- liftM fromJust $ asks $ varLookup thisName
-      when (isMainMethod thisType (methodName m)) checkMainParams
+      when (isMainMethod thisType (methodName m))
+           (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
                   tcError "Cannot have streaming methods in a passive class"
@@ -155,7 +156,7 @@ instance Precheckable MethodDecl where
       let mtype = htype mheader'
       return $ setType mtype m{mheader = mheader'}
       where
-        checkMainParams =
-            unless (map ptype (methodParams m) `elem` allowedMainArguments) $
-              tcError "Main method must have argument type () or ([string])"
-        allowedMainArguments = [[], [arrayType stringType]]
+        checkMainParams params =
+            unless (map ptype params `elem` allowedMainArguments) $
+              tcError "Main method must have argument type () or ([String])"
+        allowedMainArguments = [[], [arrayType stringObjectType]]
