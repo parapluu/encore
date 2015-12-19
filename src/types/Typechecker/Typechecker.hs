@@ -1197,10 +1197,6 @@ coerceNull null ty
 
 coerce :: Type -> Type -> TypecheckM Type
 coerce expected actual
-  | isRefType actual && isRefType expected = do
-     resultTypeParams <- zipWithM coerce (getTypeParameters expected)
-                                         (getTypeParameters actual)
-     return $ setTypeParameters actual resultTypeParams
   | hasResultType expected && hasResultType actual = do
        resultType <- coerce (getResultType expected) (getResultType actual)
                      `catchError` (\_ -> tcError $ "Type '" ++ show actual ++
@@ -1218,11 +1214,7 @@ coerce expected actual
       when (isBottomType expected) $
         tcError "Cannot infer type of 'Nothing'"
       return expected
-  | otherwise = do
-      unless (actual == expected) $
-        tcError $ "Type '" ++ show actual ++ "' does not match expected type '" ++
-                  show expected ++ "'"
-      return actual
+  | otherwise = return actual
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||
@@ -1335,6 +1327,15 @@ matchTypes expected ty
 
 assertSubtypeOf :: Type -> Type -> TypecheckM ()
 assertSubtypeOf sub super =
-    unlessM (sub `subtypeOf` super) $
-           tcError $ "Type '" ++ show sub ++
-                     "' does not match expected type '" ++ show super ++ "'"
+    unlessM (sub `subtypeOf` super) $ do
+      capability <- if isClassType sub
+                    then do
+                      fBindings <- formalBindings sub
+                      cap <- asks $ capabilityLookup sub
+                      if isJust cap && not (emptyCapability (fromJust cap))
+                      then return $ fmap (replaceTypeVars fBindings) cap
+                      else return Nothing
+                    else return Nothing
+      let subMsg = "Type '" ++ show sub ++ "'" ++
+                   maybe "" ((" with capability " ++) . show) capability
+      tcError $ subMsg ++ " does not match expected type '" ++ show super ++ "'"
