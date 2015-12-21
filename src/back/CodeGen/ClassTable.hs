@@ -3,6 +3,7 @@ module CodeGen.ClassTable (
   lookupMethod,
   lookupMethods,
   lookupField,
+  lookupCalledType,
   buildClassTable) where
 
 import Types
@@ -11,6 +12,7 @@ import Identifiers
 
 import Data.List
 import Data.Maybe
+import Control.Arrow
 
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
@@ -59,3 +61,15 @@ lookupMethods :: Type -> ClassTable -> [FunctionHeader]
 lookupMethods cls ctable =
     let (_, ms) = lookupEntry cls ctable
     in map snd ms
+
+lookupCalledType :: Type -> Name -> ClassTable -> Type
+lookupCalledType ty m ctable
+  | isRefType ty = ty
+  | isCapabilityType ty =
+      let traits = typesFromCapability ty
+          ttable = map (\t -> (t, snd $ lookupEntry t ctable)) traits
+          results = map (second (lookup m)) ttable
+          fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
+                 Types.showWithKind ty
+      in
+        fst . fromMaybe fail $ find (isJust . snd) results

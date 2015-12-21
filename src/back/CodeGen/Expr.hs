@@ -688,8 +688,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               noArgs = [] :: [A.Expr]
 
           (nCall, tCall) <-
-              if Ty.isTraitType argty
-              then traitMethod narg argty name noArgs (translate tmpTy)
+              if Ty.isTraitType argty || Ty.isCapabilityType argty
+              then do
+                calledType <- gets $ Ctx.lookupCalledType argty name
+                traitMethod narg calledType name noArgs (translate tmpTy)
               else do
                 tmp <- Ctx.genNamedSym "extractedOption"
                 (argDecls, theCall) <-
@@ -1157,7 +1159,7 @@ traitMethod this targetType name args resultType =
     vtable this = ArrAcc 0 $ this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args = Call (Nam f) $ this:args
+    callF f this args = Call (Nam f) $ Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 gcSend as expectedTypes futTrace =

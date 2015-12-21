@@ -185,8 +185,8 @@ data Type = UntypedRef{refInfo :: RefInfo}
             deriving(Eq)
 
 hasResultType x
-  | (isArrowType x || isFutureType x || isParType x ||
-     isStreamType x || isArrowType x || isMaybeType x) = True
+  | isArrowType x || isFutureType x || isParType x ||
+    isStreamType x || isArrayType x || isMaybeType x = True
   | otherwise = False
 
 setResultType ty res
@@ -194,7 +194,9 @@ setResultType ty res
   | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
 getArgTypes = argTypes
-getResultType = resultType
+getResultType ty
+    | hasResultType ty = resultType ty
+    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
 getId UntypedRef{refInfo} = refId refInfo
 getId TraitType{refInfo} = refId refInfo
 getId ClassType{refInfo} = refId refInfo
@@ -272,13 +274,14 @@ hasSameKind ty1 ty2
   | areBoth isMaybeType ||
     areBoth isFutureType ||
     areBoth isParType ||
-    areBoth isCapabilityType ||
+    areBoth isArrayType ||
     areBoth isStreamType = getResultType ty1 `hasSameKind` getResultType ty2
   | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
   | areBoth isPrimitive ||
     areBoth isTupleType ||
     areBoth isTypeVar ||
     areBoth isRefType ||
+    areBoth isCapabilityType ||
     areBoth isArrowType = True
   | otherwise = False
   where

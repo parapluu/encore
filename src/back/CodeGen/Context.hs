@@ -15,7 +15,8 @@ module CodeGen.Context (
   genNamedSym,
   genSym,
   lookupField,
-  lookupMethod
+  lookupMethod,
+  lookupCalledType,
 ) where
 
 import Identifiers
@@ -69,3 +70,6 @@ lookupField ty f = Tbl.lookupField ty f . classTable
 
 lookupMethod :: Type -> Name -> Context -> FunctionHeader
 lookupMethod ty m = Tbl.lookupMethod ty m . classTable
+
+lookupCalledType :: Type -> Name -> Context -> Type
+lookupCalledType ty m = Tbl.lookupCalledType ty m . classTable

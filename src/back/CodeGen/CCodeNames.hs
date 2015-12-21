@@ -86,18 +86,23 @@ array = Ptr $ Typ "array_t"
 tuple :: CCode Ty
 tuple = Ptr $ Typ "tuple_t"
 
-
 rangeT :: CCode Ty
 rangeT = Typ "range_t"
 
 range :: CCode Ty
-range = Ptr $ rangeT
+range = Ptr rangeT
 
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
 par :: CCode Ty
-par = (Ptr . Typ) "par_t"
+par = Ptr $ Typ "par_t"
+
+capability :: CCode Ty
+capability = Ptr $ Typ "capability_t"
+
+ponyTraceFnType :: CCode Ty
+ponyTraceFnType = Typ "pony_trace_fn"
 
 unit :: CCode Lval
 unit = Embed "UNIT"

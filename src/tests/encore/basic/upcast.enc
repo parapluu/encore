@@ -19,7 +19,9 @@ class Main
         d = c : Foo
         x = new C<int>(42) : Foo
         y = new C<int>(42) : Bar<int, String>
+        z = c : Foo + Bar<int, String>
     in{
       print y.bar(x);
+      print z.bar(x);
       print "Done!";
     }

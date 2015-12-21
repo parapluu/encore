@@ -1,0 +1,31 @@
+def foo(x : T + U) : void
+  ()
+
+trait T
+  require f() : Maybe int
+
+trait U
+  require g() : Maybe T + U
+
+passive class C : T + U
+  def f() : Maybe int
+    Just 42
+
+  def g() : Maybe T + U
+    Nothing
+
+
+class Main
+  def main() : void
+    let c = new C : T + U
+        x = if false then
+              null
+            else
+              c
+        y = foo(null)
+    in {
+      match c with
+        g(x) => print "This should not happen"
+        f(n) => print n;
+      print "Done!"
+    }

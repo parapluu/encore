@@ -14,6 +14,7 @@ import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
+import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -449,21 +450,23 @@ instance Checkable Expr where
     doTypecheck mcall@(MethodCall {target, name, args}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isRefType targetType) $
+      unless (isRefType targetType || isCapabilityType targetType) $
         tcError $ "Cannot call method on expression '" ++
                   show (ppSugared target) ++
                   "' of type '" ++ show targetType ++ "'"
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
-      header <- findMethod targetType name
+      (header, calledType) <- findMethodWithCalledType targetType name
+      let specializedTarget = setType calledType eTarget
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
           mType = htype header
       (eArgs, bindings) <- matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings mType
-          returnType = retType targetType header resultType
-      return $ setType returnType mcall {target = eTarget, args = eArgs}
+          returnType = retType calledType header resultType
+      return $ setType returnType mcall {target = specializedTarget
+                                        ,args = eArgs}
       where
         retType targetType header t
          | isSyncCall targetType = t
@@ -614,8 +617,10 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError "Cannot infer result type of if-statement"
-              | isNullType ty1 && isRefType ty2 = return ty2
-              | isNullType ty2 && isRefType ty1 = return ty1
+              | isNullType ty1 &&
+                (isRefType ty2 || isCapabilityType ty2) = return ty2
+              | isNullType ty2 &&
+                (isRefType ty1 || isCapabilityType ty1) = return ty1
               | otherwise = if ty2 == ty1
                             then return ty1
                             else tcError $ "Type mismatch in different branches of if-statement:\n" ++
@@ -664,11 +669,11 @@ instance Checkable Expr where
                           show pt ++ "'"
 
         getPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
-          unless (isRefType pt) $
+          unless (isRefType pt || isCapabilityType pt) $
             tcError $ "Cannot match an extractor pattern against " ++
                       "non-reference type '" ++ show pt ++ "'"
-          header <- findMethod pt name
-          bindings <- formalBindings pt
+          (header, calledType) <- findMethodWithCalledType pt name
+          bindings <- formalBindings calledType
           let hType = replaceTypeVars bindings $ htype header
           unless (isMaybeType hType) $
             tcError $ "Pattern '" ++ show (ppSugared fcall) ++
@@ -692,8 +697,8 @@ instance Checkable Expr where
         getPatternVars pt pattern = return []
 
         checkPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
-          header <- findMethod argty name
-          bindings <- formalBindings argty
+          (header, calledType) <- findMethodWithCalledType argty name
+          bindings <- formalBindings calledType
           let hType = replaceTypeVars bindings $ htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
@@ -704,6 +709,7 @@ instance Checkable Expr where
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
           checkPattern (pattern {args = [tupArg]}) argty
+
         checkPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
             tcError $ "Pattern '" ++ show (ppSugared pattern) ++
@@ -1177,7 +1183,7 @@ instance Checkable Expr where
 coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
-    | isRefType ty = return $ setType ty null
+    | isRefType ty || isCapabilityType ty = return $ setType ty null
     | isMaybeType ty = return $ setType ty null
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
