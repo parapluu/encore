@@ -36,6 +36,10 @@ src/tests/encore/basic/*
 !src/tests/encore/basic/*.enc
 !src/tests/encore/basic/*.out
 !src/tests/encore/basic/*.chk
+src/tests/encore/concurrency/*
+!src/tests/encore/concurrency/*.enc
+!src/tests/encore/concurrency/*.out
+!src/tests/encore/concurrency/*.chk
 src/tests/encore/modules/*
 !src/tests/encore/modules/*.enc
 !src/tests/encore/modules/*.out
