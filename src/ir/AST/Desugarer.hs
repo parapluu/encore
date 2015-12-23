@@ -197,6 +197,12 @@ desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 desugar new@NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
+    | singleCapability ty
+    , [refTy] <- typesFromCapability ty
+    , "String" <- getId refTy
+    , [new'@NewWithInit{ty = ty', args = args'}] <- args
+    , isStringObjectType ty'
+    , length args' == 1 = new'
     | otherwise = new
 
 desugar s@StringLiteral{emeta, stringLit} =

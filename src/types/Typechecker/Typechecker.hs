@@ -934,15 +934,9 @@ instance Checkable Expr where
       fBindings <- formalBindings ty'
       let paramTypes = map ptype (hparams header)
           expectedTypes = map (replaceTypeVars fBindings) paramTypes
-          args' = if isStringObjectType ty'
-                  then stringArg args
-                  else args
       (eArgs, bindings) <- local (bindTypes fBindings) $
-                                 matchArguments args' expectedTypes
+                                 matchArguments args expectedTypes
       return $ setType ty' new{ty = ty', args = eArgs}
-      where
-        stringArg [NewWithInit{args}] = args
-        stringArg args = args
 
    ---  |- ty
     --  classLookup(ty) = _
