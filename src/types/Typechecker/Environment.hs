@@ -121,16 +121,24 @@ traitMethodLookup ty m env = do
       bindings = zip formals actuals
   return $ replaceHeaderTypes bindings header
 
+classMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
+classMethodLookup ty m env = do
+  cls <- classLookup ty env
+  traits <- mapM (\t -> traitLookup t env) $
+    typesFromCapability $ ccapability cls
+  let
+    headers = map mheader $ (cmethods cls) ++ concatMap tmethods traits
+  header <- find (matchHeader m) headers
+  let
+    formals = getTypeParameters $ cname cls
+    actuals = getTypeParameters ty
+    bindings = zip formals actuals
+  return $ replaceHeaderTypes bindings header
+
 methodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 methodLookup ty m env
   | isClassType ty = do
-    cls <- classLookup ty env
-    let headers = map mheader $ cmethods cls
-        cM = find (matchHeader m) headers
-        traits = typesFromCapability $ ccapability cls
-        tMs = map (\t -> traitMethodLookup t m env) traits
-    ret <- find isJust (cM:tMs)
-    return $ fromJust ret
+    classMethodLookup ty m env
   | isTraitType ty =
     traitMethodLookup ty m env
   | otherwise = error "methodLookup in non-ref type"
