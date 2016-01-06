@@ -1,7 +1,8 @@
 ROOT_PATH=../../../..
 ENCOREC=$(ROOT_PATH)/release/encorec
 
-ENCORE_SOURCES=$(shell ls *.enc)
+#ENCORE_SOURCES=$(shell ls *.enc)
+ENCORE_SOURCES=each.enc extract.enc general.enc liftf.enc liftv.enc sequence.enc
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
 all: test
