@@ -168,7 +168,7 @@ class Test
         arr_string = extract(liftv expectedString || liftv expectedAnotherString)
     in
       for v in arr_string assertTrue((v.equals(expectedString)) or
-                                     (v == expectedAnotherString),
+                                     (v.equals(expectedAnotherString)),
                                      "ERROR in 'test_par_string'")
 
   def test_par_passive(): void

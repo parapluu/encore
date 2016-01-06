@@ -3,19 +3,19 @@ def show(b: bool): void
 
 -- combinator
 def check_numbers(numbers: String): bool
-  if (numbers == "INVALID_CARD") then false
+  if (numbers.equals("INVALID_CARD")) then false
   else true
 
 -- combinator
 def check_name(name: String): bool
-  if (name == "FRANCISCO FERNANDEZ REYES") then true
+  if (name.equals("FRANCISCO FERNANDEZ REYES")) then true
   else false
 
 -- combinator
 def check_profile(purchases: [String]): bool
   let suspicious_purchase = false in {
     repeat i <- |purchases| {
-      if (purchases[i] == "Online") then
+      if ((purchases[i]).equals("Online")) then
         suspicious_purchase = true
     };
     suspicious_purchase
