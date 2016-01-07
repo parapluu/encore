@@ -399,7 +399,7 @@ expression = buildExpressionParser opTable highOrderExpr
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
-                 [partyLiftf, partyLiftv],
+                 [partyLiftf, partyLiftv, partyEach],
                  [typedExpression],
                  [chain],
                  [partySequence],
@@ -452,6 +452,10 @@ expression = buildExpressionParser opTable highOrderExpr
           Prefix (do pos <- getPosition
                      reserved "liftv"
                      return (Liftv (meta pos)))
+      partyEach =
+          Prefix (do pos <- getPosition
+                     reserved "each"
+                     return $ PartyEach (meta pos))
       partySequence =
           Infix (do pos <- getPosition ;
                     reservedOp ">>" ;
@@ -501,7 +505,6 @@ expr  =  unit
      <|> finishTask
      <|> for
      <|> foreach
-     <|> each
      <|> extract
      <|> parens expression
      <|> varAccess
@@ -623,10 +626,6 @@ expr  =  unit
       tupleLit = do pos <- getPosition
                     args <- parens (expression `sepBy2` comma)
                     return $ Tuple (meta pos) args
-      each = do pos <- getPosition
-                reserved "each"
-                expr <- expression
-                return $ PartyEach (meta pos) expr
       get = do pos <- getPosition
                reserved "get"
                expr <- expression

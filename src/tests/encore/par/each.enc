@@ -18,7 +18,7 @@ class Main
         arr = new [int](this.size)
     in {
         for i in rng arr[i] = i;
-        extract((each(arr)) >> \(i: int) -> this.check_arr[i] = true);
+        extract(each(arr) >> \(i: int) -> this.check_arr[i] = true);
         this.all();
-    }
+        };
   }
