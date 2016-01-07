@@ -1,0 +1,53 @@
+bundle Timer where
+
+embed
+#include <sys/time.h>
+end
+
+passive class Void {}
+
+passive class Timer {
+  start : Void
+
+  def init() : void {
+    this.start = embed Void calloc(1,sizeof(struct timeval)); end;
+  }
+
+  def start() : void {
+    let start = this.start in
+      embed void
+      gettimeofday((struct timeval*)(#{start}), NULL);
+      end
+  }
+
+  def stop() : int {
+    let
+      start = this.start
+      stop = embed Void (calloc(1,sizeof(struct timeval))); end
+      diff = 0
+    in {
+      embed void
+      struct timeval *start_tv = #{start};
+      struct timeval *stop_tv  = #{stop};
+      gettimeofday(stop_tv, NULL);
+      #{diff} = stop_tv->tv_sec - start_tv->tv_sec;
+      #{diff} *= 1000000;
+      #{diff} += (stop_tv->tv_usec - start_tv->tv_usec);
+      end;
+      diff
+    }
+  }
+}
+
+class Main {
+  def main() : void {
+    print("hello");
+    let t = new Timer() in {
+      repeat n <- 10 {
+        t.start();
+        embed void system("sleep 1"); end;
+        print("time={}\n", t.stop());
+      }
+    }
+  }
+}
