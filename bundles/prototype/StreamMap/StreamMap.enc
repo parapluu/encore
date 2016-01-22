@@ -1,0 +1,28 @@
+bundle StreamMap where
+
+-- Maps a lambda function onto a stream and gives a stream back.
+--
+-- Example:
+-- let
+--  resultStream =
+--   (new StreamMap<int,int>(myIntStream, \ (x : int) -> 2*x)).getStream()
+-- in ..
+
+class StreamMap<a,b> {
+  s : Stream a
+  f : a -> b
+
+  def init(s : Stream a, f : a -> b) : void {
+    this.s = s;
+    this.f = f
+  }
+
+  stream getStream() : b {
+    let f = this.f in {
+      while (not eos this.s) {
+        yield f(get this.s);
+        this.s = getNext this.s
+      }
+    }
+  }
+}
