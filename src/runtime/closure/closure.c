@@ -19,11 +19,6 @@ extern __thread pony_actor_t* this_actor;
   #define FREE(ptr) free(ptr)
 #endif
 
-struct closure{
-  closure_fun call;
-  void *env;
-  pony_trace_fn trace;
-};
 
 pony_type_t closure_type =
   {ID_CLOSURE,

@@ -124,12 +124,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
-  translate tye@(A.TypedExpr {A.body}) = do
+  translate tye@(A.TypedExpr {A.body, A.ty}) = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
-    let ty = translate (A.getType tye)
-        theCast = Assign (Decl (ty, Var tmp))
-                         (Cast ty nbody)
+    let ty' = translate ty
+        theCast = Assign (Decl (ty', Var tmp))
+                         (Cast ty' nbody)
     return $ (Var tmp,
               Seq [tbody, theCast])
 
@@ -445,7 +445,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Call (Nam "array_size") [ntarg])
          return (Var tmp, Seq [ttarg, theSize])
 
-  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
+  translate call@(A.MethodCall { A.target, A.name, A.args})
       | (Ty.isTraitType . A.getType) target = do
           (ntarget, ttarget) <- translate target
           (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
@@ -1001,22 +1001,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return $ Assign ((Deref $ Var $ show envName) `Dot` (fieldName name)) tname
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
-    c <- get
-    let clos = Var (case Ctx.substLkp c name of
-                      Just substName -> show substName
-                      Nothing -> show $ globalClosureName name)
-    let ty = A.getType fcall
-    targs <- mapM translateArgument args
-    (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
-    (calln, theCall) <- namedTmpVar "clos" ty $ AsExpr $ fromEncoreArgT (translate ty) (Call (Nam "closure_call") [clos, tmpArgs])
-    let comment = Comm ("fcall name: " ++ show name ++ " (" ++ show (Ctx.substLkp c name) ++ ")")
-    return (if Ty.isVoidType ty then unit else calln, Seq [comment, tmpArgDecl, theCall])
-        where
-          translateArgument arg =
-            do (ntother, tother) <- translate arg
-               return $ asEncoreArgT (translate $ A.getType arg) (StatAsExpr ntother tother)
+    ctx <- get
+    case Ctx.substLkp ctx name of
+      Just clos -> closureCall clos fcall
+      Nothing -> globalFunctionCall fcall
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+closureCall :: CCode Lval -> A.Expr ->
+  State Ctx.Context (CCode Lval, CCode Stat)
+closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
+  targs <- mapM translateArgument args
+  (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
+  (calln, theCall) <- namedTmpVar "clos" typ $
+    AsExpr $
+      fromEncoreArgT (translate typ) $
+        Call (Nam "closure_call") [clos, tmpArgs]
+  return (if Ty.isVoidType typ then unit else calln, Seq [tmpArgDecl, theCall])
+    where
+      typ = A.getType fcall
+      translateArgument arg = do
+        (ntother, tother) <- translate arg
+        return $ asEncoreArgT (translate $ A.getType arg)
+          (StatAsExpr ntother tother)
+
+globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
+globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
+  (args', initArgs) <- fmap unzip $ mapM translate args
+  (callVar, call) <- namedTmpVar "global_f" typ $
+    Call (globalFunctionName name) args'
+  let ret = if Ty.isVoidType typ then unit else callVar
+  return $ (ret, Seq $ initArgs ++ [call])
+  where
+    typ = A.getType fcall
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
 

@@ -57,4 +57,10 @@ value_t closure_call(closure_t *closure, value_t args[]);
  */
 void closure_free(closure_t *closure);
 
+struct closure {
+  closure_fun call;
+  void *env;
+  pony_trace_fn trace;
+};
+
 #endif
