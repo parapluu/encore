@@ -1,0 +1,290 @@
+-- Written by Evelina Andersson, 2015
+
+import MapReduceFrameWork
+import DocumentData
+
+embed
+  #include <string.h>
+  
+  int hashCode(char *string);
+  char *intToString(int number);
+  int equals(char *string0, char *string1);
+
+body
+  int hashCode(char *string) {
+     int length = strlen(string);
+     int i = 0;
+     int result = 0;
+ 
+     for(; i < length;i++) {
+         result += (int) string[i];
+     }   
+
+     return result;
+  }
+
+ char *intToString(int number) {
+    char *string = malloc(10 * sizeof(char));
+    sprintf(string, "%d", number);
+    return string;
+  }
+  
+ int equals(char *string0, char *string1) {
+      if(string0 == NULL) return 0;
+      else if (strcmp(string0, string1) == 0) return 1;
+          else return 0;
+  }
+end
+
+passive class Key
+   value : string
+
+   def init(value : string) : void
+      this.value = value
+  
+   def getValue() : string
+       this.value
+
+   def equals(v : Key) : bool
+       let
+           myValue = this.getValue()
+           valueValue = v.getValue()
+       in {
+          embed bool equals(#{myValue},#{valueValue}); end  
+       }
+
+   def hashCode() : int
+       let value = this.value in
+          {embed int hashCode(#{value}); end}
+
+   def show () : void
+       print("Key: {} ",this.value)
+
+
+ 
+ passive class ExtendedEmitData -- Posting
+   term : string
+   frequency : int
+
+   def init(term : string, frequency : int) : void {
+       this.term = term;
+       this.frequency = frequency
+   }
+ 
+   def getTerm() : string
+       this.term
+
+   def getFrequency() : int
+       this.frequency
+
+   def show(): void {
+       print("<{},{}>",this.term, this.frequency)
+   }
+   
+
+passive class EmitData
+  id : string
+  postings : ArrayList
+
+  def init(id : string, postings : ArrayList) : void {
+      this.id = id;
+      this.postings = postings
+  }
+
+  def setKey(key : Key) : void {
+      this.id = key.getValue();
+      ()
+  }
+
+  def addValue(value : ExtendedEmitData) : void {
+      let
+          dataCollector = new DataCollector()
+      in {
+          dataCollector.setExtendedEmitData(value);
+          this.postings.add(dataCollector)
+      }
+  }
+
+  def setValues(values : ArrayList) : void
+      this.postings = values
+
+  def getId() : string
+      this.id
+
+  def getKey() : Key
+      new Key(this.id)
+
+  def getValues() : ArrayList {
+      this.postings
+   }
+
+  def getResult() : ArrayList {
+      this.postings
+  }
+
+  def getValue() : ArrayList {
+     this.postings
+   }
+
+  def addValues(values : ArrayList) : void 
+      repeat i <- values.size()
+         this.postings.add(values.getCollector(i))
+
+  def show() : void {
+      print("EMIT DATA: {} ",this.id);
+      this.postings.show();
+      print("\n")
+   }
+
+passive class MapFunction 
+  collector : ArrayList
+  def init() : void 
+      this.collector = new ArrayList()
+  
+  def function(docid : string, tokens : ArrayList) : void  {  
+      let
+          hashtable = new Hashtable(16,false,0.75)
+      in {  
+             repeat i <- tokens.size() { 
+             let
+                 tokenKey = new Key(tokens.getCollector(i).getString())
+             in { 
+                 if (hashtable.keyExists(tokenKey)) then {
+                     let 
+                         value = hashtable.getValue(tokenKey)
+                     in { 
+                          value.setInt(value.getInt() + 1);
+                          hashtable.put(tokenKey, value);
+                      }  
+                 } else {
+                    let 
+                        dataContainer = new DataCollector() 
+                    in { 
+                        dataContainer.setInt(1); 
+                        hashtable.put(tokenKey,dataContainer);
+                      }
+                 }
+        
+                }
+          };
+          let 
+              terms = hashtable.getKeys()
+              numberOfKeys = |terms|
+          in { 
+              repeat i <- numberOfKeys { 
+                let 
+                    term = (terms[i]).getValue()
+                    frequency = hashtable.getValue(terms[i]).getInt()
+                    emitCollector = new DataCollector()
+                    newEmitData = new EmitData(term,new ArrayList())
+                in { 
+                    newEmitData.addValue(new ExtendedEmitData(docid, frequency));
+                    emitCollector.setEmitData(newEmitData);
+                    this.collector.add(emitCollector);
+                }
+             }
+         }; 
+       }
+   }
+   
+  def getEmits() : ArrayList
+      this.collector
+  
+passive class CombineFunction 
+  sortedEmits : Hashtable
+  collector   : ArrayList
+
+  def init() : void {
+    this.sortedEmits = new Hashtable(16,false,0.75);
+    this.collector  = new ArrayList()
+  }
+  
+  def function(key : Key, arrayList : ArrayList) : void { 
+      ()
+  } 
+
+  def getSortedEmits() : Hashtable
+      this.sortedEmits
+  
+  def getEmits() : ArrayList {
+      this.collector
+  }
+  
+
+passive class ReduceFunction
+  def init() : void 
+      ()
+  
+  def function(key : Key, values : ArrayList) : ArrayList { 
+      let
+           emits = new ArrayList()
+           P = new ArrayList()
+	   i = 0
+	   j = 0
+      in {
+           P.addValues(values);
+           -- sort      
+           while i < P.size() {
+             j = i;
+             while j < P.size() {
+              let
+                   data_i = P.getCollector(i).getExtendedEmitData().getFrequency() 
+                   data_j = P.getCollector(j).getExtendedEmitData().getFrequency()
+              in {  
+                  if (data_j > data_i) then
+                      let
+                         temp = new DataCollector()
+                         tempOldData = P.getCollector(i).getExtendedEmitData()
+                         tempnewData = new ExtendedEmitData(tempOldData.getTerm(), tempOldData.getFrequency())
+                       in { 
+                          temp.setExtendedEmitData(tempnewData); 
+                          P.set(i,values.getCollector(j));
+                          P.set(j,temp);
+                       
+                       }
+                };
+               j = j + 1;
+ 
+            };
+            i = i + 1;
+
+          };
+           let
+                value = new ArrayList()
+                data = new DataCollector()
+                emitData = new DataCollector()
+                newEmitData  = new EmitData(key.getValue(), new ArrayList())
+            in {
+                newEmitData.setValues(P);
+                data.setEmitData(newEmitData);
+                value.add(data);
+                emitData.setEmitData(newEmitData);
+                emits.add(emitData);
+            };
+            emits
+      }
+   }
+
+class Main
+  def main() : void{
+    let 
+        numberOfMappers = 4
+        numberOfReducers = 4
+        framework = new MapReduceFrameWork(numberOfMappers,numberOfReducers)
+        documents = new ArrayList()
+    in { 
+         repeat i <- 1000 {
+           let
+               document = new DataCollector() 
+               documentContents = new DocumentData()
+           in {
+               document.setEmitData(new EmitData(embed string intToString(#{i}); end, documentContents.getTokens()));
+               documents.add(document);
+            }
+         };
+         let result = framework.work(documents,false, 16, false, 0.75) in (); 
+       };
+       print("Done");
+   }      
+
+
