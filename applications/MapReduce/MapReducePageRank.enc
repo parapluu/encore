@@ -1,0 +1,359 @@
+-- Written by Evelina Andersson, 2015
+
+import MapReduceFrameWork
+
+embed
+  #include <string.h>
+  #include <time.h>
+ 
+  int hashCode(char *string);
+ 
+body
+  int hashCode(char *string) {
+     int length = strlen(string);
+     int i = 0;
+     int result = 0;
+ 
+     for(; i < length;i++) {
+         result += (int) string[i];
+     }   
+
+     return result;
+  }
+end
+
+passive class Key
+   value : int
+
+   def init(value : int) : void
+      this.value = value
+ 
+   def getValue() : int
+       this.value
+
+   def equals(v : Key) : bool
+       this.getValue() == v.getValue()
+
+   def hashCode() : int
+       this.value
+
+   def show () : void
+       print("Key: {} ",this.value)
+
+ 
+
+passive class ExtendedEmitData 
+   graph : [ArrayList]
+   pageRanks : [real]
+   numberOfNeighbours : [real]
+   values : ArrayList
+   isGraph : int
+   rank : real
+
+   def init(size : int) : void {
+       this.rank = 0.0;
+       this.isGraph = 0;
+       this.graph = new [ArrayList](size);
+       this.pageRanks = new [real](size);
+       this.numberOfNeighbours = new [real](size);
+       repeat i <- size {
+         this.graph[i] = new ArrayList();
+         this.pageRanks[i] = 0.0
+       };
+       this.values = new ArrayList() 
+   }
+    
+   def clearValues() : void
+       this.values = new ArrayList()
+       
+   def isGraph () : int {
+       this.isGraph 
+   }
+
+   def setRank(v : real) : void
+       this.rank = v
+
+   def getRank() : real
+       this.rank
+
+   def addNode(Nid : int, adjacencyList : ArrayList, pageRank : real, numberOfNeighbours : real) : void {
+       this.isGraph = 1;
+       (this.graph[Nid]) = adjacencyList;
+       (this.pageRanks[Nid]) = pageRank;
+        (this.numberOfNeighbours[Nid]) = numberOfNeighbours
+   }
+
+   def getAdjacencyList(Nid : int) : ArrayList {
+       this.graph[Nid]
+   }
+
+   def getNumberOfNeighbours(Nid : int) : real
+       (this.numberOfNeighbours[Nid])
+
+   def getPageRank(Nid : int) : real {
+       this.pageRanks[Nid]
+   }
+
+   def setPageRank(Nid : int, pageRank : real) : void
+       this.pageRanks[Nid] =  pageRank
+
+   def addValues(values : ArrayList) : void { 
+       this.values.addValues(values) 
+   }
+   
+   def getValues() : ArrayList
+       this.values
+    
+   def show() : void {
+     if(this.isGraph() == 1) then {
+       print("RESULT EMIT DATA GRAPH:");
+       repeat i <- |this.pageRanks| {
+         (this.graph[i]).show();
+          print(this.pageRanks[i])
+        }
+    } else {	
+	print("RESULT EMIT DATA RANK: {}\n", this.rank);
+	this.values.show()
+      }
+    }
+       
+passive class EmitData
+  Nid : int
+  values : ArrayList
+  graph : ExtendedEmitData
+ 
+  def init(Nid : int, graph : ExtendedEmitData) : void {
+      this.Nid = Nid;
+      this.graph = graph;
+      this.values = new ArrayList()
+  }
+
+  def setGraph(graph : ExtendedEmitData) : void {
+     this.graph = graph
+  }
+  
+  def setKey(key : Key) : void {
+      this.Nid = key.getValue()
+  }
+
+  def clearValues() : void {
+     this.values = new ArrayList();
+     this.graph.clearValues()
+  }
+
+ def getGraph() : ExtendedEmitData
+     this.graph
+
+  def getId() : int
+      this.Nid
+
+
+  def getKey() : Key
+      new Key(this.Nid)
+
+  def getValues() : ArrayList {
+      let
+          allValues = new ArrayList()
+      in {	   
+          if (this.graph != null) then {
+	      let
+	         dataCollectorGraph = new DataCollector()
+	      in {
+	         dataCollectorGraph.setExtendedEmitData(this.graph);
+	         allValues.add(dataCollectorGraph);
+	      }
+          };  
+	   allValues.addValues(this.values);
+	   allValues	 
+	  }
+  }
+
+ def getResult() : ArrayList { 
+     let
+         result = new ArrayList()
+         dataCollector = new DataCollector()
+     in  {
+         dataCollector.setExtendedEmitData(this.graph);
+	 result.add(dataCollector);
+	 result.addValues(this.values);
+	 result
+      }
+  }
+
+   def getValue() : ExtendedEmitData {
+       this.graph
+    }
+
+  def setRank(rank : real) : void {
+      this.graph.setRank(rank);
+   }
+
+  def isNode() : int {
+      (this.graph).isGraph()
+  }
+
+  def addValues(values : ArrayList) : void {
+      this.values.addValues(values)
+  }
+ 
+  def show() : void {
+      print("EMIT DATA: {} ",this.Nid);
+      if (this.isNode() == 1) then {this.graph.show()}
+      else print("RANK: {}\n", this.graph.getRank());
+      print("values");this.values.show();
+      print("\n")
+   }
+
+passive class MapFunction 
+  collector : ArrayList
+  def init() : void 
+      this.collector = new ArrayList()
+  
+  def function(Nid : int, N : ExtendedEmitData) : void  {
+      let 
+          pageRank = N.getPageRank(Nid)/(N.getNumberOfNeighbours(Nid))
+          emitCollector = new DataCollector()
+	  emitData = new EmitData(Nid, N)
+      in { 
+          emitCollector.setEmitData(emitData);
+          this.collector.add(emitCollector);
+	    
+          let 
+             adjacencyList = N.getAdjacencyList(Nid)
+          in { 
+              repeat i <- adjacencyList.size() {
+               let 
+                   nodeId = adjacencyList.getCollector(i).getInt() 
+                   pageRankMassEmit = new DataCollector()    
+                   noNode = new EmitData(nodeId,new ExtendedEmitData(1)) 
+                in { 
+              	   noNode.setRank(pageRank);
+	           pageRankMassEmit.setEmitData(noNode);
+                   this.collector.add(pageRankMassEmit);
+      		   
+                }
+             }
+         };
+      };
+   }
+        
+  def getEmits() : ArrayList
+      this.collector
+  
+passive class CombineFunction 
+  sortedEmits : Hashtable
+  collector   : ArrayList
+
+  def init() : void {
+    this.sortedEmits = new Hashtable(16,false,0.75);
+    this.collector  = new ArrayList()
+  }
+  
+  def function(key : Key, values : ArrayList) : void { 
+    ()
+  } 
+
+  def getSortedEmits() : Hashtable
+      this.sortedEmits
+  
+  def getEmits() : ArrayList {
+      this.collector
+  }
+  
+
+passive class ReduceFunction
+  M : ExtendedEmitData
+
+  def init() : void 
+      this.M = null
+  
+  def function(key : Key, inputValues : ArrayList) : ArrayList { 
+      let
+          emits = new ArrayList() 
+          s = 0.0
+ 	  M = inputValues.getCollector(0).getExtendedEmitData()
+       in { 
+           repeat i <- inputValues.size() {
+             let 
+                 resultData = inputValues.getCollector(i).getExtendedEmitData()
+                 
+             in {
+	         if (resultData.isGraph() == 1) then M = resultData
+                 else  s = s + resultData.getRank();
+	        }
+	    };  
+
+            M.setPageRank(key.getValue(), s);
+	    
+            let
+                emitData = new DataCollector()
+             in { 
+                    let
+	 	         newEmitData = new EmitData(key.getValue(),M)
+	  	     in {
+	   	        
+                          emitData.setEmitData(newEmitData);
+			  emits.add(emitData);
+	             }
+                  };
+
+          emits
+      }
+   }
+
+   
+class Main
+  def main() : void{
+    let
+       size = 75
+       nsize = 74.0
+       numberOfMappers = 10
+       numberOfReducers = 10
+       framework = new MapReduceFrameWork(numberOfMappers,numberOfReducers)
+       graph = new ExtendedEmitData(size)
+       documents = new ArrayList()
+       times = 25
+    in {
+     	repeat i <- size {
+	   let
+	      
+	      addList = new ArrayList()
+	   in  {
+              repeat j<-size {
+	        if (i != j) then {
+                 let
+                    addListCollector = new DataCollector()
+                  in {
+                    addListCollector.setInt(j);
+                    addList.add(addListCollector)
+                  }
+              }
+	     };
+	     graph.addNode(i, addList, 0.2,nsize);
+	   };
+	  }; 
+      
+
+       repeat i <- size
+          let
+              emitData = new EmitData(i, graph)
+              emitCollector = new DataCollector()
+           in {
+              emitCollector.setEmitData(emitData);
+              documents.add(emitCollector)
+            };
+      
+        repeat t <- times {  
+           let
+              result = framework.work(documents,false, 16,false,0.75)
+	   in {
+               repeat i <- size {
+	         documents.getCollector(i).getEmitData().setGraph(result.getCollector(i).getEmitData().getGraph());
+		 documents.getCollector(i).getEmitData().clearValues();
+                };
+           };
+         };
+     };
+     print("DONE");
+}
+
