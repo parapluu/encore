@@ -1,0 +1,71 @@
+-- Written by Evelina Andersson, 2015
+------------------------------------------------
+-- class : ArrayList
+-- Usage : store data in a resizable array
+------------------------------------------------
+passive class ArrayList
+  -- Fields that stores the values in the arraylist
+  -- and keep track of the number of values stored
+  -- in it
+  values : [DataCollector]
+  numberOfValues : int
+
+-- constructor that creates an instance of the class
+  def init() : void {
+      this.values = new [DataCollector](10);
+      this.numberOfValues = 0;
+  }
+
+  -- returns the value stored at the index i
+  def getCollector(i : int) : DataCollector {
+      if ((0 <= i) and (i < this.numberOfValues))  then {
+           this.values[i]
+      } else {
+         print("ArrayList: Index out of bound\n");
+         new DataCollector()
+     }
+  }
+
+  -- replace the value at index 'index' to value
+  def set(i : int, value : DataCollector) : void 
+      this.values[i] = value
+
+  -- inserts value in the arraylist, if needed the 
+  -- arraylist will be increased
+  def add(value:DataCollector) : void {
+      if (this.numberOfValues == |this.values|) then {
+         let newValues = new [DataCollector](|this.values|*2) in {
+             repeat i <- |this.values| 
+                newValues[i] = this.values[i];
+               
+             this.values = newValues;
+          }
+       };
+       this.values[this.numberOfValues] = value;
+       this.numberOfValues = this.numberOfValues + 1;
+     }
+
+  -- adds all the given values to the array
+  def addValues(values : ArrayList) : void {
+      repeat i <- values.size()
+          this.add(values.getCollector(i))
+  }
+
+  -- returns how many values that is stored in the array
+  def size() : int {
+      this.numberOfValues   
+  }
+
+  -- returns true if the array is empty and false otherwise
+  def empty (): bool {
+      this.numberOfValues == 0 
+ }
+
+ -- prints out the contents in the array
+ def show() : void {
+   print("\n[ ");
+   repeat i <- this.numberOfValues  { 
+     (this.values[i]).show();
+    };
+    print("] ")
+  }
