@@ -185,7 +185,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
             deriving(Eq)
 
 hasResultType x
-  | (isArrowType x || isFutureType x || isParType x ||
+  | (isArrowType x || isFutureType x || isParType x || isArrayType x ||
      isStreamType x || isArrowType x || isMaybeType x) = True
   | otherwise = False
 
@@ -272,6 +272,7 @@ hasSameKind ty1 ty2
   | areBoth isMaybeType ||
     areBoth isFutureType ||
     areBoth isParType ||
+    areBoth isArrayType ||
     areBoth isCapabilityType ||
     areBoth isStreamType = getResultType ty1 `hasSameKind` getResultType ty2
   | (isBottomTy1 || isBottomTy2) && not (areBoth isBottomType) = True -- xor
