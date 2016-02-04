@@ -4,6 +4,7 @@ import Control.Arrow ((&&&))
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
+import CodeGen.Function
 import CodeGen.Type ()
 
 import CCode.Main
@@ -69,7 +70,7 @@ generateHeader p =
     ponyMsgTImpls ++
 
     [commentSection "Global functions"] ++
-    globalFunctionDecls ++
+    globalFunctions ++
 
     [commentSection "Class IDs"] ++
     [classEnums] ++
@@ -135,10 +136,9 @@ generateHeader p =
                           in Concat [StructDecl (AsType $ futMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpec : argspecs)
                                     ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpecOneway : argspecs)]
 
-     globalFunctionDecls = map globalFunctionDecl allfunctions
-         where
-           globalFunctionDecl f =
-               DeclTL (closure, AsLval . globalClosureName $ A.functionName f)
+     globalFunctions =
+       [globalFunctionDecl f | f <- allfunctions] ++
+       [globalFunctionClosureDecl f | f <- allfunctions]
 
      messageEnums =
                 let

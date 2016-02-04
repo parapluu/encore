@@ -1226,16 +1226,22 @@ coerce expected actual
 matchArguments :: [Expr] -> [Type] -> TypecheckM ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-matchArguments (arg:args) (typ:types) =
-    do eArg <- do eArg <- typecheck arg
-                  if isNullType (AST.getType eArg) then
-                      coerceNull eArg typ
-                  else
-                      return eArg
-       bindings <- matchTypes typ (AST.getType eArg)
-       (eArgs, bindings') <-
-           local (bindTypes bindings) $ matchArguments args types
-       return (eArg:eArgs, bindings')
+matchArguments (arg:args) (typ:types) = do
+  eArg <- do
+    eArg <- typecheck arg
+    if isNullType (AST.getType eArg) then
+      coerceNull eArg typ
+    else
+      return eArg
+  let actualTyp = AST.getType eArg
+  bindings <- matchTypes typ actualTyp
+  (eArgs, bindings') <-
+    local (bindTypes bindings) $ matchArguments args types
+  needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
+  let
+    casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
+    eArg' = if needCast then casted else eArg
+  return (eArg':eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad
 --
