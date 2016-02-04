@@ -1,0 +1,39 @@
+trait AB<a, b> {
+  require aa : a
+  require bb : b
+
+  def fun(aa : a) : b {
+    this.aa = aa;
+    this.bb
+  }
+}
+
+passive class Foo<a, b> : AB<a, b> {
+  aa : a
+  bb : b
+
+  def init(aa : a, bb : b) : void {
+    this.aa = aa;
+    this.bb = bb;
+  }
+}
+
+passive class Bar<b, c> {
+  foo : AB<b, c>
+
+  def init(bb : b, cc : c) : void {
+    this.foo = new Foo<b, c>(bb, cc);
+  }
+
+  def fun(bb : b) : c {
+    this.foo.fun(bb)
+  }
+}
+
+class Main {
+  def main() : void {
+    let bar = new Bar<real, int>(3.14, 42) in {
+      print("assert(bar.fun(4.13) == 42): {}\n", bar.fun(4.13))
+    }
+  }
+}

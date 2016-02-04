@@ -458,12 +458,9 @@ instance Checkable Expr where
         "Constructor method 'init' can only be called during object creation"
       header <- findMethod targetType name
       matchArgumentLength targetType header args
-      fBindings <- formalBindings targetType
-      let paramTypes = map ptype (hparams header)
-          expectedTypes = map (replaceTypeVars fBindings) paramTypes
+      let expectedTypes = map ptype (hparams header)
           mType = htype header
-      (eArgs, bindings) <- local (bindTypes fBindings) $
-                                 matchArguments args expectedTypes
+      (eArgs, bindings) <- matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings mType
           returnType = retType targetType header resultType
       return $ setType returnType mcall {target = eTarget, args = eArgs}
@@ -931,11 +928,8 @@ instance Checkable Expr where
            tcError "Cannot create additional Main objects"
       header <- findMethod ty' (Name "_init")
       matchArgumentLength ty header args
-      fBindings <- formalBindings ty'
-      let paramTypes = map ptype (hparams header)
-          expectedTypes = map (replaceTypeVars fBindings) paramTypes
-      (eArgs, bindings) <- local (bindTypes fBindings) $
-                                 matchArguments args expectedTypes
+      let expectedTypes = map ptype (hparams header)
+      (eArgs, bindings) <- matchArguments args expectedTypes
       return $ setType ty' new{ty = ty', args = eArgs}
 
    ---  |- ty
