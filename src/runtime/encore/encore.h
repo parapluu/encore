@@ -160,4 +160,11 @@ static inline void encore_trace_polymorphic_variable(pony_type_t *type,
   }
 }
 
+/// Prefix of all passive classes
+struct capability_t {
+  pony_type_t* _enc__self_type;
+};
+
+typedef struct capability_t capability_t;
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

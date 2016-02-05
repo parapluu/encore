@@ -13,6 +13,7 @@ module Typechecker.Environment(Environment,
                                traitLookup,
                                refTypeLookup,
                                refTypeLookupUnsafe,
+                               methodAndCalledTypeLookup,
                                methodLookup,
                                fieldLookup,
                                capabilityLookup,
@@ -127,7 +128,7 @@ classMethodLookup ty m env = do
   traits <- mapM (\t -> traitLookup t env) $
     typesFromCapability $ ccapability cls
   let
-    headers = map mheader $ (cmethods cls) ++ concatMap tmethods traits
+    headers = map mheader $ cmethods cls ++ concatMap tmethods traits
   header <- find (matchHeader m) headers
   let
     formals = getTypeParameters $ cname cls
@@ -135,12 +136,29 @@ classMethodLookup ty m env = do
     bindings = zip formals actuals
   return $ replaceHeaderTypes bindings header
 
+methodAndCalledTypeLookup ::
+    Type -> Name -> Environment -> Maybe (FunctionHeader, Type)
+methodAndCalledTypeLookup ty m env
+    | isCapabilityType ty = do
+        let traits = typesFromCapability ty
+            results = map (\t -> (traitMethodLookup t m env, t)) traits
+        (ret, ty') <- find (isJust . fst) results
+        return (fromJust ret, ty')
+    | otherwise = do
+        ret <- methodLookup ty m env
+        return (ret, ty)
+
 methodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 methodLookup ty m env
-  | isClassType ty = do
+  | isClassType ty =
     classMethodLookup ty m env
   | isTraitType ty =
     traitMethodLookup ty m env
+  | isCapabilityType ty = do
+    let traits = typesFromCapability ty
+        ms = map (\t -> traitMethodLookup t m env) traits
+    ret <- find isJust ms
+    return $ fromJust ret
   | otherwise = error "methodLookup in non-ref type"
 
 capabilityLookup :: Type -> Environment -> Maybe Type

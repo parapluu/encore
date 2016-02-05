@@ -446,11 +446,13 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                    (Seq $
                     (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "this"))
                             (Var "p")) :
-                     map (Statement . traceField) cfields)
+                     map traceField cfields)
     where
       traceField A.Field {A.ftype, A.fname} =
-        let field = (Var "this") `Arrow` (fieldName fname)
-        in traceVariable ftype field
+        let var = Var . show $ fieldName fname
+            field = Var "this" `Arrow` fieldName fname
+            fieldAssign = Assign (Decl (translate ftype, var)) field
+        in Seq [fieldAssign, traceVariable ftype var]
 
 runtimeTypeDecl cname =
     (AssignTL
