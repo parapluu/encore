@@ -649,12 +649,8 @@ instance Checkable Expr where
       where
         checkAllHandlersSameType (clause:clauses) = do
           let ty = AST.getType $ mchandler clause
-              errorClauses = filter ((/= ty) . AST.getType . mchandler) clauses
-              errorHandler = mchandler $ head errorClauses
-          unless (null errorClauses) $
-                 tcError $ "Expression '" ++ show (ppSugared errorHandler) ++
-                           "' does not match expected type '" ++ show ty ++
-                           "'. All clauses must have agreeing types"
+              types = map (AST.getType . mchandler) clauses
+          mapM (\t -> assertSubtypeOf t ty) types
           return ty
 
         getPatternVars pt va@(VarAccess {name}) = return [(name, pt)]
