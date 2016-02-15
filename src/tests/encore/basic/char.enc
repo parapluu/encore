@@ -3,8 +3,8 @@ def id(c : char) : char
 
 class Main
   def main() : void
-    let brk = '\n'
+    let br = '\n'
         bang = '!'
     in{
-      print("Hello char world{}{}", bang, id(brk));
+      print("Hello char world{}{}", bang, id(br));
     }

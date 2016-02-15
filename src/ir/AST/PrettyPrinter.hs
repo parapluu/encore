@@ -208,6 +208,8 @@ ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
+ppExpr CAT {target, val, arg} =
+    "CAT" <> parens (commaSep $ map ppExpr [target, val, arg])
 ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)

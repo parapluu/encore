@@ -60,9 +60,9 @@ getChildren For {name, step, src, body} = [step, src, body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
-
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
         [mcpattern, mchandler, mcguard]
+getChildren CAT {target, val, arg} = [target, val, arg]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
@@ -132,13 +132,14 @@ putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren (arg:clauseList) e@(Match {clauses}) =
-    e{arg = arg, clauses=putClausesChildren clauseList clauses}
+    e{arg, clauses=putClausesChildren clauseList clauses}
     where putClausesChildren [] [] = []
           putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) =
               mc{mcpattern=pattern, mchandler=handler, mcguard=guard}:
                 putClausesChildren rest rClauses
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
+putChildren [target, val, arg] e@(CAT {}) = e{target, val, arg}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
@@ -202,7 +203,8 @@ putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 
 putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
-putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
+putChildren _ e@(Match {}) = error "'putChildren l Match' expects l to have 1 element"
+putChildren _ e@(CAT {}) = error "'putChildren l Cet' expects l to have 3 elements"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
