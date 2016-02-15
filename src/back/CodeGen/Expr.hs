@@ -853,6 +853,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            Parsec.string "}"
                            return id
 
+  translate cat@(A.CAT{A.target = A.FieldAccess{A.target, A.name},
+                       A.val, A.arg}) = do
+    (ntarg, ttarg) <- translate target
+    (nval, tval) <- translate val
+    (narg, targ) <- translate arg
+    tmp <- Var <$> Ctx.genNamedSym "CAT"
+    let field = fieldName name
+        theCAS = Call (Nam "__sync_bool_compare_and_swap")
+                      [Amp $ ntarg `Arrow` field, AsExpr nval, AsExpr narg]
+        theAssign = Assign (Decl (bool, tmp)) theCAS
+        condNull = Statement $ If tmp (Assign narg Null) Skip
+    return (tmp, Seq [ttarg, tval, targ, theAssign, condNull])
+
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val

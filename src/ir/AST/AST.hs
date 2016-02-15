@@ -435,6 +435,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}
+          | CAT {emeta :: Meta Expr,
+                 target :: Expr,
+                 val :: Expr,
+                 arg :: Expr
+                }
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Yield {emeta :: Meta Expr,

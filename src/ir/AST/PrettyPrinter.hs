@@ -38,6 +38,7 @@ ppUnless = text "unless"
 ppWhile = text "while"
 ppRepeat = text "repeat"
 ppFor = text "for"
+ppCAT = text "CAT"
 ppGet = text "get"
 ppYield = text "yield"
 ppEos = text "eos"
@@ -228,6 +229,8 @@ ppExpr Match {arg, clauses} =
       ppMatchClauses = foldr (($+$) . ppClause) (text "")
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain
+ppExpr CAT {target, val, arg} =
+    ppCAT <> parens (commaSep $ map ppExpr [target, val, arg])
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val
 ppExpr Eos {} = ppEos

@@ -756,6 +756,36 @@ instance Checkable Expr where
            eBody <- typecheck body
            return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
 
+
+    --
+    -- -------------------------------
+    --  E |- CAT(x.f, e1, e2) val : t
+    doTypecheck cat@(CAT {target, val, arg}) =
+        do checkTargetShape
+           checkValShape
+           checkArgShape
+           eTarget <- typecheck target
+           let targetType = AST.getType eTarget
+           eVal <- hasType val targetType
+           eArg <- hasType arg targetType
+           return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+        where
+          checkTargetShape =
+            case target of
+              FieldAccess{} -> return ()
+              _ -> tcError "First argument of CAT must be a field access"
+          checkValShape =
+            case val of
+              VarAccess{} -> return ()
+              FieldAccess{} -> return ()
+              _ -> tcError "Second argument of CAT must be a variable or field access"
+          checkArgShape =
+            case arg of
+              VarAccess{} -> return ()
+              FieldAccess{} -> return ()
+              _ -> tcError "Third argument of CAT must be a variable or field access"
+
+
     --  E |- val : Fut t
     -- ------------------
     --  E |- get val : t
