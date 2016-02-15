@@ -13,6 +13,7 @@ module Typechecker.TypeError (Backtrace
                              ,Warning(..)
                              ,CCError(CCError)
                              ,currentMethodFromBacktrace
+                             ,loopInBacktrace
                              ) where
 
 import Text.PrettyPrint
@@ -74,6 +75,15 @@ currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
 currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
+
+loopInBacktrace :: Backtrace -> Bool
+loopInBacktrace = any (isLoopHead . snd)
+    where
+      isLoopHead (BTExpr For{}) = True
+      isLoopHead (BTExpr While{}) = True
+      isLoopHead (BTExpr Foreach{}) = True
+      isLoopHead (BTExpr Repeat{}) = True
+      isLoopHead _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.

@@ -28,6 +28,7 @@ import AST.AST
 ppClass = text "class"
 ppSkip = text "()"
 ppBreathe = text "breathe"
+ppBreak = text "break"
 ppLet = text "let"
 ppIn = text "in"
 ppIf = text "if"
@@ -167,6 +168,7 @@ ppSugared e = case getSugared e of
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = ppSkip
 ppExpr Breathe {} = ppBreathe
+ppExpr Break {} = ppBreak
 ppExpr MethodCall {target, name, args} =
     maybeParens target <> ppDot <> ppName name <>
       parens (commaSep (map ppExpr args))

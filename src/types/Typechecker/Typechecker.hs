@@ -326,6 +326,14 @@ instance Checkable Expr where
     --  E |- breathe : void
     doTypecheck breathe@(Breathe {}) = return $ setType voidType breathe
 
+    --
+    -- ----------------
+    --  E |- break : void
+    doTypecheck break@(Break {}) =
+        do unlessM (asks inLoop) $
+                   tcError "No loop to break from"
+           return $ setType voidType break
+
    ---  |- t
     --  E |- body : t
     -- ----------------------

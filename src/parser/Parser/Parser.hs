@@ -532,6 +532,7 @@ highOrderExpr = adtExpr
 expr :: Parser Expr
 expr  =  unit
      <|> breathe
+     <|> break
      <|> try embed
      <|> try path
      <|> try functionCall
@@ -587,6 +588,9 @@ expr  =  unit
       breathe = do pos <- getPosition
                    reserved "breathe"
                    return $ Breathe (meta pos)
+      break = do pos <- getPosition
+                 reserved "break"
+                 return $ Break (meta pos)
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
                 dot

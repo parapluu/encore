@@ -29,6 +29,7 @@ module Typechecker.Environment(Environment,
                                bindings,
                                backtrace,
                                currentMethod,
+                               inLoop,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -99,6 +100,9 @@ backtrace = bt
 
 currentMethod :: Environment -> Maybe MethodDecl
 currentMethod = currentMethodFromBacktrace . bt
+
+inLoop :: Environment -> Bool
+inLoop = loopInBacktrace . bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env
