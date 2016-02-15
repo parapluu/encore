@@ -29,6 +29,7 @@ module Typechecker.Environment(Environment,
                                bindings,
                                backtrace,
                                currentMethod,
+                               inLoop,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -139,6 +140,9 @@ formalBindings formal actual
     | otherwise =
         error $ "Environment.hs: Tried to get bindings from " ++
                 showWithKind formal ++ " and " ++ showWithKind actual
+
+inLoop :: Environment -> Bool
+inLoop = loopInBacktrace . bt
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup ty f env

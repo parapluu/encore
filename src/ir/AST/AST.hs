@@ -401,6 +401,7 @@ data VarDecl =
   deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
+          | Break {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}

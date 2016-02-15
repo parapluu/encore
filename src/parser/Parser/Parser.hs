@@ -669,6 +669,7 @@ highOrderExpr = adtExpr
 
 expr :: Parser Expr
 expr  =  embed
+     <|> break
      <|> try print
      <|> closure
      <|> match
@@ -711,6 +712,9 @@ expr  =  embed
                  ty <- typ
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
+      break = do pos <- getPosition
+                 reserved "break"
+                 return $ Break (meta pos)
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>

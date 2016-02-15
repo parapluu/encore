@@ -311,6 +311,14 @@ instance Checkable Expr where
     --  E |- () : void
     doTypecheck skip@(Skip {}) = return $ setType voidType skip
 
+    --
+    -- ----------------
+    --  E |- break : void
+    doTypecheck break@(Break {}) =
+        do unlessM (asks inLoop) $
+                   tcError NoLoopToBreakError
+           return $ setType voidType break
+
    ---  |- t
     --  E |- body : t
     -- ----------------------

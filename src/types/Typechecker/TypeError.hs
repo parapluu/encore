@@ -11,9 +11,11 @@ module Typechecker.TypeError (Backtrace
                              ,TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
-                             ,CCError(CCError)
                              ,Warning(..)
-                             ,currentMethodFromBacktrace) where
+                             ,CCError(CCError)
+                             ,currentMethodFromBacktrace
+                             ,loopInBacktrace
+                             ) where
 
 import Text.PrettyPrint
 import Text.Parsec(SourcePos)
@@ -76,6 +78,15 @@ currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
 currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
+
+loopInBacktrace :: Backtrace -> Bool
+loopInBacktrace = any (isLoopHead . snd)
+    where
+      isLoopHead (BTExpr For{}) = True
+      isLoopHead (BTExpr While{}) = True
+      isLoopHead (BTExpr Foreach{}) = True
+      isLoopHead (BTExpr Repeat{}) = True
+      isLoopHead _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -224,6 +235,7 @@ data Error =
   | MalformedConjunctionError Type Type Type
   | CannotUnpackError Type
   | CannotInferUnpackingError Type
+  | NoLoopToBreakError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -466,6 +478,8 @@ instance Show Error where
         printf ("Unpacking of %s cannot be inferred. " ++
                 "Try adding type annotations")
                (Types.showWithKind cap)
+    show NoLoopToBreakError =
+        "No loop to break from"
     show (SimpleError msg) = msg
 
 
