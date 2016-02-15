@@ -24,7 +24,8 @@ import Control.Arrow (first, (&&&))
 
 -- Module dependencies
 import Identifiers hiding(namespace)
-import Types hiding(refType)
+import Types hiding(refType, bar, doubleBar, tilde)
+import qualified Types as Ty(bar, doubleBar, tilde)
 import AST.AST
 import AST.Meta hiding(Closure, Async, getPos)
 
@@ -297,6 +298,8 @@ identifier = (lexeme . try) (p >>= check)
 dot        = symbol "."
 bang       = symbol "!"
 bar        = symbol "|"
+doubleBar  = symbol "||"
+tilde      = symbol "~"
 dotdot     = symbol ".."
 colon      = symbol ":"
 semi       = symbol ";"
@@ -326,10 +329,12 @@ typ :: EncParser Type
 typ = makeExprParser singleType opTable
     where
       opTable = [
+                 [fieldRestriction],
                  [typeOp "*" conjunctiveType],
                  [typeOp "+" disjunctiveType],
                  [typeConstructor "borrowed" makeStackbound],
-                 [arrow]
+                 [arrow],
+                 [typeConstructor "pristine" makePristine]
                 ]
       typeOp op constructor =
           InfixL (do withLinebreaks $ reservedOp op
@@ -346,6 +351,25 @@ typ = makeExprParser singleType opTable
             unfoldArgs ty
                 | isTupleType ty = getArgTypes ty
                 | otherwise = [ty]
+      fieldRestriction =
+          Postfix restrictedFields
+          where
+            restrictedFields = do
+              restrictions <-
+                  many ((do try doubleBar
+                            f <- Name <$> identifier
+                            return (`Ty.doubleBar` f)
+                        )
+                    <|> (do bar
+                            f <- Name <$> identifier
+                            return (`Ty.bar` f)
+                        )
+                    <|> (do tilde
+                            f <- Name <$> identifier
+                            return (`Ty.tilde` f)
+                        )
+                       )
+              return $ \ty -> foldr ($) ty restrictions
 
       singleType =
             try tuple
@@ -641,6 +665,10 @@ mode = (reserved "linear" >> return makeLinear)
        <|>
        (reserved "read" >> return makeRead)
        <|>
+       (reserved "lockfree" >> return makeLockfree)
+       <|>
+       (reserved "spine" >> return makeSpine)
+       <|>
        (reserved "subord" >> return makeSubordinate)
        <?> "mode"
 
@@ -772,6 +800,8 @@ classDecl = do
 mutModifier :: EncParser Mutability
 mutModifier = (reserved "var" >> return Var)
           <|> (reserved "val" >> return Val)
+          <|> (reserved "spec" >> return Spec)
+          <|> (reserved "once" >> return Once)
 
 fieldDecl :: EncParser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
@@ -975,6 +1005,8 @@ expr = notFollowedBy nl >>
         (embed
      <|> break
      <|> continue
+     <|> cat
+     <|> speculate
      <|> closure
      <|> match
      <|> borrow
@@ -1495,6 +1527,16 @@ expr = notFollowedBy nl >>
                           expr <- option (Skip (meta pos)) expression
                           return $ Return (meta pos) expr
 
+      cat = do pos <- getPosition
+               reserved "CAT"
+               args <- parens arguments
+               names <- option [] $ do {reserved "=>"; commaSep1 (Name <$> identifier)}
+               return $ CAT (meta pos) args names
+
+      speculate = do pos <- getPosition
+                     reserved "speculate"
+                     p <- expression
+                     return $ Speculate (meta pos) p
       bracketed =
           lineFold $ \sc' ->
             folded brackets sc' (rangeOrArray <|> empty)

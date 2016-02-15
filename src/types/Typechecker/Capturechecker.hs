@@ -147,6 +147,13 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Consume{} =
         free e
 
+    doCapturecheck e@Speculate{} =
+        free e
+
+    doCapturecheck e@Return{val} = do
+        capture val
+        return e
+
     doCapturecheck e@Assign{lhs, rhs} =
         do let lType = getType lhs
                rType = getType rhs
@@ -227,9 +234,6 @@ instance CaptureCheckable Expr where
         if isLin && isFree thn && isFree els
         then return $ makeFree e
         else return $ makeCaptured e
-
-    doCapturecheck e@While{body} =
-        e `returns` body
 
     doCapturecheck e@Get{val} =
         e `returns` val

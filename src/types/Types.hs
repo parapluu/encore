@@ -14,8 +14,8 @@ module Types(
             ,arrayType
             ,isArrayType
             ,isRangeType
-            ,refTypeWithParams
             ,refType
+            ,refTypeWithParams
             ,abstractTraitFromTraitType
             ,classType
             ,isRefAtomType
@@ -79,7 +79,18 @@ module Types(
             ,typesFromCapability
             ,withModeOf
             ,withBoxOf
+            ,withRestrictionsOf
             ,unbox
+            ,unrestricted
+            ,unrestrict
+            ,bar
+            ,doubleBar
+            ,tilde
+            ,restrictedFields
+            ,barredFields
+            ,weaklyRestrictedFields
+            ,stronglyRestrictedFields
+            ,transferRestrictedFields
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -119,6 +130,9 @@ module Types(
             ,makeSharable
             ,makeRead
             ,makeSubordinate
+            ,makePristine
+            ,makeSpine
+            ,makeLockfree
             ,isLinearSingleType
             ,isLocalSingleType
             ,isActiveSingleType
@@ -127,6 +141,9 @@ module Types(
             ,isReadSingleType
             ,isSubordinateSingleType
             ,isUnsafeSingleType
+            ,isPristineSingleType
+            ,isLockfreeSingleType
+            ,isSpineSingleType
             ,makeStackbound
             ,isStackboundType
             ) where
@@ -157,7 +174,9 @@ data Mode = Linear
           | Sharable
           | Unsafe
           | Read
+          | Lockfree
           | Subordinate
+          | Spine
             deriving(Eq)
 
 instance Show Mode where
@@ -169,6 +188,8 @@ instance Show Mode where
     show Unsafe = "unsafe"
     show Read   = "read"
     show Subordinate = "subord"
+    show Lockfree    = "lockfree"
+    show Spine       = "spine"
 
 isMinorMode :: Mode -> Bool
 isMinorMode Read = True
@@ -192,6 +213,7 @@ modeSubtypeOf ty1 ty2 =
 modeIsSharable Read   = True
 modeIsSharable Active = True
 modeIsSharable Shared = True
+modeIsSharable Lockfree = True
 modeIsSharable Sharable = True
 modeIsSharable _      = False
 
@@ -243,23 +265,79 @@ instance Show RefInfo where
 
 showRefInfoWithoutMode info = show info{mode = Nothing}
 
-data Box = Stackbound deriving(Eq)
+data Box = Stackbound
+         | Pristine deriving(Eq)
 
 instance Show Box where
     show Stackbound = "borrowed"
+    show Pristine = "pristine"
 
-data Type = Type {inner :: InnerType
-                 ,box   :: Maybe Box}
+data RestrictedField =
+    Strong{fname :: Name}
+  | Weak{fname :: Name}
+  | Transfer{fname :: Name}
+    deriving(Eq, Ord)
 
-typ ity = Type{inner = ity, box = Nothing}
+instance Show RestrictedField where
+    show Strong{fname} = "|| " ++ show fname
+    show Weak{fname} = "| " ++ show fname
+    show Transfer{fname} = "~ " ++ show fname
+
+isWeak Weak{} = True
+isWeak _ = False
+
+isStrong Strong{} = True
+isStrong _ = False
+
+isTransfer Transfer{} = True
+isTransfer _ = False
+
+data Type = Type
+    {inner      :: InnerType
+    ,box        :: Maybe Box
+    ,restricted :: [RestrictedField]
+    }
+
+unbox ty = ty{box = Nothing}
+
+unrestricted ty = ty{restricted = []}
+
+unrestrict ty f =
+    let rs = restricted ty
+    in ty{restricted = rs \\ [Weak f, Strong f, Transfer f]}
+
+bar ty f =
+    let rs = restricted ty
+    in ty{restricted = (rs \\ [Strong f]) `union` [Weak f]}
+
+doubleBar ty f =
+    let rs = restricted ty
+    in ty{restricted = (rs \\ [Weak f]) `union` [Strong f]}
+
+tilde ty f =
+    let rs = restricted ty
+    in ty{restricted = rs `union` [Transfer f]}
+
+restrictedFields = map fname . restricted
+barredFields = map fname . filter (not . isTransfer) . restricted
+weaklyRestrictedFields = map fname . filter isWeak . restricted
+stronglyRestrictedFields = map fname . filter isStrong . restricted
+transferRestrictedFields = map fname . filter isTransfer . restricted
+
+withRestrictionsOf sink Type{restricted} = sink{restricted}
+
+typ ity = Type{inner = ity, box = Nothing, restricted = []}
 
 instance Eq Type where
-    ty1 == ty2 = inner ty1 == inner ty2
+    ty1 == ty2 =
+        inner ty1 == inner ty2 &&
+        sort (restricted ty1) == sort (restricted ty2)
 
 instance Show Type where
-    show Type{inner, box = Nothing} = show inner
-    show Type{inner, box = Just s} =
-        show s ++ " " ++ maybeParen (typ inner)
+    show Type{inner, box = Nothing, restricted} =
+      show inner ++ showRestricted restricted
+    show Type{inner, box = Just s, restricted} =
+      show s ++ " " ++ maybeParen (typ inner) ++ showRestricted restricted
       where
         maybeParen :: Type -> String
         maybeParen ty
@@ -272,7 +350,7 @@ instance Show Type where
               isStreamType ty = "(" ++ show ty ++ ")"
             | otherwise = show ty
 
-
+showRestricted = unwords . ("":) . map show
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
@@ -680,13 +758,14 @@ withModeOf sink source
     , info <- refInfo iType
     , mode <- mode $ refInfo (inner source)
       = sink{inner = iType{refInfo = info{mode}}}
+    | isTypeVar sink && isTypeVar source
+    , tmode <- tmode $ inner source =
+        applyInner (\i -> i{tmode}) sink
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink
 
 withBoxOf sink source = sink{box = box source}
-
-unbox ty = ty{box = Nothing}
 
 refTypeWithParams refId parameters =
     typ Unresolved{refInfo}
@@ -698,7 +777,7 @@ refTypeWithParams refId parameters =
                        ,refSourceFile = Nothing
                        }
 
-refType id = refTypeWithParams id []
+refType refId = refTypeWithParams refId []
 
 classType :: String -> [Type] -> Type
 classType name parameters =
@@ -710,6 +789,7 @@ classType name parameters =
                                           }
                         }
       ,box = Nothing
+      ,restricted = []
       }
 
 traitType :: String -> [Type] -> Type
@@ -722,6 +802,7 @@ traitType name parameters =
                                             }
                           }
         ,box = Nothing
+        ,restricted = []
         }
 
 -- | Calling @abstractTraitFromTraitType ty@ returns the *trait
@@ -785,14 +866,23 @@ makeShared ty = setMode ty Shared
 makeSharable ty = setMode ty Sharable
 makeRead ty = setMode ty Read
 makeSubordinate ty = setMode ty Subordinate
+makeSpine ty = setMode ty Spine
+makeLockfree ty = setMode ty Lockfree
 
 isModeless = null . getModes
+
+makePristine ty = ty{box = Just Pristine}
 
 isLinearSingleType = (Linear `elem`) . getModes
 
 isLocalSingleType = (Local `elem`) . getModes
 
 isActiveSingleType = (Active `elem`) . getModes
+
+isPristineSingleType Type{box = Just Pristine} = True
+isPristineSingleType _ = False
+
+isSpineSingleType = (Spine `elem`) . getModes
 
 isSharedSingleType = (Shared `elem`) . getModes
 
@@ -803,6 +893,8 @@ isReadSingleType = (Read `elem`) . getModes
 isSubordinateSingleType = (Subordinate `elem`) . getModes
 
 isUnsafeSingleType = (Unsafe `elem`) . getModes
+
+isLockfreeSingleType = (Lockfree `elem`) . getModes
 
 isCapabilityType Type{inner = CapabilityType{}} = True
 isCapabilityType Type{inner = TraitType{}} = True
@@ -881,6 +973,8 @@ isArrayType _ = False
 typeVar = typ . TypeVar Nothing
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
+
+mainType = refTypeWithParams "Main" []
 
 isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
 isMainType _ = False

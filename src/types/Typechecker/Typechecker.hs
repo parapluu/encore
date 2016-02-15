@@ -19,6 +19,7 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Arrow((&&&), second)
+import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -179,6 +180,15 @@ instance Checkable FieldDecl where
       unless (isModeless thisType || isLocalThis ||
               isActiveSingleType thisType) $
       tcError $ ThreadLocalFieldError thisType
+    when (isPristineSingleType ftype) $
+         tcError $ SimpleError "Fields cannot have pristine type"
+    when (isOnceField f) $
+         unless (isRefType ftype) $
+                tcError $ OnceFieldTypeError ftype
+    when (isRefType ftype) $
+      unless (null $ transferRestrictedFields ftype) $
+           tcError $ SimpleError "Fields cannot have transfer restrictions"
+
     return f
 
 
@@ -195,7 +205,11 @@ meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
   tdecl <- findTrait trait
   mapM_ matchField (requiredFields tdecl)
-    where
+  where
+    matchesMod field1 field2
+        | fmut field1 == fmut field2 = True
+        | isVarField field1 && isValField field2 = True
+        | otherwise = False
     matchField tField = do
       expField <- findField trait (fname tField)
       let expected = ftype expField
@@ -204,6 +218,8 @@ meetRequiredFields cFields trait = do
           cFieldType = ftype cField
       if isNothing result then
           tcError $ MissingFieldRequirementError expField trait
+      else if not $ cField `matchesMod` expField then
+          tcError $ ModifierMismatchError cField expField trait
       else if isValField expField then
           unlessM (cFieldType `subtypeOf` expected) $
               tcError $ CovarianceViolationError cField expected trait
@@ -234,8 +250,8 @@ noOverlapFields cname composition =
       let
         otherFields = concatMap snd pairs
         common = intersect fields otherFields
-        leftCommon = [f | f <- fields, f `elem` common, notVal f]
-        rightCommon = [f | f <- otherFields, f `elem` common, notVal f]
+        leftCommon = [f | f <- fields, f `elem` common, isVar f]
+        rightCommon = [f | f <- otherFields, f `elem` common, isVar f]
         firstErrField = if (not . null) leftCommon
                         then head leftCommon
                         else head rightCommon
@@ -250,8 +266,8 @@ noOverlapFields cname composition =
     conjunctiveVarErr (left, right, field) =
       tcError $ NonDisjointConjunctionError left right field
 
-    notVal :: FieldDecl -> Bool
-    notVal = not . isValField
+    isVar :: FieldDecl -> Bool
+    isVar = isVarField
 
     pairTypeFields ::
       Type -> ExtendedTrait -> TypecheckM (Type, [FieldDecl])
@@ -528,7 +544,7 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
           do eExpr <- doTypecheck expr
              let exprType = AST.getType eExpr
              resultType <- exprType `coercedInto` ty
-             assertSubtypeOf resultType ty
+             resultType `assertCanFlowInto` ty
              let result = propagateResultType resultType eExpr
              return $ setType resultType result
 
@@ -920,11 +936,22 @@ instance Checkable Expr where
     -- ------------------------
     --  E |- {e1; ..; en} : t
     doTypecheck e@(Seq {eseq}) =
-        do eInit <- mapM typecheckNotNull (init eseq)
-           eResult <- typecheck (last eseq)
-           let seqType = AST.getType eResult
-               eEseq = eInit ++ [eResult]
+        do eEseq <- typecheckSequence eseq
+           let seqType = AST.getType (last eEseq)
            return $ setType seqType e {eseq = eEseq}
+        where
+          typecheckSequence :: [Expr] -> TypecheckM [Expr]
+          typecheckSequence [] = return []
+          typecheckSequence (e:seq) = do
+                          e' <- if not $ null seq
+                                then typecheckNotNull e
+                                else typecheck e
+                          let bindings = if hasEnvChange e'
+                                         then getEnvChange e'
+                                         else []
+                          seq' <- local (extendEnvironment bindings) $
+                                        typecheckSequence seq
+                          return $ e' : seq'
 
     --  E |- cond : bool
     --  E |- thn : t'
@@ -934,8 +961,15 @@ instance Checkable Expr where
     --  E |- if cond then thn else els : t
     doTypecheck ifThenElse@(IfThenElse {cond, thn, els}) =
         do eCond <- hasType cond boolType
-           eThn <- typecheck thn
-           eEls <- typecheck els
+           let (thenBindings, elseBindings)
+                 | hasCondEnvChange eCond =
+                     case eCond of
+                       Unary{uop = Identifiers.NOT} -> ([], getEnvChange eCond)
+                       _ -> (getEnvChange eCond, [])
+                 | hasEnvChange eCond = (getEnvChange eCond, getEnvChange eCond)
+                 | otherwise = ([], [])
+           eThn <- local (extendEnvironment thenBindings) $ typecheck thn
+           eEls <- local (extendEnvironment elseBindings) $ typecheck els
            let thnType = AST.getType eThn
                elsType = AST.getType eEls
            resultType <- matchBranches thnType elsType
@@ -957,6 +991,8 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError IfInferenceError
+              | isUnitType ty1 || isUnitType ty2 =
+                  return unitType
               | otherwise = do
                   result <- unifyTypes [ty1, ty2]
                   case result of
@@ -1209,6 +1245,164 @@ instance Checkable Expr where
            eBody <- typecheck body
            return $ setType unitType while {cond = eCond, body = eBody}
 
+
+    -- TODO
+    -- -------------------------------
+    --  E |- CAT(x.f, e1, e2) : bool
+    doTypecheck cat@(CAT {args, names})
+        | [target, witness, arg] <- args = do
+           eTarget <- typecheck target
+           checkTargetShape eTarget
+           let targetType = AST.getType eTarget
+           unlessM (liftM (isPrimitive targetType ||) $ isSpineType targetType) $
+                  tcError $ NonSpineCatTargetError eTarget
+           eWitness <- typecheck witness
+           targetType `assertCanFlowInto` AST.getType eWitness
+           eArg <- typecheck arg
+           let argType = AST.getType eArg
+           if isPristineSingleType argType
+           then case witness of
+                  FieldAccess{name = g} -> (argType `unrestrict` g)
+                                           `assertCanFlowInto` targetType
+                  _ -> argType `assertCanFlowInto` targetType
+           else argType `assertCanFlowInto` targetType
+           checkArgShape eWitness eArg
+           if isRefType targetType
+           then do
+             bindings <- getBindings eTarget eWitness eArg
+             residualTypes <- mapM (residualType targetType) names
+             let extra = zip names residualTypes
+             return $ setCondEnvChange (extra ++ bindings) $
+                      setType boolType cat{args = [eTarget, eWitness, eArg]}
+           else
+             return $ setType boolType cat{args = [eTarget, eWitness, eArg]}
+        | otherwise = tcError MalformedCatError
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl) $
+                         tcError $ NonSpeculatableFieldError fdecl
+              _ -> tcError $ SimpleError "First argument of CAT must be a field access"
+          checkArgShape witness arg =
+            case (witness, arg) of
+              (VarAccess{}, VarAccess{}) -> return ()
+              (FieldAccess{target = target@VarAccess{qname = y}, name = g},
+               VarAccess{qname = y'}) -> do
+                 let targetType = AST.getType target
+                 unless (y == y') $
+                        tcError $ SimpleError "CAT-link must have shape CAT(x.f, y.g, y)"
+                 fdecl <- findField targetType g
+                 unless (isValField fdecl || isOnceField fdecl) $
+                        tcError $ NonStableCatError g
+              (VarAccess{qname = y},
+               FieldAccess{target = target@VarAccess{qname = y'}, name = g}) -> do
+                 unless (y == y') $
+                        tcError $ SimpleError "CAT-unlink must have shape CAT(x.f, y, y.g)"
+                 fdecl <- findField (AST.getType target) g
+                 unless (isValField fdecl || isOnceField fdecl) $
+                        tcError $ NonStableCatError g
+              _ -> tcError MalformedCatError
+
+          getBindings target@FieldAccess{}
+                      VarAccess{qname}
+                      FieldAccess{target = argTarget, name = g} =
+                          return [(qnlocal qname, AST.getType target `tilde` g)]
+          getBindings target@FieldAccess{}
+                      VarAccess{qname}
+                      VarAccess{} = return [(qnlocal qname, AST.getType target)] -- TODO: Is this safe?
+          getBindings _ _ _ = return []
+
+          residualType targetType f = do
+            let strongRestricts = stronglyRestrictedFields targetType
+            fdecl <- findField (targetType `unrestrict` f) f
+            unless (f `elem` strongRestricts) $
+                   tcError $ ResidualAliasingError f targetType
+            return $ ftype fdecl
+
+    -- TODO
+    -- -------------------------------
+    --  E |- try(x.f = y) : bool
+    doTypecheck try@(TryAssign {target, arg}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           eArg <- typecheck arg
+           unless (isVarAccess eArg) $
+                  tcError MalformedTryAssignError
+           let targetType = AST.getType eTarget
+               argType = AST.getType eArg
+           argType `assertCanFlowInto` targetType
+           let bindings = getBindings eTarget
+           return $ setEnvChange bindings $
+                    setType boolType try{target = eTarget, arg = eArg}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isOnceField fdecl) $
+                         tcError $ TryAssignError fdecl
+              _ -> tcError $
+                   SimpleError "First argument of try must be a field access"
+
+          getBindings FieldAccess{target = acc@VarAccess{qname = x}, name = f} =
+              [(qnlocal x, AST.getType acc `tilde` f)]
+    -- TODO
+    -- -------------------------------
+    --  E |- freeze(x.f, e1) : bool
+    doTypecheck freeze@(Freeze {target}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           let targetType = AST.getType eTarget
+           unless (isRefType targetType) $
+                  tcError $ NonFreezableFieldError targetType
+           bindings <- getBindings eTarget
+           return $ setCondEnvChange bindings $
+                    setType boolType freeze{target = eTarget}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl) $
+                         tcError $ NonSpecFreezeError fdecl
+              _ -> pushError targ MalformedFreezeError
+          getBindings acc@FieldAccess{target = var@VarAccess{qname = x}, name = f} =
+              return [(qnlocal x, AST.getType var `tilde` f)]
+          getBindings _ =
+              error "Typechecker.hs: Target of fix does not have correct shape"
+
+    -- TODO
+    -- -------------------------------
+    --  E |- isFrozen(x.f, e1) : bool
+    doTypecheck isFrozen@(IsFrozen {target}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           let targetType = AST.getType eTarget
+           unless (isRefType targetType) $
+                  tcError $ NonFreezableFieldError targetType
+           bindings <- getBindings eTarget
+           return $ setCondEnvChange bindings $
+                    setType boolType isFrozen{target = eTarget}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl || isOnceField fdecl) $
+                         tcError $ NonSpecFreezeError fdecl
+              _ -> pushError targ MalformedIsFrozenError
+
+          getBindings FieldAccess{target = acc@VarAccess{qname = x}, name = f} =
+              return [(qnlocal x, AST.getType acc `tilde` f)]
+          getBindings _ =
+              error "Typechecker.hs: Target of isStable does not have correct shape"
+
     --  E |- val : Fut t
     -- ------------------
     --  E |- get val : t
@@ -1371,6 +1565,14 @@ instance Checkable Expr where
               isPassiveClassType targetType && not (isModeless targetType)) $
         tcError $ CannotReadFieldError eTarget
       fdecl <- findField targetType name
+      safeOnce <- asks safeToReadOnce
+      when (isOnceField fdecl) $
+           unless safeOnce $
+               tcError $ NonStableFieldAccessError fdecl
+      safeToSpec <- asks safeToSpeculate
+      when (isSpecField fdecl) $
+           unless safeToSpec $
+               tcError $ MissingSpeculationError fdecl
       let ty = ftype fdecl
       checkFieldEncapsulation name eTarget ty
       return $ setType ty fAcc {target = eTarget}
@@ -1391,27 +1593,59 @@ instance Checkable Expr where
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
 
-    doTypecheck assign@(Assign {lhs, rhs}) =
-        do eLhs <- typecheck lhs
-           unless (isLval eLhs) $
-                  pushError eLhs NonAssignableLHSError
-           context <- asks currentExecutionContext
-           case context of
-             MethodContext mtd ->
-               unless (isConstructor mtd) $
-                 assertNotValField eLhs
-             _ -> assertNotValField eLhs
-           eRhs <- hasType rhs (AST.getType eLhs)
-           return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
+    doTypecheck assign@(Assign {lhs = lhs@FieldAccess{}, rhs}) = do
+        eLhs@FieldAccess{target, name = f} <- typecheck lhs
+        let targetType = AST.getType target
+        if isPristineSingleType targetType && isVarAccess target
+        then do
+          eRhs <- typecheck rhs
+          let lhsType = AST.getType eLhs
+              rhsType = AST.getType eRhs
+          rhsType `assertSubtypeOf` lhsType
+          leftFlowsToRight <- lhsType `canFlowInto` rhsType
+          fdecl <- findField targetType f
+          let isTentative = (isSpecField fdecl || isValField fdecl) &&
+                            null (stronglyRestrictedFields rhsType) &&
+                            leftFlowsToRight && lhsType /= rhsType
+          if isTentative
+          then do
+            let bindings = [(qnlocal $ qname target, targetType `tilde` f)]
+            return $ setEnvChange bindings $
+                     setType unitType assign {lhs = eLhs, rhs = eRhs}
+          else do
+            rhsType `assertCanFlowInto` lhsType
+            return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
+        else do
+          inConstr <- inConstructor
+          unless (inConstr && isThisAccess target) $
+                 assertAssignable eLhs
+          eRhs <- hasType rhs (AST.getType eLhs)
+          return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
         where
-          assertNotValField f
+          inConstructor = do
+            context <- asks currentExecutionContext
+            case context of
+              MethodContext mtd -> return $ isConstructor mtd
+              _ -> return False
+          assertAssignable f
               | FieldAccess {target, name} <- f = do
                   let targetType = AST.getType target
                   fdecl <- findField targetType name
                   when (isValField fdecl) $
                        tcError $ ValFieldAssignmentError name targetType
+                  when (isSpecField fdecl) $
+                       tcError $ SpecFieldAssignmentError name targetType
               | otherwise = return ()
 
+    doTypecheck assign@(Assign {lhs, rhs}) =
+        do eLhs <- typecheck lhs
+           unless (isLval eLhs) $
+                  pushError eLhs NonAssignableLHSError
+           eRhs <- hasType rhs (AST.getType eLhs)
+           if hasEnvChange eRhs
+           then return $ setEnvChange (getEnvChange eRhs) $
+                         setType unitType assign {lhs = eLhs, rhs = eRhs}
+           else return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
 
     doTypecheck fun@(FunctionAsValue {qname, typeArgs}) = do
          result <- findVar qname
@@ -1527,10 +1761,15 @@ instance Checkable Expr where
           (eArgs, resolvedTy, _) <-
               inferenceCall fakeInitCall typeParams argTypes formal
 
-          checkArgsEncapsulation eArgs resolvedTy
+          isSpine <- isSpineType resolvedTy
+          let resolvedTy' = if isSpine
+                            then makePristine resolvedTy
+                            else resolvedTy
+
+          checkArgsEncapsulation eArgs resolvedTy'
 
           return $ setArrowType (arrowType argTypes unitType) $
-                   setType resolvedTy new{ty = resolvedTy, args = eArgs}
+                   setType resolvedTy' new{ty = resolvedTy', args = eArgs}
 
       | otherwise = do
           ty' <- resolveType ty
@@ -1539,9 +1778,15 @@ instance Checkable Expr where
           let expectedTypes = map ptype (hparams header)
 
           (eArgs, _) <- matchArguments args expectedTypes
+
+          isSpine <- isSpineType ty'
+          let ty'' = if isSpine
+                     then makePristine ty'
+                     else ty'
+
           checkArgsEncapsulation eArgs ty'
           return $ setArrowType (arrowType expectedTypes unitType) $
-                   setType ty' new{ty = ty', args = eArgs}
+                   setType ty'' new{ty = ty'', args = eArgs}
 
       where
         findConstructor ty args = do
@@ -1679,6 +1924,25 @@ instance Checkable Expr where
                newArgs = eFormatString : rest
            return $ setType unitType e {args = newArgs}
 
+    doTypecheck e@(Speculate {arg = arg@FieldAccess{}}) =
+        do eArg@FieldAccess{target, name} <- typecheck arg
+           let targetType = AST.getType target
+               argType = AST.getType eArg
+           fdecl <- findField targetType name
+           when (isVarField fdecl) $
+                  tcError $ NonSpeculatableFieldError fdecl
+           if isRefType argType
+           then do
+             let barred = barredFields argType
+                 (unbarred, _) = mapAccumL (\t f -> (t `unrestrict` f, undefined)) argType barred
+             Just fields <- asks $ fields unbarred
+             let varFields = map fname $ filter isVarField fields
+                 (stymied, _) = mapAccumL (\t f -> (t `bar` f, undefined)) argType varFields
+             return $ setType stymied e {arg = eArg}
+           else
+             return $ setType argType e {arg = eArg}
+    doTypecheck Speculate{} = tcError NonSpeculatableTargetError
+
     --  E |- arg : int
     -- ------------------------
     --  E |- exit(arg) : unit
@@ -1761,7 +2025,11 @@ instance Checkable Expr where
                tcError $ UnaryOperandMismatchError uop eType
         let resultType | uop == Identifiers.NOT = boolType
                        | uop == Identifiers.NEG = eType
-        return $ setType resultType unary {operand = eOperand}
+            bindings = if hasCondEnvChange eOperand
+                       then getEnvChange eOperand
+                       else []
+        return $ setCondEnvChange bindings $
+                 setType resultType unary {operand = eOperand}
 
     --  op \in {and, or}
     --  E |- loper : bool
@@ -2163,6 +2431,12 @@ assertSubtypeOf sub super =
             tcError $ TypeWithCapabilityMismatchError sub cap super
         Nothing ->
             tcError $ TypeMismatchError sub super
+
+assertCanFlowInto :: Type -> Type -> TypecheckM ()
+assertCanFlowInto ty1 ty2 = do
+  ty1 `assertSubtypeOf` ty2
+  unlessM (ty1 `canFlowInto` ty2) $
+          tcError $ CannotFlowIntoError ty1 ty2
 
 inferenceCall call typeParams argTypes resultType
   | isMethodCallOrMessageSend call || isFunctionCall call = do

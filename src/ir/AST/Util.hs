@@ -93,10 +93,13 @@ getChildren For {name, step, src, body} = [step, src, body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
-
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
         [mcpattern, mchandler, mcguard]
 getChildren Borrow {target, body} = [target, body]
+getChildren CAT {args} = args
+getChildren TryAssign {target, arg} = [target, arg]
+getChildren Freeze {target} = [target]
+getChildren IsFrozen {target} = [target]
 getChildren Get {val} = [val]
 getChildren Forward {forwardExpr} = [forwardExpr]
 getChildren Yield {val} = [val]
@@ -122,6 +125,7 @@ getChildren BFalse {} = []
 getChildren NewWithInit {args} = args
 getChildren New {} = []
 getChildren Print {args} = args
+getChildren Speculate {arg} = [arg]
 getChildren Exit {args} = args
 getChildren Abort {args} = args
 getChildren StringLiteral {} = []
@@ -170,7 +174,7 @@ putChildren [cond, body] e@(DoWhile {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren (arg:clauseList) e@(Match {clauses}) =
-    e{arg = arg, clauses=putClausesChildren clauseList clauses}
+    e{arg, clauses=putClausesChildren clauseList clauses}
     where putClausesChildren [] [] = []
           putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) =
               mc{mcpattern=pattern, mchandler=handler, mcguard=guard}:
@@ -178,6 +182,10 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
 putChildren [target, body] e@(Borrow {}) = e{target, body}
+putChildren args e@(CAT {}) = e{args}
+putChildren [target, arg] e@(TryAssign {}) = e{target, arg}
+putChildren [target] e@(Freeze {}) = e{target}
+putChildren [target] e@(IsFrozen {}) = e{target}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
 putChildren [val] e@(Yield {}) = e{val = val}
@@ -203,6 +211,7 @@ putChildren [] e@(BFalse {}) = e
 putChildren args e@(NewWithInit {}) = e{args = args}
 putChildren [] e@(New {}) = e
 putChildren args e@(Print {}) = e{args = args}
+putChildren [arg] e@(Speculate {}) = e{arg = arg}
 putChildren args e@(Exit {}) = e{args = args}
 putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
 putChildren [] e@(StringLiteral {}) = e
@@ -244,6 +253,9 @@ putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
 putChildren _ e@(Match {}) = error "'putChildren l Match' expects l to have at least 1 element"
 putChildren _ e@(Borrow {}) = error "'putChildren l Borrow' expects l to have 2 element"
+putChildren _ e@(TryAssign {}) = error "'putChildren l TryAssign' expects l to have 2 elements"
+putChildren _ e@(Freeze {}) = error "'putChildren l Freeze' expects l to have 1 element"
+putChildren _ e@(IsFrozen {}) = error "'putChildren l IsFrozen' expects l to have 1 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Forward {}) = error "'putChildren l Forward' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
@@ -266,6 +278,7 @@ putChildren _ e@(Null {}) = error "'putChildren l Null' expects l to have 0 elem
 putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 elements"
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"
 putChildren _ e@(New {}) = error "'putChildren l New' expects l to have 0 elements"
+putChildren _ e@(Speculate {}) = error "'putChildren l Speculate' expects l to have 1 element"
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
 putChildren _ e@(CharLiteral {}) = error "'putChildren l CharLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"

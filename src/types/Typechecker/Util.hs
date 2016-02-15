@@ -18,6 +18,7 @@ module Typechecker.Util(TypecheckM
                        ,isKnownRefType
                        ,assertSafeTypeArguments
                        ,subtypeOf
+                       ,canFlowInto
                        ,assertDistinctThing
                        ,assertDistinct
                        ,findTrait
@@ -43,6 +44,7 @@ module Typechecker.Util(TypecheckM
                        ,isSharableType
                        ,checkConjunction
                        ,includesMarkerTrait
+                       ,isSpineType
                        ) where
 
 import Identifiers
@@ -60,6 +62,7 @@ import Control.Monad.State
 -- Module dependencies
 import Typechecker.TypeError
 import Typechecker.Environment
+import AST.PrettyPrinter
 
 -- Monadic versions of common functions
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
@@ -135,7 +138,28 @@ matchTypeParameterLength ty1 ty2 = do
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
 resolveType :: Type -> TypecheckM Type
-resolveType = typeMapM resolveSingleType
+resolveType = typeMapM (\ty -> do ty' <- resolveSingleType ty
+                                  checkRestrictions ty'
+                                  return ty')
+
+checkRestrictions :: Type -> TypecheckM ()
+checkRestrictions ty
+  | isClassType ty = do
+      mapM_ checkBarRestriction (barredFields ty)
+      mapM_ checkTransferRestriction (transferRestrictedFields ty)
+  | otherwise =
+      unless (null $ restrictedFields ty) $
+             tcError $ CannotHaveRestrictedFieldsError ty
+  where
+    checkBarRestriction f = do
+      fdecl <- findField (ty `unrestrict` f) f
+      unless (isVarField fdecl) $
+             tcError $ BarredNonVarFieldError fdecl
+    checkTransferRestriction f = do
+      fdecl <- findField (ty `unrestrict` f) f
+      when (isVarField fdecl) $
+           tcError $ TransferRestrictedVarFieldError fdecl
+
 
 resolveSingleType :: Type -> TypecheckM Type
 resolveSingleType ty
@@ -173,12 +197,12 @@ resolveSingleType ty
         assertDistinctThing "occurrence" "trait" traits
         return t
     resolveSingleTrait t
-          | isRefAtomType t = do
-              result <- asks $ traitLookup t
-              when (isNothing result) $
-                 tcError $ UnknownTraitError t
-          | otherwise =
-              tcError $ MalformedCapabilityError t
+        | isRefAtomType t = do
+            result <- asks $ traitLookup t
+            when (isNothing result) $
+               tcError $ UnknownTraitError t
+        | otherwise =
+            tcError $ MalformedCapabilityError t
 
 resolveTypeAndCheckForLoops :: Type -> TypecheckM Type
 resolveTypeAndCheckForLoops ty =
@@ -210,6 +234,7 @@ resolveRefAtomType ty = do
   let res = formal `setTypeParameters` getTypeParameters ty
                    `withModeOf` ty
                    `withBoxOf` ty
+                   `withRestrictionsOf` ty
   return res
 
 -- | Find the formal version of a type with any type parameters of
@@ -299,7 +324,8 @@ subtypeOf ty1 ty2
               getResultType ty1 `subtypeOf` getResultType ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
-        return $ ty1 == ty2
+        return $ unrestricted ty1 == unrestricted ty2 &&
+                 matchingPristiness ty1 ty2
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
         capability `capabilitySubtypeOf` ty2
@@ -338,6 +364,10 @@ subtypeOf ty1 ty2
         return $ ty1 `numericSubtypeOf` ty2
     | otherwise = return (ty1 == ty2)
     where
+      matchingPristiness ref1 ref2 =
+        isPristineSingleType ref1 ||
+        (not (isPristineSingleType ref1) && not (isPristineSingleType ref2))
+
       capabilitySubtypeOf cap1 cap2 = do
         let traits1 = typesFromCapability cap1
             traits2 = typesFromCapability cap2
@@ -380,6 +410,31 @@ includesMarkerTrait ty trait
       let traits = typesFromCapability ty
       anyM (`includesMarkerTrait` trait) traits
   | otherwise = return False
+
+checkAssignmentRestrictions :: Expr -> Expr -> TypecheckM ()
+checkAssignmentRestrictions target arg =
+  let targetType = AST.getType target
+      argType = AST.getType arg
+      strongRestrictions = stronglyRestrictedFields targetType
+      argRestrictions = barredFields argType
+  in case find (`elem` argRestrictions) strongRestrictions of
+       Just f ->
+         tcError $ StrongRestrictionViolationError f target arg
+       Nothing -> return ()
+
+canFlowInto :: Type -> Type -> TypecheckM Bool
+canFlowInto ty1 ty2 = do
+  isSubtype <- ty1 `subtypeOf` ty2
+  let restricted1 = restrictedFields ty1
+      restricted2 = restrictedFields ty2
+      strong1 = stronglyRestrictedFields ty1
+      strong2 = stronglyRestrictedFields ty2
+      weak2 = weaklyRestrictedFields ty2
+      restrictionsPreserved = null (restricted1 \\ restricted2)
+      strongRestrictionsOK = all (`elem` weak2) strong1 &&
+                             not (any (`elem` strong2) strong1)
+                             -- The second condition is just a precaution...
+  return $ isSubtype && restrictionsPreserved && strongRestrictionsOK
 
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
@@ -452,7 +507,10 @@ findField ty f = do
   result <- asks $ fieldLookup ty f
   case result of
     Just fdecl -> return fdecl
-    Nothing -> tcError $ FieldNotFoundError f ty
+    Nothing ->
+        if f `elem` barredFields ty
+        then tcError $ RestrictedFieldLookupError f ty
+        else tcError $ FieldNotFoundError f ty
 
 findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
@@ -631,7 +689,7 @@ uniquifyTypeVar params ty
     appendToTypeVar ty i =
       let id = getId ty
           id' = id ++ show i
-      in typeVar id'
+      in typeVar id' `withModeOf` ty
 
 isSafeValField :: FieldDecl -> TypecheckM Bool
 isSafeValField f@Field{ftype} = do
@@ -721,13 +779,26 @@ fully isKind ty
     | otherwise = return $ isKind ty
 
 isLinearType :: Type -> TypecheckM Bool
-isLinearType = partly (return . isLinearSingleType)
+isLinearType =
+  partly $ \ty -> do
+    isUnrestricted <- isUnrestrictedSpineType ty
+    return $ isLinearSingleType ty || isUnrestricted
+  where
+    isUnrestrictedSpineType ty
+      | isSpineSingleType ty = do
+          Just fields <- asks $ fields ty
+          return $ any isVarField fields
+      | otherwise = return False
 
 isSubordinateType :: Type -> TypecheckM Bool
 isSubordinateType = partly (return . isSubordinateSingleType)
 
 isEncapsulatedType :: Type -> TypecheckM Bool
-isEncapsulatedType = fully isSubordinateSingleType
+isEncapsulatedType =
+  fully (\ty -> isSubordinateSingleType ty || isSpineSingleType ty)
+
+isSpineType :: Type -> TypecheckM Bool
+isSpineType = fully isSpineSingleType
 
 isLocalType :: Type -> TypecheckM Bool
 isLocalType = partly (isLocalType' [])

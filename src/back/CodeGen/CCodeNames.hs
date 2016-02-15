@@ -153,6 +153,16 @@ env = "_env"
 envVar :: CCode Lval
 envVar = Var env
 
+freeze :: UsableAs e Expr => Ty.Type -> CCode e -> CCode Expr
+freeze ty e
+    | Ty.isRefType ty = Call (Nam "FREEZE") [e]
+    | otherwise = EmbedC e
+
+unfreeze :: UsableAs e Expr => Ty.Type -> CCode e -> CCode Expr
+unfreeze ty e
+    | Ty.isRefType ty = Call (Nam "UNFREEZE") [e]
+    | otherwise = EmbedC e
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let

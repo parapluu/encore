@@ -146,14 +146,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
-  translate A.TypedExpr {A.body, A.ty} = do
+  translate (A.TypedExpr {A.body, A.ty}) = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
     let ty' = translate ty
         theCast = Assign (Decl (ty', Var tmp))
                          (Cast ty' nbody)
-    return $ (Var tmp,
-              Seq [tbody, theCast])
+    return (Var tmp,
+            Seq [tbody, theCast])
 
   translate unary@(A.Unary {A.uop, A.operand}) = do
     (noperand, toperand) <- translate operand
@@ -475,16 +475,31 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   return (Deref (StatAsExpr ntarg ttarg) `Dot` fieldName name)
            mkLval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
 
+  translate A.Speculate{A.arg} =
+      let ty = A.getType arg in
+      if Ty.isRefType ty
+      then do
+        (narg, targ) <- translate arg
+        (nspec, tspec) <- namedTmpVar "spec" ty (unfreeze ty narg)
+        return (nspec, Seq [targ, tspec])
+      else translate arg
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
     fld <- gets $ Ctx.lookupField (A.getType target) name
-    let theAccess = if Ty.isTypeVar (A.ftype fld) then
-                        fromEncoreArgT (translate . A.getType $ acc) $
+    let targetType = A.getType target
+        accType = A.getType acc
+        theAccess = if Ty.isTypeVar (A.ftype fld) then
+                        fromEncoreArgT (translate accType) $
                                        AsExpr (Deref ntarg `Dot` fieldName name)
                     else
                         Deref ntarg `Dot` fieldName name
-        theAssign = Assign (Decl (translate (A.getType acc), Var tmp)) theAccess
+        theUnfreeze = if A.isOnceField fld &&
+                         name `elem` Ty.transferRestrictedFields targetType
+                      then unfreeze accType theAccess
+                      else AsExpr theAccess
+        theAssign = Assign (Decl (translate accType, Var tmp)) theUnfreeze
     return (Var tmp, Seq [ttarg
                          ,dtraceFieldAccess ntarg name
                          ,theAssign
@@ -675,11 +690,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
          (nbody,tbody) <- translate body
-         tmp <- Ctx.genNamedSym "while";
-         let exportBody = Seq $ tbody : [Assign (Var tmp) nbody]
-         return (Var tmp,
-                 Seq [Statement $ Decl (translate (A.getType w), Var tmp),
-                      While (StatAsExpr ncond tcond) (Statement exportBody)])
+         return (unit, While (StatAsExpr ncond tcond) tbody)
 
   translate for@(A.For {A.name, A.step, A.src, A.body}) = do
     tmpVar   <- Var <$> Ctx.genNamedSym "for";
@@ -755,19 +766,47 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | A.isRangeLiteral src = translate (selector src)
           | otherwise = return (var, Assign (Decl (int, var)) rhs)
 
-  translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
+  translate ite@(A.IfThenElse { A.cond, A.thn, A.els}) =
       do tmp <- Ctx.genNamedSym "ite"
+
+         residuals <- getResidualTypes cond
+         let (names, residualTypes) = unzip residuals
+         residualVars <- mapM ((Var <$>) . Ctx.genNamedSym .
+                               ("residual_" ++) . show)
+                              names
+         zipWithM_ substituteVar names residualVars
+
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
          let resultType = A.getType ite
-             exportThn = Seq $ tthn :
-                         [Assign (Var tmp) (Cast (translate resultType) nthn)]
-             exportEls = Seq $ tels :
-                         [Assign (Var tmp) (Cast (translate resultType) nels)]
+             exportBranch body result =
+               Seq $ body :
+                   if Ty.isUnitType resultType
+                   then [Assign (Var tmp) unit]
+                   else [Assign (Var tmp) (Cast (translate resultType) result)]
+             exportThn = exportBranch tthn nthn
+             exportEls = exportBranch tels nels
+             theIf = If (StatAsExpr ncond tcond)
+                        (Statement exportThn)
+                        (Statement exportEls)
+             theResultDecl = AsExpr $ Decl (translate resultType, Var tmp)
+             theResidualDecls = zipWith (\t x -> AsExpr $ Decl (t, x))
+                                        residualTypes residualVars
          return (Var tmp,
-                 Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
-                      If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
+                 Seq $ theResultDecl:
+                       theResidualDecls ++
+                       [theIf])
+      where
+        getResidualTypes :: A.Expr -> State Ctx.Context [(ID.Name, CCode Ty)]
+        getResidualTypes A.CAT{A.args = (target:_), A.names} =
+          mapM (getResidualType (A.getType target)) names
+        getResidualTypes _ = return []
+
+        getResidualType ty f = do
+          fdecl <- gets $ Ctx.lookupField ty f
+          return (f, translate $ A.ftype fdecl)
+
 
   translate m@(A.Match {A.arg, A.clauses}) =
       do retTmp <- Ctx.genNamedSym "match"
@@ -994,6 +1033,89 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       translateInterpolated e = do
         (ne, te) <- translate e
         return $ StatAsExpr ne te
+
+  -- Warning: Extremly ugly code ahead!
+  translate cat@(A.CAT{A.args = [A.FieldAccess{A.target, A.name}
+                                ,witness
+                                ,arg]
+                      ,A.names}) = do
+    (ntarg, ttarg) <- translate target
+    (nwitness, twitness) <- translate witness
+    (narg, targ) <- translate arg
+    argIsOnce <- case arg of
+                   A.FieldAccess{A.target, A.name} -> do
+                       fdecl <- gets $ Ctx.lookupField (A.getType target) name
+                       return $ A.isOnceField fdecl
+                   _ -> return False
+    tmp <- Var <$> Ctx.genNamedSym "CAT"
+    let field = fieldName name
+        witnessType = A.getType witness
+        argType = A.getType arg
+        theTargetAccess = ntarg `Arrow` field
+        theArgs = [Amp theTargetAccess
+                  ,unfreeze witnessType nwitness
+                  ,unfreeze argType narg]
+        theCAS = Call (Nam "__sync_bool_compare_and_swap") theArgs
+        isWritten = BinOp (Nam "==") (AsExpr narg) (freeze argType narg)
+        theCond = if argIsOnce
+                  then BinOp (Nam "&&") isWritten theCAS
+                  else theCAS
+        theAssign = Assign (Decl (bool, tmp)) theCond
+        condNull = if Ty.isRefType $ A.getType arg
+                   then Statement $ If tmp (Assign narg Null) Skip
+                   else Skip
+    theResidualAssigns <- mapM (residualAssign narg argType . ID.qLocal) names
+    let condAssign = If tmp (Seq theResidualAssigns) Skip
+    return (tmp, Seq [ttarg, twitness, targ, theAssign,
+                      Statement condAssign, condNull])
+    where
+      residualAssign narg argType f = do
+        ctx <- get
+        let Just residualVar = Ctx.substLkp ctx f
+        return $ Assign residualVar $
+                        Cast (translate argType) (unfreeze argType narg)
+                        `Arrow` fieldName (ID.qnlocal f)
+
+  translate cat@(A.TryAssign{A.target = acc@A.FieldAccess{A.target, A.name},
+                             A.arg}) = do
+    (ntarg, ttarg) <- translate target
+    (narg, targ) <- translate arg
+    tmp <- Var <$> Ctx.genNamedSym "CAT"
+    let field = fieldName name
+        accType = A.getType acc
+        argType = A.getType arg
+    (nacc, tacc) <- namedTmpVar "acc" accType $ AsExpr (ntarg `Arrow` field)
+    let theArgs = [Amp $ ntarg `Arrow` field
+                  ,unfreeze accType nacc
+                  ,freeze argType narg]
+        theCAS = Call (Nam "__sync_bool_compare_and_swap") theArgs
+        isUnwritten = BinOp (Nam "==") (AsExpr nacc) (unfreeze accType nacc)
+        theCond = BinOp (Nam "&&") isUnwritten theCAS
+        theAssign = Assign (Decl (bool, tmp)) theCond
+        condNull = Statement $ If tmp (Assign narg Null) Skip
+    return (tmp, Seq [ttarg, targ, tacc, theAssign, condNull])
+
+  translate A.Freeze{A.target = val@A.FieldAccess{A.target, A.name}} = do
+    (nval, tval)   <- translate val
+    (ntarg, ttarg) <- translate target
+    tmp <- Var <$> Ctx.genNamedSym "freeze"
+    let field = fieldName name
+        theCAS = Call (Nam "__sync_bool_compare_and_swap")
+                      [Amp $ ntarg `Arrow` field,
+                       AsExpr nval, freeze (A.getType val) nval]
+        theAssign = Assign (Decl (bool, tmp)) theCAS
+    return (tmp, Seq [ttarg, tval, theAssign])
+
+  translate isFrozen@(A.IsFrozen{A.target = acc@A.FieldAccess{A.target, A.name}}) = do
+    (ntarg, ttarg) <- translate target
+    tmp <- Var <$> Ctx.genNamedSym "access"
+    result <- Var <$> Ctx.genNamedSym "isFrozen"
+    let ty = A.getType acc
+        theAccess = AsExpr $ Deref ntarg `Dot` fieldName name
+        theStore = Assign (Decl (translate ty, tmp)) theAccess
+        theCheck = BinOp (Nam "==") (AsExpr tmp) (freeze ty tmp)
+        theAssign = Assign (Decl (bool, result)) theCheck
+    return (result, Seq [ttarg, theStore, theAssign])
 
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =

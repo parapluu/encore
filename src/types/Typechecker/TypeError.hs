@@ -18,6 +18,8 @@ module Typechecker.TypeError (Backtrace
                              ,currentContextFromBacktrace
                              ,validUseOfBreak
                              ,validUseOfContinue
+                             ,safeToSpeculateBT
+                             ,safeToReadOnceBT
                              ) where
 
 import Text.PrettyPrint
@@ -130,9 +132,31 @@ validUseOfContinue ((_, BTExpr l@Repeat{}):_) = True
 validUseOfContinue ((_, BTExpr c@Closure{}):_) = False
 validUseOfContinue (_:bt) = validUseOfContinue bt
 
+safeToSpeculateBT :: Backtrace -> Bool
+safeToSpeculateBT ((_, current):(_, parent):_)
+    | BTExpr Speculate{} <- parent = True
+    | BTExpr CAT{}       <- parent = True
+    | BTExpr Freeze{}    <- parent = True
+    | BTExpr IsFrozen{}  <- parent = True
+    | BTExpr Binop{}     <- parent = True
+    | BTExpr Unary{}     <- parent = True
+    | BTExpr e@FieldAccess{} <- current
+    , BTExpr Assign{lhs}     <- parent
+      = e == lhs
+    | otherwise = False
+
+safeToReadOnceBT :: Backtrace -> Bool
+safeToReadOnceBT ((_, current):(_, parent):_)
+    | BTExpr CAT{}           <- parent = True
+    | BTExpr TryAssign{}     <- parent = True
+    | BTExpr IsFrozen{}      <- parent = True
+    | BTExpr e@FieldAccess{} <- current
+    , BTExpr Assign{lhs}     <- parent
+      = e == lhs
+    | otherwise = False
+
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
-
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
@@ -254,6 +278,7 @@ data Error =
   | ValFieldAssignmentError Name Type
   | UnboundVariableError QualifiedName
   | BuriedVariableError QualifiedName
+  | SpecFieldAssignmentError Name Type
   | ObjectCreationError Type
   | NonIterableError Type
   | EmptyArrayLiteralError
@@ -269,6 +294,7 @@ data Error =
   | CannotBeNullError Type
   | TypeMismatchError Type Type
   | TypeWithCapabilityMismatchError Type Type Type
+  | CannotFlowIntoError Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
   | TypeVariableAndVariableCommonNameError [Name]
@@ -328,6 +354,28 @@ data Error =
   | ActiveTraitError Type Type
   | NewWithModeError
   | UnsafeTypeArgumentError Type Type
+  | NonSpeculatableFieldError FieldDecl
+  | CannotHaveRestrictedFieldsError Type
+  | RestrictedFieldLookupError Name Type
+  | NonSpeculatableTargetError
+  | NonStableCatError Name
+  | MalformedCatError
+  | NonSpecFreezeError FieldDecl
+  | NonFreezableFieldError Type
+  | MalformedFreezeError
+  | MalformedIsFrozenError
+  | ModifierMismatchError FieldDecl FieldDecl Type
+  | MissingSpeculationError FieldDecl
+  | SpeculativeCatError Expr
+  | OnceFieldTypeError Type
+  | TryAssignError FieldDecl
+  | MalformedTryAssignError
+  | NonStableFieldAccessError FieldDecl
+  | StrongRestrictionViolationError Name Expr Expr
+  | ResidualAliasingError Name Type
+  | NonSpineCatTargetError Expr
+  | BarredNonVarFieldError FieldDecl
+  | TransferRestrictedVarFieldError FieldDecl
   | SimpleError String
   ----------------------------
   -- Capturechecking errors --
@@ -560,6 +608,10 @@ instance Show Error where
     show (ValFieldAssignmentError name targetType) =
         printf "Cannot assign to val-field '%s' in %s"
                (show name) (refTypeName targetType)
+    show (SpecFieldAssignmentError name targetType) =
+        printf ("Cannot assign to spec-field '%s' " ++
+                "in non-pristine %s without a CAT")
+                (show name) (refTypeName targetType)
     show (UnboundVariableError name) =
         printf "Unbound variable '%s'" (show name)
     show (BuriedVariableError name) =
@@ -619,6 +671,10 @@ instance Show Error where
                        expectedTraits
                then ". Cannot drop mode '" ++ showModeOf nonDroppable ++ "'"
                else ""
+    show (CannotFlowIntoError ty1 ty2) =
+        -- TODO: Give a more informative error
+        printf "Type '%s' cannot flow into '%s'"
+               (show ty1) (show ty2)
     show (TypeVariableAmbiguityError expected ty1 ty2) =
         printf "Type variable '%s' cannot be bound to both '%s' and '%s'"
                (getId expected) (show ty1) (show ty2)
@@ -908,6 +964,77 @@ instance Show Error where
     show (LinearCaptureError e ty) =
         printf "Cannot capture expression '%s' of linear type '%s'"
                (show (ppSugared e)) (show ty)
+    -------------------
+    -- LOLCAT errors --
+    -------------------
+    show (NonSpeculatableFieldError fdecl) =
+        printf "Field '%s' is not speculatable"
+               (show fdecl)
+    show (CannotHaveRestrictedFieldsError ty) =
+        printf "Cannot have restricted fields in %s"
+               (Types.showWithKind ty)
+    show (RestrictedFieldLookupError f ty) =
+        printf "Field '%s' is restricted in type '%s'"
+               (show f) (show ty)
+    show NonSpeculatableTargetError =
+        "Can only speculate on field accesses"
+    show (NonStableCatError f) =
+        printf "Field '%s' must be stable to be used in a CAT"
+               (show f)
+    show MalformedCatError =
+        "CAT must take one of the following forms:\n" ++
+        "  CAT(x.f, y, y.g)" ++
+        "  CAT(x.f, y.g, y)" ++
+        "  CAT(x.f, y, z)"
+    show (NonSpecFreezeError fdecl) =
+        printf "Field '%s' is not fixable"
+               (show fdecl)
+    show (NonFreezableFieldError ty) =
+        printf "Field of %s cannot be fixed"
+               (Types.showWithKind ty)
+    show MalformedFreezeError =
+        "First argument of fix must be a field access"
+    show MalformedIsFrozenError =
+        "First argument of isStable must be a field access"
+    show (ModifierMismatchError cField expField trait) =
+        printf ("Modifier of field '%s' is incompatible with " ++
+                "modifier of '%s' required by %s")
+               (show cField) (show expField) (refTypeName trait)
+    show (MissingSpeculationError fdecl) =
+        printf "Cannot read field '%s' without speculation"
+               (show fdecl)
+    show (SpeculativeCatError expr) =
+        printf ("Cannot transfer ownership in '%s' of type '%s' " ++
+                "since it contains speculative values")
+               (show (ppSugared expr)) (show (getType expr))
+    show (OnceFieldTypeError ty) =
+        printf "Once-fields cannot have %s (must have ref-type)"
+               (Types.showWithKind ty)
+    show (TryAssignError fdecl) =
+        printf "Field '%s' is not a once-field"
+               (show fdecl)
+    show MalformedTryAssignError =
+        "Writing to a once-field must have the shape try(x.f = y)"
+    show (NonStableFieldAccessError fdecl) =
+        printf "Cannot read field '%s' without controlling its stability first"
+               (show fdecl)
+    show (StrongRestrictionViolationError f target arg) =
+        printf ("Field '%s' is strongly restricted in the type of '%s' " ++
+                "and must be unrestricted in the type of '%s'")
+               (show f) (show (ppSugared target)) (show (ppSugared arg))
+    show (ResidualAliasingError f ty) =
+        printf ("Cannot create residual alias. Field '%s' " ++
+                "is not strongly restricted in type '%s'")
+               (show f) (show ty)
+    show (NonSpineCatTargetError target) =
+        printf "CAT target '%s' must have spine mode"
+               (show (ppSugared target))
+    show (BarredNonVarFieldError fdecl) =
+        printf "Non-var field '%s' cannot be strongly or weakly restricted"
+               (show fdecl)
+    show (TransferRestrictedVarFieldError fdecl) =
+        printf "Var field '%s' cannot be transfer restricted"
+               (show fdecl)
 
 data TCWarning = TCWarning Backtrace Warning
 instance Show TCWarning where

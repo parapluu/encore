@@ -238,6 +238,19 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
+-- LOLCAT functions (fix, try and isStable)
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "isStable"}
+                    ,args = [target]} =
+    IsFrozen{emeta, target}
+
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "fix"}
+                    ,args = [target]} =
+    Freeze{emeta, target}
+
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "try"}
+                    ,args = [Assign{lhs, rhs}]} =
+    TryAssign{emeta, target = lhs, arg = rhs}
+
 -- If-expressions without else
 desugar IfThen{emeta, cond, thn} =
     IfThenElse{emeta

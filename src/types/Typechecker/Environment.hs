@@ -202,39 +202,61 @@ isKnownName :: Namespace -> Name -> Environment -> Bool
 isKnownName ns name Env{lookupTables} =
   name `elem` allNames (lookupTables Map.! ns)
 
-fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup ty f env@Env{namespaceTable}
+safeToSpeculate :: Environment -> Bool
+safeToSpeculate = safeToSpeculateBT . bt
+
+safeToReadOnce :: Environment -> Bool
+safeToReadOnce = safeToReadOnceBT . bt
+
+fields :: Type -> Environment -> Maybe [FieldDecl]
+fields ty env
   | isTraitType ty =
     case traitLookup ty env of
       Just [trait] -> do
-        fld <- find ((== f) . fname) $ requiredFields trait
-        let bindings = formalBindings (tname trait) ty
-            ftype' = translateTypeNamespace namespaceTable $
-                     replaceTypeVars bindings $ ftype fld
-        return fld{ftype = ftype'}
+        let transferRestricted = transferRestrictedFields ty
+            barred       = barredFields ty
+            formalFields = requiredFields trait
+            bindings     = formalBindings (tname trait) ty
+        return $ trim bindings barred transferRestricted formalFields
       Just l ->
         error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
                 "Possible targets are: " ++ show l
       Nothing ->
         error $
-          printf "Environment.hs: Tried to lookup field %s in unresolved trait %s"
-                 (show f) (show ty)
+          printf "Environment.hs: Tried to lookup fields of unresolved trait %s"
+                 (show ty)
   | isClassType ty =
     case classLookup ty env of
       Just [cls] -> do
-        fld <- find ((== f) . fname) $ cfields cls
-        let bindings = formalBindings (cname cls) ty
-            ftype' = translateTypeNamespace namespaceTable $
-                     replaceTypeVars bindings $ ftype fld
-        return fld{ftype = ftype'}
+        let transferRestricted = transferRestrictedFields ty
+            barred       = barredFields ty
+            formalFields = cfields cls
+            bindings     = formalBindings (cname cls) ty
+        return $ trim bindings barred transferRestricted formalFields
       Just l ->
         error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
                 "Possible targets are: " ++ show l
       Nothing ->
         error $
-          printf "Environment.hs: Tried to lookup field %s in unresolved class %s"
-                 (show f) (show ty)
-  | otherwise = error $ "Trying to lookup field in a non ref type " ++ show ty
+          printf "Environment.hs: Tried to lookup fields in unresolved class %s"
+                 (show ty)
+  | otherwise = error $ "Trying to lookup fields in non-atom ref type " ++
+                        show ty
+    where
+      trim bindings barred transferRestricted fields =
+        let actualFields = map (translateField bindings) fields
+            stabilized   = map (stabilize transferRestricted) actualFields
+        in filter (\f -> fname f `notElem` barred) stabilized
+      translateField bindings f@Field{ftype} =
+          f{ftype = replaceTypeVars bindings ftype}
+      stabilize fs f
+          | fname f `elem` fs = f{fmut = Val}
+          | otherwise = f
+
+fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
+fieldLookup t f env = do
+    fs <- fields t env
+    find ((== f) . fname) fs
 
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname

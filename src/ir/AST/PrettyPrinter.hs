@@ -21,6 +21,8 @@ module AST.PrettyPrinter (ppExpr
 -- Library dependencies
 import qualified Text.PrettyPrint as P
 import Text.PrettyPrint hiding(brackets)
+import Data.List(intercalate)
+import Data.Maybe
 
 -- Module dependencies
 import Identifiers
@@ -35,6 +37,8 @@ brackets s = hcat ["[", s, "]"]
 ppMut :: Mutability -> Doc
 ppMut Val = "val"
 ppMut Var = "var"
+ppMut Spec = "spec"
+ppMut Once = "once"
 
 ppName :: Name -> Doc
 ppName = text . show
@@ -188,8 +192,8 @@ ppFieldDecl = text . show
 ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pmut = Val, pname, ptype}) =
     ppName pname <+> ":" <+> ppType ptype
-ppParamDecl (Param {pmut = Var, pname, ptype}) =
-    "var" <+> ppName pname <+> ":" <+> ppType ptype
+ppParamDecl (Param {pmut, pname, ptype}) =
+    ppMut pmut <+> ppName pname <+> ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
@@ -385,6 +389,15 @@ ppExpr Return {val} = "return" <> parens (ppExpr val)
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} =
   maybeParens target <> "." <> ppName name
+ppExpr CAT {args, names} =
+    "CAT" <> parens (commaSep $ map ppExpr args) <>
+             if null names
+             then empty
+             else text " =>" <+> commaSep (map ppName names)
+ppExpr TryAssign {target, arg} =
+    "try" <> parens (commaSep $ map ppExpr [target, arg])
+ppExpr Freeze {target} = "fix" <> parens (ppExpr target)
+ppExpr IsFrozen {target} = "isStable" <> parens (ppExpr target)
 ppExpr ArrayAccess {target = target@FieldAccess{}, index} =
   parens (ppExpr target) <> parens (ppExpr index)
 ppExpr ArrayAccess {target, index} = ppExpr target <> parens (ppExpr index)
@@ -402,6 +415,7 @@ ppExpr NewWithInit {ty, args} =
   "new" <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = "new" <+> ppType ty
 ppExpr Print {args} = "print" <> parens (commaSep (map ppExpr args))
+ppExpr Speculate {arg} = "speculate" <+> ppExpr arg
 ppExpr Exit {args} = "exit" <> parens (commaSep (map ppExpr args))
 ppExpr Abort {args} = "abort" <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text $ show stringLit

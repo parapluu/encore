@@ -39,7 +39,7 @@ local class Link[v] : Mappable[v](next)
   end
 end
 local class Stack[v] : Push[v]
-  val top : Mappable[v]
+  var top : Mappable[v]
   def init() : unit
     this.top = new Sentinel[v]()
   end

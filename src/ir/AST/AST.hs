@@ -79,6 +79,23 @@ class Show a => HasMeta a where
     isPattern :: a -> Bool
     isPattern = Meta.isPattern . getMeta
 
+    hasEnvChange :: a -> Bool
+    hasEnvChange x = Meta.hasEnvChange $ getMeta x
+
+    hasCondEnvChange :: a -> Bool
+    hasCondEnvChange x = Meta.hasCondEnvChange $ getMeta x
+
+    getEnvChange :: a -> [(Name, Type)]
+    getEnvChange x = Meta.getEnvChange $ getMeta x
+
+    setEnvChange :: [(Name, Type)] -> a -> a
+    setEnvChange bindings x = let meta = getMeta x
+                              in setMeta x $ Meta.setEnvChange bindings meta
+
+    setCondEnvChange :: [(Name, Type)] -> a -> a
+    setCondEnvChange bindings x = let meta = getMeta x
+                                  in setMeta x $ Meta.setCondEnvChange bindings meta
+
 data EmbedTL = EmbedTL {
       etlmeta   :: Meta EmbedTL,
       etlheader :: String,
@@ -426,8 +443,17 @@ instance HasMeta FieldDecl where
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
+isOnceField :: FieldDecl -> Bool
+isOnceField = (== Once) . fmut
+
+isSpecField :: FieldDecl -> Bool
+isSpecField = (== Spec) . fmut
+
 isValField :: FieldDecl -> Bool
 isValField = (== Val) . fmut
+
+isVarField :: FieldDecl -> Bool
+isVarField = (== Var) . fmut
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -532,11 +558,16 @@ data MaybeContainer = JustData { e :: Expr}
 
 
 data Mutability = Var
-                | Val deriving(Eq)
+                | Val
+                | Spec
+                | Once
+                  deriving(Eq)
 
 instance Show Mutability where
     show Var = "var"
     show Val = "val"
+    show Spec = "spec"
+    show Once = "once"
 
 data OptionalPathComponent = QuestionDot Expr | QuestionBang Expr deriving (Show, Eq)
 
@@ -639,6 +670,18 @@ data Expr = Skip {emeta :: Meta Expr}
                     target :: Expr,
                     name   :: Name,
                     body   :: Expr}
+          | CAT {emeta :: Meta Expr,
+                 args  :: [Expr],
+                 names :: [Name]
+                }
+          | TryAssign {emeta :: Meta Expr,
+                       target :: Expr,
+                       arg :: Expr
+                      }
+          | Freeze {emeta :: Meta Expr,
+                    target :: Expr}
+          | IsFrozen {emeta :: Meta Expr,
+                      target :: Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Forward {emeta :: Meta Expr,
@@ -690,6 +733,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | Print {emeta :: Meta Expr,
                    file :: FileDescriptor,
                    args :: [Expr]}
+          | Speculate {emeta :: Meta Expr,
+                       arg :: Expr}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
           | Abort {emeta :: Meta Expr,
@@ -739,9 +784,17 @@ isFunctionCall :: Expr -> Bool
 isFunctionCall FunctionCall {} = True
 isFunctionCall _ = False
 
+isVarAccess :: Expr -> Bool
+isVarAccess VarAccess {} = True
+isVarAccess _ = False
+
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"
 isThisAccess _ = False
+
+isFieldAccess :: Expr -> Bool
+isFieldAccess FieldAccess {} = True
+isFieldAccess _ = False
 
 isClosure :: Expr -> Bool
 isClosure Closure {} = True

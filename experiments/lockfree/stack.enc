@@ -1,0 +1,101 @@
+linear class Elem : Id
+  val elem : int
+  def init(elem : int) : unit
+    this.elem = elem
+  end
+end
+
+spine class Node
+  var elem : Elem
+  val next : Node
+
+  def init(var e : Elem) : unit
+    this.elem = consume e
+  end
+end
+
+lockfree trait Push
+  require spec top : Node
+
+  def push(var e : Elem) : unit
+    var n = new Node(consume e)
+    var t = speculate this.top
+    n.next = t
+    while true do
+      if (CAT(this.top, n.next, n)) then
+        break
+      else
+        n.next = speculate this.top
+      end
+    end
+  end
+end
+
+lockfree trait Pop
+  require spec top : Node
+
+  def pop() : Elem
+    while true do
+      val t = speculate this.top
+      if (CAT(this.top, t, t.next)) then
+        return consume t.elem
+      end
+    end
+    null -- Should never happen
+  end
+end
+
+class Stack : Pop * Push
+  spec top : Node
+end
+
+active class Pusher
+  val s : Stack
+  def init(s:Stack, count:int) : unit
+    this.s = s
+    this!pushLoop(count)
+  end
+
+  def pushLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      this.s.push(new Elem(count))
+      this!pushLoop(count-1)
+    end
+  end
+end
+
+active class Popper
+  val s : Stack
+  def init(s:Stack, count:int) : unit
+    this.s = s
+    this!popLoop(count)
+  end
+
+  def popLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      val ret = this.s.pop()
+      if ret != null then
+        println("Popped {}", ret.elem)
+      end
+      this!popLoop(count-1)
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val s = new Stack
+    val nPushers = 2
+    val nPoppers = 2
+    repeat i <- nPushers do
+      new Pusher(s, 20)
+    end
+    repeat i <- nPoppers do
+      new Popper(s, 20)
+    end
+  end
+end

@@ -5,6 +5,7 @@ import Data.Maybe
 import Text.Printf
 
 import Types
+import Identifiers
 
 data CaptureStatus = Captured
                    | Free
@@ -13,6 +14,8 @@ data CaptureStatus = Captured
 data MetaInfo = Closure {metaId :: String}
               | Async {metaId :: String}
               | MetaArrow {metaArrow :: Type}
+              | EnvChange {bindings :: [(Name, Type)]}
+              | CondEnvChange {bindings :: [(Name, Type)]}
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos,
@@ -96,3 +99,20 @@ makeCaptured m = m{captureStatus = Just Captured}
 
 makePattern :: Meta a -> Meta a
 makePattern m = m{isPattern = True}
+
+hasEnvChange :: Meta a -> Bool
+hasEnvChange Meta{metaInfo = Just EnvChange{}} = True
+hasEnvChange _ = False
+
+hasCondEnvChange :: Meta a -> Bool
+hasCondEnvChange Meta{metaInfo = Just CondEnvChange{}} = True
+hasCondEnvChange _ = False
+
+getEnvChange :: Meta a -> [(Name, Type)]
+getEnvChange = bindings . fromJust . metaInfo
+
+setEnvChange :: [(Name, Type)] -> Meta a -> Meta a
+setEnvChange bindings m = m{metaInfo = Just $ EnvChange bindings}
+
+setCondEnvChange :: [(Name, Type)] -> Meta a -> Meta a
+setCondEnvChange bindings m = m{metaInfo = Just $ CondEnvChange bindings}

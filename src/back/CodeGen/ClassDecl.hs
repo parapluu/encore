@@ -351,9 +351,11 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                    (Arrow thisName (typeVarRefName t))
          else error "Expected type variable but found concrete type"
       typeParams = Ty.getTypeParameters cname
-      traceField A.Field {A.ftype, A.fname} =
+      traceField fld@(A.Field {A.ftype, A.fname}) =
         let var = Var . show $ fieldName fname
-            field = thisVar `Arrow` fieldName fname
+            field = if A.isOnceField fld  || A.isSpecField fld
+                    then unfreeze ftype (thisVar `Arrow` fieldName fname)
+                    else AsExpr $ thisVar `Arrow` fieldName fname
             fieldAssign = Assign (Decl (translate ftype, var)) field
         in Seq [fieldAssign, traceVariable ftype var]
 
