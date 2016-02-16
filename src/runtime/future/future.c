@@ -153,7 +153,7 @@ future_t *future_mk(pony_type_t *type)
   encore_actor_t *actor = (encore_actor_t *) actor_current();
   assert(actor);
 
-  future_t *fut = encore_alloc(sizeof(future_t));
+  future_t *fut = pony_alloc_final(sizeof(future_t), (void *)&future_finalizer);
   *fut = (future_t) { .type = type };
 
   pthread_mutex_init(&fut->lock, NULL);
