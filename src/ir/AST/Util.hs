@@ -332,6 +332,17 @@ extractTypes (Program{functions, traits, classes}) =
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
     where
+      freeVariables' bound Match {arg, clauses} =
+          freeVariables' bound arg ++ clausesFreeVars
+          where
+            clausesFreeVars = concatMap clauseFreeVars clauses
+            clauseFreeVars MatchClause{mcpattern, mcguard, mchandler} =
+                let boundInPattern = map fst $ freeVariables' [] mcpattern
+                    bound' = boundInPattern ++ bound
+                    freeInGuard = freeVariables' bound' mcguard
+                    freeInHandler = freeVariables' bound' mchandler
+                in
+                  freeInGuard ++ freeInHandler
       freeVariables' bound var@(VarAccess {name})
           | name `elem` bound = []
           | otherwise = [(name, getType var)]

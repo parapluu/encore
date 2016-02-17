@@ -152,9 +152,6 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
       (list BundleDecl
          @seq[bundle QName where])
 
-	  (list ClassDecl
-	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
-
           (list Imports
                 @seq[import
 		         @optional{@litchar{qualified}}
@@ -166,6 +163,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  	@alt[
 			@seq[embed @elem{.* body .*} end]
 			@seq[embed @elem{.*} end]])
+
+	  (list ClassDecl
+	  	@seq[@(optional passive) class Name open-c FieldDecls MethodDecls close-c])
 
 	  (list FieldDecls
 	  	@alt[
