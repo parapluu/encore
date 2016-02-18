@@ -5,7 +5,7 @@
 ------------------------------------------------
 passive class DataCollector
   -- Fields that can store different kind of data
-  valueString    : string
+  valueString    : String
   valueInt       : int
   valueReal      : real
   valueEntry     : Entry
@@ -15,14 +15,14 @@ passive class DataCollector
  
   -- constructor that creates an instance of the class
   def init() : void {
-      this.valueString = "";
+      this.valueString = new String("");
       this.valueEmitData = null;
       this.valueExtendedEmitData = null;
       this.valueEntry = null;
   }
 
   -- setters that sets the value in an instance of the class
-  def setString(value : string) : void
+  def setString(value : String) : void
       this.valueString = value 
 
   def setInt(value : int) : void {
@@ -45,7 +45,7 @@ passive class DataCollector
   def setArrayList(value : ArrayList) : void
       this.valueArrayList = value
 
-  def getString() : string
+  def getString() : String
       this.valueString 
 
   def getInt() : int

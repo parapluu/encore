@@ -1,37 +1,9 @@
 -- Written by Evelina Andersson, 2015
 
-embed
-  #include <stdio.h>
-  #include <string.h>
-  
-  char* nextToken(char* tokens, int start, int stop);
-  int nextStop(char* tokens, int start);
-body  
-
-  char* nextToken(char* tokens, int start, int stop) {
-     char* token = malloc(((stop-start)+1)*sizeof(char));
-     int i;
-  
-     for(i = 0; i < (stop-start); i++) {
-         token[i] = tokens[start+i];
-     }
-  
-     token[i] = '\0';
-  
-     return strdup(token);
-  }
-
-  int nextStop(char* tokens, int start) {
-     int i = start;
-  
-     while(tokens[i] !=' ' && tokens[i] != '\n' && tokens[i] != '\0') {
-       i++;
-     }
- 
-     return i;
-  }
-
-end
+def nextToken(tokens: String, start: int, stop: int): String
+  match tokens.substring(start, stop) with
+  Just s => s.copy()
+  -- _ => ERROR
 
 passive class DocumentData
   def init() : void
@@ -43,12 +15,18 @@ passive class DocumentData
      start = 0
      length = 50
      tokensList = new ArrayList()
+     data = tokens.data
      i = 0
    in {
        while i < length { 
-         let
-             nextStop = embed int nextStop(#{tokens},#{start}); end
-             token = embed string nextToken(#{tokens},#{start}, #{nextStop}); end
+         let nextStop = embed int
+                        int i = #{start};
+                             while(#{data}[i] !=' ' && #{data}[i] != '\n' && #{data}[i] != '\0') {
+                               i++;
+                        }
+                        i;       
+                        end
+             token = nextToken(tokens, start, nextStop)
              container = new DataCollector()
          in {   
               start = nextStop+1;
@@ -57,6 +35,6 @@ passive class DocumentData
                i = i + 1; 
             }
        };
-       tokensList  
+       tokensList
       }
     }

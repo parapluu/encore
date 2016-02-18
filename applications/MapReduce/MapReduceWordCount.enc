@@ -3,52 +3,23 @@
 import MapReduceFrameWork
 import DocumentData
 
-embed
-  #include <string.h>
-  
-  int hashCode(char *string);
-  int equals(char *string0, char *string1);
-
-body
-  int hashCode(char *string) {
-     int length = strlen(string);
-     int i = 0;
-     int result = 0;
- 
-     for(; i < length;i++) {
-         result += (int) string[i];
-     }   
-
-     return result;
-  }
-
-int equals(char *string0, char *string1) {
-      if(string0 == NULL) return 0;
-      else if (strcmp(string0, string1) == 0) return 1;
-          else return 0;
-  }
-end
-
 passive class Key
-   value : string
+   value : String
 
-   def init(value : string) : void
+   def init(value : String) : void
       this.value = value
   
-   def getValue() : string
+   def getValue() : String
        this.value
 
    def equals(v : Key) : bool
        let
            myValue = this.getValue()
            valueValue = v.getValue()
-       in {
-          embed bool equals(#{myValue},#{valueValue}); end  
-       }
+       in myValue.equals(valueValue)
 
    def hashCode() : int
-       let value = this.value in
-          {embed int hashCode(#{value}); end}
+       this.value.to_int()
 
    def show () : void
        print("Key: {} ",this.value)
@@ -62,10 +33,10 @@ passive class Key
   ()
 
 passive class EmitData
-  id : string
+  id : String
   values : ArrayList
 
-  def init(id : string, values : ArrayList) : void {
+  def init(id : String, values : ArrayList) : void {
       this.id = id;
       this.values = values;
   }
@@ -75,7 +46,7 @@ passive class EmitData
       ()
   }
 
-  def getId() : string
+  def getId() : String
       this.id
 
   def getKey() : Key
@@ -111,7 +82,7 @@ passive class MapFunction
   def init() : void 
       this.collector = new ArrayList()
   
-  def function(docid : string, tokens : ArrayList) : void  {         
+  def function(docid : String, tokens : ArrayList) : void  {         
       repeat i <- tokens.size() { 
         let
             valuesInEmit = new ArrayList() 
@@ -210,8 +181,8 @@ class Main
               documents.add(document);
            }
          };
-          let result = framework.work(documents, false, 16, true, 0.75) in ();
-          let result = framework.work(documents, true, 16, true, 0.75) in ();
+          let result = framework.work(documents, false, 16, true, 0.75) in print("Result: {}", result.size());
+          let result = framework.work(documents, true, 16, true, 0.75) in print("Result: {}", result.size());
      };
      print("DONE");
  }
