@@ -66,8 +66,5 @@ traceCapability var =
   let
     cap = Cast capability var
     traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
-    traceFun = Var $ encoreName "trace" (show var)
-    traceFunAssign = Assign (Decl (ponyTraceFnType, traceFun)) traceFunPath
-    traceCall = Statement $ Call traceFun [var]
   in
-    Seq [traceFunAssign, traceCall]
+    Statement $ Call traceFunPath [var]
