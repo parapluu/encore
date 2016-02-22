@@ -62,8 +62,9 @@ typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 dispatchFunDecl :: A.ClassDecl -> CCode Toplevel
 dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
     (Function (Static void) (classDispatchName cname)
-     ([(Ptr . Typ $ "pony_actor_t", Var "_a"),
-       (Ptr . Typ $ "pony_msg_t", Var "_m")])
+     ([(Ptr encoreCtxT, encoreCtxVar),
+       (Ptr ponyActorT, Var "_a"),
+       (Ptr ponyMsgT, Var "_m")])
      (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "this"))
                   (Cast (Ptr . AsType $ classTypeName cname) (Var "_a")),
            (Switch (Var "_m" `Arrow` Nam "id")
@@ -78,11 +79,13 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
      where
        ponyMainClause =
            (Nam "_ENC__MSG_MAIN",
-            Seq $ [Assign (Decl (Ptr $ Typ "pony_main_msg_t", Var "msg")) (Cast (Ptr $ Typ "pony_main_msg_t") (Var "_m")),
+            Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
                    Statement $ Call ((methodImplName (Ty.refType "Main") (ID.Name "main")))
-                                    [(Cast (Ptr $ Typ "_enc__active_Main_t") (Var "_a")),
+                                    [AsExpr encoreCtxVar,
+                                     (Cast (Ptr encActiveMainT) (Var "_a")),
                                      Call (Nam "_init_argv")
-                                          [AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
+                                          [AsExpr encoreCtxVar,
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
 
        methodClauses = concatMap methodClause
@@ -100,6 +103,8 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              unpack :: A.ParamDecl -> Int -> CCode Stat
              unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (AsLval . argName $ pname))) ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
+       includeCtx xs = encoreCtxVar : xs
+
        -- TODO: include GC
        -- TODO: pack in encore_arg_t the task, infering its type
        taskDispatchClause :: (CCode Name, CCode Stat)
@@ -109,17 +114,17 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              decl = Assign (Decl (encoreArgT, tmp)) taskRunner
              futureFulfil = Statement $ Call (Nam "future_fulfil") [AsExpr $ Var "_fut", AsExpr tmp]
              taskFree = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
-             traceFuture = Statement $ Call (Nam "pony_traceobject") [Var "_fut", futureTypeRecName `Dot` Nam "trace"]
-             traceTask = Statement $ Call (Nam "pony_traceobject") [Var "_task", AsLval $ Nam "NULL"]
+             traceFuture = Statement $ Call ponyTraceObject (includeCtx [Var "_fut", futureTypeRecName `Dot` Nam "trace"])
+             traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
          in
          (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
                              [Embed $ "",
                               Embed $ "// --- GC on receiving ----------------------------------------",
-                              Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr]),
+                              Statement $ Call ponyGcRecvName ([] :: [CCode Expr]),
                               traceFuture,
                               traceTask,
                               Embed $ "//---You need to trace the task env and task dependencies---",
-                              Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
+                              Statement $ Call ponyRecvDoneName ([] :: [CCode Expr]),
                               Embed $ "// --- GC on sending ----------------------------------------",
                               Embed $ ""]++
                        [futureFulfil, taskFree])
@@ -139,9 +144,10 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                  (Ptr . AsType $ futMsgTypeName cname mName)
              gcRecieve  =
                  gcRecv mParams
-                 (Statement $ Call (Nam "pony_traceobject")
-                                   [Var "_fut",
-                                    futureTypeRecName `Dot` Nam "trace"])
+                 (Statement $ Call ponyTraceObject
+                                   (includeCtx
+                                      [Var "_fut",
+                                       futureTypeRecName `Dot` Nam "trace"]))
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
                                   (Var "this" :
@@ -149,7 +155,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
                  Statement $
-                   Call (Nam "future_fulfil")
+                   Call futureFulfil
                         [AsExpr $ Var "_fut",
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
@@ -178,7 +184,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        unpackFuture =
          let
-           lval = Decl (Ptr (Typ "future_t"), Var "_fut")
+           lval = Decl (future, Var "_fut")
            rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
          in
            Assign lval rval
@@ -192,10 +198,10 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        gcRecv ps futTrace = [Embed $ "",
                                Embed $ "// --- GC on receive ----------------------------------------",
-                               Statement $ Call (Nam "pony_gc_recv") ([] :: [CCode Expr])] ++
+                               Statement $ Call ponyGcRecvName [encoreCtxVar]] ++
                               (map traceEachParam ps) ++
                               [futTrace,
-                               Statement $ Call (Nam "pony_recv_done") ([] :: [CCode Expr]),
+                               Statement $ Call ponyRecvDoneName [encoreCtxVar],
                                Embed $ "// --- GC on receive ----------------------------------------",
                                Embed $ ""]
 
@@ -255,7 +261,7 @@ methodImplWithFuture cname m =
   let
     retType = future
     fName = methodImplFutureName cname mName
-    args = this : zip argTypes argNames
+    args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
     fBody = Seq $ [assignFut] ++
       gcSend ++
       msg ++
@@ -296,7 +302,7 @@ methodImplOneWay cname m =
   let
     retType = void
     fName = methodImplOneWayName cname mName
-    args = this : zip argTypes argNames
+    args = (Ptr encoreCtxT, encoreCtxVar): this : zip argTypes argNames
     fBody = Seq $
       gcSend ++
       msg
