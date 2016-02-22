@@ -60,6 +60,18 @@ isEncoreArgT _ = False
 ponyMsgT :: CCode Ty
 ponyMsgT = Typ "pony_msg_t"
 
+ponyMainMsgName :: String
+ponyMainMsgName = "pony_main_msg_t"
+
+ponyMainMsgT :: CCode Ty
+ponyMainMsgT = Typ ponyMainMsgName
+
+encActiveMainName :: String
+encActiveMainName = "_enc__active_Main_t"
+
+encActiveMainT :: CCode Ty
+encActiveMainT = Typ encActiveMainName
+
 encMsgT :: CCode Ty
 encMsgT = Typ "encore_fut_msg_t"
 
@@ -103,6 +115,12 @@ capability = Ptr $ Typ "capability_t"
 
 ponyTraceFnType :: CCode Ty
 ponyTraceFnType = Typ "pony_trace_fn"
+
+ponyTraceObject :: CCode Name
+ponyTraceObject = Nam "pony_traceobject"
+
+ponyTraceActor :: CCode Name
+ponyTraceActor = Nam "pony_traceactor"
 
 unit :: CCode Lval
 unit = Embed "UNIT"
@@ -303,6 +321,12 @@ ponySendvName = Nam "pony_sendv"
 ponyGcSendName :: CCode Name
 ponyGcSendName = Nam "pony_gc_send"
 
+ponyGcRecvName :: CCode Name
+ponyGcRecvName = Nam "pony_gc_recv"
+
+ponyRecvDoneName :: CCode Name
+ponyRecvDoneName = Nam "pony_recv_done"
+
 ponySendDoneName :: CCode Name
 ponySendDoneName = Nam "pony_send_done"
 
@@ -317,6 +341,9 @@ runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"
 
 futureTraceFn :: CCode Name
 futureTraceFn = Nam "future_trace"
+
+futureFulfil :: CCode Name
+futureFulfil = Nam "future_fulfil"
 
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
@@ -344,3 +371,9 @@ rangeTypeRecName = Nam $ "range_type"
 
 partyTypeRecName :: CCode Name
 partyTypeRecName = Nam $ "party_type"
+
+encoreCtxT :: CCode Ty
+encoreCtxT = Typ "encore_ctx_t"
+
+encoreCtxVar :: CCode Lval
+encoreCtxVar = Var "_ctx"

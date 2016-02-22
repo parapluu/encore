@@ -38,7 +38,7 @@ traceVariable t var
 
 ponyTraceactor :: CCode Lval -> CCode Stat
 ponyTraceactor var =
-  Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr ponyActorT) var]
+  Statement $ Call ponyTraceActor  [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) var]
 
 ponyTraceobject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Stat
 ponyTraceobject var f =
@@ -48,7 +48,7 @@ ponyTraceobject var f =
     toExpr e@(AsExpr _) = e
     toExpr _ = undefined
   in
-    Statement $ Call (Nam "pony_traceobject")  [AsExpr var, toExpr f]
+    Statement $ Call ponyTraceObject  [AsExpr encoreCtxVar, AsExpr var, toExpr f]
 
 encoreTracePolymorphicVariable :: CCode Lval -> CCode Lval  -> CCode Stat
 encoreTracePolymorphicVariable var t =
