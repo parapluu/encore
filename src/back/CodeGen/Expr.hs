@@ -641,9 +641,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do retTmp <- Ctx.genNamedSym "match"
          (narg, targ) <- translate arg
          let argty = A.getType arg
-         tIfChain <- ifChain clauses narg argty retTmp
-         let mType = translate (A.getType m)
-             lRetDecl = Decl (mType, Var retTmp)
+             mType = translate (A.getType m)
+         tIfChain <- ifChain clauses narg argty retTmp mType
+         let lRetDecl = Decl (mType, Var retTmp)
              eZeroInit = Cast mType (Int 0)
              tRetDecl = Assign lRetDecl eZeroInit
          return (Var retTmp, Seq [targ, Statement lRetDecl, tIfChain])
@@ -678,6 +678,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               tCheck = Assign (Var nCheck) eCheck
 
           return (Var nCheck, tCheck, newUsedVars)
+
+        translateComparison e1 e2 ty
+          | Ty.isStringType ty = do
+              let strcmpCall = Call (Nam "strcmp") [e1, e2]
+              return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
+          | Ty.isStringObjectType ty = do
+              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [e1, e2]
+          | otherwise =
+              return (BinOp (translate ID.EQ) e1 e2)
 
         translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
@@ -742,13 +751,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let derefedArg = Deref larg
           translateMaybePattern e derefedArg argty assocs usedVars
 
-        translatePattern (A.VarAccess{A.name}) larg _ assocs usedVars
+        translatePattern (A.VarAccess{A.name}) larg argty assocs usedVars
           | Set.member name usedVars = do
               tmp <- Ctx.genNamedSym "varBinding"
               let eVar = AsExpr $ fromJust $ lookup (show name) assocs
                   eArg = AsExpr larg
-                  eComp = BinOp (translate ID.EQ) eVar eArg
-                  tBindRet = Assign (Var tmp) eComp
+              eComp <- translateComparison eVar eArg argty
+              let tBindRet = Assign (Var tmp) eComp
               return (Var tmp, tBindRet, usedVars)
           | otherwise = do
               tmp <- Ctx.genNamedSym "varBinding"
@@ -768,13 +777,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           eComp <- translateComparison eValue eArg argty
           let tAssign = Assign (Var tmp) eComp
           return (Var tmp, tAssign, usedVars)
-            where
-              translateComparison e1 e2 ty
-                | Ty.isStringType ty  = do
-                    let strcmpCall = Call (Nam "strcmp") [e1, e2]
-                    return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
-                | otherwise =
-                    return (BinOp (translate ID.EQ) e1 e2)
 
         translateIfCond (A.MatchClause {A.mcpattern, A.mcguard})
                         narg argty assocs = do
@@ -792,25 +794,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCond = BinOp (translate ID.AND) ePattern eGuard
           return eCond
 
-        translateHandler clause handlerReturnVar assocs = do
+        translateHandler clause handlerReturnVar assocs retTy = do
           (nexpr, texpr) <- withPatDecls assocs (A.mchandler clause)
           let eExpr = StatAsExpr nexpr texpr
-              tAssign = Statement $ Assign (Var handlerReturnVar) eExpr
+              eCast = Cast retTy eExpr
+              tAssign = Assign (Var handlerReturnVar) eCast
           return tAssign
 
-        ifChain [] _ _ _ = do
+        ifChain [] _ _ _ _ = do
           let errorCode = Int 1
               exitCall = Statement $ Call (Nam "exit") [errorCode]
               errorMsg = String "*** Runtime error: No matching clause was found ***\n"
               errorPrint = Statement $ Call (Nam "printf") [errorMsg]
           return $ Seq [errorPrint, exitCall]
 
-        ifChain (clause:rest) narg argty retTmp = do
+        ifChain (clause:rest) narg argty retTmp retTy = do
           let freeVars = filter (not . Ty.isArrowType . snd) $
                                 Util.freeVariables [] (A.mcpattern clause)
           assocs <- mapM createAssoc freeVars
-          thenExpr <- translateHandler clause retTmp assocs
-          elseExpr <- ifChain rest narg argty retTmp
+          thenExpr <- translateHandler clause retTmp assocs retTy
+          elseExpr <- ifChain rest narg argty retTmp retTy
           eCond <- translateIfCond clause narg argty assocs
           let tIf = Statement $ If eCond thenExpr elseExpr
               tDecls = Seq $ map (fwdDecl assocs) freeVars
