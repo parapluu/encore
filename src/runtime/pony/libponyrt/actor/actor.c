@@ -258,6 +258,20 @@ void actor_destroy(pony_actor_t* actor)
   pool_free_size(actor->type->size, actor);
 }
 
+// TODO: this should be in task.c. Called from future.c
+pony_actor_t* task_runner_current()
+{
+  return (pony_actor_t*)this_encore_task;
+}
+
+bool is_unscheduled(pony_actor_t* a){
+  return has_flag(a, FLAG_UNSCHEDULED);
+}
+
+void unset_unscheduled(pony_actor_t* runner){
+  unset_flag(runner, FLAG_UNSCHEDULED);
+}
+
 gc_t* actor_gc(pony_actor_t* actor)
 {
   return &actor->gc;
