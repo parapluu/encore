@@ -8,7 +8,7 @@ typedef void array_t;
 
 extern pony_type_t array_type;
 
-void array_trace(void *);
+void array_trace(pony_ctx_t*, void *);
 
 array_t *array_mk(pony_ctx_t* ctx, size_t size, pony_type_t *type);
 
