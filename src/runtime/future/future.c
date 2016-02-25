@@ -154,9 +154,9 @@ future_t *future_mk(pony_ctx_t *ctx, pony_type_t *type)
   return fut;
 }
 
-encore_arg_t run_closure(closure_t *c, encore_arg_t value)
+encore_arg_t run_closure(pony_ctx_t* ctx, closure_t *c, encore_arg_t value)
 {
-  return closure_call(c, (value_t[1]) { value });
+  return closure_call(ctx, c, (value_t[1]) { value });
 }
 
 bool future_fulfilled(future_t *fut)
@@ -203,7 +203,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
       {
       case DETACHED_CLOSURE:
         {
-          encore_arg_t result = run_closure(current->closure, value);
+          encore_arg_t result = run_closure(ctx, current->closure, value);
           future_fulfil(ctx, current->future, result);
 
           pony_gc_recv(ctx);
@@ -215,7 +215,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
         {
           default_task_env_s* env = encore_alloc(ctx, sizeof *env);
           *env = (default_task_env_s){.fn = current->closure, .value = value};
-          encore_task_s* task = task_mk(default_task_handler, env, NULL, NULL);
+          encore_task_s* task = task_mk(ctx, default_task_handler, env, NULL, NULL);
           task_attach_fut(task, current->future);
           task_schedule(task);
 
@@ -281,7 +281,7 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
   BLOCK;
 
   if (fut->fulfilled) {
-    value_t result = run_closure(c, fut->value);
+    value_t result = run_closure(ctx, c, fut->value);
     future_fulfil(ctx, r, result);
     UNBLOCK;
     return r;

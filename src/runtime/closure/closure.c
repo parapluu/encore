@@ -23,8 +23,8 @@ closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
   return c;
 }
 
-value_t closure_call(closure_t *closure, value_t args[]){
-  return closure->call(args, closure->env);
+value_t closure_call(pony_ctx_t* ctx, closure_t *closure, value_t args[]){
+  return closure->call(ctx, args, closure->env);
 }
 
 value_t ptr_to_val(void *p){

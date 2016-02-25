@@ -29,7 +29,7 @@ void closure_trace(pony_ctx_t *ctx, void *p);
  *  closure_get_arg_ptr() et al. It should return a value using
  *  ptr_to_val() et al.
  */
-typedef value_t (*closure_fun)(value_t[], void*);
+typedef value_t (*closure_fun)(pony_ctx_t*, value_t[], void*);
 
 /**
  *  Create a new closure.
@@ -50,7 +50,7 @@ closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
  *  @param args An array of values used as the arguments to the closure
  *  @return The pointer returned * by \p closure
  */
-value_t closure_call(closure_t *closure, value_t args[]);
+value_t closure_call(pony_ctx_t* ctx, closure_t *closure, value_t args[]);
 
 struct closure {
   closure_fun call;
