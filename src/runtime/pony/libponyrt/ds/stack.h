@@ -5,7 +5,14 @@
 
 PONY_EXTERN_C_BEGIN
 
-typedef struct Stack Stack;
+#define STACK_COUNT 62
+
+typedef struct Stack
+{
+  int index;
+  void* data[STACK_COUNT];
+  struct Stack* prev;
+} Stack;
 
 Stack* stack_pop(Stack* stack, void** data);
 
@@ -17,7 +24,7 @@ Stack* stack_push(Stack* list, void* data);
   name##_t* name##_push(name##_t* stack, elem* data); \
 
 #define DEFINE_STACK(name, elem) \
-  struct name##_t {}; \
+  struct name##_t {void *dummy;}; \
   \
   name##_t* name##_pop(name##_t* stack, elem** data) \
   { \
