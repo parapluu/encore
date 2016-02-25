@@ -214,7 +214,8 @@ generateHeader p =
          where
            methodFwd m
                | A.isStreamMethod m =
-                   let params = (Ptr . AsType $ classTypeName cname) : stream :
+                   let params = (Ptr encoreCtxT) :
+                                (Ptr . AsType $ classTypeName cname) : stream :
                                 map (translate . A.ptype) mparams
                    in
                      FunctionDecl void (methodImplName cname mname) params
@@ -225,7 +226,7 @@ generateHeader p =
                                      map (translate . A.ptype) mparams
                    in
                      FunctionDecl (translate mtype) (methodImplName cname mname)
-                                  params
+                                  ((Ptr encoreCtxT):params)
                where
                  mname = A.methodName m
                  mparams = A.methodParams m

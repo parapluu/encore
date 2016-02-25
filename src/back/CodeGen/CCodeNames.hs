@@ -430,7 +430,7 @@ partyTypeRecName :: CCode Name
 partyTypeRecName = Nam $ "party_type"
 
 encoreCtxName :: CCode Name
-encoreCtxName = Nam "pony_ctx_t"
+encoreCtxName = Nam "_ctx"
 
 encoreCtxT :: CCode Ty
 encoreCtxT = Typ "pony_ctx_t"
