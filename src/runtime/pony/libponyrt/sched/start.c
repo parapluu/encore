@@ -2,6 +2,7 @@
 #include "../mem/heap.h"
 #include "../gc/cycle.h"
 #include "../lang/socket.h"
+#include "../options/options.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -14,97 +15,55 @@ typedef struct options_t
   uint32_t cd_conf_group;
   size_t gc_initial;
   double gc_factor;
-  bool mpmcq;
   bool noyield;
-
-  // debugging options
-  bool forcecd;
 } options_t;
 
 // global data
 static int volatile exit_code;
 
+enum
+{
+  OPT_THREADS,
+  OPT_CDMIN,
+  OPT_CDMAX,
+  OPT_CDCONF,
+  OPT_GCINITIAL,
+  OPT_GCFACTOR,
+  OPT_NOYIELD
+};
+
+static opt_arg_t args[] =
+{
+  {"ponythreads", 0, OPT_ARG_REQUIRED, OPT_THREADS},
+  {"ponycdmin", 0, OPT_ARG_REQUIRED, OPT_CDMIN},
+  {"ponycdmax", 0, OPT_ARG_REQUIRED, OPT_CDMAX},
+  {"ponycdconf", 0, OPT_ARG_REQUIRED, OPT_CDCONF},
+  {"ponygcinitial", 0, OPT_ARG_REQUIRED, OPT_GCINITIAL},
+  {"ponygcfactor", 0, OPT_ARG_REQUIRED, OPT_GCFACTOR},
+  {"ponynoyield", 0, OPT_ARG_NONE, OPT_NOYIELD},
+
+  OPT_ARGS_FINISH
+};
+
 static int parse_opts(int argc, char** argv, options_t* opt)
 {
-  int remove = 0;
+  opt_state_t s;
+  int id;
+  opt_init(args, &s, &argc, argv);
 
-  for(int i = 0; i < argc; i++)
+  while((id = opt_next(&s)) != -1)
   {
-    if(!strcmp(argv[i], "--ponythreads"))
+    switch(id)
     {
-      remove++;
+      case OPT_THREADS: opt->threads = atoi(s.arg_val); break;
+      case OPT_CDMIN: opt->cd_min_deferred = atoi(s.arg_val); break;
+      case OPT_CDMAX: opt->cd_max_deferred = atoi(s.arg_val); break;
+      case OPT_CDCONF: opt->cd_conf_group = atoi(s.arg_val); break;
+      case OPT_GCINITIAL: opt->gc_initial = atoi(s.arg_val); break;
+      case OPT_GCFACTOR: opt->gc_factor = atof(s.arg_val); break;
+      case OPT_NOYIELD: opt->noyield = true; break;
 
-      if(i < (argc - 1))
-      {
-        opt->threads = atoi(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponycdmin")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        opt->cd_min_deferred = atoi(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponycdmax")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        opt->cd_max_deferred = atoi(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponycdconf")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        opt->cd_conf_group = atoi(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponygcinitial")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        opt->gc_initial = atoi(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponygcfactor")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        opt->gc_factor = atof(argv[i + 1]);
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponysched")) {
-      remove++;
-
-      if(i < (argc - 1))
-      {
-        if(!strcmp(argv[i + 1], "coop"))
-          opt->mpmcq = false;
-        else if(!strcmp(argv[i + 1], "mpmcq"))
-          opt->mpmcq = true;
-
-        remove++;
-      }
-    } else if(!strcmp(argv[i], "--ponynoyield")) {
-      remove++;
-      opt->noyield = true;
-    } else if(!strcmp(argv[i], "--ponyforcecd")) {
-      remove++;
-      opt->forcecd = true;
-    }
-
-    if(remove > 0)
-    {
-      argc -= remove;
-      memmove(&argv[i], &argv[i + remove], (argc - i) * sizeof(char*));
-      remove = 0;
-      i--;
+      default: exit(-1);
     }
   }
 
@@ -118,21 +77,25 @@ int pony_init(int argc, char** argv)
   memset(&opt, 0, sizeof(options_t));
 
   // Defaults.
-  opt.mpmcq = false;
   opt.cd_min_deferred = 4;
-  opt.cd_max_deferred = 18;
+  opt.cd_max_deferred = 8;
   opt.cd_conf_group = 6;
-  opt.gc_initial = 1 << 14;
+  opt.gc_initial = 14;
   opt.gc_factor = 2.0f;
 
   argc = parse_opts(argc, argv, &opt);
+
+#if defined(PLATFORM_IS_LINUX)
+  pony_numa_init();
+#endif
 
   heap_setinitialgc(opt.gc_initial);
   heap_setnextgcfactor(opt.gc_factor);
 
   pony_exitcode(0);
-  scheduler_init(opt.threads, opt.noyield, opt.forcecd, opt.mpmcq);
-  cycle_create(opt.cd_min_deferred, opt.cd_max_deferred, opt.cd_conf_group);
+  pony_ctx_t* ctx = scheduler_init(opt.threads, opt.noyield);
+  cycle_create(ctx,
+    opt.cd_min_deferred, opt.cd_max_deferred, opt.cd_conf_group);
 
   return argc;
 }
