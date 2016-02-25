@@ -20,7 +20,7 @@ typedef union value {
 
 extern pony_type_t closure_type;
 
-void closure_trace(void *p);
+void closure_trace(pony_ctx_t *ctx, void *p);
 
 /**
  *  The body of a closure.
@@ -36,12 +36,13 @@ typedef value_t (*closure_fun)(value_t[], void*);
  *
  *  Use closure_free"()" to free the allocated memory.
  *
- *  @param body The body of the closure (see the typedef of closure_fun)
+ *  @param fn The body of the closure (see the typedef of closure_fun)
  *  @param env The environment of the closure
  *  @param trace The trace function of the environment
  *  @return A closure with body \p body and environment \p env
  */
-closure_t *closure_mk(closure_fun body, void *env, pony_trace_fn trace);
+closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
+    pony_trace_fn trace);
 
 /**
  *  Call a closure.
