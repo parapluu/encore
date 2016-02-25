@@ -953,10 +953,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              taskMk = Assign (Decl (task, Var taskName))
                       (Call taskMkFn [funName, envName, dependencyName, traceName])
              -- TODO: (kiko) refactor to use traceVariable from Trace.hs
-             traceFuture = Statement $ Call ponyTraceObject [Var futName, futureTypeRecName `Dot` Nam "trace"]
-             traceTask = Statement $ Call ponyTraceObject [Var taskName, AsLval $ Nam "NULL" ]
-             traceEnv =  Statement $ Call ponyTraceObject [Var $ show envName, AsLval $ Nam "task_trace" ]
-             traceDependency =  Statement $ Call ponyTraceObject [Var $ show dependencyName, AsLval $ Nam "NULL" ]
+             traceFuture = Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
+             traceTask = Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var taskName, AsLval $ Nam "NULL" ]
+             traceEnv =  Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var $ show envName, AsLval $ Nam "task_trace" ]
+             traceDependency =  Statement $ Call ponyTraceObject [encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
          packedEnv <- mapM (packFreeVars envName) freeVars
          return $ (Var futName, Seq $ (encoreAlloc envName) : packedEnv ++
                                       [encoreAlloc dependencyName,
