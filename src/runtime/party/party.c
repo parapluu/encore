@@ -220,10 +220,9 @@ par_t* new_par_array(array_t* arr, pony_type_t const * const rtype){
 static par_t* fmap(pony_ctx_t* ctx, closure_t* const f, par_t* const in,
                    pony_type_t const * const rtype);
 
-static value_t fmap_party_closure(value_t args[], void* const env){
+static value_t fmap_party_closure(pony_ctx_t* ctx, value_t args[], void* const env){
   par_t* p = (par_t*)args[0].p;
   fmap_s* fm = env;
-  pony_ctx_t* ctx = pony_ctx();
   return (value_t){.p = fmap(ctx, fm->fn, p, get_rtype(fm))};
 }
 
@@ -344,10 +343,10 @@ static inline par_t* party_join_p(pony_ctx_t* ctx, par_t* const p){
   /* } */
 }
 
-static value_t party_join_fp_closure(value_t args[],
+static value_t party_join_fp_closure(pony_ctx_t* ctx,
+                                     value_t args[],
                                      void* __attribute__ ((unused)) env){
   par_t* const p = (par_t*)args[0].p;
-  pony_ctx_t* ctx = pony_ctx();
   return (value_t){.p = party_join(ctx, p)};
 }
 
@@ -359,24 +358,27 @@ static inline par_t* party_join_fp(pony_ctx_t* ctx, par_t* const p){
   return new_par_fp(ctx, chained_fut, p->rtype);
 }
 
-static value_t closure_join(value_t val[],
-                                void* __attribute__ ((unused)) env){
-  return (value_t){.p = party_join(val[0].p)};
+static value_t closure_join(pony_ctx_t* ctx,
+                            value_t val[],
+                            void* __attribute__ ((unused)) env){
+  return (value_t){.p = party_join(ctx, val[0].p)};
 }
 
-static inline par_t* party_join_array(par_t* const p){
-  closure_t* clos = closure_mk(closure_join, NULL, party_trace);
-  return party_sequence(p, clos, get_rtype(p));
+static inline par_t* party_join_array(pony_ctx_t* ctx, par_t* const p){
+  // TODO: check that the ctx does not need to be passed as env (probably not!)
+  closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace);
+  return party_sequence(ctx, p, clos, get_rtype(p));
 }
 
-par_t* party_join(par_t* const p){
+
+par_t* party_join(pony_ctx_t* ctx, par_t* const p){
   switch(p->tag){
   /* case EMPTY_PAR: return p; */
   case VALUE_PAR: return party_join_v(ctx, p);
   case FUTURE_PAR: return new_par_fp(ctx, p->data.fut, get_rtype(p));
   case PAR_PAR: return party_join_p(ctx, p);
   case FUTUREPAR_PAR: return party_join_fp(ctx, p);
-  case ARRAY_PAR: return party_join_array(p); // TODO:
+  case ARRAY_PAR: return party_join_array(ctx, p);
   /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   }
 }
