@@ -951,7 +951,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              traceName = taskTraceName metaId
              freeVars = Util.freeVariables [] body
              taskMk = Assign (Decl (task, Var taskName))
-                      (Call taskMkFn [funName, envName, dependencyName, traceName])
+                      (Call taskMkFn [encoreCtxName, funName, envName, dependencyName, traceName])
              -- TODO: (kiko) refactor to use traceVariable from Trace.hs
              traceFuture = Statement $ Call ponyTraceObject
                     [encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
