@@ -64,8 +64,8 @@ void actor_unlock(encore_actor_t *actor)
   }
 }
 
-encore_arg_t default_task_handler(void* env, void* dep){
-  return run_closure(((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
+encore_arg_t default_task_handler(pony_ctx_t* ctx, void* env, void* dep){
+  return run_closure(ctx, ((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
 }
 
 #ifndef LAZY_IMPL
@@ -190,7 +190,7 @@ static void force_thread_local_variable_access(context *old_this_context,
 {
   this_context = old_this_context;
   root_context = old_root_context;
-  this_context->ctx.uc_stack.ss_sp = old_this_context->ss_sp;
+  this_context->uctx.uc_stack.ss_sp = old_this_context->ss_sp;
 }
 #endif
 

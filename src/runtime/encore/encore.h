@@ -146,7 +146,7 @@ void actor_await(pony_ctx_t *ctx, ucontext_t *uctx);
 void call_respond_with_current_scheduler();
 
 // task handler when chaining from an async future
-encore_arg_t default_task_handler(void* env, void* dep);
+encore_arg_t default_task_handler(pony_ctx_t* ctx, void* env, void* dep);
 
 static inline void encore_trace_polymorphic_variable(
     pony_ctx_t* ctx,
