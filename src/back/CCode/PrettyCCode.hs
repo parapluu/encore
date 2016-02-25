@@ -129,6 +129,12 @@ pp' (CompoundLiteral t pairs) =
     braced = text "{" <> body <> text "}"
   in
     text "&" <> struct <> braced
+pp' (DesignatedInitializer pairs) =
+  let
+    pairs' = [text "." <> pp' l <> text "=" <> pp' r | (l,r) <- pairs]
+    body = hcat $ intersperse (text ", ") pairs'
+  in
+    text "{" <> body <> text "}"
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l

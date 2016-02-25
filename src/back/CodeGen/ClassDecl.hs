@@ -468,19 +468,10 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
         in Seq [fieldAssign, traceVariable ftype var]
 
 runtimeTypeDecl cname =
-    (AssignTL
-     (Decl (Typ "pony_type_t", AsLval $ runtimeTypeName cname))
-           (Record [AsExpr . AsLval $ classId cname,
-                    Call (Nam "sizeof") [AsLval $ classTypeName cname],
-                    Int 0,
-                    Int 0,
-                    AsExpr . AsLval $ (classTraceFnName cname),
-                    Null,
-                    Null,
-                    AsExpr . AsLval $ classDispatchName cname,
-                    Null,
-                    Int 0,
-                    Null,
-                    Null,
-                    Record [AsExpr . AsLval $ traitMethodSelectorName]
-                    ]))
+  AssignTL
+   (Decl (Typ "pony_type_t", AsLval $ runtimeTypeName cname)) $
+      DesignatedInitializer $ [ (Nam "id", AsExpr . AsLval $ classId cname)
+      , (Nam "size", Call (Nam "sizeof") [AsLval $ classTypeName cname])
+      , (Nam "trace", AsExpr . AsLval $ (classTraceFnName cname))
+      , (Nam "dispatch", AsExpr . AsLval $ (classTraceFnName cname))
+      ]
