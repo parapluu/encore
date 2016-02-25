@@ -18,12 +18,10 @@
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
-extern pony_actor_t *actor_current();
 extern pony_actor_t* task_runner_current();
-extern void pony_schedule_first(pony_actor_t* actor);
 
-extern void pony_gc_acquire();
-extern void pony_acquire_done();
+extern void pony_gc_acquire(pony_ctx_t *ctx);
+extern void pony_acquire_done(pony_ctx_t *ctx);
 
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
@@ -185,7 +183,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
       case BLOCKED_MESSAGE:
         perr("Unblocking");
         actor_set_resume((encore_actor_t*)e.message.actor);
-        pony_schedule_first(e.message.actor);
+        pony_schedule(ctx, e.message.actor);
         break;
       case DETACHED_CLOSURE:
         assert(0);
@@ -199,7 +197,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   {
     closure_entry_t *current = fut->children;
     while(current) {
-      switch ((actor_current() == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
+      switch ((ctx->current == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
       {
       case DETACHED_CLOSURE:
         {
@@ -255,9 +253,9 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
 
 static void acquire_future_value(pony_ctx_t *ctx, future_t *fut)
 {
-  pony_gc_acquire();
+  pony_gc_acquire(ctx);
   future_gc_trace_value(ctx, fut);
-  pony_acquire_done();
+  pony_acquire_done(ctx);
 }
 
 // ===============================================================
@@ -289,7 +287,7 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
 
 
   closure_entry_t *entry = encore_alloc(ctx, sizeof *entry);
-  entry->actor = actor_current();
+  entry->actor = ctx->current;
   entry->future = r;
   entry->closure = c;
   entry->next = fut->children;
@@ -335,7 +333,7 @@ static void future_block_actor(pony_ctx_t *ctx, future_t *fut)
 
 void future_await(pony_ctx_t *ctx, future_t *fut)
 {
-  encore_actor_t *actor = (encore_actor_t *)actor_current();
+  encore_actor_t *actor = (encore_actor_t *)ctx->current;
   BLOCK;
   if (fut->fulfilled) {
     UNBLOCK;
