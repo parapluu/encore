@@ -282,6 +282,8 @@ methodImplWithFuture cname m =
     assignFut = Assign declFut $ futureMk mType
 
     argPairs = zip (map A.ptype mParams) argNames
+
+    -- TODO: (kiko) Transform to gcSend from GC.hs
     gcSend =
       [Embed $ "",
        Embed $ "// --- GC on sending ---------------------------------",

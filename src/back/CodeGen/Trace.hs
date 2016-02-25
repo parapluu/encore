@@ -5,6 +5,7 @@ module CodeGen.Trace (
   , traceFuture
   , ponyGcSend
   , ponySendDone
+  , tracefunCall
 ) where
 
 import CCode.Main
@@ -12,9 +13,11 @@ import CodeGen.CCodeNames
 import qualified Types as Ty
 import CCode.PrettyCCode ()
 
+-- TODO (kiko): remove this and use GC.hs instead
 ponyGcSend :: CCode Stat
 ponyGcSend = Statement $ Call ponyGcSendName ([] :: [CCode Expr])
 
+-- TODO (kiko): remove this and use GC.hs instead
 ponySendDone :: CCode Stat
 ponySendDone = Statement $ Call ponySendDoneName ([] :: [CCode Expr])
 
@@ -68,3 +71,11 @@ traceCapability var =
     traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
   in
     Statement $ Call traceFunPath [var]
+
+tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
+tracefunCall (a, t) expectedType =
+  let
+    needToUnwrap = Ty.isTypeVar expectedType && not (Ty.isTypeVar t)
+    var = if needToUnwrap then a `Dot` Nam "p" else a
+  in
+    Statement $ traceVariable t var

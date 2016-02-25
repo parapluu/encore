@@ -32,7 +32,8 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
             unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
         argNames = map (AsLval . argName) encArgNames
         argTypes = map translate encArgTypes
-        args = (Ptr . AsType $ classTypeName cname, Var "_this") :
+        args = (Ptr encoreCtxT, encoreCtxVar) :
+               (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
                        zip encArgNames argNames) ctable
@@ -56,7 +57,8 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
             unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
         argNames = map (AsLval . argName) encArgNames
         argTypes = map translate encArgTypes
-        args = (Ptr . AsType $ classTypeName cname, Var "_this") :
+        args = (Ptr encoreCtxT, encoreCtxVar) :
+               (Ptr . AsType $ classTypeName cname, Var "_this") :
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
