@@ -173,10 +173,9 @@ par_t* new_par_fp(pony_ctx_t* ctx, future_t* f, pony_type_t const * const rtype)
 static par_t* fmap(pony_ctx_t* ctx, closure_t* const f, par_t* const in,
                    pony_type_t const * const rtype);
 
-static value_t fmap_party_closure(value_t args[], void* const env){
+static value_t fmap_party_closure(pony_ctx_t* ctx, value_t args[], void* const env){
   par_t* p = (par_t*)args[0].p;
   fmap_s* fm = env;
-  pony_ctx_t* ctx = pony_ctx();
   return (value_t){.p = fmap(ctx, fm->fn, p, get_rtype(fm))};
 }
 
@@ -277,10 +276,10 @@ static inline par_t* party_join_p(pony_ctx_t* ctx, par_t* const p){
   /* } */
 }
 
-static value_t party_join_fp_closure(value_t args[],
+static value_t party_join_fp_closure(pony_ctx_t* ctx,
+                                     value_t args[],
                                      void* __attribute__ ((unused)) env){
   par_t* const p = (par_t*)args[0].p;
-  pony_ctx_t* ctx = pony_ctx();
   return (value_t){.p = party_join(ctx, p)};
 }
 
@@ -292,7 +291,7 @@ static inline par_t* party_join_fp(pony_ctx_t* ctx, par_t* const p){
   return new_par_fp(ctx, chained_fut, p->rtype);
 }
 
-par_t* party_join(par_t* const p){
+par_t* party_join(pony_ctx_t* ctx, par_t* const p){
   switch(p->tag){
   /* case EMPTY_PAR: return p; */
   case VALUE_PAR: return party_join_v(ctx, p);
