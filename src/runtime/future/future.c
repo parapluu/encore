@@ -213,7 +213,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
         }
       case TASK_CLOSURE:
         {
-          default_task_env_s* env = encore_alloc(sizeof *env);
+          default_task_env_s* env = encore_alloc(ctx, sizeof *env);
           *env = (default_task_env_s){.fn = current->closure, .value = value};
           encore_task_s* task = task_mk(default_task_handler, env, NULL, NULL);
           task_attach_fut(task, current->future);
@@ -288,7 +288,7 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
   }
 
 
-  closure_entry_t *entry = encore_alloc(sizeof *entry);
+  closure_entry_t *entry = encore_alloc(ctx, sizeof *entry);
   entry->actor = actor_current();
   entry->future = r;
   entry->closure = c;
@@ -344,7 +344,7 @@ void future_await(pony_ctx_t *ctx, future_t *fut)
 
   ucontext_t uctx;
 
-  actor_list *entry = encore_alloc(sizeof *entry);
+  actor_list *entry = encore_alloc(ctx, sizeof *entry);
   entry->actor = actor;
   entry->uctx = &uctx;
   entry->next = fut->awaited_actors;
@@ -357,7 +357,7 @@ void future_await(pony_ctx_t *ctx, future_t *fut)
 
   assert(actor->lock == NULL);
   actor->lock = &fut->lock;
-  actor_await(&uctx);
+  actor_await(ctx, &uctx);
 }
 
 static void future_finalizer(future_t *fut)
