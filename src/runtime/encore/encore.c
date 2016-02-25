@@ -280,7 +280,7 @@ static void actor_resume_context(encore_actor_t* actor, ucontext_t *uctx)
 
   actor->run_to_completion = true;
 
-  assert_swap(&actor->home_ctx, ctx);
+  assert_swap(&actor->home_uctx, uctx);
 
   if (actor_run_to_completion(actor)) {
     reclaim_page(actor);
@@ -302,8 +302,8 @@ static void actor_resume(encore_actor_t *actor)
 {
   actor->resume = false;
 #ifndef LAZY_IMPL
-  assert(actor->ctx.uc_link == &actor->home_ctx);
-  actor_resume_context(actor, &actor->ctx);
+  assert(actor->uctx.uc_link == &actor->home_uctx);
+  actor_resume_context(actor, &actor->uctx);
 #else
   actor_resume_context(actor, actor->saved);
 #endif
