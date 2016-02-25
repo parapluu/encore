@@ -357,17 +357,29 @@ futureAwait = Nam "future_await"
 futureGetActor :: CCode Name
 futureGetActor = Nam "future_get_actor"
 
+futureChainActor :: CCode Name
+futureChainActor = Nam "future_chain_actor"
+
 actorSuspend :: CCode Name
 actorSuspend = Nam "actor_suspend"
 
 streamGet :: CCode Name
 streamGet = Nam "stream_get"
 
+streamPut :: CCode Name
+streamPut = Nam "stream_put"
+
+streamClose :: CCode Name
+streamClose = Nam "stream_close"
+
 streamGetNext :: CCode Name
 streamGetNext = Nam "stream_get_next"
 
 streamEos :: CCode Name
 streamEos = Nam "stream_eos"
+
+streamMkFn :: CCode Name
+streamMkFn = Nam "stream_mk"
 
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
@@ -383,6 +395,12 @@ arrayMkFn = Nam "array_mk"
 
 tupleMkFn :: CCode Name
 tupleMkFn = Nam "tuple_mk"
+
+closureMkFn :: CCode Name
+closureMkFn = Nam "closure_mk"
+
+closureCallName :: CCode Name
+closureCallName = Nam "closure_call"
 
 closureTraceFn :: CCode Name
 closureTraceFn = Nam "closure_trace"
@@ -408,6 +426,9 @@ rangeTypeRecName = Nam $ "range_type"
 partyTypeRecName :: CCode Name
 partyTypeRecName = Nam $ "party_type"
 
+encoreCtxName :: CCode Name
+encoreCtxName = Nam "pony_ctx_t"
+
 encoreCtxT :: CCode Ty
 encoreCtxT = Typ "pony_ctx_t"
 
@@ -426,5 +447,26 @@ arraySize = Nam "array_size"
 tupleSet :: CCode Name
 tupleSet = Nam "tuple_set"
 
+tupleGet :: CCode Name
+tupleGet = Nam "tuple_get"
+
 tupleSetType :: CCode Name
 tupleSetType = Nam "tuple_set_type"
+
+rangeStart :: CCode Name
+rangeStart = Nam "range_start"
+
+rangeStop :: CCode Name
+rangeStop = Nam "range_stop"
+
+rangeStep :: CCode Name
+rangeStep = Nam "range_step"
+
+rangeAssertStep :: CCode Name
+rangeAssertStep = Nam "range_assert_step"
+
+taskAttachFut :: CCode Name
+taskAttachFut = Nam "task_attach_fut"
+
+taskSchedule :: CCode Name
+taskSchedule = Nam "task_schedule"

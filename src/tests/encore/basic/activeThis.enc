@@ -19,9 +19,14 @@ class Foo
     in
       that.fr0b()
 
+passive class Kiko
+  def xxx(x: int): int
+    x
+
 class Main
   def main() : void
-    let x = new Foo in{
+    let k = (new Kiko).xxx(3)
+      x = new Foo in{
       assertTrue(get get x.foo());
       assertTrue(get get x.bar());
       assertTrue(get get x.baz());
