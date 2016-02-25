@@ -49,10 +49,11 @@ encore_task_s* task_mk(task_fn const body, void* const env, void* const dependen
   return task;
 }
 
-void task_trace(void* const p){
+void task_trace(pony_ctx_t *ctx, void* const p)
+{
   struct encore_task_s* t = (struct encore_task_s*)p;
   if(t->trace != NULL){
-    t->trace(t->env);
+    t->trace(ctx, t->env);
   }
   // future is traced via generated code
   // dependencies are null at the moment
