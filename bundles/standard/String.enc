@@ -3,15 +3,15 @@ embed
 #include <strings.h>
 #include <alloca.h>
 #include <ctype.h>
-array_t *_init_argv(size_t argc, char **argv);
+array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv);
 body
 array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv) {
-  array_t *arr = array_mk(argc, &_enc__passive_String_type);
+  array_t *arr = array_mk(ctx, argc, &_enc__passive_String_type);
   for(int i = 0; i < argc; i++) {
     _enc__passive_String_t* s =
       encore_alloc(ctx, sizeof(_enc__passive_String_t));
     s->_enc__self_type = &_enc__passive_String_type;
-    _enc__method_String__init(s, argv[i]);
+    _enc__method_String__init(ctx, s, argv[i]);
     array_set(arr, i, (encore_arg_t){.p = s});
   }
   return arr;
