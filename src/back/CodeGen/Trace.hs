@@ -55,7 +55,8 @@ ponyTraceobject var f =
 
 encoreTracePolymorphicVariable :: CCode Lval -> CCode Lval  -> CCode Stat
 encoreTracePolymorphicVariable var t =
-  Statement $ Call (Nam "encore_trace_polymorphic_variable")  [t, var]
+  Statement $ Call (Nam "encore_trace_polymorphic_variable")
+    [encoreCtxVar, t, var]
 
 traceTypeVar :: Ty.Type -> CCode Lval -> CCode Stat
 traceTypeVar t var =
