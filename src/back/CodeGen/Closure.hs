@@ -85,7 +85,8 @@ translateClosure closure ctable
                 `Dot` fieldName name
 
       tracefunDecl traceName envName members =
-          Function void traceName [(Ptr void, Var "p")]
+          Function void traceName
+                   [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Seq $ map traceMember members)
           where
             traceMember (name, ty)
