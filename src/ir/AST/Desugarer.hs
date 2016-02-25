@@ -18,21 +18,81 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
     imports = map desugarImports imports
   }
   where
+    desugarFunctionHeadMatch headers bodies =
+      let oldHeader = head headers
+          pos = Meta.getPos $ getMeta $ head $ hpatterns oldHeader
+          paramTypes = hparamtypes oldHeader
+          (paramNames, _) = List.foldr (\_ (acc, n) -> ((Name ("_match" ++ (show n))):acc, n+1)) ([], 0) paramTypes
+    
+          accesses = map (\name -> VarAccess{emeta = Meta.meta pos, name = name}) paramNames
+          arg = if length paramTypes == 1 then
+                  head accesses
+                else
+                  Tuple{emeta = Meta.meta pos, args = accesses}
+                  
+          patterns = map hpatterns headers
+          handlers = bodies
+          guards = map hguard headers
+          clauses = makeClauses patterns handlers guards pos
+          
+          newParams = makeParams paramNames paramTypes pos
+          header = makeHeader oldHeader newParams
+          
+          emeta = Meta.meta pos
+          body = Match{emeta, arg, clauses}
+      in
+       (header, desugar body)
+      where
+         makeHeader (MatchFunctionHeader{hname, htype}) hparams =
+           FunctionHeader{hname, htype, hparams}
+         makeHeader (MatchMethodHeader{hname, htype}) hparams =
+           MethodHeader{hname, htype, hparams}
+         makeHeader (MatchStreamHeader{hname, htype}) hparams =
+           StreamMethodHeader{hname, htype, hparams}
+           
+         makeParams [] [] _ = []
+         makeParams (name:names) (typ:types) pos =
+           Param{pmeta = Meta.meta pos, pname = name, ptype = typ}:(makeParams names types pos)
+           
+         stdGuard emeta = BTrue {emeta}
+         
+         makeClauses [] [] [] _ =
+           []
+         makeClauses (pattern:patterns) (handler:handlers) (guard:guards) pos =
+           let actualPattern = if length pattern == 1 then
+                                 head pattern
+                               else
+                                 Tuple{emeta = Meta.meta pos, args = map desugar pattern}
+           in MatchClause{mcmeta = Meta.meta pos,
+                          mcpattern = desugar actualPattern,
+                          mchandler = desugar handler,
+                          mcguard = desugar guard}
+              :(makeClauses patterns handlers guards pos)
+        
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}
     desugarImports f@(PulledImport{iprogram}) =
       f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
+    desugarFunction f@(MatchingFunction{funmeta, matchfunheaders, matchfunbodies}) =
+      let (funheader, funbody) = desugarFunctionHeadMatch matchfunheaders matchfunbodies
+      in Function{funmeta, funheader, funbody}
+              
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
-    desugarMethod m
+    desugarMethod m@(Method {mmeta, mheader, mbody})
       | methodName m == Name "init" =
-          let header  = mheader m
+          let header  = mheader
               header' = header{hname = Name "_init"}
           in
-        m{mheader = header', mbody = desugarExpr (mbody m)}
-      | otherwise = m{mbody = desugarExpr (mbody m)}
+        m{mheader = header', mbody = desugarExpr mbody}
+      | otherwise = m{mbody = desugarExpr mbody}
+    desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies}) =
+      let (mheader, mbody) = desugarFunctionHeadMatch mheaders mbodies
+      in Method{mmeta, mheader, mbody}
+
     desugarExpr = extend desugar . extend selfSugar
 
+    
 selfSugar :: Expr -> Expr
 selfSugar e = setSugared e e
 

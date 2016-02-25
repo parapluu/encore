@@ -99,18 +99,41 @@ data FunctionHeader = FunctionHeader {
         hname   :: Name,
         htype   :: Type,
         hparams :: [ParamDecl]
-    } deriving(Eq, Show)
+    }
+    | MatchFunctionHeader {
+        hname       :: Name,
+        htype       :: Type,
+        hparamtypes :: [Type],
+        hpatterns   :: [Expr],
+        hguard      :: Expr
+    }
+    | MatchMethodHeader {
+        hname       :: Name,
+        htype       :: Type,
+        hparamtypes :: [Type],
+        hpatterns   :: [Expr],
+        hguard      :: Expr
+    }
+    | MatchStreamHeader {
+        hname       :: Name,
+        htype       :: Type,
+        hparamtypes :: [Type],
+        hpatterns   :: [Expr],
+        hguard      :: Expr
+    }deriving(Eq, Show)
 
 setHeaderType ty h = h{htype = ty}
 
 isStreamMethodHeader StreamMethodHeader{} = True
 isStreamMethodHeader _ = False
 
-data Function = Function {
-  funmeta   :: Meta Function,
-  funheader :: FunctionHeader,
-  funbody   :: Expr
-} deriving (Show)
+-- MatchingFunction instances should be replaced by regular functions after desugaring
+data Function = Function {funmeta   :: Meta Function,
+                          funheader :: FunctionHeader,
+                          funbody   :: Expr}
+              | MatchingFunction {funmeta         :: Meta Function,
+                                  matchfunheaders :: [FunctionHeader],
+                                  matchfunbodies  :: [Expr]} deriving (Show)
 
 functionName = hname . funheader
 functionParams = hparams . funheader
@@ -122,10 +145,14 @@ instance Eq Function where
 instance HasMeta Function where
   getMeta = funmeta
   setMeta f m = f{funmeta = m}
-  setType ty f@(Function {funmeta, funheader}) =
+  setType ty f@(Function {funmeta}) =
+      f{funmeta = AST.Meta.setType ty funmeta}
+  setType ty f@(MatchingFunction {funmeta}) =
       f{funmeta = AST.Meta.setType ty funmeta}
   showWithKind Function{funheader} =
       "function '" ++ show (hname funheader) ++ "'"
+  showWithKind MatchingFunction{matchfunheaders} =
+      "function '" ++ show (hname $ head matchfunheaders) ++ "'"
 
 data ClassDecl = Class {
   cmeta       :: Meta ClassDecl,
@@ -266,11 +293,12 @@ instance HasMeta ParamDecl where
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
     showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
-data MethodDecl = Method {
-      mmeta   :: Meta MethodDecl
-     ,mheader :: FunctionHeader
-     ,mbody   :: Expr
-    } deriving (Show)
+data MethodDecl = Method {mmeta   :: Meta MethodDecl
+                         ,mheader :: FunctionHeader
+                         ,mbody   :: Expr}
+                | MatchingMethod {mmeta    :: Meta MethodDecl
+                                 ,mheaders :: [FunctionHeader]
+                                 ,mbodies  :: [Expr]} deriving (Show)
 
 methodName = hname . mheader
 methodParams = hparams . mheader
