@@ -1161,7 +1161,7 @@ traitMethod this targetType name args resultType =
   where
     thisType = translate targetType
     argTypes = map (translate . A.getType) args
-    declF f = FunPtrDecl resultType (Nam f) $ encoreCtxT:thisType:argTypes
+    declF f = FunPtrDecl resultType (Nam f) $ (Ptr encoreCtxT):thisType:argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
