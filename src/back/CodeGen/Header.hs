@@ -158,7 +158,7 @@ generateHeader p =
      traceFnDecls = map traceFnDecl allclasses
          where
            traceFnDecl A.Class{A.cname} =
-               FunctionDecl void (classTraceFnName cname) [Ptr void]
+               FunctionDecl void (classTraceFnName cname) [Ptr encoreCtxT,Ptr void]
 
      runtimeTypeFnDecls = map runtimeTypeFnDecl allclasses
          where
