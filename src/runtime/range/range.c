@@ -23,15 +23,15 @@ pony_type_t range_type =
     NULL
   };
 
-void range_trace(void *p)
+void range_trace(pony_ctx_t* ctx, void *p)
 {
   // No pointers
 }
 
-struct range_t *range_mk(size_t start, size_t stop, int64_t step)
+struct range_t *range_mk(pony_ctx_t* ctx, size_t start, size_t stop, int64_t step)
 {
   range_assert_step(step);
-  struct range_t *r = encore_alloc(sizeof(struct range_t));
+  struct range_t *r = encore_alloc(ctx, sizeof(struct range_t));
   *r = (range_t) { .start = start, .stop = stop, .step = step };
   return r;
 }
