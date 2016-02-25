@@ -112,7 +112,8 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
          let tmp = Var "task_tmp"
              taskRunner = Statement $ Call (Nam "task_runner") [Var "_task"]
              decl = Assign (Decl (encoreArgT, tmp)) taskRunner
-             futureFulfil = Statement $ Call (Nam "future_fulfil") [AsExpr $ Var "_fut", AsExpr tmp]
+             futureFulfil = Statement $ Call (Nam "future_fulfil")
+                              [AsExpr encoreCtxVar,AsExpr $ Var "_fut", AsExpr tmp]
              taskFree = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
              traceFuture = Statement $ Call ponyTraceObject (includeCtx [Var "_fut", futureTypeRecName `Dot` Nam "trace"])
              traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
@@ -181,7 +182,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              methodCall =
                  Statement $
                    Call (methodImplName cname mName)
-                        (Var "this" : map (AsLval . argName . A.pname) mParams)
+                        (encoreCtxVar : Var "this" : map (AsLval . argName . A.pname) mParams)
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
 
