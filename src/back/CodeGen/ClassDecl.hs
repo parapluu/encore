@@ -398,8 +398,9 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
             methodDecl mdecl = translate mdecl cdecl ctable
       dispatchfunDecl =
           Function (Static void) (classDispatchName cname)
-                   [(Ptr ponyActorT, Var "_a"),
-                    (Ptr ponyMsgT, Var "_m")]
+                   ([(Ptr encoreCtxT, encoreCtxVar),
+                     (Ptr ponyActorT, Var "_a"),
+                     (Ptr ponyMsgT, Var "_m")])
                    (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 traitMethodSelector :: ClassTable -> A.ClassDecl -> CCode Toplevel
@@ -473,5 +474,6 @@ runtimeTypeDecl cname =
       DesignatedInitializer $ [ (Nam "id", AsExpr . AsLval $ classId cname)
       , (Nam "size", Call (Nam "sizeof") [AsLval $ classTypeName cname])
       , (Nam "trace", AsExpr . AsLval $ (classTraceFnName cname))
-      , (Nam "dispatch", AsExpr . AsLval $ (classTraceFnName cname))
+      , (Nam "dispatch", AsExpr . AsLval $ (classDispatchName cname))
+      , (Nam "vtable", AsExpr . AsLval $ traitMethodSelectorName)
       ]
