@@ -91,9 +91,9 @@ translateClosure closure ctable
           where
             traceMember (name, ty)
                 | Ty.isActiveClassType ty =
-                    Call ponyTraceActor [Cast (Ptr ponyActorT) (getVar name)]
+                    Call ponyTraceActor [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) (getVar name)]
                 | Ty.isPassiveClassType ty =
-                    Call ponyTraceObject [getVar name, AsLval $ classTraceFnName ty]
+                    Call ponyTraceObject [encoreCtxVar, getVar name, AsLval $ classTraceFnName ty]
                 | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
             getVar name =
                 (Deref $ Cast (Ptr $ Struct envName) (Var "p"))
