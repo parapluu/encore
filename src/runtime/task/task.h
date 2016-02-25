@@ -27,7 +27,7 @@ encore_arg_t task_runner(encore_task_s const* const task); // run task
 // ==================================================================
 // clean up
 // ==================================================================
-void task_trace(void* const);
+void task_trace(pony_ctx_t *ctx, void* const);
 void task_free(encore_task_s* const task);
 
 #endif
