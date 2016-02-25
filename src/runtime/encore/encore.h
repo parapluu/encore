@@ -18,7 +18,7 @@
 #include <atomics.h>
 
 typedef struct context {
-  ucontext_t ctx;
+  ucontext_t uctx;
   struct context *next;
 #if defined(PLATFORM_IS_MACOSX)
   void *ss_sp;
@@ -112,8 +112,8 @@ struct encore_actor
   int suspend_counter;
   pthread_mutex_t *lock;
 #ifndef LAZY_IMPL
-  ucontext_t ctx;
-  ucontext_t home_ctx;
+  ucontext_t uctx;
+  ucontext_t home_uctx;
   volatile bool run_to_completion;
   stack_page *page;
 #else
@@ -123,13 +123,13 @@ struct encore_actor
 };
 
 /// Create a new Encore actor
-encore_actor_t *encore_create(pony_type_t *type);
+encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type);
 
 /// Create a new Encore actor in another work pool
 encore_actor_t *encore_peer_create(pony_type_t *type);
 
 /// Allocate s bytes of memory, zeroed out
-void *encore_alloc(size_t s);
+void *encore_alloc(pony_ctx_t *ctx, size_t s);
 
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
@@ -137,15 +137,15 @@ int encore_start(int argc, char** argv, pony_type_t *type);
 void actor_unlock(encore_actor_t *actor);
 bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
-void actor_block(encore_actor_t *actor);
+void actor_block(pony_ctx_t *ctx, encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
 
 #ifndef LAZY_IMPL
 void actor_set_run_to_completion(encore_actor_t *actor);
 bool actor_run_to_completion(encore_actor_t *actor);
 #endif
-void actor_suspend();
-void actor_await(ucontext_t *ctx);
+void actor_suspend(pony_ctx_t *ctx);
+void actor_await(pony_ctx_t *ctx, ucontext_t *uctx);
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();
@@ -153,14 +153,16 @@ void call_respond_with_current_scheduler();
 // task handler when chaining from an async future
 encore_arg_t default_task_handler(void* env, void* dep);
 
-static inline void encore_trace_polymorphic_variable(pony_type_t *type,
+static inline void encore_trace_polymorphic_variable(
+    pony_ctx_t* ctx,
+    pony_type_t *type,
     encore_arg_t x)
 {
   if (type != ENCORE_PRIMITIVE) {
     if (type == ENCORE_ACTIVE) {
-      pony_traceactor(x.p);
+      pony_traceactor(ctx, x.p);
     } else {
-      pony_traceobject(x.p, type->trace);
+      pony_traceobject(ctx, x.p, type->trace);
     }
   }
 }
