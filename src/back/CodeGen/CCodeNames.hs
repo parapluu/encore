@@ -104,6 +104,9 @@ rangeT = Typ "range_t"
 range :: CCode Ty
 range = Ptr rangeT
 
+optionT :: CCode Name
+optionT = Nam "option_t"
+
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
@@ -165,6 +168,9 @@ constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
 
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
+
+encoreAllocName :: CCode Name
+encoreAllocName = Nam "encore_alloc"
 
 partySequence :: CCode Name
 partySequence = Nam "party_sequence"
@@ -345,8 +351,38 @@ futureTraceFn = Nam "future_trace"
 futureFulfil :: CCode Name
 futureFulfil = Nam "future_fulfil"
 
+futureAwait :: CCode Name
+futureAwait = Nam "future_await"
+
+futureGetActor :: CCode Name
+futureGetActor = Nam "future_get_actor"
+
+actorSuspend :: CCode Name
+actorSuspend = Nam "actor_suspend"
+
+streamGet :: CCode Name
+streamGet = Nam "stream_get"
+
+streamGetNext :: CCode Name
+streamGetNext = Nam "stream_get_next"
+
+streamEos :: CCode Name
+streamEos = Nam "stream_eos"
+
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
+
+rangeMkFn :: CCode Name
+rangeMkFn = Nam "range_mk"
+
+taskMkFn :: CCode Name
+taskMkFn = Nam "task_mk"
+
+arrayMkFn :: CCode Name
+arrayMkFn = Nam "array_mk"
+
+tupleMkFn :: CCode Name
+tupleMkFn = Nam "tuple_mk"
 
 closureTraceFn :: CCode Name
 closureTraceFn = Nam "closure_trace"
@@ -373,7 +409,22 @@ partyTypeRecName :: CCode Name
 partyTypeRecName = Nam $ "party_type"
 
 encoreCtxT :: CCode Ty
-encoreCtxT = Typ "encore_ctx_t"
+encoreCtxT = Typ "pony_ctx_t"
 
 encoreCtxVar :: CCode Lval
 encoreCtxVar = Var "_ctx"
+
+arrayGet :: CCode Name
+arrayGet = Nam "array_get"
+
+arraySet :: CCode Name
+arraySet = Nam "array_set"
+
+arraySize :: CCode Name
+arraySize = Nam "array_size"
+
+tupleSet :: CCode Name
+tupleSet = Nam "tuple_set"
+
+tupleSetType :: CCode Name
+tupleSetType = Nam "tuple_set_type"
