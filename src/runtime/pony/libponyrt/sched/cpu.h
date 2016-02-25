@@ -14,9 +14,9 @@ void cpu_assign(uint32_t count, scheduler_t* scheduler);
 
 void cpu_affinity(uint32_t cpu);
 
-uint64_t cpu_rdtsc();
+void cpu_core_pause(uint64_t tsc, uint64_t tsc2, bool yield);
 
-void cpu_core_pause(uint64_t tsc, bool yield);
+uint64_t cpu_tick();
 
 PONY_EXTERN_C_END
 
