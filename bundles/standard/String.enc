@@ -8,7 +8,8 @@ body
 array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv) {
   array_t *arr = array_mk(argc, &_enc__passive_String_type);
   for(int i = 0; i < argc; i++) {
-    _enc__passive_String_t* s = encore_alloc(sizeof(_enc__passive_String_t));
+    _enc__passive_String_t* s =
+      encore_alloc(ctx, sizeof(_enc__passive_String_t));
     s->_enc__self_type = &_enc__passive_String_type;
     _enc__method_String__init(s, argv[i]);
     array_set(arr, i, (encore_arg_t){.p = s});
@@ -19,14 +20,14 @@ end
 
 def string_from_char(c : char) : String
   let
-    s = embed (embed char* end) encore_alloc(2); end
+    s = embed (embed char* end) encore_alloc(_ctx, 2); end
   in
     new String(embed (embed char* end) *#{s} = #{c}; #{s}; end)
 
 def string_from_array(arr : [char]) : String
   let
     len = |arr|
-    s = embed (embed char* end) encore_alloc(#{len} + 1); end
+    s = embed (embed char* end) encore_alloc(_ctx, #{len} + 1); end
     p = s
   in{
     for c in arr
@@ -64,7 +65,7 @@ passive class String
       b_data = b.data
     in
       new String(embed (embed char* end)
-        void *str = encore_alloc(#{t_len} + #{b_len} + 1);
+        void *str = encore_alloc(_ctx, #{t_len} + #{b_len} + 1);
         strncpy(str, (char *)#{t_data}, #{t_len});
         strncat(str, (char *)#{b_data}, #{b_len});
         str;
@@ -76,7 +77,7 @@ passive class String
       data  = this.data
     in
       new String(embed (embed char* end)
-        char *str = encore_alloc(#{t_len} + 1);
+        char *str = encore_alloc(_ctx, #{t_len} + 1);
         strncpy(str, (char *)#{data}, #{t_len} + 1);
         str;
       end)
@@ -117,7 +118,7 @@ passive class String
       data  = this.data
     in
       new String(embed (embed char* end)
-        char *str = encore_alloc(#{t_len} + 1);
+        char *str = encore_alloc(_ctx, #{t_len} + 1);
         for (int i = 0; i < #{t_len}; ++i)
           {
             str[i] = toupper(((char *)#{data})[i]);
@@ -133,7 +134,7 @@ passive class String
       data  = this.data
     in
       new String(embed (embed char* end)
-        char *str = encore_alloc(#{t_len} + 1);
+        char *str = encore_alloc(_ctx, #{t_len} + 1);
         for (int i = 0; i < #{t_len}; ++i)
           {
             str[i] = tolower(((char *)#{data})[i]);
@@ -164,7 +165,7 @@ passive class String
       then Just new String(embed (embed char* end)
           int siz = #{to} - #{from};
           siz = siz < #{t_len} ? siz : #{t_len};
-          char *str = encore_alloc(siz + 1);
+          char *str = encore_alloc(_ctx, siz + 1);
           strncpy(str, ((char *)#{data})+#{from}, siz);
           str[siz] = '\0';
           str;
@@ -251,7 +252,7 @@ passive class String
       char *pattern  = #{s}->_enc__field_data;
       char *tmp = NULL;
 
-      if (#{to_len} > STACK_ALLOC_MAX) { tmp = encore_alloc(#{to_len} + 1); } else { tmp = alloca(#{to_len}); }
+      if (#{to_len} > STACK_ALLOC_MAX) { tmp = encore_alloc(_ctx, #{to_len} + 1); } else { tmp = alloca(#{to_len}); }
 
       int copied = 0;
       int skipped = 0;
@@ -263,7 +264,7 @@ passive class String
         }
       strcpy(tmp + copied, from + copied + skipped);
 
-      char *result = encore_alloc(copied + 1);
+      char *result = encore_alloc(_ctx, copied + 1);
       strcpy(result, tmp);
       result;
     end)
