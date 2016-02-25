@@ -71,7 +71,7 @@ traceCapability var =
     cap = Cast capability var
     traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
   in
-    Statement $ Call traceFunPath [var]
+    Statement $ Call traceFunPath [encoreCtxVar, var]
 
 tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
 tracefunCall (a, t) expectedType =
