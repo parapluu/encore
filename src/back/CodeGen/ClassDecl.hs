@@ -118,13 +118,14 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
          in
          (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
+                             -- TODO: (kiko) refactor to use GC.hs
                              [Embed $ "",
                               Embed $ "// --- GC on receiving ----------------------------------------",
-                              Statement $ Call ponyGcRecvName ([] :: [CCode Expr]),
+                              Statement $ Call ponyGcRecvName [encoreCtxVar],
                               traceFuture,
                               traceTask,
                               Embed $ "//---You need to trace the task env and task dependencies---",
-                              Statement $ Call ponyRecvDoneName ([] :: [CCode Expr]),
+                              Statement $ Call ponyRecvDoneName [encoreCtxVar],
                               Embed $ "// --- GC on sending ----------------------------------------",
                               Embed $ ""]++
                        [futureFulfil, taskFree])
@@ -150,16 +151,18 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                        futureTypeRecName `Dot` Nam "trace"]))
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
-                                  (Var "this" :
+                                  (encoreCtxVar :
+                                   Var "this" :
                                    Var "_fut" :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
                  Statement $
                    Call futureFulfil
-                        [AsExpr $ Var "_fut",
+                        [AsExpr encoreCtxVar,
+                         AsExpr $ Var "_fut",
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
-                               (Var "this" :
+                               (encoreCtxVar : Var "this" :
                                 map (AsLval . argName . A.pname) mParams))]
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
@@ -445,12 +448,13 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
     case find ((== Ty.getId cname ++ "_trace") . show . A.methodName) cmethods of
       Just mdecl@(A.Method{A.mbody}) ->
           Function void (classTraceFnName cname)
-                   [(Ptr void, Var "p")]
+                   [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Statement $ Call (methodImplName cname (A.methodName mdecl))
                                 [Var "p"])
       Nothing ->
           Function void (classTraceFnName cname)
-                   [(Ptr void, Var "p")]
+                   [(Ptr encoreCtxT, encoreCtxVar),
+                   (Ptr void, Var "p")]
                    (Seq $
                     (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "this"))
                             (Var "p")) :
