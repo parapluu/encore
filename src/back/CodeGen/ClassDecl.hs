@@ -15,6 +15,7 @@ import CodeGen.MethodDecl ()
 import CodeGen.ClassTable
 import CodeGen.Type
 import CodeGen.Trace
+import CodeGen.GC
 
 import CCode.Main
 import CCode.PrettyCCode ()
@@ -105,31 +106,21 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        includeCtx xs = encoreCtxVar : xs
 
-       -- TODO: include GC
        -- TODO: pack in encore_arg_t the task, infering its type
        taskDispatchClause :: (CCode Name, CCode Stat)
        taskDispatchClause =
          let tmp = Var "task_tmp"
-             taskRunner = Statement $ Call (Nam "task_runner") [Var "_task"]
-             decl = Assign (Decl (encoreArgT, tmp)) taskRunner
-             futureFulfil = Statement $ Call (Nam "future_fulfil")
+             taskRunnerStmt = Statement $ Call taskRunner [Var "_task"]
+             decl = Assign (Decl (encoreArgT, tmp)) taskRunnerStmt
+             futureFulfilStmt = Statement $ Call futureFulfil
                               [AsExpr encoreCtxVar,AsExpr $ Var "_fut", AsExpr tmp]
-             taskFree = Statement $ Call (Nam "task_free") [AsExpr $ Var "_task"]
+             taskFreeStmt = Statement $ Call taskFree [AsExpr $ Var "_task"]
              traceFuture = Statement $ Call ponyTraceObject (includeCtx [Var "_fut", futureTypeRecName `Dot` Nam "trace"])
              traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
          in
          (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
-                             -- TODO: (kiko) refactor to use GC.hs
-                             [Embed $ "",
-                              Embed $ "// --- GC on receiving ----------------------------------------",
-                              Statement $ Call ponyGcRecvName [encoreCtxVar],
-                              traceFuture,
-                              traceTask,
-                              Embed $ "//---You need to trace the task env and task dependencies---",
-                              Statement $ Call ponyRecvDoneName [encoreCtxVar],
-                              Embed $ "// --- GC on sending ----------------------------------------",
-                              Embed $ ""]++
-                       [futureFulfil, taskFree])
+                           gcSend [] [] [traceFuture, traceTask] ++
+                           [futureFulfilStmt, taskFreeStmt])
 
        mthdDispatchClause mdecl
            | A.isStreamMethod mdecl =
@@ -268,7 +259,7 @@ methodImplWithFuture cname m =
     fName = methodImplFutureName cname mName
     args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
     fBody = Seq $ [assignFut] ++
-      gcSend ++
+      gcSend argPairs (map A.ptype mParams) [(Statement . traceFuture $ Var "fut")] ++
       msg ++
       [retStmt]
   in
@@ -285,19 +276,7 @@ methodImplWithFuture cname m =
     declFut = Decl (future, Var "fut")
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar, runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
-
-    argPairs = zip (map A.ptype mParams) argNames
-
-    -- TODO: (kiko) Transform to gcSend from GC.hs
-    gcSend =
-      [Embed $ "",
-       Embed $ "// --- GC on sending ---------------------------------",
-       ponyGcSend,
-       Statement . traceFuture $ Var "fut"] ++
-       (map (Statement . uncurry traceVariable) argPairs) ++
-      [ponySendDone,
-       Embed $ "// --- GC on sending ---------------------------------",
-       Embed $ ""]
+    argPairs = zip argNames (map A.ptype mParams)
 
     msg = sendFutMsg cname mName $ map (argName . A.pname) mParams
 
@@ -311,7 +290,7 @@ methodImplOneWay cname m =
     fName = methodImplOneWayName cname mName
     args = (Ptr encoreCtxT, encoreCtxVar): this : zip argTypes argNames
     fBody = Seq $
-      gcSend ++
+      gcSend argPairs (map A.ptype mParams) [(Statement . traceFuture $ Var "fut")] ++
       msg
   in
     Function retType fName args fBody
@@ -324,16 +303,7 @@ methodImplOneWay cname m =
     argTypes = map (translate . A.ptype) mParams
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
 
-    argPairs = zip (map A.ptype mParams) argNames
-    gcSend =
-      [Embed $ "",
-       Embed $ "// --- GC on sending ---------------------------------",
-       ponyGcSend] ++
-       (map (Statement . uncurry traceVariable) argPairs) ++
-      [ponySendDone,
-       Embed $ "// --- GC on sending ---------------------------------",
-       Embed $ ""]
-
+    argPairs = zip argNames (map A.ptype mParams)
     msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
 
 constructorImpl :: Ty.Type -> CCode Toplevel

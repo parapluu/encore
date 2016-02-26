@@ -10,12 +10,12 @@ import CodeGen.Trace (traceVariable, tracefunCall)
 --                      Var "_fut",
 --                      futureTypeRecName `Dot` Nam "trace"])
 
-gcSend as expectedTypes trace =
+gcSend as expectedTypes traceFuns =
     [Embed $ "",
      Embed $ "// --- GC on sending ----------------------------------------",
-     Statement $ Call ponyGcSendName [encoreCtxVar],
-     trace] ++
-     (zipWith tracefunCall as expectedTypes) ++
+     Statement $ Call ponyGcSendName [encoreCtxVar]
+     ] ++ --traceFuns ++
+--     (zipWith tracefunCall as expectedTypes) ++
     [Statement $ Call ponySendDoneName [encoreCtxVar],
      Embed $ "// --- GC on sending ----------------------------------------",
      Embed $ ""]
