@@ -278,7 +278,7 @@ methodImplOneWay cname m =
     fName = methodImplOneWayName cname mName
     args = (Ptr encoreCtxT, encoreCtxVar): this : zip argTypes argNames
     fBody = Seq $
-      gcSend argPairs (map A.ptype mParams) [(Statement . traceFuture $ Var "fut")] ++
+      gcSend argPairs (map A.ptype mParams) [Comm "Not tracing the future in a oneWay send"] ++
       msg
   in
     Function retType fName args fBody
