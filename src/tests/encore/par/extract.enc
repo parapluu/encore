@@ -195,7 +195,6 @@ class Test
        for v in arr_int
          assertTrue((v == expectedInt1) or (v == expectedInt2),
         "ERROR in 'test_seq_primitive', in 'int' case");
--- ERORRO         
        for v in extract(par_string)
          assertTrue((v == expectedString1) or (v == expectedString2),
                     "ERROR in 'test_seq_primitive', in 'string' case");
