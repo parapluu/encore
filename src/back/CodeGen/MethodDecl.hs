@@ -44,10 +44,10 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                        (reverse (Util.filter A.isClosure mbody))
         tasks = map (\tas -> translateTask tas ctable) $
                     reverse $ Util.filter A.isTask mbody
-        streamClose = Statement $ Call streamClose [encoreCtxVar, streamHandle]
+        streamCloseStmt = Statement $ Call streamClose [encoreCtxVar, streamHandle]
     in
       Concat $ closures ++ tasks ++
-               [Function void name args (Seq [bodys, streamClose])]
+               [Function void name args (Seq [bodys, streamCloseStmt])]
       | otherwise =
     let mName = A.methodName mdecl
         mType = A.methodType mdecl
