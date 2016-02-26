@@ -893,7 +893,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let yieldArg = asEncoreArgT (translate (A.getType val)) nval
              tmpStream = Assign (Decl (stream, Var tmp)) streamHandle
              updateStream = Assign (streamHandle)
-               (Call streamPut [AsExpr streamHandle, yieldArg, runtimeType $ A.getType val])
+               (Call streamPut [AsExpr encoreCtxVar, AsExpr streamHandle,
+                                yieldArg, runtimeType $ A.getType val])
          return (unit, Seq [tval, tmpStream, updateStream])
 
   translate eos@(A.Eos{}) =
