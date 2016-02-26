@@ -532,7 +532,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  [theFutDecl,
                                   theArgDecl,
                                   theArgInit] ++
-                                  gcSend argsTypes expectedTypes theFutTrace ++
+                                  gcSend argsTypes expectedTypes [theFutTrace] ++
                                  [Statement theCall])
 
   translate call@(A.MessageSend { A.target, A.name, A.args })
@@ -1076,7 +1076,7 @@ activeMessageSend targetName targetType name args = do
                                  ,AsExpr . AsLval $ oneWayMsgId targetType name]
       argsTypes = zip indexedArguments (map A.getType args)
       theTrace = gcSend argsTypes expectedTypes
-                        (Comm "Not tracing the future in a oneWay send")
+                        [(Comm "Not tracing the future in a oneWay send")]
   return $ Seq $ argDecls ++
                  theMsgDecl :
                  theArgInit :

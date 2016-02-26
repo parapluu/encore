@@ -30,5 +30,5 @@ class Main
       assertTrue(get get x.foo());
       assertTrue(get get x.bar());
       assertTrue(get get x.baz());
-      print "Done!";
+      print "Done!"
     }

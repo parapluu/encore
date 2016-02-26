@@ -473,3 +473,9 @@ taskAttachFut = Nam "task_attach_fut"
 
 taskSchedule :: CCode Name
 taskSchedule = Nam "task_schedule"
+
+taskRunner :: CCode Name
+taskRunner = Nam "task_runner"
+
+taskFree :: CCode Name
+taskFree = Nam "task_free"
