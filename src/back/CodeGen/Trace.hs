@@ -15,11 +15,11 @@ import CCode.PrettyCCode ()
 
 -- TODO (kiko): remove this and use GC.hs instead
 ponyGcSend :: CCode Stat
-ponyGcSend = Statement $ Call ponyGcSendName ([] :: [CCode Expr])
+ponyGcSend = Statement $ Call ponyGcSendName ([encoreCtxName])
 
 -- TODO (kiko): remove this and use GC.hs instead
 ponySendDone :: CCode Stat
-ponySendDone = Statement $ Call ponySendDoneName ([] :: [CCode Expr])
+ponySendDone = Statement $ Call ponySendDoneName ([encoreCtxName])
 
 traceFuture :: CCode Lval -> CCode Stat
 traceFuture var = ponyTraceobject var futureTraceFn

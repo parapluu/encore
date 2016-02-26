@@ -242,7 +242,7 @@ generateHeader p =
            let
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
-             args = thisType : rest
+             args = Ptr encoreCtxT : thisType : rest
              retType = future
              f = methodImplFutureName cname (A.methodName m)
            in
@@ -252,7 +252,7 @@ generateHeader p =
            let
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
-             args = thisType : rest
+             args = Ptr encoreCtxT : thisType : rest
              retType = void
              f = methodImplOneWayName cname (A.methodName m)
            in

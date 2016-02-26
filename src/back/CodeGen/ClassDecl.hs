@@ -258,7 +258,8 @@ sendMsg cname mname msgId msgTypeName argPairs = [
 
     target = Cast (Ptr ponyActorT) $ Var thisName
     msgArg = Cast (Ptr ponyMsgT) $ Var msgName
-    sendMsg = Statement $ Call ponySendvName [target, msgArg]
+    sendMsg = Statement $
+      Call ponySendvName [AsExpr encoreCtxVar, target, msgArg]
 
 methodImplWithFuture :: Ty.Type -> A.MethodDecl -> CCode Toplevel
 methodImplWithFuture cname m =
@@ -282,7 +283,7 @@ methodImplWithFuture cname m =
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
 
     declFut = Decl (future, Var "fut")
-    futureMk mtype = Call futureMkFn [runtimeType mtype]
+    futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar, runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
 
     argPairs = zip (map A.ptype mParams) argNames
@@ -340,7 +341,7 @@ constructorImpl cname =
   let
     retType = translate cname
     fName = constructorImplName cname
-    args = []
+    args = [(Ptr encoreCtxT, encoreCtxVar)]
     fBody = Seq [
       assignThis
       , ret this
@@ -353,7 +354,7 @@ constructorImpl cname =
     this = Var "this"
     declThis = Decl (thisType, this)
     runtimeType = Amp $ runtimeTypeName cname
-    create = Call encoreCreateName [runtimeType]
+    create = Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
     assignThis = Assign declThis $ cast create
     ret = Return
 

@@ -364,7 +364,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | Ty.isSharedClassType ty =
           let
             fName = constructorImplName ty
-            args = [] :: [CCode Expr]
+            args = [encoreCtxName]
             call = Call fName args
           in
             namedTmpVar "new" ty call
