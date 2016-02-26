@@ -683,7 +683,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               let strcmpCall = Call (Nam "strcmp") [e1, e2]
               return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
           | Ty.isStringObjectType ty = do
-              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [e1, e2]
+              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [AsExpr encoreCtxVar, e1, e2]
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
