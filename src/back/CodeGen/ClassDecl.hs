@@ -191,18 +191,6 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
          in
            Assign lval rval
 
-       gcRecv ps futTrace = [Embed $ "",
-                               Embed $ "// --- GC on receive ----------------------------------------",
-                               Statement $ Call ponyGcRecvName [encoreCtxVar]] ++
-                              (map traceEachParam ps) ++
-                              [futTrace,
-                               Statement $ Call ponyRecvDoneName [encoreCtxVar],
-                               Embed $ "// --- GC on receive ----------------------------------------",
-                               Embed $ ""]
-
-       traceEachParam A.Param{A.pname, A.ptype} =
-         Statement $ traceVariable ptype $ AsLval $ argName pname
-
 sendFutMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Stat]
 sendFutMsg cname mname args =
   let
