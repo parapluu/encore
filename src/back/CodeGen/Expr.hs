@@ -919,7 +919,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (unit, Seq [tval, Statement $ Call (Nam "future_await") [nval]])
 
   translate suspend@(A.Suspend{}) =
-         return (unit, Seq [Call actorSuspend [encoreCtxVar]])
+         return (unit, Seq [Call (Nam "actor_suspend") ([] :: [CCode Expr])]) --TODO: Call should support 0-arity
 
   translate futureChain@(A.FutureChain{A.future, A.chain}) =
       do (nfuture,tfuture) <- translate future

@@ -139,7 +139,7 @@ void actor_set_resume(encore_actor_t *actor);
 void actor_set_run_to_completion(encore_actor_t *actor);
 bool actor_run_to_completion(encore_actor_t *actor);
 #endif
-void actor_suspend(pony_ctx_t *ctx);
+void actor_suspend();
 void actor_await(pony_ctx_t *ctx, ucontext_t *uctx);
 
 /// calls the pony's respond with the current object's scheduler
