@@ -243,8 +243,9 @@ void actor_block(pony_ctx_t *ctx, encore_actor_t *actor)
 
 }
 
-void actor_suspend(pony_ctx_t *ctx)
+void actor_suspend()
 {
+  pony_ctx_t *ctx = pony_ctx();
   encore_actor_t *actor = (encore_actor_t*)ctx->current;
   actor->suspend_counter++;
 
