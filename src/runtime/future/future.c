@@ -331,8 +331,9 @@ static void future_block_actor(pony_ctx_t *ctx, future_t *fut)
 // Possibly these functions do not belong in the future library
 // ===============================================================
 
-void future_await(pony_ctx_t *ctx, future_t *fut)
+void future_await(future_t *fut)
 {
+  pony_ctx_t *ctx = pony_ctx();
   encore_actor_t *actor = (encore_actor_t *)ctx->current;
   BLOCK;
   if (fut->fulfilled) {

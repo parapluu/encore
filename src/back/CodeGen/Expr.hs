@@ -916,7 +916,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate await@(A.Await{A.val}) =
       do (nval, tval) <- translate val
-         return (unit, Seq [tval, Statement $ Call futureAwait [encoreCtxVar, nval]])
+         return (unit, Seq [tval, Statement $ Call (Nam "future_await") [nval]])
 
   translate suspend@(A.Suspend{}) =
          return (unit, Seq [Call actorSuspend [encoreCtxVar]])

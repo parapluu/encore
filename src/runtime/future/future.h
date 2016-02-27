@@ -26,6 +26,6 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
 // ===============================================================
 // Possibly these functions do not belong in the future library
 // ===============================================================
-void future_await(pony_ctx_t *ctx, future_t *fut);
+void future_await(future_t *fut);
 encore_arg_t run_closure(pony_ctx_t* ctx, closure_t *c, encore_arg_t value);
 #endif
