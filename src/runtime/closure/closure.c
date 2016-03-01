@@ -1,4 +1,5 @@
 #include "closure.h"
+#include <assert.h>
 
 pony_type_t closure_type = {
   .id = ID_CLOSURE,
@@ -6,7 +7,9 @@ pony_type_t closure_type = {
   .trace = closure_trace,
 };
 
-void closure_trace(pony_ctx_t *ctx, void *p){
+void closure_trace(pony_ctx_t *ctx, void *p)
+{
+  assert(p);
   closure_t *c = (closure_t *) p;
   if(c->trace != NULL){
     c->trace(ctx, c->env);
@@ -16,6 +19,7 @@ void closure_trace(pony_ctx_t *ctx, void *p){
 closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
     pony_trace_fn trace)
 {
+  ctx = pony_ctx();
   closure_t *c = pony_alloc(ctx, sizeof(closure_t));
   c->call = fn;
   c->env = env;

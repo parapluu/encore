@@ -108,6 +108,7 @@ pony_type_t *future_get_type(future_t *fut){
 
 static void trace_closure_entry(pony_ctx_t *ctx, void *p)
 {
+  assert(p);
   pony_trace(ctx, p);
   closure_entry_t *c = (closure_entry_t*)p;
   pony_traceactor(ctx, c->actor);
@@ -129,6 +130,7 @@ void future_trace(pony_ctx_t *ctx, void* p)
 
 static inline void future_gc_trace_value(pony_ctx_t *ctx, future_t *fut)
 {
+  assert(fut);
   if (fut->type == ENCORE_ACTIVE) {
     pony_traceactor(ctx, fut->value.p);
   } else if (fut->type != ENCORE_PRIMITIVE) {
@@ -154,6 +156,7 @@ future_t *future_mk(pony_ctx_t *ctx, pony_type_t *type)
 
 encore_arg_t run_closure(pony_ctx_t* ctx, closure_t *c, encore_arg_t value)
 {
+  ctx = pony_ctx();
   return closure_call(ctx, c, (value_t[1]) { value });
 }
 
@@ -172,6 +175,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   assert(fut->fulfilled == false);
 
   BLOCK;
+  ctx = pony_ctx();
   fut->value = value;
   fut->fulfilled = true;
 
@@ -263,10 +267,12 @@ static void acquire_future_value(pony_ctx_t *ctx, future_t *fut)
 // ===============================================================
 encore_arg_t future_get_actor(pony_ctx_t *ctx, future_t *fut)
 {
+  ctx = pony_ctx();
   if (!fut->fulfilled) {
     future_block_actor(ctx, fut);
   }
 
+  ctx = pony_ctx();
   acquire_future_value(ctx, fut);
 
   return fut->value;
@@ -275,6 +281,7 @@ encore_arg_t future_get_actor(pony_ctx_t *ctx, future_t *fut)
 future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
         closure_t *c)
 {
+  ctx = pony_ctx();
   perr("future_chain_actor");
   BLOCK;
 
