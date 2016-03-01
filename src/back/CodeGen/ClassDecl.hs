@@ -240,6 +240,14 @@ sendMsg cname mname msgId msgTypeName argPairs = [
     sendMsg = Statement $
       Call ponySendvName [AsExpr encoreCtxVar, target, msgArg]
 
+initEncoreCtx :: CCode Stat
+initEncoreCtx =
+  Assign
+    -- If we decide not to pass extra ctx around
+    -- (Decl (Ptr encoreCtxT, AsLval encoreCtxName)) $
+    encoreCtxName $
+      Call (Nam "encore_ctx") ([] :: [CCode Lval])
+
 methodImplWithFuture :: Ty.Type -> A.MethodDecl -> CCode Toplevel
 methodImplWithFuture cname m =
   let
