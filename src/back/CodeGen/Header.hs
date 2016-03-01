@@ -1,6 +1,7 @@
 module CodeGen.Header(generateHeader) where
 
 import Control.Arrow ((&&&))
+import Data.List (partition)
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -83,7 +84,7 @@ generateHeader p =
 
     [commentSection "Methods"] ++
     concatMap methodFwds allclasses ++
-    concatMap publicMethods allclasses ++
+    concatMap wrapperMethods allclasses ++
 
     [commentSection "Constructors"] ++
     concatMap constructors allclasses ++
@@ -232,31 +233,25 @@ generateHeader p =
                  mparams = A.methodParams m
                  mtype = A.methodType m
 
-     publicMethods A.Class{A.cname, A.cmethods} =
-       if not . Ty.isSharedClassType $ cname then
+     wrapperMethods A.Class{A.cname, A.cmethods} =
+       if Ty.isPassiveClassType $ cname then
          []
        else
-       map futureMethod cmethods ++ map oneWayMethod cmethods
+       map (genericMethod methodImplFutureName future) nonStreamMethods ++
+       map (genericMethod methodImplOneWayName void) nonStreamMethods ++
+       map (genericMethod methodImplStreamName stream) streamMethods
        where
-         futureMethod m =
+         genericMethod genMethodName retType m =
            let
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
              args = Ptr encoreCtxT : thisType : rest
-             retType = future
-             f = methodImplFutureName cname (A.methodName m)
+             f = genMethodName cname (A.methodName m)
            in
              FunctionDecl retType f args
 
-         oneWayMethod m =
-           let
-             thisType = Ptr . AsType $ classTypeName cname
-             rest = map (translate . A.ptype) (A.methodParams m)
-             args = Ptr encoreCtxT : thisType : rest
-             retType = void
-             f = methodImplOneWayName cname (A.methodName m)
-           in
-             FunctionDecl retType f args
+         (streamMethods, nonStreamMethods) =
+           partition A.isStreamMethod cmethods
 
      constructors A.Class{A.cname, A.cmethods} = [ctr]
        where

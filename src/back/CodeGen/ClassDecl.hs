@@ -42,13 +42,18 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
       [typeStructDecl cdecl] ++
       [runtimeTypeInitFunDecl cdecl] ++
       [tracefunDecl cdecl] ++
+      [constructorImpl Active cname] ++
       methodImpls ++
+      (map (methodImplWithFuture cname) nonStreamMethods) ++
+      (map (methodImplOneWay cname) nonStreamMethods) ++
+      (map (methodImplStream cname) streamMethods) ++
       [dispatchFunDecl cdecl] ++
       [runtimeTypeDecl cname]
     where
       methodImpls = map methodImpl cmethods
-          where
-            methodImpl mdecl = translate mdecl cdecl ctable
+        where
+          methodImpl mdecl = translate mdecl cdecl ctable
+      (streamMethods, nonStreamMethods) = partition A.isStreamMethod cmethods
 
 typeStructDecl :: A.ClassDecl -> CCode Toplevel
 typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
@@ -211,6 +216,16 @@ sendOneWayMsg cname mname args =
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
+sendStreamMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Stat]
+sendStreamMsg cname mname args =
+  let
+    msgId = futMsgId cname mname
+    msgTypeName = futMsgTypeName cname mname
+    fields = [Nam $ "f" ++ show i | i <- [1..length args]]
+    argPairs = zip fields args ++ [(Nam "_fut", Nam "_stream")]
+  in
+    sendMsg cname mname msgId msgTypeName argPairs
+
 sendMsg :: Ty.Type -> ID.Name -> CCode Name -> CCode Name
   -> [(CCode Name, CCode Name)]
   -> [CCode Stat]
@@ -254,8 +269,9 @@ methodImplWithFuture cname m =
     retType = future
     fName = methodImplFutureName cname mName
     args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
-    fBody = Seq $ [assignFut] ++
-      gcSend argPairs (map A.ptype mParams) [(Statement . traceFuture $ Var "fut")] ++
+    fBody = Seq $ [initEncoreCtx] ++
+      [assignFut] ++
+      ponyGcSendFuture argPairs ++
       msg ++
       [retStmt]
   in
@@ -268,16 +284,13 @@ methodImplWithFuture cname m =
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
-
-    declFut = Decl (future, Var "fut")
+    futVar = Var "_fut"
+    declFut = Decl (future, futVar)
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar, runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
-    argPairs = zip argNames (map A.ptype mParams)
-
+    argPairs = zip (map A.ptype mParams) argNames
     msg = sendFutMsg cname mName $ map (argName . A.pname) mParams
-
-    retStmt = Return $ Var "fut"
-
+    retStmt = Return futVar
 
 methodImplOneWay :: Ty.Type -> A.MethodDecl -> CCode Toplevel
 methodImplOneWay cname m =
@@ -285,8 +298,8 @@ methodImplOneWay cname m =
     retType = void
     fName = methodImplOneWayName cname mName
     args = (Ptr encoreCtxT, encoreCtxVar): this : zip argTypes argNames
-    fBody = Seq $
-      gcSend argPairs (map A.ptype mParams) [Comm "Not tracing the future in a oneWay send"] ++
+    fBody = Seq $ [initEncoreCtx] ++
+      ponyGcSendOneway argPairs ++
       msg
   in
     Function retType fName args fBody
@@ -299,30 +312,98 @@ methodImplOneWay cname m =
     argTypes = map (translate . A.ptype) mParams
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
 
-    argPairs = zip argNames (map A.ptype mParams)
+    argPairs = zip (map A.ptype mParams) argNames
     msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
 
-constructorImpl :: Ty.Type -> CCode Toplevel
-constructorImpl cname =
+methodImplStream :: Ty.Type -> A.MethodDecl -> CCode Toplevel
+methodImplStream cname m =
+  let
+    retType = stream
+    fName = methodImplStreamName cname mName
+    args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
+    fBody = Seq $ [initEncoreCtx] ++
+      [assignFut] ++
+      ponyGcSendStream argPairs ++
+      msg ++
+      [retStmt]
+  in
+    Function retType fName args fBody
+  where
+    thisName = "_this"
+    mName = A.methodName m
+    mParams = A.methodParams m
+    mType = A.methodType m
+    argNames = map (AsLval . argName . A.pname) mParams
+    argTypes = map (translate . A.ptype) mParams
+    this = (Ptr . AsType $ classTypeName cname, Var thisName)
+    retVar = Var "_stream"
+    declVar = Decl (stream, retVar)
+    streamMk mtype = Call streamMkFn [AsExpr encoreCtxVar, runtimeType mtype]
+    assignFut = Assign declVar $ streamMk mType
+    argPairs = zip (map A.ptype mParams) argNames
+    msg = sendStreamMsg cname mName $ map (argName . A.pname) mParams
+    retStmt = Return retVar
+
+ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendFuture argPairs =
+  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs) ++
+  [Statement . traceFuture $ Var "_fut"] ++
+  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+
+ponyGcSendOneway :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendOneway argPairs =
+  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs) ++
+  [Comm "No tracing future for oneway msg"] ++
+  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+
+ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendStream argPairs =
+  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs) ++
+  [Statement . traceStream $ Var "_stream"] ++
+  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+
+data Activity = Active | Shared | Passive
+
+constructorImpl :: Activity -> Ty.Type -> CCode Toplevel
+constructorImpl act cname =
   let
     retType = translate cname
     fName = constructorImplName cname
     args = [(Ptr encoreCtxT, encoreCtxVar)]
-    fBody = Seq [
-      assignThis
-      , ret this
-      ]
+    fBody = Seq $
+      [
+      initEncoreCtx
+      , assignThis
+      ] ++
+      decorateThis act ++
+      [ret this]
   in
     Function retType fName args fBody
   where
-    thisType = Ptr . AsType $ classTypeName cname
+    classType = AsType $ classTypeName cname
+    thisType = Ptr classType
     cast = Cast thisType
     this = Var "this"
     declThis = Decl (thisType, this)
     runtimeType = Amp $ runtimeTypeName cname
-    create = Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+    create = createCall act
     assignThis = Assign declThis $ cast create
     ret = Return
+
+    createCall :: Activity -> CCode Expr
+    createCall Active =
+      Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+    createCall Shared =
+      Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+    createCall Passive =
+      Call encoreAllocName [AsExpr encoreCtxVar, Sizeof classType]
+
+    decorateThis :: Activity -> [CCode Stat]
+    decorateThis Passive = [Assign (this `Arrow` selfTypeField) runtimeType]
+    decorateThis _ = []
 
 translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
   Program $ Concat $
@@ -331,10 +412,10 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
     [typeStructDecl cdecl] ++
     [runtimeTypeInitFunDecl cdecl] ++
     [tracefunDecl cdecl] ++
-    [constructorImpl cname] ++
+    [constructorImpl Shared cname] ++
     methodImpls ++
-    methodWithFutureImpls ++
-    methodOneWayImpls ++
+    (map (methodImplWithFuture cname) cmethods) ++
+    (map (methodImplOneWay cname) cmethods) ++
     [dispatchFunDecl cdecl] ++
     [runtimeTypeDecl cname]
     where
@@ -342,33 +423,30 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
         where
           methodDecl mdecl = translate mdecl cdecl ctable
 
-      methodWithFutureImpls = map (methodImplWithFuture cname) cmethods
-
-      methodOneWayImpls = map (methodImplOneWay cname) cmethods
-
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
 -- struct for instance variables) in the file generated by
 -- "CodeGen.Header"
 translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
-    Program $ Concat $
-      (LocalInclude "header.h") :
-      [traitMethodSelector ctable cdecl] ++
-      [runtimeTypeInitFunDecl cdecl] ++
-      [tracefunDecl cdecl] ++
-      methodImpls ++
-      [dispatchfunDecl] ++
-      [runtimeTypeDecl cname]
-    where
-      methodImpls = map methodDecl cmethods
-          where
-            methodDecl mdecl = translate mdecl cdecl ctable
-      dispatchfunDecl =
-          Function (Static void) (classDispatchName cname)
-                   ([(Ptr encoreCtxT, encoreCtxVar),
-                     (Ptr ponyActorT, Var "_a"),
-                     (Ptr ponyMsgT, Var "_m")])
-                   (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
+  Program $ Concat $
+    (LocalInclude "header.h") :
+    [traitMethodSelector ctable cdecl] ++
+    [runtimeTypeInitFunDecl cdecl] ++
+    [tracefunDecl cdecl] ++
+    [constructorImpl Passive cname] ++
+    methodImpls ++
+    [dispatchfunDecl] ++
+    [runtimeTypeDecl cname]
+  where
+    methodImpls = map methodDecl cmethods
+        where
+          methodDecl mdecl = translate mdecl cdecl ctable
+    dispatchfunDecl =
+      Function (Static void) (classDispatchName cname)
+               ([(Ptr encoreCtxT, encoreCtxVar),
+                 (Ptr ponyActorT, Var "_a"),
+                 (Ptr ponyMsgT, Var "_m")])
+               (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
 traitMethodSelector :: ClassTable -> A.ClassDecl -> CCode Toplevel
 traitMethodSelector ctable A.Class{A.cname, A.ccapability} =

@@ -20,6 +20,8 @@ import Data.List
 
 import qualified AST.AST as A
 
+import Text.Printf (printf)
+
 char :: CCode Ty
 char = Typ "char"
 
@@ -150,6 +152,10 @@ methodImplFutureName clazz mname =
 methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
 methodImplOneWayName clazz mname =
   Nam $ methodImplOneWayNameStr clazz mname
+
+methodImplStreamName :: Ty.Type -> ID.Name -> CCode Name
+methodImplStreamName clazz mname =
+  Nam $ encoreName "method" $ printf "%s_%s_stream" (Ty.getId clazz) (show mname)
 
 methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
