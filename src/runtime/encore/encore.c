@@ -200,6 +200,7 @@ void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
 #ifndef LAZY_IMPL
 
   if (!actor->page) {
+    assert(local_page);
     assert(local_page->stack);
     actor->page = local_page;
     local_page = NULL;
@@ -226,7 +227,7 @@ void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
   this_context = old_this_context;
   root_context = old_root_context;
 #endif
-  pony_become(ctx, (pony_actor_t *) old_actor);
+  pony_become(pony_ctx(), (pony_actor_t *) old_actor);
 
 #endif
 }
@@ -324,6 +325,11 @@ bool gc_disabled(pony_ctx_t *ctx)
 {
   encore_actor_t *actor = (encore_actor_t*)ctx->current;
   return actor->suspend_counter > 0 || actor->await_counter > 0;
+}
+
+pony_ctx_t* encore_ctx()
+{
+  return pony_ctx();
 }
 
 encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type)
