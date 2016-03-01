@@ -51,7 +51,7 @@ encoreTracePolymorphicVariable var t =
 traceTypeVar :: Ty.Type -> CCode Lval -> CCode Stat
 traceTypeVar t var =
   let
-    runtimeType = Var "this" `Arrow` typeVarRefName t
+    runtimeType = Var "_this" `Arrow` typeVarRefName t
   in
     encoreTracePolymorphicVariable var runtimeType
 

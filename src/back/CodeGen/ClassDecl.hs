@@ -66,7 +66,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
      ([(Ptr encoreCtxT, encoreCtxVar),
        (Ptr ponyActorT, Var "_a"),
        (Ptr ponyMsgT, Var "_m")])
-     (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "this"))
+     (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
                   (Cast (Ptr . AsType $ classTypeName cname) (Var "_a")),
            (Switch (Var "_m" `Arrow` Nam "id")
             (
@@ -144,7 +144,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
                                   (encoreCtxVar :
-                                   Var "this" :
+                                   Var "_this" :
                                    Var "_fut" :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
@@ -154,7 +154,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                          AsExpr $ Var "_fut",
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
-                               (encoreCtxVar : Var "this" :
+                               (encoreCtxVar : Var "_this" :
                                 map (AsLval . argName . A.pname) mParams))]
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
@@ -173,7 +173,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              methodCall =
                  Statement $
                    Call (methodImplName cname mName)
-                        (encoreCtxVar : Var "this" : map (AsLval . argName . A.pname) mParams)
+                        (encoreCtxVar : Var "_this" : map (AsLval . argName . A.pname) mParams)
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
 
@@ -197,7 +197,7 @@ sendFutMsg cname mname args =
     msgId = futMsgId cname mname
     msgTypeName = futMsgTypeName cname mname
     fields = [Nam $ "f" ++ show i | i <- [1..length args]]
-    argPairs = zip fields args ++ [(Nam "_fut", Nam "fut")]
+    argPairs = zip fields args ++ [(Nam "_fut", Nam "_fut")]
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
@@ -417,13 +417,13 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                    [(Ptr encoreCtxT, encoreCtxVar),
                    (Ptr void, Var "p")]
                    (Seq $
-                    (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "this"))
+                    (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
                             (Var "p")) :
                      map traceField cfields)
     where
       traceField A.Field {A.ftype, A.fname} =
         let var = Var . show $ fieldName fname
-            field = Var "this" `Arrow` fieldName fname
+            field = Var "_this" `Arrow` fieldName fname
             fieldAssign = Assign (Decl (translate ftype, var)) field
         in Seq [fieldAssign, traceVariable ftype var]
 
