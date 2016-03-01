@@ -76,11 +76,17 @@ void pony_trace(pony_ctx_t* ctx, void* p)
 
 void pony_traceactor(pony_ctx_t* ctx, pony_actor_t* p)
 {
+  if (!p) {
+    return;
+  }
   ctx->trace_actor(ctx, p);
 }
 
 void pony_traceobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
 {
+  if (!p) {
+    return;
+  }
   ctx->trace_object(ctx, p, f);
 }
 
