@@ -114,6 +114,7 @@ static bool handle_message(pony_ctx_t* ctx, pony_actor_t* actor,
             (void(*)(void))actor->type->dispatch, 3, ctx, a, msg);
         int ret = swapcontext(&a->home_uctx, &a->uctx);
         assert(ret == 0);
+        return !has_flag(actor, FLAG_UNSCHEDULED);
       } else {
         actor->type->dispatch(ctx, actor, msg);
       }
@@ -200,18 +201,21 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
   } else {
     while((msg = messageq_pop(&actor->q)) != NULL)
     {
-      if(handle_message(ctx, actor, msg))
-      {
+      if(handle_message(ctx, actor, msg)) {
         // If we handle an application message, try to gc.
         app++;
+        ctx = pony_ctx();
         try_gc(ctx, actor);
 
         if(app == batch)
           return !has_flag(actor, FLAG_UNSCHEDULED);
+      } else if (has_flag(actor, FLAG_UNSCHEDULED)) {
+        return false;
       }
     }
   }
-
+  ctx = pony_ctx();
+  assert(ctx->current == actor);
   // We didn't hit our app message batch limit. We now believe our queue to be
   // empty, but we may have received further messages.
   assert(app < batch);
