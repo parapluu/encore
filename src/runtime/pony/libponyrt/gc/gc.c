@@ -154,6 +154,7 @@ void gc_sendobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
 
   // get the actor
   actorref_t* aref = actormap_getactor(&gc->foreign, actor);
+  assert(aref);
 
   // we've reached this by tracing a tag through a union
   if(aref == NULL)
@@ -161,6 +162,7 @@ void gc_sendobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
 
   // get the object
   object_t* obj = actorref_getobject(aref, p);
+  assert(obj);
 
   // we've reached this by tracing a tag through a union
   if(obj == NULL)
