@@ -306,6 +306,7 @@ static void run(scheduler_t* sched)
 
         if(next == NULL)
         {
+          assert(pop(sched) == NULL);
           // Termination.
           return;
         }
