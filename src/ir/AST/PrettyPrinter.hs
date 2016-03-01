@@ -232,6 +232,8 @@ ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain
 ppExpr CAT {target, val, arg} =
     ppCAT <> parens (commaSep $ map ppExpr [target, val, arg])
+ppExpr Freeze {target, val} = text "freeze" <> parens (commaSep $ map ppExpr [target, val])
+ppExpr IsFrozen {target} = text "isFrozen" <> parens (ppExpr target)
 ppExpr Get {val} = ppGet <+> ppExpr val
 ppExpr Yield {val} = ppYield <+> ppExpr val
 ppExpr Eos {} = ppEos
