@@ -604,11 +604,22 @@ instance Checkable Expr where
     -- ------------------------
     --  E |- {e1; ..; en} : t
     doTypecheck e@(Seq {eseq}) =
-        do eInit <- mapM typecheckNotNull (init eseq)
-           eResult <- typecheck (last eseq)
-           let seqType = AST.getType eResult
-               eEseq = eInit ++ [eResult]
+        do eEseq <- typecheckSequence eseq
+           let seqType = AST.getType (last eEseq)
            return $ setType seqType e {eseq = eEseq}
+        where
+          typecheckSequence :: [Expr] -> TypecheckM [Expr]
+          typecheckSequence [] = return []
+          typecheckSequence (e:seq) = do
+                          e' <- if not $ null seq
+                                then typecheckNotNull e
+                                else typecheck e
+                          let bindings = if hasEnvChange e'
+                                         then getEnvChange e'
+                                         else []
+                          seq' <- local (extendEnvironment bindings) $
+                                        typecheckSequence seq
+                          return $ e' : seq'
 
     --  E |- cond : bool
     --  E |- thn : t'
@@ -618,7 +629,10 @@ instance Checkable Expr where
     --  E |- if cond then thn else els : t
     doTypecheck ifThenElse@(IfThenElse {cond, thn, els}) =
         do eCond <- hasType cond boolType
-           eThn <- typecheck thn
+           let bindings = if hasEnvChange eCond
+                          then getEnvChange eCond
+                          else []
+           eThn <- local (extendEnvironment bindings) $ typecheck thn
            eEls <- typecheck els
            let thnType = AST.getType eThn
                elsType = AST.getType eEls
@@ -761,30 +775,45 @@ instance Checkable Expr where
     -- -------------------------------
     --  E |- CAT(x.f, e1, e2) val : t
     doTypecheck cat@(CAT {target, val, arg}) =
-        do checkTargetShape
-           checkValShape
-           checkArgShape
-           eTarget <- typecheck target
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
            let targetType = AST.getType eTarget
-           eVal <- hasType val targetType
+           eVal <- typecheck val
+           targetType `assertSubtypeOf` AST.getType eVal
            eArg <- hasType arg targetType
-           return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+           checkValShape eVal
+           checkArgShape eArg
+           bindings <- getBindings eTarget eVal eArg
+           return $ setEnvChange bindings $
+                    setType boolType cat{target = eTarget, val = eVal, arg = eArg}
         where
-          checkTargetShape =
-            case target of
-              FieldAccess{} -> return ()
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl) $
+                         tcError $ "Field '" ++ show fdecl ++
+                                   "' is not speculatable"
               _ -> tcError "First argument of CAT must be a field access"
-          checkValShape =
+          checkValShape val =
             case val of
               VarAccess{} -> return ()
               FieldAccess{} -> return ()
               _ -> tcError "Second argument of CAT must be a variable or field access"
-          checkArgShape =
+          checkArgShape var =
             case arg of
               VarAccess{} -> return ()
               FieldAccess{} -> return ()
               _ -> tcError "Third argument of CAT must be a variable or field access"
-
+          getBindings target@FieldAccess{}
+                      val@VarAccess{name}
+                      FieldAccess{target = argTarget, name = f} = do
+                          fdecl <- findField (AST.getType argTarget) f
+                          if isSpecField fdecl
+                          then return [(name, AST.getType target `bar` f)]
+                          else return [(name, AST.getType target)]
+          getBindings _ _ _ = return []
 
     --  E |- val : Fut t
     -- ------------------
@@ -912,26 +941,51 @@ instance Checkable Expr where
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
-    doTypecheck assign@(Assign {lhs, rhs}) =
-        do unless (isLval lhs) $
-             tcError $ "Left hand side '" ++ show (ppSugared lhs) ++
-               "' cannot be assigned to"
-           eLhs <- typecheck lhs
-           mtd <- asks currentMethod
-           unless (isNothing mtd || isConstructor (fromJust mtd)) $
-                  assertNotValField eLhs
-           eRhs <- hasType rhs (AST.getType eLhs)
-           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+    doTypecheck assign@(Assign {lhs = lhs@FieldAccess{}, rhs}) =
+        do eLhs@FieldAccess{target, name = f} <- typecheck lhs
+           let targetType = AST.getType target
+           if isPristineRefType targetType && isVarAccess target
+           then do
+             eRhs <- typecheck rhs
+             let lhsType = AST.getType eLhs
+                 rhsType = AST.getType eRhs
+             isDowncast <- rhsType `subtypeOf` lhsType
+             fdecl <- findField lhsType f
+             if isDowncast && isSpecField fdecl
+             then do
+               let bindings = [(name target, lhsType `bar` f)]
+               return $ setEnvChange bindings $
+                        setType voidType assign {lhs = eLhs, rhs = eRhs}
+             else do
+               lhsType `assertSubtypeOf` rhsType
+               return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+           else do
+             inConstr <- inConstructor
+             unless (inConstr && isThisAccess target) $
+                    assertNotValField eLhs
+             eRhs <- hasType rhs (AST.getType eLhs)
+             return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
         where
+          inConstructor = do
+                          mtd <- asks currentMethod
+                          return $ maybe False isConstructor mtd
           assertNotValField f
               | FieldAccess {target, name} <- f = do
                   let targetType = AST.getType target
                   fdecl <- findField targetType name
                   when (isValField fdecl) $
                        tcError $ "Cannot assign to val-field '" ++
-                                 show name ++ "' in " ++
+                                 show name ++ "' in non-pristine " ++
                                  classOrTraitName targetType
               | otherwise = return ()
+
+    doTypecheck assign@(Assign {lhs, rhs}) =
+        do unless (isLval lhs) $
+             tcError $ "Left hand side '" ++ show (ppExpr lhs) ++
+               "' cannot be assigned to"
+           eLhs <- typecheck lhs
+           eRhs <- hasType rhs (AST.getType eLhs)
+           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
     --  name : t \in E
     -- ----------------
@@ -988,15 +1042,19 @@ instance Checkable Expr where
     --  E |- new ty(args) : ty
     doTypecheck new@(NewWithInit {ty, args}) = do
       ty' <- resolveType ty
-      unless (isClassType ty') $
+      isLinear <- isLinearType ty'
+      let ty'' = if isLinear
+                 then makePristine ty'
+                 else ty'
+      unless (isClassType ty'') $
              tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
-      when (isMainType ty') $
+      when (isMainType ty'') $
            tcError "Cannot create additional Main objects"
       header <- findMethod ty' (Name "_init")
       matchArgumentLength ty header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, bindings) <- matchArguments args expectedTypes
-      return $ setType ty' new{ty = ty', args = eArgs}
+      return $ setType ty'' new{ty = ty'', args = eArgs}
 
    ---  |- ty
     --  classLookup(ty) = _
@@ -1136,6 +1194,21 @@ instance Checkable Expr where
                newArgs = eFormatString : rest
            return $ setType voidType e {args = newArgs}
 
+    doTypecheck e@(Speculate {arg = arg@FieldAccess{}}) =
+        do eArg <- typecheck arg
+           let (target, name) = case eArg of
+                                  FieldAccess{target, name} -> (target, name)
+               targetType = AST.getType target
+               argType = AST.getType eArg
+           fdecl <- findField targetType name
+           unless (isSpecField fdecl || isValField fdecl) $
+                  tcError $ "Cannot speculate on field " ++ show fdecl
+           Just fields <- asks $ fields argType
+           let varFields = map fname $ filter isVarField fields
+               (stymied, _) = mapAccumL (\t f -> (t `bar` f, undefined)) argType varFields
+           return $ setType stymied e {arg = eArg}
+    doTypecheck Speculate{} = tcError "Can only speculate on field accesses"
+
     --  E |- arg : int
     -- ------------------------
     --  E |- exit(arg) : void
@@ -1170,7 +1243,11 @@ instance Checkable Expr where
         unless (isBoolType eType) $
                 tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
                           "Expression '" ++ show (ppSugared eOperand) ++ "' has type '" ++ show eType ++ "'"
-        return $ setType boolType unary { operand = eOperand }
+        let bindings = if hasEnvChange eOperand
+                       then getEnvChange eOperand
+                       else []
+        return $ setEnvChange bindings $
+                 setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}
     --  E |- loper : bool

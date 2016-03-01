@@ -14,6 +14,7 @@ module Typechecker.TypeError (Backtrace
                              ,CCError(CCError)
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
+                             ,speculationInBacktrace
                              ) where
 
 import Text.PrettyPrint
@@ -84,6 +85,12 @@ loopInBacktrace = any (isLoopHead . snd)
       isLoopHead (BTExpr Foreach{}) = True
       isLoopHead (BTExpr Repeat{}) = True
       isLoopHead _ = False
+
+speculationInBacktrace :: Backtrace -> Bool
+speculationInBacktrace = any (isSpeculation . snd)
+    where
+      isSpeculation (BTExpr Speculate{}) = True
+      isSpeculation _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.

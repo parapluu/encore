@@ -15,6 +15,7 @@ module Typechecker.Environment(Environment,
                                refTypeLookupUnsafe,
                                methodLookup,
                                methodAndCalledTypeLookup,
+                               fields,
                                fieldLookup,
                                capabilityLookup,
                                varLookup,
@@ -30,6 +31,7 @@ module Typechecker.Environment(Environment,
                                backtrace,
                                currentMethod,
                                inLoop,
+                               inSpeculation,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -104,15 +106,37 @@ currentMethod = currentMethodFromBacktrace . bt
 inLoop :: Environment -> Bool
 inLoop = loopInBacktrace . bt
 
-fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup t f env
+inSpeculation :: Environment -> Bool
+inSpeculation = speculationInBacktrace . bt
+
+fields :: Type -> Environment -> Maybe [FieldDecl]
+fields t env
   | isTraitType t = do
     trait <- Map.lookup (getId t) $ traitTable env
-    find ((== f) . fname) $ requiredFields trait
+    let fs = barredFields t
+        allFields = requiredFields trait
+        barSpec = map (specToVal fs) allFields
+        barVar  = filter (not . barredVarField fs) barSpec
+    return barVar
   | isClassType t = do
     cls <- classLookup t env
-    find ((== f) . fname) $ cfields cls
+    let fs = barredFields t
+        allFields = cfields cls
+        barSpec = map (specToVal fs) allFields
+        barVar  = filter (not . barredVarField fs) barSpec
+    return barVar
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
+    where
+      specToVal fs f = if isSpecField f && fname f `elem` fs then
+                           f{fmods = [Val]}
+                       else
+                           f
+      barredVarField fs f = fname f `elem` fs && isVarField f
+
+fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
+fieldLookup t f env = do
+    fs <- fields t env
+    find ((== f) . fname) fs
 
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname

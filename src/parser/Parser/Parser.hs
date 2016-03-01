@@ -22,7 +22,7 @@ import Control.Applicative ((<$>))
 
 -- Module dependencies
 import Identifiers
-import Types hiding(refType)
+import Types hiding(refType, bar)
 import AST.AST
 import AST.Meta hiding(Closure, Async)
 
@@ -117,6 +117,7 @@ typ  = adtTypes
               <|> range
               <|> capabilityOrRef
               <|> stackbound
+              <|> pristine
               <|> typeVariable
               <|> parens nonArrow
       arrow = do lhs <- parens (commaSep typ)
@@ -148,12 +149,16 @@ typ  = adtTypes
                  ty <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ ctype ty
       stackbound = do reserved "borrowed"
-                      ty <- parens typ
+                      ty <- typ
                       return $ makeStackbound ty
+      pristine = do reserved "pristine"
+                    ty <- typ
+                    return $ makePristine ty
       capabilityOrRef = do
         cap <- capability
+        barred <- option [] $ do {bar; (Name <$> identifier) `sepBy` bar}
         if isSingleCapability cap
-        then return $ refTypeFromSingletonCapability cap
+        then return $ refTypeFromSingletonCapability cap barred
         else return cap
       primitive = do {reserved "int"; return intType} <|>
                   do {reserved "bool"; return boolType} <|>
@@ -259,17 +264,26 @@ mode = linear
        <|>
        read
        <|>
+       lockfree
+       <|>
        safe
        <?> "mode"
     where
-      linear = do reserved "linear"
-                  return makeLinear
-      unsafe = do reserved "unsafe"
-                  return makeUnsafe
-      read   = do reserved "read"
-                  return makeRead
-      safe   = do reserved "safe"
-                  return makeSafe
+      linear = do
+        reserved "linear"
+        return makeLinear
+      unsafe = do
+        reserved "unsafe"
+        return makeUnsafe
+      read = do
+        reserved "read"
+        return makeRead
+      lockfree = do
+        reserved "lockfree"
+        return makeLockfree
+      safe = do
+        reserved "safe"
+        return makeSafe
 
 traitDecl :: Parser TraitDecl
 traitDecl = do
@@ -361,12 +375,16 @@ classDecl = do
 
 modifier :: Parser Modifier
 modifier = val
-           <?>
-           "modifier"
+        <|> spec
+        <?>
+        "modifier"
     where
       val = do
         reserved "val"
         return Val
+      spec = do
+        reserved "spec"
+        return Spec
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
@@ -537,6 +555,7 @@ expr  =  unit
      <|> try path
      <|> try functionCall
      <|> try print
+     <|> try speculate
      <|> try closure
      <|> try tupleLit
      <|> match
@@ -756,6 +775,10 @@ expr  =  unit
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
                  return $ Print (meta pos) arg
+      speculate = do pos <- getPosition
+                     reserved "speculate"
+                     p <- expression
+                     return $ Speculate (meta pos) p
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

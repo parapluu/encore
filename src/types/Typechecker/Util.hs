@@ -20,6 +20,7 @@ module Typechecker.Util(TypecheckM
                        ,findCapability
                        ,formalBindings
                        ,propagateResultType
+                       ,isLinearType
                        ) where
 
 import Identifiers
@@ -140,6 +141,11 @@ resolveType = typeMapM resolveSingleType
           | isClassType actual = do
               unless (isModeless actual) $
                      tcError "Class types can not have modes"
+              let fs = barredFields actual
+              mapM_ (\f -> do fdecl <- findField formal f
+                              when (isValField fdecl) $
+                                   tcError $ "Val field '" ++ show f ++
+                                             "' cannot be barred") fs
               return actual
           | isTraitType actual = do
               when (isModeless actual) $
@@ -151,6 +157,9 @@ resolveType = typeMapM resolveSingleType
                           tcError $ "Cannot give read mode to " ++
                                     classOrTraitName actual ++
                                     ". It has fields that are not val and safe"
+              unless (null $ barredFields actual) $
+                     tcError $ classOrTraitName actual ++
+                               " cannot have barred types"
               return actual
           | otherwise =
               error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal
@@ -192,10 +201,18 @@ subtypeOf ty1 ty2
           | getId ref1 == getId ref2
           , params1 <- getTypeParameters ref1
           , params2 <- getTypeParameters ref2
+          , barred1 <- barredFields ref1
+          , barred2 <- barredFields ref2
           , length params1 == length params2 = do
               results <- zipWithM subtypeOf params1 params2
-              return (and results)
+              return $ and results && null (barred1 \\ barred2) &&
+                       matchingPristiness ref1 ref2
           | otherwise = return False
+          where
+            matchingPristiness ref1 ref2
+                | isPristineRefType ref1 = True
+                | not (isPristineRefType ref1) && not (isPristineRefType ref2) = True
+                | otherwise = False
 
       capabilitySubtypeOf cap1 cap2 = do
         let traits1 = typesFromCapability cap1
@@ -244,8 +261,12 @@ findField ty f = do
   result <- asks $ fieldLookup ty f
   case result of
     Just fdecl -> return fdecl
-    Nothing -> tcError $ "No field '" ++ show f ++ "' in " ++
-                         classOrTraitName ty
+    Nothing ->
+        if f `elem` barredFields ty
+        then tcError $ "Field '" ++ show f ++
+                       "' is barred in type '" ++ show ty ++ "'"
+        else tcError $ "No field '" ++ show f ++ "' in " ++
+                       classOrTraitName ty
 
 findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
@@ -317,3 +338,32 @@ propagateResultType ty e
 
       propagateMatchClause mc@MatchClause{mchandler} =
           mc{mchandler = propagateResultType ty mchandler}
+
+isLinearType :: Type -> TypecheckM Bool
+isLinearType = isLinearType' []
+    where
+      isLinearType' :: [Type] -> Type -> TypecheckM Bool
+      isLinearType' checked ty = do
+        let components = typeComponents (dropArrows ty)
+            unchecked = components \\ checked
+            classes = filter isClassType unchecked
+        capabilities <- mapM findCapability classes
+        liftM2 (||)
+              (anyM isDirectlyLinear unchecked)
+              (anyM (isLinearType' (checked ++ unchecked)) capabilities)
+
+      isDirectlyLinear :: Type -> TypecheckM Bool
+      isDirectlyLinear ty
+          | isClassType ty = do
+              cap <- findCapability ty
+              let components = typeComponents (dropArrows ty) ++
+                               typeComponents (dropArrows cap)
+              return $ any isLinearRefType components
+          | otherwise = do
+              let components = typeComponents (dropArrows ty)
+              return $ any isLinearRefType components
+
+      dropArrows = typeMap dropArrow
+      dropArrow ty
+          | isArrowType ty = voidType
+          | otherwise = ty

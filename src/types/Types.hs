@@ -74,6 +74,8 @@ module Types(
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
             ,withModeOf
+            ,bar
+            ,barredFields
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -93,9 +95,13 @@ module Types(
             ,modeSubtypeOf
             ,makeUnsafe
             ,makeLinear
+            ,makePristine
             ,makeRead
+            ,makeLockfree
             ,makeSafe
             ,isLinearRefType
+            ,isPristineRefType
+            ,isLockfreeRefType
             ,isReadRefType
             ,makeStackbound
             ,isStackboundType
@@ -107,6 +113,8 @@ import Data.Foldable (toList)
 import Data.Traversable
 import Control.Monad
 import Control.Arrow(first)
+
+import Identifiers
 
 data Activity = Active
               | Shared
@@ -168,58 +176,86 @@ instance Show Capability where
 data Mode = Linear
           | Unsafe
           | Read
+          | Lockfree
           | Safe
             deriving(Eq)
 
 instance Show Mode where
-    show Linear = "linear"
-    show Unsafe = "unsafe"
-    show Read   = "read"
-    show Safe   = "safe"
+    show Linear   = "linear"
+    show Unsafe   = "unsafe"
+    show Read     = "read"
+    show Lockfree = "lockfree"
+    show Safe     = "safe"
 
 modeSubtypeOf ty1 ty2
     | isPrimitive ty1 = True
     | Just Read <- getMode ty1
     , Just Safe <- getMode ty2 = True
+    | Just Lockfree <- getMode ty1
+    , Just Safe <- getMode ty2 = True
     | otherwise = getMode ty1 == getMode ty2
 
 modeIsSafe Read = True
+modeIsSafe Lockfree = True
 modeIsSafe Safe = True
 modeIsSafe _    = False
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
                       ,mode :: Maybe Mode
+                      ,barred :: [Name]
                       }
 
 -- The current modes are irrelevant for equality checks
 instance Eq RefInfo where
     ref1 == ref2 = refId ref1 == refId ref2 &&
-                   parameters ref1 == parameters ref2
+                   parameters ref1 == parameters ref2 &&
+                   barred ref1 == barred ref2
 
 instance Show RefInfo where
-    show RefInfo{mode, refId, parameters}
-        | null parameters = smode ++ refId
-        | otherwise = smode ++ refId ++ "<" ++ params ++ ">"
+    show RefInfo{mode, refId, parameters, barred}
+        | null parameters = smode ++ refId ++ bar barred
+        | otherwise = smode ++ refId ++ "<" ++ params ++ ">" ++ bar barred
         where
           smode
               | isNothing mode = ""
               | otherwise = show (fromJust mode) ++ " "
           params = intercalate ", " (map show parameters)
+          bar [] = ""
+          bar (f:fs) = " | " ++ show f ++ bar fs
 
-showRefInfoWithoutMode RefInfo{refId, parameters}
-    | null parameters = refId
-    | otherwise = refId ++ "<" ++ params ++ ">"
+showRefInfoWithoutMode RefInfo{refId, parameters, barred}
+    | null parameters = refId ++ bar barred
+    | otherwise = refId ++ "<" ++ params ++ ">" ++ bar barred
     where
       params = intercalate ", " (map show parameters)
+      bar [] = ""
+      bar (f:fs) = " | " ++ show f ++ bar fs
 
-data Box = Stackbound deriving(Eq)
+data Box = Stackbound
+         | Pristine deriving(Eq)
 
 instance Show Box where
     show Stackbound = "borrowed"
+    show Pristine = "pristine"
 
 data Type = Type {inner :: InnerType
                  ,box   :: Maybe Box}
+
+bar ty f
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+    , barred <- barred info
+      = ty{inner = iType{refInfo = info{barred = barred `union` [f]}}}
+    | otherwise = error $ "Types.hs: Cannot bar " ++ showWithKind ty
+
+barredFields ty
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+    , barred <- barred info = barred
+    | otherwise = error $ "Types.hs: No barred fields in " ++ showWithKind ty
 
 typ ity = Type{inner = ity, box = Nothing}
 
@@ -231,7 +267,7 @@ instance Eq Type where
 instance Show Type where
     show Type{inner, box = Nothing} = show inner
     show Type{inner, box = Just s} =
-        show s ++ "(" ++ show inner ++ ")"
+        show s ++ " " ++ show inner
 
 data InnerType =
           UntypedRef{refInfo :: RefInfo}
@@ -540,11 +576,11 @@ isSingleCapability Type{inner =
     length leaves == 1
 isSingleCapability _ = False
 
-refTypeFromSingletonCapability :: Type -> Type
-refTypeFromSingletonCapability ty
+refTypeFromSingletonCapability :: Type -> [Name] -> Type
+refTypeFromSingletonCapability ty fs
     | isSingleCapability ty
-    , refInfo <- head . toList . typeTree . capability . inner $ ty =
-        typ UntypedRef{refInfo}
+    , info <- head . toList . typeTree . capability . inner $ ty =
+        typ UntypedRef{refInfo = info{barred = fs}}
     | otherwise = error $ "Types.hs: " ++ showWithKind ty ++
                           " is not a singleton capability"
 
@@ -598,6 +634,7 @@ refTypeWithParams refId parameters =
       refInfo = RefInfo{refId
                        ,parameters
                        ,mode = Nothing
+                       ,barred = []
                        }
 
 refType id = refTypeWithParams id []
@@ -606,7 +643,8 @@ classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
     Type{inner = ClassType{refInfo = RefInfo{refId = name
                                             ,parameters
-                                            ,mode = Nothing}
+                                            ,mode = Nothing
+                                            ,barred = []}
                           , activity}
         ,box = Nothing
         }
@@ -697,6 +735,8 @@ makeLinear ty
     | otherwise = error $ "Types.hs: Cannot make type linear: " ++
                           show ty
 
+makePristine ty = ty{box = Just Pristine}
+
 makeRead ty
     | isRefType ty
     , iType <- inner ty
@@ -719,6 +759,17 @@ makeSafe ty
     | otherwise = error $ "Types.hs: Cannot make type safe: " ++
                           show ty
 
+makeLockfree ty
+    | isRefType ty
+    , iType <- inner ty
+    , info <- refInfo iType
+      = ty{inner = iType{refInfo = info{mode = Just Lockfree}}}
+    | isTypeVar ty
+    , iType <- inner ty
+      = ty{inner = iType{tmode = Just Lockfree}}
+    | otherwise = error $ "Types.hs: Cannot make type safe: " ++
+                          show ty
+
 isSafeType ty
     | isCapabilityType ty
     , traits <- typesFromCapability ty = all isSafeType traits
@@ -737,9 +788,17 @@ isLinearRefType ty
     | isTypeVar ty = (tmode . inner) ty == Just Linear
     | otherwise = False
 
+isPristineRefType Type{box = Just Pristine} = True
+isPristineRefType _ = False
+
 isReadRefType ty
     | isRefType ty = (mode . refInfo . inner) ty == Just Read
     | isTypeVar ty = (tmode . inner) ty == Just Read
+    | otherwise = False
+
+isLockfreeRefType ty
+    | isRefType ty = (mode . refInfo . inner) ty == Just Lockfree
+    | isTypeVar ty = (tmode . inner) ty == Just Lockfree
     | otherwise = False
 
 isSafeRefType ty

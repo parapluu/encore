@@ -24,7 +24,7 @@ import Types as Ty
 import Identifiers
 import Typechecker.Environment
 import Typechecker.TypeError
-import Typechecker.Util
+import Typechecker.Util hiding (isLinearType)
 
 capturecheckEncoreProgram ::
     Program -> Environment -> Either CCError Program
@@ -119,12 +119,16 @@ instance CaptureCheckable MethodDecl where
            return m{mbody = mbody'}
         where
           checkReverseBorrowing mtype = do
-            thisType <- liftM fromJust . asks $ varLookup thisName
-            unless (isReadRefType thisType && isTypeVar mtype) $
+            inRead <- inReadTrait
+            unless (inRead && isTypeVar mtype) $
                    when (any isStackboundType (typeComponents mtype)) $
                         ccError $ "Reverse borrowing (returning stackbounds) " ++
                                   "is currently only supported for read traits " ++
                                   "returning polymorphic values (C'est la vie)"
+          inReadTrait = do
+            result <- asks $ varLookup thisName
+            return $ maybe False isReadRefType result
+
 
 instance CaptureCheckable Expr where
     doCapturecheck e@Null{} =
@@ -141,14 +145,21 @@ instance CaptureCheckable Expr where
         return $ makeCaptured e
 
     doCapturecheck e@FieldAccess{} = do
-        thisType <- liftM fromJust . asks $ varLookup thisName
-        if isReadRefType thisType &&
+        inRead <- inReadTrait
+        if inRead &&
            isTypeVar (getType e) && isModeless (getType e)
         then let ty' = makeStackbound (getType e)
              in return $ setType ty' $ makeCaptured e
         else return $ makeCaptured e
+        where
+          inReadTrait = do
+            result <- asks $ varLookup thisName
+            return $ maybe False isReadRefType result
 
     doCapturecheck e@Consume{} =
+        free e
+
+    doCapturecheck e@Speculate{} =
         free e
 
     doCapturecheck e@Assign{lhs, rhs} =
@@ -415,7 +426,14 @@ returns parent child =
              else makeCaptured parent
 
 isLinearType :: Type -> CapturecheckM Bool
-isLinearType = isLinearType' []
+isLinearType ty
+    | isRefType ty = do
+        Just flds <- asks $ fields ty
+        if all (\f -> isValField f || isSpecField f) flds then
+            return False
+        else
+            isLinearType' [] ty
+    | otherwise = isLinearType' [] ty
     where
       isLinearType' :: [Type] -> Type -> CapturecheckM Bool
       isLinearType' checked ty = do

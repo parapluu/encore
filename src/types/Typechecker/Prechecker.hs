@@ -142,6 +142,8 @@ instance Precheckable FieldDecl where
            unless (isModeless ftype) $
                   tcError "Type variables can only have manifest modes"
       ftype' <- resolveType ftype
+      when (isPristineRefType ftype') $
+           tcError "Fields cannot have pristine type"
       thisType <- liftM fromJust . asks . varLookup $ thisName
       when (isReadRefType thisType) $ do
            unless (isValField f) $
