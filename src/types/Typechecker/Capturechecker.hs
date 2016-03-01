@@ -153,6 +153,9 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Consume{} =
         free e
 
+    doCapturecheck e@Speculate{} =
+        free e
+
     doCapturecheck e@Assign{lhs, rhs} =
         do let lType = getType lhs
                rType = getType rhs

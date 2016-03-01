@@ -19,6 +19,7 @@
         "borrowed"
         "break"
         "by"
+        "CAT"
         "chain"
         "class"
         "consume"
@@ -36,15 +37,19 @@
         "liftf"
         "liftv"
         "linear"
+        "lockfree"
         "match"
         "new"
         "not"
         "or"
         "passive"
         "print"
+        "pristine"
         "read"
         "repeat"
         "require"
+        "spec"
+        "speculate"
         "stream"
         "subord"
         "suspend"
@@ -89,6 +94,10 @@
         "||"
         ">>"
         ))
+(setq encore-danger-words '("embed" "body" "end" "unsafe"))
+(setq encore-constants '("true" "false" "null"))
+(setq encore-primitives '("bool" "char" "int" "string" "void" ))
+(setq encore-operators '("||" ">>"))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'symbols))
 (setq encore-danger-regexp (regexp-opt encore-danger-words 'symbols))

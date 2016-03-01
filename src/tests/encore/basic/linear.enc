@@ -13,7 +13,7 @@ class Main
   def main() : void
     let prod = new Producer
         fut = prod.newFoo()
-        x = new Foo
+        x = new Foo : Foo
         y = null : Foo
         arr = [consume x, get consume fut]
         arr2 = consume arr

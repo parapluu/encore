@@ -4,6 +4,7 @@ import Text.Parsec(SourcePos, sourceLine, sourceColumn)
 import Data.Maybe
 
 import Types
+import Identifiers
 
 data CaptureStatus = Captured
                    | Free
@@ -12,6 +13,7 @@ data CaptureStatus = Captured
 data MetaInfo = Closure {metaId :: String}
               | Async {metaId :: String}
               | MetaArrow {metaArrow :: Type}
+              | EnvChange {bindings :: [(Name, Type)]}
                 deriving (Eq, Show)
 
 data Meta a = Meta {sourcePos :: SourcePos,
@@ -79,3 +81,13 @@ makeFree m = m{captureStatus = Just Free}
 
 makeCaptured :: Meta a -> Meta a
 makeCaptured m = m{captureStatus = Just Captured}
+
+hasEnvChange :: Meta a -> Bool
+hasEnvChange Meta{metaInfo = Just EnvChange{}} = True
+hasEnvChange _ = False
+
+getEnvChange :: Meta a -> [(Name, Type)]
+getEnvChange = bindings . fromJust . metaInfo
+
+setEnvChange :: [(Name, Type)] -> Meta a -> Meta a
+setEnvChange bindings m = m{metaInfo = Just $ EnvChange bindings}

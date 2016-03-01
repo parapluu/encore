@@ -73,6 +73,16 @@ class Show a => HasMeta a where
     showWithKind :: a -> String
     showWithKind = show
 
+    hasEnvChange :: a -> Bool
+    hasEnvChange x = Meta.hasEnvChange $ getMeta x
+
+    getEnvChange :: a -> [(Name, Type)]
+    getEnvChange x = Meta.getEnvChange $ getMeta x
+
+    setEnvChange :: [(Name, Type)] -> a -> a
+    setEnvChange bindings x = let meta = getMeta x
+                              in setMeta x $ Meta.setEnvChange bindings meta
+
 data EmbedTL = EmbedTL {
       etlmeta   :: Meta EmbedTL,
       etlheader :: String,
@@ -276,10 +286,12 @@ instance HasMeta TraitDecl where
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
 data Modifier = Val
+              | Spec
                 deriving(Eq)
 
 instance Show Modifier where
-    show Val = "val"
+    show Val  = "val"
+    show Spec = "spec"
 
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
@@ -303,11 +315,17 @@ instance HasMeta FieldDecl where
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
+isSpecField :: FieldDecl -> Bool
+isSpecField = (Spec `elem`) . fmods
+
 isValField :: FieldDecl -> Bool
 isValField = (Val `elem`) . fmods
 
 isSafeValField :: FieldDecl -> Bool
 isSafeValField f@Field{ftype} = isValField f && isSafeType ftype
+
+isVarField :: FieldDecl -> Bool
+isVarField = null . fmods
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -535,6 +553,8 @@ data Expr = Skip {emeta :: Meta Expr}
                   ty ::Type}
           | Print {emeta :: Meta Expr,
                    args :: [Expr]}
+          | Speculate {emeta :: Meta Expr,
+                       arg :: Expr}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
@@ -568,9 +588,17 @@ isLval FieldAccess {} = True
 isLval ArrayAccess {} = True
 isLval _ = False
 
+isVarAccess :: Expr -> Bool
+isVarAccess VarAccess {} = True
+isVarAccess _ = False
+
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {name = Name "this"} = True
 isThisAccess _ = False
+
+isFieldAccess :: Expr -> Bool
+isFieldAccess FieldAccess {} = True
+isFieldAccess _ = False
 
 isClosure :: Expr -> Bool
 isClosure Closure {} = True

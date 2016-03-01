@@ -15,6 +15,7 @@ module Typechecker.TypeError (Backtrace
                              ,CCError(CCError)
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
+                             ,speculationInBacktrace
                              ) where
 
 import Text.PrettyPrint
@@ -87,6 +88,12 @@ loopInBacktrace = any (isLoopHead . snd)
       isLoopHead (BTExpr Foreach{}) = True
       isLoopHead (BTExpr Repeat{}) = True
       isLoopHead _ = False
+
+speculationInBacktrace :: Backtrace -> Bool
+speculationInBacktrace = any (isSpeculation . snd)
+    where
+      isSpeculation (BTExpr Speculate{}) = True
+      isSpeculation _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -236,6 +243,10 @@ data Error =
   | CannotUnpackError Type
   | CannotInferUnpackingError Type
   | NoLoopToBreakError
+  | NonSpeculatableFieldError FieldDecl
+  | CannotHaveRestrictedFieldsError Type
+  | RestrictedFieldLookupError Name Type
+  | NonSpeculatableTargetError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -480,6 +491,17 @@ instance Show Error where
                (Types.showWithKind cap)
     show NoLoopToBreakError =
         "No loop to break from"
+    show (NonSpeculatableFieldError fdecl) =
+        printf "Field '%s' is not speculatable"
+               (show fdecl)
+    show (CannotHaveRestrictedFieldsError ty) =
+        printf "Cannot have restrict fields in %s"
+               (refTypeName ty)
+    show (RestrictedFieldLookupError f ty) =
+        printf "Field '%s' is restricted in type '%s'"
+               (show f) (show ty)
+    show NonSpeculatableTargetError =
+        "Can only speculate on field accesses"
     show (SimpleError msg) = msg
 
 

@@ -148,6 +148,8 @@ instance Precheckable ClassDecl where
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do
       ftype' <- resolveType ftype
+      when (isPristineRefType ftype') $
+           tcError $ SimpleError "Fields cannot have pristine type"
       thisType <- liftM fromJust . asks . varLookup $ thisName
       when (isReadRefType thisType) $ do
            unless (isValField f) $

@@ -475,6 +475,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   return (Deref (StatAsExpr ntarg ttarg) `Dot` fieldName name)
            mkLval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
 
+  translate A.Speculate{A.arg} = translate arg
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"

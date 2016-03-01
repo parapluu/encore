@@ -14,6 +14,8 @@ module Typechecker.Environment(Environment,
                                refTypeLookup,
                                refTypeLookupUnsafe,
                                methodAndCalledTypeLookup,
+                               methodLookup,
+                               fields,
                                fieldLookup,
                                capabilityLookup,
                                varLookup,
@@ -30,6 +32,7 @@ module Typechecker.Environment(Environment,
                                backtrace,
                                currentMethod,
                                inLoop,
+                               inSpeculation,
                                pushBT,
                                refTypeParameters
                                ) where
@@ -144,21 +147,43 @@ formalBindings formal actual
 inLoop :: Environment -> Bool
 inLoop = loopInBacktrace . bt
 
+inSpeculation :: Environment -> Bool
+inSpeculation = speculationInBacktrace . bt
+
+fields :: Type -> Environment -> Maybe [FieldDecl]
+fields t env
+  | isTraitType t = do
+    trait <- Map.lookup (getId t) $ traitTable env
+    let fs = barredFields t
+        formalFields = requiredFields trait
+        bindings = formalBindings (tname trait) t
+        actualFields = map (translateField bindings) formalFields
+        barSpec = map (specToVal fs) actualFields
+        barVar  = filter (not . barredVarField fs) barSpec
+    return barVar
+  | isClassType t = do
+    cls <- classLookup t env
+    let fs = barredFields t
+        formalFields = cfields cls
+        bindings = formalBindings (cname cls) t
+        actualFields = map (translateField bindings) formalFields
+        barSpec = map (specToVal fs) actualFields
+        barVar  = filter (not . barredVarField fs) barSpec
+    return barVar
+  | otherwise = error $ "Trying to lookup field in a non-atom ref type " ++ show t
+    where
+      translateField bindings f@Field{ftype} =
+          f{ftype = replaceTypeVars bindings ftype}
+      specToVal fs f = if isSpecField f && fname f `elem` fs then
+                           f{fmods = [Val]}
+                       else
+                           f
+      barredVarField fs f = fname f `elem` fs && isVarField f
+
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup ty f env
-  | isTraitType ty = do
-    trait <- traitLookup ty env
-    fld <- find ((== f) . fname) $ requiredFields trait
-    let bindings = formalBindings (tname trait) ty
-        ftype' = replaceTypeVars bindings $ ftype fld
-    return fld{ftype = ftype'}
-  | isClassType ty = do
-    cls <- classLookup ty env
-    fld <- find ((== f) . fname) $ cfields cls
-    let bindings = formalBindings (cname cls) ty
-        ftype' = replaceTypeVars bindings $ ftype fld
-    return fld{ftype = ftype'}
-  | otherwise = error $ "Trying to lookup field in a non ref type " ++ show ty
+fieldLookup t f env = do
+    fs <- fields t env
+    find ((== f) . fname) fs
 
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname

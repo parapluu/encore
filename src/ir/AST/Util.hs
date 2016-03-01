@@ -86,6 +86,7 @@ getChildren NewWithInit {args} = args
 getChildren New {} = []
 getChildren Peer {} = []
 getChildren Print {args} = args
+getChildren Speculate {arg} = [arg]
 getChildren Exit {args} = args
 getChildren StringLiteral {} = []
 getChildren CharLiteral {} = []
@@ -163,6 +164,7 @@ putChildren args e@(NewWithInit {}) = e{args = args}
 putChildren [] e@(New {}) = e
 putChildren [] e@(Peer {}) = e
 putChildren args e@(Print {}) = e{args = args}
+putChildren [arg] e@(Speculate {}) = e{arg = arg}
 putChildren args e@(Exit {}) = e{args = args}
 putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
 putChildren [] e@(StringLiteral {}) = e
@@ -225,6 +227,7 @@ putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 el
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"
 putChildren _ e@(New {}) = error "'putChildren l New' expects l to have 0 elements"
 putChildren _ e@(Peer {}) = error "'putChildren l Peer' expects l to have 0 elements"
+putChildren _ e@(Speculate {}) = error "'putChildren l Speculate' expects l to have 1 element"
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
 putChildren _ e@(CharLiteral {}) = error "'putChildren l CharLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"

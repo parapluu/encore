@@ -225,6 +225,7 @@ ppExpr NewWithInit {ty, args} =
 ppExpr New {ty} = "new" <+> ppType ty
 ppExpr Peer {ty} = "peer" <+> ppType ty
 ppExpr Print {args} = "print" <> parens (commaSep (map ppExpr args))
+ppExpr Speculate {arg} = "speculate" <+> ppExpr arg
 ppExpr Exit {args} = "exit" <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text $ show stringLit
 ppExpr CharLiteral {charLit} = text $ show charLit
