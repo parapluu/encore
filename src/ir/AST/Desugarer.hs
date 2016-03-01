@@ -121,7 +121,10 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
 desugar FunctionCall{emeta, name = Name "CAT", args = [target, val, arg]} =
-    CAT emeta target val arg
+    CAT emeta target val arg Nothing
+
+desugar Assign{emeta, lhs = VarAccess{name}, rhs = cat@CAT{}} =
+    cat{leftover = Just name}
 
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 

@@ -870,17 +870,18 @@ instance Checkable Expr where
     --
     -- -------------------------------
     --  E |- CAT(x.f, e1, e2) val : t
-    doTypecheck cat@(CAT {target, val, arg}) =
+    doTypecheck cat@(CAT {target, val, arg, leftover}) =
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
            eVal <- typecheck val
            targetType `assertSubtypeOf` AST.getType eVal
            eArg <- hasType arg targetType
-           checkValShape eVal
-           checkArgShape eArg
+           checkArgShape eVal eArg
            bindings <- getBindings eTarget eVal eArg
-           return $ setEnvChange bindings $
+           leftoverType <- AST.getType eArg `typeMinus` targetType
+           let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
+           return $ setEnvChange (extra ++ bindings) $
                     setType boolType cat{target = eTarget, val = eVal, arg = eArg}
         where
           checkTargetShape :: Expr -> TypecheckM ()
@@ -891,16 +892,25 @@ instance Checkable Expr where
                   unless (isSpecField fdecl) $
                          tcError $ NonSpeculatableFieldError fdecl
               _ -> tcError $ SimpleError "First argument of CAT must be a field access"
-          checkValShape val =
-            case val of
-              VarAccess{} -> return ()
-              FieldAccess{} -> return ()
-              _ -> tcError $ SimpleError "Second argument of CAT must be a variable or field access"
-          checkArgShape var =
-            case arg of
-              VarAccess{} -> return ()
-              FieldAccess{} -> return ()
-              _ -> tcError $ SimpleError "Third argument of CAT must be a variable or field access"
+          checkArgShape val arg =
+            case (val, arg) of
+              (VarAccess{}, VarAccess{}) -> return ()
+              (FieldAccess{target = target@VarAccess{name = y}, name = g},
+               VarAccess{name = y'}) -> do
+                 unless (y == y') $
+                        tcError $ SimpleError "CAT-link must have shape CAT(x.f, y.g, y)"
+                 fdecl <- findField (AST.getType target) g
+                 unless (isValField fdecl) $
+                        tcError $ NonStableCatError g
+              (VarAccess{name = y},
+               FieldAccess{target = target@VarAccess{name = y'}, name = g}) -> do
+                 unless (y == y') $
+                        tcError $ SimpleError "CAT-unlink must have shape CAT(x.f, y, y.g)"
+                 fdecl <- findField (AST.getType target) g
+                 unless (isValField fdecl) $
+                        tcError $ NonStableCatError g
+              _ -> tcError MalformedCatError
+
           getBindings target@FieldAccess{}
                       val@VarAccess{name}
                       FieldAccess{target = argTarget, name = f} = do
@@ -909,6 +919,16 @@ instance Checkable Expr where
                           then return [(name, AST.getType target `bar` f)]
                           else return [(name, AST.getType target)]
           getBindings _ _ _ = return []
+
+          typeMinus ty1 ty2 = do
+              Just fields1 <- asks $ fields ty1
+              let fs1 = barredFields ty1
+                  fs2 = barredFields ty2
+                  barrableFields = map fname $ filter (not . isValField) fields1
+                  fs = fs1 `union` (barrableFields \\ fs2)
+                  (ty1', _) = mapAccumL (\t f -> (t `bar` f, undefined)) ty1 fs
+              return $ unbox ty1'
+              -- TODO: What if ty1 is not linear? What if it is borrowed ?!
 
     --  E |- val : Fut t
     -- ------------------

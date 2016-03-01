@@ -725,6 +725,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.genNamedSym "ite"
+         let (name, leftoverType) = getCatType cond
+         -- Extremely ugly code!
+         leftoverVar <- Var <$> Ctx.genNamedSym "leftover"
+         substituteVar name leftoverVar
+
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
@@ -735,7 +740,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                          [Assign (Var tmp) (Cast (translate resultType) nels)]
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
+                      AsExpr $ Decl (leftoverType, leftoverVar),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
+      where
+        getCatType A.CAT{A.target, A.leftover = Just x} =
+            (x, translate $ A.getType target)
+        getCatType _ = (ID.Name "ugly_please_ignore", Ptr void)
 
   translate m@(A.Match {A.arg, A.clauses}) =
       do retTmp <- Ctx.genNamedSym "match"
@@ -978,8 +988,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            Parsec.string "}"
                            return id
 
+  -- Warning: Extremly ugly code ahead!
   translate cat@(A.CAT{A.target = A.FieldAccess{A.target, A.name},
-                       A.val, A.arg}) = do
+                       A.val, A.arg, A.leftover}) = do
     (ntarg, ttarg) <- translate target
     (nval, tval) <- translate val
     (narg, targ) <- translate arg
@@ -989,7 +1000,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                       [Amp $ ntarg `Arrow` field, AsExpr nval, AsExpr narg]
         theAssign = Assign (Decl (bool, tmp)) theCAS
         condNull = Statement $ If tmp (Assign narg Null) Skip
-    return (tmp, Seq [ttarg, tval, targ, theAssign, condNull])
+    if isNothing leftover
+    then return (tmp, Seq [ttarg, tval, targ, theAssign, condNull])
+    else do
+      let Just name = leftover
+      ctx <- get
+      let Just leftoverVar = Ctx.substLkp ctx name
+          theLeftoverAssign = Assign leftoverVar narg
+      return (tmp, Seq [ttarg, tval, targ, theAssign, theLeftoverAssign, condNull])
 
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =

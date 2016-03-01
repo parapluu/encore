@@ -247,6 +247,8 @@ data Error =
   | CannotHaveRestrictedFieldsError Type
   | RestrictedFieldLookupError Name Type
   | NonSpeculatableTargetError
+  | NonStableCatError Name
+  | MalformedCatError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -502,6 +504,11 @@ instance Show Error where
                (show f) (show ty)
     show NonSpeculatableTargetError =
         "Can only speculate on field accesses"
+    show (NonStableCatError f) =
+        printf "Field '%s' must be stable to be used in a CAT"
+               (show f)
+    show MalformedCatError =
+        "CAT does not swap, link or unlink"
     show (SimpleError msg) = msg
 
 
