@@ -487,7 +487,7 @@ instance Checkable Expr where
     doTypecheck msend@(MessageSend {target, name, args}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isActiveClassType targetType) $
+      unless (isActiveClassType targetType || isSharedClassType targetType) $
            tcError $ "Cannot send message to expression '" ++
                      show (ppSugared target) ++
                      "' of type '" ++ show targetType ++ "'"
