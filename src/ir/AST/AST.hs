@@ -456,7 +456,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | CAT {emeta :: Meta Expr,
                  target :: Expr,
                  val :: Expr,
-                 arg :: Expr
+                 arg :: Expr,
+                 leftover :: Maybe Name
                 }
           | Get {emeta :: Meta Expr,
                  val :: Expr}
