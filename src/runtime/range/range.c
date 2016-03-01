@@ -24,6 +24,7 @@ void range_trace(pony_ctx_t* ctx, void *p)
 
 struct range_t *range_mk(pony_ctx_t* ctx, size_t start, size_t stop, int64_t step)
 {
+  ctx = pony_ctx();
   range_assert_step(step);
   struct range_t *r = encore_alloc(ctx, sizeof(struct range_t));
   *r = (range_t) { .start = start, .stop = stop, .step = step };

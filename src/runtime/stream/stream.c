@@ -1,6 +1,7 @@
 #include "stream.h"
 #include "future.h"
 #include <stdio.h>
+#include <assert.h>
 
 struct scons{
   bool eos;
@@ -11,6 +12,7 @@ struct scons{
 
 void scons_trace(pony_ctx_t *ctx, void *p)
 {
+  assert(p);
   struct scons *scons = p;
   if (!scons->eos) {
     pony_type_t *type = scons->type;
@@ -61,6 +63,7 @@ stream_t *stream_mk(pony_ctx_t *ctx)
 stream_t *stream_put(pony_ctx_t *ctx, stream_t *s, encore_arg_t value,
         pony_type_t *type)
 {
+  ctx = pony_ctx();
   future_t *fut = future_mk(ctx, &scons_type);
   struct scons *scons = scons_mk(ctx, type);
   scons->element = value;
@@ -83,6 +86,7 @@ stream_t *stream_get_next(pony_ctx_t *ctx, stream_t *s)
 
 void stream_close(pony_ctx_t *ctx, stream_t *s)
 {
+  ctx = pony_ctx();
   struct scons *scons = scons_mk(ctx, NULL);
   scons->eos = true;
   future_fulfil(ctx, (future_t *)s, (encore_arg_t){ .p = scons });
@@ -93,4 +97,3 @@ bool stream_eos(pony_ctx_t *ctx, stream_t *s)
   struct scons *scons = future_get_actor(ctx, (future_t *)s).p;
   return scons->eos;
 }
-

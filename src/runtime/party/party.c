@@ -81,6 +81,7 @@ static inline void set_par_par(par_t * const rpar, par_t * const lpar,
 }
 
 void party_trace(pony_ctx_t* ctx, void* p){
+  assert(p);
   par_t *obj = p;
   if(obj->rtype == ENCORE_ACTIVE){
     pony_traceactor(ctx, (pony_actor_t*) obj->data.v.val.p);
@@ -122,6 +123,7 @@ struct fmap_s{
  */
 
 static par_t* init_par(pony_ctx_t* ctx, enum PTAG tag, pony_type_t const * const rtype){
+  ctx = pony_ctx();
   par_t* res = encore_alloc(ctx, sizeof* res);
   res->tag = tag;
   res->rtype = rtype;

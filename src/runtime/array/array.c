@@ -1,5 +1,6 @@
 #include "array.h"
 #include "encore.h"
+#include <assert.h>
 
 struct array_t
 {
@@ -36,6 +37,7 @@ void array_qsort(array_t *a, int64_t start, int64_t end)
 
 void array_trace(pony_ctx_t* ctx, void *p)
 {
+  assert(p);
   struct array_t *array = p;
   if (array->type == ENCORE_ACTIVE) {
     for(size_t i = 0; i < array->size; i++) {
@@ -50,6 +52,7 @@ void array_trace(pony_ctx_t* ctx, void *p)
 
 array_t *array_mk(pony_ctx_t* ctx, size_t size, pony_type_t *type)
 {
+  ctx = pony_ctx();
   struct array_t *array = encore_alloc(ctx,
       sizeof(struct array_t) + sizeof(encore_arg_t) * size);
   array->size = size;

@@ -1,5 +1,6 @@
 #include "tuple.h"
 #include "encore.h"
+#include <assert.h>
 
 struct tuple_t
 {
@@ -17,6 +18,7 @@ pony_type_t tuple_type =
 
 void tuple_trace(pony_ctx_t* ctx, void *p)
 {
+  assert(p);
   struct tuple_t *tuple = p;
   for(size_t i = 0; i < tuple->size; i++) {
     if (tuple->types[i] == ENCORE_ACTIVE) {
@@ -29,6 +31,7 @@ void tuple_trace(pony_ctx_t* ctx, void *p)
 
 tuple_t *tuple_mk(pony_ctx_t* ctx, size_t size)
 {
+  ctx = pony_ctx();
   struct tuple_t *tuple = encore_alloc(ctx,
       sizeof(struct tuple_t) + sizeof(encore_arg_t) * size);
   tuple->size = size;
