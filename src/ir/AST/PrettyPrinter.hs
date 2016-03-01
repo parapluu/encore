@@ -210,6 +210,8 @@ ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
 ppExpr CAT {target, val, arg} =
     "CAT" <> parens (commaSep $ map ppExpr [target, val, arg])
+ppExpr Freeze {target, val} = "freeze" <> parens (commaSep $ map ppExpr [target, val])
+ppExpr IsFrozen {target} = "isFrozen" <> parens (ppExpr target)
 ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)

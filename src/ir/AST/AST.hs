@@ -507,6 +507,11 @@ data Expr = Skip {emeta :: Meta Expr}
                  arg :: Expr,
                  leftover :: Maybe Name
                 }
+          | Freeze {emeta :: Meta Expr,
+                    target :: Expr,
+                    val :: Expr}
+          | IsFrozen {emeta :: Meta Expr,
+                      target :: Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Yield {emeta :: Meta Expr,

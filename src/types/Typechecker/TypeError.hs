@@ -249,6 +249,9 @@ data Error =
   | NonSpeculatableTargetError
   | NonStableCatError Name
   | MalformedCatError
+  | NonSpecFreezeError FieldDecl
+  | MalformedFreezeError
+  | MalformedIsFrozenError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -509,6 +512,13 @@ instance Show Error where
                (show f)
     show MalformedCatError =
         "CAT does not swap, link or unlink"
+    show (NonSpecFreezeError fdecl) =
+        printf "Field '%s' is not freezable"
+               (show fdecl)
+    show MalformedFreezeError =
+        "First argument of freeze must be a field access"
+    show MalformedIsFrozenError =
+        "First argument of isFrozen must be a field access"
     show (SimpleError msg) = msg
 
 

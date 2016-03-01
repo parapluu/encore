@@ -867,16 +867,20 @@ instance Checkable Expr where
            return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
 
 
-    --
+    -- TODO
     -- -------------------------------
-    --  E |- CAT(x.f, e1, e2) val : t
+    --  E |- CAT(x.f, e1, e2) : bool
     doTypecheck cat@(CAT {target, val, arg, leftover}) =
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
            eVal <- typecheck val
            targetType `assertSubtypeOf` AST.getType eVal
-           eArg <- hasType arg targetType
+           eArg <- typecheck arg
+           let argType = AST.getType eArg
+           if isPristineRefType argType
+           then unbar argType `assertSubtypeOf` targetType -- TODO: Too much! Should only remove barred specs
+           else argType `assertSubtypeOf` targetType
            checkArgShape eVal eArg
            bindings <- getBindings eTarget eVal eArg
            leftoverType <- AST.getType eArg `typeMinus` targetType
@@ -929,6 +933,58 @@ instance Checkable Expr where
                   (ty1', _) = mapAccumL (\t f -> (t `bar` f, undefined)) ty1 fs
               return $ unbox ty1'
               -- TODO: What if ty1 is not linear? What if it is borrowed ?!
+
+    -- TODO
+    -- -------------------------------
+    --  E |- freeze(x.f, e1) : bool
+    doTypecheck freeze@(Freeze {target, val}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           let targetType = AST.getType eTarget
+           eVal <- typecheck val
+           targetType `assertSubtypeOf` AST.getType eVal
+           bindings <- getBindings eTarget
+           return $ setEnvChange bindings $
+                    setType boolType freeze{target = eTarget, val = eVal}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl) $
+                         tcError $ NonSpecFreezeError fdecl
+              _ -> pushError targ MalformedFreezeError
+
+          getBindings acc@FieldAccess{target = var@VarAccess{name = x}, name = f} =
+              return [(x, AST.getType var `bar` f)]
+          getBindings _ =
+              error "Typechecker.hs: Target of freeze does not have correct shape"
+
+    -- TODO
+    -- -------------------------------
+    --  E |- isFrozen(x.f, e1) : bool
+    doTypecheck isFrozen@(IsFrozen {target}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           let targetType = AST.getType eTarget
+           bindings <- getBindings eTarget
+           return $ setEnvChange bindings $
+                    setType boolType isFrozen{target = eTarget}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isSpecField fdecl) $
+                         tcError $ NonSpecFreezeError fdecl
+              _ -> pushError targ MalformedIsFrozenError
+
+          getBindings acc@FieldAccess{target = VarAccess{name = x}, name = f} =
+              return [(x, AST.getType acc `bar` f)]
+          getBindings _ =
+              error "Typechecker.hs: Target of isFrozen does not have correct shape"
 
     --  E |- val : Fut t
     -- ------------------
@@ -1066,7 +1122,7 @@ instance Checkable Expr where
           fdecl <- findField lhsType f
           if isDowncast && isSpecField fdecl
           then do
-            let bindings = [(name target, lhsType `bar` f)]
+            let bindings = [(name target, targetType `bar` f)]
             return $ setEnvChange bindings $
                      setType voidType assign {lhs = eLhs, rhs = eRhs}
           else do
