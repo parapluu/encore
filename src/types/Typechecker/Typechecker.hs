@@ -141,7 +141,11 @@ meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
   tdecl <- liftM fromJust . asks . traitLookup $ trait
   mapM_ matchField (requiredFields tdecl)
-    where
+  where
+    matchesMod field1 field2
+        | fmods field1 == fmods field2 = True
+        | isVarField field1 && isValField field2 = True
+        | otherwise = False
     matchField tField = do
       expField <- findField trait (fname tField)
       let expected = ftype expField
@@ -150,6 +154,8 @@ meetRequiredFields cFields trait = do
           cFieldType = ftype cField
       if isNothing result then
           tcError $ MissingFieldRequirementError expField trait
+      else if not $ cField `matchesMod` expField then
+          tcError $ ModifierMismatchError cField expField trait
       else if isValField expField then
           unlessM (cFieldType `subtypeOf` expected) $
               tcError $ CovarianceViolationError cField expected trait
@@ -1093,6 +1099,10 @@ instance Checkable Expr where
       unless (isThisAccess target || isPassiveClassType targetType) $
         tcError $ CannotReadFieldError eTarget
       fdecl <- findField targetType name
+      safeToSpec <- asks safeToSpeculate
+      when (isSpecField fdecl) $
+           unless safeToSpec $
+               tcError $ MissingSpeculationError fdecl
       let ty = ftype fdecl
       checkFieldEncapsulation name eTarget ty
       return $ setType ty fAcc {target = eTarget}
@@ -1131,19 +1141,21 @@ instance Checkable Expr where
         else do
           inConstr <- inConstructor
           unless (inConstr && isThisAccess target) $
-                 assertNotValField eLhs
+                 assertAssignable eLhs
           eRhs <- hasType rhs (AST.getType eLhs)
           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
         where
           inConstructor = do
               mtd <- asks currentMethod
               return $ maybe False isConstructor mtd
-          assertNotValField f
+          assertAssignable f
               | FieldAccess {target, name} <- f = do
                   let targetType = AST.getType target
                   fdecl <- findField targetType name
                   when (isValField fdecl) $
                        tcError $ ValFieldAssignmentError name targetType
+                  when (isSpecField fdecl) $
+                       tcError $ SpecFieldAssignmentError name targetType
               | otherwise = return ()
 
     doTypecheck assign@(Assign {lhs, rhs}) =

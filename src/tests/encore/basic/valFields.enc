@@ -37,7 +37,7 @@ unsafe trait Push<v>
     this.top = new Link<v>(value, this.top)
 
 passive class Stack<v> : Push<v>
-  val top : Link<v>
+  top : Link<v>
   def init() : void
     this.top = null
 

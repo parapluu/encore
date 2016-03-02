@@ -15,7 +15,7 @@ module Typechecker.TypeError (Backtrace
                              ,CCError(CCError)
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
-                             ,speculationInBacktrace
+                             ,safeToSpeculateBT
                              ) where
 
 import Text.PrettyPrint
@@ -89,15 +89,21 @@ loopInBacktrace = any (isLoopHead . snd)
       isLoopHead (BTExpr Repeat{}) = True
       isLoopHead _ = False
 
-speculationInBacktrace :: Backtrace -> Bool
-speculationInBacktrace = any (isSpeculation . snd)
-    where
-      isSpeculation (BTExpr Speculate{}) = True
-      isSpeculation _ = False
+safeToSpeculateBT :: Backtrace -> Bool
+safeToSpeculateBT (_ : (_, BTExpr Speculate{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr CAT{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr Freeze{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr IsFrozen{}): _) =
+    True
+safeToSpeculateBT ((_, BTExpr e@FieldAccess{}) : (_, BTExpr Assign{lhs}): _) =
+    e == lhs
+safeToSpeculateBT _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
-
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
@@ -204,6 +210,7 @@ data Error =
   | CannotReadFieldError Expr
   | NonAssignableLHSError
   | ValFieldAssignmentError Name Type
+  | SpecFieldAssignmentError Name Type
   | UnboundVariableError Name
   | ObjectCreationError Type
   | NonIterableError Type
@@ -252,6 +259,8 @@ data Error =
   | NonSpecFreezeError FieldDecl
   | MalformedFreezeError
   | MalformedIsFrozenError
+  | ModifierMismatchError FieldDecl FieldDecl Type
+  | MissingSpeculationError FieldDecl
   | SimpleError String
 
 arguments 1 = "argument"
@@ -386,6 +395,10 @@ instance Show Error where
     show (ValFieldAssignmentError name targetType) =
         printf "Cannot assign to val-field '%s' in %s"
                (show name) (refTypeName targetType)
+    show (SpecFieldAssignmentError name targetType) =
+        printf ("Cannot assign to spec-field '%s' " ++
+                "in non-pristine %s without a CAT")
+                (show name) (refTypeName targetType)
     show (UnboundVariableError name) =
         printf "Unbound variable '%s'" (show name)
     show (ObjectCreationError ty)
@@ -519,8 +532,14 @@ instance Show Error where
         "First argument of freeze must be a field access"
     show MalformedIsFrozenError =
         "First argument of isFrozen must be a field access"
+    show (ModifierMismatchError cField expField trait) =
+        printf ("Modifier of field '%s' is incompatible with " ++
+                "modifier of '%s' required by %s")
+               (show cField) (show expField) (refTypeName trait)
+    show (MissingSpeculationError fdecl) =
+        printf "Cannot read field '%s' without speculation"
+               (show fdecl)
     show (SimpleError msg) = msg
-
 
 data TCWarning = TCWarning Backtrace Warning
 instance Show TCWarning where
