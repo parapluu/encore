@@ -480,13 +480,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
-    theAccess <- do fld <- gets $ Ctx.lookupField (A.getType target) name
-                    if Ty.isTypeVar (A.ftype fld) then
-                        return $ fromEncoreArgT (translate . A.getType $ acc) $ AsExpr (Deref ntarg `Dot` (fieldName name))
-                    else
-                        return (Deref ntarg `Dot` (fieldName name))
-    return (Var tmp, Seq [ttarg,
-                      (Assign (Decl (translate (A.getType acc), Var tmp)) theAccess)])
+    fld <- gets $ Ctx.lookupField (A.getType target) name
+    let theAccess = AsExpr $ Deref ntarg `Dot` fieldName name
+        theCast | Ty.isTypeVar (A.ftype fld) =
+                    AsExpr $ fromEncoreArgT (translate . A.getType $ acc)
+                                            theAccess
+                | A.getType acc /= A.ftype fld =
+                    Cast (translate . A.getType $ acc) theAccess
+                | otherwise = theAccess
+        theSpec = if A.isSpecField fld
+                  then Call (Nam "UNFREEZE") [theCast]
+                  else theCast
+        theAssign = Assign (Decl (translate (A.getType acc), Var tmp)) theSpec
+    return (Var tmp, Seq [ttarg, theAssign])
 
   translate (A.Let {A.decls, A.body}) = do
     tmpsTdecls <- mapM translateDecl decls
@@ -1008,6 +1014,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let Just leftoverVar = Ctx.substLkp ctx name
           theLeftoverAssign = Assign leftoverVar narg
       return (tmp, Seq [ttarg, tval, targ, theAssign, theLeftoverAssign, condNull])
+
+  translate freeze@(A.Freeze{A.target = A.FieldAccess{A.target, A.name},
+                             A.val}) = do
+    (ntarg, ttarg) <- translate target
+    (nval, tval) <- translate val
+    tmp <- Var <$> Ctx.genNamedSym "freeze"
+    let field = fieldName name
+        theCAS = Call (Nam "__sync_bool_compare_and_swap")
+                      [Amp $ ntarg `Arrow` field, AsExpr nval, Call (Nam "FREEZE") [nval]]
+        theAssign = Assign (Decl (bool, tmp)) theCAS
+    return (tmp, Seq [ttarg, tval, theAssign])
+
+  translate isFrozen@(A.IsFrozen{A.target = A.FieldAccess{A.target, A.name}}) = do
+    (ntarg, ttarg) <- translate target
+    tmp <- Var <$> Ctx.genNamedSym "isFrozen"
+    let theCheck = BinOp (Nam "==") (AsExpr ntarg) (Call (Nam "FREEZE") [ntarg])
+        theAssign = Assign (Decl (bool, tmp)) theCheck
+    return (tmp, Seq [ttarg, theAssign])
 
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =
