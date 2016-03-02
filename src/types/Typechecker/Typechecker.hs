@@ -1029,7 +1029,7 @@ instance Checkable Expr where
              let lhsType = AST.getType eLhs
                  rhsType = AST.getType eRhs
              isDowncast <- rhsType `subtypeOf` lhsType
-             fdecl <- findField lhsType f
+             fdecl <- findField targetType f
              if isDowncast && isSpecField fdecl
              then do
                let bindings = [(name target, targetType `bar` f)]

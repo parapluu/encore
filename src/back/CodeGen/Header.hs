@@ -45,6 +45,9 @@ generateHeader p =
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
+    HashDefine "FREEZE(field) ((void*)(((uintptr_t)field) | 1UL))" :
+    HashDefine "UNFREEZE(field) ((void*)(((uintptr_t)field) & ~1UL))" :
+
     [commentSection "Shared messages"] ++
     sharedMessages ++
 
