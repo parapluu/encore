@@ -14,7 +14,7 @@ module Typechecker.TypeError (Backtrace
                              ,CCError(CCError)
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
-                             ,speculationInBacktrace
+                             ,safeToSpeculateBT
                              ) where
 
 import Text.PrettyPrint
@@ -86,15 +86,21 @@ loopInBacktrace = any (isLoopHead . snd)
       isLoopHead (BTExpr Repeat{}) = True
       isLoopHead _ = False
 
-speculationInBacktrace :: Backtrace -> Bool
-speculationInBacktrace = any (isSpeculation . snd)
-    where
-      isSpeculation (BTExpr Speculate{}) = True
-      isSpeculation _ = False
+safeToSpeculateBT :: Backtrace -> Bool
+safeToSpeculateBT (_ : (_, BTExpr Speculate{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr CAT{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr Freeze{}): _) =
+    True
+safeToSpeculateBT (_ : (_, BTExpr IsFrozen{}): _) =
+    True
+safeToSpeculateBT ((_, BTExpr e@FieldAccess{}) : (_, BTExpr Assign{lhs}): _) =
+    e == lhs
+safeToSpeculateBT _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
-
 class Pushable a where
     push :: a -> Backtrace -> Backtrace
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace

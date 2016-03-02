@@ -123,7 +123,11 @@ meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
   tdecl <- liftM fromJust . asks . traitLookup $ trait
   mapM_ matchField (requiredFields tdecl)
-    where
+  where
+    matchesMod field1 field2
+        | fmods field1 == fmods field2 = True
+        | isVarField field1 && isValField field2 = True
+        | otherwise = False
     matchField tField = do
       bindings <- formalBindings trait
       let expected = replaceTypeVars bindings (ftype tField)
@@ -135,6 +139,11 @@ meetRequiredFields cFields trait = do
           tcError $
               "Cannot find field '" ++ show expField ++
               "' required by included " ++ classOrTraitName trait
+      else if not $ cField `matchesMod` expField then
+          tcError $
+              "Modifier of field '" ++ show cField ++
+              "' is incompatible with modifier of '" ++ show expField ++
+              "' required by " ++ classOrTraitName trait
       else if isValField expField then
           unlessM (cFieldType `subtypeOf` expected) $
               tcError $
@@ -1002,6 +1011,11 @@ instance Checkable Expr where
         tcError $ "Cannot read field of expression '" ++
           show (ppSugared target) ++ "' of " ++ Ty.showWithKind targetType
       fdecl <- findField targetType name
+      safeToSpec <- asks safeToSpeculate
+      when (isSpecField fdecl) $
+           unless safeToSpec $
+               tcError $ "Cannot read field '" ++ show fdecl ++
+                         "' without speculation"
       bindings <- formalBindings targetType
       let ty' = replaceTypeVars bindings (ftype fdecl)
       return $ setType ty' fAcc {target = eTarget}
@@ -1041,14 +1055,14 @@ instance Checkable Expr where
            else do
              inConstr <- inConstructor
              unless (inConstr && isThisAccess target) $
-                    assertNotValField eLhs
+                    assertAssignable eLhs
              eRhs <- hasType rhs (AST.getType eLhs)
              return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
         where
           inConstructor = do
                           mtd <- asks currentMethod
                           return $ maybe False isConstructor mtd
-          assertNotValField f
+          assertAssignable f
               | FieldAccess {target, name} <- f = do
                   let targetType = AST.getType target
                   fdecl <- findField targetType name
@@ -1056,6 +1070,11 @@ instance Checkable Expr where
                        tcError $ "Cannot assign to val-field '" ++
                                  show name ++ "' in non-pristine " ++
                                  classOrTraitName targetType
+                  when (isSpecField fdecl) $
+                       tcError $ "Cannot assign to spec-field '" ++
+                                 show name ++ "' in non-pristine " ++
+                                 classOrTraitName targetType ++
+                                 " without CAT"
               | otherwise = return ()
 
     doTypecheck assign@(Assign {lhs, rhs}) =
