@@ -1135,7 +1135,8 @@ instance Checkable Expr where
           fdecl <- findField targetType f
           if isDowncast && isSpecField fdecl
           then do
-            let bindings = [(name target, targetType `bar` f)]
+            let bindings =
+                    [(name target, targetType `bar` f) | isSpecField fdecl]
             return $ setEnvChange bindings $
                      setType voidType assign {lhs = eLhs, rhs = eRhs}
           else do
