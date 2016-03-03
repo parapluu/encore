@@ -927,7 +927,7 @@ instance Checkable Expr where
           getBindings target@FieldAccess{}
                       val@VarAccess{name}
                       FieldAccess{target = argTarget, name = f} = do
-                          fdecl <- findField (AST.getType argTarget) f
+                          fdecl <- findField (unbar $ AST.getType argTarget) f
                           if isSpecField fdecl
                           then return [(name, AST.getType target `bar` f)]
                           else return [(name, AST.getType target)]
@@ -990,7 +990,7 @@ instance Checkable Expr where
                          tcError $ NonSpecFreezeError fdecl
               _ -> pushError targ MalformedIsFrozenError
 
-          getBindings acc@FieldAccess{target = VarAccess{name = x}, name = f} =
+          getBindings FieldAccess{target = acc@VarAccess{name = x}, name = f} =
               return [(x, AST.getType acc `bar` f)]
           getBindings _ =
               error "Typechecker.hs: Target of isFrozen does not have correct shape"
