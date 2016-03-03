@@ -1045,15 +1045,16 @@ instance Checkable Expr where
              eRhs <- typecheck rhs
              let lhsType = AST.getType eLhs
                  rhsType = AST.getType eRhs
-             isDowncast <- rhsType `subtypeOf` lhsType
+             isDowncast <- lhsType `subtypeOf` rhsType
              fdecl <- findField targetType f
-             if isDowncast && isSpecField fdecl
+             if isDowncast && not (isVarField fdecl)
              then do
-               let bindings = [(name target, targetType `bar` f)]
+               let bindings =
+                       [(name target, targetType `bar` f) | isSpecField fdecl]
                return $ setEnvChange bindings $
                         setType voidType assign {lhs = eLhs, rhs = eRhs}
              else do
-               lhsType `assertSubtypeOf` rhsType
+               rhsType `assertSubtypeOf` lhsType
                return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
            else do
              inConstr <- inConstructor
