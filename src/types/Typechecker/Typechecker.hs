@@ -931,6 +931,9 @@ instance Checkable Expr where
                           if isSpecField fdecl
                           then return [(name, AST.getType target `bar` f)]
                           else return [(name, AST.getType target)]
+          getBindings target@FieldAccess{}
+                      val@VarAccess{name}
+                      arg@VarAccess{} = return [(name, AST.getType target)] -- TODO: Is this safe?
           getBindings _ _ _ = return []
 
           typeMinus ty1 ty2 = do
