@@ -188,8 +188,8 @@ noOverlapFields capability =
         leftFields = concatMap snd leftPairs
         rightFields = concatMap snd rightPairs
         common = intersect leftFields rightFields
-        leftCommon = [f | f <- leftFields, f `elem` common, notVal f]
-        rightCommon = [f | f <- rightFields, f `elem` common, notVal f]
+        leftCommon = [f | f <- leftFields, f `elem` common, notVal f, notSpec f]
+        rightCommon = [f | f <- rightFields, f `elem` common, notVal f, notSpec f]
         firstErrField = if (not . null) leftCommon then head leftCommon else head rightCommon
         leftType = findTypeHasField leftPairs firstErrField
         rightType = findTypeHasField rightPairs firstErrField
@@ -207,6 +207,9 @@ noOverlapFields capability =
 
     notVal :: FieldDecl -> Bool
     notVal = not . isValField
+
+    notSpec :: FieldDecl -> Bool
+    notSpec = not . isSpecField
 
     pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
     pairTypeFields t = do
