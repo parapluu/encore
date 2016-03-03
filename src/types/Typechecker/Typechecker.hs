@@ -1112,13 +1112,19 @@ instance Checkable Expr where
                            show (ppExpr target) ++ "'"
            when (isThisAccess target) $
                 tcError "Variable 'this' cannot be consumed"
+           whenM (isValFieldAccess eTarget) $
+                 tcError "Cannot consume val-field"
            let ty = AST.getType eTarget
            return $ setType ty cons {target = eTarget}
         where
           isGlobalVar VarAccess{name} =
               liftM not $ asks $ isLocal name
           isGlobalVar _ = return False
-
+          isValFieldAccess e@FieldAccess{target, name} = do
+              let targetType = AST.getType target
+              fdecl <- findField targetType name
+              return $ isValField fdecl
+          isValFieldAccess _ = return False
     --
     -- ----------------------
     --  E |- null : nullType
