@@ -90,17 +90,17 @@ loopInBacktrace = any (isLoopHead . snd)
       isLoopHead _ = False
 
 safeToSpeculateBT :: Backtrace -> Bool
-safeToSpeculateBT (_ : (_, BTExpr Speculate{}): _) =
-    True
-safeToSpeculateBT (_ : (_, BTExpr CAT{}): _) =
-    True
-safeToSpeculateBT (_ : (_, BTExpr Freeze{}): _) =
-    True
-safeToSpeculateBT (_ : (_, BTExpr IsFrozen{}): _) =
-    True
-safeToSpeculateBT ((_, BTExpr e@FieldAccess{}) : (_, BTExpr Assign{lhs}): _) =
-    e == lhs
-safeToSpeculateBT _ = False
+safeToSpeculateBT ((_, current):(_, parent):_)
+    | BTExpr Speculate{} <- parent = True
+    | BTExpr CAT{}       <- parent = True
+    | BTExpr Freeze{}    <- parent = True
+    | BTExpr IsFrozen{}  <- parent = True
+    | BTExpr Binop{}     <- parent = True
+    | BTExpr Unary{}     <- parent = True
+    | BTExpr e@FieldAccess{} <- current
+    , BTExpr Assign{lhs}     <- parent
+      = e == lhs
+    | otherwise = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
