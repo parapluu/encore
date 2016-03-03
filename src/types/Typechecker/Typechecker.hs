@@ -1116,6 +1116,10 @@ instance Checkable Expr where
            whenM (isValFieldAccess eTarget) $
                  tcError "Cannot consume val-field"
            let ty = AST.getType eTarget
+           isLinear <- isLinearType ty
+           unless isLinear $
+                  tcError $ "Cannot consume '" ++ show (ppExpr eTarget) ++
+                            "' of " ++ Ty.showWithKind ty
            return $ setType ty cons {target = eTarget}
         where
           isGlobalVar VarAccess{name} =
