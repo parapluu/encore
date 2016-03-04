@@ -257,6 +257,7 @@ data Error =
   | NonStableCatError Name
   | MalformedCatError
   | NonSpecFreezeError FieldDecl
+  | NonFreezableFieldError Type
   | MalformedFreezeError
   | MalformedIsFrozenError
   | ModifierMismatchError FieldDecl FieldDecl Type
@@ -467,7 +468,8 @@ instance Show Error where
     show (ModeOverrideError ty) =
         printf "Cannot override mode of %s" (Types.showWithKind ty)
     show (CannotConsumeError expr) =
-        printf "Cannot consume '%s'" (show (ppSugared expr))
+        printf "Cannot consume '%s' of %s"
+               (show $ ppSugared expr) (Types.showWithKind $ getType expr)
     show CannotGiveReadModeError =
         "Read mode must be manifestly set"
     show NonValInReadTraitError =
@@ -528,6 +530,9 @@ instance Show Error where
     show (NonSpecFreezeError fdecl) =
         printf "Field '%s' is not freezable"
                (show fdecl)
+    show (NonFreezableFieldError ty) =
+        printf "Field of %s cannot be frozen"
+               (Types.showWithKind ty)
     show MalformedFreezeError =
         "First argument of freeze must be a field access"
     show MalformedIsFrozenError =
