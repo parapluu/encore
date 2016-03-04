@@ -379,7 +379,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 | A.getType acc /= A.ftype fld =
                     Cast (translate . A.getType $ acc) theAccess
                 | otherwise = theAccess
-        theSpec = if A.isSpecField fld
+        theSpec = if A.isSpecField fld && Ty.isRefType (A.getType acc)
                   then Call (Nam "UNFREEZE") [theCast]
                   else theCast
         theAssign = Assign (Decl (translate (A.getType acc), Var tmp)) theSpec
@@ -879,7 +879,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         theCAS = Call (Nam "__sync_bool_compare_and_swap")
                       [Amp $ ntarg `Arrow` field, AsExpr nval, AsExpr narg]
         theAssign = Assign (Decl (bool, tmp)) theCAS
-        condNull = Statement $ If tmp (Assign narg Null) Skip
+        condNull = if Ty.isRefType $ A.getType arg
+                   then Statement $ If tmp (Assign narg Null) Skip
+                   else Skip
     if isNothing leftover
     then return (tmp, Seq [ttarg, tval, targ, theAssign, condNull])
     else do

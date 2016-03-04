@@ -798,11 +798,15 @@ instance Checkable Expr where
            then unbar argType `assertSubtypeOf` targetType -- TODO: Too much! Should only remove barred specs
            else argType `assertSubtypeOf` targetType
            checkArgShape eVal eArg
-           bindings <- getBindings eTarget eVal eArg
-           leftoverType <- AST.getType eArg `typeMinus` targetType
-           let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
-           return $ setEnvChange (extra ++ bindings) $
-                    setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+           if isRefType targetType
+           then do
+             bindings <- getBindings eTarget eVal eArg
+             leftoverType <- AST.getType eArg `typeMinus` targetType
+             let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
+             return $ setEnvChange (extra ++ bindings) $
+                      setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+           else
+             return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
         where
           checkTargetShape :: Expr -> TypecheckM ()
           checkTargetShape targ =
@@ -864,6 +868,9 @@ instance Checkable Expr where
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
+           unless (isRefType targetType) $
+                  tcError $ "Field of " ++ Ty.showWithKind targetType ++
+                            " cannot be frozen"
            eVal <- typecheck val
            targetType `assertSubtypeOf` AST.getType eVal
            bindings <- getBindings eTarget
@@ -891,6 +898,9 @@ instance Checkable Expr where
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
+           unless (isRefType targetType) $
+                  tcError $ "Field of " ++ Ty.showWithKind targetType ++
+                            " cannot be frozen"
            bindings <- getBindings eTarget
            return $ setEnvChange bindings $
                     setType boolType isFrozen{target = eTarget}
@@ -1310,18 +1320,20 @@ instance Checkable Expr where
            return $ setType voidType e {args = newArgs}
 
     doTypecheck e@(Speculate {arg = arg@FieldAccess{}}) =
-        do eArg <- typecheck arg
-           let (target, name) = case eArg of
-                                  FieldAccess{target, name} -> (target, name)
-               targetType = AST.getType target
+        do eArg@FieldAccess{target, name} <- typecheck arg
+           let targetType = AST.getType target
                argType = AST.getType eArg
            fdecl <- findField targetType name
            unless (isSpecField fdecl || isValField fdecl) $
                   tcError $ "Cannot speculate on field " ++ show fdecl
-           Just fields <- asks $ fields argType
-           let varFields = map fname $ filter isVarField fields
-               (stymied, _) = mapAccumL (\t f -> (t `bar` f, undefined)) argType varFields
-           return $ setType stymied e {arg = eArg}
+           if isRefType argType
+           then do
+             Just fields <- asks $ fields argType
+             let varFields = map fname $ filter isVarField fields
+                 (stymied, _) = mapAccumL (\t f -> (t `bar` f, undefined)) argType varFields
+             return $ setType stymied e {arg = eArg}
+           else
+             return $ setType argType e {arg = eArg}
     doTypecheck Speculate{} = tcError "Can only speculate on field accesses"
 
     --  E |- arg : int
