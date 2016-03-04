@@ -64,7 +64,7 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
 
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} = [mcpattern, mchandler, mcguard]
 getChildren CAT {target, val, arg} = [target, val, arg]
-getChildren Freeze {target, val} = [target, val]
+getChildren Freeze {target} = [target]
 getChildren IsFrozen {target} = [target]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
@@ -138,7 +138,7 @@ putChildren (arg:clauseList) e@(Match {clauses}) = e{arg = arg, clauses=putClaus
         putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) = (mc{mcpattern=pattern, mchandler=handler, mcguard=guard}):putClausesChildren rest rClauses
         putClausesChildren _ _ = error "Wrong number of children of of match clause"
 putChildren [target, val, arg] e@(CAT {}) = e{target, val, arg}
-putChildren [target, val] e@(Freeze {}) = e{target, val}
+putChildren [target] e@(Freeze {}) = e{target}
 putChildren [target] e@(IsFrozen {}) = e{target}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
@@ -204,7 +204,7 @@ putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
 putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
 putChildren _ e@(CAT {}) = error "'putChildren l CAT' expects l to have 3 elements"
-putChildren _ e@(Freeze {}) = error "'putChildren l Freeze' expects l to have 2 elements"
+putChildren _ e@(Freeze {}) = error "'putChildren l Freeze' expects l to have 1 element"
 putChildren _ e@(IsFrozen {}) = error "'putChildren l IsFrozen' expects l to have 1 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"

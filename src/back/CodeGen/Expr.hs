@@ -891,10 +891,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           theLeftoverAssign = Assign leftoverVar narg
       return (tmp, Seq [ttarg, tval, targ, theAssign, theLeftoverAssign, condNull])
 
-  translate freeze@(A.Freeze{A.target = A.FieldAccess{A.target, A.name},
-                             A.val}) = do
+  translate freeze@(A.Freeze{A.target = val@A.FieldAccess{A.target, A.name}}) = do
+    (nval, tval)   <- translate val
     (ntarg, ttarg) <- translate target
-    (nval, tval) <- translate val
     tmp <- Var <$> Ctx.genNamedSym "freeze"
     let field = fieldName name
         theCAS = Call (Nam "__sync_bool_compare_and_swap")

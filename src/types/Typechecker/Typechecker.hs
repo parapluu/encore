@@ -864,18 +864,16 @@ instance Checkable Expr where
     -- TODO
     -- -------------------------------
     --  E |- freeze(x.f, e1) : bool
-    doTypecheck freeze@(Freeze {target, val}) =
+    doTypecheck freeze@(Freeze {target}) =
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
            unless (isRefType targetType) $
                   tcError $ "Field of " ++ Ty.showWithKind targetType ++
                             " cannot be frozen"
-           eVal <- typecheck val
-           targetType `assertSubtypeOf` AST.getType eVal
            bindings <- getBindings eTarget
            return $ setEnvChange bindings $
-                    setType boolType freeze{target = eTarget, val = eVal}
+                    setType boolType freeze{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
           checkTargetShape targ =
@@ -887,8 +885,8 @@ instance Checkable Expr where
                                    "' is not freezable"
               _ -> tcError "First argument of freeze must be a field access"
 
-          getBindings acc@FieldAccess{target = var@VarAccess{name = x}, name = f} =
-              return [(x, AST.getType var `bar` f)]
+          getBindings FieldAccess{target = acc@VarAccess{name = x}, name = f} =
+              return [(x, AST.getType acc `bar` f)]
           getBindings _ = tcError "Target of freeze does not have correct shape"
 
     -- TODO
