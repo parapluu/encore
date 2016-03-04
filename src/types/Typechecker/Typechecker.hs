@@ -641,7 +641,7 @@ instance Checkable Expr where
     --  E |- if cond then thn else els : t
     doTypecheck ifThenElse@(IfThenElse {cond, thn, els}) =
         do eCond <- hasType cond boolType
-           let bindings = if hasEnvChange eCond
+           let bindings = if hasCondEnvChange eCond
                           then getEnvChange eCond
                           else []
            eThn <- local (extendEnvironment bindings) $ typecheck thn
@@ -803,7 +803,7 @@ instance Checkable Expr where
              bindings <- getBindings eTarget eVal eArg
              leftoverType <- AST.getType eArg `typeMinus` targetType
              let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
-             return $ setEnvChange (extra ++ bindings) $
+             return $ setCondEnvChange (extra ++ bindings) $
                       setType boolType cat{target = eTarget, val = eVal, arg = eArg}
            else
              return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
@@ -872,7 +872,7 @@ instance Checkable Expr where
                   tcError $ "Field of " ++ Ty.showWithKind targetType ++
                             " cannot be frozen"
            bindings <- getBindings eTarget
-           return $ setEnvChange bindings $
+           return $ setCondEnvChange bindings $
                     setType boolType freeze{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
@@ -900,7 +900,7 @@ instance Checkable Expr where
                   tcError $ "Field of " ++ Ty.showWithKind targetType ++
                             " cannot be frozen"
            bindings <- getBindings eTarget
-           return $ setEnvChange bindings $
+           return $ setCondEnvChange bindings $
                     setType boolType isFrozen{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
@@ -1368,10 +1368,10 @@ instance Checkable Expr where
         unless (isBoolType eType) $
                 tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
                           "Expression '" ++ show (ppSugared eOperand) ++ "' has type '" ++ show eType ++ "'"
-        let bindings = if hasEnvChange eOperand
+        let bindings = if hasCondEnvChange eOperand
                        then getEnvChange eOperand
                        else []
-        return $ setEnvChange bindings $
+        return $ setCondEnvChange bindings $
                  setType boolType unary { operand = eOperand }
 
     --  op \in {and, or}

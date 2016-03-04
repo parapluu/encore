@@ -75,12 +75,19 @@ class Show a => HasMeta a where
     hasEnvChange :: a -> Bool
     hasEnvChange x = Meta.hasEnvChange $ getMeta x
 
+    hasCondEnvChange :: a -> Bool
+    hasCondEnvChange x = Meta.hasCondEnvChange $ getMeta x
+
     getEnvChange :: a -> [(Name, Type)]
     getEnvChange x = Meta.getEnvChange $ getMeta x
 
     setEnvChange :: [(Name, Type)] -> a -> a
     setEnvChange bindings x = let meta = getMeta x
                               in setMeta x $ Meta.setEnvChange bindings meta
+
+    setCondEnvChange :: [(Name, Type)] -> a -> a
+    setCondEnvChange bindings x = let meta = getMeta x
+                                  in setMeta x $ Meta.setCondEnvChange bindings meta
 
 data EmbedTL = EmbedTL {
       etlmeta   :: Meta EmbedTL,
