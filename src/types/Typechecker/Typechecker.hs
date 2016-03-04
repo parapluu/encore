@@ -697,7 +697,7 @@ instance Checkable Expr where
     --  E |- if cond then thn else els : t
     doTypecheck ifThenElse@(IfThenElse {cond, thn, els}) =
         do eCond <- hasType cond boolType
-           let bindings = if hasEnvChange eCond
+           let bindings = if hasCondEnvChange eCond
                           then getEnvChange eCond
                           else []
            eThn <- local (extendEnvironment bindings) $ typecheck thn
@@ -896,7 +896,7 @@ instance Checkable Expr where
              bindings <- getBindings eTarget eVal eArg
              leftoverType <- AST.getType eArg `typeMinus` targetType
              let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
-             return $ setEnvChange (extra ++ bindings) $
+             return $ setCondEnvChange (extra ++ bindings) $
                       setType boolType cat{target = eTarget, val = eVal, arg = eArg}
            else
              return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
@@ -960,7 +960,7 @@ instance Checkable Expr where
            unless (isRefType targetType) $
                   tcError $ NonFreezableFieldError targetType
            bindings <- getBindings eTarget
-           return $ setEnvChange bindings $
+           return $ setCondEnvChange bindings $
                     setType boolType freeze{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
@@ -986,7 +986,7 @@ instance Checkable Expr where
            unless (isRefType targetType) $
                   tcError $ NonFreezableFieldError targetType
            bindings <- getBindings eTarget
-           return $ setEnvChange bindings $
+           return $ setCondEnvChange bindings $
                     setType boolType isFrozen{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
@@ -1460,10 +1460,10 @@ instance Checkable Expr where
                tcError $ UnaryOperandMismatchError uop eType
         let resultType | uop == Identifiers.NOT = boolType
                        | uop == Identifiers.NEG = eType
-            bindings = if hasEnvChange eOperand
+            bindings = if hasCondEnvChange eOperand
                        then getEnvChange eOperand
                        else []
-        return $ setEnvChange bindings $
+        return $ setCondEnvChange bindings $
                  setType resultType unary {operand = eOperand}
 
     --  op \in {and, or}
