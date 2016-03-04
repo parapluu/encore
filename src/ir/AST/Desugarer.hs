@@ -126,8 +126,8 @@ desugar FunctionCall{emeta, name = Name "CAT", args = [target, val, arg]} =
 desugar Assign{emeta, lhs = VarAccess{name}, rhs = cat@CAT{}} =
     cat{leftover = Just name}
 
-desugar FunctionCall{emeta, name = Name "freeze", args = [target, val]} =
-    Freeze emeta target val
+desugar FunctionCall{emeta, name = Name "freeze", args = [target]} =
+    Freeze emeta target
 
 desugar FunctionCall{emeta, name = Name "isFrozen", args = [target]} =
     IsFrozen emeta target

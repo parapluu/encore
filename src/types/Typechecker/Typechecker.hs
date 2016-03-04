@@ -953,17 +953,15 @@ instance Checkable Expr where
     -- TODO
     -- -------------------------------
     --  E |- freeze(x.f, e1) : bool
-    doTypecheck freeze@(Freeze {target, val}) =
+    doTypecheck freeze@(Freeze {target}) =
         do eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
            unless (isRefType targetType) $
                   tcError $ NonFreezableFieldError targetType
-           eVal <- typecheck val
-           targetType `assertSubtypeOf` AST.getType eVal
            bindings <- getBindings eTarget
            return $ setEnvChange bindings $
-                    setType boolType freeze{target = eTarget, val = eVal}
+                    setType boolType freeze{target = eTarget}
         where
           checkTargetShape :: Expr -> TypecheckM ()
           checkTargetShape targ =
@@ -973,7 +971,6 @@ instance Checkable Expr where
                   unless (isSpecField fdecl) $
                          tcError $ NonSpecFreezeError fdecl
               _ -> pushError targ MalformedFreezeError
-
           getBindings acc@FieldAccess{target = var@VarAccess{name = x}, name = f} =
               return [(x, AST.getType var `bar` f)]
           getBindings _ =
