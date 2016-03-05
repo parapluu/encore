@@ -160,14 +160,22 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
 {
   ctx->current = actor;
 
+  size_t app = 0;
+
   if (!has_flag(actor, FLAG_SYSTEM)) {
     if (encore_actor_run_hook((encore_actor_t *)actor)) {
-      return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
+      if (has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED)) {
+        return false;
+      }
+      app++;
+      try_gc(ctx, actor);
+      if (app == batch) {
+        return true;
+      }
     }
   }
 
   pony_msg_t* msg;
-  size_t app = 0;
 
   while(actor->continuation != NULL)
   {
