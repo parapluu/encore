@@ -124,8 +124,16 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
          in
          (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
-                           gcSend [] [] [traceFuture, traceTask] ++
-                           [futureFulfilStmt, taskFreeStmt])
+                             [Embed $ "",
+                              Embed $ "// --- GC on receiving ----------------------------------------",
+                              Statement $ Call (Nam "pony_gc_recv") ([encoreCtxVar]),
+                              traceFuture,
+                              traceTask,
+                              Embed $ "//---You need to trace the task env and task dependencies---",
+                              Statement $ Call (Nam "pony_recv_done") ([encoreCtxVar]),
+                              Embed $ "// --- GC on sending ----------------------------------------",
+                              Embed $ ""]++
+                       [futureFulfilStmt, taskFreeStmt])
 
        mthdDispatchClause mdecl
            | A.isStreamMethod mdecl =
