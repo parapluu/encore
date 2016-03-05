@@ -269,7 +269,7 @@ static void run(scheduler_t* sched)
       if(actor == NULL)
       {
         // Termination.
-        assert(pop(sched) == NULL);
+        assert(pop_global(sched) == NULL);
         return;
       }
     }
@@ -306,7 +306,7 @@ static void run(scheduler_t* sched)
 
         if(next == NULL)
         {
-          assert(pop(sched) == NULL);
+          assert(pop_global(sched) == NULL);
           // Termination.
           return;
         }
@@ -414,9 +414,9 @@ static void scheduler_shutdown()
 
   for(uint32_t i = start; i < scheduler_count; i++) {
     pony_thread_join(scheduler[i].tid);
-    assert(pop(&scheduler[i]) == NULL);
+    assert(pop_global(&scheduler[i]) == NULL);
   }
-  assert(pop(&scheduler[0]) == NULL);
+  assert(pop_global(&scheduler[0]) == NULL);
 
 #ifdef USE_TELEMETRY
   printf("\"telemetry\": [\n");
