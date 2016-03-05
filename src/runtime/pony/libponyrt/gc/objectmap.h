@@ -41,6 +41,8 @@ object_t* objectmap_register_final(objectmap_t* map, void* address,
 
 void objectmap_final(objectmap_t* map);
 
+size_t collect_object(objectmap_t *map, object_t *obj);
+
 size_t objectmap_sweep(objectmap_t* map);
 
 PONY_EXTERN_C_END

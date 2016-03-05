@@ -486,6 +486,7 @@ bool gc_release(gc_t* gc, actorref_t* aref)
       // mark it as reachable again.
       if(!object_reachable(obj_local))
       {
+        gc->finalisers -= collect_object(&gc->local, obj_local);
         chunk_t* chunk = (chunk_t*)pagemap_get(p);
         heap_free(chunk, p);
       }
