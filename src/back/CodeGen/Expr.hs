@@ -898,9 +898,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              traceFuture = Statement $ Call ponyTraceObject
                     [encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
              traceTask = Statement $ Call ponyTraceObject
-                    [encoreCtxVar, Var taskName, AsLval $ Nam "NULL" ]
+                    [encoreCtxVar, Var taskName, AsLval $ Nam "task_trace" ]
              traceEnv =  Statement $ Call ponyTraceObject
-                    [encoreCtxVar, Var $ show envName, AsLval $ Nam "task_trace" ]
+                    [encoreCtxVar, Var $ show envName, AsLval $ traceName ]
              traceDependency =  Statement $ Call ponyTraceObject [encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
          packedEnv <- mapM (packFreeVars envName) freeVars
          return $ (Var futName, Seq $ (encoreAlloc envName) : packedEnv ++
