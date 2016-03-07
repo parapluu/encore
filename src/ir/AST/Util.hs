@@ -45,6 +45,7 @@ getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
+getChildren MiniLet {decl = (_, val)} = [val]
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
@@ -113,6 +114,7 @@ putChildren [] e@(MaybeValue _ NothingData) = e
 putChildren args e@(Tuple {}) = e{args = args}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
+putChildren [val] e@(MiniLet{decl = (x, _)}) = e{decl = (x, val)}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
 putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
@@ -176,6 +178,7 @@ putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 el
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
 putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
+putChildren _ e@(MiniLet{decl}) = error "'putChildren l MiniLet' expects l to have 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
 putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 elements"

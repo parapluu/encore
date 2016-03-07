@@ -567,8 +567,16 @@ expr  =  unit
                                      val <- expression
                                      return (Name x, val)
       sequence = do pos <- getPosition
-                    seq <- braces (expression `sepEndBy1` semi)
+                    seq <- braces ((try expression <|> miniLet) `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
+          where
+            miniLet = do
+              emeta <- meta <$> getPosition
+              reserved "let"
+              x <- Name <$> identifier
+              reservedOp "="
+              val <- expression
+              return MiniLet{emeta, decl = (x, val)}
       ifThenElse = do pos <- getPosition
                       reserved "if"
                       cond <- expression

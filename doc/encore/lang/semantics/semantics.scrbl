@@ -174,8 +174,21 @@ If you desire to run several expressions in sequence, you must use a
 }|
 
 A sequence expression is a number of expressions, separated by
-semicolons and wrapped in curly braces. It evaluates to whatever the
-last subexpression evaluates.
+semicolons and wrapped in curly braces. It evaluates to whatever
+the last subexpression evaluates. To simplify the introduction of
+variables, you can use the following syntax instead of normal
+let-expressions:
+
+@codeblock|{
+  def variables() : String {
+    print "Variables can be introduced anywhere in a sequence";
+    let x = 42;
+    let s = "Foo";
+    print("x is {}", x);
+    s;
+  }
+
+}|
 
 
 @section[#:tag "futures"]{Futures}

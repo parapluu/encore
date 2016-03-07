@@ -190,6 +190,8 @@ ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
+ppExpr MiniLet {decl = (x, val)} =
+    ppLet <+> ppName x <+> equals <+> ppExpr val
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
