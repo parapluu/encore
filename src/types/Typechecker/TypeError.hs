@@ -262,6 +262,7 @@ data Error =
   | MalformedIsFrozenError
   | ModifierMismatchError FieldDecl FieldDecl Type
   | MissingSpeculationError FieldDecl
+  | SpeculativeCatError Expr
   | SimpleError String
 
 arguments 1 = "argument"
@@ -494,7 +495,7 @@ instance Show Error where
     show (ThreadArgumentError arg) =
         printf ("Cannot pass thread local argument '%s' " ++
                 "to another active object")
-               (show (ppExpr arg))
+               (show (ppSugared arg))
     show (ThreadReturnError name) =
         printf ("Method '%s' returns a thread local capability and cannot " ++
                 "be called by a different active object")
@@ -544,6 +545,10 @@ instance Show Error where
     show (MissingSpeculationError fdecl) =
         printf "Cannot read field '%s' without speculation"
                (show fdecl)
+    show (SpeculativeCatError expr) =
+        printf ("Cannot transfer ownership in '%s' of type '%s' " ++
+                "since it contains speculative values")
+               (show (ppSugared expr)) (show (getType expr))
     show (SimpleError msg) = msg
 
 data TCWarning = TCWarning Backtrace Warning

@@ -182,6 +182,7 @@ resolveMode actual formal
   | isClassType actual = do
       unless (isModeless actual) $
         tcError $ CannotHaveModeError actual
+      mapM_ (findField formal) (barredFields actual)
       return actual
   | isTraitType actual = do
       when (isModeless actual) $
