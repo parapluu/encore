@@ -212,7 +212,7 @@ data RefInfo = RefInfo{refId :: String
 instance Eq RefInfo where
     ref1 == ref2 = refId ref1 == refId ref2 &&
                    parameters ref1 == parameters ref2 &&
-                   barred ref1 == barred ref2
+                   sort (barred ref1) == sort (barred ref2)
 
 instance Show RefInfo where
     show RefInfo{mode, refId, parameters, barred}
@@ -246,11 +246,12 @@ data Type = Type {inner :: InnerType
 
 unbox ty = ty{box = Nothing}
 
-unbar ty
+unbar ty f
     | isRefType ty
     , iType <- inner ty
     , info <- refInfo iType
-      = ty{inner = iType{refInfo = info{barred = []}}}
+    , barred <- barred info
+      = ty{inner = iType{refInfo = info{barred = barred \\ [f]}}}
     | otherwise = error $ "Types.hs: Cannot unbar " ++ showWithKind ty
 
 bar ty f

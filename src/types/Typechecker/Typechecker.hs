@@ -795,7 +795,10 @@ instance Checkable Expr where
            eArg <- typecheck arg
            let argType = AST.getType eArg
            if isPristineRefType argType
-           then unbar argType `assertSubtypeOf` targetType -- TODO: Too much! Should only remove barred specs
+           then case val of
+                  FieldAccess{name = g} -> (argType `unbar` g)
+                                           `assertSubtypeOf` targetType
+                  _ -> argType `assertSubtypeOf` targetType
            else argType `assertSubtypeOf` targetType
            checkArgShape eVal eArg
            if isRefType targetType
@@ -820,15 +823,19 @@ instance Checkable Expr where
 
           checkArgShape val arg =
             case (val, arg) of
-              (VarAccess{}, VarAccess{}) -> return ()
+              (VarAccess{}, VarAccess{}) -> do
+                let argType = AST.getType arg
+                assertNoSpeculative argType
               (FieldAccess{target = target@VarAccess{name = y}, name = g},
                VarAccess{name = y'}) -> do
+                 let targetType = AST.getType target
                  unless (y == y') $
                         tcError "CAT-link must have shape CAT(x.f, y.g, y)"
-                 fdecl <- findField (AST.getType target) g
+                 fdecl <- findField targetType g
                  unless (isValField fdecl) $
                         tcError $ "Field '" ++ show g ++ "' must appear " ++
                                   "as a val-field to be linked in by a CAT"
+                 assertNoSpeculative $ targetType `unbar` g
               (VarAccess{name = y},
                FieldAccess{target = target@VarAccess{name = y'}, name = g}) -> do
                  unless (y == y') $
@@ -839,13 +846,21 @@ instance Checkable Expr where
                                   "as a val-field to be unlinked by a CAT"
               _ -> tcError "CAT does not swap, link or unlink"
 
+          assertNoSpeculative ty = do
+                let fs = barredFields ty
+                Just fields <- asks $ fields ty
+                let barredFields = filter ((`elem` fs) . fname) fields
+                    nonVarFields = filter (not . isVarField) barredFields
+                unless (null nonVarFields) $
+                     tcError $ "Cannot CAT in '" ++ show (ppExpr arg) ++
+                               "' of type '" ++ show ty ++
+                               "' since it contains speculative values"
+
+
           getBindings target@FieldAccess{}
                       val@VarAccess{name}
-                      FieldAccess{target = argTarget, name = f} = do
-                          fdecl <- findField (unbar $ AST.getType argTarget) f
-                          if isSpecField fdecl
-                          then return [(name, AST.getType target `bar` f)]
-                          else return [(name, AST.getType target)]
+                      FieldAccess{target = argTarget, name = g} =
+                          return [(name, AST.getType target `bar` g)]
           getBindings target@FieldAccess{}
                       val@VarAccess{name}
                       arg@VarAccess{} = return [(name, AST.getType target)] -- TODO: Is this safe?
@@ -1056,12 +1071,13 @@ instance Checkable Expr where
              eRhs <- typecheck rhs
              let lhsType = AST.getType eLhs
                  rhsType = AST.getType eRhs
-             isDowncast <- lhsType `subtypeOf` rhsType
+             isDowncast <- liftM (lhsType /= rhsType &&) $
+                           lhsType `subtypeOf` rhsType
              fdecl <- findField targetType f
              if isDowncast && not (isVarField fdecl)
              then do
                let bindings =
-                       [(name target, targetType `bar` f) | isSpecField fdecl]
+                       [(name target, targetType `bar` f)]
                return $ setEnvChange bindings $
                         setType voidType assign {lhs = eLhs, rhs = eRhs}
              else do

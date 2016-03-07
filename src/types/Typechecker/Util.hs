@@ -141,11 +141,7 @@ resolveType = typeMapM resolveSingleType
           | isClassType actual = do
               unless (isModeless actual) $
                      tcError "Class types can not have modes"
-              let fs = barredFields actual
-              mapM_ (\f -> do fdecl <- findField formal f
-                              when (isValField fdecl) $
-                                   tcError $ "Val field '" ++ show f ++
-                                             "' cannot be barred") fs
+              mapM_ (findField formal) (barredFields actual)
               return actual
           | isTraitType actual = do
               when (isModeless actual) $
