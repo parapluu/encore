@@ -51,6 +51,7 @@ runtimeType ty
     | Ty.isRangeType ty  = Amp rangeTypeRecName
     | Ty.isParType ty    = Amp partyTypeRecName
     | Ty.isPrimitive ty  = AsExpr $ Var "ENCORE_PRIMITIVE"
+    | Ty.isMaybeType ty  = Amp optionTypeRecName
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
 getRuntimeTypeVariables t

@@ -133,6 +133,12 @@ ponyTraceActor = Nam "pony_traceactor"
 unit :: CCode Lval
 unit = Embed "UNIT"
 
+nothing :: CCode Lval
+nothing = Var "NOTHING"
+
+just :: CCode Lval
+just = Var "JUST"
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let
@@ -414,11 +420,17 @@ closureMkFn = Nam "closure_mk"
 closureCallName :: CCode Name
 closureCallName = Nam "closure_call"
 
+optionMkFn :: CCode Name
+optionMkFn = Nam "option_mk"
+
 closureTraceFn :: CCode Name
 closureTraceFn = Nam "closure_trace"
 
 arrayTraceFn :: CCode Name
 arrayTraceFn = Nam "array_trace"
+
+optionTraceFn :: CCode Name
+optionTraceFn = Nam "option_trace"
 
 streamTraceFn :: CCode Name
 streamTraceFn = Nam "stream_trace"
@@ -488,3 +500,6 @@ taskRunner = Nam "task_runner"
 
 taskFree :: CCode Name
 taskFree = Nam "task_free"
+
+optionTypeRecName :: CCode Name
+optionTypeRecName = Nam "option_type"
