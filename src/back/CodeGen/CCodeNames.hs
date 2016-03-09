@@ -432,6 +432,9 @@ arrayTraceFn = Nam "array_trace"
 optionTraceFn :: CCode Name
 optionTraceFn = Nam "option_trace"
 
+rangeTraceFn :: CCode Name
+rangeTraceFn = Nam "range_trace"
+
 streamTraceFn :: CCode Name
 streamTraceFn = Nam "stream_trace"
 

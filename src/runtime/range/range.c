@@ -12,9 +12,9 @@ struct range_t
 
 pony_type_t range_type =
   {
-    .id=ID_RANGE,
-    .size=sizeof(struct range_t),
-    .trace=range_trace,
+    .id = ID_RANGE,
+    .size = sizeof(struct range_t),
+    .trace = range_trace,
   };
 
 void range_trace(pony_ctx_t* ctx, void *p)
