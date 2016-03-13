@@ -16,6 +16,7 @@ module Typechecker.TypeError (Backtrace
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
                              ,safeToSpeculateBT
+                             ,safeToReadOnceBT
                              ) where
 
 import Text.PrettyPrint
@@ -97,6 +98,16 @@ safeToSpeculateBT ((_, current):(_, parent):_)
     | BTExpr IsFrozen{}  <- parent = True
     | BTExpr Binop{}     <- parent = True
     | BTExpr Unary{}     <- parent = True
+    | BTExpr e@FieldAccess{} <- current
+    , BTExpr Assign{lhs}     <- parent
+      = e == lhs
+    | otherwise = False
+
+safeToReadOnceBT :: Backtrace -> Bool
+safeToReadOnceBT ((_, current):(_, parent):_)
+    | BTExpr CAT{}           <- parent = True
+    | BTExpr TryAssign{}     <- parent = True
+    | BTExpr IsFrozen{}      <- parent = True
     | BTExpr e@FieldAccess{} <- current
     , BTExpr Assign{lhs}     <- parent
       = e == lhs
@@ -263,6 +274,10 @@ data Error =
   | ModifierMismatchError FieldDecl FieldDecl Type
   | MissingSpeculationError FieldDecl
   | SpeculativeCatError Expr
+  | OnceFieldTypeError Type
+  | TryAssignError FieldDecl
+  | MalformedTryAssignError
+  | NonStableFieldAccessError FieldDecl
   | SimpleError String
 
 arguments 1 = "argument"
@@ -527,7 +542,10 @@ instance Show Error where
         printf "Field '%s' must be stable to be used in a CAT"
                (show f)
     show MalformedCatError =
-        "CAT does not swap, link or unlink"
+        "CAT must take one of the following forms:\n" ++
+        "  CAT(x.f, y, y.g)" ++
+        "  CAT(x.f, y.g, y)" ++
+        "  CAT(x.f, y, z)"
     show (NonSpecFreezeError fdecl) =
         printf "Field '%s' is not freezable"
                (show fdecl)
@@ -549,6 +567,17 @@ instance Show Error where
         printf ("Cannot transfer ownership in '%s' of type '%s' " ++
                 "since it contains speculative values")
                (show (ppSugared expr)) (show (getType expr))
+    show (OnceFieldTypeError ty) =
+        printf "Once-fields cannot have %s (must have ref-type)"
+               (Types.showWithKind ty)
+    show (TryAssignError fdecl) =
+        printf "Field '%s' is not a once-field"
+               (show fdecl)
+    show MalformedTryAssignError =
+        "Writing to a once-field must have the shape try(x.f = y)"
+    show (NonStableFieldAccessError fdecl) =
+        printf "Cannot read field '%s' without controlling its stability first"
+               (show fdecl)
     show (SimpleError msg) = msg
 
 data TCWarning = TCWarning Backtrace Warning

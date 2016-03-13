@@ -41,6 +41,7 @@
         "match"
         "new"
         "not"
+        "once"
         "or"
         "passive"
         "print"
@@ -57,6 +58,7 @@
         "this"
         "thread"
         "trait"
+        "try"
         "typedef"
         "unless"
         "val"
@@ -94,6 +96,7 @@
         "||"
         ">>"
         ))
+
 (setq encore-danger-words '("embed" "body" "end" "unsafe"))
 (setq encore-constants '("true" "false" "null"))
 (setq encore-primitives '("bool" "char" "int" "string" "void" ))

@@ -150,6 +150,14 @@ instance Precheckable FieldDecl where
       ftype' <- resolveType ftype
       when (isPristineRefType ftype') $
            tcError $ SimpleError "Fields cannot have pristine type"
+      when (isOnceField f) $
+           unless (isRefType ftype') $
+                  tcError $ OnceFieldTypeError ftype'
+      when (isRefType ftype') $ do
+        let fs = barredFields ftype'
+        Just fields <- asks $ fields ftype'
+        when (any ((`elem` fs) . fname) fields) $
+             tcError $ SimpleError "Fields can only bar var-fields"
       thisType <- liftM fromJust . asks . varLookup $ thisName
       when (isReadRefType thisType) $ do
            unless (isValField f) $

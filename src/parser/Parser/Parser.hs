@@ -471,6 +471,7 @@ classDecl = do
 modifier :: Parser Modifier
 modifier = val
         <|> spec
+        <|> once
         <?>
         "modifier"
     where
@@ -480,6 +481,9 @@ modifier = val
       spec = do
         reserved "spec"
         return Spec
+      once = do
+        reserved "once"
+        return Once
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
@@ -678,6 +682,7 @@ highOrderExpr = adtExpr
 expr :: Parser Expr
 expr  =  embed
      <|> break
+     <|> cat
      <|> try print
      <|> speculate
      <|> closure
@@ -874,6 +879,21 @@ expr  =  embed
       suspend = do pos <- getPosition
                    reserved "suspend"
                    return $ Suspend (meta pos)
+      functionAsValue = do pos <- getPosition
+                           fun <- identifier
+                           typeParams <- angles $ commaSep1 typ
+                           return $
+                             FunctionAsValue (meta pos) typeParams (Name fun)
+      cat = do pos <- getPosition
+               reserved "CAT"
+               args <- parens arguments
+               leftover <- option Nothing $ do {reserved "=>"; Just . Name <$> identifier}
+               return $ CAT (meta pos) args leftover
+      functionCall = do pos <- getPosition
+                        fun <- identifier
+                        typeParams <- option Nothing (try $ angles $ Just <$> commaSep typ)
+                        args <- parens arguments
+                        return $ FunctionCall (meta pos) typeParams (Name fun) args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)

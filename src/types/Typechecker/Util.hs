@@ -28,6 +28,7 @@ module Typechecker.Util(TypecheckM
                        ,isThreadType
                        ,isAliasableType
                        ,checkConjunction
+                       ,typeMinus
                        ) where
 
 import Identifiers
@@ -594,3 +595,13 @@ checkConjunction source sinks
     singleConjunction ty1 ty2 (tys1, tys2) =
         ty1 `elem` tys1 && ty2 `elem` tys2 ||
         ty1 `elem` tys2 && ty2 `elem` tys1
+
+typeMinus ty1 ty2 = do
+    Just fields1 <- asks $ fields ty1
+    let fs1 = barredFields ty1
+        fs2 = barredFields ty2
+        barrableFields = map fname $ filter (not . isValField) fields1
+        fs = fs1 `union` (barrableFields \\ fs2)
+        (ty1', _) = mapAccumL (\t f -> (t `bar` f, undefined)) ty1 fs
+    return $ unbox ty1'
+    -- TODO: What if ty1 is not linear? What if it is borrowed ?!

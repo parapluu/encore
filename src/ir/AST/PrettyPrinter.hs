@@ -20,6 +20,8 @@ module AST.PrettyPrinter (ppExpr
 
 -- Library dependencies
 import Text.PrettyPrint
+import Data.List(intercalate)
+import Data.Maybe
 
 -- Module dependencies
 import Identifiers
@@ -208,8 +210,11 @@ ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
-ppExpr CAT {target, val, arg} =
-  "CAT" <> parens (commaSep $ map ppExpr [target, val, arg])
+ppExpr CAT {args, leftover} =
+  "CAT" <> parens (commaSep $ map ppExpr args) <>
+           maybe empty ((text " =>" <+>) . ppName) leftover
+ppExpr TryAssign {target, arg} =
+    "try" <> parens (commaSep $ map ppExpr [target, arg])
 ppExpr Freeze {target} = "freeze" <> parens (ppExpr target)
 ppExpr IsFrozen {target} = "isFrozen" <> parens (ppExpr target)
 ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
