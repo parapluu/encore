@@ -188,8 +188,8 @@ noOverlapFields capability =
         leftFields = concatMap snd leftPairs
         rightFields = concatMap snd rightPairs
         common = intersect leftFields rightFields
-        leftCommon = [f | f <- leftFields, f `elem` common, notVal f, notSpec f]
-        rightCommon = [f | f <- rightFields, f `elem` common, notVal f, notSpec f]
+        leftCommon = [f | f <- leftFields, f `elem` common, isVar f]
+        rightCommon = [f | f <- rightFields, f `elem` common, isVar f]
         firstErrField = if (not . null) leftCommon then head leftCommon else head rightCommon
         leftType = findTypeHasField leftPairs firstErrField
         rightType = findTypeHasField rightPairs firstErrField
@@ -205,11 +205,8 @@ noOverlapFields capability =
         "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
          (show left) (show right) (show field)
 
-    notVal :: FieldDecl -> Bool
-    notVal = not . isValField
-
-    notSpec :: FieldDecl -> Bool
-    notSpec = not . isSpecField
+    isVar :: FieldDecl -> Bool
+    isVar = isVarField
 
     pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
     pairTypeFields t = do
@@ -641,11 +638,15 @@ instance Checkable Expr where
     --  E |- if cond then thn else els : t
     doTypecheck ifThenElse@(IfThenElse {cond, thn, els}) =
         do eCond <- hasType cond boolType
-           let bindings = if hasCondEnvChange eCond
-                          then getEnvChange eCond
-                          else []
-           eThn <- local (extendEnvironment bindings) $ typecheck thn
-           eEls <- typecheck els
+           let (thenBindings, elseBindings)
+                 | hasCondEnvChange eCond =
+                     case eCond of
+                       Unary{uop = Identifiers.NOT} -> ([], getEnvChange eCond)
+                       _ -> (getEnvChange eCond, [])
+                 | hasEnvChange eCond = (getEnvChange eCond, getEnvChange eCond)
+                 | otherwise = ([], [])
+           eThn <- local (extendEnvironment thenBindings) $ typecheck thn
+           eEls <- local (extendEnvironment elseBindings) $ typecheck els
            let thnType = AST.getType eThn
                elsType = AST.getType eEls
            resultType <- matchBranches thnType elsType
@@ -658,6 +659,8 @@ instance Checkable Expr where
                 (isRefType ty2 || isCapabilityType ty2) = return ty2
               | isNullType ty2 &&
                 (isRefType ty1 || isCapabilityType ty1) = return ty1
+              | isVoidType ty1
+              || isVoidType ty2 = return voidType
               | otherwise = if ty2 == ty1
                             then return ty1
                             else tcError $ "Type mismatch in different branches of if-statement:\n" ++
@@ -786,30 +789,32 @@ instance Checkable Expr where
     -- TODO
     -- -------------------------------
     --  E |- CAT(x.f, e1, e2) : bool
-    doTypecheck cat@(CAT {target, val, arg, leftover}) =
-        do eTarget <- typecheck target
+    doTypecheck cat@(CAT {args, leftover})
+        | [target, witness, arg] <- args = do
+           eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
-           eVal <- typecheck val
-           targetType `assertSubtypeOf` AST.getType eVal
+           eWitness <- typecheck witness
+           targetType `assertSubtypeOf` AST.getType eWitness
            eArg <- typecheck arg
            let argType = AST.getType eArg
            if isPristineRefType argType
-           then case val of
+           then case witness of
                   FieldAccess{name = g} -> (argType `unbar` g)
                                            `assertSubtypeOf` targetType
                   _ -> argType `assertSubtypeOf` targetType
            else argType `assertSubtypeOf` targetType
-           checkArgShape eVal eArg
+           checkArgShape eWitness eArg
            if isRefType targetType
            then do
-             bindings <- getBindings eTarget eVal eArg
-             leftoverType <- AST.getType eArg `typeMinus` targetType
+             bindings <- getBindings eTarget eWitness eArg
+             leftoverType <- argType `typeMinus` targetType
              let extra = maybe [] (\x -> [(x, leftoverType)]) leftover
              return $ setCondEnvChange (extra ++ bindings) $
-                      setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+                      setType boolType cat{args = [eTarget, eWitness, eArg]}
            else
-             return $ setType boolType cat{target = eTarget, val = eVal, arg = eArg}
+             return $ setType boolType cat{args = [eTarget, eWitness, eArg]}
+        | otherwise = tcError "CAT takes three arguments"
         where
           checkTargetShape :: Expr -> TypecheckM ()
           checkTargetShape targ =
@@ -821,61 +826,68 @@ instance Checkable Expr where
                                    "' is not speculatable"
               _ -> tcError "First argument of CAT must be a field access"
 
-          checkArgShape val arg =
-            case (val, arg) of
-              (VarAccess{}, VarAccess{}) -> do
-                let argType = AST.getType arg
-                assertNoSpeculative argType
+          checkArgShape witness arg =
+            case (witness, arg) of
+              (VarAccess{}, VarAccess{}) -> return ()
               (FieldAccess{target = target@VarAccess{name = y}, name = g},
                VarAccess{name = y'}) -> do
                  let targetType = AST.getType target
                  unless (y == y') $
                         tcError "CAT-link must have shape CAT(x.f, y.g, y)"
                  fdecl <- findField targetType g
-                 unless (isValField fdecl) $
+                 unless (isValField fdecl || isOnceField fdecl) $
                         tcError $ "Field '" ++ show g ++ "' must appear " ++
                                   "as a val-field to be linked in by a CAT"
-                 assertNoSpeculative $ targetType `unbar` g
               (VarAccess{name = y},
                FieldAccess{target = target@VarAccess{name = y'}, name = g}) -> do
                  unless (y == y') $
                         tcError "CAT-unlink must have shape CAT(x.f, y, y.g)"
                  fdecl <- findField (AST.getType target) g
-                 unless (isValField fdecl) $
+                 unless (isValField fdecl || isOnceField fdecl) $
                         tcError $ "Field '" ++ show g ++ "' must appear " ++
                                   "as a val-field to be unlinked by a CAT"
               _ -> tcError "CAT does not swap, link or unlink"
 
-          assertNoSpeculative ty = do
-                let fs = barredFields ty
-                Just fields <- asks $ fields ty
-                let barredFields = filter ((`elem` fs) . fname) fields
-                    nonVarFields = filter (not . isVarField) barredFields
-                unless (null nonVarFields) $
-                     tcError $ "Cannot CAT in '" ++ show (ppExpr arg) ++
-                               "' of type '" ++ show ty ++
-                               "' since it contains speculative values"
-
-
           getBindings target@FieldAccess{}
-                      val@VarAccess{name}
+                      VarAccess{name}
                       FieldAccess{target = argTarget, name = g} =
                           return [(name, AST.getType target `bar` g)]
           getBindings target@FieldAccess{}
-                      val@VarAccess{name}
-                      arg@VarAccess{} = return [(name, AST.getType target)] -- TODO: Is this safe?
+                      VarAccess{name}
+                      VarAccess{} = return [(name, AST.getType target)] -- TODO: Is this safe?
           getBindings _ _ _ = return []
 
-          typeMinus ty1 ty2 = do
-              Just fields1 <- asks $ fields ty1
-              let fs1 = barredFields ty1
-                  fs2 = barredFields ty2
-                  barrableFields = map fname $ filter (not . isValField) fields1
-                  fs = fs1 `union` (barrableFields \\ fs2)
-                  (ty1', _) = mapAccumL (\t f -> (t `bar` f, undefined)) ty1 fs
-              return $ unbox ty1'
-              -- TODO: What if ty1 is not linear? What if it is borrowed ?!
+    -- TODO
+    -- -------------------------------
+    --  E |- try(x.f = y) : bool
+    doTypecheck try@(TryAssign {target, arg}) =
+        do eTarget <- typecheck target
+           checkTargetShape eTarget
+           eArg <- typecheck arg
+           let targetType = AST.getType eTarget
+               argType = AST.getType eArg
+           argType `assertSubtypeOf` targetType
+           checkArgShape eArg
+           let bindings = getBindings eTarget
+           return $ setEnvChange bindings $
+                    setType boolType try{target = eTarget, arg = eArg}
+        where
+          checkTargetShape :: Expr -> TypecheckM ()
+          checkTargetShape targ =
+            case targ of
+              FieldAccess{target, name} -> do
+                  fdecl <- findField (AST.getType target) name
+                  unless (isOnceField fdecl) $
+                         tcError $ "Field '" ++ show fdecl ++
+                                   "' is not a once-field"
+              _ -> tcError "First argument of try must be a field access"
 
+          checkArgShape VarAccess{} = return ()
+          checkArgShape _ =
+              tcError "Writing to a once-field must have the shape try(x.f = y)"
+
+          getBindings FieldAccess{target = acc@VarAccess{name = x}, name = f} =
+              [(x, AST.getType acc `bar` f)]
     -- TODO
     -- -------------------------------
     --  E |- freeze(x.f, e1) : bool
@@ -923,7 +935,7 @@ instance Checkable Expr where
             case targ of
               FieldAccess{target, name} -> do
                   fdecl <- findField (AST.getType target) name
-                  unless (isSpecField fdecl) $
+                  unless (isSpecField fdecl || isOnceField fdecl) $
                          tcError $ "Field '" ++ show fdecl ++
                                    "' is not freezable"
               _ -> tcError "First argument of isFrozen must be a field access"
@@ -1040,6 +1052,11 @@ instance Checkable Expr where
         tcError $ "Cannot read field of expression '" ++
           show (ppSugared target) ++ "' of " ++ Ty.showWithKind targetType
       fdecl <- findField targetType name
+      safeOnce <- asks safeToReadOnce
+      when (isOnceField fdecl) $
+           unless safeOnce $
+               tcError $ "Cannot read field '" ++ show fdecl ++
+                         "' without controlling its stability first"
       safeToSpec <- asks safeToSpeculate
       when (isSpecField fdecl) $
            unless safeToSpec $
@@ -1106,6 +1123,11 @@ instance Checkable Expr where
                                  show name ++ "' in non-pristine " ++
                                  classOrTraitName targetType ++
                                  " without CAT"
+                  when (isOnceField fdecl) $
+                       tcError $ "Cannot assign to once-field '" ++
+                                 show name ++ "' in non-pristine " ++
+                                 classOrTraitName targetType ++
+                                 " without CAT"
               | otherwise = return ()
 
     doTypecheck assign@(Assign {lhs, rhs}) =
@@ -1114,7 +1136,10 @@ instance Checkable Expr where
                "' cannot be assigned to"
            eLhs <- typecheck lhs
            eRhs <- hasType rhs (AST.getType eLhs)
-           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+           if hasEnvChange eRhs
+           then return $ setEnvChange (getEnvChange eRhs) $
+                         setType voidType assign {lhs = eLhs, rhs = eRhs}
+           else return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
     --  name : t \in E
     -- ----------------
@@ -1338,7 +1363,7 @@ instance Checkable Expr where
            let targetType = AST.getType target
                argType = AST.getType eArg
            fdecl <- findField targetType name
-           unless (isSpecField fdecl || isValField fdecl) $
+           when (isVarField fdecl) $
                   tcError $ "Cannot speculate on field " ++ show fdecl
            if isRefType argType
            then do

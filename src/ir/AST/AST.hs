@@ -261,11 +261,13 @@ instance HasMeta TraitDecl where
 
 data Modifier = Val
               | Spec
+              | Once
                 deriving(Eq)
 
 instance Show Modifier where
     show Val  = "val"
     show Spec = "spec"
+    show Once = "once"
 
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
@@ -288,6 +290,9 @@ instance HasMeta FieldDecl where
     setMeta f m = f{fmeta = m}
     setType ty f@(Field {fmeta, ftype}) = f {fmeta = Meta.setType ty fmeta, ftype = ty}
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
+
+isOnceField :: FieldDecl -> Bool
+isOnceField = (Once `elem`) . fmods
 
 isSpecField :: FieldDecl -> Bool
 isSpecField = (Spec `elem`) . fmods
@@ -461,11 +466,13 @@ data Expr = Skip {emeta :: Meta Expr}
                    arg :: Expr,
                    clauses :: [MatchClause]}
           | CAT {emeta :: Meta Expr,
-                 target :: Expr,
-                 val :: Expr,
-                 arg :: Expr,
+                 args  :: [Expr],
                  leftover :: Maybe Name
                 }
+          | TryAssign {emeta :: Meta Expr,
+                       target :: Expr,
+                       arg :: Expr
+                      }
           | Freeze {emeta :: Meta Expr,
                     target :: Expr}
           | IsFrozen {emeta :: Meta Expr,

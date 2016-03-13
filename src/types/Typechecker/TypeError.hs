@@ -15,6 +15,7 @@ module Typechecker.TypeError (Backtrace
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
                              ,safeToSpeculateBT
+                             ,safeToReadOnceBT
                              ) where
 
 import Text.PrettyPrint
@@ -94,6 +95,16 @@ safeToSpeculateBT ((_, current):(_, parent):_)
     | BTExpr IsFrozen{}  <- parent = True
     | BTExpr Binop{}     <- parent = True
     | BTExpr Unary{}     <- parent = True
+    | BTExpr e@FieldAccess{} <- current
+    , BTExpr Assign{lhs}     <- parent
+      = e == lhs
+    | otherwise = False
+
+safeToReadOnceBT :: Backtrace -> Bool
+safeToReadOnceBT ((_, current):(_, parent):_)
+    | BTExpr CAT{}           <- parent = True
+    | BTExpr TryAssign{}     <- parent = True
+    | BTExpr IsFrozen{}      <- parent = True
     | BTExpr e@FieldAccess{} <- current
     , BTExpr Assign{lhs}     <- parent
       = e == lhs

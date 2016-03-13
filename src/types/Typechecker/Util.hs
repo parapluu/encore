@@ -21,6 +21,7 @@ module Typechecker.Util(TypecheckM
                        ,formalBindings
                        ,propagateResultType
                        ,isLinearType
+                       ,typeMinus
                        ) where
 
 import Identifiers
@@ -363,3 +364,13 @@ isLinearType = isLinearType' []
       dropArrow ty
           | isArrowType ty = voidType
           | otherwise = ty
+
+typeMinus ty1 ty2 = do
+    Just fields1 <- asks $ fields ty1
+    let fs1 = barredFields ty1
+        fs2 = barredFields ty2
+        barrableFields = map fname $ filter (not . isValField) fields1
+        fs = fs1 `union` (barrableFields \\ fs2)
+        (ty1', _) = mapAccumL (\t f -> (t `bar` f, undefined)) ty1 fs
+    return $ unbox ty1'
+    -- TODO: What if ty1 is not linear? What if it is borrowed ?!

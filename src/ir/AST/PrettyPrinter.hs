@@ -19,6 +19,7 @@ module AST.PrettyPrinter (ppExpr
 
 -- Library dependencies
 import Text.PrettyPrint
+import Data.Maybe
 
 -- Module dependencies
 import Identifiers
@@ -39,6 +40,7 @@ ppWhile = text "while"
 ppRepeat = text "repeat"
 ppFor = text "for"
 ppCAT = text "CAT"
+ppTry = text "try"
 ppGet = text "get"
 ppYield = text "yield"
 ppEos = text "eos"
@@ -230,8 +232,11 @@ ppExpr Match {arg, clauses} =
       ppMatchClauses = foldr (($+$) . ppClause) (text "")
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain
-ppExpr CAT {target, val, arg} =
-    ppCAT <> parens (commaSep $ map ppExpr [target, val, arg])
+ppExpr CAT {args, leftover} =
+    ppCAT <> parens (commaSep $ map ppExpr args) <>
+             maybe empty ((text " =>" <+>) . ppName) leftover
+ppExpr TryAssign {target, arg} =
+    ppTry <> parens (commaSep $ map ppExpr [target, arg])
 ppExpr Freeze {target} = text "freeze" <> parens (commaSep $ map ppExpr [target])
 ppExpr IsFrozen {target} = text "isFrozen" <> parens (ppExpr target)
 ppExpr Get {val} = ppGet <+> ppExpr val
