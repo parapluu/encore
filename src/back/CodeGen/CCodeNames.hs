@@ -293,6 +293,9 @@ runtimeTypeInitFnName :: Ty.Type -> CCode Name
 runtimeTypeInitFnName clazz =
     Nam $ encoreName "type_init" (Ty.getId clazz)
 
+runtimeTypeInitFunctionName :: ID.Name -> CCode Name
+runtimeTypeInitFunctionName name = Nam (encoreName "type_init" (show name))
+
 ponyAllocMsgName :: CCode Name
 ponyAllocMsgName = Nam "pony_alloc_msg"
 
@@ -353,6 +356,9 @@ refTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
 
 classTypeName :: Ty.Type -> CCode Name
 classTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
+
+functionTypeName :: ID.Name -> CCode Name
+functionTypeName name = Nam $ encoreName "function" (show name) ++ "_t"
 
 runtimeTypeName :: Ty.Type -> CCode Name
 runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"

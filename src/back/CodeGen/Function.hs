@@ -23,12 +23,14 @@ import Control.Arrow((&&&))
 
 globalFunctionDecl :: A.Function -> CCode Toplevel
 globalFunctionDecl f =
-  FunctionDecl typ name (Ptr encoreCtxT:params)
+  FunctionDecl typ name (Ptr encoreCtxT:initParam ++ params)
   where
+    initParam = replicate (length (A.functionPParams f)) (Ptr ponyTypeT)
     params = map (translate . A.ptype) $ A.functionParams f
     typ = translate $ A.functionType f
     name = globalFunctionNameOf f
 
+-- local function
 globalFunctionClosureDecl :: A.Function -> CCode Toplevel
 globalFunctionClosureDecl f =
   DeclTL (closure, AsLval $ globalFunctionClosureNameOf f)
@@ -43,20 +45,32 @@ initGlobalFunctionClosure f =
     closureFun = AsLval closureStructFFieldName
     address = Cast (Ptr void) $ Amp $ globalFunctionWrapperNameOf f
 
+functionTypeDecl :: A.Function -> CCode Toplevel
+functionTypeDecl f@(A.Function {}) =
+  let name = A.functionName f in
+  Typedef (Struct $ functionTypeName name) (functionTypeName name)
+
+
 globalFunctionWrapper :: A.Function -> CCode Toplevel
 globalFunctionWrapper f =
   let
     args = A.functionParams f
-    argList = encoreCtxVar : extractArgs args
+    argList = extractArgs args
+
+    -- TODO: get correct type
+    varNames = replicate (length $ A.functionPParams f) (Var "ENCORE_PRIMITIVE")
+    result = returnStmnt (Call globalFunctionName (encoreCtxVar : varNames ++ argList)) typ
   in
     Function
       (Typ "value_t")
       name
       [(Ptr encoreCtxT, encoreCtxVar), (Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
-      $ returnStmnt (Call globalFunctionName argList) typ
+      (Seq [result])
   where
     typ = A.functionType f
     name = globalFunctionWrapperNameOf f
+
+    encoreAlloc name = (Call (Nam "encore_alloc") [Sizeof $ AsType name])
 
     globalFunctionName = globalFunctionNameOf f
 
@@ -70,32 +84,39 @@ globalFunctionWrapper f =
     returnStmnt :: UsableAs e Expr => CCode e -> Type -> CCode Stat
     returnStmnt var ty = Return $ asEncoreArgT (translate ty) var
 
-instance Translatable A.Function (ClassTable -> CCode Toplevel) where
+instance Translatable A.Function (NamespaceTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
-  translate fun@(A.Function {A.funbody}) ctable =
+  translate fun@(A.Function {A.funbody}) ntable =
       let funParams = A.functionParams fun
           funType   = A.functionType fun
-          funName   = globalFunctionName $ A.functionName fun
+          fName     = A.functionName fun
+          funName   = globalFunctionName fName
+          funInitStruct = functionTypeName fName
           (encArgNames, encArgTypes) =
               unzip . map (A.pname &&& A.ptype) $ funParams
           argNames  = map (AsLval . argName) encArgNames
           argTypes  = map translate encArgTypes
-          ctx       = Ctx.new (zip encArgNames argNames) ctable
+          ctx       = Ctx.new (zip encArgNames argNames) ntable
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos ctable)
+          closures = map (\clos -> translateClosure clos ntable)
                          (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas ctable) $
+          tasks = map (\tas -> translateTask tas ntable) $
                       reverse $ Util.filter A.isTask funbody
+          typeVariableVars = (\x y -> (x,y)) <$> [Ptr ponyTypeT] <*> (map (Var . getId) (A.functionPParams fun))
       in
         Concat $
         closures ++
         tasks ++
         [Function (translate funType)
                   funName
-                  ((Ptr encoreCtxT, encoreCtxVar):(zip argTypes argNames))
+                  ((Ptr encoreCtxT, encoreCtxVar) : typeVariableVars ++ (zip argTypes argNames))
+                  -- (map initRuntimeType (A.functionPParams fun))
                   (Seq $
                    [bodyStat, returnStmnt bodyName funType])]
     where
+      initRuntimeType ty =
+        Assign (Var "this" `Arrow` typeVarRefName ty)
+               (Call (Nam "va_arg") [Var "params", Var "pony_type_t *"])
       returnStmnt var ty
           | isVoidType ty = Return unit
           | otherwise     = Return var

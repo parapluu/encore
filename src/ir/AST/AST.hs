@@ -87,6 +87,7 @@ instance HasMeta ImportDecl where
 
 data FunctionHeader = FunctionHeader {
         hname   :: Name,
+        hpparams :: [Type],
         htype   :: Type,
         hparams :: [ParamDecl]
     }
@@ -114,6 +115,7 @@ data Function = Function {
 
 functionName = hname . funheader
 functionParams = hparams . funheader
+functionPParams = hpparams . funheader
 functionType = htype . funheader
 
 instance Eq Function where
@@ -349,6 +351,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
+                          pparams :: [Type],
                           args :: Arguments}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],

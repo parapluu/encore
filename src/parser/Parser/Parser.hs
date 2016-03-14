@@ -220,11 +220,12 @@ embedTL = do
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
+  hpparams <- option [] (angles $ commaSep1 typeVariable)
   hname <- Name <$> identifier
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return FunctionHeader{hname, hparams, htype}
+  return FunctionHeader{hname, hpparams, hparams, htype}
 
 methodHeader :: Parser FunctionHeader
 methodHeader = do
@@ -664,8 +665,9 @@ expr  =  unit
                    return $ Suspend (meta pos)
       functionCall = do pos <- getPosition
                         fun <- identifier
+                        pparams <- option [] (angles $ commaSep1 typ)
                         args <- parens arguments
-                        return $ FunctionCall (meta pos) (Name fun) args
+                        return $ FunctionCall (meta pos) (Name fun) pparams args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)

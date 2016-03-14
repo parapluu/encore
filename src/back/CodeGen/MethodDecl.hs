@@ -21,11 +21,11 @@ import qualified Types as Ty
 import Control.Monad.State hiding(void)
 import Control.Arrow ((&&&))
 
-instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel) where
+instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Toplevel) where
   -- | Translates a method into the corresponding C-function
   translate mdecl@(A.Method {A.mbody})
             cdecl@(A.Class {A.cname})
-            ctable
+            ntable@(ftable, ctable)
       | A.isStreamMethod mdecl =
     let name = methodImplName cname (A.methodName mdecl)
         (encArgNames, encArgTypes) =
@@ -36,13 +36,13 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ctable
+                       zip encArgNames argNames) ntable
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ctable)
+        closures = map (\clos -> translateClosure clos ntable)
                        (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ctable) $
+        tasks = map (\tas -> translateTask tas ntable) $
                     reverse $ Util.filter A.isTask mbody
         streamCloseStmt = Statement $ Call streamClose [encoreCtxVar, streamHandle]
     in
@@ -63,13 +63,13 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                then [(array, Var "_argv")]
                else zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ctable
+                       zip encArgNames argNames) ntable
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ctable)
+        closures = map (\clos -> translateClosure clos ntable)
                        (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ctable) $
+        tasks = map (\tas -> translateTask tas ntable) $
                     reverse $ Util.filter A.isTask mbody
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
     in

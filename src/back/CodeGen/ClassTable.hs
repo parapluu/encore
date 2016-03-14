@@ -1,10 +1,15 @@
 module CodeGen.ClassTable (
   ClassTable,
+  FunctionTable,
+  NamespaceTable,
   lookupMethod,
   lookupMethods,
   lookupField,
   lookupCalledType,
-  buildClassTable) where
+  lookupFunction,
+  buildClassTable,
+  buildFunctionTable,
+  buildNamespaceTable) where
 
 import Types
 import AST.AST
@@ -17,6 +22,11 @@ import Control.Arrow
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
+type FunctionTable = MethodTable
+type NamespaceTable = (FunctionTable, ClassTable)
+
+buildNamespaceTable :: Program -> NamespaceTable
+buildNamespaceTable p = (buildFunctionTable p, buildClassTable p)
 
 buildClassTable :: Program -> ClassTable
 buildClassTable = traverseProgram getEntries
@@ -36,6 +46,12 @@ buildClassTable = traverseProgram getEntries
     getFieldEntry f     = (fname f, f)
     getReqMethodEntry r = (hname . rheader $ r, rheader r)
     getMethodEntry m    = (methodName m, mheader m)
+
+buildFunctionTable :: Program -> FunctionTable
+buildFunctionTable = traverseProgram getFunctions
+  where
+    getFunctions p = map getFunction (functions p)
+    getFunction f = (functionName f, funheader f)
 
 lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
 lookupEntry ty ctable =
@@ -73,3 +89,9 @@ lookupCalledType ty m ctable
                  Types.showWithKind ty
       in
         fst . fromMaybe fail $ find (isJust . snd) results
+
+lookupFunction :: Type -> Name -> FunctionTable -> FunctionHeader
+lookupFunction ty f ftable =
+  let fail = error $ "ClassTable.hs: No function '" ++ show f ++ "' in " ++
+             Types.showWithKind ty
+    in fromMaybe fail $ lookup f ftable

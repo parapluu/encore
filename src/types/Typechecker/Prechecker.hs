@@ -74,7 +74,8 @@ instance Precheckable FunctionHeader where
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do
-      funheader' <- doPrecheck funheader
+      funheader' <- local ((addTypeParameters . functionPParams) f)
+                          (doPrecheck funheader)
       let funtype = htype funheader'
       return $ setType funtype f{funheader = funheader'}
 

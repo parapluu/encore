@@ -1067,11 +1067,37 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
   (args', initArgs) <- fmap unzip $ mapM translate args
+  let actualArgs = map (translate . A.getType) args
+  formalArgs <- gets $ Ctx.lookupFunction typ name
+  let formalTypes = map A.ptype (A.hparams formalArgs)
+      formalTypes' = map translate formalTypes
+      returnType = A.htype formalArgs
+
+      arguments = map translateArg (zip3 (map AsExpr args') formalTypes actualArgs)
+      bindings = zip (A.hpparams formalArgs) (A.pparams fcall)
+      typeVariables = map translateParametricArguments (A.pparams fcall)
+      rhs = Call (globalFunctionName name) (AsExpr encoreCtxVar : typeVariables ++ arguments)
   (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) (encoreCtxVar:args')
+                     translateReturnType rhs returnType (translate typ)
   let ret = if Ty.isVoidType typ then unit else callVar
+
   return $ (ret, Seq $ initArgs ++ [call])
   where
+    translateParametricArguments :: Ty.Type -> CCode Expr
+    translateParametricArguments t
+      | Ty.isTypeVar t = (AsExpr . Var) (Ty.getId t)
+      | otherwise = runtimeType t
+
+    translateReturnType :: CCode Expr -> Ty.Type -> CCode Ty -> CCode Expr
+    translateReturnType rhs formal actual =
+      case (Ty.isTypeVar formal) of
+        True -> AsExpr $ fromEncoreArgT actual rhs
+        False -> rhs
+
+    translateArg :: (CCode Expr, Ty.Type, CCode Ty) -> CCode Expr
+    translateArg (a,t,c) = case (Ty.isTypeVar t) of
+                          True -> asEncoreArgT c a
+                          False -> a
     typ = A.getType fcall
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)

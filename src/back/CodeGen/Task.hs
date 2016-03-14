@@ -18,8 +18,8 @@ import qualified CodeGen.Context as Ctx
 
 import Control.Monad.State hiding(void)
 
-translateTask :: A.Expr -> ClassTable -> CCode Toplevel
-translateTask task ctable
+translateTask :: A.Expr -> NamespaceTable -> CCode Toplevel
+translateTask task ntable@(ftable, ctable)
   |  A.isTask task =
        let taskType      = A.getType task
            body          = A.body task
@@ -33,7 +33,7 @@ translateTask task ctable
            encEnvNames   = map fst freeVars
            envNames      = map (AsLval . fieldName) encEnvNames
            subst         = zip encEnvNames envNames
-           ctx           = Ctx.new subst ctable
+           ctx           = Ctx.new subst ntable
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
         Concat [buildEnvironment envTaskName freeVars,
