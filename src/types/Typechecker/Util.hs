@@ -17,6 +17,7 @@ module Typechecker.Util(TypecheckM
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
+                       ,findFunctionWithReplacedCalledType
                        ,findCapability
                        ,propagateResultType
                        ) where
@@ -265,6 +266,14 @@ findMethodWithCalledType ty name = do
   where
     noMethod (Name "_init") = "No constructor"
     noMethod n = concat ["No method '", show n, "'"]
+
+findFunctionWithReplacedCalledType :: Name -> [Type] -> [Type] -> TypecheckM FunctionHeader
+findFunctionWithReplacedCalledType name formalArgs actualArgs = do
+  header <- asks $ functionLookup name
+  let bindings = zip formalArgs actualArgs
+      result = replaceHeaderTypes bindings <$> header
+  when (isNothing result) $ tcError $ "No function named " ++ (show name)
+  return $ fromJust result
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do

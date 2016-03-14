@@ -1,0 +1,43 @@
+-- OK
+def <a> testCallToParametricFunction(x: int, y: a): void {
+  testCreationOfObject<a>(y); -- correct trace
+  testCallToParametricFunction<a>(x, y); -- correct trace
+  testCallToParametricFunction<a>(x, y); -- correct trace
+  testCreationOfObject<int>(23); -- correct trace
+  testCreationOfObject<String>("23"); -- correct trace
+  ()
+}
+
+-- OK
+def <a> testCallToFunction(x: int, y: a): void
+  testCallToParametricFunction<String>(x, "test") -- correct trace
+
+-- OK
+def <a> testCreationOfParametricObject(x: a): void {
+  testCreationOfParametricObject<int>(23);
+}
+
+--OK
+def <b> testCreationOfObject(x:b): void {
+  -- new Test<String>;
+  ()
+}
+
+-- def <a,b> testKiko2(x: a, y: b): (a,b)
+--   (x,y)
+
+-- passive class Test<a>
+--   s: a
+--   def init(x: int, y: a): void
+--     ()
+
+--   def tt(x: a): void {
+--     new Test<bool>(34, true);
+--     new [a](10);
+--   }
+
+class Main
+  def main(): void {
+    testCreationOfObject<String>("sd"); -- correct trace
+    ()
+  }

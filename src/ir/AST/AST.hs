@@ -90,7 +90,7 @@ data Typedef = Typedef {
    typedefmeta :: Meta Typedef,
    typedefdef  :: Type  -- will be a TypeSynonym, with left and right hand side of definition built in
 } deriving (Show)
- 
+
 instance HasMeta Typedef where
     getMeta = typedefmeta
 
@@ -99,7 +99,6 @@ instance HasMeta Typedef where
     setType ty i =
         error "AST.hs: Cannot set the type of an Typedef"
 
-
 data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
@@ -107,6 +106,12 @@ data HeaderKind = Streaming
 data FunctionHeader =
     Header {
         kind    :: HeaderKind,
+        hname   :: Name,
+        hpparams :: [Type],
+        htype   :: Type,
+        hparams :: [ParamDecl]
+    }
+    | MethodHeader {
         hname   :: Name,
         htype   :: Type,
         hparams :: [ParamDecl]
@@ -141,6 +146,7 @@ data Function =
 
 functionName = hname . funheader
 functionParams = hparams . funheader
+functionPParams = hpparams . funheader
 functionType = htype . funheader
 
 instance Eq Function where
@@ -327,6 +333,7 @@ emptyConstructor cdecl =
     in Method{mmeta = meta pos
              ,mheader = Header{kind = NonStreaming
                               ,hname = Name "_init"
+                              ,hpparams = []
                               ,hparams = []
                               ,htype = voidType
                               }
@@ -385,6 +392,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
                           name :: Name,
+                          pparams :: [Type],
                           args :: Arguments}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],

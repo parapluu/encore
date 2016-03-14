@@ -22,11 +22,11 @@ import qualified Types as Ty
 import Control.Monad.State hiding(void)
 import Control.Arrow ((&&&))
 
-instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel) where
+instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Toplevel) where
   -- | Translates a method into the corresponding C-function
   translate mdecl@(A.Method {A.mbody})
             cdecl@(A.Class {A.cname})
-            ctable
+            ntable@(ftable, ctable)
       | A.isStreamMethod mdecl =
     let args = (Ptr encoreCtxT, encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
@@ -61,7 +61,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
       subst = [(ID.Name "this", Var "_this")] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx = Ctx.new subst ctable
+      ctx = Ctx.new ((ID.Name "this", Var "_this") : zip encArgNames argNames) ntable
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       extractTypeVars = Seq $ map assignTypeVar typeVars
       assignTypeVar ty =
@@ -71,7 +71,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
         `Dot`
         name
-      closures = map (\clos -> translateClosure clos typeVars ctable)
+      closures = map (\clos -> translateClosure clos typeVars ntable)
                      (reverse (Util.filter A.isClosure mbody))
-      tasks = map (\tas -> translateTask tas ctable) $
+      tasks = map (\tas -> translateTask tas ntable) $
                   reverse $ Util.filter A.isTask mbody

@@ -17,6 +17,7 @@ module CodeGen.Context (
   lookupField,
   lookupMethod,
   lookupCalledType,
+  lookupFunction,
 ) where
 
 import Identifiers
@@ -31,16 +32,19 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Tbl.ClassTable
+data Context = Context VarSubTable NextSym Tbl.NamespaceTable
 
 classTable :: Context -> Tbl.ClassTable
-classTable (Context _ _ ctable) = ctable
+classTable (Context _ _ ntable) = snd ntable
 
-empty :: Tbl.ClassTable -> Context
-empty ctable = new [] ctable
+functionTable :: Context -> Tbl.FunctionTable
+functionTable (Context _ _ ntable) = fst ntable
 
-new :: VarSubTable -> Tbl.ClassTable -> Context
-new subs ctable = Context subs 0 ctable
+empty :: Tbl.NamespaceTable -> Context
+empty ntable = new [] ntable
+
+new :: VarSubTable -> Tbl.NamespaceTable -> Context
+new subs ntable = Context subs 0 ntable
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
@@ -54,13 +58,13 @@ genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt ctable) na lv = Context ((na,lv):s) nxt ctable
+substAdd c@(Context s nxt ntable) na lv = Context ((na,lv):s) nxt ntable
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt ctable) na = Context [] nxt ctable
-substRem (Context ((na, lv):s) nxt ctable) na'
-     | na == na'  = Context s nxt ctable
-     | na /= na'  = substAdd (substRem (Context s nxt ctable) na') na lv
+substRem (Context [] nxt ntable) na = Context [] nxt ntable
+substRem (Context ((na, lv):s) nxt ntable) na'
+     | na == na'  = Context s nxt ntable
+     | na /= na'  = substAdd (substRem (Context s nxt ntable) na') na lv
 
 substLkp :: Context -> Name -> Maybe (C.CCode C.Lval)
 substLkp (Context s _ _) n = lookup n s
@@ -73,3 +77,6 @@ lookupMethod ty m = Tbl.lookupMethod ty m . classTable
 
 lookupCalledType :: Type -> Name -> Context -> Type
 lookupCalledType ty m = Tbl.lookupCalledType ty m . classTable
+
+lookupFunction :: Type -> Name -> Context -> FunctionHeader
+lookupFunction ty f = Tbl.lookupFunction ty f . functionTable

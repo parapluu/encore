@@ -255,7 +255,7 @@ program = do
   bundle <- bundledecl
   imports <- many importdecl
   etl <- embedTL
-  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function) 
+  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function)
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
   return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
@@ -309,12 +309,14 @@ typedef = do
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
+  hpparams <- option [] (angles $ commaSep1 typeVariable)
   hname <- Name <$> identifier
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
   return Header{kind = NonStreaming
                ,hname
+               ,hpparams
                ,hparams
                ,htype
                }
@@ -793,8 +795,9 @@ expr  =  unit
                    return $ Suspend (meta pos)
       functionCall = do pos <- getPosition
                         fun <- identifier
+                        pparams <- option [] (angles $ commaSep1 typ)
                         args <- parens arguments
-                        return $ FunctionCall (meta pos) (Name fun) args
+                        return $ FunctionCall (meta pos) (Name fun) pparams args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)
@@ -852,7 +855,7 @@ expr  =  unit
       print = do pos <- getPosition
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) (Name "print") arg
+                 return $ FunctionCall (meta pos) (Name "print") [] arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
