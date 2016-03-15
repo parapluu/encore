@@ -353,7 +353,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                     (Call (Nam "encore_create")
                                                     [Amp $ runtimeTypeName ty])
              let typeParams = Ty.getTypeParameters ty
-                 typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map runtimeType typeParams)
+                 typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map getRuntimeTypeVariables typeParams)
              constructorCall <-
                  activeMessageSend nnew ty (ID.Name "_init") args
              return (nnew, Seq [tnew, Statement typeParamInit, constructorCall])
@@ -374,7 +374,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  (Call (Nam "encore_alloc") [size])
                  typeParams = Ty.getTypeParameters ty
                  init = [Assign (Var na `Arrow` selfTypeField) (Amp $ runtimeTypeName ty),
-                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map runtimeType typeParams),
+                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map getRuntimeTypeVariables typeParams),
                          Statement constructorCall]
              return $ (Var na, Seq $ theNew : argDecls ++ init)
 
@@ -394,7 +394,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (nsize, tsize) <- translate size
          let theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call (Nam "array_mk") [AsExpr nsize, runtimeType ty])
+                       (Call (Nam "array_mk") [AsExpr nsize, getRuntimeTypeVariables ty])
          return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
@@ -1034,7 +1034,7 @@ globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) args'
+                     Call (globalFunctionName name) args'
   let ret = if Ty.isVoidType typ then unit else callVar
   return $ (ret, Seq $ initArgs ++ [call])
   where
