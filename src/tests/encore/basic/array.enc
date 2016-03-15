@@ -1,9 +1,9 @@
 class Foo
-  def return() : [int]
+  def ret() : [int]
     new [int](10)
   def foo(m:Main) : void
     let
-      a = this.return()
+      a = this.ret()
     in {
       repeat i <- 10
         a[i] = i;

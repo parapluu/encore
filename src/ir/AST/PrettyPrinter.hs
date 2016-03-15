@@ -134,6 +134,7 @@ ppSugared e = case getSugared e of
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
+ppExpr Return {val} = "return" <+> ppExpr val
 ppExpr MethodCall {target, name, args} =
     maybeParens target <> "." <> ppName name <>
       parens (commaSep (map ppExpr args))

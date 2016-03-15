@@ -138,8 +138,13 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Embed{} =
         free e
 
-    doCapturecheck e@NewWithInit{} =
-        free e
+    doCapturecheck e@Return{val} = do
+        capture val
+        e `returns` val
+
+    doCapturecheck e@NewWithInit{args} =
+        do mapM_ capture args
+           free e
 
     doCapturecheck e@Peer{} =
         free e

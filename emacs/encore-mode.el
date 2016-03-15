@@ -49,6 +49,7 @@
         "read"
         "repeat"
         "require"
+        "return"
         "spec"
         "speculate"
         "stream"

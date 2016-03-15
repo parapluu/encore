@@ -108,6 +108,7 @@ lexer =
     ,"linear"
     ,"consume"
     ,"borrowed"
+    ,"return"
    ],
    P.reservedOpNames = [
      ":"
@@ -683,6 +684,7 @@ expr :: Parser Expr
 expr  =  embed
      <|> break
      <|> cat
+     <|> return_
      <|> try print
      <|> speculate
      <|> closure
@@ -729,6 +731,10 @@ expr  =  embed
       break = do pos <- getPosition
                  reserved "break"
                  return $ Break (meta pos)
+      return_ = do pos <- getPosition
+                   reserved "return"
+                   val <- option (Skip $ meta pos) expression
+                   return $ Return (meta pos) val
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>
