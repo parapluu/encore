@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv", "linear",
-     "extract", "consume", "unsafe", "S", "break"
+     "extract", "consume", "unsafe", "S", "break", "return"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -555,6 +555,7 @@ expr :: Parser Expr
 expr  =  unit
      <|> breathe
      <|> break
+     <|> return_
      <|> try embed
      <|> try path
      <|> try cat
@@ -615,6 +616,10 @@ expr  =  unit
       break = do pos <- getPosition
                  reserved "break"
                  return $ Break (meta pos)
+      return_ = do pos <- getPosition
+                   reserved "return"
+                   val <- option (Skip $ meta pos) expression
+                   return $ Return (meta pos) val
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
                 dot

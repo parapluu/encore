@@ -343,6 +343,15 @@ instance Checkable Expr where
                    tcError "No loop to break from"
            return $ setType voidType break
 
+    --
+    -- ----------------
+    --  E |- break : void
+    doTypecheck ret@(Return {val}) =
+        do retType <- asks returnType
+           eVal <- hasType val retType
+           let valType = AST.getType eVal
+           return $ setType valType ret{val = eVal}
+
    ---  |- t
     --  E |- body : t
     -- ----------------------

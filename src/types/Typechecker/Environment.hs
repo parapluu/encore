@@ -29,6 +29,7 @@ module Typechecker.Environment(Environment,
                                bindTypes,
                                bindings,
                                backtrace,
+                               returnType,
                                currentMethod,
                                inLoop,
                                safeToSpeculate,
@@ -100,6 +101,9 @@ pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
+
+returnType :: Environment -> Type
+returnType = returnTypeBT . bt
 
 currentMethod :: Environment -> Maybe MethodDecl
 currentMethod = currentMethodFromBacktrace . bt

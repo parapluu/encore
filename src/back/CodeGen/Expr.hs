@@ -128,6 +128,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
+  translate ret@(A.Return {A.val}) = do
+    (nval, tval) <- translate val
+    let theReturn = Return nval
+    return (nval, Seq [tval, theReturn])
+
   translate tye@(A.TypedExpr {A.body, A.ty}) = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
@@ -379,19 +384,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
     fld <- gets $ Ctx.lookupField (A.getType target) name
-    let ty = A.getType acc
+    let targetType = A.getType target
         theAccess = AsExpr $ Deref ntarg `Dot` fieldName name
         accType = A.getType acc
         theCast | Ty.isTypeVar (A.ftype fld) =
                     AsExpr $ fromEncoreArgT (translate accType)
                                             theAccess
-                | ty /= A.ftype fld =
-                    Cast (translate ty) theAccess
+                | accType /= A.ftype fld =
+                    Cast (translate accType) theAccess
                 | otherwise = theAccess
-        theUnfreeze = if A.isOnceField fld
+        theUnfreeze = if A.isOnceField fld &&
+                         name `elem` Ty.barredFields targetType
                       then unfreeze accType theCast
                       else theCast
-        theAssign = Assign (Decl (translate ty, Var tmp)) theUnfreeze
+        theAssign = Assign (Decl (translate accType, Var tmp)) theUnfreeze
     return (Var tmp, Seq [ttarg, theAssign])
 
   translate (A.Let {A.decls, A.body}) = do
@@ -899,7 +905,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     let field = fieldName name
         witnessType = A.getType witness
         argType = A.getType arg
-        theArgs = [Amp $ ntarg `Arrow` field
+        theTargetAccess = ntarg `Arrow` field
+        theArgs = [Amp theTargetAccess
                   ,unfreeze witnessType nwitness
                   ,unfreeze argType narg]
         theCAS = Call (Nam "__sync_bool_compare_and_swap") theArgs

@@ -134,6 +134,10 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Null{} =
         free e
 
+    doCapturecheck e@Return{val} = do
+        capture val
+        e `returns` val
+
     doCapturecheck e@NewWithInit{args} =
         do mapM_ capture args
            free e

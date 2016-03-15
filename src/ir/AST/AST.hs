@@ -389,6 +389,8 @@ data MaybeContainer = JustData { e :: Expr}
 
 data Expr = Skip {emeta :: Meta Expr}
           | Breathe {emeta :: Meta Expr}
+          | Return {emeta :: Meta Expr,
+                    val :: Expr}
           | Break {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,

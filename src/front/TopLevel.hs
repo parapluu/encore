@@ -214,7 +214,7 @@ main =
        when (Intermediate TypeChecked `elem` options) $ do
          verbatim options "== Printing typed AST =="
          withFile (changeFileExt sourceName "TAST") WriteMode
-                  (flip hPrint $ show typecheckedAST)
+                  (flip hPrint $ show capturecheckedAST)
 
        verbatim options "== Optimizing =="
        let optimizedAST = optimizeProgram capturecheckedAST

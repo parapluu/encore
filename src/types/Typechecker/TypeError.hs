@@ -12,6 +12,7 @@ module Typechecker.TypeError (Backtrace
                              ,TCWarning(TCWarning)
                              ,Warning(..)
                              ,CCError(CCError)
+                             ,returnTypeBT
                              ,currentMethodFromBacktrace
                              ,loopInBacktrace
                              ,safeToSpeculateBT
@@ -70,6 +71,12 @@ instance Show BacktraceNode where
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
+
+returnTypeBT :: Backtrace -> Type
+returnTypeBT [] = error "TypeError.hs: Tried to get the return type when not in a method or function"
+returnTypeBT ((_, BTMethod m):_) = methodType m
+returnTypeBT ((_, BTFunction _ ftype):_) = ftype
+returnTypeBT (_:bt) = returnTypeBT bt
 
 currentMethodFromBacktrace :: Backtrace -> Maybe MethodDecl
 currentMethodFromBacktrace [] = Nothing
