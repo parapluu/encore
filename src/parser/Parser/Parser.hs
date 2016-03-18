@@ -121,7 +121,7 @@ typ  = adtTypes
       arrow = do lhs <- parens (commaSep typ)
                      <|> do {ty <- nonArrow ; return [ty]}
                  reservedOp "->"
-                 rhs <- nonArrow
+                 rhs <- typ
                  return $ arrowType lhs rhs
       fut = do reserved "Fut"
                ty <- typ
