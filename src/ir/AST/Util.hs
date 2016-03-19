@@ -250,12 +250,12 @@ mapProgramClass p@Program{classes, imports} f =
   p{classes = map f classes, imports = map i2i imports}
   where
     i2i i@PulledImport{iprogram} = i{iprogram = mapProgramClass iprogram f}
-    i2i _ = error "Non desugared imports"
+    i2i _ = error "Util.hs: Non desugared imports during mapProgramClass"
 
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, traits, classes} =
-  (acc3, p{functions = funs', traits = traits', classes = classes'})
+extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
+  (acc4, p{functions = funs', traits = traits', classes = classes', imports = imports'})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
       extendAccumFunction f acc fun@(Function{funbody}) =
@@ -279,6 +279,14 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes} =
         (acc', mtd{mbody = mbody'})
         where
           (acc', mbody') = extendAccum f acc (mbody mtd)
+
+      (acc4, imports') = List.mapAccumL (extendAccumImport f) acc3 imports
+      extendAccumImport f acc i@(PulledImport{iprogram}) =
+        (acc', i{iprogram = iprogram'})
+        where
+          (acc', iprogram') = extendAccumProgram f acc iprogram
+      extendAccumImport _ _ _ = error "Util.hs: Non desugared imports during extendAccumProgram"
+          
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
