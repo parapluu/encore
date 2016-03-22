@@ -1,0 +1,80 @@
+bundle ImplicationGraph where
+
+passive class Implication {
+-- public attributes
+  variableIndex : int
+  unitClause : Clause
+  dL : int
+  value : int
+
+  def init(unitClause_ : Clause, dL_ : int, value_ : int, variableIndex_ : int) : void {
+    this.unitClause = unitClause_;
+    this.dL = dL_;
+    this.value = value_;
+    this.variableIndex = variableIndex_;
+  }
+
+  def toString() : void {
+    print("Implication: value: {}, variable: {}, dL: {} ", this.value, this.variableIndex+1, this.dL);
+    this.unitClause.toString();
+  }
+}
+
+passive class ImplicationGraph {
+-- private attributes
+  implicationGraph : [Vector<Implication>]
+  latestConflictIndex : int
+
+  def init(n : int) : void {
+    this.implicationGraph = new [Vector<Implication>](n);
+    repeat i <- n {
+      this.implicationGraph[i] = new Vector<Implication>(2);
+    };
+    this.latestConflictIndex = -1;
+  }
+-- public methods
+  -- returns false if conflict is found, otherwise true
+  def addImplication(clause : Clause, dL : int, value : int, index : int) : bool {
+    let
+    noConflict = true
+    implicationsForVariable = this.implicationGraph[index]
+    in {
+      if (implicationsForVariable.size() > 0) then {
+        if (implicationsForVariable.at(0).value != value) then {
+          this.latestConflictIndex = index;
+          noConflict = false;
+        }
+      };
+      let
+      implication = new Implication(clause, dL, value, index)
+      in {
+        implicationsForVariable.push(implication);
+      };
+      noConflict
+    }
+  }
+
+  def getLatestConflict() : Vector<Implication> {
+    this.implicationGraph[this.latestConflictIndex];
+  }
+
+  def toString() : void {
+    print("ImplicationGraph: \n");
+    repeat i <- |this.implicationGraph| {
+      let
+      implications = this.implicationGraph[i]
+      in {
+        if (implications.size() > 0) then {
+          print("variable: {} ", i+1);
+          repeat j <- implications.size() {
+            let
+            implication = implications.at(j)
+            in {
+              implication.toString();
+            }
+          }
+        }
+      }
+    };
+  }
+}

@@ -1,0 +1,42 @@
+bundle Clause where
+
+passive class Clause {
+-- public attributes
+  literals : [int]
+
+  def init(literals_ : [int]) : void {
+    this.literals = literals_
+  }
+-- public methods
+  def toString() : void {
+    print("Clause: {}","");
+    repeat i <- |this.literals| {
+      print("{}", this.literals[i]/2+1);
+      if (this.literals[i]%2 == 1) then {
+        print("' {}", "");
+      } else {
+        print(" {}","");
+      }
+    };
+    print("")
+  }
+
+  def toConflictClause() : Clause {
+    let
+    conflictLiterals = new Vector<int>(|this.literals|)
+    in {
+      repeat i <- |this.literals| {
+        if (this.literals[i] % 2 == 0) then {
+          conflictLiterals.push(this.literals[i]+1);
+        } else {
+          conflictLiterals.push(this.literals[i]-1);
+        }
+      };
+      new Clause(conflictLiterals.toArray())
+    }
+  }
+
+  def size() : int {
+    |this.literals|
+  }
+}
