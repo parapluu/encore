@@ -14,6 +14,7 @@ import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
+import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -449,24 +450,23 @@ instance Checkable Expr where
     doTypecheck mcall@(MethodCall {target, name, args}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isRefType targetType) $
+      unless (isRefType targetType || isCapabilityType targetType) $
         tcError $ "Cannot call method on expression '" ++
                   show (ppSugared target) ++
                   "' of type '" ++ show targetType ++ "'"
       when (isMainMethod targetType name) $ tcError "Cannot call the main method"
       when (name == Name "init") $ tcError
         "Constructor method 'init' can only be called during object creation"
-      header <- findMethod targetType name
+      (header, calledType) <- findMethodWithCalledType targetType name
+      let specializedTarget = setType calledType eTarget
       matchArgumentLength targetType header args
-      fBindings <- formalBindings targetType
-      let paramTypes = map ptype (hparams header)
-          expectedTypes = map (replaceTypeVars fBindings) paramTypes
+      let expectedTypes = map ptype (hparams header)
           mType = htype header
-      (eArgs, bindings) <- local (bindTypes fBindings) $
-                                 matchArguments args expectedTypes
+      (eArgs, bindings) <- matchArguments args expectedTypes
       let resultType = replaceTypeVars bindings mType
-          returnType = retType targetType header resultType
-      return $ setType returnType mcall {target = eTarget, args = eArgs}
+          returnType = retType calledType header resultType
+      return $ setType returnType mcall {target = specializedTarget
+                                        ,args = eArgs}
       where
         retType targetType header t
          | isSyncCall targetType = t
@@ -617,8 +617,10 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError "Cannot infer result type of if-statement"
-              | isNullType ty1 && isRefType ty2 = return ty2
-              | isNullType ty2 && isRefType ty1 = return ty1
+              | isNullType ty1 &&
+                (isRefType ty2 || isCapabilityType ty2) = return ty2
+              | isNullType ty2 &&
+                (isRefType ty1 || isCapabilityType ty1) = return ty1
               | otherwise = if ty2 == ty1
                             then return ty1
                             else tcError $ "Type mismatch in different branches of if-statement:\n" ++
@@ -647,12 +649,8 @@ instance Checkable Expr where
       where
         checkAllHandlersSameType (clause:clauses) = do
           let ty = AST.getType $ mchandler clause
-              errorClauses = filter ((/= ty) . AST.getType . mchandler) clauses
-              errorHandler = mchandler $ head errorClauses
-          unless (null errorClauses) $
-                 tcError $ "Expression '" ++ show (ppSugared errorHandler) ++
-                           "' does not match expected type '" ++ show ty ++
-                           "'. All clauses must have agreeing types"
+              types = map (AST.getType . mchandler) clauses
+          mapM (\t -> assertSubtypeOf t ty) types
           return ty
 
         getPatternVars pt va@(VarAccess {name}) = return [(name, pt)]
@@ -667,11 +665,11 @@ instance Checkable Expr where
                           show pt ++ "'"
 
         getPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
-          unless (isRefType pt) $
+          unless (isRefType pt || isCapabilityType pt) $
             tcError $ "Cannot match an extractor pattern against " ++
                       "non-reference type '" ++ show pt ++ "'"
-          header <- findMethod pt name
-          bindings <- formalBindings pt
+          (header, calledType) <- findMethodWithCalledType pt name
+          bindings <- formalBindings calledType
           let hType = replaceTypeVars bindings $ htype header
           unless (isMaybeType hType) $
             tcError $ "Pattern '" ++ show (ppSugared fcall) ++
@@ -695,8 +693,8 @@ instance Checkable Expr where
         getPatternVars pt pattern = return []
 
         checkPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
-          header <- findMethod argty name
-          bindings <- formalBindings argty
+          (header, calledType) <- findMethodWithCalledType argty name
+          bindings <- formalBindings calledType
           let hType = replaceTypeVars bindings $ htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
@@ -707,6 +705,7 @@ instance Checkable Expr where
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
           checkPattern (pattern {args = [tupArg]}) argty
+
         checkPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
             tcError $ "Pattern '" ++ show (ppSugared pattern) ++
@@ -931,18 +930,9 @@ instance Checkable Expr where
            tcError "Cannot create additional Main objects"
       header <- findMethod ty' (Name "_init")
       matchArgumentLength ty header args
-      fBindings <- formalBindings ty'
-      let paramTypes = map ptype (hparams header)
-          expectedTypes = map (replaceTypeVars fBindings) paramTypes
-          args' = if isStringObjectType ty'
-                  then stringArg args
-                  else args
-      (eArgs, bindings) <- local (bindTypes fBindings) $
-                                 matchArguments args' expectedTypes
+      let expectedTypes = map ptype (hparams header)
+      (eArgs, bindings) <- matchArguments args expectedTypes
       return $ setType ty' new{ty = ty', args = eArgs}
-      where
-        stringArg [NewWithInit{args}] = args
-        stringArg args = args
 
    ---  |- ty
     --  classLookup(ty) = _
@@ -1189,7 +1179,7 @@ instance Checkable Expr where
 coerceNull null ty
     | isNullType ty ||
       isTypeVar ty = tcError "Cannot infer type of null valued expression"
-    | isRefType ty = return $ setType ty null
+    | isRefType ty || isCapabilityType ty = return $ setType ty null
     | isMaybeType ty = return $ setType ty null
     | otherwise =
         tcError $ "Null valued expression cannot have type '" ++
@@ -1197,10 +1187,6 @@ coerceNull null ty
 
 coerce :: Type -> Type -> TypecheckM Type
 coerce expected actual
-  | isRefType actual && isRefType expected = do
-     resultTypeParams <- zipWithM coerce (getTypeParameters expected)
-                                         (getTypeParameters actual)
-     return $ setTypeParameters actual resultTypeParams
   | hasResultType expected && hasResultType actual = do
        resultType <- coerce (getResultType expected) (getResultType actual)
                      `catchError` (\_ -> tcError $ "Type '" ++ show actual ++
@@ -1218,11 +1204,7 @@ coerce expected actual
       when (isBottomType expected) $
         tcError "Cannot infer type of 'Nothing'"
       return expected
-  | otherwise = do
-      unless (actual == expected) $
-        tcError $ "Type '" ++ show actual ++ "' does not match expected type '" ++
-                  show expected ++ "'"
-      return actual
+  | otherwise = return actual
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||
@@ -1240,16 +1222,22 @@ coerce expected actual
 matchArguments :: [Expr] -> [Type] -> TypecheckM ([Expr], [(Type, Type)])
 matchArguments [] [] = do bindings <- asks bindings
                           return ([], bindings)
-matchArguments (arg:args) (typ:types) =
-    do eArg <- do eArg <- typecheck arg
-                  if isNullType (AST.getType eArg) then
-                      coerceNull eArg typ
-                  else
-                      return eArg
-       bindings <- matchTypes typ (AST.getType eArg)
-       (eArgs, bindings') <-
-           local (bindTypes bindings) $ matchArguments args types
-       return (eArg:eArgs, bindings')
+matchArguments (arg:args) (typ:types) = do
+  eArg <- do
+    eArg <- typecheck arg
+    if isNullType (AST.getType eArg) then
+      coerceNull eArg typ
+    else
+      return eArg
+  let actualTyp = AST.getType eArg
+  bindings <- matchTypes typ actualTyp
+  (eArgs, bindings') <-
+    local (bindTypes bindings) $ matchArguments args types
+  needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
+  let
+    casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
+    eArg' = if needCast then casted else eArg
+  return (eArg':eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad
 --
@@ -1335,6 +1323,15 @@ matchTypes expected ty
 
 assertSubtypeOf :: Type -> Type -> TypecheckM ()
 assertSubtypeOf sub super =
-    unlessM (sub `subtypeOf` super) $
-           tcError $ "Type '" ++ show sub ++
-                     "' does not match expected type '" ++ show super ++ "'"
+    unlessM (sub `subtypeOf` super) $ do
+      capability <- if isClassType sub
+                    then do
+                      fBindings <- formalBindings sub
+                      cap <- asks $ capabilityLookup sub
+                      if isJust cap && not (emptyCapability (fromJust cap))
+                      then return $ fmap (replaceTypeVars fBindings) cap
+                      else return Nothing
+                    else return Nothing
+      let subMsg = "Type '" ++ show sub ++ "'" ++
+                   maybe "" ((" with capability " ++) . show) capability
+      tcError $ subMsg ++ " does not match expected type '" ++ show super ++ "'"

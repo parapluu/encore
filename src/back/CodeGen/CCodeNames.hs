@@ -18,6 +18,8 @@ import Types as Ty
 import CCode.Main
 import Data.List
 
+import qualified AST.AST as A
+
 char :: CCode Ty
 char = Typ "char"
 
@@ -84,18 +86,23 @@ array = Ptr $ Typ "array_t"
 tuple :: CCode Ty
 tuple = Ptr $ Typ "tuple_t"
 
-
 rangeT :: CCode Ty
 rangeT = Typ "range_t"
 
 range :: CCode Ty
-range = Ptr $ rangeT
+range = Ptr rangeT
 
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
 par :: CCode Ty
-par = (Ptr . Typ) "par_t"
+par = Ptr $ Typ "par_t"
+
+capability :: CCode Ty
+capability = Ptr $ Typ "capability_t"
+
+ponyTraceFnType :: CCode Ty
+ponyTraceFnType = Typ "pony_trace_fn"
 
 unit :: CCode Lval
 unit = Embed "UNIT"
@@ -170,9 +177,25 @@ globalClosureName :: ID.Name -> CCode Name
 globalClosureName funname =
     Nam $ encoreName "closure" (show funname)
 
+globalFunctionClosureNameOf :: A.Function -> CCode Name
+globalFunctionClosureNameOf f = globalClosureName $ A.functionName f
+
 globalFunctionName :: ID.Name -> CCode Name
 globalFunctionName funname =
     Nam $ encoreName "global_fun" (show funname)
+
+globalFunctionNameOf :: A.Function -> CCode Name
+globalFunctionNameOf f = globalFunctionName $ A.functionName f
+
+globalFunctionWrapperNameOf :: A.Function -> CCode Name
+globalFunctionWrapperNameOf f =
+  Nam $ encoreName "global_fun_wrapper" $ show $ A.functionName f
+
+closureStructName :: CCode Name
+closureStructName = Nam "closure"
+
+closureStructFFieldName :: CCode Name
+closureStructFFieldName = Nam "call"
 
 closureFunName :: String -> CCode Name
 closureFunName name =

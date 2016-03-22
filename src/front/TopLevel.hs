@@ -222,7 +222,7 @@ main =
                return ())
        verbatim options "== Done =="
     where
-      usage = "Usage: ./encorec [ -c | -gcc | -clang | -o file | -run | -AST | -TypedAST ] file"
+      usage = "Usage: ./encorec [ -bench | -pg | -tc | -c | -v | -gcc | -clang | -o file | -run | -AST | -TypedAST | -I dir1:dir2:.. ] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
       addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}

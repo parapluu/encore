@@ -382,6 +382,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | Let {emeta :: Meta Expr,
                  decls :: [(Name, Expr)],
                  body :: Expr}
+          | MiniLet {emeta :: Meta Expr,
+                     decl :: (Name, Expr)}
           | Seq {emeta :: Meta Expr,
                  eseq :: [Expr]}
           | IfThenElse {emeta :: Meta Expr,

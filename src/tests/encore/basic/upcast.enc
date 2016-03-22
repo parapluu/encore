@@ -3,11 +3,11 @@ trait Foo
   def foo() : int
     this.x
 
-trait Bar
+trait Bar<t, u>
   def bar(x : Foo) : int
     x.foo()
 
-passive class C : Foo + Bar
+passive class C<t> : Foo + Bar<int, String>
   x : int
   def init(x : int) : void
     this.x = x
@@ -15,10 +15,13 @@ passive class C : Foo + Bar
 
 class Main
   def main() : void
-    let c = new C(42)
-        x = c : Foo
-        y = c : Bar
+    let c = new C<int>(42)
+        d = c : Foo
+        x = new C<int>(42) : Foo
+        y = new C<int>(42) : Bar<int, String>
+        z = c : Foo + Bar<int, String>
     in{
       print y.bar(x);
+      print z.bar(x);
       print "Done!";
     }

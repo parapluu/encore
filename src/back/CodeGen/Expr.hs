@@ -124,12 +124,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
-  translate tye@(A.TypedExpr {A.body}) = do
+  translate tye@(A.TypedExpr {A.body, A.ty}) = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
-    let ty = translate (A.getType tye)
-        theCast = Assign (Decl (ty, Var tmp))
-                         (Cast ty nbody)
+    let ty' = translate ty
+        theCast = Assign (Decl (ty', Var tmp))
+                         (Cast ty' nbody)
     return $ (Var tmp,
               Seq [tbody, theCast])
 
@@ -353,7 +353,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                     (Call (Nam "encore_create")
                                                     [Amp $ runtimeTypeName ty])
              let typeParams = Ty.getTypeParameters ty
-                 typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map runtimeType typeParams)
+                 typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map getRuntimeTypeVariables typeParams)
              constructorCall <-
                  activeMessageSend nnew ty (ID.Name "_init") args
              return (nnew, Seq [tnew, Statement typeParamInit, constructorCall])
@@ -374,7 +374,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  (Call (Nam "encore_alloc") [size])
                  typeParams = Ty.getTypeParameters ty
                  init = [Assign (Var na `Arrow` selfTypeField) (Amp $ runtimeTypeName ty),
-                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map runtimeType typeParams),
+                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map getRuntimeTypeVariables typeParams),
                          Statement constructorCall]
              return $ (Var na, Seq $ theNew : argDecls ++ init)
 
@@ -394,7 +394,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (nsize, tsize) <- translate size
          let theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call (Nam "array_mk") [AsExpr nsize, runtimeType ty])
+                       (Call (Nam "array_mk") [AsExpr nsize, getRuntimeTypeVariables ty])
          return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
@@ -445,7 +445,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Call (Nam "array_size") [ntarg])
          return (Var tmp, Seq [ttarg, theSize])
 
-  translate call@(A.MethodCall { A.target=target, A.name=name, A.args=args })
+  translate call@(A.MethodCall { A.target, A.name, A.args})
       | (Ty.isTraitType . A.getType) target = do
           (ntarget, ttarget) <- translate target
           (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
@@ -641,9 +641,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do retTmp <- Ctx.genNamedSym "match"
          (narg, targ) <- translate arg
          let argty = A.getType arg
-         tIfChain <- ifChain clauses narg argty retTmp
-         let mType = translate (A.getType m)
-             lRetDecl = Decl (mType, Var retTmp)
+             mType = translate (A.getType m)
+         tIfChain <- ifChain clauses narg argty retTmp mType
+         let lRetDecl = Decl (mType, Var retTmp)
              eZeroInit = Cast mType (Int 0)
              tRetDecl = Assign lRetDecl eZeroInit
          return (Var retTmp, Seq [targ, Statement lRetDecl, tIfChain])
@@ -679,6 +679,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
           return (Var nCheck, tCheck, newUsedVars)
 
+        translateComparison e1 e2 ty
+          | Ty.isStringType ty = do
+              let strcmpCall = Call (Nam "strcmp") [e1, e2]
+              return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
+          | Ty.isStringObjectType ty = do
+              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [e1, e2]
+          | otherwise =
+              return (BinOp (translate ID.EQ) e1 e2)
+
         translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
@@ -688,8 +697,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               noArgs = [] :: [A.Expr]
 
           (nCall, tCall) <-
-              if Ty.isTraitType argty
-              then traitMethod narg argty name noArgs (translate tmpTy)
+              if Ty.isTraitType argty || Ty.isCapabilityType argty
+              then do
+                calledType <- gets $ Ctx.lookupCalledType argty name
+                traitMethod narg calledType name noArgs (translate tmpTy)
               else do
                 tmp <- Ctx.genNamedSym "extractedOption"
                 (argDecls, theCall) <-
@@ -740,13 +751,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let derefedArg = Deref larg
           translateMaybePattern e derefedArg argty assocs usedVars
 
-        translatePattern (A.VarAccess{A.name}) larg _ assocs usedVars
+        translatePattern (A.VarAccess{A.name}) larg argty assocs usedVars
           | Set.member name usedVars = do
               tmp <- Ctx.genNamedSym "varBinding"
               let eVar = AsExpr $ fromJust $ lookup (show name) assocs
                   eArg = AsExpr larg
-                  eComp = BinOp (translate ID.EQ) eVar eArg
-                  tBindRet = Assign (Var tmp) eComp
+              eComp <- translateComparison eVar eArg argty
+              let tBindRet = Assign (Var tmp) eComp
               return (Var tmp, tBindRet, usedVars)
           | otherwise = do
               tmp <- Ctx.genNamedSym "varBinding"
@@ -766,13 +777,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           eComp <- translateComparison eValue eArg argty
           let tAssign = Assign (Var tmp) eComp
           return (Var tmp, tAssign, usedVars)
-            where
-              translateComparison e1 e2 ty
-                | Ty.isStringType ty  = do
-                    let strcmpCall = Call (Nam "strcmp") [e1, e2]
-                    return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
-                | otherwise =
-                    return (BinOp (translate ID.EQ) e1 e2)
 
         translateIfCond (A.MatchClause {A.mcpattern, A.mcguard})
                         narg argty assocs = do
@@ -790,25 +794,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCond = BinOp (translate ID.AND) ePattern eGuard
           return eCond
 
-        translateHandler clause handlerReturnVar assocs = do
+        translateHandler clause handlerReturnVar assocs retTy = do
           (nexpr, texpr) <- withPatDecls assocs (A.mchandler clause)
           let eExpr = StatAsExpr nexpr texpr
-              tAssign = Statement $ Assign (Var handlerReturnVar) eExpr
+              eCast = Cast retTy eExpr
+              tAssign = Assign (Var handlerReturnVar) eCast
           return tAssign
 
-        ifChain [] _ _ _ = do
+        ifChain [] _ _ _ _ = do
           let errorCode = Int 1
               exitCall = Statement $ Call (Nam "exit") [errorCode]
               errorMsg = String "*** Runtime error: No matching clause was found ***\n"
               errorPrint = Statement $ Call (Nam "printf") [errorMsg]
           return $ Seq [errorPrint, exitCall]
 
-        ifChain (clause:rest) narg argty retTmp = do
+        ifChain (clause:rest) narg argty retTmp retTy = do
           let freeVars = filter (not . Ty.isArrowType . snd) $
                                 Util.freeVariables [] (A.mcpattern clause)
           assocs <- mapM createAssoc freeVars
-          thenExpr <- translateHandler clause retTmp assocs
-          elseExpr <- ifChain rest narg argty retTmp
+          thenExpr <- translateHandler clause retTmp assocs retTy
+          elseExpr <- ifChain rest narg argty retTmp retTy
           eCond <- translateIfCond clause narg argty assocs
           let tIf = Statement $ If eCond thenExpr elseExpr
               tDecls = Seq $ map (fwdDecl assocs) freeVars
@@ -1001,22 +1006,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                return $ Assign ((Deref $ Var $ show envName) `Dot` (fieldName name)) tname
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
-    c <- get
-    let clos = Var (case Ctx.substLkp c name of
-                      Just substName -> show substName
-                      Nothing -> show $ globalClosureName name)
-    let ty = A.getType fcall
-    targs <- mapM translateArgument args
-    (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
-    (calln, theCall) <- namedTmpVar "clos" ty $ AsExpr $ fromEncoreArgT (translate ty) (Call (Nam "closure_call") [clos, tmpArgs])
-    let comment = Comm ("fcall name: " ++ show name ++ " (" ++ show (Ctx.substLkp c name) ++ ")")
-    return (if Ty.isVoidType ty then unit else calln, Seq [comment, tmpArgDecl, theCall])
-        where
-          translateArgument arg =
-            do (ntother, tother) <- translate arg
-               return $ asEncoreArgT (translate $ A.getType arg) (StatAsExpr ntother tother)
+    ctx <- get
+    case Ctx.substLkp ctx name of
+      Just clos -> closureCall clos fcall
+      Nothing -> globalFunctionCall fcall
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+closureCall :: CCode Lval -> A.Expr ->
+  State Ctx.Context (CCode Lval, CCode Stat)
+closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
+  targs <- mapM translateArgument args
+  (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
+  (calln, theCall) <- namedTmpVar "clos" typ $
+    AsExpr $
+      fromEncoreArgT (translate typ) $
+        Call (Nam "closure_call") [clos, tmpArgs]
+  return (if Ty.isVoidType typ then unit else calln, Seq [tmpArgDecl, theCall])
+    where
+      typ = A.getType fcall
+      translateArgument arg = do
+        (ntother, tother) <- translate arg
+        return $ asEncoreArgT (translate $ A.getType arg)
+          (StatAsExpr ntother tother)
+
+globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
+globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
+  (args', initArgs) <- fmap unzip $ mapM translate args
+  (callVar, call) <- namedTmpVar "global_f" typ $
+                     Call (globalFunctionName name) args'
+  let ret = if Ty.isVoidType typ then unit else callVar
+  return $ (ret, Seq $ initArgs ++ [call])
+  where
+    typ = A.getType fcall
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
 
@@ -1140,7 +1162,7 @@ traitMethod this targetType name args resultType =
     vtable this = ArrAcc 0 $ this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args = Call (Nam f) $ this:args
+    callF f this args = Call (Nam f) $ Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 gcSend as expectedTypes futTrace =

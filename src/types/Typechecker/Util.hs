@@ -15,6 +15,7 @@ module Typechecker.Util(TypecheckM
                        ,classOrTraitName
                        ,findField
                        ,findMethod
+                       ,findMethodWithCalledType
                        ,findCapability
                        ,formalBindings
                        ,propagateResultType
@@ -25,6 +26,7 @@ import Types as Ty
 import AST.AST as AST
 import Data.List
 import Text.Printf (printf)
+import Debug.Trace
 
 -- Module dependencies
 import Typechecker.TypeError
@@ -132,7 +134,7 @@ subtypeOf ty1 ty2
         anyM (`subtypeOf` ty2) traits
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
-        ty1 `capabilitySubtypeOf` ty2
+        capability `capabilitySubtypeOf` ty2
     | isTupleType ty1 && isTupleType ty2 = do
       let argTys1 = getArgTypes ty1
           argTys2 = getArgTypes ty2
@@ -198,6 +200,7 @@ classOrTraitName :: Type -> String
 classOrTraitName ty
     | isClassType ty = "class '" ++ getId ty ++ "'"
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
+    | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | otherwise = error $ "Util.hs: No class or trait name for " ++
                           Ty.showWithKind ty
 
@@ -210,11 +213,14 @@ findField ty f = do
                          classOrTraitName ty
 
 findMethod :: Type -> Name -> TypecheckM FunctionHeader
-findMethod ty name = do
-  h' <- asks $ methodLookup ty name
-  when (isNothing h') $ tcError $
+findMethod ty = liftM fst . findMethodWithCalledType ty
+
+findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
+findMethodWithCalledType ty name = do
+  result <- asks $ methodAndCalledTypeLookup ty name
+  when (isNothing result) $ tcError $
     concat [noMethod name, " in ", classOrTraitName ty]
-  return $ fromJust h'
+  return $ fromJust result
   where
     noMethod (Name "_init") = "No constructor"
     noMethod n = concat ["No method '", show n, "'"]

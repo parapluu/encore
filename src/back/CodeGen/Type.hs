@@ -27,6 +27,7 @@ instance Translatable Ty.Type (CCode Ty) where
     translate ty
         | Ty.isPrimitive ty      = translatePrimitive ty
         | Ty.isRefType ty        = Ptr . AsType $ classTypeName ty
+        | Ty.isCapabilityType ty = capability
         | Ty.isArrowType ty      = closure
         | Ty.isTypeVar ty        = encoreArgT
         | Ty.isFutureType ty     = future
@@ -49,7 +50,12 @@ runtimeType ty
     | Ty.isArrayType ty  = Amp arrayTypeRecName
     | Ty.isRangeType ty  = Amp rangeTypeRecName
     | Ty.isParType ty    = Amp partyTypeRecName
+    | Ty.isPrimitive ty  = AsExpr $ Var "ENCORE_PRIMITIVE"
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
+
+getRuntimeTypeVariables t
+  | Ty.isTypeVar t =  AsExpr $ (Var "_this") `Arrow` typeVarRefName t
+  | otherwise = runtimeType t
 
 encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"

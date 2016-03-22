@@ -121,6 +121,14 @@ pp' (FunPtrDecl t name argTypes) =
     id = text "(*" <> pp' name <> text ")"
   in
     pp' t <+> id <+> args
+pp' (CompoundLiteral t pairs) =
+  let
+    struct = text "(" <> pp' t <> text ")"
+    pairs' = [text "." <> pp' l <> text "=" <> pp' r | (l,r) <- pairs]
+    body = hcat $ intersperse (text ", ") pairs'
+    braced = text "{" <> body <> text "}"
+  in
+    text "&" <> struct <> braced
 
 commaList :: [CCode a] -> Doc
 commaList l = hcat $ intersperse (text ", ") $ map pp' l
