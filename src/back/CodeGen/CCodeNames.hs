@@ -411,6 +411,9 @@ streamMkFn = Nam "stream_mk"
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
 
+futureFulfilledMkFn :: CCode Name
+futureFulfilledMkFn = Nam "future_fulfilled_mk"
+
 to_trace_new_fn :: CCode Name
 to_trace_new_fn = Nam "so_to_trace_new"
 

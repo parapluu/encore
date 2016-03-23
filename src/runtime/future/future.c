@@ -153,6 +153,17 @@ future_t *future_mk(pony_ctx_t *ctx, pony_type_t *type)
   return fut;
 }
 
+future_t *future_fulfilled_mk(pony_ctx_t *ctx, pony_type_t *type,
+        encore_arg_t value)
+{
+  assert(ctx->current);
+
+  future_t *fut = pony_alloc(ctx, sizeof(future_t));
+  *fut = (future_t) { .type = type, .fulfilled = true, .value = value };
+
+  return fut;
+}
+
 encore_arg_t run_closure(pony_ctx_t* ctx, closure_t *c, encore_arg_t value)
 {
   ctx = pony_ctx();
@@ -364,6 +375,7 @@ void future_await(future_t *fut)
   actor->lock = &fut->lock;
   actor_await(ctx, &uctx);
 }
+
 
 static void future_finalizer(future_t *fut)
 {

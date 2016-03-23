@@ -413,7 +413,6 @@ void so_lockfree_on_exit(encore_so_t *this, to_trace_t *item)
 
 void encore_so_finalinzer(void *p)
 {
-  printf("finalizer %p\n", p);
   assert(p);
   encore_so_t *this = p;
   assert(mpscq_pop(&this->so_gc.in_out_q) == NULL);
@@ -445,6 +444,7 @@ void mv_tmp_to_acc(pony_ctx_t *ctx)
   void *p;
   while(ctx->lf_tmp_stack != NULL) {
     ctx->lf_tmp_stack = gcstack_pop(ctx->lf_tmp_stack, &p);
+    gc_recv_address(ctx, p);
     ctx->lf_acc_stack = gcstack_push(ctx->lf_acc_stack, p);
   }
 }

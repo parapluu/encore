@@ -490,6 +490,7 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
           [assignFut] ++
           prep_lf_entry thisName ++
           [fulfil_fut] ++
+          -- [assignFut] ++
           prep_lf_exit thisName ++
           [retStmt]
       in
@@ -504,8 +505,16 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
         this = (Ptr . AsType $ classTypeName cname, Var thisName)
         futVar = Var "_fut"
         declFut = Decl (future, futVar)
+        call_actual_method =
+          asEncoreArgT (translate mType)
+          (Call (methodImplName cname mName)
+                (encoreCtxVar : Var thisName :
+                 map (AsLval . argName . A.pname) mParams))
         futureMk mtype =
           Call futureMkFn [AsExpr encoreCtxVar, runtimeType mtype]
+        -- futureMk mtype =
+        --   Call futureFulfilledMkFn
+        --     [AsExpr encoreCtxVar, runtimeType mtype, call_actual_method]
         assignFut = Assign declFut $ futureMk mType
         argPairs = zip (map A.ptype mParams) argNames
         trace_args argPairs =
