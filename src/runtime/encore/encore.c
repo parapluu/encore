@@ -332,6 +332,11 @@ pony_ctx_t* encore_ctx()
   return pony_ctx();
 }
 
+encore_actor_t *encore_current_actor()
+{
+  return (void*)pony_ctx()->current;
+}
+
 encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type)
 {
   encore_actor_t *new = (encore_actor_t *)pony_create(ctx, type);

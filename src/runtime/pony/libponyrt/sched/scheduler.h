@@ -23,6 +23,9 @@ typedef struct pony_ctx_t
   trace_actor_fn trace_actor;
   gcstack_t* stack;
   actormap_t acquire;
+  gcstack_t* lf_acc_stack;
+  gcstack_t* lf_tmp_stack;
+  void* boundary;
   bool finalising;
 
 #ifdef USE_TELEMETRY

@@ -5,6 +5,32 @@
 #include "../actor/actor.h"
 #include <assert.h>
 
+void pony_gc_try_send(pony_ctx_t* ctx)
+{
+  assert(ctx->stack == NULL);
+  ctx->trace_object = gc_lf_try_sendobject;
+  // ctx->trace_actor = gc_sendactor;
+}
+
+void pony_gc_try_send_done(pony_ctx_t *ctx)
+{
+  gc_handlestack(ctx);
+  gc_done(actor_gc(ctx->current));
+}
+
+void pony_gc_try_recv(pony_ctx_t* ctx)
+{
+  assert(ctx->stack == NULL);
+  ctx->trace_object = gc_lf_try_recvobject;
+  // ctx->trace_actor = gc_recvactor;
+}
+
+void pony_gc_try_recv_done(pony_ctx_t *ctx)
+{
+  gc_handlestack(ctx);
+  gc_done(actor_gc(ctx->current));
+}
+
 void pony_gc_send(pony_ctx_t* ctx)
 {
   assert(ctx->stack == NULL);

@@ -4,6 +4,7 @@
 #include "../mem/pagemap.h"
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 #define GC_ACTOR_HEAP_EQUIV 1024
 DEFINE_STACK(gcstack, void);
@@ -108,6 +109,227 @@ void gc_acquireobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
       ctx->stack = gcstack_push(ctx->stack, f);
     }
   }
+}
+
+void gc_lf_try_sendobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
+{
+  if (p == ctx->boundary) {
+    return;
+  }
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
+
+  // Don't gc memory that wasn't pony_allocated, but do recurse.
+  if(chunk == NULL) {
+    if(f != NULL) {
+      ctx->stack = gcstack_push(ctx->stack, p);
+      ctx->stack = gcstack_push(ctx->stack, f);
+    }
+    return;
+  }
+
+  pony_actor_t* actor = heap_owner(chunk);
+  gc_t* gc = actor_gc(ctx->current);
+
+  object_t *obj;
+  if(actor == ctx->current) {
+    obj = objectmap_getorput(&gc->local, p, gc->mark);
+  } else {
+    // get the actor
+    actorref_t* aref = actormap_getactor(&gc->foreign, actor);
+    assert(aref);
+
+    // we've reached this by tracing a tag through a union
+    if(aref == NULL)
+      return;
+
+    // get the object
+    obj = actorref_getobject(aref, p);
+    assert(obj);
+
+    // we've reached this by tracing a tag through a union
+    if(obj == NULL)
+      return;
+  }
+
+  if(!object_marked(obj, gc->mark)) {
+    ctx->lf_tmp_stack = gcstack_push(ctx->lf_tmp_stack, p);
+    object_mark(obj, gc->mark);
+    if(f != NULL) {
+      ctx->stack = gcstack_push(ctx->stack, p);
+      ctx->stack = gcstack_push(ctx->stack, f);
+    }
+  }
+}
+
+void gc_lf_try_recvobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
+{
+  if (p == ctx->boundary) {
+    return;
+  }
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
+
+  // Don't gc memory that wasn't pony_allocated, but do recurse.
+  if(chunk == NULL) {
+    if(f != NULL) {
+      ctx->stack = gcstack_push(ctx->stack, p);
+      ctx->stack = gcstack_push(ctx->stack, f);
+    }
+    return;
+  }
+
+  pony_actor_t* actor = heap_owner(chunk);
+  gc_t* gc = actor_gc(ctx->current);
+
+  object_t *obj;
+  if(actor == ctx->current) {
+    obj = objectmap_getobject(&gc->local, p);
+    if (!obj) {
+      return;
+    }
+  } else {
+    actorref_t* aref = actormap_getorput(&gc->foreign, actor, gc->mark);
+    obj = actorref_getorput(aref, p, gc->mark);
+  }
+
+  if(!object_marked(obj, gc->mark)) {
+    ctx->lf_tmp_stack = gcstack_push(ctx->lf_tmp_stack, p);
+    object_mark(obj, gc->mark);
+    if(f != NULL) {
+      ctx->stack = gcstack_push(ctx->stack, p);
+      ctx->stack = gcstack_push(ctx->stack, f);
+    }
+  }
+}
+
+void gc_double_inc_send(pony_ctx_t *ctx, void *p)
+{
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
+
+  if(chunk == NULL) {
+    return;
+  }
+
+  pony_actor_t* actor = heap_owner(chunk);
+  gc_t* gc = actor_gc(ctx->current);
+
+  if(actor == ctx->current) {
+    current_actor_inc(gc);
+
+    // get the object
+    object_t* obj = objectmap_getorput(&gc->local, p, gc->mark);
+
+    if(!object_marked(obj, gc->mark)) {
+      // inc, mark and recurse
+      object_inc_some(obj, 2);
+      object_mark(obj, gc->mark);
+    }
+    return;
+  }
+
+  // get the actor
+  actorref_t* aref = actormap_getactor(&gc->foreign, actor);
+  assert(aref);
+
+  // we've reached this by tracing a tag through a union
+  if(aref == NULL)
+    return;
+
+  // get the object
+  object_t* obj = actorref_getobject(aref, p);
+  assert(obj);
+
+  // we've reached this by tracing a tag through a union
+  if(obj == NULL)
+    return;
+
+  if(!actorref_marked(aref, gc->mark)) {
+    // dec. if we can't, we need to build an acquire message
+    if(!actorref_dec(aref)) {
+      actorref_inc_more(aref);
+      actorref_dec(aref);
+      acquire_actor(ctx, actor);
+    }
+
+    actorref_mark(aref, gc->mark);
+    gc->delta = deltamap_update(gc->delta,
+      actorref_actor(aref), actorref_rc(aref));
+  }
+
+  if(!object_marked(obj, gc->mark)) {
+    // dec. if we can't, we need to build an acquire message
+    if(!object_dec(obj)) {
+      object_inc_more(obj);
+      object_dec(obj);
+      acquire_object(ctx, actor, p);
+    }
+
+    object_mark(obj, gc->mark);
+  }
+}
+
+void gc_double_inc_send_done(pony_ctx_t *ctx)
+{
+  gc_sendacquire(ctx);
+  gc_done(actor_gc(ctx->current));
+}
+
+void gc_recv_address(pony_ctx_t *ctx, void *p)
+{
+  chunk_t* chunk = (chunk_t*)pagemap_get(p);
+
+  if(chunk == NULL) {
+    return;
+  }
+
+  pony_actor_t* actor = heap_owner(chunk);
+  gc_t* gc = actor_gc(ctx->current);
+
+  if(actor == ctx->current) {
+    current_actor_dec(gc);
+
+    // get the object
+    object_t* obj = objectmap_getobject(&gc->local, p);
+    assert(obj != NULL);
+
+    if(!object_marked(obj, gc->mark)) {
+      // Dec, mark and recurse. Mark as reachable from the actor, since a
+      // release message for this object could arrive before a gc pass.
+      object_dec(obj);
+      object_mark(obj, gc->mark);
+      object_markreachable(obj);
+    }
+
+    return;
+  }
+
+  // get the actor
+  actorref_t* aref = actormap_getorput(&gc->foreign, actor, gc->mark);
+
+  if(!actorref_marked(aref, gc->mark)) {
+    // inc and mark
+    actorref_inc(aref);
+    actorref_mark(aref, gc->mark);
+    gc->delta = deltamap_update(gc->delta,
+      actorref_actor(aref), actorref_rc(aref));
+  }
+
+  // get the object
+  object_t* obj = actorref_getorput(aref, p, gc->mark);
+
+  if(!object_marked(obj, gc->mark)) {
+    // if this is our first reference, add to our heap used size
+    if(object_rc(obj) == 0)
+      heap_used(actor_heap(ctx->current), heap_size(chunk));
+
+    // inc, mark and recurse
+    object_inc(obj);
+    object_mark(obj, gc->mark);
+  }
+}
+
+void gc_recv_address_done(pony_ctx_t *ctx)
+{
+  gc_done(actor_gc(ctx->current));
 }
 
 void gc_sendobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)

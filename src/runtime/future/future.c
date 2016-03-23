@@ -11,7 +11,6 @@
 
 #include "encore.h"
 #include "future.h"
-#include "../libponyrt/actor/messageq.h"
 #include "../libponyrt/sched/scheduler.h"
 
 #define BLOCK    pthread_mutex_lock(&fut->lock);
@@ -382,5 +381,5 @@ static inline void future_gc_recv_value(pony_ctx_t *ctx, future_t *fut)
 {
   pony_gc_recv(ctx);
   future_gc_trace_value(ctx, fut);
-  pony_recv_done(ctx);
+  gc_handlestack(ctx);
 }

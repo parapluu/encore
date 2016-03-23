@@ -270,8 +270,8 @@ instance Checkable ClassDecl where
   --  E |- class cname fields methods
   doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
     let traits = typesFromCapability ccapability
-    unless (isPassiveClassType cname || null traits) $
-           tcError "Traits can only be used for passive classes"
+    unless (isPassiveClassType cname || isSharedClassType cname || null traits) $
+      tcError "Traits can only be used for passive or shared classes"
     mapM_ (meetRequiredFields cfields) traits
     mapM_ (meetRequiredMethods cmethods) traits
     noOverlapFields ccapability

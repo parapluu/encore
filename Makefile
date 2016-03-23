@@ -4,7 +4,7 @@ ENCOREC=dist/build/encorec/encorec
 RUNTIME_DIR=$(SRC_DIR)/runtime
 
 CONFIG=debug
-CONFIG=release
+# CONFIG=release
 
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
@@ -49,6 +49,7 @@ FUTURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libfuture.a
 OPTION_INC=$(RUNTIME_DIR)/adt/option.h
 OPTION_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/liboptiontype.a
 ENCORE_INC=$(ENCORE_DIR)/encore.h
+SO_INC=$(ENCORE_DIR)/shared_object.h
 ENCORE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libencore.a
 CLOSURE_INC=$(RUNTIME_DIR)/closure/closure.h
 CLOSURE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libclosure.a
@@ -77,6 +78,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(PARTY_INC) $(INC_DIR)
 	cp -r $(STREAM_INC) $(INC_DIR)
 	cp -r $(ENCORE_INC) $(INC_DIR)
+	cp -r $(SO_INC) $(INC_DIR)
 	cp -r $(ARRAY_INC) $(INC_DIR)
 	cp -r $(TUPLE_INC) $(INC_DIR)
 	cp -r $(RANGE_INC) $(INC_DIR)

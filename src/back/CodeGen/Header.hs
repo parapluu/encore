@@ -41,12 +41,10 @@ generateHeader p =
       "party.h",
       "string.h",
       "stdio.h",
-      "stdarg.h"
+      "stdarg.h",
+      "shared_object.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
-
-    HashDefine "FREEZE(field) ((void*)(((uintptr_t)field) | 1UL))" :
-    HashDefine "UNFREEZE(field) ((void*)(((uintptr_t)field) & ~1UL))" :
 
     [commentSection "Shared messages"] ++
     sharedMessages ++

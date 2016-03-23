@@ -1,7 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 
 {-| Makes @MethodDecl@ (see "AST") an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
-module CodeGen.MethodDecl where
+module CodeGen.MethodDecl (
+  translate
+) where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames

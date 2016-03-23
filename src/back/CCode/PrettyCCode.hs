@@ -45,8 +45,14 @@ pp' Skip = empty
 pp' Null = text "NULL"
 pp' (Includes ls) = vcat $ map (text . ("#include <"++) . (++">")) ls
 pp' (LocalInclude s) = text "#include" <+> doubleQuotes (text s)
-pp' (IfDefine str ccode) = text "#ifdef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifdef" <+> text str <+> text "*/"
-pp' (IfNDefine str ccode) = text "#ifndef" <+> text str $+$ pp' ccode $+$ text "#endif /* ifndef" <+> text str <+> text "*/"
+pp' (IfDefine str ccode) =
+  text "#ifdef" <+>
+  text str $+$ pp' ccode $+$
+  text "#endif /* ifdef" <+> text str <+> text "*/"
+pp' (IfNDefine str ccode) =
+  text "#ifndef" <+>
+  text str $+$ pp' ccode $+$
+  text "#endif /* ifndef" <+> text str <+> text "*/"
 pp' (HashDefine str) = text $ "#define " ++ str
 pp' (Statement other) =  addSemi $ pp' other
 pp' (Switch tst ccodes def) = text "switch" <+> parens (tshow tst)  $+$

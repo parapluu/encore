@@ -11,7 +11,7 @@ module CodeGen.ClassDecl () where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import CodeGen.MethodDecl ()
+import CodeGen.MethodDecl
 import CodeGen.ClassTable
 import CodeGen.Type
 import CodeGen.Trace
@@ -21,6 +21,7 @@ import CCode.Main
 import CCode.PrettyCCode ()
 
 import Data.List
+import Text.Printf (printf)
 
 import qualified AST.AST as A
 import qualified Identifiers as ID
@@ -405,13 +406,40 @@ constructorImpl act cname =
     createCall Active =
       Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
     createCall Shared =
-      Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+      Call encoreCreateSoName [AsExpr encoreCtxVar, runtimeType]
     createCall Passive =
       Call encoreAllocName [AsExpr encoreCtxVar, Sizeof classType]
 
     decorateThis :: Activity -> [CCode Stat]
     decorateThis Passive = [Assign (this `Arrow` selfTypeField) runtimeType]
     decorateThis _ = []
+
+prep_lf_entry :: String -> [CCode Stat]
+prep_lf_entry thisName =
+  [ init_to_trace thisName
+  , call_on_entry
+  ]
+  where
+    to_trace_t_ptr = Ptr to_trace_t
+    to_trace_var = Var "_item"
+    decl_to_trace = Decl (to_trace_t_ptr, to_trace_var)
+    this = Cast (Ptr encoreSoT) $ Var thisName
+    to_trace_new =
+      Call to_trace_new_fn [this]
+    init_to_trace thisName = Assign decl_to_trace to_trace_new
+    call_on_entry =
+      Statement $ Call so_lockfree_on_entry_fn [this, AsExpr to_trace_var]
+
+prep_lf_exit :: String -> [CCode Stat]
+prep_lf_exit thisName =
+  map Statement [call_acc_recv, call_on_exit]
+  where
+    to_trace_var = Var "_item"
+    this = Cast (Ptr encoreSoT) $ Var thisName
+    call_acc_recv =
+      Call so_lockfree_acc_recv_fn [encoreCtxVar, to_trace_var]
+    call_on_exit =
+      Call so_lockfree_on_exit_fn [this, AsExpr to_trace_var]
 
 translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
   Program $ Concat $
@@ -422,14 +450,89 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
     [tracefunDecl cdecl] ++
     [constructorImpl Shared cname] ++
     methodImpls ++
-    (map (methodImplWithFuture cname) cmethods) ++
+    [so_method_impl_with_future strategy method | method <- cmethods, strategy <- strategies] ++
     (map (methodImplOneWay cname) cmethods) ++
     [dispatchFunDecl cdecl] ++
     [runtimeTypeDecl cname]
-    where
-      methodImpls = map methodDecl cmethods
-        where
-          methodDecl mdecl = translate mdecl cdecl ctable
+  where
+    typeStructDecl :: A.ClassDecl -> CCode Toplevel
+    typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
+        let typeParams = Ty.getTypeParameters cname in
+        StructDecl (AsType $ classTypeName cname) $
+                   ((encoreSoT, Var "_enc__so") :
+                    (map (\ty -> (Ptr ponyTypeT, AsLval $ typeVarRefName ty)) typeParams ++
+                       zip
+                       (map (translate  . A.ftype) cfields)
+                       (map (AsLval . fieldName . A.fname) cfields)))
+
+    methodImpls = map methodDecl cmethods
+      where
+        methodDecl mdecl = translate mdecl cdecl ctable
+
+    strategies = [
+        -- ("SO_ACTOR", methodImplWithFuture)
+      ("SO_LOCKFREE", method_future_so_lf)
+      -- , ("SO_LOCKFREE", methodImplWithFuture)
+      ]
+
+    so_method_impl_with_future ::
+      (String, Ty.Type -> A.MethodDecl -> CCode Toplevel)
+        -> A.MethodDecl -> CCode Toplevel
+    so_method_impl_with_future (macro, fun) = IfDefine macro . fun cname
+
+    method_future_so_lf :: Ty.Type -> A.MethodDecl -> CCode Toplevel
+    method_future_so_lf cname m =
+      let
+        retType = future
+        fName = methodImplFutureName cname mName
+        args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
+        fBody = Seq $ [initEncoreCtx] ++
+          [assignFut] ++
+          prep_lf_entry thisName ++
+          [fulfil_fut] ++
+          prep_lf_exit thisName ++
+          [retStmt]
+      in
+        Function retType fName args fBody
+      where
+        thisName = "_this"
+        mName = A.methodName m
+        mParams = A.methodParams m
+        mType = A.methodType m
+        argNames = map (AsLval . argName . A.pname) mParams
+        argTypes = map (translate . A.ptype) mParams
+        this = (Ptr . AsType $ classTypeName cname, Var thisName)
+        futVar = Var "_fut"
+        declFut = Decl (future, futVar)
+        futureMk mtype =
+          Call futureMkFn [AsExpr encoreCtxVar, runtimeType mtype]
+        assignFut = Assign declFut $ futureMk mType
+        argPairs = zip (map A.ptype mParams) argNames
+        trace_args argPairs =
+          [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+          (map (Statement . uncurry traceVariable) argPairs) ++
+          [Statement $ Call ponySendDoneName [encoreCtxVar]]
+        fulfil_fut =
+          Statement $
+           Call futureFulfil
+             [AsExpr encoreCtxVar,
+              AsExpr futVar,
+              asEncoreArgT (translate mType)
+              (Call (methodImplName cname mName)
+                    (encoreCtxVar : Var thisName :
+                     map (AsLval . argName . A.pname) mParams))]
+        retStmt = Return futVar
+
+    runtimeTypeDecl cname =
+      AssignTL
+       (Decl (Typ "pony_type_t", AsLval $ runtimeTypeName cname)) $
+          DesignatedInitializer $ [ (Nam "id", AsExpr . AsLval $ classId cname)
+          , (Nam "size", Call (Nam "sizeof") [AsLval $ classTypeName cname])
+          , (Nam "trace", AsExpr . AsLval $ (classTraceFnName cname))
+          , (Nam "dispatch", AsExpr . AsLval $ (classDispatchName cname))
+          , (Nam "final", AsExpr . AsLval $ (encore_so_finalizer))
+          , (Nam "vtable", AsExpr . AsLval $ traitMethodSelectorName)
+          ]
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
@@ -515,11 +618,16 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                             (Var "p")) :
                      map traceField cfields)
     where
-      traceField A.Field {A.ftype, A.fname} =
-        let var = Var . show $ fieldName fname
-            field = Var "_this" `Arrow` fieldName fname
-            fieldAssign = Assign (Decl (translate ftype, var)) field
-        in Seq [fieldAssign, traceVariable ftype var]
+      skipping_list = [A.Spec, A.Once]
+
+      traceField A.Field {A.fmods, A.ftype, A.fname}
+        | not . null $ fmods `intersect` skipping_list =
+          Comm $ printf "Skipping %s %s fields" (show fname) (show fmods)
+        | otherwise =
+          let var = Var . show $ fieldName fname
+              field = Var "_this" `Arrow` fieldName fname
+              fieldAssign = Assign (Decl (translate ftype, var)) field
+          in Seq [fieldAssign, traceVariable ftype var]
 
 runtimeTypeDecl cname =
   AssignTL

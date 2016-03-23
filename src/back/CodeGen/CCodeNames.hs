@@ -43,6 +43,12 @@ void = Typ "void"
 encoreActorT :: CCode Ty
 encoreActorT = Typ "encore_actor_t"
 
+to_trace_t :: CCode Ty
+to_trace_t = Typ "to_trace_t"
+
+encoreSoT :: CCode Ty
+encoreSoT = Typ "encore_so_t"
+
 ponyTypeT :: CCode Ty
 ponyTypeT = Typ "pony_type_t"
 
@@ -185,6 +191,9 @@ constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
 
+encoreCreateSoName :: CCode Name
+encoreCreateSoName = Nam "encore_create_so"
+
 encoreAllocName :: CCode Name
 encoreAllocName = Nam "encore_alloc"
 
@@ -281,6 +290,8 @@ refTypeId ty =
     Nam $ encoreName "ID" (Ty.getId ty)
 
 traitMethodSelectorName = Nam "trait_method_selector"
+
+encore_so_finalizer = Nam "encore_so_finalinzer"
 
 -- | each class, in C, provides a dispatch function that dispatches
 -- messages to the right method calls. This is the name of that
@@ -399,6 +410,18 @@ streamMkFn = Nam "stream_mk"
 
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
+
+to_trace_new_fn :: CCode Name
+to_trace_new_fn = Nam "so_to_trace_new"
+
+so_lockfree_on_entry_fn :: CCode Name
+so_lockfree_on_entry_fn = Nam "so_lockfree_on_entry"
+
+so_lockfree_acc_recv_fn :: CCode Name
+so_lockfree_acc_recv_fn = Nam "so_lockfree_acc_recv"
+
+so_lockfree_on_exit_fn :: CCode Name
+so_lockfree_on_exit_fn = Nam "so_lockfree_on_exit"
 
 rangeMkFn :: CCode Name
 rangeMkFn = Nam "range_mk"
