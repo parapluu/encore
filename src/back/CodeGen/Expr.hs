@@ -262,7 +262,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            Call arraySet [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
     return (unit, Seq [trhs, ttarg, tindex, theSet])
 
-  translate (A.Assign {A.lhs, A.rhs}) = do
+  translate expr@A.Assign{A.lhs, A.rhs} = do
     (nrhs, trhs) <- translate rhs
     castRhs <- case lhs of
                  A.FieldAccess {A.name, A.target} ->
@@ -272,10 +272,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                         else
                             return $ upCast nrhs
                  _ -> return $ upCast nrhs
-
+    prep <- case expr of
+              A.Assign{A.lhs = lhs@A.FieldAccess{A.name, A.target},
+                       A.rhs = rhs@A.Consume{}} -> do
+                fld <- gets $ Ctx.lookupField (A.getType target) name
+                if A.isOnceField fld || A.isSpecField fld then
+                  return $
+                    Statement $ Call (Nam "_ASSIGN_CONSUME_WRAPPER")
+                      [nrhs, AsLval $ classTraceFnName (A.getType rhs)]
+                else
+                  return skip_prep
+              _ -> return skip_prep
     lval <- mkLval lhs
-    return (unit, Seq [trhs, Assign lval castRhs])
+    return (unit, Seq [trhs, prep, Assign lval castRhs])
       where
+        skip_prep =
+            Seq ([Comm "no prep for non spec or once"] :: [CCode Stat])
         upCast e = if needUpCast then cast e else AsExpr e
           where
             lhsType = A.getType lhs
