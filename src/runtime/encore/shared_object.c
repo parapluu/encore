@@ -67,7 +67,6 @@ static queue_node_t* mpscq_push(mpscq_t *q, void *data)
   node->data = data;
   node->next = NULL;
 
-  assert(q->head);
   queue_node_t* prev = (queue_node_t*)_atomic_exchange(&q->head, node);
   _atomic_store(&prev->next, node);
   return node;
@@ -79,7 +78,6 @@ static void mpscq_push_single(mpscq_t *q, void *data)
   node->data = data;
   node->next = NULL;
 
-  assert(q->head);
   queue_node_t* prev = q->head;
   q->head = node;
   prev->next = node;
@@ -87,8 +85,6 @@ static void mpscq_push_single(mpscq_t *q, void *data)
 
 static void *mpscq_pop(mpscq_t *q)
 {
-  assert(q->head);
-
   queue_node_t *tail = q->tail;
   queue_node_t *next = _atomic_load(&tail->next);
 
@@ -103,7 +99,6 @@ static void *mpscq_pop(mpscq_t *q)
 
 static void *mpscq_peek(mpscq_t *q)
 {
-  assert(q->head);
   queue_node_t *tail = _atomic_load(&q->tail);
 
   queue_node_t *next = _atomic_load(&tail->next);
@@ -118,6 +113,7 @@ static queue_node_t *next_node_of_not_exit_item(queue_node_t *node)
   to_trace_t *item;
   while ((node = _atomic_load(&node->next))) {
     item = node->data;
+    assert(item);
     if (!_atomic_load(&item->exited)) {
       return node;
     }
@@ -127,6 +123,7 @@ static queue_node_t *next_node_of_not_exit_item(queue_node_t *node)
 
 static void clean_one(to_trace_t *item)
 {
+  assert(item);
   pony_ctx_t *ctx = pony_ctx();
   {
     trace_address_list *cur = item->address;
@@ -135,32 +132,42 @@ static void clean_one(to_trace_t *item)
       if (!cur) {
         break;
       }
-      pony_traceobject(ctx, cur->address, NULL);
+      gc_recv_address(ctx, cur->address);
       pre = cur;
       cur = cur->next;
       POOL_FREE(trace_address_list, pre);
     }
+    gc_recv_address_done(ctx);
   }
   POOL_FREE(to_trace_t, item);
 }
 
 static void collect(encore_so_t *this)
 {
+  dwcas_t cmp, xchg;
+  so_gc_t *so_gc = &this->so_gc;
+  duration_t *d = mpscq_pop(&so_gc->duration_q);
   do {
-    duration_t *d = mpscq_pop(&this->so_gc.duration_q);
     assert(d->collectable == 1);
     for (size_t i = 0; i < d->exit; ++i) {
-      clean_one(mpscq_pop(&this->so_gc.in_out_q));
+      clean_one(mpscq_pop(&so_gc->in_out_q));
     }
     POOL_FREE(duration_t, d);
-    d = mpscq_peek(&this->so_gc.duration_q);
+    cmp.aba = _atomic_load(&so_gc->cas_d.aba);
+    cmp.current = d;
+    xchg.aba = cmp.aba + 1;
+    xchg.current = NULL;
+    bool success = _atomic_dwcas(&so_gc->cas_d.dw, &cmp.dw, xchg.dw);
+    assert(success);
+    d = mpscq_peek(&so_gc->duration_q);
     if (d == NULL || _atomic_load(&d->collectable) != 1) {
       return;
     }
-    int old_collector = 0;
-    if (_atomic_cas(&d->collector, &old_collector, 1) || old_collector == 3) {
-      continue;
-    } else {
+    cmp.aba = xchg.aba;
+    cmp.current = NULL;
+    xchg.aba = cmp.aba + 1;
+    xchg.current = d;
+    if (!_atomic_dwcas(&so_gc->cas_d.dw, &cmp.dw, xchg.dw)) {
       return;
     }
   } while (true);
@@ -169,7 +176,10 @@ static void collect(encore_so_t *this)
 encore_so_t *encore_create_so(pony_ctx_t *ctx, pony_type_t *type)
 {
   encore_so_t *this = (encore_so_t*) encore_create(ctx, type);
+  this->so_gc.cas.aba = 0;
   this->so_gc.cas.current = (void*)-1;
+  this->so_gc.cas_d.aba = 0;
+  this->so_gc.cas_d.current = NULL;
   this->so_gc.node_of_head = NULL;
   mpscq_init(&this->so_gc.in_out_q);
   mpscq_init(&this->so_gc.duration_q);
@@ -201,18 +211,22 @@ static void set_collectable(encore_so_t *this, duration_t *d)
   if (_atomic_load(&d->collectable) == 1) {
     return;
   }
-  int old_collectable = 0;
   // maybe the second load could be eliminated, because ...
   if (_atomic_load(&d->exit) + _atomic_load(&d->dependency) ==
       _atomic_load(&d->entry)) {
+    dwcas_t cmp, xchg;
+    int old_collectable = 0;
+    to_trace_t *head = d->head;
+    so_gc_t *so_gc = &this->so_gc;
     if (_atomic_cas(&d->collectable, &old_collectable, 1)) {
-      if (mpscq_peek(&this->so_gc.in_out_q) == d->head) {
-        int old_collector = 0;
-        if (_atomic_cas(&d->collector, &old_collector, 2)) {
+      if (mpscq_peek(&this->so_gc.in_out_q) == head) {
+        cmp.aba = _atomic_load(&so_gc->cas_d.aba);
+        cmp.current = NULL;
+        xchg.aba = cmp.aba + 1;
+        xchg.current = d;
+        if (_atomic_dwcas(&so_gc->cas_d.dw, &cmp.dw, xchg.dw)) {
           collect(this);
         }
-      } else {
-        _atomic_store(&d->collector, 3);
       }
     }
   }
@@ -447,6 +461,7 @@ void mv_tmp_to_acc(pony_ctx_t *ctx)
     gc_recv_address(ctx, p);
     ctx->lf_acc_stack = gcstack_push(ctx->lf_acc_stack, p);
   }
+  gc_recv_address_done(ctx);
 }
 
 void so_lockfree_acc_recv(pony_ctx_t *ctx, to_trace_t *item)
@@ -455,9 +470,7 @@ void so_lockfree_acc_recv(pony_ctx_t *ctx, to_trace_t *item)
   while(ctx->lf_acc_stack != NULL) {
     ctx->lf_acc_stack = gcstack_pop(ctx->lf_acc_stack, &p);
     so_to_trace(item, p);
-    gc_recv_address(ctx, p);
   }
-  gc_recv_address_done(ctx);
 }
 
 void so_lockfree_set_trace_boundary(pony_ctx_t *ctx, void *p)

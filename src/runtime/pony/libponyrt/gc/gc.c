@@ -31,6 +31,15 @@ static void current_actor_inc(gc_t* gc)
   }
 }
 
+static void current_actor_inc_some(gc_t* gc, size_t rc)
+{
+  if(gc->rc_mark != gc->mark)
+  {
+    gc->rc_mark = gc->mark;
+    gc->rc += rc;
+  }
+}
+
 static void current_actor_dec(gc_t* gc)
 {
   if(gc->rc_mark != gc->mark)
@@ -38,6 +47,16 @@ static void current_actor_dec(gc_t* gc)
     gc->rc_mark = gc->mark;
     assert(gc->rc > 0);
     gc->rc--;
+  }
+}
+
+static void current_actor_dec_some(gc_t* gc, size_t rc)
+{
+  if(gc->rc_mark != gc->mark)
+  {
+    gc->rc_mark = gc->mark;
+    assert(gc->rc >= rc);
+    gc->rc -= rc;
   }
 }
 
@@ -213,7 +232,7 @@ void gc_double_inc_send(pony_ctx_t *ctx, void *p)
   gc_t* gc = actor_gc(ctx->current);
 
   if(actor == ctx->current) {
-    current_actor_inc(gc);
+    current_actor_inc_some(gc, 2);
 
     // get the object
     object_t* obj = objectmap_getorput(&gc->local, p, gc->mark);

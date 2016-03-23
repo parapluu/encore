@@ -29,6 +29,7 @@ typedef struct so_gc_t {
   dwcas_t cas;
   queue_node_t *node_of_head;
   mpscq_t in_out_q;
+  dwcas_t cas_d;
   mpscq_t duration_q;
 } so_gc_t;
 
@@ -89,6 +90,7 @@ typedef struct encore_so_t
   ({                                             \
     bool ret;                                    \
     pony_gc_try_send(_ctx);                      \
+    so_lockfree_set_trace_boundary(_ctx, NULL);  \
     pony_traceobject(_ctx, (UNFREEZE(Z)), F);    \
     pony_gc_try_send_done(_ctx);                 \
     ret = __sync_bool_compare_and_swap(X, Y, Z); \
@@ -100,12 +102,19 @@ typedef struct encore_so_t
     ret;                                         \
   })                                             \
 
+#define _ASSIGN_CONSUME_WRAPPER(X, F)          \
+  ({                                           \
+   pony_gc_try_send(_ctx);                     \
+   so_lockfree_set_trace_boundary(_ctx, NULL); \
+   pony_traceobject(_ctx, X, F);               \
+   pony_gc_try_send_done(_ctx);                \
+   so_lockfree_send(_ctx);                     \
+   })                                          \
+
 typedef struct to_trace_t to_trace_t;
 
 encore_so_t *encore_create_so(pony_ctx_t *ctx, pony_type_t *type);
 to_trace_t *so_to_trace_new(encore_so_t *this);
-void so_to_traceactor(to_trace_t *item, encore_actor_t *actor);
-void so_to_traceobject(to_trace_t *item, void *p, pony_trace_fn f);
 void so_lockfree_on_entry(encore_so_t *this, to_trace_t *item);
 void so_lockfree_on_exit(encore_so_t *this, to_trace_t *item);
 void encore_so_finalinzer(void *p);
