@@ -159,7 +159,8 @@ static bool quiescent(scheduler_t* sched, uint64_t tsc, uint64_t tsc2)
     if(sched->asio_stopped)
     {
       // Reset the ACK token in case we are rescheduling ourself.
-      cycle_terminate(&sched->ctx);
+      scheduler_terminate();
+
       sched->ack_token++;
       sched->ack_count = 0;
     } else if(asio_stop()) {
@@ -418,6 +419,8 @@ static void scheduler_shutdown()
   }
   assert(pop_global(&scheduler[0]) == NULL);
 
+  cycle_terminate(&scheduler[0].ctx);
+
 #ifdef USE_TELEMETRY
   printf("\"telemetry\": [\n");
 #endif
@@ -489,7 +492,6 @@ pony_ctx_t* scheduler_init(uint32_t threads, bool noyield)
     threads = cpu_count();
 
   scheduler_count = threads;
-  // scheduler_count = 1;
   scheduler = (scheduler_t*)pool_alloc_size(
     scheduler_count * sizeof(scheduler_t));
   memset(scheduler, 0, scheduler_count * sizeof(scheduler_t));
