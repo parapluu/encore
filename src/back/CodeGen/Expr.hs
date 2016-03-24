@@ -1074,7 +1074,6 @@ globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
       returnType = A.htype formalArgs
 
       arguments = map translateArg (zip3 (map AsExpr args') formalTypes actualArgs)
-      bindings = zip (A.hpparams formalArgs) (A.pparams fcall)
       typeVariables = map translateParametricArguments (A.pparams fcall)
       rhs = Call (globalFunctionName name) (AsExpr encoreCtxVar : typeVariables ++ arguments)
   (callVar, call) <- namedTmpVar "global_f" typ $

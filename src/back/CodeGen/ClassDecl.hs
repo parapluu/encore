@@ -51,10 +51,10 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ntable@(fta
       [dispatchFunDecl cdecl] ++
       [runtimeTypeDecl cname]
     where
+      (streamMethods, nonStreamMethods) = partition A.isStreamMethod cmethods
       methodImpls = map methodImpl cmethods
         where
           methodImpl mdecl = translate mdecl cdecl ntable
-          (streamMethods, nonStreamMethods) = partition A.isStreamMethod cmethods
 
 typeStructDecl :: A.ClassDecl -> CCode Toplevel
 typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
