@@ -28,6 +28,8 @@ import qualified CodeGen.ClassTable as Tbl
 
 import qualified CCode.Main as C
 
+data LexicalContext = ActiveObject | PassiveObject | SharedObject | GlobalFunction
+
 type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
