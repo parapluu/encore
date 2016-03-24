@@ -125,6 +125,6 @@ void pony_gc_try_recv_done(pony_ctx_t *ctx);
 void so_lockfree_send(pony_ctx_t *ctx);
 void so_lockfree_unsend(pony_ctx_t *ctx);
 void mv_tmp_to_acc(pony_ctx_t *ctx);
-void so_lockfree_acc_recv(pony_ctx_t *ctx, to_trace_t *item);
+void so_lockfree_register_acc_to_recv(pony_ctx_t *ctx, to_trace_t *item);
 void so_lockfree_set_trace_boundary(pony_ctx_t *ctx, void *p);
 #endif /* end of include guard: SHARED_OBJECT_H_L6JOK8YX */

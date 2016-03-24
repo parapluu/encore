@@ -420,8 +420,8 @@ to_trace_new_fn = Nam "so_to_trace_new"
 so_lockfree_on_entry_fn :: CCode Name
 so_lockfree_on_entry_fn = Nam "so_lockfree_on_entry"
 
-so_lockfree_acc_recv_fn :: CCode Name
-so_lockfree_acc_recv_fn = Nam "so_lockfree_acc_recv"
+so_lockfree_register_acc_to_recv_fn :: CCode Name
+so_lockfree_register_acc_to_recv_fn = Nam "so_lockfree_register_acc_to_recv"
 
 so_lockfree_on_exit_fn :: CCode Name
 so_lockfree_on_exit_fn = Nam "so_lockfree_on_exit"

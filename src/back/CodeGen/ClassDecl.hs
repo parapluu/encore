@@ -437,7 +437,7 @@ prep_lf_exit thisName =
     to_trace_var = Var "_item"
     this = Cast (Ptr encoreSoT) $ Var thisName
     call_acc_recv =
-      Call so_lockfree_acc_recv_fn [encoreCtxVar, to_trace_var]
+      Call so_lockfree_register_acc_to_recv_fn [encoreCtxVar, to_trace_var]
     call_on_exit =
       Call so_lockfree_on_exit_fn [this, AsExpr to_trace_var]
 

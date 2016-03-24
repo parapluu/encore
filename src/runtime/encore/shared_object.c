@@ -464,7 +464,7 @@ void mv_tmp_to_acc(pony_ctx_t *ctx)
   gc_recv_address_done(ctx);
 }
 
-void so_lockfree_acc_recv(pony_ctx_t *ctx, to_trace_t *item)
+void so_lockfree_register_acc_to_recv(pony_ctx_t *ctx, to_trace_t *item)
 {
   void *p;
   while(ctx->lf_acc_stack != NULL) {
