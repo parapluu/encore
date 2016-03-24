@@ -488,10 +488,10 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
         args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
         fBody = Seq $ [initEncoreCtx] ++
           [assignFut] ++
-          prep_lf_entry thisName ++
+          -- prep_lf_entry thisName ++
           [fulfil_fut] ++
           -- [assignFut] ++
-          prep_lf_exit thisName ++
+          -- prep_lf_exit thisName ++
           [retStmt]
       in
         Function retType fName args fBody

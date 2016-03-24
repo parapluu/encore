@@ -427,6 +427,7 @@ void so_lockfree_on_exit(encore_so_t *this, to_trace_t *item)
 
 void encore_so_finalinzer(void *p)
 {
+  return;
   assert(p);
   encore_so_t *this = p;
   assert(mpscq_pop(&this->so_gc.in_out_q) == NULL);
