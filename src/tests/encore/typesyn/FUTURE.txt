@@ -1,0 +1,58 @@
+Unfolding doesn't seem to go all the way during prechecking:
+
+typedef D = T
+typedef E = D
+
+trait T
+
+passive class C1 : D -- This compiles
+passive class C2 : E -- This does not
+encorec: Maybe.fromJust: Nothing
+There's also something wrong with subtyping when using several levels:
+
+typedef D = T
+typedef E = D
+
+trait T
+
+passive class C : D
+
+class Main
+  def main() : void
+    let x = new C : D -- This compiles
+        y = new C : E -- This does not
+    in
+      ()
+Type 'C' does not match expected type 'E(= D(= T))'
+Something is broken when translating types to C:
+
+typedef D = T
+
+trait T
+
+passive class C : D
+
+class Main
+  -- This compiles
+  def foo(x : T) : void
+    ()
+  -- This does not
+  def bar(x : D) : void
+    ()
+  def main() : void
+    let x = new C
+    in
+      this.foo(x)
+encorec: I don't know how to translate T to pony.c
+I've not found a good way to disallow recursive type synonyms (the mutually recursive types makes it harder):
+
+
+typedef D = D
+passive class C : D
+
+encorec: Maybe.fromJust: Nothing
+
+
+The second and third examples have the same behaviour if the class declaration is changed to
+
+passive class C : T
