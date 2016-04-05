@@ -472,7 +472,7 @@ par_t* party_each(array_t* const ar){
 
   for(size_t i=0; i<groups; i++){
     start = i * SPLIT_THRESHOLD;
-    end = (i+1 == groups) ? size-1 : (i+1) * (SPLIT_THRESHOLD-1);
+    end = (i+1 == groups) ? size+1 : (i+1) * SPLIT_THRESHOLD;
 
     array_t* const chunk = array_get_chunk(start, end, ar);
     par_t* par = new_par_array(chunk, type);

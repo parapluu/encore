@@ -2,20 +2,21 @@
 class Main
   check_arr: [bool]
   size: int
-  
+
   def setup(): void {
     this.size = 2000;
     this.check_arr = new [bool](this.size);
-    for v in [1..this.size] this.check_arr[v] = false;
+    for v in [0..this.size] this.check_arr[v] = false;
   }
 
   def all(): void
     for v in this.check_arr assertTrue(v, "Expected 'true' value in test")
-    
+
   def main(): void {
     this.setup();
-    let rng = [1..this.size]
+    let rng = [0..this.size]
         arr = new [int](this.size)
+        size = this.size
     in {
         for i in rng arr[i] = i;
         extract(each(arr) >> \(i: int) -> this.check_arr[i] = true);

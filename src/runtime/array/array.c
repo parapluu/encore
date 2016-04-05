@@ -72,10 +72,14 @@ array_t *array_get_chunk(size_t start, size_t end, array_t* a){
   assert(start <= end);
 
   struct array_t* arr = a;
+
+  // total size of the original array
   size_t total_size = array_size(arr);
+
+  // size of the new chunk
   size_t local_size = end - start + 1;
 
-  if((start < total_size) && (end < total_size)){
+  if((start < total_size) && ((end - 1) <= total_size)){
     array_t* new_array = array_mk(local_size, arr->type);
     size_t pivot = total_size - start;
     value_t* elements = arr->elements;
