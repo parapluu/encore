@@ -16,6 +16,8 @@ import Control.Monad.Except
 import Control.Monad.State
 import Debug.Trace
 
+import Debug.Trace
+
 -- Module dependencies
 import Identifiers
 import AST.AST hiding (hasType, getType)
