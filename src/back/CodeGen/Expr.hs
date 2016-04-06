@@ -190,7 +190,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate p@(A.PartyEach {A.val}) = do
     (nval, tval) <- translate val
-    (nEach, tEach) <- namedTmpVar "par" (A.getType p) $ Call partyEach [nval]
+    (nEach, tEach) <- namedTmpVar "par" (A.getType p) $ Call partyEach [encoreCtxVar, nval]
     return (nEach, Seq [tval, tEach])
 
   translate p@(A.PartyPar {A.parl, A.parr}) = do

@@ -15,7 +15,7 @@ par_t* new_par_v(pony_ctx_t* ctx, encore_arg_t val, pony_type_t const * const rt
 par_t* new_par_f(pony_ctx_t* ctx,future_t* const fut, pony_type_t const * const rtype);
 par_t* new_par_p(pony_ctx_t* ctx, par_t* const p1, par_t* const p2, pony_type_t const * const rtype);
 par_t* new_par_fp(pony_ctx_t* ctx, future_t* const f, pony_type_t const * const rtype);
-par_t* new_par_array(array_t* arr, pony_type_t const * const rtype); // TODO
+par_t* new_par_array(pony_ctx_t* ctx, array_t* arr, pony_type_t const * const rtype);
 
 /* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype); */
 
@@ -60,6 +60,6 @@ array_t* party_extract(pony_ctx_t* ctx, par_t* p, pony_type_t *type);
  * @param array Array to convert to a parallel collection
  * @return Parallel collection
  */
-par_t* party_each(array_t * const array); // TODO: add ctx
+par_t* party_each(pony_ctx_t *ctx, array_t * const array);
 
 #endif

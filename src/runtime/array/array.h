@@ -24,6 +24,6 @@ void array_set(array_t *a, size_t i, encore_arg_t element);
 
 void array_qsort(array_t *a, int64_t start, int64_t end);
 
-array_t* array_get_chunk(size_t start, size_t end, array_t* a);
+array_t* array_get_chunk(pony_ctx_t *ctx, size_t start, size_t end, array_t* a);
 
 #endif

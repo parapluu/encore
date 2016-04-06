@@ -70,7 +70,7 @@ array_t *array_from_array(pony_ctx_t* ctx, size_t size, pony_type_t *type, encor
 }
 
 
-array_t *array_get_chunk(size_t start, size_t end, array_t* a){
+array_t *array_get_chunk(pony_ctx_t *ctx, size_t start, size_t end, array_t* a){
   assert(start <= end);
 
   struct array_t* arr = a;
@@ -82,7 +82,7 @@ array_t *array_get_chunk(size_t start, size_t end, array_t* a){
   size_t local_size = end - start + 1;
 
   if((start < total_size) && ((end - 1) <= total_size)){
-    array_t* new_array = array_mk(local_size, arr->type);
+    array_t* new_array = array_mk(ctx, local_size, arr->type);
     size_t pivot = total_size - start;
     value_t* elements = arr->elements;
 
