@@ -1,0 +1,13 @@
+
+typedef T<x> = Bar<x>
+
+class Bar<t> 
+  def id(a : t): t
+     a
+
+class Main
+   def main(): void {
+     let x = new Bar<int> : T<int> 
+     in
+       print(get x.id(10))
+   }

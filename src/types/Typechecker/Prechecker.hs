@@ -39,13 +39,15 @@ class Precheckable a where
     precheck x = local (pushBT x) $ doPrecheck x
 
 instance Precheckable Program where
-    doPrecheck p@Program{imports, functions, traits, classes} = do
+    doPrecheck p@Program{imports, typedefs, functions, traits, classes} = do
       assertDistinctness
       imports'   <- mapM precheck imports
+      typedefs'   <- mapM precheck typedefs
       functions' <- mapM precheck functions
       traits'    <- mapM precheck traits
       classes'   <- mapM precheck classes
       return p{imports = imports'
+              ,typedefs = typedefs'
               ,functions = functions'
               ,traits = traits'
               ,classes = classes'
@@ -55,9 +57,11 @@ instance Precheckable Program where
         assertDistinct "definition" (allFunctions p)
         assertDistinct "definition" (allTraits p)
         assertDistinct "definition" (allClasses p)
-        assertDistinctThing "declaration" "class or trait name" $
+        assertDistinct "definition" (allClasses p)
+        assertDistinctThing "declaration" "typedef, class or trait name" $
                             map (getId . tname) (allTraits p) ++
-                            map (getId . cname) (allClasses p)
+                            map (getId . cname) (allClasses p) ++
+                            map (getId . typedefdef) (allTypedefs p)
 
 instance Precheckable ImportDecl where
     doPrecheck i@PulledImport{iprogram} = do
@@ -71,6 +75,14 @@ instance Precheckable FunctionHeader where
       htype' <- resolveType (htype header)
       hparams' <- mapM precheck (hparams header)
       return $ header{htype = htype', hparams = hparams'}
+
+instance Precheckable Typedef where
+  doPrecheck t@Typedef{typedefdef} = do
+    let refInfo = typeSynonymLHS typedefdef
+        resolvesTo = typeSynonymRHS typedefdef
+        addTypeParams = addTypeParameters $ getTypeParameters typedefdef
+    resolvesTo' <- local addTypeParams $ resolveType resolvesTo
+    return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do
@@ -117,7 +129,8 @@ instance Precheckable ClassDecl where
     doPrecheck c@Class{cname, ccapability, cfields, cmethods} = do
       assertDistinctness
       cname'       <- local addTypeParams $ resolveType cname
-      ccapability' <- local addTypeParams $ resolveType ccapability
+      ccapability' <- liftM unfoldTypeSynonyms $
+                      local addTypeParams $ resolveType ccapability
       cfields'     <- mapM (local addTypeParams . precheck) cfields
       cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
       return $ setType cname' c{ccapability = ccapability'

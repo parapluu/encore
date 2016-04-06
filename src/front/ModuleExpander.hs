@@ -48,7 +48,8 @@ qname2string [(Name a)] = a
 qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
 informImport target src =
-        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
+    return ()
+    -- putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
 
 duplicateModuleWarning :: QName -> [FilePath] -> IO ()
 duplicateModuleWarning target srcs =

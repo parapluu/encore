@@ -14,8 +14,8 @@
                         "eos" "for" "foreach" "get" "getNext" "if" "in" "join"
                         "let" "liftf" "liftv" "match" "new" "not" "or" "passive"
                         "print" "repeat" "require" "stream" "suspend" "then"
-                        "this" "trait" "unless" "val" "when" "while" "with"
-                        "yield"))
+                        "this" "trait" "typedef" "unless" "val" "when" "while"
+                        "with" "yield"))
 
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))
@@ -36,7 +36,6 @@
 
 (setq encore-font-lock-keywords
       `(
-
         (,encore-comment-regexp    . font-lock-comment-face)
         (,encore-char-regexp       . font-lock-string-face)
         (,encore-keywords-regexp   . font-lock-keyword-face)

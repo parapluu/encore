@@ -24,6 +24,7 @@ import AST.AST
 import AST.PrettyPrinter
 
 data BacktraceNode = BTPulledImport QName
+                   | BTTypedef Type
                    | BTFunction Name Type
                    | BTTrait Type
                    | BTClass Type
@@ -36,6 +37,8 @@ data BacktraceNode = BTPulledImport QName
 instance Show BacktraceNode where
   show (BTPulledImport qname) =
     concat ["In imported module '", intercalate "." (map show qname), "'"]
+  show (BTTypedef tl) = 
+    concat ["In typedef '", show tl, "'"]
   show (BTFunction n ty) =
     concat ["In function '", show n, "' of type '", show ty, "'"]
   show (BTClass ty) = concat ["In class '", show ty, "'"]
@@ -84,6 +87,10 @@ class Pushable a where
 instance Pushable ImportDecl where
   push i@(PulledImport {qname}) =
     pushMeta i (BTPulledImport qname)
+
+instance Pushable Typedef where
+  push t@(Typedef {typedefdef}) = 
+     pushMeta t (BTTypedef typedefdef)
 
 instance Pushable Function where
   push fun =

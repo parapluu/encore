@@ -31,6 +31,7 @@ import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
+import RemoveTypeSynonyms
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -210,8 +211,11 @@ main =
          withFile (changeFileExt sourceName "TAST") WriteMode
                   (flip hPrint $ show typecheckedAST)
 
+       verbatim options "== Removing Type Synonyms =="
+       let strippedAST = removeTypeSynonyms typecheckedAST
+       
        verbatim options "== Optimizing =="
-       let optimizedAST = optimizeProgram typecheckedAST
+       let optimizedAST = optimizeProgram strippedAST
 
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options

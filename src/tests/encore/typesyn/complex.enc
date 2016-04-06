@@ -1,0 +1,11 @@
+
+typedef T = int
+typedef G = int
+
+class Main
+   def main(): void {
+     let x = 10 : T
+         y = x : G
+     in
+       print(y)
+   }

@@ -22,6 +22,7 @@ data Program = Program {
   bundle :: BundleDecl,
   etl :: EmbedTL,
   imports :: [ImportDecl],
+  typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
   classes :: [ClassDecl]
@@ -105,6 +106,20 @@ setHeaderType ty h = h{htype = ty}
 
 isStreamMethodHeader StreamMethodHeader{} = True
 isStreamMethodHeader _ = False
+
+data Typedef = Typedef {
+  typedefmeta :: Meta Typedef,
+  typedefdef  :: Type  -- will be a TypeSynonym, with left and right hand side of definition built in
+} deriving (Show)
+
+instance HasMeta Typedef where
+    getMeta = typedefmeta
+
+    setMeta i m = i{typedefmeta = m}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of an Typedef"
+
 
 data Function = Function {
   funmeta   :: Meta Function,
@@ -559,5 +574,7 @@ allClasses = traverseProgram classes
 allTraits = traverseProgram traits
 
 allFunctions = traverseProgram functions
+
+allTypedefs = traverseProgram typedefs
 
 allEmbedded = traverseProgram ((:[]) . etlheader . etl)

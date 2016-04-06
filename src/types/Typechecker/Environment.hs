@@ -51,6 +51,7 @@ type VarTable    = [(Name, Type)]
 data Environment = Env {
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
+  typeSynonymTable :: Map String Typedef,
   globals  :: VarTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
@@ -61,6 +62,7 @@ data Environment = Env {
 emptyEnv = Env {
   classTable = Map.empty,
   traitTable = Map.empty,
+  typeSynonymTable = Map.empty,
   globals = [],
   locals = [],
   bindings = [],
@@ -73,10 +75,11 @@ buildEnvironment p =
   (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
-    buildEnvironment' p@(Program {functions, classes, traits, imports}) =
+    buildEnvironment' p@(Program {functions, typedefs, classes, traits, imports}) =
         [return Env {
            classTable = Map.fromList [(getId (cname c), c) | c <- classes],
            traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
+           typeSynonymTable = Map.fromList [(getId (typedefdef t), t) | t <- typedefs],
            globals = map getFunctionType functions,
            locals = [],
            bindings = [],
@@ -175,6 +178,7 @@ traitLookup t env =
 
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
+    | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env
     | isRefType cls = Map.lookup (getId cls) $ classTable env
     | otherwise = error $
       "Tried to lookup the class of '" ++ show cls
@@ -185,8 +189,9 @@ refTypeLookup t env =
   let
     cls = fmap cname $ Map.lookup (getId t) $ classTable env
     trait = fmap tname $ Map.lookup (getId t) $ traitTable env
+    typeSyn = fmap typedefdef $ Map.lookup (getId t) $ typeSynonymTable env
   in
-    cls <|> trait
+    cls <|> trait <|> typeSyn
 
 refTypeLookupUnsafe :: Type -> Environment -> Type
 refTypeLookupUnsafe t env =
@@ -259,30 +264,33 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
     merge :: Either TCError Environment -> Either TCError Environment
              -> Either TCError Environment
     merge e1 e2 = do
-      Env{classTable     = classTable,
-          traitTable     = traitTable,
-          globals        = globs,
-          locals         = locals,
-          bindings       = binds,
-          typeParameters = tparams,
-          bt             = bt} <- e1
+      Env{classTable       = classTable,
+          traitTable       = traitTable,
+          typeSynonymTable = typeSynonymTable,
+          globals          = globs,
+          locals           = locals,
+          bindings         = binds,
+          typeParameters   = tparams,
+          bt               = bt} <- e1
 
-      Env{classTable     = classTable',
-          traitTable     = traitTable',
-          globals        = globs',
-          locals         = locals',
-          bindings       = binds',
-          typeParameters = tparams',
-          bt             = bt} <- e2
+      Env{classTable       = classTable',
+          traitTable       = traitTable',
+          typeSynonymTable = typeSynonymTable',
+          globals          = globs',
+          locals           = locals',
+          bindings         = binds',
+          typeParameters   = tparams',
+          bt               = bt} <- e2
 
       return Env{
-        classTable     = Map.union classTable classTable',
-        traitTable     = Map.union traitTable traitTable',
-        globals        = mergeGlobals globs globs',
-        locals         = mergeLocals locals locals',
-        bindings       = mergeBindings binds binds',
-        typeParameters = mergeTypeParams tparams tparams',
-        bt             = emptyBT
+        classTable       = Map.union classTable classTable',
+        traitTable       = Map.union traitTable traitTable',
+        typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
+        globals          = mergeGlobals globs globs',
+        locals           = mergeLocals locals locals',
+        bindings         = mergeBindings binds binds',
+        typeParameters   = mergeTypeParams tparams tparams',
+        bt               = emptyBT
       }
     -- TODO: Be smarter and detect errors
     mergeGlobals = (++)

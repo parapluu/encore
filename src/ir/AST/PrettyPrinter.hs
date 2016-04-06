@@ -24,6 +24,7 @@ import Text.PrettyPrint
 import Identifiers
 import Types
 import AST.AST
+import Data.List(intercalate)
 
 ppClass = text "class"
 ppSkip = text "()"
@@ -75,6 +76,7 @@ ppNothing = text "Nothing"
 ppMatch = text "match"
 ppWith = text "with"
 ppMatchArrow = text "=>"
+ppTypeDef = text "typedef"
 
 indent = nest 2
 
@@ -91,10 +93,11 @@ ppType = text . show
 
 ppProgram :: Program -> Doc
 ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
-  imports, functions, classes} =
+  imports, typedefs, functions, classes} =
     ppBundleDecl bundle $+$
     ppHeader header code <+>
     vcat (map ppImportDecl imports) $+$
+    vcat (map ppTypedef typedefs) $+$
     vcat (map ppFunction functions) $+$
     vcat (map ppClassDecl classes) $+$
     text "" -- new line at end of file
@@ -117,6 +120,13 @@ ppFunctionHeader header =
     ppName (hname header) <>
     parens (commaSep (map ppParamDecl (hparams header))) <+>
     text ":" <+> ppType (htype header)
+
+ppTypedef :: Typedef -> Doc
+ppTypedef Typedef { typedefdef=t } =
+    text "typedef" <+>
+    ppType t <+>
+    text "=" <+>
+    ppType (typeSynonymRHS t) 
 
 ppFunction :: Function -> Doc
 ppFunction Function {funheader, funbody} =
