@@ -131,7 +131,7 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -Wno-attributes"
+           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            incs  = "-I" <+> incPath <+> "-I ."
            pg = if (Profile `elem` options) then "-pg" else ""
