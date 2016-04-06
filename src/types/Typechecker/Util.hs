@@ -17,7 +17,6 @@ module Typechecker.Util(TypecheckM
                        ,findMethod
                        ,findMethodWithCalledType
                        ,findCapability
-                       ,formalBindings
                        ,propagateResultType
                        ) where
 
@@ -232,21 +231,11 @@ findCapability ty = do
     where
         err = error $ "Util.hs: No capability in " ++ classOrTraitName ty
 
-formalBindings :: Type -> TypecheckM [(Type, Type)]
-formalBindings actual = do
-  origin <- asks $ refTypeLookupUnsafe actual
-  matchTypeParameterLength origin actual
-  let formals = getTypeParameters origin
-      actuals = getTypeParameters actual
-  return $ zip formals actuals
-
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty
     | isClassType ty = do
         capability <- findCapability ty
-        fBindings <- formalBindings ty
-        let capability' = replaceTypeVars fBindings capability
-        return $ typesFromCapability capability'
+        return $ typesFromCapability capability
     | otherwise =
         error $ "Types.hs: Can't get implemented traits of type " ++ show ty
 

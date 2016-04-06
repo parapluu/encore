@@ -42,7 +42,7 @@ import Text.Printf (printf)
 
 -- Module dependencies
 import Identifiers
-import AST.AST
+import AST.AST hiding(showWithKind)
 import Types
 import Typechecker.TypeError
 
@@ -99,15 +99,32 @@ backtrace = bt
 currentMethod :: Environment -> Maybe MethodDecl
 currentMethod = currentMethodFromBacktrace . bt
 
+formalBindings :: Type -> Type -> [(Type, Type)]
+formalBindings formal actual
+    | isRefType formal && isRefType actual =
+        let formals = getTypeParameters formal
+            actuals = getTypeParameters actual
+        in
+          zip formals actuals
+    | otherwise =
+        error $ "Environment.hs: Tried to get bindings from " ++
+                showWithKind formal ++ " and " ++ showWithKind actual
+
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup t f env
-  | isTraitType t = do
-    trait <- Map.lookup (getId t) $ traitTable env
-    find ((== f) . fname) $ requiredFields trait
-  | isClassType t = do
-    cls <- classLookup t env
-    find ((== f) . fname) $ cfields cls
-  | otherwise = error $ "Trying to lookup field in a non ref type " ++ show t
+fieldLookup ty f env
+  | isTraitType ty = do
+    trait <- traitLookup ty env
+    fld <- find ((== f) . fname) $ requiredFields trait
+    let bindings = formalBindings (tname trait) ty
+        ftype' = replaceTypeVars bindings $ ftype fld
+    return fld{ftype = ftype'}
+  | isClassType ty = do
+    cls <- classLookup ty env
+    fld <- find ((== f) . fname) $ cfields cls
+    let bindings = formalBindings (cname cls) ty
+        ftype' = replaceTypeVars bindings $ ftype fld
+    return fld{ftype = ftype'}
+  | otherwise = error $ "Trying to lookup field in a non ref type " ++ show ty
 
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname
@@ -117,9 +134,7 @@ traitMethodLookup ty m env = do
   trait <- traitLookup ty env
   let headers = requiredMethods trait ++ map mheader (tmethods trait)
   header <- find (matchHeader m) headers
-  let formals = getTypeParameters $ tname trait
-      actuals = getTypeParameters ty
-      bindings = zip formals actuals
+  let bindings = formalBindings (tname trait) ty
   return $ replaceHeaderTypes bindings header
 
 classMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
@@ -130,10 +145,7 @@ classMethodLookup ty m env = do
   let
     headers = map mheader $ cmethods cls ++ concatMap tmethods traits
   header <- find (matchHeader m) headers
-  let
-    formals = getTypeParameters $ cname cls
-    actuals = getTypeParameters ty
-    bindings = zip formals actuals
+  let bindings = formalBindings (cname cls) ty
   return $ replaceHeaderTypes bindings header
 
 methodAndCalledTypeLookup ::
@@ -165,7 +177,8 @@ capabilityLookup :: Type -> Environment -> Maybe Type
 capabilityLookup ty env
     | isClassType ty = do
         cls <- Map.lookup (getId ty) $ classTable env
-        return $ ccapability cls
+        let bindings = formalBindings (cname cls) ty
+        return $ replaceTypeVars bindings $ ccapability cls
     | otherwise = error $ "Environment.hs: Tried to look up the capability " ++
                           "of non-class type " ++ show ty
 
