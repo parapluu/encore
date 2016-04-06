@@ -99,11 +99,11 @@ longidentifier = do
 -- an expressionParser for types (with arrow as the only infix
 -- operator.)
 typ :: Parser Type
-typ  = adtTypes
-       <|> firstOrderTyp
+typ  =  adtTypes
+    <|> firstOrderTyp
     where
       adtTypes = maybe
-      firstOrderTyp = try arrow
+      firstOrderTyp =  try arrow
                    <|> try tuple
                    <|> parens typ
                    <|> nonArrow
@@ -118,14 +118,16 @@ typ  = adtTypes
               <|> capability
               <|> typeVariable
               <|> parens nonArrow
-      arrow = do lhs <- parens (commaSep typ)
-                     <|> do {ty <- nonArrow ; return [ty]}
-                 reservedOp "->"
-                 rhs <- nonArrow
-                 return $ arrowType lhs rhs
-      fut = do reserved "Fut"
-               ty <- typ
-               return $ futureType ty
+      arrow = do
+        lhs <-  parens (commaSep typ)
+            <|> do {ty <- nonArrow ; return [ty]}
+        reservedOp "->"
+        rhs <- typ
+        return $ arrowType lhs rhs
+      fut = do
+        reserved "Fut"
+        ty <- typ
+        return $ futureType ty
       maybe = do
          reserved "Maybe"
          ty <- firstOrderTyp
@@ -133,25 +135,31 @@ typ  = adtTypes
       tuple = do
         ty <- parens (typ `sepBy2` comma)
         return $ tupleType ty
-      par = do reserved "Par"
-               ty <- typ
-               return $ parType ty
-      stream = do reserved "Stream"
-                  ty <- typ
-                  return $ streamType ty
-      array = do ty <- brackets typ
-                 return $ arrayType ty
-      range = do reserved "Range"
-                 return rangeType
-      embed = do reserved "embed"
-                 ty <- manyTill anyChar $ try $ do {space; reserved "end"}
-                 return $ ctype ty
-      primitive = do {reserved "int"; return intType} <|>
-                  do {reserved "bool"; return boolType} <|>
-                  do {reserved "string"; return stringType} <|>
-                  do {reserved "char"; return charType} <|>
-                  do {reserved "real"; return realType} <|>
-                  do {reserved "void"; return voidType}
+      par = do
+        reserved "Par"
+        ty <- typ
+        return $ parType ty
+      stream = do
+        reserved "Stream"
+        ty <- typ
+        return $ streamType ty
+      array = do
+        ty <- brackets typ
+        return $ arrayType ty
+      range = do
+        reserved "Range"
+        return rangeType
+      embed = do
+        reserved "embed"
+        ty <- manyTill anyChar $ try $ do {space; reserved "end"}
+        return $ ctype ty
+      primitive =
+        do {reserved "int"; return intType} <|>
+        do {reserved "bool"; return boolType} <|>
+        do {reserved "string"; return stringType} <|>
+        do {reserved "char"; return charType} <|>
+        do {reserved "real"; return realType} <|>
+        do {reserved "void"; return voidType}
 
 typeVariable :: Parser Type
 typeVariable = do
