@@ -100,6 +100,9 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Null{} =
         free e
 
+    doCapturecheck e@Embed{} =
+        free e
+
     doCapturecheck e@NewWithInit{} =
         free e
 
