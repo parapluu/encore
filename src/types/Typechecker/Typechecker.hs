@@ -123,9 +123,8 @@ meetRequiredFields cFields trait = do
   mapM_ matchField (requiredFields tdecl)
     where
     matchField tField = do
-      bindings <- formalBindings trait
-      let expected = replaceTypeVars bindings (ftype tField)
-          expField = tField{ftype = expected}
+      expField <- findField trait (fname tField)
+      let expected = ftype expField
           result = find (==expField) cFields
           cField = fromJust result
           cFieldType = ftype cField
@@ -234,8 +233,7 @@ meetRequiredMethods cMethods trait = do
   mapM_ matchMethod (requiredMethods tdecl)
   where
     matchMethod reqHeader = do
-      bindings <- formalBindings trait
-      let expHeader = replaceHeaderTypes bindings reqHeader
+      expHeader <- findMethod trait (hname reqHeader)
       unlessM (anyM (matchesHeader expHeader) cMethods) $
            tcError $
                "Cannot find method '" ++ show (ppFunctionHeader expHeader) ++
@@ -502,11 +500,8 @@ instance Checkable Expr where
                      "' of type '" ++ show targetType ++ "'"
       header <- findMethod targetType name
       matchArgumentLength targetType header args
-      fBindings <- formalBindings targetType
-      let paramTypes = map ptype (hparams header)
-          expectedTypes = map (replaceTypeVars fBindings) paramTypes
-      (eArgs, _) <- local (bindTypes fBindings) $
-                    matchArguments args expectedTypes
+      let expectedTypes = map ptype (hparams header)
+      (eArgs, _) <- matchArguments args expectedTypes
       return $ setType voidType msend {target = eTarget, args = eArgs}
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
@@ -677,9 +672,8 @@ instance Checkable Expr where
           unless (isRefType pt || isCapabilityType pt) $
             tcError $ "Cannot match an extractor pattern against " ++
                       "non-reference type '" ++ show pt ++ "'"
-          (header, calledType) <- findMethodWithCalledType pt name
-          bindings <- formalBindings calledType
-          let hType = replaceTypeVars bindings $ htype header
+          header <- findMethod pt name
+          let hType = htype header
           unless (isMaybeType hType) $
             tcError $ "Pattern '" ++ show (ppSugared fcall) ++
                       "' is not a proper extractor pattern"
@@ -702,9 +696,8 @@ instance Checkable Expr where
         getPatternVars pt pattern = return []
 
         checkPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
-          (header, calledType) <- findMethodWithCalledType argty name
-          bindings <- formalBindings calledType
-          let hType = replaceTypeVars bindings $ htype header
+          header <- findMethod argty name
+          let hType = htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
@@ -861,9 +854,8 @@ instance Checkable Expr where
         tcError $ "Cannot read field of expression '" ++
           show (ppSugared target) ++ "' of " ++ Types.showWithKind targetType
       fdecl <- findField targetType name
-      bindings <- formalBindings targetType
-      let ty' = replaceTypeVars bindings (ftype fdecl)
-      return $ setType ty' fAcc {target = eTarget}
+      let ty = ftype fdecl
+      return $ setType ty fAcc {target = eTarget}
 
     --  E |- lhs : t
     --  isLval(lhs)
@@ -1335,10 +1327,9 @@ assertSubtypeOf sub super =
     unlessM (sub `subtypeOf` super) $ do
       capability <- if isClassType sub
                     then do
-                      fBindings <- formalBindings sub
                       cap <- asks $ capabilityLookup sub
-                      if isJust cap && not (emptyCapability (fromJust cap))
-                      then return $ fmap (replaceTypeVars fBindings) cap
+                      if maybe False (not . emptyCapability) cap
+                      then return cap
                       else return Nothing
                     else return Nothing
       let subMsg = "Type '" ++ show sub ++ "'" ++
