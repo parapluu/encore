@@ -49,6 +49,14 @@ failed=0
 failed_list=()
 
 skipped=()
+skipped+=(async_block.enc)
+skipped+=(async_chain.enc)
+skipped+=(async.enc)
+skipped+=(async_finish.enc)
+skipped+=(async_finish_stmts.enc)
+skipped+=(async_force_gc.enc)
+skipped+=(async_foreach.enc)
+skipped+=(global_async.enc)
 
 os=$(uname -s)
 if [ $os == "Linux" ]

@@ -49,7 +49,7 @@ lexer =
      "repeat", "for", "while", "get", "yield", "eos", "getNext", "new", "this",
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
-     "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "bundle", "peer", "finish", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
      "extract", "each"
    ],

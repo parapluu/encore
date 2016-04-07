@@ -3,8 +3,8 @@
 module CodeGen.Trace (
   traceVariable
   , traceFuture
-  , ponyGcSend
-  , ponySendDone
+  , traceStream
+  , tracefunCall
 ) where
 
 import CCode.Main
@@ -12,14 +12,11 @@ import CodeGen.CCodeNames
 import qualified Types as Ty
 import CCode.PrettyCCode ()
 
-ponyGcSend :: CCode Stat
-ponyGcSend = Statement $ Call ponyGcSendName ([] :: [CCode Expr])
-
-ponySendDone :: CCode Stat
-ponySendDone = Statement $ Call ponySendDoneName ([] :: [CCode Expr])
-
 traceFuture :: CCode Lval -> CCode Stat
 traceFuture var = ponyTraceobject var futureTraceFn
+
+traceStream :: CCode Lval -> CCode Stat
+traceStream var = ponyTraceobject var streamTraceFn
 
 traceVariable :: Ty.Type -> CCode Lval -> CCode Stat
 traceVariable t var
@@ -38,7 +35,7 @@ traceVariable t var
 
 ponyTraceactor :: CCode Lval -> CCode Stat
 ponyTraceactor var =
-  Statement $ Call (Nam "pony_traceactor")  [Cast (Ptr ponyActorT) var]
+  Statement $ Call ponyTraceActor  [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) var]
 
 ponyTraceobject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Stat
 ponyTraceobject var f =
@@ -48,16 +45,17 @@ ponyTraceobject var f =
     toExpr e@(AsExpr _) = e
     toExpr _ = undefined
   in
-    Statement $ Call (Nam "pony_traceobject")  [AsExpr var, toExpr f]
+    Statement $ Call ponyTraceObject  [AsExpr encoreCtxVar, AsExpr var, toExpr f]
 
 encoreTracePolymorphicVariable :: CCode Lval -> CCode Lval  -> CCode Stat
 encoreTracePolymorphicVariable var t =
-  Statement $ Call (Nam "encore_trace_polymorphic_variable")  [t, var]
+  Statement $ Call (Nam "encore_trace_polymorphic_variable")
+    [encoreCtxVar, t, var]
 
 traceTypeVar :: Ty.Type -> CCode Lval -> CCode Stat
 traceTypeVar t var =
   let
-    runtimeType = Var "this" `Arrow` typeVarRefName t
+    runtimeType = Var "_this" `Arrow` typeVarRefName t
   in
     encoreTracePolymorphicVariable var runtimeType
 
@@ -67,4 +65,12 @@ traceCapability var =
     cap = Cast capability var
     traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
   in
-    Statement $ Call traceFunPath [var]
+    Statement $ Call traceFunPath [encoreCtxVar, var]
+
+tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
+tracefunCall (a, t) expectedType =
+  let
+    needToUnwrap = Ty.isTypeVar expectedType && not (Ty.isTypeVar t)
+    var = if needToUnwrap then a `Dot` Nam "p" else a
+  in
+    Statement $ traceVariable t var

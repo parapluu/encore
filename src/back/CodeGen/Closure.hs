@@ -45,7 +45,8 @@ translateClosure closure ctable
              Concat [buildEnvironment envName freeVars,
                      tracefunDecl traceName envName freeVars,
                      Function (Typ "value_t") funName
-                              [(Typ "value_t", Var "_args[]"),
+                              [(Ptr encoreCtxT, encoreCtxVar),
+                               (Typ "value_t", Var "_args[]"),
                                (Ptr void, Var "_env")]
                               (Seq $
                                 extractArguments params ++
@@ -84,16 +85,15 @@ translateClosure closure ctable
                 `Dot` fieldName name
 
       tracefunDecl traceName envName members =
-          Function void traceName [(Ptr void, Var "p")]
+          Function void traceName
+                   [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Seq $ map traceMember members)
           where
             traceMember (name, ty)
                 | Ty.isActiveClassType ty =
-                    Call (Nam "pony_traceactor")
-                         [Cast (Ptr ponyActorT) (getVar name)]
+                    Call ponyTraceActor [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) (getVar name)]
                 | Ty.isPassiveClassType ty =
-                    Call (Nam "pony_traceobject")
-                         [getVar name, AsLval $ classTraceFnName ty]
+                    Call ponyTraceObject [encoreCtxVar, getVar name, AsLval $ classTraceFnName ty]
                 | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
             getVar name =
                 (Deref $ Cast (Ptr $ Struct envName) (Var "p"))

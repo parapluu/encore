@@ -20,6 +20,8 @@ import Data.List
 
 import qualified AST.AST as A
 
+import Text.Printf (printf)
+
 char :: CCode Ty
 char = Typ "char"
 
@@ -60,6 +62,18 @@ isEncoreArgT _ = False
 ponyMsgT :: CCode Ty
 ponyMsgT = Typ "pony_msg_t"
 
+ponyMainMsgName :: String
+ponyMainMsgName = "pony_main_msg_t"
+
+ponyMainMsgT :: CCode Ty
+ponyMainMsgT = Typ ponyMainMsgName
+
+encActiveMainName :: String
+encActiveMainName = "_enc__active_Main_t"
+
+encActiveMainT :: CCode Ty
+encActiveMainT = Typ encActiveMainName
+
 encMsgT :: CCode Ty
 encMsgT = Typ "encore_fut_msg_t"
 
@@ -92,6 +106,9 @@ rangeT = Typ "range_t"
 range :: CCode Ty
 range = Ptr rangeT
 
+optionT :: CCode Name
+optionT = Nam "option_t"
+
 option :: CCode Ty
 option = Ptr $ Typ "option_t"
 
@@ -103,6 +120,12 @@ capability = Ptr $ Typ "capability_t"
 
 ponyTraceFnType :: CCode Ty
 ponyTraceFnType = Typ "pony_trace_fn"
+
+ponyTraceObject :: CCode Name
+ponyTraceObject = Nam "pony_traceobject"
+
+ponyTraceActor :: CCode Name
+ponyTraceActor = Nam "pony_traceactor"
 
 unit :: CCode Lval
 unit = Embed "UNIT"
@@ -130,6 +153,10 @@ methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
 methodImplOneWayName clazz mname =
   Nam $ methodImplOneWayNameStr clazz mname
 
+methodImplStreamName :: Ty.Type -> ID.Name -> CCode Name
+methodImplStreamName clazz mname =
+  Nam $ encoreName "method" $ printf "%s_%s_stream" (Ty.getId clazz) (show mname)
+
 methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
   encoreName "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
@@ -147,6 +174,9 @@ constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
 
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
+
+encoreAllocName :: CCode Name
+encoreAllocName = Nam "encore_alloc"
 
 partySequence :: CCode Name
 partySequence = Nam "party_sequence"
@@ -306,6 +336,12 @@ ponySendvName = Nam "pony_sendv"
 ponyGcSendName :: CCode Name
 ponyGcSendName = Nam "pony_gc_send"
 
+ponyGcRecvName :: CCode Name
+ponyGcRecvName = Nam "pony_gc_recv"
+
+ponyRecvDoneName :: CCode Name
+ponyRecvDoneName = Nam "pony_recv_done"
+
 ponySendDoneName :: CCode Name
 ponySendDoneName = Nam "pony_send_done"
 
@@ -321,8 +357,59 @@ runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"
 futureTraceFn :: CCode Name
 futureTraceFn = Nam "future_trace"
 
+futureFulfil :: CCode Name
+futureFulfil = Nam "future_fulfil"
+
+futureAwait :: CCode Name
+futureAwait = Nam "future_await"
+
+futureGetActor :: CCode Name
+futureGetActor = Nam "future_get_actor"
+
+futureChainActor :: CCode Name
+futureChainActor = Nam "future_chain_actor"
+
+actorSuspend :: CCode Name
+actorSuspend = Nam "actor_suspend"
+
+streamGet :: CCode Name
+streamGet = Nam "stream_get"
+
+streamPut :: CCode Name
+streamPut = Nam "stream_put"
+
+streamClose :: CCode Name
+streamClose = Nam "stream_close"
+
+streamGetNext :: CCode Name
+streamGetNext = Nam "stream_get_next"
+
+streamEos :: CCode Name
+streamEos = Nam "stream_eos"
+
+streamMkFn :: CCode Name
+streamMkFn = Nam "stream_mk"
+
 futureMkFn :: CCode Name
 futureMkFn = Nam "future_mk"
+
+rangeMkFn :: CCode Name
+rangeMkFn = Nam "range_mk"
+
+taskMkFn :: CCode Name
+taskMkFn = Nam "task_mk"
+
+arrayMkFn :: CCode Name
+arrayMkFn = Nam "array_mk"
+
+tupleMkFn :: CCode Name
+tupleMkFn = Nam "tuple_mk"
+
+closureMkFn :: CCode Name
+closureMkFn = Nam "closure_mk"
+
+closureCallName :: CCode Name
+closureCallName = Nam "closure_call"
 
 closureTraceFn :: CCode Name
 closureTraceFn = Nam "closure_trace"
@@ -347,3 +434,54 @@ rangeTypeRecName = Nam $ "range_type"
 
 partyTypeRecName :: CCode Name
 partyTypeRecName = Nam $ "party_type"
+
+encoreCtxName :: CCode Name
+encoreCtxName = Nam "_ctx"
+
+encoreCtxT :: CCode Ty
+encoreCtxT = Typ "pony_ctx_t"
+
+encoreCtxVar :: CCode Lval
+encoreCtxVar = Var "_ctx"
+
+arrayGet :: CCode Name
+arrayGet = Nam "array_get"
+
+arraySet :: CCode Name
+arraySet = Nam "array_set"
+
+arraySize :: CCode Name
+arraySize = Nam "array_size"
+
+tupleSet :: CCode Name
+tupleSet = Nam "tuple_set"
+
+tupleGet :: CCode Name
+tupleGet = Nam "tuple_get"
+
+tupleSetType :: CCode Name
+tupleSetType = Nam "tuple_set_type"
+
+rangeStart :: CCode Name
+rangeStart = Nam "range_start"
+
+rangeStop :: CCode Name
+rangeStop = Nam "range_stop"
+
+rangeStep :: CCode Name
+rangeStep = Nam "range_step"
+
+rangeAssertStep :: CCode Name
+rangeAssertStep = Nam "range_assert_step"
+
+taskAttachFut :: CCode Name
+taskAttachFut = Nam "task_attach_fut"
+
+taskSchedule :: CCode Name
+taskSchedule = Nam "task_schedule"
+
+taskRunner :: CCode Name
+taskRunner = Nam "task_runner"
+
+taskFree :: CCode Name
+taskFree = Nam "task_free"

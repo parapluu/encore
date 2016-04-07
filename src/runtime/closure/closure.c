@@ -1,34 +1,34 @@
 #include "closure.h"
+#include <assert.h>
 
-pony_type_t closure_type =
-  {ID_CLOSURE,
-   sizeof(struct closure),
-   0,
-   0,
-   closure_trace,
-   NULL,
-   NULL,
-   NULL,
-   NULL
-  };
+pony_type_t closure_type = {
+  .id = ID_CLOSURE,
+  .size = sizeof(struct closure),
+  .trace = closure_trace,
+};
 
-void closure_trace(void *p){
+void closure_trace(pony_ctx_t *ctx, void *p)
+{
+  assert(p);
   closure_t *c = (closure_t *) p;
   if(c->trace != NULL){
-    c->trace(c->env);
+    c->trace(ctx, c->env);
   }
 }
 
-closure_t *closure_mk(closure_fun fn, void *env, pony_trace_fn trace){
-  closure_t *c = pony_alloc(sizeof(closure_t));
+closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
+    pony_trace_fn trace)
+{
+  ctx = pony_ctx();
+  closure_t *c = pony_alloc(ctx, sizeof(closure_t));
   c->call = fn;
   c->env = env;
   c->trace = trace;
   return c;
 }
 
-value_t closure_call(closure_t *closure, value_t args[]){
-  return closure->call(args, closure->env);
+value_t closure_call(pony_ctx_t* ctx, closure_t *closure, value_t args[]){
+  return closure->call(ctx, args, closure->env);
 }
 
 value_t ptr_to_val(void *p){
