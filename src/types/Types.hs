@@ -375,7 +375,7 @@ typeMapM f ty@CapabilityType{capability} = do
   f ty{capability = capability'}
 typeMapM f ty@ArrowType{argTypes, resultType} = do
   argTypes' <- mapM (typeMapM f) argTypes
-  resultType' <- f resultType
+  resultType' <- typeMapM f resultType
   f ty{argTypes = argTypes'
       ,resultType = resultType'}
 typeMapM f ty@TupleType{argTypes} = do
