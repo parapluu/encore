@@ -1,0 +1,9 @@
+import Request
+
+class Main {
+  def main() : void {
+    let r = new Request;
+    let s = get r.GET("www.httpbin.org", 80, "/ip");
+    print("Response:{}", s);
+  }
+}
