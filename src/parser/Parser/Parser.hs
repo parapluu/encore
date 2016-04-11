@@ -401,6 +401,7 @@ expression = buildExpressionParser opTable highOrderExpr
                  [textualPrefix "not" Identifiers.NOT],
                  [textualOperator "and" Identifiers.AND,
                   textualOperator "or" Identifiers.OR],
+                 [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
@@ -432,6 +433,7 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition
                     reservedOp s
                     return (Binop (meta pos) binop)) AssocLeft
+
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
