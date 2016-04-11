@@ -3,7 +3,26 @@ import Request
 class Main {
   def main() : void {
     let r = new Request;
-    let s = get r.GET("www.httpbin.org", 80, "/ip");
-    print("Response:{}", s);
+    for n in [200..500] by 100 {
+      let path = new String(embed
+        (embed char* end)
+        char path[12];
+        sprintf(path, "/status/%d", #{n});
+        printf("Using URL: %s\n", path);
+        path;
+      end);
+      let s = get r.GET("www.httpbin.org", 80, path);
+      let response = s.raw;
+      print("Response is:\n{}\n", response);
+      let expectation = new String(embed
+        (embed char* end)
+        char substring[4];
+        sprintf(substring, "%d", #{n});
+        substring;
+      end);
+      print("Looking for substring: {}... ", expectation);
+      assertTrue(response.contains(expectation));
+      print("Found!\n");
+    }
   }
 }

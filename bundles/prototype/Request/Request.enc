@@ -126,11 +126,25 @@ end
 
 class Request {
 
-  def GET(host: String, port: int, path: String) : String {
+  def GET(host: String, port: int, path: String) : Response {
     let hostData = host.data;
     let pathData = path.data;
-    let response = embed String getRequest(#{hostData}, #{port}, #{pathData}); end;
-    print("Response2:{}",response);
-    response;
+    let response = embed
+      (embed char* end)
+      getRequest(#{hostData}, #{port}, #{pathData});
+    end;
+    let s = new String(response);
+    let res = new Response(s);
+    res;
+  }
+}
+
+
+passive class Response {
+  
+  raw : String
+  
+  def init(s : String) : void {
+    this.raw = s;
   }
 }
