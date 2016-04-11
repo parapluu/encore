@@ -84,7 +84,7 @@ maybeBraces p = braces p <|> p
 
 stringLiteral = P.stringLiteral lexer
 charLiteral = P.charLiteral lexer
-integer = P.integer lexer
+natural = P.natural lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
@@ -401,6 +401,7 @@ expression = buildExpressionParser opTable highOrderExpr
                  [textualPrefix "not" Identifiers.NOT],
                  [textualOperator "and" Identifiers.AND,
                   textualOperator "or" Identifiers.OR],
+                 [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
@@ -432,6 +433,7 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition
                     reservedOp s
                     return (Binop (meta pos) binop)) AssocLeft
+
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
@@ -729,7 +731,7 @@ expr  =  unit
                    char <- charLiteral
                    return $ CharLiteral (meta pos) char
       int = do pos <- getPosition
-               n <- integer
+               n <- natural
                return $ IntLiteral (meta pos) (fromInteger n)
       real = do pos <- getPosition
                 r <- float

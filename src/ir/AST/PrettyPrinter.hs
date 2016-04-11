@@ -265,6 +265,7 @@ ppExpr FinishAsync {body} = ppFinish <+> ppExpr body
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = text "not"
+ppUnary Identifiers.NEG = text "-"
 
 ppBinop :: BinaryOp -> Doc
 ppBinop Identifiers.AND = text "and"
