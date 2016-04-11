@@ -79,6 +79,10 @@ passive class Test
     print "From array passed";
     this.test_from_char();
     print "From char passed";
+    this.test_string_from_int();
+    print "String from int passed";
+    this.test_to_int();
+    print "To int passed";
     print "================";
     print "All tests passed";
     print "================";
@@ -314,3 +318,33 @@ passive class Test
       s = string_from_char('A')
     in
       assertTrue(s.equals("A"))
+
+  def test_string_from_int() : void
+    let
+      s1 = string_from_int(123456789)
+      s2 = string_from_int(-42)
+    in {
+      assertTrue(s1.equals("123456789"));
+      assertTrue(s2.equals("-42"));
+    }
+
+  def test_to_int() : void
+    let
+      s1 = "42"
+      s2 = "-42"
+      s3 = "foobar"
+      s4 = "0x10xyz"
+    in {
+      assertTrue(match s1.to_int() with
+                   Just n => n == 42
+                   Nothing => false);
+      assertTrue(match s2.to_int() with
+                   Just n => n == -42
+                   Nothing => false);
+      assertTrue(match s3.to_int() with
+                   Just n => false
+                   _ => true);
+      assertTrue(match s4.to_int() with
+                   Just n => n == 16
+                   Nothing => false);
+    }
