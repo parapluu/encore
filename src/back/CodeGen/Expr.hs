@@ -48,8 +48,10 @@ instance Translatable ID.BinaryOp (CCode Name) where
     ID.MOD -> "%"
 
 instance Translatable ID.UnaryOp (CCode Name) where
-  translate op = Nam $ case op of
-    ID.NOT -> "!"
+  translate op = Nam $
+    case op of
+      ID.NOT -> "!"
+      ID.NEG -> "-"
 
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
