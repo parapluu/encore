@@ -3,6 +3,7 @@ embed
 #include <strings.h>
 #include <alloca.h>
 #include <ctype.h>
+#include <math.h>
 array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv);
 body
 array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv) {
@@ -34,6 +35,18 @@ def string_from_array(arr : [char]) : String
       embed void *#{p}++ = #{c}; end;
     new String(s)
   }
+
+def string_from_int(n : int) : String
+  new String(embed
+    (embed char* end)
+    int n = #{n};
+    int len = n < 0? (int) ceil(log10(-n)) + 2:
+                     (int) ceil(log10(n)) + 1;
+    char *s = encore_alloc(_ctx, len);
+    sprintf(s, "%d", n);
+    s;
+    end
+  )
 
 -- This is a utility library for working with strings.
 -- [x] build a wrapper around string.h
@@ -320,3 +333,21 @@ passive class String
         result[occurrences] = match this.substring(start, this.length()) with Just s => s;
         result;
       }
+
+  def to_int() : Maybe int {
+    let s = this.data;
+    let n = 0;
+    let success = false;
+    embed void
+      char *s = #{s};
+      char *endptr;
+      #{n} = strtol(s,&endptr,0);
+      if (s != endptr)
+         #{success} = true;
+    end;
+    if success then {
+      Just n;
+    } else {
+      Nothing : Maybe int
+    }
+  }
