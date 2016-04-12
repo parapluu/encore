@@ -1100,14 +1100,17 @@ instance Checkable Expr where
     --  E |- operand : bool
     -- -------------------------
     --  E |- not operand : bool
-    doTypecheck unary@(Unary {uop, operand})
-      | uop == Identifiers.NOT = do
+    doTypecheck unary@(Unary {uop, operand}) = do
+        let isExpected | uop == Identifiers.NOT = isBoolType
+                       | uop == Identifiers.NEG = isNumeric
         eOperand <- typecheck operand
         let eType = AST.getType eOperand
-        unless (isBoolType eType) $
-                tcError $ "Operator '" ++ show uop ++ "' is only defined for boolean types\n" ++
-                          "Expression '" ++ show (ppSugared eOperand) ++ "' has type '" ++ show eType ++ "'"
-        return $ setType boolType unary { operand = eOperand }
+        unless (isExpected eType) $
+               tcError $ "Operator '" ++ show uop ++ "' is not defined " ++
+                         "for values of type '" ++ show eType ++ "'"
+        let resultType | uop == Identifiers.NOT = boolType
+                       | uop == Identifiers.NEG = eType
+        return $ setType resultType unary {operand = eOperand}
 
     --  op \in {and, or}
     --  E |- loper : bool

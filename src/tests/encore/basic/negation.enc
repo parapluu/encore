@@ -1,0 +1,8 @@
+class Main {
+  def main() : void {
+    let x = -(-42);
+    let y = -(-(-x));
+    let z = -y + (-(1+2) + 3);
+    print z;
+  }
+}
