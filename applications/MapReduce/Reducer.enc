@@ -1,0 +1,63 @@
+-- Written by Evelina Andersson, 2015
+
+---------------------------------------
+-- class Reducer
+-- Usage: Handles active objects that
+--        are used as reducers in the 
+--        MapReduceFramework
+---------------------------------------
+
+class Reducer
+  -- fields for storing the id, reducefunction,
+  -- the emitted result and a busy-flag
+  id : int
+  function : ReduceFunction
+  result : ArrayList
+  busy : bool
+
+  -- constructor for creating a process of the class
+  def init(id : int) : void {
+     this.busy = false;
+     this.id = id;
+     this.function = new ReduceFunction();
+     this.result = new ArrayList()
+  }
+ 
+  -- returns true if the reducer process is busy
+  -- and false otherwise
+  def isBusy() : bool
+      this.busy
+
+  -- the working method for the reducer process
+  def work(emit : EmitData) : void {
+      this.busy = true;   
+        let 
+            tempResult = this.function.function(emit.getKey(), emit.getResult())
+        in {
+            this.result.addValues(tempResult);
+       };
+       this.busy = false
+     }
+
+-- the working method for the reducer process when it should work on a partition
+   def workOnPartition(allEmits : Hashtable) : void { 
+       this.busy = true;
+       let
+            keys = allEmits.getKeys()
+       in { 
+            repeat k <- |keys| {
+              let
+                 emits = allEmits.getValue(keys[k]).getEmitData().getValues()
+                 tempResult = this.function.function(keys[k], emits)
+              in {
+                this.result.addValues(tempResult);
+              }
+             }
+           };
+      this.busy = false;
+   }   
+
+  -- returns the emitted result   
+  def getResult() : ArrayList
+      this.result
+

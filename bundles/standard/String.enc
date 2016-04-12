@@ -143,6 +143,18 @@ passive class String
         str;
       end)
 
+  def to_int(): int
+    let result = 0
+        data = this.data
+    in
+      embed int
+        int i = 0;
+        while(#{data}[i]){
+          #{result} += #{data}[i++];
+        }
+        #{result};
+      end
+        
   -- Returns the length of a string in O(1) time
   def length() : int
     this.length

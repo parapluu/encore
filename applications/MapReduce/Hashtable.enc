@@ -1,0 +1,281 @@
+-- Written by Evelina Andersson, 2015
+------------------------------------------------
+-- class : Entry
+-- Usage : handles the <key,value> pairs in the
+--         hashtable
+------------------------------------------------
+
+passive class Entry
+  key   : Key
+  value  : DataCollector
+  
+  -- constructor creates an instance of Entry
+  -- containing a <key,value> pair
+  def init(key : Key, value : DataCollector) : void {
+    this.key = key;
+    this.value = value;
+  }
+
+  -- returns the key stored in an instance of Entry
+  def getKey() : Key
+    this.key
+
+  -- returns the value stored in an instance of Entry
+  def getValue() : DataCollector
+    this.value
+
+  -- print out the contents in an instance of Entry
+  def show() : void {
+      print("\nENTRY : <");
+      this.key.show();
+      print(",");
+      this.value.show();
+      print(">")
+  }
+
+------------------------------------------------
+-- class : Hashtable
+-- Usage : contains the hashtable and can store
+--         the values in an array or in an array
+--         consiting of arraylist
+------------------------------------------------
+passive class Hashtable
+  -- fields for storing the entries, the loadfactor,
+  -- the number of keys, the size of the hashtable
+  -- and which kind of storage should be
+  table : [Entry]
+  tableArrayList : [ArrayList]
+  loadFactor : real
+  numberOfKeys : real
+  size : int
+  useList : bool
+  
+  -- constructor for creating an instance of the class
+  def init(size:int, useList : bool, loadFactor : real) : void {
+     this.numberOfKeys = 0.0;
+     this.size = 0;
+     this.loadFactor = loadFactor;
+     this.useList = useList;
+     if(useList) then { 
+        this.tableArrayList = new [ArrayList](size);
+     } else { 
+         this.table = new [Entry](size);
+     }
+  }
+
+  -- returns the hashcode for the key
+  def hashCode(key : Key, size : int) : int
+      let value = key.hashCode() in {
+         value % size
+      }
+
+  -- returns the slot that matches the given key 'key'
+  def findSlot(theTable: [Entry], i : int, key : Key, size : int) : int {
+         if ((theTable[i]) == null) then i
+         else if (theTable[i]).getKey().equals(key) then i
+              else this.findSlot(theTable,(i+1) % size, key, size)
+  }
+   
+  -- returns the number of keys in the hashtable
+  def getNumberOfKeys() : real
+      this.numberOfKeys
+
+  -- returns the size of the hashtable
+  def getSize() : int 
+      if (this.useList) then |this.tableArrayList|
+      else |this.table|
+
+  -- returns the index that matches the given key 'key' 
+  def findKeyIndexHelp(i: int, key : Key, size : int, times : int) : int {
+      if (times == this.getSize()) then -1
+      else if ((this.table[i]) == null) then
+              this.findKeyIndexHelp((i+1) % size, key, size,times + 1)
+           else if ((this.table[i]).getKey().equals(key)) then i
+                else this.findKeyIndexHelp((i+1) % size, key, size,times + 1)
+      }
+   
+
+  -- returns the index that matches the given key 'kkey'
+  def findKeyIndex(key : Key) : int {
+       this.findKeyIndexHelp(this.hashCode(key, this.getSize()),
+                             key, this.getSize(),0)
+  }
+
+  -- returns true if the key exists and false otherwise
+  def keyExists(key : Key) : bool {
+      if (this.useList) then {
+          let
+              keyIndex = this.hashCode(key, this.getSize())
+              exists = false
+          in {
+	       if (this.tableArrayList[keyIndex] != null) then
+               repeat i <- (this.tableArrayList[keyIndex]).size() {
+                  if((this.tableArrayList[keyIndex]).getCollector(i).
+                      getEntry().getKey().equals(key)) then {
+                      i = (this.tableArrayList[keyIndex]).size();
+                     exists = true
+                };
+           };
+           exists
+          }
+        } else { 
+          this.findKeyIndex(key) != -1  
+      }
+  } 
+
+  -- returns the value that is associated to the given key 'key'
+  -- NOTE: it assumes that key exists in the hashtable
+  def getValue(key : Key) : DataCollector {
+      if (this.useList) then {
+         let
+             keyIndex = this.hashCode(key, this.getSize())
+             dataCollector = new DataCollector()
+         in {
+	     if (this.tableArrayList[keyIndex] != null) then
+             repeat i <- (this.tableArrayList[keyIndex]).size() {
+               if((this.tableArrayList[keyIndex]).getCollector(i).
+                   getEntry().getKey().equals(key)) then
+                   dataCollector = (this.tableArrayList[keyIndex]).
+                                    getCollector(i).getEntry().getValue()
+               else ()                  
+              };
+              dataCollector
+          }
+       } else { if((this.table[this.findKeyIndex(key)]).getValue() == null)
+                then print("EMPTY");
+       (this.table[this.findKeyIndex(key)]).getValue()
+       }
+    }   
+
+  def getKeys() : [Key] {
+      let 
+          keys = new [Key](this.size)
+          index = 0
+      in {
+          if (this.useList) then {
+                repeat i <- this.getSize() { 
+		   if ((this.tableArrayList[i]) != null) 
+                   then { 
+                      repeat j <- (this.tableArrayList[i]).size() { 
+		        keys[index] =  (this.tableArrayList[i]).
+                                       getCollector(j).getEntry().getKey();
+                        index = index + 1
+                     }
+                  }
+                }
+          } else {
+              repeat i <- this.getSize() {
+                 if((this.table[i]) != null) then {
+                   keys[index] = (this.table[i]).getKey();
+                   index = index + 1
+                 }
+             }
+          };  
+          keys
+       }
+    }
+
+ 
+  -- doubles the hashtable with numberOfKeys/size >= loadfactor
+  def doubleTable() : void {
+      if (this.useList) then {
+          if (this.numberOfKeys / this.getSize() >= this.loadFactor) then 
+            let newTable = new [ArrayList](this.getSize()*2) in {
+                  repeat i <- this.getSize()  {
+		  if(this.tableArrayList[i] != null) then
+                  let entries = this.tableArrayList[i] in { 
+                      if (entries.size() != 0) 
+                      then {
+                            repeat e <- entries.size() 
+                            let
+                                hashCode = 
+                                  this.hashCode
+                                    (entries.getCollector(e).getEntry().getKey(), 
+                                     |newTable|)
+                            in {
+                                if (newTable[hashCode] == null) 
+                                then newTable[hashCode] = new ArrayList(); 
+                                (newTable[hashCode]).add(entries.getCollector(e));
+                            } 
+                     }
+                   }
+                 };
+             this.tableArrayList = newTable;
+           };
+     } else {
+         if (this.numberOfKeys / this.getSize() >= this.loadFactor) then 
+            let newTable = new [Entry](this.getSize()*2) in {
+                repeat i <- this.getSize()  {
+                  let entry = this.table[i] in {
+                     if (entry != null) then {
+                        let 
+                            hashCode = this.hashCode(entry.getKey(),|newTable|)
+                        in {
+                             newTable[this.findSlot
+                                     (newTable,hashCode,entry.getKey(),
+                                     |newTable|)] = entry;
+                          } 
+                      }
+                 }
+                };
+                this.table = newTable;
+            };
+     }
+  }
+ 
+  -- inserts the pair <key,value> in the hashtable, if a <key,*> already exists,
+  -- it will be replaced with the new value
+  def put(key:Key, value:DataCollector) : void {
+      this.doubleTable();
+       let entry = new Entry(key,value) in { 
+           if(this.useList) then { 
+             let 
+                slot = this.hashCode(key, |this.tableArrayList|)
+                dataCollector = new DataCollector()
+                replace = false
+            in { 
+                dataCollector.setEntry(entry);
+	        if (this.tableArrayList[slot] != null) then
+                repeat i <- (this.tableArrayList[slot]).size() {
+		   if ((this.tableArrayList[slot]).getCollector(i).getEntry().
+                        getKey().equals(key)) then {
+                       (this.tableArrayList[slot]).set(i,dataCollector);
+                       i = (this.tableArrayList[slot]).size();
+                       replace = true
+                   };
+                };
+	       if (not replace) then {
+	           if (this.tableArrayList[slot] == null)
+                   then this.tableArrayList[slot] = new ArrayList();
+                   (this.tableArrayList[slot]).add(dataCollector);
+                   this.numberOfKeys = this.numberOfKeys + 1.0;
+                   this.size = this.size + 1;
+               }
+             }
+          }else { 
+          let 
+              slot = this.findSlot(this.table,this.hashCode(key, this.getSize()), 
+                                   key, this.getSize())
+          in {
+              if ((this.table[slot]) == null) then {
+                   this.numberOfKeys = this.numberOfKeys + 1.0;
+                   this.size = this.size + 1;
+               };
+               (this.table[slot]) = entry
+           }
+        }
+     };
+  }
+
+  -- prints the contents in the hashtable
+  def show() : void { 
+     if(this.useList) then {
+        repeat i <- |this.tableArrayList| 
+	  if (this.tableArrayList[i] != null)
+          then (this.tableArrayList[i]).show() 
+      } else {
+          repeat i <- |this.table|
+          if (this.table[i] != null)  
+          then (this.table[i]).show()
+      }
+ }

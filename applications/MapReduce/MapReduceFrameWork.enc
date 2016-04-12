@@ -1,0 +1,189 @@
+-- Written by Evelina Andersson, 2015
+
+import Hashtable
+import Mapper
+import Reducer
+import ArrayList
+import DataCollector
+
+---------------------------------------
+-- class MapReduceFramework
+-- Usage: The main class in the MapReduceframework
+--        and is responsible for the steps in
+--        the map-reduce-procedure
+---------------------------------------
+
+passive class MapReduceFrameWork
+   -- fields for storing the mapper- and the reducer processes
+    mappers : [Mapper]
+    reducers : [Reducer]
+
+    -- constructs the main process in the MapReduceFramwork
+    def init(numberOfMappers : int, numberOfReducers : int) : void {
+        this.reducers = new [Reducer](numberOfReducers);
+        this.mappers = new [Mapper](numberOfMappers);
+    }
+
+    -- executes the steps in the map reduce procedure
+    def work(documents : ArrayList, useCombiner : bool,
+             size : int, useList : bool, loadFactor : real): ArrayList {
+        let
+            i = 0
+            fileId = 0
+            id = 0
+	    mid = 0
+         in {
+             -- distribute the documents of the mapper processes
+               repeat i <- |this.mappers| 
+                  this.mappers[i] = new Mapper(i);
+               repeat i <- |this.reducers| 
+                  this.reducers[i] = new Reducer(i);
+               while fileId < documents.size() {
+	         i = 0;
+                  repeat i <- |this.mappers| {
+		    i = mid; 
+		    if (not (get (this.mappers[i]).isBusy())) then {
+                        (this.mappers[i]).work
+                          (documents.getCollector(fileId).getEmitData());
+			 mid = (i + 1) % |this.mappers|;
+			 i = |this.mappers|;
+                         fileId = fileId + 1;
+                     };
+                   };
+                };
+       
+             -- intermediate step
+             if(not useCombiner) then {
+             -- do not perform the combiner-partitioner procedure
+                let
+                   intermediateStep = new Hashtable(size, useList, loadFactor)
+                in {
+                   repeat i <- |this.mappers| {
+		     while (get (this.mappers[i]).isBusy()) {()};
+                     let 
+                         emits = get (this.mappers[i]).getEmits() 
+                     in 
+                         repeat v <- emits.size() { 
+                            let emit = emits.getCollector(v).getEmitData() 
+                                key = emit.getKey()
+                                emitValues = emit.getResult()
+                            in 
+                                if (intermediateStep.keyExists(key)) then { 
+                                    let 
+                                        values = intermediateStep.getValue(key)
+                                    in {
+				        values.getEmitData().addValues(emitValues);
+				        intermediateStep.put(key, values);
+				     } 
+                                } else { 
+                                     let 
+                                          dataContainer = new DataCollector() 
+                                     in {
+                                          dataContainer.setEmitData(emit); 
+                                          intermediateStep.put(key,dataContainer)
+                                      }
+                                  }
+                             };
+		     };
+                     let
+                        intermediateStepKeys = intermediateStep.getKeys()
+                        keyId = 0
+			rid = 0
+			keyIdStep = 0
+			numberOfKeys = |intermediateStepKeys|
+			numberOfReducers = |this.reducers|
+                     in {
+                         i = 0;
+                         repeat i <- |this.reducers| 
+                           this.reducers[i] = new Reducer(i);
+			  i = 0;
+			  keyId = 0;
+                         while keyId < numberOfKeys {
+                             repeat i <- |this.reducers|{
+                                i = rid; 
+                             if (not (get (this.reducers[i]).isBusy())) then {
+			        (this.reducers[i]).work
+                                 (intermediateStep.getValue
+                                 ((intermediateStepKeys[keyId])).getEmitData());
+	          	          rid = (rid + 1) % |this.reducers|;
+                                  keyId = keyId + 1; 
+		    	          i = |this.reducers|;
+				 }
+		              };
+			  }
+	                }
+		      }
+                 } else {
+                  -- use combiner and partitioner
+                 let
+                    partitionIntermediateStep = new [Hashtable](|this.reducers|)
+                 in {
+                    repeat i <- |this.reducers| {
+                       partitionIntermediateStep[i] = 
+                        new Hashtable(size,useList,loadFactor)
+                    };
+		    repeat m <- |this.mappers| {
+                       (this.mappers[m]).
+                         createPartitioner(|this.reducers|)
+                     };
+                    repeat m <- |this.mappers| {
+		      while(get (this.mappers[m]).isBusy()) {()}; 
+                       let
+         	            partition = get (this.mappers[m]).getPartitioner()
+                      in { 
+                            repeat i <- |this.reducers| { 
+	                     let 
+                                 emits = partition[i]
+                             in 
+                                 repeat v <- emits.size() { 
+                                   let
+                                       emit = emits.getCollector(v).getEmitData() 
+                                       key = emit.getKey()
+                                       emitValues = emit.getResult()
+                                   in { 
+                                       if ((partitionIntermediateStep[i]).keyExists(key))
+                                       then {
+                                           let 
+                                               values = (partitionIntermediateStep[i]).getValue(key)
+                                           in { 
+		                               values.getEmitData().addValues(emitValues);
+	                                       (partitionIntermediateStep[i]).put(key, values);
+ 				       
+                                      } 
+                                     } else {
+                                             let dataContainer = new DataCollector() in {
+                                                 dataContainer.setEmitData(emit); 
+                                                 (partitionIntermediateStep[i]).put(key,dataContainer)
+                                            }
+                                       }
+                                   }
+                              }
+                          }
+                     }
+                   };
+               
+                  -- collected all emits
+                   repeat i <- |this.reducers| {
+                    (this.reducers[i]).workOnPartition(partitionIntermediateStep[i]);
+                  }
+             };
+           };
+        let
+            emits = new ArrayList()
+        in {  
+            repeat i <- |this.reducers| {
+               while(get (this.reducers[i]).isBusy()) {()}; 
+             let
+                 result = get (this.reducers[i]).getResult()
+	     in  { 
+                  emits.addValues(result);}
+                 
+             };
+            emits 
+         };
+
+   }
+
+ }
+
+

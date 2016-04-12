@@ -1,0 +1,249 @@
+-- Written by Evelina Andersson, 2015
+
+import MapReduceFrameWork
+import DocumentDataMean
+
+embed
+  #include <string.h>
+  
+  int hashCode(char *string);
+  int equals(char *string0, char *string1);
+
+body
+  int hashCode(char *string) {
+     int length = strlen(string);
+     int i = 0;
+     int result = 0;
+ 
+     for(; i < length;i++) {
+         result += (int) string[i];
+     }   
+
+     return result;
+  }
+
+  int equals(char *string0, char *string1) {
+      if(string0 == NULL) return 0;
+      else if (strcmp(string0, string1) == 0) return 1;
+          else return 0;
+  }
+end
+
+passive class Key
+   value : string
+
+   def init(value : string) : void
+      this.value = value
+  
+   def getValue() : string
+       this.value
+
+   def equals(v : Key) : bool
+       let
+           myValue = this.getValue()
+           valueValue = v.getValue()
+       in {
+          embed bool equals(#{myValue},#{valueValue}); end  
+       }
+
+   def hashCode() : int
+       let value = this.value in
+          {embed int hashCode(#{value}); end}
+
+   def show () : void
+       print("Key: {} ",this.value)
+
+ passive class ExtendedEmitData -- used as pair
+   sum : real
+   count : real
+
+   def init(sum : real, count : real) : void {
+       this.sum = sum;
+       this.count = count
+   }
+ 
+   def getSum() : real
+       this.sum
+
+   def getCount() : real
+       this.count
+
+   def show(): void {
+       print("<{},{}>",this.sum, this.count)
+   }
+   
+passive class EmitData
+  id : string
+  pairs : ArrayList
+  value : real
+
+  def init(id : string, value : real) : void {
+      this.id = id;
+      this.pairs = new ArrayList();
+      this.value = value
+  }
+
+  def setKey(key : Key) : void {
+      this.id = key.getValue();
+      ()
+  }
+
+  def addValue(value : ExtendedEmitData) : void {
+      let
+          dataCollector = new DataCollector()
+      in {
+          dataCollector.setExtendedEmitData(value);
+          this.pairs.add(dataCollector)
+      }
+  }
+
+  def setValues(values : ArrayList) : void
+      this.pairs = values
+
+  def getId() : string
+      this.id
+
+  def getKey() : Key
+      new Key(this.id)
+
+  def getValues() : ArrayList {
+      this.pairs
+   }
+
+  def getResult() : ArrayList {
+    this.pairs
+  }
+  
+  def getValue() : real {  
+      this.value
+   }
+
+  def addValues(values : ArrayList) : void
+         repeat i <- values.size()
+           this.pairs.add(values.getCollector(i))
+      
+  def show() : void {
+      print("EMIT DATA: {} {}\n",this.id, this.value);
+      this.pairs.show();
+      print("\n")
+   }
+
+passive class MapFunction 
+  collector : ArrayList
+  def init() : void 
+      this.collector = new ArrayList()
+  
+  def function(t : string, r : real) : void  {
+      let 
+           emitCollector = new DataCollector()
+           newEmit = new EmitData(t,r)
+      in { 
+           newEmit.addValue(new ExtendedEmitData(r,1.0));
+           emitCollector.setEmitData(newEmit);
+           this.collector.add(emitCollector); 
+         };
+      }
+      
+  def getEmits() : ArrayList
+      this.collector
+  
+
+passive class CombineFunction 
+  sortedEmits : Hashtable
+  collector   : ArrayList
+
+  def init() : void {
+    this.sortedEmits = new Hashtable(16,false,0.75);
+    this.collector  = new ArrayList()
+  }
+  
+  def function(key : Key, pairs : ArrayList) : void { 
+       let
+          sum = 0.0
+          cnt = 0.0
+       in { 
+        repeat i <- pairs.size()
+         let
+             r = pairs.getCollector(i).getExtendedEmitData().getSum()
+	     c = pairs.getCollector(i).getExtendedEmitData().getCount()
+         in {
+             sum = sum + r;
+             cnt = cnt + 1.0
+         };
+         let
+            newEmit = new EmitData(key.getValue(),0.0)
+            emitData = new DataCollector()
+         in {
+              newEmit.addValue(new ExtendedEmitData(sum,cnt));
+              emitData.setEmitData(newEmit);
+              this.collector.add(emitData);
+          }
+          
+      }
+  } 
+
+  def getSortedEmits() : Hashtable
+      this.sortedEmits
+  
+  def getEmits() : ArrayList {
+      this.collector
+  }
+  
+
+passive class ReduceFunction
+  def init() : void 
+      ()
+  
+  def function(key : Key, pairs : ArrayList) : ArrayList { 
+      let
+          sum = 0.0
+          cnt = 0.0
+          emits = new ArrayList()
+      in { 
+         repeat i <- pairs.size()
+           let 
+              pair = pairs.getCollector(i).getExtendedEmitData()
+           in {
+              sum = sum + pair.getSum();
+              cnt = cnt + pair.getCount()
+           };
+          let
+             newEmit = new EmitData(key.getValue(), sum/cnt)
+             emitData = new DataCollector()
+          in {
+              emitData.setEmitData(newEmit);
+              emits.add(emitData);
+          };
+          emits         
+      }
+   }
+
+class Main
+  def main() : void{
+    let 
+        numberOfMappers = 2
+        numberOfReducers = 2
+        framework = new MapReduceFrameWork(numberOfMappers,numberOfReducers)
+         
+      	documents = new ArrayList()
+        documentContents = new DocumentDataMean() 
+        tokens = documentContents.getTokens()
+    in { 
+         repeat i <- 1 {
+            repeat i <- tokens.size() {
+              let
+                  document = new DataCollector() 
+                  pair = tokens.getCollector(i).getEmitData()
+              in { 
+                   document.setEmitData(new EmitData(pair.getId(),pair.getValue()));
+                   documents.add(document)
+                 }
+              }
+           
+         };
+       
+         let result = framework.work(documents,true,16,false,0.75) in ();
+	 print("Done");
+   }      
+ }
+

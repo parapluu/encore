@@ -1,0 +1,117 @@
+-- Written by Evelina Andersson, 2015
+---------------------------------------
+-- class Mapper
+-- Usage: Handles active objects that
+--        are used as mappers in the 
+--        MapReduceFramework
+---------------------------------------
+
+class Mapper
+  -- fields for storing the id, mapfunction,
+  -- combinerfunction, an array with partitions
+  -- and a busy flag
+
+  id : int
+  function : MapFunction
+  combiner : CombineFunction
+  partitioner : [ArrayList]
+  busy : bool
+  
+
+  -- constructor that creates a Mapper process
+  def init(id : int) : void {
+     this.busy = false;
+     this.id = id;
+     this.function = new MapFunction();
+     this.combiner = new CombineFunction()
+  }
+
+  -- returns true if the mapper process is busy
+  -- and false otherwise
+  def isBusy() : bool 
+      this.busy
+	 
+  -- returns the partitioner created by the mapper
+  -- process
+  def getPartitioner() : [ArrayList] {
+      this.partitioner
+  }
+
+  -- the working method for the mapper process
+  def work(pair : EmitData) : void {
+      this.busy = true;
+      this.function.function(pair.getId(), pair.getValue());
+      this.busy = false;
+  }
+
+   -- returns the emits creates by the mapper process
+  def getEmits() : ArrayList {
+     this.function.getEmits()
+  }
+
+  -- combine the emits and create a partitioner for 'numberOfReducers' 
+  -- reducer processes
+  def createPartitioner(numberOfReducers : int) : void {
+    this.busy = true;
+   -- combiner-phase
+    let 
+        emits = this.function.getEmits()
+        sortedEmits = this.combiner.getSortedEmits()
+    in { 
+         repeat v <- emits.size() { 
+           let 
+              emit = emits.getCollector(v).getEmitData()
+              key = emit.getKey()
+              emitValues = emit.getResult()
+           in 
+              if (sortedEmits.keyExists(key)) then {
+                 let 
+                      values = sortedEmits.getValue(key)
+                 in {  
+                      values.getEmitData().addValues(emitValues);
+                      sortedEmits.put(key, values);
+                 }  
+              } else {   
+                  let 
+                      dataContainer = new DataCollector() 
+                  in { 
+                      dataContainer.setEmitData(emit); 
+                      sortedEmits.put(key,dataContainer);
+                  }
+              }
+	       
+           };
+
+           let emitsKeys = sortedEmits.getKeys() in {
+                repeat i <- |emitsKeys| {  
+                   let emitsKey = emitsKeys[i] in {
+                       this.combiner.function
+                          (emitsKey, 
+                           sortedEmits.getValue(emitsKey).getEmitData()
+                                       .getResult()); 
+                   }
+                }
+           }
+        };
+
+        -- partitioner - phase
+        let
+	     emits = this.combiner.getEmits() 
+        in  { 
+             this.partitioner = new [ArrayList](numberOfReducers);
+	     repeat i <- numberOfReducers
+                this.partitioner[i] = new ArrayList();
+		  
+             repeat v <- emits.size() { 
+                let
+	            emit = emits.getCollector(v).getEmitData() 
+                    key = emit.getKey()
+                    emitValues = emit.getResult()
+                    hashCode = key.hashCode() % numberOfReducers
+                in 
+		    (this.partitioner[hashCode]).add(emits.getCollector(v));
+             };  
+       };
+       this.busy = false;
+  }
+  

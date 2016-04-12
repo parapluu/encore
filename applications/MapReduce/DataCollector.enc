@@ -1,0 +1,86 @@
+-- Written by Evelina Andersson, 2015
+------------------------------------------------
+-- class : DataCollector
+-- Usage : can store different kind of that data
+------------------------------------------------
+passive class DataCollector
+  -- Fields that can store different kind of data
+  valueString    : String
+  valueInt       : int
+  valueReal      : real
+  valueEntry     : Entry
+  valueEmitData  : EmitData
+  valueExtendedEmitData  : ExtendedEmitData
+  valueArrayList : ArrayList
+ 
+  -- constructor that creates an instance of the class
+  def init() : void {
+      this.valueString = new String("");
+      this.valueEmitData = null;
+      this.valueExtendedEmitData = null;
+      this.valueEntry = null;
+  }
+
+  -- setters that sets the value in an instance of the class
+  def setString(value : String) : void
+      this.valueString = value 
+
+  def setInt(value : int) : void {
+      this.valueInt = value;
+   } 
+
+  def setReal(value : real) : void {
+      this.valueReal = value; 
+  }
+
+  def setEmitData(value : EmitData) : void
+      this.valueEmitData = value 
+
+  def setEntry(value : Entry) : void
+      this.valueEntry = value 
+
+  def setExtendedEmitData(value : ExtendedEmitData) : void
+      this.valueExtendedEmitData = value
+
+  def setArrayList(value : ArrayList) : void
+      this.valueArrayList = value
+
+  def getString() : String
+      this.valueString 
+
+  def getInt() : int
+       this.valueInt 
+
+  def getReal() : real
+      this.valueReal  
+
+  def getEmitData() : EmitData
+      this.valueEmitData 
+
+  def getEntry() : Entry
+      this.valueEntry 
+
+  def getArrayList() : ArrayList {
+      this.valueArrayList
+  }
+   
+  def getExtendedEmitData() : ExtendedEmitData {
+      this.valueExtendedEmitData
+  }
+  
+-- prints the contents in an instance of the class
+  def show() : void {
+    print("DataCollector:[");
+    if (this.valueArrayList != null) then 
+       this.valueArrayList.show();
+    if (this.valueEntry != null) then
+        this.valueEntry.show();
+    if (this.valueEmitData != null) then
+        this.valueEmitData.show();
+    if (this.valueExtendedEmitData != null) then
+        this.valueExtendedEmitData.show();
+    print("int: {} ",this.valueInt);
+    print("real: {} ",this.valueReal);
+    print("string: {} ",this.valueString);
+    print("]");
+}
