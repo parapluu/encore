@@ -11,9 +11,7 @@ void closure_trace(pony_ctx_t *ctx, void *p)
 {
   assert(p);
   closure_t *c = (closure_t *) p;
-  if(c->trace != NULL){
-    c->trace(ctx, c->env);
-  }
+  pony_traceobject(ctx, c->env, c->trace);
 }
 
 closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
