@@ -1,0 +1,93 @@
+bundle FileIO.IO where
+
+passive class File {
+
+  file : embed FILE* end
+  fin  : String
+  mode : String
+  isOpen : bool
+
+  def init() : void {
+    this.isOpen = false;
+    this.fin  = "";
+    this.mode = "w+a+r";
+  }
+
+  def fopen(file:String, mode:String) : void {
+    let fname = file.data;
+    let mode  = if (mode.equals("")) then this.mode.data
+                else mode.data;
+    this.file = embed (embed FILE* end)
+                  FILE *file = fopen(#{fname}, #{mode});
+                  if (!file) {
+                    printf("Cannot open file, exiting.\n");
+                    exit(0);
+                  };
+                  file;
+                end;
+    this.isOpen = true;
+  } 
+
+  def fclose() : void {
+    let f = this.file;
+    this.file = embed (embed FILE* end)
+      if (!#{f}) {
+        printf("Cannot close file, exiting.\n");
+        exit(0);
+      };
+      fclose(#{f});
+      (FILE*)NULL;
+    end;
+    this.isOpen = false;
+  }
+
+  -----------------------------------
+  -- Write to file.
+  -----------------------------------
+  def write(fout:String, fmode:String, content:String) : void {
+    this.writeChar(fout,fmode,content.data);
+  }
+
+  def writeChar(fout:String, fmode:String, content:embed char* end) : void {
+    let 
+      fout1 = fout.data 
+      mode  = fmode.data      -- r: read, w: write, a: append
+      file  = this.file
+    in
+    embed void
+      FILE *fout = #{file};//fopen(#{fout1}, #{mode});
+      if (!fout) {
+        printf("Cannot open file, exiting.\n");
+        exit(0);
+      }
+      fprintf(fout, #{content});
+    end
+  }  
+
+  -----------------------------------
+  -- Read file.
+  -----------------------------------
+  def readline() : String {
+    new String(this.readlineChar());
+  }
+
+  def readlineChar() : embed char* end {
+    let f = this.file;
+    embed (embed char* end)
+      char* line = encore_alloc(_ctx,255);
+      char* res  = fgets(line, 255, #{f});
+      if (res==NULL) line = (char*)NULL;
+      line;
+    end;
+  }
+
+  def isOpen() : bool {
+    let f = this.file;
+    embed bool
+      bool res = true;
+      if (ungetc(fgetc(#{f}),#{f})==EOF) res = false;
+      else res = true;
+      res;
+    end;
+  }
+}
