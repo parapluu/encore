@@ -2,33 +2,33 @@ bundle FileIO.IO where
 
 passive class File {
 
-  file : embed FILE* end
-  fin  : String
-  mode : String
-  isOpen : bool
+  file   : embed FILE* end
+  fname  : String
+  mode   : String
 
-  def init() : void {
-    this.isOpen = false;
-    this.fin  = "";
-    this.mode = "w+a+r";
+  def init(fname:String, mode:String) : void {
+    this.fname  = fname;
+    this.mode   = mode;
   }
 
-  def fopen(file:String, mode:String) : void {
-    let fname = file.data;
-    let mode  = if (mode.equals("")) then this.mode.data
-                else mode.data;
+  def open(fin:String, mode:String) : void {
+    this.mode = if (mode.equals("")) then "w+r+a"
+                else mode;
+    this.fname= fin;
+
+    let fin   = fin.data;
+    let mChar = this.mode.data;
     this.file = embed (embed FILE* end)
-                  FILE *file = fopen(#{fname}, #{mode});
+                  FILE *file = fopen(#{fin}, #{mChar});
                   if (!file) {
                     printf("Cannot open file, exiting.\n");
                     exit(0);
                   };
                   file;
                 end;
-    this.isOpen = true;
   } 
 
-  def fclose() : void {
+  def close() : void {
     let f = this.file;
     this.file = embed (embed FILE* end)
       if (!#{f}) {
@@ -38,20 +38,19 @@ passive class File {
       fclose(#{f});
       (FILE*)NULL;
     end;
-    this.isOpen = false;
   }
 
   -----------------------------------
   -- Write to file.
   -----------------------------------
-  def write(fout:String, fmode:String, content:String) : void {
-    this.writeChar(fout,fmode,content.data);
+  def write(fout:String, content:String) : void {
+    this.writeChar(fout, content.data);
   }
 
-  def writeChar(fout:String, fmode:String, content:embed char* end) : void {
+  def writeChar(fout:String, content:embed char* end) : void {
     let 
       fout1 = fout.data 
-      mode  = fmode.data      -- r: read, w: write, a: append
+      mode  = this.mode.data
       file  = this.file
     in
     embed void
@@ -81,7 +80,7 @@ passive class File {
     end;
   }
 
-  def isOpen() : bool {
+  def eof() : bool {
     let f = this.file;
     embed bool
       bool res = true;

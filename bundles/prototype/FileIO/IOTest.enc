@@ -2,23 +2,21 @@ import IO
 
 class Main 
   def main () : void {
-    let f    = new File;
     let file = "IOTest.out";    
-    let mode = "w";
+    let f    = new File(file,"w");
 
     let msg  = "Hello World!\n";
 
     -- Test write file
-    f.fopen(file,mode);
-    f.write(file,mode,msg);
-    f.fclose();
+    f.open(file,"w");
+    f.write(file,msg);
+    f.close();
 
     -- Test read file
-    f.fopen(file,"r");
-    while (f.isOpen()) {
+    f.open(file,"r");
+    while (f.eof()) {
       print("{}",f.readline());
     };
-    f.fclose();
-
+    f.close();
   }
 
