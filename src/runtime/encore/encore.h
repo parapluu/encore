@@ -1,6 +1,5 @@
 #ifndef ENCORE_H_6Q243YHL
 #define ENCORE_H_6Q243YHL
-
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
 
@@ -130,6 +129,10 @@ encore_actor_t *encore_peer_create(pony_type_t *type);
 
 /// Allocate s bytes of memory, zeroed out
 void *encore_alloc(pony_ctx_t *ctx, size_t s);
+#ifdef NO_GC
+#include <stdlib.h>
+#define encore_alloc(ctx,size) calloc(size,1)
+#endif
 
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
