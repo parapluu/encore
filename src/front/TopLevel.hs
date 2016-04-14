@@ -109,7 +109,7 @@ checkForUndefined options =
       mapM (\flag -> case flag of
               Undefined flag -> 
                 abort $ "Unknown flag " <> flag <> 
-                ". Use -help to se avaliable flags."
+                ". Use -help to see available flags."
               _ -> return ()) options
 
 output :: Show a => a -> Handle -> IO ()
@@ -248,19 +248,19 @@ main =
       addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
       -- TODO: move this elsewhere
       stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
-     
+
       showWarnings = mapM print
       helpMessage = 
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
         "Flags:\n" <>
-        "  -c           Keep intermediate C-files\n" <>
-        "  -tc          Typecheck only (don't produce an executable)\n" <>
-        "  -o [file]    Specify output file\n" <>
-        "  -run         Run the program and remove the executable\n" <>
-        "  -clang       Use clang to build the executable (default)\n" <>
-        "  -AST         Output the parsed AST as text to foo.AST\n" <>
-        "  -TypedAST    Output the typechecked AST as text to foo.TAST\n" <>
-        "  -nogc        Disables the garbage collection of passive objects.\n" <>
+        "  -c           Keep intermediate C-files.\n" <>
+        "  -tc          Typecheck only (don't produce an executable).\n" <>
+        "  -o [file]    Specify output file.\n" <>
+        "  -run         Run the program and remove the executable.\n" <>
+        "  -clang       Use clang to build the executable (default).\n" <>
+        "  -AST         Output the parsed AST as text to foo.AST.\n" <>
+        "  -TypedAST    Output the typechecked AST as text to foo.TAST.\n" <>
+        "  -nogc        Disable the garbage collection of passive objects.\n" <>
         "  -help        Print this message and exit.\n" <>
         "  -I p1:p2:... Directories in which to look for modules."
