@@ -22,7 +22,7 @@ passive class File {
                   FILE *file = fopen(#{fin}, #{mChar});
                   if (!file) {
                     printf("Cannot open file, exiting.\n");
-                    exit(0);
+                    exit(1);
                   };
                   file;
                 end;
@@ -33,7 +33,7 @@ passive class File {
     this.file = embed (embed FILE* end)
       if (!#{f}) {
         printf("Cannot close file, exiting.\n");
-        exit(0);
+        exit(1);
       };
       fclose(#{f});
       (FILE*)NULL;
@@ -54,10 +54,10 @@ passive class File {
       file  = this.file
     in
     embed void
-      FILE *fout = #{file};//fopen(#{fout1}, #{mode});
+      FILE *fout = #{file};
       if (!fout) {
         printf("Cannot open file, exiting.\n");
-        exit(0);
+        exit(1);
       }
       fprintf(fout, #{content});
     end
