@@ -17,7 +17,6 @@ module Typechecker.Util(TypecheckM
                        ,findMethod
                        ,findMethodWithCalledType
                        ,findCapability
-                       ,formalBindings
                        ,propagateResultType
                        ) where
 
@@ -151,6 +150,8 @@ subtypeOf ty1 ty2
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
+    | isNumeric ty1 && isNumeric ty2 =
+        return $ ty1 `numericSubtypeOf` ty2
     | otherwise = return (ty1 == ty2)
     where
       refSubtypeOf ref1 ref2
@@ -166,6 +167,10 @@ subtypeOf ty1 ty2
         let traits1 = typesFromCapability cap1
             traits2 = typesFromCapability cap2
         allM (\t2 -> anyM (`subtypeOf` t2) traits1) traits2
+
+      numericSubtypeOf ty1 ty2
+          | isIntType ty1 && isRealType ty2 = True
+          | otherwise = ty1 == ty2
 
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
@@ -232,21 +237,11 @@ findCapability ty = do
     where
         err = error $ "Util.hs: No capability in " ++ classOrTraitName ty
 
-formalBindings :: Type -> TypecheckM [(Type, Type)]
-formalBindings actual = do
-  origin <- asks $ refTypeLookupUnsafe actual
-  matchTypeParameterLength origin actual
-  let formals = getTypeParameters origin
-      actuals = getTypeParameters actual
-  return $ zip formals actuals
-
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty
     | isClassType ty = do
         capability <- findCapability ty
-        fBindings <- formalBindings ty
-        let capability' = replaceTypeVars fBindings capability
-        return $ typesFromCapability capability'
+        return $ typesFromCapability capability
     | otherwise =
         error $ "Types.hs: Can't get implemented traits of type " ++ show ty
 

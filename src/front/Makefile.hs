@@ -21,13 +21,15 @@ target = text "$(TARGET)"
 inc = text "$(INC)"
 lib = text "$(LIB)"
 deps = text "$(DEPS)"
+defs = text "$(DEFINES)"
 dSYM = text ".dSYM"
 i = (text "-I" <+>)
 o = (text "-o" <+>)
 parent = text ".."
 
-generateMakefile :: [String] -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath libs =
+generateMakefile :: [String] -> 
+   String -> String -> String -> String -> String -> String -> Doc
+generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
@@ -40,16 +42,18 @@ generateMakefile classFiles progName compiler ccFlags incPath libs =
     $$
     decl "BENCH_FLAGS" [replace "-ggdb" "-O3" ccFlags]
     $$
+    decl "DEFINES" [defines]
+    $$
     decl "DEPS" ("shared.c" : classFiles)
     $\$
     rule all target
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, lib, o target])
+         (cc [flags, i inc, i parent, deps, lib, defs, o target])
     $\$
     rule bench deps
-         (cc [benchFlags, i inc, i parent, deps, lib, o target])
+         (cc [benchFlags, i inc, i parent, deps, lib, defs, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])

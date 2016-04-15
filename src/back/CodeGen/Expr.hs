@@ -6,8 +6,10 @@ module CodeGen.Expr () where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
+import qualified CodeGen.CCodeNames as C
 import CodeGen.Type
-import CodeGen.Trace (traceVariable)
+import CodeGen.Trace (traceVariable, tracefunCall)
+import CodeGen.GC (gcSend)
 import qualified CodeGen.Context as Ctx
 
 import qualified Parser.Parser as P -- for string interpolation in the embed expr
@@ -46,8 +48,10 @@ instance Translatable ID.BinaryOp (CCode Name) where
     ID.MOD -> "%"
 
 instance Translatable ID.UnaryOp (CCode Name) where
-  translate op = Nam $ case op of
-    ID.NOT -> "!"
+  translate op = Nam $
+    case op of
+      ID.NOT -> "!"
+      ID.NEG -> "-"
 
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
@@ -87,6 +91,7 @@ unsubstituteVar na = do
   put $ Ctx.substRem c na
   return ()
 
+getRuntimeType = runtimeType . Ty.getResultType . A.getType
 
 -- these two are exclusively used for A.Embed translation:
 type ParsedEmbed = [Either String VarLkp]
@@ -161,35 +166,41 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nval, tval) <- translate val
     let runtimeT = (runtimeType . A.getType) val
     (nliftf, tliftf) <- namedTmpVar "par" (A.getType l) $
-                        Call (newParty l) [AsExpr nval, runtimeT]
+                        Call (newParty l) [AsExpr encoreCtxVar, AsExpr nval, runtimeT]
     return (nliftf, Seq [tval, tliftf])
 
   translate l@(A.Liftv {A.val}) = do
     (nval, tval) <- translate val
     let runtimeT = (runtimeType . A.getType) val
     (nliftv, tliftv) <- namedTmpVar "par" (A.getType l) $
-                        Call (newParty l) [asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
+                        Call (newParty l) [AsExpr encoreCtxVar,
+                                           asEncoreArgT (translate $ A.getType val) (AsExpr nval), runtimeT]
     return (nliftv, Seq [tval, tliftv])
 
   translate p@(A.PartyJoin {A.val}) = do
     (nexpr, texpr) <- translate val
     let typ = A.getType p
-    (nJoin, tJoin) <- namedTmpVar "par" typ $ Call partyJoin [nexpr]
+    (nJoin, tJoin) <- namedTmpVar "par" typ $ Call partyJoin [encoreCtxVar, nexpr]
     return (nJoin, Seq [texpr, tJoin])
 
   translate p@(A.PartyExtract {A.val}) = do
     (nval, tval) <- translate val
     let runtimeT = (runtimeType . A.getType) p
     (nExtract, tExtract) <- namedTmpVar "arr" (A.getType p) $
-                            Call partyExtract [AsExpr nval, runtimeT]
+                            Call partyExtract [AsExpr encoreCtxVar, AsExpr nval, runtimeT]
     return (nExtract, Seq [tval, tExtract])
+
+  translate p@(A.PartyEach {A.val}) = do
+    (nval, tval) <- translate val
+    (nEach, tEach) <- namedTmpVar "par" (A.getType p) $ Call partyEach [encoreCtxVar, nval]
+    return (nEach, Seq [tval, tEach])
 
   translate p@(A.PartyPar {A.parl, A.parr}) = do
     (nleft, tleft) <- translate parl
     (nright, tright) <- translate parr
     let runtimeT = (runtimeType . A.getType) p
     (npar, tpar) <- namedTmpVar "par" (A.getType p) $
-                        Call (newParty p) [AsExpr nleft, AsExpr nright, runtimeT]
+                        Call (newParty p) [AsExpr encoreCtxVar, AsExpr nleft, AsExpr nright, runtimeT]
     return (npar, Seq [tleft, tright, tpar])
 
   translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
@@ -197,7 +208,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nseqfunc, tseqfunc) <- translate seqfunc
     let runtimeT = (runtimeType . A.getType) ps
     (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
-                                Call partySequence [AsExpr npar, AsExpr nseqfunc, runtimeT]
+                                Call partySequence [AsExpr encoreCtxVar,
+                                                    AsExpr npar,
+                                                    AsExpr nseqfunc,
+                                                    runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
   translate (A.Print {A.args}) = do
@@ -236,9 +250,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     let (nes, tes) = unzip ntes
     return (last nes, Seq $ map commentAndTe (zip eseq tes))
            where
-
              commentFor = (Comm . show . PP.ppSugared)
-
              commentAndTe (ast, te) = Seq [commentFor ast, te]
 
   translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.index}), A.rhs}) = do
@@ -248,8 +260,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     let ty = translate $ A.getType lhs
         theSet =
            Statement $
-           Call (Nam "array_set")
-                [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
+           Call arraySet [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
     return (unit, Seq [trhs, ttarg, tindex, theSet])
 
   translate (A.Assign {A.lhs, A.rhs}) = do
@@ -283,7 +294,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         mkLval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate maybe@(A.MaybeValue _ (A.JustData e)) = do
-    let createOption = Call (Nam "encore_alloc") [(Sizeof . AsType) (Nam "option_t")]
+    let createOption = Call encoreAllocName [AsExpr encoreCtxVar, (Sizeof . AsType) optionT]
     (nalloc, talloc) <- namedTmpVar "option" (A.getType maybe) createOption
     let tag = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "JUST")
     (nE, tE) <- translate e
@@ -302,7 +313,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         realTypes = map runtimeType elemTypes
         tupLen = Int $ length args
         tupType = A.getType tuple
-    let eAlloc = Call (Nam "tuple_mk") [tupLen]
+    let eAlloc = Call tupleMkFn [AsExpr encoreCtxVar, tupLen]
         theTupleDecl = Assign (Decl (translate tupType, Var tupleName)) eAlloc
         tSetTupleType = Seq $ zipWith (tupleSetType tupleName) [0..] realTypes
         (theTupleVars, theTupleContent) = unzip transArgs
@@ -312,10 +323,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  theTupleContent ++ theTupleSets)
       where
         tupleSetType name index ty =
-          Statement $ Call (Nam "tuple_set_type")
+          Statement $ Call C.tupleSetType
                            [AsExpr $ Var name, Int index, ty]
         tupleSet tupleName index (narg, ty) =
-          Statement $ Call (Nam "tuple_set")
+          Statement $ Call C.tupleSet
                            [AsExpr $ Var tupleName,
                             Int index,
                             asEncoreArgT (translate ty) $ AsExpr narg]
@@ -348,35 +359,30 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        return (nbody, Seq $ (concat tdecls) ++ [tbody])
 
   translate (A.NewWithInit {A.ty, A.args})
-      | Ty.isActiveClassType ty =
-          do (nnew, tnew) <- namedTmpVar "new" ty $ Cast (Ptr . AsType $ classTypeName ty)
-                                                    (Call (Nam "encore_create")
-                                                    [Amp $ runtimeTypeName ty])
-             let typeParams = Ty.getTypeParameters ty
-                 typeParamInit = Call (runtimeTypeInitFnName ty) (AsExpr nnew : map runtimeType typeParams)
-             constructorCall <-
-                 activeMessageSend nnew ty (ID.Name "_init") args
-             return (nnew, Seq [tnew, Statement typeParamInit, constructorCall])
-      | Ty.isSharedClassType ty =
-          let
-            fName = constructorImplName ty
-            args = [] :: [CCode Expr]
-            call = Call fName args
-          in
-            namedTmpVar "new" ty call
-      | otherwise =
-          do na <- Ctx.genNamedSym "new"
-             (argDecls, constructorCall) <-
-                 passiveMethodCall (Var na) ty (ID.Name "_init")
-                            args Ty.voidType
-             let size = Sizeof . AsType $ classTypeName ty
-                 theNew = Assign (Decl (translate ty, Var na))
-                                 (Call (Nam "encore_alloc") [size])
-                 typeParams = Ty.getTypeParameters ty
-                 init = [Assign (Var na `Arrow` selfTypeField) (Amp $ runtimeTypeName ty),
-                         Statement $ Call (runtimeTypeInitFnName ty) (AsExpr (Var na) : map runtimeType typeParams),
-                         Statement constructorCall]
-             return $ (Var na, Seq $ theNew : argDecls ++ init)
+    | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
+    | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
+    | otherwise = delegateUse callTheMethodSync
+    where
+      initName = ID.Name "_init"
+      delegateUse methodCall =
+        let
+          fName = constructorImplName ty
+          callCtor = Call fName [encoreCtxName]
+          typeParams = Ty.getTypeParameters ty
+          callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
+          typeArgs = map getRuntimeTypeVariables typeParams
+        in
+          do
+            (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
+            (initArgs, result) <-
+              methodCall nnew ty initName args ty
+            return (nnew,
+              Seq $
+                [ctorCall] ++
+                initArgs ++
+                [ Statement $ callTypeParamsInit $ (AsExpr nnew):typeArgs
+                , Statement result]
+              )
 
   translate (A.Peer {A.ty})
       | Ty.isActiveClassType ty =
@@ -394,7 +400,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (nsize, tsize) <- translate size
          let theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call (Nam "array_mk") [AsExpr nsize, runtimeType ty])
+                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ty])
          return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
@@ -405,7 +411,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let ty = translate $ A.getType rangeLit
       return (Var rangeLiteral, Seq [tstart, tstop, tstep,
                                 Assign (Decl (ty, Var rangeLiteral))
-                                       (Call (Nam "range_mk") [nstart, nstop, nstep])])
+                                       (Call rangeMkFn [encoreCtxVar, nstart, nstop, nstep])])
 
   translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
       do (ntarg, ttarg) <- translate target
@@ -414,7 +420,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let ty = translate $ A.getType arrAcc
              theAccess =
                 Assign (Decl (ty, Var accessName))
-                       (fromEncoreArgT ty (Call (Nam "array_get") [ntarg, nindex]))
+                       (fromEncoreArgT ty (Call arrayGet [ntarg, nindex]))
          return (Var accessName, Seq [ttarg, tindex, theAccess])
 
   translate arrLit@(A.ArrayLiteral {A.args}) =
@@ -424,7 +430,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              ty  = Ty.getResultType $ A.getType arrLit
              theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call (Nam "array_mk") [Int len, runtimeType ty])
+                       (Call arrayMkFn [AsExpr encoreCtxVar, Int len, runtimeType ty])
              theArrayContent = Seq $ map (\(_, targ) -> targ) targs
              theArraySets =
                 let (_, sets) = mapAccumL (arraySet arrName ty) 0 targs
@@ -433,7 +439,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       where
         arraySet arrName ty index (narg, _) =
             (index + 1,
-             Statement $ Call (Nam "array_set")
+             Statement $ Call C.arraySet
                               [AsExpr $ Var arrName,
                                Int index,
                                asEncoreArgT (translate ty) $ AsExpr narg])
@@ -442,86 +448,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genNamedSym "size"
          let theSize = Assign (Decl (int, Var tmp))
-                              (Call (Nam "array_size") [ntarg])
+                              (Call arraySize [ntarg])
          return (Var tmp, Seq [ttarg, theSize])
 
   translate call@(A.MethodCall { A.target, A.name, A.args})
-      | (Ty.isTraitType . A.getType) target = do
-          (ntarget, ttarget) <- translate target
-          (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
-                                        (translate (A.getType call))
-          return (nCall, Seq $ ttarget : [tCall])
-      | syncAccess = syncCall
-      | sharedAccess = sharedObjectMethodFut call
-      | otherwise = remoteCall
-          where
-            syncAccess = A.isThisAccess target ||
-                         (Ty.isPassiveClassType . A.getType) target
-            sharedAccess = Ty.isSharedClassType $ A.getType target
-            syncCall =
-                do (ntarget, ttarget) <- translate target
-                   tmp <- Ctx.genNamedSym "synccall"
-                   (argDecls, theCall) <-
-                       passiveMethodCall ntarget (A.getType target)
-                                         name args (A.getType call)
-                   let theAssign =
-                           Assign (Decl (translate (A.getType call), Var tmp))
-                                  theCall
-                   return (Var tmp, Seq $ ttarget :
-                                          argDecls ++
-                                          [theAssign])
-
-            remoteCall :: State Ctx.Context (CCode Lval, CCode Stat)
-            remoteCall =
-                do (ntarget, ttarget) <- translate target
-                   targs <- mapM translate args
-                   theFutName <- if Ty.isStreamType $ A.getType call then
-                                     Ctx.genNamedSym "stream"
-                                 else
-                                     Ctx.genNamedSym "fut"
-                   let (argNames, argDecls) = unzip targs
-                       theFutDecl =
-                          if Ty.isStreamType $ A.getType call then
-                              Assign (Decl (Ptr $ Typ "stream_t", Var theFutName))
-                                     (Call (Nam "stream_mk") ([] :: [CCode Expr]))
-                          else
-                              Assign (Decl (Ptr $ Typ "future_t", Var theFutName))
-                                     (Call (Nam "future_mk") [runtimeType . Ty.getResultType . A.getType $ call])
-                       theFutTrace = if Ty.isStreamType $ A.getType call then
-                                         Statement $ Call (Nam "pony_traceobject")
-                                                          [Var theFutName, AsLval streamTraceFn]
-                                     else
-                                         Statement $ Call (Nam "pony_traceobject")
-                                                          [Var theFutName, futureTypeRecName `Dot` Nam "trace"]
-                   theArgName <- Var <$> Ctx.genNamedSym "arg"
-                   header <- gets $ Ctx.lookupMethod (A.getType target) name
-                   let noArgs = length args
-                       theArgTy = Ptr . AsType $ futMsgTypeName (A.getType target) name
-                       theAlloc = Call (Nam "pony_alloc_msg")
-                                       [Int (calcPoolSizeForMsg (noArgs + 1))
-                                       ,AsExpr $ AsLval $ futMsgId (A.getType target) name]
-                       theArgDecl = Assign (Decl (theArgTy, theArgName))
-                                           (Cast theArgTy theAlloc)
-                       targsTypes = map A.getType args
-                       expectedTypes = map A.ptype (A.hparams header)
-                       castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-                       indexedArguments = map (indexArgument theArgName) [1..]
-                       argAssignments = zipWith Assign indexedArguments castedArguments
-
-                       argsTypes = zip indexedArguments (map A.getType args)
-                       installFuture = Assign (Arrow theArgName (Nam "_fut")) (Var theFutName)
-                       theArgInit = Seq $ map Statement argAssignments ++ [installFuture]
-                       theCall = Call (Nam "pony_sendv")
-                                      [Cast (Ptr ponyActorT) ntarget,
-                                       Cast (Ptr ponyMsgT) theArgName]
-                   return (Var theFutName,
-                           Seq $ ttarget :
-                                 argDecls ++
-                                 [theFutDecl,
-                                  theArgDecl,
-                                  theArgInit] ++
-                                  gcSend argsTypes expectedTypes theFutTrace ++
-                                 [Statement theCall])
+    | (Ty.isTraitType . A.getType) target = do
+        (ntarget, ttarget) <- translate target
+        (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
+                                      (translate (A.getType call))
+        return (nCall, Seq $ ttarget : [tCall])
+    | syncAccess = delegateUse callTheMethodSync "sync_method_call"
+    | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
+    | isActive && isStream = delegateUse callTheMethodStream "stream"
+    | isActive && isFuture = delegateUse callTheMethodFuture "fut"
+    | otherwise = error $ "No match for " ++ show targetTy
+        where
+          targetTy = A.getType target
+          retTy = A.getType call
+          delegateUse methodCall sym = do
+            result <- Ctx.genNamedSym sym
+            (ntarget, ttarget) <- translate target
+            (initArgs, resultExpr) <-
+              methodCall ntarget targetTy name args retTy
+            return (Var result,
+              Seq $
+                ttarget :
+                initArgs ++
+                [Assign (Decl (translate retTy, Var result)) resultExpr]
+              )
+          syncAccess = A.isThisAccess target ||
+                       (Ty.isPassiveClassType . A.getType) target
+          sharedAccess = Ty.isSharedClassType $ A.getType target
+          isActive = Ty.isActiveClassType targetTy
+          isStream = Ty.isStreamType retTy
+          isFuture = Ty.isFutureType retTy
 
   translate call@(A.MessageSend { A.target, A.name, A.args })
       | (Ty.isActiveClassType . A.getType) target = messageSend
@@ -532,13 +492,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             messageSend :: State Ctx.Context (CCode Lval, CCode Stat)
             messageSend =
                 do (ntarg, ttarg) <- translate target
-                   theSend <-
-                       activeMessageSend ntarg (A.getType target)
-                                         name args
-                   return (unit,
-                           Seq (Comm "message send" :
-                                ttarg :
-                                [theSend]))
+                   theSend <- activeMessageSend ntarg (A.getType target) name args
+                   return (unit, Seq (Comm "message send" : ttarg : [theSend]))
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -567,15 +522,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   then int
                   else translate $ Ty.getResultType (A.getType src)
         srcStart = if Ty.isRangeType srcType
-                   then Call (Nam "range_start") [srcN]
+                   then Call rangeStart [srcN]
                    else Int 0 -- Arrays start at 0
         srcStop  = if Ty.isRangeType srcType
-                   then Call (Nam "range_stop") [srcN]
+                   then Call rangeStop [srcN]
                    else BinOp (translate ID.MINUS)
-                              (Call (Nam "array_size") [srcN])
+                              (Call arraySize [srcN])
                               (Int 1)
         srcStep  = if Ty.isRangeType srcType
-                   then Call (Nam "range_step") [srcN]
+                   then Call rangeStep [srcN]
                    else Int 1
 
     (srcStartN, srcStartT) <- translateSrc src A.start startVar srcStart
@@ -589,7 +544,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
     let stepDecl = Assign (Decl (int, stepVar))
                           (BinOp (translate ID.TIMES) stepN srcStepN)
-        stepAssert = Statement $ Call (Nam "range_assert_step") [stepVar]
+        stepAssert = Statement $ Call rangeAssertStep [stepVar]
         indexDecl = Seq [AsExpr $ Decl (int, indexVar)
                         ,If (BinOp (translate ID.GT)
                                    (AsExpr stepVar) (Int 0))
@@ -602,12 +557,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            Assign (Decl (eltType, eltVar))
                   (if Ty.isRangeType srcType
                    then AsExpr indexVar
-                   else AsExpr $ fromEncoreArgT eltType (Call (Nam "array_get") [srcN, indexVar]))
+                   else AsExpr $ fromEncoreArgT eltType (Call arrayGet [srcN, indexVar]))
         inc = Assign indexVar (BinOp (translate ID.PLUS) indexVar stepVar)
-        theBody = Seq [eltDecl
-                      ,Statement bodyT
-                ,Assign tmpVar bodyN
-                    ,inc]
+        theBody = Seq [eltDecl, Statement bodyT, Assign tmpVar bodyN, inc]
         theLoop = While cond theBody
         tmpDecl  = Statement $ Decl (translate (A.getType for), tmpVar)
 
@@ -684,7 +636,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               let strcmpCall = Call (Nam "strcmp") [e1, e2]
               return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
           | Ty.isStringObjectType ty = do
-              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [e1, e2]
+              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [AsExpr encoreCtxVar, e1, e2]
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
@@ -735,7 +687,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 accessName <- Ctx.genNamedSym "tupleAccess"
                 let elemTy = translate ty
                     theDecl = Decl (elemTy, Var accessName)
-                    theCall = fromEncoreArgT elemTy (Call (Nam "tuple_get") [AsExpr larg, Int index])
+                    theCall = fromEncoreArgT elemTy (Call tupleGet [AsExpr larg, Int index])
                     theCast = Cast elemTy theCall
                     theAssign = Assign theDecl theCall
 
@@ -876,13 +828,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
            let resultType = translate (Ty.getResultType $ A.getType val)
-               theGet = fromEncoreArgT resultType (Call (Nam "future_get_actor") [nval])
+               theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
            let resultType = translate (Ty.getResultType $ A.getType val)
-               theGet = fromEncoreArgT resultType (Call (Nam "stream_get") [nval])
+               theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate get of " ++ show val
@@ -893,25 +845,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          tmp <- Ctx.genSym
          let yieldArg = asEncoreArgT (translate (A.getType val)) nval
              tmpStream = Assign (Decl (stream, Var tmp)) streamHandle
-             updateStream = Assign (streamHandle) (Call (Nam "stream_put")
-                                                        [AsExpr streamHandle, yieldArg, runtimeType $ A.getType val])
+             updateStream = Assign (streamHandle)
+               (Call streamPut [AsExpr encoreCtxVar, AsExpr streamHandle,
+                                yieldArg, runtimeType $ A.getType val])
          return (unit, Seq [tval, tmpStream, updateStream])
 
   translate eos@(A.Eos{}) =
-      let eosCall = Call (Nam "stream_close") [streamHandle]
+      let eosCall = Call streamClose [encoreCtxVar, streamHandle]
       in return (unit, Statement eosCall)
 
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genSym
          let resultType = translate (A.getType target)
-             theCall = Assign (Decl (bool, Var tmp)) (Call (Nam "stream_eos") [ntarg])
+             theCall = Assign (Decl (bool, Var tmp)) (Call streamEos [encoreCtxVar, ntarg])
          return (Var tmp, Seq [ttarg, theCall])
 
   translate next@(A.StreamNext{A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genSym
-         let theCall = Assign (Decl (stream, Var tmp)) (Call (Nam "stream_get_next") [ntarg])
+         let theCall = Assign (Decl (stream, Var tmp)) (Call streamGetNext [encoreCtxVar, ntarg])
          return (Var tmp, Seq [ttarg, theCall])
 
   translate await@(A.Await{A.val}) =
@@ -925,14 +878,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do (nfuture,tfuture) <- translate future
          (nchain, tchain)  <- translate chain
          futName <- Ctx.genSym
-         let ty = runtimeType . Ty.getResultType . A.getType $ chain
-             futDecl = Assign (Decl (Ptr $ Typ "future_t", Var futName))
-                              (Call (Nam "future_mk") [ty])
+         let ty = getRuntimeType chain
+             futDecl = Assign (Decl (C.future, Var futName))
+                              (Call futureMkFn [AsExpr encoreCtxVar, ty])
          result <- Ctx.genSym
          return $ (Var result, Seq [tfuture,
                                     tchain,
                                     futDecl,
-                                    (Assign (Decl (Ptr $ Typ "future_t", Var result)) (Call (Nam "future_chain_actor") [nfuture, (Var futName), nchain]))])
+                                    (Assign (Decl (C.future, Var result))
+                                            (Call futureChainActor
+                                              [encoreCtxVar, nfuture, (Var futName), nchain]))])
 
   translate async@(A.Async{A.body, A.emeta}) =
       do taskName <- Ctx.genNamedSym "task"
@@ -945,36 +900,41 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              traceName = taskTraceName metaId
              freeVars = Util.freeVariables [] body
              taskMk = Assign (Decl (task, Var taskName))
-                      (Call (Nam "task_mk") [funName, envName, dependencyName, traceName])
-             traceFuture = Statement $ Call (Nam "pony_traceobject") [Var futName, futureTypeRecName `Dot` Nam "trace"]
-             traceTask = Statement $ Call (Nam "pony_traceobject") [Var taskName, AsLval $ Nam "NULL" ]
-             traceEnv =  Statement $ Call (Nam "pony_traceobject") [Var $ show envName, AsLval $ Nam "task_trace" ]
-             traceDependency =  Statement $ Call (Nam "pony_traceobject") [Var $ show dependencyName, AsLval $ Nam "NULL" ]
+                      (Call taskMkFn [encoreCtxName, funName, envName, dependencyName, traceName])
+             -- TODO: (kiko) refactor to use traceVariable from Trace.hs
+             traceFuture = Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
+             traceTask = Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var taskName, AsLval $ Nam "task_trace" ]
+             traceEnv =  Statement $ Call ponyTraceObject
+                    [encoreCtxVar, Var $ show envName, AsLval $ traceName ]
+             traceDependency =  Statement $ Call ponyTraceObject [encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
          packedEnv <- mapM (packFreeVars envName) freeVars
          return $ (Var futName, Seq $ (encoreAlloc envName) : packedEnv ++
                                       [encoreAlloc dependencyName,
                                        taskRunner async futName,
                                        taskMk,
-                                       Statement (Call (Nam "task_attach_fut") [Var taskName, Var futName]),
-                                       Statement (Call (Nam "task_schedule") [Var taskName]),
+                                       Statement (Call taskAttachFut [Var taskName, Var futName]),
+                                       Statement (Call taskSchedule [Var taskName]),
+                                       -- TODO: (kiko) Refactor to use GC.hs
                                        Embed $ "",
                                        Embed $ "// --- GC on sending ----------------------------------------",
-                                       Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
+                                       Statement $ Call ponyGcSendName [encoreCtxVar],
                                        traceFuture,
                                        traceTask,
                                        traceEnv,
                                        traceDependency,
-                                       Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
+                                       Statement $ Call ponySendDoneName [encoreCtxVar],
                                        Embed $ "// --- GC on sending ----------------------------------------",
                                        Embed $ ""
                                        ])
 
       where
         encoreAlloc name = Assign (Decl (Ptr $ Struct name, AsLval name))
-                               (Call (Nam "encore_alloc")
-                                   [Sizeof $ Struct name])
-        taskRunner async futName = Assign (Decl (Ptr $ Typ "future_t", Var futName))
-                                             (Call (Nam "future_mk") ([runtimeType . Ty.getResultType . A.getType $ async]))
+                               (Call C.encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
+        taskRunner async futName = Assign (Decl (C.future, Var futName))
+                                             (Call futureMkFn
+                                                [AsExpr encoreCtxVar, getRuntimeType async])
         packFreeVars envName (name, _) =
             do c <- get
                let tname = case Ctx.substLkp c name of
@@ -992,12 +952,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          fillEnv <- mapM (insertVar envName) freeVars
          return $ (Var tmp, Seq $ (mkEnv envName) : fillEnv ++
                            [Assign (Decl (closure, Var tmp))
-                                       (Call (Nam "closure_mk") [funName, envName, traceName])])
+                                       (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
       where
         mkEnv name =
            Assign (Decl (Ptr $ Struct name, AsLval name))
-                   (Call (Nam "encore_alloc")
-                         [Sizeof $ Struct name])
+                   (Call encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
         insertVar envName (name, _) =
             do c <- get
                let tname = case Ctx.substLkp c name of
@@ -1021,7 +980,7 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
   (calln, theCall) <- namedTmpVar "clos" typ $
     AsExpr $
       fromEncoreArgT (translate typ) $
-        Call (Nam "closure_call") [clos, tmpArgs]
+        Call closureCallName [encoreCtxVar, clos, tmpArgs]
   return (if Ty.isVoidType typ then unit else calln, Seq [tmpArgDecl, theCall])
     where
       typ = A.getType fcall
@@ -1034,7 +993,7 @@ globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) args'
+    Call (globalFunctionName name) (encoreCtxVar:args')
   let ret = if Ty.isVoidType typ then unit else callVar
   return $ (ret, Seq $ initArgs ++ [call])
   where
@@ -1047,7 +1006,8 @@ activeMessageSend targetName targetType name args = do
   theMsgName <- Var <$> Ctx.genNamedSym "arg"
   header <- gets $ Ctx.lookupMethod targetType name
   let (argNames, argDecls) = unzip targs
-      theMsgTy = Ptr . AsType $ oneWayMsgTypeName targetType name
+      msgType = AsType $ oneWayMsgTypeName targetType name
+      msgTypePtr = Ptr msgType
       noArgs = length args
       targsTypes = map A.getType args
       expectedTypes = map A.ptype (A.hparams header)
@@ -1055,23 +1015,66 @@ activeMessageSend targetName targetType name args = do
       indexedArguments = map (indexArgument theMsgName) [1..]
       argAssignments = zipWith Assign indexedArguments castedArguments
       theArgInit = Seq $ map Statement argAssignments
-      theCall = Call (Nam "pony_sendv")
-                     [Cast (Ptr ponyActorT) targetName,
+      theCall = Call ponySendvName
+                     [AsExpr encoreCtxVar,
+                      Cast (Ptr ponyActorT) targetName,
                       Cast (Ptr ponyMsgT) $ AsExpr theMsgName]
       theMsgDecl =
-          Assign (Decl (theMsgTy, theMsgName)) $
-                 Cast theMsgTy $ Call (Nam "pony_alloc_msg")
-                                 [Int (calcPoolSizeForMsg noArgs)
+          Assign (Decl (msgTypePtr, theMsgName)) $
+                 Cast msgTypePtr $ Call ponyAllocMsgName
+                                 [msgSize msgType
                                  ,AsExpr . AsLval $ oneWayMsgId targetType name]
       argsTypes = zip indexedArguments (map A.getType args)
       theTrace = gcSend argsTypes expectedTypes
-                        (Comm "Not tracing the future in a oneWay send")
+                        [(Comm "Not tracing the future in a oneWay send")]
   return $ Seq $ argDecls ++
                  theMsgDecl :
                  theArgInit :
                  theTrace ++
                  [Statement theCall]
 
+callTheMethodFuture = callTheMethodForName methodImplFutureName
+
+callTheMethodOneway = callTheMethodForName methodImplOneWayName
+
+callTheMethodStream = callTheMethodForName methodImplStreamName
+
+callTheMethodSync targetName targetType methodName args resultType = do
+  (initArgs, expr) <- callTheMethodForName methodImplName
+    targetName targetType methodName args resultType
+  header <- gets $ Ctx.lookupMethod targetType methodName
+  return (initArgs, convertBack (A.htype header) expr)
+  where
+    convertBack retType
+      | Ty.isTypeVar retType && (not . Ty.isTypeVar) resultType =
+          AsExpr . fromEncoreArgT (translate resultType)
+      | otherwise = id
+
+callTheMethodForName ::
+  (Ty.Type -> ID.Name -> CCode Name) ->
+  CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Ty.Type
+  -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
+callTheMethodForName
+  genCMethodName targetName targetType methodName args resultType = do
+  (args', initArgs) <- fmap unzip $ mapM translate args
+  header <- gets $ Ctx.lookupMethod targetType methodName
+  return (initArgs,
+      Call cMethodName $
+        map AsExpr [encoreCtxVar, targetName] ++
+        doCast (map A.ptype (A.hparams header)) args'
+    )
+  where
+    cMethodName = genCMethodName targetType methodName
+    actualArgTypes = map A.getType args
+    doCast expectedArgTypes args =
+      zipWith3 castArguments expectedArgTypes args actualArgTypes
+    convertBack retType
+      | Ty.isTypeVar retType && (not . Ty.isTypeVar) resultType =
+          AsExpr . fromEncoreArgT (translate resultType)
+      | otherwise = id
+
+passiveMethodCall :: CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Ty.Type
+  -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
 passiveMethodCall targetName targetType name args resultType = do
   targs <- mapM translate args
   header <- gets $ Ctx.lookupMethod targetType name
@@ -1083,10 +1086,11 @@ passiveMethodCall targetName targetType name args resultType = do
           if Ty.isTypeVar (A.htype header) then
               AsExpr $ fromEncoreArgT (translate resultType)
                                       (Call (methodImplName targetType name)
-                                      (AsExpr targetName : castedArguments))
+                                      (AsExpr encoreCtxVar :
+                                       AsExpr targetName : castedArguments))
           else
               Call (methodImplName targetType name)
-                   (AsExpr targetName : castedArguments)
+                   (AsExpr encoreCtxVar : AsExpr targetName : castedArguments)
   return (argDecls, theCall)
 
 
@@ -1113,7 +1117,7 @@ sharedObjectMethodFut call@(A.MethodCall{A.target, A.name, A.args}) =
       )
   where
     retType = translate $ A.getType call
-    callF f this args = Call f $ this:args
+    callF f this args = Call f $ encoreCtxVar:this:args
     ret result fcall = Assign (Decl (retType, Var result)) fcall
 
 sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
@@ -1132,7 +1136,7 @@ sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
       )
   where
     retType = translate $ A.getType call
-    callF f this args = Statement $ Call f $ this:args
+    callF f this args = Statement $ Call f $ encoreCtxVar:this:args
 
 traitMethod this targetType name args resultType =
   let
@@ -1157,32 +1161,13 @@ traitMethod this targetType name args resultType =
   where
     thisType = translate targetType
     argTypes = map (translate . A.getType) args
-    declF f = FunPtrDecl resultType (Nam f) $ thisType:argTypes
+    declF f = FunPtrDecl resultType (Nam f) $ (Ptr encoreCtxT):thisType:argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
-    vtable this = ArrAcc 0 $ this `Arrow` selfTypeField `Arrow` Nam "vtable"
+    vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args = Call (Nam f) $ Cast thisType this : map AsExpr args
+    callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
-gcSend as expectedTypes futTrace =
-    [Embed $ "",
-     Embed $ "// --- GC on sending ----------------------------------------",
-     Statement $ Call (Nam "pony_gc_send") ([] :: [CCode Expr]),
-     futTrace] ++
-     (zipWith tracefunCall as expectedTypes) ++
-    [Statement $ Call (Nam "pony_send_done") ([] :: [CCode Expr]),
-     Embed $ "// --- GC on sending ----------------------------------------",
-     Embed $ ""]
-
-tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
-tracefunCall (a, t) expectedType =
-  let
-    needToUnwrap = Ty.isTypeVar expectedType && not (Ty.isTypeVar t)
-    var = if needToUnwrap then a `Dot` Nam "p" else a
-  in
-    Statement $ traceVariable t var
-
--- Note: the 2 is for the 16 bytes of payload in pony_msg_t
--- If the size of this struct changes, so must this calculation
-calcPoolSizeForMsg args = (args + 2) `div` 8
+msgSize :: CCode Ty -> CCode Expr
+msgSize t = Call (Nam "POOL_INDEX") [Sizeof t]

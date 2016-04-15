@@ -49,9 +49,9 @@ lexer =
      "repeat", "for", "while", "get", "yield", "eos", "getNext", "new", "this",
      "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
-     "bundle", "peer", "async", "finish", "foreach", "trait", "require", "val",
+     "bundle", "peer", "finish", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract"
+     "extract", "each"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -84,7 +84,7 @@ maybeBraces p = braces p <|> p
 
 stringLiteral = P.stringLiteral lexer
 charLiteral = P.charLiteral lexer
-integer = P.integer lexer
+natural = P.natural lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
@@ -401,13 +401,14 @@ expression = buildExpressionParser opTable highOrderExpr
                  [textualPrefix "not" Identifiers.NOT],
                  [textualOperator "and" Identifiers.AND,
                   textualOperator "or" Identifiers.OR],
+                 [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [messageSend],
-                 [partyLiftf, partyLiftv],
+                 [partyLiftf, partyLiftv, partyEach],
                  [typedExpression],
                  [chain],
                  [partySequence],
@@ -432,6 +433,7 @@ expression = buildExpressionParser opTable highOrderExpr
           Infix (do pos <- getPosition
                     reservedOp s
                     return (Binop (meta pos) binop)) AssocLeft
+
       typedExpression =
           Postfix (do pos <- getPosition
                       reservedOp ":"
@@ -460,6 +462,10 @@ expression = buildExpressionParser opTable highOrderExpr
           Prefix (do pos <- getPosition
                      reserved "liftv"
                      return (Liftv (meta pos)))
+      partyEach =
+          Prefix (do pos <- getPosition
+                     reserved "each"
+                     return $ PartyEach (meta pos))
       partySequence =
           Infix (do pos <- getPosition ;
                     reservedOp ">>" ;
@@ -725,7 +731,7 @@ expr  =  unit
                    char <- charLiteral
                    return $ CharLiteral (meta pos) char
       int = do pos <- getPosition
-               n <- integer
+               n <- natural
                return $ IntLiteral (meta pos) (fromInteger n)
       real = do pos <- getPosition
                 r <- float

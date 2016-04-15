@@ -12,26 +12,21 @@ struct range_t
 
 pony_type_t range_type =
   {
-    ID_RANGE,
-    sizeof(struct range_t),
-    0,
-    0,
-    range_trace,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    .id=ID_RANGE,
+    .size=sizeof(struct range_t),
+    .trace=range_trace,
   };
 
-void range_trace(void *p)
+void range_trace(pony_ctx_t* ctx, void *p)
 {
   // No pointers
 }
 
-struct range_t *range_mk(size_t start, size_t stop, int64_t step)
+struct range_t *range_mk(pony_ctx_t* ctx, size_t start, size_t stop, int64_t step)
 {
+  ctx = pony_ctx();
   range_assert_step(step);
-  struct range_t *r = encore_alloc(sizeof(struct range_t));
+  struct range_t *r = encore_alloc(ctx, sizeof(struct range_t));
   *r = (range_t) { .start = start, .stop = stop, .step = step };
   return r;
 }

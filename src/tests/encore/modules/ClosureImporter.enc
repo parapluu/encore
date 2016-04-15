@@ -1,0 +1,5 @@
+import ClosureImp
+
+class Main
+  def main() : void
+    print ((new Foo).bar())

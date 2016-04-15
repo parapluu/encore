@@ -44,6 +44,8 @@ Running @code{encorec foo.enc} will typecheck the source and produce the executa
 @item{@code{-clang} -- Use clang to build the executable (default)}
 @item{@code{-AST} -- Output the parsed AST as text to foo.AST}
 @item{@code{-TypedAST} -- Output the typechecked AST as text to foo.TAST}
+@item{@code{-nogc} -- Disable the garbage collection of passive objects.}
+@item{@code{-help} -- Prints a help message and then exits.}
 @item{@code{-I path1:path2:...} -- Directories in which to look for modules. (Not needed for modules which are in the current folder.)}
 ]
 

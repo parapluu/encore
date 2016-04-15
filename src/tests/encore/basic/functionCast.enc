@@ -1,0 +1,11 @@
+def fun() : (String, String) {
+  ("Hello", "world")
+}
+
+class Main {
+  def main() : void {
+    let foo = fun : () -> (String, String);
+    match foo() with
+      (h, w) => print("{} {}\n", h, w)
+  }
+}
