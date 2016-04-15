@@ -226,18 +226,16 @@ foldr f acc e =
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [a]
 foldrAll f e Program{functions, traits, classes} =
-  map (foldFunction f e) functions ++
+  concatMap (foldFunction f e) functions ++
   concatMap (foldTrait f e) traits ++
   concatMap (foldClass f e) classes
     where
-      foldFunction f e (Function {funbody}) = foldr f e funbody
-      -- TODO: Take remaining bodies into account
-      foldFunction f e (MatchingFunction {matchfunbodies}) = foldr f e (head matchfunbodies)
-      foldClass f e (Class {cmethods}) = map (foldMethod f e) cmethods
-      foldTrait f e (Trait {tmethods}) = map (foldMethod f e) tmethods
-      foldMethod f e (Method {mbody}) = foldr f e mbody
-      -- TODO: Take remaining bodies into account
-      foldMethod f e (MatchingMethod {mbodies}) = foldr f e (head mbodies)
+      foldFunction f e (Function {funbody}) = [foldr f e funbody]
+      foldFunction f e (MatchingFunction {matchfunbodies}) = map (foldr f e) matchfunbodies
+      foldClass f e (Class {cmethods}) = concatMap (foldMethod f e) cmethods
+      foldTrait f e (Trait {tmethods}) = concatMap (foldMethod f e) tmethods
+      foldMethod f e (Method {mbody}) = [foldr f e mbody]
+      foldMethod f e (MatchingMethod {mbodies}) = map (foldr f e) mbodies
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
@@ -269,11 +267,11 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         (acc', fun{funbody = funbody'})
         where
           (acc', funbody') = extendAccum f acc funbody
-       -- TODO: Take remaining bodies into account
+          
       extendAccumFunction f acc fun@(MatchingFunction{matchfunbodies}) =
-        (acc', fun{matchfunbodies = [funbody']})
+        (acc', fun{matchfunbodies = funbodies'})
         where
-          (acc', funbody') = extendAccum f acc (head matchfunbodies)
+          (acc', funbodies') = List.mapAccumL (extendAccum f) acc matchfunbodies
 
       (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
       extendAccumTrait f acc trt@(Trait{tmethods}) =
@@ -291,11 +289,11 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         (acc', mtd{mbody = mbody'})
         where
           (acc', mbody') = extendAccum f acc mbody
-      -- TODO: Take remaining bodies into account
+
       extendAccumMethod f acc mtd@(MatchingMethod{mbodies}) =
-        (acc', mtd{mbodies = [mbody']})
+        (acc', mtd{mbodies = mbodies'})
         where
-          (acc', mbody') = extendAccum f acc (head mbodies)
+          (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
 
       (acc4, imports') = List.mapAccumL (extendAccumImport f) acc3 imports
       extendAccumImport f acc i@(PulledImport{iprogram}) =
