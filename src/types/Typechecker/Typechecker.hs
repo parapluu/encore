@@ -1041,35 +1041,30 @@ instance Checkable Expr where
     --  E |- arg1 : t1 .. E |- argn : tn
     -- ---------------------------------------------
     --  E |- print(stringLit, arg1 .. argn) : void
-    doTypecheck e@(Print {args = []}) = do
-        let meta = emeta e
-            eFormatString = setType stringType $ StringLiteral meta "\n"
-        return $ setType voidType e {args = [eFormatString]}
-
-    doTypecheck e@(Print {args = [arg]}) =
-        do eArg <- doTypecheck arg
-           let meta = emeta e
-               eFormatString = setType stringType $ StringLiteral meta "{}\n"
-           let newArgs = [eFormatString, eArg]
-           return $ setType voidType e {args = newArgs}
-
     doTypecheck e@(Print {args}) =
         do eArgs <- mapM typecheck args
-           let meta = emeta e
-               fst = head eArgs
+           let fst = head eArgs
                rest = tail eArgs
-               sugaredFst = fromJust $ getSugared fst
-           unless (isStringLiteral sugaredFst) $
+               fstString = if isStringObjectType $ AST.getType fst
+                           then fromJust $ getSugared fst
+                           else fst
+               unprintable = filter (not . isPrintable . AST.getType) eArgs
+               unprintableHead = head unprintable
+           unless (isStringLiteral fstString) $
                   tcError $ "Formatted printing expects first argument '" ++
                             show (ppSugared fst) ++ "' to be a string literal"
-           let formatString = stringLit sugaredFst
+           unless (null unprintable) $
+                tcError $ "Cannot print expression '" ++
+                          show (ppExpr unprintableHead) ++ "' of type '" ++
+                          show (AST.getType unprintableHead) ++ "'"
+           let formatString = stringLit fstString
                noArgs = T.count (T.pack "{}") (T.pack formatString)
            unless (noArgs == length rest) $
                   tcError $ "Wrong number of arguments to format string. " ++
                             "Expected " ++ show noArgs ++ ", got " ++
                             show (length rest) ++ "."
            let eFormatString = setType stringType $
-                               StringLiteral meta formatString
+                               StringLiteral (emeta fstString) formatString
                newArgs = eFormatString : rest
            return $ setType voidType e {args = newArgs}
 

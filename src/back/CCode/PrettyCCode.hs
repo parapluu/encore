@@ -107,6 +107,7 @@ pp' (If c t e) = text "if" <+> parens  (pp' c) $+$
                    bracedBlock (pp' t) $+$
                  text "else" $+$
                    bracedBlock (pp' e)
+pp' (Ternary c t e) = pp' c <> text "?" <+> pp' t <> text ":" <+> pp' e
 pp' (Return e) = text "return" <+> pp' e <> text ";"
 pp' (UnionInst name e) = text "{." <> tshow name <+> text "=" <+> pp' e <> text "}"
 pp' (Int n) = tshow n

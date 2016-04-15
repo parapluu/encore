@@ -1,8 +1,8 @@
-bool<0>
-bool<0>
-bool<1>
-bool<0>
-bool<1>
+false
+false
+true
+false
+true
 --------------
 1
 3

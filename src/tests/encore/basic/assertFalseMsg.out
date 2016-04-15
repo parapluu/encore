@@ -1,1 +1,1 @@
-Assertion failed: Int 42 Bool bool<0> String Foo
+Assertion failed: Int 42 Bool false String Foo
