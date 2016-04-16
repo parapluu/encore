@@ -27,7 +27,7 @@ i = (text "-I" <+>)
 o = (text "-o" <+>)
 parent = text ".."
 
-generateMakefile :: [String] -> 
+generateMakefile :: [String] ->
    String -> String -> String -> String -> String -> String -> Doc
 generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     decl "CC" [compiler]
@@ -50,10 +50,10 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, lib, defs, o target])
+         (cc [flags, i inc, i parent, deps, lib, lib, defs, o target])
     $\$
     rule bench deps
-         (cc [benchFlags, i inc, i parent, deps, lib, defs, o target])
+         (cc [benchFlags, i inc, i parent, deps, lib, lib, defs, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])
