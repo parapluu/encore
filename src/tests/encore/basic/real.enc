@@ -1,5 +1,9 @@
+def foo(x : real) : real
+  x
+
 class Main
-  def main() : void
-    let pi = 3.141593 in
-      {print "Pi is something like ";
-       print pi}
+  def main() : void {
+    let pi = 3.141593;
+    print("Pi is something like {}\n", pi);
+    print("Ints can be promoted to reals: {}\n", foo(42))
+  }

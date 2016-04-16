@@ -26,7 +26,6 @@ import Utils
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
-import AST.Util
 import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
@@ -51,7 +50,7 @@ data Phase = Parsed | TypeChecked
 data Option = GCC | Clang | Run | Bench | Profile |
               KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
-              Intermediate Phase | TypecheckOnly | Verbatim
+              Intermediate Phase | TypecheckOnly | Verbatim | NoGC | Help
               deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
@@ -73,6 +72,8 @@ parseArguments args =
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
               parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
               parseArgument ("-v":args)         = (Verbatim, args)
+              parseArgument ("-nogc":args)      = (NoGC, args)
+              parseArgument ("-help":args)      = (Help, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
               parseArgument (file:args)         = (Source file, args)
     in
@@ -90,19 +91,26 @@ parseArguments args =
       isImport _ = False
       getDirs (Imports dirs) = dirs
 
-warnUnknownFlags :: [Option] -> IO ()
-warnUnknownFlags options =
+warnings :: [Option] -> IO ()
+warnings options =
     do
-      mapM (\flag -> case flag of
-                       Undefined flag -> putStrLn $ "Warning: Ignoring undefined option" <+> flag
-                       _ -> return ()) options
       when (GCC `elem` options && (not $ Clang `elem` options))
                (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
       when (Clang `elem` options && GCC `elem` options)
                (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
       when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options))
                (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
+      when ((NoGC `elem` options) && (not $ TypecheckOnly `elem` options))
+               (putStrLn "Warning: Garbage collection disabled! Your program will leak memory!")
 
+checkForUndefined :: [Option] -> IO [()]
+checkForUndefined options =
+    do
+      mapM (\flag -> case flag of
+              Undefined flag -> 
+                abort $ "Unknown flag " <> flag <> 
+                ". Use -help to see available flags."
+              _ -> return ()) options
 
 output :: Show a => a -> Handle -> IO ()
 output ast = flip hPrint ast
@@ -133,18 +141,21 @@ compileProgram prog sourcePath options =
            cc    = "clang"
            flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
+           defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
            pg = if (Profile `elem` options) then "-pg" else ""
            bench = if (Bench `elem` options) then "-O3" else ""
            libs  = libPath ++ "*.a"
            cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
-           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> sharedFile <+> libs <+> libs
+           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> 
+                        sharedFile <+> libs <+> libs <+> defines
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
-       withFile makefile   WriteMode (output $ generateMakefile encoreNames execName cc flags incPath libs)
+       withFile makefile   WriteMode (output $ 
+          generateMakefile encoreNames execName cc flags incPath defines libs)
        when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
-               let ofilesInc = concat $ intersperse " " (Data.List.filter (isSuffixOf ".o") files)
+               let ofilesInc = concat $ intersperse " " (filter (isSuffixOf ".o") files)
                exitCode <- system $ compileCmd <+> ofilesInc
                case exitCode of
                  ExitSuccess -> return ()
@@ -158,13 +169,22 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
+      getDefines = intercalate " " . map ("-D"++) . 
+                   filter (/= "") . map getDefine 
+      getDefine NoGC = "NO_GC"
+      getDefine _ = ""
+
 main =
     do args <- getArgs
        let (programs, importDirs, options) = parseArguments args
-       warnUnknownFlags options
+       checkForUndefined options
+       when (Help `elem`options)
+           (do abort helpMessage)
        when (null programs)
-           (do putStrLn usage
-               abort "No program specified! Aborting.")
+           (do abort ("No program specified! Aborting.\n\n" <>
+                       usage <> "\n" <>
+                      "The -help flag provides more information.\n"))
+       warnings options
        let sourceName = head programs
        sourceExists <- doesFileExist sourceName
        unless sourceExists
@@ -222,7 +242,7 @@ main =
                return ())
        verbatim options "== Done =="
     where
-      usage = "Usage: ./encorec [ -bench | -pg | -tc | -c | -v | -gcc | -clang | -o file | -run | -AST | -TypedAST | -I dir1:dir2:.. ] file"
+      usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
       addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
@@ -230,3 +250,17 @@ main =
       stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
 
       showWarnings = mapM print
+      helpMessage = 
+        "Welcome to the Encore compiler!\n" <>
+        usage <> "\n\n" <>
+        "Flags:\n" <>
+        "  -c           Keep intermediate C-files.\n" <>
+        "  -tc          Typecheck only (don't produce an executable).\n" <>
+        "  -o [file]    Specify output file.\n" <>
+        "  -run         Run the program and remove the executable.\n" <>
+        "  -clang       Use clang to build the executable (default).\n" <>
+        "  -AST         Output the parsed AST as text to foo.AST.\n" <>
+        "  -TypedAST    Output the typechecked AST as text to foo.TAST.\n" <>
+        "  -nogc        Disable the garbage collection of passive objects.\n" <>
+        "  -help        Print this message and exit.\n" <>
+        "  -I p1:p2:... Directories in which to look for modules."
