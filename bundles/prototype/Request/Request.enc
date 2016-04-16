@@ -1,0 +1,166 @@
+bundle Request where
+
+embed
+
+#include <stdio.h> /* printf, sprintf */
+#include <stdlib.h> /* exit */
+#include <unistd.h> /* read, write, close */
+#include <string.h> /* memcpy, memset */
+#include <sys/socket.h> /* socket, connect */
+#include <netinet/in.h> /* struct sockaddr_in, struct sockaddr */
+#include <netdb.h> /* struct hostent, gethostbyname */
+
+#include <encore.h> /* encore_alloc, encore_realloc */
+
+
+#define h_addr h_addr_list[0] /* for backward compatibility */
+
+#define BUF_SIZE 4096
+#define MES_SIZE 4096
+
+
+char* getRequest(char *host, int port, char *path);
+int request(int socket, char *message);
+int receive(char **response, int socket, int buffer_size);
+
+body
+
+void error(const char* msg) {
+    perror(msg);
+    exit(-1);
+}
+
+char* getRequest(char *host, int port, char *path) {
+
+    struct hostent *server;
+    struct sockaddr_in serv_addr;
+    int sockfd;
+    char *message = (char *) malloc(MES_SIZE);
+    char *response;
+
+    char *message_format = "GET %s HTTP/1.0\r\n\r\n";
+
+    sprintf(message, message_format, path);
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        error("Error opening socket");
+
+    server = gethostbyname(host);
+    if (server == NULL)
+        error("Error, could not lookup host");
+
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(port);
+    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+
+    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+        error("Error, could not connect");
+
+    if (request(sockfd, message) < 0)
+        error("Error sending request");
+
+    free(message);
+
+    if (receive(&response, sockfd, BUF_SIZE) < 0)
+        error("Error receiving response");
+
+    close(sockfd);
+
+    return response;
+}
+
+int request(int socket, char *message) {
+    int total = strlen(message);
+    int sent = 0;
+
+    int bytes;
+    do {
+        bytes = write(socket, message + sent, total - sent);
+        if (bytes < 0)
+            return bytes;
+        if (bytes == 0)
+            return 0;
+        sent += bytes;
+    } while (sent < total);
+
+    return 0;
+}
+
+int receive(char **response, int socket, int buffer_size) {
+    int received = 0;
+
+    // Allocate the buffer and result
+    // int result_size = buffer_size + 1;
+    int result_size = 1024*1024;
+    char *buffer = (char *) malloc(buffer_size);
+    char *result = (char *) encore_alloc(encore_ctx(), result_size);
+
+    int bytes;
+    do {
+        bytes = read(socket, buffer, buffer_size);
+
+        // End of stream
+        if (bytes == 0) {
+            free(buffer);
+            break;
+        }
+
+        if (bytes < 0) {
+            free(buffer);
+            return bytes;
+        }
+        
+        // Update result
+        memcpy(result + received, buffer, bytes);
+        received += bytes;
+
+        // Increase buffer size if necessary
+        /*
+        int remaining = result_size - received - 1; // Room for null terminator
+        if (remaining < buffer_size) {
+            result_size += buffer_size;
+            result = (char *) encore_realloc(encore_ctx(), result, result_size);
+        }
+        */
+
+    } while (bytes > 0);
+
+    result[received] = '\0';
+
+    *response = result;
+
+    return 0;
+}
+
+end
+
+class Request {
+
+  def GET(host: String, port: int, path: String) : String {
+    let hostData = host.data;
+    let pathData = path.data;
+    let response = embed
+      (embed char* end)
+      char *a = getRequest(#{hostData}, #{port}, #{pathData});
+      char *b = encore_alloc(_ctx, strlen(a)+1);
+      strcpy(b, a);
+      b;
+    end;
+    let s = new String(response);
+    -- let res = new Response(s);
+    -- res;
+    s;
+  }
+}
+
+
+passive class Response {
+  
+  raw : String
+  
+  def init(s : String) : void {
+    this.raw = s;
+  }
+}
