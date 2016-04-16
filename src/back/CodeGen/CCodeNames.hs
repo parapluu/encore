@@ -121,6 +121,9 @@ capability = Ptr $ Typ "capability_t"
 ponyTraceFnType :: CCode Ty
 ponyTraceFnType = Typ "pony_trace_fn"
 
+ponyTrace :: CCode Name
+ponyTrace = Nam "pony_trace"
+
 ponyTraceObject :: CCode Name
 ponyTraceObject = Nam "pony_traceobject"
 

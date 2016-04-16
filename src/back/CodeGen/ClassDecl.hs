@@ -505,7 +505,7 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Statement $ Call (methodImplName cname (A.methodName mdecl))
-                                [Var "p"])
+                                [encoreCtxVar, Var "p"])
       Nothing ->
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, encoreCtxVar),

@@ -1,0 +1,19 @@
+class Foo
+  def foo() : String {
+    let s =
+      embed (embed char* end)
+        char *s = encore_alloc(_ctx, 1000);
+        strcpy(s, "Hello");
+        s;
+      end;
+    new String(s);
+  }
+
+class Main
+  def main() : void {
+    let x = new Foo();
+    for i in [0..20] {
+      let s = get x.foo();
+      print("{} {}\n", s, i);
+    };
+  }
