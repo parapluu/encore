@@ -35,6 +35,7 @@ getChildren Liftf {val} = [val]
 getChildren Liftv {val} = [val]
 getChildren PartyJoin {val} = [val]
 getChildren PartyExtract {val} = [val]
+getChildren PartyEach {val} = [val]
 getChildren PartySeq {par, seqfunc} = [par, seqfunc]
 getChildren PartyPar {parl, parr} = [parl, parr]
 getChildren Closure {body} = [body]
@@ -45,6 +46,7 @@ getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
+getChildren MiniLet {decl = (_, val)} = [val]
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
@@ -103,6 +105,7 @@ putChildren [val] e@(Liftf {}) = e{val}
 putChildren [val] e@(Liftv {}) = e{val}
 putChildren [val] e@(PartyJoin {}) = e{val}
 putChildren [val] e@(PartyExtract {}) = e{val}
+putChildren [val] e@(PartyEach {}) = e{val}
 putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
 putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [body] e@(Closure {}) = e{body = body}
@@ -113,6 +116,7 @@ putChildren [] e@(MaybeValue _ NothingData) = e
 putChildren args e@(Tuple {}) = e{args = args}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
+putChildren [val] e@(MiniLet{decl = (x, _)}) = e{decl = (x, val)}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
 putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
@@ -169,6 +173,7 @@ putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 el
 putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
 putChildren _ e@(PartyJoin {}) = error "'putChildren l PartyJoin' expects l to have 1 element"
 putChildren _ e@(PartyExtract {}) = error "'putChildren l PartyExtract' expects l to have 1 element"
+putChildren _ e@(PartyEach {}) = error "'putChildren l PartyEach' expects l to have 1 element"
 putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
 putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
@@ -176,6 +181,7 @@ putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 el
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
 putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
+putChildren _ e@(MiniLet{decl}) = error "'putChildren l MiniLet' expects l to have 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
 putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 elements"
@@ -247,12 +253,12 @@ mapProgramClass p@Program{classes, imports} f =
   p{classes = map f classes, imports = map i2i imports}
   where
     i2i i@PulledImport{iprogram} = i{iprogram = mapProgramClass iprogram f}
-    i2i _ = error "Non desugared imports"
+    i2i _ = error "Util.hs: Non desugared imports during mapProgramClass"
 
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, traits, classes} =
-  (acc3, p{functions = funs', traits = traits', classes = classes'})
+extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
+  (acc4, p{functions = funs', traits = traits', classes = classes', imports = imports'})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
       extendAccumFunction f acc fun@(Function{funbody}) =
@@ -276,6 +282,14 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes} =
         (acc', mtd{mbody = mbody'})
         where
           (acc', mbody') = extendAccum f acc (mbody mtd)
+
+      (acc4, imports') = List.mapAccumL (extendAccumImport f) acc3 imports
+      extendAccumImport f acc i@(PulledImport{iprogram}) =
+        (acc', i{iprogram = iprogram'})
+        where
+          (acc', iprogram') = extendAccumProgram f acc iprogram
+      extendAccumImport _ _ _ = error "Util.hs: Non desugared imports during extendAccumProgram"
+          
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
@@ -332,6 +346,17 @@ extractTypes (Program{functions, traits, classes}) =
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
     where
+      freeVariables' bound Match {arg, clauses} =
+          freeVariables' bound arg ++ clausesFreeVars
+          where
+            clausesFreeVars = concatMap clauseFreeVars clauses
+            clauseFreeVars MatchClause{mcpattern, mcguard, mchandler} =
+                let boundInPattern = map fst $ freeVariables' [] mcpattern
+                    bound' = boundInPattern ++ bound
+                    freeInGuard = freeVariables' bound' mcguard
+                    freeInHandler = freeVariables' bound' mchandler
+                in
+                  freeInGuard ++ freeInHandler
       freeVariables' bound var@(VarAccess {name})
           | name `elem` bound = []
           | otherwise = [(name, getType var)]

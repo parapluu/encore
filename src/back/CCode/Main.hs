@@ -100,3 +100,4 @@ data CCode a where
     Annotated    :: String -> CCode a -> CCode a
     FunPtrDecl   :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Stat
     CompoundLiteral :: CCode Ty -> [(CCode Lval, CCode Expr)] -> CCode Expr
+    DesignatedInitializer :: [(CCode Name, CCode Expr)] -> CCode Expr

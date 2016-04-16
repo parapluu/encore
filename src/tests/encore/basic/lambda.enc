@@ -35,6 +35,12 @@ passive class CreditPass
 class Main
   creditcard: CreditCard
 
+  -- These three fields are only for testing the type-checker.
+  -- They do not need to be instantiated.
+  tupleFun : (int -> (int, int))
+  maybeFun : (int -> Maybe int)
+  funFun : (int -> (int -> int))
+
   def pprint(x: int): void
     print x
 

@@ -92,6 +92,7 @@ Vagrant.configure(2) do |config|
 
      # Install dependencies
      apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 unzip valgrind git emacs vim
+     update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
      ln -s /usr/bin/cabal-1.22 /usr/bin/cabal
      ln -s /usr/bin/lldb-3.5 /usr/bin/lldb
   SHELL

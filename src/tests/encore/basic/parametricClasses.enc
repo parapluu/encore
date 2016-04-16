@@ -6,6 +6,9 @@ class Cell<a>
   def getVal() : a
     this.value
 
+  def clone(value : a): void
+    new Cell<a>(value)
+
 class Pair<a, b>
   fst : a
   snd : b

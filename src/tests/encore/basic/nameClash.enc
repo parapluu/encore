@@ -12,6 +12,7 @@ class Foo
 class Main
   def main() : void
     let default = 42 in{
-      async{strlen(default)};
+      strlen(default);
+      -- async{};
       print "Hello, Ponyworld!"
     }

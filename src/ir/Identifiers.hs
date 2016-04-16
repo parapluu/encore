@@ -50,7 +50,10 @@ instance Show BinaryOp where
     show DIV             = "/"
     show MOD             = "%"
 
-data UnaryOp = NOT deriving(Read, Eq)
+data UnaryOp = NOT
+             | NEG
+               deriving(Read, Eq)
 
 instance Show UnaryOp where
     show Identifiers.NOT = "not"
+    show Identifiers.NEG = "-"

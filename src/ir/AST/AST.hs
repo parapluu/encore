@@ -361,6 +361,8 @@ data Expr = Skip {emeta :: Meta Expr}
                        val :: Expr}
           | PartyExtract {emeta :: Meta Expr,
                           val :: Expr}
+          | PartyEach {emeta :: Meta Expr,
+                       val :: Expr}
           | PartySeq {emeta :: Meta Expr,
                       par :: Expr,
                       seqfunc :: Expr}
@@ -382,6 +384,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | Let {emeta :: Meta Expr,
                  decls :: [(Name, Expr)],
                  body :: Expr}
+          | MiniLet {emeta :: Meta Expr,
+                     decl :: (Name, Expr)}
           | Seq {emeta :: Meta Expr,
                  eseq :: [Expr]}
           | IfThenElse {emeta :: Meta Expr,
@@ -422,7 +426,7 @@ data Expr = Skip {emeta :: Meta Expr}
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr,
-                        future :: Expr,
+                         future :: Expr,
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr,
                          target :: Expr,

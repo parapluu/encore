@@ -41,6 +41,18 @@ cloneMeta m = Meta.meta (Meta.sourcePos m)
 
 desugar :: Expr -> Expr
 
+desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
+    where
+      expandMiniLets [] = []
+      expandMiniLets (MiniLet{emeta, decl}:seq) =
+          [Let{emeta
+              ,decls = [decl]
+              ,body = Seq emeta $ case expandMiniLets seq of
+                                   [] -> [Skip emeta]
+                                   seq' -> seq'
+              }]
+      expandMiniLets (e:seq) = e:expandMiniLets seq
+
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 
 desugar FunctionCall{emeta, name = Name "print", args} =

@@ -50,6 +50,7 @@ ppPeer = text "peer"
 ppPrint = text "print"
 ppExit = text "exit"
 ppEmbed = text "embed"
+ppEnd = text "end"
 ppForeach = text "foreach"
 ppFinish = text "finish"
 ppDot = text "."
@@ -66,6 +67,7 @@ ppLiftf = text "liftf"
 ppLiftv = text "liftv"
 ppJoin = text "join"
 ppPartyExtract = text "extract"
+ppPartyEach = text "each"
 ppTask = text "async"
 ppPar = text "||"
 ppBar = text "|"
@@ -176,6 +178,7 @@ ppExpr Liftf {val} = ppLiftf <+> ppExpr val
 ppExpr Liftv {val} = ppLiftv <+> ppExpr val
 ppExpr PartyJoin {val} = ppJoin <+> ppExpr val
 ppExpr PartyExtract {val} = ppPartyExtract <+> ppExpr val
+ppExpr PartyEach {val} = ppPartyEach <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ppSeq <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> ppPar <+> ppExpr parr
 ppExpr FunctionCall {name, args} =
@@ -190,6 +193,8 @@ ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
 ppExpr Let {decls, body} =
     ppLet <+> vcat (map (\(Name x, e) -> text x <+> equals <+> ppExpr e) decls) $+$ ppIn $+$
       indent (ppExpr body)
+ppExpr MiniLet {decl = (x, val)} =
+    ppLet <+> ppName x <+> equals <+> ppExpr val
 ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
@@ -250,7 +255,7 @@ ppExpr CharLiteral {charLit} = text $ show charLit
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} = text "[" <+> ppExpr start <+> text "," <+> ppExpr stop <+> text " by " <+> ppExpr step <+> text"]"
-ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> doubleQuotes (text code)
+ppExpr Embed {ty, code} = ppEmbed <+> ppType ty <+> text code <+> ppEnd
 ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
 ppExpr Binop {binop, loper, roper} = ppExpr loper <+> ppBinop binop <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ppColon <+> ppType ty
@@ -260,6 +265,7 @@ ppExpr FinishAsync {body} = ppFinish <+> ppExpr body
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = text "not"
+ppUnary Identifiers.NEG = text "-"
 
 ppBinop :: BinaryOp -> Doc
 ppBinop Identifiers.AND = text "and"

@@ -36,6 +36,8 @@ static void actor_resume_context(encore_actor_t *actor, ucontext_t *ctx);
 extern void public_run(pony_actor_t *actor);
 
 extern bool pony_system_actor(pony_actor_t *actor);
+static void pony_sendargs(pony_ctx_t *ctx, pony_actor_t* to, uint32_t id,
+    int argc, char** argv);
 
 #define MAX_IN_POOL 4
 
@@ -62,18 +64,8 @@ void actor_unlock(encore_actor_t *actor)
   }
 }
 
-void pony_sendargs(pony_actor_t* to, uint32_t id, int argc, char** argv)
-{
-  pony_main_msg_t* m = (pony_main_msg_t*)pony_alloc_msg(
-          POOL_INDEX(sizeof(pony_main_msg_t)), id);
-  m->argc = argc;
-  m->argv = argv;
-
-  pony_sendv(to, &m->msg);
-}
-
-encore_arg_t default_task_handler(void* env, void* dep){
-  return run_closure(((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
+encore_arg_t default_task_handler(pony_ctx_t* ctx, void* env, void* dep){
+  return run_closure(ctx, ((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
 }
 
 #ifndef LAZY_IMPL
@@ -139,15 +131,15 @@ static context *pop_context(encore_actor_t *actor)
   if (available_context == 0) {
     context_pool = malloc(sizeof *context_pool);
     context_pool->next = NULL;
-    getcontext(&context_pool->ctx);
-    int ret = posix_memalign((void *)&context_pool->ctx.uc_stack.ss_sp, 16, Stack_Size);
+    getcontext(&context_pool->uctx);
+    int ret = posix_memalign((void *)&context_pool->uctx.uc_stack.ss_sp, 16, Stack_Size);
     assert(ret == 0);
-    context_pool->ctx.uc_stack.ss_size = Stack_Size;
-    context_pool->ctx.uc_stack.ss_flags = 0;
+    context_pool->uctx.uc_stack.ss_size = Stack_Size;
+    context_pool->uctx.uc_stack.ss_flags = 0;
   } else {
     available_context--;
   }
-  makecontext(&context_pool->ctx, (void(*)(void))public_run, 1, actor);
+  makecontext(&context_pool->uctx, (void(*)(void))public_run, 1, actor);
   c = context_pool;
   context_pool = c->next;
   return c;
@@ -178,13 +170,13 @@ static void clean_pool()
 
 #else
 
-  context *ctx, *next;
+  context *uctx, *next;
   while (available_context > MAX_IN_POOL) {
     available_context--;
-    ctx = context_pool;
+    uctx = context_pool;
     next = context_pool->next;
-    free(ctx->ctx.uc_stack.ss_sp);
-    free(ctx);
+    free(uctx->uctx.uc_stack.ss_sp);
+    free(uctx);
     context_pool = next;
   }
 
@@ -198,15 +190,17 @@ static void force_thread_local_variable_access(context *old_this_context,
 {
   this_context = old_this_context;
   root_context = old_root_context;
-  this_context->ctx.uc_stack.ss_sp = old_this_context->ss_sp;
+  this_context->uctx.uc_stack.ss_sp = old_this_context->ss_sp;
 }
 #endif
 
-void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
+void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
+        ucontext_t *uctx)
 {
 #ifndef LAZY_IMPL
 
   if (!actor->page) {
+    assert(local_page);
     assert(local_page->stack);
     actor->page = local_page;
     local_page = NULL;
@@ -214,62 +208,63 @@ void actor_save_context(encore_actor_t *actor, ucontext_t *ctx)
   assert(actor->page);
   assert(actor->page->stack);
   actor->run_to_completion = false;
-  assert_swap(ctx, &actor->home_ctx);
+  assert_swap(uctx, &actor->home_uctx);
 
 #else
 
 #if defined(PLATFORM_IS_MACOSX)
-  this_context->ss_sp = this_context->ctx.uc_stack.ss_sp;
+  this_context->ss_sp = this_context->uctx.uc_stack.ss_sp;
 #endif
 
   context *old_this_context = this_context;
   context *old_root_context = root_context;
   encore_actor_t *old_actor = actor;
   this_context = pop_context(actor);
-  assert_swap(ctx, &this_context->ctx);
+  assert_swap(uctx, &this_context->uctx);
 #if defined(PLATFORM_IS_MACOSX)
   force_thread_local_variable_access(old_this_context, old_root_context);
 #else
   this_context = old_this_context;
   root_context = old_root_context;
 #endif
-  pony_become((pony_actor_t *) old_actor);
+  pony_become(pony_ctx(), (pony_actor_t *) old_actor);
 
 #endif
 }
 
-void actor_block(encore_actor_t *actor)
+void actor_block(pony_ctx_t *ctx, encore_actor_t *actor)
 {
 
 #ifndef LAZY_IMPL
-  actor_save_context(actor, &actor->ctx);
+  actor_save_context(ctx, actor, &actor->uctx);
 #else
-  actor->saved = &this_context->ctx;
-  actor_save_context(actor, actor->saved);
+  actor->saved = &this_context->uctx;
+  actor_save_context(ctx, actor, actor->saved);
 #endif
 
 }
 
 void actor_suspend()
 {
-  encore_actor_t *actor = (encore_actor_t *) actor_current();
+  pony_ctx_t *ctx = pony_ctx();
+  encore_actor_t *actor = (encore_actor_t*)ctx->current;
   actor->suspend_counter++;
 
-  ucontext_t ctx;
-  pony_sendp((pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &ctx);
+  ucontext_t uctx;
+  pony_sendp(ctx, (pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &uctx);
 
-  actor_save_context(actor, &ctx);
+  actor_save_context(ctx, actor, &uctx);
 
   actor->suspend_counter--;
   assert(actor->suspend_counter >= 0);
 }
 
-void actor_await(ucontext_t *ctx)
+void actor_await(pony_ctx_t *ctx, ucontext_t *uctx)
 {
-  encore_actor_t *actor = (encore_actor_t *) actor_current();
+  encore_actor_t *actor = (encore_actor_t*)ctx->current;
   actor->await_counter++;
 
-  actor_save_context(actor, ctx);
+  actor_save_context(ctx, actor, uctx);
 
   actor->await_counter--;
 
@@ -281,13 +276,13 @@ void actor_set_resume(encore_actor_t *actor)
   actor->resume = true;
 }
 
-static void actor_resume_context(encore_actor_t* actor, ucontext_t *ctx)
+static void actor_resume_context(encore_actor_t* actor, ucontext_t *uctx)
 {
 #ifndef LAZY_IMPL
 
   actor->run_to_completion = true;
 
-  assert_swap(&actor->home_ctx, ctx);
+  assert_swap(&actor->home_uctx, uctx);
 
   if (actor_run_to_completion(actor)) {
     reclaim_page(actor);
@@ -298,7 +293,7 @@ static void actor_resume_context(encore_actor_t* actor, ucontext_t *ctx)
   if (this_context != root_context) {
     push_context(this_context);
   }
-  setcontext(ctx);
+  setcontext(uctx);
   assert(0);
   exit(-1);
 
@@ -309,8 +304,8 @@ static void actor_resume(encore_actor_t *actor)
 {
   actor->resume = false;
 #ifndef LAZY_IMPL
-  assert(actor->ctx.uc_link == &actor->home_ctx);
-  actor_resume_context(actor, &actor->ctx);
+  assert(actor->uctx.uc_link == &actor->home_uctx);
+  actor_resume_context(actor, &actor->uctx);
 #else
   actor_resume_context(actor, actor->saved);
 #endif
@@ -326,44 +321,65 @@ static void actor_await_resume(encore_actor_t *actor, ucontext_t *ctx)
   actor_resume_context(actor, ctx);
 }
 
-bool gc_disabled()
+bool gc_disabled(pony_ctx_t *ctx)
 {
-  encore_actor_t *actor = (encore_actor_t*) actor_current();
+  encore_actor_t *actor = (encore_actor_t*)ctx->current;
   return actor->suspend_counter > 0 || actor->await_counter > 0;
 }
 
-encore_actor_t *encore_create(pony_type_t *type)
+pony_ctx_t* encore_ctx()
 {
-  encore_actor_t *new = (encore_actor_t *)pony_create(type);
+  return pony_ctx();
+}
+
+encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type)
+{
+  encore_actor_t *new = (encore_actor_t *)pony_create(ctx, type);
   new->_enc__self_type = type;
   return new;
 }
 
 encore_actor_t *encore_peer_create(pony_type_t *type)
 {
-  //todo: this should create an actor in another work pool
+  // TODO: this should create an actor in another work pool
   // printf("warning: creating peer not implemented by runtime\n");
-  encore_actor_t *new = (encore_actor_t *)pony_create(type);
-  new->_enc__self_type = type;
-  return new;
+  exit(-1);
+  return NULL;
 }
 
 /// Allocate s bytes of memory, zeroed out
-void *encore_alloc(size_t s)
+void *encore_alloc(pony_ctx_t *ctx, size_t s)
 {
-  void *mem = pony_alloc(s);
+  void *mem = pony_alloc(ctx, s);
   memset(mem, 0, s);
 
   return mem;
+}
+
+/*
+ * Reallocate memory. It has to be manually zeroed since we cannot do
+ * arithmetic on void pointers. Example:
+ *
+ * int *a = encore_alloc(encore_ctx(), 4*sizeof(int)); //This is zeroed memory
+ * a = encore_realloc(encore_ctx(), a, 8*sizeof(int)); //This is only half zeroed
+ * memset(a + 4, 0, 8-4); // Zero the remaining
+ * 
+ */
+void *encore_realloc(pony_ctx_t *ctx, void* p, size_t s)
+{
+    void *mem = pony_realloc(ctx, p, s);
+
+    return mem;
 }
 
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type)
 {
   argc = pony_init(argc, argv);
+  pony_ctx_t *ctx = pony_ctx();
   task_setup(type);
-  pony_actor_t* actor = (pony_actor_t *)encore_create(type);
-  pony_sendargs(actor, _ENC__MSG_MAIN, argc, argv);
+  pony_actor_t* actor = (pony_actor_t *)encore_create(ctx, type);
+  pony_sendargs(ctx, actor, _ENC__MSG_MAIN, argc, argv);
 
   return pony_start(false);
 }
@@ -405,4 +421,15 @@ void call_respond_with_current_scheduler()
 {
   // TODO respond
   // respond(this_scheduler);
+}
+
+static void pony_sendargs(pony_ctx_t *ctx, pony_actor_t* to, uint32_t id,
+    int argc, char** argv)
+{
+  pony_main_msg_t* m = (pony_main_msg_t*)pony_alloc_msg(
+          POOL_INDEX(sizeof(pony_main_msg_t)), id);
+  m->argc = argc;
+  m->argv = argv;
+
+  pony_sendv(ctx, to, &m->msg);
 }

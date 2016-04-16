@@ -49,6 +49,7 @@ failed=0
 failed_list=()
 
 skipped=()
+skipped+=(foreach_construct.enc)
 
 os=$(uname -s)
 if [ $os == "Linux" ]
