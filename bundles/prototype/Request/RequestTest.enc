@@ -11,9 +11,8 @@ class Main {
         printf("Using URL: %s\n", path);
         path;
       end);
-      let response = get r.GET("www.httpbin.org", 80, path);
-      -- let s = get r.GET("www.httpbin.org", 80, path);
-      -- let response = s.raw;
+      let s = get r.GET("www.httpbin.org", 80, path);
+      let response = s.raw;
       print("Response is:\n{}\n", response);
       let expectation = new String(embed
         (embed char* end)

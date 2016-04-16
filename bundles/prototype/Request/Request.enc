@@ -92,8 +92,7 @@ int receive(char **response, int socket, int buffer_size) {
     int received = 0;
 
     // Allocate the buffer and result
-    // int result_size = buffer_size + 1;
-    int result_size = 1024*1024;
+    int result_size = buffer_size + 1;
     char *buffer = (char *) malloc(buffer_size);
     char *result = (char *) encore_alloc(encore_ctx(), result_size);
 
@@ -117,13 +116,12 @@ int receive(char **response, int socket, int buffer_size) {
         received += bytes;
 
         // Increase buffer size if necessary
-        /*
         int remaining = result_size - received - 1; // Room for null terminator
         if (remaining < buffer_size) {
             result_size += buffer_size;
             result = (char *) encore_realloc(encore_ctx(), result, result_size);
+            memset(result + (result_size - buffer_size), 0, buffer_size);
         }
-        */
 
     } while (bytes > 0);
 
@@ -138,7 +136,7 @@ end
 
 class Request {
 
-  def GET(host: String, port: int, path: String) : String {
+  def GET(host: String, port: int, path: String) : Response {
     let hostData = host.data;
     let pathData = path.data;
     let response = embed
@@ -149,9 +147,8 @@ class Request {
       b;
     end;
     let s = new String(response);
-    -- let res = new Response(s);
-    -- res;
-    s;
+    let res = new Response(s);
+    res;
   }
 }
 
