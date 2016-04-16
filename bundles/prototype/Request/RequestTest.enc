@@ -14,12 +14,7 @@ class Main {
       let s = get r.GET("www.httpbin.org", 80, path);
       let response = s.raw;
       print("Response is:\n{}\n", response);
-      let expectation = new String(embed
-        (embed char* end)
-        char *substring = (char *) encore_alloc(_ctx, 4);
-        sprintf(substring, "%d", #{n});
-        substring;
-      end);
+      let expectation = string_from_int(n);
       print("Looking for substring: {}... ", expectation);
       assertTrue(response.contains(expectation));
       print("Found!\n");
