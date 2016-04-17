@@ -4,20 +4,15 @@ class Main {
   def main() : void {
     let r = new Request;
     for n in [200..500] by 100 {
-      let path = new String(embed
-        (embed char* end)
-        char *path = (char *) encore_alloc(_ctx, 12);
-        sprintf(path, "/status/%d", #{n});
-        printf("Using URL: %s\n", path);
-        path;
-      end);
+      let path = "/status/".concatenate(string_from_int(n));
+      print("Using path: {}\n\n", path);
       let s = get r.GET("www.httpbin.org", 80, path);
       let response = s.raw;
-      print("Response is:\n{}\n", response);
+      print("Response is:\n{}", response);
       let expectation = string_from_int(n);
       print("Looking for substring: {}... ", expectation);
       assertTrue(response.contains(expectation));
-      print("Found!\n");
+      print("Found!\n\n");
     }
   }
 }
