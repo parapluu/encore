@@ -33,8 +33,8 @@ varSubFromTypeVars = map each
       let ty' = typeVarRefName ty
       in (ID.Name $ show $ ty', AsLval ty')
 
-translateClosure :: A.Expr -> [Type] -> NamespaceTable -> CCode Toplevel
-translateClosure closure typeVars ntable@(ftable, ctable)
+translateClosure :: A.Expr -> [Type] -> NamespaceTable -> Ctx.LexicalContext -> CCode Toplevel
+translateClosure closure typeVars ntable@(ftable, ctable) scope
     | A.isClosure closure =
        let arrowType   = A.getType closure
            resultType  = Ty.getResultType arrowType
@@ -54,7 +54,7 @@ translateClosure closure typeVars ntable@(ftable, ctable)
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst ntable
+           ctx = Ctx.new subst ntable scope
 
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in

@@ -18,6 +18,10 @@ module CodeGen.Context (
   lookupMethod,
   lookupCalledType,
   lookupFunction,
+  LexicalContext(..),
+  lexicalContext,
+  classCtx,
+  functionCtx,
 ) where
 
 import Identifiers
@@ -28,48 +32,57 @@ import qualified CodeGen.ClassTable as Tbl
 
 import qualified CCode.Main as C
 
-data LexicalContext = ActiveObject | PassiveObject | SharedObject | GlobalFunction
+data LexicalContext = ClassContext | GlobalFunctionContext
+
+classCtx :: LexicalContext
+classCtx = ClassContext
+
+functionCtx :: LexicalContext
+functionCtx = GlobalFunctionContext
 
 type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Tbl.NamespaceTable
+data Context = Context VarSubTable NextSym Tbl.NamespaceTable LexicalContext
 
 classTable :: Context -> Tbl.ClassTable
-classTable (Context _ _ ntable) = snd ntable
+classTable (Context _ _ ntable _) = snd ntable
 
 functionTable :: Context -> Tbl.FunctionTable
-functionTable (Context _ _ ntable) = fst ntable
+functionTable (Context _ _ ntable _) = fst ntable
+
+lexicalContext :: Context -> LexicalContext
+lexicalContext (Context _ _ _ ctx)= ctx
 
 empty :: Tbl.NamespaceTable -> Context
-empty ntable = new [] ntable
+empty ntable = new [] ntable ClassContext
 
-new :: VarSubTable -> Tbl.NamespaceTable -> Context
-new subs ntable = Context subs 0 ntable
+new :: VarSubTable -> Tbl.NamespaceTable -> LexicalContext -> Context
+new subs ntable ctx = Context subs 0 ntable ctx
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
   c <- get
   case c of
-    Context s n t ->
-        do put $ Context s (n+1) t
+    Context s n t ctx ->
+        do put $ Context s (n+1) t ctx
            return $ "_" ++ name ++ "_" ++ show n
 
 genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt ntable) na lv = Context ((na,lv):s) nxt ntable
+substAdd c@(Context s nxt ntable ctx) na lv = Context ((na,lv):s) nxt ntable ctx
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt ntable) na = Context [] nxt ntable
-substRem (Context ((na, lv):s) nxt ntable) na'
-     | na == na'  = Context s nxt ntable
-     | na /= na'  = substAdd (substRem (Context s nxt ntable) na') na lv
+substRem (Context [] nxt ntable ctx) na = Context [] nxt ntable ctx
+substRem (Context ((na, lv):s) nxt ntable ctx) na'
+     | na == na'  = Context s nxt ntable ctx
+     | na /= na'  = substAdd (substRem (Context s nxt ntable ctx) na') na lv
 
 substLkp :: Context -> Name -> Maybe (C.CCode C.Lval)
-substLkp (Context s _ _) n = lookup n s
+substLkp (Context s _ _ _) n = lookup n s
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . classTable

@@ -439,19 +439,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = delegateUse callTheMethodSync
     where
       initName = ID.Name "_init"
-      delegateUse methodCall =
-        let
-          fName = constructorImplName ty
-          callCtor = Call fName [encoreCtxName]
-          typeParams = Ty.getTypeParameters ty
-          callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
-        in
-          do
-            typeArgs <- mapM getTypeVar typeParams
-            (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <-
-              methodCall nnew ty initName args ty
-            return (nnew,
+
+      getScope :: State Ctx.Context Ctx.LexicalContext
+      getScope = gets $ Ctx.lexicalContext
+
+      delegateUse methodCall = do
+        ctx <- getScope
+        let fName = constructorImplName ty
+            callCtor = Call fName [encoreCtxName]
+            typeParams = Ty.getTypeParameters ty
+            callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
+        typeArgs <- mapM (getTypeVar ctx) typeParams
+        (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
+        (initArgs, result) <- methodCall nnew ty initName args ty
+        return (nnew,
               Seq $
                 [ctorCall] ++
                 initArgs ++
@@ -469,15 +470,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | otherwise =
           error $  "can not have passive peer '"++show ty++"'"
 
-  translate arrNew@(A.ArrayNew {A.ty, A.size}) = do
-    arrName <- Ctx.genNamedSym "array"
-    sizeName <- Ctx.genNamedSym "size"
-    (nsize, tsize) <- translate size
-    ty' <- getTypeVar ty
-    let theArrayDecl =
-          Assign (Decl (array, Var arrName))
-            (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, ty'])
-    return (Var arrName, Seq [tsize, theArrayDecl])
+  translate arrNew@(A.ArrayNew {A.ty, A.size}) =
+      do arrName <- Ctx.genNamedSym "array"
+         sizeName <- Ctx.genNamedSym "size"
+         (nsize, tsize) <- translate size
+         ctx <- getScope
+         ty' <- getTypeVar ctx ty
+         ctx <- gets $ Ctx.lexicalContext
+         let theArrayDecl =
+                Assign (Decl (array, Var arrName))
+                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, ty'])
+         return (Var arrName, Seq [tsize, theArrayDecl])
+      where
+      getScope :: State Ctx.Context Ctx.LexicalContext
+      getScope = gets $ Ctx.lexicalContext
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
       (nstart, tstart) <- translate start
@@ -1294,9 +1300,9 @@ traitMethod this targetType name args resultType =
     callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
-getTypeVar ty = do
+getTypeVar ctx ty = do
   c <- get
-  return $ maybe (getRuntimeTypeVariables ty) AsExpr $ Ctx.substLkp c name
+  return $ maybe (getRuntimeTypeVariables ctx ty) AsExpr $ Ctx.substLkp c name
   where
     name = ID.Name $ show $ typeVarRefName ty
 

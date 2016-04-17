@@ -61,7 +61,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Tople
       subst = [(ID.Name "this", Var "_this")] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx = Ctx.new ((ID.Name "this", Var "_this") : zip encArgNames argNames) ntable
+      ctx = Ctx.new ((ID.Name "this", Var "_this") : zip encArgNames argNames) ntable Ctx.classCtx
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       extractTypeVars = Seq $ map assignTypeVar typeVars
       assignTypeVar ty =
@@ -71,7 +71,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Tople
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
         `Dot`
         name
-      closures = map (\clos -> translateClosure clos typeVars ntable)
+      closures = map (\clos -> translateClosure clos typeVars ntable Ctx.classCtx)
                      (reverse (Util.filter A.isClosure mbody))
-      tasks = map (\tas -> translateTask tas ntable) $
+      tasks = map (\tas -> translateTask tas ntable Ctx.functionCtx) $
                   reverse $ Util.filter A.isTask mbody

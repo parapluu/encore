@@ -51,7 +51,6 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ntable@(fta
       [dispatchFunDecl cdecl] ++
       [runtimeTypeDecl cname]
     where
-      (streamMethods, nonStreamMethods) = partition A.isStreamMethod cmethods
       methodImpls = map methodImpl cmethods
       methodImpl mdecl = translate mdecl cdecl ntable
       (streamMethods, nonStreamMethods) = partition A.isStreamMethod cmethods
