@@ -439,19 +439,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = delegateUse callTheMethodSync
     where
       initName = ID.Name "_init"
-      delegateUse methodCall =
-        let
-          fName = constructorImplName ty
-          callCtor = Call fName [encoreCtxName]
-          typeParams = Ty.getTypeParameters ty
-          callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
-          typeArgs = map getRuntimeTypeVariables typeParams
-        in
-          do
-            (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <-
-              methodCall nnew ty initName args ty
-            return (nnew,
+      getScope :: State Ctx.Context Ctx.LexicalContext
+      getScope = gets $ Ctx.lexicalContext
+
+      delegateUse methodCall = do
+        ctx <- getScope
+        let fName = constructorImplName ty
+            callCtor = Call fName [encoreCtxName]
+            typeParams = Ty.getTypeParameters ty
+            callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
+            typeArgs = map (getRuntimeTypeVariables ctx) typeParams
+        (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
+        (initArgs, result) <- methodCall nnew ty initName args ty
+        return (nnew,
               Seq $
                 [ctorCall] ++
                 initArgs ++
@@ -473,9 +473,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do arrName <- Ctx.genNamedSym "array"
          sizeName <- Ctx.genNamedSym "size"
          (nsize, tsize) <- translate size
+         ctx <- gets $ Ctx.lexicalContext
          let theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ty])
+                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ctx ty])
          return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do

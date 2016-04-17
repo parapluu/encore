@@ -36,13 +36,13 @@ instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Tople
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ntable
+                       zip encArgNames argNames) ntable Ctx.classCtx
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ntable)
+        closures = map (\clos -> translateClosure clos ntable Ctx.classCtx)
                        (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ntable) $
+        tasks = map (\tas -> translateTask tas ntable Ctx.functionCtx) $
                     reverse $ Util.filter A.isTask mbody
         streamCloseStmt = Statement $ Call streamClose [encoreCtxVar, streamHandle]
     in
@@ -63,13 +63,13 @@ instance Translatable A.MethodDecl (A.ClassDecl -> NamespaceTable -> CCode Tople
                then [(array, Var "_argv")]
                else zip argTypes argNames
         ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ntable
+                       zip encArgNames argNames) ntable Ctx.classCtx
         ((bodyn,bodys),_) = runState (translate mbody) ctx
         -- This reverse makes nested closures come before their
         -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ntable)
+        closures = map (\clos -> translateClosure clos ntable Ctx.classCtx)
                        (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ntable) $
+        tasks = map (\tas -> translateTask tas ntable Ctx.classCtx) $
                     reverse $ Util.filter A.isTask mbody
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
     in

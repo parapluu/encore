@@ -7,6 +7,7 @@ module CodeGen.Type where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
+import qualified CodeGen.Context as Ctx (LexicalContext(..))
 
 import CCode.Main
 import CCode.PrettyCCode ()
@@ -55,9 +56,13 @@ runtimeType ty
     -- | Ty.isTypeVar ty =  AsExpr $ (Var "_this") `Arrow` typeVarRefName ty
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
-getRuntimeTypeVariables t
+getRuntimeTypeVariables Ctx.ClassContext t
   | Ty.isTypeVar t =  AsExpr $ (Var "_this") `Arrow` typeVarRefName t
   | otherwise = runtimeType t
+getRuntimeTypeVariables Ctx.GlobalFunctionContext t
+  | Ty.isTypeVar t = (AsExpr . Var) (Ty.getId t)
+  | otherwise = runtimeType t
+
 
 encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"
