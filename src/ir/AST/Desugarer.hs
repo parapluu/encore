@@ -55,6 +55,12 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
 
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 
+desugar FunctionCall{emeta, name = Name "print", args = []} =
+    Print emeta [StringLiteral emeta "\n"]
+
+desugar FunctionCall{emeta, name = Name "print", args = [arg]} =
+    Print emeta [StringLiteral emeta "{}\n", arg]
+
 desugar FunctionCall{emeta, name = Name "print", args} =
     Print emeta args
 
@@ -84,13 +90,10 @@ desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
                        [selfSugar $ StringLiteral (cloneMeta emeta)
-                                                  "{}Assertion failed: ",
-                        selfSugar $ StringLiteral (cloneMeta emeta) ""], -- Suppress newline
+                                                  "Assertion failed: "],
                  Print (cloneMeta emeta) rest,
-                 if length rest > 1 then
-                     Print (cloneMeta emeta) [] -- Add newline
-                 else
-                     Skip (cloneMeta emeta),
+                 Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
 desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : rest} =
@@ -98,13 +101,10 @@ desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : rest} =
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
                        [selfSugar $ StringLiteral (cloneMeta emeta)
-                                                  "{}Assertion failed: ",
-                        selfSugar $ StringLiteral (cloneMeta emeta) ""],
+                                                  "Assertion failed: "],
                  Print (cloneMeta emeta) rest,
-                 if length rest > 1 then
-                     Print (cloneMeta emeta) [] -- Add newline
-                 else
-                     Skip (cloneMeta emeta),
+                 Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 

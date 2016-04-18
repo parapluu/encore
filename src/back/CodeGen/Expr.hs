@@ -60,9 +60,21 @@ typeToPrintfFstr ty
     | Ty.isStringObjectType ty = "%s"
     | Ty.isStringType ty       = "%s"
     | Ty.isCharType ty         = "%c"
-    | Ty.isBoolType ty         = "bool<%zd>"
-    | Ty.isRefType ty          = show ty ++ "<%p>"
-    | Ty.isFutureType ty       = "fut<%p>"
+    | Ty.isBoolType ty         = "%s"
+    | Ty.isRefType ty          = show ty ++ "@%p"
+    | Ty.isCapabilityType ty   = "(" ++ show ty ++ ")@%p"
+    | Ty.isFutureType ty       = "Fut@%p"
+    | Ty.isStreamType ty       = "Stream@%p"
+    | Ty.isParType ty          = "Par@%p"
+    | Ty.isArrowType ty        = "(" ++ show ty ++ ")@%p"
+    | Ty.isArrayType ty        = show ty ++ "@%p"
+    | Ty.isRangeType ty        = "[%d..%d by %d]"
+    | Ty.isTupleType ty        =
+        let argFormats = map typeToPrintfFstr (Ty.getArgTypes ty) :: [String]
+            formatString = intercalate ", " argFormats
+        in "(" ++ formatString ++ ")"
+    | Ty.isMaybeType ty        = "%s" -- A generated string
+    | Ty.isVoidType ty         = "%s" -- Always "()"
     | otherwise = case translate ty of
                     Ptr something -> "%p"
                     _ -> error $ "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
@@ -218,27 +230,90 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let string = head args
           rest = tail args
       unless (Ty.isStringType $ A.getType string) $
-             error $ "Expr.hs: Print expects first argument to be a string literal"
+          error "Expr.hs: Print expects first argument to be a string literal"
       targs <- mapM translate rest
-      let argNames = map fst targs
-      let argDecls = map snd targs
-      let argTys   = map A.getType rest
-      let fstring   = formatString (A.stringLit string) argTys
-      let argNamesWithoutStringObjects = zipWith extractStringFromString rest argNames
-      return $ (unit,
-                Seq $ argDecls ++
-                     [Statement
-                      (Call (Nam "printf")
-                       ((String fstring) : argNamesWithoutStringObjects))])
+      let argNames = map (AsExpr . fst) targs
+          argDecls = map snd targs
+          argTys   = map A.getType rest
+          fstring  = formatString (A.stringLit string) argTys
+          expandedArgs = concat $ zipWith expandPrintfArg argTys argNames
+      return (unit,
+              Seq $ argDecls ++
+                    [Statement
+                       (Call (Nam "printf")
+                       (String fstring : expandedArgs))])
       where
         formatString s [] = s
-        formatString "" (ty:tys) = error "Expr.hs: Wrong number of arguments to printf"
-        formatString ('{':'}':s) (ty:tys) = (typeToPrintfFstr ty) ++ (formatString s tys)
-        formatString (c:s) tys = c : (formatString s tys)
+        formatString "" (ty:tys) =
+            error "Expr.hs: Wrong number of arguments to printf"
+        formatString ('{':'}':s) (ty:tys) =
+            typeToPrintfFstr ty ++ formatString s tys
+        formatString (c:s) tys =
+            c : formatString s tys
 
-        extractStringFromString arg argName
-          | Ty.isStringObjectType (A.getType arg) = AsExpr $ argName `Arrow` (fieldName $ ID.Name "data")
-          | otherwise                             = AsExpr argName
+        expandPrintfArg :: Ty.Type -> CCode Expr -> [CCode Expr]
+        expandPrintfArg ty argName
+          | Ty.isStringObjectType ty =
+              let castArg = Cast (translate Ty.stringObjectType) argName
+              in [AsExpr $ castArg `Arrow` fieldName (ID.Name "data")]
+          | Ty.isBoolType ty =
+              [Ternary argName (String "true") (String "false")]
+          | Ty.isRangeType ty =
+              map (`Call` [argName]) [rangeStart, rangeStop, rangeStep]
+          | Ty.isTupleType ty =
+              let argTypes = Ty.getArgTypes ty
+                  args = zipWith (get argName) argTypes [0..]
+              in
+                concat $ zipWith expandPrintfArg argTypes args
+          | Ty.isMaybeType ty =
+              [Ternary (isNothing argName)
+                        (String "Nothing") $
+                        showJust argName (Ty.getResultType ty)]
+          | Ty.isVoidType ty =
+              [String "()"]
+          | Ty.isNullType ty =
+              [String "null"]
+          | otherwise =
+              [argName]
+          where
+            get tup ty i =
+                AsExpr $ Call tupleGet [tup, Int i] `Dot`
+                         encoreArgTTag (translate ty)
+            isNothing arg =
+                BinOp (Nam "==")
+                      (Cast option arg `Arrow` Nam "tag")
+                      (Var "NOTHING")
+            showJust just resType =
+                    let result = AsExpr $ Cast option just `Arrow`
+                                 encoreArgTTag (translate resType)
+                        len = BinOp (Nam "+") (Int 10)
+                                    (approximateLength result resType)
+                        resArgs = expandPrintfArg resType result
+                        format = typeToPrintfFstr resType
+                    in StatAsExpr (Var "tmp") $ Seq
+                       [Assign (Decl (int, Var "len")) len,
+                        Assign (Decl (Ptr char, Var "tmp")) $
+                               Call encoreAllocName [encoreCtxVar, Var "len"],
+                        Statement . Call (Nam "sprintf") $
+                             [AsExpr $ Var "tmp",
+                              String $ "Just " ++ if Ty.isMaybeType resType
+                                                  then "(" ++ format ++ ")"
+                                                  else format] ++
+                              resArgs]
+                    where
+                      approximateLength result ty
+                          | Ty.isTupleType ty =
+                              foldr1 (BinOp (Nam "+")) $
+                              zipWith approximateLength
+                                      (zipWith (get result)
+                                               (Ty.getArgTypes ty) [0..])
+                                      (Ty.getArgTypes ty)
+                          | Ty.isStringObjectType ty =
+                              AsExpr $
+                              Cast (translate Ty.stringObjectType) result
+                                   `Arrow` fieldName (ID.Name "length")
+                          | otherwise =
+                              Int $ length (show ty) + 30
 
   translate exit@(A.Exit {A.args = [arg]}) = do
       (narg, targ) <- translate arg

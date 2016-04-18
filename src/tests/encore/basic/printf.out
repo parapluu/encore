@@ -7,3 +7,10 @@ The square of 6 is 36
 The square of 7 is 49
 The square of 8 is 64
 The square of 9 is 81
+(false, false) | false
+(false, true) | false
+(true, false) | false
+(true, true) | true
+void = ()
+Zero is Nothing
+The answer is Just 42

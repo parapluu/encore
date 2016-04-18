@@ -5,8 +5,8 @@
 
 struct range_t
 {
-  size_t start;
-  size_t stop;
+  int64_t start;
+  int64_t stop;
   int64_t step;
 };
 
@@ -22,7 +22,8 @@ void range_trace(pony_ctx_t* ctx, void *p)
   // No pointers
 }
 
-struct range_t *range_mk(pony_ctx_t* ctx, size_t start, size_t stop, int64_t step)
+struct range_t *range_mk(pony_ctx_t* ctx, int64_t start,
+                         int64_t stop, int64_t step)
 {
   ctx = pony_ctx();
   range_assert_step(step);
@@ -40,6 +41,6 @@ void range_assert_step(int64_t step)
     }
 }
 
-size_t  range_start (struct range_t *a) { return a->start; }
-size_t  range_stop  (struct range_t *a) { return a->stop;  }
+int64_t  range_start (struct range_t *a) { return a->start; }
+int64_t  range_stop  (struct range_t *a) { return a->stop;  }
 int64_t range_step  (struct range_t *a) { return a->step;  }

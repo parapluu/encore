@@ -723,7 +723,7 @@ expr  =  unit
       print = do pos <- getPosition
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
-                 return $ Print (meta pos) arg
+                 return $ FunctionCall (meta pos) (Name "print") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

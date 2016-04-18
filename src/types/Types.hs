@@ -81,6 +81,7 @@ module Types(
             ,isBottomType
             ,hasResultType
             ,setResultType
+            ,isPrintable
             ) where
 
 import Data.List
@@ -210,6 +211,8 @@ instance Show Type where
     show ClassType{refInfo} = show refInfo
     show CapabilityType{capability} = show capability
     show TypeVar{ident} = ident
+    show ArrowType{argTypes = [ty], resultType} =
+        show ty ++ " -> " ++ show resultType
     show ArrowType{argTypes, resultType} =
         "(" ++ args ++ ") -> " ++ show resultType
         where
@@ -616,3 +619,11 @@ isPrimitive = (`elem` primitives)
 
 isNumeric :: Type -> Bool
 isNumeric ty = isRealType ty || isIntType ty
+
+isPrintable :: Type -> Bool
+isPrintable ty
+  | isTypeVar ty     = False
+  | isCType ty       = False
+  | hasResultType ty = isPrintable $ getResultType ty
+  | isTupleType ty   = all isPrintable $ getArgTypes ty
+  | otherwise        = True
