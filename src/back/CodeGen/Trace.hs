@@ -13,32 +13,37 @@ import qualified Types as Ty
 import CCode.PrettyCCode ()
 
 traceFuture :: CCode Lval -> CCode Stat
-traceFuture var = ponyTraceobject var futureTraceFn
+traceFuture var = traceObject var futureTraceFn
 
 traceStream :: CCode Lval -> CCode Stat
-traceStream var = ponyTraceobject var streamTraceFn
+traceStream var = traceObject var streamTraceFn
 
 traceVariable :: Ty.Type -> CCode Lval -> CCode Stat
 traceVariable t var
-  | Ty.isActiveClassType  t = ponyTraceactor var
-  | Ty.isSharedClassType  t = ponyTraceactor var
-  | Ty.isPassiveClassType t = ponyTraceobject var $ classTraceFnName t
-  | Ty.isCapabilityType t = traceCapability var
-  | Ty.isTraitType      t = traceCapability var
-  | Ty.isFutureType     t = ponyTraceobject var futureTraceFn
-  | Ty.isArrowType      t = ponyTraceobject var closureTraceFn
-  | Ty.isArrayType      t = ponyTraceobject var arrayTraceFn
-  | Ty.isStreamType     t = ponyTraceobject var streamTraceFn
-  | Ty.isTypeVar        t = traceTypeVar t var
+  | Ty.isActiveClassType t  = traceActor var
+  | Ty.isSharedClassType t  = traceActor var
+  | Ty.isPassiveClassType t = traceObject var $ classTraceFnName t
+  | Ty.isCapabilityType t   = traceCapability var
+  | Ty.isTraitType t        = traceCapability var
+  | Ty.isFutureType t       = traceObject var futureTraceFn
+  | Ty.isArrowType t        = traceObject var closureTraceFn
+  | Ty.isArrayType t        = traceObject var arrayTraceFn
+  | Ty.isStreamType t       = traceObject var streamTraceFn
+  | Ty.isTypeVar t          = traceTypeVar t var
+  | Ty.isCType t            = trace var -- Assume C data contains no pointers
   | otherwise =
     Embed $ "/* Not tracing field '" ++ show var ++ "' */"
 
-ponyTraceactor :: CCode Lval -> CCode Stat
-ponyTraceactor var =
+trace :: CCode Lval -> CCode Stat
+trace var =
+  Statement $ Call ponyTrace [encoreCtxVar, var]
+
+traceActor :: CCode Lval -> CCode Stat
+traceActor var =
   Statement $ Call ponyTraceActor  [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) var]
 
-ponyTraceobject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Stat
-ponyTraceobject var f =
+traceObject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Stat
+traceObject var f =
   let
     toExpr :: (UsableAs e Expr) => CCode e -> CCode Expr
     toExpr e@(Nam _) = AsExpr . AsLval $ e
