@@ -60,11 +60,11 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
            let actualPattern = if length pattern == 1 then
                                  head pattern
                                else
-                                 Tuple{emeta = Meta.meta pos, args = map desugar pattern}
+                                 Tuple{emeta = Meta.meta pos, args = pattern}
            in MatchClause{mcmeta = Meta.meta pos,
-                          mcpattern = desugar actualPattern,
-                          mchandler = desugar handler,
-                          mcguard = desugar guard}
+                          mcpattern = actualPattern,
+                          mchandler = handler,
+                          mcguard = guard}
               :(makeClauses patterns handlers guards pos)
         
     desugarTrait t@Trait{tmethods}=

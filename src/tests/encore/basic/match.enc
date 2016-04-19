@@ -14,10 +14,10 @@ def expectEven(Odd(a) :IntContainer) :void
   print "correct"
 
 def printMaybe((Just (x)) :Maybe int) :void
-  print("Just {}\n")
+  print("Just {}\n", x)
   | printMaybe(Nothing :Maybe int) :void
   print "Nothing"
-  
+
 def testHigherOrderExprInMatchingFunctionHead() :void
   printMaybe(Just (3))
   
