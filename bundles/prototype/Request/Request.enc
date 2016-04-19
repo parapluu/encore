@@ -17,10 +17,11 @@ embed
 #define BUF_SIZE 4096
 #define MES_SIZE 4096
 
+void error(const char* msg) __attribute__ ((noreturn));
 
-int request(int socket, char *message);
-int receive(char **response, int socket, int buffer_size);
-char* getResponse(char *host, int port, char *path);
+char* getResponse(const char *host, const uint16_t port, const char *path);
+ssize_t request(int socket, char *message);
+ssize_t receive(char **response, int socket, const size_t buffer_size);
 
 body
 
@@ -29,7 +30,7 @@ void error(const char* msg) {
     exit(-1);
 }
 
-char* getResponse(char *host, int port, char *path) {
+char* getResponse(const char *host, const uint16_t port, const char *path) {
 
     struct hostent *server;
     struct sockaddr_in serv_addr;
@@ -68,32 +69,34 @@ char* getResponse(char *host, int port, char *path) {
     return response;
 }
 
-int request(int socket, char *message) {
-    int total = strlen(message);
-    int sent = 0;
+ssize_t request(int socket, char *message) {
+    size_t total = strlen(message);
+    size_t sent = 0;
 
-    int bytes;
+    ssize_t bytes;
     do {
         bytes = write(socket, message + sent, total - sent);
         if (bytes < 0)
             return bytes;
+
         if (bytes == 0)
             return 0;
+
         sent += bytes;
     } while (sent < total);
 
     return 0;
 }
 
-int receive(char **response, int socket, int buffer_size) {
-    int received = 0;
+ssize_t receive(char **response, int socket, const size_t buffer_size) {
+    size_t received = 0;
 
     // Allocate the buffer and result
-    int result_size = buffer_size + 1;
+    size_t result_size = buffer_size + 1;
     char buffer[buffer_size];
     char *result = (char *) encore_alloc(encore_ctx(), result_size);
 
-    int bytes;
+    ssize_t bytes;
     do {
         bytes = read(socket, buffer, buffer_size);
 
@@ -111,7 +114,7 @@ int receive(char **response, int socket, int buffer_size) {
         received += bytes;
 
         // Increase buffer size if necessary
-        int remaining = result_size - received - 1; // Room for null terminator
+        size_t remaining = result_size - received - 1; // Room for null terminator
         if (remaining < buffer_size) {
             result_size += buffer_size;
             result = (char *) encore_realloc(encore_ctx(), result, result_size);
