@@ -69,20 +69,14 @@ passive class File {
   def readlineChar() : embed char* end {
     let f = this.file;
     embed (embed char* end)
-      char* line = encore_alloc(_ctx,255);
-      char* res  = fgets(line, 255, #{f});
-      if (res==NULL) line = (char*)NULL;
+      char* line = encore_alloc(_ctx,255);      
+      fgets(line, 255, #{f});
       line;
     end;
   }
 
   def eof() : bool {
     let f = this.file;
-    embed bool
-      bool res = true;
-      if (ungetc(fgetc(#{f}),#{f})==EOF) res = false;
-      else res = true;
-      res;
-    end;
+    embed bool feof(#{f}); end
   }
 }

@@ -14,7 +14,7 @@ class Main
 
     -- Test read file
     f.open(file,"r");
-    while (f.eof()) {
+    while (not f.eof()) {
       print("{}", f.readline());
     };
     f.close();
