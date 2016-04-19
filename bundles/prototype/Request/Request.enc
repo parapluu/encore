@@ -18,9 +18,9 @@ embed
 #define MES_SIZE 4096
 
 
-char* getRequest(char *host, int port, char *path);
 int request(int socket, char *message);
 int receive(char **response, int socket, int buffer_size);
+char* getResponse(char *host, int port, char *path);
 
 body
 
@@ -29,7 +29,7 @@ void error(const char* msg) {
     exit(-1);
 }
 
-char* getRequest(char *host, int port, char *path) {
+char* getResponse(char *host, int port, char *path) {
 
     struct hostent *server;
     struct sockaddr_in serv_addr;
@@ -105,7 +105,7 @@ int receive(char **response, int socket, int buffer_size) {
         if (bytes < 0) {
             return bytes;
         }
-        
+
         // Update result
         memcpy(result + received, buffer, bytes);
         received += bytes;
@@ -138,10 +138,8 @@ class Request {
     let pathData = path.data;
     let response = embed
       (embed char* end)
-      char *a = getRequest(#{hostData}, #{port}, #{pathData});
-      char *b = encore_alloc(_ctx, strlen(a)+1);
-      strcpy(b, a);
-      b;
+      char *res = getResponse(#{hostData}, #{port}, #{pathData});
+      res;
     end;
     let s = new String(response);
     let res = new Response(s);
@@ -151,9 +149,9 @@ class Request {
 
 
 passive class Response {
-  
+
   raw : String
-  
+
   def init(s : String) : void {
     this.raw = s;
   }
