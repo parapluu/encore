@@ -1000,3 +1000,17 @@ will proceed to check the next clause. The following code demonstrates how to us
          x when x > 0 => print("{} is positive", x)
          x => print("{} is zero", x)
 }|
+
+@subsection{Multi-headed functions}
+Encore also allow you to use pattern-matching when defining functions, methods and streams.
+However, anonymous functions do not support patterns directly in the function head.
+@codeblock|{
+     def myFactorial(0 : int) : int {
+       1
+     }\| myFactorial(n : int) : int {
+       n * myFactorial(n-1)
+     }
+}|
+
+One limitation of the current implementation is that you have to declare the type of the function
+in every function head, even though the type has to be the same for all clauses.
