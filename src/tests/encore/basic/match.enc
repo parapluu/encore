@@ -13,6 +13,14 @@ def expectEven(Odd(a) :IntContainer) :void
   | expectEven(Even(b) :IntContainer) :void
   print "correct"
 
+def printMaybe((Just (x)) :Maybe int) :void
+  print("Just {}\n")
+  | printMaybe(Nothing :Maybe int) :void
+  print "Nothing"
+  
+def testHigherOrderExprInMatchingFunctionHead() :void
+  printMaybe(Just (3))
+  
 passive class IntContainer
   elem :int
 
@@ -141,6 +149,7 @@ class Main {
     this.matchingOnFunctionHead();
     this.objectPatternsInFunctionHead();
     this.matchingOnStreamHead();
-    testGuardInFunctionHead("correct")
+    testGuardInFunctionHead("correct");
+    testHigherOrderExprInMatchingFunctionHead()
   }
 }

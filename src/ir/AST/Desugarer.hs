@@ -41,7 +41,7 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
           emeta = Meta.meta pos
           body = Match{emeta, arg, clauses}
       in
-       (header, desugar body)
+       (header, desugarExpr body)
       where
          makeHeader (MatchFunctionHeader{hname, htype}) hparams =
            FunctionHeader{hname, htype, hparams}
@@ -53,8 +53,6 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
          makeParams [] [] _ = []
          makeParams (name:names) (typ:types) pos =
            Param{pmeta = Meta.meta pos, pname = name, ptype = typ}:(makeParams names types pos)
-           
-         stdGuard emeta = BTrue {emeta}
          
          makeClauses [] [] [] _ =
            []

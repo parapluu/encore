@@ -237,19 +237,20 @@ streamMethodHeader = do
   return StreamMethodHeader{hname, hparams, htype}
 
 guard :: Parser Expr
-guard = do reserved "when"
-           expression
+guard = do
+  reserved "when"
+  expression
 
 matchHeader = do
-  do hname <- Name <$> identifier
-     args <- parens (commaSep patternParamDecl)
-     colon
-     htype <- typ
-     posGuard <- getPosition
-     hguard <- option (BTrue (meta posGuard)) guard
-     let hpatterns = map fst args
-         hparamtypes = map snd args
-     return (hname, hpatterns, hparamtypes, htype, hguard)  
+   hname <- Name <$> identifier
+   args <- parens (commaSep patternParamDecl)
+   colon
+   htype <- typ
+   posGuard <- getPosition
+   hguard <- option (BTrue (meta posGuard)) guard
+   let hpatterns = map fst args
+       hparamtypes = map snd args
+   return (hname, hpatterns, hparamtypes, htype, hguard)  
 
 matchFunctionHeader :: Parser FunctionHeader
 matchFunctionHeader = do
@@ -407,7 +408,7 @@ paramDecl = do pos <- getPosition
 
 patternParamDecl :: Parser (Expr, Type)
 patternParamDecl = do
-  x <- expr
+  x <- highOrderExpr
   colon
   ty <- typ
   return $ (x, ty)

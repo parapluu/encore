@@ -119,10 +119,16 @@ ppFunctionHeader header =
     parens (commaSep (map ppParamDecl (hparams header))) <+>
     text ":" <+> ppType (htype header)
 
-ppFunction :: Function -> Doc
-ppFunction Function {funheader, funbody} =
+ppFunctionHelper :: FunctionHeader -> Expr -> Doc
+ppFunctionHelper funheader funbody =
     text "def" <+> ppFunctionHeader funheader $+$
         indent (ppExpr funbody)
+
+ppFunction :: Function -> Doc
+ppFunction Function {funheader, funbody} =
+    ppFunctionHelper funheader funbody
+ppFunction MatchingFunction {matchfunheaders, matchfunbodies} =
+    foldr ($+$) (text "") (zipWith ppFunctionHelper matchfunheaders matchfunbodies)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods} =
