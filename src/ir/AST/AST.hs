@@ -107,6 +107,9 @@ setHeaderType ty h = h{htype = ty}
 isStreamMethodHeader StreamMethodHeader{} = True
 isStreamMethodHeader _ = False
 
+isFunctionHeader FunctionHeader {} = True
+isFunctionHeader _ = False
+
 data Function = Function {
   funmeta   :: Meta Function,
   funheader :: FunctionHeader,

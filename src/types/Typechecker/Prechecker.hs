@@ -67,10 +67,19 @@ instance Precheckable ImportDecl where
       error "Prechecker.hs: Import AST Nodes should not exist during typechecking"
 
 instance Precheckable FunctionHeader where
-    doPrecheck header = do
-      htype' <- resolveType (htype header)
-      hparams' <- mapM precheck (hparams header)
-      return $ header{htype = htype', hparams = hparams'}
+    doPrecheck header
+      | isFunctionHeader header = do
+          assertDistinctness
+          commonFunction header
+      | otherwise = commonFunction header
+      where
+        assertDistinctness = do
+          assertDistinctThing "declaration" "type parameter" (hpparams header)
+
+        commonFunction header = do
+          htype' <- resolveType (htype header)
+          hparams' <- mapM precheck (hparams header)
+          return $ header{htype = htype', hparams = hparams'}
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do
