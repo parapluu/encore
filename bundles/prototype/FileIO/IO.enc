@@ -82,11 +82,6 @@ passive class File {
 
   def eof() : bool {
     let f = this.file;
-    embed bool
-      bool res = true;
-      if (ungetc(fgetc(#{f}),#{f})==EOF) res = false;
-      else res = true;
-      res;
-    end;
+    embed bool feof(#{f}); end
   }
 }
