@@ -125,6 +125,8 @@ data FunctionHeader =
         hguard      :: Expr
     }deriving(Eq, Show)
 
+isFunctionHeader Header {} = True
+isFunctionHeader _ = False
 
 setHeaderType ty h = h{htype = ty}
 
