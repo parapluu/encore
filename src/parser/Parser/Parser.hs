@@ -398,15 +398,15 @@ expression = buildExpressionParser opTable highOrderExpr
     where
       opTable = [
                  [arrayAccess],
-                 [textualPrefix "not" Identifiers.NOT],
-                 [textualOperator "and" Identifiers.AND,
-                  textualOperator "or" Identifiers.OR],
                  [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
+                 [textualPrefix "not" Identifiers.NOT],
+                 [textualOperator "and" Identifiers.AND,
+                  textualOperator "or" Identifiers.OR],
                  [messageSend],
                  [partyLiftf, partyLiftv, partyEach],
                  [typedExpression],
