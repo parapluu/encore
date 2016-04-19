@@ -43,16 +43,12 @@ passive class File {
   -----------------------------------
   -- Write to file.
   -----------------------------------
-  def write(fout:String, content:String) : void {
-    this.writeChar(fout, content.data);
+  def write(content:String) : void {
+    this.writeChar(content.data);
   }
 
-  def writeChar(fout:String, content:embed char* end) : void {
-    let 
-      fout1 = fout.data 
-      mode  = this.mode.data
-      file  = this.file
-    in
+  def writeChar(content:embed char* end) : void {
+    let file  = this.file;
     embed void
       FILE *fout = #{file};
       if (!fout) {
@@ -82,6 +78,11 @@ passive class File {
 
   def eof() : bool {
     let f = this.file;
-    embed bool feof(#{f}); end
+    embed bool
+      bool res = true;
+      if (ungetc(fgetc(#{f}),#{f})==EOF) res = false;
+      else res = true;
+      res;
+    end;
   }
 }

@@ -9,13 +9,13 @@ class Main
 
     -- Test write file
     f.open(file,"w");
-    f.write(file,msg);
+    f.write(msg);
     f.close();
 
     -- Test read file
     f.open(file,"r");
     while (f.eof()) {
-      print("{}",f.readline());
+      print("{}", f.readline());
     };
     f.close();
   }
