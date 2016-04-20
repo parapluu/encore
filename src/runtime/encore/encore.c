@@ -356,6 +356,13 @@ void *encore_alloc(pony_ctx_t *ctx, size_t s)
   return mem;
 }
 
+void *encore_realloc(pony_ctx_t *ctx, void* p, size_t s)
+{
+    void *mem = pony_realloc(ctx, p, s);
+
+    return mem;
+}
+
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type)
 {

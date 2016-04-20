@@ -134,6 +134,17 @@ void *encore_alloc(pony_ctx_t *ctx, size_t s);
 #define encore_alloc(ctx,size) calloc(size,1)
 #endif
 
+/*
+ * Reallocate memory. It has to be manually zeroed since we cannot do
+ * arithmetic on void pointers. Example:
+ *
+ * int *a = encore_alloc(encore_ctx(), 4*sizeof(int)); //This is zeroed memory
+ * a = encore_realloc(encore_ctx(), a, 8*sizeof(int)); //This is only half zeroed
+ * memset(a + 4, 0, 8-4); // Zero the remaining
+ *
+ */
+void *encore_realloc(pony_ctx_t *ctx, void *p, size_t s);
+
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
 
