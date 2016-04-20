@@ -540,6 +540,30 @@ isStringLiteral :: Expr -> Bool
 isStringLiteral StringLiteral {} = True
 isStringLiteral _ = False
 
+isPrimitiveLiteral :: Expr -> Bool
+isPrimitiveLiteral Skip{}          = True
+isPrimitiveLiteral BTrue{}         = True
+isPrimitiveLiteral BFalse{}        = True
+isPrimitiveLiteral StringLiteral{} = True
+isPrimitiveLiteral NewWithInit{ty} = isStringObjectType ty
+isPrimitiveLiteral CharLiteral{}   = True
+isPrimitiveLiteral IntLiteral{}    = True
+isPrimitiveLiteral RealLiteral{}   = True
+isPrimitiveLiteral Unary{uop = NEG, operand} = isPrimitiveLiteral operand
+isPrimitiveLiteral _ = False
+
+isPattern :: Expr -> Bool
+isPattern TypedExpr{body} = isPattern body
+isPattern FunctionCall{} = True
+isPattern MaybeValue{mdt = JustData{e}} = isPattern e
+isPattern MaybeValue{mdt = NothingData} = True
+isPattern Tuple{args} = all isPattern args
+isPattern VarAccess{} = True
+isPattern Null{} = True
+isPattern e
+    | isPrimitiveLiteral e = True
+    | otherwise = False
+
 instance HasMeta Expr where
     getMeta = emeta
     setMeta e m = e{emeta = m}

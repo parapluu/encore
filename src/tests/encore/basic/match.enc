@@ -1,147 +1,147 @@
-def fac(0 :int) :int
+def fac(0 : int) : int
   1
-  | fac(n :int) :int
+  | fac(n : int) : int
   n * fac(n-1)
 
-def testGuardInFunctionHead(x :String) :void when false
+def testGuardInFunctionHead(x : String) : void when false
   print "error"
-  | testGuardInFunctionHead(x :String) :void when true
+  | testGuardInFunctionHead(x : String) : void when true
   print x
-  
-def expectEven(Odd(a) :IntContainer) :void
+
+def expectEven(Odd(a) : IntContainer) : void
   print "error"
-  | expectEven(Even(b) :IntContainer) :void
+  | expectEven(Even(b) : IntContainer) : void
   print "correct"
 
-def printMaybe((Just (x)) :Maybe int) :void
+def printMaybe((Just (x)) : Maybe int) : void
   print("Just {}\n", x)
-  | printMaybe(Nothing :Maybe int) :void
+  | printMaybe(Nothing : Maybe int) : void
   print "Nothing"
 
-def testHigherOrderExprInMatchingFunctionHead() :void
+def testHigherOrderExprInMatchingFunctionHead() : void
   printMaybe(Just (3))
-  
-passive class IntContainer
-  elem :int
 
-  def init(x :int) :void
+passive class IntContainer
+  elem : int
+
+  def init(x : int) : void
     this.elem = x
 
-  def Even() :Maybe int{
+  def Even() : Maybe int{
     if this.elem % 2 == 0 then
       Just this.elem
     else
-      Nothing :Maybe int
+      Nothing : Maybe int
     }
 
-  def Odd() :Maybe int{
+  def Odd() : Maybe int{
     if this.elem % 2 == 1 then
       Just this.elem
     else
-      Nothing :Maybe int
+      Nothing : Maybe int
     }
 
-  
-passive class Container<t> {
-  elem :t
 
-  def init(elem :t) :void
+passive class Container<t> {
+  elem : t
+
+  def init(elem : t) : void
     this.elem = elem
 
   -- Defines an object pattern
-  def This() :Maybe Container<t>
+  def This() : Maybe Container<t>
     Just this
     }
-    
-trait Letter
-  require Letter() : Maybe String
 
-passive class A : Letter {
-  def init() :void
+trait Letter
+  require Letter() :  Maybe String
+
+passive class A :  Letter {
+  def init() : void
     ()
-  
-  def Letter() : Maybe String
+
+  def Letter() :  Maybe String
     Just "A"
 }
-    
-passive class B : Letter {
-  def init() :void
+
+passive class B :  Letter {
+  def init() : void
     ()
-    
-  def Letter() : Maybe String
+
+  def Letter() :  Maybe String
     Just "B"
     }
 
 passive class C {
-  def init() :void
+  def init() : void
     ()
 
-  def foo(0 :int, "foo" :String) :void
+  def foo(0 : int, "foo" : String) : void
     print "yes"
-    | foo(x :int, bar :String) : void
+    | foo(x : int, bar : String) :  void
     print "no"
   }
 
 class NumberStreamer
-  def init() :void
+  def init() : void
     ()
 
-  stream multiples(1 :int, limit :int) :int {
+  stream multiples(1 : int, limit : int) : int {
     let i = 0 in
       while i < limit {
         yield i;
         i = i + 1;
       }
     }
-  |      multiples(n :int, limit :int) :int {
+  |      multiples(n : int, limit : int) : int {
     let i = 0 in
       while i < limit {
         yield i;
         i = i + n;
       }
-    } 	
+    }
 
-    
+
 class Main {
-  def objectPatternTestWithFailingGuard() :void
+  def objectPatternTestWithFailingGuard() : void
     match new Container<String>("foobar") with
       _ when false => print "baaaad"
       This(This(This(This(c)))) => print c.elem
 
-  def valueVariableTuplePatternsTestWithFailingGuard() :void
+  def valueVariableTuplePatternsTestWithFailingGuard() : void
     match (1, 2, "123") with
       (a, b, "123") when a > b => print "nope"
       (1, b, "123") => print("{}{}123\n", 1, b)
-      
-  def evaluatesToTraitTest() :Letter{
+
+  def evaluatesToTraitTest() : Letter{
     -- Just to test the typechecker
     match 1 with
-      2 => new A() :Letter
+      2 => new A() : Letter
       1 => new B()
   }
-     
-  def matchingOnMethodHead() :void {
+
+  def matchingOnMethodHead() : void {
     (new C()).foo(0, "foo"); -- Matches first clause
     (new C()).foo(0, "bar")  -- Matches last clause
   }
 
-  def matchingOnFunctionHead() :void
+  def matchingOnFunctionHead() : void
     print fac(5)
 
-  def matchingOnStreamHead() :void
-    let x = new NumberStreamer 
+  def matchingOnStreamHead() : void
+    let x = new NumberStreamer
         evens = x.multiples(2, 10)
     in{
       while (not eos evens) {
         print get evens;
-	evens = getNext evens
+        evens = getNext evens
       }
     }
-    
-  def objectPatternsInFunctionHead() :void
+
+  def objectPatternsInFunctionHead() : void
     expectEven(new IntContainer(4))
-    
-  def main() :void {
+
+  def main() : void {
     this.objectPatternTestWithFailingGuard();
     this.valueVariableTuplePatternsTestWithFailingGuard();
     this.evaluatesToTraitTest();

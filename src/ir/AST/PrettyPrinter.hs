@@ -201,7 +201,10 @@ ppExpr Let {decls, body} =
       indent (ppExpr body)
 ppExpr MiniLet {decl = (x, val)} =
     ppLet <+> ppName x <+> equals <+> ppExpr val
-ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
+ppExpr Seq {eseq = [expr]} =
+    ppExpr expr
+ppExpr Seq {eseq} =
+    braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
@@ -229,6 +232,8 @@ ppExpr Match {arg, clauses} =
     ppMatch <+> ppExpr arg <+> text "with" $+$
          ppMatchClauses clauses
     where
+      ppClause (MatchClause {mcpattern, mchandler, mcguard = BTrue{}}) =
+        indent (ppExpr mcpattern <+> text "=>" <+> ppExpr mchandler)
       ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
         indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+> text "=>" <+> ppExpr mchandler)
       ppMatchClauses = foldr (($+$) . ppClause) (text "")

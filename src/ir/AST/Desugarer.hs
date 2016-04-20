@@ -23,19 +23,19 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
           pos = Meta.getPos $ getMeta $ head $ hpatterns oldHeader
           emeta = Meta.meta pos
           paramTypes = hparamtypes oldHeader
-          paramNames = map (Name . ("_match" ++) . show) [0..]
+          maxLen = maximum $ map (length . hpatterns) headers
+          paramNames = case List.find (isCatchAll maxLen) headers of
+                         Just header -> map name (hpatterns header)
+                         Nothing -> map (Name . ("_match" ++) . show) [0..]
 
           accesses = take (length paramTypes) $
                           map (VarAccess emeta) paramNames
-          arg = if length paramTypes == 1 then
-                  head accesses
-                else
-                  Tuple{emeta, args = accesses}
+          arg = Tuple{emeta, args = accesses}
 
-          patterns = map hpatterns headers
+          patterns = map getPattern headers
           handlers = bodies
           guards = map hguard headers
-          clauses = zipWith3 (makeClause pos) patterns handlers guards
+          clauses = zipWith3 makeClause patterns handlers guards
 
           newParams = zipWith (makeParam pos) paramNames paramTypes
 
@@ -45,6 +45,21 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
       in
        (header, desugarExpr body)
       where
+         isCatchAll len header =
+             let patterns = hpatterns header
+             in length patterns == len && all isVarAccess patterns
+         isVarAccess VarAccess{} = True
+         isVarAccess _ = False
+
+         getPattern header =
+             let patterns = hpatterns header
+                 types = hparamtypes header
+                 typePattern body ty =
+                     let emeta = Meta.meta . Meta.getPos . getMeta $ body
+                     in TypedExpr{emeta, body, ty}
+             in
+               zipWith typePattern patterns types
+
          makeHeader (MatchFunctionHeader{hname, htype}) hparams =
            FunctionHeader{hname, htype, hparams}
          makeHeader (MatchMethodHeader{hname, htype}) hparams =
@@ -55,11 +70,12 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
          makeParam pos pname ptype =
            Param{pmeta = Meta.meta pos, pname, ptype}
 
-         makeClause pos pattern mchandler mcguard =
-           let actualPattern = if length pattern == 1 then
-                                 head pattern
-                               else
-                                 Tuple{emeta = Meta.meta pos, args = pattern}
+         makeClause pattern mchandler mcguard =
+           let pos = if null pattern
+                     then Meta.getPos . getMeta $ mcguard
+                     else Meta.getPos . getMeta . head $ pattern
+               emeta = Meta.meta pos
+               actualPattern = Tuple{emeta, args = pattern}
            in MatchClause{mcmeta = Meta.meta pos,
                           mcpattern = actualPattern,
                           mchandler,
@@ -70,8 +86,11 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
     desugarImports f@(PulledImport{iprogram}) =
       f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
-    desugarFunction f@(MatchingFunction{funmeta, matchfunheaders, matchfunbodies}) =
-      let (funheader, funbody) = desugarFunctionHeadMatch matchfunheaders matchfunbodies
+    desugarFunction f@(MatchingFunction{funmeta
+                                       ,matchfunheaders
+                                       ,matchfunbodies}) =
+      let (funheader, funbody) = desugarFunctionHeadMatch
+                                   matchfunheaders matchfunbodies
       in Function{funmeta, funheader, funbody}
 
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}

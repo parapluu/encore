@@ -521,8 +521,6 @@ instance Checkable Expr where
     -- ---------------------------------
     -- E |- (arg1, .., argn) : (ty1, .., tyn)
     doTypecheck tuple@(Tuple {args}) = do
-      when (null args) $
-        tcError "Tuple literal must have at least one element"
       eArgs <- mapM typecheck args
       let argTypes = map AST.getType eArgs
       return $ setType (tupleType argTypes) tuple{args = eArgs}
@@ -654,7 +652,7 @@ instance Checkable Expr where
         checkAllHandlersSameType (clause:clauses) = do
           let ty = AST.getType $ mchandler clause
               types = map (AST.getType . mchandler) clauses
-          mapM (\t -> assertSubtypeOf t ty) types
+          mapM_ (`assertSubtypeOf` ty) types
           return ty
 
         getPatternVars pt va@(VarAccess {name}) = return [(name, pt)]
@@ -693,9 +691,16 @@ instance Checkable Expr where
           varLists <- zipWithM getPatternVars elemTypes args
           return $ concat $ reverse varLists
 
+        getPatternVars pt typed@(TypedExpr {body}) =
+          getPatternVars pt body
+
         getPatternVars pt pattern = return []
 
-        checkPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
+        checkPattern pattern argty =
+            local (pushBT pattern) $
+              doCheckPattern pattern argty
+
+        doCheckPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
           header <- findMethod argty name
           let hType = htype header
               extractedType = getResultType hType
@@ -703,12 +708,12 @@ instance Checkable Expr where
           matchArgumentLength argty header []
           return $ setType extractedType pattern {args = [eArg]}
 
-        checkPattern pattern@(FunctionCall {name, args}) argty = do
+        doCheckPattern pattern@(FunctionCall {name, args}) argty = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
           checkPattern (pattern {args = [tupArg]}) argty
 
-        checkPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
+        doCheckPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
             tcError $ "Pattern '" ++ show (ppSugared pattern) ++
                       "' does not match expected type '" ++ show argty ++ "'"
@@ -716,7 +721,7 @@ instance Checkable Expr where
           eExpr <- checkPattern e innerType
           return $ setType argty (pattern {mdt = JustData {e = eExpr}})
 
-        checkPattern pattern@(Tuple{args = args}) tupty = do
+        doCheckPattern pattern@(Tuple{args}) tupty = do
           let argTypes = getArgTypes tupty
           unless (length argTypes == length args) $
             tcError $ "Pattern '" ++ show (ppSugared pattern) ++
@@ -725,7 +730,18 @@ instance Checkable Expr where
           eArgs <- zipWithM checkPattern args argTypes
           return $ setType tupty (pattern {args=eArgs})
 
-        checkPattern pattern argty = hasType pattern argty
+        doCheckPattern pattern@(TypedExpr{body, ty}) argty = do
+          eBody <- checkPattern body argty
+          ty' <- resolveType ty
+          unless (ty' == argty) $
+            tcError $ "Type '" ++ show ty' ++
+                      "' does not match expected type '" ++ show argty ++ "'"
+          return $ setType ty' eBody
+
+        doCheckPattern pattern argty
+            | isPattern pattern = hasType pattern argty
+            | otherwise = tcError $ "'" ++ show (ppSugared pattern) ++
+                                    "' is not a valid pattern"
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
                       vars <- getPatternVars pt mcpattern
