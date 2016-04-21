@@ -77,6 +77,13 @@ static inline void set_par_future(future_t * const fut,
   par->data.fut = fut;
 }
 
+static inline void set_par_future_par(future_t * const fut,
+                                      void * __attribute__((unused)) null,
+                                      par_t *par){
+  assert(par->tag == FUTUREPAR_PAR);
+  par->data.fut = fut;
+}
+
 static inline void set_par_par(par_t * const rpar, par_t * const lpar,
                                par_t * const par){
   switch(par->tag){
@@ -197,7 +204,7 @@ par_t* new_par_p(pony_ctx_t* ctx, par_t* p1, par_t* p2,
 
 par_t* new_par_fp(pony_ctx_t* ctx, future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, FUTUREPAR_PAR, rtype);
-  set_par_future(f, NULL, p);
+  set_par_future_par(f, NULL, p);
   return p;
 }
 
@@ -327,7 +334,8 @@ par_t* party_sequence(pony_ctx_t* ctx, par_t* const p, closure_t* const f,
 // Forward declaration of party_join
 par_t* party_join(pony_ctx_t* ctx, par_t* const p);
 
-static inline par_t* party_join_v(pony_ctx_t* ctx, par_t* const p){
+static inline par_t* party_join_v(pony_ctx_t* __attribute__((unused)) ctx,
+                                  par_t* const p){
    return ((par_t*)p->data.val.p);
 }
 
@@ -439,7 +447,8 @@ static inline array_t* list_to_array(list_t* const list,
   return arr;
 }
 
-array_t* party_extract(pony_ctx_t* ctx, par_t * const p, pony_type_t const * const type){
+array_t* party_extract(pony_ctx_t* __attribute__((unused)) ctx,
+                       par_t * const p, pony_type_t const * const type){
   list_t *list = NULL;
   list_t* const tmp_list = extract_helper(list, p, type);
 
