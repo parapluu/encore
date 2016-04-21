@@ -62,6 +62,7 @@ module Types(
             ,isPrimitive
             ,isNumeric
             ,getArgTypes
+            ,setArgTypes
             ,getResultType
             ,getId
             ,getTypeParameters
@@ -195,6 +196,8 @@ setResultType ty res
   | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
 getArgTypes = argTypes
+setArgTypes ty argTypes = ty{argTypes}
+
 getResultType ty
     | hasResultType ty = resultType ty
     | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
@@ -314,7 +317,7 @@ typeComponents arr@(ArrayType ty)  =
 typeComponents maybe@(MaybeType ty) =
     maybe : typeComponents ty
 typeComponents tuple@(TupleType{argTypes}) =
-    tuple : (concatMap typeComponents argTypes)
+    tuple : concatMap typeComponents argTypes
 typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters

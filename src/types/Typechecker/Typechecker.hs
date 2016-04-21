@@ -306,7 +306,7 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
       checkHasType expr ty =
           do eExpr <- doTypecheck expr
              let exprType = AST.getType eExpr
-             resultType <- coerce ty exprType
+             resultType <- exprType `coercedInto` ty
              assertSubtypeOf resultType ty
              let result = propagateResultType resultType eExpr
              return $ setType resultType result
@@ -614,7 +614,10 @@ instance Checkable Expr where
            let thnType = AST.getType eThn
                elsType = AST.getType eEls
            resultType <- matchBranches thnType elsType
-           return $ setType resultType ifThenElse {cond = eCond, thn = setType resultType eThn, els = setType resultType eEls}
+           return $ setType resultType ifThenElse {cond = eCond
+                                                  ,thn = setType resultType eThn
+                                                  ,els = setType resultType eEls
+                                                  }
         where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
@@ -623,11 +626,14 @@ instance Checkable Expr where
                 (isRefType ty2 || isCapabilityType ty2) = return ty2
               | isNullType ty2 &&
                 (isRefType ty1 || isCapabilityType ty1) = return ty1
-              | otherwise = if ty2 == ty1
-                            then return ty1
-                            else tcError $ "Type mismatch in different branches of if-statement:\n" ++
-                                           "  then:  " ++ show ty1 ++ "\n" ++
-                                           "  else:  " ++ show ty2
+              | any isBottomType (typeComponents ty1) = ty1 `coercedInto` ty2
+              | any isBottomType (typeComponents ty2) = ty2 `coercedInto` ty1
+              | otherwise =
+                  if ty2 == ty1
+                  then return ty1
+                  else tcError $ "Type mismatch in different branches of if-statement:\n" ++
+                                 "  then:  " ++ show ty1 ++ "\n" ++
+                                 "  else:  " ++ show ty2
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
@@ -649,11 +655,17 @@ instance Checkable Expr where
         resultType <- checkAllHandlersSameType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses}
       where
-        checkAllHandlersSameType (clause:clauses) = do
-          let ty = AST.getType $ mchandler clause
-              types = map (AST.getType . mchandler) clauses
-          mapM_ (`assertSubtypeOf` ty) types
-          return ty
+        checkAllHandlersSameType clauses =
+          case find (hasKnownType . mchandler) clauses of
+            Just clause -> do
+              let ty = AST.getType $ mchandler clause
+                  types = map (AST.getType . mchandler) clauses
+              mapM_ (`assertSubtypeOf` ty) types
+              return ty
+            Nothing ->
+              tcError "Cannot infer result type of match expression"
+
+        hasKnownType = all (not . isBottomType) . typeComponents . AST.getType
 
         getPatternVars pt pattern =
             local (pushBT pattern) $
@@ -1207,26 +1219,32 @@ coerceNull null ty
         tcError $ "Null valued expression cannot have type '" ++
                   show ty ++ "' (must have reference type)"
 
-coerce :: Type -> Type -> TypecheckM Type
-coerce expected actual
+coercedInto :: Type -> Type -> TypecheckM Type
+coercedInto actual expected
   | hasResultType expected && hasResultType actual = do
-       resultType <- coerce (getResultType expected) (getResultType actual)
-                     `catchError` (\_ -> tcError $ "Type '" ++ show actual ++
-                                         "' does not match expected type '" ++
-                                         show expected ++ "'")
-       return $ setResultType actual resultType
+      resultType <- getResultType actual `coercedInto` getResultType expected
+      return $ setResultType actual resultType
+  | isTupleType actual && isTupleType expected = do
+      let actualArgTypes = getArgTypes actual
+          expectedArgTypes = getArgTypes expected
+      argTypes <- zipWithM coercedInto actualArgTypes expectedArgTypes
+      return $ setArgTypes actual argTypes
   | isNullType actual = do
-      when (isNullType expected || isTypeVar expected) $
+      when (isNullType expected) $
         tcError "Cannot infer type of null valued expression"
       unless (canBeNull expected) $
         tcError $ "Null valued expression cannot have type '" ++
         show actual ++ "' (must have reference type)"
       return expected
   | isBottomType actual = do
-      when (isBottomType expected) $
+      when (any isBottomType $ typeComponents expected) $
         tcError "Cannot infer type of 'Nothing'"
       return expected
-  | otherwise = return actual
+  | isBottomType expected =
+      tcError "Cannot infer type of 'Nothing'"
+  | otherwise = do
+      actual `assertSubtypeOf` expected
+      return actual
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||
