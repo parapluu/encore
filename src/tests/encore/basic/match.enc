@@ -1,22 +1,26 @@
-def fac(0 : int) : int
+def fac(0 : int) : int {
   1
-  | fac(n : int) : int
+} | fac(n : int) : int {
   n * fac(n-1)
+}
 
-def testGuardInFunctionHead(x : String) : void when false
+def testGuardInFunctionHead(x : String) : void when false {
   print "error"
-  | testGuardInFunctionHead(x : String) : void when true
+} | testGuardInFunctionHead(x : String) : void when true {
   print x
+}
 
-def expectEven(Odd(a) : IntContainer) : void
+def expectEven(Odd(a) : IntContainer) : void {
   print "error"
-  | expectEven(Even(b) : IntContainer) : void
+} | expectEven(Even(b) : IntContainer) : void {
   print "correct"
+}
 
-def printMaybe((Just (x)) : Maybe int) : void
+def printMaybe((Just (x)) : Maybe int) : void {
   print("Just {}\n", x)
-  | printMaybe(Nothing : Maybe int) : void
+} | printMaybe(Nothing : Maybe int) : void {
   print "Nothing"
+}
 
 def testHigherOrderExprInMatchingFunctionHead() : void
   printMaybe(Just (3))
@@ -40,7 +44,6 @@ passive class IntContainer
     else
       Nothing : Maybe int
     }
-
 
 passive class Container<t> {
   elem : t
@@ -100,7 +103,6 @@ class NumberStreamer
         i = i + n;
       }
     }
-
 
 class Main {
   def objectPatternTestWithFailingGuard() : void

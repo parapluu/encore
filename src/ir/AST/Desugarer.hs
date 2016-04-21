@@ -43,43 +43,38 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
 
           body = Match{emeta, arg, clauses}
       in
-       (header, desugarExpr body)
+        (header, desugarExpr body)
       where
-         isCatchAll len header =
-             let patterns = hpatterns header
-             in length patterns == len && all isVarAccess patterns
-         isVarAccess VarAccess{} = True
-         isVarAccess _ = False
+        isCatchAll len header =
+            let patterns = hpatterns header
+            in length patterns == len && all isVarAccess patterns
+        isVarAccess VarAccess{} = True
+        isVarAccess _ = False
 
-         getPattern header =
-             let patterns = hpatterns header
-                 types = hparamtypes header
-                 typePattern body ty =
-                     let emeta = Meta.meta . Meta.getPos . getMeta $ body
-                     in TypedExpr{emeta, body, ty}
-             in
-               zipWith typePattern patterns types
+        getPattern header =
+            let patterns = hpatterns header
+                types = hparamtypes header
+                typePattern body ty =
+                    let emeta = Meta.meta . Meta.getPos . getMeta $ body
+                    in TypedExpr{emeta, body, ty}
+            in
+              zipWith typePattern patterns types
 
-         makeHeader (MatchFunctionHeader{hname, htype}) hparams =
-           FunctionHeader{hname, htype, hparams}
-         makeHeader (MatchMethodHeader{hname, htype}) hparams =
-           MethodHeader{hname, htype, hparams}
-         makeHeader (MatchStreamHeader{hname, htype}) hparams =
-           StreamMethodHeader{hname, htype, hparams}
+        makeHeader (MatchingHeader{kind, hname, htype}) hparams =
+          Header{kind, hname, htype, hparams}
 
-         makeParam pos pname ptype =
-           Param{pmeta = Meta.meta pos, pname, ptype}
+        makeParam pos pname ptype =
+          Param{pmeta = Meta.meta pos, pname, ptype}
 
-         makeClause pattern mchandler mcguard =
-           let pos = if null pattern
-                     then Meta.getPos . getMeta $ mcguard
-                     else Meta.getPos . getMeta . head $ pattern
-               emeta = Meta.meta pos
-               actualPattern = Tuple{emeta, args = pattern}
-           in MatchClause{mcmeta = Meta.meta pos,
-                          mcpattern = actualPattern,
-                          mchandler,
-                          mcguard}
+        makeClause pattern mchandler mcguard =
+          let pos = if null pattern
+                    then Meta.getPos . getMeta $ mcguard
+                    else Meta.getPos . getMeta . head $ pattern
+              emeta = Meta.meta pos
+              actualPattern = Tuple{emeta, args = pattern}
+          in MatchClause{mcpattern = actualPattern,
+                         mchandler,
+                         mcguard}
 
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}

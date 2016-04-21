@@ -85,36 +85,19 @@ instance HasMeta ImportDecl where
     setType ty i =
         error "AST.hs: Cannot set the type of an ImportDecl"
 
-data FunctionHeader = FunctionHeader {
+data HeaderKind = Streaming
+                | NonStreaming
+                  deriving(Eq, Show)
+
+data FunctionHeader =
+    Header {
+        kind    :: HeaderKind,
         hname   :: Name,
         htype   :: Type,
         hparams :: [ParamDecl]
     }
-    | MethodHeader {
-        hname   :: Name,
-        htype   :: Type,
-        hparams :: [ParamDecl]
-    }
-    | StreamMethodHeader {
-        hname   :: Name,
-        htype   :: Type,
-        hparams :: [ParamDecl]
-    }
-    | MatchFunctionHeader {
-        hname       :: Name,
-        htype       :: Type,
-        hparamtypes :: [Type],
-        hpatterns   :: [Expr],
-        hguard      :: Expr
-    }
-    | MatchMethodHeader {
-        hname       :: Name,
-        htype       :: Type,
-        hparamtypes :: [Type],
-        hpatterns   :: [Expr],
-        hguard      :: Expr
-    }
-    | MatchStreamHeader {
+    | MatchingHeader {
+        kind        :: HeaderKind,
         hname       :: Name,
         htype       :: Type,
         hparamtypes :: [Type],
@@ -124,16 +107,21 @@ data FunctionHeader = FunctionHeader {
 
 setHeaderType ty h = h{htype = ty}
 
-isStreamMethodHeader StreamMethodHeader{} = True
-isStreamMethodHeader _ = False
+isStreamMethodHeader h = kind h == Streaming
 
--- MatchingFunction instances should be replaced by regular functions after desugaring
-data Function = Function {funmeta   :: Meta Function,
-                          funheader :: FunctionHeader,
-                          funbody   :: Expr}
-              | MatchingFunction {funmeta         :: Meta Function,
-                                  matchfunheaders :: [FunctionHeader],
-                                  matchfunbodies  :: [Expr]} deriving (Show)
+-- MatchingFunction instances should be replaced by regular
+-- functions after desugaring
+data Function =
+    Function {
+      funmeta   :: Meta Function,
+      funheader :: FunctionHeader,
+      funbody   :: Expr
+    }
+  | MatchingFunction {
+      funmeta         :: Meta Function,
+      matchfunheaders :: [FunctionHeader],
+      matchfunbodies  :: [Expr]
+    } deriving (Show)
 
 functionName = hname . funheader
 functionParams = hparams . funheader
@@ -184,7 +172,8 @@ instance HasMeta ClassDecl where
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
-data Requirement = RequiredField {
+data Requirement =
+    RequiredField {
        rmeta :: Meta Requirement
       ,rfield :: FieldDecl
     }
@@ -293,12 +282,16 @@ instance HasMeta ParamDecl where
     setType ty p@(Param {pmeta, ptype}) = p {pmeta = AST.Meta.setType ty pmeta, ptype = ty}
     showWithKind Param{pname} = "parameter '" ++ show pname ++ "'"
 
-data MethodDecl = Method {mmeta   :: Meta MethodDecl
-                         ,mheader :: FunctionHeader
-                         ,mbody   :: Expr}
-                | MatchingMethod {mmeta    :: Meta MethodDecl
-                                 ,mheaders :: [FunctionHeader]
-                                 ,mbodies  :: [Expr]} deriving (Show)
+data MethodDecl =
+    Method {
+      mmeta   :: Meta MethodDecl,
+      mheader :: FunctionHeader,
+      mbody   :: Expr}
+  | MatchingMethod {
+      mmeta    :: Meta MethodDecl,
+      mheaders :: [FunctionHeader],
+      mbodies  :: [Expr]
+    } deriving (Show)
 
 methodName = hname . mheader
 methodParams = hparams . mheader
@@ -316,10 +309,11 @@ emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
-             ,mheader = MethodHeader{hname = Name "_init"
-                                    ,hparams = []
-                                    ,htype = voidType
-                                    }
+             ,mheader = Header{kind = NonStreaming
+                              ,hname = Name "_init"
+                              ,hparams = []
+                              ,htype = voidType
+                              }
              ,mbody = Skip (meta pos)}
 
 replaceHeaderTypes :: [(Type, Type)] -> FunctionHeader -> FunctionHeader
@@ -348,14 +342,12 @@ instance HasMeta MethodDecl where
       | isStreamMethod m = "streaming method '" ++ show (methodName m) ++ "'"
       | otherwise = "method '" ++ show (methodName m) ++ "'"
 
-data MatchClause = MatchClause {mcmeta    :: Meta MatchClause,
-                                mcpattern :: Expr,
-                                mchandler :: Expr,
-                                mcguard   :: Expr} deriving (Show, Eq)
-instance HasMeta MatchClause where
-    getMeta = mcmeta
-    setMeta mc m = mc{mcmeta = m}
-    setType ty mc@MatchClause{mchandler} = mc {mchandler = AST.AST.setType ty mchandler}
+data MatchClause =
+    MatchClause {
+      mcpattern :: Expr,
+      mchandler :: Expr,
+      mcguard   :: Expr
+    } deriving (Show, Eq)
 
 type Arguments = [Expr]
 

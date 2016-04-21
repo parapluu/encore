@@ -224,24 +224,23 @@ functionHeader = do
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return FunctionHeader{hname, hparams, htype}
-
-methodHeader :: Parser FunctionHeader
-methodHeader = do
-  FunctionHeader{hname, hparams, htype} <- functionHeader
-  return MethodHeader{hname, hparams, htype}
+  return Header{kind = NonStreaming
+               ,hname
+               ,hparams
+               ,htype
+               }
 
 streamMethodHeader :: Parser FunctionHeader
 streamMethodHeader = do
-  FunctionHeader{hname, hparams, htype} <- functionHeader
-  return StreamMethodHeader{hname, hparams, htype}
+  header <- functionHeader
+  return header{kind = Streaming}
 
 guard :: Parser Expr
 guard = do
   reserved "when"
   expression
 
-matchHeader = do
+matchingHeader = do
    hname <- Name <$> identifier
    args <- parens (commaSep patternParamDecl)
    colon
@@ -250,24 +249,18 @@ matchHeader = do
    hguard <- option (BTrue (meta posGuard)) guard
    let hpatterns = map fst args
        hparamtypes = map snd args
-   return (hname, hpatterns, hparamtypes, htype, hguard)
+   return MatchingHeader{kind = NonStreaming
+                        ,hname
+                        ,hpatterns
+                        ,hparamtypes
+                        ,htype
+                        ,hguard
+                        }
 
-matchFunctionHeader :: Parser FunctionHeader
-matchFunctionHeader = do
-  (hname, hpatterns, hparamtypes, htype, hguard) <- matchHeader
-  return MatchFunctionHeader{hname, hpatterns, hparamtypes, htype, hguard}
-
-matchMethodHeader :: Parser FunctionHeader
-matchMethodHeader = do
-  (hname, hpatterns, hparamtypes, htype, hguard) <- matchHeader
-  return MatchMethodHeader{hname, hpatterns, hparamtypes, htype, hguard}
-
-
-matchStreamHeader :: Parser FunctionHeader
-matchStreamHeader = do
-  (hname, hpatterns, hparamtypes, htype, hguard) <- matchHeader
-  return MatchStreamHeader{hname, hpatterns, hparamtypes, htype, hguard}
-
+matchingStreamHeader :: Parser FunctionHeader
+matchingStreamHeader = do
+  header <- matchingHeader
+  return header{kind = Streaming}
 
 function :: Parser Function
 function =  try regularFunction <|> matchingFunction
@@ -283,7 +276,7 @@ function =  try regularFunction <|> matchingFunction
     matchingFunction = do
       funmeta <- meta <$> getPosition
       reserved "def"
-      clauses <- functionClause `sepBy` reserved "|"
+      clauses <- functionClause `sepBy` reservedOp "|"
       let matchfunheaders = map fst clauses
           matchfunbodies = map snd clauses
       return MatchingFunction{funmeta
@@ -291,7 +284,7 @@ function =  try regularFunction <|> matchingFunction
                              ,matchfunbodies}
       where
         functionClause = do
-          funheader <- matchFunctionHeader
+          funheader <- matchingHeader
           funbody <- expression
           return (funheader, funbody)
 
@@ -323,7 +316,7 @@ traitDecl = do
     reqMethod = do
       rmeta <- meta <$> getPosition
       reserved "require"
-      rheader <- methodHeader
+      rheader <- functionHeader
       return RequiredMethod{rmeta
                            ,rheader
                            }
@@ -352,7 +345,7 @@ capability = do
       notFollowedBy lower
       refId <- identifier
       parameters <- option [] $ angles (commaSep1 typ)
-      return $ RefInfo{refId, parameters}
+      return RefInfo{refId, parameters}
       <?> "upper case ref type"
 
 classDecl :: Parser ClassDecl
@@ -419,7 +412,7 @@ methodDecl = try regularMethod <|> matchingMethod
     regularMethod = do
       mmeta <- meta <$> getPosition
       mheader <- do reserved "def"
-                    methodHeader
+                    functionHeader
              <|> do reserved "stream"
                     streamMethodHeader
       mbody <- expression
@@ -430,9 +423,9 @@ methodDecl = try regularMethod <|> matchingMethod
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    methodClause matchMethodHeader `sepBy` reserved "|"
+                    methodClause matchingHeader `sepBy` reservedOp "|"
              <|> do reserved "stream"
-                    methodClause matchStreamHeader `sepBy` reserved "|"
+                    methodClause matchingStreamHeader `sepBy` reservedOp "|"
       let mheaders = map fst clauses
           mbodies = map snd clauses
       return MatchingMethod{mmeta
@@ -454,13 +447,14 @@ sepBy2 p sep = do first <- p
                   return $ first:last
 
 matchClause :: Parser MatchClause
-matchClause = do pos <- getPosition
-                 lhs <- expression <|> dontCare
-                 posGuard <- getPosition
-                 grd <- option (BTrue (meta posGuard)) guard
-                 reserved "=>"
-                 rhs <- expression
-                 return $ MatchClause (meta pos) lhs rhs grd
+matchClause = do
+  pos <- getPosition
+  mcpattern <- expression <|> dontCare
+  posGuard <- getPosition
+  mcguard <- option (BTrue (meta posGuard)) guard
+  reserved "=>"
+  mchandler <- expression
+  return MatchClause{mcpattern, mcguard, mchandler}
     where
       dontCare = do pos <- getPosition
                     symbol "_"

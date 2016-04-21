@@ -911,25 +911,30 @@ match expression looks like this:
        pattern2 => handler2 -- Second match clause
 }|
 
-The match expressions's argument will be matched against each of the patterns in the
-order they are written. If both a pattern and its guard matches the handler is executed
-and no more clauses are checked. The match expression will evaluated to the same value
-as the selected handler. If no clause matches a runtime error will the thrown and the
-program will crash.
+The match expressions's argument will be matched against each of
+the patterns in the order they are written. If both a pattern and
+its guard matches the handler is executed and no more clauses are
+checked. The match expression will evaluated to the same value as
+the selected handler. If no clause matches a runtime error will
+the thrown and the program will crash.
 
 @subsection{Patterns}
-In Encore there are 5 different types of patterns. First is the value pattern,
-it matches whenever the value in the pattern is equal to the match expression's
-argument. Equality is checked using C's @code{==} except for on strings when C's @code{strcmp}
+
+In Encore there are 5 different types of patterns. First is the
+value pattern, it matches whenever the value in the pattern is
+equal to the match expression's argument. Equality is checked
+using C's @code{==} except for on strings when C's @code{strcmp}
 function is used. Do not use value patterns to match on objects.
+
 @codeblock|{
      match 42 with
        4711 => print "This doesn't match."
        42 => print "But this does."
 }|
 
-Second we have the variable pattern. It matches any expression and also binds
-it so that the variable may be used inside both the guard and the handler.
+Second we have the variable pattern. It matches any expression and
+also binds it so that the variable may be used inside both the
+guard and the handler.
 
 @codeblock|{
      match 42 with
@@ -937,28 +942,35 @@ it so that the variable may be used inside both the guard and the handler.
        x => print "This matches, and x is now bound to the value 42."
 }|
 
-Third we have the @code{Maybe} type patterns: @code{Just} and @code{Nothing}. Any number of other patterns can be nestled
-inside the Just pattern. In this example a simple variable pattern have been used.
+Third we have the @code{Maybe} type patterns: @code{Just} and
+@code{Nothing}. Any number of other patterns can be nested inside
+the Just pattern. In this example a simple variable pattern have
+been used.
+
 @codeblock|{
      match myMap.lookup(42) with
        Just res => print("myMap is associating 42 with {}.", res)
        Nothing => print "myMap had no association for 42."
 }|
 
-Fourth is the tuple pattern. It will recursively match all its components
-against those of the argument, and will only match if all components match.
+Fourth is the tuple pattern. It will recursively match all its
+components against those of the argument, and will only match if
+all components match.
+
 @codeblock|{
      match (42, "foo") with
        (3, "wrong") => print "This doesn't match."
        (x, "foo") => print "But this does."
 }|
 
-Finally there is the extractor pattern that is used to match against objects.
-Extractor patterns arise from the definition of extractor methods, which are
-simply methods with the @code{void -> Maybe T} type signature, for some type @code{T}.
+Finally there is the extractor pattern that is used to match
+against objects. Extractor patterns arise from the definition of
+extractor methods, which are simply methods with the @code{void ->
+Maybe T} type signature, for some type @code{T}.
 
-In the @code{Link} class below, the method @code{link} implicitly (because of its type)
-defines an extractor pattern with the same name.
+In the @code{Link} class below, the method @code{link} implicitly
+(because of its type) defines an extractor pattern with the same
+name.
 
 @codeblock|{
     passive class Link
@@ -969,9 +981,10 @@ defines an extractor pattern with the same name.
         Just (this.assoc, this.next)
 }|
 
-When an extractor pattern is used, the corresponding extractor method will be called
-on the argument of the match. If it returns a @code{Just}, then the inside of the @code{Just} will
-be recursively matched with the argument of the extractor pattern.
+When an extractor pattern is used, the corresponding extractor
+method will be called on the argument of the match. If it returns
+a @code{Just}, then the inside of the @code{Just} will be
+recursively matched with the argument of the extractor pattern.
 
 @codeblock|{
      def loopkup(key : int, current : Link) : Maybe int
@@ -981,18 +994,24 @@ be recursively matched with the argument of the extractor pattern.
          link(x, next) => this.lookup(key, next)
 }|
 
-Note that you can define many different extractor methods for the same class, and that
-they may return @code{Nothing} under some circumstances, in which case the match for that
-clause will fail. You are also allowed to call extractor methods outside of a pattern, in which
-case they will function exactly like any other method.
+Note that you can define many different extractor methods for the
+same class, and that they may return @code{Nothing} under some
+circumstances, in which case the match for that clause will fail.
+You are also allowed to call extractor methods outside of a
+pattern, in which case they will function exactly like any other
+method.
 
-Regular functions may not be called inside a pattern. Anything that looks like a function
-call will be interpretted and typechecked as an extractor pattern.
+Regular functions may not be called inside a pattern. Anything
+that looks like a function call will be interpretted and
+typechecked as an extractor pattern.
 
 @subsection{Guards}
-Each match clause may have an optional guard. If there is a guard present, it must evaluate
-to @code{true} for the handler to be executed. If it evaluates to @code{false} the matcher
-will proceed to check the next clause. The following code demonstrates how to use guards in Encore:
+
+Each match clause may have an optional guard. If there is a guard
+present, it must evaluate to @code{true} for the handler to be
+executed. If it evaluates to @code{false} the matcher will proceed
+to check the next clause. The following code demonstrates how to
+use guards in Encore:
 
 @codeblock|{
      match 42 with
@@ -1002,8 +1021,11 @@ will proceed to check the next clause. The following code demonstrates how to us
 }|
 
 @subsection{Multi-headed functions}
-Encore also allow you to use pattern-matching when defining functions, methods and streams.
-However, anonymous functions do not support patterns directly in the function head.
+
+Encore also allow you to use pattern-matching when defining
+functions, methods and streams. However, anonymous functions do
+not support patterns directly in the function head.
+
 @codeblock|{
      def myFactorial(0 : int) : int {
        1
@@ -1012,5 +1034,6 @@ However, anonymous functions do not support patterns directly in the function he
      }
 }|
 
-One limitation of the current implementation is that you have to declare the type of the function
-in every function head, even though the type has to be the same for all clauses.
+One limitation of the current implementation is that you have to
+declare the type of the function in every function head, even
+though the type has to be the same for all clauses.

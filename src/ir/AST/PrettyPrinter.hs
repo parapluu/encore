@@ -235,7 +235,8 @@ ppExpr Match {arg, clauses} =
       ppClause (MatchClause {mcpattern, mchandler, mcguard = BTrue{}}) =
         indent (ppExpr mcpattern <+> text "=>" <+> ppExpr mchandler)
       ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
-        indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+> text "=>" <+> ppExpr mchandler)
+        indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+>
+                       text "=>" <+> ppExpr mchandler)
       ppMatchClauses = foldr (($+$) . ppClause) (text "")
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain

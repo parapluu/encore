@@ -655,9 +655,16 @@ instance Checkable Expr where
           mapM_ (`assertSubtypeOf` ty) types
           return ty
 
-        getPatternVars pt va@(VarAccess {name}) = return [(name, pt)]
+        getPatternVars pt pattern =
+            local (pushBT pattern) $
+              doGetPatternVars pt pattern
 
-        getPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
+        doGetPatternVars pt va@(VarAccess {name}) = do
+          when (isThisAccess va) $
+            tcError "Cannot rebind variable 'this'"
+          return [(name, pt)]
+
+        doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
             | isMaybeType pt =
                 let innerType = getResultType pt
                 in getPatternVars innerType e
@@ -666,7 +673,7 @@ instance Checkable Expr where
                           "' does not match expected type '" ++
                           show pt ++ "'"
 
-        getPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
+        doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
           unless (isRefType pt || isCapabilityType pt) $
             tcError $ "Cannot match an extractor pattern against " ++
                       "non-reference type '" ++ show pt ++ "'"
@@ -678,12 +685,12 @@ instance Checkable Expr where
           let extractedType = getResultType hType
           getPatternVars extractedType arg
 
-        getPatternVars pt fcall@(FunctionCall {name, args}) = do
+        doGetPatternVars pt fcall@(FunctionCall {name, args}) = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args}
           getPatternVars pt (fcall {args = [tupArg]})
 
-        getPatternVars pt tuple@(Tuple {args}) = do
+        doGetPatternVars pt tuple@(Tuple {args}) = do
           unless (isTupleType pt) $
             tcError $ "Cannot match a tuple against non-tuple type " ++ show pt
           let elemTypes = getArgTypes pt
@@ -691,10 +698,10 @@ instance Checkable Expr where
           varLists <- zipWithM getPatternVars elemTypes args
           return $ concat $ reverse varLists
 
-        getPatternVars pt typed@(TypedExpr {body}) =
+        doGetPatternVars pt typed@(TypedExpr {body}) =
           getPatternVars pt body
 
-        getPatternVars pt pattern = return []
+        doGetPatternVars pt pattern = return []
 
         checkPattern pattern argty =
             local (pushBT pattern) $
@@ -744,14 +751,14 @@ instance Checkable Expr where
                                     "' is not a valid pattern"
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
-                      vars <- getPatternVars pt mcpattern
-                      let withLocalEnv = local (extendEnvironment vars)
-                      ePattern <- withLocalEnv $ checkPattern mcpattern pt
-                      eHandler <- withLocalEnv $ typecheck mchandler
-                      eGuard <- withLocalEnv $ hasType mcguard boolType
-                      return $ clause {mcpattern = ePattern
-                                      ,mchandler = eHandler
-                                      ,mcguard = eGuard}
+          vars <- getPatternVars pt mcpattern
+          let withLocalEnv = local (extendEnvironment vars)
+          ePattern <- withLocalEnv $ checkPattern mcpattern pt
+          eHandler <- withLocalEnv $ typecheck mchandler
+          eGuard <- withLocalEnv $ hasType mcguard boolType
+          return $ clause {mcpattern = ePattern
+                          ,mchandler = eHandler
+                          ,mcguard = eGuard}
 
     --  E |- cond : bool
     --  E |- body : t

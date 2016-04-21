@@ -138,7 +138,7 @@ subtypeOf ty1 ty2
       let argTys1 = getArgTypes ty1
           argTys2 = getArgTypes ty2
       results <- zipWithM subtypeOf argTys1 argTys2
-      return $ and results
+      return $ and results && length argTys1 == length argTys2
     | isTraitType ty1 && isTraitType ty2 =
         ty1 `refSubtypeOf` ty2
     | isTraitType ty1 && isCapabilityType ty2 = do
