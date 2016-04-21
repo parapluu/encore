@@ -96,7 +96,7 @@ Run: `brew update; brew install llvm`
 ##### Installing `premake4`
 
 Go to the [Premake4 Download page](http://premake.github.io/download.html),
-download and install `premake4`. 
+download and install `premake4`.
 
 Alternatively, run: `brew update; brew install premake`
 
@@ -128,6 +128,22 @@ distributions based on Ubuntu or Debian.
 	# update cabal packages
 	cabal update && cabal install cabal-install
 
+At this point, `ghc-7.10.2` has been installed in `/opt/ghc/`.
+
+**NOTE**: If you have another version of Haskell, Encore needs `ghc-7.10.2` to work:
+You can add `/opt/` as the first folder in the `$PATH`. If you want
+to hack on Encore without changing your global `$PATH`:
+
+```
+export PATH="/opt/ghc/:$PATH"
+```
+
+If you want to change this globally (you won't need to do this everytime
+you open a terminal), then:
+
+```
+echo export PATH="/opt/ghc/:$PATH" >> ~/.profile
+```
 
 ##### Version checking
 
