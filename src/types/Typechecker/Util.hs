@@ -122,6 +122,15 @@ resolveType = typeMapM resolveSingleType
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
+    | isArrowType ty1 && isArrowType ty2 = do
+        let argTys1 = getArgTypes ty1
+            argTys2 = getArgTypes ty2
+            resultTy1 = getResultType ty1
+            resultTy2 = getResultType ty2
+        contravariance <- liftM and $ zipWithM subtypeOf argTys2 argTys1
+        covariance <- resultTy1 `subtypeOf` resultTy2
+        return $ length argTys1 == length argTys2 &&
+                 contravariance && covariance
     | hasResultType ty1 && hasResultType ty2 =
         liftM (ty1 `hasSameKind` ty2 &&) $
               getResultType ty1 `subtypeOf` getResultType ty2
