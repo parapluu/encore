@@ -1,0 +1,22 @@
+import IO
+
+class Main 
+  def main () : void {
+    let file = "IOTest.out";    
+    let f    = new File(file,"w");
+
+    let msg  = "Hello World!\n";
+
+    -- Test write file
+    f.open(file,"w");
+    f.write(msg);
+    f.close();
+
+    -- Test read file
+    f.open(file,"r");
+    while (not f.eof()) {
+      print("{}", f.readline());
+    };
+    f.close();
+  }
+
