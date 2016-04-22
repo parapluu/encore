@@ -9,6 +9,7 @@ module CodeGen.Closure (
 import CodeGen.Type
 import CodeGen.Typeclasses
 import CodeGen.Expr ()
+import CodeGen.Trace (traceVariable)
 import CodeGen.CCodeNames
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
@@ -106,16 +107,14 @@ translateClosure closure typeVars ctable
               (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
 
       tracefunDecl traceName envName members =
-          Function void traceName
-                   [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
-                   (Seq $ map traceMember members)
-          where
-            traceMember (name, ty)
-                | Ty.isActiveClassType ty =
-                    Call ponyTraceActor [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) (getVar name)]
-                | Ty.isPassiveClassType ty =
-                    Call ponyTraceObject [encoreCtxVar, getVar name, AsLval $ classTraceFnName ty]
-                | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
-            getVar name =
-                (Deref $ Cast (Ptr $ Struct envName) (Var "p"))
-                `Dot` fieldName name
+        Function void traceName args body
+        where
+          args = [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
+          body = Seq $
+            [
+              Assign (Decl ((Ptr $ Struct envName), (Var "_this"))) (Var "p")
+            ] ++
+            map traceMember members
+          traceMember (name, ty) = traceVariable ty $ getVar name
+          getVar name =
+              (Var "_this") `Arrow` fieldName name
