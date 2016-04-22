@@ -82,7 +82,7 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
           argTypes  = map translate encArgTypes
           ctx       = Ctx.new (zip encArgNames argNames) ctable
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos ctable)
+          closures = map (\clos -> translateClosure clos [] ctable)
                          (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas ctable) $
                       reverse $ Util.filter A.isTask funbody

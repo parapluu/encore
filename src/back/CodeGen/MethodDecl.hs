@@ -12,6 +12,7 @@ import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
+import Data.List (intersect)
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
@@ -27,51 +28,50 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
             cdecl@(A.Class {A.cname})
             ctable
       | A.isStreamMethod mdecl =
-    let name = methodImplName cname (A.methodName mdecl)
-        (encArgNames, encArgTypes) =
-            unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
-        argNames = map (AsLval . argName) encArgNames
-        argTypes = map translate encArgTypes
-        args = (Ptr encoreCtxT, encoreCtxVar) :
+    let args = (Ptr encoreCtxT, encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
-        ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ctable
-        ((bodyn,bodys),_) = runState (translate mbody) ctx
-        -- This reverse makes nested closures come before their
-        -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ctable)
-                       (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ctable) $
-                    reverse $ Util.filter A.isTask mbody
-        streamCloseStmt = Statement $ Call streamClose [encoreCtxVar, streamHandle]
+        streamCloseStmt = Statement $
+          Call streamClose [encoreCtxVar, streamHandle]
     in
       Concat $ closures ++ tasks ++
-               [Function void name args (Seq [bodys, streamCloseStmt])]
+               [Function void name args
+                 (Seq [extractTypeVars, bodys, streamCloseStmt])]
       | otherwise =
-    let mName = A.methodName mdecl
-        mType = A.methodType mdecl
-        returnType = translate mType
-        name = methodImplName cname mName
-        (encArgNames, encArgTypes) =
-            unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
-        argNames = map (AsLval . argName) encArgNames
-        argTypes = map translate encArgTypes
+    let returnType = translate mType
         args = (Ptr encoreCtxT, encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
-        ctx = Ctx.new ((ID.Name "this", Var "_this") :
-                       zip encArgNames argNames) ctable
-        ((bodyn,bodys),_) = runState (translate mbody) ctx
-        -- This reverse makes nested closures come before their
-        -- enclosing closures. Not very nice...
-        closures = map (\clos -> translateClosure clos ctable)
-                       (reverse (Util.filter A.isClosure mbody))
-        tasks = map (\tas -> translateTask tas ctable) $
-                    reverse $ Util.filter A.isTask mbody
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
     in
       Concat $ closures ++ tasks ++
-               [Function returnType name args (Seq [bodys, retStmt])]
+               [Function returnType name args
+                 (Seq [extractTypeVars, bodys, retStmt])]
+    where
+      mName = A.methodName mdecl
+      mType = A.methodType mdecl
+      typeVars = Ty.getTypeParameters cname
+      name = methodImplName cname (A.methodName mdecl)
+      (encArgNames, encArgTypes) =
+          unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
+      argNames = map (AsLval . argName) encArgNames
+      argTypes = map translate encArgTypes
+      subst = [(ID.Name "this", Var "_this")] ++
+        varSubFromTypeVars typeVars ++
+        zip encArgNames argNames
+      ctx = Ctx.new subst ctable
+      ((bodyn,bodys),_) = runState (translate mbody) ctx
+      extractTypeVars = Seq $ map assignTypeVar typeVars
+      assignTypeVar ty =
+        let fName = typeVarRefName ty
+        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+      getVar name =
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        `Dot`
+        name
+      closures = map (\clos -> translateClosure clos typeVars ctable)
+                     (reverse (Util.filter A.isClosure mbody))
+      tasks = map (\tas -> translateTask tas ctable) $
+                  reverse $ Util.filter A.isTask mbody
