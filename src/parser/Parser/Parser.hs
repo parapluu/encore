@@ -51,7 +51,7 @@ lexer =
      "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
      "bundle", "peer", "finish", "trait", "require", "val",
      "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract", "each"
+     "extract", "each", "typedef"
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
@@ -167,20 +167,21 @@ typeVariable = do
   id <- identifier
   return $ typeVar id
   <?> "lower case type variable"
-
+ 
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
   optional hashbang
   whiteSpace
   bundle <- bundledecl
+  typedefs <- many typedef 
   imports <- many importdecl
   etl <- embedTL
   functions <- many function
   decls <- many $ (Left <$> traitDecl) <|> (Right <$> classDecl)
   let (traits, classes) = partitionEithers decls
   eof
-  return Program{source, bundle, etl, imports, functions, traits, classes}
+  return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -217,6 +218,17 @@ embedTL = do
            return $ EmbedTL (meta pos) header ""
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
+
+typedef :: Parser Typedef
+typedef = do
+  typedefmeta <- meta <$> getPosition
+  reserved "typedef"
+  name <- identifier
+  params <- option [] (angles $ commaSep1 typeVariable)
+  reservedOp "="
+  typedeftype <- typ
+  let typedefdef = typeSynonym name params typedeftype
+  return Typedef{typedefmeta, typedefdef}
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
@@ -337,11 +349,11 @@ capability = do
      return $ RoseTree Product ts
 
     term :: Parser TypeTree
-    term = Leaf <$> refInfo
+    term = Leaf <$> refType
         <|> parens typeTree
 
-    refInfo :: Parser RefInfo
-    refInfo = do
+    refType :: Parser Type
+    refType = do
       notFollowedBy lower
       refId <- identifier
       parameters <- option [] $ angles (commaSep1 typ)

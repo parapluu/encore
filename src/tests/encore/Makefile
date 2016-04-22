@@ -4,6 +4,7 @@ test:
 	make -C par clean test
 	make -C modules clean test
 	make -C stdlib clean test
+	make -C typesyn clean test
 
 clean:
 	make -C basic clean
@@ -11,5 +12,6 @@ clean:
 	make -C par clean
 	make -C modules clean
 	make -C stdlib clean
+	make -C typesyn clean test
 
 .PHONY: test clean $(TEST_DIRECTORY)

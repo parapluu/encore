@@ -1,0 +1,11 @@
+typedef D = T
+typedef E = D
+
+trait T
+
+passive class C2 : E -- This does not
+
+class Main
+   def main(): void {
+       print(10)
+   }

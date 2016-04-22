@@ -1,0 +1,17 @@
+typedef D = T
+
+trait T
+
+passive class C : D
+
+class Main
+  -- This compiles
+  def foo(x : T) : void
+    print("moo")
+  -- This does not
+  def bar(x : D) : void
+    ()
+  def main() : void
+    let x = new C
+    in
+      this.foo(x)

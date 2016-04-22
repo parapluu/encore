@@ -55,12 +55,14 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-  doTypecheck p@Program{imports, functions, traits, classes} = do
+  doTypecheck p@Program{imports,  typedefs, functions, traits, classes} = do
+    etypedefs <- mapM typecheck typedefs
     etraits  <- mapM typecheck traits
     eclasses <- mapM typecheck classes
     eimps    <- mapM typecheck imports
     efuns    <- mapM typecheck functions
     return p{imports = eimps
+            ,typedefs = etypedefs
             ,functions = efuns
             ,traits = etraits
             ,classes = eclasses
@@ -72,7 +74,23 @@ instance Checkable ImportDecl where
        do eprogram <- doTypecheck program
           return $ PulledImport meta name src eprogram
      doTypecheck (Import _ _) =
-         error "BUG: Import AST Nodes should not exist during typechecking"
+         error "Types.hs: Import AST Nodes should not exist during typechecking"
+
+instance Checkable Typedef where
+  -- TODO doing this checking required exposing RefInfo (Types.hs). Is there a better way?
+  doTypecheck t@Typedef{typedefdef} = do
+      let RefInfo{refId, parameters} = typeSynonymLHS typedefdef
+      unless (distinctParams parameters) $ tcError $
+           "Parameters of type synonyms '" ++ show t ++ "' must be distinct."
+      let rhs = typeSynonymRHS typedefdef
+      when (refId `appearsIn` rhs) $ tcError $ "Type synonyms cannot be recursive."
+      let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
+      rhs' <- local addTypeParams $ resolveType rhs
+      let rhs'' = unfoldTypeSynonyms rhs'
+      return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs''}
+       where
+         distinctParams p = length p == length (nub p)
+         appearsIn name typ = name `elem` (catMaybes $ map maybeGetId $ typeComponents typ)
 
 typecheckNotNull :: Expr -> TypecheckM Expr
 typecheckNotNull expr = do

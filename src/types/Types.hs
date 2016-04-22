@@ -8,7 +8,7 @@ module Types(
             , TypeTree
             , RoseTree (..)
             , TypeOp (..)
-            , RefInfo (..)
+            , RefInfo (..) -- probably don't want to expose this
             , fromTypeTree
             , emptyCapability
             , singleCapability
@@ -65,6 +65,7 @@ module Types(
             ,setArgTypes
             ,getResultType
             ,getId
+            ,maybeGetId
             ,getTypeParameters
             ,setTypeParameters
             , conjunctiveTypesFromCapability
@@ -83,6 +84,12 @@ module Types(
             ,hasResultType
             ,setResultType
             ,isPrintable
+            ,typeSynonym
+            ,isTypeSynonym
+            ,typeSynonymLHS
+            ,typeSynonymRHS
+            ,typeSynonymSetRHS
+            ,unfoldTypeSynonyms
             ) where
 
 import Data.List
@@ -102,7 +109,7 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
-type TypeTree = RoseTree RefInfo
+type TypeTree = RoseTree Type
 
 data RoseTree t = Leaf t
                 | RoseTree TypeOp [RoseTree t]
@@ -158,7 +165,7 @@ instance Show RefInfo where
         where
           params = intercalate ", " (map show parameters)
 
-data Type = UntypedRef{refInfo :: RefInfo}
+data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
                      ,activity   :: Activity
@@ -176,6 +183,7 @@ data Type = UntypedRef{refInfo :: RefInfo}
           | MaybeType {resultType :: Type}
           | TupleType {argTypes :: [Type]}
           | CType{ident :: String}
+          | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
           | VoidType
           | StringType
           | CharType
@@ -201,15 +209,21 @@ setArgTypes ty argTypes = ty{argTypes}
 getResultType ty
     | hasResultType ty = resultType ty
     | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
-getId UntypedRef{refInfo} = refId refInfo
-getId TraitType{refInfo} = refId refInfo
-getId ClassType{refInfo} = refId refInfo
-getId TypeVar{ident} = ident
-getId CType{ident} = ident
-getId ty = error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
+
+getId ty = case maybeGetId ty of
+     Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
+     Just t -> t
+ 
+maybeGetId Unresolved{refInfo} = Just $ refId refInfo
+maybeGetId TraitType{refInfo} = Just $ refId refInfo
+maybeGetId ClassType{refInfo} = Just $ refId refInfo
+maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo 
+maybeGetId TypeVar{ident} = Just $ ident
+maybeGetId CType{ident} = Just $ ident
+maybeGetId _ = Nothing
 
 instance Show Type where
-    show UntypedRef{refInfo} = show refInfo
+    show Unresolved{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
     show CapabilityType{capability} = show capability
@@ -230,6 +244,7 @@ instance Show Type where
       where
         args = intercalate ", " (map show argTypes)
     show (CType ty) = ty
+    show TypeSynonym{refInfo, resolvesTo} = show refInfo ++ "(= " ++ show resolvesTo ++ ")"   
     show VoidType   = "void"
     show StringType = "string"
     show CharType   = "char"
@@ -257,7 +272,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind IntType                       = "primitive type"
     kind RealType                      = "primitive type"
     kind BoolType                      = "primitive type"
-    kind UntypedRef{}                  = "untyped type"
+    kind Unresolved{}                  = "unresolved type"
     kind TraitType{}                   = "trait type"
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
@@ -273,7 +288,9 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind TupleType{}                   = "tuple type"
     kind BottomType{}                  = "bottom type"
     kind CType{}                       = "embedded type"
+    kind TypeSynonym{}                 = "type synonym"
     kind _                             = "type"
+    
 
 hasSameKind :: Type -> Type -> Bool
 hasSameKind ty1 ty2
@@ -302,7 +319,7 @@ typeComponents fut@(FutureType ty) =
     fut : typeComponents ty
 typeComponents par@(ParType ty) =
     par : typeComponents ty
-typeComponents ref@(UntypedRef{refInfo}) =
+typeComponents ref@(Unresolved{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents ref@(TraitType{refInfo}) =
     ref : refInfoTypeComponents refInfo
@@ -326,13 +343,10 @@ refInfoTypeComponents = concatMap typeComponents . parameters
 capabilityComponents :: Capability -> [Type]
 capabilityComponents EmptyCapability = []
 capabilityComponents Capability{typeTree} =
-  concatMap traitToType $ toList typeTree
-  where
-    traitToType :: RefInfo -> [Type]
-    traitToType t@RefInfo{parameters} = TraitType t : parameters
+  concatMap typeComponents $ toList typeTree
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty@UntypedRef{refInfo} =
+typeMap f ty@Unresolved{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@TraitType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
@@ -355,6 +369,8 @@ typeMap f ty@MaybeType{resultType} =
     f ty{resultType = typeMap f resultType}
 typeMap f ty@TupleType{argTypes} =
     f ty{argTypes = map (typeMap f) argTypes}
+typeMap f ty@TypeSynonym{refInfo, resolvesTo} =
+ f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}    
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
@@ -364,10 +380,10 @@ refInfoTypeMap f info@RefInfo{parameters} =
 capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
 capabilityTypeMap _ EmptyCapability = EmptyCapability
 capabilityTypeMap f cap@Capability{typeTree} =
-    cap{typeTree = fmap (refInfoTypeMap f) typeTree}
+    cap{typeTree = fmap (typeMap f) typeTree}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapM f ty@UntypedRef{refInfo} = do
+typeMapM f ty@Unresolved{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
 typeMapM f ty@TraitType{refInfo} = do
@@ -387,6 +403,10 @@ typeMapM f ty@ArrowType{argTypes, resultType} = do
 typeMapM f ty@TupleType{argTypes} = do
   argTypes' <- mapM (typeMapM f) argTypes
   f ty{argTypes = argTypes'}
+typeMapM f ty@TypeSynonym{refInfo, resolvesTo} = do
+ refInfo' <- refInfoTypeMapM f refInfo
+ resolvesTo' <- typeMapM f resolvesTo
+ f ty{refInfo = refInfo', resolvesTo = resolvesTo'}
 typeMapM f ty
   | isFutureType ty || isParType ty || isStreamType ty ||
     isArrayType ty || isMaybeType ty = typeMapMResultType f ty
@@ -405,24 +425,66 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
 capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
 capabilityTypeMapM f EmptyCapability = return EmptyCapability
 capabilityTypeMapM f cap@Capability{typeTree} = do
-  typeTree' <- mapM (refInfoTypeMapM f) typeTree
+  typeTree' <- mapM (typeMapM f) typeTree
   return $ cap{typeTree = typeTree'}
 
 getTypeParameters :: Type -> [Type]
-getTypeParameters UntypedRef{refInfo} = parameters refInfo
+getTypeParameters Unresolved{refInfo} = parameters refInfo
 getTypeParameters TraitType{refInfo} = parameters refInfo
 getTypeParameters ClassType{refInfo} = parameters refInfo
+getTypeParameters TypeSynonym{refInfo} = parameters refInfo
 getTypeParameters ty =
     error $ "Types.hs: Can't get type parameters from type " ++ show ty
 
-setTypeParameters ty@UntypedRef{refInfo} parameters =
+setTypeParameters ty@Unresolved{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@TraitType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@ClassType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
+setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
+    let subst = zip (parameters refInfo) params
+    in ty{refInfo = refInfo{parameters = params}, resolvesTo=apply subst resolvesTo}
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
+
+class TypeSubstitution t where
+  apply :: [(Type, Type)] -> t -> t
+
+instance TypeSubstitution Type where
+  apply subst t@TypeVar{} =
+       case lookup t subst of
+           Nothing -> t
+           Just t' -> t'
+  apply subst t@Unresolved{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@TraitType{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@ClassType{refInfo} = t{refInfo=apply subst refInfo}
+  apply subst t@TypeSynonym{refInfo, resolvesTo} =
+       t{refInfo = apply subst refInfo, resolvesTo = apply subst resolvesTo}
+  apply subst t@CapabilityType{capability} = t{capability = apply subst capability}
+  apply subst t@ArrowType{argTypes, resultType} =
+       t{argTypes = apply subst argTypes, resultType = apply subst resultType}
+  apply subst t@FutureType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@ParType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@StreamType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@ArrayType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@MaybeType{resultType} = t{resultType = apply subst resultType}
+  apply subst t@TupleType{argTypes} = t{argTypes = apply subst argTypes}
+  apply _ t = t
+
+instance TypeSubstitution RefInfo where
+  apply subst r@RefInfo{parameters} = r{parameters=map (apply subst) parameters}
+
+instance TypeSubstitution t => TypeSubstitution [t] where
+  apply subst l = map (apply subst) l
+
+instance TypeSubstitution Capability where
+  apply subst EmptyCapability = EmptyCapability
+  apply subst t@Capability{typeTree} = t{typeTree = apply subst typeTree}
+
+instance TypeSubstitution t => TypeSubstitution (RoseTree t) where
+  apply subst (Leaf t) = Leaf (apply subst t)
+  apply subst (RoseTree op l) = RoseTree op (apply subst l)
 
 emptyCapability :: Type -> Bool
 emptyCapability CapabilityType{capability=EmptyCapability} = True
@@ -451,7 +513,7 @@ conjunctiveTypesFromCapability ty@CapabilityType{capability} =
     collect (RoseTree Addition ts) = concatMap collect ts
     collect (RoseTree Product ts) =
       let
-        parTypes = map toList $ map (fmap TraitType) ts
+        parTypes = map toList ts
       in
         concatMap collect ts ++ [parTypes]
 conjunctiveTypesFromCapability ty =
@@ -461,13 +523,13 @@ typesFromCapability :: Type -> [Type]
 typesFromCapability t@TraitType{} = [t]
 typesFromCapability CapabilityType{capability=EmptyCapability} = []
 typesFromCapability ty@CapabilityType{capability} =
-    map TraitType ((toList . typeTree) capability)
+    toList $ typeTree capability
 typesFromCapability ty =
     error $ "Types.hs: Can't get the traits of non-capability type "
       ++ showWithKind ty
 
 refTypeWithParams refId parameters =
-    UntypedRef{refInfo = RefInfo{refId, parameters}}
+    Unresolved{refInfo = RefInfo{refId, parameters}}
 
 refType :: String -> Type
 refType id = refTypeWithParams id []
@@ -476,12 +538,12 @@ classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
   ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
 
-traitTypeFromRefType UntypedRef{refInfo} =
+traitTypeFromRefType Unresolved{refInfo} =
     TraitType{refInfo}
 traitTypeFromRefType ty =
     error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
-isRefType UntypedRef {} = True
+isRefType Unresolved {} = True
 isRefType TraitType {} = True
 isRefType ClassType {} = True
 isRefType _ = False
@@ -630,3 +692,28 @@ isPrintable ty
   | hasResultType ty = isPrintable $ getResultType ty
   | isTupleType ty   = all isPrintable $ getArgTypes ty
   | otherwise        = True
+
+typeSynonym :: String -> [Type] -> Type -> Type
+typeSynonym name parameters resolution =
+  TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
+
+typeSynonymLHS :: Type -> RefInfo
+typeSynonymLHS TypeSynonym{refInfo} = refInfo
+typeSynonymLHS _ = error $ "Types.hs: Expected type synonym"
+
+typeSynonymRHS :: Type -> Type
+typeSynonymRHS TypeSynonym{resolvesTo} = resolvesTo
+typeSynonymRHS _ = error $ "Types.hs: Expected type synonymm"
+
+typeSynonymSetRHS :: Type -> Type -> Type
+typeSynonymSetRHS t@TypeSynonym{} rhs = t{resolvesTo = rhs}
+typeSynonymSetRHS _ _ = error $ "Types.hs: Expected type synonymm"
+
+isTypeSynonym TypeSynonym{} = True
+isTypeSynonym _ = False
+
+unfoldTypeSynonyms :: Type -> Type
+unfoldTypeSynonyms = typeMap unfoldSingleSynonym
+     where
+       unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
+       unfoldSingleSynonym t = t

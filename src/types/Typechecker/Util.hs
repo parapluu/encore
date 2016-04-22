@@ -97,7 +97,7 @@ resolveType = typeMapM resolveSingleType
                 matchTypeParameterLength formal ty
                 return $ setTypeParameters formal $ getTypeParameters ty
               Nothing ->
-                tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
+                tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'"
         | isCapabilityType ty = resolveCapa ty
         | isMaybeType ty = do
             let resultType = getResultType ty
@@ -106,6 +106,9 @@ resolveType = typeMapM resolveSingleType
         | isStringType ty = do
             tcWarning StringDeprecatedWarning
             return ty
+        | isTypeSynonym ty = do
+            let unfolded = unfoldTypeSynonyms ty
+            resolveSingleType unfolded
         | otherwise = return ty
         where
           resolveCapa :: Type -> TypecheckM Type
