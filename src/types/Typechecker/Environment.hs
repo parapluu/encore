@@ -18,6 +18,8 @@ module Typechecker.Environment(Environment,
                                fieldLookup,
                                capabilityLookup,
                                varLookup,
+                               functionLookup,
+                               parametricFunctionLookup,
                                isLocal,
                                typeVarLookup,
                                extendEnvironment,
@@ -47,11 +49,12 @@ import Types
 import Typechecker.TypeError
 
 type VarTable    = [(Name, Type)]
+type FunctionTable = [((Name, Type), Function)]
 
 data Environment = Env {
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
-  globals  :: VarTable,
+  globals  :: FunctionTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
   typeParameters :: [Type],
@@ -86,10 +89,9 @@ buildEnvironment p =
 
     getFunctionType f =
         let funname   = functionName f
-            funparams = functionParams f
             funtype   = functionType f
-        in
-          (funname, arrowType (map ptype funparams) funtype)
+            funparams = functionParams f
+        in ((funname, arrowType (map ptype funparams) funtype), f)
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
@@ -129,6 +131,7 @@ fieldLookup ty f env
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname
 
+-- TODO: This function performs a lookup and updates the types. Misleading name
 traitMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 traitMethodLookup ty m env = do
   trait <- traitLookup ty env
@@ -219,8 +222,18 @@ refTypeParameters t env =
 
 varLookup :: Name -> Environment -> Maybe Type
 varLookup x env = case lookup x (locals env) of
-                       Nothing -> lookup x (globals env)
+                       Nothing -> lookup x (map fst (globals env))
                        result -> result
+
+functionLookup :: Name -> Environment -> Maybe FunctionHeader
+functionLookup n env =
+  (\(_,f) -> funheader f) <$> find (\((x,_),_) -> x == n) (globals env)
+
+parametricFunctionLookup :: Name -> Environment -> (Type, [Type])
+parametricFunctionLookup name env =
+  case find (\((x,_),_) -> x == name) (globals env) of
+    Just ((_,argType), f) -> (argType, functionPParams f)
+    _ -> error $ "Function named " ++ show name ++ " does not exist"
 
 isLocal :: Name -> Environment -> Bool
 isLocal x env = isJust $ lookup x (locals env)

@@ -7,6 +7,7 @@ module CodeGen.Type where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
+import qualified CodeGen.Context as Ctx (LexicalContext(..))
 
 import CCode.Main
 import CCode.PrettyCCode ()
@@ -43,7 +44,8 @@ instance Translatable Ty.Type (CCode Ty) where
 runtimeType :: Ty.Type -> CCode Expr
 runtimeType ty
     | Ty.isActiveClassType ty  = AsExpr $ Var "ENCORE_ACTIVE"
-    | Ty.isPassiveClassType ty = Amp $ runtimeTypeName ty
+    | Ty.isPassiveClassType ty ||
+      Ty.isStringType ty = Amp $ runtimeTypeName ty
     | Ty.isFutureType ty ||
       Ty.isStreamType ty = Amp futureTypeRecName
     | Ty.isArrowType ty  = Amp closureTypeRecName
@@ -51,11 +53,16 @@ runtimeType ty
     | Ty.isRangeType ty  = Amp rangeTypeRecName
     | Ty.isParType ty    = Amp partyTypeRecName
     | Ty.isPrimitive ty  = AsExpr $ Var "ENCORE_PRIMITIVE"
+    -- | Ty.isTypeVar ty =  AsExpr $ (Var "_this") `Arrow` typeVarRefName ty
     | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
 
-getRuntimeTypeVariables t
+getRuntimeTypeVariables Ctx.ClassContext t
   | Ty.isTypeVar t =  AsExpr $ (Var "_this") `Arrow` typeVarRefName t
   | otherwise = runtimeType t
+getRuntimeTypeVariables Ctx.GlobalFunctionContext t
+  | Ty.isTypeVar t = (AsExpr . Var) (Ty.getId t)
+  | otherwise = runtimeType t
+
 
 encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"

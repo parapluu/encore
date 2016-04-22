@@ -10,6 +10,7 @@ module Typechecker.Typechecker(typecheckEncoreProgram) where
 
 import Data.List
 import Data.Maybe
+import qualified Control.Arrow as Arrow
 import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
@@ -87,12 +88,13 @@ instance Checkable Function where
     -- ----------------------------------------------------------
     --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
     doTypecheck f@(Function {funheader, funbody}) = do
-      let funtype = functionType f
-          funparams = functionParams f
-      eBody   <- local (addParams funparams) $
-                     if isVoidType funtype
-                     then typecheckNotNull funbody
-                     else hasType funbody funtype
+      let funtype    = functionType f
+          funparams  = functionParams f
+          funpparams = functionPParams f
+      eBody <- local ((addTypeParameters funpparams) . (addParams funparams)) $
+               if isVoidType funtype
+               then typecheckNotNull funbody
+               else hasType funbody funtype
       return $ f{funbody = eBody}
 
 instance Checkable TraitDecl where
@@ -533,21 +535,54 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {name, args}) = do
+    doTypecheck fcall@(FunctionCall {name, args, pparams}) = do
       funType <- asks $ varLookup name
       ty <- case funType of
         Just ty -> return ty
         Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+
+      let argTypes = getArgTypes ty -- formal types
+
+      -- Error handling
       unless (isArrowType ty) $
         tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
-      let argTypes = getArgTypes ty
       unless (length args == length argTypes) $
              tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                       "' expects " ++ show (length argTypes) ++ " arguments. Got " ++
-                       show (length args)
-      (eArgs, bindings) <- matchArguments args argTypes
+             "' expects " ++ show (length argTypes) ++ " arguments. Got " ++
+             show (length args)
+
+      -- get actual types and actual parametric types
+      (actualTypes, actualPParams) <- getActualTypeArguments fcall
+
+      -- get formal types and formal parametric types
+      (formalTypeArgs', formalTypeParametricArgs') <- getFormalTypeArguments name
+
+      -- update header for actual types
+      header <- findFunctionWithReplacedCalledType name formalTypeParametricArgs' actualPParams
+      let formalTypeParametricArgs'' = map ptype (hparams header)
+
+      -- typecheck formal arguments with concrete types against actualTypes
+      zipWithM_ matchTypes formalTypeParametricArgs'' actualTypes
+
+      (eArgs, bindings) <- matchArguments args actualTypes
       let resultType = replaceTypeVars bindings (getResultType ty)
-      return $ setType resultType fcall {args = eArgs}
+      return $ setType resultType fcall {args = eArgs, pparams = actualPParams}
+        where
+          getActualTypeArguments fcall@(FunctionCall {args, pparams}) = do
+            actualTypes <- mapM (liftM AST.getType . typecheck) args
+            actualPParams <- mapM resolveType pparams
+            return $ (actualTypes, actualPParams)
+
+          resolveTypes = mapM resolveType
+
+          getFormalTypeArguments name = do
+            (formalTypeArgs, formalTypeParametricArgs) <- liftM (\(x, y) -> (getArgTypes x, y)) $
+                                                          asks (parametricFunctionLookup name)
+            formalTypeParametricArgs' <- local (addTypeParameters formalTypeParametricArgs) $
+                                         resolveTypes formalTypeParametricArgs
+            formalTypeArgs' <- local (addTypeParameters formalTypeParametricArgs') $
+                               resolveTypes formalTypeArgs
+            return (formalTypeArgs', formalTypeParametricArgs')
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -1229,6 +1264,8 @@ matchArguments (arg:args) (typ:types) = do
     else
       return eArg
   let actualTyp = AST.getType eArg
+  -- trying to match type variable (formal arg.) to concrete type
+  -- tcError $ (show typ) ++ " " ++ (show actualTyp)
   bindings <- matchTypes typ actualTyp
   (eArgs, bindings') <-
     local (bindTypes bindings) $ matchArguments args types
@@ -1289,7 +1326,9 @@ matchTypes expected ty
             argBindings <- matchArgs expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
+      -- when do we add the type parameters? these have not been added in functions
       params <- asks typeParameters
+      -- error $ show $ map show $ params ++ [expected, ty]
       if expected `elem` params then
           assertMatch expected ty
       else do

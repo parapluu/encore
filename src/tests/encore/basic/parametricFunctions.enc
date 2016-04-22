@@ -1,0 +1,45 @@
+def <a> testCallToParametricFunction(x: int, y: a): void {
+  testCreationOfObject<a, int>(y, x);
+  testCallToParametricFunction<a>(x, y);
+  testCreationOfObject<int, int>(23, x);
+  testCreationOfObject<String, int>("23", x);
+  new Test<String>(x, "string");
+  new Test<a>(x, y);
+  (new TestNoInit<a, a>).testFunctionCallPassingParametricArgs(y, y);
+  new [a](5)
+}
+
+-- Works
+-- def <a, a> testCallToFunction(x: int, y: a): void
+--   testCallToParametricFunction<String>(x, "test")
+
+def <a> testCreationOfParametricObject(x: a): void {
+  testCreationOfParametricObject<int>(23);
+}
+
+def <b, c> testCreationOfObject(x:b, y:c): void
+  new Test<b>(3, x)
+
+passive class TestNoInit<a, b>
+  t1: a
+  t2: b
+
+  def testFunctionCallPassingParametricArgs(x: b, y: a): void {
+    this.t1 = y;
+    this.t2 = x;
+  }
+
+class Test<a>
+  s: a
+  def init(x: int, y: a): void
+    ()
+
+  def tt(x: a): void {
+    new Test<bool>(34, true);
+    new [a](10);
+  }
+
+class Main
+  def main(): void {
+    testCreationOfObject<String, int>("sd", 34);
+  }

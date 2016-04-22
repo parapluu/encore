@@ -19,8 +19,8 @@ import Types as Ty
 
 import Control.Monad.State hiding (void)
 
-translateClosure :: A.Expr -> ClassTable -> CCode Toplevel
-translateClosure closure ctable
+translateClosure :: A.Expr -> NamespaceTable -> Ctx.LexicalContext -> CCode Toplevel
+translateClosure closure ntable@(ftable, ctable) scope
     | A.isClosure closure =
            let arrowType   = A.getType closure
                resultType  = Ty.getResultType arrowType
@@ -38,8 +38,7 @@ translateClosure closure ctable
                argNames    = map (AsLval . argName) encArgNames
                subst       = zip encEnvNames envNames ++
                              zip encArgNames argNames
-               ctx = Ctx.new subst ctable
-
+               ctx = Ctx.new subst ntable scope
                ((bodyName, bodyStat), _) = runState (translate body) ctx
            in
              Concat [buildEnvironment envName freeVars,

@@ -439,19 +439,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = delegateUse callTheMethodSync
     where
       initName = ID.Name "_init"
-      delegateUse methodCall =
-        let
-          fName = constructorImplName ty
-          callCtor = Call fName [encoreCtxName]
-          typeParams = Ty.getTypeParameters ty
-          callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
-          typeArgs = map getRuntimeTypeVariables typeParams
-        in
-          do
-            (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <-
-              methodCall nnew ty initName args ty
-            return (nnew,
+      getScope :: State Ctx.Context Ctx.LexicalContext
+      getScope = gets $ Ctx.lexicalContext
+
+      delegateUse methodCall = do
+        ctx <- getScope
+        let fName = constructorImplName ty
+            callCtor = Call fName [encoreCtxName]
+            typeParams = Ty.getTypeParameters ty
+            callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
+            typeArgs = map (getRuntimeTypeVariables ctx) typeParams
+        (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
+        (initArgs, result) <- methodCall nnew ty initName args ty
+        return (nnew,
               Seq $
                 [ctorCall] ++
                 initArgs ++
@@ -473,9 +473,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do arrName <- Ctx.genNamedSym "array"
          sizeName <- Ctx.genNamedSym "size"
          (nsize, tsize) <- translate size
+         ctx <- gets $ Ctx.lexicalContext
          let theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ty])
+                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ctx ty])
          return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
@@ -1067,11 +1068,36 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
   (args', initArgs) <- fmap unzip $ mapM translate args
+  let actualArgs = map (translate . A.getType) args
+  formalArgs <- gets $ Ctx.lookupFunction typ name
+  let formalTypes = map A.ptype (A.hparams formalArgs)
+      formalTypes' = map translate formalTypes
+      returnType = A.htype formalArgs
+
+      arguments = map translateArg (zip3 (map AsExpr args') formalTypes actualArgs)
+      typeVariables = map translateParametricArguments (A.pparams fcall)
+      rhs = Call (globalFunctionName name) (AsExpr encoreCtxVar : typeVariables ++ arguments)
   (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) (encoreCtxVar:args')
+                     translateReturnType rhs returnType (translate typ)
   let ret = if Ty.isVoidType typ then unit else callVar
+
   return $ (ret, Seq $ initArgs ++ [call])
   where
+    translateParametricArguments :: Ty.Type -> CCode Expr
+    translateParametricArguments t
+      | Ty.isTypeVar t = (AsExpr . Var) (Ty.getId t)
+      | otherwise = runtimeType t
+
+    translateReturnType :: CCode Expr -> Ty.Type -> CCode Ty -> CCode Expr
+    translateReturnType rhs formal actual =
+      case (Ty.isTypeVar formal) of
+        True -> AsExpr $ fromEncoreArgT actual rhs
+        False -> rhs
+
+    translateArg :: (CCode Expr, Ty.Type, CCode Ty) -> CCode Expr
+    translateArg (a,t,c) = case (Ty.isTypeVar t) of
+                          True -> asEncoreArgT c a
+                          False -> a
     typ = A.getType fcall
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
