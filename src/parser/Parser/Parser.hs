@@ -55,7 +55,7 @@ lexer =
    ],
    P.reservedOpNames = [
      ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
-     "\\", "()", "~~>", "=>"
+     "\\", "()", "~~>", "=>", "|"
      ]
   }
 
@@ -224,28 +224,69 @@ functionHeader = do
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return FunctionHeader{hname, hparams, htype}
-
-methodHeader :: Parser FunctionHeader
-methodHeader = do
-  FunctionHeader{hname, hparams, htype} <- functionHeader
-  return MethodHeader{hname, hparams, htype}
+  return Header{kind = NonStreaming
+               ,hname
+               ,hparams
+               ,htype
+               }
 
 streamMethodHeader :: Parser FunctionHeader
 streamMethodHeader = do
-  FunctionHeader{hname, hparams, htype} <- functionHeader
-  return StreamMethodHeader{hname, hparams, htype}
+  header <- functionHeader
+  return header{kind = Streaming}
+
+guard :: Parser Expr
+guard = do
+  reserved "when"
+  expression
+
+matchingHeader = do
+   hname <- Name <$> identifier
+   args <- parens (commaSep patternParamDecl)
+   colon
+   htype <- typ
+   posGuard <- getPosition
+   hguard <- option (BTrue (meta posGuard)) guard
+   let hpatterns = map fst args
+       hparamtypes = map snd args
+   return MatchingHeader{kind = NonStreaming
+                        ,hname
+                        ,hpatterns
+                        ,hparamtypes
+                        ,htype
+                        ,hguard
+                        }
+
+matchingStreamHeader :: Parser FunctionHeader
+matchingStreamHeader = do
+  header <- matchingHeader
+  return header{kind = Streaming}
 
 function :: Parser Function
-function = do
-  funmeta <- meta <$> getPosition
-  reserved "def"
-  funheader <- functionHeader
-  funbody <- expression
-  return Function{funmeta
-                 ,funheader
-                 ,funbody
-                 }
+function =  try regularFunction <|> matchingFunction
+  where
+    regularFunction = do
+      funmeta <- meta <$> getPosition
+      reserved "def"
+      funheader <- functionHeader
+      funbody <- expression
+      return Function{funmeta
+                     ,funheader
+                     ,funbody}
+    matchingFunction = do
+      funmeta <- meta <$> getPosition
+      reserved "def"
+      clauses <- functionClause `sepBy` reservedOp "|"
+      let matchfunheaders = map fst clauses
+          matchfunbodies = map snd clauses
+      return MatchingFunction{funmeta
+                             ,matchfunheaders
+                             ,matchfunbodies}
+      where
+        functionClause = do
+          funheader <- matchingHeader
+          funbody <- expression
+          return (funheader, funbody)
 
 traitDecl :: Parser TraitDecl
 traitDecl = do
@@ -275,7 +316,7 @@ traitDecl = do
     reqMethod = do
       rmeta <- meta <$> getPosition
       reserved "require"
-      rheader <- methodHeader
+      rheader <- functionHeader
       return RequiredMethod{rmeta
                            ,rheader
                            }
@@ -304,7 +345,7 @@ capability = do
       notFollowedBy lower
       refId <- identifier
       parameters <- option [] $ angles (commaSep1 typ)
-      return $ RefInfo{refId, parameters}
+      return RefInfo{refId, parameters}
       <?> "upper case ref type"
 
 classDecl :: Parser ClassDecl
@@ -358,17 +399,44 @@ paramDecl = do pos <- getPosition
                ty <- typ
                return $ Param (meta pos) (Name x) ty
 
+patternParamDecl :: Parser (Expr, Type)
+patternParamDecl = do
+  x <- highOrderExpr
+  colon
+  ty <- typ
+  return (x, ty)
+
 methodDecl :: Parser MethodDecl
-methodDecl = do mmeta <- meta <$> getPosition
-                mheader <- do reserved "def"
-                              methodHeader
-                       <|> do reserved "stream"
-                              streamMethodHeader
-                mbody <- expression
-                return Method{mmeta
-                             ,mheader
-                             ,mbody
-                             }
+methodDecl = try regularMethod <|> matchingMethod
+  where
+    regularMethod = do
+      mmeta <- meta <$> getPosition
+      mheader <- do reserved "def"
+                    functionHeader
+             <|> do reserved "stream"
+                    streamMethodHeader
+      mbody <- expression
+      return Method{mmeta
+                   ,mheader
+                   ,mbody
+                   }
+    matchingMethod = do
+      mmeta <- meta <$> getPosition
+      clauses <- do reserved "def"
+                    methodClause matchingHeader `sepBy` reservedOp "|"
+             <|> do reserved "stream"
+                    methodClause matchingStreamHeader `sepBy` reservedOp "|"
+      let mheaders = map fst clauses
+          mbodies = map snd clauses
+      return MatchingMethod{mmeta
+                           ,mheaders
+                           ,mbodies
+                           }
+      where
+        methodClause headerParser= do
+          mheader <- headerParser
+          mbody <- expression
+          return (mheader, mbody)
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma
@@ -379,16 +447,15 @@ sepBy2 p sep = do first <- p
                   return $ first:last
 
 matchClause :: Parser MatchClause
-matchClause = do pos <- getPosition
-                 lhs <- expression <|> dontCare
-                 posGuard <- getPosition
-                 grd <- option (BTrue (meta posGuard)) guard
-                 reserved "=>"
-                 rhs <- expression
-                 return $ MatchClause (meta pos) lhs rhs grd
+matchClause = do
+  pos <- getPosition
+  mcpattern <- expression <|> dontCare
+  posGuard <- getPosition
+  mcguard <- option (BTrue (meta posGuard)) guard
+  reserved "=>"
+  mchandler <- expression
+  return MatchClause{mcpattern, mcguard, mchandler}
     where
-      guard = do reserved "when"
-                 expression
       dontCare = do pos <- getPosition
                     symbol "_"
                     return (VarAccess (meta pos) (Name "_"))

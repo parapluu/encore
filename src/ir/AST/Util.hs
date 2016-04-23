@@ -58,7 +58,8 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
 
-    getChildrenClause MatchClause {mcpattern, mchandler, mcguard} = [mcpattern, mchandler, mcguard]
+    getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
+        [mcpattern, mchandler, mcguard]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
@@ -124,10 +125,14 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
-putChildren (arg:clauseList) e@(Match {clauses}) = e{arg = arg, clauses=putClausesChildren clauseList clauses}
-  where putClausesChildren [] [] = []
-        putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) = (mc{mcpattern=pattern, mchandler=handler, mcguard=guard}):putClausesChildren rest rClauses
-        putClausesChildren _ _ = error "Wrong number of children of of match clause"
+putChildren (arg:clauseList) e@(Match {clauses}) =
+    e{arg = arg, clauses=putClausesChildren clauseList clauses}
+    where putClausesChildren [] [] = []
+          putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) =
+              mc{mcpattern=pattern, mchandler=handler, mcguard=guard}:
+                putClausesChildren rest rClauses
+          putClausesChildren _ _ =
+              error "Util.hs: Wrong number of children of of match clause"
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
@@ -226,14 +231,17 @@ foldr f acc e =
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [a]
 foldrAll f e Program{functions, traits, classes} =
-  map (foldFunction f e) functions ++
+  concatMap (foldFunction f e) functions ++
   concatMap (foldTrait f e) traits ++
   concatMap (foldClass f e) classes
     where
-      foldFunction f e (Function {funbody}) = foldr f e funbody
-      foldClass f e (Class {cmethods}) = map (foldMethod f e) cmethods
-      foldTrait f e (Trait {tmethods}) = map (foldMethod f e) tmethods
-      foldMethod f e m = foldr f e (mbody m)
+      foldFunction f e (Function {funbody}) = [foldr f e funbody]
+      foldFunction f e (MatchingFunction {matchfunbodies}) =
+          map (foldr f e) matchfunbodies
+      foldClass f e (Class {cmethods}) = concatMap (foldMethod f e) cmethods
+      foldTrait f e (Trait {tmethods}) = concatMap (foldMethod f e) tmethods
+      foldMethod f e (Method {mbody}) = [foldr f e mbody]
+      foldMethod f e (MatchingMethod {mbodies}) = map (foldr f e) mbodies
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
@@ -266,6 +274,11 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         where
           (acc', funbody') = extendAccum f acc funbody
 
+      extendAccumFunction f acc fun@(MatchingFunction{matchfunbodies}) =
+        (acc', fun{matchfunbodies = funbodies'})
+        where
+          (acc', funbodies') = List.mapAccumL (extendAccum f) acc matchfunbodies
+
       (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
       extendAccumTrait f acc trt@(Trait{tmethods}) =
         (acc', trt{tmethods = tmethods'})
@@ -278,10 +291,15 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         where
           (acc', cmethods') = List.mapAccumL (extendAccumMethod f) acc cmethods
 
-      extendAccumMethod f acc mtd =
+      extendAccumMethod f acc mtd@(Method{mbody}) =
         (acc', mtd{mbody = mbody'})
         where
-          (acc', mbody') = extendAccum f acc (mbody mtd)
+          (acc', mbody') = extendAccum f acc mbody
+
+      extendAccumMethod f acc mtd@(MatchingMethod{mbodies}) =
+        (acc', mtd{mbodies = mbodies'})
+        where
+          (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
 
       (acc4, imports') = List.mapAccumL (extendAccumImport f) acc3 imports
       extendAccumImport f acc i@(PulledImport{iprogram}) =
@@ -289,7 +307,7 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         where
           (acc', iprogram') = extendAccumProgram f acc iprogram
       extendAccumImport _ _ _ = error "Util.hs: Non desugared imports during extendAccumProgram"
-          
+
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
@@ -311,6 +329,10 @@ extractTypes (Program{functions, traits, classes}) =
       extractFunctionTypes Function{funheader, funbody} =
           extractHeaderTypes funheader ++
           extractExprTypes funbody
+      extractFunctionTypes MatchingFunction{matchfunheaders, matchfunbodies} =
+          List.foldr (\h acc -> (extractHeaderTypes h) ++ acc) [] matchfunheaders ++
+          List.foldr (\b acc -> (extractExprTypes b) ++ acc) [] matchfunbodies
+
 
       extractTraitTypes :: TraitDecl -> [Type]
       extractTraitTypes Trait {tname, treqs, tmethods} =
@@ -331,9 +353,13 @@ extractTypes (Program{functions, traits, classes}) =
       extractFieldTypes Field {ftype} = typeComponents ftype
 
       extractMethodTypes :: MethodDecl -> [Type]
-      extractMethodTypes m =
-          extractHeaderTypes (mheader m) ++
-          extractExprTypes (mbody m)
+      extractMethodTypes Method{mheader, mbody} =
+          extractHeaderTypes mheader ++
+          extractExprTypes mbody
+      extractMethodTypes MatchingMethod{mheaders, mbodies} =
+        List.foldr (\h -> (extractHeaderTypes h ++)) [] mheaders ++
+        List.foldr (\b -> (extractExprTypes b ++)) [] mbodies
+
 
       extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype

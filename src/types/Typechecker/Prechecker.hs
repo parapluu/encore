@@ -70,6 +70,7 @@ instance Precheckable FunctionHeader where
     doPrecheck header = do
       htype' <- resolveType (htype header)
       hparams' <- mapM precheck (hparams header)
+      assertDistinctThing "definition" "parameter" $ map pname hparams'
       return $ header{htype = htype', hparams = hparams'}
 
 instance Precheckable Function where

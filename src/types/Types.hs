@@ -435,7 +435,7 @@ singleCapability CapabilityType{capability=Capability{typeTree}} =
   in
     single
 singleCapability ty =
-  error $ "Expects CapabilityType " ++ show ty
+  error $ "Types.hs: Expects CapabilityType " ++ show ty
 
 conjunctiveTypesFromCapability :: Type -> [[[Type]]]
 conjunctiveTypesFromCapability t@TraitType{} = []

@@ -119,10 +119,16 @@ ppFunctionHeader header =
     parens (commaSep (map ppParamDecl (hparams header))) <+>
     text ":" <+> ppType (htype header)
 
-ppFunction :: Function -> Doc
-ppFunction Function {funheader, funbody} =
+ppFunctionHelper :: FunctionHeader -> Expr -> Doc
+ppFunctionHelper funheader funbody =
     text "def" <+> ppFunctionHeader funheader $+$
         indent (ppExpr funbody)
+
+ppFunction :: Function -> Doc
+ppFunction Function {funheader, funbody} =
+    ppFunctionHelper funheader funbody
+ppFunction MatchingFunction {matchfunheaders, matchfunbodies} =
+    foldr ($+$) (text "") (zipWith ppFunctionHelper matchfunheaders matchfunbodies)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods} =
@@ -195,7 +201,10 @@ ppExpr Let {decls, body} =
       indent (ppExpr body)
 ppExpr MiniLet {decl = (x, val)} =
     ppLet <+> ppName x <+> equals <+> ppExpr val
-ppExpr Seq {eseq} = braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
+ppExpr Seq {eseq = [expr]} =
+    ppExpr expr
+ppExpr Seq {eseq} =
+    braces $ vcat $ punctuate ppSemicolon (map ppExpr eseq)
 ppExpr IfThenElse {cond, thn, els} =
     ppIf <+> ppExpr cond <+> ppThen $+$
          indent (ppExpr thn) $+$
@@ -223,8 +232,11 @@ ppExpr Match {arg, clauses} =
     ppMatch <+> ppExpr arg <+> text "with" $+$
          ppMatchClauses clauses
     where
+      ppClause (MatchClause {mcpattern, mchandler, mcguard = BTrue{}}) =
+        indent (ppExpr mcpattern <+> text "=>" <+> ppExpr mchandler)
       ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
-        indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+> text "=>" <+> ppExpr mchandler)
+        indent (ppExpr mcpattern <+> text "when" <+> ppExpr mcguard <+>
+                       text "=>" <+> ppExpr mchandler)
       ppMatchClauses = foldr (($+$) . ppClause) (text "")
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> text "~~>" <+> ppExpr chain
