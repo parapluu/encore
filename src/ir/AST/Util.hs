@@ -13,6 +13,7 @@ module AST.Util(
     , extendAccumProgram
     , extractTypes
     , freeVariables
+    , freeTypeVars
     , mapProgramClass
     ) where
 
@@ -308,7 +309,6 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
           (acc', iprogram') = extendAccumProgram f acc iprogram
       extendAccumImport _ _ _ = error "Util.hs: Non desugared imports during extendAccumProgram"
 
-
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
@@ -364,10 +364,13 @@ extractTypes (Program{functions, traits, classes}) =
       extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype
 
-      extractExprTypes :: Expr -> [Type]
-      extractExprTypes = foldr collectTypes []
-          where
-            collectTypes e acc = (typeComponents . getType) e ++ acc
+extractExprTypes :: Expr -> [Type]
+extractExprTypes = foldr collectTypes []
+  where
+    collectTypes e acc = (typeComponents . getType) e ++ acc
+
+freeTypeVars :: Expr -> [Type]
+freeTypeVars = List.nub . List.filter isTypeVar . extractExprTypes
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
@@ -399,5 +402,6 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           freeVars ++ freeVariables' bound' body
           where
             (freeVars, bound') = List.foldr fvDecls ([], bound) decls
-            fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
+            fvDecls (x, expr) (free, bound) =
+              (freeVariables' (x:bound) expr ++ free, x:bound)
       freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)

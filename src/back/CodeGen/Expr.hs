@@ -445,9 +445,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           callCtor = Call fName [encoreCtxName]
           typeParams = Ty.getTypeParameters ty
           callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
-          typeArgs = map getRuntimeTypeVariables typeParams
         in
           do
+            typeArgs <- mapM getTypeVar typeParams
             (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
             (initArgs, result) <-
               methodCall nnew ty initName args ty
@@ -469,14 +469,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | otherwise =
           error $  "can not have passive peer '"++show ty++"'"
 
-  translate arrNew@(A.ArrayNew {A.ty, A.size}) =
-      do arrName <- Ctx.genNamedSym "array"
-         sizeName <- Ctx.genNamedSym "size"
-         (nsize, tsize) <- translate size
-         let theArrayDecl =
-                Assign (Decl (array, Var arrName))
-                       (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, getRuntimeTypeVariables ty])
-         return (Var arrName, Seq [tsize, theArrayDecl])
+  translate arrNew@(A.ArrayNew {A.ty, A.size}) = do
+    arrName <- Ctx.genNamedSym "array"
+    sizeName <- Ctx.genNamedSym "size"
+    (nsize, tsize) <- translate size
+    ty' <- getTypeVar ty
+    let theArrayDecl =
+          Assign (Decl (array, Var arrName))
+            (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, ty'])
+    return (Var arrName, Seq [tsize, theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
       (nstart, tstart) <- translate start
@@ -1017,27 +1018,51 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               Nothing -> AsLval $ globalClosureName name
                return $ Assign ((Var $ show envName) `Arrow` (fieldName name)) tname
 
-  translate clos@(A.Closure{A.eparams, A.body}) =
-      do let metaId    = Meta.getMetaId . A.getMeta $ clos
-             funName   = closureFunName metaId
-             envName   = closureEnvName metaId
-             traceName = closureTraceName metaId
-             freeVars  = Util.freeVariables (map A.pname eparams) body
-         tmp <- Ctx.genSym
-         fillEnv <- mapM (insertVar envName) freeVars
-         return $ (Var tmp, Seq $ (mkEnv envName) : fillEnv ++
-                           [Assign (Decl (closure, Var tmp))
-                                       (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
-      where
-        mkEnv name =
-           Assign (Decl (Ptr $ Struct name, AsLval name))
-                   (Call encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
-        insertVar envName (name, _) =
-            do c <- get
-               let tname = case Ctx.substLkp c name of
-                              Just substName -> substName
-                              Nothing -> AsLval $ globalClosureName name
-               return $ Assign ((Deref $ Var $ show envName) `Dot` (fieldName name)) tname
+  translate clos@(A.Closure{A.eparams, A.body}) = do
+    tmp <- Ctx.genSym
+    fillEnv <- insertAllVars freeVars fTypeVars
+    return $
+      (Var tmp,
+      Seq $
+        (mkEnv envName) : fillEnv ++
+        [Assign (Decl (closure, Var tmp))
+          (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
+    where
+      metaId    = Meta.getMetaId . A.getMeta $ clos
+      funName   = closureFunName metaId
+      envName   = closureEnvName metaId
+      traceName = closureTraceName metaId
+      freeVars  = Util.freeVariables (map A.pname eparams) body
+      fTypeVars  = Util.freeTypeVars body
+      mkEnv name =
+        Assign (Decl (Ptr $ Struct name, AsLval name))
+          (Call encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
+      insertAllVars vars typeVars =
+        liftM2 (++)
+          (mapM insertVar vars)
+          (filterM localTypeVar typeVars >>= mapM insertTypeVar)
+
+      insertVar (name, _) = do
+        c <- get
+
+        let tname = fromMaybe (AsLval $ globalClosureName name)
+                              (Ctx.substLkp c name)
+        return $ assignVar (fieldName name) tname
+      insertTypeVar ty = do
+        c <- get
+        let
+          Just tname = Ctx.substLkp c name
+          fName = typeVarRefName ty
+        return $ assignVar fName tname
+        where
+          name = ID.Name $ show $ typeVarRefName ty
+      assignVar :: (UsableAs e Expr) => CCode Name -> CCode e -> CCode Stat
+      assignVar lhs rhs = Assign ((Deref envName) `Dot` lhs) rhs
+      localTypeVar ty = do
+        c <- get
+        return $ isJust $ Ctx.substLkp c name
+        where
+          name = ID.Name $ show $ typeVarRefName ty
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
     ctx <- get
@@ -1243,6 +1268,12 @@ traitMethod this targetType name args resultType =
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
     callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
+
+getTypeVar ty = do
+  c <- get
+  return $ maybe (getRuntimeTypeVariables ty) AsExpr $ Ctx.substLkp c name
+  where
+    name = ID.Name $ show $ typeVarRefName ty
 
 msgSize :: CCode Ty -> CCode Expr
 msgSize t = Call (Nam "POOL_INDEX") [Sizeof t]
