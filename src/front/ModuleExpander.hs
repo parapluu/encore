@@ -35,7 +35,8 @@ expandModules importDirs p = expandProgram p
                  case candidates of
                    [] -> abort $ "Module \"" ++ qname2string target ++
                                  "\" cannot be found in imports! Aborting."
-                   [src] -> do { informImport target src; return src }
+-- when printing imports: [src] -> do { informImport target src; return src }
+                   [src] -> return src 
                    l@(src:_) -> do { duplicateModuleWarning target l; return src }
              code <- readFile sourceName
              ast <- case parseEncoreProgram sourceName code of
@@ -47,6 +48,7 @@ qname2string :: QName -> String
 qname2string [(Name a)] = a
 qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
+-- for printing imports
 informImport target src =
         putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
 

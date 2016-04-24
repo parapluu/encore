@@ -86,8 +86,7 @@ instance Checkable Typedef where
       when (refId `appearsIn` rhs) $ tcError $ "Type synonyms cannot be recursive."
       let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
       rhs' <- local addTypeParams $ resolveType rhs
-      let rhs'' = unfoldTypeSynonyms rhs'
-      return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs''}
+      return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs'}
        where
          distinctParams p = length p == length (nub p)
          appearsIn name typ = name `elem` (catMaybes $ map maybeGetId $ typeComponents typ)

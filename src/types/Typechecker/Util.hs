@@ -81,7 +81,7 @@ matchTypeParameterLength ty1 ty2 = do
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
-resolveType :: Type -> TypecheckM Type
+resolveType :: Type -> TypecheckM Type -- TODO: avoid recursion in type synonyms
 resolveType = typeMapM resolveSingleType
     where
       resolveSingleType ty
@@ -106,7 +106,7 @@ resolveType = typeMapM resolveSingleType
         | isStringType ty = do
             tcWarning StringDeprecatedWarning
             return ty
-        | isTypeSynonym ty = do
+        | isTypeSynonym ty = trace "resolve" $ do
             let unfolded = unfoldTypeSynonyms ty
             resolveSingleType unfolded
         | otherwise = return ty

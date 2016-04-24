@@ -97,6 +97,8 @@ import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
 
+import Debug.Trace
+
 data Activity = Active
               | Shared
               | Passive
@@ -714,6 +716,25 @@ isTypeSynonym _ = False
 
 unfoldTypeSynonyms :: Type -> Type
 unfoldTypeSynonyms = typeMap unfoldSingleSynonym
-     where
-       unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
-       unfoldSingleSynonym t = t
+
+unfoldSingleSynonym :: Type -> Type
+unfoldSingleSynonym TypeSynonym{resolvesTo = t} = trace "unfoldTS" t
+unfoldSingleSynonym t = t
+
+
+{-
+
+EXPERIMENTAL AND INCOMPLETE -- WRONG PLACE
+unfoldTypeSynonyms :: Type -> Maybe Type
+unfoldTypeSynonyms t = snd $ return $ runState (typeMapM (unfoldSingleSynonym) t) [] 
+
+unfoldSingleSynonym :: Type -> Maybe (State [String] (Maybe Type))
+unfoldSingleSynonym ty@TypeSynonym{resolvesTo = t} = 
+    do
+      let id = getId ty
+      seen <- get
+      if id `elem` seen then return Nothing 
+      else do { put (id:seen) ; return $ Just t }
+unfoldSingleSynonym t = return $ Just t
+
+-}

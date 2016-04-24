@@ -192,7 +192,7 @@ traitLookup t env =
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
     | isRefType cls = Map.lookup (getId cls) $ classTable env
-    | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env
+    | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env -- TODO: remove!!
     | otherwise = error $
       "Tried to lookup the class of '" ++ show cls
       ++ "' which is not a reference type"
