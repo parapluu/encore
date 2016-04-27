@@ -13,6 +13,7 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
+import Debug.Trace
 
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
