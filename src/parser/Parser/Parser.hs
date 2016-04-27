@@ -357,7 +357,7 @@ capability = do
       notFollowedBy lower
       refId <- identifier
       parameters <- option [] $ angles (commaSep1 typ)
-      return RefInfo{refId, parameters}
+      return $ refTypeWithParams refId parameters
       <?> "upper case ref type"
 
 classDecl :: Parser ClassDecl
