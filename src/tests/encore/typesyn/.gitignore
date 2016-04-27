@@ -6,6 +6,8 @@ params
 params_src/
 simple
 simple_src/
+transitiveA
+transitiveA_src/
 transitiveB
 transitiveB_src/
 typesynsuper
