@@ -81,10 +81,11 @@ matchTypeParameterLength ty1 ty2 = do
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
-resolveType :: Type -> TypecheckM Type -- TODO: avoid recursion in type synonyms
-resolveType t = resolveTypeO [] t
+resolveType :: Type -> TypecheckM Type
+resolveType t = resolveTypeT [] t
     where
-      resolveTypeO state t = evalStateT (typeMapM resolveSingleType t) state
+      -- state argument of resolveTypeT is a list of type synonyms seen to avoid recursion
+      resolveTypeT state t = evalStateT (typeMapM resolveSingleType t) state
       resolveSingleType ty
         | isTypeVar ty = do
             params <- lift $ asks typeParameters
@@ -120,10 +121,9 @@ resolveType t = resolveTypeO [] t
             resolveSingleType unfolded
         | otherwise = return ty
         where
- --         resolveCapa :: Type -> TypecheckM Type
           resolveCapa state t
             | emptyCapability t = return t
-            | singleCapability t = resolveTypeO state $ head $ typesFromCapability t
+            | singleCapability t = resolveTypeT state $ head $ typesFromCapability t
             | otherwise =
               mapM_ resolveSingleTrait (typesFromCapability ty) >> return ty
 

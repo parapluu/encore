@@ -72,8 +72,7 @@ instance Precheckable ImportDecl where
 
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
-     let refInfo = typeSynonymLHS typedefdef
-         resolvesTo = typeSynonymRHS typedefdef
+     let resolvesTo = typeSynonymRHS typedefdef
          addTypeParams = addTypeParameters $ getTypeParameters typedefdef
      resolvesTo' <- local addTypeParams $ resolveType resolvesTo
      return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}

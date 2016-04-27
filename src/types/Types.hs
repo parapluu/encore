@@ -8,7 +8,6 @@ module Types(
             , TypeTree
             , RoseTree (..)
             , TypeOp (..)
-            , RefInfo (..) -- probably don't want to expose this
             , fromTypeTree
             , emptyCapability
             , singleCapability
@@ -699,8 +698,8 @@ typeSynonym :: String -> [Type] -> Type -> Type
 typeSynonym name parameters resolution =
   TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
 
-typeSynonymLHS :: Type -> RefInfo
-typeSynonymLHS TypeSynonym{refInfo} = refInfo
+typeSynonymLHS :: Type -> (String, [Type])
+typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} = (name, parameters)
 typeSynonymLHS _ = error $ "Types.hs: Expected type synonym"
 
 typeSynonymRHS :: Type -> Type

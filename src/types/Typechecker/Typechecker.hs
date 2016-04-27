@@ -77,19 +77,17 @@ instance Checkable ImportDecl where
          error "Types.hs: Import AST Nodes should not exist during typechecking"
 
 instance Checkable Typedef where
-  -- TODO doing this checking required exposing RefInfo (Types.hs). Is there a better way?
   doTypecheck t@Typedef{typedefdef} = do
-      let RefInfo{refId, parameters} = typeSynonymLHS typedefdef
+      let (refId, parameters) = typeSynonymLHS typedefdef
       unless (distinctParams parameters) $ tcError $
            "Parameters of type synonyms '" ++ show t ++ "' must be distinct."
       let rhs = typeSynonymRHS typedefdef
-      when (refId `appearsIn` rhs) $ tcError $ "Type synonyms cannot be recursive."
       let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
       rhs' <- local addTypeParams $ resolveType rhs
       return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs'}
        where
          distinctParams p = length p == length (nub p)
-         appearsIn name typ = name `elem` (catMaybes $ map maybeGetId $ typeComponents typ)
+
 
 typecheckNotNull :: Expr -> TypecheckM Expr
 typecheckNotNull expr = do
