@@ -82,10 +82,8 @@ matchTypeParameterLength ty1 ty2 = do
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
 resolveType :: Type -> TypecheckM Type
-resolveType t = resolveTypeT [] t
+resolveType t = evalStateT (typeMapM resolveSingleType t) []
     where
-      -- state argument of resolveTypeT is a list of type synonyms seen to avoid recursion
-      resolveTypeT state t = evalStateT (typeMapM resolveSingleType t) state
       resolveSingleType ty
         | isTypeVar ty = do
             params <- lift $ asks typeParameters
@@ -97,7 +95,7 @@ resolveType t = resolveTypeT [] t
             let tyid = getId ty
             when (tyid `elem` seen) $ 
                     lift $ tcError $ "Type synonyms cannot be recursive." 
-                         ++ " The culprit(s) is/are " ++ (intercalate " " seen)
+                         ++ " One of the culprits is " ++ tyid
             result <- lift $ asks $ refTypeLookup ty
             case result of
               Just formal -> do
@@ -112,10 +110,6 @@ resolveType t = resolveTypeT [] t
                 lift $ tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'" 
         | isCapabilityType ty =
             lift $ resolveCapa ty
-        | isMaybeType ty = do
-            let resultType = getResultType ty
-            resolveSingleType resultType 
-            return ty
         | isStringType ty = do
             lift $ tcWarning StringDeprecatedWarning
             return ty 
