@@ -77,7 +77,6 @@ instance Precheckable Typedef where
      resolvesTo' <- local addTypeParams $ resolveType resolvesTo
      return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
 
-
 instance Precheckable FunctionHeader where
     doPrecheck header = do
       htype' <- resolveType (htype header)

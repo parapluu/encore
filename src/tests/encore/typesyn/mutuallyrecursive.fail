@@ -1,0 +1,8 @@
+#!/bin/bash
+
+
+echo "Type synonyms cannot be recursive\n" > recursive.out
+less <&0 | grep "synonym" | cmp -n 15 recursive.out
+rm -f recursive.out
+
+

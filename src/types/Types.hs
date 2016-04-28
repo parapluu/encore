@@ -89,6 +89,7 @@ module Types(
             ,typeSynonymRHS
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
+            ,unfoldSingleSynonym
             ) where
 
 import Data.List
