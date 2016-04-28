@@ -27,6 +27,7 @@ import Identifiers
 getChildren :: Expr -> [Expr]
 getChildren Skip{} = []
 getChildren TypedExpr {body} = [body]
+getChildren UnresolvedCall {target, args} = target : args
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
@@ -90,6 +91,7 @@ getChildren RangeLiteral {start, stop, step} = [start, stop, step]
 getChildren Embed {} = []
 getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
+getChildren QualifiedAccess{namespace, rest} = [rest]
 
 -- | @putChildren children e@ returns @e@ with it's children
 -- replaced by the Exprs in @children@. The expected invariant is
@@ -97,6 +99,7 @@ getChildren Binop {loper, roper} = [loper, roper]
 putChildren :: [Expr] -> Expr -> Expr
 putChildren [] e@Skip{} = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
+putChildren (target : args) e@(UnresolvedCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren args e@(FunctionCall {}) = e{args = args}
@@ -162,12 +165,14 @@ putChildren [] e@(RealLiteral {}) = e
 putChildren [] e@(Embed {}) = e
 putChildren [operand] e@(Unary {}) = e{operand = operand}
 putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
+putChildren [expr] q@QualifiedAccess{} = q{rest=expr}
 -- This very explicit error handling is there to make
 -- -fwarn-incomplete-patterns help us find missing patterns
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
 putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"
+putChildren _ e@(UnresolvedCall {}) = error "'putChildren l UnresolvedCall' expects l to have at least 1 element"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
@@ -218,6 +223,8 @@ putChildren _ e@(RangeLiteral {}) = error "'putChildren l RangeLiteral' expects 
 putChildren _ e@(Embed {}) = error "'putChildren l Embed' expects l to have 0 elements"
 putChildren _ e@(Unary {}) = error "'putChildren l Unary' expects l to have 1 element"
 putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 elements"
+putChildren _ q@QualifiedAccess{} = error "'putChildren l QualifiedAccess' expects l to have 1 element"
+
 
 --------------- The functions below this line depend only on the two above --------------------
 
@@ -305,7 +312,7 @@ extractTypes (Program{functions, traits, classes}) =
                concatMap extractTraitTypes traits ++
                concatMap extractClassTypes classes
     where
-      extractHeaderTypes :: FunctionHeader -> [Type]
+      extractHeaderTypes :: (FunctionHeader a) -> [Type]
       extractHeaderTypes header =
           typeComponents (htype header) ++
           concatMap extractParamTypes (hparams header)
@@ -373,9 +380,9 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound var@(VarAccess {name})
         | name `elem` bound = []
         | otherwise = [(name, getType var)]
-    freeVariables' bound fCall@(FunctionCall {name, args})
-        | name `elem` bound = concatMap (freeVariables' bound) args
-        | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
+    freeVariables' bound fCall@(FunctionCall {path, args})
+        | qualified path || (not (qualified path) && unsafeBase 5 path `elem` bound) = concatMap (freeVariables' bound) args
+        | otherwise         = concatMap (freeVariables' bound) args ++ [(unsafeBase 6 path, arrType)]
         where
           arrType = arrowType (map getType args) (getType fCall)
     freeVariables' bound Closure {eparams, body} =

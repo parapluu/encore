@@ -22,6 +22,7 @@ import CodeGen.ClassDecl ()
 import CodeGen.Header
 import CodeGen.Shared
 import CodeGen.ClassTable
+import CodeGen.CCodeNames(pathId)
 
 import CCode.Main
 import qualified AST.AST as A
@@ -44,4 +45,4 @@ instance Translatable A.Program Emitted where
       Emitted{classes, header, shared}
     where
       nameAndClass ctable A.Program{A.classes} =
-        [(Ty.getId (A.cname c), translate c ctable) | c <- classes]
+        [(pathId (A.cname c), translate c ctable) | c <- classes]

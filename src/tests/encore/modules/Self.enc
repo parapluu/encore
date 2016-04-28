@@ -1,0 +1,12 @@
+bundle Self where
+
+import Top
+
+def top() : int
+  20
+
+class Main
+  def main() : void {
+    print(Self.top());
+    print(Top.top())
+  }

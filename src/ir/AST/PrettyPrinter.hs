@@ -13,6 +13,7 @@ module AST.PrettyPrinter (ppExpr
                          ,ppProgram
                          ,ppParamDecl
                          ,ppFieldDecl
+                         ,ppPath -- TODO: remove
                          ,indent
                          ,ppSugared
                          ,ppFunctionHeader
@@ -25,16 +26,26 @@ import Text.PrettyPrint
 import Identifiers
 import Types
 import AST.AST
+import Data.Maybe(isNothing)
 
 indent = nest 2
 
 commaSep l = cat $ punctuate ", " l
 
+class PPable a where
+  pp :: a -> Doc
+
+instance PPable Name where
+  pp = ppName
+
+instance PPable Path where
+  pp = ppPath
+
 ppName :: Name -> Doc
 ppName (Name x) = text x
 
-ppQName :: QName -> Doc
-ppQName q = cat $ punctuate "." (map ppName q)
+ppPath :: Path -> Doc
+ppPath (Path q) = cat $ punctuate "." (map ppName q)
 
 ppType :: Type -> Doc
 ppType = text . show
@@ -59,10 +70,17 @@ ppHeader header code =
 
 ppBundleDecl :: BundleDecl -> Doc
 ppBundleDecl NoBundle = empty
-ppBundleDecl Bundle{bname} = "bundle" <+> ppQName bname
+ppBundleDecl Bundle{bname, bexports} = "bundle" <+> ppPath bname <+> ppNameList bexports <+> "where"
 
 ppImportDecl :: ImportDecl -> Doc
-ppImportDecl Import {itarget} = "import" <+> ppQName itarget
+ppImportDecl Import {itarget, iqualified, iimports, ihiding, irename} = 
+  "import" <+> (if iqualified then "qualified" else empty) <+> ppPath itarget 
+  <+> ppNameList iimports
+  <+> (if isNothing ihiding then empty else ("hiding" <+> ppNameList ihiding))
+
+ppNameList :: Maybe [Name] -> Doc
+ppNameList Nothing = empty
+ppNameList (Just names) = "(" <+> commaSep (map ppName names) <+> ")"
 
 ppTypedef :: Typedef -> Doc
 ppTypedef Typedef { typedefdef=t } =
@@ -71,13 +89,13 @@ ppTypedef Typedef { typedefdef=t } =
     "=" <+>
     ppType (typeSynonymRHS t)
 
-ppFunctionHeader :: FunctionHeader -> Doc
+ppFunctionHeader :: (PPable a) => FunctionHeader a -> Doc
 ppFunctionHeader header =
-    ppName (hname header) <>
+    pp (hname header) <>
     parens (commaSep (map ppParamDecl (hparams header))) <+>
     ":" <+> ppType (htype header)
 
-ppFunctionHelper :: FunctionHeader -> Expr -> Doc
+ppFunctionHelper :: (PPable a) => FunctionHeader a -> Expr -> Doc
 ppFunctionHelper funheader funbody =
     "def" <+> ppFunctionHeader funheader $+$
         indent (ppExpr funbody)
@@ -115,6 +133,7 @@ isSimple VarAccess {} = True
 isSimple FieldAccess {target} = isSimple target
 isSimple MethodCall {target} = isSimple target
 isSimple MessageSend {target} = isSimple target
+isSimple UnresolvedCall {target} = isSimple target
 isSimple FunctionCall {} = True
 isSimple _ = False
 
@@ -130,6 +149,9 @@ ppSugared e = case getSugared e of
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
+ppExpr UnresolvedCall {target, name, args} =
+    maybeParens target <> "." <> ppName name <>
+      parens (commaSep (map ppExpr args))
 ppExpr MethodCall {target, name, args} =
     maybeParens target <> "." <> ppName name <>
       parens (commaSep (map ppExpr args))
@@ -143,8 +165,8 @@ ppExpr PartyExtract {val} = "extract" <+> ppExpr val
 ppExpr PartyEach {val} = "each" <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
-ppExpr FunctionCall {name, args} =
-    ppName name <> parens (commaSep (map ppExpr args))
+ppExpr FunctionCall {path, args} =
+    ppPath path <> parens (commaSep (map ppExpr args))
 ppExpr Closure {eparams, body} =
     "\\" <> parens (commaSep (map ppParamDecl eparams)) <+> "->" <+> ppExpr body
 ppExpr Async {body} =
@@ -234,6 +256,7 @@ ppExpr Foreach {item, arr, body} =
   "foreach" <+> ppName item <+> "in" <+> ppExpr arr <>
                 braces (ppExpr body)
 ppExpr FinishAsync {body} = "finish" <+> ppExpr body
+ppExpr QualifiedAccess {namespace, rest} = ppPath namespace <+> "."  <+> ppExpr rest 
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = "not"

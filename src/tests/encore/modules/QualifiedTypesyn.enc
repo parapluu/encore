@@ -1,0 +1,8 @@
+
+import qualified A.B.QLib as Q
+import A.B.QLib
+
+class Main
+  def main() : void
+    let x = new Q.QFoo : X
+    in print x.name()

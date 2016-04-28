@@ -1,0 +1,9 @@
+
+import SelectiveLib hiding(bar)
+
+def bar() : void
+  print "This is bar"
+
+class Main
+  def main() : void
+    foo()

@@ -1,0 +1,9 @@
+
+import SelectiveLib
+
+def foo() : void
+  print "This is foo"
+
+class Main
+  def main() : void
+    foo()

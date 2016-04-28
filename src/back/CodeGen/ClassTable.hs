@@ -15,7 +15,7 @@ import Data.Maybe
 import Control.Arrow
 
 type FieldTable  = [(Name, FieldDecl)]
-type MethodTable = [(Name, FunctionHeader)]
+type MethodTable = [(Name, FunctionHeader Name)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
 buildClassTable :: Program -> ClassTable
@@ -34,7 +34,7 @@ buildClassTable = traverseProgram getEntries
         in
           (tname, (fieldTable, methodTable))
     getFieldEntry f     = (fname f, f)
-    getReqMethodEntry r = (hname . rheader $ r, rheader r)
+    getReqMethodEntry r = (hname $ rheader r, rheader r)
     getMethodEntry m    = (methodName m, mheader m)
 
 lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
@@ -50,14 +50,14 @@ lookupField ty f ctable =
                        Types.showWithKind ty
     in fromMaybe fail $ lookup f fs
 
-lookupMethod :: Type -> Name -> ClassTable -> FunctionHeader
+lookupMethod :: Type -> Name -> ClassTable -> FunctionHeader Name
 lookupMethod ty m ctable =
     let (_, ms) = lookupEntry ty ctable
         fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
                        Types.showWithKind ty
     in fromMaybe fail $ lookup m ms
 
-lookupMethods :: Type -> ClassTable -> [FunctionHeader]
+lookupMethods :: Type -> ClassTable -> [FunctionHeader Name]
 lookupMethods cls ctable =
     let (_, ms) = lookupEntry cls ctable
     in map snd ms

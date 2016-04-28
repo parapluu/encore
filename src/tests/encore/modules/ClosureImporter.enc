@@ -1,5 +1,6 @@
-import ClosureImp
+import ClosureLib
 
 class Main
   def main() : void
-    print ((new Foo).bar())
+     let f = get (new Foo).bar()
+     in f()

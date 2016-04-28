@@ -16,7 +16,6 @@ import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
-import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -28,16 +27,28 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
+import AST.Meta(Meta(..))  -- Hack
 
+import Debug.Trace
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Environment -> Program -> (Either TCError (Environment, Program), [TCWarning])
-typecheckEncoreProgram env p =
-  case buildEnvironment env p of
+typecheckEncoreProgram :: Environment -> (Path, Bool) -> Program -> (Either TCError ((Path, ModuleEnvironment), Program), [TCWarning])
+typecheckEncoreProgram env name p =
+  case buildEnvironment env name p of
     (Right env, warnings) -> do
-      let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
+      let reader = (\p -> (pullLocal env, p)) <$> runReaderT (typecheck $ patch (fst name) p) env
       runState (runExceptT reader) warnings
     (Left err, warnings) -> (Left err, warnings)
+
+-- some hacks
+patch :: Path -> Program -> Program
+patch path p@Program{bundle} = 
+    let newBundle = case bundle of
+                      NoBundle -> Bundle{bmeta=remeta $ prmeta p, bname=path, bexports=Nothing}
+                      b@Bundle{} -> b{bname=path}
+    in p{bundle=newBundle}
+      where
+       remeta m@Meta{} = m{sugared=Nothing}
 
 checkForMainClass :: Program -> Maybe TCError
 checkForMainClass Program{classes} =
@@ -61,6 +72,7 @@ class Checkable a where
     -- error messages
     typecheck :: Pushable a => a -> TypecheckM a
     typecheck x = local (pushBT x) $ doTypecheck x
+
 
 instance Checkable Program where
     --  E |- fun1 .. E |- funn
@@ -120,7 +132,7 @@ instance Checkable TraitDecl where
       addThis = extendEnvironment [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
-matchArgumentLength :: Type -> FunctionHeader -> Arguments -> TypecheckM ()
+matchArgumentLength :: Type -> (FunctionHeader Name) -> Arguments -> TypecheckM ()
 matchArgumentLength targetType header args =
   unless (actual == expected) $
          tcError $ WrongNumberOfMethodArgumentsError
@@ -131,7 +143,7 @@ matchArgumentLength targetType header args =
 
 meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
-  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  tdecl <- findTrait trait
   mapM_ matchField (requiredFields tdecl)
     where
     matchField tField = do
@@ -193,7 +205,7 @@ noOverlapFields capability =
 
     pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
     pairTypeFields t = do
-      trait <- liftM fromJust . asks . traitLookup $ t
+      trait <- findTrait t
       return (t, requiredFields trait)
 
 ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
@@ -217,7 +229,7 @@ ensureNoMethodConflict methods tdecls =
 
 meetRequiredMethods :: [MethodDecl] -> Type -> TypecheckM ()
 meetRequiredMethods cMethods trait = do
-  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  tdecl <- findTrait trait
   mapM_ matchMethod (requiredMethods tdecl)
   where
     matchMethod reqHeader = do
@@ -248,12 +260,11 @@ instance Checkable ClassDecl where
     mapM_ (meetRequiredFields cfields) traits
     mapM_ (meetRequiredMethods cmethods) traits
     noOverlapFields ccapability
-    -- TODO: Add namespace for trait methods
-    tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
+    tdecls <- mapM findTrait traits
     ensureNoMethodConflict cmethods tdecls
 
     emethods <- mapM typecheckMethod cmethods
-    return c{cmethods = emethods}
+    return $ c{cmethods = emethods}
     where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
@@ -380,6 +391,18 @@ instance Checkable Expr where
 
       return $ setType (parType resultType) s {par=ePar, seqfunc=eSeqFunc}
 
+    -- resolve target to either a field/variable or a module path
+    -- rename node based on that and type check again
+    doTypecheck mcall@(UnresolvedCall {target, name}) = do
+      eTarget <- typecheck target
+      let targetType = AST.getType eTarget
+      if (isRefType targetType || isCapabilityType targetType) then
+        doTypecheck MethodCall {emeta = emeta mcall, target, name, args = args mcall}
+      else if isModulePath targetType then
+        doTypecheck FunctionCall{emeta = emeta mcall, path = extendPath (getPath targetType) name, args = args mcall}
+      else 
+        tcError $ NonCallableTargetError targetType
+
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
     --  E |- arg1 : t1 .. E |- argn : tn
@@ -480,20 +503,18 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {name, args}) = do
-      funType <- asks $ varLookup name
-      ty <- case funType of
-        Just ty -> return ty
-        Nothing -> tcError $ UnboundFunctionError name
+    doTypecheck fcall@(FunctionCall {path, args}) = do
+      (namespace, status, ty) <- findFunction path
       unless (isArrowType ty) $
         tcError $ NonFunctionTypeError ty
       let argTypes = getArgTypes ty
       unless (length args == length argTypes) $
              tcError $ WrongNumberOfFunctionArgumentsError
-                       name (length argTypes) (length args)
+                       path (length argTypes) (length args)
       (eArgs, bindings) <- matchArguments args argTypes
       let resultType = replaceTypeVars bindings (getResultType ty)
-      return $ setType resultType fcall {args = eArgs}
+      let newPath = if status == Local then path else qualify namespace path
+      return $ setType resultType fcall {path = newPath, args = eArgs}
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -643,14 +664,14 @@ instance Checkable Expr where
         doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
           unless (isRefType pt) $
             tcError $ NonCallableTargetError pt
-          header <- findMethod pt name
+          header <- findMethod pt (unsafeBase 11 path)
           let hType = htype header
           unless (isMaybeType hType) $
             tcError $ NonMaybeExtractorPatternError fcall
           let extractedType = getResultType hType
           getPatternVars extractedType arg
 
-        doGetPatternVars pt fcall@(FunctionCall {name, args}) = do
+        doGetPatternVars pt fcall@(FunctionCall {args}) = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args}
           getPatternVars pt (fcall {args = [tupArg]})
@@ -672,15 +693,15 @@ instance Checkable Expr where
             local (pushBT pattern) $
               doCheckPattern pattern argty
 
-        doCheckPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
-          header <- findMethod argty name
+        doCheckPattern pattern@(FunctionCall {path, args = [arg]}) argty = do
+          header <- findMethod argty (unsafeBase 12 path)
           let hType = htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
           return $ setType extractedType pattern {args = [eArg]}
 
-        doCheckPattern pattern@(FunctionCall {name, args}) argty = do
+        doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
           checkPattern (pattern {args = [tupArg]}) argty
@@ -832,11 +853,21 @@ instance Checkable Expr where
     doTypecheck fAcc@(FieldAccess {target, name}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isThisAccess target || isPassiveClassType targetType) $
+      if isThisAccess target || isPassiveClassType targetType then do
+        fdecl <- findField targetType name
+        let ty = ftype fdecl
+        return $ setType ty fAcc {target = eTarget}
+      else if isModulePath targetType then do
+        -- either another module or a field in a module
+        let path = extendPath (getPath targetType) name
+        mp <- isModulePrefix path
+        if mp then do
+          let ty = modulePath path
+          return $ setType ty fAcc {target = eTarget}
+        else
+          tcError $ trace ("Accessing Field " ++ show target ++ " " ++ show name) CannotReadFieldError target  -- TODO: lift this for first class functions
+      else
         tcError $ CannotReadFieldError target
-      fdecl <- findField targetType name
-      let ty = ftype fdecl
-      return $ setType ty fAcc {target = eTarget}
 
     --  E |- lhs : t
     --  isLval(lhs)
@@ -873,11 +904,14 @@ instance Checkable Expr where
     -- ----------------
     --  E |- name : t
     doTypecheck var@(VarAccess {name}) =
-        do varType <- asks $ varLookup name
-           case varType of
-             Just ty -> return $ setType ty var
-             Nothing -> tcError $ UnboundVariableError name
-
+        do 
+          mp <- isModulePrefix (Path [name])
+          if mp then do
+            let ty = modulePath (Path [name])
+            return $ setType ty var
+          else do
+            (_,_,ty) <- findVar name
+            return $ setType ty var
     --
     -- ----------------------
     --  E |- null : nullType
@@ -1040,7 +1074,7 @@ instance Checkable Expr where
            let expectedTypes = [intType]
            unless (length args == length expectedTypes) $
              tcError $ WrongNumberOfFunctionArgumentsError
-                       (Name "exit") (length expectedTypes) (length args)
+                       (string2path "exit") (length expectedTypes) (length args)
            matchArguments args expectedTypes
            return $ setType voidType exit {args = eArgs}
 
@@ -1287,8 +1321,9 @@ assertSubtypeOf sub super =
       capability <- if isClassType sub
                     then do
                       cap <- asks $ capabilityLookup sub
-                      if maybe False (not . isIncapability) cap
-                      then return cap
+                      let cap' = convert cap
+                      if maybe False (not . isIncapability) cap'
+                      then return cap'
                       else return Nothing
                     else return Nothing
       case capability of

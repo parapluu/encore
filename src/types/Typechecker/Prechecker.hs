@@ -13,7 +13,6 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
-import Debug.Trace
 
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
@@ -25,12 +24,12 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Environment -> Program -> (Either TCError Program, [TCWarning])
-precheckEncoreProgram env p =
+precheckEncoreProgram :: Environment -> (Path, Bool) -> Program -> (Either TCError Program, [TCWarning])
+precheckEncoreProgram env name p =
   -- TODO: We should be able to write this using do-notation!
-  case buildEnvironment env p of
+  case buildEnvironment env name p of
     (Right env, warnings) ->
-      runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
+      runState (runExceptT (runReaderT (precheck p) env)) warnings
     (Left err, warnings) -> (Left err, warnings)
 
 class Precheckable a where
@@ -68,18 +67,25 @@ instance Precheckable Typedef where
      resolvesTo' <- local addTypeParams $ resolveTypeAndCheckForLoops resolvesTo
      return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
 
-instance Precheckable FunctionHeader where
+instance Precheckable (FunctionHeader a) where
     doPrecheck header = do
       htype' <- resolveType (htype header)
       hparams' <- mapM precheck (hparams header)
       assertDistinctThing "definition" "parameter" $ map pname hparams'
       return $ header{htype = htype', hparams = hparams'}
 
+resolveHeader header = do
+    let name = hname header
+    path <- asks currentModule
+    let hname' = qualify path name
+    return $ header{hname = hname'}
+
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do
       funheader' <- doPrecheck funheader
+      funheader'' <- resolveHeader funheader'
       let funtype = htype funheader'
-      return $ setType funtype f{funheader = funheader'}
+      return $ setType funtype f{funheader = funheader''}
 
 instance Precheckable ParamDecl where
     doPrecheck p@Param{ptype} = do
@@ -148,7 +154,7 @@ instance Precheckable FieldDecl where
 instance Precheckable MethodDecl where
     doPrecheck m@Method{mheader} = do
       mheader' <- doPrecheck mheader
-      thisType <- liftM fromJust $ asks $ varLookup thisName
+      (_,_,thisType) <- findVar thisName
       when (isMainMethod thisType (methodName m))
            (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do

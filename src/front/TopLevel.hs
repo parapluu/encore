@@ -15,10 +15,12 @@ import System.IO
 import System.Exit
 import System.Process
 import System.Posix.Directory
+import System.FilePath (splitDirectories, dropExtension)
 import Data.List
 import Data.List.Utils(split)
 import Data.Maybe
 import Data.String.Utils
+import Data.Char(toLower)
 import Control.Monad
 import qualified Data.Map as Map
 import SystemUtils
@@ -48,6 +50,8 @@ import CodeGen.Header
 import CCode.PrettyCCode
 
 import Identifiers
+
+import Debug.Trace
 
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
@@ -302,7 +306,7 @@ main =
                 Left error -> abort $ show error
 
        verbose options "== Expanding modules =="
-       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast
+       allModules <- importAndCheckModules (typecheck options) sourceName importDirs ast
 
        verbose options "== Optimizing =="
        let optimizedModules = fmap optimizeProgram allModules
@@ -323,14 +327,31 @@ main =
                return ())
        verbose options "== Done =="
     where
-      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
-      typecheck options sourceName env prog = do
+      typecheck :: [Option] -> FilePath -> Environment -> Path -> Program -> IO (Environment, Program)
+      typecheck options sourceName env name prog@Program{imports,bundle} = do
          verbose options "== Desugaring =="
          let desugaredAST = desugarProgram prog
+         
+         let exports = case bundle of
+                         Bundle{bexports} -> bexports
+                         NoBundle -> Nothing
+         
+         let bpath = case bundle of
+                         Bundle{bname} -> Just bname
+                         NoBundle -> Nothing
+                                       
+         checkBundleDecl sourceName bpath name -- TODO Move to better home
+         
+         let nameAndStatus = if isNothing bpath then (name, False) else (fromJust bpath, True)
+         
+         case checkImports imports env of -- TODO: find better home     -- PRECHECKER
+             Just error -> abort $ show error
+             Nothing -> return ()
+         let filteredEnv = applyImportRestrictions imports env
 
          verbose options "== Prechecking =="
          (precheckedAST, precheckingWarnings) <-
-           case precheckEncoreProgram env desugaredAST of
+           case precheckEncoreProgram filteredEnv nameAndStatus desugaredAST of
              (Right ast, warnings)  -> return (ast, warnings)
              (Left error, warnings) -> do
                showWarnings warnings
@@ -338,16 +359,37 @@ main =
          showWarnings precheckingWarnings
 
          verbose options "== Typechecking =="
-         ((newEnv, typecheckedAST), typecheckingWarnings) <-
-           case typecheckEncoreProgram env precheckedAST of
-             (Right (newEnv, ast), warnings) -> return ((newEnv, ast), warnings)
+         (((path, penv), typecheckedAST), typecheckingWarnings) <-
+           case typecheckEncoreProgram filteredEnv nameAndStatus precheckedAST of
+             (Right (newPartialEnv, ast), warnings) -> return ((newPartialEnv, ast), warnings)
              (Left error, warnings) -> do
                showWarnings warnings
                abort $ show error
          showWarnings typecheckingWarnings
 
-         return (newEnv, typecheckedAST)
+         case checkExports exports penv of -- TODO: find better home    PRECHECKER!
+             Just error -> abort $ show error
+             Nothing -> return ()
 
+         return $ (squash env $ (fst nameAndStatus, applyExportRestrictions exports penv), typecheckedAST)
+    
+      checkBundleDecl _ Nothing _ = return ()
+      checkBundleDecl source (Just (Path path)) (Path name) =
+        let unname (Name s) = s
+            source' = reverse $ take (length path) $ reverse $ splitDirectories $ dropExtension source
+            path' = map unname path
+            name' = map unname name
+            abortError p n s = 
+                if n == "" then 
+                  "Bundle name '" ++ p ++ "' and file path '" ++ s ++ "' must match whenever bundle name is specified."
+                else 
+                  "Bundle name '" ++ p ++ "', import name '" ++ n ++ "' and file path '" ++ s ++ "' all must match whenever bundle name is specified."
+                
+        in
+          unless (source' == path' && (name' == [] || path' == name')) $
+            abort $ abortError (show (Path path)) (show (Path name)) source  --- TODO: convert to error
+
+      
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)
@@ -372,3 +414,4 @@ main =
           flags = intercalate "\n" $
                   map (("  " ++) . strip) . lines $
                   Box.render optionBox
+

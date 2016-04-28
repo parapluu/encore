@@ -17,9 +17,14 @@ module Typechecker.Util(TypecheckM
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
+                       ,findTrait
+                       ,findVar
+                       ,findFunction
                        ,findCapability
                        ,propagateResultType
                        ,unifyTypes
+                       ,convert
+                       ,isModulePrefix
                        ) where
 
 import Identifiers
@@ -27,7 +32,6 @@ import Types as Ty
 import AST.AST as AST
 import Data.List
 import Text.Printf (printf)
-import Debug.Trace
 
 -- Module dependencies
 import Typechecker.TypeError
@@ -125,9 +129,7 @@ resolveSingleType ty
         return t
     resolveSingleTrait t
           | isRefAtomType t = do
-              result <- asks $ traitLookup t
-              when (isNothing result) $
-                 tcError $ UnknownTraitError t
+              findTrait t
           | otherwise =
               tcError $ MalformedCapabilityError t
 
@@ -159,6 +161,14 @@ resolveRefAtomType ty
         Nothing ->
           tcError $ UnknownRefTypeError ty
   | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
+
+findRefType :: Type -> TypecheckM Type
+findRefType ty = do
+    result <- asks $ (refTypeLookup ty)
+    case result of
+        [] -> tcError $ UnknownRefTypeError ty
+        [(mod,_,ty)] -> return $ qualifyType mod ty
+        many -> tcError $ AmbiguousLookup ty (map (\(a,_,_) -> a) many)
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
@@ -270,10 +280,18 @@ findField ty f = do
     Just fdecl -> return fdecl
     Nothing -> tcError $ FieldNotFoundError f ty
 
-findMethod :: Type -> Name -> TypecheckM FunctionHeader
+classOrTraitName :: Type -> String
+classOrTraitName ty
+    | isClassType ty = "class '" ++ show (getId ty) ++ "'"
+    | isTraitType ty = "trait '" ++ show (getId ty) ++ "'"
+    | isCapabilityType ty = "capability '" ++ show ty ++ "'"
+    | otherwise = error $ "Util.hs: No class or trait name for " ++
+                          Ty.showWithKind ty
+
+findMethod :: Type -> Name -> TypecheckM (FunctionHeader Name)
 findMethod ty = liftM fst . findMethodWithCalledType ty
 
-findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
+findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader Name, Type)
 findMethodWithCalledType ty name
     | isUnionType ty = do
         let members = unionMembers ty
@@ -288,12 +306,37 @@ findMethodWithCalledType ty name
           tcError $ MethodNotFoundError name ty
         return $ fromJust result
 
+-- TODO: find good home -- what about errors?
+convert :: [Result a] -> Maybe a
+convert = listToMaybe . map result
+
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do
   result <- asks $ capabilityLookup ty
-  return $ fromMaybe err result
+  return $ fromMaybe err (convert result)
     where
         err = error $ "Util.hs: No capability in " ++ Ty.showWithKind ty
+
+findTrait :: Type -> TypecheckM TraitDecl
+findTrait ty = do
+  res <- asks $ traitLookup ty
+  when (length res == 0) $ tcError $ UnknownTraitError ty
+  when (length res > 1) $ tcError $ AmbiguousLookup ty (map (\(a,_,_) -> a) res)
+  return $ result $ head res
+
+findFunction :: Path -> TypecheckM (Result Type)
+findFunction path = do
+  res <- asks $ varLookup path
+  when (length res == 0) $ tcError $ UnboundFunctionError path
+  when (length res > 1) $ tcError $ AmbiguousFunctionLookup path (map (\(a,_,_) -> a) res)
+  return $ head res
+
+findVar :: Name -> TypecheckM (Result Type)
+findVar name = do
+  res <- asks $ varLookup (name2path name)
+  when (length res == 0) $ tcError $ UnboundVariableError name
+  when (length res > 1) $ tcError $ AmbiguousVariableLookup name (map (\(a,_,_) -> a) res)
+  return $ head res
 
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty
@@ -407,3 +450,13 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter (unionMembers ty ++ tys)
     | otherwise =
         error "Util.hs: Tried to form an union without a capability"
+          
+isModulePrefix :: Path -> TypecheckM Bool
+isModulePrefix (Path path) = do
+    paths <- asks $ modulePaths
+    return $ or $ map (isPrefix path) (map unpath paths)
+  where
+    unpath (Path p) = p
+    isPrefix [] _ = True
+    isPrefix (a:as) (b:bs) = a == b && isPrefix as bs
+    isPrefix _ _ = False

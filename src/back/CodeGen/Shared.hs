@@ -10,7 +10,7 @@ import qualified AST.AST as A
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generateShared :: A.Program -> ClassTable -> CCode FIN
-generateShared prog@(A.Program{A.functions, A.imports}) ctable =
+generateShared prog@(A.Program{A.functions}) ctable =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -64,7 +64,8 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
                 Call (Nam "encore_start")
                      [AsExpr $ Var "argc",
                       AsExpr $ Var "argv",
-                      Amp (Var "_enc__active_Main_type")]
+                      maybe Null (\x -> Amp (runtimeTypeName x)) (A.mainType prog)]
+
 
 
 commentSection :: String -> CCode Toplevel

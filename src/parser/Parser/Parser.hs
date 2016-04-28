@@ -18,6 +18,7 @@ import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Control.Applicative ((<$>))
+import Data.Maybe(isJust)
 
 -- Module dependencies
 import Identifiers
@@ -158,11 +159,15 @@ float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
 -- ! For parsing qualified names such as A.B.C
-longidentifier :: Parser QName
+longidentifier :: Parser Path
 longidentifier = do
-    id <- identifier
-    rest <- option [] (do { dot ; longidentifier })
-    return $ Name id : rest
+    names <- identifiers
+    return $ Path names
+  where
+    identifiers= do
+      id <- identifier
+      rest <- option [] (do { dot ; identifiers })
+      return $ Name id : rest
 
 typ :: Parser Type
 typ = buildExpressionParser opTable singleType
@@ -217,7 +222,7 @@ typ = buildExpressionParser opTable singleType
         return rangeType
       refType = do
         notFollowedBy lower
-        refId <- identifier
+        refId <- longidentifier
         parameters <- option [] $ angles (commaSep1 typ)
         return $ refTypeWithParams refId parameters
       primitive =
@@ -248,7 +253,9 @@ partitionDecls = partitionDecls' [] [] [] []
 
 program :: Parser Program
 program = do
-  source <- sourceName <$> getPosition
+  pos <- getPosition
+  let source = sourceName pos
+  let prmeta = meta pos
   optional hashbang
   whiteSpace
   bundle <- bundledecl
@@ -258,7 +265,7 @@ program = do
   decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function)
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
-  return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
+  return Program{prmeta, source, bundle, etl, imports, typedefs, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -268,19 +275,26 @@ bundledecl = option NoBundle $ do
   pos <- getPosition
   reserved "bundle"
   bname <- longidentifier
+  exports <- optionMaybe $ parens (commaSep $ Name <$> identifier)
   reserved "where"
-  return $ Bundle (meta pos) bname
+  return $ Bundle (meta pos) bname exports
 
 importdecl :: Parser ImportDecl
 importdecl = do
   pos <- getPosition
   reserved "import"
---  qualified <- option $ reserved "qualified"
+  qualified <- optionMaybe $ reserved "qualified"
   iname <- longidentifier
---  {(Name,...)}?
---  stringliteral "as"; qname <- name
---  {as Name}
-  return $ Import (meta pos) iname
+  newName <- optionMaybe $ do { reserved "as"; Name <$> identifier }
+  imports <- optionMaybe $ parens (commaSep $ Name <$> identifier)
+  hiding <- optionMaybe $ do { reserved "hiding"; parens (commaSep $ Name <$> identifier)}
+  return $ Import{imeta = meta pos,
+                  itarget = iname, 
+                  iqualified = isJust qualified, 
+                  iimports = imports, 
+                  ihiding = hiding,
+                  irename = newName}
+
 
 embedTL :: Parser EmbedTL
 embedTL = do
@@ -304,10 +318,10 @@ typedef = do
   params <- option [] (angles $ commaSep1 typeVariable)
   reservedOp "="
   typedeftype <- typ
-  let typedefdef = typeSynonym name params typedeftype
+  let typedefdef = typeSynonym (string2path name) params typedeftype
   return Typedef{typedefmeta, typedefdef}
 
-functionHeader :: Parser FunctionHeader
+functionHeader :: Parser (FunctionHeader Name)
 functionHeader = do
   hname <- Name <$> identifier
   hparams <- parens (commaSep paramDecl)
@@ -319,7 +333,10 @@ functionHeader = do
                ,htype
                }
 
-streamMethodHeader :: Parser FunctionHeader
+upgrade :: FunctionHeader Name -> FunctionHeader Path
+upgrade h = h{hname=name2path (hname h)}
+
+streamMethodHeader :: Parser (FunctionHeader Name)
 streamMethodHeader = do
   header <- functionHeader
   return header{kind = Streaming}
@@ -346,7 +363,7 @@ matchingHeader = do
                         ,hguard
                         }
 
-matchingStreamHeader :: Parser FunctionHeader
+matchingStreamHeader :: Parser (FunctionHeader Name)
 matchingStreamHeader = do
   header <- matchingHeader
   return header{kind = Streaming}
@@ -357,7 +374,7 @@ function =  try regularFunction <|> matchingFunction
     regularFunction = do
       funmeta <- meta <$> getPosition
       reserved "def"
-      funheader <- functionHeader
+      funheader <- upgrade <$> functionHeader
       funbody <- expression
       return Function{funmeta
                      ,funheader
@@ -366,7 +383,7 @@ function =  try regularFunction <|> matchingFunction
       funmeta <- meta <$> getPosition
       reserved "def"
       clauses <- functionClause `sepBy1` reservedOp "|"
-      let matchfunheaders = map fst clauses
+      let matchfunheaders = map (upgrade . fst) clauses
           matchfunbodies = map snd clauses
       return MatchingFunction{funmeta
                              ,matchfunheaders
@@ -386,7 +403,7 @@ traitDecl = do
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
               ,tname = traitTypeFromRefType $
-                       refTypeWithParams ident params
+                       refTypeWithParams (string2path ident) params
               ,treqs
               ,tmethods
               }
@@ -420,7 +437,7 @@ classDecl = do
   ccapability <- option incapability (do{reservedOp ":"; typ})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = classType activity name params
+              ,cname = classType activity (string2path name) params
               ,ccapability
               ,cfields
               ,cmethods
@@ -693,8 +710,9 @@ expr  =  unit
                pathComponent = do {dot; (try functionCall <|> varAccess)}
                buildPath pos target (VarAccess{name}) =
                    FieldAccess (meta pos) target name
-               buildPath pos target (FunctionCall{name, args}) =
-                   MethodCall (meta pos) target name args
+               buildPath pos target (FunctionCall{path, args}) =
+                     UnresolvedCall (meta pos) target (unsafeBase 7 path) args
+                   -- MethodCall (meta pos) target (unsafeBase 8 path) args  -- TODO: This could be a function in another module
       letExpression = do pos <- getPosition
                          reserved "let"
                          decls <- many varDecl
@@ -790,8 +808,8 @@ expr  =  unit
                    return $ Suspend (meta pos)
       functionCall = do pos <- getPosition
                         fun <- identifier
-                        args <- parens arguments
-                        return $ FunctionCall (meta pos) (Name fun) args
+                        args <- parens arguments    
+                        return $ FunctionCall (meta pos) (string2path fun) args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)
@@ -849,7 +867,7 @@ expr  =  unit
       print = do pos <- getPosition
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) (Name "print") arg
+                 return $ FunctionCall (meta pos) (string2path "print") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
