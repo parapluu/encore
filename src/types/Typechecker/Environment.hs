@@ -274,6 +274,7 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
 
+{-
 mergeEnvs :: [Either TCError Environment] -> Either TCError Environment
 mergeEnvs envs = foldr merge (return emptyEnv) envs
   where
@@ -316,3 +317,4 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
     mergeLocals = (++)
     mergeBindings = (++)
     mergeTypeParams = (++)
+-}
