@@ -245,7 +245,7 @@ instance Show Type where
       where
         args = intercalate ", " (map show argTypes)
     show (CType ty) = ty
-    show TypeSynonym{refInfo, resolvesTo} = show refInfo ++ "(= " ++ show resolvesTo ++ ")"   
+    show TypeSynonym{refInfo, resolvesTo} = show refInfo  
     show VoidType   = "void"
     show StringType = "string"
     show CharType   = "char"
@@ -445,47 +445,9 @@ setTypeParameters ty@ClassType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
     let subst = zip (parameters refInfo) params
-    in ty{refInfo = refInfo{parameters = params}, resolvesTo=apply subst resolvesTo}
+    in ty{refInfo = refInfo{parameters = params}, resolvesTo=replaceTypeVars subst resolvesTo}
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
-
-class TypeSubstitution t where
-  apply :: [(Type, Type)] -> t -> t
-
-instance TypeSubstitution Type where
-  apply subst t@TypeVar{} =
-       case lookup t subst of
-           Nothing -> t
-           Just t' -> t'
-  apply subst t@Unresolved{refInfo} = t{refInfo=apply subst refInfo}
-  apply subst t@TraitType{refInfo} = t{refInfo=apply subst refInfo}
-  apply subst t@ClassType{refInfo} = t{refInfo=apply subst refInfo}
-  apply subst t@TypeSynonym{refInfo, resolvesTo} =
-       t{refInfo = apply subst refInfo, resolvesTo = apply subst resolvesTo}
-  apply subst t@CapabilityType{capability} = t{capability = apply subst capability}
-  apply subst t@ArrowType{argTypes, resultType} =
-       t{argTypes = apply subst argTypes, resultType = apply subst resultType}
-  apply subst t@FutureType{resultType} = t{resultType = apply subst resultType}
-  apply subst t@ParType{resultType} = t{resultType = apply subst resultType}
-  apply subst t@StreamType{resultType} = t{resultType = apply subst resultType}
-  apply subst t@ArrayType{resultType} = t{resultType = apply subst resultType}
-  apply subst t@MaybeType{resultType} = t{resultType = apply subst resultType}
-  apply subst t@TupleType{argTypes} = t{argTypes = apply subst argTypes}
-  apply _ t = t
-
-instance TypeSubstitution RefInfo where
-  apply subst r@RefInfo{parameters} = r{parameters=map (apply subst) parameters}
-
-instance TypeSubstitution t => TypeSubstitution [t] where
-  apply subst l = map (apply subst) l
-
-instance TypeSubstitution Capability where
-  apply subst EmptyCapability = EmptyCapability
-  apply subst t@Capability{typeTree} = t{typeTree = apply subst typeTree}
-
-instance TypeSubstitution t => TypeSubstitution (RoseTree t) where
-  apply subst (Leaf t) = Leaf (apply subst t)
-  apply subst (RoseTree op l) = RoseTree op (apply subst l)
 
 emptyCapability :: Type -> Bool
 emptyCapability CapabilityType{capability=EmptyCapability} = True

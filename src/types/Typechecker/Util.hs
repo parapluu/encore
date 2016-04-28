@@ -96,19 +96,22 @@ resolveType t = resolveTypeT [] t
             seen <- get
             let tyid = getId ty
             when (tyid `elem` seen) $ 
-                    lift $ tcError "Type synonyms cannot be recursive"
+                    lift $ tcError $ "Type synonyms cannot be recursive." 
+                         ++ " The culprit(s) is/are " ++ (intercalate " " seen)
             result <- lift $ asks $ refTypeLookup ty
             case result of
               Just formal -> do
                 lift $ matchTypeParameterLength formal ty
                 let res = setTypeParameters formal $ getTypeParameters ty
                 (when $ isTypeSynonym res) $ put (tyid:seen)
-                return $ res 
+                if isTypeSynonym res then
+                    typeMapM resolveSingleType res  -- force resolution of type synonyms
+                else                 
+                    return res 
               Nothing ->
                 lift $ tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'" 
-        | isCapabilityType ty = do
-            seen <- get
-            lift $ resolveCapa seen ty
+        | isCapabilityType ty =
+            lift $ resolveCapa ty
         | isMaybeType ty = do
             let resultType = getResultType ty
             resolveSingleType resultType 
@@ -121,34 +124,17 @@ resolveType t = resolveTypeT [] t
             resolveSingleType unfolded
         | otherwise = return ty
         where
-          resolveCapa state t
+          resolveCapa t
             | emptyCapability t = return t
-            | singleCapability t = resolveTypeT state $ head $ typesFromCapability t
+            | singleCapability t = return $ head $ typesFromCapability t
             | otherwise =
-              mapM_ resolveSingleTrait (typesFromCapability ty) >> return ty
+              mapM_ resolveSingleTrait (typesFromCapability ty) >> return t
 
           resolveSingleTrait t = do
             result <- asks $ traitLookup t
             when (isNothing result) $
                    tcError $ "Couldn't find trait '" ++ getId t ++ "'"
 
-
-{-
-
-EXPERIMENTAL AND INCOMPLETE -- WRONG PLACE
-unfoldTypeSynonyms :: Type ->  Type
-unfoldTypeSynonyms t = return $ runState (typeMapM (unfoldSingleSynonym) t) [] 
-
-unfoldSingleSynonym :: Type -> Maybe (State [String] (Maybe Type))
-unfoldSingleSynonym ty@TypeSynonym{resolvesTo = t} = 
-    do
-      let id = getId ty
-      seen <- get
-      if id `elem` seen then error!!!!
-      else do { put (id:seen) ; return $ Just t }
-unfoldSingleSynonym t = return $ Just t
-
--}
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
