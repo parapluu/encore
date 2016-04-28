@@ -122,7 +122,7 @@ resolveType t = evalStateT (typeMapM resolveSingleType t) []
             | emptyCapability t = return t
             | singleCapability t = return $ head $ typesFromCapability t
             | otherwise =
-              mapM_ resolveSingleTrait (typesFromCapability ty) >> return t
+              mapM_ resolveSingleTrait (typesFromCapability t) >> return t
 
           resolveSingleTrait t = do
             result <- asks $ traitLookup t
