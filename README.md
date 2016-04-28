@@ -56,6 +56,9 @@ To start and connect again to the VM:
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
 
+If you are running a debian based linux distribution you can run the 
+`linux-install.sh` script and it will install all dependencies and build encore.
+
 ### Step 1: Preliminaries
 
 We're using:
@@ -96,7 +99,7 @@ Run: `brew update; brew install llvm`
 ##### Installing `premake4`
 
 Go to the [Premake4 Download page](http://premake.github.io/download.html),
-download and install `premake4`. 
+download and install `premake4`.
 
 Alternatively, run: `brew update; brew install premake`
 
@@ -112,30 +115,6 @@ Then install the newest version:
 ```
 brew update && brew install cabal-install && cabal update && brew install ghc
 ```
-
-#### Installing the preliminaries on Linux
-
-It's only tested on Ubuntu 14.04, and hopefully it works as well on other
-distributions based on Ubuntu or Debian.
-
-
-    # add sources
-    sudo add-apt-repository -y ppa:hvr/ghc
-    # update
-    sudo apt-get update
-    # set up the building infrastructure
-    sudo apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 racket doxygen
-	# update cabal packages
-	cabal update && cabal install cabal-install
-
-
-##### Version checking
-
-Due to the incomplete support for C++11 in gcc
-[4.7](https://gcc.gnu.org/gcc-4.7/cxx0x_status.html), the minimal version of gcc
-is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
-
-    gcc/g++: ~> 4.8
 
 #### Step 2: Compiling and installing encore
 
