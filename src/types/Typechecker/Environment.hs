@@ -52,6 +52,7 @@ data Environment = Env {
   typeSynonymTable :: Map String Typedef,
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
+  importTable :: Map QName Program,
   globals  :: VarTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
@@ -63,6 +64,7 @@ emptyEnv = Env {
   typeSynonymTable = Map.empty,
   classTable = Map.empty,
   traitTable = Map.empty,
+  importTable = Map.empty,
   globals = [],
   locals = [],
   bindings = [],
@@ -71,8 +73,8 @@ emptyEnv = Env {
 }
 
 buildEnvironment :: Program -> (Either TCError Environment, [TCWarning])
-buildEnvironment p =
-  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
+buildEnvironment p = (buildEnvironment' p, [])
+--  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
     buildEnvironment' p@(Program {typedefs, functions, classes, traits, imports}) =
@@ -80,12 +82,13 @@ buildEnvironment p =
            typeSynonymTable = Map.fromList [(getId (typedefdef t), t) | t <- typedefs],
            classTable = Map.fromList [(getId (cname c), c) | c <- classes],
            traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
+           importTable = Map.fromList [(qname i, iprogram i) | i <- imports],
            globals = map getFunctionType functions,
            locals = [],
            bindings = [],
            typeParameters = [],
            bt = emptyBT
-         }]
+         }
 
     getFunctionType f =
         let funname   = functionName f
@@ -280,6 +283,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
       Env{classTable     = classTable,
           traitTable     = traitTable,
           typeSynonymTable = typeSynonymTable,
+          importTable    = importTable,
           globals        = globs,
           locals         = locals,
           bindings       = binds,
@@ -289,6 +293,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
       Env{classTable     = classTable',
           traitTable     = traitTable',
           typeSynonymTable = typeSynonymTable',
+          importTable    = importTable',
           globals        = globs',
           locals         = locals',
           bindings       = binds',
@@ -299,6 +304,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
         classTable     = Map.union classTable classTable',
         traitTable     = Map.union traitTable traitTable',
         typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
+        importTable    = Map.union importTable importTable',
         globals        = mergeGlobals globs globs',
         locals         = mergeLocals locals locals',
         bindings       = mergeBindings binds binds',
