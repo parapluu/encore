@@ -13,7 +13,7 @@ typedef void stream_t;
  *  Relies on garbage collection for memory management
  *  @return An empty, open stream
  */
-stream_t *stream_mk();
+stream_t *stream_mk(pony_ctx_t *ctx);
 
 /**
  *  Put a value in a stream
