@@ -37,7 +37,7 @@ Vagrant.configure(2) do |config|
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
-  # config.vm.synced_folder ".", "/home/vagrant", disabled: false
+  config.vm.synced_folder ".", "/home/vagrant", disabled: false
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -65,7 +65,6 @@ Vagrant.configure(2) do |config|
     vb.memory = "2048"
   end
 
-
   #
   # View the documentation for the provider you are using for more
   # information on available options.
@@ -77,41 +76,18 @@ Vagrant.configure(2) do |config|
   #   push.app = "YOUR_ATLAS_USERNAME/YOUR_APPLICATION_NAME"
   # end
 
-  config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key' ]
-
-  config.ssh.forward_agent = true
+  # config.ssh.private_key_path = [ '~/.vagrant.d/insecure_private_key' ]
+  # config.ssh.forward_agent = true
 
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-
-  config.vm.provision "install dependencies", type: "shell", :inline => <<-SHELL
-     # Add sources
-     sudo add-apt-repository -y ppa:hvr/ghc
-     apt-get update
-
-     # Install dependencies
-     apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 unzip valgrind git emacs vim
-     update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-     ln -s /usr/bin/cabal-1.22 /usr/bin/cabal
-     ln -s /usr/bin/lldb-3.5 /usr/bin/lldb
+  config.vm.provision "build compiler", type: "shell", privileged: false, :inline => <<-SHELL
+    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8;
+    sudo add-apt-repository -y ppa:hvr/ghc;
+    sudo apt-get update -qq;
+    sudo apt-get install -y -qq ghc-7.10.2 cabal-install-1.22;
+    cabal sandbox init;
+    export HOME=/home/vagrant && ./debian-install.sh -f
   SHELL
-
-  config.vm.provision "tools for generating doc", type: "shell", :inline => <<-SHELL
-    sudo apt-get install texlive-latex-base racket
-  SHELL
-
-  config.vm.provision "update cabal", type: "shell", privileged: false, :inline => <<-SHELL
-    export PATH=/vagrant/release:/opt/ghc/7.10.2/bin:$PATH
-    cabal update && cabal install cabal-install
-  SHELL
-
-  config.vm.provision "run test", type: "shell", privileged: false, :inline => <<-SHELL
-    export PATH=/vagrant/release:/opt/ghc/7.10.2/bin:$PATH
-    cd /vagrant && make clean && make test
-  SHELL
-
-  config.vm.provision "update $PATH", type: "shell", privileged: false, inline: "echo export PATH=/vagrant/release:/opt/ghc/7.10.2/bin:$PATH >> .profile"
-
-  config.vm.provision "symlink to shared folder", type: "shell", privileged: false, inline: "ln -s /vagrant/* /home/vagrant/"
 end

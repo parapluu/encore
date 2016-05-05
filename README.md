@@ -22,10 +22,13 @@ Would you like to play around with Encore without having to install all the depe
 This installs the Encore compiler in a Virtual Machine (VM).
 
 At this point, you have a Ubuntu VM working for you. You will work on your localhost (marked as `localhost$`) and compile on the VM (marked as `vm$`).
+Your Encore code needs to be placed inside the `encore` folder (the VM is restricted to work only inside that folder).
 
 To connect to the VM:
 
     localhost$ vagrant ssh
+
+This command will connect you to the VM (user: `vagrant`, password: `vagrant`).
 
 From the VM, compile using Encore:
 
