@@ -22,10 +22,13 @@ Would you like to play around with Encore without having to install all the depe
 This installs the Encore compiler in a Virtual Machine (VM).
 
 At this point, you have a Ubuntu VM working for you. You will work on your localhost (marked as `localhost$`) and compile on the VM (marked as `vm$`).
+Your Encore code needs to be placed inside the `encore` folder (the VM is restricted to work only inside that folder).
 
 To connect to the VM:
 
     localhost$ vagrant ssh
+
+This command will connect you to the VM (user: `vagrant`, password: `vagrant`).
 
 From the VM, compile using Encore:
 
@@ -50,11 +53,19 @@ To start and connect again to the VM:
 
     localhost$ vagrant up && vagrant ssh
 
-
 ## Building Encore from Source
 
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
 `clang` and `ghc` in your path.
+
+### Installing on Debian based Linux distros
+
+To install Encore on a Debian based Linux distribution you can use the `debian-install.sh` script.
+To perform a full install run the script with the `-f` flag to completely install all dependencies,
+setup the correct Haskell version and build and install Encore.
+
+If you do not want the script to alter your `$PATH` variable or change the Haskell version use the
+`-h` flag to see available options.
 
 ### Step 1: Preliminaries
 
@@ -112,46 +123,6 @@ Then install the newest version:
 ```
 brew update && brew install cabal-install && cabal update && brew install ghc
 ```
-
-#### Installing the preliminaries on Linux
-
-It's only tested on Ubuntu 14.04, and hopefully it works as well on other
-distributions based on Ubuntu or Debian.
-
-
-    # add sources
-    sudo add-apt-repository -y ppa:hvr/ghc
-    # update
-    sudo apt-get update
-    # set up the building infrastructure
-    sudo apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 racket doxygen
-	# update cabal packages
-	cabal update && cabal install cabal-install
-
-At this point, `ghc-7.10.2` has been installed in `/opt/ghc/`.
-
-**NOTE**: If you have another version of Haskell, Encore needs `ghc-7.10.2` to work:
-You can add `/opt/` as the first folder in the `$PATH`. If you want
-to hack on Encore without changing your global `$PATH`:
-
-```
-export PATH="/opt/ghc/:$PATH"
-```
-
-If you want to change this globally (you won't need to do this everytime
-you open a terminal), then:
-
-```
-echo export PATH="/opt/ghc/:$PATH" >> ~/.profile
-```
-
-##### Version checking
-
-Due to the incomplete support for C++11 in gcc
-[4.7](https://gcc.gnu.org/gcc-4.7/cxx0x_status.html), the minimal version of gcc
-is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
-
-    gcc/g++: ~> 4.8
 
 #### Step 2: Compiling and installing encore
 
