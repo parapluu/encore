@@ -61,7 +61,7 @@ instance Precheckable Program where
         assertDistinctThing "declaration" "typedef, class or trait name" $
                             map (getId . tname) (allTraits p) ++
                             map (getId . cname) (allClasses p) ++
-                            map (getId . typedefdef) (allTypedefs p)             
+                            map (getId . typedefdef) (allTypedefs p)
 
 instance Precheckable ImportDecl where
     doPrecheck i@PulledImport{iprogram} = do

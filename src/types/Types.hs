@@ -4,13 +4,6 @@
 module Types(
               Type
             , Activity (..)
-            , Capability
-            , TypeTree
-            , RoseTree (..)
-            , TypeOp (..)
-            , fromTypeTree
-            , emptyCapability
-            , singleCapability
             ,arrowType
             ,isArrowType
             ,futureType
@@ -36,9 +29,11 @@ module Types(
             ,isMainType
             ,stringObjectType
             ,isStringObjectType
-            ,capabilityType
+            ,conjunctiveType
+            ,disjunctiveType
             ,isCapabilityType
             ,incapability
+            ,isIncapability
             ,typeVar
             ,isTypeVar
             ,replaceTypeVars
@@ -89,7 +84,6 @@ module Types(
             ,typeSynonymRHS
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
-            ,unfoldSingleSynonym
             ) where
 
 import Data.List
@@ -111,51 +105,6 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
-type TypeTree = RoseTree Type
-
-data RoseTree t = Leaf t
-                | RoseTree TypeOp [RoseTree t]
-              deriving (Eq)
-
-instance Functor RoseTree where
-  fmap f (Leaf i) = Leaf $ f i
-  fmap f (RoseTree op ts) = RoseTree op $ map (fmap f) ts
-
-instance Foldable RoseTree where
-  foldMap f (Leaf i) = f i
-  foldMap f (RoseTree _ ts) = mconcat $ map (foldMap f) ts
-
-instance Traversable RoseTree where
-  traverse f (Leaf i) = Leaf <$> f i
-  traverse f (RoseTree op ts) = RoseTree op <$> traverse (traverse f) ts
-
-instance Show TypeTree where
-  show = removeParens . pp'
-    where
-      removeParens :: String -> String
-      removeParens = init . tail
-
-      pp' :: TypeTree -> String
-      pp' (Leaf t) = show t
-      pp' (RoseTree op ts) =
-        let
-          opStr = concat $ [" ", show op, " "]
-          strings = map pp' ts
-          result = concat $ intersperse opStr strings
-          needParens = op == Addition
-        in
-          if needParens then parens result else result
-        where
-          parens str = concat ["(", str, ")"]
-
-data Capability = Capability { typeTree :: TypeTree }
-                | EmptyCapability
-  deriving (Eq)
-
-instance Show Capability where
-  show EmptyCapability = ""
-  show Capability{typeTree} = show typeTree
-
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
                       } deriving(Eq)
@@ -172,7 +121,10 @@ data Type = Unresolved{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
                      ,activity   :: Activity
                      }
-          | CapabilityType{capability :: Capability}
+          | CapabilityType{typeop :: TypeOp
+                          ,ltype  :: Type
+                          ,rtype  :: Type}
+          | EmptyCapability{}
           | TypeVar{ident :: String}
           | ArrowType{argTypes   :: [Type]
                      ,resultType :: Type
@@ -215,11 +167,11 @@ getResultType ty
 getId ty = case maybeGetId ty of
      Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
      Just t -> t
- 
+
 maybeGetId Unresolved{refInfo} = Just $ refId refInfo
 maybeGetId TraitType{refInfo} = Just $ refId refInfo
 maybeGetId ClassType{refInfo} = Just $ refId refInfo
-maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo 
+maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo
 maybeGetId TypeVar{ident} = Just $ ident
 maybeGetId CType{ident} = Just $ ident
 maybeGetId _ = Nothing
@@ -228,7 +180,17 @@ instance Show Type where
     show Unresolved{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
-    show CapabilityType{capability} = show capability
+    show CapabilityType{typeop = Product, ltype, rtype} =
+        let lhs = if isDisjunction ltype
+                  then "(" ++ show ltype ++ ")"
+                  else show ltype
+            rhs = if isDisjunction rtype
+                  then "(" ++ show rtype ++ ")"
+                  else show rtype
+        in lhs ++ " " ++ show Product ++ " " ++ rhs
+    show CapabilityType{typeop = Addition, ltype, rtype} =
+        show ltype ++ " " ++ show Addition ++ " " ++ show rtype
+    show EmptyCapability = ""
     show TypeVar{ident} = ident
     show ArrowType{argTypes = [ty], resultType} =
         show ty ++ " -> " ++ show resultType
@@ -246,7 +208,7 @@ instance Show Type where
       where
         args = intercalate ", " (map show argTypes)
     show (CType ty) = ty
-    show TypeSynonym{refInfo, resolvesTo} = show refInfo  
+    show TypeSynonym{refInfo, resolvesTo} = show refInfo
     show VoidType   = "void"
     show StringType = "string"
     show CharType   = "char"
@@ -292,7 +254,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind CType{}                       = "embedded type"
     kind TypeSynonym{}                 = "type synonym"
     kind _                             = "type"
-    
+
 
 hasSameKind :: Type -> Type -> Bool
 hasSameKind ty1 ty2
@@ -327,8 +289,8 @@ typeComponents ref@(TraitType{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents ref@(ClassType{refInfo}) =
     ref : refInfoTypeComponents refInfo
-typeComponents ref@(CapabilityType{capability}) =
-    ref : capabilityComponents capability
+typeComponents cap@(CapabilityType{ltype, rtype}) =
+    cap : typeComponents ltype ++ typeComponents rtype
 typeComponents str@(StreamType ty) =
     str : typeComponents ty
 typeComponents arr@(ArrayType ty)  =
@@ -341,12 +303,6 @@ typeComponents ty = [ty]
 
 refInfoTypeComponents = concatMap typeComponents . parameters
 
--- TODO: Should maybe extract the power set?
-capabilityComponents :: Capability -> [Type]
-capabilityComponents EmptyCapability = []
-capabilityComponents Capability{typeTree} =
-  concatMap typeComponents $ toList typeTree
-
 typeMap :: (Type -> Type) -> Type -> Type
 typeMap f ty@Unresolved{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
@@ -354,8 +310,9 @@ typeMap f ty@TraitType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@ClassType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@CapabilityType{capability} =
-    f ty{capability = capabilityTypeMap f capability}
+typeMap f ty@CapabilityType{ltype, rtype} =
+    f ty{ltype = typeMap f ltype
+        ,rtype = typeMap f rtype}
 typeMap f ty@ArrowType{argTypes, resultType} =
     f ty{argTypes = map (typeMap f) argTypes
         ,resultType = typeMap f resultType}
@@ -372,17 +329,12 @@ typeMap f ty@MaybeType{resultType} =
 typeMap f ty@TupleType{argTypes} =
     f ty{argTypes = map (typeMap f) argTypes}
 typeMap f ty@TypeSynonym{refInfo, resolvesTo} =
- f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}    
+ f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
 refInfoTypeMap f info@RefInfo{parameters} =
     info{parameters = map (typeMap f) parameters}
-
-capabilityTypeMap :: (Type -> Type) -> Capability -> Capability
-capabilityTypeMap _ EmptyCapability = EmptyCapability
-capabilityTypeMap f cap@Capability{typeTree} =
-    cap{typeTree = fmap (typeMap f) typeTree}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapM f ty@Unresolved{refInfo} = do
@@ -394,9 +346,10 @@ typeMapM f ty@TraitType{refInfo} = do
 typeMapM f ty@ClassType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
-typeMapM f ty@CapabilityType{capability} = do
-  capability' <- capabilityTypeMapM f capability
-  f ty{capability = capability'}
+typeMapM f ty@CapabilityType{ltype, rtype} = do
+  ltype' <- typeMapM f ltype
+  rtype' <- typeMapM f rtype
+  f ty{ltype = ltype', rtype = rtype'}
 typeMapM f ty@ArrowType{argTypes, resultType} = do
   argTypes' <- mapM (typeMapM f) argTypes
   resultType' <- typeMapM f resultType
@@ -424,12 +377,6 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
   parameters' <- mapM (typeMapM f) parameters
   return info{parameters = parameters'}
 
-capabilityTypeMapM :: Monad m => (Type -> m Type) -> Capability -> m Capability
-capabilityTypeMapM f EmptyCapability = return EmptyCapability
-capabilityTypeMapM f cap@Capability{typeTree} = do
-  typeTree' <- mapM (typeMapM f) typeTree
-  return $ cap{typeTree = typeTree'}
-
 getTypeParameters :: Type -> [Type]
 getTypeParameters Unresolved{refInfo} = parameters refInfo
 getTypeParameters TraitType{refInfo} = parameters refInfo
@@ -450,47 +397,26 @@ setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
-emptyCapability :: Type -> Bool
-emptyCapability CapabilityType{capability=EmptyCapability} = True
-emptyCapability _ = False
-
-singleCapability :: Type -> Bool
-singleCapability CapabilityType{capability=EmptyCapability} = False
-singleCapability CapabilityType{capability=Capability{typeTree}} =
-  let
-    leaves = toList typeTree
-    first = head leaves
-    single = leaves == first : []
-  in
-    single
-singleCapability ty =
-  error $ "Types.hs: Expects CapabilityType " ++ show ty
-
-conjunctiveTypesFromCapability :: Type -> [[[Type]]]
-conjunctiveTypesFromCapability t@TraitType{} = []
-conjunctiveTypesFromCapability CapabilityType{capability=EmptyCapability} = []
-conjunctiveTypesFromCapability ty@CapabilityType{capability} =
-  collect $ typeTree capability
-  where
-    collect :: TypeTree -> [[[Type]]]
-    collect (Leaf _) = []
-    collect (RoseTree Addition ts) = concatMap collect ts
-    collect (RoseTree Product ts) =
-      let
-        parTypes = map toList ts
-      in
-        concatMap collect ts ++ [parTypes]
-conjunctiveTypesFromCapability ty =
-  error $ "Types.hs: Cannot get conjunctive types from " ++ showWithKind ty
+conjunctiveTypesFromCapability :: Type -> [([Type], [Type])]
+conjunctiveTypesFromCapability ty
+    | isConjunction ty
+    , ltype <- ltype ty
+    , rtype <- rtype ty =
+        (typesFromCapability ltype, typesFromCapability rtype) :
+        conjunctiveTypesFromCapability ltype ++
+        conjunctiveTypesFromCapability rtype
+    | isDisjunction ty
+    , ltype <- ltype ty
+    , rtype <- rtype ty =
+        conjunctiveTypesFromCapability ltype ++
+        conjunctiveTypesFromCapability rtype
+    | otherwise = []
 
 typesFromCapability :: Type -> [Type]
-typesFromCapability t@TraitType{} = [t]
-typesFromCapability CapabilityType{capability=EmptyCapability} = []
-typesFromCapability ty@CapabilityType{capability} =
-    toList $ typeTree capability
-typesFromCapability ty =
-    error $ "Types.hs: Can't get the traits of non-capability type "
-      ++ showWithKind ty
+typesFromCapability CapabilityType{ltype, rtype} =
+    typesFromCapability ltype ++ typesFromCapability rtype
+typesFromCapability EmptyCapability{} = []
+typesFromCapability ty = [ty]
 
 refTypeWithParams refId parameters =
     Unresolved{refInfo = RefInfo{refId, parameters}}
@@ -527,19 +453,25 @@ isPassiveClassType _ = False
 isClassType ClassType{} = True
 isClassType _ = False
 
-fromTypeTree :: TypeTree -> Type
-fromTypeTree typeTree =
-  CapabilityType{capability = Capability{typeTree}}
-
-capabilityType :: TypeTree -> Type
-capabilityType typeTree =
-    CapabilityType{capability = Capability{typeTree}}
+disjunctiveType ltype rtype = CapabilityType{typeop = Addition, ltype, rtype}
+conjunctiveType ltype rtype = CapabilityType{typeop = Product, ltype, rtype}
 
 isCapabilityType CapabilityType{} = True
+isCapabilityType TraitType{} = True
+isCapabilityType EmptyCapability{} = True
 isCapabilityType _ = False
 
+isDisjunction CapabilityType{typeop = Addition} = True
+isDisjunction _ = False
+
+isConjunction CapabilityType{typeop = Product} = True
+isConjunction _ = False
+
 incapability :: Type
-incapability = CapabilityType{capability = EmptyCapability}
+incapability = EmptyCapability
+
+isIncapability EmptyCapability = True
+isIncapability _ = False
 
 arrowType = ArrowType
 isArrowType (ArrowType {}) = True

@@ -168,39 +168,36 @@ meetRequiredFields cFields trait = do
 noOverlapFields :: Type -> TypecheckM ()
 noOverlapFields capability =
   let
-    parTraits = conjunctiveTypesFromCapability capability
+    conjunctiveTraits = conjunctiveTypesFromCapability capability
   in
-    mapM_ perLevel parTraits
+    mapM_ checkPair conjunctiveTraits
   where
-    perLevel :: [[Type]] -> TypecheckM ()
-    perLevel level = mapM_ perPair $ pair level
-
-    perPair :: ([Type], [Type]) -> TypecheckM ()
-    perPair pair = do
-      leftPairs <- mapM pairTypeFields $ fst pair
-      rightPairs <- mapM pairTypeFields $ snd pair
-      mapM_ conjunctiveVarErr $ commonVarFields leftPairs rightPairs
+    checkPair :: ([Type], [Type]) -> TypecheckM ()
+    checkPair (left, right) = do
+      leftPairs <- mapM pairTypeFields left
+      rightPairs <- mapM pairTypeFields right
+      mapM_ conjunctiveVarErr (concatMap (commonVarFields rightPairs) leftPairs)
 
     findTypeHasField :: [(Type, [FieldDecl])] -> FieldDecl -> Type
     findTypeHasField pairs field =
-      head $ [fst pair | pair <- pairs, field `elem` snd pair]
+      head [fst pair | pair <- pairs, field `elem` snd pair]
 
-    commonVarFields :: [(Type, [FieldDecl])] -> [(Type, [FieldDecl])] -> [(Type, Type, FieldDecl)]
-    commonVarFields leftPairs rightPairs =
+    commonVarFields :: [(Type, [FieldDecl])] -> (Type, [FieldDecl]) -> [(Type, Type, FieldDecl)]
+    commonVarFields pairs (t, fields) =
       let
-        leftFields = concatMap snd leftPairs
-        rightFields = concatMap snd rightPairs
-        common = intersect leftFields rightFields
-        leftCommon = [f | f <- leftFields, f `elem` common, notVal f]
-        rightCommon = [f | f <- rightFields, f `elem` common, notVal f]
-        firstErrField = if (not . null) leftCommon then head leftCommon else head rightCommon
-        leftType = findTypeHasField leftPairs firstErrField
-        rightType = findTypeHasField rightPairs firstErrField
+        otherFields = concatMap snd pairs
+        common = intersect fields otherFields
+        leftCommon = [f | f <- fields, f `elem` common, notVal f]
+        rightCommon = [f | f <- otherFields, f `elem` common, notVal f]
+        firstErrField = if (not . null) leftCommon
+                        then head leftCommon
+                        else head rightCommon
+        otherType = findTypeHasField pairs firstErrField
       in
         if null leftCommon && null rightCommon then
           []
         else
-          [(leftType, rightType, firstErrField)]
+          [(t, otherType, firstErrField)]
 
     conjunctiveVarErr :: (Type, Type, FieldDecl) -> TypecheckM ()
     conjunctiveVarErr (left, right, field) =
@@ -215,12 +212,6 @@ noOverlapFields capability =
     pairTypeFields t = do
       trait <- liftM fromJust . asks . traitLookup $ t
       return (t, requiredFields trait)
-
-    pair :: [[Type]] -> [([Type], [Type])]
-    pair list = pair' $ tail list
-      where
-        pair' [] = []
-        pair' shadow = zip list shadow ++ (pair' $ tail shadow)
 
 ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
 ensureNoMethodConflict methods tdecls =
@@ -1382,7 +1373,7 @@ assertSubtypeOf sub super =
       capability <- if isClassType sub
                     then do
                       cap <- asks $ capabilityLookup sub
-                      if maybe False (not . emptyCapability) cap
+                      if maybe False (not . isIncapability) cap
                       then return cap
                       else return Nothing
                     else return Nothing

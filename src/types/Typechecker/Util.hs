@@ -93,41 +93,41 @@ resolveType t = evalStateT (typeMapM resolveSingleType t) []
         | isRefType ty = do
             seen <- get
             let tyid = getId ty
-            when (tyid `elem` seen) $ 
-                    lift $ tcError $ "Type synonyms cannot be recursive." 
+            when (tyid `elem` seen) $
+                    lift $ tcError $ "Type synonyms cannot be recursive."
                          ++ " One of the culprits is " ++ tyid
             result <- lift $ asks $ refTypeLookup ty
             case result of
               Just formal -> do
                 lift $ matchTypeParameterLength formal ty
                 let res = setTypeParameters formal $ getTypeParameters ty
-                (when $ isTypeSynonym res) $ put (tyid:seen)
+                when (isTypeSynonym res) $ put (tyid : seen)
                 if isTypeSynonym res then
                     typeMapM resolveSingleType res  -- force resolution of type synonyms
-                else                 
-                    return res 
+                else
+                    return res
               Nothing ->
-                lift $ tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'" 
+                lift $ tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'"
         | isCapabilityType ty =
             lift $ resolveCapa ty
         | isStringType ty = do
             lift $ tcWarning StringDeprecatedWarning
-            return ty 
+            return ty
         | isTypeSynonym ty = do
             let unfolded = unfoldTypeSynonyms ty
             resolveSingleType unfolded
         | otherwise = return ty
         where
-          resolveCapa t
-            | emptyCapability t = return t
-            | singleCapability t = return $ head $ typesFromCapability t
-            | otherwise =
+          resolveCapa t =
               mapM_ resolveSingleTrait (typesFromCapability t) >> return t
 
-          resolveSingleTrait t = do
-            result <- asks $ traitLookup t
-            when (isNothing result) $
+          resolveSingleTrait t
+            | isRefType t = do
+                result <- asks $ traitLookup t
+                when (isNothing result) $
                    tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+            | otherwise =
+                tcError $ "Cannot form capability with " ++ Ty.showWithKind t
 
 
 subtypeOf :: Type -> Type -> TypecheckM Bool

@@ -35,7 +35,7 @@ class CreditCard
   def check(): Par bool
     liftv true
 
-  def checkP(): Par Par bool
+  def checkP(): Par (Par bool)
     liftv (liftv true)
 
 class Main
