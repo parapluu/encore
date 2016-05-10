@@ -27,7 +27,7 @@ function run_test {
             echo "ERROR: both $fail_script and either $checking_script or $expected exist, don't know which to use"
             false
         else
-            echo "compile" | ./$fail_script ||
+            echo "$compile" | ./$fail_script ||
                 (echo "ERROR: test $program's fail script failed.";
                  false)
         fi  
@@ -44,7 +44,7 @@ function run_test {
              else
                  if [ -e "$expected" ]; then
                      # echo "$output" | cmp $expected ||
-                     ./$program | cmp $expected ||
+                     ./$program | cmp -s $expected ||
                      (echo "ERROR: test $program failed with output:";
                      echo "vvvvvvvvvvvvvvvvvvvv"
                      echo "$output"

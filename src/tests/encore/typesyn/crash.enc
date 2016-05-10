@@ -1,0 +1,11 @@
+typedef D = T1 + T2
+
+trait T1
+trait T2
+trait T3
+
+passive class C : D + T3
+
+class Main
+  def main() : void
+    print("crash?")
