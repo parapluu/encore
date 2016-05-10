@@ -52,7 +52,8 @@ data Environment = Env {
   typeSynonymTable :: Map String Typedef,
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
-  importTable :: Map QName Program,
+--  importDecls :: [ImportDecl],
+  importTable :: Map QName Program,  -- global, shared among all
   globals  :: VarTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
@@ -273,6 +274,9 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
+
+-- NEW STUFF NEW STUFF NEW STUFF
+
 
 {-
 mergeEnvs :: [Either TCError Environment] -> Either TCError Environment

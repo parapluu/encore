@@ -20,6 +20,7 @@ import Data.List.Utils(split)
 import Data.Maybe
 import Data.String.Utils
 import Control.Monad
+import qualified Data.Map as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 
@@ -219,36 +220,12 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
+       allModules <- tabulateImportedModules typecheck importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
        expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
 
-       verbatim options "== Desugaring =="
-       let desugaredAST = desugarProgram expandedAst
 
-       verbatim options "== Prechecking =="
-       (precheckedAST, precheckingWarnings) <-
-           case precheckEncoreProgram desugaredAST of
-             (Right ast, warnings)  -> return (ast, warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-       showWarnings precheckingWarnings
 
-       verbatim options "== Typechecking =="
-       (typecheckedAST, typecheckingWarnings) <-
-           case typecheckEncoreProgram precheckedAST of
-             (Right ast, warnings)  -> return (ast, warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-       showWarnings typecheckingWarnings
-
-       when (Intermediate TypeChecked `elem` options) $ do
-         verbatim options "== Printing typed AST =="
-         withFile (changeFileExt sourceName "TAST") WriteMode
-                  (flip hPrint $ show typecheckedAST)
-
-       verbatim options "== Optimizing =="
-       let optimizedAST = optimizeProgram typecheckedAST
+       let optimizedAST = undefined -- need to get this from the hashtable
 
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options
@@ -259,6 +236,36 @@ main =
                return ())
        verbatim options "== Done =="
     where
+      typecheck table prog = do
+         verbatim options "== Desugaring =="
+         let desugaredAST = desugarProgram prog
+
+         verbatim options "== Prechecking =="
+         (precheckedAST, precheckingWarnings) <-
+         case precheckEncoreProgram desugaredAST of
+           (Right ast, warnings)  -> return (ast, warnings)
+           (Left error, warnings) -> do
+             showWarnings warnings
+             abort $ show error
+         showWarnings precheckingWarnings
+
+         verbatim options "== Typechecking =="
+         (typecheckedAST, typecheckingWarnings) <-
+           case typecheckEncoreProgram precheckedAST of
+             (Right ast, warnings)  -> return (ast, warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
+         showWarnings typecheckingWarnings
+
+         when (Intermediate TypeChecked `elem` options) $ do
+           verbatim options "== Printing typed AST =="
+           withFile (changeFileExt sourceName "TAST") WriteMode
+                    (flip hPrint $ show typecheckedAST)
+
+         verbatim options "== Optimizing =="
+         return $ optimizeProgram typecheckedAST
+        
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
