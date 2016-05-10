@@ -186,18 +186,13 @@ Running `encorec foo.enc` will typecheck the source and produce the executable
 
 Update the language specification whenever you change the Encore compiler.
 
-#### Dependencies
+#### Generate documentation
 
-In order to update the language specification, first you need to:
+Generate the documentation and check your changes by typing:
 
-  1. download the [Racket language](http://download.racket-lang.org/)
-  2. clone the project upscale (https://github.com/fxpl/upscale)
-  3. cd upscale/doc/encore
-  4. make
+  - `make doc`
 
-After following the instructions above, you should have a folder under
-`upscale/doc/encore` named `build` that contains the documentation in
-pdf and html.
+After this, you should have a folder under `encore/doc/encore` named `build` that contains the documentation in pdf and html.
 
 #### Update the language specification
 
