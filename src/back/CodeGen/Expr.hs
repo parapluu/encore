@@ -369,12 +369,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         mkLval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
   translate maybe@(A.MaybeValue _ (A.JustData e)) = do
-    let createOption = Call encoreAllocName [AsExpr encoreCtxVar, (Sizeof . AsType) optionT]
-    (nalloc, talloc) <- namedTmpVar "option" (A.getType maybe) createOption
-    let tag = Assign (Deref nalloc `Dot` (Nam "tag")) (Nam "JUST")
     (nE, tE) <- translate e
-    let tJust = Assign (Deref nalloc `Dot` (Nam "val")) (asEncoreArgT (translate $ A.getType e) nE)
-    return (nalloc, Seq [talloc, tag, tE, tJust])
+    let bodyDecl = asEncoreArgT (translate $ A.getType e) nE
+        optionLval = Call optionMkFn [AsExpr encoreCtxVar, AsExpr just,
+                                      bodyDecl, (runtimeType . A.getType) e]
+    (nalloc, talloc) <- namedTmpVar "option" (A.getType maybe) optionLval
+    return (nalloc, Seq [tE, talloc])
 
   translate maybe@(A.MaybeValue _ (A.NothingData {})) = do
     let createOption = Amp (Nam "DEFAULT_NOTHING")

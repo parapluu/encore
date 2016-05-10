@@ -29,6 +29,8 @@ traceVariable t var
   | Ty.isArrowType t        = traceObject var closureTraceFn
   | Ty.isArrayType t        = traceObject var arrayTraceFn
   | Ty.isStreamType t       = traceObject var streamTraceFn
+  | Ty.isMaybeType t        = traceObject var optionTraceFn
+  | Ty.isRangeType t        = traceObject var rangeTraceFn
   | Ty.isTypeVar t          = traceTypeVar t var
   | Ty.isCType t            = trace var -- Assume C data contains no pointers
   | otherwise =

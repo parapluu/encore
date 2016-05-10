@@ -56,6 +56,7 @@ typedef enum {
   ID_FUTURE,
   ID_SCONS,
   ID_ARRAY,
+  ID_OPTION,
   ID_TUPLE,
   ID_RANGE,
   ID_PARTY

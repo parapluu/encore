@@ -37,6 +37,14 @@ def test_match_on_object(o: Main): Maybe Main
   z => Nothing : Maybe Main
 
 --
+-- Test matching on a String
+--
+def test_match_on_string(): Maybe String
+  match (Just "My Test") with
+  Just z => Just "New test"
+  z => Nothing
+
+--
 -- Test precedence of the match expression; write the general cases at the end
 -- since it follows sequential order
 --
@@ -126,6 +134,7 @@ class Main
      print test_catch_specific_val(x);
      test_match_decl();
      test_match_on_object(this);
+     test_match_on_string();
      test_precedence_of_match();
      test_match_nothing_decl();
      test_pass_args_and_return_of_maybe(x);
