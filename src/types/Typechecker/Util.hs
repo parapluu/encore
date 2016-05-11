@@ -82,43 +82,53 @@ matchTypeParameterLength ty1 ty2 = do
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
 resolveType :: Type -> TypecheckM Type
-resolveType = typeMapM resolveSingleType
+resolveType t = evalStateT (typeMapM resolveSingleType t) []
     where
       resolveSingleType ty
         | isTypeVar ty = do
-            params <- asks typeParameters
+            params <- lift $ asks typeParameters
             unless (ty `elem` params) $
-                   tcError $ "Free type variables in type '" ++ show ty ++ "'"
+                   lift $ tcError $ "Free type variables in type '" ++ show ty ++ "'"
             return ty
         | isRefType ty = do
-            result <- asks $ refTypeLookup ty
+            seen <- get
+            let tyid = getId ty
+            when (tyid `elem` seen) $
+                    lift $ tcError $ "Type synonyms cannot be recursive."
+                         ++ " One of the culprits is " ++ tyid
+            result <- lift $ asks $ refTypeLookup ty
             case result of
               Just formal -> do
-                matchTypeParameterLength formal ty
-                return $ setTypeParameters formal $ getTypeParameters ty
+                lift $ matchTypeParameterLength formal ty
+                let res = setTypeParameters formal $ getTypeParameters ty
+                when (isTypeSynonym res) $ put (tyid : seen)
+                if isTypeSynonym res then
+                    typeMapM resolveSingleType res  -- force resolution of type synonyms
+                else
+                    return res
               Nothing ->
-                tcError $ "Couldn't find class or trait '" ++ show ty ++ "'"
-        | isCapabilityType ty = resolveCapa ty
-        | isMaybeType ty = do
-            let resultType = getResultType ty
-            resolveSingleType resultType
-            return ty
+                lift $ tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'"
+        | isCapabilityType ty =
+            lift $ resolveCapa ty
         | isStringType ty = do
-            tcWarning StringDeprecatedWarning
+            lift $ tcWarning StringDeprecatedWarning
             return ty
+        | isTypeSynonym ty = do
+            let unfolded = unfoldTypeSynonyms ty
+            resolveSingleType unfolded
         | otherwise = return ty
         where
-          resolveCapa :: Type -> TypecheckM Type
-          resolveCapa t
-            | emptyCapability t = return t
-            | singleCapability t = resolveType $ head $ typesFromCapability t
-            | otherwise =
-              mapM_ resolveSingleTrait (typesFromCapability ty) >> return ty
+          resolveCapa t =
+              mapM_ resolveSingleTrait (typesFromCapability t) >> return t
 
-          resolveSingleTrait t = do
-            result <- asks $ traitLookup t
-            when (isNothing result) $
+          resolveSingleTrait t
+            | isRefType t = do
+                result <- asks $ traitLookup t
+                when (isNothing result) $
                    tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+            | otherwise =
+                tcError $ "Cannot form capability with " ++ Ty.showWithKind t
+
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2

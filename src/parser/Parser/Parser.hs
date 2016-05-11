@@ -17,7 +17,6 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
-import Data.Either (partitionEithers)
 import Control.Applicative ((<$>))
 
 -- Module dependencies
@@ -44,19 +43,90 @@ lexer =
    P.commentLine = "--",
    P.identStart = letter,
    P.reservedNames = [
-     "shared", "passive", "class", "def", "stream", "breathe", "int", "string",
-     "real", "bool", "void", "let", "in", "if", "unless", "then", "else",
-     "repeat", "for", "while", "get", "yield", "eos", "getNext", "new", "this",
-     "await", "suspend", "and", "or", "not", "true", "false", "null", "embed",
-     "body", "end", "where", "Fut", "Par", "Stream", "import", "qualified",
-     "bundle", "peer", "finish", "trait", "require", "val",
-     "Maybe", "Just", "Nothing", "match", "with", "when","liftf", "liftv",
-     "extract", "each"
+     "shared"
+    ,"passive"
+    ,"class"
+    ,"def"
+    ,"stream"
+    ,"breathe"
+    ,"int"
+    ,"string"
+    ,"char"
+    ,"real"
+    ,"bool"
+    ,"void"
+    ,"let"
+    ,"in"
+    ,"if"
+    ,"unless"
+    ,"then"
+    ,"else"
+    ,"repeat"
+    ,"for"
+    ,"while"
+    ,"get"
+    ,"yield"
+    ,"eos"
+    ,"getNext"
+    ,"new"
+    ,"this"
+    ,"await"
+    ,"suspend"
+    ,"and"
+    ,"or"
+    ,"not"
+    ,"true"
+    ,"false"
+    ,"null"
+    ,"embed"
+    ,"body"
+    ,"end"
+    ,"where"
+    ,"Fut"
+    ,"Par"
+    ,"Stream"
+    ,"import"
+    ,"qualified"
+    ,"bundle"
+    ,"peer"
+    ,"finish"
+    ,"trait"
+    ,"require"
+    ,"val"
+    ,"Maybe"
+    ,"Just"
+    ,"Nothing"
+    ,"match"
+    ,"with"
+    ,"when"
+    ,"liftf"
+    ,"liftv"
+    ,"extract"
+    ,"each"
+    ,"typedef"
    ],
    P.reservedOpNames = [
-     ":", "=", "==", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "->", "..",
-     "\\", "()", "~~>", "=>", "|"
-     ]
+     ":"
+    ,"="
+    ,"=="
+    ,"!="
+    ,"<"
+    ,">"
+    ,"<="
+    ,">="
+    ,"+"
+    ,"-"
+    ,"*"
+    ,"/"
+    ,"%"
+    ,"->"
+    ,".."
+    ,"\\"
+    ,"()"
+    ,"~~>"
+    ,"=>"
+    ,"|"
+    ]
   }
 
 -- | These parsers use the lexer above and are the smallest
@@ -95,64 +165,62 @@ longidentifier = do
     rest <- option [] (do { dot ; longidentifier })
     return $ Name id : rest
 
--- Note, when we have product types (i.e. tuples), we could make
--- an expressionParser for types (with arrow as the only infix
--- operator.)
 typ :: Parser Type
-typ  =  adtTypes
-    <|> firstOrderTyp
+typ = buildExpressionParser opTable singleType
     where
-      adtTypes = maybe
-      firstOrderTyp =  try arrow
-                   <|> try tuple
-                   <|> parens typ
-                   <|> nonArrow
-                   <?> "type"
-      nonArrow =  fut
-              <|> par
-              <|> stream
-              <|> array
-              <|> embed
-              <|> primitive
-              <|> range
-              <|> capability
-              <|> typeVariable
-              <|> parens nonArrow
-      arrow = do
-        lhs <-  parens (commaSep typ)
-            <|> do {ty <- nonArrow ; return [ty]}
-        reservedOp "->"
-        rhs <- typ
-        return $ arrowType lhs rhs
-      fut = do
-        reserved "Fut"
-        ty <- typ
-        return $ futureType ty
-      maybe = do
-         reserved "Maybe"
-         ty <- firstOrderTyp
-         return $ maybeType ty
+      opTable = [
+                 [typeOp "*" conjunctiveType],
+                 [typeOp "+" disjunctiveType],
+                 [typeConstructor "Maybe" maybeType
+                 ,typeConstructor "Fut" futureType
+                 ,typeConstructor "Par" parType
+                 ,typeConstructor "Stream" streamType
+                 ],
+                 [arrow]
+                ]
+      typeOp op constructor =
+          Infix (do reservedOp op
+                    return constructor) AssocLeft
+      typeConstructor op constructor =
+          Prefix (do reserved op
+                     return constructor)
+      arrow =
+          Infix (do reservedOp "->"
+                    return (arrowType . unfoldArgs)) AssocRight
+          where
+            unfoldArgs ty
+                | isTupleType ty = getArgTypes ty
+                | otherwise = [ty]
+
+      singleType =
+            try tuple
+        <|> array
+        <|> embed
+        <|> range
+        <|> refType
+        <|> primitive
+        <|> typeVariable
+        <|> parens typ
+        <?> "type"
       tuple = do
-        ty <- parens (typ `sepBy2` comma)
-        return $ tupleType ty
-      par = do
-        reserved "Par"
-        ty <- typ
-        return $ parType ty
-      stream = do
-        reserved "Stream"
-        ty <- typ
-        return $ streamType ty
+        types <- (reservedOp "()" >> return [])
+             <|> parens (typ `sepBy2` comma)
+        return $ tupleType types
       array = do
         ty <- brackets typ
         return $ arrayType ty
-      range = do
-        reserved "Range"
-        return rangeType
       embed = do
         reserved "embed"
         ty <- manyTill anyChar $ try $ do {space; reserved "end"}
         return $ ctype ty
+      range = do
+        reserved "Range"
+        return rangeType
+      refType = do
+        notFollowedBy lower
+        refId <- identifier
+        parameters <- option [] $ angles (commaSep1 typ)
+        return $ refTypeWithParams refId parameters
       primitive =
         do {reserved "int"; return intType} <|>
         do {reserved "bool"; return boolType} <|>
@@ -168,6 +236,17 @@ typeVariable = do
   return $ typeVar id
   <?> "lower case type variable"
 
+data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function}
+
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function])
+partitionDecls = partitionDecls' [] [] [] []
+  where
+    partitionDecls' cs ts tds fds [] = (cs, ts, tds, fds)
+    partitionDecls' cs ts tds fds (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds ds
+    partitionDecls' cs ts tds fds (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds ds
+    partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
+    partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
+
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
@@ -176,11 +255,10 @@ program = do
   bundle <- bundledecl
   imports <- many importdecl
   etl <- embedTL
-  functions <- many function
-  decls <- many $ (Left <$> traitDecl) <|> (Right <$> classDecl)
-  let (traits, classes) = partitionEithers decls
+  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function) 
+  let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
-  return Program{source, bundle, etl, imports, functions, traits, classes}
+  return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -217,6 +295,17 @@ embedTL = do
            return $ EmbedTL (meta pos) header ""
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
+
+typedef :: Parser Typedef
+typedef = do
+  typedefmeta <- meta <$> getPosition
+  reserved "typedef"
+  name <- identifier
+  params <- option [] (angles $ commaSep1 typeVariable)
+  reservedOp "="
+  typedeftype <- typ
+  let typedefdef = typeSynonym name params typedeftype
+  return Typedef{typedefmeta, typedefdef}
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
@@ -321,33 +410,6 @@ traitDecl = do
                            ,rheader
                            }
 
-capability :: Parser Type
-capability = do
-  tree <- typeTree
-  return $ fromTypeTree tree
-  where
-    typeTree :: Parser TypeTree
-    typeTree = do
-     ts <- productType `sepBy1` reservedOp "+"
-     return $ RoseTree Addition ts
-
-    productType :: Parser TypeTree
-    productType = do
-     ts <- term `sepBy1` reservedOp "*"
-     return $ RoseTree Product ts
-
-    term :: Parser TypeTree
-    term = Leaf <$> refInfo
-        <|> parens typeTree
-
-    refInfo :: Parser RefInfo
-    refInfo = do
-      notFollowedBy lower
-      refId <- identifier
-      parameters <- option [] $ angles (commaSep1 typ)
-      return RefInfo{refId, parameters}
-      <?> "upper case ref type"
-
 classDecl :: Parser ClassDecl
 classDecl = do
   cmeta <- meta <$> getPosition
@@ -355,7 +417,7 @@ classDecl = do
   reserved "class"
   name <- identifier
   params <- option [] (angles $ commaSep1 typeVariable)
-  ccapability <- option incapability (do{reservedOp ":"; capability})
+  ccapability <- option incapability (do{reservedOp ":"; typ})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
               ,cname = classType activity name params

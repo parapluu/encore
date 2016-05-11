@@ -1,0 +1,9 @@
+
+typedef T = int
+
+class Main
+   def main(): void {
+     let x = 10 : T
+     in
+       print(x)
+   }

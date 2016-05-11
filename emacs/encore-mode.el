@@ -15,7 +15,7 @@
                         "let" "liftf" "liftv" "match" "new" "not" "or" "passive"
                         "print" "repeat" "require" "stream" "suspend" "then"
                         "this" "trait" "unless" "val" "when" "while" "with"
-                        "yield"))
+                        "yield" "typedef"))
 
 (setq encore-danger-words '("embed" "body" "end"))
 (setq encore-constants '("true" "false" "null"))

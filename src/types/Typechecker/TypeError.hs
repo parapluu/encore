@@ -32,6 +32,8 @@ data BacktraceNode = BTPulledImport QName
                    | BTMethod MethodDecl
                    | BTRequirement Requirement
                    | BTExpr Expr
+                   | BTTypedef Type
+
 
 instance Show BacktraceNode where
   show (BTPulledImport qname) =
@@ -61,6 +63,8 @@ instance Show BacktraceNode where
     | otherwise =
       let str = show $ nest 2 $ ppSugared expr
       in "In expression: \n" ++ str
+  show (BTTypedef tl) = 
+     concat ["In typedef '", show tl, "'"]
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -109,6 +113,9 @@ instance Pushable Requirement where
 
 instance Pushable Expr where
     push expr = pushMeta expr (BTExpr expr)
+
+instance Pushable Typedef where
+    push t@(Typedef {typedefdef}) = pushMeta t (BTTypedef typedefdef)
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.

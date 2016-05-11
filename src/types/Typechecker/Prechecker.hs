@@ -13,6 +13,7 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
+import Debug.Trace
 
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
@@ -39,13 +40,15 @@ class Precheckable a where
     precheck x = local (pushBT x) $ doPrecheck x
 
 instance Precheckable Program where
-    doPrecheck p@Program{imports, functions, traits, classes} = do
+    doPrecheck p@Program{imports, typedefs, functions, traits, classes} = do
       assertDistinctness
       imports'   <- mapM precheck imports
+      typedefs'   <- mapM precheck typedefs
       functions' <- mapM precheck functions
       traits'    <- mapM precheck traits
       classes'   <- mapM precheck classes
       return p{imports = imports'
+              ,typedefs = typedefs'
               ,functions = functions'
               ,traits = traits'
               ,classes = classes'
@@ -55,9 +58,10 @@ instance Precheckable Program where
         assertDistinct "definition" (allFunctions p)
         assertDistinct "definition" (allTraits p)
         assertDistinct "definition" (allClasses p)
-        assertDistinctThing "declaration" "class or trait name" $
+        assertDistinctThing "declaration" "typedef, class or trait name" $
                             map (getId . tname) (allTraits p) ++
-                            map (getId . cname) (allClasses p)
+                            map (getId . cname) (allClasses p) ++
+                            map (getId . typedefdef) (allTypedefs p)
 
 instance Precheckable ImportDecl where
     doPrecheck i@PulledImport{iprogram} = do
@@ -65,6 +69,13 @@ instance Precheckable ImportDecl where
       return i{iprogram = iprogram'}
     doPrecheck Import{} =
       error "Prechecker.hs: Import AST Nodes should not exist during typechecking"
+
+instance Precheckable Typedef where
+   doPrecheck t@Typedef{typedefdef} = do
+     let resolvesTo = typeSynonymRHS typedefdef
+         addTypeParams = addTypeParameters $ getTypeParameters typedefdef
+     resolvesTo' <- local addTypeParams $ resolveType resolvesTo
+     return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
 
 instance Precheckable FunctionHeader where
     doPrecheck header = do

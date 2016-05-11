@@ -22,6 +22,7 @@ data Program = Program {
   bundle :: BundleDecl,
   etl :: EmbedTL,
   imports :: [ImportDecl],
+  typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
   classes :: [ClassDecl]
@@ -85,6 +86,20 @@ instance HasMeta ImportDecl where
     setType ty i =
         error "AST.hs: Cannot set the type of an ImportDecl"
 
+data Typedef = Typedef {
+   typedefmeta :: Meta Typedef,
+   typedefdef  :: Type  -- will be a TypeSynonym, with left and right hand side of definition built in
+} deriving (Show)
+ 
+instance HasMeta Typedef where
+    getMeta = typedefmeta
+
+    setMeta i m = i{typedefmeta = m}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of an Typedef"
+
+
 data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
@@ -104,6 +119,7 @@ data FunctionHeader =
         hpatterns   :: [Expr],
         hguard      :: Expr
     }deriving(Eq, Show)
+
 
 setHeaderType ty h = h{htype = ty}
 
@@ -597,6 +613,8 @@ getTrait t p =
     match t trait = getId t == getId (tname trait)
   in
     fromJust $ find (match t) traits
+
+allTypedefs = traverseProgram typedefs
 
 allClasses = traverseProgram classes
 

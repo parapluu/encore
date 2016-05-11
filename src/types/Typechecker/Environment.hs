@@ -49,6 +49,7 @@ import Typechecker.TypeError
 type VarTable    = [(Name, Type)]
 
 data Environment = Env {
+  typeSynonymTable :: Map String Typedef,
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
   globals  :: VarTable,
@@ -59,6 +60,7 @@ data Environment = Env {
 } deriving Show
 
 emptyEnv = Env {
+  typeSynonymTable = Map.empty,
   classTable = Map.empty,
   traitTable = Map.empty,
   globals = [],
@@ -73,8 +75,9 @@ buildEnvironment p =
   (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
-    buildEnvironment' p@(Program {functions, classes, traits, imports}) =
+    buildEnvironment' p@(Program {typedefs, functions, classes, traits, imports}) =
         [return Env {
+           typeSynonymTable = Map.fromList [(getId (typedefdef t), t) | t <- typedefs],
            classTable = Map.fromList [(getId (cname c), c) | c <- classes],
            traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
            globals = map getFunctionType functions,
@@ -189,6 +192,7 @@ traitLookup t env =
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
     | isRefType cls = Map.lookup (getId cls) $ classTable env
+    | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env -- TODO: remove!!
     | otherwise = error $
       "Tried to lookup the class of '" ++ show cls
       ++ "' which is not a reference type"
@@ -196,10 +200,11 @@ classLookup cls env
 refTypeLookup :: Type -> Environment -> Maybe Type
 refTypeLookup t env =
   let
+    typeSyn = fmap typedefdef $ Map.lookup (getId t) $ typeSynonymTable env
     cls = fmap cname $ Map.lookup (getId t) $ classTable env
     trait = fmap tname $ Map.lookup (getId t) $ traitTable env
   in
-    cls <|> trait
+    cls <|> trait <|> typeSyn
 
 refTypeLookupUnsafe :: Type -> Environment -> Type
 refTypeLookupUnsafe t env =
@@ -274,6 +279,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
     merge e1 e2 = do
       Env{classTable     = classTable,
           traitTable     = traitTable,
+          typeSynonymTable = typeSynonymTable,
           globals        = globs,
           locals         = locals,
           bindings       = binds,
@@ -282,6 +288,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
 
       Env{classTable     = classTable',
           traitTable     = traitTable',
+          typeSynonymTable = typeSynonymTable',
           globals        = globs',
           locals         = locals',
           bindings       = binds',
@@ -291,6 +298,7 @@ mergeEnvs envs = foldr merge (return emptyEnv) envs
       return Env{
         classTable     = Map.union classTable classTable',
         traitTable     = Map.union traitTable traitTable',
+        typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
         globals        = mergeGlobals globs globs',
         locals         = mergeLocals locals locals',
         bindings       = mergeBindings binds binds',

@@ -81,6 +81,27 @@ The following tokens are operators:
          (list "==" "!=" "+" "-" "*" "/" "%")]
 }
 
+
+@section{Type Synonyms}
+
+Type synonyms allow abbreviations to be used for types.
+These take one of the two forms, where a single name can be
+used to abbreviate another type, or where a name has parameters.
+
+@codeblock|{
+  typedef Fint = Foo<int,int>
+}|
+or
+@codeblock|{
+  typedef F<x,y> = Foo<y,x>
+}|
+
+The types @code{Fint} and @code{F<type1,type2>} can be used in code as synonyms
+for @code{Foo<int,int>} and @code{Foo<type2,type1>}, respectively.
+
+Type synonyms cannot be recursive.
+
+
 @section{Comments}
 @;{TODO: Figure out how to write '{' and '}' inside @code}
 In Encore you have one-liner comments and block comments.

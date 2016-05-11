@@ -19,6 +19,7 @@ module AST.PrettyPrinter (ppExpr
 
 -- Library dependencies
 import Text.PrettyPrint
+import Data.List(intercalate)
 
 -- Module dependencies
 import Identifiers
@@ -75,6 +76,7 @@ ppJust = text "Just"
 ppNothing = text "Nothing"
 ppMatch = text "match"
 ppWith = text "with"
+ppTypeDef = text "typedef"
 ppMatchArrow = text "=>"
 
 indent = nest 2
@@ -92,10 +94,11 @@ ppType = text . show
 
 ppProgram :: Program -> Doc
 ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
-  imports, functions, classes} =
+  imports, typedefs, functions, classes} =
     ppBundleDecl bundle $+$
     ppHeader header code <+>
     vcat (map ppImportDecl imports) $+$
+    vcat (map ppTypedef typedefs) $+$
     vcat (map ppFunction functions) $+$
     vcat (map ppClassDecl classes) $+$
     text "" -- new line at end of file
@@ -112,6 +115,13 @@ ppBundleDecl Bundle{bname} = text "bundle" <+> ppQName bname
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = text "import" <+> ppQName itarget
 ppImportDecl PulledImport {} = error "Cannot pretty-print a pulled import"
+
+ppTypedef :: Typedef -> Doc
+ppTypedef Typedef { typedefdef=t } =
+    text "typedef" <+>
+    ppType t <+>
+    text "=" <+>
+    ppType (typeSynonymRHS t) 
 
 ppFunctionHeader :: FunctionHeader -> Doc
 ppFunctionHeader header =
