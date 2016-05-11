@@ -74,7 +74,7 @@ instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
      let resolvesTo = typeSynonymRHS typedefdef
          addTypeParams = addTypeParameters $ getTypeParameters typedefdef
-     resolvesTo' <- local addTypeParams $ resolveType resolvesTo
+     resolvesTo' <- local addTypeParams $ resolveTypeAndCheckForLoops resolvesTo
      return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
 
 instance Precheckable FunctionHeader where
