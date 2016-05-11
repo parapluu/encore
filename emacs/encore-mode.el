@@ -10,17 +10,76 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else"
-                        "eos" "for" "foreach" "get" "getNext" "if" "in" "join"
-                        "let" "liftf" "liftv" "match" "new" "not" "or" "passive"
-                        "print" "repeat" "require" "stream" "suspend" "then"
-                        "this" "trait" "unless" "val" "when" "while" "with"
-                        "yield" "typedef"))
+;; Please keep these lists sorted
+(setq encore-keywords
+      '(
+        "and"
+        "async"
+        "await"
+        "by"
+        "chain"
+        "class"
+        "def"
+        "else"
+        "eos"
+        "for"
+        "foreach"
+        "get"
+        "getNext"
+        "if"
+        "in"
+        "join"
+        "let"
+        "liftf"
+        "liftv"
+        "match"
+        "new"
+        "not"
+        "or"
+        "passive"
+        "print"
+        "repeat"
+        "require"
+        "stream"
+        "suspend"
+        "then"
+        "this"
+        "trait"
+        "typedef"
+        "unless"
+        "val"
+        "when"
+        "while"
+        "with"
+        "yield"
+        ))
 
-(setq encore-danger-words '("embed" "body" "end"))
-(setq encore-constants '("true" "false" "null"))
-(setq encore-primitives '("bool" "char" "int" "string" "void" ))
-(setq encore-operators '("||" ">>"))
+(setq encore-danger-words
+      '(
+        "body"
+        "embed"
+        "end"
+        ))
+(setq encore-constants
+      '(
+        "false"
+        "null"
+        "true"
+        ))
+
+(setq encore-primitives
+      '(
+        "bool"
+        "char"
+        "int"
+        "void"
+        ))
+
+(setq encore-operators
+      '(
+        "||"
+        ">>"
+        ))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'symbols))
 (setq encore-danger-regexp (regexp-opt encore-danger-words 'symbols))
