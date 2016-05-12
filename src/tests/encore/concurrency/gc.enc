@@ -1,0 +1,34 @@
+-- This test makes a non-deterministic bug completely deterministic:
+-- The error is that the Main actor performs the chain on the future.
+-- If the future has already been fulfilled, Main runs the closure but
+-- Main has no references to the object returned by the future!
+-- This causes an error when fulfilling the future, since the fulfilment
+-- of the future is a logical gc_send.
+--
+-- This test makes sure that the case explained above is covered.
+
+
+passive class Money
+  amount: int
+
+  def init(i : int): void
+    this.amount = i
+
+class Test
+  def createMoney(): Money
+    new Money(4)
+
+  def update(m: Money): Money
+    m
+
+class Main
+  def main(): void {
+    let t = new Test;
+    let t2 = new Test;
+    let f1 = t.createMoney();
+    await f1;
+    let f2 = f1 ~~> \(m: Money) -> { t2.update(m) ~~> \(m: Money) -> m };
+    await f2;
+    let money = get (get f2);
+    print(money.amount)
+  }
