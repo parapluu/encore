@@ -108,7 +108,7 @@ instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
 --      tname'    <- local addTypeParams $ resolveType tname
-      treqs'    <- mapM (local addTypeParams . precheck) treqs
+      treqs'    <- mapM (local (addTypeParams . addThis) . precheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
       return $ setType tname t{treqs = treqs', tmethods = tmethods'}
       where
@@ -125,7 +125,7 @@ instance Precheckable ClassDecl where
       assertDistinctness
       cname'       <- local addTypeParams $ resolveType cname
       ccapability' <- local addTypeParams $ resolveType ccapability
-      cfields'     <- mapM (local addTypeParams . precheck) cfields
+      cfields'     <- mapM (local (addTypeParams . addThis) . precheck) cfields
       cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
       return $ setType cname' c{ccapability = ccapability'
                                ,cfields = cfields'
@@ -147,6 +147,12 @@ instance Precheckable ClassDecl where
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do
       ftype' <- resolveType ftype
+      thisType <- liftM fromJust . asks . varLookup $ thisName
+      when (isReadRefType thisType) $ do
+           unless (isValField f) $
+                  tcError NonValInReadTraitError
+           unless (isSafeType ftype') $
+                  tcError $ NonSafeInReadTraitError ftype'
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where

@@ -306,6 +306,9 @@ instance HasMeta FieldDecl where
 isValField :: FieldDecl -> Bool
 isValField = (Val `elem`) . fmods
 
+isSafeValField :: FieldDecl -> Bool
+isSafeValField f@Field{ftype} = isValField f && isSafeType ftype
+
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
   pname :: Name,

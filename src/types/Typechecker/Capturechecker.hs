@@ -21,6 +21,7 @@ import AST.AST as AST
 import AST.PrettyPrinter
 import AST.Util
 import Types as Ty
+import Identifiers
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util hiding (pushError)
@@ -49,10 +50,16 @@ class CaptureCheckable a where
         a -> CapturecheckM a
 
 instance CaptureCheckable Program where
-    doCapturecheck p@Program{classes, functions} =
+    doCapturecheck p@Program{classes, traits, functions} =
         do functions' <- mapM capturecheck functions
+           traits' <- mapM capturecheck traits
            classes' <- mapM capturecheck classes
-           return p{classes = classes', functions = functions'}
+           return p{classes = classes'
+                   ,traits = traits'
+                   ,functions = functions'}
+
+instance CaptureCheckable FunctionHeader where
+    doCapturecheck = return
 
 instance CaptureCheckable Function where
     doCapturecheck fun@Function{funbody} =
@@ -68,17 +75,45 @@ instance CaptureCheckable Function where
                matchStackBoundedness (getType funbody') funtype
            return fun{funbody = funbody'}
 
+instance CaptureCheckable FieldDecl where
+    doCapturecheck f@Field{ftype} = do
+        when (isStackboundType ftype) $
+             ccError $ "Cannot have field of stackbound type '" ++
+                       show ftype ++ "'"
+        return f
+
 instance CaptureCheckable ClassDecl where
-    doCapturecheck c@Class{cmethods, cfields} =
-        do cmethods' <- mapM capturecheck cmethods
-           mapM_ notStackbound cfields
-           return c{cmethods = cmethods'}
+    doCapturecheck c@Class{cname, cmethods, cfields} = do
+      cfields' <- mapM (local addThis . capturecheck) cfields
+      cmethods' <- mapM (local addThis . capturecheck) cmethods
+      return c{cfields = cfields'
+              ,cmethods = cmethods'}
         where
-          notStackbound f@Field{ftype} =
-              local (pushBT f) $
-              when (isStackboundType ftype) $
-                   ccError $ "Cannot have field of stackbound type '" ++
-                             show ftype ++ "'"
+          addThis = extendEnvironment [(thisName, cname)]
+
+instance CaptureCheckable TraitDecl where
+    doCapturecheck t@Trait{tname, treqs, tmethods} = do
+      treqs' <- mapM (local addThis . capturecheck) treqs
+      tmethods' <- mapM (local addThis . capturecheck) tmethods
+      return t{treqs = treqs'
+              ,tmethods = tmethods'}
+        where
+          addThis = extendEnvironment [(thisName, tname)]
+
+instance CaptureCheckable Requirement where
+    doCapturecheck req
+        | isRequiredField req = do
+            rfield' <- doCapturecheck $ rfield req
+            let ty = AST.getType rfield'
+            return $ setType ty req{rfield = rfield'}
+        | isRequiredMethod req = do
+            rheader' <- doCapturecheck $ rheader req
+            let ty = htype rheader'
+            return $ setType ty req{rheader = rheader'}
+        | otherwise =
+            error $ "Capturechecker.hs: requirement '" ++ show req ++
+                    "' is neither a field, nor a method"
+
 
 -- TODO: Find all smallest result expressions for better error
 -- messages. resultOf (let x = 42 in x + 1) = x + 1

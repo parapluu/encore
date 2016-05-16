@@ -65,6 +65,7 @@ module Types(
             ,getResultType
             ,getId
             ,getTypeParameters
+            ,getMode
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
@@ -93,10 +94,13 @@ module Types(
             ,getTypeParameterBindings
             ,showWithoutMode
             ,isModeless
+            ,isSafeType
             ,modeSubtypeOf
             ,makeUnsafe
             ,makeLinear
+            ,makeRead
             ,isLinearRefType
+            ,isReadRefType
             ,makeStackbound
             ,isStackboundType
             ) where
@@ -121,19 +125,22 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
-
 data Mode = Linear
           | Unsafe
+          | Read
             deriving(Eq)
 
 instance Show Mode where
     show Linear = "linear"
     show Unsafe = "unsafe"
+    show Read   = "read"
 
 modeSubtypeOf ty1 ty2
---    | isLinearType ty1 &&
---      isStackboundType ty2 = True
-    | otherwise = mode (refInfo (inner ty1)) == mode (refInfo (inner ty2))
+    | isPrimitive ty1 = True
+    | otherwise = getMode ty1 == getMode ty2
+
+modeIsSafe Read = True
+modeIsSafe _    = False
 
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
@@ -236,6 +243,11 @@ maybeGetId Type{inner = TypeSynonym{refInfo}} = Just $ refId refInfo
 maybeGetId Type{inner = TypeVar{ident}} = Just ident
 maybeGetId Type{inner = CType{ident}} = Just ident
 maybeGetId _ = Nothing
+
+getMode ty
+    |  isRefAtomType ty
+    || isTypeSynonym ty = mode . refInfo . inner $ ty
+    | otherwise = Nothing
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
@@ -606,29 +618,36 @@ conjunctiveType ltype rtype =
 
 -- TODO: Maybe a type can have several modes?
 -- TODO: Should classes ever have modes (except the "inherited ones")?
-makeUnsafe ty
+setMode ty m
     | isRefAtomType ty
     , iType <- inner ty
     , info <- refInfo iType
-      = ty{inner = iType{refInfo = info{mode = Just Unsafe}}}
-    | otherwise = error $ "Types.hs: Cannot make type unsafe: " ++
-                          show ty
+      = ty{inner = iType{refInfo = info{mode = Just m}}}
+    | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
+makeUnsafe ty = setMode ty Unsafe
 
-makeLinear ty
-    | isRefAtomType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-      = ty{inner = iType{refInfo = info{mode = Just Linear}}}
-    | otherwise = error $ "Types.hs: Cannot make type linear: " ++
-                          show ty
+makeLinear ty = setMode ty Linear
+
+makeRead ty = setMode ty Read
+
+isSafeType ty
+    | isComposite ty
+    , traits <- typesFromCapability ty = all isSafeType traits
+    | isModeless ty =  isPrimitive ty || isActiveClassType ty
+                    || isMaybeType ty && isSafeType (getResultType ty)
+    | otherwise = let mode = getMode ty in
+                  isJust mode && modeIsSafe (fromJust mode)
 
 isModeless ty
-    |  isRefAtomType ty
-    || isTypeSynonym ty = isNothing . mode . refInfo . inner $ ty
+    | Just m <- getMode ty = False
     | otherwise = True
 
 isLinearRefType ty
-    | isRefAtomType ty = (mode . refInfo . inner) ty == Just Linear
+    | Just Linear <- getMode ty = True
+    | otherwise = False
+
+isReadRefType ty
+    | Just Read <- getMode ty = True
     | otherwise = False
 
 isCapabilityType Type{inner = CapabilityType{}} = True

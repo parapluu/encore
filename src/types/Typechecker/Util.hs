@@ -183,6 +183,11 @@ resolveMode actual formal
            tcError $ ModelessError actual
       unless (isModeless formal || actual `modeSubtypeOf` formal) $
            tcError $ ModeOverrideError formal
+      when (isReadRefType actual) $ do
+           tdecl <- liftM fromJust . asks $ traitLookup actual
+           unless (isReadRefType formal ||
+                   all isSafeValField (requiredFields tdecl)) $
+                  tcError $ CannotGiveReadModeError actual
       return actual
   | otherwise =
       error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal

@@ -213,6 +213,9 @@ data Error =
   | ModelessError Type
   | ModeOverrideError Type
   | CannotConsumeError Expr
+  | CannotGiveReadModeError Type
+  | NonValInReadTraitError
+  | NonSafeInReadTraitError Type
 
 arguments 1 = "argument"
 arguments _ = "arguments"
@@ -415,6 +418,15 @@ instance Show Error where
         printf "Cannot override mode of %s" (Types.showWithKind ty)
     show (CannotConsumeError expr) =
         printf "Cannot consume '%s'" (show (ppExpr expr))
+    show (CannotGiveReadModeError ty) =
+        printf ("Cannot give read mode to %s. " ++
+               "It has fields that are not val and safe")
+               (refTypeName ty)
+    show NonValInReadTraitError =
+        "Read traits can only have val fields"
+    show (NonSafeInReadTraitError ty) =
+        printf "Read trait can not have field of non-safe type '%s'"
+               (show ty)
     show (SimpleError msg) = msg
 
 

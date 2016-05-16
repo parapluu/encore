@@ -104,9 +104,9 @@ lexer =
     ,"extract"
     ,"each"
     ,"typedef"
+    ,"unsafe"
     ,"linear"
     ,"consume"
-    ,"unsafe"
     ,"borrowed"
    ],
    P.reservedOpNames = [
@@ -398,12 +398,19 @@ mode :: Parser (Type -> Type)
 mode = linear
        <|>
        unsafe
+       <|>
+       read
        <?> "mode"
     where
-      linear = do reserved "linear"
-                  return makeLinear
-      unsafe = do reserved "unsafe"
-                  return makeUnsafe
+      linear = do
+        reserved "linear"
+        return makeLinear
+      unsafe = do
+        reserved "unsafe"
+        return makeUnsafe
+      read = do
+        reserved "read"
+        return makeRead
 
 traitDecl :: Parser TraitDecl
 traitDecl = do
