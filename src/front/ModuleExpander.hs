@@ -63,20 +63,20 @@ duplicateModuleWarning target srcs =
 -- TODO: this will replace expandModules above
 -- TODO: better name
 -- performs bottom up traversal. Needs to avoid rechecking
-tabulateImportedModules :: (Map QName Program -> Program -> Program) -> [FilePath] -> Program -> IO (Map QName Program)
+tabulateImportedModules :: (Map QName Program -> Program -> IO Program) -> [FilePath] -> Program -> IO (Map QName Program)
 tabulateImportedModules f importDirs p = doProgram Map.empty [] p 
   -- [] is QName of top-level module. TODO: find better approach
     where
         doProgram importTable target p@Program{imports} = do
             newImportTable <- foldM oneImport importTable imports
-            let fp = f newImportTable p
-            return $ Map.insert target pimp newTable
+            fp <- f newImportTable p
+            return $ Map.insert target fp newImportTable
             
         oneImport importTable i@(Import _ target) =
             if Map.member target importTable then
                 return importTable
             else do
-                (imp, _) <- importOne importDirs i
+                (impl, _) <- importOne importDirs i
                 doProgram importTable target impl
 
 

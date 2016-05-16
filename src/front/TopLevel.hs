@@ -220,13 +220,14 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
-       allModules <- tabulateImportedModules typecheck importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
+       allModules <- tabulateImportedModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
        expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
 
 
 
        let optimizedAST = undefined -- need to get this from the hashtable
-
+       return undefined -- fix, obviouslt
+{-
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options)
@@ -235,18 +236,19 @@ main =
                system $ "rm " ++ exeName
                return ())
        verbatim options "== Done =="
+ -}
     where
-      typecheck table prog = do
+      typecheck options sourceName table prog = do
          verbatim options "== Desugaring =="
          let desugaredAST = desugarProgram prog
 
          verbatim options "== Prechecking =="
          (precheckedAST, precheckingWarnings) <-
-         case precheckEncoreProgram desugaredAST of
-           (Right ast, warnings)  -> return (ast, warnings)
-           (Left error, warnings) -> do
-             showWarnings warnings
-             abort $ show error
+           case precheckEncoreProgram desugaredAST of
+             (Right ast, warnings)  -> return (ast, warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
          showWarnings precheckingWarnings
 
          verbatim options "== Typechecking =="
