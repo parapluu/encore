@@ -286,12 +286,12 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, future_t* r,
   BLOCK;
 
   if (fut->fulfilled) {
+    acquire_future_value(ctx, fut);
     value_t result = run_closure(ctx, c, fut->value);
     future_fulfil(ctx, r, result);
     UNBLOCK;
     return r;
   }
-
 
   closure_entry_t *entry = encore_alloc(ctx, sizeof *entry);
   entry->actor = ctx->current;
