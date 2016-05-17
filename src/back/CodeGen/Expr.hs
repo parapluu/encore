@@ -483,7 +483,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
     | otherwise = delegateUse callTheMethodSync
     where
-      initName = ID.Name "_init"
       delegateUse methodCall =
         let
           fName = constructorImplName ty
@@ -494,7 +493,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           do
             let typeArgs = map runtimeType typeParams
             (nnew, constructorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <- methodCall nnew ty initName args ty
+            (initArgs, result) <-
+                methodCall nnew ty ID.constructorName args ty
             return (nnew,
               Seq $
                 [constructorCall] ++

@@ -41,9 +41,11 @@
         "or"
         "passive"
         "print"
+        "read"
         "repeat"
         "require"
         "stream"
+        "subord"
         "suspend"
         "then"
         "this"
@@ -288,6 +290,9 @@
 ;     (error "\"" (file-name) "\"" " (line " line ", column " column "):\n"
 ;            (message))
 ;     (error " *** Error during typechecking *** \n"
+;            "\"" (file-name) "\"" " (line " line ", column " column ")\n"
+;            (message))
+;     (error " *** Error during capturechecking *** \n"
 ;            "\"" (file-name) "\"" " (line " line ", column " column ")\n"
 ;            (message))
 ;     (info line-start "Importing module" (message) line-end)

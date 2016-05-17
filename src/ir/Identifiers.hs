@@ -19,6 +19,9 @@ type QName = [Name]
 thisName :: Name
 thisName = Name "this"
 
+constructorName :: Name
+constructorName = Name "_init"
+
 -- | The supported binary operators
 data BinaryOp = AND
               | OR

@@ -216,6 +216,9 @@ data Error =
   | CannotGiveReadModeError Type
   | NonValInReadTraitError
   | NonSafeInReadTraitError Type
+  | SubordinateReturnError Name
+  | SubordinateArgumentError Expr
+  | SubordinateFieldError Name
 
 arguments 1 = "argument"
 arguments _ = "arguments"
@@ -417,16 +420,29 @@ instance Show Error where
     show (ModeOverrideError ty) =
         printf "Cannot override mode of %s" (Types.showWithKind ty)
     show (CannotConsumeError expr) =
-        printf "Cannot consume '%s'" (show (ppExpr expr))
+        printf "Cannot consume '%s'" (show (ppSugared expr))
     show (CannotGiveReadModeError ty) =
         printf ("Cannot give read mode to %s. " ++
-               "It has fields that are not val and safe")
+                "It has fields that are not val and safe")
                (refTypeName ty)
     show NonValInReadTraitError =
         "Read traits can only have val fields"
     show (NonSafeInReadTraitError ty) =
         printf "Read trait can not have field of non-safe type '%s'"
                (show ty)
+    show (SubordinateReturnError name) =
+        printf ("Method '%s' returns a subordinate capability and cannot " ++
+                "be called from outside of its aggregate")
+               (show name)
+    show (SubordinateArgumentError arg) =
+        printf ("Cannot pass subordinate argument '%s' " ++
+                "outside of its aggregate")
+               (show (ppSugared arg))
+
+    show (SubordinateFieldError name) =
+        printf ("Field '%s' is subordinate and cannot be accessed " ++
+                "from outside of its aggregate")
+               (show name)
     show (SimpleError msg) = msg
 
 

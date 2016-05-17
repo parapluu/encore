@@ -89,7 +89,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
     desugarMethod m@(Method {mmeta, mheader, mbody})
       | methodName m == Name "init" =
           let header  = mheader
-              header' = header{hname = Name "_init"}
+              header' = header{hname = constructorName}
           in
         m{mheader = header', mbody = desugarExpr mbody}
       | otherwise = m{mbody = desugarExpr mbody}

@@ -123,7 +123,9 @@ instance Checkable TraitDecl where
     return t{tmethods = emethods}
     where
       addTypeParams = addTypeParameters $ getTypeParameters tname
-      addThis = extendEnvironment [(thisName, tname)]
+      addThis = extendEnvironment $ if isModeless tname
+                                    then [(thisName, makeSubordinate tname)]
+                                    else [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
 matchArgumentLength :: Type -> FunctionHeader -> Arguments -> TypecheckM ()
@@ -462,12 +464,14 @@ instance Checkable Expr where
            tcError MainMethodCallError
       when (name == Name "init") $
            tcError ConstructorCallError
+
       (header, calledType) <- findMethodWithCalledType targetType name
       let specializedTarget = setType calledType eTarget
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
           mType = htype header
       (eArgs, bindings) <- matchArguments args expectedTypes
+      checkSubordination eTarget name mType eArgs
       let resultType = replaceTypeVars bindings mType
           returnType = retType calledType header resultType
       return $ setArrowType (arrowType expectedTypes mType) $
@@ -499,6 +503,7 @@ instance Checkable Expr where
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, _) <- matchArguments args expectedTypes
+      checkSubordination eTarget name voidType eArgs
       return $ setArrowType (arrowType expectedTypes voidType) $
                setType voidType msend {target = eTarget, args = eArgs}
 
@@ -763,6 +768,7 @@ instance Checkable Expr where
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
+          checkSubordinateReturn name extractedType argty
           return $ setArrowType (arrowType [] hType) $
                    setType extractedType pattern {args = [eArg]}
 
@@ -920,7 +926,9 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveClassType targetType) $
         tcError $ CannotReadFieldError eTarget
-      ty <- ftype <$> findField targetType name
+      fdecl <- findField targetType name
+      let ty = ftype fdecl
+      checkSubordinateField name eTarget ty
       return $ setType ty fAcc {target = eTarget}
 
     --  E |- lhs : t
@@ -1037,10 +1045,11 @@ instance Checkable Expr where
       ty' <- resolveType ty
       unless (isClassType ty' && not (isMainType ty')) $
              tcError $ ObjectCreationError ty'
-      header <- findMethod ty' (Name "_init")
+      header <- findMethod ty' constructorName
       matchArgumentLength ty' header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, bindings) <- matchArguments args expectedTypes
+      checkSubordinateArgs eArgs ty'
       return $ setType ty' new{ty = ty', args = eArgs}
 
    ---  |- ty
@@ -1280,6 +1289,40 @@ canBeNull ty =
   isRefType ty || isFutureType ty || isArrayType ty ||
   isStreamType ty || isCapabilityType ty || isArrowType ty || isParType ty
 
+checkSubordination :: Expr -> Name -> Type -> [Expr] -> TypecheckM ()
+checkSubordination target name returnType args = do
+  let targetType = AST.getType target
+  unless (isThisAccess target) $
+         checkSubordinateReturn name returnType targetType
+  unless (isThisAccess target) $
+         checkSubordinateArgs args targetType
+
+checkSubordinateReturn :: Name -> Type -> Type -> TypecheckM ()
+checkSubordinateReturn name returnType targetType = do
+  subordReturn <- isSubordinateType returnType
+  targetIsEncaps <- isEncapsulatedType targetType
+  when subordReturn $
+       unless targetIsEncaps $
+              tcError $ SubordinateReturnError name
+
+checkSubordinateArgs :: [Expr] -> Type -> TypecheckM ()
+checkSubordinateArgs args targetType = do
+  subordinateArgs <- filterM (isSubordinateType . AST.getType) args
+  targetIsEncaps <- isEncapsulatedType targetType
+  let subordinateArg = head subordinateArgs
+  unless (null subordinateArgs) $
+         unless targetIsEncaps $
+                tcError $ SubordinateArgumentError subordinateArg
+
+checkSubordinateField :: Name -> Expr -> Type -> TypecheckM ()
+checkSubordinateField name target fieldType = do
+  fieldIsSubord <- isSubordinateType fieldType
+  let targetType = AST.getType target
+  targetIsEncaps <- isEncapsulatedType targetType
+  when fieldIsSubord $
+       unless (targetIsEncaps || isThisAccess target) $
+              tcError $ SubordinateFieldError name
+
 
 --  classLookup(ty) = _
 -- ---------------------
@@ -1337,12 +1380,9 @@ matchArguments (arg:args) (typ:types) = do
       return eArg
   let actualTyp = AST.getType eArg
   bindings <- matchTypes typ actualTyp
-  (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
-  needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
-  let
-    casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
-    eArg' = if needCast then casted else eArg
-  return (eArg':eArgs, bindings')
+  (eArgs, bindings') <-
+    local (bindTypes bindings) $ matchArguments args types
+  return (eArg:eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad
 --

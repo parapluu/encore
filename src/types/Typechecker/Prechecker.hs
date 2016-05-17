@@ -107,14 +107,15 @@ instance Precheckable Requirement where
 instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
---      tname'    <- local addTypeParams $ resolveType tname
       treqs'    <- mapM (local (addTypeParams . addThis) . precheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
       return $ setType tname t{treqs = treqs', tmethods = tmethods'}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
-        addThis = extendEnvironment [(thisName, tname)]
+        addThis = extendEnvironment $ if isModeless tname
+                                      then [(thisName, makeSubordinate tname)]
+                                      else [(thisName, tname)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
           assertDistinct "requirement" treqs

@@ -156,7 +156,7 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Assign{lhs, rhs} =
         do let lType = getType lhs
                rType = getType rhs
-           matchStackBoundedness lType rType
+           matchStackBoundedness rType lType
            capture rhs
            return e
 
@@ -307,6 +307,8 @@ captureOrBorrow e ty
             unlessM (linearAllTheWay target) $
               ccError $ "Cannot borrow linear array value from " ++
                         "non-linear path '" ++ show (ppExpr target) ++ "'"
+      assertBorrowable e@TypedExpr{body} =
+          assertBorrowable body
       assertBorrowable e =
           ccError $ "Expression '" ++ show (ppExpr e) ++
                     "' cannot be borrowed. Go ask Elias why."
@@ -390,7 +392,7 @@ assertNoDuplicateBorrow args paramTypes = do
       isBorrowed _ = False
 
 matchStackBoundedness :: Type -> Type -> CapturecheckM ()
-matchStackBoundedness expected ty
+matchStackBoundedness ty expected
     |  isStackboundType expected &&
        not (isStackboundType ty)
     || not (isStackboundType expected) &&
