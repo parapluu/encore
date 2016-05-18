@@ -129,7 +129,6 @@ scons_t *scons_end(pony_ctx_t *ctx){
   ctx = pony_ctx();
   struct scons *scons = scons_mk(ctx, NULL);
   scons->eos = true;
-  // scons->next = NULL;
   return scons;
 }
 
