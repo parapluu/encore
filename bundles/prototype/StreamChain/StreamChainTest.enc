@@ -33,6 +33,5 @@ class StreamIO {
       print(get sa1);
       sa1 = getNext sa1;
     };
-    if eos sa1 then print "EOS";
   }
 }

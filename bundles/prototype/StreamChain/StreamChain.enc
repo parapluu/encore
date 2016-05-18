@@ -9,10 +9,7 @@ def chain(sa:Stream A, f:A->B) : Stream B {
     futa = embed Fut Scons (future_t*)#{sa}; end
     fscons = \(scons: Scons) ->
       if (embed bool scons_eos(encore_ctx(),(struct scons*)#{scons}); end) then
-        embed Scons
-          struct scons* scons = scons_end(encore_ctx());
-          scons;
-        end
+        embed Scons scons_end(encore_ctx()); end
       else {
         let va = embed A scons_element(encore_ctx(),(struct scons*)#{scons}).i; end;
         let nexta = embed Stream A scons_next(encore_ctx(),(struct scons*)#{scons}); end;
