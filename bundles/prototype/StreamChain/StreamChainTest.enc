@@ -6,9 +6,9 @@ class Main
       sio = new StreamIO
       f = \(x:int) -> x*10
       -- Test with small input
-      n = 5
+      -- n = 5
       -- Test with medium input
-      -- n = 5000
+      n = 5000
       -- Test with 1M input
       -- n = 1000000
       sa1 = sio.produceI(n)
@@ -16,22 +16,17 @@ class Main
     in {
       -- Print out the result sb1
       print "Output stream: ";
-      sio.printSI(sb1);
+      while (not eos sa1) {
+        print(get sa1);
+        sa1 = getNext sa1;
+      };
     }
 
 class StreamIO {
-
   -- create stream int
   stream produceI(i:A) : A
     while i>0 {
       yield i;
       i = i - 1;
     }
-
-  def printSI(sa1:Stream A) : void {
-    while (not eos sa1) {
-      print(get sa1);
-      sa1 = getNext sa1;
-    };
-  }
 }
