@@ -97,7 +97,6 @@ clean:
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
-	make -C programs clean
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)
