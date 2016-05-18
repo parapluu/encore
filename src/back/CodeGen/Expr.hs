@@ -744,12 +744,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | A.isRangeLiteral src = translate (selector src)
           | otherwise = return (var, Assign (Decl (int, var)) rhs)
 
-  translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
+  translate ite@(A.IfThenElse { A.cond, A.thn, A.els}) =
       do tmp <- Ctx.genNamedSym "ite"
-         let (name, leftoverType) = getCatType cond
-         -- Extremely ugly code!
-         leftoverVar <- Var <$> Ctx.genNamedSym "leftover"
-         substituteVar name leftoverVar
+
+         residuals <- getResidualTypes cond
+         let (names, residualTypes) = unzip residuals
+         residualVars <- mapM ((Var <$>) . Ctx.genNamedSym .
+                               ("residual_" ++) . show)
+                              names
+         zipWithM_ substituteVar names residualVars
 
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
@@ -762,14 +765,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    else [Assign (Var tmp) (Cast (translate resultType) result)]
              exportThn = exportBranch tthn nthn
              exportEls = exportBranch tels nels
+             theIf = If (StatAsExpr ncond tcond)
+                        (Statement exportThn)
+                        (Statement exportEls)
+             theResultDecl = AsExpr $ Decl (translate resultType, Var tmp)
+             theResidualDecls = zipWith (\t x -> AsExpr $ Decl (t, x))
+                                        residualTypes residualVars
          return (Var tmp,
-                 Seq [AsExpr $ Decl (translate resultType, Var tmp),
-                      AsExpr $ Decl (leftoverType, leftoverVar),
-                      If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
+                 Seq $ theResultDecl:
+                       theResidualDecls ++
+                       [theIf])
       where
-        getCatType A.CAT{A.args = (target:_), A.leftover = Just x} =
-            (x, translate $ A.getType target)
-        getCatType _ = (ID.Name "ugly_please_ignore", Ptr void)
+        getResidualTypes :: A.Expr -> State Ctx.Context [(ID.Name, CCode Ty)]
+        getResidualTypes A.CAT{A.args = (target:_), A.names} =
+          mapM (getResidualType (A.getType target)) names
+        getResidualTypes _ = return []
+
+        getResidualType ty f = do
+          fdecl <- gets $ Ctx.lookupField ty f
+          return (f, translate $ A.ftype fdecl)
+
 
   translate m@(A.Match {A.arg, A.clauses}) =
       do retTmp <- Ctx.genNamedSym "match"
@@ -1016,7 +1031,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate cat@(A.CAT{A.args = [A.FieldAccess{A.target, A.name}
                                 ,witness
                                 ,arg]
-                      ,A.leftover}) = do
+                      ,A.names}) = do
     (ntarg, ttarg) <- translate target
     (nwitness, twitness) <- translate witness
     (narg, targ) <- translate arg
@@ -1042,14 +1057,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         condNull = if Ty.isRefType $ A.getType arg
                    then Statement $ If tmp (Assign narg Null) Skip
                    else Skip
-    if isNothing leftover
-    then return (tmp, Seq [ttarg, twitness, targ, theAssign, condNull])
-    else do
-      let Just name = leftover
-      ctx <- get
-      let Just leftoverVar = Ctx.substLkp ctx name
-          theLeftoverAssign = Assign leftoverVar $ unfreeze argType narg
-      return (tmp, Seq [ttarg, twitness, targ, theAssign, theLeftoverAssign, condNull])
+    theResidualAssigns <- mapM (residualAssign narg argType) names
+    let condAssign = If tmp (Seq theResidualAssigns) Skip
+    return (tmp, Seq $ [ttarg, twitness, targ, theAssign] ++
+                       theResidualAssigns ++
+                       [condNull])
+    where
+      residualAssign narg argType f = do
+        ctx <- get
+        let Just residualVar = Ctx.substLkp ctx f
+        return $ Assign residualVar $
+                        Cast (translate argType) (unfreeze argType narg)
+                        `Arrow` fieldName f
 
   translate cat@(A.TryAssign{A.target = acc@A.FieldAccess{A.target, A.name},
                              A.arg}) = do

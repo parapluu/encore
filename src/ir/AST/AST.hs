@@ -517,7 +517,7 @@ data Expr = Skip {emeta :: Meta Expr}
                    clauses :: [MatchClause]}
           | CAT {emeta :: Meta Expr,
                  args  :: [Expr],
-                 leftover :: Maybe Name
+                 names :: [Name]
                 }
           | TryAssign {emeta :: Meta Expr,
                        target :: Expr,

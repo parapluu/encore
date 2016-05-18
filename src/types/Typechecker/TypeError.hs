@@ -285,6 +285,8 @@ data Error =
   | TryAssignError FieldDecl
   | MalformedTryAssignError
   | NonStableFieldAccessError FieldDecl
+  | StrongRestrictionViolationError Name Expr Expr
+  | ResidualAliasingError Name Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -538,8 +540,8 @@ instance Show Error where
         printf "Field '%s' is not speculatable"
                (show fdecl)
     show (CannotHaveRestrictedFieldsError ty) =
-        printf "Cannot have restrict fields in %s"
-               (refTypeName ty)
+        printf "Cannot have restricted fields in %s"
+               (Types.showWithKind ty)
     show (RestrictedFieldLookupError f ty) =
         printf "Field '%s' is restricted in type '%s'"
                (show f) (show ty)
@@ -585,6 +587,14 @@ instance Show Error where
     show (NonStableFieldAccessError fdecl) =
         printf "Cannot read field '%s' without controlling its stability first"
                (show fdecl)
+    show (StrongRestrictionViolationError f target arg) =
+        printf ("Field '%s' is strongly restricted in the type of '%s' " ++
+                "and must be unrestricted in the type of '%s'")
+               (show f) (show (ppSugared target)) (show (ppSugared arg))
+    show (ResidualAliasingError f ty) =
+        printf ("Cannot create residual alias. Field '%s' " ++
+                "is not strongly restricted in type '%s'")
+               (show f) (show ty)
     show (SimpleError msg) = msg
 
 data TCWarning = TCWarning Backtrace Warning

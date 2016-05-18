@@ -86,7 +86,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        ponyMainClause =
            (Nam "_ENC__MSG_MAIN",
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
-                   Statement $ Call ((methodImplName (Ty.refType "Main") (ID.Name "main")))
+                   Statement $ Call ((methodImplName Ty.mainType (ID.Name "main")))
                                     [AsExpr encoreCtxVar,
                                      (Cast (Ptr encActiveMainT) (Var "_a")),
                                      Call (Nam "_init_argv")

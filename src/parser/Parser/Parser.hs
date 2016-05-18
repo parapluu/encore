@@ -21,7 +21,8 @@ import Control.Applicative ((<$>))
 
 -- Module dependencies
 import Identifiers
-import Types hiding(refType, bar)
+import Types hiding(bar, doubleBar)
+import qualified Types as Ty(bar, doubleBar)
 import AST.AST
 import AST.Meta hiding(Closure, Async)
 
@@ -131,6 +132,7 @@ lexer =
     ,"~~>"
     ,"=>"
     ,"|"
+    ,"||"
     ]
   }
 
@@ -144,6 +146,7 @@ operator   = P.operator lexer
 dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
+doubleBar  = symbol "||"
 dotdot     = symbol ".."
 commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
@@ -174,6 +177,7 @@ typ :: Parser Type
 typ = buildExpressionParser opTable singleType
     where
       opTable = [
+                 [fieldRestriction],
                  [typeOp "*" conjunctiveType],
                  [typeOp "+" disjunctiveType],
                  [typeConstructor "Maybe" maybeType
@@ -198,6 +202,17 @@ typ = buildExpressionParser opTable singleType
             unfoldArgs ty
                 | isTupleType ty = getArgTypes ty
                 | otherwise = [ty]
+      fieldRestriction =
+          Postfix restrictedFields
+          where
+            restrictedFields = do
+              restrictions <-
+                  many ((try doubleBar >> Left . Name <$> identifier)
+                        <|>
+                        (bar >> Right . Name <$> identifier))
+              return $ \ty -> foldr restrict ty restrictions
+            restrict (Left f) = (`Ty.doubleBar` f)
+            restrict (Right f) = (`Ty.bar` f)
 
       singleType =
             try tuple
@@ -228,8 +243,7 @@ typ = buildExpressionParser opTable singleType
         notFollowedBy lower
         refId <- identifier
         parameters <- option [] $ angles (commaSep1 typ)
-        barred <- option [] $ do {bar; (Name <$> identifier) `sepBy` bar}
-        return $ mode $ refTypeWithParams refId parameters barred
+        return $ mode $ refTypeWithParams refId parameters
       primitive =
         do {reserved "int"; return intType} <|>
         do {reserved "uint"; return uintType} <|>
@@ -893,8 +907,8 @@ expr  =  embed
       cat = do pos <- getPosition
                reserved "CAT"
                args <- parens arguments
-               leftover <- option Nothing $ do {reserved "=>"; Just . Name <$> identifier}
-               return $ CAT (meta pos) args leftover
+               names <- option [] $ do {reserved "=>"; commaSep1 (Name <$> identifier)}
+               return $ CAT (meta pos) args names
       functionCall = do pos <- getPosition
                         fun <- identifier
                         typeParams <- option Nothing (try $ angles $ Just <$> commaSep typ)

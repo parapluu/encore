@@ -211,9 +211,11 @@ ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
-ppExpr CAT {args, leftover} =
-  "CAT" <> parens (commaSep $ map ppExpr args) <>
-           maybe empty ((text " =>" <+>) . ppName) leftover
+ppExpr CAT {args, names} =
+    "CAT" <> parens (commaSep $ map ppExpr args) <>
+             if null names
+             then empty
+             else text " =>" <+> commaSep (map ppName names)
 ppExpr TryAssign {target, arg} =
     "try" <> parens (commaSep $ map ppExpr [target, arg])
 ppExpr Freeze {target} = "freeze" <> parens (ppExpr target)

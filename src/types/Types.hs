@@ -16,7 +16,6 @@ module Types(
             ,isArrayType
             ,isRangeType
             ,refTypeWithParams
-            ,refType
             ,classType
             ,isRefAtomType
             ,traitType
@@ -26,6 +25,7 @@ module Types(
             ,isSharedClassType
             ,isPassiveClassType
             ,isClassType
+            ,mainType
             ,isMainType
             ,stringObjectType
             ,isStringObjectType
@@ -75,7 +75,9 @@ module Types(
             ,unbox
             ,unbar
             ,bar
+            ,doubleBar
             ,barredFields
+            ,stronglyBarredFields
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -166,34 +168,28 @@ modeIsSafe _    = False
 data RefInfo = RefInfo{refId :: String
                       ,parameters :: [Type]
                       ,mode :: Maybe Mode
-                      ,barred :: [Name]
                       }
 
 -- The current modes are irrelevant for equality checks
 instance Eq RefInfo where
     ref1 == ref2 = refId ref1 == refId ref2 &&
-                   parameters ref1 == parameters ref2 &&
-                   sort (barred ref1) == sort (barred ref2)
+                   parameters ref1 == parameters ref2
 
 instance Show RefInfo where
-    show RefInfo{mode, refId, parameters, barred}
-        | null parameters = smode ++ refId ++ bar barred
-        | otherwise = smode ++ refId ++ "<" ++ params ++ ">" ++ bar barred
+    show RefInfo{mode, refId, parameters}
+        | null parameters = smode ++ refId
+        | otherwise = smode ++ refId ++ "<" ++ params ++ ">"
         where
           smode
               | isNothing mode = ""
               | otherwise = show (fromJust mode) ++ " "
           params = intercalate ", " (map show parameters)
-          bar [] = ""
-          bar (f:fs) = " | " ++ show f ++ bar fs
 
-showRefInfoWithoutMode RefInfo{refId, parameters, barred}
-    | null parameters = refId ++ bar barred
-    | otherwise = refId ++ "<" ++ params ++ ">" ++ bar barred
+showRefInfoWithoutMode RefInfo{refId, parameters}
+    | null parameters = refId
+    | otherwise = refId ++ "<" ++ params ++ ">"
     where
       params = intercalate ", " (map show parameters)
-      bar [] = ""
-      bar (f:fs) = " | " ++ show f ++ bar fs
 
 data Box = Stackbound
          | Pristine deriving(Eq)
@@ -202,45 +198,61 @@ instance Show Box where
     show Stackbound = "borrowed"
     show Pristine = "pristine"
 
-data Type = Type {inner :: InnerType
-                 ,box   :: Maybe Box}
+data RestrictedField =
+    Strong{fname :: Name}
+  | Weak{fname :: Name}
+    deriving(Eq, Ord)
+
+instance Show RestrictedField where
+    show Strong{fname} = "|| " ++ show fname
+    show Weak{fname} = "| " ++ show fname
+
+isStrong Strong{} = True
+isStrong _ = False
+
+data Type = Type
+    {inner  :: InnerType
+    ,box    :: Maybe Box
+    ,barred :: [RestrictedField]
+    }
 
 unbox ty = ty{box = Nothing}
 
-unbar ty f
-    | isRefType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-    , barred <- barred info
-      = ty{inner = iType{refInfo = info{barred = barred \\ [f]}}}
-    | otherwise = error $ "Types.hs: Cannot unbar " ++ showWithKind ty
+unbar ty f =
+    let bars = barred ty
+    in ty{barred = bars \\ [Weak f, Strong f]}
 
-bar ty f
-    | isRefAtomType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-    , barred <- barred info
-      = ty{inner = iType{refInfo = info{barred = barred `union` [f]}}}
-    | otherwise = error $ "Types.hs: Cannot bar " ++ showWithKind ty
+bar ty f =
+    let bars = barred ty
+    in ty{barred =
+            if Strong f `elem` bars
+            then bars
+            else bars `union` [Weak f]}
 
-barredFields ty
-    | isRefAtomType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-    , barred <- barred info = barred
-    | otherwise = error $ "Types.hs: No barred fields in " ++ showWithKind ty
+doubleBar ty f =
+    let bars = barred ty
+    in ty{barred = bars `union` [Strong f]}
 
-typ ity = Type{inner = ity, box = Nothing}
+barredFields = map fname . barred
+
+stronglyBarredFields = map fname . filter isStrong . barred
+
+typ ity = Type{inner = ity, box = Nothing, barred = []}
 
 transferBox ty1 ty2 = ty2{box = box ty1}
 
 instance Eq Type where
-    ty1 == ty2 = inner ty1 == inner ty2
+    ty1 == ty2 =
+        inner ty1 == inner ty2 &&
+        sort (barred ty1) == sort (barred ty2)
 
 instance Show Type where
-    show Type{inner, box = Nothing} = show inner
-    show Type{inner, box = Just s} =
-        show s ++ " " ++ show inner
+    show Type{inner, box = Nothing, barred} =
+        show inner ++ showBarred barred
+    show Type{inner, box = Just s, barred} =
+        show s ++ " " ++ show inner ++ showBarred barred
+
+showBarred = unwords . ("":) . map show
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
@@ -607,16 +619,13 @@ withModeOf sink source
 
 withBoxOf sink source = sink{box = box source}
 
-refTypeWithParams refId parameters barred =
+refTypeWithParams refId parameters =
     typ Unresolved{refInfo}
     where
       refInfo = RefInfo{refId
                        ,parameters
                        ,mode = Nothing
-                       ,barred
                        }
-
-refType id = refTypeWithParams id [] []
 
 resolvedFrom actual formal
     | isRefAtomType actual && isRefAtomType formal
@@ -647,20 +656,20 @@ classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
     Type{inner = ClassType{refInfo = RefInfo{refId = name
                                             ,parameters
-                                            ,mode = Nothing
-                                            ,barred = []}
+                                            ,mode = Nothing}
                           , activity}
         ,box = Nothing
+        ,barred = []
         }
 
 traitType :: String -> [Type] -> Type
 traitType name parameters =
     Type{inner = TraitType{refInfo = RefInfo{refId = name
                                             ,parameters
-                                            ,mode = Nothing
-                                            ,barred = []}}
+                                            ,mode = Nothing}}
 
         ,box = Nothing
+        ,barred = []
         }
 
 isRefAtomType Type{inner = Unresolved {}} = True
@@ -836,6 +845,8 @@ typeVar = typ . TypeVar
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
+mainType = refTypeWithParams "Main" []
+
 isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
 isMainType _ = False
 
@@ -915,8 +926,7 @@ typeSynonym :: String -> [Type] -> Type -> Type
 typeSynonym name parameters resolution =
   typ TypeSynonym{refInfo = RefInfo{refId = name
                                    ,parameters
-                                   ,mode = Nothing
-                                   ,barred = []}
+                                   ,mode = Nothing}
                  ,resolvesTo = resolution}
 
 typeSynonymLHS :: Type -> (String, [Type])
