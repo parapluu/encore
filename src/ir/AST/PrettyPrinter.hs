@@ -61,7 +61,6 @@ ppBundleDecl Bundle{bname} = "bundle" <+> ppQName bname
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget} = "import" <+> ppQName itarget
-ppImportDecl PulledImport {} = error "Cannot pretty-print a pulled import"
 
 ppTypedef :: Typedef -> Doc
 ppTypedef Typedef { typedefdef=t } =

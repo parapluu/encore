@@ -221,7 +221,7 @@ main =
 
        verbatim options "== Expanding modules =="
        allModules <- tabulateImportedModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
-       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
+--       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
 
 
 

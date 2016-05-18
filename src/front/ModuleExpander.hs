@@ -1,4 +1,4 @@
-module ModuleExpander(expandModules,tabulateImportedModules) where
+module ModuleExpander(tabulateImportedModules) where
 
 import Identifiers
 import Utils
@@ -17,6 +17,7 @@ tosrc dir target = dir ++ tosrc' target
     tosrc' [(Name a)] = a ++ ".enc"
     tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
 
+{-
 expandModules :: [FilePath] -> Program -> IO Program
 expandModules importDirs p = expandProgram p
     where
@@ -28,6 +29,7 @@ expandModules importDirs p = expandProgram p
           do (imp, src) <- importOne importDirs i
              expImp <- expandProgram imp
              return $ PulledImport meta target src expImp
+-}
 
 
 importOne :: [FilePath] -> ImportDecl -> IO (Program, FilePath)

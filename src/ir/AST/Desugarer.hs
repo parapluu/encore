@@ -10,12 +10,11 @@ import Types
 import qualified Data.List as List
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions, imports}) =
+desugarProgram p@(Program{traits, classes, functions}) =
   p{
     traits = map desugarTrait traits,
     classes = map desugarClass classes,
-    functions = map desugarFunction functions,
-    imports = map desugarImports imports
+    functions = map desugarFunction functions
   }
   where
     desugarFunctionHeadMatch headers bodies =
@@ -78,8 +77,6 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
 
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}
-    desugarImports f@(PulledImport{iprogram}) =
-      f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
     desugarFunction f@(MatchingFunction{funmeta
                                        ,matchfunheaders
