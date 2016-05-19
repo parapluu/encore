@@ -6,9 +6,9 @@ class Main
       sio = new StreamIO
       f = \(x:int) -> x*10
       -- Test with small input
-      -- n = 5
+      n = 5
       -- Test with medium input
-      n = 5000
+      -- n = 5000
       -- Test with 1M input
       -- n = 1000000
       sa1 = sio.produceI(n)
