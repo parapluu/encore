@@ -54,7 +54,6 @@ function c_lib()
       end
     end
 
-
   configuration "*"
 end
 
@@ -66,7 +65,6 @@ solution "ponyrt"
       "-mcx16",
       "-pthread",
       "-std=gnu11",
-      "-fms-extensions",
       "-march=native",
 
       "-Wno-unused-variable",
@@ -154,7 +152,6 @@ project "tuple"
     "../tuple/tuple.c"
   }
 
-
 project "range"
   c_lib()
   files {
@@ -188,6 +185,9 @@ project "closure"
 project "party"
   c_lib()
   links { "future", "array" }
+  buildoptions {
+      "-fms-extensions",
+  }
   files {
     "../party/party.*",
   }
@@ -195,9 +195,6 @@ project "party"
 project "future"
   c_lib()
   links { "closure", "array" }
-  buildoptions {
-      "-Wno-deprecated-declarations",
-  }
   files {
     "../future/future.c",
   }
