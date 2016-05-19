@@ -41,7 +41,7 @@ void stream_trace(pony_ctx_t *ctx, void *p)
   future_trace(ctx, p);
 }
 
-static struct scons *scons_mk(pony_ctx_t *ctx, pony_type_t *type){
+struct scons *scons_mk(pony_ctx_t *ctx, pony_type_t *type){
   struct scons *scons = pony_alloc(ctx, sizeof(struct scons));
   scons->eos = false;
   scons->element = (value_t) {.p = NULL};
