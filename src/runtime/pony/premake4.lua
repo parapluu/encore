@@ -185,9 +185,7 @@ project "closure"
 project "party"
   c_lib()
   links { "future", "array" }
-  buildoptions {
-      "-fms-extensions",
-  }
+
   files {
     "../party/party.*",
   }
