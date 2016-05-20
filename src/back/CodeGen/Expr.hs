@@ -1101,7 +1101,6 @@ globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
   let actualArgs = map (translate . A.getType) args
   formalArgs <- gets $ Ctx.lookupFunction typ name
   let formalTypes = map A.ptype (A.hparams formalArgs)
-      formalTypes' = map translate formalTypes
       returnType = A.htype formalArgs
 
       arguments = map translateArg (zip3 (map AsExpr args') formalTypes actualArgs)

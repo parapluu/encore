@@ -11,8 +11,8 @@ import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
-generateShared :: A.Program -> NamespaceTable -> CCode FIN
-generateShared prog@(A.Program{A.functions, A.imports}) ntable@(ftable, ctable) =
+generateShared :: A.Program -> TableLookup -> CCode FIN
+generateShared prog@(A.Program{A.functions, A.imports}) tableLookup =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -29,7 +29,7 @@ generateShared prog@(A.Program{A.functions, A.imports}) ntable@(ftable, ctable) 
       allfunctions = A.allFunctions prog
 
       globalFunctions =
-        [translate f ntable | f <- allfunctions] ++
+        [translate f tableLookup | f <- allfunctions] ++
         [globalFunctionWrapper f | f <- allfunctions] ++
         [initGlobalFunctionClosure f | f <- allfunctions]
 

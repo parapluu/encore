@@ -84,9 +84,9 @@ globalFunctionWrapper f =
     returnStmnt :: UsableAs e Expr => CCode e -> Type -> CCode Stat
     returnStmnt var ty = Return $ asEncoreArgT (translate ty) var
 
-instance Translatable A.Function (NamespaceTable -> CCode Toplevel) where
+instance Translatable A.Function (TableLookup -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
-  translate fun@(A.Function {A.funbody}) ntable =
+  translate fun@(A.Function {A.funbody}) tableLookup =
       let funParams = A.functionParams fun
           funType   = A.functionType fun
           fName     = A.functionName fun
@@ -96,11 +96,11 @@ instance Translatable A.Function (NamespaceTable -> CCode Toplevel) where
               unzip . map (A.pname &&& A.ptype) $ funParams
           argNames  = map (AsLval . argName) encArgNames
           argTypes  = map translate encArgTypes
-          ctx       = Ctx.new (zip encArgNames argNames) ntable Ctx.functionCtx
+          ctx       = Ctx.new (zip encArgNames argNames) tableLookup Ctx.functionCtx
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos [] ntable Ctx.functionCtx)
+          closures = map (\clos -> translateClosure clos [] tableLookup Ctx.functionCtx)
                          (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas ntable Ctx.functionCtx) $
+          tasks = map (\tas -> translateTask tas tableLookup Ctx.functionCtx) $
                       reverse $ Util.filter A.isTask funbody
           typeVariableVars = (\x y -> (x,y)) <$> [Ptr ponyTypeT] <*> (map (Var . getId) (A.functionTParams fun))
       in

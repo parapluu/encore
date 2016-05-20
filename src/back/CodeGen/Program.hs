@@ -37,12 +37,13 @@ instance Translatable A.Program Emitted where
   translate prog =
     let
       ctable = buildClassTable prog
-      ntable = buildNamespaceTable prog
+      classTable = CT ctable
+      ftable = buildFunctionTable prog
       header = generateHeader prog
-      shared = generateShared prog ntable
-      classes = A.traverseProgram (nameAndClass ntable) prog
+      shared = generateShared prog classTable
+      classes = A.traverseProgram (nameAndClass classTable) prog
     in
       Emitted{classes, header, shared}
     where
-      nameAndClass ntable A.Program{A.classes} =
-        [(Ty.getId (A.cname c), translate c ntable) | c <- classes]
+      nameAndClass ctable A.Program{A.classes} =
+        [(Ty.getId (A.cname c), translate c ctable) | c <- classes]

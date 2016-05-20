@@ -44,21 +44,22 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Tbl.NamespaceTable LexicalContext
+data Context = Context VarSubTable NextSym Tbl.TableLookup LexicalContext
 
 classTable :: Context -> Tbl.ClassTable
-classTable (Context _ _ ntable _) = snd ntable
+classTable (Context _ _ (Tbl.CT {Tbl.ct}) _) = ct
 
 functionTable :: Context -> Tbl.FunctionTable
-functionTable (Context _ _ ntable _) = fst ntable
+functionTable (Context _ _ (Tbl.FT {Tbl.ft}) _) = ft
+functionTable _ = error "Error"
 
 lexicalContext :: Context -> LexicalContext
 lexicalContext (Context _ _ _ ctx)= ctx
 
-empty :: Tbl.NamespaceTable -> Context
+empty :: Tbl.TableLookup -> Context
 empty ntable = new [] ntable ClassContext
 
-new :: VarSubTable -> Tbl.NamespaceTable -> LexicalContext -> Context
+new :: VarSubTable -> Tbl.TableLookup -> LexicalContext -> Context
 new subs ntable ctx = Context subs 0 ntable ctx
 
 genNamedSym :: String -> State Context String

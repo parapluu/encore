@@ -1,15 +1,14 @@
 module CodeGen.ClassTable (
   ClassTable,
   FunctionTable,
-  NamespaceTable,
+  TableLookup(..),
   lookupMethod,
   lookupMethods,
   lookupField,
   lookupCalledType,
   lookupFunction,
   buildClassTable,
-  buildFunctionTable,
-  buildNamespaceTable) where
+  buildFunctionTable) where
 
 import Types
 import AST.AST
@@ -21,12 +20,10 @@ import Control.Arrow
 
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
-type ClassTable  = [(Type, (FieldTable, MethodTable))]
 type FunctionTable = MethodTable
-type NamespaceTable = (FunctionTable, ClassTable)
-
-buildNamespaceTable :: Program -> NamespaceTable
-buildNamespaceTable p = (buildFunctionTable p, buildClassTable p)
+type ClassTable  = [(Type, (FieldTable, MethodTable))]
+data TableLookup = CT { ct :: ClassTable }
+                 | FT { ft :: FunctionTable }
 
 buildClassTable :: Program -> ClassTable
 buildClassTable = traverseProgram getEntries
