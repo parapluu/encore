@@ -37,11 +37,6 @@ struct par_t {
       JOIN_PARs j;
       ARRAY_PARs a;
       /* struct EMPTY_PARs; */
-      struct VALUE_PARs;
-      struct FUTURE_PARs;
-      struct PAR_PARs;
-      struct JOIN_PARs;
-      struct ARRAY_PARs;
     } data;
 };
 
@@ -67,29 +62,29 @@ static inline void set_par_value(encore_arg_t val,
                                  void * __attribute__((unused))null,
                                  par_t * const par){
   assert(par->tag == VALUE_PAR);
-  par->data.val = val;
+  par->data.v.val = val;
 }
 
 static inline void set_par_future(future_t * const fut,
                                   void * __attribute__((unused)) null,
                                   par_t *par){
   assert(par->tag == FUTURE_PAR);
-  par->data.fut = fut;
+  par->data.f.fut = fut;
 }
 
 static inline void set_par_future_par(future_t * const fut,
                                       void * __attribute__((unused)) null,
                                       par_t *par){
   assert(par->tag == FUTUREPAR_PAR);
-  par->data.fut = fut;
+  par->data.fp.fut = fut;
 }
 
 static inline void set_par_par(par_t * const rpar, par_t * const lpar,
                                par_t * const par){
   switch(par->tag){
   case PAR_PAR: {
-      par->data.left = lpar;
-      par->data.right = rpar;
+      par->data.p.left = lpar;
+      par->data.p.right = rpar;
       break;
   }
   default: assert(0); exit(-1);
@@ -101,12 +96,12 @@ static inline void set_par_array(array_t* const arr,
                    void * __attribute__((unused)) null,
                    par_t* const p){
   assert(p->tag == ARRAY_PAR);
-  p->data.array = arr;
+  p->data.a.array = arr;
 }
 
 
 static inline void trace_array_par(pony_ctx_t *ctx, par_t* obj){
-  array_t* ar = obj->data.array;
+  array_t* ar = obj->data.a.array;
   if(obj->rtype == ENCORE_PRIMITIVE){
     for(size_t i = 0; i<array_size(ar); i++){
       void* val = array_get(ar, i).p;
@@ -241,7 +236,7 @@ static inline future_t* chain_party_to_function(pony_ctx_t* ctx,
                                                 closure_fun clos){
   future_t* rf = (future_t*)future_mk(ctx, in->rtype);
   closure_t* cp = closure_mk(ctx, clos, fm, NULL);
-  return future_chain_actor(ctx, in->data.fut, (future_t*)rf, cp);
+  return future_chain_actor(ctx, in->data.fp.fut, (future_t*)rf, cp);
 }
 
 static inline par_t* fmap_run_fp(pony_ctx_t* ctx, par_t* const in, fmap_s* const f){
@@ -250,18 +245,18 @@ static inline par_t* fmap_run_fp(pony_ctx_t* ctx, par_t* const in, fmap_s* const
 }
 
 static inline par_t* fmap_run_v(pony_ctx_t* ctx, par_t* const in, fmap_s* const f){
-  value_t v = closure_call(ctx, f->fn, (value_t[]){in->data.val});
+  value_t v = closure_call(ctx, f->fn, (value_t[]){in->data.v.val});
   return new_par_v(ctx, v, get_rtype(f));
 }
 
 static inline par_t* fmap_run_f(pony_ctx_t* ctx, par_t* const in, fmap_s* const f){
   future_t* rf = (future_t*)future_mk(ctx, in->rtype);
-  future_t* chained_fut = future_chain_actor(ctx, in->data.fut, rf, f->fn);
+  future_t* chained_fut = future_chain_actor(ctx, in->data.f.fut, rf, f->fn);
   return new_par_f(ctx, chained_fut, get_rtype(f));
 }
 
 static inline par_t* fmap_run_array(pony_ctx_t * ctx, par_t* const in, fmap_s* const f){
-  array_t* old_array = in->data.array;
+  array_t* old_array = in->data.a.array;
   size_t size = array_size(old_array);
   pony_type_t* type = get_rtype(f);
   array_t* new_array = array_mk(ctx, size, type);
@@ -312,8 +307,8 @@ static par_t* fmap(pony_ctx_t* ctx, closure_t* const f, par_t* const in,
   case VALUE_PAR: return fmap_run_v(ctx, in, fm);
   case FUTURE_PAR: return fmap_run_f(ctx, in, fm);
   case PAR_PAR: {
-    par_t* left = fmap(ctx, f, in->data.left, rtype);
-    par_t* right = fmap(ctx, f, in->data.right, rtype);
+    par_t* left = fmap(ctx, f, in->data.p.left, rtype);
+    par_t* right = fmap(ctx, f, in->data.p.right, rtype);
     return new_par_p(ctx, left, right, rtype);
   }
   case FUTUREPAR_PAR: return fmap_run_fp(ctx, in, fm);
@@ -336,7 +331,7 @@ par_t* party_join(pony_ctx_t* ctx, par_t* const p);
 
 static inline par_t* party_join_v(pony_ctx_t* __attribute__((unused)) ctx,
                                   par_t* const p){
-   return ((par_t*)p->data.val.p);
+   return ((par_t*)p->data.v.val.p);
 }
 
 // TODO: uncomment when the empty par is added to the language
@@ -346,8 +341,8 @@ static inline par_t* party_join_p(pony_ctx_t* ctx, par_t* const p){
   /* }else if(p->data.right->tag == EMPTY_PAR){ */
   /*   return party_join(p->data.left); */
   /* }else{ */
-  par_t* pleft = party_join(ctx, p->data.left);
-  par_t* pright = party_join(ctx,p->data.right);
+  par_t* pleft = party_join(ctx, p->data.p.left);
+  par_t* pright = party_join(ctx,p->data.p.right);
   assert(get_rtype(pleft) == get_rtype(pright));
   return new_par_p(ctx, pleft, pright, get_rtype(pleft));
   /* } */
@@ -361,7 +356,7 @@ static value_t party_join_fp_closure(pony_ctx_t* ctx,
 }
 
 static inline par_t* party_join_fp(pony_ctx_t* ctx, par_t* const p){
-  future_t* const fut = p->data.fut;
+  future_t* const fut = p->data.fp.fut;
   future_t* const chained_fut = future_mk(ctx, p->rtype);
   closure_t* const clos = closure_mk(ctx, party_join_fp_closure, NULL, NULL);
   future_chain_actor(ctx, fut, chained_fut, clos);
@@ -385,7 +380,7 @@ par_t* party_join(pony_ctx_t* ctx, par_t* const p){
   switch(p->tag){
   /* case EMPTY_PAR: return p; */
   case VALUE_PAR: return party_join_v(ctx, p);
-  case FUTURE_PAR: return new_par_fp(ctx, p->data.fut, get_rtype(p));
+  case FUTURE_PAR: return new_par_fp(ctx, p->data.f.fut, get_rtype(p));
   case PAR_PAR: return party_join_p(ctx, p);
   case FUTUREPAR_PAR: return party_join_fp(ctx, p);
   case ARRAY_PAR: return party_join_array(ctx, p);
@@ -409,8 +404,8 @@ static inline list_t* extract_helper(list_t * const list, par_t * const p,
     return list_push(list, val);
   }
   case PAR_PAR: {
-    par_t *left = p->data.left;
-    par_t *right = p->data.right;
+    par_t *left = p->data.p.left;
+    par_t *right = p->data.p.right;
     list_t* tmp_list = extract_helper(list, left, type);
     return extract_helper(tmp_list, right, type);
   }
@@ -420,7 +415,7 @@ static inline list_t* extract_helper(list_t * const list, par_t * const p,
     return extract_helper(list, par, type);
   }
   case ARRAY_PAR: {
-    array_t* ar = p->data.array;
+    array_t* ar = p->data.a.array;
     size_t size = array_size(ar);
     list_t* new_list = list;
     for(size_t i=0; i<size; i++){
