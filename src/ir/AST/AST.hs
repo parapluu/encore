@@ -107,7 +107,7 @@ data FunctionHeader =
     Header {
         kind    :: HeaderKind,
         hname   :: Name,
-        hpparams :: [Type],
+        htparams :: [Type],
         htype   :: Type,
         hparams :: [ParamDecl]
     }
@@ -148,7 +148,7 @@ data Function =
 
 functionName = hname . funheader
 functionParams = hparams . funheader
-functionPParams = hpparams . funheader
+functionTParams = htparams . funheader
 functionType = htype . funheader
 
 instance Eq Function where
@@ -335,7 +335,7 @@ emptyConstructor cdecl =
     in Method{mmeta = meta pos
              ,mheader = Header{kind = NonStreaming
                               ,hname = Name "_init"
-                              ,hpparams = []
+                              ,htparams = []
                               ,hparams = []
                               ,htype = voidType
                               }

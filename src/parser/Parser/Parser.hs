@@ -309,14 +309,14 @@ typedef = do
 
 functionHeader :: Parser FunctionHeader
 functionHeader = do
-  hpparams <- option [] (angles $ commaSep1 typeVariable)
+  htparams <- option [] (angles $ commaSep1 typeVariable)
   hname <- Name <$> identifier
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
   return Header{kind = NonStreaming
                ,hname
-               ,hpparams
+               ,htparams
                ,hparams
                ,htype
                }

@@ -105,8 +105,8 @@ instance Checkable Function where
     doTypecheck f@(Function {funheader, funbody}) = do
       let funtype    = functionType f
           funparams  = functionParams f
-          funpparams = functionPParams f
-      eBody <- local ((addTypeParameters funpparams) . (addParams funparams)) $
+          funtparams = functionTParams f
+      eBody <- local ((addTypeParameters funtparams) . (addParams funparams)) $
                if isVoidType funtype
                then typecheckNotNull funbody
                else hasType funbody funtype
@@ -539,7 +539,7 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {name, args, pparams}) = do
+    doTypecheck fcall@(FunctionCall {name, args}) = do
       funType <- asks $ varLookup name
       ty <- case funType of
         Just ty -> return ty

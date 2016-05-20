@@ -85,7 +85,7 @@ instance Precheckable FunctionHeader where
       | otherwise = commonFunction header
       where
         assertDistinctness = do
-          assertDistinctThing "declaration" "type parameter" (hpparams header)
+          assertDistinctThing "declaration" "type parameter" (htparams header)
 
         commonFunction header = do
           htype' <- resolveType (htype header)
@@ -95,7 +95,7 @@ instance Precheckable FunctionHeader where
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do
-      funheader' <- local ((addTypeParameters . functionPParams) f)
+      funheader' <- local ((addTypeParameters . functionTParams) f)
                           (doPrecheck funheader)
       let funtype = htype funheader'
       return $ setType funtype f{funheader = funheader'}

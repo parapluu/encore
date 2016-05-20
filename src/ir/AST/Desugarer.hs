@@ -61,7 +61,7 @@ desugarProgram p@(Program{traits, classes, functions, imports}) =
               zipWith typePattern patterns types
 
         makeHeader (MatchingHeader{kind, hname, htype, hparamtypes}) hparams =
-          Header{kind, hname, hpparams=hparamtypes, htype, hparams}
+          Header{kind, hname, htparams=hparamtypes, htype, hparams}
 
         makeParam pos pname ptype =
           Param{pmeta = Meta.meta pos, pname, ptype}

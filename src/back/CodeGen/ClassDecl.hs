@@ -512,7 +512,7 @@ runtimeTypeInitFunctionDecl f@(A.Function {}) =
                     map initRuntimeType typeParams ++
                     [Statement $ Call (Nam "va_end") [Var "params"]])
         where
-          typeParams = A.functionPParams f
+          typeParams = A.functionTParams f
           initRuntimeType ty =
               Assign (Var "this" `Arrow` typeVarRefName ty)
                      (Call (Nam "va_arg") [Var "params", Var "pony_type_t *"])

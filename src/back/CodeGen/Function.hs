@@ -25,7 +25,7 @@ globalFunctionDecl :: A.Function -> CCode Toplevel
 globalFunctionDecl f =
   FunctionDecl typ name (Ptr encoreCtxT:initParam ++ params)
   where
-    initParam = replicate (length (A.functionPParams f)) (Ptr ponyTypeT)
+    initParam = replicate (length (A.functionTParams f)) (Ptr ponyTypeT)
     params = map (translate . A.ptype) $ A.functionParams f
     typ = translate $ A.functionType f
     name = globalFunctionNameOf f
@@ -58,7 +58,7 @@ globalFunctionWrapper f =
     argList = extractArgs args
 
     -- TODO: get correct type
-    varNames = replicate (length $ A.functionPParams f) (Var "ENCORE_PRIMITIVE")
+    varNames = replicate (length $ A.functionTParams f) (Var "ENCORE_PRIMITIVE")
     result = returnStmnt (Call globalFunctionName (encoreCtxVar : varNames ++ argList)) typ
   in
     Function
@@ -102,7 +102,7 @@ instance Translatable A.Function (NamespaceTable -> CCode Toplevel) where
                          (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas ntable Ctx.functionCtx) $
                       reverse $ Util.filter A.isTask funbody
-          typeVariableVars = (\x y -> (x,y)) <$> [Ptr ponyTypeT] <*> (map (Var . getId) (A.functionPParams fun))
+          typeVariableVars = (\x y -> (x,y)) <$> [Ptr ponyTypeT] <*> (map (Var . getId) (A.functionTParams fun))
       in
         Concat $
         closures ++
@@ -110,7 +110,7 @@ instance Translatable A.Function (NamespaceTable -> CCode Toplevel) where
         [Function (translate funType)
                   funName
                   ((Ptr encoreCtxT, encoreCtxVar) : typeVariableVars ++ (zip argTypes argNames))
-                  -- (map initRuntimeType (A.functionPParams fun))
+                  -- (map initRuntimeType (A.functionTParams fun))
                   (Seq $
                    [bodyStat, returnStmnt bodyName funType])]
     where

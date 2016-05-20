@@ -237,7 +237,7 @@ functionLookup n env =
 parametricFunctionLookup :: Name -> Environment -> (Type, [Type])
 parametricFunctionLookup name env =
   case find (\((x,_),_) -> x == name) (globals env) of
-    Just ((_,argType), f) -> (argType, functionPParams f)
+    Just ((_,argType), f) -> (argType, functionTParams f)
     _ -> error $ "Function named " ++ show name ++ " does not exist"
 
 isLocal :: Name -> Environment -> Bool
