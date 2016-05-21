@@ -915,7 +915,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate get of " ++ show val
 
-
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym
@@ -950,20 +949,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate suspend@(A.Suspend{}) =
          return (unit, Seq [Call (Nam "actor_suspend") ([] :: [CCode Expr])]) --TODO: Call should support 0-arity
 
-  translate futureChain@(A.FutureChain{A.future, A.chain}) =
-      do (nfuture,tfuture) <- translate future
-         (nchain, tchain)  <- translate chain
-         futName <- Ctx.genSym
-         let ty = getRuntimeType chain
-             futDecl = Assign (Decl (C.future, Var futName))
-                              (Call futureMkFn [AsExpr encoreCtxVar, ty])
-         result <- Ctx.genSym
-         return $ (Var result, Seq [tfuture,
-                                    tchain,
-                                    futDecl,
-                                    (Assign (Decl (C.future, Var result))
-                                            (Call futureChainActor
-                                              [encoreCtxVar, nfuture, (Var futName), nchain]))])
+  translate futureChain@(A.FutureChain{A.future, A.chain}) = do
+    (nfuture,tfuture) <- translate future
+    (nchain, tchain)  <- translate chain
+    futName <- Ctx.genSym
+    let ty = getRuntimeType chain
+    result <- Ctx.genSym
+    return $ (Var result,
+      Seq [tfuture,
+           tchain,
+           (Assign (Decl (C.future, Var result))
+                   (Call futureChainActor
+                     [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+                     ))])
 
   translate async@(A.Async{A.body, A.emeta}) =
       do taskName <- Ctx.genNamedSym "task"
@@ -1192,7 +1190,6 @@ passiveMethodCall targetName targetType name args resultType = do
               Call (methodImplName targetType name)
                    (AsExpr encoreCtxVar : AsExpr targetName : castedArguments)
   return (argDecls, theCall)
-
 
 castArguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr
 castArguments expected targ targType
