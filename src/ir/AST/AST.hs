@@ -20,7 +20,7 @@ import AST.Meta hiding(Closure, Async)
 data Program = Program {
   source :: SourceName,
   bundle :: BundleDecl,
-  etl :: EmbedTL,
+  etl :: [EmbedTL],
   imports :: [ImportDecl],
   typedefs :: [Typedef],
   functions :: [Function],
@@ -606,4 +606,4 @@ allTraits = traverseProgram traits
 
 allFunctions = traverseProgram functions
 
-allEmbedded = traverseProgram ((:[]) . etlheader . etl)
+allEmbedded = traverseProgram (map etlheader . etl)

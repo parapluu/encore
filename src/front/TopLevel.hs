@@ -223,11 +223,12 @@ main =
        allModules <- tabulateImportedModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
 --       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
 
+       let fullAst = computeFullAst allModules -- probably needs to be done in expand modules
 
 
-       let optimizedAST = undefined -- need to get this from the hashtable
-       return undefined -- fix, obviouslt
-{-
+       let optimizedAST = fullAst -- need to get this from the hashtable
+--       let optimizedAST = optimizeProgram typecheckedAST   TODO: FIX
+
        verbatim options "== Generating code =="
        exeName <- compileProgram optimizedAST sourceName options
        when (Run `elem` options)
@@ -236,7 +237,6 @@ main =
                system $ "rm " ++ exeName
                return ())
        verbatim options "== Done =="
- -}
     where
       typecheck options sourceName table prog = do
          verbatim options "== Desugaring =="
@@ -290,3 +290,12 @@ main =
         "  -nogc        Disable the garbage collection of passive objects.\n" <>
         "  -help        Print this message and exit.\n" <>
         "  -I p1:p2:... Directories in which to look for modules."
+
+
+computeFullAst :: Map.Map QName Program -> Program
+computeFullAst = foldl1 joinTwo
+
+joinTwo :: Program -> Program -> Program
+joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes} 
+        Program{source=source', bundle=bundle', etl=etl', functions=functions', traits=traits', classes=classes'} =
+            p{etl=etl ++ etl', functions=functions ++ functions', traits=traits ++ traits', classes=classes ++ classes'}

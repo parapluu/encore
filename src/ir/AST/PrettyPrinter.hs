@@ -40,15 +40,17 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{bundle, etl=EmbedTL{etlheader=header, etlbody=code},
-  imports, typedefs, functions, classes} =
+ppProgram Program{bundle, etl, imports, typedefs, functions, classes} =
     ppBundleDecl bundle $+$
-    ppHeader header code <+>
+    vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppTypedef typedefs) $+$
     vcat (map ppFunction functions) $+$
     vcat (map ppClassDecl classes) $+$
     "" -- new line at end of file
+
+ppEmbedded EmbedTL{etlheader=header, etlbody=code} = 
+  ppHeader header code
 
 ppHeader header code =
   if null header && null code
