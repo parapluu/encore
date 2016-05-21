@@ -1,5 +1,4 @@
 #!/bin/bash
 
-echo -e "./cl-arguments\nFoo\nBar\nBaz" > cl-arguments.out
-./cl-arguments Foo Bar Baz | cmp cl-arguments.out
-rm -f cl-arguments.out
+echo -e "./cl-arguments\nFoo\nBar\nBaz" > tmp-tmp-tmp.out
+(./cl-arguments Foo Bar Baz | cmp tmp-tmp-tmp.out) && rm -f tmp-tmp-tmp.out
