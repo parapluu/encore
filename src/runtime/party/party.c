@@ -47,7 +47,6 @@ pony_type_t party_type =
   .trace=party_trace
 };
 
-
 #define get_rtype(x) (x)->rtype
 
 // MACRO for setting the parallel collection. Needs gcc-4.9
@@ -91,14 +90,12 @@ static inline void set_par_par(par_t * const rpar, par_t * const lpar,
   }
 }
 
-
 static inline void set_par_array(array_t* const arr,
                    void * __attribute__((unused)) null,
                    par_t* const p){
   assert(p->tag == ARRAY_PAR);
   p->data.a.array = arr;
 }
-
 
 static inline void trace_array_par(pony_ctx_t *ctx, par_t* obj){
   array_t* ar = obj->data.a.array;
@@ -234,9 +231,8 @@ static inline future_t* chain_party_to_function(pony_ctx_t* ctx,
                                                 par_t* const in,
                                                 fmap_s* const fm,
                                                 closure_fun clos){
-  future_t* rf = (future_t*)future_mk(ctx, in->rtype);
   closure_t* cp = closure_mk(ctx, clos, fm, NULL);
-  return future_chain_actor(ctx, in->data.fp.fut, (future_t*)rf, cp);
+  return future_chain_actor(ctx, in->data.fp.fut, in->rtype, cp);
 }
 
 static inline par_t* fmap_run_fp(pony_ctx_t* ctx, par_t* const in, fmap_s* const f){
@@ -250,8 +246,8 @@ static inline par_t* fmap_run_v(pony_ctx_t* ctx, par_t* const in, fmap_s* const 
 }
 
 static inline par_t* fmap_run_f(pony_ctx_t* ctx, par_t* const in, fmap_s* const f){
-  future_t* rf = (future_t*)future_mk(ctx, in->rtype);
-  future_t* chained_fut = future_chain_actor(ctx, in->data.f.fut, rf, f->fn);
+  future_t* chained_fut =
+    future_chain_actor(ctx, in->data.f.fut, in->rtype, f->fn);
   return new_par_f(ctx, chained_fut, get_rtype(f));
 }
 
@@ -358,10 +354,9 @@ static value_t party_join_fp_closure(pony_ctx_t* ctx,
 
 static inline par_t* party_join_fp(pony_ctx_t* ctx, par_t* const p){
   future_t* const fut = p->data.fp.fut;
-  future_t* const chained_fut = future_mk(ctx, p->rtype);
   closure_t* const clos = closure_mk(ctx, party_join_fp_closure, NULL, NULL);
-  future_chain_actor(ctx, fut, chained_fut, clos);
-  return new_par_fp(ctx, chained_fut, p->rtype);
+  future_t* const chained_fut = future_chain_actor(ctx, fut, p->rtype, clos);
+  return new_par_fp(ctx, chained_fut, p->rtype);;
 }
 
 static value_t closure_join(pony_ctx_t* ctx,
@@ -375,7 +370,6 @@ static inline par_t* party_join_array(pony_ctx_t* ctx, par_t* const p){
   closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace);
   return party_sequence(ctx, p, clos, get_rtype(p));
 }
-
 
 par_t* party_join(pony_ctx_t* ctx, par_t* const p){
   switch(p->tag){
