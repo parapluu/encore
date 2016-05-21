@@ -67,8 +67,10 @@ solution "ponyrt"
       "-std=gnu11",
       "-march=native",
 
-      "-Wno-unused-variable",
-      "-Wno-unused-function",
+      "-Werror",
+      "-Wno-error=deprecated-declarations",
+      "-Wno-error=unused-variable",
+      "-Wno-error=unused-function",
       }
 
     linkoptions {
