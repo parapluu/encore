@@ -1,20 +1,20 @@
-def show_string(x: String, const: String, type: String): void
-  if x.equals(const) then
-    print("{} {}: OK\n", x, type)
+def show_string(x: String): void
+  if x.equals(primitive_const()) then
+    print("{}: OK\n", x)
   else
-    print("{} {}: ERROR\n", const, type)
+    print("{} vs {}: ERROR\n", x, primitive_const())
 
-def show_passive(x: PassiveTest, const: String, type: String): void
-  if x.elem.equals(const) then
-    print("{} {}: OK\n", x.elem, type)
+def show_passive(x: PassiveTest): void
+  if x.elem.equals(passive_const()) then
+    print("{}: OK\n", x.elem)
   else
-    print("{} {}: ERROR\n", x.elem, type)
+    print("{}: ERROR\n", x.elem)
 
 def primitive_const(): String
-  "Primitive Test"
+  "Liftf Primitive Test"
 
 def passive_const(): String
-  "Passive Test"
+  "Liftf Passive Test"
 
 passive class PassiveTest
   elem: String
@@ -23,11 +23,9 @@ passive class PassiveTest
     this.elem = s
 
 class Test
-  elem: String
   passiveTest: PassiveTest
 
   def init(s: String): void {
-    this.elem = s;
     this.passiveTest = new PassiveTest(s);
   }
 
@@ -40,16 +38,16 @@ class Test
 class Main
 
   def test_primitive_liftf(): void
-    let testContentFuture = new Test("Liftf")
+    let testContentFuture = new Test("Liftf Primitive Test")
         primitive_par = liftf(testContentFuture.get_string())
     in
-        extract(primitive_par >> \(x:String) -> show_string(x, "Liftf", primitive_const()))
+        extract(primitive_par >> show_string)
 
   def test_passive_liftf(): void
-    let test = new Test("Liftf")
+    let test = new Test("Liftf Passive Test")
         passive_par = liftf(test.get_pasive())
     in
-        extract(passive_par >> \(x: PassiveTest) -> show_passive(x, "Liftf", passive_const()))
+        extract(passive_par >> show_passive)
 
   def main(): void {
     this.test_primitive_liftf();

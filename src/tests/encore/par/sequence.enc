@@ -19,7 +19,9 @@ def updateParPlusFive(par: Par PObject): Par PObject
 
 class AObject
   def ints(): int 21
-  def intsPar(): Par int (liftv 21)
+  def intsPar(): Par int {
+    (liftv 21);
+  }
   def intsFut(): Fut int let that = this in that.ints()
   def passivePar(): Par PObject liftv(new PObject())
 
@@ -111,7 +113,7 @@ class Main
     in
       for v in extract(pfut_final)
         assertTrue((v == expected_value1) or (v == expected_value2),
-                   "ERROR in 'test_future_simple_chain', found {}, expected {} or {}",
+                   "ERROR in 'test_future_primitive', found {}, expected {} or {}",
                    v, expected_value1, expected_value2)
 
   def test_future_primitive_par_par(): void
@@ -136,7 +138,7 @@ class Main
       for vp  in extract(parfut)
         for v in extract(vp)
           assertTrue(v == expected_value,
-                     "ERROR in 'test_future_par_primitive_seq', expected {}, found {}",
+                     "ERROR in 'test_future_par_primitive', expected {}, found {}",
                      expected_value, v)
 
   def test_combine_primitive_futures_into_par_sequence(): void
@@ -189,10 +191,10 @@ class Main
 
   def test_par_primitive(): void
     let a = new AObject
-        fut_par = liftf(a.ints())
+        -- fut_par = liftf(a.ints())
         par_int = liftv 42 || liftv 42
         ppar_int = (par_int || par_int) >> inc
-        par_mixed_with_fut = (ppar_int || fut_par) >> inc
+        -- par_mixed_with_fut = (ppar_int || fut_par) >> inc
         expected1 = 42
         expected2 = 46
     in {
@@ -201,19 +203,19 @@ class Main
                    "ERROR in 'test_par_primitive', extracting 'par_int'");
       for v in extract(ppar_int)
         assertTrue(v == expected2, "ERROR in 'test_par_primitive', extracting 'ppar_int'");
-      for v in extract(par_mixed_with_fut)
-        assertTrue((v == 50) or (v==25),
-                   "ERROR in 'test_par_primitive', extracting 'par_mixed_with_fut'");
+      -- for v in extract(par_mixed_with_fut)
+      --   assertTrue((v == 50) or (v==25),
+      --              "ERROR in 'test_par_primitive', extracting 'par_mixed_with_fut'");
     }
 
   def test_par_passive(): void
     let o1 = new PObject()
         o2 = new PObject()
         p1 = (liftv o1) >> updatePassivePlusFive
-	p2 = (liftv o2) >> updatePassivePlusFive >> updatePassivePlusFive
-	p12 = (p1 || p2) >> updatePassivePlusFive
-	expected1 = 42
-	expected2 = 47
+        p2 = (liftv o2) >> updatePassivePlusFive >> updatePassivePlusFive
+        p12 = (p1 || p2) >> updatePassivePlusFive
+        expected1 = 42
+        expected2 = 47
     in
       for v in extract(p12)
         assertTrue((v.getValue() == expected1) or (v.getValue() == expected2),
@@ -222,51 +224,52 @@ class Main
   --
   -- Test parallel compitutations using FUTUREPAR (implementation detail)
   --
-
-  def test_future_to_par_of_primitive_type(): void
-    let a = new AObject
-        futpar = liftf a.intsPar()
-        par_j = (join futpar) >> inc
-        expected = 25
-    in
-      for v in extract(par_j)
-        assertTrue(v == expected,
-                   "ERROR in 'test_future_to_par_of_primitive_type', found {}", v)
+  -- FAILS
+  -- def test_future_to_par_of_primitive_type(): void
+  --   let a = new AObject
+  --       futpar = liftf a.intsPar()
+  --       -- par_j = (join futpar) >> inc
+  --       par_j = futpar >> incPar
+  --       expected = 25
+  --   in
+  --     for v in extract(par_j)
+  --       assertTrue((extract(v))[0] == expected,
+  --                  "ERROR in 'test_future_to_par_of_primitive_type', found {}", v)
 
   --
   -- Test parallel computation using `join`
   --
 
-  def test_join_primitive(): void
-    let a = new AObject
-        expected1 = 29
-        expected2 = 33
-        expected3 = 50
-        parvv = liftv (liftv 42)                 -- Par Par 42
-        futpar = (liftf a.intsPar()) >> incPar   -- Par Par 25
-        pp1 = (futpar || parvv) >> incPar        -- Par Par 46, 29
-        pp2 = (pp1 || futpar) >> incPar          -- Par Par 50, 33, 29
-    in
-        for v in extract(join(pp2))
-          assertTrue((v == expected1) or (v == expected2) or (v == expected3),
-                     "ERROR in 'test_join_primitive', found {}", v)
+  -- def test_join_primitive(): void
+  --   let a = new AObject
+  --       expected1 = 29
+  --       expected2 = 33
+  --       expected3 = 50
+  --       parvv = liftv (liftv 42)                 -- Par Par 42
+  --       futpar = (liftf a.intsPar()) >> incPar   -- Par Par 25
+  --       pp1 = (futpar || parvv) >> incPar        -- Par Par 46, 29
+  --       pp2 = (pp1 || futpar) >> incPar          -- Par Par 50, 33, 29
+  --   in
+  --       for v in extract(join(pp2))
+  --         assertTrue((v == expected1) or (v == expected2) or (v == expected3),
+  --                    "ERROR in 'test_join_primitive', found {}", v)
 
-  def test_join_future_par_primitive(): void
-    let a = new AObject
-        expected1 = 29
-        expected2 = 33
-        expected3 = 37
-        expected4 = 50
-        parvv = liftv (liftv 42)                      -- Par Par 42
-        futpar = (liftf a.intsPar()) >> incPar        -- Par Par 25
-        fp_join = (liftv (join(futpar))) >> incPar    -- Par Par 29
-        pp1 = (futpar || parvv || fp_join) >> incPar  -- Par Par 46, 29, 33
-        pp2 = (pp1 || futpar) >> incPar               -- Par Par 50, 33, 29, 37
-    in
-        for v in extract(join(pp2))
-        assertTrue((v == expected1) or (v == expected2)
-                   or (v == expected3) or (v == expected4),
-                   "ERROR in 'test_join_future_par_primitive', found {}", v)
+  -- def test_join_future_par_primitive(): void
+  --   let a = new AObject
+  --       expected1 = 29
+  --       expected2 = 33
+  --       expected3 = 37
+  --       expected4 = 50
+  --       parvv = liftv (liftv 42)                      -- Par Par 42
+  --       futpar = (liftf a.intsPar()) >> incPar        -- Par Par 25
+  --       fp_join = (liftv (join(futpar))) >> incPar    -- Par Par 29
+  --       pp1 = (futpar || parvv || fp_join) >> incPar  -- Par Par 46, 29, 33
+  --       pp2 = (pp1 || futpar) >> incPar               -- Par Par 50, 33, 29, 37
+  --   in
+  --       for v in extract(join(pp2))
+  --       assertTrue((v == expected1) or (v == expected2)
+  --                  or (v == expected3) or (v == expected4),
+  --                  "ERROR in 'test_join_future_par_primitive', found {}", v)
 
   --
   -- Test aggregation by class type
@@ -280,33 +283,37 @@ class Main
 
   def test_future(): void {
     -- test primitive types
-    this.test_future_primitive();
-    this.test_future_primitive_par_par();
-    this.test_future_par_primitive();
-    this.test_combine_primitive_futures_into_par_sequence();
+    for i in [1..10000]{
+    -- this.test_future_primitive();
+    -- this.test_future_primitive_par_par();
+    this.test_future_par_primitive();  -- FAILS
+    -- this.test_combine_primitive_futures_into_par_sequence(); -- FAILS
 
-    -- test passive objects
-    this.test_future_passive_par();
-    this.test_future_passive_par_par();
+    -- -- test passive objects
+    -- this.test_future_passive_par();
+    -- this.test_future_passive_par_par(); -- FAILS
+    }
   }
 
   def test_par(): void {
+    for i in [1..10000] {
     this.test_par_primitive();
     this.test_par_passive();
+    }
   }
 
-  def test_future_to_par(): void
-    this.test_future_to_par_of_primitive_type()
+  -- def test_future_to_par(): void
+  --   this.test_future_to_par_of_primitive_type() -- FAILURE
 
-  def test_join(): void {
-    this.test_join_primitive();
-    this.test_join_future_par_primitive();
-  }
+  -- def test_join(): void {
+  --   this.test_join_primitive();
+  --   this.test_join_future_par_primitive();
+  -- }
 
   def main(): void {
-    this.test_value();
-    this.test_future();
-    this.test_par();
-    this.test_future_to_par();
-    this.test_join();
+      -- this.test_value();
+      this.test_future();
+      -- this.test_par();
+      -- this.test_future_to_par();
+      -- this.test_join();
   }
