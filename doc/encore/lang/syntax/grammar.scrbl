@@ -101,6 +101,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword passive)
 @(encore/keyword end)
 @(encore/keyword typedef)
+@(encore/keyword Just)
+@(encore/keyword Nothing)
 
 @; Non-terminals
 @(encore/nonterm Program)
@@ -123,6 +125,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm LetDecls)
 @(encore/nonterm Int)
 @(encore/nonterm Real)
+@(encore/nonterm Option)
 @(encore/nonterm Op)
 @(encore/nonterm Char)
 @(encore/nonterm String)
@@ -161,7 +164,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
       (list TypeDef
          @seq[typedef Name @optional[TypeParams] equal Type])
 
-      (list TypeParams 
+      (list TypeParams
          @seq[l TypeVar @kleenestar[@BNF-group[comma TypeVar]] b])
 
       (list TypeVar @seq[@elem{[a-z]} @kleenestar[@elem{[a-zA-Z0-9_]}]])
@@ -265,6 +268,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @elem{"String"}
 	      Int
 	      Real
+              Option
 	      @seq[Expr Op Expr]
 	      @seq[not Expr]
 	      @seq[lambda open-paren ParamDecls close-paren arrow Expr])
@@ -272,6 +276,9 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  (list Op
 	      @alt[l b equals distinct plus minus prod div mod and or])
 
+          (list Option
+              @seq[Just Expr]
+              Nothing)
 	  (list Name
 	      @elem{[a-zA-Z][a-zA-Z0-9]*})
 
