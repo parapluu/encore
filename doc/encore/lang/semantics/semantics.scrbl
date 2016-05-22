@@ -902,19 +902,18 @@ function:
 }|
 
 @section{Option types}
-Encore has option types, more well-known as @code{Maybe} types.
-An option type represents an optional value.
-Using option types is simple. Meaningful values are wrapped inside
-the @code{Just} data constructor (e.g. @code{Just 32}); values
-that are of no importance are written as @code{Nothing}.
+Option types, (sometimes called 'Maybe types') are polymorphic
+types that represent optional values. Using option types is simple:
+a value is wrapped inside a @code{Just} data constructor
+(e.g. @code{Just 32}), while @code{Nothing} presents an absent value.
 
 Option types are useful to substitute the @code{null} reference to objects.
 The following example shows the use of option types in a function
 that creates a string (wrapped inside a @code{Just}) if the input value
-is bigger than @code{0} and @code{Nothing} otherwise.
+is greater than @code{0} and @code{Nothing} otherwise.
 
 @codeblock|{
-    def test_if_bigger_than_zero(x: int): Maybe String {
+    def test_if_greater_than_zero(x: int): Maybe String {
       if x > 0 then Just("Test passes")
       else Nothing
     }
