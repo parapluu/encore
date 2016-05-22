@@ -68,8 +68,6 @@ solution "ponyrt"
       "-march=native",
 
       "-Wno-error=deprecated-declarations",
-      "-Wno-error=unused-variable",
-      "-Wno-error=unused-function",
       }
 
     linkoptions {

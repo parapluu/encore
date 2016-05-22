@@ -388,6 +388,7 @@ static void *run_thread(void *arg)
 
   // setup task runner
   assert(this_encore_task==NULL);
+  (void) ctx;
   // TODO Re-enable tasks runners
   // this_encore_task = encore_create(ctx, task_gettype());
   // scheduler_add(ctx, (pony_actor_t*) this_encore_task);

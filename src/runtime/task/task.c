@@ -35,6 +35,7 @@ static void set_encore_task_type(pony_type_t const* const type){
 
 void task_setup(pony_type_t const* const type){
   static int n_calls = 0;
+  (void) n_calls;
   assert(n_calls++ == 0);
 
   __atomic_store_n(&remaining_tasks, 0, __ATOMIC_RELAXED);
