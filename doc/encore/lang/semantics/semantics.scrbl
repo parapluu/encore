@@ -914,7 +914,7 @@ that creates a string (wrapped inside a @code{Just}) if the input value
 is bigger than @code{0} and @code{Nothing} otherwise.
 
 @codeblock|{
-    def test_if_bigger_than_cero(x: int): Maybe String {
+    def test_if_bigger_than_zero(x: int): Maybe String {
       if x > 0 then Just("Test passes")
       else Nothing
     }
