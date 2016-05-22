@@ -314,6 +314,7 @@ static par_t* fmap(pony_ctx_t* ctx, closure_t* const f, par_t* const in,
   case FUTUREPAR_PAR: return fmap_run_fp(ctx, in, fm);
   case ARRAY_PAR: return fmap_run_array(ctx, in, fm);
   /* case JOIN_PAR: return fmap_run_j(in, fm); */
+  default: exit(-1);
   }
 }
 
@@ -385,6 +386,7 @@ par_t* party_join(pony_ctx_t* ctx, par_t* const p){
   case FUTUREPAR_PAR: return party_join_fp(ctx, p);
   case ARRAY_PAR: return party_join_array(ctx, p);
   /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
+  default: exit(-1);
   }
 }
 
@@ -424,6 +426,7 @@ static inline list_t* extract_helper(list_t * const list, par_t * const p,
     }
     return new_list;
   }
+  default: exit(-1);
   }
 }
 

@@ -43,8 +43,9 @@ static void pony_sendargs(pony_ctx_t *ctx, pony_actor_t* to, uint32_t id,
 
 inline static void assert_swap(ucontext_t *old, ucontext_t *new)
 {
-  int ret = swapcontext(old, new);
-  assert(ret == 0);
+  int _ret = swapcontext(old, new);
+  (void) _ret;
+  assert(_ret == 0);
 }
 
 static __pony_thread_local context *context_pool = NULL;
@@ -132,8 +133,11 @@ static context *pop_context(encore_actor_t *actor)
     context_pool = malloc(sizeof *context_pool);
     context_pool->next = NULL;
     getcontext(&context_pool->uctx);
-    int ret = posix_memalign((void *)&context_pool->uctx.uc_stack.ss_sp, 16, Stack_Size);
-    assert(ret == 0);
+    int _ret = posix_memalign(
+            (void *)&context_pool->uctx.uc_stack.ss_sp, 16, Stack_Size
+            );
+    (void) _ret;
+    assert(_ret == 0);
     context_pool->uctx.uc_stack.ss_size = Stack_Size;
     context_pool->uctx.uc_stack.ss_flags = 0;
   } else {

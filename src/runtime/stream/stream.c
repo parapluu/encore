@@ -51,6 +51,7 @@ struct scons *scons_mk(pony_ctx_t *ctx, pony_type_t *type){
 }
 
 // For debugging
+__attribute__ ((unused))
 static void scons_print(struct scons *scons){
   printf("struct scons@%p{\n", scons);
   printf("  eos     = %s\n", scons->eos? "true": "false");

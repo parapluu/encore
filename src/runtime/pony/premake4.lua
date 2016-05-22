@@ -67,8 +67,7 @@ solution "ponyrt"
       "-std=gnu11",
       "-march=native",
 
-      "-Wno-unused-variable",
-      "-Wno-unused-function",
+      "-Wno-error=deprecated-declarations",
       }
 
     linkoptions {
@@ -92,7 +91,7 @@ solution "ponyrt"
 
   flags {
     "ExtraWarnings",
---    "FatalWarnings",
+    "FatalWarnings",
     "Symbols"
     }
 
