@@ -1,5 +1,3 @@
-{-# LANGUAGE GADTs #-}
-
 module CodeGen.Trace (
   traceVariable
   , traceFuture

@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs,FlexibleContexts,OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 {-|
