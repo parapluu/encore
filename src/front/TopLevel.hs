@@ -258,13 +258,23 @@ main =
                abort $ show error
          showWarnings typecheckingWarnings
 
+         unless (TypecheckOnly `elem` options) $
+           case checkForMainClass typecheckedAST of
+             Just error -> abort $ show error
+             Nothing    -> return ()
+
+         when (Intermediate TypeChecked `elem` options) $ do
+           verbatim options "== Printing typed AST =="
+           withFile (changeFileExt sourceName "TAST") WriteMode
+                    (flip hPrint $ show typecheckedAST)
+
          when (Intermediate TypeChecked `elem` options) $ do
            verbatim options "== Printing typed AST =="
            withFile (changeFileExt sourceName "TAST") WriteMode
                     (flip hPrint $ show typecheckedAST)
 
          return $ (newEnv, typecheckedAST)
-        
+
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
