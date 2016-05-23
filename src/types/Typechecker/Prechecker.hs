@@ -25,10 +25,10 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
-precheckEncoreProgram p =
+precheckEncoreProgram :: Environment -> Program -> (Either TCError Program, [TCWarning])
+precheckEncoreProgram env p =
   -- TODO: We should be able to write this using do-notation!
-  case buildEnvironment p of
+  case buildEnvironment env p of
     (Right env, warnings) ->
       runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
     (Left err, warnings) -> (Left err, warnings)

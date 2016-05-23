@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with
@@ -11,6 +13,7 @@ module Typechecker.Typechecker(typecheckEncoreProgram) where
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
+import Data.Bifunctor(first)
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
@@ -29,12 +32,15 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
-typecheckEncoreProgram p =
-  case buildEnvironment p of
-    (Right env, warnings) ->
-      runState (runExceptT (runReaderT (doTypecheck p) env)) warnings
+typecheckEncoreProgram :: Environment -> Program -> (Either TCError (Environment, Program), [TCWarning])
+typecheckEncoreProgram env p =
+  case buildEnvironment env p of
+    (Right env, warnings) -> 
+      runState (runExceptT (runReaderT (doTypecheck (env, p)) env)) warnings
     (Left err, warnings) -> (Left err, warnings)
+
+-- addEnvironment :: (Either TCError Program, [TCWarning]) -> (Either TCError (Environment, Program), [TCWarning])
+-- addEnvironment env = first  (\x -> (env,x))
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -49,6 +55,11 @@ class Checkable a where
     -- error messages
     typecheck :: Pushable a => a -> TypecheckM a
     typecheck x = local (pushBT x) $ doTypecheck x
+
+instance Checkable (Environment, Program) where
+    doTypecheck (env, p) = do
+        res <- doTypecheck p
+        return (env, res)
 
 instance Checkable Program where
     --  E |- fun1 .. E |- funn

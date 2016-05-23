@@ -1,4 +1,4 @@
-module ModuleExpander(tabulateImportedModules) where
+module ModuleExpander(importAndCheckModules) where
 
 import Identifiers
 import Utils
@@ -10,6 +10,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 -- for debugging
 import Debug.Trace
+import Typechecker.Environment
+
+type Modules = Map QName Program  -- where does this belong
+
 
 tosrc :: FilePath -> QName -> FilePath
 tosrc dir target = dir ++ tosrc' target
@@ -65,20 +69,23 @@ duplicateModuleWarning target srcs =
 -- TODO: this will replace expandModules above
 -- TODO: better name
 -- performs bottom up traversal. Needs to avoid rechecking
-tabulateImportedModules :: (Map QName Program -> Program -> IO Program) -> [FilePath] -> Program -> IO (Map QName Program)
-tabulateImportedModules f importDirs p = doProgram Map.empty [] p 
+importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) -> [FilePath] -> Program -> IO Modules
+importAndCheckModules checker importDirs p = do
+    (modules, env) <- importAndCheckProgram Map.empty emptyEnv [] p
+    return modules
   -- [] is QName of top-level module. TODO: find better approach
     where
-        doProgram importTable target p@Program{imports} = do
-            newImportTable <- foldM oneImport importTable imports
-            fp <- f newImportTable p
-            return $ Map.insert target fp newImportTable
+        importAndCheckProgram :: Modules -> Environment -> QName -> Program -> IO (Modules, Environment)
+        importAndCheckProgram importTable env target p@Program{imports} = do
+            (newImportTable, newEnv) <- foldM performImport (importTable, env) imports
+            (newerEnv, checkedAST) <- checker newEnv p
+            return $ (Map.insert target checkedAST newImportTable, newerEnv)
             
-        oneImport importTable i@(Import _ target) =
+        performImport :: (Modules, Environment) -> ImportDecl -> IO (Modules, Environment)
+        performImport (importTable, env) i@(Import _ target) =
             if Map.member target importTable then
-                return importTable
+                return (importTable, env)
             else do
                 (impl, _) <- importOne importDirs i
-                doProgram importTable target impl
-
+                importAndCheckProgram importTable env target impl
 

@@ -33,6 +33,7 @@ import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
+import Typechecker.Environment
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -43,6 +44,7 @@ import CCode.PrettyCCode
 import Text.Parsec.Pos as P
 import qualified AST.Meta as Meta
 import Identifiers
+
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
 standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_BUNDLES" ))
@@ -220,17 +222,17 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
-       allModules <- tabulateImportedModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
+       allModules <- importAndCheckModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
 --       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
 
-       let fullAst = computeFullAst allModules -- probably needs to be done in expand modules
+       verbatim options "== Optimizing =="
+       let optimizedModules = fmap optimizeProgram allModules
 
+       let fullAst = computeFullAst optimizedModules -- probably needs to be done in expand modules
 
-       let optimizedAST = fullAst -- need to get this from the hashtable
---       let optimizedAST = optimizeProgram typecheckedAST   TODO: FIX
 
        verbatim options "== Generating code =="
-       exeName <- compileProgram optimizedAST sourceName options
+       exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
            (do verbatim options $ "== Running '" ++ exeName ++ "' =="
                system $ "./" ++ exeName
@@ -238,13 +240,14 @@ main =
                return ())
        verbatim options "== Done =="
     where
-      typecheck options sourceName table prog = do
+--      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
+      typecheck options sourceName env prog = do
          verbatim options "== Desugaring =="
          let desugaredAST = desugarProgram prog
 
          verbatim options "== Prechecking =="
          (precheckedAST, precheckingWarnings) <-
-           case precheckEncoreProgram desugaredAST of
+           case precheckEncoreProgram env desugaredAST of
              (Right ast, warnings)  -> return (ast, warnings)
              (Left error, warnings) -> do
                showWarnings warnings
@@ -252,9 +255,9 @@ main =
          showWarnings precheckingWarnings
 
          verbatim options "== Typechecking =="
-         (typecheckedAST, typecheckingWarnings) <-
-           case typecheckEncoreProgram precheckedAST of
-             (Right ast, warnings)  -> return (ast, warnings)
+         ((newEnv, typecheckedAST), typecheckingWarnings) <-
+           case typecheckEncoreProgram env precheckedAST of
+             (Right (newEnv, ast), warnings) -> return ((newEnv, ast), warnings)
              (Left error, warnings) -> do
                showWarnings warnings
                abort $ show error
@@ -265,8 +268,7 @@ main =
            withFile (changeFileExt sourceName "TAST") WriteMode
                     (flip hPrint $ show typecheckedAST)
 
-         verbatim options "== Optimizing =="
-         return $ optimizeProgram typecheckedAST
+         return $ (newEnv, typecheckedAST)
         
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)

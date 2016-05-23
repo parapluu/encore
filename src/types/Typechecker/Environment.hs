@@ -73,8 +73,8 @@ emptyEnv = Env {
   bt = emptyBT
 }
 
-buildEnvironment :: Program -> (Either TCError Environment, [TCWarning])
-buildEnvironment p = (buildEnvironment' p, [])
+buildEnvironment :: Environment -> Program -> (Either TCError Environment, [TCWarning])
+buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
 --  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> [Either TCError Environment]
@@ -276,50 +276,34 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
 
--- NEW STUFF NEW STUFF NEW STUFF
 
-
-{-
-mergeEnvs :: [Either TCError Environment] -> Either TCError Environment
-mergeEnvs envs = foldr merge (return emptyEnv) envs
-  where
-    merge :: Either TCError Environment -> Either TCError Environment
-             -> Either TCError Environment
-    merge e1 e2 = do
-      Env{classTable     = classTable,
-          traitTable     = traitTable,
-          typeSynonymTable = typeSynonymTable,
-          importTable    = importTable,
-          globals        = globs,
-          locals         = locals,
-          bindings       = binds,
-          typeParameters = tparams,
-          bt             = bt} <- e1
-
-      Env{classTable     = classTable',
-          traitTable     = traitTable',
-          typeSynonymTable = typeSynonymTable',
-          importTable    = importTable',
-          globals        = globs',
-          locals         = locals',
-          bindings       = binds',
-          typeParameters = tparams',
-          bt             = bt} <- e2
-
-      return Env{
+mergeEnvs :: Environment -> Environment -> Environment
+mergeEnvs Env{classTable     = classTable,
+              traitTable     = traitTable,
+              importTable    = importTable,
+              typeSynonymTable = typeSynonymTable,
+              globals        = globs,
+              locals         = locals,
+              bindings       = binds,
+              typeParameters = tparams,
+              bt             = bt}
+          Env{classTable     = classTable',
+              traitTable     = traitTable',
+              importTable    = importTable',
+              typeSynonymTable = typeSynonymTable',
+              globals        = globs',
+              locals         = locals',
+              bindings       = binds',
+              typeParameters = tparams',
+              bt             = bt'} =
+       Env{
         classTable     = Map.union classTable classTable',
         traitTable     = Map.union traitTable traitTable',
         typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
         importTable    = Map.union importTable importTable',
-        globals        = mergeGlobals globs globs',
-        locals         = mergeLocals locals locals',
-        bindings       = mergeBindings binds binds',
-        typeParameters = mergeTypeParams tparams tparams',
+        globals        = globs ++ globs',
+        locals         = locals ++ locals',
+        bindings       = binds ++ binds',
+        typeParameters = tparams ++ tparams',
         bt             = emptyBT
       }
-    -- TODO: Be smarter and detect errors
-    mergeGlobals = (++)
-    mergeLocals = (++)
-    mergeBindings = (++)
-    mergeTypeParams = (++)
--}
