@@ -906,13 +906,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            let resultType = translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
-           return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+           return (Var tmp, Seq [tval,
+                                 Assign (Decl (resultType, Var tmp)) theGet,
+                                 Assign encoreCtxName (Call encoreGetCtx ([] ::[CCode Expr]))])
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
            let resultType = translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
            tmp <- Ctx.genSym
-           return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+           return (Var tmp, Seq [tval,
+                                 Assign (Decl (resultType, Var tmp)) theGet,
+                                 Assign encoreCtxName (Call encoreGetCtx ([] ::[CCode Expr]))
+                                ])
     | otherwise = error $ "Cannot translate get of " ++ show val
 
 
