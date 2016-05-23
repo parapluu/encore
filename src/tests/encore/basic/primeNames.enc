@@ -1,0 +1,21 @@
+typedef T' = Bar'
+
+trait Bar'
+
+passive class Foo'<t'> : T'
+  f' : t'
+  def m'(x' : t') : t'
+    x'
+
+class Baz'<t'>
+
+class Main
+  def main() : void {
+    let foo = new Foo'<int>;
+    let baz = new Baz'<Foo'<int>>;
+    let x = "This";
+    let x' = "is";
+    let x'' = "prime";
+    let x''' = "stuff!";
+    print("{} {} {} {}\n", x, x', x'', x''')
+  }

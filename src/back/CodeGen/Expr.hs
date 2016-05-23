@@ -426,12 +426,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                       (Assign (Decl (translate (A.getType acc), Var tmp)) theAccess)])
 
   translate (A.Let {A.decls, A.body}) = do
-                     do
-                       tmpsTdecls <- mapM translateDecl decls
-                       let (tmps, tdecls) = unzip tmpsTdecls
-                       (nbody, tbody) <- translate body
-                       mapM_ unsubstituteVar (map fst decls)
-                       return (nbody, Seq $ (concat tdecls) ++ [tbody])
+    tmpsTdecls <- mapM translateDecl decls
+    let (tmps, tdecls) = unzip tmpsTdecls
+    (nbody, tbody) <- translate body
+    mapM_ (unsubstituteVar . fst) decls
+    return (nbody, Seq $ concat tdecls ++ [tbody])
 
   translate (A.NewWithInit {A.ty, A.args})
     | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
