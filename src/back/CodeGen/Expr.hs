@@ -837,8 +837,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           return $ Seq [errorPrint, exitCall]
 
         ifChain (clause:rest) narg argty retTmp retTy = do
-          let freeVars = filter (not . Ty.isArrowType . snd) $
-                                Util.freeVariables [] (A.mcpattern clause)
+          let freeVars = Util.foldr (\e a -> getExprVars e ++ a) [] (A.mcpattern clause)
           assocs <- mapM createAssoc freeVars
           thenExpr <- translateHandler clause retTmp assocs retTy
           elseExpr <- ifChain rest narg argty retTmp retTy
@@ -851,9 +850,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let varName = show name
                 tmp <- Ctx.genNamedSym varName
                 return (varName, Var tmp)
+
               fwdDecl assocs (name, ty) =
                   let tname = fromJust $ lookup (show name) assocs
                   in Statement $ Decl (translate ty, tname)
+
+              getExprVars var@(A.VarAccess {A.name}) =
+                  [(name, A.getType var)]
+              getExprVars _ =
+                  []
 
   translate e@(A.Embed {A.code=code}) = do
     interpolated <- interpolate code
