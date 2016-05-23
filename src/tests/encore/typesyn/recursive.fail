@@ -1,6 +1,3 @@
-#!/bin/bash
+Type synonyms cannot be recursive
 
-
-echo "Type synonyms cannot be recursive" > tmptmp.out
-(less <&0 | grep "synonym" | cmp -s -n 15 tmptmp.out) && rm tmptmp.out
 

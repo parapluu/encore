@@ -1,0 +1,4 @@
+#!/bin/bash
+for MKFILE in $(find encore -name Makefile); do
+    make --directory $(dirname ${MKFILE}) clean
+done

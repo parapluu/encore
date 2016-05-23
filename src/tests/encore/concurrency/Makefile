@@ -1,6 +1,9 @@
 ENCORE_SOURCES=$(shell ls *.enc)
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
+all:
+	@echo ""
+
 test:
 	@./test.sh $(ENCORE_SOURCES)
 

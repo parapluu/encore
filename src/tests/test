@@ -1,0 +1,442 @@
+#!/bin/bash
+#
+# Main test script. Each directory under encore/src/tests is a test suite. Test
+# suites can contain nested directories (i.o.w: nested test suites).
+#
+# See README.md for usage.
+
+readonly ROOT_PATH=$(pwd)/../..
+readonly ENCOREC=${ROOT_PATH}/release/encorec
+
+############################################################
+#
+# Compiles a test, echoes the output.
+#
+# Arguments:
+#
+#  The name of the test (no file extension), relative to the current working
+#  directory.
+#
+# Returns:
+#  None
+#
+############################################################
+function compile() {
+    readonly local TEST=$1
+    readonly local DIR=$( dirname  ${TEST})
+    readonly local NAME=$(basename ${TEST})
+    readonly local CWD=$( pwd)
+
+    # we cd to the directory and compile there as a workaround to #439
+    cd ${DIR}
+    ${ENCOREC} ${NAME}.enc
+    cd ${CWD}
+}
+
+############################################################
+#
+# Runs a test, echoes the output.
+#
+# Arguments:
+#
+#  The name of the test (no file extension), relative to the current working
+#  directory.
+#
+# Returns:
+#  None
+#
+############################################################
+function run() {
+    readonly local TEST=$1
+    readonly local DIR=$( dirname  ${TEST})
+    readonly local NAME=$(basename ${TEST})
+    readonly local CWD=$( pwd)
+
+    local CMD="./${NAME}"
+    if [ -e "${TEST}.run" ]; then
+        CMD=$(cat "${TEST}.run")
+    fi
+
+    cd ${DIR}
+    ${CMD}
+    cd ${CWD}
+}
+
+############################################################
+#
+# Checks whether there is exactly one test file (either .out, .fail, or .chk)
+# for the given program.
+#
+# Arguments:
+#  The name of the test (no file extension), relative to the current working
+#  directory.
+#
+# Returns:
+#  true  -- have exactly one spec file
+#  false -- have more or less than one spec file
+#
+############################################################
+function have_one_spec_file() {
+    local NAME=$1
+
+    if [   -e "${NAME}.out" -a ! -e "${NAME}.chk" -a ! -e "${NAME}.fail" -o \
+         ! -e "${NAME}.out" -a   -e "${NAME}.chk" -a ! -e "${NAME}.fail" -o \
+         ! -e "${NAME}.out" -a ! -e "${NAME}.chk" -a   -e "${NAME}.fail"    \
+       ]; then
+        true
+    else
+        false
+    fi
+}
+
+############################################################
+#
+# Checks whether there is at least one spec file (either .out, .fail, or .chk)
+# for the given program.
+#
+# Arguments:
+#   - The name of the test (no file extension), relative to the current working
+#     directory.
+#
+# Returns:
+#  true  -- there is at least one spec file
+#  false -- there is none
+#
+############################################################
+function have_at_least_one_spec_file() {
+    local TEST=$1
+    if [ -e "${TEST}.out"  -o \
+         -e "${TEST}.fail" -o \
+         -e "${TEST}.chk"     \
+       ]; then
+        true
+    else
+        false
+    fi
+}
+
+############################################################
+#
+# Returns whether a test is disabled. For this, one of the regexes in
+# DISABLED_TESTS.grep must match the test name.
+#
+# Arguments:
+#  - Name of the test (no file extension), relative to current working
+#    directory.
+#
+# Returns:
+#  true  -- test is enabled
+#  false -- test is disabled
+#
+############################################################
+function test_enabled() {
+    ! echo $1 | grep -f DISABLED_TESTS.grep > /dev/null
+}
+
+############################################################
+#
+#
+# 1. Compiles the test file.
+#
+# 2. Makes sure that compilation fails.
+#
+# 3. Ensures that every line in .../.../testname.fail is contained in the
+#    compiler output.
+#
+# If these conditions are not met, there is a line starting with "ERROR:" in the
+# output.
+#
+# Arguments:
+#  - The test name (no file extension)
+#
+# Returns:
+#  None
+#
+############################################################
+function run_fail_test() {
+    local TEST=$1
+    local COMPILE_OUT=$(compile ${TEST})
+    if [ -e ${TEST} ]; then
+        echo "ERROR: Test should not compile."
+    fi
+
+    # read .fail file line by line and verify that each line is in the compiler
+    # output:
+    cat ${TEST}.fail | while read LINE; do
+        if ! (echo "${COMPILE_OUT}" | grep "${LINE}" > /dev/null); then
+            echo "ERROR: Line not contained in error output: '${LINE}'"
+        fi
+    done
+}
+
+############################################################
+#
+# 1. Compiles the test file.
+#
+# 2. Makes sure that compilation succeeds.
+#
+# 3. Ensures that .../.../testname.out exactly matches the output of the
+#    executable.
+#
+# If these conditions are not met, there is a line starting with "ERROR:" in the
+# output.
+#
+# Arguments:
+#  - The test name (no file extension)
+#
+# Returns:
+#  None
+#
+############################################################
+function run_out_test() {
+  local TEST=$1
+  echo ${TEST}
+  local COMPILE_OUT=$(compile ${TEST})
+  echo -e "$COMPILE_OUT"
+  if [ ! -e ${TEST} ]; then
+      echo "ERROR: ${TEST}.enc should compile."
+      return
+  fi
+
+  local OUTPUT=$(run ${TEST})
+
+  # echo once without the newline at the end of the output and once with the
+  # newline to give the .out files a bit of flexibility:
+  if (echo -n "${OUTPUT}" | cmp -s ${TEST}.out); then
+      return
+  fi
+  if (echo    "${OUTPUT}" | cmp -s ${TEST}.out); then
+      return
+  fi
+
+  echo "ERROR: test ${TEST} failed with output:";
+  echo "vvv OUTPUT vvvvvvvvvvvvvvvvv"
+  echo "$OUTPUT"
+  echo "vvv EXPECTED vvvvvvvvvvvvvvv"
+  cat ${TEST}.out
+  echo ""
+  if which diff>/dev/null; then
+      echo "vvv DIFF vvvvvvvvvvvvvvvvvvv"
+      echo "$OUTPUT" | diff ${TEST}.out -
+  fi
+  echo "^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
+}
+
+############################################################
+#
+# 1. Compiles the test file.
+#
+# 2. Makes sure that compilation succeeds.
+#
+# 3. Pipes the output into the .../.../testname.chk script. The test succeeds
+#    iff the .chk script exits normally (exit 0, not exit 1).
+#
+# If these conditions are not met, there is a line starting with "ERROR:" in the
+# output.
+#
+# Arguments:
+#  - The test name (no file extension)
+#
+# Returns:
+#  None
+#
+############################################################
+function run_chk_test() {
+    echo "ERROR: chk tests not implemented"
+}
+
+############################################################
+#
+# Looks for EITHER:
+#  - a file called "testname.out",   OR
+#  - a file called "testname.fail",  OR
+#  - a script called "testname.chk".
+#
+# In the case of an .out file, the output of the executable has to match the
+# file's content exactly; in the case of a.fail file, compilation has to fail,
+# and the compiler output has to contain every line of the file; in the case of
+# a .chk file, the output of compiling and running the executable will be piped
+# into that script as standard input. The test is successful iff the script
+# exits normally (exit 0, not exit 1).
+#
+# Arguments:
+#
+#  The name of the test (no file extension), relative to the current working
+#  directory.
+#
+# Returns:
+#
+#  true  -- the test passed;
+#  false -- otherwise.
+#
+############################################################
+function run_test() {
+    local TEST=$1
+    local PROGRAM=${TEST}.enc
+
+    if [ ! -f ${PROGRAM} ]; then
+        echo "ERROR: test ${PROGRAM} does not exist."
+    fi
+
+    if ! have_one_spec_file ${TEST}; then
+        echo "ERROR: have several specifications (.out/.fail/.chk) for test $TEST"
+        return $(false)
+    fi
+
+    # just compile program:
+
+    if [ -e ${TEST}.fail ]; then
+        echo "running fail test..."
+        run_fail_test ${TEST}
+        return $?
+    fi
+
+    if [ -e ${TEST}.out ]; then
+        echo "running out test..."
+        run_out_test ${TEST}
+        return $?
+    fi
+
+    if [ -e ${TEST}.chk ]; then
+        echo "running chk test..."
+        run_chk_test ${TEST}
+        return $?
+    fi
+
+    echo -n "ERROR: BUG: should not reach here,"
+    echo    " exactly one of the cases above should match"
+
+    return $(false)
+
+}
+
+############################################################
+#
+# Executes all tests in a given directory, non-recursively.
+#
+# Arguments:
+#
+#  - Test directory, relative path to the current working directory.
+#  - Temp directory to which the function may write logs.
+#
+# Returns:
+#
+#  None
+#
+############################################################
+function run_test_suite() {
+    local REL_PATH=$1
+    local TMP_DIR=$2
+
+    local FAIL=0
+    local TOTL=0
+
+    if [ -z ${REL_PATH} ]; then
+        echo "ERROR: Need relative path to test suite (directory containing tests)"
+        exit 1
+    fi
+
+    if [ -z ${TMP_DIR} ]; then
+        echo "ERROR: Need temporary directory"
+        exit 1
+    fi
+
+    echo ">>> RUNNING TEST_SUITE ${REL_PATH}"
+
+    if [ -e ${REL_PATH}/Makefile ]; then
+        echo "    Found Makefile in ${REL_PATH}. Running!"
+        make --directory ${REL_PATH} clean | sed "s/\(.*\)/     make clean | \1/"
+        make --directory ${REL_PATH}       | sed "s/\(.*\)/           make | \1/"
+    fi
+
+    for ENC_FILE in $(find "${REL_PATH}" -name "*.enc" -depth 1); do
+      local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
+      echo " - ${TEST_NAME}... "
+
+      if have_at_least_one_spec_file ${TEST_NAME}; then
+        TOTL=$((TOTL+1))
+        if ! test_enabled ${TEST_NAME}; then
+          echo "    WARNING: disabled from src/tests/DISABLED_TESTS.grep"
+          continue
+        fi
+
+        local TEST_OUT=$(run_test ${TEST_NAME})
+        if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
+            local REPORT_FILE="${TMP_DIR}/${TEST_NAME}.FAILED"
+          echo "    ERROR: failed (${REPORT_FILE})"
+          mkdir -p "$(dirname "${REPORT_FILE}")"
+
+          echo -e "${TEST_OUT}" > ${REPORT_FILE}
+          FAIL=$((FAIL+1))
+        fi
+      fi
+
+      # remove the test executable (if it has been created):
+      rm -f ${TEST_NAME}
+    done
+
+    echo -e "${REL_PATH}:\t${FAIL}/${TOTL} tests failed" >> /${TMP_DIR}/test_counts.log
+}
+
+function present_results() {
+    readonly local TMP_DIR=$1
+
+    readonly local CNT_FAIL=$(find "${TMP_DIR}" -name "*.FAILED" | wc -w | tr -d ' ')
+
+    if [ ${CNT_FAIL} == "0" ]; then
+      echo "ALL TESTS PASSED"
+    else
+      for FAILED in $(find ${TMP_DIR} -name "*.FAILED"); do
+          echo ">>> FAILED TEST: ${FAILED}:"
+          cat ${FAILED} | sed "s/\(.*\)/     | \1/"
+      done
+
+      echo "SUMMARY:"
+      cat /${TMP_DIR}/test_counts.log | grep -v "0/0"
+
+      echo "TOTAL TESTS FAILED: ${CNT_FAIL}"
+
+      if which tree > /dev/null; then
+          tree --noreport ${TMP_DIR} -P "*.FAILED" | tail -n +2 | sed "s/\(.*\)/  \1/"
+      else
+          find "${TMP_DIR}" -name "*.FAILED"
+      fi
+    fi
+}
+
+############################################################
+#
+# Runs all test suites. Optionally filters the test suites to be run using a
+# regex.
+#
+# Arguments:
+#
+#  The name of the test (no file extension), relative to the current working
+#  directory.
+#
+# Returns:
+#  None
+#
+############################################################
+
+function test() {
+  readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
+  readonly local TEST_REG=$1
+
+  echo "TEST DIR: ${TEST_DIR}"
+  for SUITE in $(find . -name "*.enc" -exec dirname '{}' \; | uniq); do
+    SUITE=$(echo "${SUITE}" | sed "s/^\.\///")
+    if [ ! -z "${TEST_REG}" ]; then
+      if (echo $SUITE | grep "${TEST_REG}" > /dev/null); then
+        run_test_suite ${SUITE} ${TEST_DIR}
+      fi
+    else
+      run_test_suite ${SUITE} ${TEST_DIR}
+    fi
+  done
+
+  present_results ${TEST_DIR}
+}
+
+readonly TEST_REGEX=$1
+test "${TEST_REGEX}"

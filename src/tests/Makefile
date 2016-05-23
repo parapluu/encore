@@ -1,9 +1,9 @@
 all: test
 
-test: 
-	make -C encore test
+test:
+	./test
 
 clean:
-	make -C encore clean
+	@./clean_all
 
-.PHONY: all test benchmark
+.PHONY: all test clean

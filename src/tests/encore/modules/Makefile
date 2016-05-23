@@ -11,9 +11,12 @@ ENCORE_SOURCES += trait_import.enc
 
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
-#test: 	embed_tl.o
-test:
+build:
 	@$(foreach PROG,$(ENCORE_TARGETS), make -Bqk $(PROG) || make -Bk $(PROG) || true;)
+
+
+#test: 	embed_tl.o
+test: build
 	@echo
 	@echo Module tests:
 	@./test.sh $(ENCORE_TARGETS)
@@ -28,7 +31,7 @@ test:
 	@$(ENCOREC) $@.enc -clang -c -I lib:otherlib
 
 clean:
-	rm -rf *.pony.c *.dSYM *_src $(ENCORE_TARGETS)
-	rm -f embed_tl.o
+	@rm -rf *.pony.c *.dSYM *_src $(ENCORE_TARGETS)
+	@rm -f embed_tl.o
 
 .PHONY: test clean

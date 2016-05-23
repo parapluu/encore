@@ -3,14 +3,14 @@ ENCOREC=${ROOT_PATH}/release/encorec
 
 TESTS = string
 
-test: $(TESTS)
-
-%: %.enc
+string: string.enc
 	$(ENCOREC) $<
-	./$@
+
+test: $(TESTS)
+	./string
 
 clean:
-	rm -f $(TESTS)
-	rm -rf *.dSYM
+	@rm -f $(TESTS)
+	@rm -rf *.dSYM
 
 .PHONY: clean test
