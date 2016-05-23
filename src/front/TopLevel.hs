@@ -41,8 +41,6 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 
-import Text.Parsec.Pos as P
-import qualified AST.Meta as Meta
 import Identifiers
 
 
@@ -222,8 +220,7 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
-       allModules <- importAndCheckModules (typecheck options sourceName) importDirs (addStdLib ast) -- TODO: addStdLib should probably NOT happen here
---       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
+       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast -- TODO: addStdLib should probably NOT happen here
 
        verbatim options "== Optimizing =="
        let optimizedModules = fmap optimizeProgram allModules
@@ -273,9 +270,6 @@ main =
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
-      addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
-      -- TODO: move this elsewhere
-      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) [Name "String"]]
 
       showWarnings = mapM print
       helpMessage =

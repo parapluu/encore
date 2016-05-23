@@ -1,4 +1,4 @@
-import trait_import_module
+import TraitImportModule
 
 class Main {
   def main() : void {
