@@ -901,6 +901,33 @@ function:
             print(apply(bump, 3))
 }|
 
+@section{Option types}
+Option types, (sometimes called 'Maybe types') are polymorphic
+types that represent optional values. Using option types is simple:
+a value is wrapped inside a @code{Just} data constructor
+(e.g. @code{Just 32}), while @code{Nothing} presents an absent value.
+
+Option types are useful to substitute the @code{null} reference to objects.
+The following example shows the use of option types in a function
+that creates a string (wrapped inside a @code{Just}) if the input value
+is greater than @code{0} and @code{Nothing} otherwise.
+
+@codeblock|{
+    def test_if_greater_than_zero(x: int): Maybe String {
+      if x > 0 then Just("Test passes")
+      else Nothing
+    }
+}|
+
+There exists limited support for type inference when using the
+@code{Nothing} data constructor. This means that, sometimes,
+you will have to cast the type of @code{Nothing}. In the previous
+example, you would substitute the @code{Nothing} (line 3)
+by @code{Nothing : Maybe String}.
+
+The section related to pattern matching (below) explains how to
+extract the value (if it exists) from an option type.
+
 @section{Pattern Matching}
 Pattern matching allows the programmer to branch on both the value of data,
 as well as its structure, while binding local names to sub-structures. Encore's
