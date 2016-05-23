@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
-
 module CodeGen.Task where
 
 import CCode.Main

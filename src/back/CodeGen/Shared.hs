@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
-
 module CodeGen.Shared(generateShared) where
 
 import CCode.Main

@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 {-| Make Type (see "AST") an instance of @Translatable@ (see
 "CodeGen.Typeclasses"). -}
