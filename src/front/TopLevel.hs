@@ -220,15 +220,13 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
-       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast -- TODO: addStdLib should probably NOT happen here
+       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast
 
        verbatim options "== Optimizing =="
        let optimizedModules = fmap optimizeProgram allModules
 
-       let fullAst = computeFullAst optimizedModules -- probably needs to be done in expand modules
-
-
        verbatim options "== Generating code =="
+       let fullAst = compressModules optimizedModules
        exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
            (do verbatim options $ "== Running '" ++ exeName ++ "' =="
@@ -237,7 +235,7 @@ main =
                return ())
        verbatim options "== Done =="
     where
---      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
+      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
       typecheck options sourceName env prog = do
          verbatim options "== Desugaring =="
          let desugaredAST = desugarProgram prog
@@ -286,12 +284,3 @@ main =
         "  -nogc        Disable the garbage collection of passive objects.\n" <>
         "  -help        Print this message and exit.\n" <>
         "  -I p1:p2:... Directories in which to look for modules."
-
-
-computeFullAst :: Map.Map QName Program -> Program
-computeFullAst = foldl1 joinTwo
-
-joinTwo :: Program -> Program -> Program
-joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes} 
-        Program{source=source', bundle=bundle', etl=etl', functions=functions', traits=traits', classes=classes'} =
-            p{etl=etl ++ etl', functions=functions ++ functions', traits=traits ++ traits', classes=classes ++ classes'}

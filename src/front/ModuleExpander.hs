@@ -1,4 +1,4 @@
-module ModuleExpander(importAndCheckModules) where
+module ModuleExpander(importAndCheckModules,compressModules,ModuleMap) where
 
 import Identifiers
 import Utils
@@ -12,38 +12,33 @@ import Typechecker.Environment
 import qualified AST.Meta as Meta
 import Text.Parsec.Pos as P
 
--- for debugging
-import Debug.Trace
+type ModuleMap = Map QName Program
 
-type Modules = Map QName Program  -- where does this belong
-
-
-tosrc :: FilePath -> QName -> FilePath
-tosrc dir target = dir ++ tosrc' target
+importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) ->
+                                [FilePath] -> Program -> IO ModuleMap
+importAndCheckModules checker importDirs p = do
+    (modules, env) <- importAndCheckProgram Map.empty emptyEnv [] p -- [] is QName of top-level module.
+    return modules
   where
-    tosrc' [(Name a)] = a ++ ".enc"
-    tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
+    importAndCheckProgram :: ModuleMap -> Environment -> QName -> Program -> IO (ModuleMap, Environment)
+    importAndCheckProgram importTable env target prg = do
+      let p@Program{imports} = addStdLib target prg
+      (newImportTable, newEnv) <- foldM performImport (importTable, env) imports
+      (newerEnv, checkedAST) <- checker newEnv p
+      return $ (Map.insert target checkedAST newImportTable, newerEnv)
 
-{-
-expandModules :: [FilePath] -> Program -> IO Program
-expandModules importDirs p = expandProgram p
-    where
-      expandProgram p@Program{imports} =
-          do exImps <- mapM expandImport imports
-             return $ p{imports = exImps}
-
-      expandImport i@(Import meta target) =
-          do (imp, src) <- importOne importDirs i
-             expImp <- expandProgram imp
-             return $ PulledImport meta target src expImp
--}
+    performImport :: (ModuleMap, Environment) -> ImportDecl -> IO (ModuleMap, Environment)
+    performImport (importTable, env) i@(Import _ target) =
+      if Map.member target importTable then
+        return (importTable, env)
+      else do
+        (impl, _) <- importOne importDirs i
+        importAndCheckProgram importTable env target impl
 
 importOne :: [FilePath] -> ImportDecl -> IO (Program, FilePath)
 importOne importDirs (Import meta target) = do
   let sources = map (\dir -> tosrc dir target) importDirs
-  trace ("Looking here:" ++ (show sources)) (return 10)
   candidates <- filterM doesFileExist sources
-  trace ("Possibilities:" ++ (show candidates)) (return 10)
   sourceName <-
        case candidates of
          [] -> abort $ "Module \"" ++ qname2string target ++
@@ -71,33 +66,25 @@ duplicateModuleWarning target srcs =
        mapM_ (\src -> putStrLn $ "-- " ++ src) srcs
 
 
--- TODO: this will replace expandModules above
--- TODO: better name
--- performs bottom up traversal. Needs to avoid rechecking
-importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) -> [FilePath] -> Program -> IO Modules
-importAndCheckModules checker importDirs p = do
-    (modules, env) <- trace ("Import Dirs: " ++ (show importDirs)) $ importAndCheckProgram Map.empty emptyEnv [] p
-    return modules
-  -- [] is QName of top-level module. TODO: find better approach
+addStdLib target ast@Program{imports = i} =
+  if qname2string target == "String" then ast  -- avoids importing String from String
+  else ast{imports = i ++ stdLib}
     where
-        importAndCheckProgram :: Modules -> Environment -> QName -> Program -> IO (Modules, Environment)
-        importAndCheckProgram importTable env target prg = do
-            let p@Program{imports} = addStdLib target prg
-            (newImportTable, newEnv) <- foldM performImport (importTable, env) imports
-            (newerEnv, checkedAST) <- checker newEnv p
-            return $ (Map.insert target checkedAST newImportTable, newerEnv)
-            
-        performImport :: (Modules, Environment) -> ImportDecl -> IO (Modules, Environment)
-        performImport (importTable, env) i@(Import _ target) =
-            if Map.member target importTable then
-                return (importTable, env)
-            else do
-                (impl, _) <- importOne importDirs i
-                importAndCheckProgram importTable env target impl
+      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
 
-addStdLib target ast@Program{imports = i} = 
-    if qname2string target == "String" then ast  -- avoids importing String from String
-    else ast{imports = i ++ stdLib}
- -- TODO: move this elsewhere
-stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
-   
+tosrc :: FilePath -> QName -> FilePath
+tosrc dir target = dir ++ tosrc' target
+  where
+    tosrc' [(Name a)] = a ++ ".enc"
+    tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
+
+
+compressModules :: ModuleMap -> Program
+compressModules = foldl1 joinTwo
+  where
+    joinTwo :: Program -> Program -> Program
+    joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes}
+              Program{etl=etl', functions=functions', traits=traits', classes=classes'} =
+                p{etl=etl ++ etl', functions=functions ++ functions',
+                  traits=traits ++ traits', classes=classes ++ classes'}
+

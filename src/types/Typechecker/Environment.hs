@@ -99,6 +99,36 @@ buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
         in
           (funname, arrowType (map ptype funparams) funtype)
 
+
+mergeEnvs :: Environment -> Environment -> Environment
+mergeEnvs Env{classTable     = classTable,
+              traitTable     = traitTable,
+              importTable    = importTable,
+              typeSynonymTable = typeSynonymTable,
+              globals        = globs,
+              locals         = locals,
+              bindings       = binds,
+              typeParameters = tparams,
+              bt             = bt}
+          Env{classTable     = classTable',
+              traitTable     = traitTable',
+              importTable    = importTable',
+              typeSynonymTable = typeSynonymTable',
+              globals        = globs',
+              locals         = locals',
+              bindings       = binds',
+              typeParameters = tparams',
+              bt             = bt'} =
+       Env{classTable     = Map.union classTable classTable',
+           traitTable     = Map.union traitTable traitTable',
+           importTable    = Map.union importTable importTable',
+           typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',        
+           globals        = globs ++ globs',
+           locals         = locals ++ locals',
+           bindings       = binds ++ binds',
+           typeParameters = tparams ++ tparams',
+           bt             = emptyBT}
+
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
 
@@ -275,35 +305,3 @@ bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env b
 
 replaceLocals :: VarTable -> Environment -> Environment
 replaceLocals newTypes env = env {locals = newTypes}
-
-
-mergeEnvs :: Environment -> Environment -> Environment
-mergeEnvs Env{classTable     = classTable,
-              traitTable     = traitTable,
-              importTable    = importTable,
-              typeSynonymTable = typeSynonymTable,
-              globals        = globs,
-              locals         = locals,
-              bindings       = binds,
-              typeParameters = tparams,
-              bt             = bt}
-          Env{classTable     = classTable',
-              traitTable     = traitTable',
-              importTable    = importTable',
-              typeSynonymTable = typeSynonymTable',
-              globals        = globs',
-              locals         = locals',
-              bindings       = binds',
-              typeParameters = tparams',
-              bt             = bt'} =
-       Env{
-        classTable     = Map.union classTable classTable',
-        traitTable     = Map.union traitTable traitTable',
-        typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
-        importTable    = Map.union importTable importTable',
-        globals        = globs ++ globs',
-        locals         = locals ++ locals',
-        bindings       = binds ++ binds',
-        typeParameters = tparams ++ tparams',
-        bt             = emptyBT
-      }
