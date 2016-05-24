@@ -55,3 +55,7 @@ Example:
 If you want to temporarily disable a test from running, you can do that by
 adding the test's name to the [DISABLED_TESTS.grep](DISABLED_TESTS.grep) file. Be careful not to
 add any blank lines.
+
+## Test output
+
+You will get nicer output if you have the `tree` tool on your path.
