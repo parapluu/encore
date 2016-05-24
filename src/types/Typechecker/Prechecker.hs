@@ -154,6 +154,11 @@ instance Precheckable FieldDecl where
                   tcError NonValInReadTraitError
            unless (isSafeType ftype') $
                   tcError $ NonSafeInReadTraitError ftype'
+      isThreadField <- isThreadType ftype'
+      isThreadThis <- isThreadType thisType
+      when (isThreadField && isTraitType thisType) $
+        unless isThreadThis $
+          tcError ThreadFieldError
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where

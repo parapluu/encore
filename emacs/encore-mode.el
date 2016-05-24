@@ -49,6 +49,7 @@
         "suspend"
         "then"
         "this"
+        "thread"
         "trait"
         "typedef"
         "unless"

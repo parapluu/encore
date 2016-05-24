@@ -23,6 +23,7 @@ module Typechecker.Util(TypecheckM
                        ,unifyTypes
                        ,isSubordinateType
                        ,isEncapsulatedType
+                       ,isThreadType
                        ) where
 
 import Identifiers
@@ -472,3 +473,17 @@ isEncapsulatedType ty
     | isTupleType ty =
         allM isEncapsulatedType (getArgTypes ty)
     | otherwise = return $ isSubordinateRefType ty
+
+isThreadType :: Type -> TypecheckM Bool
+isThreadType ty
+    | isCompositeType ty
+    , traits <- typesFromCapability ty
+      = anyM isThreadType traits
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        isThreadType capability
+    | hasResultType ty =
+        isThreadType (getResultType ty)
+    | isTupleType ty =
+        anyM isThreadType (getArgTypes ty)
+    | otherwise = return $ isThreadRefType ty

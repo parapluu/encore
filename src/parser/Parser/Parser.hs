@@ -397,6 +397,8 @@ function =  try regularFunction <|> matchingFunction
 mode :: Parser (Type -> Type)
 mode = (reserved "linear" >> return makeLinear)
        <|>
+       (reserved "thread" >> return makeThread)
+       <|>
        (reserved "unsafe" >> return makeUnsafe)
        <|>
        (reserved "read" >> return makeRead)

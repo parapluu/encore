@@ -219,6 +219,9 @@ data Error =
   | SubordinateReturnError Name
   | SubordinateArgumentError Expr
   | SubordinateFieldError Name
+  | ThreadFieldError
+  | ThreadReturnError Name
+  | ThreadArgumentError Expr
 
 arguments 1 = "argument"
 arguments _ = "arguments"
@@ -438,10 +441,19 @@ instance Show Error where
         printf ("Cannot pass subordinate argument '%s' " ++
                 "outside of its aggregate")
                (show (ppSugared arg))
-
     show (SubordinateFieldError name) =
         printf ("Field '%s' is subordinate and cannot be accessed " ++
                 "from outside of its aggregate")
+               (show name)
+    show ThreadFieldError =
+        "Traits must have manifest thread mode to have thread fields"
+    show (ThreadArgumentError arg) =
+        printf ("Cannot pass thread local argument '%s' " ++
+                "to another active object")
+               (show (ppExpr arg))
+    show (ThreadReturnError name) =
+        printf ("Method '%s' returns a thread local capability and cannot " ++
+                "be called by a different active object")
                (show name)
     show (SimpleError msg) = msg
 

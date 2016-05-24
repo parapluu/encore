@@ -471,7 +471,7 @@ instance Checkable Expr where
       let expectedTypes = map ptype (hparams header)
           mType = htype header
       (eArgs, bindings) <- matchArguments args expectedTypes
-      checkSubordination eTarget name mType eArgs
+      checkEncapsulation eTarget name mType eArgs
       let resultType = replaceTypeVars bindings mType
           returnType = retType calledType header resultType
       return $ setArrowType (arrowType expectedTypes mType) $
@@ -503,7 +503,7 @@ instance Checkable Expr where
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, _) <- matchArguments args expectedTypes
-      checkSubordination eTarget name voidType eArgs
+      checkEncapsulation eTarget name voidType eArgs
       return $ setArrowType (arrowType expectedTypes voidType) $
                setType voidType msend {target = eTarget, args = eArgs}
 
@@ -768,7 +768,7 @@ instance Checkable Expr where
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
-          checkSubordinateReturn name extractedType argty
+          checkReturnEncapsulation name extractedType argty
           return $ setArrowType (arrowType [] hType) $
                    setType extractedType pattern {args = [eArg]}
 
@@ -928,7 +928,7 @@ instance Checkable Expr where
         tcError $ CannotReadFieldError eTarget
       fdecl <- findField targetType name
       let ty = ftype fdecl
-      checkSubordinateField name eTarget ty
+      checkFieldEncapsulation name eTarget ty
       return $ setType ty fAcc {target = eTarget}
 
     --  E |- lhs : t
@@ -1049,7 +1049,7 @@ instance Checkable Expr where
       matchArgumentLength ty' header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, bindings) <- matchArguments args expectedTypes
-      checkSubordinateArgs eArgs ty'
+      checkArgsEncapsulation eArgs ty'
       return $ setType ty' new{ty = ty', args = eArgs}
 
    ---  |- ty
@@ -1289,13 +1289,22 @@ canBeNull ty =
   isRefType ty || isFutureType ty || isArrayType ty ||
   isStreamType ty || isCapabilityType ty || isArrowType ty || isParType ty
 
-checkSubordination :: Expr -> Name -> Type -> [Expr] -> TypecheckM ()
-checkSubordination target name returnType args = do
+checkEncapsulation :: Expr -> Name -> Type -> [Expr] -> TypecheckM ()
+checkEncapsulation target name returnType args = do
   let targetType = AST.getType target
-  unless (isThisAccess target) $
-         checkSubordinateReturn name returnType targetType
-  unless (isThisAccess target) $
-         checkSubordinateArgs args targetType
+  unless (isThisAccess target) $ do
+    checkArgsEncapsulation args targetType
+    checkReturnEncapsulation name returnType targetType
+
+checkArgsEncapsulation :: [Expr] -> Type -> TypecheckM ()
+checkArgsEncapsulation args targetType = do
+  checkSubordinateArgs args targetType
+  checkThreadArgs args targetType
+
+checkReturnEncapsulation :: Name -> Type -> Type -> TypecheckM ()
+checkReturnEncapsulation name returnType targetType = do
+  checkSubordinateReturn name returnType targetType
+  checkThreadReturn name returnType targetType
 
 checkSubordinateReturn :: Name -> Type -> Type -> TypecheckM ()
 checkSubordinateReturn name returnType targetType = do
@@ -1308,14 +1317,14 @@ checkSubordinateReturn name returnType targetType = do
 checkSubordinateArgs :: [Expr] -> Type -> TypecheckM ()
 checkSubordinateArgs args targetType = do
   subordinateArgs <- filterM (isSubordinateType . AST.getType) args
-  targetIsEncaps <- isEncapsulatedType targetType
   let subordinateArg = head subordinateArgs
+  targetIsEncaps <- isEncapsulatedType targetType
   unless (null subordinateArgs) $
          unless targetIsEncaps $
                 tcError $ SubordinateArgumentError subordinateArg
 
-checkSubordinateField :: Name -> Expr -> Type -> TypecheckM ()
-checkSubordinateField name target fieldType = do
+checkFieldEncapsulation :: Name -> Expr -> Type -> TypecheckM ()
+checkFieldEncapsulation name target fieldType = do
   fieldIsSubord <- isSubordinateType fieldType
   let targetType = AST.getType target
   targetIsEncaps <- isEncapsulatedType targetType
@@ -1323,6 +1332,20 @@ checkSubordinateField name target fieldType = do
        unless (targetIsEncaps || isThisAccess target) $
               tcError $ SubordinateFieldError name
 
+checkThreadArgs :: [Expr] -> Type -> TypecheckM ()
+checkThreadArgs args targetType = do
+  threadArgs <- filterM (isThreadType . AST.getType) args
+  let threadArg = head threadArgs
+  when (isActiveClassType targetType) $
+    unless (null threadArgs) $
+      tcError $ ThreadArgumentError threadArg
+
+checkThreadReturn :: Name -> Type -> Type -> TypecheckM ()
+checkThreadReturn name returnType targetType = do
+  threadReturn <- isThreadType returnType
+  when (isActiveClassType targetType) $
+    when threadReturn $
+       tcError $ ThreadReturnError name
 
 --  classLookup(ty) = _
 -- ---------------------

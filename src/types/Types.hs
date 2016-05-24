@@ -66,7 +66,6 @@ module Types(
             ,getResultType
             ,getId
             ,getTypeParameters
-            ,getMode
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
@@ -99,9 +98,11 @@ module Types(
             ,modeSubtypeOf
             ,makeUnsafe
             ,makeLinear
+            ,makeThread
             ,makeRead
             ,makeSubordinate
             ,isLinearRefType
+            ,isThreadRefType
             ,isReadRefType
             ,isSubordinateRefType
             ,makeStackbound
@@ -129,6 +130,7 @@ instance Show TypeOp where
   show Addition = "+"
 
 data Mode = Linear
+          | Thread
           | Unsafe
           | Read
           | Subordinate
@@ -136,6 +138,7 @@ data Mode = Linear
 
 instance Show Mode where
     show Linear = "linear"
+    show Thread = "thread"
     show Unsafe = "unsafe"
     show Read   = "read"
     show Subordinate = "subord"
@@ -631,11 +634,9 @@ setMode ty m
     | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
 
 makeUnsafe ty = setMode ty Unsafe
-
 makeLinear ty = setMode ty Linear
-
+makeThread ty = setMode ty Thread
 makeRead ty = setMode ty Read
-
 makeSubordinate ty = setMode ty Subordinate
 
 isSafeType ty
@@ -652,6 +653,10 @@ isModeless ty
 
 isLinearRefType ty
     | Just Linear <- getMode ty = True
+    | otherwise = False
+
+isThreadRefType ty
+    | Just Thread <- getMode ty = True
     | otherwise = False
 
 isReadRefType ty
