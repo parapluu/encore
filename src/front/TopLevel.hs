@@ -17,6 +17,8 @@ import System.Process
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
+import Data.Maybe
+import Data.String.Utils
 import Control.Monad
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
@@ -42,7 +44,7 @@ import qualified AST.Meta as Meta
 import Identifiers
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
-standardLibLocation = $((stringE . init) =<< (runIO $ System.Environment.getEnv "ENCORE_BUNDLES" ))
+standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_BUNDLES" ))
 
 data Phase = Parsed | TypeChecked
     deriving Eq
@@ -60,7 +62,7 @@ parseArguments args =
         parseArguments' args = opt : parseArguments' rest
             where
               (opt, rest) = parseArgument args
-              parseArgument ("-bench":args)      = (Bench, args)
+              parseArgument ("-bench":args)     = (Bench, args)
               parseArgument ("-pg":args)        = (Profile, args)
               parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
@@ -81,7 +83,9 @@ parseArguments args =
           (imports, options) = partition isImport aux
       in
       (map getName sources,
-       ([standardLibLocation ++ "/standard/", standardLibLocation ++ "/prototype/", "./"] ++) $ map (++ "/") $ concat $ map getDirs imports,
+       ([standardLibLocation ++ "/standard/",
+         standardLibLocation ++ "/prototype/",
+         "./"] ++) $ map (++ "/") $ concatMap getDirs imports,
        options)
     where
       isSource (Source _) = True
@@ -94,28 +98,40 @@ parseArguments args =
 warnings :: [Option] -> IO ()
 warnings options =
     do
-      when (GCC `elem` options && (not $ Clang `elem` options))
+      when (GCC `elem` options && Clang `notElem` options)
                (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
       when (Clang `elem` options && GCC `elem` options)
                (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
-      when ((TypecheckOnly `elem` options) && (Clang `elem` options || GCC `elem` options))
+      when (TypecheckOnly `elem` options && (Clang `elem` options || GCC `elem` options))
                (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
-      when ((NoGC `elem` options) && (not $ TypecheckOnly `elem` options))
+      when (NoGC `elem` options && TypecheckOnly `notElem` options)
                (putStrLn "Warning: Garbage collection disabled! Your program will leak memory!")
 
-checkForUndefined :: [Option] -> IO [()]
-checkForUndefined options =
-    do
-      mapM (\flag -> case flag of
-              Undefined flag -> 
-                abort $ "Unknown flag " <> flag <> 
-                ". Use -help to see available flags."
-              _ -> return ()) options
+checkForUndefined :: [Option] -> IO ()
+checkForUndefined =
+  mapM_ (\flag -> case flag of
+            Undefined flag ->
+              abort $ "Unknown flag " <> flag <>
+              ". Use -help to see available flags."
+            _ -> return ())
 
 output :: Show a => a -> Handle -> IO ()
 output ast = flip hPrint ast
 
-writeClass srcDir (name, ast) = withFile (srcDir ++ "/" ++ name ++ ".encore.c") WriteMode (output ast)
+writeClass srcDir (name, ast) =
+    withFile (srcDir ++ "/" ++ name ++ ".encore.c") WriteMode (output ast)
+
+processClassNames pairs =
+  let (names, classes) = unzip pairs
+      unprimed = map (replace "'" "_prime") names
+      disambiguated = foldr disambiguate [] unprimed
+      disambiguate name acc
+        | name `elem` acc =
+            let candidates = map ((name ++) . show) [0..]
+                name' = fromJust $ find (`notElem` unprimed) candidates
+            in name':acc
+        | otherwise = name:acc
+  in zip disambiguated classes
 
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
@@ -123,17 +139,18 @@ compileProgram prog sourcePath options =
            incPath = encorecDir <> "inc/"
            libPath = encorecDir <> "lib/"
            sourceName = changeFileExt sourcePath ""
-           execName = case find (isOutput) options of
+           execName = case find isOutput options of
                         Just (Output file) -> file
                         Nothing            -> sourceName
-           srcDir = (sourceName ++ "_src")
+           srcDir = sourceName ++ "_src"
        createDirectoryIfMissing True srcDir
        let emitted = compileToC prog
-           classes = getClasses emitted
+           classes = processClassNames (getClasses emitted)
            header = getHeader emitted
            shared = getShared emitted
-       mapM (writeClass srcDir) classes
-       let encoreNames  = map (\(name, _) -> changeFileExt name "encore.c") classes
+       mapM_ (writeClass srcDir) classes
+       let encoreNames =
+             map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames
            headerFile = srcDir </> "header.h"
            sharedFile = srcDir </> "shared.c"
@@ -143,24 +160,24 @@ compileProgram prog sourcePath options =
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
-           pg = if (Profile `elem` options) then "-pg" else ""
-           bench = if (Bench `elem` options) then "-O3" else ""
+           pg    = if Profile `elem` options then "-pg" else ""
+           bench = if Bench `elem` options then "-O3" else ""
            libs  = libPath ++ "*.a"
            cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
-           compileCmd = cmd <+> concat (intersperse " " classFiles) <+> 
+           compileCmd = cmd <+> unwords classFiles <+>
                         sharedFile <+> libs <+> libs <+> defines
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
-       withFile makefile   WriteMode (output $ 
+       withFile makefile   WriteMode (output $
           generateMakefile encoreNames execName cc flags incPath defines libs)
-       when ((not $ TypecheckOnly `elem` options) || (Run `elem` options))
+       when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
-               let ofilesInc = concat $ intersperse " " (filter (isSuffixOf ".o") files)
+               let ofilesInc = unwords (filter (isSuffixOf ".o") files)
                exitCode <- system $ compileCmd <+> ofilesInc
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n ->
-                     abort $ " *** Compilation failed with exit code" <+> (show n) <+> "***")
+                     abort $ " *** Compilation failed with exit code" <+> show n <+> "***")
        unless (KeepCFiles `elem` options)
                   (do runCommand $ "rm -rf" <+> srcDir
                       return ())
@@ -169,8 +186,8 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
-      getDefines = intercalate " " . map ("-D"++) . 
-                   filter (/= "") . map getDefine 
+      getDefines = unwords . map ("-D"++) .
+                   filter (/= "") . map getDefine
       getDefine NoGC = "NO_GC"
       getDefine _ = ""
 
@@ -179,11 +196,11 @@ main =
        let (programs, importDirs, options) = parseArguments args
        checkForUndefined options
        when (Help `elem`options)
-           (do abort helpMessage)
+           (abort helpMessage)
        when (null programs)
-           (do abort ("No program specified! Aborting.\n\n" <>
-                       usage <> "\n" <>
-                      "The -help flag provides more information.\n"))
+           (abort ("No program specified! Aborting.\n\n" <>
+                    usage <> "\n" <>
+                    "The -help flag provides more information.\n"))
        warnings options
        let sourceName = head programs
        sourceExists <- doesFileExist sourceName
@@ -247,10 +264,10 @@ main =
                                   (putStrLn str)
       addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
       -- TODO: move this elsewhere
-      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
+      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) [Name "String"]]
 
       showWarnings = mapM print
-      helpMessage = 
+      helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
         "Flags:\n" <>

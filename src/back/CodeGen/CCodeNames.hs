@@ -17,6 +17,8 @@ import qualified Identifiers as ID
 import Types as Ty
 import CCode.Main
 import Data.List
+import Data.Char
+import Data.String.Utils
 
 import qualified AST.AST as A
 
@@ -142,9 +144,21 @@ just = Var "JUST"
 encoreName :: String -> String -> String
 encoreName kind name =
   let
-    nonEmptys = filter (not . null) ["_enc_", kind, name]
+    (prefix, name') = fixPrimes name
+    enc = let alphas = filter isAlpha kind
+          in if not (null alphas) && all isUpper alphas
+             then "_ENC_"
+             else "_enc_"
+    nonEmptys = filter (not . null) [enc, prefix, kind, name']
   in
-    concat $ intersperse "_" nonEmptys
+    intercalate "_" nonEmptys
+
+fixPrimes name
+    | '\'' `elem` name =
+        let nameWithoutPrimes = replace "'" "_" name
+            expandedName = replace "'" "_prime" name
+        in (nameWithoutPrimes, expandedName)
+    | otherwise = ("", name)
 
 selfTypeField :: CCode Name
 selfTypeField = Nam $ encoreName "self_type" ""
@@ -168,7 +182,7 @@ methodImplStreamName clazz mname =
 
 methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
-  encoreName "method" $ (Ty.getId clazz) ++ "_" ++ (show mname)
+  encoreName "method" $ Ty.getId clazz ++ "_" ++ show mname
 
 methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
 methodImplFutureNameStr clazz mname =
@@ -307,26 +321,26 @@ poolIndexName = Nam "POOL_INDEX"
 
 futMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 futMsgTypeName cls mname =
-    Nam $ encoreName "fut_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "fut_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
 
 oneWayMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgTypeName cls mname =
-    Nam $ encoreName "oneway_msg" ((Ty.getId cls) ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "oneway_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
 
 msgId :: Ty.Type -> ID.Name -> CCode Name
 msgId ref mname =
-    Nam $ "_ENC__MSG_" ++ Ty.getId ref ++ "_" ++ show mname
+    Nam $ encoreName "MSG" (Ty.getId ref ++ "_" ++ show mname)
 
 futMsgId :: Ty.Type -> ID.Name -> CCode Name
 futMsgId ref mname =
-    Nam $ "_ENC__FUT_MSG_" ++ Ty.getId ref ++ "_" ++ show mname
+    Nam $ encoreName "FUT_MSG" (Ty.getId ref ++ "_" ++ show mname)
 
 taskMsgId :: CCode Name
-taskMsgId = Nam "_ENC__MSG_TASK"
+taskMsgId = Nam $ encoreName "MSG" "TASK"
 
 oneWayMsgId :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgId cls mname =
-    Nam $ "_ENC__ONEWAY_MSG_" ++ Ty.getId cls ++ "_" ++ show mname
+    Nam $ encoreName "ONEWAY_MSG" (Ty.getId cls ++ "_" ++ show mname)
 
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
@@ -355,13 +369,13 @@ ponySendDoneName :: CCode Name
 ponySendDoneName = Nam "pony_send_done"
 
 refTypeName :: Ty.Type -> CCode Name
-refTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
+refTypeName ref = Nam $ typeNamePrefix ref ++ "_t"
 
 classTypeName :: Ty.Type -> CCode Name
-classTypeName ref = Nam $ (typeNamePrefix ref) ++ "_t"
+classTypeName ref = Nam $ typeNamePrefix ref ++ "_t"
 
 runtimeTypeName :: Ty.Type -> CCode Name
-runtimeTypeName ref = Nam $ (typeNamePrefix ref) ++ "_type"
+runtimeTypeName ref = Nam $ typeNamePrefix ref ++ "_type"
 
 futureTraceFn :: CCode Name
 futureTraceFn = Nam "future_trace"
