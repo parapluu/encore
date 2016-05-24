@@ -363,7 +363,7 @@ function run_test_suite() {
         local TEST_OUT=$(run_test ${TEST_NAME})
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
             local REPORT_FILE="${TMP_DIR}/${TEST_NAME}.FAILED"
-          echo "    ERROR: failed (${REPORT_FILE})"
+          echo "    ERROR: test failed"
           mkdir -p "$(dirname "${REPORT_FILE}")"
 
           echo -e "${TEST_OUT}" > ${REPORT_FILE}
@@ -385,9 +385,10 @@ function present_results() {
 
     if [ ${CNT_FAIL} == "0" ]; then
       echo "ALL TESTS PASSED"
+      true
     else
       for FAILED in $(find ${TMP_DIR} -name "*.FAILED"); do
-          echo ">>> FAILED TEST: ${FAILED}:"
+          echo ">>> FAILED TEST: $(basename ${FAILED}):"
           cat ${FAILED} | sed "s/\(.*\)/     | \1/"
       done
 
@@ -401,6 +402,7 @@ function present_results() {
       else
           find "${TMP_DIR}" -name "*.FAILED"
       fi
+      false
     fi
 }
 
@@ -438,7 +440,7 @@ function test() {
   present_results ${TEST_DIR}
   readonly local RET=$?
   rm -rf ${TEST_DIR}
-  return $?
+  return $RET
 }
 
 readonly TEST_REGEX=$1
