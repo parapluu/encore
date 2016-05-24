@@ -143,6 +143,12 @@ class Main {
   def objectPatternsInFunctionHead() : void
     expectEven(new IntContainer(4))
 
+  -- Issue #427, this should compile!
+  def variablePatternAgainstLambda() : void
+    let f = \(x : int) -> x in
+      match f with
+	x => print "foo"
+    
   def main() : void {
     this.objectPatternTestWithFailingGuard();
     this.valueVariableTuplePatternsTestWithFailingGuard();
@@ -152,6 +158,7 @@ class Main {
     this.objectPatternsInFunctionHead();
     this.matchingOnStreamHead();
     testGuardInFunctionHead("correct");
-    testHigherOrderExprInMatchingFunctionHead()
+    testHigherOrderExprInMatchingFunctionHead();
+    this.variablePatternAgainstLambda()
   }
 }
