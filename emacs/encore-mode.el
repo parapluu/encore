@@ -52,6 +52,7 @@
         "return"
         "spec"
         "speculate"
+        "spine"
         "stream"
         "subord"
         "suspend"

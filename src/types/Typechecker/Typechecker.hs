@@ -894,6 +894,8 @@ instance Checkable Expr where
            eTarget <- typecheck target
            checkTargetShape eTarget
            let targetType = AST.getType eTarget
+           unlessM (liftM (isPrimitive targetType ||) $ isSpineType targetType) $
+                  tcError $ NonSpineCatTargetError eTarget
            eWitness <- typecheck witness
            targetType `assertSubtypeOf` AST.getType eWitness
            eArg <- typecheck arg

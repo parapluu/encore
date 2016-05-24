@@ -109,6 +109,7 @@ module Types(
             ,makePristine
             ,makeRead
             ,makeSubordinate
+            ,makeSpine
             ,makeLockfree
             ,isLinearRefType
             ,isPristineRefType
@@ -117,6 +118,7 @@ module Types(
             ,isReadRefType
             ,isSubordinateRefType
             ,isUnsafeRefType
+            ,isSpineRefType
             ,makeStackbound
             ,isStackboundType
             ) where
@@ -149,6 +151,7 @@ data Mode = Linear
           | Read
           | Lockfree
           | Subordinate
+          | Spine
             deriving(Eq)
 
 instance Show Mode where
@@ -158,6 +161,7 @@ instance Show Mode where
     show Read        = "read"
     show Lockfree    = "lockfree"
     show Subordinate = "subord"
+    show Spine       = "spine"
 
 modeSubtypeOf ty1 ty2 = getMode ty1 == getMode ty2
 
@@ -725,6 +729,8 @@ makePristine ty = ty{box = Just Pristine}
 makeRead ty = setMode ty Read
 makeSubordinate ty = setMode ty Subordinate
 
+makeSpine ty = setMode ty Spine
+
 makeLockfree ty = setMode ty Lockfree
 
 isSafeType ty
@@ -747,6 +753,7 @@ isModeless ty
 
 isLinearRefType ty
     | Just Linear <- getMode ty = True
+    | Just Spine  <- getMode ty = True
     | otherwise = False
 
 isThreadRefType ty
@@ -762,6 +769,11 @@ isReadRefType ty
 
 isSubordinateRefType ty
     | Just Subordinate <- getMode ty = True
+    | Just Spine       <- getMode ty = True
+    | otherwise = False
+
+isSpineRefType ty
+    | Just Spine <- getMode ty = True
     | otherwise = False
 
 isUnsafeRefType ty

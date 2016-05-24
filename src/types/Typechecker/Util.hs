@@ -29,6 +29,7 @@ module Typechecker.Util(TypecheckM
                        ,isThreadType
                        ,isAliasableType
                        ,checkConjunction
+                       ,isSpineType
                        ) where
 
 import Identifiers
@@ -571,6 +572,20 @@ isThreadType ty
     | isTupleType ty =
         anyM isThreadType (getArgTypes ty)
     | otherwise = return $ isThreadRefType ty
+
+isSpineType :: Type -> TypecheckM Bool
+isSpineType ty
+    | isCompositeType ty
+    , traits <- typesFromCapability ty
+      = allM isSpineType traits
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        isSpineType capability
+    | hasResultType ty =
+        isSpineType (getResultType ty)
+    | isTupleType ty =
+        anyM isSpineType (getArgTypes ty)
+    | otherwise = return $ isSpineRefType ty
 
 isUnsafeType :: Type -> TypecheckM Bool
 isUnsafeType ty
