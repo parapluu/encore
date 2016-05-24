@@ -365,7 +365,7 @@ function =  try regularFunction <|> matchingFunction
     matchingFunction = do
       funmeta <- meta <$> getPosition
       reserved "def"
-      clauses <- functionClause `sepBy` reservedOp "|"
+      clauses <- functionClause `sepBy1` reservedOp "|"
       let matchfunheaders = map fst clauses
           matchfunbodies = map snd clauses
       return MatchingFunction{funmeta
@@ -485,9 +485,9 @@ methodDecl = try regularMethod <|> matchingMethod
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    methodClause matchingHeader `sepBy` reservedOp "|"
+                    methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"
-                    methodClause matchingStreamHeader `sepBy` reservedOp "|"
+                    methodClause matchingStreamHeader `sepBy1` reservedOp "|"
       let mheaders = map fst clauses
           mbodies = map snd clauses
       return MatchingMethod{mmeta
