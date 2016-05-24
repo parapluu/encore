@@ -1,0 +1,6 @@
+bundle RecurseB where
+
+import RecurseA
+
+def bar() : int
+  11

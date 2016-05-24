@@ -1,0 +1,8 @@
+bundle InfiniteImport where
+import InfiniteImport
+
+class Main {
+  def main() : void {
+    print(42);
+  }
+}

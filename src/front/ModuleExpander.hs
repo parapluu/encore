@@ -17,23 +17,25 @@ type ModuleMap = Map QName Program
 importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) ->
                                 [FilePath] -> Program -> IO ModuleMap
 importAndCheckModules checker importDirs p = do
-    (modules, env) <- importAndCheckProgram Map.empty emptyEnv [] p -- [] is QName of top-level module.
+    (modules, env) <- importAndCheckProgram [] Map.empty emptyEnv [] p -- [] is QName of top-level module.
     return modules
   where
-    importAndCheckProgram :: ModuleMap -> Environment -> QName -> Program -> IO (ModuleMap, Environment)
-    importAndCheckProgram importTable env target prg = do
-      let p@Program{imports} = addStdLib target prg
-      (newImportTable, newEnv) <- foldM performImport (importTable, env) imports
-      (newerEnv, checkedAST) <- checker newEnv p
-      return $ (Map.insert target checkedAST newImportTable, newerEnv)
+    importAndCheckProgram :: [QName] -> ModuleMap -> Environment -> QName -> Program -> IO (ModuleMap, Environment)
+    importAndCheckProgram seen importTable env target prg = do
+        when (target `elem` seen) $ abort $ "Module \"" ++ qname2string target ++
+                      "\" imports itself recursively! Aborting."
+        let p@Program{imports} = addStdLib target prg
+        (newImportTable, newEnv) <- foldM (performImport (target:seen)) (importTable, env) imports
+        (newerEnv, checkedAST) <- checker newEnv p
+        return $ (Map.insert target checkedAST newImportTable, newerEnv)
 
-    performImport :: (ModuleMap, Environment) -> ImportDecl -> IO (ModuleMap, Environment)
-    performImport (importTable, env) i@(Import _ target) =
+    performImport :: [QName] -> (ModuleMap, Environment) -> ImportDecl -> IO (ModuleMap, Environment)
+    performImport seen (importTable, env) i@(Import _ target) =
       if Map.member target importTable then
         return (importTable, env)
       else do
         (impl, _) <- importOne importDirs i
-        importAndCheckProgram importTable env target impl
+        importAndCheckProgram seen importTable env target impl
 
 importOne :: [FilePath] -> ImportDecl -> IO (Program, FilePath)
 importOne importDirs (Import meta target) = do
