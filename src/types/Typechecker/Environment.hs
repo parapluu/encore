@@ -77,9 +77,9 @@ buildEnvironment :: Environment -> Program -> (Either TCError Environment, [TCWa
 buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
 --  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
-    buildEnvironment' :: Program -> [Either TCError Environment]
+    buildEnvironment' :: Program -> Environment
     buildEnvironment' p@(Program {typedefs, functions, classes, traits, imports}) =
-        [return Env {
+        Env {
            typeSynonymTable = Map.fromList [(getId (typedefdef t), t) | t <- typedefs],
            classTable = Map.fromList [(getId (cname c), c) | c <- classes],
            traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
@@ -89,8 +89,7 @@ buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
            locals = [],
            bindings = [],
            typeParameters = [],
-           bt = emptyBT
-         }
+           bt = emptyBT}
 
     getFunctionType f =
         let funname   = functionName f

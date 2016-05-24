@@ -1,0 +1,6 @@
+import Top
+import Top
+
+class Main
+  def main() : void
+      print("{}\n", top())
