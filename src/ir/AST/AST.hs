@@ -586,7 +586,6 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
--- TODO: deprecated
 traverseProgram :: (Program -> [a]) -> Program -> [a]
 traverseProgram f program = f program
 

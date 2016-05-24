@@ -13,7 +13,6 @@ module Typechecker.Typechecker(typecheckEncoreProgram) where
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
-import Data.Bifunctor(first)
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
