@@ -436,6 +436,9 @@ function test() {
   done
 
   present_results ${TEST_DIR}
+  readonly local RET=$?
+  rm -rf ${TEST_DIR}
+  return $?
 }
 
 readonly TEST_REGEX=$1
