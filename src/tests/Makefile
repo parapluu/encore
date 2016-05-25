@@ -1,9 +1,9 @@
 all: test
 
 test:
-	./test
+	@bin/test
 
 clean:
-	@./clean_all
+	@bin/clean_all
 
 .PHONY: all test clean
