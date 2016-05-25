@@ -328,7 +328,7 @@ function run_test_suite() {
     local REL_PATH=$1
     local TMP_DIR=$2
 
-    local FAIL=0
+    local SUCC=0
     local TOTL=0
 
     if [ -z ${REL_PATH} ]; then
@@ -367,7 +367,8 @@ function run_test_suite() {
           mkdir -p "$(dirname "${REPORT_FILE}")"
 
           echo -e "${TEST_OUT}" > ${REPORT_FILE}
-          FAIL=$((FAIL+1))
+        else
+            SUCC=$((SUCC+1))
         fi
       fi
 
@@ -375,7 +376,7 @@ function run_test_suite() {
       rm -f ${TEST_NAME}
     done
 
-    echo -e "${REL_PATH}:\t${FAIL}/${TOTL} tests failed" >> /${TMP_DIR}/test_counts.log
+    echo -e "${REL_PATH}:\t${SUCC}/${TOTL} tests passed" >> /${TMP_DIR}/test_counts.log
 }
 
 function present_results() {
@@ -398,9 +399,9 @@ function present_results() {
       echo "TOTAL TESTS FAILED: ${CNT_FAIL}"
 
       if which tree > /dev/null; then
-          tree --noreport ${TMP_DIR} -P "*.FAILED" | tail -n +2 | sed "s/\(.*\)/  \1/"
+          tree --noreport ${TMP_DIR} -P "*.FAILED" | tail -n +2 | sed "s/\(.*\)/  \1/" | sed "s/\.FAILED/ -- failed/"
       else
-          find "${TMP_DIR}" -name "*.FAILED"
+          find "${TMP_DIR}" -name "*.FAILED" | sed "s#${TMP_DIR}##" | sed "s/\/*\(.*\).FAILED$/ - test \1 failed/"
       fi
       false
     fi
@@ -425,7 +426,6 @@ function test() {
   readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
   readonly local TEST_REG=$1
 
-  echo "TEST DIR: ${TEST_DIR}"
   for SUITE in $(find . -name "*.enc" -exec dirname '{}' \; | uniq); do
     SUITE=$(echo "${SUITE}" | sed "s/^\.\///")
     if [ ! -z "${TEST_REG}" ]; then
