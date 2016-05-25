@@ -690,10 +690,11 @@ expr  =  unit
                    return $ Breathe (meta pos)
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
-                dot
-                path <- (try functionCall <|> varAccess) `sepBy1` dot
-                return $ foldl (buildPath pos) root path
+                first <- pathComponent
+                rest <- many $ try pathComponent
+                return $ foldl (buildPath pos) root (first:rest)
              where
+               pathComponent = do {dot; (try functionCall <|> varAccess)}
                buildPath pos target (VarAccess{name}) =
                    FieldAccess (meta pos) target name
                buildPath pos target (FunctionCall{name, args}) =

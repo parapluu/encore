@@ -7,7 +7,9 @@ class Foo
     print m
 
 class Main
-  def main() : void
+  foo: int
+  def main() : void {
+    this.foo = 1;
     let
       fs = [new Foo, null, new Foo, null]
       a = [false, false, true, false, true]
@@ -31,6 +33,10 @@ class Main
       for i in [0..100 by 10] by -3
         print i;
       print "--------------";
+      for i in [this.foo .. 1]
+  	print i;
+      print "--------------";
       for f in fs by 2
-        f ! msg("Foo");
+        f ! msg("Foo")
+  }
 }
