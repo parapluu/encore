@@ -1,3 +1,4 @@
+-- A boxed Real number.
 passive class Real {
   value : real
   def init(x: real) : void {
@@ -6,5 +7,9 @@ passive class Real {
 
   def show() : String {
     string_from_real(this.value)
+  }
+
+  def value() : real {
+    this.value
   }
 }

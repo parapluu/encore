@@ -17,5 +17,10 @@ class Main {
     print((new Bool(true))   .show());
     print((new Bool(false))  .show());
     print((new Void)         .show());
+    
+    assertTrue((new Integer(12)).value() == 12);
+    assertTrue((new Bool(true)).value());
+    assertFalse((new Bool(false)).value());
+    assertTrue((new Real(12.12)).value() > (new Real(6.06)).value());
   }
 }

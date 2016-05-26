@@ -1,3 +1,4 @@
+-- A boxed integer.
 passive class Integer {
   value : int
   def init(x: int) : void {
@@ -6,5 +7,9 @@ passive class Integer {
 
   def show() : String {
     string_from_int(this.value)
+  }
+
+  def value() : int {
+    this.value
   }
 }

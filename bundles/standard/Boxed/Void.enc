@@ -1,3 +1,4 @@
+-- A boxed unit () value.
 passive class Void {
 
   def show() : String {
