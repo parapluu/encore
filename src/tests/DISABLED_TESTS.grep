@@ -10,3 +10,4 @@ encore/concurrency/async_foreach
 encore/concurrency/global_async
 encore/basic/foreach_construct
 encore/par/
+encore/basic/largestream
