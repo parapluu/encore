@@ -2,3 +2,7 @@
 for MKFILE in $(find encore -name Makefile); do
     make --directory $(dirname ${MKFILE}) clean
 done
+
+for DSYM in $(find encore -name "*.dSYM"); do
+    rm -rf ${DSYM}
+done
