@@ -1,0 +1,10 @@
+passive class Bool {
+  value : bool
+  def init(x: bool) : void {
+    this.value = x;
+  }
+
+  def show() : String {
+    string_from_bool(this.value)
+  }
+}

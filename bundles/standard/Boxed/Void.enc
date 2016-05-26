@@ -1,0 +1,7 @@
+passive class Void {
+
+  def show() : String {
+    "()"
+  }
+
+}
