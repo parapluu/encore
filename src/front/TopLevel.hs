@@ -52,7 +52,7 @@ data Phase = Parsed | TypeChecked
 data Option = GCC | Clang | Run | Bench | Profile |
               KeepCFiles | Undefined String |
               Output FilePath | Source FilePath | Imports [FilePath] |
-              Intermediate Phase | TypecheckOnly | Verbatim | NoGC | Help
+              Intermediate Phase | TypecheckOnly | Verbatim | Debug  | NoGC | Help
               deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
@@ -74,6 +74,7 @@ parseArguments args =
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
               parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
               parseArgument ("-v":args)         = (Verbatim, args)
+              parseArgument ("-g":args)         = (Debug, args)
               parseArgument ("-nogc":args)      = (NoGC, args)
               parseArgument ("-help":args)      = (Help, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
@@ -156,14 +157,15 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
            pg    = if Profile `elem` options then "-pg" else ""
+           debug = if (Debug `elem` options) then "-ggdb" else ""
            bench = if Bench `elem` options then "-O3" else ""
            libs  = libPath ++ "*.a"
-           cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
+           cmd   = cc <+> pg <+> bench <+> flags <+> debug <+> oFlag <+> libs <+> incs
            compileCmd = cmd <+> unwords classFiles <+>
                         sharedFile <+> libs <+> libs <+> defines
        withFile headerFile WriteMode (output header)
