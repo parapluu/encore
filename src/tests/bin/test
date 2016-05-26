@@ -349,7 +349,7 @@ function run_test_suite() {
         make --directory ${REL_PATH}       | sed "s/\(.*\)/           make | \1/"
     fi
 
-    for ENC_FILE in $(find "${REL_PATH}" -name "*.enc" -depth 1); do
+    for ENC_FILE in $(find "${REL_PATH}" -name '*.enc' -depth 1); do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
       echo " - ${TEST_NAME}... "
 
@@ -382,13 +382,13 @@ function run_test_suite() {
 function present_results() {
     readonly local TMP_DIR=$1
 
-    readonly local CNT_FAIL=$(find "${TMP_DIR}" -name "*.FAILED" | wc -w | tr -d ' ')
+    readonly local CNT_FAIL=$(find "${TMP_DIR}" -name '*.FAILED' | wc -w | tr -d ' ')
 
     if [ ${CNT_FAIL} == "0" ]; then
       echo "ALL TESTS PASSED"
       true
     else
-      for FAILED in $(find ${TMP_DIR} -name "*.FAILED"); do
+      for FAILED in $(find ${TMP_DIR} -name '*.FAILED'); do
           echo ">>> FAILED TEST: $(basename ${FAILED}):"
           cat ${FAILED} | sed "s/\(.*\)/     | \1/"
       done
@@ -399,9 +399,9 @@ function present_results() {
       echo "TOTAL TESTS FAILED: ${CNT_FAIL}"
 
       if which tree > /dev/null; then
-          tree --noreport ${TMP_DIR} -P "*.FAILED" | tail -n +2 | sed "s/\(.*\)/  \1/" | sed "s/\.FAILED/ -- failed/"
+          tree --noreport ${TMP_DIR} -P '*.FAILED' | tail -n +2 | sed "s/\(.*\)/  \1/" | sed "s/\.FAILED/ -- failed/"
       else
-          find "${TMP_DIR}" -name "*.FAILED" | sed "s#${TMP_DIR}##" | sed "s/\/*\(.*\).FAILED$/ - test \1 failed/"
+          find "${TMP_DIR}" -name '*.FAILED' | sed "s#${TMP_DIR}##" | sed "s/\/*\(.*\).FAILED$/ - test \1 failed/"
       fi
       false
     fi
@@ -426,7 +426,7 @@ function test() {
   readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
   readonly local TEST_REG=$1
 
-  for SUITE in $(find . -name "*.enc" -exec dirname '{}' \; | uniq); do
+  for SUITE in $(find . -name '*.enc' -exec dirname '{}' \; | uniq); do
     SUITE=$(echo "${SUITE}" | sed "s/^\.\///")
     if [ ! -z "${TEST_REG}" ]; then
       if (echo $SUITE | grep "${TEST_REG}" > /dev/null); then
