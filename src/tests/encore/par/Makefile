@@ -9,12 +9,13 @@ ENCORE_SOURCES+=liftv.enc
 ENCORE_SOURCES+=sequence.enc
 ENCORE_TARGETS=$(ENCORE_SOURCES:.enc=)
 
-all: test
+build:
+	@$(foreach PROG,$(ENCORE_TARGETS), make -BRrk $(PROG);)
 
 clean:
 	@rm -fr *.dSYM *_src $(ENCORE_TARGETS)
 
-test:
+test: build
 	@$(foreach PROG,$(ENCORE_TARGETS), make -BRrk $(PROG);)
 	@echo
 	@echo Parallel Combinators:
