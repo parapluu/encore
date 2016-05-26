@@ -615,19 +615,41 @@ instance Checkable Expr where
     -- --------------------------------------------------------------------------------------
     --  E |- let x1 = e1 .. xn = en in body : t
     doTypecheck let_@(Let {decls, body}) =
-        do eDecls <- typecheckDecls decls
-           let declNames = map fst eDecls
-               declTypes = map (AST.getType . snd) eDecls
+        do (locals, eDecls) <- typecheckDecls decls
+           let declTypes = map snd locals
            when (any isBottomType (concatMap typeComponents declTypes)) $
                 tcError BottomTypeInferenceError
-           eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
-           return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
+           eBody <- local (extendEnvironment locals) $ typecheck body
+           return $ setType (AST.getType eBody) let_ {decls = eDecls
+                                                     ,body = eBody}
         where
-          typecheckDecls [] = return []
-          typecheckDecls ((name, expr):decls') =
-              do eExpr <- typecheckNotNull expr
-                 eDecls <- local (extendEnvironment [(name, AST.getType eExpr)]) $ typecheckDecls decls'
-                 return $ (name, eExpr):eDecls
+          typecheckDecls :: [([VarDecl], Expr)] ->
+                            TypecheckM ([(Name, Type)], [([VarDecl], Expr)])
+          typecheckDecls [] = do
+            locals <- asks locals
+            return (locals, [])
+          typecheckDecls ((vars, expr):decls') = do
+            eExpr <- typecheckNotNull expr
+            let eType = AST.getType eExpr
+            eVars <- mapM (checkBinding eType) vars
+            let extractBindings =
+                  \case {VarDecl{varName, varType} -> (varName, varType);
+                         Var{varName} -> (varName, eType)}
+                localBindings = map extractBindings eVars
+                varTypes = map snd localBindings
+            linearTypes <- filterM isLinearType varTypes
+            when (length linearTypes > 1) $
+                 checkConjunction eType linearTypes
+            (locals, eDecls) <-
+                local (extendEnvironment localBindings) $
+                      typecheckDecls decls'
+            return (locals, (eVars, eExpr):eDecls)
+          checkBinding eType (VarDecl x ty) = do
+            ty' <- resolveType ty
+            eType `assertSubtypeOf` ty'
+            return (VarDecl x ty')
+          checkBinding eType (Var x) =
+              return (Var x)
 
     --  E |- en : t
     -- ------------------------

@@ -416,32 +416,3 @@ returns parent child =
     return $ if isFree child
              then makeFree parent
              else makeCaptured parent
-
-isLinearType :: Type -> CapturecheckM Bool
-isLinearType = isLinearType' []
-    where
-      isLinearType' :: [Type] -> Type -> CapturecheckM Bool
-      isLinearType' checked ty = do
-        let components = typeComponents (dropArrows ty)
-            unchecked = components \\ checked
-            classes = List.filter isClassType unchecked
-        capabilities <- mapM findCapability classes
-        liftM2 (||)
-              (anyM isDirectlyLinear unchecked)
-              (anyM (isLinearType' (checked ++ unchecked)) capabilities)
-
-      isDirectlyLinear :: Type -> CapturecheckM Bool
-      isDirectlyLinear ty
-          | isClassType ty = do
-              cap <- findCapability ty
-              let components = typeComponents (dropArrows ty) ++
-                               typeComponents (dropArrows cap)
-              return $ any isLinearRefType components
-          | otherwise = do
-              let components = typeComponents (dropArrows ty)
-              return $ any isLinearRefType components
-
-      dropArrows = typeMap dropArrow
-      dropArrow ty
-          | isArrowType ty = voidType
-          | otherwise = ty

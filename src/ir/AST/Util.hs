@@ -392,8 +392,9 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
         freeVars ++ freeVariables' bound' body
         where
           (freeVars, bound') = List.foldr fvDecls ([], bound) decls
-          fvDecls (x, expr) (free, bound) =
-            (freeVariables' (x:bound) expr ++ free, x:bound)
+          fvDecls (vars, expr) (free, bound) =
+            let xs = map varName vars
+            in (freeVariables' (xs ++ bound) expr ++ free, xs ++ bound)
     freeVariables' bound e@For{name, step, src, body} =
       freeVariables' (name:bound) =<< getChildren e
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)

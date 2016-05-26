@@ -767,18 +767,25 @@ expr  =  embed
                -- TODO: Pass type arguments to parametric method
                buildPath pos target (FunctionCall{name, args}) =
                    MethodCall (meta pos) target name args
+      letExpression = do
+        pos <- getPosition
+        reserved "let"
+        decls <- many varDecl
+        reserved "in"
+        expr <- expression
+        return $ Let (meta pos) decls expr
+      var = do
+        x <- Name <$> identifier
+        t <- option Nothing (colon >> Just <$> typ)
+        case t of
+          Just ty -> return $ VarDecl x ty
+          Nothing -> return $ Var x
+      varDecl = do
+        vars <- commaSep1 var
+        reservedOp "="
+        val <- expression
+        return (vars, val)
 
-      letExpression = do pos <- getPosition
-                         reserved "let"
-                         decls <- many varDecl
-                         reserved "in"
-                         expr <- expression
-                         return $ Let (meta pos) decls expr
-                      where
-                        varDecl = do x <- identifier
-                                     reservedOp "="
-                                     val <- expression
-                                     return (Name x, val)
       sequence = do pos <- getPosition
                     seq <- braces ((try miniLet <|> expression) `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
@@ -786,11 +793,10 @@ expr  =  embed
             miniLet = do
               emeta <- meta <$> getPosition
               reserved "let"
-              x <- Name <$> identifier
-              reservedOp "="
-              val <- expression
+              decl <- varDecl
               lookAhead semi
-              return MiniLet{emeta, decl = (x, val)}
+              return MiniLet{emeta, decl}
+
       ifExpression = do pos <- getPosition
                         reserved "if"
                         cond <- expression

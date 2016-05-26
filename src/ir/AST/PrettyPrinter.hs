@@ -156,10 +156,10 @@ ppExpr (MaybeValue _ (JustData a)) = "Just" <+> ppExpr a
 ppExpr (MaybeValue _ NothingData) = "Nothing"
 ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
 ppExpr Let {decls, body} =
-  "let" <+> vcat (map (\(Name x, e) -> text x <+> "=" <+> ppExpr e) decls) $+$
+  "let" <+> vcat (map ppDecl decls) $+$
   "in" $+$ indent (ppExpr body)
-ppExpr MiniLet {decl = (x, val)} =
-    "let" <+> ppName x <+> "=" <+> ppExpr val
+ppExpr MiniLet {decl} =
+    "let" <+> ppDecl decl
 ppExpr Seq {eseq = [expr]} =
     ppExpr expr
 ppExpr Seq {eseq} =
@@ -239,6 +239,14 @@ ppExpr Foreach {item, arr, body} =
   "foreach" <+> ppName item <+> "in" <+> ppExpr arr <>
                 braces (ppExpr body)
 ppExpr FinishAsync {body} = "finish" <+> ppExpr body
+
+ppDecl :: ([VarDecl], Expr) -> Doc
+ppDecl (vars, val) =
+  commaSep (map ppVar vars) <+> "=" <+> ppExpr val
+ppVar :: VarDecl -> Doc
+ppVar (VarDecl x ty) = ppName x <+> ":" <+> ppType ty
+ppVar (Var x) = ppName x
+
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = "not"
