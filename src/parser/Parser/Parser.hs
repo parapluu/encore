@@ -460,7 +460,7 @@ classDecl = do
       <|> (reserved "passive" >> return Passive)
       <|> return Active
     classBody = do
-              fields <- many fieldDecl
+              fields <- many $ try fieldDecl
               methods <- many methodDecl
               return (fields, methods)
 
