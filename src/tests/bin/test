@@ -357,6 +357,7 @@ function run_test_suite() {
         TOTL=$((TOTL+1))
         if ! test_enabled ${TEST_NAME}; then
           echo "    WARNING: disabled from src/tests/DISABLED_TESTS.grep"
+          SUCC=$((SUCC+1))
           continue
         fi
 
@@ -386,6 +387,7 @@ function present_results() {
 
     if [ ${CNT_FAIL} == "0" ]; then
       echo "ALL TESTS PASSED"
+      cat /${TMP_DIR}/test_counts.log | grep -v "0/0"
       true
     else
       for FAILED in $(find ${TMP_DIR} -name '*.FAILED'); do
@@ -421,7 +423,6 @@ function present_results() {
 #  None
 #
 ############################################################
-
 function test() {
   readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
   readonly local TEST_REG=$1
