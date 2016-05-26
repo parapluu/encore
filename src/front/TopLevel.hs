@@ -272,6 +272,7 @@ main =
         usage <> "\n\n" <>
         "Flags:\n" <>
         "  -debug       Compiles the program with debug information, and keeps generated C code.\n" <>
+        "  -bench       Compiles the program with optimisations turned on\n" <>
         "  -tc          Typecheck only (don't produce an executable).\n" <>
         "  -o [file]    Specify output file.\n" <>
         "  -run         Run the program and remove the executable.\n" <>
