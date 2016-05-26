@@ -213,7 +213,7 @@ data Error =
   | ModelessError Type
   | ModeOverrideError Type
   | CannotConsumeError Expr
-  | CannotGiveReadModeError Type
+  | CannotGiveReadModeError
   | NonValInReadTraitError
   | NonSafeInReadTraitError Type
   | SubordinateReturnError Name
@@ -425,10 +425,8 @@ instance Show Error where
         printf "Cannot override mode of %s" (Types.showWithKind ty)
     show (CannotConsumeError expr) =
         printf "Cannot consume '%s'" (show (ppSugared expr))
-    show (CannotGiveReadModeError ty) =
-        printf ("Cannot give read mode to %s. " ++
-                "It has fields that are not val and safe")
-               (refTypeName ty)
+    show CannotGiveReadModeError =
+        "Read mode must be manifestly set"
     show NonValInReadTraitError =
         "Read traits can only have val fields"
     show (NonSafeInReadTraitError ty) =
