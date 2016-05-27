@@ -41,8 +41,9 @@ run by calling `./test` in this directory.
 
 ## Running Selected Test Suites
 
-The `test` script can take a regular expression as a parameter. Only test suites
-whose relative path from this directory matches the regular expression will be run.
+The `test` script can take either the name of a test (no `.enc` extension) or a
+directory as a parameter. In the former case, it will run that test, in the
+latter case, it will run all tests in that directory.
 
 Example:
 
