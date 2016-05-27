@@ -42,7 +42,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword party_par "||")
 @(encore/keyword party_seq ">>")
 @(encore/keyword party_join "join")
-@(encore/keyword party_extract "extract")
+
+@; TODO: Add this keyword as soon as as issue #434 is fixed
+@; (encore/keyword party_extract "extract")
+
 @(encore/keyword party_each "each")
 @(encore/keyword party_liftv "liftv")
 @(encore/keyword party_liftf "liftf")
@@ -238,7 +241,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
               @seq[party_liftv Expr]
               @seq[party_liftf Expr]
               @seq[party_join Expr]
-              @seq[party_extract Expr]
+
+              @; TODO: Add this keyword as soon as as issue #434 is fixed
+              @; seq[party_extract Expr]
+
               @seq[party_each Expr]
               @seq[Expr party_seq Arrow]
               @seq[Expr party_par Expr]
