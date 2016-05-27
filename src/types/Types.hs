@@ -640,10 +640,16 @@ makeRead ty = setMode ty Read
 makeSubordinate ty = setMode ty Subordinate
 
 isSafeType ty
+    |  isMaybeType ty
+    || isStreamType ty
+    || isFutureType ty
+    || isParType ty = isSafeType $ getResultType ty
+    | isTupleType ty = all isSafeType $ getArgTypes ty
     | isCompositeType ty
     , traits <- typesFromCapability ty = all isSafeType traits
-    | isModeless ty =  isPrimitive ty || isActiveClassType ty
-                    || isMaybeType ty && isSafeType (getResultType ty)
+    | isModeless ty =  isPrimitive ty
+                    || isActiveClassType ty
+                    || isRangeType ty
     | otherwise = let mode = getMode ty in
                   isJust mode && modeIsSafe (fromJust mode)
 
