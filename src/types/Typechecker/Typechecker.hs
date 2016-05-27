@@ -637,9 +637,9 @@ instance Checkable Expr where
                          Var{varName} -> (varName, eType)}
                 localBindings = map extractBindings eVars
                 varTypes = map snd localBindings
-            linearTypes <- filterM isLinearType varTypes
-            when (length linearTypes > 1) $
-                 checkConjunction eType linearTypes
+            allAliasable <- allM isAliasableType varTypes
+            unless (allAliasable || length varTypes == 1) $
+                 checkConjunction eType varTypes
             (locals, eDecls) <-
                 local (extendEnvironment localBindings) $
                       typecheckDecls decls'

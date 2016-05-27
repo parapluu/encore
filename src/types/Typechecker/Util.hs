@@ -6,6 +6,7 @@ module Typechecker.Util(TypecheckM
                        ,CapturecheckM
                        ,whenM
                        ,anyM
+                       ,allM
                        ,unlessM
                        ,tcError
                        ,pushError
@@ -25,6 +26,7 @@ module Typechecker.Util(TypecheckM
                        ,isSubordinateType
                        ,isEncapsulatedType
                        ,isThreadType
+                       ,isAliasableType
                        ,checkConjunction
                        ) where
 
@@ -529,6 +531,23 @@ isThreadType ty
         anyM isThreadType (getArgTypes ty)
     | otherwise = return $ isThreadRefType ty
 
+isUnsafeType :: Type -> TypecheckM Bool
+isUnsafeType ty
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        isUnsafeType capability
+    | otherwise = return $
+                  any isUnsafeRefType $ typeComponents ty
+
+isAliasableType :: Type -> TypecheckM Bool
+isAliasableType ty =
+    anyM (\f -> f ty)
+         [return . isSafeType
+         ,isThreadType
+         ,isSubordinateType
+         ,isUnsafeType
+         ]
+
 checkConjunction :: Type -> [Type] -> TypecheckM ()
 checkConjunction source sinks
   | isCompositeType source = do
@@ -537,6 +556,10 @@ checkConjunction source sinks
                                           (sinks \\ [ty]) ty) sinks
   | isPassiveClassType source = do
       cap <- findCapability source
+      when (isIncapability cap) $
+           tcError $ CannotUnpackError source
+      when (source `elem` sinks) $
+           tcError $ CannotInferUnpackingError source
       checkConjunction cap sinks
   | otherwise =
       return ()
