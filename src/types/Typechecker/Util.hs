@@ -258,7 +258,19 @@ subtypeOf ty1 ty2
       capabilitySubtypeOf cap1 cap2 = do
         let traits1 = typesFromCapability cap1
             traits2 = typesFromCapability cap2
-        allM (\t2 -> anyM (`subtypeOf` t2) traits1) traits2
+            preservesConjunctions = cap1 `preservesConjunctionsOf` cap2
+        isSubsumed <- allM (\t2 -> anyM (`subtypeOf` t2) traits1) traits2
+        return (preservesConjunctions && isSubsumed)
+
+      preservesConjunctionsOf cap1 cap2 =
+        let pairs1 = conjunctiveTypesFromCapability cap1
+            pairs2 = conjunctiveTypesFromCapability cap2
+        in all (`existsIn` pairs1) pairs2
+      existsIn (left, right) =
+        any (separates left right)
+      separates left right (l, r) =
+        all (`elem` l) left && all (`elem` r) right ||
+        all (`elem` l) right && all (`elem` r) left
 
       numericSubtypeOf ty1 ty2
           | isIntType ty1 && isRealType ty2 = True

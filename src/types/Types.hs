@@ -143,9 +143,7 @@ instance Show Mode where
     show Read   = "read"
     show Subordinate = "subord"
 
-modeSubtypeOf ty1 ty2
-    | isPrimitive ty1 = True
-    | otherwise = getMode ty1 == getMode ty2
+modeSubtypeOf ty1 ty2 = getMode ty1 == getMode ty2
 
 modeIsSafe Read = True
 modeIsSafe _    = False
