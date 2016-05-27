@@ -167,7 +167,7 @@ function run_fail_test() {
 
     # read .fail file line by line and verify that each line is in the compiler
     # output:
-    cat ${TEST}.fail | while read LINE; do
+    cat ${TEST}.fail | grep -v "^$" | while read LINE; do
         if ! (echo "${COMPILE_OUT}" | grep "${LINE}" > /dev/null); then
             echo "ERROR: Line not contained in error output: '${LINE}'"
         fi
@@ -401,7 +401,7 @@ function present_results() {
       fi
     else
       for FAILED in $(find ${TMP_DIR} -name '*.FAILED'); do
-          echo ">>> FAILED TEST: $(basename ${FAILED}):"
+          echo ">>> FAILED TEST: $(basename ${FAILED%.FAILED}):"
           cat ${FAILED} | sed "s/\(.*\)/     | \1/"
       done
 
