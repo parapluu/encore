@@ -386,9 +386,14 @@ function present_results() {
     readonly local CNT_FAIL=$(find "${TMP_DIR}" -name '*.FAILED' | wc -w | tr -d ' ')
 
     if [ ${CNT_FAIL} == "0" ]; then
-      echo "ALL TESTS PASSED"
-      cat /${TMP_DIR}/test_counts.log | grep -v "0/0"
-      true
+      if [ -e ${TMP_DIR}/test_counts.log ]; then
+        echo "ALL TESTS PASSED"
+        cat /${TMP_DIR}/test_counts.log | grep -v "0/0"
+        true
+      else
+        echo "NO TESTS FOUND"
+        false
+      fi
     else
       for FAILED in $(find ${TMP_DIR} -name '*.FAILED'); do
           echo ">>> FAILED TEST: $(basename ${FAILED}):"
