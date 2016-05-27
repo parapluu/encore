@@ -59,6 +59,7 @@ function run() {
 
     cd ${DIR}
     ${CMD}
+    rm -f "${NAME}"
     cd ${CWD}
 }
 
