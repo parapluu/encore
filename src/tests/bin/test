@@ -427,7 +427,7 @@ function test() {
   readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
   readonly local TEST_REG=$1
 
-  for SUITE in $(find . -name '*.enc' -exec dirname '{}' \; | uniq); do
+  for SUITE in $(find . -name '*.enc' -exec dirname '{}' \; | sort | uniq); do
     SUITE=$(echo "${SUITE}" | sed "s/^\.\///")
     if [ ! -z "${TEST_REG}" ]; then
       if (echo $SUITE | grep "${TEST_REG}" > /dev/null); then
