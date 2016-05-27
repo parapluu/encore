@@ -377,7 +377,7 @@ function run_test_suite() {
       fi
 
       # remove the test executable (if it has been created):
-      rm -f ${TEST_NAME}
+      rm -f ${TEST_NAME} 2> /dev/null
     done
 
     echo -e "${REL_PATH}:\t${SUCC}/${TOTL} tests passed" >> /${TMP_DIR}/test_counts.log
