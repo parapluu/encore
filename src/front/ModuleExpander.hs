@@ -1,4 +1,4 @@
-module ModuleExpander(importAndCheckModules,compressModules,ModuleMap) where
+module ModuleExpander(importAndCheckModules,compressModules) where
 
 import Identifiers
 import Utils
@@ -64,8 +64,9 @@ informImport target src = return ()
 
 duplicateModuleWarning :: QName -> [FilePath] -> IO ()
 duplicateModuleWarning target srcs =
-    do putStrLn $ "Warning: Module " ++ (qname2string target) ++ " found in multiple places:"
+    do putStrLn $ "Error: Module " ++ (qname2string target) ++ " found in multiple places:"
        mapM_ (\src -> putStrLn $ "-- " ++ src) srcs
+       abort "Unable to determine which one to use."
 
 
 addStdLib target ast@Program{imports = i} =

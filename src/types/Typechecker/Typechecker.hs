@@ -37,9 +37,6 @@ typecheckEncoreProgram env p =
       runState (runExceptT reader) warnings
     (Left err, warnings) -> (Left err, warnings)
 
--- addEnvironment :: (Either TCError Program, [TCWarning]) -> (Either TCError (Environment, Program), [TCWarning])
--- addEnvironment env = first  (\x -> (env,x))
-
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
 -- "Environment", and the Error monad lets us throw a

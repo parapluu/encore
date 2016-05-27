@@ -72,7 +72,6 @@ emptyEnv = Env {
 
 buildEnvironment :: Environment -> Program -> (Either TCError Environment, [TCWarning])
 buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
---  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> Environment
     buildEnvironment' Program {typedefs, functions, classes, traits, imports} =

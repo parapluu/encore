@@ -258,8 +258,7 @@ extendAccum f acc0 e =
       f acc1 (putChildren childResults e)
 
 mapProgramClass :: Program -> (ClassDecl -> ClassDecl) -> Program
-mapProgramClass p@Program{classes, imports} f =
-  p{classes = map f classes, imports = imports}
+mapProgramClass p@Program{classes} f = p{classes = map f classes}
 
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
