@@ -270,9 +270,7 @@ function run_chk_test() {
 #  directory.
 #
 # Returns:
-#
-#  true  -- the test passed;
-#  false -- otherwise.
+#  None
 #
 ############################################################
 function run_test() {
@@ -325,13 +323,12 @@ function run_test() {
 #  - Temp directory to which the function may write logs.
 #
 # Returns:
-#
 #  None
 #
 ############################################################
 function run_test_suite() {
-    local REL_PATH=$1
-    local TMP_DIR=$2
+    local readonly REL_PATH=$1
+    local readonly TMP_DIR=$2
 
     local SUCC=0
     local TOTL=0
@@ -342,7 +339,7 @@ function run_test_suite() {
     fi
 
     if [ -z ${TMP_DIR} ]; then
-        echo "ERROR: Need temporary directory"
+        echo "ERROR: Need temporary directory (got none)"
         exit 1
     fi
 
@@ -356,7 +353,7 @@ function run_test_suite() {
 
     for ENC_FILE in "${REL_PATH}"/*.enc; do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
-      echo " - $(basename ${TEST_NAME})... "
+      echo " - $(basename ${TEST_NAME})..."
 
       if have_at_least_one_spec_file ${TEST_NAME}; then
         TOTL=$((TOTL+1))
@@ -435,23 +432,38 @@ function present_results() {
 ############################################################
 function test() {
   readonly local TEST_DIR=$(mktemp -d "/tmp/test_results_XXXXXX")
-  readonly local TEST_REG=$1
+  local TEST_REG=$1
 
-  for SUITE in $(find . -name '*.enc' -exec dirname '{}' \; | sort | uniq); do
-    SUITE=$(echo "${SUITE}" | sed "s/^\.\///")
-    if [ ! -z "${TEST_REG}" ]; then
-      if (echo $SUITE | grep "${TEST_REG}" > /dev/null); then
-        run_test_suite ${SUITE} ${TEST_DIR}
+  if [ -z "$TEST_REG" ]; then
+      TEST_REG="."
+  fi
+
+  if [ -d ${TEST_REG} ]; then
+    for SUITE in $(find ${TEST_REG} -name "*.enc" -exec dirname '{}' \; | sort | uniq); do
+      run_test_suite ${SUITE} ${TEST_DIR} ${TEST_REG}
+    done
+
+    present_results ${TEST_DIR}
+    readonly local RET=$?
+    rm -rf ${TEST_DIR}
+    return $RET
+  else
+    if [ -f ${TEST_REG}.enc ]; then
+      # TEST_REG is a single test suite
+      # run a single test
+      local readonly OUT=$(run_test ${TEST_REG})
+      if (echo ${OUT} | grep "ERROR" > /dev/null); then
+        echo "FAILED"
+        echo "${OUT}"
+        rm -rf ${TEST_DIR}
+        return $(false)
+      else
+        echo "SUCCESS"
+        rm -rf ${TEST_DIR}
+        return $(true)
       fi
-    else
-      run_test_suite ${SUITE} ${TEST_DIR}
     fi
-  done
-
-  present_results ${TEST_DIR}
-  readonly local RET=$?
-  rm -rf ${TEST_DIR}
-  return $RET
+  fi
 }
 
 readonly TEST_REGEX=$1
