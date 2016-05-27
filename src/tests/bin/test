@@ -160,6 +160,11 @@ function run_fail_test() {
         echo "ERROR: Test should not compile."
     fi
 
+    if [ ! -s ${TEST}.fail ]; then
+      #file is empty
+      echo "ERROR: ${TEST}.fail is empty!"
+    fi
+
     # read .fail file line by line and verify that each line is in the compiler
     # output:
     cat ${TEST}.fail | while read LINE; do
