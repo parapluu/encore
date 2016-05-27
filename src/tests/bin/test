@@ -436,7 +436,12 @@ function test() {
   local TEST_REG=$1
 
   if [ -z "$TEST_REG" ]; then
-      TEST_REG="."
+    TEST_REG="."
+  fi
+
+  if [ ! -d "${TEST_REG}" -a ! -f "${TEST_REG}.enc" ]; then
+    echo "ERROR: ${TEST_REG} is neither a test suite nor a test name"
+    return $(false)
   fi
 
   if [ -d ${TEST_REG} ]; then
@@ -449,9 +454,13 @@ function test() {
     rm -rf ${TEST_DIR}
     return $RET
   else
-    if [ -f ${TEST_REG}.enc ]; then
+    if [ -f ${TEST_REG} -o -f ${TEST_REG}.enc ]; then
       # TEST_REG is a single test suite
-      # run a single test
+        # run a single test
+      if ! test_enabled ${TEST_REG}; then
+        echo "TEST IS DISABLED"
+        return $(false)
+      fi
       local readonly OUT=$(run_test ${TEST_REG})
       if (echo ${OUT} | grep "ERROR" > /dev/null); then
         echo "FAILED"
