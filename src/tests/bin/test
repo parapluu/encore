@@ -354,9 +354,9 @@ function run_test_suite() {
 
     for ENC_FILE in "${REL_PATH}"/*.enc; do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
-      echo " - $(basename ${TEST_NAME})..."
 
       if have_at_least_one_spec_file ${TEST_NAME}; then
+        echo " - $(basename ${TEST_NAME})..."
         TOTL=$((TOTL+1))
         if ! test_enabled ${TEST_NAME}; then
           echo "    WARNING: disabled from src/tests/DISABLED_TESTS.grep"
