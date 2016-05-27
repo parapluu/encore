@@ -355,14 +355,14 @@ function run_test_suite() {
     for ENC_FILE in "${REL_PATH}"/*.enc; do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
 
+      echo " - $(basename ${TEST_NAME})..."
+      if ! test_enabled ${TEST_NAME}; then
+        echo "   ... disabled in src/tests/DISABLED_TESTS.grep"
+        continue
+      fi
+
       if have_at_least_one_spec_file ${TEST_NAME}; then
-        echo " - $(basename ${TEST_NAME})..."
         TOTL=$((TOTL+1))
-        if ! test_enabled ${TEST_NAME}; then
-          echo "    WARNING: disabled from src/tests/DISABLED_TESTS.grep"
-          SUCC=$((SUCC+1))
-          continue
-        fi
 
         local TEST_OUT=$(run_test ${TEST_NAME})
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
@@ -374,7 +374,9 @@ function run_test_suite() {
         else
             SUCC=$((SUCC+1))
         fi
-      fi
+      else
+          echo "   ... warning: .enc file present but missing .out, .fail or .chk file."
+      fi 
 
       # remove the test executable (if it has been created):
       rm -f ${TEST_NAME} 2> /dev/null
