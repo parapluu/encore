@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with
@@ -34,8 +32,9 @@ import Text.Printf (printf)
 typecheckEncoreProgram :: Environment -> Program -> (Either TCError (Environment, Program), [TCWarning])
 typecheckEncoreProgram env p =
   case buildEnvironment env p of
-    (Right env, warnings) -> 
-      runState (runExceptT (runReaderT (doTypecheck (env, p)) env)) warnings
+    (Right env, warnings) -> do
+      let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
+      runState (runExceptT reader) warnings
     (Left err, warnings) -> (Left err, warnings)
 
 -- addEnvironment :: (Either TCError Program, [TCWarning]) -> (Either TCError (Environment, Program), [TCWarning])
@@ -54,11 +53,6 @@ class Checkable a where
     -- error messages
     typecheck :: Pushable a => a -> TypecheckM a
     typecheck x = local (pushBT x) $ doTypecheck x
-
-instance Checkable (Environment, Program) where
-    doTypecheck (env, p) = do
-        res <- doTypecheck p
-        return (env, res)
 
 instance Checkable Program where
     --  E |- fun1 .. E |- funn

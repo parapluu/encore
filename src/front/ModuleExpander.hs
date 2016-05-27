@@ -17,16 +17,16 @@ type ModuleMap = Map QName Program
 importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) ->
                                 [FilePath] -> Program -> IO ModuleMap
 importAndCheckModules checker importDirs p = do
-    (modules, env) <- importAndCheckProgram [] Map.empty emptyEnv [] p -- [] is QName of top-level module.
+    (modules, _) <- importAndCheckProgram [] Map.empty emptyEnv [] p -- [] is QName of top-level module.
     return modules
   where
     importAndCheckProgram :: [QName] -> ModuleMap -> Environment -> QName -> Program -> IO (ModuleMap, Environment)
     importAndCheckProgram seen importTable env target prg = do
         when (target `elem` seen) $ abort $ "Module \"" ++ qname2string target ++
                       "\" imports itself recursively! Aborting."
-        let p@Program{imports} = addStdLib target prg
+        let pp@Program{imports} = addStdLib target prg
         (newImportTable, newEnv) <- foldM (performImport (target:seen)) (importTable, env) imports
-        (newerEnv, checkedAST) <- checker newEnv p
+        (newerEnv, checkedAST) <- checker newEnv pp
         return $ (Map.insert target checkedAST newImportTable, newerEnv)
 
     performImport :: [QName] -> (ModuleMap, Environment) -> ImportDecl -> IO (ModuleMap, Environment)
@@ -34,22 +34,22 @@ importAndCheckModules checker importDirs p = do
       if Map.member target importTable then
         return (importTable, env)
       else do
-        (impl, _) <- importOne importDirs i
+        impl <- importOne importDirs i
         importAndCheckProgram seen importTable env target impl
 
-importOne :: [FilePath] -> ImportDecl -> IO (Program, FilePath)
-importOne importDirs (Import meta target) = do
+importOne :: [FilePath] -> ImportDecl -> IO Program
+importOne importDirs (Import _ target) = do
   let sources = map (\dir -> tosrc dir target) importDirs
   candidates <- filterM doesFileExist sources
-  sourceName <-
+  source <-
        case candidates of
          [] -> abort $ "Module \"" ++ qname2string target ++
                       "\" cannot be found in imports! Aborting."
          [src] -> do { informImport target src; return src }
          l@(src:_) -> do { duplicateModuleWarning target l; return src }
-  code <- readFile sourceName
-  ast <- case parseEncoreProgram sourceName code of
-           Right ast  -> return (ast, sourceName)
+  code <- readFile source
+  ast <- case parseEncoreProgram source code of
+           Right ast  -> return ast
            Left error -> abort $ show error
   return ast
 
@@ -58,7 +58,7 @@ qname2string [] = ""
 qname2string [(Name a)] = a
 qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
--- for printing imports
+-- for printing imports: keep old implementation around for debugging purposes
 informImport target src = return ()
 --        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
 

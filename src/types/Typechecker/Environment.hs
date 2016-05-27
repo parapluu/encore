@@ -52,8 +52,6 @@ data Environment = Env {
   typeSynonymTable :: Map String Typedef,
   classTable :: Map String ClassDecl,
   traitTable :: Map String TraitDecl,
---  importDecls :: [ImportDecl],
-  importTable :: Map QName Program,  -- global, shared among all
   globals  :: VarTable,
   locals   :: VarTable,
   bindings :: [(Type, Type)],
@@ -65,7 +63,6 @@ emptyEnv = Env {
   typeSynonymTable = Map.empty,
   classTable = Map.empty,
   traitTable = Map.empty,
-  importTable = Map.empty,
   globals = [],
   locals = [],
   bindings = [],
@@ -78,13 +75,11 @@ buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
 --  (mergeEnvs . traverseProgram buildEnvironment' $ p, [])
   where
     buildEnvironment' :: Program -> Environment
-    buildEnvironment' p@(Program {typedefs, functions, classes, traits, imports}) =
+    buildEnvironment' Program {typedefs, functions, classes, traits, imports} =
         Env {
            typeSynonymTable = Map.fromList [(getId (typedefdef t), t) | t <- typedefs],
            classTable = Map.fromList [(getId (cname c), c) | c <- classes],
            traitTable = Map.fromList [(getId (tname t), t) | t <- traits],
--- FIX ME           importTable = Map.fromList [(qname i,  i) | i <- imports],
-           importTable = Map.fromList [],
            globals = map getFunctionType functions,
            locals = [],
            bindings = [],
@@ -102,7 +97,6 @@ buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
 mergeEnvs :: Environment -> Environment -> Environment
 mergeEnvs Env{classTable     = classTable,
               traitTable     = traitTable,
-              importTable    = importTable,
               typeSynonymTable = typeSynonymTable,
               globals        = globs,
               locals         = locals,
@@ -111,7 +105,6 @@ mergeEnvs Env{classTable     = classTable,
               bt             = bt}
           Env{classTable     = classTable',
               traitTable     = traitTable',
-              importTable    = importTable',
               typeSynonymTable = typeSynonymTable',
               globals        = globs',
               locals         = locals',
@@ -120,7 +113,6 @@ mergeEnvs Env{classTable     = classTable,
               bt             = bt'} =
        Env{classTable     = Map.union classTable classTable',
            traitTable     = Map.union traitTable traitTable',
-           importTable    = Map.union importTable importTable',
            typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',        
            globals        = globs ++ globs',
            locals         = locals ++ locals',
