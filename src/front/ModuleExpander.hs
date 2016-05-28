@@ -46,7 +46,10 @@ importOne importDirs (Import _ target) = do
          [] -> abort $ "Module \"" ++ qname2string target ++
                       "\" cannot be found in imports! Aborting."
          [src] -> do { informImport target src; return src }
-         l@(src:_) -> do { duplicateModuleWarning target l; return src }
+         l@(src:_) -> do 
+             putStrLn $ "Error: Module " ++ (qname2string target) ++ " found in multiple places:"
+             mapM_ (\src -> putStrLn $ "-- " ++ src) l
+             abort "Unable to determine which one to use."
   code <- readFile source
   ast <- case parseEncoreProgram source code of
            Right ast  -> return ast
@@ -61,13 +64,6 @@ qname2string ((Name a):as) = a ++ "." ++ qname2string as
 -- for printing imports: keep old implementation around for debugging purposes
 informImport target src = return ()
 --        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
-
-duplicateModuleWarning :: QName -> [FilePath] -> IO ()
-duplicateModuleWarning target srcs =
-    do putStrLn $ "Error: Module " ++ (qname2string target) ++ " found in multiple places:"
-       mapM_ (\src -> putStrLn $ "-- " ++ src) srcs
-       abort "Unable to determine which one to use."
-
 
 addStdLib target ast@Program{imports = i} =
   if qname2string target == "String" then ast  -- avoids importing String from String
