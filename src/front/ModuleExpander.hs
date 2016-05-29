@@ -61,9 +61,13 @@ qname2string [] = ""
 qname2string [(Name a)] = a
 qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
--- for printing imports: keep old implementation around for debugging purposes
-informImport target src = return ()
---        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
+printImports = False
+
+informImport target src = 
+    if printImports then 
+        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
+    else 
+        return ()      
 
 addStdLib target ast@Program{imports = i} =
   if qname2string target == "String" then ast  -- avoids importing String from String
