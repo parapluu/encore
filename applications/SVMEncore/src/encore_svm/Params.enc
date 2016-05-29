@@ -1,0 +1,517 @@
+bundle Params where
+
+passive class Params {
+  chunk : int    -- number of chunks will be splitted.
+  par   : bool
+
+  msg   : String
+  args  : [String]
+  mode  : String  -- svm_learn, svm_classify, convert
+  vv    : bool
+
+  fin1  : String
+  fin2  : String
+  fout  : String
+  fdef  : String
+
+  path   : String
+
+  loader : Loader
+
+  params : [(String,String)]
+  opt    : int
+
+  -- svm_learn & svm_classify arguments
+  help : String --       -?          - this help
+  v : String --       -v [0..3]   - verbosity level (default 1)
+    -- Learning options:
+  z : String --       -z {c,r,p}  - select between classification (c), regression (r), and
+                                    --preference ranking (p) (see [Joachims, 2002c])
+                                    --(default classification)
+  c : String --       -c float    - C: trade-off between training error
+                                    --and margin (default [avg. x*x]^-1)
+  w : String --       -w [0..]    - epsilon width of tube for regression
+             --                       (default 0.1)
+  j : String --       -j float    - Cost: cost-factor, by which training errors on
+                                    --positive examples outweight errors on negative
+                                    --examples (default 1) (see [Morik et al., 1999])
+  b : String --       -b [0,1]    - use biased hyperplane (i.e. x*w+b0) instead
+                                    --of unbiased hyperplane (i.e. x*w0) (default 1)
+  i : String --       -i [0,1]    - remove inconsistent training examples
+                                    --and retrain (default 0)
+    -- Performance estimation options:
+  x : String --       -x [0,1]    - compute leave-one-out estimates (default 0)
+                                    --(see [5])
+  o : String --       -o [0..2]   - value of rho for XiAlpha-estimator and for pruning
+                                    --leave-one-out computation (default 1.0)
+                                    --(see [Joachims, 2002a])
+  k : String --       -k [0..100] - search depth for extended XiAlpha-estimator
+                                    --(default 0)
+    -- Transduction options (see [Joachims, 1999c], [Joachims, 2002a]):
+  p : String --       -p [0..1]   - fraction of unlabeled examples to be classified
+                                    --into the positive class (default is the ratio of
+                                    --positive and negative examples in the training data)
+    -- Kernel options:
+  t : String --       -t int      - type of kernel function:
+                                     --0: linear (default)
+                                     --1: polynomial (s a*b+c)^d
+                                     --2: radial basis function exp(-gamma ||a-b||^2)
+                                     --3: sigmoid tanh(s a*b + c)
+                                     --4: user defined kernel from kernel.h
+  d : String --       -d int      - parameter d in polynomial kernel
+  g : String --       -g float    - parameter gamma in rbf kernel
+  s : String --       -s float    - parameter s in sigmoid/poly kernel
+  r : String --       -r float    - parameter c in sigmoid/poly kernel
+  u : String --       -u string   - parameter of user defined kernel
+    -- Optimization options (see [Joachims, 1999a], [Joachims, 2002a]):
+  q : String --       -q [2..]    - maximum size of QP-subproblems (default 10)
+  n : String --       -n [2..q]   - number of new variables entering the working set
+                                    --in each iteration (default n = q). Set n<q to prevent
+                                    --zig-zagging.
+  m : String --       -m [5..]    - size of cache for kernel evaluations in MB (default 40)
+                                    --The larger the faster...
+  e : String --       -e float    - eps: Allow that error for termination criterion
+                                    --[y [w*x+b] - 1] = eps (default 0.001)
+  h : String --       -h [5..]    - number of iterations a variable needs to be
+                                    --optimal before considered for shrinking (default 100)
+  f : String --       -f [0,1]    - do final optimality check for variables removed by
+                                    --shrinking. Although this test is usually positive, there
+                                    --is no guarantee that the optimum was found if the test is
+                                    --omitted. (default 1)
+  y : String --       -y string   -> if option is given, reads alphas from file with given
+                                     --and uses them as starting point. (default 'disabled')
+  sharp : String --       -# int      -> terminate optimization, if no progress after this
+                                     --number of iterations. (default 100000)
+    -- Output options:
+  l : String --       -l char     - file to write predicted labels of unlabeled examples
+                                    --into after transductive learning
+  a : String --       -a char     - write all alphas to this file after learning (in the
+                                    --same order as in the training set)
+
+  def init(args: [String],loader:Loader) : void {
+    this.par  = false;
+    this.chunk = 1;  -- won't be splitted by default.
+
+    -- 28 params
+    this.opt = 0;
+
+    this.params = [("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("","")];
+
+    this.help = "";
+    this.v = "";
+    this.z = "";
+    this.c = "";
+    this.w = "";
+    this.j = "";
+    this.b = "";
+    this.i = "";
+    this.x = "";
+    this.o = "";
+
+    this.k = "";
+    this.p = "";
+    this.t = "";
+    this.d = "";
+    this.g = "";
+    this.s = "";
+    this.r = "";
+    this.u = "";
+    this.q = "";
+    this.n = "";
+
+    this.m = "";
+    this.e = "";
+    this.h = "";
+    this.f = "";
+    this.y = "";
+    this.sharp = "";
+    this.l = "";
+    this.a = "";
+
+    this.args   = args;
+    this.mode   = "[]";
+    this.vv     = false;
+
+    this.fin1   = "";
+    this.fin2   = "";
+    this.fout   = "";
+    this.fdef   = "../data/higg_small_training";
+
+    -- Set default path of *.so library
+    this.path = "../lib/libsvm_encore.so";
+    this.loader = loader;
+  }
+
+  def parseArgs() : void {
+    let args = this.args in {
+      if (|args| <= 1) then {
+          print("Missing arguments. Please read the instruction: ");
+          this.printHelp();
+          exit(-1);
+      };
+
+      let
+        a = 1
+        b = 1
+      in {
+        while (a < |args|) {
+          match (args[a]) with {
+            "-chunk"  => {
+              -- Specify number of chunks
+              if (a + 1 < |args|) then {
+                let chunk = (args[a+1]).data in
+                  this.chunk = embed int atoi(#{chunk}); end;
+                a = a + 1;
+              } else {
+                print("Missing argument for -chunk");
+              };
+            }
+            "-lib"  => {
+              -- Specify .so lib
+              if (a + 1 < |args|) then {
+                this.path = args[a + 1];
+                a = a + 1;
+              } else {
+                print("Missing argument for -lib");
+              };
+            }
+            "-eo"  => {
+              -- Specify output dataset name
+              if (a + 1 < |args|) then {
+                this.fout = args[a + 1];
+                a = a + 1;
+              } else {
+                print("Missing argument for -eo");
+              };
+            }
+            "-ei"  => {
+              -- Specify input dataset name
+              if (a + 1 < |args|) then {
+                this.fin1 = args[a + 1];
+                a = a + 1;
+              } else {
+                print("Missing argument for -ei");
+              };
+            }
+            "-im"  => {
+              -- Specify input model fine name
+              if (a + 1 < |args|) then {
+                this.fin2 = args[a+1];
+                a = a + 1;
+              } else {
+                print("Missing argument for -im");
+              };
+            }
+            "-vv"  => {
+              -- Verbal printing
+              this.vv = true;
+            }
+            "-par"  => {
+              -- Parallel mode
+              this.par = true;
+            }
+            "convert"  => {
+              -- Convert data only.
+              this.mode = "convert";
+            }
+            "learn"  => {
+              -- svm_learn with training dataset.
+              this.mode = "learn"
+            }
+            "classify"  => {
+              -- svm_classify with testing dataset and model.
+              this.mode = "classify"
+            }
+            "-ed"  => {
+              -- Quick mode with default input and output file names.
+              this.mode = "convert";
+              this.fin1 = this.fdef.concatenate(".csv");
+              this.fout = this.fdef.concatenate(".svm");
+            }
+            "-eh"  => {
+              -- Printing help instruction
+              print("Please read the instruction: ");
+              this.printHelp();
+              exit(-1);
+            }
+            "-ea"  => {
+              -- Printing all help instruction
+              print("Please read the instruction in details: ");
+              this.printHelp();
+              this.loader.call("print_help",0);
+              exit(-1);
+            }
+            -- svm_learn & svm_classify arguments
+            "-?"  => {
+              this.help = args[a];
+              this.params[b] = (args[a],args[a]); b = b + 1;
+            }
+            "-v"  => {
+              if (a + 1 < |args|) then {
+                this.v = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-z"  => {
+              if (a + 1 < |args|) then {
+                this.z = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-c"  => {
+              if (a + 1 < |args|) then {
+                this.c = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-w"  => {
+              if (a + 1 < |args|) then {
+                this.w = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-j"  => {
+              if (a + 1 < |args|) then {
+                this.j = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-b"  => {
+              if (a + 1 < |args|) then {
+                this.b = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-i"  => {
+              if (a + 1 < |args|) then {
+                this.i = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-x"  => {
+              if (a + 1 < |args|) then {
+                this.x = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-o"  => {
+              if (a + 1 < |args|) then {
+                this.o = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-k"  => {
+              if (a + 1 < |args|) then {
+                this.k = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-p"  => {
+              if (a + 1 < |args|) then {
+                this.p = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-t"  => {
+              if (a + 1 < |args|) then {
+                this.t = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-d"  => {
+              if (a + 1 < |args|) then {
+                this.d = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-g"  => {
+              if (a + 1 < |args|) then {
+                this.g = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-s"  => {
+              if (a + 1 < |args|) then {
+                this.s = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-r"  => {
+              if (a + 1 < |args|) then {
+                this.r = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-u"  => {
+              if (a + 1 < |args|) then {
+                this.u = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-q"  => {
+              if (a + 1 < |args|) then {
+                this.q = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-n"  => {
+              if (a + 1 < |args|) then {
+                this.n = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-m"  => {
+              if (a + 1 < |args|) then {
+                this.m = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-e"  => {
+              if (a + 1 < |args|) then {
+                this.e = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-h"  => {
+              if (a + 1 < |args|) then {
+                this.h = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-f"  => {
+              if (a + 1 < |args|) then {
+                this.f = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-y"  => {
+              if (a + 1 < |args|) then {
+                this.y = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-#"  => {
+              if (a + 1 < |args|) then {
+                this.sharp = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-l"  => {
+              if (a + 1 < |args|) then {
+                this.l = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            "-a"  => {
+              if (a + 1 < |args|) then {
+                this.a = args[a+1];
+                this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
+              } else print("Missing argument.");
+            }
+            other  => {
+              -- Wrong arguments.
+              print("Wrong arguments, exiting.");
+              this.printHelp();
+              exit(-1);
+            }
+          };
+          a = a + 1;
+        };
+        this.opt = b-1;
+      }
+    }
+  }
+
+  def pair(i:char,p:(String,String)) : String {
+    if i=='l' then
+      match p with (a,b) => a
+    else if i=='r' then
+      match p with (a,b) => b
+    else
+      match p with (a,b) => a.concatenate(" ".concatenate(b))
+  }
+
+  def toChar(opt: embed char** end) : embed char** end {
+    let j = 1 in
+    for i in this.params {
+      let
+        tem = this.pair('l',i)
+        a = this.pair('l',i).data
+        b = this.pair('r',i).data
+      in {
+        embed void
+          char** opt = #{opt};
+          if (strcmp(#{a},"")!=0) {
+            opt[#{j}] = encore_alloc(encore_ctx(),strlen(#{a}));
+            opt[#{j}+1] = encore_alloc(encore_ctx(),strlen(#{b}));
+
+            opt[#{j}] = #{a};
+            opt[#{j}+1] = #{b};
+          }
+        end;
+        if (tem.length!=0) then j = j + 2;
+      }
+    };
+    opt
+  }
+
+  def fetchParams(n:int,args:[String]) : embed char** end {
+    let
+      nopt = this.opt
+
+      a0 = (args[0]).data
+      a1 = (args[1]).data
+      a2 = (args[2]).data
+      a3 = (args[3]).data
+
+      opt =
+        embed (embed char** end)
+         int n = #{nopt}*2+#{n};
+         char** opt = encore_alloc(encore_ctx(),sizeof(char*)*n);
+
+         opt[0]   = #{a0};
+         opt[n-1] = #{a3};
+
+         if (#{n}==4) { // svm_classify
+            opt[n-2] = #{a2};
+            opt[n-3] = #{a1};
+         }  // svm_learn
+         else if (#{n}==3) {
+            opt[n-2] = #{a1};
+         }
+         opt;
+        end
+      in
+        this.toChar(opt)
+  }
+
+  def printHelp() : void {
+    print("\n----------------------------------------------------------------------------------------");
+    print("Usage: ");
+    print("{}", this.args[0]);
+    print("  [ -lib: path's lib | -ea : all help with [options] | -eh : help | -ed : convert-only ]");
+    print("\n\t| convert [-chunk n] -ei csv_file    -eo svml_file ");
+    print("\n            [none]      convert from csv to svm format only");
+    print("\n            -chunk -1   join from n file into one");
+    print("\n            -chunk n    (n>1) split file into n files");
+    print("\n\t| svm_learn    [options] -ei in_file     -eo model_file ");
+    print("\n\t| svm_classify [options] -ei in_file     -eo out_file    -im model_file ");
+    print("\n----------------------------------------------------------------------------------------");
+    print("\nmake for SVM-ENCORE               Huu-Phuc Vo, 2016");
+    print("\nThanks to SVMLight's authors for the open source library.");
+    print("\nUSAGE: make [clean | help | info | all | tidy");
+    print("\n             svm_light_api | svm_encore | ");
+    print("\n             svm_lib | distribute]");
+    print("\n    svm_light_api       builds the learning, classfication modules, and libraries");
+    print("\n    svm_encore          builds the svm_encore module");
+    print("\n    svm_lib             builds shared object library that can be linked into");
+    print("\n    distribute          distributes shared object library,");
+    print("\n                        and executable files to suitable folders");
+    print("\n    help                prints help for using makefile");
+    print("\n    all (default)       builds svm_light_api, svm_encore, and svm_lib,");
+    print("\n                        then distributes libraries");
+    print("\n    clean               removes .o and target files");
+    print("\n----------------------------------------------------------------------------------------");
+  }
+
+}

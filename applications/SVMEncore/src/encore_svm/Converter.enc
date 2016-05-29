@@ -1,0 +1,265 @@
+{-*****************************************************************
+  Transform SVMLight version from sequential to parallel version.
+  * Convert CSV to SVMLight format.
+  * Split the input file into n-chunks.
+  * Join n-chunks into 1 single file.
+*****************************************************************-}
+bundle Converter where
+
+embed
+#ifndef  _CONVERTER_ENC_
+#define  _CONVERTER_ENC_
+#include <math.h>
+#endif
+end
+
+class Converter {
+  fin1  : String
+  fin2  : String
+  fout  : String
+
+  vv    : bool
+  chunk : int
+  par   : bool
+  len   : int
+
+  def init(vv:bool,chunk:int) : void {
+    this.chunk = chunk;
+    this.fin1  = "input1.dat";
+    this.fout  = "output1.out";
+    this.vv    = vv;
+    this.len   = 1024*8;
+  }
+
+  def setup(fin1:String, fin2:String, fout:String) : void {
+    this.fin1 = fin1;
+    this.fin2 = fin2;
+    this.fout = fout;
+  }
+
+  -----------------------------------
+  -- Count line number
+  -----------------------------------
+  def numOfLines() : int {
+    let din = this.fin1.data;
+    let len = this.len;
+    embed int
+      FILE *fin = fopen(#{din},"r");
+      size_t n_bytes = #{len};
+      int linecounter = 1;
+      char *line =  (char*) malloc(sizeof(char) * n_bytes);
+      if (!line) {
+        printf("Memory allocation error, exiting.\n");
+        exit(1);
+      }
+
+      while (fgets(line, n_bytes, fin)) linecounter++;
+      fclose(fin);
+
+      linecounter;
+    end
+  }
+
+  -----------------------------------
+  -- Convert CSV to SVMLight format.
+  -----------------------------------
+  def csv2svml(fin:String,fout:String) : void {
+    if (this.chunk==1) then { this.convert(fin,fout);}
+    else if (this.chunk>1) then {
+      this.convert(fin,fout);
+      this.split(fin,fout);
+    }
+    else {
+      this.convert(fin,fout);
+      this.join(fin,fout.concatenate("_joined"));
+    }
+  }
+
+  def convert(fin:String,fout:String) : void {
+
+    this.fin1 = fin;
+    this.fout = fout;
+
+    let
+      len  = this.len
+      din  = fin.data
+      dout = fout.data
+      vv   = this.vv
+    in
+    embed void
+      FILE *fin  = fopen(#{din}, "r");
+      FILE *fout = fopen(#{dout}, "w+");
+
+      if (!fin || !fout) {
+          printf("Cannot open input or output file, exiting.\n");
+          exit(1);
+      }
+
+      size_t n_bytes = #{len};
+      char *line =  (char*) malloc(sizeof(char) * n_bytes);
+      char *tok, *lastTok;
+      if (!line) {
+        printf("Memory allocation error, exiting.\n");
+        exit(1);
+      }
+
+      // Mark the first line of data is the label
+      fprintf(fout,"# ");
+
+      while (fgets(line, n_bytes, fin)){
+
+        char* tmp = strdup(line);
+        tok = strtok(tmp, ",");
+
+        // create new line to store the result
+        char *tem =  (char*) malloc(sizeof(char) * n_bytes);
+
+        int64_t count = 1;
+
+        // Convert each line to SVMLight format
+        while (tok && *tok) {    // && strcmp(tok,"s")!=0
+
+          // convert count to string
+          char snum[10];
+          sprintf(snum,"%d",count);
+
+          // convert to "1:2.345 " format
+          strncat(tem,snum,strlen(snum));
+          strncat(tem,":",1);
+          strncat(tem,tok,strlen(tok));
+          strncat(tem," ",1);
+
+          // reserve the last token
+          lastTok = encore_alloc(encore_ctx(),strlen(tok));
+          strncpy(lastTok,tok,strlen(tok));
+
+          // Get the next token
+          tok = strtok(NULL, ",\n");
+          count++;
+        };
+
+        char *result =  (char*) malloc(sizeof(char) * n_bytes);
+
+        // Add classifier:  +/-1 1:1.2 2:2.3 3:3.4
+        // "b" : background process = -1
+        // "s" : signal process = +1
+        if (strcmp(lastTok,"s")==0) {strncpy(result,"+1 ",strlen("+1 "));}
+        else if (strcmp(lastTok,"b")==0) strncpy(result,"-1 ",strlen("-1 "));
+        else if (strcmp(lastTok,"Label")==0) strncpy(result,strcat(lastTok," "),strlen(lastTok)); // with training data, need to revert
+        else strncpy(result,"0 ",strlen("0 "));
+
+        // Concat tem to result
+        if (strcmp(lastTok,"s")!=0 && strcmp(lastTok,"b")!=0) strncat(result,tem,strlen(tem));
+        else strncat(result,tem,strlen(tem)-strlen(" 33:s"));
+        strncat(result,"\n",strlen("\n"));
+
+        // write the result to file
+        fprintf(fout, result);
+
+        free(tmp);
+      };
+
+      fclose(fin);
+      fclose(fout);
+    end
+  }
+
+  -----------------------------------
+  -- Join n-files to 1-file.
+  -----------------------------------
+  def join(fin:String, fout:String) : void {
+    this.fin1 = fin;
+    this.fout = fout;
+    this.joinChar(fin.data,fout.data);
+  }
+
+  def joinChar(fin:embed char* end, fout:embed char* end) : void {
+    let len = this.len;
+    embed void
+      int len = #{len};
+      char line[len]; // or some other suitable maximum line size
+      char fin[len];
+      char fout[len];
+
+      int filecounter = 1;
+
+      sprintf(fout, "%s", #{fout});
+      sprintf(fin, "%s%d", #{fin}, filecounter);
+
+      FILE* fr = fopen(fin, "r");
+      FILE* fw = fopen(fout, "wa");
+
+      if (fw == NULL || fr == NULL) {
+        printf("==== File does not exist. Can not open files ====\n");
+        exit(1);
+      }
+
+      char ch;
+      while (fr)  {
+        while(( ch = fgetc(fr) ) != EOF )  fputc(ch,fw);
+        fclose(fr);
+
+        filecounter++;
+        sprintf(fin, "%s%d", #{fin}, filecounter);
+        fr = fopen(fin, "r");
+        if (fr == NULL) break;
+      }
+
+      fclose(fr);
+      fclose(fw);
+    end
+  }
+
+  -----------------------------------
+  -- Split 1 file into n-chunks
+  -----------------------------------
+  def split(fin:String, fout:String) : void {
+    this.fin1 = fin;
+    this.fout = fout;
+    this.splitChar(fin.data,fout.data);
+  }
+
+  def splitChar(fin:embed char* end, fout:embed char* end) : void {
+    let nol = this.numOfLines();
+    let nChunk = this.chunk;
+    let len = this.len;
+    embed void
+      FILE *ptr_readfile;
+      FILE *ptr_writefile;
+      char line [#{len}]; // or some other suitable maximum line size
+      char fileoutputname[155];
+      int filecounter=1, linecounter=1;
+      int numOfLines = 0, linePerChunk = 800000;
+
+      // Specify number of chunks
+      numOfLines   = #{nol};
+      linePerChunk =  numOfLines / #{nChunk} + 1;
+
+      // Open input file
+      ptr_readfile = fopen(#{fin},"r");
+      if (!ptr_readfile) exit(1);
+
+      // Create output file numbering by filecounter.
+      sprintf(fileoutputname, "%s%d", #{fout}, filecounter);
+      ptr_writefile = fopen(fileoutputname, "w");
+      int lines = 1;
+      while (fgets(line, sizeof line, ptr_readfile)!=NULL) {
+        if (linecounter == linePerChunk+1) {
+          fclose(ptr_writefile);
+          linecounter = 1;
+          filecounter++;
+          sprintf(fileoutputname, "%s%d",  #{fout}, filecounter);
+          ptr_writefile = fopen(fileoutputname, "w");
+          if (!ptr_writefile) exit(1);
+        }
+        if (line[0]!='\n') {
+          fprintf(ptr_writefile,"%s", line);
+          linecounter++;
+          lines++;
+        }
+      }
+
+      fclose(ptr_readfile);
+    end
+  }
+}

@@ -1,0 +1,68 @@
+import Converter
+import Core
+import Params
+
+class Main {
+  converter : Converter
+  loader    : Loader
+  params    : Params
+
+  def initialize(args: [String]) : void {
+    this.loader = new Loader();
+    this.params = new Params(args,this.loader);
+  }
+
+  def main(args: [String]) : void {
+    -- Initialize arguments
+    this.initialize(args);
+
+    let params = this.params in {
+      -- Parse the input arguments
+      params.parseArgs();
+      if params.vv then {
+        print("=== Initializing ===");
+        print("=== Parsing ===");
+      };
+
+      if params.vv then print("=== Selected mode : {} ===\n",params.mode);
+      match params.mode with {
+        "convert"      => {
+          if params.vv then print("=== Instantiating Converter() ===\n\tfin  = {}\n\tfout = {}\n",params.fin1, params.fout);
+
+          -- Test convert and split input.
+          this.converter = new Converter(params.vv,params.chunk);
+
+          this.converter!setup(params.fin1," ",params.fout);
+
+          if params.vv then print("=== Converting csv to svml format ===");
+          await this.converter.csv2svml(params.fin1,params.fout);
+
+          if params.vv then print("=== Done ===");
+        }
+        other    => {
+          if params.vv then print("=== Loading library ===");
+          this.loader!load("lib/libsvm_encore.so");
+
+          if params.vv then print("=== Setting up arguments ===");
+          let args = new [String](4) in {
+            args[0] = params.mode;
+            args[1] = params.fin1;
+            args[2] = params.fin2;
+            args[3] = params.fout;
+            this.loader!setArgs(args,this.params);
+
+            -- svm-encore-train mode
+            if params.mode.equals("learn") then {
+                if params.vv then print("=== Training ===\n\tfin  = {}\n\tfout = {}\n",params.fin1, params.fout);
+                await this.loader.call("svm_learn_main",3);
+            } else { -- svm-encore-classify mode
+              if params.vv then print("=== Classifying ===\n\tfin1  = {}\n\tfin2  = {}\n\tfout = {}\n",params.fin1, params.fin2, params.fout);
+              await this.loader.call("svm_classify_main",4);
+            };
+          };
+          if params.vv then print("=== Done ===");
+        }
+      };
+    }
+  }
+}

@@ -1,0 +1,123 @@
+bundle Core where
+
+embed
+#ifndef _LIB_LOADER_
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <stdio.h>
+#endif
+typedef void (*void_function)(void);
+typedef int  (*lib_function)(int argc, char* args[]);
+end
+
+class Loader {
+  module : embed void* end
+  path   : String                 -- path of *.so library.
+  method : String
+
+  args   : [String]
+  params : Params
+
+  def init() : void {
+    this.path   = "libsvm_encore.so";
+    this.method = "svm_classify_main"
+  }
+
+  def setArgs(args:[String],params:Params) : void {
+    this.args   = args;
+    this.params = params;
+  }
+
+  -- Print out arguments and flags for debuging purpose
+  def showParams() : void {
+    for i in this.params.params {
+      match i with
+        ("","") => print("{}-, ",this.params.pair('a',i))
+        other   => print("{} , ",this.params.pair('a',i))
+    };
+  }
+
+  -- Call the method from dynamical library
+  -- method : specified method name.
+  -- n: number of arguments, 0 : calling void method(), otherwise: return value
+  def call(method:String,n:int) : void {
+    this.load(this.path);
+    let
+      name = method.data
+      module = this.module
+
+      -- Load the first four mandatory arguments
+      args = this.args
+      a0 = (args[0]).data
+      a1 = (args[1]).data
+      a2 = (args[2]).data
+      a3 = (args[3]).data
+
+      -- Get the number of other flags/arguments
+      nopt = this.params.opt
+      opt  = this.params.fetchParams(n,this.args)
+    in
+    embed void
+       void_function v_function;
+       lib_function function;
+
+       int result;
+       int n = #{n};
+
+       char** opt = #{opt};
+       int nopt = #{nopt};
+
+       // n = 0 : calling void method.
+       // otherwise : calling method that returns value.
+       if (n==0) v_function = dlsym(#{module}, #{name});
+       else function   = dlsym(#{module}, #{name});
+
+       // raise error when failing to call the method.
+       const char* error = dlerror();
+       if (error != NULL) {
+         fprintf(stderr, "Couldn't find this function: %s\n", error);
+         exit(1);
+       };
+
+       // Now call the function in the dynamic linking library
+       if (n==0) (*v_function)();
+       else {
+          opt[0] = #{a0};
+          // Pick and Initialize all arguments off from command line
+          char** arg = encore_alloc(encore_ctx(),#{nopt}*2+#{n});
+          for (int i=0;i<(#{nopt}*2+#{n});i++) {
+            arg[i] = encore_alloc(encore_ctx(),strlen(opt[i]));
+            strcpy(arg[i],opt[i]);
+          }
+          result = (*function)(#{nopt}*2+#{n},opt);
+       }
+
+       // All done, close things cleanly
+       dlclose(#{module});
+    end;
+  }
+
+  -- Load the .so dynamic linking library
+  -- path : given path of .so library
+  def load(path:String) : void {
+    this.path = path;
+    let
+      tem = this.module
+      p = path.data
+    in {
+      embed void
+       void *module = NULL;
+       // Load dynamically loaded library
+       module = dlopen(((char*)#{p}), RTLD_LAZY);
+
+       const char* error = dlerror();
+       if (error != NULL) {
+         fprintf(stderr, "Couldn't open libsvm_encore.so: %s\n", error);
+         exit(1);
+        };
+        #{tem} = module;
+      end;
+      this.module = tem;
+    }
+  }
+}
