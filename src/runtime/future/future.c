@@ -199,43 +199,39 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   }
 
   {
-    closure_entry_t *current = fut->children;
-    while(current) {
-      switch ((ctx->current == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
-      {
-      case DETACHED_CLOSURE:
-        {
-          encore_arg_t result = run_closure(ctx, current->closure, value);
-          future_fulfil(ctx, current->future, result);
+      closure_entry_t *current = fut->children;
+      while(current) {
+          if (ctx->current == task_runner_current()) {
+              // TASK_CLOSURE case
 
-          pony_gc_recv(ctx);
-          trace_closure_entry(ctx, current);
-          pony_recv_done(ctx);
-          break;
-        }
-      case TASK_CLOSURE:
-        {
-          default_task_env_s* env = encore_alloc(ctx, sizeof *env);
-          *env = (default_task_env_s){.fn = current->closure, .value = value};
-          encore_task_s* task = task_mk(ctx, default_task_handler, env, NULL, NULL);
-          task_attach_fut(task, current->future);
-          task_schedule(task);
+              default_task_env_s* env = encore_alloc(ctx, sizeof *env);
+              *env = (default_task_env_s){.fn = current->closure, .value = value};
+              encore_task_s* task = task_mk(ctx, default_task_handler, env, NULL, NULL);
+              task_attach_fut(task, current->future);
+              task_schedule(task);
 
-          // Notify that I have received a children
-          pony_gc_recv(ctx);
-          trace_closure_entry(ctx, current);
-          pony_recv_done(ctx);
+              // Notify that I have received a children
+              pony_gc_recv(ctx);
+              trace_closure_entry(ctx, current);
+              pony_recv_done(ctx);
 
-          // Notify I am going to send the children
-          pony_gc_send(ctx);
-          pony_traceobject(ctx, task, task_trace);
-          pony_traceobject(ctx, current->future, future_type.trace);
-          pony_send_done(ctx);
-          break;
-        }
+              // Notify I am going to send the children
+              pony_gc_send(ctx);
+              pony_traceobject(ctx, task, task_trace);
+              pony_traceobject(ctx, current->future, future_type.trace);
+              pony_send_done(ctx);
+          } else {
+              // DETACHED_CLOSURE case
+
+              encore_arg_t result = run_closure(ctx, current->closure, value);
+              future_fulfil(ctx, current->future, result);
+
+              pony_gc_recv(ctx);
+              trace_closure_entry(ctx, current);
+              pony_recv_done(ctx);
+          }
+          current = current->next;
       }
-      current = current->next;
-    }
   }
   {
     actor_list *current = fut->awaited_actors;
