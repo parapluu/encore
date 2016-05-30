@@ -254,7 +254,8 @@ program = do
   whiteSpace
   bundle <- bundledecl
   imports <- many importdecl
-  etl <- embedTL
+  etls <- embedTL
+  let etl = [etls]
   decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function) 
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof

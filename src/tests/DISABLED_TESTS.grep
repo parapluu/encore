@@ -1,4 +1,5 @@
 encore/modules/ClosureImporter
+encore/modules/DupImporter
 encore/modules/lib
 encore/concurrency/async_block
 encore/concurrency/async_chain

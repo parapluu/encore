@@ -20,7 +20,7 @@ import AST.Meta hiding(Closure, Async)
 data Program = Program {
   source :: SourceName,
   bundle :: BundleDecl,
-  etl :: EmbedTL,
+  etl :: [EmbedTL],
   imports :: [ImportDecl],
   typedefs :: [Typedef],
   functions :: [Function],
@@ -70,12 +70,6 @@ data BundleDecl = Bundle {
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
       itarget :: QName
-    }
-    | PulledImport {
-      imeta :: Meta ImportDecl,
-      qname :: QName,
-      isrc :: FilePath,
-      iprogram :: Program
     } deriving (Show)
 
 instance HasMeta ImportDecl where
@@ -593,18 +587,7 @@ getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
 traverseProgram :: (Program -> [a]) -> Program -> [a]
-traverseProgram f program =
-  let
-    programs = flattenImports program
-  in
-    concatMap f programs
-  where
-    flattenImports :: Program -> [Program]
-    flattenImports program@Program{imports} =
-      let
-        programs = map iprogram imports
-      in
-        program : concatMap flattenImports programs
+traverseProgram f program = f program
 
 getTrait :: Type -> Program -> TraitDecl
 getTrait t p =
@@ -622,4 +605,4 @@ allTraits = traverseProgram traits
 
 allFunctions = traverseProgram functions
 
-allEmbedded = traverseProgram ((:[]) . etlheader . etl)
+allEmbedded = traverseProgram (map etlheader . etl)

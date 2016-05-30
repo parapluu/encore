@@ -1,0 +1,4 @@
+import Top
+
+def left() : int
+  top() - 11

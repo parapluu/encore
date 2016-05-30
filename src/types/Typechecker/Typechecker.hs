@@ -29,11 +29,12 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
-typecheckEncoreProgram p =
-  case buildEnvironment p of
-    (Right env, warnings) ->
-      runState (runExceptT (runReaderT (doTypecheck p) env)) warnings
+typecheckEncoreProgram :: Environment -> Program -> (Either TCError (Environment, Program), [TCWarning])
+typecheckEncoreProgram env p =
+  case buildEnvironment env p of
+    (Right env, warnings) -> do
+      let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
+      runState (runExceptT reader) warnings
     (Left err, warnings) -> (Left err, warnings)
 
 -- | The actual typechecking is done using a Reader monad wrapped
@@ -55,26 +56,16 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-  doTypecheck p@Program{imports,  typedefs, functions, traits, classes} = do
+  doTypecheck p@Program{typedefs, functions, traits, classes} = do
     etypedefs <- mapM typecheck typedefs
     etraits  <- mapM typecheck traits
     eclasses <- mapM typecheck classes
-    eimps    <- mapM typecheck imports
     efuns    <- mapM typecheck functions
-    return p{imports = eimps
+    return p{functions = efuns
             ,typedefs = etypedefs
-            ,functions = efuns
             ,traits = etraits
             ,classes = eclasses
             }
-
-instance Checkable ImportDecl where
-     -- TODO write down type rule
-     doTypecheck (PulledImport meta name src program) =
-       do eprogram <- doTypecheck program
-          return $ PulledImport meta name src eprogram
-     doTypecheck (Import _ _) =
-         error "Types.hs: Import AST Nodes should not exist during typechecking"
 
 instance Checkable Typedef where
   doTypecheck t@Typedef{typedefdef} = do
@@ -87,7 +78,6 @@ instance Checkable Typedef where
       return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs'}
        where
          distinctParams p = length p == length (nub p)
-
 
 typecheckNotNull :: Expr -> TypecheckM Expr
 typecheckNotNull expr = do

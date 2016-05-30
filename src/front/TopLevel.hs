@@ -20,6 +20,7 @@ import Data.List.Utils(split)
 import Data.Maybe
 import Data.String.Utils
 import Control.Monad
+import qualified Data.Map as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 
@@ -32,6 +33,7 @@ import AST.Desugarer
 import ModuleExpander
 import Typechecker.Prechecker
 import Typechecker.Typechecker
+import Typechecker.Environment
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -39,9 +41,8 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 
-import Text.Parsec.Pos as P
-import qualified AST.Meta as Meta
 import Identifiers
+
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
 standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_BUNDLES" ))
@@ -219,39 +220,14 @@ main =
                   (flip hPrint $ show ast)
 
        verbatim options "== Expanding modules =="
-       expandedAst <- expandModules importDirs (addStdLib ast) -- TODO: this should probably NOT happen here
-
-       verbatim options "== Desugaring =="
-       let desugaredAST = desugarProgram expandedAst
-
-       verbatim options "== Prechecking =="
-       (precheckedAST, precheckingWarnings) <-
-           case precheckEncoreProgram desugaredAST of
-             (Right ast, warnings)  -> return (ast, warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-       showWarnings precheckingWarnings
-
-       verbatim options "== Typechecking =="
-       (typecheckedAST, typecheckingWarnings) <-
-           case typecheckEncoreProgram precheckedAST of
-             (Right ast, warnings)  -> return (ast, warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-       showWarnings typecheckingWarnings
-
-       when (Intermediate TypeChecked `elem` options) $ do
-         verbatim options "== Printing typed AST =="
-         withFile (changeFileExt sourceName "TAST") WriteMode
-                  (flip hPrint $ show typecheckedAST)
+       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast
 
        verbatim options "== Optimizing =="
-       let optimizedAST = optimizeProgram typecheckedAST
+       let optimizedModules = fmap optimizeProgram allModules
 
        verbatim options "== Generating code =="
-       exeName <- compileProgram optimizedAST sourceName options
+       let fullAst = compressModules optimizedModules
+       exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
            (do verbatim options $ "== Running '" ++ exeName ++ "' =="
                system $ "./" ++ exeName
@@ -259,12 +235,39 @@ main =
                return ())
        verbatim options "== Done =="
     where
+      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
+      typecheck options sourceName env prog = do
+         verbatim options "== Desugaring =="
+         let desugaredAST = desugarProgram prog
+
+         verbatim options "== Prechecking =="
+         (precheckedAST, precheckingWarnings) <-
+           case precheckEncoreProgram env desugaredAST of
+             (Right ast, warnings)  -> return (ast, warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
+         showWarnings precheckingWarnings
+
+         verbatim options "== Typechecking =="
+         ((newEnv, typecheckedAST), typecheckingWarnings) <-
+           case typecheckEncoreProgram env precheckedAST of
+             (Right (newEnv, ast), warnings) -> return ((newEnv, ast), warnings)
+             (Left error, warnings) -> do
+               showWarnings warnings
+               abort $ show error
+         showWarnings typecheckingWarnings
+
+         when (Intermediate TypeChecked `elem` options) $ do
+           verbatim options "== Printing typed AST =="
+           withFile (changeFileExt sourceName "TAST") WriteMode
+                    (flip hPrint $ show typecheckedAST)
+
+         return $ (newEnv, typecheckedAST)
+        
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)
-      addStdLib ast@Program{imports = i} = ast{imports = i ++ stdLib}
-      -- TODO: move this elsewhere
-      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) [Name "String"]]
 
       showWarnings = mapM print
       helpMessage =

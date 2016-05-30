@@ -33,9 +33,9 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
 
       embeddedCode = A.traverseProgram embedded prog
         where
-          embedded A.Program{A.source, A.etl = A.EmbedTL{A.etlbody}} =
+          embedded A.Program{A.source, A.etl} =
               [commentSection $ "Embedded Code from " ++ show source] ++
-              [Embed etlbody]
+              map (Embed . A.etlbody) etl
 
       sharedMessages = [msgAllocDecl, msgFutResumeDecl, msgFutSuspendDecl, msgFutAwaitDecl, msgFutRunClosureDecl]
           where

@@ -1,0 +1,5 @@
+import Top
+
+def right() : int
+  top() + 1
+

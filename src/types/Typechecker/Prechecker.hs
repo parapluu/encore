@@ -25,10 +25,10 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Program -> (Either TCError Program, [TCWarning])
-precheckEncoreProgram p =
+precheckEncoreProgram :: Environment -> Program -> (Either TCError Program, [TCWarning])
+precheckEncoreProgram env p =
   -- TODO: We should be able to write this using do-notation!
-  case buildEnvironment p of
+  case buildEnvironment env p of
     (Right env, warnings) ->
       runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
     (Left err, warnings) -> (Left err, warnings)
@@ -40,15 +40,13 @@ class Precheckable a where
     precheck x = local (pushBT x) $ doPrecheck x
 
 instance Precheckable Program where
-    doPrecheck p@Program{imports, typedefs, functions, traits, classes} = do
+    doPrecheck p@Program{typedefs, functions, traits, classes} = do
       assertDistinctness
-      imports'   <- mapM precheck imports
       typedefs'   <- mapM precheck typedefs
       functions' <- mapM precheck functions
       traits'    <- mapM precheck traits
       classes'   <- mapM precheck classes
-      return p{imports = imports'
-              ,typedefs = typedefs'
+      return p{typedefs = typedefs'
               ,functions = functions'
               ,traits = traits'
               ,classes = classes'
@@ -62,13 +60,6 @@ instance Precheckable Program where
                             map (getId . tname) (allTraits p) ++
                             map (getId . cname) (allClasses p) ++
                             map (getId . typedefdef) (allTypedefs p)
-
-instance Precheckable ImportDecl where
-    doPrecheck i@PulledImport{iprogram} = do
-      iprogram' <- doPrecheck iprogram
-      return i{iprogram = iprogram'}
-    doPrecheck Import{} =
-      error "Prechecker.hs: Import AST Nodes should not exist during typechecking"
 
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
