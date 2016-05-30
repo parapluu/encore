@@ -41,6 +41,14 @@ class Main
   maybeFun : (int -> Maybe int)
   funFun : (int -> (int -> int))
 
+  def free() : void {
+    let f = \() -> {
+      for i in [0..5] {
+        print i;
+      }
+    }
+  }
+
   def pprint(x: int): void
     print x
 

@@ -323,7 +323,6 @@ extractTypes (Program{functions, traits, classes}) =
           List.foldr (\h acc -> (extractHeaderTypes h) ++ acc) [] matchfunheaders ++
           List.foldr (\b acc -> (extractExprTypes b) ++ acc) [] matchfunbodies
 
-
       extractTraitTypes :: TraitDecl -> [Type]
       extractTraitTypes Trait {tname, treqs, tmethods} =
           typeComponents tname ++
@@ -350,7 +349,6 @@ extractTypes (Program{functions, traits, classes}) =
         List.foldr (\h -> (extractHeaderTypes h ++)) [] mheaders ++
         List.foldr (\b -> (extractExprTypes b ++)) [] mbodies
 
-
       extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype
 
@@ -364,34 +362,37 @@ freeTypeVars = List.nub . List.filter isTypeVar . extractExprTypes
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
-    where
-      freeVariables' bound Match {arg, clauses} =
-          freeVariables' bound arg ++ clausesFreeVars
-          where
-            clausesFreeVars = concatMap clauseFreeVars clauses
-            clauseFreeVars MatchClause{mcpattern, mcguard, mchandler} =
-                let boundInPattern = map fst $ freeVariables' [] mcpattern
-                    bound' = boundInPattern ++ bound
-                    freeInGuard = freeVariables' bound' mcguard
-                    freeInHandler = freeVariables' bound' mchandler
-                in
-                  freeInGuard ++ freeInHandler
-      freeVariables' bound var@(VarAccess {name})
-          | name `elem` bound = []
-          | otherwise = [(name, getType var)]
-      freeVariables' bound fCall@(FunctionCall {name, args})
-          | name `elem` bound = concatMap (freeVariables' bound) args
-          | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
-          where
-            arrType = arrowType (map getType args) (getType fCall)
-      freeVariables' bound Closure {eparams, body} =
-          freeVariables' bound' body
-          where
-            bound' = bound ++ map pname eparams
-      freeVariables' bound Let {decls, body} =
-          freeVars ++ freeVariables' bound' body
-          where
-            (freeVars, bound') = List.foldr fvDecls ([], bound) decls
-            fvDecls (x, expr) (free, bound) =
-              (freeVariables' (x:bound) expr ++ free, x:bound)
-      freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
+  where
+    freeVariables' :: [Name] -> Expr -> [(Name, Type)]
+    freeVariables' bound Match {arg, clauses} =
+        freeVariables' bound arg ++ clausesFreeVars
+        where
+          clausesFreeVars = concatMap clauseFreeVars clauses
+          clauseFreeVars MatchClause{mcpattern, mcguard, mchandler} =
+              let boundInPattern = map fst $ freeVariables' [] mcpattern
+                  bound' = boundInPattern ++ bound
+                  freeInGuard = freeVariables' bound' mcguard
+                  freeInHandler = freeVariables' bound' mchandler
+              in
+                freeInGuard ++ freeInHandler
+    freeVariables' bound var@(VarAccess {name})
+        | name `elem` bound = []
+        | otherwise = [(name, getType var)]
+    freeVariables' bound fCall@(FunctionCall {name, args})
+        | name `elem` bound = concatMap (freeVariables' bound) args
+        | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
+        where
+          arrType = arrowType (map getType args) (getType fCall)
+    freeVariables' bound Closure {eparams, body} =
+        freeVariables' bound' body
+        where
+          bound' = bound ++ map pname eparams
+    freeVariables' bound Let {decls, body} =
+        freeVars ++ freeVariables' bound' body
+        where
+          (freeVars, bound') = List.foldr fvDecls ([], bound) decls
+          fvDecls (x, expr) (free, bound) =
+            (freeVariables' (x:bound) expr ++ free, x:bound)
+    freeVariables' bound e@For{name, step, src, body} =
+      freeVariables' (name:bound) =<< getChildren e
+    freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
