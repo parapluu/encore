@@ -227,6 +227,12 @@ main =
 
        verbatim options "== Generating code =="
        let fullAst = compressModules optimizedModules
+
+       unless (TypecheckOnly `elem` options) $
+         case checkForMainClass fullAst of
+           Just error -> abort $ show error
+           Nothing    -> return ()
+
        exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
            (do verbatim options $ "== Running '" ++ exeName ++ "' =="
@@ -263,8 +269,13 @@ main =
            withFile (changeFileExt sourceName "TAST") WriteMode
                     (flip hPrint $ show typecheckedAST)
 
+         when (Intermediate TypeChecked `elem` options) $ do
+           verbatim options "== Printing typed AST =="
+           withFile (changeFileExt sourceName "TAST") WriteMode
+                    (flip hPrint $ show typecheckedAST)
+
          return $ (newEnv, typecheckedAST)
-        
+
       usage = "Usage: encorec [flags] file"
       verbatim options str = when (Verbatim `elem` options)
                                   (putStrLn str)

@@ -6,7 +6,7 @@ with a meaningful error message if it fails.
 
 -}
 
-module Typechecker.Typechecker(typecheckEncoreProgram) where
+module Typechecker.Typechecker(typecheckEncoreProgram, checkForMainClass) where
 
 import Data.List
 import Data.Maybe
@@ -36,6 +36,16 @@ typecheckEncoreProgram env p =
       let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
       runState (runExceptT reader) warnings
     (Left err, warnings) -> (Left err, warnings)
+
+checkForMainClass :: Program -> Maybe TCError
+checkForMainClass Program{classes} = do
+  case find isMain classes of
+    Just Class{cname,cmethods} ->
+      if any (isMainMethod cname . methodName) cmethods
+      then Nothing
+      else Just $ TCError ("Cannot find method 'main' in class 'Main'", [])
+    Nothing -> Just $ TCError ("Cannot find class 'Main'", [])
+  where isMain p@Class{cname} = isMainClass p
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
