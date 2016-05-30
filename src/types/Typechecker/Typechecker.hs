@@ -45,7 +45,7 @@ checkForMainClass Program{classes} = do
       then Nothing
       else Just $ TCError ("Cannot find method 'main' in class 'Main'", [])
     Nothing -> Just $ TCError ("Cannot find class 'Main'", [])
-  where isMain Class{cname} = isMainType cname
+  where isMain p@Class{cname} = isMainClass p
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the

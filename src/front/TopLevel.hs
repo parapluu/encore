@@ -227,6 +227,12 @@ main =
 
        verbatim options "== Generating code =="
        let fullAst = compressModules optimizedModules
+
+       unless (TypecheckOnly `elem` options) $
+         case checkForMainClass fullAst of
+           Just error -> abort $ show error
+           Nothing    -> return ()
+
        exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
            (do verbatim options $ "== Running '" ++ exeName ++ "' =="
@@ -257,11 +263,6 @@ main =
                showWarnings warnings
                abort $ show error
          showWarnings typecheckingWarnings
-
-         unless (TypecheckOnly `elem` options) $
-           case checkForMainClass typecheckedAST of
-             Just error -> abort $ show error
-             Nothing    -> return ()
 
          when (Intermediate TypeChecked `elem` options) $ do
            verbatim options "== Printing typed AST =="
