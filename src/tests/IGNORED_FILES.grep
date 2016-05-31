@@ -1,6 +1,18 @@
 encore/modules/ClosureImporter
-encore/modules/DupImporter
+encore/modules/ClosureImp
+encore/modules/DeepLib
+encore/modules/Lib
 encore/modules/lib
+encore/modules/otherlib
+encore/modules/trait_import_module
+encore/modules/Vector
+encore/modules/Utils
+encore/modules/MidImport
+encore/modules/List
+encore/modules/Top
+encore/modules/Right
+encore/modules/Left
+encore/modules/TraitImportModule
 encore/concurrency/async_block
 encore/concurrency/async_chain
 encore/concurrency/async
@@ -10,5 +22,5 @@ encore/concurrency/async_force_gc
 encore/concurrency/async_foreach
 encore/concurrency/global_async
 encore/basic/foreach_construct
-encore/par/
+encore/par
 encore/basic/largestream

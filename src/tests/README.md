@@ -51,10 +51,11 @@ Example:
    .. $ ./test encore/modules # will only run the tests within encore/modules
 ```
 
-## Disabling Tests
+## Disabling Tests and Other Ignored Files
 
-If you want to temporarily disable a test from running, you can do that by
-adding the test's name to the [DISABLED_TESTS.grep](DISABLED_TESTS.grep) file. Be careful not to
+To temporarily disable a test from running or to ignore any other
+`.enc` files in the test directory hierarchy, 
+add the tests names to the [IGNORED_FILES.grep](IGNORED_FILES.grep) file. Be careful not to
 add any blank lines.
 
 ## Test output

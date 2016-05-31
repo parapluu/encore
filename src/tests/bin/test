@@ -26,10 +26,11 @@ function compile() {
     readonly local DIR=$( dirname  ${TEST})
     readonly local NAME=$(basename ${TEST})
     readonly local CWD=$( pwd)
+    readonly local FLAGS=${@:2}
 
-    # we cd to the directory and compile there as a workaround to #439
+    # cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    ${ENCOREC} ${NAME}.enc
+    ${ENCOREC} ${NAME}.enc ${FLAGS}
     cd ${CWD}
 }
 
@@ -118,8 +119,8 @@ function have_at_least_one_spec_file() {
 
 ############################################################
 #
-# Returns whether a test is disabled. For this, one of the regexes in
-# DISABLED_TESTS.grep must match the test name.
+# Returns whether a test is disabled/ignored. For this, one of the regexes in
+# IGNORED_FILES.grep must match the test name.
 #
 # Arguments:
 #  - Name of the test (no file extension), relative to current working
@@ -131,7 +132,7 @@ function have_at_least_one_spec_file() {
 #
 ############################################################
 function test_enabled() {
-    ! echo $1 | grep -f DISABLED_TESTS.grep > /dev/null
+    ! echo $1 | grep -f IGNORED_FILES.grep > /dev/null
 }
 
 ############################################################
@@ -156,7 +157,8 @@ function test_enabled() {
 ############################################################
 function run_fail_test() {
     local TEST=$1
-    local COMPILE_OUT=$(compile ${TEST})
+    local FLAGS=$@
+    local COMPILE_OUT=$(compile ${TEST} ${FLAGS})
     if [ -e ${TEST} ]; then
         echo "ERROR: Test should not compile."
     fi
@@ -196,8 +198,9 @@ function run_fail_test() {
 ############################################################
 function run_out_test() {
   local TEST=$1
+  local FLAGS=$@
   echo ${TEST}
-  local COMPILE_OUT=$(compile ${TEST})
+  local COMPILE_OUT=$(compile ${TEST} ${FLAGS})
   echo -e "$COMPILE_OUT"
   if [ ! -e ${TEST} ]; then
       echo "ERROR: ${TEST}.enc should compile."
@@ -289,21 +292,25 @@ function run_test() {
 
     # just compile program:
 
+    if [ -e ${TEST}.flags ]; then
+        FLAGS=$(cat ${TEST}.flags)
+    fi
+
     if [ -e ${TEST}.fail ]; then
         echo "running fail test..."
-        run_fail_test ${TEST}
+        run_fail_test ${TEST} ${FLAGS}
         return $?
     fi
 
     if [ -e ${TEST}.out ]; then
         echo "running out test..."
-        run_out_test ${TEST}
+        run_out_test ${TEST} ${FLAGS}
         return $?
     fi
 
     if [ -e ${TEST}.chk ]; then
         echo "running chk test..."
-        run_chk_test ${TEST}
+        run_chk_test ${TEST} ${FLAGS}
         return $?
     fi
 
@@ -344,6 +351,9 @@ function run_test_suite() {
         exit 1
     fi
 
+    if ! test_enabled ${REL_PATH}; then
+        continue
+    fi
     echo ">>> RUNNING TEST_SUITE ${REL_PATH}"
 
     if [ -e ${REL_PATH}/Makefile ]; then
@@ -355,14 +365,13 @@ function run_test_suite() {
     for ENC_FILE in "${REL_PATH}"/*.enc; do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
 
+      if ! test_enabled ${TEST_NAME}; then
+        continue
+      fi
+      echo " - $(basename ${TEST_NAME})..."
+
       if have_at_least_one_spec_file ${TEST_NAME}; then
-        echo " - $(basename ${TEST_NAME})..."
         TOTL=$((TOTL+1))
-        if ! test_enabled ${TEST_NAME}; then
-          echo "    WARNING: disabled from src/tests/DISABLED_TESTS.grep"
-          SUCC=$((SUCC+1))
-          continue
-        fi
 
         local TEST_OUT=$(run_test ${TEST_NAME})
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
@@ -374,6 +383,10 @@ function run_test_suite() {
         else
             SUCC=$((SUCC+1))
         fi
+      else
+          echo "   Warning: .enc file present but missing .out, .fail or .chk file."
+          echo "   Consider adding '${TEST_NAME}.enc' to INGORED_FILE.grep to"
+          echo "   suppress this warning."
       fi
 
       # remove the test executable (if it has been created):
