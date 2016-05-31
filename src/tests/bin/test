@@ -30,8 +30,6 @@ function compile() {
 
     # cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    echo "HEREHERE ${FLAGS}"
-    echo "THEREHRE $@"
     ${ENCOREC} ${NAME}.enc ${FLAGS} 
     cd ${CWD}
 }
