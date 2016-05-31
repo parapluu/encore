@@ -26,10 +26,11 @@ function compile() {
     readonly local DIR=$( dirname  ${TEST})
     readonly local NAME=$(basename ${TEST})
     readonly local CWD=$( pwd)
+    readonly local FLAGS=$2
 
     # we cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    ${ENCOREC} ${NAME}.enc
+    ${ENCOREC} ${FLAGS} ${NAME}.enc
     cd ${CWD}
 }
 
@@ -118,8 +119,8 @@ function have_at_least_one_spec_file() {
 
 ############################################################
 #
-# Returns whether a test is disabled. For this, one of the regexes in
-# DISABLED_TESTS.grep must match the test name.
+# Returns whether a test is disabled/ignored. For this, one of the regexes in
+# IGNORED_FILES.grep must match the test name.
 #
 # Arguments:
 #  - Name of the test (no file extension), relative to current working
@@ -131,7 +132,7 @@ function have_at_least_one_spec_file() {
 #
 ############################################################
 function test_enabled() {
-    ! echo $1 | grep -f DISABLED_TESTS.grep > /dev/null
+    ! echo $1 | grep -f IGNORED_FILES.grep > /dev/null
 }
 
 ############################################################
@@ -344,6 +345,9 @@ function run_test_suite() {
         exit 1
     fi
 
+    if ! test_enabled ${REL_PATH}; then
+        continue
+    fi
     echo ">>> RUNNING TEST_SUITE ${REL_PATH}"
 
     if [ -e ${REL_PATH}/Makefile ]; then
@@ -355,11 +359,10 @@ function run_test_suite() {
     for ENC_FILE in "${REL_PATH}"/*.enc; do
       local TEST_NAME=$(echo ${ENC_FILE} | sed "s/\.enc$//" | sed "s/\.\///")
 
-      echo " - $(basename ${TEST_NAME})..."
       if ! test_enabled ${TEST_NAME}; then
-        echo "   ... disabled in src/tests/DISABLED_TESTS.grep"
         continue
       fi
+      echo " - $(basename ${TEST_NAME})..."
 
       if have_at_least_one_spec_file ${TEST_NAME}; then
         TOTL=$((TOTL+1))
@@ -375,7 +378,9 @@ function run_test_suite() {
             SUCC=$((SUCC+1))
         fi
       else
-          echo "   ... warning: .enc file present but missing .out, .fail or .chk file."
+          echo "   Warning: .enc file present but missing .out, .fail or .chk file."
+          echo "   Consider adding '${TEST_NAME}.enc' to INGORED_FILE.grep to"
+          echo "   suppress this warning."
       fi 
 
       # remove the test executable (if it has been created):
