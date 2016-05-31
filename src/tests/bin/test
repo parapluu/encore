@@ -30,7 +30,7 @@ function compile() {
 
     # cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    ${ENCOREC} ${NAME}.enc ${FLAGS} 
+    ${ENCOREC} ${NAME}.enc ${FLAGS}
     cd ${CWD}
 }
 
@@ -291,7 +291,7 @@ function run_test() {
     fi
 
     # just compile program:
-    
+
     if [ -e ${TEST}.flags ]; then
         FLAGS=$(cat ${TEST}.flags)
     fi
@@ -372,7 +372,7 @@ function run_test_suite() {
 
       if have_at_least_one_spec_file ${TEST_NAME}; then
         TOTL=$((TOTL+1))
-            
+
         local TEST_OUT=$(run_test ${TEST_NAME})
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
             local REPORT_FILE="${TMP_DIR}/${TEST_NAME}.FAILED"
@@ -387,7 +387,7 @@ function run_test_suite() {
           echo "   Warning: .enc file present but missing .out, .fail or .chk file."
           echo "   Consider adding '${TEST_NAME}.enc' to INGORED_FILE.grep to"
           echo "   suppress this warning."
-      fi 
+      fi
 
       # remove the test executable (if it has been created):
       rm -f ${TEST_NAME} 2> /dev/null
