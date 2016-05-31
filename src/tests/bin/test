@@ -26,11 +26,13 @@ function compile() {
     readonly local DIR=$( dirname  ${TEST})
     readonly local NAME=$(basename ${TEST})
     readonly local CWD=$( pwd)
-    readonly local FLAGS=$2
+    readonly local FLAGS=${@:2}
 
-    # we cd to the directory and compile there as a workaround to #439
+    # cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    ${ENCOREC} ${FLAGS} ${NAME}.enc
+    echo "HEREHERE ${FLAGS}"
+    echo "THEREHRE $@"
+    ${ENCOREC} ${NAME}.enc ${FLAGS} 
     cd ${CWD}
 }
 
@@ -157,7 +159,8 @@ function test_enabled() {
 ############################################################
 function run_fail_test() {
     local TEST=$1
-    local COMPILE_OUT=$(compile ${TEST})
+    local FLAGS=$@
+    local COMPILE_OUT=$(compile ${TEST} ${FLAGS})
     if [ -e ${TEST} ]; then
         echo "ERROR: Test should not compile."
     fi
@@ -197,8 +200,9 @@ function run_fail_test() {
 ############################################################
 function run_out_test() {
   local TEST=$1
+  local FLAGS=$@
   echo ${TEST}
-  local COMPILE_OUT=$(compile ${TEST})
+  local COMPILE_OUT=$(compile ${TEST} ${FLAGS})
   echo -e "$COMPILE_OUT"
   if [ ! -e ${TEST} ]; then
       echo "ERROR: ${TEST}.enc should compile."
@@ -289,22 +293,26 @@ function run_test() {
     fi
 
     # just compile program:
+    
+    if [ -e ${TEST}.flags ]; then
+        FLAGS=$(cat ${TEST}.flags)
+    fi
 
     if [ -e ${TEST}.fail ]; then
         echo "running fail test..."
-        run_fail_test ${TEST}
+        run_fail_test ${TEST} ${FLAGS}
         return $?
     fi
 
     if [ -e ${TEST}.out ]; then
         echo "running out test..."
-        run_out_test ${TEST}
+        run_out_test ${TEST} ${FLAGS}
         return $?
     fi
 
     if [ -e ${TEST}.chk ]; then
         echo "running chk test..."
-        run_chk_test ${TEST}
+        run_chk_test ${TEST} ${FLAGS}
         return $?
     fi
 
@@ -366,7 +374,7 @@ function run_test_suite() {
 
       if have_at_least_one_spec_file ${TEST_NAME}; then
         TOTL=$((TOTL+1))
-
+            
         local TEST_OUT=$(run_test ${TEST_NAME})
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
             local REPORT_FILE="${TMP_DIR}/${TEST_NAME}.FAILED"

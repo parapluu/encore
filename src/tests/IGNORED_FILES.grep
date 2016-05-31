@@ -9,6 +9,10 @@ encore/modules/Vector
 encore/modules/Utils
 encore/modules/MidImport
 encore/modules/List
+encore/modules/Top
+encore/modules/Right
+encore/modules/Left
+encore/modules/TraitImportModule
 encore/concurrency/async_block
 encore/concurrency/async_chain
 encore/concurrency/async
