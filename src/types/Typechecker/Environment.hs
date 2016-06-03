@@ -112,7 +112,7 @@ mergeEnvs Env{classTable     = classTable,
               bt             = bt'} =
        Env{classTable     = Map.union classTable classTable',
            traitTable     = Map.union traitTable traitTable',
-           typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',        
+           typeSynonymTable = Map.union typeSynonymTable typeSynonymTable',
            globals        = globs ++ globs',
            locals         = locals ++ locals',
            bindings       = binds ++ binds',
@@ -199,7 +199,7 @@ methodLookup ty m env
         ms = map (\t -> traitMethodLookup t m env) traits
     ret <- find isJust ms
     return $ fromJust ret
-  | otherwise = error "methodLookup in non-ref type"
+  | otherwise = Nothing
 
 capabilityLookup :: Type -> Environment -> Maybe Type
 capabilityLookup ty env

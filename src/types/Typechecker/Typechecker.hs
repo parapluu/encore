@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with
@@ -70,8 +72,8 @@ instance Checkable Program where
 instance Checkable Typedef where
   doTypecheck t@Typedef{typedefdef} = do
       let (refId, parameters) = typeSynonymLHS typedefdef
-      unless (distinctParams parameters) $ tcError $
-           "Parameters of type synonyms '" ++ show t ++ "' must be distinct."
+      unless (distinctParams parameters) $
+             tcError $ DistinctTypeParametersError typedefdef
       let rhs = typeSynonymRHS typedefdef
       let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
       rhs' <- local addTypeParams $ resolveType rhs
@@ -112,15 +114,11 @@ instance Checkable TraitDecl where
 matchArgumentLength :: Type -> FunctionHeader -> Arguments -> TypecheckM ()
 matchArgumentLength targetType header args =
   unless (actual == expected) $
-         tcError $
-           concat [toStr (hname header), " in ", show targetType, " expects ",
-                   show expected, " arguments. Got ", show actual]
+         tcError $ WrongNumberOfMethodArgumentsError
+                   (hname header) targetType expected actual
   where
     actual = length args
-    expected = length sigTypes
-    sigTypes = map ptype (hparams header)
-    toStr (Name "_init") = "Constructor"
-    toStr n = concat ["Method '", show n, "'"]
+    expected = length (hparams header)
 
 meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
@@ -134,26 +132,14 @@ meetRequiredFields cFields trait = do
           cField = fromJust result
           cFieldType = ftype cField
       if isNothing result then
-          tcError $
-              "Cannot find field '" ++ show expField ++
-              "' required by included " ++ classOrTraitName trait
+          tcError $ MissingFieldRequirementError expField trait
       else if isValField expField then
           unlessM (cFieldType `subtypeOf` expected) $
-              tcError $
-                "Field '" ++ show cField ++ "' must have a subtype of '" ++
-                show expected ++ "' to meet the requirements of " ++
-                "included " ++ classOrTraitName trait
+              tcError $ CovarianceViolationError cField expected trait
       else do
         isSub <- cFieldType `subtypeOf` expected
         unless (cFieldType == expected) $
-            tcError $
-              "Field '" ++ show cField ++ "' must exactly match type '" ++
-              show expected ++ "' to meet the requirements of " ++
-              "included " ++ classOrTraitName trait ++
-              if isSub
-              then ". Consider turning '" ++ show (fname expField) ++
-                   "' into a val-field in " ++ classOrTraitName trait
-              else ""
+            tcError $ RequiredFieldMismatchError cField expected trait isSub
 
 noOverlapFields :: Type -> TypecheckM ()
 noOverlapFields capability =
@@ -191,9 +177,7 @@ noOverlapFields capability =
 
     conjunctiveVarErr :: (Type, Type, FieldDecl) -> TypecheckM ()
     conjunctiveVarErr (left, right, field) =
-      tcError $ printf
-        "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
-         (show left) (show right) (show field)
+      tcError $ NonDisjointConjunctionError left right field
 
     notVal :: FieldDecl -> Bool
     notVal = not . isValField
@@ -213,15 +197,14 @@ ensureNoMethodConflict methods tdecls =
   in
   unless (null diff) $
          if dup `elem` methods then
-             tcError $ "Method '" ++ show (methodName dup) ++
-                       "' is defined both in current class and " ++
-                       classOrTraitName (tname $ head overlappingTraits)
+             tcError $ OverriddenMethodError
+                         (methodName dup)
+                         (tname $ head overlappingTraits)
          else
-             tcError $ "Conflicting inclusion of method '" ++
-                       show (methodName dup) ++ "' from " ++
-                       classOrTraitName (tname (head overlappingTraits)) ++
-                       " and " ++
-                       classOrTraitName (tname (overlappingTraits !! 1))
+             tcError $ IncludedMethodConflictError
+                         (methodName dup)
+                         (tname (head overlappingTraits))
+                         (tname (overlappingTraits !! 1))
 
 meetRequiredMethods :: [MethodDecl] -> Type -> TypecheckM ()
 meetRequiredMethods cMethods trait = do
@@ -231,9 +214,7 @@ meetRequiredMethods cMethods trait = do
     matchMethod reqHeader = do
       expHeader <- findMethod trait (hname reqHeader)
       unlessM (anyM (matchesHeader expHeader) cMethods) $
-           tcError $
-               "Cannot find method '" ++ show (ppFunctionHeader expHeader) ++
-               "' required by included " ++ classOrTraitName trait
+           tcError $ MissingMethodRequirementError expHeader trait
     matchesHeader header mdecl =
       let
         mName = methodName mdecl
@@ -254,7 +235,7 @@ instance Checkable ClassDecl where
   doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
     let traits = typesFromCapability ccapability
     unless (isPassiveClassType cname || null traits) $
-           tcError "Traits can only be used for passive classes"
+           tcError TraitsInActiveClassError
     mapM_ (meetRequiredFields cfields) traits
     mapM_ (meetRequiredMethods cmethods) traits
     noOverlapFields ccapability
@@ -330,8 +311,8 @@ instance Checkable Expr where
     doTypecheck l@(Liftf {val}) = do
       e <- typecheck val
       let typ = AST.getType e
-      unless (isFutureType typ) $ tcError $ "expression '" ++ show (ppSugared e) ++
-        "' of type '" ++ show typ ++ "' should be of type 'Future'"
+      unless (isFutureType typ) $
+             pushError e $ ExpectingOtherTypeError "a future" typ
       return $ setType (parType $ getResultType typ) l {val = e}
 
     doTypecheck l@(Liftv {val}) = do
@@ -342,87 +323,58 @@ instance Checkable Expr where
     doTypecheck p@(PartyJoin {val}) = do
       e <- typecheck val
       let typ = AST.getType e
-      unless (isParType  typ) $ tcError (errorMsg (ppSugared val) typ typ)
-      unless ((isParType . getResultType) typ) $
-        tcError (errorMsg (ppSugared val) (getResultType typ) typ)
+      unless (isParType typ && isParType (getResultType typ)) $
+             pushError e $ ExpectingOtherTypeError "a nested Par" typ
       return $ setType (getResultType typ) p {val = e}
-        where
-          errorMsg expr expectedType foundType =
-            "Error: expression '" ++ show expr ++ "' as argument in " ++
-            "'join' combinator was expecting type 'Par Par " ++
-            show expectedType ++ "' but found type '" ++ show foundType ++ "' instead."
 
     doTypecheck p@(PartyEach {val}) = do
       e <- typecheck val
       let typ = AST.getType e
       unless (isArrayType typ) $
-        tcError $ "Parallel combinator 'each' was expecting an array type " ++
-                  "from expression '" ++ show (ppExpr e) ++ "' but found " ++
-                  "type '" ++ show typ ++ "'"
+             pushError e $ ExpectingOtherTypeError "an array" typ
       return $ setType ((parType.getResultType) typ) p {val = e}
 
     doTypecheck p@(PartyExtract {val}) = do
       e <- typecheck val
       let typ = AST.getType e
       unless (isParType typ) $
-        tcError $ "Parallel combinator `extract` was expecting type 'Par' type" ++
-                  " from expression '" ++ show (ppSugared e) ++
-                  "' but found type '" ++ show typ
+             pushError e $ ExpectingOtherTypeError "a Par" typ
       return $ setType ((arrayType.getResultType) typ) p {val = e}
 
     doTypecheck p@(PartyPar {parl, parr}) = do
       pl <- typecheck parl
       pr <- hasType parr (AST.getType pl)
+      let lType = AST.getType pl
+          rType = AST.getType pr
 
-      unless ((isParType . AST.getType) pl) $
-        tcError $ "using parallel combinator '||' with non-parallel expression '"
-                  ++ show (ppSugared pl) ++ "'"
-      unless ((isParType . AST.getType) pr) $
-        tcError $ "using parallel combinator '||' with non-parallel expression '"
-                  ++ show (ppSugared pr) ++ "'"
-      let [plType, prType] = map AST.getType [pl, pr]
+      unless (isParType lType) $
+        pushError pl $ TypeMismatchError lType (parType lType)
+      unless (isParType rType) $
+        pushError pr $ TypeMismatchError rType (parType rType)
 
-      sameTypes <- plType `subtypeOf` prType
-      unless sameTypes $
-        tcError $ "at least one of the parallel collections ('" ++ show (ppSugared pl)
-                  ++ "' or '"++ show (ppSugared pr) ++"') is of a non-parallel type"
-      return $ setType (AST.getType pl) p {parl = pl, parr = pr}
+      lIsSubtype <- lType `subtypeOf` rType
+      rIsSubtype <- rType `subtypeOf` lType
+      if lIsSubtype
+      then return $ setType rType p {parl = pl, parr = pr}
+      else return $ setType lType p {parl = pl, parr = pr}
 
     doTypecheck s@(PartySeq {par, seqfunc}) = do
       ePar <- typecheck par
       eSeqFunc <- typecheck seqfunc
+      let seqType = AST.getType eSeqFunc
+          pType = AST.getType ePar
 
       unless (isCallable eSeqFunc) $
-        tcError $ "Parallel combinator '>>' expected a callable expresion but found '" ++
-                  show (ppSugared eSeqFunc) ++ "' of type '" ++
-                  show (AST.getType eSeqFunc) ++ "'instead."
+        pushError eSeqFunc $ NonFunctionTypeError seqType
 
-      unless (leftIsPar ePar) $
-        tcError $ "Parallel combinator '>>' expected a parallel expression but found " ++
-                  "expression '" ++show (ppSugared ePar) ++ "' of type '" ++
-                  show (AST.getType ePar) ++ "'"
+      unless (isParType pType) $
+        pushError ePar $ TypeMismatchError pType (parType pType)
 
-      let nargs = numberArgsFun eSeqFunc
-      unless (nargs == 1) $
-        tcError $ "Parallel combinator '"++ show (ppSugared ePar) ++
-                  "' expects function '"++ show (ppSugared eSeqFunc) ++
-                  "' to have a single argument " ++
-                  "but found that the function " ++ show nargs ++ " arguments"
+      let resultType = getResultType seqType
+          expectedFunType = arrowType [getResultType pType] resultType
+      seqType `assertSubtypeOf` expectedFunType
 
-      unless (outputTypeMatchesInput ePar eSeqFunc) $
-        tcError $ "Type '"++ (show . AST.getType) ePar ++
-                  "' of parallel computation '" ++ show (ppSugared ePar) ++
-                  "' does not match the expected type '"++
-                  show (getArgType eSeqFunc) ++"' of function '" ++
-                  show (ppSugared eSeqFunc) ++ "'"
-      let getParType = parType . getResultType . AST.getType
-      return $ setType (getParType eSeqFunc) s {par=ePar, seqfunc=eSeqFunc}
-        where
-          outputTypeMatchesInput ePar eSeqFunc =
-            ((getResultType . AST.getType) ePar) == (getArgType eSeqFunc)
-          leftIsPar = (isParType . AST.getType)
-          getArgType = head . getArgTypes . AST.getType
-          numberArgsFun = length . getArgTypes . AST.getType
+      return $ setType (parType resultType) s {par=ePar, seqfunc=eSeqFunc}
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
@@ -454,12 +406,11 @@ instance Checkable Expr where
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
       unless (isRefType targetType || isCapabilityType targetType) $
-        tcError $ "Cannot call method on expression '" ++
-                  show (ppSugared target) ++
-                  "' of type '" ++ show targetType ++ "'"
-      when (isMainMethod targetType name) $ tcError "Cannot call the main method"
-      when (name == Name "init") $ tcError
-        "Constructor method 'init' can only be called during object creation"
+        tcError $ NonCallableTargetError targetType
+      when (isMainMethod targetType name) $
+           tcError MainMethodCallError
+      when (name == Name "init") $
+           tcError ConstructorCallError
       (header, calledType) <- findMethodWithCalledType targetType name
       let specializedTarget = setType calledType eTarget
       matchArgumentLength targetType header args
@@ -491,9 +442,7 @@ instance Checkable Expr where
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
       unless (isActiveClassType targetType || isSharedClassType targetType) $
-           tcError $ "Cannot send message to expression '" ++
-                     show (ppSugared target) ++
-                     "' of type '" ++ show targetType ++ "'"
+           tcError $ NonSendableTargetError targetType
       header <- findMethod targetType name
       matchArgumentLength targetType header args
       let expectedTypes = map ptype (hparams header)
@@ -531,14 +480,13 @@ instance Checkable Expr where
       funType <- asks $ varLookup name
       ty <- case funType of
         Just ty -> return ty
-        Nothing -> tcError $ "Unbound function variable '" ++ show name ++ "'"
+        Nothing -> tcError $ UnboundFunctionError name
       unless (isArrowType ty) $
-        tcError $ "Cannot use value of type '" ++ show ty ++ "' as a function"
+        tcError $ NonFunctionTypeError ty
       let argTypes = getArgTypes ty
       unless (length args == length argTypes) $
-             tcError $ "Function '" ++ show name ++ "' of type '" ++ show ty ++
-                       "' expects " ++ show (length argTypes) ++ " arguments. Got " ++
-                       show (length args)
+             tcError $ WrongNumberOfFunctionArgumentsError
+                       name (length argTypes) (length args)
       (eArgs, bindings) <- matchArguments args argTypes
       let resultType = replaceTypeVars bindings (getResultType ty)
       return $ setType resultType fcall {args = eArgs}
@@ -577,7 +525,7 @@ instance Checkable Expr where
            let declNames = map fst eDecls
                declTypes = map (AST.getType . snd) eDecls
            when (any isBottomType (concatMap typeComponents declTypes)) $
-                tcError "Cannot infer type of 'Nothing'"
+                tcError BottomTypeInferenceError
            eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
            return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
         where
@@ -617,7 +565,7 @@ instance Checkable Expr where
         where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
-                  tcError "Cannot infer result type of if-statement"
+                  tcError IfInferenceError
               | isNullType ty1 &&
                 (isRefType ty2 || isCapabilityType ty2) = return ty2
               | isNullType ty2 &&
@@ -627,9 +575,7 @@ instance Checkable Expr where
               | otherwise =
                   if ty2 == ty1
                   then return ty1
-                  else tcError $ "Type mismatch in different branches of if-statement:\n" ++
-                                 "  then:  " ++ show ty1 ++ "\n" ++
-                                 "  else:  " ++ show ty2
+                  else tcError $ IfBranchMismatchError ty1 ty2
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
@@ -642,11 +588,11 @@ instance Checkable Expr where
     --  E |- match arg clauses : t
     doTypecheck match@(Match {arg, clauses}) = do
         when (null clauses) $
-          tcError "Match statement must have at least one clause"
+          tcError EmptyMatchClauseError
         eArg <- typecheck arg
         let argType = AST.getType eArg
         when (isActiveClassType argType) $
-          tcError "Cannot match on an active object"
+          tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
         resultType <- checkAllHandlersSameType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses}
@@ -659,7 +605,7 @@ instance Checkable Expr where
               mapM_ (`assertSubtypeOf` ty) types
               return ty
             Nothing ->
-              tcError "Cannot infer result type of match expression"
+              tcError MatchInferenceError
 
         hasKnownType = all (not . isBottomType) . typeComponents . AST.getType
 
@@ -669,27 +615,22 @@ instance Checkable Expr where
 
         doGetPatternVars pt va@(VarAccess {name}) = do
           when (isThisAccess va) $
-            tcError "Cannot rebind variable 'this'"
+            tcError ThisReassignmentError
           return [(name, pt)]
 
         doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
             | isMaybeType pt =
                 let innerType = getResultType pt
                 in getPatternVars innerType e
-            | otherwise =
-                tcError $ "Pattern '" ++ show (ppSugared mcp) ++
-                          "' does not match expected type '" ++
-                          show pt ++ "'"
+            | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
         doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
           unless (isRefType pt || isCapabilityType pt) $
-            tcError $ "Cannot match an extractor pattern against " ++
-                      "non-reference type '" ++ show pt ++ "'"
+            tcError $ NonCallableTargetError pt
           header <- findMethod pt name
           let hType = htype header
           unless (isMaybeType hType) $
-            tcError $ "Pattern '" ++ show (ppSugared fcall) ++
-                      "' is not a proper extractor pattern"
+            tcError $ NonMaybeExtractorPatternError fcall
           let extractedType = getResultType hType
           getPatternVars extractedType arg
 
@@ -700,7 +641,7 @@ instance Checkable Expr where
 
         doGetPatternVars pt tuple@(Tuple {args}) = do
           unless (isTupleType pt) $
-            tcError $ "Cannot match a tuple against non-tuple type " ++ show pt
+            tcError $ PatternTypeMismatchError tuple pt
           let elemTypes = getArgTypes pt
 
           varLists <- zipWithM getPatternVars elemTypes args
@@ -730,8 +671,7 @@ instance Checkable Expr where
 
         doCheckPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
-            tcError $ "Pattern '" ++ show (ppSugared pattern) ++
-                      "' does not match expected type '" ++ show argty ++ "'"
+            tcError $ PatternTypeMismatchError pattern argty
           let innerType = getResultType argty
           eExpr <- checkPattern e innerType
           return $ setType argty (pattern {mdt = JustData {e = eExpr}})
@@ -739,9 +679,7 @@ instance Checkable Expr where
         doCheckPattern pattern@(Tuple{args}) tupty = do
           let argTypes = getArgTypes tupty
           unless (length argTypes == length args) $
-            tcError $ "Pattern '" ++ show (ppSugared pattern) ++
-                      "' does not match expected type " ++ show tupty ++
-                      ". Wrong tuple size"
+            tcError $ PatternTypeMismatchError pattern tupty
           eArgs <- zipWithM checkPattern args argTypes
           return $ setType tupty (pattern {args=eArgs})
 
@@ -749,14 +687,12 @@ instance Checkable Expr where
           eBody <- checkPattern body argty
           ty' <- resolveType ty
           unless (ty' == argty) $
-            tcError $ "Type '" ++ show ty' ++
-                      "' does not match expected type '" ++ show argty ++ "'"
+            tcError $ TypeMismatchError ty' argty
           return $ setType ty' eBody
 
         doCheckPattern pattern argty
             | isPattern pattern = hasType pattern argty
-            | otherwise = tcError $ "'" ++ show (ppSugared pattern) ++
-                                    "' is not a valid pattern"
+            | otherwise = tcError $ InvalidPatternError pattern
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
           vars <- getPatternVars pt mcpattern
@@ -784,7 +720,8 @@ instance Checkable Expr where
         do eVal <- typecheck val
            let ty = AST.getType eVal
            unless (isFutureType ty || isStreamType ty) $
-                  tcError $ "Cannot get the value of non-future type '" ++ show ty ++ "'"
+                  pushError eVal $ ExpectingOtherTypeError
+                                     "a future or a stream" ty
            return $ setType (getResultType ty) get {val = eVal}
 
     --  E |- val : t
@@ -795,16 +732,13 @@ instance Checkable Expr where
         do eVal <- typecheck val
            result <- asks currentMethod
            when (isNothing result) $
-                tcError "Can only yield from (streaming) methods"
+                tcError NonStreamingContextError
            let mtd = fromJust result
                mType = methodType mtd
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
-                  tcError $ "Cannot yield in non-streaming method '" ++
-                            show (methodName mtd) ++ "'"
-           unlessM (eType `subtypeOf` mType) $
-                  tcError $ "Cannot yield value of type '" ++ show eType ++
-                            "' in streaming method of type '" ++ show mType ++ "'"
+                  tcError NonStreamingContextError
+           eType `assertSubtypeOf` mType
            return $ setType voidType yield {val = eVal}
 
     --  isStreaming(currentMethod)
@@ -813,11 +747,10 @@ instance Checkable Expr where
     doTypecheck eos@(Eos {}) =
         do result <- asks currentMethod
            when (isNothing result) $
-                tcError "Can only yield from (streaming) methods"
+                tcError NonStreamingContextError
            let mtd = fromJust result
            unless (isStreamMethod mtd) $
-                  tcError $ "Cannot have end-of-stream in non-streaming method '" ++
-                            show (methodName mtd) ++ "'"
+                  tcError NonStreamingContextError
            return $ setType voidType eos
 
     --  E |- s : Stream t
@@ -825,9 +758,10 @@ instance Checkable Expr where
     --  E |- eos s : bool
     doTypecheck iseos@(IsEos {target}) =
         do eTarget <- typecheck target
-           unless (isStreamType $ AST.getType eTarget) $
-                  tcError $ "Cannot check end of stream on non-stream target '"
-                            ++ show (ppSugared target) ++ "'"
+           let targetType = AST.getType eTarget
+           unless (isStreamType targetType) $
+                  pushError eTarget $ ExpectingOtherTypeError
+                                        "a stream" targetType
            return $ setType boolType iseos{target = eTarget}
 
     --  E |- s : Stream t
@@ -835,11 +769,11 @@ instance Checkable Expr where
     --  E |- s.next() : Stream t
     doTypecheck next@(StreamNext {target}) =
         do eTarget <- typecheck target
-           let eType = AST.getType eTarget
-           unless (isStreamType eType) $
-                  tcError $ "Cannot get next value from non-stream target '" ++
-                            show (ppSugared target) ++ "'"
-           return $ setType eType next{target = eTarget}
+           let targetType = AST.getType eTarget
+           unless (isStreamType targetType) $
+                  pushError eTarget $ ExpectingOtherTypeError
+                                        "a stream" targetType
+           return $ setType targetType next{target = eTarget}
 
     --
     --    ------------------ :: suspend
@@ -854,7 +788,7 @@ instance Checkable Expr where
         do eVal <- typecheck val
            let ty = AST.getType eVal
            unless (isFutureType ty) $
-                  tcError $ "Cannot await the value of non-future type '" ++ show ty ++ "'"
+                  pushError eVal $ ExpectingOtherTypeError "a future" ty
            return $ setType voidType await {val = eVal}
 
     --    f : Fut T
@@ -866,13 +800,15 @@ instance Checkable Expr where
            eChain <- typecheck chain
            let ty = AST.getType eFuture
            unless (isFutureType ty) $
-                  tcError $ "Cannot chain with a non-future type '" ++ show ty ++ "'"
-           let ty' = AST.getType eChain
-           unless (isArrowType ty') $
-                  tcError $ "Chaining requires a closure argument '" ++ show ty' ++ "'"
-           unless ([getResultType ty] == getArgTypes ty') $
-                  tcError $ "Future value has type '" ++ show (getResultType ty) ++ "' but chained closure expects '" ++ show (head (getArgTypes ty')) ++ "'"
-           return $ setType (futureType (getResultType ty')) futureChain {future = eFuture, chain = eChain}
+                  pushError eFuture $ ExpectingOtherTypeError "a future" ty
+           let chainType = AST.getType eChain
+               returnType = getResultType chainType
+               expectedFunType = arrowType [getResultType ty] returnType
+           unless (isArrowType chainType) $
+                  pushError eChain $ NonFunctionTypeError chainType
+           chainType `assertSubtypeOf` expectedFunType
+           return $ setType (futureType returnType)
+                            futureChain {future = eFuture, chain = eChain}
 
     --  E |- target : t'
     --  fieldLookup(t', name) = t
@@ -882,8 +818,7 @@ instance Checkable Expr where
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveClassType targetType) $
-        tcError $ "Cannot read field of expression '" ++
-          show (ppSugared target) ++ "' of " ++ Types.showWithKind targetType
+        tcError $ CannotReadFieldError target
       fdecl <- findField targetType name
       let ty = ftype fdecl
       return $ setType ty fAcc {target = eTarget}
@@ -897,16 +832,14 @@ instance Checkable Expr where
         do eLhs <- typecheck lhs
            varIsLocal <- asks $ isLocal name
            unless varIsLocal $
-                  tcError $ "Left hand side '" ++ show (ppSugared lhs) ++
-                            "' is a global variable and cannot be assigned to"
+                  pushError eLhs NonAssignableLHSError
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
     doTypecheck assign@(Assign {lhs, rhs}) =
-        do unless (isLval lhs) $
-             tcError $ "Left hand side '" ++ show (ppSugared lhs) ++
-               "' cannot be assigned to"
-           eLhs <- typecheck lhs
+        do eLhs <- typecheck lhs
+           unless (isLval eLhs) $
+                  pushError eLhs NonAssignableLHSError
            mtd <- asks currentMethod
            unless (isNothing mtd || isConstructor (fromJust mtd)) $
                   assertNotValField eLhs
@@ -918,9 +851,7 @@ instance Checkable Expr where
                   let targetType = AST.getType target
                   fdecl <- findField targetType name
                   when (isValField fdecl) $
-                       tcError $ "Cannot assign to val-field '" ++
-                                 show name ++ "' in " ++
-                                 classOrTraitName targetType
+                       tcError $ ValFieldAssignmentError name targetType
               | otherwise = return ()
 
     --  name : t \in E
@@ -930,7 +861,7 @@ instance Checkable Expr where
         do varType <- asks $ varLookup name
            case varType of
              Just ty -> return $ setType ty var
-             Nothing -> tcError $ "Unbound variable '" ++ show name ++ "'"
+             Nothing -> tcError $ UnboundVariableError name
 
     --
     -- ----------------------
@@ -956,10 +887,8 @@ instance Checkable Expr where
     --  E |- new ty(args) : ty
     doTypecheck new@(NewWithInit {ty, args}) = do
       ty' <- resolveType ty
-      unless (isClassType ty') $
-             tcError $ "Cannot create an object of type '" ++ show ty ++ "'"
-      when (isMainType ty') $
-           tcError "Cannot create additional Main objects"
+      unless (isClassType ty' && not (isMainType ty')) $
+             tcError $ ObjectCreationError ty'
       header <- findMethod ty' (Name "_init")
       matchArgumentLength ty header args
       let expectedTypes = map ptype (hparams header)
@@ -973,11 +902,8 @@ instance Checkable Expr where
     --  E |- peer ty : ty
     doTypecheck peer@(Peer {ty}) =
         do ty' <- resolveType ty
-           unless (isActiveClassType ty') $
-                  tcError $ "Cannot create an object of type '" ++
-                  show ty ++ "'"
-           when (isMainType ty') $
-                tcError "Cannot create additional Main objects"
+           unless (isActiveClassType ty' && not (isMainType ty')) $
+                  tcError $ ObjectCreationError ty'
            return $ setType ty' peer{ty = ty'}
 
     --  E |- n : int
@@ -1008,7 +934,7 @@ instance Checkable Expr where
            let srcType = AST.getType srcTyped
 
            unless (isArrayType srcType || isRangeType srcType) $
-             tcError "For loops can only iterate over ranges or arrays"
+             pushError src $ NonIterableError srcType
 
            let elementType = if isRangeType srcType
                              then intType
@@ -1035,7 +961,7 @@ instance Checkable Expr where
     --  E |- [arg1, .., argn] : [ty]
     doTypecheck arr@(ArrayLiteral {args}) =
         do when (null args) $
-                tcError "Array literal must have at least one element"
+                tcError EmptyArrayLiteralError
            eArg1 <- doTypecheck (head args)
            let ty = AST.getType eArg1
            eArgs <- mapM (`hasType` ty) args
@@ -1049,9 +975,7 @@ instance Checkable Expr where
         do eTarget <- typecheck target
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
-                  tcError $ "Cannot index non-array '" ++
-                            show (ppSugared target) ++
-                            "' of type '" ++ show targetType ++ "'"
+                  pushError eTarget $ NonIndexableError targetType
            eIndex <- hasType index intType
            return $ setType (getResultType targetType)
                             arrAcc{target = eTarget, index = eIndex}
@@ -1063,9 +987,7 @@ instance Checkable Expr where
         do eTarget <- typecheck target
            let targetType = AST.getType eTarget
            unless (isArrayType targetType) $
-                  tcError $ "Cannot calculate the size of non-array '" ++
-                            show (ppSugared target) ++
-                            "' of type '" ++ show targetType ++ "'"
+                  pushError eTarget $ NonSizeableError targetType
            return $ setType intType arrSize{target = eTarget}
 
     --  count("{}", stringLit) = n
@@ -1082,18 +1004,14 @@ instance Checkable Expr where
                unprintable = filter (not . isPrintable . AST.getType) eArgs
                unprintableHead = head unprintable
            unless (isStringLiteral fstString) $
-                  tcError $ "Formatted printing expects first argument '" ++
-                            show (ppSugared fst) ++ "' to be a string literal"
+                  pushError fst FormatStringLiteralError
            unless (null unprintable) $
-                tcError $ "Cannot print expression '" ++
-                          show (ppExpr unprintableHead) ++ "' of type '" ++
-                          show (AST.getType unprintableHead) ++ "'"
+                pushError unprintableHead $
+                    UnprintableExpressionError (AST.getType unprintableHead)
            let formatString = stringLit fstString
                noArgs = T.count (T.pack "{}") (T.pack formatString)
            unless (noArgs == length rest) $
-                  tcError $ "Wrong number of arguments to format string. " ++
-                            "Expected " ++ show noArgs ++ ", got " ++
-                            show (length rest) ++ "."
+                 tcError $ WrongNumberOfPrintArgumentsError (length rest) noArgs
            let eFormatString = setType stringType $
                                StringLiteral (emeta fstString) formatString
                newArgs = eFormatString : rest
@@ -1104,8 +1022,9 @@ instance Checkable Expr where
     --  E |- exit(arg) : void
     doTypecheck exit@(Exit {args}) =
         do eArgs <- mapM typecheck args
-           unless (length eArgs == 1 && isIntType (AST.getType (head eArgs))) $
-                  tcError "exit expects a single integer argument"
+           let expectedType = tupleType [intType]
+               actualType = tupleType $ map AST.getType eArgs
+           actualType `assertSubtypeOf` expectedType
            return $ setType voidType exit {args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
@@ -1132,8 +1051,7 @@ instance Checkable Expr where
         eOperand <- typecheck operand
         let eType = AST.getType eOperand
         unless (isExpected eType) $
-               tcError $ "Operator '" ++ show uop ++ "' is not defined " ++
-                         "for values of type '" ++ show eType ++ "'"
+               tcError $ UnaryOperandMismatchError uop eType
         let resultType | uop == Identifiers.NOT = boolType
                        | uop == Identifiers.NEG = eType
         return $ setType resultType unary {operand = eOperand}
@@ -1160,9 +1078,8 @@ instance Checkable Expr where
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ "Operator '"++ show binop ++ "' is only defined for boolean types\n" ++
-                          "   Left type: '" ++ show lType ++ "'\n" ++
-                          "   Right type: '" ++ show rType ++ "'"
+                  tcError $ BinaryOperandMismatchError binop "boolean"
+                                                       lType rType
           return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` cmpOps = do
              eLoper <- typecheck loper
@@ -1170,9 +1087,8 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
-                          "   Left type: '" ++ show lType ++ "'\n" ++
-                          "   Right type: '" ++ show rType ++ "'"
+                    tcError $ BinaryOperandMismatchError binop "numeric"
+                                                         lType rType
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` eqOps = do
              eLoper <- typecheck loper
@@ -1186,11 +1102,10 @@ instance Checkable Expr where
              let lType = AST.getType eLoper
                  rType = AST.getType eRoper
              unless (isNumeric lType && isNumeric rType) $
-                    tcError $ "Operator '"++ show binop ++ "' is only defined for numeric types\n" ++
-                          "   Left type: '" ++ show lType ++ "'\n" ++
-                          "   Right type: '" ++ show rType ++ "'"
+                    tcError $ BinaryOperandMismatchError binop "numeric"
+                                                         lType rType
              return $ setType (coerceTypes lType rType) bin {loper = eLoper, roper = eRoper}
-      | otherwise = tcError $ "Undefined binary operator '" ++ show binop ++ "'"
+      | otherwise = tcError $ UndefinedBinaryOperatorError binop
       where
         boolOps  = [Identifiers.AND, Identifiers.OR]
         cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]
@@ -1207,13 +1122,9 @@ instance Checkable Expr where
 -- ---------------------
 --  null : ty
 coerceNull null ty
-    | isNullType ty ||
-      isTypeVar ty = tcError "Cannot infer type of null valued expression"
     | isRefType ty || isCapabilityType ty = return $ setType ty null
-    | isMaybeType ty = return $ setType ty null
     | otherwise =
-        tcError $ "Null valued expression cannot have type '" ++
-                  show ty ++ "' (must have reference type)"
+        tcError $ NullTypeInferenceError (Just ty)
 
 coercedInto :: Type -> Type -> TypecheckM Type
 coercedInto actual expected
@@ -1227,17 +1138,16 @@ coercedInto actual expected
       return $ setArgTypes actual argTypes
   | isNullType actual = do
       when (isNullType expected) $
-        tcError "Cannot infer type of null valued expression"
+        tcError $ NullTypeInferenceError Nothing
       unless (canBeNull expected) $
-        tcError $ "Null valued expression cannot have type '" ++
-        show actual ++ "' (must have reference type)"
+        tcError $ NullTypeInferenceError (Just expected)
       return expected
   | isBottomType actual = do
       when (any isBottomType $ typeComponents expected) $
-        tcError "Cannot infer type of 'Nothing'"
+        tcError BottomTypeInferenceError
       return expected
   | isBottomType expected =
-      tcError "Cannot infer type of 'Nothing'"
+      tcError BottomTypeInferenceError
   | otherwise = do
       actual `assertSubtypeOf` expected
       return actual
@@ -1311,11 +1221,14 @@ matchTypes :: Type -> Type -> TypecheckM [(Type, Type)]
 matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
       isParType expected    && isParType ty    ||
-      isStreamType expected && isStreamType ty =
+      isStreamType expected && isStreamType ty ||
+      isMaybeType expected  && isMaybeType ty =
         matchTypes (getResultType expected) (getResultType ty)
-        `catchError` (\_ -> tcError $ "Type '" ++ show ty ++
-                                      "' does not match expected type '" ++
-                                      show expected ++ "'")
+        `catchError` (\case
+                       TCError (TypeMismatchError _ _) _ ->
+                           tcError $ TypeMismatchError ty expected
+                       TCError err _ -> tcError err
+                     )
     | isArrowType expected  && isArrowType ty =
         let expArgTypes = getArgTypes expected
             argTypes    = getArgTypes ty
@@ -1334,18 +1247,11 @@ matchTypes expected ty
         case result of
           Just boundType -> do
             unlessM (ty `subtypeOf` boundType) $
-              tcError $ "Type variable '" ++ show expected ++
-                "' cannot be bound to both '" ++ show ty ++
-                "' and '" ++ show boundType ++ "'"
+              tcError $ TypeVariableAmbiguityError expected ty boundType
             asks bindings
           Nothing -> do
             bindings <- asks bindings
             return $ (expected, ty) : bindings
-    | isMaybeType expected && isMaybeType ty =
-         matchTypes (getResultType expected) (getResultType ty)
-         `catchError` (\_ -> tcError $ "Type '" ++ show ty ++
-                                      "' does not match expected type '" ++
-                                      show expected ++ "'")
     | otherwise = assertMatch expected ty
     where
       matchArgs [] [] = asks bindings
@@ -1354,7 +1260,7 @@ matchTypes expected ty
         local (bindTypes bindings) $ matchArgs types1 types2
 
       assertMatch expected ty = do
-        assertSubtypeOf ty expected
+        ty `assertSubtypeOf` expected
         asks bindings
 
 assertSubtypeOf :: Type -> Type -> TypecheckM ()
@@ -1367,6 +1273,8 @@ assertSubtypeOf sub super =
                       then return cap
                       else return Nothing
                     else return Nothing
-      let subMsg = "Type '" ++ show sub ++ "'" ++
-                   maybe "" ((" with capability " ++) . show) capability
-      tcError $ subMsg ++ " does not match expected type '" ++ show super ++ "'"
+      case capability of
+        Just cap ->
+            tcError $ TypeWithCapabilityMismatchError sub cap super
+        Nothing ->
+            tcError $ TypeMismatchError sub super
