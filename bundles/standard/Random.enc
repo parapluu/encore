@@ -15,10 +15,13 @@ def random(max:int) : int
     
 -- Simple random number generator encapsulating a seed of its own
 passive class Random
-  seed:int -- Hack! using a int64_t as an unsigned 
+  seed:embed unsigned int end
+  -- Trace funcition required because of the embed type of seed
+  def Random_trace() : void
+    ()
   -- Initialisation always with a seed
   def init(seed:int) : void
-    embed void
+    embed int
       _this->_enc__field_seed = (unsigned) #{seed};
     end
   -- Returns random % max
