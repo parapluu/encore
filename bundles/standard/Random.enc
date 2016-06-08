@@ -1,3 +1,18 @@
+embed
+body
+__thread unsigned seed;
+end
+
+-- Random number generator with thread-local seed
+def random(max:int) : int
+  embed int
+    if (seed == 0)
+      {
+        seed = (unsigned) time(NULL);
+      }
+    rand_r(&seed) % #{max};
+  end    
+    
 -- Simple random number generator encapsulating a seed of its own
 passive class Random
   seed:int -- Hack! using a int64_t as an unsigned 
@@ -11,3 +26,4 @@ passive class Random
     embed int
       rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
     end
+    
