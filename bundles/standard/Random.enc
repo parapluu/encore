@@ -1,0 +1,13 @@
+-- Simple random number generator encapsulating a seed of its own
+passive class Random
+  seed:int -- Hack! using a int64_t as an unsigned 
+  -- Initialisation always with a seed
+  def init(seed:int) : void
+    embed void
+      _this->_enc__field_seed = (unsigned) #{seed};
+    end
+  -- Returns random % max
+  def random(max:int) : int
+    embed int
+      rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
+    end
