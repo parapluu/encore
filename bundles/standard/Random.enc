@@ -21,7 +21,7 @@ passive class Random
     ()
   -- Initialisation always with a seed
   def init(seed:int) : void
-    embed int
+    embed void
       _this->_enc__field_seed = (unsigned) #{seed};
     end
   -- Returns random % max
