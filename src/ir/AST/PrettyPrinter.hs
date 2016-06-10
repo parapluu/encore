@@ -204,9 +204,9 @@ ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
-ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
+ppExpr ArrayAccess {target, indices} = ppExpr target <> brackets (commaSep (map ppExpr indices))
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
-ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)
+ppExpr ArrayNew {ty, sizes} = brackets (ppType ty) <> parens (commaSep (map ppExpr sizes))
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {name} = ppName name
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> "=" <+> ppExpr rhs

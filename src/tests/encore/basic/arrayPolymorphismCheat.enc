@@ -1,0 +1,12 @@
+passive class Foo<t>
+  def foo(arr : Array<t>) : t
+    arr[0]
+
+class Main
+  def main() : void {
+    let x = new Foo<Array<int>>;
+    let arr = new Array2<int>(10, 10);
+    arr[0, 0] = 42;
+    let arr' = x.foo(arr);
+    print arr'[0];
+  }

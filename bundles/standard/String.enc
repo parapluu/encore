@@ -9,7 +9,7 @@ body
 // This function is called in the very beginning of the program to
 // build an array containing the arguments of the program.
 array_t *_init_argv(pony_ctx_t* ctx, size_t argc, char **argv) {
-  array_t *arr = array_mk(ctx, argc, &_enc__passive_String_type);
+  array_t *arr = array_mk(ctx, &_enc__passive_String_type, 1, argc);
   for(int i = 0; i < argc; i++) {
     _enc__passive_String_t* s =
       encore_alloc(ctx, sizeof(_enc__passive_String_t));

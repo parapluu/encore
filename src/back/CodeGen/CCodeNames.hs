@@ -485,6 +485,9 @@ arraySet = Nam "array_set"
 arraySize :: CCode Name
 arraySize = Nam "array_size"
 
+arrayDimSize :: CCode Name
+arrayDimSize = Nam "array_dim_size"
+
 tupleSet :: CCode Name
 tupleSet = Nam "tuple_set"
 

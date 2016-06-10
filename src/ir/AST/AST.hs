@@ -465,12 +465,12 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name}
           | ArrayAccess {emeta :: Meta Expr,
                          target :: Expr,
-                         index :: Expr}
+                         indices :: [Expr]}
           | ArraySize {emeta :: Meta Expr,
                        target :: Expr}
           | ArrayNew {emeta :: Meta Expr,
                       ty :: Type,
-                      size :: Expr}
+                      sizes :: [Expr]}
           | ArrayLiteral {emeta :: Meta Expr,
                           args :: [Expr]}
           | Assign {emeta :: Meta Expr,

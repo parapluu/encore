@@ -246,7 +246,7 @@ static inline par_t* fmap_run_array(pony_ctx_t *ctx, par_t * const in, fmap_s * 
   array_t* old_array = in->data.a.array;
   size_t size = array_size(old_array);
   pony_type_t* type = get_rtype(f);
-  array_t* new_array = array_mk(ctx, size, type);
+  array_t* new_array = array_mk(ctx, type, 1, size);
   closure_t* clos = f->fn;
 
   for(size_t i = 0; i < size; i++){
@@ -418,7 +418,7 @@ static inline array_t* list_to_array(list_t* const list,
                                      pony_type_t const * const type){
   pony_ctx_t* ctx = pony_ctx();
   size_t size = list_length(list);
-  array_t* arr = array_mk(ctx, size, type);
+  array_t* arr = array_mk(ctx, type, 1, size);
   list_t* temp_list = list_index(list, 0);
 
   // TODO: If the list is too big, distribute work using tasks

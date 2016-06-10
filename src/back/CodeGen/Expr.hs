@@ -125,6 +125,22 @@ translateDecl (name, expr) = do
           ,te
           ,Assign (Decl (translate (A.getType expr), Var tmp)) ne])
 
+-- Used to index a potentially multi-dimensional array with a single index
+translateArrayIndex ntarget indexes = do
+  ntindexes <- mapM translate indexes
+  let (nindices, tindices) = unzip ntindexes
+      (firstIndex:restIndices) = map AsExpr nindices
+      dimSizes = map dimSize [1..]
+      indicesAndDims = (zip restIndices dimSizes)
+      indexReducer (index, dim) acc = BinOp (Nam "+") index $ BinOp (Nam "*") dim acc
+      eindex = foldr indexReducer firstIndex indicesAndDims
+  tmp <- Ctx.genNamedSym "index"
+  let tty = translate Ty.intType
+      theAssign = Assign (Decl (tty, Var tmp)) eindex
+  return (Var tmp, Seq $ tindices ++ [theAssign])
+  where
+    dimSize n = Call arrayDimSize [AsExpr ntarget, Int n]    
+
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- | Translate an expression into the corresponding C code
   translate skip@(A.Skip {}) = namedTmpVar "skip" (A.getType skip) (AsExpr unit)
@@ -323,15 +339,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              commentFor = (Comm . show . PP.ppSugared)
              commentAndTe (ast, te) = Seq [commentFor ast, te]
 
-  translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.index}), A.rhs}) = do
+  translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.indices}), A.rhs}) = do
+    (ntarget, ttarget) <- translate target
     (nrhs, trhs) <- translate rhs
-    (ntarg, ttarg) <- translate target
-    (nindex, tindex) <- translate index
-    let ty = translate $ A.getType lhs
-        theSet =
-           Statement $
-           Call arraySet [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
-    return (unit, Seq [trhs, ttarg, tindex, theSet])
+    let nrhsEAT = asEncoreArgT (translate $ A.getType rhs) nrhs
+    (nindices, tindices) <- translateArrayIndex ntarget indices
+    let tAssign = Statement $ Call arraySet [AsExpr ntarget, AsExpr nindices, nrhsEAT]
+    return (unit, Seq [trhs, ttarget, tindices, tAssign])
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
@@ -463,15 +477,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       | otherwise =
           error $  "can not have passive peer '"++show ty++"'"
 
-  translate arrNew@(A.ArrayNew {A.ty, A.size}) = do
+  translate arrNew@(A.ArrayNew {A.ty, A.sizes}) = do
     arrName <- Ctx.genNamedSym "array"
-    sizeName <- Ctx.genNamedSym "size"
-    (nsize, tsize) <- translate size
-    ty' <- getTypeVar ty
+    ntsizes <- mapM translate sizes
+    let (nsizes, tsizes) = unzip ntsizes
+        numDims = (length sizes)
+    ty' <- getTypeVar $ Ty.getResultType ty
     let theArrayDecl =
           Assign (Decl (array, Var arrName))
-            (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, ty'])
-    return (Var arrName, Seq [tsize, theArrayDecl])
+            (Call arrayMkFn $ [AsExpr encoreCtxVar, ty', Int numDims] ++ (map AsExpr nsizes))
+    return (Var arrName, Seq $ tsizes ++ [theArrayDecl])
 
   translate rangeLit@(A.RangeLiteral {A.start = start, A.stop = stop, A.step = step}) = do
       (nstart, tstart) <- translate start
@@ -483,30 +498,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 Assign (Decl (ty, Var rangeLiteral))
                                        (Call rangeMkFn [encoreCtxVar, nstart, nstop, nstep])])
 
-  translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
-      do (ntarg, ttarg) <- translate target
-         (nindex, tindex) <- translate index
-         accessName <- Ctx.genNamedSym "access"
-         let ty = translate $ A.getType arrAcc
-             theAccess =
-                Assign (Decl (ty, Var accessName))
-                       (fromEncoreArgT ty (Call arrayGet [ntarg, nindex]))
-         return (Var accessName, Seq [ttarg, tindex, theAccess])
+  translate arrAcc@(A.ArrayAccess {A.target, A.indices}) = do
+    (ntarget, ttarget) <- translate target
+    accessName <- Ctx.genNamedSym "access"
+    (nindices, tindices) <- translateArrayIndex ntarget indices
+    let tty = translate $ Ty.getResultType $ A.getType target
+        theAccess =
+          Assign (Decl (tty, Var accessName))
+                 (fromEncoreArgT tty (Call arrayGet [ntarget, nindices]))
+    return (Var accessName, Seq [ttarget, tindices, theAccess])
 
-  translate arrLit@(A.ArrayLiteral {A.args}) =
-      do arrName <- Ctx.genNamedSym "array"
-         targs <- mapM translate args
-         let len = length args
-             ty  = Ty.getResultType $ A.getType arrLit
-             theArrayDecl =
-                Assign (Decl (array, Var arrName))
-                       (Call arrayMkFn [AsExpr encoreCtxVar, Int len, runtimeType ty])
-             theArrayContent = Seq $ map (\(_, targ) -> targ) targs
-             theArraySets =
-                let (_, sets) = mapAccumL (arraySet arrName ty) 0 targs
-                in sets
-         return (Var arrName, Seq $ theArrayDecl : theArrayContent : theArraySets)
+  translate arrLit@(A.ArrayLiteral {A.args}) = do 
+    arrName <- Ctx.genNamedSym "array"
+    let dims = getDims arrLit
+        fargs = flatten arrLit
+    targs <- mapM translate fargs
+    let len = length args
+        ty = Ty.getResultType $ A.getType arrLit
+        theArrayDecl = Assign (Decl (array, Var arrName)) 
+                              (Call arrayMkFn ([AsExpr encoreCtxVar, 
+                                                runtimeType ty, 
+                                                Int $ length dims] ++ 
+                                               (map Int dims)))
+        theArrayContent = Seq $ map snd targs
+        theArraySets =
+          let (_, sets) = mapAccumL (arraySet arrName ty) 0 targs
+          in sets
+    return (Var arrName, Seq $ theArrayDecl : theArrayContent : theArraySets)
       where
+        getDims A.ArrayLiteral{A.args} = (length args):(getDims $ head args)
+        getDims expr = []
+
+        flatten A.ArrayLiteral{A.args} = concatMap flatten args
+        flatten expr = [expr]
+      
         arraySet arrName ty index (narg, _) =
             (index + 1,
              Statement $ Call C.arraySet
@@ -514,11 +539,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                Int index,
                                asEncoreArgT (translate ty) $ AsExpr narg])
 
+  translate arrSize@(A.ArraySize {A.target = A.ArrayAccess{A.target = arr, A.indices}}) =
+      do (ntarg, ttarg) <- translate arr
+         tmp <- Ctx.genNamedSym "size"
+         let theSize = Assign (Decl (int, Var tmp))
+                              (Call arrayDimSize [AsExpr ntarg, Int $ length indices])
+         return (Var tmp, Seq [ttarg, theSize])
   translate arrSize@(A.ArraySize {A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genNamedSym "size"
          let theSize = Assign (Decl (int, Var tmp))
-                              (Call arraySize [ntarg])
+                              (Call arrayDimSize [AsExpr ntarg, Int 0])
          return (Var tmp, Seq [ttarg, theSize])
 
   translate call@(A.MethodCall { A.emeta, A.target, A.name, A.args})

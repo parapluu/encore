@@ -1,0 +1,7 @@
+def createArray(n: int): Array<int>
+  new Array<int>(n)
+
+class Main
+  def main(): void
+    -- Dynamically sized. Should not compile.
+    [[1,2], createArray(2)]
