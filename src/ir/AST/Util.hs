@@ -70,7 +70,7 @@ getChildren Await {val} = [val]
 getChildren Suspend {} = []
 getChildren FutureChain {future, chain} = [future, chain]
 getChildren FieldAccess {target} = [target]
-getChildren ArrayAccess {target, index} = [target, index]
+getChildren ArrayAccess {target, index} = target:index
 getChildren ArraySize {target} = [target]
 getChildren ArrayNew {size} = [size]
 getChildren ArrayLiteral {args} = args
@@ -143,7 +143,7 @@ putChildren [val] e@(Await {}) = e{val = val}
 putChildren [] e@(Suspend {}) = e
 putChildren [future, chain] e@(FutureChain {}) = e{future = future, chain = chain}
 putChildren [target] e@(FieldAccess {}) = e{target = target}
-putChildren [target, index] e@(ArrayAccess {}) = e{target = target, index = index}
+putChildren (target:index) e@(ArrayAccess {}) = e{target = target, index = index}
 putChildren [target] e@(ArraySize {}) = e{target = target}
 putChildren [size] e@(ArrayNew {}) = e{size = size}
 putChildren args e@(ArrayLiteral {}) = e{args = args}

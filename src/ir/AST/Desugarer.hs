@@ -254,14 +254,14 @@ desugar Foreach{emeta, item, arr, body} =
      (Skip (cloneMeta emeta))
      (Let emeta
         [(it, IntLiteral emeta 0),
-         (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
+         (item, ArrayAccess emeta arr [(IntLiteral emeta 0)])]
        (While emeta
              (Binop emeta
                    Identifiers.LT
                    (VarAccess emeta it)
                    (VarAccess emeta arrSize))
              (Seq emeta
-                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it)),
+                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr [(VarAccess emeta it)]),
                    Async emeta body,
                    Assign emeta
                       (VarAccess emeta it)
