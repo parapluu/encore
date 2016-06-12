@@ -1,0 +1,9 @@
+class Main
+  def main() : void
+    embed void
+      fprintf(stderr, "This should be printed on stderr\n");
+      fflush(stderr);
+      fprintf(stdout, "This should be printed on stdout\n");
+      abort();
+      fprintf(stdout, "This should not be printed at all\n");
+    end
