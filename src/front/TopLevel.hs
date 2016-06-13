@@ -50,8 +50,8 @@ standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENC
 data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run | Bench | Profile |
-              KeepCFiles | Undefined String |
+data Option = GCC | Clang | Run | Optimise String | Profile |
+              KeepCFiles | Undefined String | Debug |
               Output FilePath | Source FilePath | Imports [FilePath] |
               Intermediate Phase | TypecheckOnly | Verbatim | NoGC | Help
               deriving Eq
@@ -63,22 +63,36 @@ parseArguments args =
         parseArguments' args = opt : parseArguments' rest
             where
               (opt, rest) = parseArgument args
-              parseArgument ("-bench":args)     = (Bench, args)
-              parseArgument ("-pg":args)        = (Profile, args)
-              parseArgument ("-c":args)         = (KeepCFiles, args)
-              parseArgument ("-tc":args)        = (TypecheckOnly, args)
-              parseArgument ("-gcc":args)       = (GCC, args)
-              parseArgument ("-run":args)       = (Run, args)
-              parseArgument ("-clang":args)     = (Clang, args)
-              parseArgument ("-o":file:args)    = (Output file, args)
-              parseArgument ("-AST":args)       = (Intermediate Parsed, args)
-              parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
-              parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
-              parseArgument ("-v":args)         = (Verbatim, args)
-              parseArgument ("-nogc":args)      = (NoGC, args)
-              parseArgument ("-help":args)      = (Help, args)
-              parseArgument (('-':flag):args)   = (Undefined flag, args)
-              parseArgument (file:args)         = (Source file, args)
+              parseArgument ("--generate-c":args)    = (KeepCFiles, args)
+              parseArgument ("-c":args)              = (KeepCFiles, args)
+              parseArgument ("--debug":args)         = (Debug, args)
+              parseArgument ("-g":args)              = (Debug, args)
+              parseArgument ("--type-check":args)    = (TypecheckOnly, args)
+              parseArgument ("-tc":args)             = (TypecheckOnly, args)
+              parseArgument ("--out-file":file:args) = (Output file, args)
+              parseArgument ("-o":file:args)         = (Output file, args)
+              parseArgument ("--optimise":level:args) = (Optimise level, args) 
+              parseArgument ("-O":level:args)        = (Optimise level, args)
+              parseArgument ("-O0":args)             = (Optimise "0", args)
+              parseArgument ("-O1":args)             = (Optimise "1", args)
+              parseArgument ("-O2":args)             = (Optimise "2", args)
+              parseArgument ("-O3":args)             = (Optimise "3", args)
+              parseArgument ("--run":args)           = (Run, args)
+              parseArgument ("--no-gc":args)         = (NoGC, args)
+              parseArgument ("--help":args)          = (Help, args)
+              parseArgument ("--profile":args)       = (Profile, args)
+              parseArgument ("-pg":args)             = (Profile, args)
+              parseArgument ("--import":dirs:args)   = (Imports $ split ":" dirs, args)
+              parseArgument ("-I":dirs:args)         = (Imports $ split ":" dirs, args)
+              parseArgument ("--verbose":args)       = (Verbatim, args)
+              parseArgument ("-v":args)              = (Verbatim, args)
+              -- TODO: remove
+              parseArgument ("-clang":args)          = (Clang, args)
+              parseArgument ("-gcc":args)            = (GCC, args)
+              parseArgument ("-AST":args)            = (Intermediate Parsed, args)
+              parseArgument ("-TypedAST":args)       = (Intermediate TypeChecked, args)
+              parseArgument (('-':flag):args)        = (Undefined flag, args)
+              parseArgument (file:args)              = (Source file, args)
     in
       let (sources, aux) = partition isSource (parseArguments' args)
           (imports, options) = partition isImport aux
@@ -113,7 +127,10 @@ checkForUndefined =
   mapM_ (\flag -> case flag of
             Undefined flag ->
               abort $ "Unknown flag " <> flag <>
-              ". Use -help to see available flags."
+              ". Use --help to see available flags."
+            Optimise str ->
+              if (str `elem` ["0", "1", "2", "3"]) then return () else
+                abort $ "Illegal argument '" ++ str ++ "' to --optimise/-O. Use --help to see legal arguments."
             _ -> return ())
 
 output :: Show a => a -> Handle -> IO ()
@@ -157,20 +174,23 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
            pg    = if Profile `elem` options then "-pg" else ""
-           bench = if Bench `elem` options then "-O3" else ""
+           opt   = case find isOptimise options of
+                        Just (Optimise str) -> "-O" ++ str
+                        Nothing             -> ""
+           debug = if Debug `elem` options then (if GCC `elem` options then "-ggdb" else "-g") else ""
            libs  = libPath ++ "*.a"
-           cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
-           compileCmd = cmd <+> unwords classFiles <+>
+           cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
+           compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
                         sharedFile <+> libs <+> libs <+> defines
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $
-          generateMakefile encoreNames execName cc flags incPath defines libs)
+          generateMakefile encoreNames execName cc cmd incPath defines libs)
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
@@ -187,6 +207,9 @@ compileProgram prog sourcePath options =
       isOutput (Output _) = True
       isOutput _ = False
 
+      isOptimise (Optimise _) = True
+      isOptimise _ = False
+
       getDefines = unwords . map ("-D"++) .
                    filter (/= "") . map getDefine
       getDefine NoGC = "NO_GC"
@@ -196,12 +219,12 @@ main =
     do args <- getArgs
        let (programs, importDirs, options) = parseArguments args
        checkForUndefined options
-       when (Help `elem`options)
+       when (Help `elem` options)
            (abort helpMessage)
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>
-                    "The -help flag provides more information.\n"))
+                    "The --help flag provides more information.\n"))
        warnings options
        let sourceName = head programs
        sourceExists <- doesFileExist sourceName
@@ -285,13 +308,17 @@ main =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
         "Flags:\n" <>
-        "  -c           Keep intermediate C-files.\n" <>
-        "  -tc          Typecheck only (don't produce an executable).\n" <>
-        "  -o [file]    Specify output file.\n" <>
-        "  -run         Run the program and remove the executable.\n" <>
-        "  -clang       Use clang to build the executable (default).\n" <>
-        "  -AST         Output the parsed AST as text to foo.AST.\n" <>
-        "  -TypedAST    Output the typechecked AST as text to foo.TAST.\n" <>
-        "  -nogc        Disable the garbage collection of passive objects.\n" <>
-        "  -help        Print this message and exit.\n" <>
-        "  -I p1:p2:... Directories in which to look for modules."
+        "  --import [dirs]   | -I [dirs] : separated list of directories in which to look for modules.\n" <>
+        "  --out-file [file] | -o [file] Specify output file.\n" <>
+        "  --generate-c      | -c        Outputs intermediate C files in separate source tree.\n" <>
+        "  --debug           | -g        Inserts debugging symbols in executable. Use with -c for improved debugging experience.\n" <>
+        "  --type-check      | -tc       Only type check program, do not produce an executable. \n" <>
+        "  --verbose         | -v        Print debug information during compiler stages.\n" <>
+        "  --optimise N      | -O N      Optimise produced executable. N=0,1,2 or 3. \n" <>
+        "  --profile         | -pg       Embed profiling information in the executable.\n" <>
+        "  --run                         Compile and run the program, but do not produce executable file.\n" <>
+        "  --no-gc                       DEBUG: disable GC and use C-malloc for allocation.\n" <>
+        "  --help                        Display this information.\n" <>
+        "Obsolete flags (that will be removed):\n" <>
+        "  -clang -gcc -AST -TypedAST" 
+
