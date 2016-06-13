@@ -50,10 +50,9 @@ standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENC
 data Phase = Parsed | TypeChecked
     deriving Eq
 
-data Option = GCC | Clang | Run | Bench | Profile |
-              KeepCFiles | Undefined String |
-              Output FilePath | Source FilePath | Imports [FilePath] |
-              Intermediate Phase | TypecheckOnly | Verbatim | NoGC | Help
+data Option = GCC | Clang | Run | Bench | Profile | Undefined String | NoGC |
+              Output FilePath | Source FilePath | Imports [FilePath] | Help |
+              Intermediate Phase | TypecheckOnly | Verbatim | Debug
               deriving Eq
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
@@ -65,7 +64,6 @@ parseArguments args =
               (opt, rest) = parseArgument args
               parseArgument ("-bench":args)     = (Bench, args)
               parseArgument ("-pg":args)        = (Profile, args)
-              parseArgument ("-c":args)         = (KeepCFiles, args)
               parseArgument ("-tc":args)        = (TypecheckOnly, args)
               parseArgument ("-gcc":args)       = (GCC, args)
               parseArgument ("-run":args)       = (Run, args)
@@ -75,6 +73,7 @@ parseArguments args =
               parseArgument ("-TypedAST":args)  = (Intermediate TypeChecked, args)
               parseArgument ("-I":dirs:args)    = (Imports $ split ":" dirs, args)
               parseArgument ("-v":args)         = (Verbatim, args)
+              parseArgument ("-debug":args)     = (Debug, args)
               parseArgument ("-nogc":args)      = (NoGC, args)
               parseArgument ("-help":args)      = (Help, args)
               parseArgument (('-':flag):args)   = (Undefined flag, args)
@@ -157,14 +156,15 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -ggdb -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
            pg    = if Profile `elem` options then "-pg" else ""
+           debug = if (Debug `elem` options) then "-ggdb" else ""
            bench = if Bench `elem` options then "-O3" else ""
            libs  = libPath ++ "*.a"
-           cmd   = cc <+> pg <+> bench <+> flags <+> oFlag <+> libs <+> incs
+           cmd   = cc <+> pg <+> bench <+> flags <+> debug <+> oFlag <+> libs <+> incs
            compileCmd = cmd <+> unwords classFiles <+>
                         sharedFile <+> libs <+> libs <+> defines
        withFile headerFile WriteMode (output header)
@@ -179,7 +179,7 @@ compileProgram prog sourcePath options =
                  ExitSuccess -> return ()
                  ExitFailure n ->
                      abort $ " *** Compilation failed with exit code" <+> show n <+> "***")
-       unless (KeepCFiles `elem` options)
+       unless (Debug `elem` options)
                   (do runCommand $ "rm -rf" <+> srcDir
                       return ())
        return execName
@@ -285,7 +285,8 @@ main =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
         "Flags:\n" <>
-        "  -c           Keep intermediate C-files.\n" <>
+        "  -debug       Compiles the program with debug information, and keeps generated C code.\n" <>
+        "  -bench       Compiles the program with optimisations turned on\n" <>
         "  -tc          Typecheck only (don't produce an executable).\n" <>
         "  -o [file]    Specify output file.\n" <>
         "  -run         Run the program and remove the executable.\n" <>
