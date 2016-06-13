@@ -128,11 +128,6 @@ translateDecl (name, expr) = do
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- | Translate an expression into the corresponding C code
   translate skip@(A.Skip {}) = namedTmpVar "skip" (A.getType skip) (AsExpr unit)
-  translate breathe@(A.Breathe {}) =
-    namedTmpVar "breathe"
-                (A.getType breathe)
-                (Call (Nam "call_respond_with_current_scheduler") ([] :: [CCode Expr]))
-
   translate null@(A.Null {}) = namedTmpVar "literal" (A.getType null) Null
   translate true@(A.BTrue {}) = namedTmpVar "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = namedTmpVar "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)

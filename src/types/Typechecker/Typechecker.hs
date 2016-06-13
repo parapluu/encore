@@ -323,11 +323,6 @@ instance Checkable Expr where
     --  E |- () : void
     doTypecheck skip@(Skip {}) = return $ setType voidType skip
 
-    --
-    -- ----------------
-    --  E |- breathe : void
-    doTypecheck breathe@(Breathe {}) = return $ setType voidType breathe
-
    ---  |- t
     --  E |- body : t
     -- ----------------------

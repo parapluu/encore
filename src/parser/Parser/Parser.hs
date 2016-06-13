@@ -48,7 +48,6 @@ lexer =
     ,"class"
     ,"def"
     ,"stream"
-    ,"breathe"
     ,"int"
     ,"string"
     ,"char"
@@ -633,7 +632,6 @@ highOrderExpr = adtExpr
 
 expr :: Parser Expr
 expr  =  unit
-     <|> breathe
      <|> try embed
      <|> try path
      <|> try functionCall
@@ -686,9 +684,6 @@ expr  =  unit
       unit = do pos <- getPosition
                 reservedOp "()"
                 return $ Skip (meta pos)
-      breathe = do pos <- getPosition
-                   reserved "breathe"
-                   return $ Breathe (meta pos)
       path = do pos <- getPosition
                 root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
                 first <- pathComponent
