@@ -1,9 +1,11 @@
 def multiDimAcces(): void {
-  let arr = new [[int]](2) in
+  let n = 2
+      m = 3
+      arr = new [[int]](n) in
     repeat i <- |arr| {
-      arr[i] = new [int](2);
+      arr[i] = new [int](m);
       repeat j <- |arr[i]| {
-        arr[i,j] = 2 * i + j;
+        arr[i,j] = m * i + j;
         print arr[i,j]
       }
     }
