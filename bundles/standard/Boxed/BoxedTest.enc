@@ -2,7 +2,7 @@ import Boxed.Integer
 import Boxed.Char
 import Boxed.Real
 import Boxed.Bool
-import Boxed.Void
+import Boxed.Unit
 
 class Main {
   def main() : void {
@@ -16,7 +16,7 @@ class Main {
     print((new Real(minReal)).show());
     print((new Bool(true))   .show());
     print((new Bool(false))  .show());
-    print((new Void)         .show());
+    print((new Unit)         .show());
     
     assertTrue((new Integer(12)).value() == 12);
     assertTrue((new Bool(true)).value());
