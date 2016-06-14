@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
-{-# OPTIONS_GHC -Werror #-}
 {-|
   Utility functions for "AST.AST".
 -}
@@ -294,7 +293,6 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         (acc', mtd{mbodies = mbodies'})
         where
           (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
-
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
