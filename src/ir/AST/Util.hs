@@ -27,7 +27,6 @@ import Identifiers
 -- | @getChildren e@ returns all children of @e@ that are Exprs themselves
 getChildren :: Expr -> [Expr]
 getChildren Skip{} = []
-getChildren Breathe{} = []
 getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
@@ -98,7 +97,6 @@ getChildren Binop {loper, roper} = [loper, roper]
 -- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
 putChildren :: [Expr] -> Expr -> Expr
 putChildren [] e@Skip{} = e
-putChildren [] e@Breathe{} = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
@@ -168,7 +166,6 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 -- This very explicit error handling is there to make
 -- -fwarn-incomplete-patterns help us find missing patterns
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
-putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
 putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"

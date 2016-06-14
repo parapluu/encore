@@ -84,7 +84,7 @@ data Typedef = Typedef {
    typedefmeta :: Meta Typedef,
    typedefdef  :: Type  -- will be a TypeSynonym, with left and right hand side of definition built in
 } deriving (Show)
- 
+
 instance HasMeta Typedef where
     getMeta = typedefmeta
 
@@ -365,7 +365,6 @@ data MaybeContainer = JustData { e :: Expr}
                     | NothingData deriving(Eq, Show)
 
 data Expr = Skip {emeta :: Meta Expr}
-          | Breathe {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}
