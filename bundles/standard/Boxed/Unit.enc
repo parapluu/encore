@@ -1,0 +1,12 @@
+-- A boxed unit () value.
+passive class Unit {
+
+  def show() : String {
+    "()"
+  }
+
+  def value() : void {
+    ()
+  }
+
+}

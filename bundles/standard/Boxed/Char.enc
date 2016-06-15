@@ -1,0 +1,15 @@
+-- A boxed character.
+passive class Char {
+  value : char
+  def init(x: char) : void {
+    this.value = x;
+  }
+
+  def show() : String {
+    string_from_char(this.value)
+  }
+  
+  def value() : char {
+    this.value
+  }
+}

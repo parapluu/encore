@@ -38,6 +38,18 @@ def string_from_array(arr : [char]) : String
     new String(s)
   }
 
+def string_from_real(n : real) : String
+  new String(embed
+    (embed char* end)
+    double n = #{n};
+    char buf[13] = { 0 }; // long enough to print the minimum double value.
+    char *s = encore_alloc(encore_ctx(), sizeof(buf));
+    snprintf(s, sizeof(buf), "%.5g", n);
+    s;
+    end
+  )
+
+
 def string_from_int(n : int) : String
   new String(embed
     (embed char* end)
@@ -49,6 +61,9 @@ def string_from_int(n : int) : String
     s;
     end
   )
+
+def string_from_bool(x : bool) : String
+  if x then "true" else "false"
 
 -- This is a utility library for working with strings.
 -- [x] build a wrapper around string.h
