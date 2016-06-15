@@ -732,12 +732,12 @@ instance Checkable Expr where
         do eVal <- typecheck val
            result <- asks currentMethod
            when (isNothing result) $
-                tcError NonStreamingContextError
+                tcError $ NonStreamingContextError yield
            let mtd = fromJust result
                mType = methodType mtd
                eType = AST.getType eVal
            unless (isStreamMethod mtd) $
-                  tcError NonStreamingContextError
+                  tcError $ NonStreamingContextError yield
            eType `assertSubtypeOf` mType
            return $ setType voidType yield {val = eVal}
 
@@ -747,10 +747,10 @@ instance Checkable Expr where
     doTypecheck eos@(Eos {}) =
         do result <- asks currentMethod
            when (isNothing result) $
-                tcError NonStreamingContextError
+                tcError $ NonStreamingContextError eos
            let mtd = fromJust result
            unless (isStreamMethod mtd) $
-                  tcError NonStreamingContextError
+                  tcError $ NonStreamingContextError eos
            return $ setType voidType eos
 
     --  E |- s : Stream t
@@ -1022,9 +1022,11 @@ instance Checkable Expr where
     --  E |- exit(arg) : void
     doTypecheck exit@(Exit {args}) =
         do eArgs <- mapM typecheck args
-           let expectedType = tupleType [intType]
-               actualType = tupleType $ map AST.getType eArgs
-           actualType `assertSubtypeOf` expectedType
+           let expectedTypes = [intType]
+           unless (length args == length expectedTypes) $
+             tcError $ WrongNumberOfFunctionArgumentsError
+                       (Name "exit") (length expectedTypes) (length args)
+           matchArguments args expectedTypes
            return $ setType voidType exit {args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
@@ -1123,8 +1125,9 @@ instance Checkable Expr where
 --  null : ty
 coerceNull null ty
     | isRefType ty || isCapabilityType ty = return $ setType ty null
+    | isNullType ty = tcError NullTypeInferenceError
     | otherwise =
-        tcError $ NullTypeInferenceError (Just ty)
+        tcError $ CannotBeNullError ty
 
 coercedInto :: Type -> Type -> TypecheckM Type
 coercedInto actual expected
@@ -1138,9 +1141,9 @@ coercedInto actual expected
       return $ setArgTypes actual argTypes
   | isNullType actual = do
       when (isNullType expected) $
-        tcError $ NullTypeInferenceError Nothing
+        tcError NullTypeInferenceError
       unless (canBeNull expected) $
-        tcError $ NullTypeInferenceError (Just expected)
+        tcError $ CannotBeNullError expected
       return expected
   | isBottomType actual = do
       when (any isBottomType $ typeComponents expected) $

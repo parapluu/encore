@@ -112,12 +112,12 @@ instance Pushable Expr where
 instance Pushable Typedef where
     push t@(Typedef {typedefdef}) = pushMeta t (BTTypedef typedefdef)
 
-classOrTraitName :: Type -> String
-classOrTraitName ty
+refTypeName :: Type -> String
+refTypeName ty
     | isClassType ty = "class '" ++ getId ty ++ "'"
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No class or trait name for " ++
+    | otherwise = error $ "Util.hs: No refTypeName for " ++
                           Types.showWithKind ty
 
 -- | The data type for a type checking error. Showing it will
@@ -133,7 +133,7 @@ instance Show TCError where
         show err ++ "\n" ++
         concatMap showBT bt
         where
-          showBT (pos, node) =
+          showBT (_, node) =
               case show node of
                 "" -> ""
                 s  -> s ++ "\n"
@@ -166,7 +166,7 @@ data Error =
   | MainMethodCallError
   | ConstructorCallError
   | ExpectingOtherTypeError String Type
-  | NonStreamingContextError
+  | NonStreamingContextError Expr
   | UnboundFunctionError Name
   | NonFunctionTypeError Type
   | BottomTypeInferenceError
@@ -194,12 +194,16 @@ data Error =
   | UnaryOperandMismatchError UnaryOp Type
   | BinaryOperandMismatchError BinaryOp String Type Type
   | UndefinedBinaryOperatorError BinaryOp
-  | NullTypeInferenceError (Maybe Type)
+  | NullTypeInferenceError
+  | CannotBeNullError Type
   | TypeMismatchError Type Type
   | TypeWithCapabilityMismatchError Type Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
   | SimpleError String
+
+arguments 1 = "argument"
+arguments _ = "arguments"
 
 instance Show Error where
     show (DistinctTypeParametersError ty) =
@@ -209,28 +213,29 @@ instance Show Error where
               (if name == Name "_init"
                then "Constructor"
                else "Method '" ++ show name ++ "'") ++
-               " in " ++ classOrTraitName targetType
-        in printf "%s expects %d arguments. Got %d" nameWithKind expected actual
+               " in " ++ refTypeName targetType
+        in printf "%s expects %d %s. Got %d"
+           nameWithKind expected (arguments expected) actual
     show (WrongNumberOfFunctionArgumentsError name expected actual) =
-        printf "Function %s expects %d arguments. Got %d"
-               (show name) expected actual
+        printf "Function %s expects %d %s. Got %d"
+               (show name) expected (arguments expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
-        printf "'%s' expects %d type arguments, but '%s' has %d"
-              (show ty1) n1 (show ty2) n2
+        printf "'%s' expects %d type %s, but '%s' has %d"
+              (show ty1) n1 (arguments n1) (show ty2) n2
     show (MissingFieldRequirementError field trait) =
         printf "Cannot find field '%s' required by included %s"
-               (show field) (classOrTraitName trait)
+               (show field) (refTypeName trait)
     show (CovarianceViolationError field expected trait) =
         printf ("Field '%s' must have a subtype of '%s' to meet " ++
                 "the requirements of included %s")
-               (show field) (show expected) (classOrTraitName trait)
+               (show field) (show expected) (refTypeName trait)
     show (RequiredFieldMismatchError field expected trait isSub) =
         printf ("Field '%s' must exactly match type '%s' " ++
                 "to meet the requirements of included %s%s")
-               (show field) (show expected) (classOrTraitName trait)
+               (show field) (show expected) (refTypeName trait)
                (if isSub
                 then ". Consider turning '" ++ show (fname field) ++
-                     "' into a val-field in " ++ classOrTraitName trait
+                     "' into a val-field in " ++ refTypeName trait
                 else "")
     show (NonDisjointConjunctionError left right field) =
         printf
@@ -238,13 +243,13 @@ instance Show Error where
            (show left) (show right) (show field)
     show (OverriddenMethodError name trait) =
         printf "Method '%s' is defined both in current class and %s"
-               (show name) (classOrTraitName trait)
+               (show name) (refTypeName trait)
     show (IncludedMethodConflictError name left right) =
         printf "Conflicting inclusion of method '%s' from %s and %s"
-               (show name) (classOrTraitName left) (classOrTraitName right)
+               (show name) (refTypeName left) (refTypeName right)
     show (MissingMethodRequirementError header trait) =
         printf "Cannot find method '%s' required by included %s"
-               (show $ ppFunctionHeader header) (classOrTraitName trait)
+               (show $ ppFunctionHeader header) (refTypeName trait)
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
     show (UnknownRefTypeError ty) =
@@ -264,13 +269,13 @@ instance Show Error where
         "Main method must have argument type () or ([String])"
     show (FieldNotFoundError name ty) =
         printf "No field '%s' in %s"
-               (show name) (classOrTraitName ty)
+               (show name) (refTypeName ty)
     show (MethodNotFoundError name ty) =
         let nameWithKind = if name == Name "_init"
                            then "constructor"
                            else "method '" ++ show name ++ "'"
             targetType = if isRefType ty
-                         then classOrTraitName ty
+                         then refTypeName ty
                          else Types.showWithKind ty
         in printf "No %s in %s"
                   nameWithKind targetType
@@ -288,7 +293,9 @@ instance Show Error where
     show (ExpectingOtherTypeError something ty) =
         printf "Expected %s but found expression of type '%s'"
                something (show ty)
-    show NonStreamingContextError = "Not inside a streaming method"
+    show (NonStreamingContextError e) =
+        printf "Cannot have '%s' outside of a streaming method"
+               (show $ ppSugared e)
     show (UnboundFunctionError name) =
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
@@ -319,11 +326,15 @@ instance Show Error where
         "Left-hand side cannot be assigned to"
     show (ValFieldAssignmentError name targetType) =
         printf "Cannot assign to val-field '%s' in %s"
-               (show name) (classOrTraitName targetType)
+               (show name) (refTypeName targetType)
     show (UnboundVariableError name) =
         printf "Unbound variable '%s'" (show name)
-    show (ObjectCreationError ty) =
-        printf "Cannot create object of type '%s'" (show ty)
+    show (ObjectCreationError ty)
+        | isMainType ty = "Cannot create additional Main objects"
+        | isCapabilityType ty =
+            printf "Cannot create instance of %s (type must be a class)"
+                   (refTypeName ty)
+        | otherwise = printf "Cannot create object of type '%s'" (show ty)
     show (NonIterableError ty) =
         printf "Type '%s' is not iterable" (show ty)
     show EmptyArrayLiteralError = "Array literal must have at least one element"
@@ -337,7 +348,7 @@ instance Show Error where
         printf "Expression of type '%s' is not printable" (show ty)
     show (WrongNumberOfPrintArgumentsError expected actual) =
         printf ("Wrong number of arguments to print. Format string " ++
-                "expects %d arguments. Found %d") expected actual
+                "expects %d %s. Found %d") expected (arguments expected) actual
     show (UnaryOperandMismatchError op ty) =
         printf "Operator '%s' is not defined for values of type '%s'"
                (show op) (show ty)
@@ -348,14 +359,12 @@ instance Show Error where
                (show op) kind (show lType) (show rType)
     show (UndefinedBinaryOperatorError op) =
         printf "Undefined binary operator '%s'" (show op)
-    show (NullTypeInferenceError mty) =
-        case mty of
-          Just ty ->
-              printf ("Null valued expression cannot have type '%s' " ++
-                      "(must have reference type)") (show ty)
-          Nothing ->
-              "Cannot infer type of null valued expression. " ++
-              "Try adding type annotations"
+    show NullTypeInferenceError =
+        "Cannot infer type of null valued expression. " ++
+        "Try adding type annotations"
+    show (CannotBeNullError ty) =
+        printf ("Null valued expression cannot have type '%s' " ++
+                "(must have reference type)") (show ty)
     show (TypeMismatchError actual expected) =
         printf "Type '%s' does not match expected type '%s'"
                (show actual) (show expected)
