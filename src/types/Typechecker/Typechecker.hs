@@ -1046,10 +1046,10 @@ instance Checkable Expr where
            eArgs <- mapM (`hasType` ty) args
            return $ setType (arrayType ty) arr{args = eArgs}
 
-    --  E |- target : [ty]
-    --  E |- index : int
+    --  E |- target : [[..[ty]..]]
+    --  E |- i1,i2...in : [int]
     -- -------------------------
-    --  E |- target[index] : ty
+    --  E |- target[i1,i2...in] : ty
     doTypecheck arrAcc@(ArrayAccess {target, index}) =
         do eTarget <- typecheck target
            let targetType = AST.getType eTarget
@@ -1057,10 +1057,17 @@ instance Checkable Expr where
                   tcError $ "Cannot index non-array '" ++
                             show (ppSugared target) ++
                             "' of type '" ++ show targetType ++ "'"
-           eIndex <- hasType index intType
-           return $ setType (getResultType targetType)
+           unless ((arrayDepth targetType) >= (length index)) $
+             tcError $ "Too many indexes for type '" ++
+                       show targetType ++ "'"
+           eIndex <- mapM (`hasType` intType) index
+           return $ setType (foldr (.) id (replicate (length index) getResultType) targetType)
                             arrAcc{target = eTarget, index = eIndex}
-
+             where
+               arrayDepth :: Type -> Int 
+               arrayDepth ty
+                 | isArrayType ty = 1 + (arrayDepth $ getResultType ty)
+                 | otherwise = 0
     --  E |- target : [_]
     -- -------------------------
     --  E |- |target| : int

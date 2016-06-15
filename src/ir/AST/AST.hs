@@ -462,7 +462,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name}
           | ArrayAccess {emeta :: Meta Expr,
                          target :: Expr,
-                         index :: Expr}
+                         index :: [Expr]}
           | ArraySize {emeta :: Meta Expr,
                        target :: Expr}
           | ArrayNew {emeta :: Meta Expr,

@@ -324,14 +324,23 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              commentAndTe (ast, te) = Seq [commentFor ast, te]
 
   translate (A.Assign {A.lhs = lhs@(A.ArrayAccess {A.target, A.index}), A.rhs}) = do
+    (ntarget, ttarget) <- translate target
     (nrhs, trhs) <- translate rhs
-    (ntarg, ttarg) <- translate target
-    (nindex, tindex) <- translate index
-    let ty = translate $ A.getType lhs
-        theSet =
-           Statement $
-           Call arraySet [AsExpr ntarg, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
-    return (unit, Seq [trhs, ttarg, tindex, theSet])
+    (nassign, tassign) <- translateArrayAssign ntarget (reverse index) nrhs
+    return (nassign, Seq [trhs, ttarget, tassign])
+      where
+        translateArrayAssign ntarget [index] nrhs = do
+          (nindex, tindex) <- translate index
+          let ty = translate $ A.getType lhs
+              theSet =
+                Statement $
+                Call arraySet [AsExpr ntarget, AsExpr nindex, asEncoreArgT ty $ AsExpr nrhs]
+          return (unit, Seq [tindex, theSet])
+        translateArrayAssign _ (index:restIndexes) nrhs = do
+          let target = lhs{A.index = restIndexes}
+          (ntarget, ttarget) <- translate target
+          (nassign, tassign) <- translateArrayAssign ntarget [index] nrhs
+          return (nassign, Seq [ttarget, tassign])
 
   translate (A.Assign {A.lhs, A.rhs}) = do
     (nrhs, trhs) <- translate rhs
@@ -483,15 +492,23 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 Assign (Decl (ty, Var rangeLiteral))
                                        (Call rangeMkFn [encoreCtxVar, nstart, nstop, nstep])])
 
-  translate arrAcc@(A.ArrayAccess {A.target, A.index}) =
-      do (ntarg, ttarg) <- translate target
-         (nindex, tindex) <- translate index
-         accessName <- Ctx.genNamedSym "access"
-         let ty = translate $ A.getType arrAcc
-             theAccess =
-                Assign (Decl (ty, Var accessName))
-                       (fromEncoreArgT ty (Call arrayGet [ntarg, nindex]))
-         return (Var accessName, Seq [ttarg, tindex, theAccess])
+  translate arrAcc@(A.ArrayAccess {A.target, A.index}) = do
+    (ntarget, ttarget) <- translate target
+    let ty = A.getType target
+    translateArrAcc ty (ntarget, ttarget) index
+      where
+        translateArrAcc ty (ntarget, ttarget) [index] = do
+          (nindex, tindex) <- translate index
+          accessName <- Ctx.genNamedSym "access"
+          let tty = translate ty
+              theAccess =
+                Assign (Decl (tty, Var accessName))
+                       (fromEncoreArgT tty (Call arrayGet [ntarget, nindex]))
+          return (Var accessName, Seq [ttarget, tindex, theAccess])
+        translateArrAcc ty (ntarget, ttarget) (index:restIndexes) = do
+          (ntarg, ttarg) <- translateArrAcc ty (ntarget, ttarget) [index]
+          let rty = Ty.getResultType ty
+          translateArrAcc rty (ntarg, ttarg) restIndexes
 
   translate arrLit@(A.ArrayLiteral {A.args}) =
       do arrName <- Ctx.genNamedSym "array"

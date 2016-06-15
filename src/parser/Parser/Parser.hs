@@ -570,8 +570,8 @@ expression = buildExpressionParser opTable highOrderExpr
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
           Postfix (try (do pos <- getPosition
-                           index <- brackets expression
-                           return (\e -> ArrayAccess (meta pos) e index)))
+                           indexes <- brackets $ commaSep1 expression
+                           return (\e -> ArrayAccess (meta pos) e indexes)))
       messageSend =
           Postfix (do pos <- getPosition
                       bang

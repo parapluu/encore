@@ -1,3 +1,16 @@
+def multiDimAcces(): void {
+  let n = 2
+      m = 3
+      arr = new [[int]](n) in
+    repeat i <- |arr| {
+      arr[i] = new [int](m);
+      repeat j <- |arr[i]| {
+        arr[i,j] = m * i + j;
+        print arr[i,j]
+      }
+    }
+}
+
 class Foo
   def return() : [int]
     new [int](10)
@@ -24,5 +37,7 @@ class Main
   def main() : void
     let
       x = new Foo
-    in
+    in {
+      multiDimAcces();
       x ! foo(this)
+      }
