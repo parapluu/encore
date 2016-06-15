@@ -44,7 +44,7 @@ function compile() {
 #  directory.
 #
 # Returns:
-#  None
+#  the return value of running the test
 #
 ############################################################
 function run() {
@@ -60,13 +60,15 @@ function run() {
 
     cd ${DIR}
     ${CMD}
+    local RET=$?
     rm -f "${NAME}"
     cd ${CWD}
+    return ${RET}
 }
 
 ############################################################
 #
-# Checks whether there is exactly one test file (either .out, .fail, or .chk)
+# Checks whether there is exactly one test file (either .out, .fail, .err, or .chk)
 # for the given program.
 #
 # Arguments:
@@ -81,9 +83,10 @@ function run() {
 function have_one_spec_file() {
     local NAME=$1
 
-    if [   -e "${NAME}.out" -a ! -e "${NAME}.chk" -a ! -e "${NAME}.fail" -o \
-         ! -e "${NAME}.out" -a   -e "${NAME}.chk" -a ! -e "${NAME}.fail" -o \
-         ! -e "${NAME}.out" -a ! -e "${NAME}.chk" -a   -e "${NAME}.fail"    \
+    if [   -e "${NAME}.out" -a ! -e "${NAME}.chk" -a ! -e "${NAME}.err" -a ! -e "${NAME}.fail" -o \
+         ! -e "${NAME}.out" -a   -e "${NAME}.chk" -a ! -e "${NAME}.err" -a ! -e "${NAME}.fail" -o \
+         ! -e "${NAME}.out" -a ! -e "${NAME}.chk" -a   -e "${NAME}.err" -a ! -e "${NAME}.fail" -o \
+         ! -e "${NAME}.out" -a ! -e "${NAME}.chk" -a ! -e "${NAME}.err" -a   -e "${NAME}.fail"    \
        ]; then
         true
     else
@@ -93,7 +96,7 @@ function have_one_spec_file() {
 
 ############################################################
 #
-# Checks whether there is at least one spec file (either .out, .fail, or .chk)
+# Checks whether there is at least one spec file (either .out, .fail, .err, or .chk)
 # for the given program.
 #
 # Arguments:
@@ -109,6 +112,7 @@ function have_at_least_one_spec_file() {
     local TEST=$1
     if [ -e "${TEST}.out"  -o \
          -e "${TEST}.fail" -o \
+         -e "${TEST}.err" -o \
          -e "${TEST}.chk"     \
        ]; then
         true
@@ -237,6 +241,69 @@ function run_out_test() {
 #
 # 2. Makes sure that compilation succeeds.
 #
+# 3. Runs the test, and expects the test to fail, i.e., return a non-zero exit status
+#
+# 3. Ensures that .../.../testname.err exactly matches the output of 
+#    executable, where stderr was redirected to stdout. NOTE that it may
+#    not be safe to mix and match stdout and stderr output because of how
+#    these are buffered. Ideally, write all output to the same stream 
+#
+# If these conditions are not met, there is a line starting with "ERROR:" in the
+# output.
+#
+# Arguments:
+#  - The test name (no file extension)
+#
+# Returns:
+#  None
+#
+############################################################
+function run_err_test() {
+  local TEST=$1
+  local FLAGS=$@
+  echo ${TEST}
+  local COMPILE_ERR=$(compile ${TEST} ${FLAGS})
+  echo -e "$COMPILE_ERR"
+  if [ ! -e ${TEST} ]; then
+      echo "ERROR: ${TEST}.enc should compile."
+      return
+  fi
+
+  local OUTPUT
+  if OUTPUT=$(run ${TEST} 2>&1); then
+      echo "ERROR: ${TEST} did not fail at run-time, as expected"
+      return
+  fi
+  readonly OUTPUT
+
+  # echo once without the newline at the end of the output and once with the
+  # newline to give the .out files a bit of flexibility:
+  if (echo -n "${OUTPUT}" | cmp -s ${TEST}.err); then
+      return
+  fi
+  if (echo    "${OUTPUT}" | cmp -s ${TEST}.err); then
+      return
+  fi
+
+  echo "ERROR: test ${TEST} failed with output:";
+  echo "vvv OUTPUT vvvvvvvvvvvvvvvvv"
+  echo "$OUTPUT"
+  echo "vvv EXPECTED vvvvvvvvvvvvvvv"
+  cat ${TEST}.err
+  echo ""
+  if which diff>/dev/null; then
+      echo "vvv DIFF vvvvvvvvvvvvvvvvvvv"
+      echo "$OUTPUT" | diff ${TEST}.err -
+  fi
+  echo "^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
+}
+
+############################################################
+#
+# 1. Compiles the test file.
+#
+# 2. Makes sure that compilation succeeds.
+#
 # 3. Pipes the output into the .../.../testname.chk script. The test succeeds
 #    iff the .chk script exits normally (exit 0, not exit 1).
 #
@@ -259,6 +326,7 @@ function run_chk_test() {
 # Looks for EITHER:
 #  - a file called "testname.out",   OR
 #  - a file called "testname.fail",  OR
+#  - a file called "testname.err",   OR
 #  - a script called "testname.chk".
 #
 # In the case of an .out file, the output of the executable has to match the
@@ -286,7 +354,7 @@ function run_test() {
     fi
 
     if ! have_one_spec_file ${TEST}; then
-        echo "ERROR: have several specifications (.out/.fail/.chk) for test $TEST"
+        echo "ERROR: have several specifications (.out/.fail/.err/.chk) for test $TEST"
         return $(false)
     fi
 
@@ -305,6 +373,12 @@ function run_test() {
     if [ -e ${TEST}.out ]; then
         echo "running out test..."
         run_out_test ${TEST} ${FLAGS}
+        return $?
+    fi
+
+    if [ -e ${TEST}.err ]; then
+        echo "running err test..."
+        run_err_test ${TEST} ${FLAGS}
         return $?
     fi
 
@@ -384,7 +458,7 @@ function run_test_suite() {
             SUCC=$((SUCC+1))
         fi
       else
-          echo "   Warning: .enc file present but missing .out, .fail or .chk file."
+          echo "   Warning: .enc file present but missing .out, .fail, .err or .chk file."
           echo "   Consider adding '${TEST_NAME}.enc' to INGORED_FILE.grep to"
           echo "   suppress this warning."
       fi
