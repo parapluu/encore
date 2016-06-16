@@ -16,6 +16,8 @@
 #include <pony.h>
 #include <atomics.h>
 
+#define check_reciever(this, op, recv, msg, file) if (!this) { fprintf(stderr, "Error: empty receiver in " recv op msg "(...) in " file "\n"); abort(); }
+
 typedef struct context {
   ucontext_t uctx;
   struct context *next;

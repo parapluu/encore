@@ -1,0 +1,1 @@
+Error: empty receiver in x.test(...) in "recvNullCall.enc" (line 8, column 7)

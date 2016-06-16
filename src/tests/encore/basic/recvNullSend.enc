@@ -1,0 +1,9 @@
+class Main
+  def test() : void
+    print("If you can read this, then recvNullSend failed")
+  def main() : void
+    let
+      x = null:Main
+    in 
+      x ! test() 
+

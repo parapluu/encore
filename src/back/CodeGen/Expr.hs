@@ -442,12 +442,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         in
           do
             typeArgs <- mapM getTypeVar typeParams
-            (nnew, ctorCall) <- namedTmpVar "new" ty callCtor
+            (nnew, constructorCall) <- namedTmpVar "new" ty callCtor
             (initArgs, result) <-
               methodCall nnew ty initName args ty
             return (nnew,
               Seq $
-                [ctorCall] ++
+                [constructorCall] ++
                 initArgs ++
                 [ Statement $ callTypeParamsInit $ (AsExpr nnew):typeArgs
                 , Statement result]
@@ -521,12 +521,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Call arraySize [ntarg])
          return (Var tmp, Seq [ttarg, theSize])
 
-  translate call@(A.MethodCall { A.target, A.name, A.args})
+  translate call@(A.MethodCall { A.emeta, A.target, A.name, A.args})
     | (Ty.isTraitType . A.getType) target = do
         (ntarget, ttarget) <- translate target
         (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
                                       (translate (A.getType call))
-        return (nCall, Seq $ ttarget : [tCall])
+        let recvNullCheck = targetNullCheck ntarget target name emeta "."
+        return (nCall, Seq $ ttarget : recvNullCheck : [tCall])
     | syncAccess = delegateUse callTheMethodSync "sync_method_call"
     | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
     | isActive && isStream = delegateUse callTheMethodStream "stream"
@@ -543,6 +544,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             return (Var result,
               Seq $
                 ttarget :
+                targetNullCheck ntarget target name emeta "." :
                 initArgs ++
                 [Assign (Decl (translate retTy, Var result)) resultExpr]
               )
@@ -553,7 +555,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           isStream = Ty.isStreamType retTy
           isFuture = Ty.isFutureType retTy
 
-  translate call@(A.MessageSend { A.target, A.name, A.args })
+  translate call@(A.MessageSend { A.emeta, A.target, A.name, A.args })
       | (Ty.isActiveClassType . A.getType) target = messageSend
       | sharedAccess = sharedObjectMethodOneWay call
       | otherwise = error "Tried to send a message to something that was not an active reference"
@@ -563,7 +565,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             messageSend =
                 do (ntarg, ttarg) <- translate target
                    theSend <- activeMessageSend ntarg (A.getType target) name args
-                   return (unit, Seq (Comm "message send" : ttarg : [theSend]))
+                   let recvNullCheck = targetNullCheck ntarg target name emeta
+                   return (unit, Seq (Comm "message send" :
+                                       ttarg : recvNullCheck " ! " : [theSend]))
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -1273,3 +1277,12 @@ getTypeVar ty = do
 
 msgSize :: CCode Ty -> CCode Expr
 msgSize t = Call (Nam "POOL_INDEX") [Sizeof t]
+
+targetNullCheck ntarget target name meta op =
+  Statement $
+    Call (Nam "check_reciever")
+      [AsExpr $ ntarget,
+       String op,
+       String (show (PP.ppExpr target)),
+       String (show name),
+       String (show (Meta.getPos meta))]
