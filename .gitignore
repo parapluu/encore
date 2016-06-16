@@ -54,3 +54,4 @@ src/tests/encore/par/*
 !src/tests/encore/par/*.chk
 /.dist-buildwrapper/
 .project
+.stack*
