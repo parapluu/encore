@@ -41,13 +41,12 @@ typecheckEncoreProgram env p =
 
 checkForMainClass :: Program -> Maybe TCError
 checkForMainClass Program{classes} = do
-  case find isMain classes of
+  case find isMainClass classes of
     Just Class{cname,cmethods} ->
       if any (isMainMethod cname . methodName) cmethods
       then Nothing
-      else Just $ TCError ("Cannot find method 'main' in class 'Main'", [])
-    Nothing -> Just $ TCError ("Cannot find class 'Main'", [])
-  where isMain p@Class{cname} = isMainClass p
+      else Just $ TCError (MethodNotFoundError (Name "main") cname) []
+    Nothing -> Just $ TCError MainMethodCallError []
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
