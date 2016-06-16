@@ -153,13 +153,13 @@ instance Precheckable MethodDecl where
            (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do
            unless (isActiveClassType thisType) $
-                  tcError "Cannot have streaming methods in a passive class"
+                  tcError PassiveStreamingMethodError
            when (isConstructor m) $
-                tcError "Constructor cannot be streaming"
+                tcError StreamingConstructorError
       let mtype = htype mheader'
       return $ setType mtype m{mheader = mheader'}
       where
         checkMainParams params =
             unless (map ptype params `elem` allowedMainArguments) $
-              tcError "Main method must have argument type () or ([String])"
+              tcError MainMethodArgumentsError
         allowedMainArguments = [[], [arrayType stringObjectType]]

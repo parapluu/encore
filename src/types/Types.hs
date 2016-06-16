@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Types(
-              Type
-            , Activity (..)
+             Type
+            ,Activity (..)
             ,arrowType
             ,isArrowType
             ,futureType
@@ -17,11 +17,11 @@ module Types(
             ,refTypeWithParams
             ,refType
             ,traitTypeFromRefType
-            , classType
+            ,classType
             ,isRefType
             ,isTraitType
             ,isActiveClassType
-            , isSharedClassType
+            ,isSharedClassType
             ,isPassiveClassType
             ,isClassType
             ,isMainType
@@ -60,7 +60,7 @@ module Types(
             ,maybeGetId
             ,getTypeParameters
             ,setTypeParameters
-            , conjunctiveTypesFromCapability
+            ,conjunctiveTypesFromCapability
             ,typesFromCapability
             ,typeComponents
             ,typeMap

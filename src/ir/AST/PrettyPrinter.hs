@@ -49,7 +49,7 @@ ppProgram Program{bundle, etl, imports, typedefs, functions, classes} =
     vcat (map ppClassDecl classes) $+$
     "" -- new line at end of file
 
-ppEmbedded EmbedTL{etlheader=header, etlbody=code} = 
+ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
   ppHeader header code
 
 ppHeader header code =
@@ -198,7 +198,7 @@ ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
 ppExpr Get {val} = "get" <+> ppExpr val
 ppExpr Yield {val} = "yield" <+> ppExpr val
-ppExpr Eos {} = "eos" <> parens empty
+ppExpr Eos {} = "eos"
 ppExpr Await {val} = "await" <+> ppExpr val
 ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
 ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty

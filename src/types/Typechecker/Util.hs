@@ -7,13 +7,13 @@ module Typechecker.Util(TypecheckM
                        ,anyM
                        ,unlessM
                        ,tcError
+                       ,pushError
                        ,tcWarning
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
-                       ,classOrTraitName
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
@@ -58,11 +58,14 @@ type TypecheckM a =
                 MonadError TCError m,
                 MonadReader Environment m) => m a
 
--- | convenience function for throwing an exception with the
+-- | Convenience function for throwing an exception with the
 -- current backtrace
-tcError msg =
+tcError err =
     do bt <- asks backtrace
-       throwError $ TCError (msg, bt)
+       throwError $ TCError err bt
+
+-- | Push the expression @expr@ and throw error err
+pushError expr err = local (pushBT expr) $ tcError err
 
 tcWarning wrn =
     do bt <- asks backtrace
@@ -75,9 +78,8 @@ matchTypeParameterLength ty1 ty2 = do
   let params1 = getTypeParameters ty1
       params2 = getTypeParameters ty2
   unless (length params1 == length params2) $
-    tcError $ printf "'%s' expects %d type arguments, but '%s' has %d"
-              (show ty1) (length params1)
-              (show ty2) (length params2)
+    tcError $ WrongNumberOfTypeParametersError
+              ty1 (length params1) ty2 (length params2)
 
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
@@ -90,7 +92,7 @@ resolveSingleType ty
   | isTypeVar ty = do
       params <- asks typeParameters
       unless (ty `elem` params) $
-             tcError $ "Free type variables in type '" ++ show ty ++ "'"
+             tcError $ FreeTypeVariableError ty
       return ty
   | isRefType ty = do
       res <- resolveRefType ty
@@ -113,9 +115,9 @@ resolveSingleType ty
           | isRefType t = do
               result <- asks $ traitLookup t
               when (isNothing result) $
-                 tcError $ "Couldn't find trait '" ++ getId t ++ "'"
+                 tcError $ UnknownTraitError t
           | otherwise =
-              tcError $ "Cannot form capability with " ++ Ty.showWithKind t
+              tcError $ MalformedCapabilityError t
 
 resolveTypeAndCheckForLoops ty =
   evalStateT (typeMapM resolveAndCheck ty) []
@@ -125,8 +127,7 @@ resolveTypeAndCheckForLoops ty =
           seen <- get
           let tyid = getId ty
           when (tyid `elem` seen) $
-            lift $ tcError $ "Type synonyms cannot be recursive." ++
-                             " One of the culprits is " ++ tyid
+            lift . tcError $ RecursiveTypesynonymError ty
           res <- lift $ resolveRefType ty
           when (isTypeSynonym res) $ put (tyid : seen)
           if isTypeSynonym res
@@ -144,7 +145,7 @@ resolveRefType ty
           let res = formal `setTypeParameters` getTypeParameters ty
           return res
         Nothing ->
-          tcError $ "Couldn't find class, trait or typedef '" ++ show ty ++ "'"
+          tcError $ UnknownRefTypeError ty
   | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
@@ -220,7 +221,7 @@ assertDistinctThing something kind l =
     duplicate = head duplicates
   in
     unless (null duplicates) $
-      tcError $ printf "Duplicate %s of %s %s" something kind $ show duplicate
+      tcError $ DuplicateThingError something (kind ++ show duplicate)
 
 -- | Convenience function for asserting distinctness of a list of
 -- things that @HasMeta@ (and thus knows how to print its own
@@ -235,23 +236,14 @@ assertDistinct something l =
     first = head duplicates
   in
     unless (null duplicates) $
-      tcError $ printf "Duplicate %s of %s" something $ AST.showWithKind first
-
-classOrTraitName :: Type -> String
-classOrTraitName ty
-    | isClassType ty = "class '" ++ getId ty ++ "'"
-    | isTraitType ty = "trait '" ++ getId ty ++ "'"
-    | isCapabilityType ty = "capability '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No class or trait name for " ++
-                          Ty.showWithKind ty
+      tcError $ DuplicateThingError something (AST.showWithKind first)
 
 findField :: Type -> Name -> TypecheckM FieldDecl
 findField ty f = do
   result <- asks $ fieldLookup ty f
   case result of
     Just fdecl -> return fdecl
-    Nothing -> tcError $ "No field '" ++ show f ++ "' in " ++
-                         classOrTraitName ty
+    Nothing -> tcError $ FieldNotFoundError f ty
 
 findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
@@ -259,19 +251,16 @@ findMethod ty = liftM fst . findMethodWithCalledType ty
 findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
 findMethodWithCalledType ty name = do
   result <- asks $ methodAndCalledTypeLookup ty name
-  when (isNothing result) $ tcError $
-    concat [noMethod name, " in ", classOrTraitName ty]
+  when (isNothing result) $
+    tcError $ MethodNotFoundError name ty
   return $ fromJust result
-  where
-    noMethod (Name "_init") = "No constructor"
-    noMethod n = concat ["No method '", show n, "'"]
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do
   result <- asks $ capabilityLookup ty
   return $ fromMaybe err result
     where
-        err = error $ "Util.hs: No capability in " ++ classOrTraitName ty
+        err = error $ "Util.hs: No capability in " ++ Ty.showWithKind ty
 
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty
