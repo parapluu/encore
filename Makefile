@@ -17,10 +17,10 @@ typecheck:
 
 encorec: dirs pony install-deps
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
-	stack --system-ghc install --local-bin-path $(RELEASE_DIR)
+	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
 
 install-deps:
-	stack --system-ghc install --dependencies-only
+	stack --install-ghc --system-ghc install --dependencies-only
 
 test: encorec
 	make -C $(SRC_DIR) test
