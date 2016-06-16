@@ -46,7 +46,7 @@ checkForMainClass Program{classes} = do
       if any (isMainMethod cname . methodName) cmethods
       then Nothing
       else Just $ TCError (MethodNotFoundError (Name "main") cname) []
-    Nothing -> Just $ TCError MainMethodCallError []
+    Nothing -> Just $ TCError MissingMainClass []
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
