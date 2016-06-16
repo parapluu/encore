@@ -12,6 +12,9 @@ LIB_DIR=$(RELEASE_DIR)/lib
 
 all: encorec
 
+typecheck:
+	cabal build --ghc-option=-fno-code
+
 encorec: dirs pony cabal-config
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
 	cabal build
@@ -105,4 +108,4 @@ clean:
 vagrant:
 	-@vagrant up
 
-.PHONY: all encorec fetch-hs-deps test dirs pony clean doc vagrant
+.PHONY: all encorec typecheck fetch-hs-deps test dirs pony clean doc vagrant
