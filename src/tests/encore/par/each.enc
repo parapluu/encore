@@ -9,15 +9,6 @@ class Main
     for v in [0..this.size] this.check_arr[v] = false;
   }
 
-  def assert_all(): void
-    for v in this.check_arr assertTrue(v, "Expected 'true' value in test")
-
-  def assert_limits(): void {
-    assertTrue(this.check_arr[0], "Expected 'true' value in array with index: 0");
-    assertTrue(this.check_arr[this.size],
-               "Exprected 'true' value in array with index: {}", this.size);
-  }
-
   def main(): void {
     this.setup();
     let rng = [0..this.size]
@@ -26,11 +17,7 @@ class Main
     in {
         for i in rng arr[i] = i;
 
-        -- synchronisation primitive:
-        -- block until all items in Par have run the callback
-        extract(each(arr) >> \(i: int) -> this.check_arr[i] = true);
-
-        this.assert_limits();
-        this.assert_all();
+        each(arr) >> (\(i: int) -> { this.check_arr[i] = true; i; } )
+                  >> \(i: int) -> assertTrue(this.check_arr[i])
         };
   }

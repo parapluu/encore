@@ -663,6 +663,7 @@ class Main
       (join par_par)  -- :: Par Par int -> Par int
 }|
 
+@;{ TODO: Add this as soon as #434 gets resolved
 @subsection{extract}
 The @code{extract} combinator returns the parallel computations into a
 single array. This operation might block some threads since you are
@@ -681,6 +682,7 @@ class Main
       for value in arr
         print value
 }|
+}
 
 @subsection{each}
 The @code{each} combinator lifts an @code{array} to a parallel collection.

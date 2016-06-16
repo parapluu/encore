@@ -22,5 +22,6 @@ encore/concurrency/async_force_gc
 encore/concurrency/async_foreach
 encore/concurrency/global_async
 encore/basic/foreach_construct
-encore/par
+encore/par/extract
+encore/par/general
 encore/basic/largestream

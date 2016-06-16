@@ -100,7 +100,10 @@ lexer =
     ,"when"
     ,"liftf"
     ,"liftv"
-    ,"extract"
+
+    -- TODO: Add this keyword as soon as as issue #434 is fixed
+    -- ,"extract"
+
     ,"each"
     ,"typedef"
    ],
@@ -255,7 +258,7 @@ program = do
   imports <- many importdecl
   etls <- embedTL
   let etl = [etls]
-  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function) 
+  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function)
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
   return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
