@@ -253,7 +253,7 @@ instance Show Error where
                (show $ ppFunctionHeader header) (refTypeName trait)
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
-    show MissingMainClass = "Couldn't find class 'Main'"
+    show MissingMainClass = "Couldn't find active class 'Main'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =

@@ -40,7 +40,7 @@ typecheckEncoreProgram env p =
     (Left err, warnings) -> (Left err, warnings)
 
 checkForMainClass :: Program -> Maybe TCError
-checkForMainClass Program{classes} = do
+checkForMainClass Program{classes} =
   case find isMainClass classes of
     Just Class{cname,cmethods} ->
       if any (isMainMethod cname . methodName) cmethods

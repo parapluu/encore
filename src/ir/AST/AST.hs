@@ -173,7 +173,10 @@ isPassive :: ClassDecl -> Bool
 isPassive = isPassiveClassType . cname
 
 isMainClass :: ClassDecl -> Bool
-isMainClass cdecl = (== "Main") . getId . cname $ cdecl
+isMainClass cdecl =
+    let ty = cname cdecl
+    in getId ty == "Main" && isActiveClassType ty
+
 
 instance HasMeta ClassDecl where
     getMeta = cmeta
