@@ -27,18 +27,20 @@ cabal-config:
 test: encorec
 	make -C $(SRC_DIR) test
 
-coverage: dirs pony cabal-config
-	rm -rf coverage dist/hpc `find src -name "*.tix" -print0 | xargs -0 ls`
-	cabal clean
-	cabal configure --enable-tests --enable-coverage
-	ENCORE_BUNDLES="$(CURDIR)/bundles/" cabal build
-	cp -r $(ENCOREC) $(RELEASE_DIR)
-	-make -C $(SRC_DIR) test
-	mkdir -p coverage
-	hpc sum `find src -name "*.tix" -print0 | xargs -0 ls` > coverage/coverage.tix
-	hpc markup coverage/coverage.tix --hpcdir=dist/hpc/vanilla/mix/encorec/ --destdir=coverage
-	rm -rf coverage/coverage.tix dist/hpc `find src -name "*.tix" -print0 | xargs -0 ls`
-	echo "Open 'coverage/hpc_index.html' to see coverage results."
+coverage: dirs pony cabal-config;
+	rm -rf coverage dist/hpc;
+	find src -name "*.tix" -print0 | xargs -0 rm -rf;
+	cabal clean;
+	cabal configure --enable-tests --enable-coverage;
+	ENCORE_BUNDLES="$(CURDIR)/bundles/" cabal build;
+	cp -r $(ENCOREC) $(RELEASE_DIR);
+	-make -C $(SRC_DIR) test;
+	mkdir -p coverage;
+	find src -name "*.tix" -print0 | xargs -0 hpc sum > coverage/coverage.tix;
+	hpc markup coverage/coverage.tix --hpcdir=dist/hpc/vanilla/mix/encorec/ --destdir=coverage;
+	rm -rf coverage/coverage.tix dist/hpc;
+	find src -name "*.tix" -print0 | xargs -0 rm -rf;
+	echo "Open 'coverage/hpc_index.html' to see coverage results.";
 
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
