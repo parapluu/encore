@@ -1,4 +1,9 @@
+ifndef CC
+  CC:=gcc
+endif
+
 OBJS:=embed_tl.o
+CFLAGS:=-std=c11
 
 all: $(OBJS)
 
