@@ -23,6 +23,8 @@ import Control.Monad
 import qualified Data.Map as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
+import Text.Printf
+import qualified Text.PrettyPrint.Boxes as Box
 
 import Makefile
 import Utils
@@ -47,61 +49,118 @@ import Identifiers
 -- the following line of code resolves the standard path at compile time using Template Haskell
 standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_BUNDLES" ))
 
-data Phase = Parsed | TypeChecked
-    deriving Eq
-
-data Option = GCC | Clang | Run | Optimise String | Profile |
-              KeepCFiles | Undefined String | Debug |
-              Output FilePath | Source FilePath | Imports [FilePath] |
-              Intermediate Phase | TypecheckOnly | Verbatim | NoGC | Help
+data Option =
+              Run
+            | Optimise String
+            | Profile
+            | KeepCFiles
+            | Debug
+            | Output FilePath
+            | Source FilePath
+            | Imports [FilePath]
+            | TypecheckOnly
+            | Verbose
+            | NoGC
+            | Help
+            | Undefined String
+            | Malformed String
               deriving Eq
+
+data OptionHolder =
+              Arg (String -> Option)
+            | NoArg Option
+
+data OptionMapping = OptionMapping {
+  holder :: OptionHolder,
+  short  :: String,
+  long   :: String,
+  optArg :: String,
+  desc   :: String
+}
+
+instance Show OptionMapping where
+    show OptionMapping{short = "", long, optArg = "", desc} =
+        printf "%s %s"
+               long desc
+    show OptionMapping{short = "", long, optArg, desc} =
+        printf "%s %s %s"
+               long optArg desc
+    show OptionMapping{short, long = "", optArg = "", desc} =
+        printf "%s %s"
+               short desc
+    show OptionMapping{short, long = "", optArg, desc} =
+        printf "%s %s %s"
+               short optArg desc
+    show OptionMapping{short, long, optArg = "", desc} =
+        printf "%s | %s %s"
+               long short desc
+    show OptionMapping{short, long, optArg, desc} =
+        printf "%s %s | %s %s %s"
+               long optArg short optArg desc
+
+optionMappings =
+  map makeMapping
+      [
+       (Arg (Imports . split ":"), "-I", "--import", "[dirs]",
+       "colon separated list of directories in which to look for modules."),
+       (Arg Output, "-o", "--out-file", "[file]",
+        "Specify output file."),
+       (NoArg KeepCFiles, "-c", "--generate-c", "",
+        "Outputs intermediate C fields in separate source tree."),
+       (NoArg Debug, "-g", "--debug", "",
+        "Inserts debugging symbols in executable. Use with -c for improved debugging experience."),
+       (NoArg TypecheckOnly, "-tc", "--type-check", "",
+        "Only type check program, do not produce an executable."),
+       (NoArg Verbose, "-v", "--verbose", "",
+        "Print debug information during compiler stages."),
+       (Arg Optimise, "-O", "--optimize", "N",
+        "Optimise produced executable. N=0,1,2 or 3."),
+       (NoArg (Optimise "0"), "-O0", "", "", ""),
+       (NoArg (Optimise "1"), "-O1", "", "", ""),
+       (NoArg (Optimise "2"), "-O2", "", "", ""),
+       (NoArg (Optimise "3"), "-O3", "", "", ""),
+       (NoArg Profile, "-pg", "--profile", "",
+        "Embed profiling information in the executable."),
+       (NoArg Run, "", "--run", "",
+        "Compile and run the program, but do not produce executable file."),
+       (NoArg NoGC, "", "--no-gc", "",
+        "DEBUG: disable GC and use C-malloc for allocation."),
+       (NoArg Help, "", "--help", "",
+        "Display this information.")
+      ]
+  where
+    makeMapping (holder, short, long, optArg, desc) =
+        OptionMapping{holder, short, long, optArg, desc}
+
+findMapping arg =
+  case find (\opt -> short opt == arg || long opt == arg) optionMappings of
+    Just OptionMapping{holder} -> holder
+    Nothing -> case arg of
+                 '-':'-':flag -> NoArg $ Undefined flag
+                 '-':flag -> NoArg $ Undefined flag
+                 _ -> NoArg $ Source arg
 
 parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
 parseArguments args =
-    let
-        parseArguments' []   = []
-        parseArguments' args = opt : parseArguments' rest
-            where
-              (opt, rest) = parseArgument args
-              parseArgument ("--generate-c":args)    = (KeepCFiles, args)
-              parseArgument ("-c":args)              = (KeepCFiles, args)
-              parseArgument ("--debug":args)         = (Debug, args)
-              parseArgument ("-g":args)              = (Debug, args)
-              parseArgument ("--type-check":args)    = (TypecheckOnly, args)
-              parseArgument ("-tc":args)             = (TypecheckOnly, args)
-              parseArgument ("--out-file":file:args) = (Output file, args)
-              parseArgument ("-o":file:args)         = (Output file, args)
-              parseArgument ("--optimise":level:args) = (Optimise level, args) 
-              parseArgument ("-O":level:args)        = (Optimise level, args)
-              parseArgument ("-O0":args)             = (Optimise "0", args)
-              parseArgument ("-O1":args)             = (Optimise "1", args)
-              parseArgument ("-O2":args)             = (Optimise "2", args)
-              parseArgument ("-O3":args)             = (Optimise "3", args)
-              parseArgument ("--run":args)           = (Run, args)
-              parseArgument ("--no-gc":args)         = (NoGC, args)
-              parseArgument ("--help":args)          = (Help, args)
-              parseArgument ("--profile":args)       = (Profile, args)
-              parseArgument ("-pg":args)             = (Profile, args)
-              parseArgument ("--import":dirs:args)   = (Imports $ split ":" dirs, args)
-              parseArgument ("-I":dirs:args)         = (Imports $ split ":" dirs, args)
-              parseArgument ("--verbose":args)       = (Verbatim, args)
-              parseArgument ("-v":args)              = (Verbatim, args)
-              -- TODO: remove
-              parseArgument ("-clang":args)          = (Clang, args)
-              parseArgument ("-gcc":args)            = (GCC, args)
-              parseArgument ("-AST":args)            = (Intermediate Parsed, args)
-              parseArgument ("-TypedAST":args)       = (Intermediate TypeChecked, args)
-              parseArgument (('-':flag):args)        = (Undefined flag, args)
-              parseArgument (file:args)              = (Source file, args)
-    in
-      let (sources, aux) = partition isSource (parseArguments' args)
-          (imports, options) = partition isImport aux
-      in
-      (map getName sources,
-       ([standardLibLocation ++ "/standard/",
-         standardLibLocation ++ "/prototype/",
-         "./"] ++) $ map (++ "/") $ concatMap getDirs imports,
-       options)
+  let parseArguments' []   = []
+      parseArguments' args = opt : parseArguments' rest
+          where
+            (opt, rest) = parseArgument args
+            parseArgument (arg:args) =
+              let holder = findMapping arg
+              in case holder of
+                   NoArg opt -> (opt, args)
+                   Arg opt -> case args of
+                                [] -> (Malformed arg, [])
+                                (arg':rest) -> (opt arg', rest)
+      (sources, aux) = partition isSource (parseArguments' args)
+      (imports, options) = partition isImport aux
+  in
+    (map getName sources,
+     ([standardLibLocation ++ "/standard/",
+       standardLibLocation ++ "/prototype/",
+       "./"] ++) $ map (++ "/") $ concatMap getDirs imports,
+     options)
     where
       isSource (Source _) = True
       isSource _ = False
@@ -112,15 +171,8 @@ parseArguments args =
 
 warnings :: [Option] -> IO ()
 warnings options =
-    do
-      when (GCC `elem` options && Clang `notElem` options)
-               (putStrLn "Warning: Compilation with gcc not yet supported. Defaulting to clang")
-      when (Clang `elem` options && GCC `elem` options)
-               (putStrLn "Warning: Conflicting compiler options. Defaulting to clang.")
-      when (TypecheckOnly `elem` options && (Clang `elem` options || GCC `elem` options))
-               (putStrLn "Warning: Flag '-tc' specified. No executable will be produced")
-      when (NoGC `elem` options && TypecheckOnly `notElem` options)
-               (putStrLn "Warning: Garbage collection disabled! Your program will leak memory!")
+  when (NoGC `elem` options && TypecheckOnly `notElem` options)
+       (putStrLn "Warning: Garbage collection disabled! Your program will leak memory!")
 
 checkForUndefined :: [Option] -> IO ()
 checkForUndefined =
@@ -128,9 +180,13 @@ checkForUndefined =
             Undefined flag ->
               abort $ "Unknown flag " <> flag <>
               ". Use --help to see available flags."
+            Malformed flag ->
+              abort $ "Not enough arguments to " <> flag <>
+              ". Use --help to see correct usage."
             Optimise str ->
-              if (str `elem` ["0", "1", "2", "3"]) then return () else
-                abort $ "Illegal argument '" ++ str ++ "' to --optimise/-O. Use --help to see legal arguments."
+              unless (str `elem` ["0", "1", "2", "3"]) $
+                abort $ "Illegal argument '" ++ str ++
+                        "' to --optimise/-O. Use --help to see legal arguments."
             _ -> return ())
 
 output :: Show a => a -> Handle -> IO ()
@@ -182,7 +238,7 @@ compileProgram prog sourcePath options =
            opt   = case find isOptimise options of
                         Just (Optimise str) -> "-O" ++ str
                         Nothing             -> ""
-           debug = if Debug `elem` options then (if GCC `elem` options then "-ggdb" else "-g") else ""
+           debug = if Debug `elem` options then "-g" else ""
            libs  = libPath ++ "*.a"
            cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
@@ -230,25 +286,20 @@ main =
        sourceExists <- doesFileExist sourceName
        unless sourceExists
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
-       verbatim options $ "== Reading file '" ++ sourceName ++ "' =="
+       verbose options $ "== Reading file '" ++ sourceName ++ "' =="
        code <- readFile sourceName
-       verbatim options "== Parsing =="
+       verbose options "== Parsing =="
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
                 Left error -> abort $ show error
 
-       when (Intermediate Parsed `elem` options) $ do
-         verbatim options "== Printing AST =="
-         withFile (changeFileExt sourceName "AST") WriteMode
-                  (flip hPrint $ show ast)
-
-       verbatim options "== Expanding modules =="
+       verbose options "== Expanding modules =="
        allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast
 
-       verbatim options "== Optimizing =="
+       verbose options "== Optimizing =="
        let optimizedModules = fmap optimizeProgram allModules
 
-       verbatim options "== Generating code =="
+       verbose options "== Generating code =="
        let fullAst = compressModules optimizedModules
 
        unless (TypecheckOnly `elem` options) $
@@ -258,18 +309,18 @@ main =
 
        exeName <- compileProgram fullAst sourceName options
        when (Run `elem` options)
-           (do verbatim options $ "== Running '" ++ exeName ++ "' =="
+           (do verbose options $ "== Running '" ++ exeName ++ "' =="
                system $ "./" ++ exeName
                system $ "rm " ++ exeName
                return ())
-       verbatim options "== Done =="
+       verbose options "== Done =="
     where
       typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
       typecheck options sourceName env prog = do
-         verbatim options "== Desugaring =="
+         verbose options "== Desugaring =="
          let desugaredAST = desugarProgram prog
 
-         verbatim options "== Prechecking =="
+         verbose options "== Prechecking =="
          (precheckedAST, precheckingWarnings) <-
            case precheckEncoreProgram env desugaredAST of
              (Right ast, warnings)  -> return (ast, warnings)
@@ -278,7 +329,7 @@ main =
                abort $ show error
          showWarnings precheckingWarnings
 
-         verbatim options "== Typechecking =="
+         verbose options "== Typechecking =="
          ((newEnv, typecheckedAST), typecheckingWarnings) <-
            case typecheckEncoreProgram env precheckedAST of
              (Right (newEnv, ast), warnings) -> return ((newEnv, ast), warnings)
@@ -287,20 +338,10 @@ main =
                abort $ show error
          showWarnings typecheckingWarnings
 
-         when (Intermediate TypeChecked `elem` options) $ do
-           verbatim options "== Printing typed AST =="
-           withFile (changeFileExt sourceName "TAST") WriteMode
-                    (flip hPrint $ show typecheckedAST)
-
-         when (Intermediate TypeChecked `elem` options) $ do
-           verbatim options "== Printing typed AST =="
-           withFile (changeFileExt sourceName "TAST") WriteMode
-                    (flip hPrint $ show typecheckedAST)
-
-         return $ (newEnv, typecheckedAST)
+         return (newEnv, typecheckedAST)
 
       usage = "Usage: encorec [flags] file"
-      verbatim options str = when (Verbatim `elem` options)
+      verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)
 
       showWarnings = mapM print
@@ -308,17 +349,18 @@ main =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
         "Flags:\n" <>
-        "  --import [dirs]   | -I [dirs] : separated list of directories in which to look for modules.\n" <>
-        "  --out-file [file] | -o [file] Specify output file.\n" <>
-        "  --generate-c      | -c        Outputs intermediate C files in separate source tree.\n" <>
-        "  --debug           | -g        Inserts debugging symbols in executable. Use with -c for improved debugging experience.\n" <>
-        "  --type-check      | -tc       Only type check program, do not produce an executable. \n" <>
-        "  --verbose         | -v        Print debug information during compiler stages.\n" <>
-        "  --optimise N      | -O N      Optimise produced executable. N=0,1,2 or 3. \n" <>
-        "  --profile         | -pg       Embed profiling information in the executable.\n" <>
-        "  --run                         Compile and run the program, but do not produce executable file.\n" <>
-        "  --no-gc                       DEBUG: disable GC and use C-malloc for allocation.\n" <>
-        "  --help                        Display this information.\n" <>
-        "Obsolete flags (that will be removed):\n" <>
-        "  -clang -gcc -AST -TypedAST" 
-
+        flags
+        where
+          flagsWithDesc = filter (not . null . desc) optionMappings
+          boxFlag f (opt@OptionMapping{optArg = ""}) = Box.text (f opt)
+          boxFlag f (opt@OptionMapping{optArg}) = Box.text (f opt <+> optArg)
+          longBox = Box.vcat Box.left $
+                    map (boxFlag long) flagsWithDesc
+          shortBox = Box.vcat Box.left $
+                     map (boxFlag (("|" <+>) . short)) flagsWithDesc
+          descBox = Box.vcat Box.left $
+                    map (Box.text . desc) flagsWithDesc
+          optionBox = longBox Box.<+> shortBox Box.<+> descBox
+          flags = intercalate "\n" $
+                  map (("  " ++) . strip) . lines $
+                  Box.render optionBox
