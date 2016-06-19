@@ -78,26 +78,6 @@ data OptionMapping = OptionMapping {
   desc   :: String
 }
 
-instance Show OptionMapping where
-    show OptionMapping{short = "", long, optArg = "", desc} =
-        printf "%s %s"
-               long desc
-    show OptionMapping{short = "", long, optArg, desc} =
-        printf "%s %s %s"
-               long optArg desc
-    show OptionMapping{short, long = "", optArg = "", desc} =
-        printf "%s %s"
-               short desc
-    show OptionMapping{short, long = "", optArg, desc} =
-        printf "%s %s %s"
-               short optArg desc
-    show OptionMapping{short, long, optArg = "", desc} =
-        printf "%s | %s %s"
-               long short desc
-    show OptionMapping{short, long, optArg, desc} =
-        printf "%s %s | %s %s %s"
-               long optArg short optArg desc
-
 optionMappings =
   map makeMapping
       [
@@ -276,7 +256,7 @@ main =
        let (programs, importDirs, options) = parseArguments args
        checkForUndefined options
        when (Help `elem` options)
-           (abort helpMessage)
+           (exit helpMessage)
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>
@@ -351,15 +331,15 @@ main =
         "Flags:\n" <>
         flags
         where
-          flagsWithDesc = filter (not . null . desc) optionMappings
+          mappingsWithDesc = filter (not . null . desc) optionMappings
           boxFlag f (opt@OptionMapping{optArg = ""}) = Box.text (f opt)
           boxFlag f (opt@OptionMapping{optArg}) = Box.text (f opt <+> optArg)
           longBox = Box.vcat Box.left $
-                    map (boxFlag long) flagsWithDesc
+                    map (boxFlag long) mappingsWithDesc
           shortBox = Box.vcat Box.left $
-                     map (boxFlag (("|" <+>) . short)) flagsWithDesc
+                     map (boxFlag (("|" <+>) . short)) mappingsWithDesc
           descBox = Box.vcat Box.left $
-                    map (Box.text . desc) flagsWithDesc
+                    map (Box.text . desc) mappingsWithDesc
           optionBox = longBox Box.<+> shortBox Box.<+> descBox
           flags = intercalate "\n" $
                   map (("  " ++) . strip) . lines $
