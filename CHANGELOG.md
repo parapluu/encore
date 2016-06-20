@@ -1,7 +1,104 @@
 # Change Log
 
+## [release-0.3.0](https://github.com/parapluu/encore/tree/release-0.3.0) (2016-06-16)
+[Full Changelog](https://github.com/parapluu/encore/compare/release-0.2.0...release-0.3.0)
+
+**Implemented enhancements:**
+
+- Issues related to test scripts [\#458](https://github.com/parapluu/encore/issues/458)
+- Refactor the testing scripts [\#411](https://github.com/parapluu/encore/issues/411)
+- Misleading build instructions [\#372](https://github.com/parapluu/encore/issues/372)
+- Maybe type inference for return types is not working. [\#357](https://github.com/parapluu/encore/issues/357)
+- Maybe types need explicit type annotations [\#264](https://github.com/parapluu/encore/issues/264)
+- Added .err tests to close issue \#479 [\#481](https://github.com/parapluu/encore/pull/481) ([TobiasWrigstad](https://github.com/TobiasWrigstad))
+- Remove the obsolete breathe keyword [\#480](https://github.com/parapluu/encore/pull/480) ([TobiasWrigstad](https://github.com/TobiasWrigstad))
+
+**Fixed bugs:**
+
+- Maybe types need explicit type annotations [\#264](https://github.com/parapluu/encore/issues/264)
+
+**Closed issues:**
+
+- Compiler is broken when merging error handler [\#494](https://github.com/parapluu/encore/issues/494)
+- Breathe has been removed but there are some places that need to be cleaned up [\#487](https://github.com/parapluu/encore/issues/487)
+- Strangest parser bug ever.... [\#471](https://github.com/parapluu/encore/issues/471)
+- Compilation fails due to unhandled switch case [\#465](https://github.com/parapluu/encore/issues/465)
+- Temporary variables in closures are not captured properly. [\#460](https://github.com/parapluu/encore/issues/460)
+- Read trait can not have field of type 'Maybe int' [\#452](https://github.com/parapluu/encore/issues/452)
+- Strange interaction with manifest moded traits. [\#451](https://github.com/parapluu/encore/issues/451)
+- Splitting linear \* read without jailing type checks [\#450](https://github.com/parapluu/encore/issues/450)
+- Matching methods with no pattern crashes the compiler [\#440](https://github.com/parapluu/encore/issues/440)
+- Tracing futures is broken [\#429](https://github.com/parapluu/encore/issues/429)
+- Pattern matching on Maybe \<function\> causes compilation error. [\#427](https://github.com/parapluu/encore/issues/427)
+- changes to src/runtime/stream/stream.c breaks compilation. [\#422](https://github.com/parapluu/encore/issues/422)
+- `make clean` runs the type synonym tests! [\#414](https://github.com/parapluu/encore/issues/414)
+- Type synonyms cannot be recursive. [\#413](https://github.com/parapluu/encore/issues/413)
+- GC issue in future chaining [\#412](https://github.com/parapluu/encore/issues/412)
+- README.md references documentation from another repository [\#405](https://github.com/parapluu/encore/issues/405)
+- Perhaps the silliest parse error in encore? [\#402](https://github.com/parapluu/encore/issues/402)
+- Mismatch arguments in Stream header and c files [\#396](https://github.com/parapluu/encore/issues/396)
+- Error tracing ParTs [\#393](https://github.com/parapluu/encore/issues/393)
+- ParT out of control [\#381](https://github.com/parapluu/encore/issues/381)
+- Closures can't handle polymorphic parameters [\#377](https://github.com/parapluu/encore/issues/377)
+- No typechecking on input value to function fields [\#350](https://github.com/parapluu/encore/issues/350)
+- Include guards missing - can't import same bundle twice in a dependency tree [\#329](https://github.com/parapluu/encore/issues/329)
+- Improve error message for missing Main class [\#328](https://github.com/parapluu/encore/issues/328)
+- Typechecking issue in String type [\#308](https://github.com/parapluu/encore/issues/308)
+- Error in variable pattern matching [\#294](https://github.com/parapluu/encore/issues/294)
+- Some tiny bugs in examples of encore's document [\#289](https://github.com/parapluu/encore/issues/289)
+- Bug in test script. [\#283](https://github.com/parapluu/encore/issues/283)
+- Bus error / Segfault when calling finalizer of an actor [\#274](https://github.com/parapluu/encore/issues/274)
+- Test `async\_finish\_stmts` fails spuriously [\#255](https://github.com/parapluu/encore/issues/255)
+- DAG dependency throws an error [\#233](https://github.com/parapluu/encore/issues/233)
+- Adding runtime library for parallel combinators [\#221](https://github.com/parapluu/encore/issues/221)
+- Premature termination [\#184](https://github.com/parapluu/encore/issues/184)
+
+**Merged pull requests:**
+
+- Added make rule for omitting code generation [\#496](https://github.com/parapluu/encore/pull/496) ([EliasC](https://github.com/EliasC))
+- fix error handling that broke the compiler [\#495](https://github.com/parapluu/encore/pull/495) ([kikofernandez](https://github.com/kikofernandez))
+- fixes removal of breathe AST nodes [\#488](https://github.com/parapluu/encore/pull/488) ([kikofernandez](https://github.com/kikofernandez))
+- Update cabal build constraints to support newer GHC and base libraries [\#484](https://github.com/parapluu/encore/pull/484) ([kaeluka](https://github.com/kaeluka))
+- Fix \#204 — calling methods on null receiver does not crash [\#482](https://github.com/parapluu/encore/pull/482) ([TobiasWrigstad](https://github.com/TobiasWrigstad))
+- Updated broken link to Upscale project web site. [\#478](https://github.com/parapluu/encore/pull/478) ([pengstrom](https://github.com/pengstrom))
+- Adding Random to standard libraries [\#475](https://github.com/parapluu/encore/pull/475) ([TobiasWrigstad](https://github.com/TobiasWrigstad))
+- Refactored the error handling [\#474](https://github.com/parapluu/encore/pull/474) ([EliasC](https://github.com/EliasC))
+- Gives warning when encountering free range .enc files in test directory [\#464](https://github.com/parapluu/encore/pull/464) ([supercooldave](https://github.com/supercooldave))
+- Fix 458 - Test system updates [\#463](https://github.com/parapluu/encore/pull/463) ([kaeluka](https://github.com/kaeluka))
+- Fix \#460; for introduces a bound variable [\#462](https://github.com/parapluu/encore/pull/462) ([albertnetymk](https://github.com/albertnetymk))
+- Fix tracing function for ParTs [\#461](https://github.com/parapluu/encore/pull/461) ([kikofernandez](https://github.com/kikofernandez))
+- Lib/boxed [\#455](https://github.com/parapluu/encore/pull/455) ([kaeluka](https://github.com/kaeluka))
+- Cleanup: Removed some unused test code [\#445](https://github.com/parapluu/encore/pull/445) ([supercooldave](https://github.com/supercooldave))
+- fix \#402, parsing paths in ranges [\#444](https://github.com/parapluu/encore/pull/444) ([glundi](https://github.com/glundi))
+- Added module system support for diamond and repeated imports, and to prevent recursive imports. [\#443](https://github.com/parapluu/encore/pull/443) ([supercooldave](https://github.com/supercooldave))
+- Fix \#411: Unified test scripts [\#442](https://github.com/parapluu/encore/pull/442) ([kaeluka](https://github.com/kaeluka))
+- fix \#440, a hanging def no longer crashes the compiler [\#441](https://github.com/parapluu/encore/pull/441) ([glundi](https://github.com/glundi))
+- Fix \#206, allow primes in names [\#437](https://github.com/parapluu/encore/pull/437) ([EliasC](https://github.com/EliasC))
+- fix \#427, matching lambdas against variable patterns [\#436](https://github.com/parapluu/encore/pull/436) ([glundi](https://github.com/glundi))
+- Fixed \#328: Improve error message for missing Main class/method [\#435](https://github.com/parapluu/encore/pull/435) ([PhucVH888](https://github.com/PhucVH888))
+- remove unused ghc extensions from compiler [\#433](https://github.com/parapluu/encore/pull/433) ([kikofernandez](https://github.com/kikofernandez))
+- add documentation for option types [\#432](https://github.com/parapluu/encore/pull/432) ([kikofernandez](https://github.com/kikofernandez))
+- turn compiler warnings into errors [\#431](https://github.com/parapluu/encore/pull/431) ([kikofernandez](https://github.com/kikofernandez))
+- Fix \#429: change future chain signature [\#430](https://github.com/parapluu/encore/pull/430) ([albertnetymk](https://github.com/albertnetymk))
+- party comply with c11 standard [\#426](https://github.com/parapluu/encore/pull/426) ([kikofernandez](https://github.com/kikofernandez))
+- narrow down -fms-extension scope [\#424](https://github.com/parapluu/encore/pull/424) ([albertnetymk](https://github.com/albertnetymk))
+- Minor bugfix [\#423](https://github.com/parapluu/encore/pull/423) ([TheGrandmother](https://github.com/TheGrandmother))
+- Cleanup: removed top-level programs directory [\#421](https://github.com/parapluu/encore/pull/421) ([supercooldave](https://github.com/supercooldave))
+- fix future chaining runtime error by acquiring more references [\#417](https://github.com/parapluu/encore/pull/417) ([kikofernandez](https://github.com/kikofernandez))
+- Stream chaining with encore primitive type [\#416](https://github.com/parapluu/encore/pull/416) ([PhucVH888](https://github.com/PhucVH888))
+- Fixes bug in Makefile causing tests to be run during `make clean`. [\#415](https://github.com/parapluu/encore/pull/415) ([supercooldave](https://github.com/supercooldave))
+- Let pretty printing use OverloadedStrings [\#409](https://github.com/parapluu/encore/pull/409) ([EliasC](https://github.com/EliasC))
+- Separate resolveType and checking for recursion [\#408](https://github.com/parapluu/encore/pull/408) ([EliasC](https://github.com/EliasC))
+- update documentation section in readme.md [\#406](https://github.com/parapluu/encore/pull/406) ([kikofernandez](https://github.com/kikofernandez))
+- Fixed generating wrong arguments in stream\_mk\(\) \#396 [\#401](https://github.com/parapluu/encore/pull/401) ([PhucVH888](https://github.com/PhucVH888))
+- Added build script [\#400](https://github.com/parapluu/encore/pull/400) ([TheGrandmother](https://github.com/TheGrandmother))
+- Add auto-generated changelog [\#398](https://github.com/parapluu/encore/pull/398) ([kikofernandez](https://github.com/kikofernandez))
+- Support for type synonyms [\#397](https://github.com/parapluu/encore/pull/397) ([supercooldave](https://github.com/supercooldave))
+- Fix \#357, Fix type inference of if-statements [\#394](https://github.com/parapluu/encore/pull/394) ([EliasC](https://github.com/EliasC))
+- tracing of option and range types [\#341](https://github.com/parapluu/encore/pull/341) ([kikofernandez](https://github.com/kikofernandez))
+
 ## [release-0.2.0](https://github.com/parapluu/encore/tree/release-0.2.0) (2016-04-23)
-[Full Changelog](https://github.com/parapluu/encore/compare/release-0.1.0...release-0.2.0)
+[Full Changelog](https://github.com/parapluu/encore/compare/lockfree-playground...release-0.2.0)
 
 **Implemented enhancements:**
 
@@ -16,7 +113,6 @@
 - Negative real literals not implemented in the parser [\#354](https://github.com/parapluu/encore/issues/354)
 - Maybe types and tuples don't get printed properly. [\#352](https://github.com/parapluu/encore/issues/352)
 - Explicit declaration of function types can not handle tuple-valued return types [\#347](https://github.com/parapluu/encore/issues/347)
-- Parametric classes do not trace correctly its parametric parameters [\#345](https://github.com/parapluu/encore/issues/345)
 - Error in parametric class [\#344](https://github.com/parapluu/encore/issues/344)
 - Closure import problem when defining a library [\#336](https://github.com/parapluu/encore/issues/336)
 - Parallel combinators test fails for features/plenary [\#301](https://github.com/parapluu/encore/issues/301)
@@ -51,11 +147,22 @@
 - Glundi/development [\#360](https://github.com/parapluu/encore/pull/360) ([supercooldave](https://github.com/supercooldave))
 - fix compile error in `each` combinator [\#359](https://github.com/parapluu/encore/pull/359) ([kikofernandez](https://github.com/kikofernandez))
 - Improve each combinator [\#358](https://github.com/parapluu/encore/pull/358) ([kikofernandez](https://github.com/kikofernandez))
+- Matching In Function Heads [\#338](https://github.com/parapluu/encore/pull/338) ([glundi](https://github.com/glundi))
+
+## [lockfree-playground](https://github.com/parapluu/encore/tree/lockfree-playground) (2016-03-24)
+[Full Changelog](https://github.com/parapluu/encore/compare/release-0.1.0...lockfree-playground)
+
+**Closed issues:**
+
+- Parametric classes do not trace correctly its parametric parameters [\#345](https://github.com/parapluu/encore/issues/345)
+- The runtime type of polymorphic values is always `ENCORE\_PRIMITIVE` [\#295](https://github.com/parapluu/encore/issues/295)
+
+**Merged pull requests:**
+
 - fix \#295: tracing parametric fields [\#346](https://github.com/parapluu/encore/pull/346) ([kikofernandez](https://github.com/kikofernandez))
 - SAT solver [\#343](https://github.com/parapluu/encore/pull/343) ([OskarPedersen](https://github.com/OskarPedersen))
 - Update `Vagrantfile` to include locales in the spawned machine [\#340](https://github.com/parapluu/encore/pull/340) ([kikofernandez](https://github.com/kikofernandez))
 - Added syntactic sugar for variable introduction [\#339](https://github.com/parapluu/encore/pull/339) ([EliasC](https://github.com/EliasC))
-- Matching In Function Heads [\#338](https://github.com/parapluu/encore/pull/338) ([glundi](https://github.com/glundi))
 - Fixed closure import problem when defining a library \#336 [\#337](https://github.com/parapluu/encore/pull/337) ([PhucVH888](https://github.com/PhucVH888))
 
 ## [release-0.1.0](https://github.com/parapluu/encore/tree/release-0.1.0) (2016-02-24)
