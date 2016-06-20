@@ -26,6 +26,7 @@ traceVariable t var
   | Ty.isFutureType t       = traceObject var futureTraceFn
   | Ty.isArrowType t        = traceObject var closureTraceFn
   | Ty.isArrayType t        = traceObject var arrayTraceFn
+  | Ty.isTupleType t        = traceObject var tupleTraceFn
   | Ty.isStreamType t       = traceObject var streamTraceFn
   | Ty.isMaybeType t        = traceObject var optionTraceFn
   | Ty.isRangeType t        = traceObject var rangeTraceFn

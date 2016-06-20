@@ -443,6 +443,9 @@ closureTraceFn = Nam "closure_trace"
 arrayTraceFn :: CCode Name
 arrayTraceFn = Nam "array_trace"
 
+tupleTraceFn :: CCode Name
+tupleTraceFn = Nam "tuple_trace"
+
 optionTraceFn :: CCode Name
 optionTraceFn = Nam "option_trace"
 
