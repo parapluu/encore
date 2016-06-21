@@ -56,7 +56,7 @@ To start and connect again to the VM:
 ## Building Encore from Source
 
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
-`clang` and `ghc` in your path.
+`clang` and `stack` in your path.
 
 ### Installing on Debian based Linux distros
 
@@ -77,7 +77,7 @@ We're using:
     Target: x86_64-apple-darwin14.5.0
     Thread model: posix
  - g++ 4.8
- - ghc: The Glorious Glasgow Haskell Compilation System, version 7.10.2
+ - stack (the haskell build tool)
  - premake4 (Premake Build Script Generator) 4.3
  - `scribble` -- only for building the documentation
 
@@ -111,18 +111,10 @@ download and install `premake4`.
 
 Alternatively, run: `brew update; brew install premake`
 
-##### Installing `ghc`
+##### Installing `stack`
 
-You need at least version `7.10.2`.
-
-- If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
-- If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to uninstall stuff easily once you don't need it any more.
-
-Then install the newest version:
-
-```
-brew update && brew install cabal-install && cabal update && brew install ghc
-```
+If you have homebrew, you can run `brew install haskell-stack`. Otherwise,
+use these [installation instructions](http://docs.haskellstack.org/en/stable/README/#how-to-install).
 
 #### Step 2: Compiling and installing encore
 
