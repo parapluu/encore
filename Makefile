@@ -1,5 +1,4 @@
 SRC_DIR=src
-ENCOREC=dist/build/encorec/encorec
 
 RUNTIME_DIR=$(SRC_DIR)/runtime
 
@@ -9,25 +8,24 @@ CONFIG=release
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
 LIB_DIR=$(RELEASE_DIR)/lib
+ENCOREC=$(RELEASE_DIR)/encorec
 
 all: encorec
 
 typecheck:
 	cabal build --ghc-option=-fno-code
 
-encorec: dirs pony cabal-config
+encorec: dirs pony install-deps
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
-	cabal build
-	cp -r $(ENCOREC) $(RELEASE_DIR)
+	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
 
-cabal-config:
-	cabal install --dependencies-only
-	cabal configure
+install-deps:
+	stack --install-ghc --system-ghc install --dependencies-only
 
 test: encorec
 	make -C $(SRC_DIR) test
 
-coverage: dirs pony cabal-config;
+coverage: dirs pony
 	rm -rf coverage dist/hpc;
 	find src -name "*.tix" -print0 | xargs -0 rm -rf;
 	cabal clean;
@@ -45,11 +43,10 @@ coverage: dirs pony cabal-config;
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
-
-doc: cabal-config
+doc: install-deps
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
 	make -C doc/encore/ && \
-	cabal haddock --all
+	stack haddock
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -112,7 +109,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:
-	cabal clean
+	stack clean
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
