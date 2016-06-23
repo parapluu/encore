@@ -1,12 +1,15 @@
 # This file support line comments.
 # Note that the # must appear first on the line
+
+# Modules used by 'modules' tests
+# Should not be considered as tests
+#
 encore/modules/ClosureImporter
 encore/modules/ClosureImp
 encore/modules/DeepLib
 encore/modules/Lib
 encore/modules/lib
 encore/modules/otherlib
-encore/modules/trait_import_module
 encore/modules/Vector
 encore/modules/Utils
 encore/modules/MidImport
@@ -15,6 +18,10 @@ encore/modules/Top
 encore/modules/Right
 encore/modules/Left
 encore/modules/TraitImportModule
+
+#
+# Disabled 'concurrency' tests 
+#
 encore/concurrency/async_block
 encore/concurrency/async_chain
 encore/concurrency/async
@@ -23,7 +30,16 @@ encore/concurrency/async_finish_stmts
 encore/concurrency/async_force_gc
 encore/concurrency/async_foreach
 encore/concurrency/global_async
+
+#
+# Disabled 'basic' tests 
+# Note that largestream works, except on CI
+#
+encore/basic/largestream
 encore/basic/foreach_construct
+
+#
+# Disabled 'par' tests
+#
 encore/par/extract
 encore/par/general
-encore/basic/largestream
