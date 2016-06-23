@@ -136,7 +136,7 @@ function have_at_least_one_spec_file() {
 #
 ############################################################
 function test_enabled() {
-    ! echo $1 | grep -f IGNORED_FILES.grep > /dev/null
+    ! grep --invert-match "^#" < IGNORED_FILES.grep | grep $1 > /dev/null
 }
 
 ############################################################

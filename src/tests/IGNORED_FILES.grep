@@ -1,3 +1,5 @@
+# This file support line comments.
+# Note that the # must appear first on the line
 encore/modules/ClosureImporter
 encore/modules/ClosureImp
 encore/modules/DeepLib
