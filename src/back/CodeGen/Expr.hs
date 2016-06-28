@@ -548,8 +548,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate arrSize@(A.ArraySize {A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genNamedSym "size"
-         let theSize = Assign (Decl (int, Var tmp))
-                              (Call arrayDimSize [AsExpr ntarg, Int 0])
+         let dimSizeCall = (Call arrayDimSize [AsExpr ntarg, Int 0])
+             sizeCall = (Call arraySize [AsExpr ntarg])
+             theCall = if Ty.getNumDimensions (A.getType target) == 1 then sizeCall else dimSizeCall
+             theSize = Assign (Decl (int, Var tmp))
+                              theCall
          return (Var tmp, Seq [ttarg, theSize])
 
   translate call@(A.MethodCall { A.emeta, A.target, A.name, A.args})
