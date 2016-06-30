@@ -23,6 +23,7 @@ import CCode.PrettyCCode ()
 import Data.List
 
 import qualified AST.AST as A
+import qualified AST.Util as U
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -88,11 +89,21 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
                    Statement $ Call ((methodImplName cname (ID.Name "main")))
                                     [AsExpr encoreCtxVar,
-                                     (Cast (translate cname) (Var "_a")),
-                                     Call (Nam "_init_argv")
+-- <<<<<<< 5a8257a3af50870d05b3fda23fd6077dd3b81886
+--                                      (Cast (translate cname) (Var "_a")),
+--                                      Call (Nam "_init_argv")
+--                                           [AsExpr encoreCtxVar,
+--                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
+--                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
+-- =======
+                                     (Cast (Ptr encActiveMainT) (Var "_a")),
+                                     (Call (Nam "_init_argv")
                                           [AsExpr encoreCtxVar,
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
-                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]),
+                                     (AsExpr $ (Var "NULL"))]])
+
+-- >>>>>>> Add forward for future
        methodClauses = concatMap methodClause
 
        methodClause m = (mthdDispatchClause m) :
@@ -142,7 +153,10 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
            | otherwise =
                (futMsgId cname mName,
                 Seq $ unpackFuture : args ++
-                      gcRecieve ++ [methodCall])
+                      gcRecieve ++
+                      (if U.isForwardMethod mdecl
+                       then [methodCallFwd]
+                       else [methodCall]))
            where
              args =
                  methodUnpackArguments mdecl
@@ -158,7 +172,8 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                   (encoreCtxVar :
                                    Var "_this" :
                                    Var "_fut" :
-                                   map (AsLval . argName . A.pname) mParams)
+                                   map (AsLval . argName . A.pname) mParams
+                                   ++ [Var "NULL"])
              methodCall =
                  Statement $
                    Call futureFulfil
@@ -167,7 +182,18 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
                                (encoreCtxVar : Var "_this" :
-                                map (AsLval . argName . A.pname) mParams))]
+                                (map (AsLval . argName . A.pname) mParams)
+                                ++ [Var "_fut"]))]
+             methodCallFwd =
+                 Statement $
+                   Call (methodImplForwardName cname mName)
+                        (encoreCtxVar : Var "_this" :
+                          (map (AsLval . argName . A.pname) mParams) ++
+                          (if (A.isStringClass cdecl)
+                           then []
+                           else if A.isPassive cdecl
+                                then [Var "NULL"]
+                                else [Var "_fut"]))
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
              mType   = A.methodType mdecl
@@ -185,7 +211,8 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              methodCall =
                  Statement $
                    Call (methodImplName cname mName)
-                        (encoreCtxVar : Var "_this" : map (AsLval . argName . A.pname) mParams)
+                        (encoreCtxVar : Var "_this" : (map (AsLval . argName . A.pname) mParams)
+                        ++ [Var "NULL"])
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
 
@@ -268,9 +295,23 @@ methodImplWithFuture cname m =
     retType = future
     fName = methodImplFutureName cname mName
     args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+            ++ [(future, futVar)]
+    checkFut fut = Seq [If (BinOp (translate ID.EQ)
+                                  (AsExpr $ fut) (AsExpr $ Var "NULL"))
+                        (Seq [Statement $ initFut1 fut])
+                        Skip]
     fBody = Seq $
+-- <<<<<<< 61a481ad5747004bf3ec15f689b9f53cc2306b53
       runtimeTypeAssignment mType :
-      assignFut :
+      -- assignFut :
+-- =======
+      (if not (A.isConstructor m || A.isMainMethod cname mName)
+       then
+         (if U.isForwardMethod m
+          then [initFut]
+          else [checkFut futVar])
+       else [initFut]) ++
+-- >>>>>>> Add forward for future
       ponyGcSendFuture argPairs ++
       msg ++
       [retStmt]
@@ -294,6 +335,8 @@ methodImplWithFuture cname m =
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
                                       runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
+    initFut = Assign futVar $ futureMk mType
+    initFut1 fut = Assign fut $ futureMk mType
     argPairs = zip (map A.ptype mParams) argNames
     msg = sendFutMsg cname mName $ map (argName . A.pname) mParams
     retStmt = Return futVar
@@ -304,7 +347,8 @@ methodImplOneWay cname m =
     retType = void
     fName = methodImplOneWayName cname mName
     args = (Ptr (Ptr encoreCtxT), encoreCtxVar): this : zip argTypes argNames
-    fBody = Seq $
+           ++ [(future, Var "_fut")]
+    fBody = Seq $ [assignNullFut] ++
       ponyGcSendOneway argPairs ++
       msg
   in
@@ -316,7 +360,7 @@ methodImplOneWay cname m =
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
-
+    assignNullFut = Assign (Var "_fut") $ (Var "NULL")
     argPairs = zip (map A.ptype mParams) argNames
     msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
 
@@ -326,6 +370,7 @@ methodImplStream cname m =
     retType = stream
     fName = methodImplStreamName cname mName
     args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+           ++ [(future, Var "_fut")]
     fBody = Seq $
       [assignFut] ++
       ponyGcSendStream argPairs ++
@@ -416,6 +461,9 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     [tracefunDecl cdecl] ++
     [constructorImpl Shared cname] ++
     methodImpls ++
+    -- (if (not $ A.isMainClass cdecl) -- && not (any A.isConstructor cmethods)
+    --  then (map (methodImplWithForward methodImpls cname) cmethods)
+    --  else []) ++
     (map (methodImplWithFuture cname) cmethods) ++
     (map (methodImplOneWay cname) cmethods) ++
     [dispatchFunDecl cdecl] ++
@@ -499,7 +547,7 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Statement $ Call (methodImplName cname (A.methodName mdecl))
-                                [Amp encoreCtxVar, AsExpr $ Var "p"])
+                                [Amp encoreCtxVar, AsExpr $ Var "p", AsExpr $ Var "NULL"])
       Nothing ->
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, ctxArg),

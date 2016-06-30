@@ -63,6 +63,7 @@ lexer =
     ,"yield"
     ,"eos"
     ,"getNext"
+    ,"forward"
     ,"new"
     ,"this"
     ,"await"
@@ -683,6 +684,7 @@ expr  =  embed
      <|> try isEos
      <|> eos
      <|> getNext
+     <|> forward
      <|> await
      <|> suspend
      <|> yield
@@ -860,6 +862,10 @@ expr  =  embed
                reserved "get"
                expr <- expression
                return $ Get (meta pos) expr
+      forward = do pos <- getPosition
+                   reserved "forward"
+                   expr <- expression
+                   return $ Forward (meta pos) expr
       getNext = do pos <- getPosition
                    reserved "getNext"
                    expr <- expression

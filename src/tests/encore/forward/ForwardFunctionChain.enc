@@ -1,0 +1,14 @@
+-- TEST FORWARD, FUNCTION and FUTURE CHAINING
+def cl(x : int) : int
+  forward (new Base).one(x)
+
+class Base
+  def one(x : int) : int
+    x + 1806
+
+class Main
+  def main() : void
+    print (get ((new Base).one(0) ~~> cl))
+
+-- (new Base).one(0) = Fut 1806
+-- cl (1806) = (new Base).one(1806) = 1806 + 1806 = 3612

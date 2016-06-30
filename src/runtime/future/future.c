@@ -182,6 +182,8 @@ bool future_fulfilled(future_t *fut)
 
 void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 {
+  if (fut->fulfilled) return;
+
   assert(fut->fulfilled == false);
 
   BLOCK;

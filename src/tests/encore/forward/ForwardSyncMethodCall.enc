@@ -1,0 +1,15 @@
+-- TEST SYNCHRONOUS METHOD CALL (involving forward)
+class Base
+  def one() : int
+    1806
+
+class Next
+  def one() : int
+    this.two()
+
+  def two() : int
+    forward (new Base).one()
+
+class Main
+  def main() : void
+    print get (new Next).one()

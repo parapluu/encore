@@ -29,12 +29,12 @@ globalFunction fun = createHeader
       Function (translate funType) funName
                    ((Ptr (Ptr encoreCtxT), encoreCtxVar):
                    encoreRuntimeTypeParam :
-                   (zip argTypes argNames)) body
+                   ((zip argTypes argNames)) body) ++ [future]
 
     createHeader Nothing  =
       FunctionDecl (translate funType) funName
                   (Ptr (Ptr encoreCtxT): encoreRuntimeTypeT :
-                   argTypes)
+                   argTypes) ++ [future]
 
     funParams = A.functionParams fun
     funType   = A.functionType fun
@@ -76,7 +76,7 @@ globalFunctionWrapperDecl f =
 -- TODO: different header from shared!
 globalFunctionWrapper :: A.Function -> CCode Toplevel
 globalFunctionWrapper f =
-  let argList = encoreCtxVar : encoreRuntimeType : extractArgs
+  let argList = encoreCtxVar : encoreRuntimeType : extractArgs ++ [AsLval $ Nam "NULL"]
   in
     Function
       (Typ "value_t")
@@ -124,8 +124,26 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
           bodyResult = (Seq $ runtimeTypeAssignments ++
                              [bodyStat, returnStatement funType bodyName])
       in
+-- <<<<<<< 61a481ad5747004bf3ec15f689b9f53cc2306b53
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
+-- <<<<<<< 95f6cba4381d9a1beb7fe0e017570c31a19f0435
 
 returnStatement ty var
     | isVoidType ty = Return $ AsExpr unit
     | otherwise     = Return $ Cast (translate ty) var
+-- =======
+-- =======
+--         Concat $
+--         closures ++
+--         tasks ++
+--         [Function (translate funType)
+--                   funName
+--                   ((Ptr (Ptr encoreCtxT), encoreCtxVar):(zip argTypes argNames) ++ [(future, Var "_fut")])
+--                   (Seq $
+--                    [bodyStat, returnStmnt bodyName funType])]
+-- >>>>>>> Add forward for future
+--     where
+--       returnStmnt var ty
+--           | isVoidType ty = Return unit
+--           | otherwise     = Return var
+-- >>>>>>> Add forward for future
