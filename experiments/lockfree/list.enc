@@ -44,8 +44,8 @@ lockfree trait Delete {
         if ((r == this.tail) or (r.key != key)) then {
           return false;
         };
-        if (not isFrozen(r.next)) then {
-          if(freeze(r.next)) then {
+        if (not isStable(r.next)) then {
+          if(fix(r.next)) then {
             if (not CAT(l.next, r, r.next)) then {
               this.search(r.key);
             };
@@ -95,14 +95,14 @@ passive class List : Insert * Delete * Find {
 
       -- 1. Find left and right nodes
       while(true) {
-        if(not isFrozen(t.next)) then {
+        if(not isStable(t.next)) then {
           leftNode = t;
         };
         t = speculate t.next;
         if (t == this.tail) then {
            break;
         };
-        unless(isFrozen(t.next) or t.key < key) then {
+        unless(isStable(t.next) or t.key < key) then {
           break;
         }
       };
@@ -110,17 +110,17 @@ passive class List : Insert * Delete * Find {
 
       -- 2. Check that nodes are adjacent
       if (rightNode == leftNode.next) then {
-        unless (rightNode != this.tail and isFrozen(rightNode.next)) then {
+        unless (rightNode != this.tail and isStable(rightNode.next)) then {
           return (leftNode, rightNode)
         }
       } else {
         -- Nodes are not adjacent
         let oldNext = speculate leftNode.next;
-        if (isFrozen(oldNext.next)) then {
+        if (isStable(oldNext.next)) then {
           -- leftNode.next has been removed
           -- Try to move it forward
           if (CAT(leftNode.next, oldNext, oldNext.next)) then {
-            unless (rightNode != this.tail and isFrozen(rightNode.next)) then {
+            unless (rightNode != this.tail and isStable(rightNode.next)) then {
               return (leftNode, rightNode);
             }
           }

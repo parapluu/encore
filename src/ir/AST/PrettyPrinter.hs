@@ -218,8 +218,8 @@ ppExpr CAT {args, names} =
              else text " =>" <+> commaSep (map ppName names)
 ppExpr TryAssign {target, arg} =
     "try" <> parens (commaSep $ map ppExpr [target, arg])
-ppExpr Freeze {target} = "freeze" <> parens (ppExpr target)
-ppExpr IsFrozen {target} = "isFrozen" <> parens (ppExpr target)
+ppExpr Freeze {target} = "fix" <> parens (ppExpr target)
+ppExpr IsFrozen {target} = "isStable" <> parens (ppExpr target)
 ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)

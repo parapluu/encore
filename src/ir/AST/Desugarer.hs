@@ -123,10 +123,10 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
 desugar FunctionCall{emeta, name = Name "try", args = [target@Assign{lhs, rhs}]} =
     TryAssign emeta lhs rhs
 
-desugar FunctionCall{emeta, name = Name "freeze", args = [target]} =
+desugar FunctionCall{emeta, name = Name "fix", args = [target]} =
     Freeze emeta target
 
-desugar FunctionCall{emeta, name = Name "isFrozen", args = [target]} =
+desugar FunctionCall{emeta, name = Name "isStable", args = [target]} =
     IsFrozen emeta target
 
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args

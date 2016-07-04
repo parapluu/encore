@@ -564,15 +564,15 @@ instance Show Error where
         "  CAT(x.f, y.g, y)" ++
         "  CAT(x.f, y, z)"
     show (NonSpecFreezeError fdecl) =
-        printf "Field '%s' is not freezable"
+        printf "Field '%s' is not fixable"
                (show fdecl)
     show (NonFreezableFieldError ty) =
-        printf "Field of %s cannot be frozen"
+        printf "Field of %s cannot be fixed"
                (Types.showWithKind ty)
     show MalformedFreezeError =
-        "First argument of freeze must be a field access"
+        "First argument of fix must be a field access"
     show MalformedIsFrozenError =
-        "First argument of isFrozen must be a field access"
+        "First argument of isStable must be a field access"
     show (ModifierMismatchError cField expField trait) =
         printf ("Modifier of field '%s' is incompatible with " ++
                 "modifier of '%s' required by %s")

@@ -1014,7 +1014,7 @@ instance Checkable Expr where
           getBindings acc@FieldAccess{target = var@VarAccess{name = x}, name = f} =
               return [(x, AST.getType var `tilde` f)]
           getBindings _ =
-              error "Typechecker.hs: Target of freeze does not have correct shape"
+              error "Typechecker.hs: Target of fix does not have correct shape"
 
     -- TODO
     -- -------------------------------
@@ -1041,7 +1041,7 @@ instance Checkable Expr where
           getBindings FieldAccess{target = acc@VarAccess{name = x}, name = f} =
               return [(x, AST.getType acc `tilde` f)]
           getBindings _ =
-              error "Typechecker.hs: Target of isFrozen does not have correct shape"
+              error "Typechecker.hs: Target of isStable does not have correct shape"
 
     --  E |- val : Fut t
     -- ------------------

@@ -34,7 +34,7 @@ lockfree trait Dequeue {
   def dequeue() : Elem {
     while(true) {
       let oldFirst = speculate this.first;
-      if(not isFrozen(oldFirst.next)) then
+      if(not isStable(oldFirst.next)) then
         return null;
       if (CAT(this.first, oldFirst, oldFirst.next) => elem) then {
         return consume elem;
