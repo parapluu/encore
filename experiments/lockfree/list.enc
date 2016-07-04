@@ -22,9 +22,8 @@ lockfree trait Insert {
           return false;
         } else {
           newNode.next = r;
-          let oldNext = speculate l.next;
           -- Try to insert the element
-          if(CAT(l.next, oldNext, newNode)) then {
+          if(CAT(l.next, r, newNode)) then {
             return true;
           }
         }
