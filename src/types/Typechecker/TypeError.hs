@@ -245,6 +245,7 @@ data Error =
   | CannotBeNullError Type
   | TypeMismatchError Type Type
   | TypeWithCapabilityMismatchError Type Type Type
+  | CannotFlowIntoError Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
   | UnionMethodAmbiguityError Type Name
@@ -288,6 +289,8 @@ data Error =
   | StrongRestrictionViolationError Name Expr Expr
   | ResidualAliasingError Name Type
   | NonSpineCatTargetError Expr
+  | BarredNonVarFieldError FieldDecl
+  | TransferRestrictedVarFieldError FieldDecl
   | SimpleError String
 
 arguments 1 = "argument"
@@ -470,6 +473,10 @@ instance Show Error where
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'"
                (show actual) (show cap) (show expected)
+    show (CannotFlowIntoError ty1 ty2) =
+        -- TODO: Give a more informative error
+        printf "Type '%s' cannot flow into '%s'"
+               (show ty1) (show ty2)
     show (TypeVariableAmbiguityError expected ty1 ty2) =
         printf "Type variable '%s' cannot be bound to both '%s' and '%s'"
                (show expected) (show ty1) (show ty2)
@@ -599,6 +606,13 @@ instance Show Error where
     show (NonSpineCatTargetError target) =
         printf "CAT target '%s' must have spine mode"
                (show (ppSugared target))
+    show (BarredNonVarFieldError fdecl) =
+        printf "Non-var field '%s' cannot be strongly or weakly restricted"
+               (show fdecl)
+    show (TransferRestrictedVarFieldError fdecl) =
+        printf "Var field '%s' cannot be transfer restricted"
+               (show fdecl)
+
     show (SimpleError msg) = msg
 
 data TCWarning = TCWarning Backtrace Warning

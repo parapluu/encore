@@ -512,9 +512,11 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                      map traceField cfields)
     where
       ctxArg = Var "_ctx_arg"
-      traceField A.Field {A.ftype, A.fname} =
+      traceField fld@(A.Field {A.ftype, A.fname}) =
         let var = Var . show $ fieldName fname
-            field = Var "_this" `Arrow` fieldName fname
+            field = if A.isOnceField fld  || A.isSpecField fld
+                    then unfreeze ftype (Var "_this" `Arrow` fieldName fname)
+                    else AsExpr $ Var "_this" `Arrow` fieldName fname
             fieldAssign = Assign (Decl (translate ftype, var)) field
         in Seq [fieldAssign, traceVariable ftype var]
 

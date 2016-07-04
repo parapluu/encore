@@ -21,8 +21,8 @@ import Control.Applicative ((<$>))
 
 -- Module dependencies
 import Identifiers
-import Types hiding(bar, doubleBar)
-import qualified Types as Ty(bar, doubleBar)
+import Types hiding(bar, doubleBar, tilde)
+import qualified Types as Ty(bar, doubleBar, tilde)
 import AST.AST
 import AST.Meta hiding(Closure, Async)
 
@@ -147,6 +147,7 @@ dot        = P.dot lexer
 bang       = symbol "!"
 bar        = symbol "|"
 doubleBar  = symbol "||"
+tilde      = symbol "~"
 dotdot     = symbol ".."
 commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
@@ -207,12 +208,20 @@ typ = buildExpressionParser opTable singleType
           where
             restrictedFields = do
               restrictions <-
-                  many ((try doubleBar >> Left . Name <$> identifier)
-                        <|>
-                        (bar >> Right . Name <$> identifier))
-              return $ \ty -> foldr restrict ty restrictions
-            restrict (Left f) = (`Ty.doubleBar` f)
-            restrict (Right f) = (`Ty.bar` f)
+                  many ((do try doubleBar
+                            f <- Name <$> identifier
+                            return (`Ty.doubleBar` f)
+                        )
+                    <|> (do bar
+                            f <- Name <$> identifier
+                            return (`Ty.bar` f)
+                        )
+                    <|> (do tilde
+                            f <- Name <$> identifier
+                            return (`Ty.tilde` f)
+                        )
+                       )
+              return $ \ty -> foldr ($) ty restrictions
 
       singleType =
             try tuple

@@ -14,7 +14,9 @@ module Typechecker.Util(TypecheckM
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
                        ,subtypeOf
-                       ,checkAssignmentRestrictions
+                       ,assertSubtypeOf
+                       ,assertCanFlowInto
+                       ,canFlowInto
                        ,assertDistinctThing
                        ,assertDistinct
                        ,findField
@@ -110,16 +112,27 @@ matchTypeParameterLength ty1 ty2 = do
 -- type variables are in the current environment.
 resolveType :: Type -> TypecheckM Type
 resolveType = typeMapM (\ty -> do ty' <- resolveSingleType ty
-                                  checkBarring ty'
+                                  checkRestrictions ty'
                                   return ty')
 
-checkBarring :: Type -> TypecheckM ()
-checkBarring ty
-  | isClassType ty =
-      mapM_ (\f -> findField (ty `unbar` f) f) (barredFields ty)
+checkRestrictions :: Type -> TypecheckM ()
+checkRestrictions ty
+  | isClassType ty = do
+      mapM_ checkBarRestriction (barredFields ty)
+      mapM_ checkTransferRestriction (transferRestrictedFields ty)
   | otherwise =
-      unless (null $ barredFields ty) $
+      unless (null $ restrictedFields ty) $
              tcError $ CannotHaveRestrictedFieldsError ty
+  where
+    checkBarRestriction f = do
+      fdecl <- findField (ty `unrestrict` f) f
+      unless (isVarField fdecl) $
+             tcError $ BarredNonVarFieldError fdecl
+    checkTransferRestriction f = do
+      fdecl <- findField (ty `unrestrict` f) f
+      when (isVarField fdecl) $
+           tcError $ TransferRestrictedVarFieldError fdecl
+
 
 resolveSingleType :: Type -> TypecheckM Type
 resolveSingleType ty
@@ -263,14 +276,9 @@ subtypeOf ty1 ty2
           | getId ref1 == getId ref2
           , params1 <- getTypeParameters ref1
           , params2 <- getTypeParameters ref2
-          , barred1 <- barredFields ref1
-          , barred2 <- barredFields ref2
-          , strong1 <- stronglyBarredFields ref1
-          , strong2 <- stronglyBarredFields ref2
           , length params1 == length params2 = do
               results <- zipWithM subtypeOf params1 params2
-              return $ and results && null (barred1 \\ barred2) &&
-                       matchingPristiness ref1 ref2
+              return $ and results && matchingPristiness ref1 ref2
           | otherwise = return False
           where
             matchingPristiness ref1 ref2
@@ -311,12 +319,48 @@ checkAssignmentRestrictions :: Expr -> Expr -> TypecheckM ()
 checkAssignmentRestrictions target arg =
   let targetType = AST.getType target
       argType = AST.getType arg
-      strongRestrictions = stronglyBarredFields targetType
+      strongRestrictions = stronglyRestrictedFields targetType
       argRestrictions = barredFields argType
   in case find (`elem` argRestrictions) strongRestrictions of
        Just f ->
          tcError $ StrongRestrictionViolationError f target arg
        Nothing -> return ()
+
+assertSubtypeOf :: Type -> Type -> TypecheckM ()
+assertSubtypeOf sub super =
+    unlessM (sub `subtypeOf` super) $ do
+      capability <- if isClassType sub
+                    then do
+                      cap <- asks $ capabilityLookup sub
+                      if maybe False (not . isIncapability) cap
+                      then return cap
+                      else return Nothing
+                    else return Nothing
+      case capability of
+        Just cap ->
+            tcError $ TypeWithCapabilityMismatchError sub cap super
+        Nothing ->
+            tcError $ TypeMismatchError sub super
+
+canFlowInto :: Type -> Type -> TypecheckM Bool
+canFlowInto ty1 ty2 = do
+  isSubtype <- ty1 `subtypeOf` ty2
+  let restricted1 = restrictedFields ty1
+      restricted2 = restrictedFields ty2
+      strong1 = stronglyRestrictedFields ty1
+      strong2 = stronglyRestrictedFields ty2
+      weak2 = weaklyRestrictedFields ty2
+      restrictionsPreserved = null (restricted1 \\ restricted2)
+      strongRestrictionsOK = all (`elem` weak2) strong1 &&
+                             not (any (`elem` strong2) strong1)
+                             -- The second condition is just a precaution...
+  return $ isSubtype && restrictionsPreserved && strongRestrictionsOK
+
+assertCanFlowInto :: Type -> Type -> TypecheckM ()
+assertCanFlowInto ty1 ty2 = do
+  ty1 `assertSubtypeOf` ty2
+  unlessM (ty1 `canFlowInto` ty2) $
+          tcError $ CannotFlowIntoError ty1 ty2
 
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
@@ -497,6 +541,7 @@ doUnifyTypes inter args@(ty:tys)
 
 isLinearType :: (MonadReader Environment m) => Type -> m Bool
 isLinearType ty
+    | isPristineRefType ty = return True
     | isRefAtomType ty = do
         Just flds <- asks $ fields ty
         if all (\f -> isValField f || isSpecField f) flds then

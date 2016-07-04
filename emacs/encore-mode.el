@@ -50,6 +50,7 @@
         "repeat"
         "require"
         "return"
+        "shared"
         "spec"
         "speculate"
         "spine"

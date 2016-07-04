@@ -1,0 +1,103 @@
+trait T
+
+passive class Elem : linear T
+  elem : int
+  def init(elem : int) : void
+    this.elem = elem
+
+passive class Node : spine T {
+  elem : Elem
+  val next : Node
+
+  def init(e : Elem) : void {
+    this.elem = consume e;
+  }
+}
+
+lockfree trait Push {
+  require spec top : Node
+
+  def push(e : Elem) : void {
+    let n = new Node(consume e);
+    let t = speculate this.top;
+    n.next = t;
+    while(true) {
+      if (CAT(this.top, n.next, n)) then {
+        break;
+      } else {
+        n.next = speculate this.top;
+      }
+    }
+  }
+}
+
+lockfree trait Pop {
+  require spec top : Node
+
+  def pop() : Elem {
+    while(true) {
+      let t = speculate this.top;
+      if (CAT(this.top, t, t.next)) then {
+        return consume t.elem;
+      }
+    };
+    return null;
+  }
+}
+
+passive class Stack : Pop * Push {
+  spec top : Node
+}
+
+class Pusher {
+  s : Stack
+  def init(s:Stack, count:int) : void {
+    this.s = s;
+    this!pushLoop(count);
+  }
+
+  def pushLoop(count:int) : void {
+    if count <= 0 then
+      ()
+    else {
+      this.s.push(new Elem(count));
+      this!pushLoop(count-1);
+    }
+  }
+}
+
+class Popper {
+  s : Stack
+  def init(s:Stack, count:int) : void {
+    this.s = s;
+    this!popLoop(count);
+  }
+
+  def popLoop(count:int) : void {
+    if count <= 0 then
+      ()
+    else {
+      let ret = this.s.pop();
+      if ret != null then {
+        print ("Popped {}\n", ret.elem);
+      } else {
+        ();
+      };
+      this!popLoop(count-1);
+    }
+  }
+}
+
+class Main {
+  def main() : void {
+    let s = new Stack;
+    let n_pusher = 2;
+    let n_popper = 2;
+    repeat i <- n_pusher {
+      new Pusher(s, 20);
+    };
+    repeat i <- n_popper {
+      new Popper(s, 20);
+    };
+  }
+}

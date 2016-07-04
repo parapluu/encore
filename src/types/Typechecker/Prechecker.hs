@@ -153,11 +153,9 @@ instance Precheckable FieldDecl where
       when (isOnceField f) $
            unless (isRefType ftype') $
                   tcError $ OnceFieldTypeError ftype'
-      when (isRefType ftype') $ do
-        let fs = barredFields ftype'
-        Just fields <- asks $ fields ftype'
-        when (any ((`elem` fs) . fname) fields) $
-             tcError $ SimpleError "Fields can only bar var-fields"
+      when (isRefType ftype') $
+        unless (null $ transferRestrictedFields ftype') $
+             tcError $ SimpleError "Fields cannot have transfer restrictions"
       thisType <- liftM fromJust . asks . varLookup $ thisName
       when (isReadRefType thisType) $ do
            unless (isValField f) $

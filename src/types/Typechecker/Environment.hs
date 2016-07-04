@@ -159,34 +159,33 @@ safeToReadOnce :: Environment -> Bool
 safeToReadOnce = safeToReadOnceBT . bt
 
 fields :: Type -> Environment -> Maybe [FieldDecl]
-fields t env
-  | isTraitType t = do
-    trait <- Map.lookup (getId t) $ traitTable env
-    let fs = barredFields t
+fields ty env
+  | isTraitType ty = do
+    trait <- Map.lookup (getId ty) $ traitTable env
+    let transferRestricted = transferRestrictedFields ty
+        barred       = barredFields ty
         formalFields = requiredFields trait
-        bindings = formalBindings (tname trait) t
-        actualFields = map (translateField bindings) formalFields
-        barSpec = map (specToVal fs) actualFields
-        barVar  = filter (not . barredVarField fs) barSpec
-    return barVar
-  | isClassType t = do
-    cls <- classLookup t env
-    let fs = barredFields t
+        bindings     = formalBindings (tname trait) ty
+    return $ trim bindings barred transferRestricted formalFields
+  | isClassType ty = do
+    cls <- classLookup ty env
+    let transferRestricted = transferRestrictedFields ty
+        barred       = barredFields ty
         formalFields = cfields cls
-        bindings = formalBindings (cname cls) t
-        actualFields = map (translateField bindings) formalFields
-        barSpec = map (specToVal fs) actualFields
-        barVar  = filter (not . barredVarField fs) barSpec
-    return barVar
-  | otherwise = error $ "Trying to lookup field in a non-atom ref type " ++ show t
+        bindings     = formalBindings (cname cls) ty
+    return $ trim bindings barred transferRestricted formalFields
+  | otherwise = error $ "Trying to lookup field in non-atom ref type " ++
+                        show ty
     where
+      trim bindings barred transferRestricted fields =
+        let actualFields = map (translateField bindings) fields
+            stabilized   = map (stabilize transferRestricted) actualFields
+        in filter (\f -> fname f `notElem` barred) stabilized
       translateField bindings f@Field{ftype} =
           f{ftype = replaceTypeVars bindings ftype}
-      specToVal fs f = if (isSpecField f || isOnceField f) &&
-                          fname f `elem` fs
-                       then f{fmods = [Val]}
-                       else f
-      barredVarField fs f = fname f `elem` fs && isVarField f
+      stabilize fs f
+          | fname f `elem` fs = f{fmods = [Val]}
+          | otherwise = f
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
 fieldLookup t f env = do

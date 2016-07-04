@@ -503,7 +503,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     Cast (translate accType) theAccess
                 | otherwise = theAccess
         theUnfreeze = if A.isOnceField fld &&
-                         name `elem` Ty.barredFields targetType
+                         name `elem` Ty.transferRestrictedFields targetType
                       then unfreeze accType theCast
                       else theCast
         theAssign = Assign (Decl (translate accType, Var tmp)) theUnfreeze
@@ -1059,9 +1059,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    else Skip
     theResidualAssigns <- mapM (residualAssign narg argType) names
     let condAssign = If tmp (Seq theResidualAssigns) Skip
-    return (tmp, Seq $ [ttarg, twitness, targ, theAssign] ++
-                       theResidualAssigns ++
-                       [condNull])
+    return (tmp, Seq [ttarg, twitness, targ, theAssign,
+                      Statement condAssign, condNull])
     where
       residualAssign narg argType f = do
         ctx <- get

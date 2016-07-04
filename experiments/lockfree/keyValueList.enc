@@ -1,0 +1,213 @@
+trait T
+
+passive class Elem : linear T
+  elem : int
+  def init(elem : int) : void
+    this.elem = elem
+
+passive class Node : spine T {
+  val key : int
+  elem : Elem
+  spec next : Node
+
+  def init(key : int, elem : Elem) : void {
+    this.key = key;
+    this.elem = consume elem;
+  }
+}
+
+lockfree trait Insert {
+  require val tail : Node
+  require search(key : int) : (Node | elem, Node | elem)
+
+  def insert(key : int, elem : Elem) : Elem {
+    let newNode = new Node(key, consume elem);
+    while(true) {
+      match this.search(key) with (l, r) => {
+        if ((r != this.tail) and (r.key == key)) then {
+          -- The element was already in the list, fail
+          return consume newNode.elem;
+        } else {
+          newNode.next = r;
+          -- Try to insert the element
+          if(CAT(l.next, newNode.next, newNode)) then {
+            return null;
+          }
+        }
+      }
+    };
+    return null; -- This should never happen
+  }
+}
+
+lockfree trait Delete {
+  require val tail : Node
+  require search(key : int) : (Node | elem, Node | elem)
+
+  def delete(key : int) : Elem {
+    while(true) {
+      match this.search(key) with (l, r) => {
+        if ((r == this.tail) or (r.key != key)) then {
+          return null;
+        };
+        if (not isFrozen(r.next)) then {
+          if(freeze(r.next)) then {
+            if (CAT(l.next, r, r.next)) then {
+              return consume r.elem;
+              (); -- Only to satisfy typechecker
+            } else {
+              this.search(r.key);
+            }
+          }
+        }
+      }
+    };
+    return null; -- This should never happen
+  }
+
+}
+
+lockfree trait Find {
+  require val tail : Node
+  require search(key : int) : (Node | elem, Node | elem)
+
+  def find(key : int) : bool {
+    match this.search(key) with (l, r) => {
+      if(r == this.tail or r.key != key) then {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  }
+}
+
+passive class List : Insert * Delete * Find {
+  val head : Node | elem
+  val tail : Node | elem
+
+  def init() : void {
+    let dummyHead = new Node(0, null);
+    let dummyTail = new Node(-1, null);
+    dummyHead.next = consume dummyTail;
+    this.tail = speculate dummyHead.next;
+    this.head = consume dummyHead;
+  }
+
+  def search(key : int) : (Node | elem, Node | elem) {
+    let leftNode = null : Node | elem;
+    let rightNode = null : Node | elem;
+
+    while(true) {
+      let t = this.head;
+
+      -- 1. Find left and right nodes
+      while(true) {
+        if(not isFrozen(t.next)) then {
+          leftNode = t;
+        };
+        t = speculate t.next;
+        if (t == this.tail) then {
+           break;
+        };
+        unless(isFrozen(t.next) or t.key < key) then {
+          break;
+        }
+      };
+      rightNode = t;
+
+      -- 2. Check that nodes are adjacent
+      if (rightNode == leftNode.next) then {
+        unless (rightNode != this.tail and isFrozen(rightNode.next)) then {
+          return (leftNode, rightNode)
+        }
+      } else {
+        -- Nodes are not adjacent
+        let oldNext = speculate leftNode.next;
+        if (isFrozen(oldNext.next)) then {
+          -- leftNode.next has been removed
+          -- Try to move it forward
+          if (CAT(leftNode.next, oldNext, oldNext.next)) then {
+            unless (rightNode != this.tail and isFrozen(rightNode.next)) then {
+              return (leftNode, rightNode);
+            }
+          }
+        } else {
+          -- A new node has been inserted after leftNode, restart
+          ()
+        }
+      }
+    };
+
+    return (null : Node | elem, null : Node | elem); -- Should never happen
+  }
+}
+
+class Inserter {
+  l : List
+  def init(l : List, count : int) : void {
+    this.l = l;
+    this!insertLoop(count);
+  }
+
+  def insertLoop(count : int) : void {
+    if count <= 0 then
+      return
+    else {
+      this.l.insert(count, new Elem(count * 100));
+      this!insertLoop(count - 1);
+    }
+  }
+}
+
+class Finder {
+  l : List
+  def init(l : List, count : int) : void {
+    this.l = l;
+    this!findLoop(count);
+  }
+
+  def findLoop(count : int) : void {
+    if count <= 0 then
+      return
+    else {
+      this.l.find(count);
+      this!findLoop(count - 1);
+    }
+  }
+}
+
+class Deleter {
+  l : List
+  def init(l : List, count : int) : void {
+    this.l = l;
+    this!deleteLoop(count);
+  }
+
+  def deleteLoop(count : int) : void {
+    if count <= 0 then
+      return
+    else {
+      let ret = this.l.delete(count);
+      if ret != null then
+        print("Deleted ({}, {})\n", count, ret.elem)
+      else
+        print("Key {} was not in the list\n", count);
+      this!deleteLoop(count - 1);
+    }
+  }
+}
+
+class Main
+  def main() : void {
+    let l = new List();
+    let nInserters = 2;
+    let nFinders = 2;
+    let nDeleters = 2;
+    repeat i <- nInserters
+      new Inserter(l, 20);
+    repeat i <- nFinders
+      new Finder(l, 20);
+    repeat i <- nDeleters
+      new Deleter(l, 20);
+  }

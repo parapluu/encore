@@ -73,11 +73,15 @@ module Types(
             ,withBoxOf
             ,resolvedFrom
             ,unbox
-            ,unbar
+            ,unrestrict
             ,bar
             ,doubleBar
+            ,tilde
+            ,restrictedFields
             ,barredFields
-            ,stronglyBarredFields
+            ,weaklyRestrictedFields
+            ,stronglyRestrictedFields
+            ,transferRestrictedFields
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -205,58 +209,69 @@ instance Show Box where
 data RestrictedField =
     Strong{fname :: Name}
   | Weak{fname :: Name}
+  | Transfer{fname :: Name}
     deriving(Eq, Ord)
 
 instance Show RestrictedField where
     show Strong{fname} = "|| " ++ show fname
     show Weak{fname} = "| " ++ show fname
+    show Transfer{fname} = "~ " ++ show fname
+
+isWeak Weak{} = True
+isWeak _ = False
 
 isStrong Strong{} = True
 isStrong _ = False
 
+isTransfer Transfer{} = True
+isTransfer _ = False
+
 data Type = Type
-    {inner  :: InnerType
-    ,box    :: Maybe Box
-    ,barred :: [RestrictedField]
+    {inner      :: InnerType
+    ,box        :: Maybe Box
+    ,restricted :: [RestrictedField]
     }
 
 unbox ty = ty{box = Nothing}
 
-unbar ty f =
-    let bars = barred ty
-    in ty{barred = bars \\ [Weak f, Strong f]}
+unrestrict ty f =
+    let rs = restricted ty
+    in ty{restricted = rs \\ [Weak f, Strong f, Transfer f]}
 
 bar ty f =
-    let bars = barred ty
-    in ty{barred =
-            if Strong f `elem` bars
-            then bars
-            else bars `union` [Weak f]}
+    let rs = restricted ty
+    in ty{restricted = (rs \\ [Strong f]) `union` [Weak f]}
 
 doubleBar ty f =
-    let bars = barred ty
-    in ty{barred = bars `union` [Strong f]}
+    let rs = restricted ty
+    in ty{restricted = (rs \\ [Weak f]) `union` [Strong f]}
 
-barredFields = map fname . barred
+tilde ty f =
+    let rs = restricted ty
+    in ty{restricted = rs `union` [Transfer f]}
 
-stronglyBarredFields = map fname . filter isStrong . barred
+restrictedFields = map fname . restricted
+barredFields = map fname . filter (not . isTransfer) . restricted
+weaklyRestrictedFields = map fname . filter isWeak . restricted
+stronglyRestrictedFields = map fname . filter isStrong . restricted
+transferRestrictedFields = map fname . filter isTransfer . restricted
 
-typ ity = Type{inner = ity, box = Nothing, barred = []}
+typ ity = Type{inner = ity, box = Nothing, restricted = []}
 
 transferBox ty1 ty2 = ty2{box = box ty1}
 
 instance Eq Type where
     ty1 == ty2 =
         inner ty1 == inner ty2 &&
-        sort (barred ty1) == sort (barred ty2)
+        sort (restricted ty1) == sort (restricted ty2)
 
 instance Show Type where
-    show Type{inner, box = Nothing, barred} =
-        show inner ++ showBarred barred
-    show Type{inner, box = Just s, barred} =
-        show s ++ " " ++ show inner ++ showBarred barred
+    show Type{inner, box = Nothing, restricted} =
+        show inner ++ showRestricted restricted
+    show Type{inner, box = Just s, restricted} =
+        show s ++ " " ++ show inner ++ showRestricted restricted
 
-showBarred = unwords . ("":) . map show
+showRestricted = unwords . ("":) . map show
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
@@ -663,7 +678,7 @@ classType activity name parameters =
                                             ,mode = Nothing}
                           , activity}
         ,box = Nothing
-        ,barred = []
+        ,restricted = []
         }
 
 traitType :: String -> [Type] -> Type
@@ -673,7 +688,7 @@ traitType name parameters =
                                             ,mode = Nothing}}
 
         ,box = Nothing
-        ,barred = []
+        ,restricted = []
         }
 
 isRefAtomType Type{inner = Unresolved {}} = True

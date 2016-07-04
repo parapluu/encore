@@ -1,0 +1,109 @@
+trait T
+
+passive class Elem : linear T
+  elem : int
+  def init(elem : int) : void
+    this.elem = elem
+
+passive class Node : spine T {
+  elem : Elem
+  once next : Node
+
+  def init(e : Elem) : void {
+   this.elem = consume e;
+  }
+}
+
+lockfree trait Enqueue {
+  require spec last : Node | elem
+
+  def enqueue(x : Elem) : void {
+    let n = new Node(consume x);
+    let done = false;
+    while(not done) {
+      let oldLast = speculate this.last;
+      done = try(oldLast.next = n);
+      CAT(this.last, oldLast, oldLast.next);
+    }
+  }
+}
+
+lockfree trait Dequeue {
+  require spec first : Node || elem
+
+  def dequeue() : Elem {
+    while(true) {
+      let oldFirst = speculate this.first;
+      if(not isFrozen(oldFirst.next)) then
+        return null;
+      if (CAT(this.first, oldFirst, oldFirst.next) => elem) then {
+        return consume elem;
+      }
+    };
+    return null;
+  }
+}
+
+passive class Queue : Enqueue * Dequeue {
+  spec first : Node || elem
+  spec last  : Node | elem
+
+  def init() : void {
+    let dummy = new Node(null);
+    this.first = consume dummy;
+    this.last = speculate this.first;
+  }
+}
+
+class Enqueuer {
+  q : Queue
+  def init(q:Queue, count:int) : void {
+    this.q = q;
+    this!enqueueLoop(count);
+  }
+
+  def enqueueLoop(count:int) : void {
+    if count <= 0 then
+      ()
+    else {
+      this.q.enqueue(new Elem(count));
+      this!enqueueLoop(count-1);
+    }
+  }
+}
+
+class Dequeuer {
+  q : Queue
+  def init(q:Queue, count:int) : void {
+    this.q = q;
+    this!dequeueLoop(count);
+  }
+
+  def dequeueLoop(count:int) : void {
+    if count <= 0 then
+      ()
+    else {
+      let ret = this.q.dequeue();
+      if ret != null then {
+        print("Dequeued {}\n", ret.elem);
+      } else {
+        print("Queue was empty\n");
+      };
+      this!dequeueLoop(count-1);
+    }
+  }
+}
+
+class Main {
+  def main() : void {
+    let q = new Queue;
+    let nEnqueuers = 2;
+    let nDequeuers = 2;
+    repeat i <- nEnqueuers {
+      new Enqueuer(q, 20);
+    };
+    repeat i <- nDequeuers {
+      new Dequeuer(q, 20);
+    };
+  }
+}
