@@ -897,7 +897,7 @@ instance Checkable Expr where
            unlessM (liftM (isPrimitive targetType ||) $ isSpineType targetType) $
                   tcError $ NonSpineCatTargetError eTarget
            eWitness <- typecheck witness
-           targetType `assertSubtypeOf` AST.getType eWitness
+           targetType `assertCanFlowInto` AST.getType eWitness
            eArg <- typecheck arg
            let argType = AST.getType eArg
            if isPristineRefType argType
@@ -1460,7 +1460,9 @@ instance Checkable Expr where
                   tcError $ NonSpeculatableFieldError fdecl
            if isRefType argType
            then do
-             Just fields <- asks $ fields argType
+             let barred = barredFields argType
+                 (unbarred, _) = mapAccumL (\t f -> (t `unrestrict` f, undefined)) argType barred
+             Just fields <- asks $ fields unbarred
              let varFields = map fname $ filter isVarField fields
                  (stymied, _) = mapAccumL (\t f -> (t `bar` f, undefined)) argType varFields
              return $ setType stymied e {arg = eArg}
