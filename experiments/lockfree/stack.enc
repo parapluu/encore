@@ -91,12 +91,12 @@ class Popper {
 class Main {
   def main() : void {
     let s = new Stack;
-    let n_pusher = 2;
-    let n_popper = 2;
-    repeat i <- n_pusher {
+    let nPushers = 2;
+    let nPoppers = 2;
+    repeat i <- nPushers {
       new Pusher(s, 20);
     };
-    repeat i <- n_popper {
+    repeat i <- nPoppers {
       new Popper(s, 20);
     };
   }
