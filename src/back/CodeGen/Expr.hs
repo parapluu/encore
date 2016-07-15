@@ -555,19 +555,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           isStream = Ty.isStreamType retTy
           isFuture = Ty.isFutureType retTy
 
-  translate call@(A.MessageSend { A.emeta, A.target, A.name, A.args })
-      | (Ty.isActiveClassType . A.getType) target = messageSend
-      | sharedAccess = sharedObjectMethodOneWay call
-      | otherwise = error "Tried to send a message to something that was not an active reference"
-          where
-            sharedAccess = Ty.isSharedClassType $ A.getType target
-            messageSend :: State Ctx.Context (CCode Lval, CCode Stat)
-            messageSend =
-                do (ntarg, ttarg) <- translate target
-                   theSend <- activeMessageSend ntarg (A.getType target) name args
-                   let recvNullCheck = targetNullCheck ntarg target name emeta
-                   return (unit, Seq (Comm "message send" :
-                                       ttarg : recvNullCheck " ! " : [theSend]))
+  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args}
+    | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
+    | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
+    | otherwise = error
+        "Tried to send a message to something that was not an active reference"
+        where
+          ty = A.getType target
+          delegateUse methodCall = do
+            (ntarget, ttarget) <- translate target
+            (initArgs, resultExpr) <-
+              methodCall ntarget ty name args Ty.voidType
+            return (unit,
+              Seq $
+                ttarget :
+                targetNullCheck ntarget target name emeta " ! " :
+                initArgs ++
+                [Statement resultExpr]
+              )
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
@@ -1101,38 +1106,6 @@ globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
     typ = A.getType fcall
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
-
-activeMessageSend targetName targetType name args = do
-  targs <- mapM translate args
-  theMsgName <- Var <$> Ctx.genNamedSym "arg"
-  header <- gets $ Ctx.lookupMethod targetType name
-  let (argNames, argDecls) = unzip targs
-      msgType = AsType $ oneWayMsgTypeName targetType name
-      msgTypePtr = Ptr msgType
-      noArgs = length args
-      targsTypes = map A.getType args
-      expectedTypes = map A.ptype (A.hparams header)
-      castedArguments = zipWith3 castArguments expectedTypes argNames targsTypes
-      indexedArguments = map (indexArgument theMsgName) [1..]
-      argAssignments = zipWith Assign indexedArguments castedArguments
-      theArgInit = Seq $ map Statement argAssignments
-      theCall = Call ponySendvName
-                     [AsExpr encoreCtxVar,
-                      Cast (Ptr ponyActorT) targetName,
-                      Cast (Ptr ponyMsgT) $ AsExpr theMsgName]
-      theMsgDecl =
-          Assign (Decl (msgTypePtr, theMsgName)) $
-                 Cast msgTypePtr $ Call ponyAllocMsgName
-                                 [msgSize msgType
-                                 ,AsExpr . AsLval $ oneWayMsgId targetType name]
-      argsTypes = zip indexedArguments (map A.getType args)
-      theTrace = gcSend argsTypes expectedTypes
-                        [(Comm "Not tracing the future in a oneWay send")]
-  return $ Seq $ argDecls ++
-                 theMsgDecl :
-                 theArgInit :
-                 theTrace ++
-                 [Statement theCall]
 
 callTheMethodFuture = callTheMethodForName methodImplFutureName
 

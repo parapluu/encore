@@ -1,10 +1,16 @@
 class Foo
-  def foo(s : String) : void
-    print s
+  def foo(s : String) : void {
+    new [int](100000000);
+    print s;
+  }
 
 class Main
   def main() : void
     let x = new Foo
         s = "Hello, Ponyworld!"
-    in
-      x!foo(s)
+    in {
+      new [int](100000000);
+      get x.foo(s);
+      get x.foo(s);
+      x!foo(s);
+    }
