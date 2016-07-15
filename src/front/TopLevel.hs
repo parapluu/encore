@@ -25,6 +25,9 @@ import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
+import System.Directory (getHomeDirectory)
+import System.FilePath (splitPath, joinPath)
+
 
 import Makefile
 import Utils
@@ -120,7 +123,8 @@ findMapping arg =
                  '-':flag -> NoArg $ Undefined flag
                  _ -> NoArg $ Source arg
 
-parseArguments :: [String] -> ([FilePath], [FilePath], [Option])
+-- args -> (programs, importDirs, options)
+parseArguments :: [String] -> IO ([FilePath], [FilePath], [Option])
 parseArguments args =
   let parseArguments' []   = []
       parseArguments' args = opt : parseArguments' rest
@@ -133,21 +137,27 @@ parseArguments args =
                    Arg opt -> case args of
                                 [] -> (Malformed arg, [])
                                 (arg':rest) -> (opt arg', rest)
-      (sources, aux) = partition isSource (parseArguments' args)
-      (imports, options) = partition isImport aux
-  in
-    (map getName sources,
-     ([standardLibLocation ++ "/standard/",
-       standardLibLocation ++ "/prototype/",
-       "./"] ++) $ map (++ "/") $ concatMap getDirs imports,
-     options)
-    where
-      isSource (Source _) = True
-      isSource _ = False
-      getName (Source name) = name
-      isImport (Imports _) = True
-      isImport _ = False
-      getDirs (Imports dirs) = dirs
+      (sources, rest) = partition isSource (parseArguments' args)
+      (imports, options) = partition isImport rest
+      importDirs homeDir = nub $ ([standardLibLocation ++ "/standard/",
+        standardLibLocation ++ "/prototype/",
+        "./"] ++) $ map (++ "/") $ concatMap (\(Imports dirs) -> map getFullPath dirs) imports
+          where
+            getFullPath s =
+              case splitPath s of
+                ("~" : t) -> joinPath $ homeDir : t
+                _ -> s
+  in do
+    homeDir <- getHomeDirectory
+    return $
+      (map (\(Source name) -> name) sources,
+       importDirs homeDir,
+       options)
+  where
+    isSource (Source _) = True
+    isSource _ = False
+    isImport (Imports _) = True
+    isImport _ = False
 
 warnings :: [Option] -> IO ()
 warnings options =
@@ -253,7 +263,7 @@ compileProgram prog sourcePath options =
 
 main =
     do args <- getArgs
-       let (programs, importDirs, options) = parseArguments args
+       (programs, importDirs, options) <- parseArguments args
        checkForUndefined options
        when (Help `elem` options)
            (exit helpMessage)
