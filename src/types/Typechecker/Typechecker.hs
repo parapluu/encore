@@ -297,6 +297,32 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
              let result = propagateResultType resultType eExpr
              return $ setType resultType result
 
+-- We need a helper functions for typechecking array accesses since we
+-- only allow partial indexing inside of a size checking operator
+typecheckArrayAccess' (arrAcc@(ArrayAccess {target, indices})) allowPartialIndexing = do
+  eTarget <- typecheck target
+  let targetType = AST.getType eTarget
+  unless (isArrayType targetType) $
+    pushError eTarget $ NonIndexableError targetType
+                 
+  let numDims = getNumDimensions targetType
+      numIndices = length indices
+  unless (allowPartialIndexing && numDims >= numIndices || numDims == numIndices) $
+    if allowPartialIndexing then
+      pushError arrAcc $ TooManyIndicesError numDims numIndices
+    else
+      pushError arrAcc $ WrongNumberOfIndicesError numDims numIndices
+  let resType =
+        if numDims == numIndices then
+          getResultType targetType
+        else
+          setNumDimensions targetType (numDims - numIndices)
+  eIndices <- mapM (`hasType` intType) indices
+  return $ setType resType arrAcc{target = eTarget, indices = eIndices}
+
+typecheckArrayAccessAllowPartialIndexing arrAccess = typecheckArrayAccess' arrAccess True
+typecheckArrayAccess arrAccess = typecheckArrayAccess' arrAccess False
+
 instance Checkable Expr where
     --
     -- ----------------
@@ -343,7 +369,7 @@ instance Checkable Expr where
       let typ = AST.getType e
       unless (isParType typ) $
              pushError e $ ExpectingOtherTypeError "a Par" typ
-      return $ setType ((arrayType.getResultType) typ) p {val = e}
+      return $ setType (((arrayType 1) . getResultType) typ) p {val = e}
 
     doTypecheck p@(PartyPar {parl, parr}) = do
       pl <- typecheck parl
@@ -952,47 +978,75 @@ instance Checkable Expr where
           typecheckBody ty = local (addIteratorVariable ty) . typecheck
 
    ---  |- ty
-    --  E |- size : int
+    --  E |- size1,...,sizen : int
     -- ----------------------------
-    --  E |- new [ty](size) : [ty]
-    doTypecheck new@(ArrayNew {ty, size}) =
+    --  E |- new ArrayN<ty>(size1,...,sizen) : ArrayN<ty>
+    doTypecheck new@(ArrayNew {ty, sizes}) =
         do ty' <- resolveType ty
-           eSize <- hasType size intType
-           return $ setType (arrayType ty') new{ty = ty', size = eSize}
-
+           let numDims = getNumDimensions ty'
+               numSizes = length sizes
+           unless (numDims == numSizes) $
+             pushError new $ WrongNumberOfSizesError numDims numSizes ty'
+           eSizes <- mapM (`hasType` intType) sizes
+           return $ setType ty' new{ty = ty', sizes = eSizes}
+            
     --  E |- arg1 : ty .. E |- argn : ty
     -- ----------------------------------
     --  E |- [arg1, .., argn] : [ty]
-    doTypecheck arr@(ArrayLiteral {args}) =
-        do when (null args) $
-                tcError EmptyArrayLiteralError
-           eArg1 <- doTypecheck (head args)
-           let ty = AST.getType eArg1
-           eArgs <- mapM (`hasType` ty) args
-           return $ setType (arrayType ty) arr{args = eArgs}
+    doTypecheck arr@(ArrayLiteral {args}) = do
+      when (null args) $
+        tcError EmptyArrayLiteralError
+      let (head:tail) = args
+      (eArr, _) <- typecheckLit arr
+      return eArr
+        where
+          allEq xs = all (== head xs) (tail xs)
 
-    --  E |- target : [ty]
-    --  E |- index : int
+          assertAllSameType arr@(head:tail) = do
+            let headTy = AST.getType head
+            mapM (`hasType` headTy) arr
+
+          incDim ty
+            | isArrayType ty =
+              setNumDimensions ty $ (getNumDimensions ty) + 1
+            | otherwise = arrayType 1 ty
+
+          typecheckLit arr@(ArrayLiteral {args}) = do
+            tmp <- mapM typecheckLit args
+            let (eArgs, sizes) = unzip tmp
+            unless (allEq sizes) $ 
+              pushError arr JaggedArrayLiteralError
+            let ty = AST.getType $ head eArgs
+            checkedArgs <- mapM (`hasType` ty) eArgs
+            return (setType (incDim ty) arr{args = checkedArgs}, length sizes)
+          typecheckLit exp = do
+            eExp <- typecheck exp
+            when (isArrayType $ AST.getType eExp) $
+              pushError exp DynamicArrayInLiteralError
+            return (eExp, 0)
+            
+    --  E |- target : [[..[ty]..]]
+    --  E |- i1,i2...in : [int]
     -- -------------------------
-    --  E |- target[index] : ty
-    doTypecheck arrAcc@(ArrayAccess {target, index}) =
-        do eTarget <- typecheck target
-           let targetType = AST.getType eTarget
-           unless (isArrayType targetType) $
-                  pushError eTarget $ NonIndexableError targetType
-           eIndex <- hasType index intType
-           return $ setType (getResultType targetType)
-                            arrAcc{target = eTarget, index = eIndex}
+    --  E |- target[i1,i2...in] : ty
+    doTypecheck arrAcc@(ArrayAccess {}) =
+      typecheckArrayAccess arrAcc
 
     --  E |- target : [_]
     -- -------------------------
     --  E |- |target| : int
-    doTypecheck arrSize@(ArraySize {target}) =
-        do eTarget <- typecheck target
-           let targetType = AST.getType eTarget
-           unless (isArrayType targetType) $
-                  pushError eTarget $ NonSizeableError targetType
-           return $ setType intType arrSize{target = eTarget}
+    doTypecheck arrSize@(ArraySize {target = target@ArrayAccess{} }) = do
+      eTarget <- typecheckArrayAccessAllowPartialIndexing target
+      let targetType = AST.getType eTarget
+      unless (isArrayType targetType) $
+        pushError eTarget $ NonSizeableError targetType
+      return $ setType intType arrSize{target = eTarget}
+    doTypecheck arrSize@(ArraySize {target}) = do
+      eTarget <- typecheck target
+      let targetType = AST.getType eTarget
+      unless (isArrayType targetType) $
+        pushError eTarget $ NonSizeableError targetType
+      return $ setType intType arrSize{target = eTarget}
 
     --  count("{}", stringLit) = n
     --  E |- arg1 : t1 .. E |- argn : tn

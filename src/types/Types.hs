@@ -56,6 +56,8 @@ module Types(
             ,getArgTypes
             ,setArgTypes
             ,getResultType
+            ,getNumDimensions
+            ,setNumDimensions
             ,getId
             ,maybeGetId
             ,getTypeParameters
@@ -130,7 +132,9 @@ data Type = Unresolved{refInfo :: RefInfo}
           | FutureType{resultType :: Type}
           | ParType{resultType :: Type}
           | StreamType{resultType :: Type}
-          | ArrayType{resultType :: Type}
+          | ArrayType{numDimensions :: Int
+                     ,resultType :: Type
+                     }
           | RangeType
           | MaybeType {resultType :: Type}
           | TupleType {argTypes :: [Type]}
@@ -159,8 +163,15 @@ getArgTypes = argTypes
 setArgTypes ty argTypes = ty{argTypes}
 
 getResultType ty
-    | hasResultType ty = resultType ty
-    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
+  | hasResultType ty = resultType ty
+  | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
+
+getNumDimensions ty
+  | isArrayType ty = numDimensions ty
+  | otherwise = error $ "Types.hs: tried to get the number of dimensions of " ++ show ty
+
+setNumDimensions ty@ArrayType{numDimensions} num = ty{numDimensions = num}
+setNumDimensions ty _ = error $ "Types.hs: tried to set the number of dimensions of " ++ show ty
 
 getId ty = case maybeGetId ty of
      Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
@@ -199,7 +210,8 @@ instance Show Type where
     show FutureType{resultType} = "Fut " ++ maybeParen resultType
     show ParType{resultType}    = "Par " ++ maybeParen resultType
     show StreamType{resultType} = "Stream " ++ maybeParen resultType
-    show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
+    show ArrayType{numDimensions, resultType}  = "Array" ++ (show numDimensions) ++
+                                                 "<" ++ show resultType ++ ">"
     show RangeType   = "Range"
     show (MaybeType ty)    = "Maybe " ++ maybeParen ty
     show (TupleType{argTypes}) = "(" ++ args ++ ")"
@@ -221,7 +233,7 @@ maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
 maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
 maybeParen par@(ParType _)     = "(" ++ show par ++ ")"
 maybeParen str@(StreamType _)  = "(" ++ show str ++ ")"
-maybeParen arr@(ArrayType _)   = "(" ++ show arr ++ ")"
+maybeParen arr@(ArrayType _ _) = "(" ++ show arr ++ ")"
 maybeParen opt@(MaybeType _)   = "(" ++ show opt ++ ")"
 maybeParen ty = show ty
 
@@ -291,7 +303,7 @@ typeComponents cap@(CapabilityType{ltype, rtype}) =
     cap : typeComponents ltype ++ typeComponents rtype
 typeComponents str@(StreamType ty) =
     str : typeComponents ty
-typeComponents arr@(ArrayType ty)  =
+typeComponents arr@(ArrayType _ ty)  =
     arr : typeComponents ty
 typeComponents maybe@(MaybeType ty) =
     maybe : typeComponents ty

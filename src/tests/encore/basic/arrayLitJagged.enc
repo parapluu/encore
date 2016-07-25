@@ -1,0 +1,4 @@
+class Main
+  def main(): void
+    -- Should not typecheck. Array literal is jagged.
+    [[1,2], [3]]

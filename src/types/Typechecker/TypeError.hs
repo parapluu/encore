@@ -201,6 +201,11 @@ data Error =
   | TypeWithCapabilityMismatchError Type Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
+  | WrongNumberOfIndicesError Int Int
+  | TooManyIndicesError Int Int
+  | WrongNumberOfSizesError Int Int Type
+  | JaggedArrayLiteralError
+  | DynamicArrayInLiteralError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -378,6 +383,17 @@ instance Show Error where
                (show expected) (show ty1) (show ty2)
     show (FreeTypeVariableError ty) =
         printf "Type variable '%s' is unbound" (show ty)
+    show (WrongNumberOfIndicesError expected got) =
+        printf "Expected %d indicies, got %d indicies." expected got
+    show (TooManyIndicesError max got) =
+        printf "Expected at most %d indicies, got %d indicies." max got
+    show (WrongNumberOfSizesError expected got ty) =
+        printf "Expected %d sizes when creating an array of type '%s', but got %d sizes." 
+               expected (show ty) got
+    show JaggedArrayLiteralError =
+        printf "Jagged array literals are not allowed."
+    show DynamicArrayInLiteralError =
+        printf "Dynamically created arrays are not allowed inside of array literals."
     show (SimpleError msg) = msg
 
 

@@ -159,6 +159,13 @@ subtypeOf ty1 ty2
         covariance <- resultTy1 `subtypeOf` resultTy2
         return $ length argTys1 == length argTys2 &&
                  contravariance && covariance
+    | isArrayType ty1 && isArrayType ty2 = do
+      let n1 = getNumDimensions ty1
+          n2 = getNumDimensions ty2
+          rty1 = getResultType ty1
+          rty2 = getResultType ty2
+      covariant <- rty1 `subtypeOf` rty2
+      return $ (n1 == n2 || n2 == 1) && covariant
     | hasResultType ty1 && hasResultType ty2 =
         liftM (ty1 `hasSameKind` ty2 &&) $
               getResultType ty1 `subtypeOf` getResultType ty2

@@ -254,14 +254,14 @@ desugar Foreach{emeta, item, arr, body} =
      (Skip (cloneMeta emeta))
      (Let emeta
         [(it, IntLiteral emeta 0),
-         (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
+         (item, ArrayAccess emeta arr [(IntLiteral emeta 0)])]
        (While emeta
              (Binop emeta
                    Identifiers.LT
                    (VarAccess emeta it)
                    (VarAccess emeta arrSize))
              (Seq emeta
-                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it)),
+                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr [(VarAccess emeta it)]),
                    Async emeta body,
                    Assign emeta
                       (VarAccess emeta it)
@@ -274,8 +274,7 @@ desugar Foreach{emeta, item, arr, body} =
 desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 
 desugar new@NewWithInit{emeta, ty, args}
-    | isArrayType ty &&
-      length args == 1 = ArrayNew emeta (getResultType ty) (head args)
+    | isArrayType ty = ArrayNew emeta ty args
     | isRefType ty
     , "String" <- getId ty
     , [new'@NewWithInit{ty = ty', args = args'}] <- args

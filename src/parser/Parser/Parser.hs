@@ -95,6 +95,7 @@ lexer =
     ,"Maybe"
     ,"Just"
     ,"Nothing"
+    ,"Array"
     ,"match"
     ,"with"
     ,"when"
@@ -197,6 +198,7 @@ typ = buildExpressionParser opTable singleType
       singleType =
             try tuple
         <|> array
+        <|> oldArray
         <|> embed
         <|> range
         <|> refType
@@ -209,8 +211,13 @@ typ = buildExpressionParser opTable singleType
              <|> parens (typ `sepBy2` comma)
         return $ tupleType types
       array = do
+        try $ string "Array"
+        numDims <- option 1 natural
+        ty <- angles typ
+        return $ arrayType (fromInteger numDims) ty
+      oldArray = do
         ty <- brackets typ
-        return $ arrayType ty
+        return $ arrayType 1 ty
       embed = do
         reserved "embed"
         ty <- manyTill anyChar $ try $ do {space; reserved "end"}
@@ -525,6 +532,9 @@ matchClause = do
                     symbol "_"
                     return (VarAccess (meta pos) (Name "_"))
 
+-- For parsing postfix operators that may repeat, such as array access.
+postfixRep1 p = Postfix . chainl1 p $ return (flip (.))
+
 expression :: Parser Expr
 expression = buildExpressionParser opTable highOrderExpr
     where
@@ -572,9 +582,9 @@ expression = buildExpressionParser opTable highOrderExpr
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
-          Postfix (try (do pos <- getPosition
-                           index <- brackets expression
-                           return (\e -> ArrayAccess (meta pos) e index)))
+          postfixRep1 (try (do pos <- getPosition
+                               indices <- brackets $ commaSep1 expression
+                               return (\e -> ArrayAccess (meta pos) e indices)))
       messageSend =
           Postfix (do pos <- getPosition
                       bang

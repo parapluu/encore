@@ -160,6 +160,6 @@ instance Precheckable MethodDecl where
       return $ setType mtype m{mheader = mheader'}
       where
         checkMainParams params =
-            unless (map ptype params `elem` allowedMainArguments) $
-              tcError MainMethodArgumentsError
-        allowedMainArguments = [[], [arrayType stringObjectType]]
+          unless (map ptype params `elem` allowedMainArguments) $
+            tcError MainMethodArgumentsError
+        allowedMainArguments = [[], [arrayType 1 stringObjectType]]
