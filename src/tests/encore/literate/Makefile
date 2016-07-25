@@ -1,6 +1,6 @@
 SOURCES=$(wildcard *.enc)
 OBJECTS=$(SOURCES:.enc=)
-ENCOREC=encorec
+ENCOREC=../../../../release/encorec
 FLAGS=--literate
 
 all: $(OBJECTS)
