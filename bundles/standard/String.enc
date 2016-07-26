@@ -54,7 +54,8 @@ def string_from_int(n : int) : String
   new String(embed
     (embed char* end)
     int n = #{n};
-    int len = n < 0? (int) ceil(log10(-n)) + 2:
+    int len = n == 0? 2:
+              n < 0? (int) ceil(log10(-n)) + 2:
                      (int) ceil(log10(n)) + 1;
     char *s = encore_alloc(encore_ctx(), len);
     sprintf(s, "%d", n);

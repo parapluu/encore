@@ -323,9 +323,11 @@ passive class Test
     let
       s1 = string_from_int(123456789)
       s2 = string_from_int(-42)
+      s3 = string_from_int(0)
     in {
       assertTrue(s1.equals("123456789"));
       assertTrue(s2.equals("-42"));
+      assertTrue(s3.equals("0"));
     }
 
   def test_to_int() : void
