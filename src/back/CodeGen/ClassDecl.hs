@@ -269,7 +269,7 @@ initEncoreCtx =
     -- If we decide not to pass extra ctx around
     -- (Decl (Ptr encoreCtxT, AsLval encoreCtxName)) $
     encoreCtxName $
-      Call (Nam "encore_ctx") ([] :: [CCode Lval])
+      Call encoreGetCtx ([] :: [CCode Lval])
 
 methodImplWithFuture :: Ty.Type -> A.MethodDecl -> CCode Toplevel
 methodImplWithFuture cname m =

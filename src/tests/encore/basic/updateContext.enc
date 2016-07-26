@@ -1,0 +1,52 @@
+--
+-- This test checks that after performing the `get` method on the future,
+-- the runtime gets a new context. If this was not the case, there would
+-- be a runtime error in this test. Therefore, it doesn't need any output
+--
+
+def show_string(x: String): String
+  x
+
+def id(x:int) : int
+  x
+
+class Test
+  passiveTest: String
+
+  def init(s: String): void {
+    this.passiveTest = s
+  }
+
+  def get_string(): String
+    this.passiveTest
+
+  def getZero(): int
+    0
+
+  def ignoreFunction(f: int -> int): void
+    ()
+
+class Main
+
+  def testGettingNewContext(): void {
+    repeat i <- 100000 {
+      let t = new Test("");
+      get t.getZero();
+      let identityFun = \(x:int) -> id(x);
+      t.ignoreFunction(identityFun);
+    }
+  }
+
+  def testGettingNewContextAndFutureChaining(): void
+    for z in [1..100000]
+        let testContentFuture = new Test("Liftf")
+            primitive_fut = testContentFuture.get_string()
+        in
+          get(primitive_fut ~~> (\(x:String) -> show_string(x))
+                            ~~> (\(x:String) -> show_string(x))
+                            ~~> \(x:String) -> show_string(x));
+
+  def main(): void {
+    this.testGettingNewContext();
+    this.testGettingNewContextAndFutureChaining();
+  }

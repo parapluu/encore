@@ -479,6 +479,9 @@ encoreCtxT = Typ "pony_ctx_t"
 encoreCtxVar :: CCode Lval
 encoreCtxVar = Var "_ctx"
 
+encoreGetCtx :: CCode Name
+encoreGetCtx = Nam "encore_ctx"
+
 arrayGet :: CCode Name
 arrayGet = Nam "array_get"
 
