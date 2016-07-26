@@ -205,6 +205,9 @@ compileProgram prog sourcePath options =
                         Just (Output file) -> file
                         Nothing            -> sourceName
            srcDir = sourceName ++ "_src"
+       when (execName == sourcePath) $
+            abort $ "Compilation would overwrite the source! Aborting.\n" ++
+                    "You can specify the output file with -o [file]"
        createDirectoryIfMissing True srcDir
        let emitted = compileToC prog
            classes = processClassNames (getClasses emitted)
