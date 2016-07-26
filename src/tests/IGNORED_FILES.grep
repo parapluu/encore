@@ -1,6 +1,7 @@
 # This file support line comments.
 # Note that the # must appear first on the line
 
+#
 # Modules used by 'modules' tests
 # Should not be considered as tests
 #
@@ -20,7 +21,7 @@ encore/modules/Left
 encore/modules/TraitImportModule
 
 #
-# Disabled 'concurrency' tests 
+# Disabled 'concurrency' tests
 #
 encore/concurrency/async_block
 encore/concurrency/async_chain
@@ -32,7 +33,7 @@ encore/concurrency/async_foreach
 encore/concurrency/global_async
 
 #
-# Disabled 'basic' tests 
+# Disabled 'basic' tests
 # Note that largestream works, except on CI
 #
 encore/basic/largestream
@@ -43,3 +44,10 @@ encore/basic/foreach_construct
 #
 encore/par/extract
 encore/par/general
+
+#
+# Modules imported by 'literate' tests
+# Should not be considered as tests
+#
+encore/literate/Foo
+encore/literate/Bar

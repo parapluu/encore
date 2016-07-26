@@ -278,13 +278,13 @@ main =
        unless sourceExists
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
        verbose options $ "== Reading file '" ++ sourceName ++ "' =="
-       code <- if Literate `elem` options
+       raw <- readFile sourceName
+       code <- if Literate `elem` options || "#+literate\n" `isPrefixOf` raw
                then do
-                 raw <- readFile sourceName
                  verbose options "== Extracting tangled code =="
-                 return $ tangle raw
+                 return $ getTangle raw
                else
-                   readFile sourceName
+                   return raw
 
        verbose options "== Parsing =="
        ast <- case parseEncoreProgram sourceName code of

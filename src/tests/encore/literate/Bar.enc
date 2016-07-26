@@ -1,0 +1,3 @@
+bundle Bar where
+  def bar() : void
+    print "In bar"

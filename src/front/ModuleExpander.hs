@@ -7,6 +7,8 @@ import Control.Monad
 import System.Directory(doesFileExist)
 import Parser.Parser
 import Data.Map (Map)
+import Data.List
+import Literate
 import qualified Data.Map as Map
 import Typechecker.Environment
 import qualified AST.Meta as Meta
@@ -46,11 +48,14 @@ importOne importDirs (Import _ target) = do
          [] -> abort $ "Module \"" ++ qname2string target ++
                       "\" cannot be found in imports! Aborting."
          [src] -> do { informImport target src; return src }
-         l@(src:_) -> do 
+         l@(src:_) -> do
              putStrLn $ "Error: Module " ++ (qname2string target) ++ " found in multiple places:"
              mapM_ (\src -> putStrLn $ "-- " ++ src) l
              abort "Unable to determine which one to use."
-  code <- readFile source
+  raw <- readFile source
+  let code = if "#+literate\n" `isPrefixOf` raw
+             then getTangle raw
+             else raw
   ast <- case parseEncoreProgram source code of
            Right ast  -> return ast
            Left error -> abort $ show error
@@ -63,11 +68,11 @@ qname2string ((Name a):as) = a ++ "." ++ qname2string as
 
 printImports = False
 
-informImport target src = 
-    if printImports then 
+informImport target src =
+    if printImports then
         putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
-    else 
-        return ()      
+    else
+        return ()
 
 addStdLib target ast@Program{imports = i} =
   if qname2string target == "String" then ast  -- avoids importing String from String
@@ -90,4 +95,3 @@ compressModules = foldl1 joinTwo
               Program{etl=etl', functions=functions', traits=traits', classes=classes'} =
                 p{etl=etl ++ etl', functions=functions ++ functions',
                   traits=traits ++ traits', classes=classes ++ classes'}
-

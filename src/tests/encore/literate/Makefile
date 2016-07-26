@@ -1,4 +1,4 @@
-SOURCES=$(wildcard *.enc)
+SOURCES=$(filter-out Foo.enc Bar.enc, $(wildcard *.enc))
 OBJECTS=$(SOURCES:.enc=)
 ENCOREC=../../../../release/encorec
 FLAGS=--literate

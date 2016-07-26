@@ -1,23 +1,23 @@
-module Literate(tangle) where
+module Literate(getTangle) where
 
 import Data.String.Utils
 import Data.List
 import Data.Char
 
-tangle :: String -> String
-tangle = unlines . tangleList False . lines
+getTangle :: String -> String
+getTangle = unlines . getTangleAsList False . lines
 
-tangleList :: Bool -> [String] -> [String]
-tangleList inCodeBlock []
+getTangleAsList :: Bool -> [String] -> [String]
+getTangleAsList inCodeBlock []
     | inCodeBlock = error $ "*** Error while extracting tangled code ***\n" ++
                             "Reached end of file before code block was closed"
     | otherwise = []
-tangleList inCodeBlock (l:ls)
+getTangleAsList inCodeBlock (l:ls)
     | inCodeBlock = if isClosingDelimiter l
-                    then "" : tangleList False ls
-                    else l : tangleList True ls
-    | isOpeningDelimiter l = "" : tangleList True ls
-    | otherwise = "" : tangleList False ls
+                    then "" : getTangleAsList False ls
+                    else l : getTangleAsList True ls
+    | isOpeningDelimiter l = "" : getTangleAsList True ls
+    | otherwise = "" : getTangleAsList False ls
       -- Filtered lines are replaced by an empty string to give
       -- error messages the correct line numbersm
 
