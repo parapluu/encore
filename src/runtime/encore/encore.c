@@ -354,6 +354,7 @@ encore_actor_t *encore_peer_create(pony_type_t *type)
 /// Allocate s bytes of memory, zeroed out
 void *encore_alloc(pony_ctx_t *ctx, size_t s)
 {
+  ctx = pony_ctx();
   void *mem = pony_alloc(ctx, s);
   memset(mem, 0, s);
 
