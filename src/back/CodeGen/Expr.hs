@@ -288,7 +288,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     in StatAsExpr (Var "tmp") $ Seq
                        [Assign (Decl (int, Var "len")) len,
                         Assign (Decl (Ptr char, Var "tmp")) $
-                               Call encoreAllocName [encoreCtxVar, Var "len"],
+                               Call encoreAllocName [Deref encoreCtxVar, Var "len"],
                         Statement . Call (Nam "sprintf") $
                              [AsExpr $ Var "tmp",
                               String $ "Just " ++ if Ty.isMaybeType resType
@@ -952,10 +952,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate await@(A.Await{A.val}) =
       do (nval, tval) <- translate val
-         return (unit, Seq [tval, Statement $ Call (Nam "future_await") [nval]])
+         return (unit, Seq [tval, Statement $ Call futureAwait [encoreCtxVar, nval]])
 
   translate suspend@(A.Suspend{}) =
-         return (unit, Seq [Call (Nam "actor_suspend") ([] :: [CCode Expr])]) --TODO: Call should support 0-arity
+         return (unit, Seq [Call actorSuspend [encoreCtxVar]])
 
   translate futureChain@(A.FutureChain{A.future, A.chain}) = do
     (nfuture,tfuture) <- translate future
@@ -985,12 +985,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                       (Call taskMkFn [encoreCtxName, funName, envName, dependencyName, traceName])
              -- TODO: (kiko) refactor to use traceVariable from Trace.hs
              traceFuture = Statement $ Call ponyTraceObject
-                    [encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
+                    [Deref encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
              traceTask = Statement $ Call ponyTraceObject
-                    [encoreCtxVar, Var taskName, AsLval $ Nam "task_trace" ]
+                    [Deref encoreCtxVar, Var taskName, AsLval $ Nam "task_trace" ]
              traceEnv =  Statement $ Call ponyTraceObject
-                    [encoreCtxVar, Var $ show envName, AsLval $ traceName ]
-             traceDependency =  Statement $ Call ponyTraceObject [encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
+                    [Deref encoreCtxVar, Var $ show envName, AsLval $ traceName ]
+             traceDependency =  Statement $ Call ponyTraceObject [Deref encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
          packedEnv <- mapM (packFreeVars envName) freeVars
          return $ (Var futName, Seq $ (encoreAlloc envName) : packedEnv ++
                                       [encoreAlloc dependencyName,
@@ -1001,19 +1001,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                        -- TODO: (kiko) Refactor to use GC.hs
                                        Embed $ "",
                                        Embed $ "// --- GC on sending ----------------------------------------",
-                                       Statement $ Call ponyGcSendName [encoreCtxVar],
+                                       Statement $ Call ponyGcSendName [Deref encoreCtxVar],
                                        traceFuture,
                                        traceTask,
                                        traceEnv,
                                        traceDependency,
-                                       Statement $ Call ponySendDoneName [encoreCtxVar],
+                                       Statement $ Call ponySendDoneName [Deref encoreCtxVar],
                                        Embed $ "// --- GC on sending ----------------------------------------",
                                        Embed $ ""
                                        ])
 
       where
         encoreAlloc name = Assign (Decl (Ptr $ Struct name, AsLval name))
-                               (Call C.encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
+                               (Call C.encoreAllocName [AsExpr (Deref encoreCtxVar), Sizeof $ Struct name])
         taskRunner async futName = Assign (Decl (C.future, Var futName))
                                              (Call futureMkFn
                                                 [AsExpr encoreCtxVar, getRuntimeType async])
@@ -1042,7 +1042,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       fTypeVars  = Util.freeTypeVars body
       mkEnv name =
         Assign (Decl (Ptr $ Struct name, AsLval name))
-          (Call encoreAllocName [AsExpr encoreCtxVar, Sizeof $ Struct name])
+          (Call encoreAllocName [AsExpr (Deref encoreCtxVar), Sizeof $ Struct name])
       insertAllVars vars typeVars =
         liftM2 (++)
           (mapM insertVar vars)
@@ -1142,10 +1142,6 @@ callTheMethodForName
     actualArgTypes = map A.getType args
     doCast expectedArgTypes args =
       zipWith3 castArguments expectedArgTypes args actualArgTypes
-    convertBack retType
-      | Ty.isTypeVar retType && (not . Ty.isTypeVar) resultType =
-          AsExpr . fromEncoreArgT (translate resultType)
-      | otherwise = id
 
 passiveMethodCall :: CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Ty.Type
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
@@ -1173,44 +1169,6 @@ castArguments expected targ targType
   | targType /= expected = Cast (translate expected) targ
   | otherwise = AsExpr targ
 
-sharedObjectMethodFut call@(A.MethodCall{A.target, A.name, A.args}) =
-  let
-    clazz = A.getType target
-    f = methodImplFutureName clazz name
-  in
-    do
-    (this, initThis) <- translate target
-    result <- Ctx.genNamedSym "so_call"
-    (args, initArgs) <- fmap unzip $ mapM translate args
-    return (Var result,
-      Seq $
-        initThis:
-        initArgs ++
-        [ret result $ callF f this args]
-      )
-  where
-    retType = translate $ A.getType call
-    callF f this args = Call f $ encoreCtxVar:this:args
-    ret result fcall = Assign (Decl (retType, Var result)) fcall
-
-sharedObjectMethodOneWay call@(A.MessageSend{A.target, A.name, A.args}) =
-  let
-    clazz = A.getType target
-    f = methodImplOneWayName clazz name
-  in
-    do
-    (this, initThis) <- translate target
-    (args, initArgs) <- fmap unzip $ mapM translate args
-    return (unit,
-      Seq $
-        initThis:
-        initArgs ++
-        [callF f this args]
-      )
-  where
-    retType = translate $ A.getType call
-    callF f this args = Statement $ Call f $ encoreCtxVar:this:args
-
 traitMethod this targetType name args resultType =
   let
     id = msgId targetType name
@@ -1234,7 +1192,7 @@ traitMethod this targetType name args resultType =
   where
     thisType = translate targetType
     argTypes = map (translate . A.getType) args
-    declF f = FunPtrDecl resultType (Nam f) $ (Ptr encoreCtxT):thisType:argTypes
+    declF f = FunPtrDecl resultType (Nam f) $ Ptr (Ptr encoreCtxT):thisType:argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
@@ -1253,7 +1211,7 @@ msgSize t = Call (Nam "POOL_INDEX") [Sizeof t]
 
 targetNullCheck ntarget target name meta op =
   Statement $
-    Call (Nam "check_reciever")
+    Call (Nam "check_receiver")
       [AsExpr $ ntarget,
        String op,
        String (show (PP.ppExpr target)),

@@ -28,7 +28,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
             cdecl@(A.Class {A.cname})
             ctable
       | A.isStreamMethod mdecl =
-    let args = (Ptr encoreCtxT, encoreCtxVar) :
+    let args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
         streamCloseStmt = Statement $
@@ -39,7 +39,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ClassTable -> CCode Toplevel)
                  (Seq [extractTypeVars, bodys, streamCloseStmt])]
       | otherwise =
     let returnType = translate mType
-        args = (Ptr encoreCtxT, encoreCtxVar) :
+        args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]

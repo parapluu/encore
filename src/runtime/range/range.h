@@ -10,7 +10,7 @@ extern pony_type_t range_type;
 
 void range_trace(pony_ctx_t*, void *);
 
-range_t *range_mk(pony_ctx_t* ctx, int64_t start, int64_t stop, int64_t step);
+range_t *range_mk(pony_ctx_t **ctx, int64_t start, int64_t stop, int64_t step);
 
 void range_assert_step(int64_t step);
 

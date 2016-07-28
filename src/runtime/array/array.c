@@ -50,17 +50,16 @@ void array_trace(pony_ctx_t* ctx, void *p)
   }
 }
 
-array_t *array_mk(pony_ctx_t* ctx, size_t size, pony_type_t *type)
+array_t *array_mk(pony_ctx_t **ctx, size_t size, pony_type_t *type)
 {
-  ctx = pony_ctx();
-  struct array_t *array = encore_alloc(ctx,
+  struct array_t *array = encore_alloc(*ctx,
       sizeof(struct array_t) + sizeof(encore_arg_t) * size);
   array->size = size;
   array->type = type;
   return array;
 }
 
-array_t *array_from_array(pony_ctx_t* ctx, size_t size, pony_type_t *type, encore_arg_t arr[])
+array_t *array_from_array(pony_ctx_t **ctx, size_t size, pony_type_t *type, encore_arg_t arr[])
 {
   struct array_t *array = array_mk(ctx, size, type);
   for(size_t i = 0; i < size; i++) {
@@ -70,7 +69,7 @@ array_t *array_from_array(pony_ctx_t* ctx, size_t size, pony_type_t *type, encor
 }
 
 
-array_t *array_get_chunk(pony_ctx_t *ctx, size_t start, size_t end, array_t* a){
+array_t *array_get_chunk(pony_ctx_t **ctx, size_t start, size_t end, array_t* a){
   assert(start <= end);
 
   struct array_t* arr = a;

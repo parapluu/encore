@@ -23,7 +23,7 @@ import Control.Arrow((&&&))
 
 globalFunctionDecl :: A.Function -> CCode Toplevel
 globalFunctionDecl f =
-  FunctionDecl typ name (Ptr encoreCtxT:params)
+  FunctionDecl typ name (Ptr (Ptr encoreCtxT):params)
   where
     params = map (translate . A.ptype) $ A.functionParams f
     typ = translate $ A.functionType f
@@ -52,7 +52,7 @@ globalFunctionWrapper f =
     Function
       (Typ "value_t")
       name
-      [(Ptr encoreCtxT, encoreCtxVar), (Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
+      [(Ptr (Ptr encoreCtxT), encoreCtxVar), (Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
       $ returnStmnt (Call globalFunctionName argList) typ
   where
     typ = A.functionType f
@@ -92,7 +92,7 @@ instance Translatable A.Function (ClassTable -> CCode Toplevel) where
         tasks ++
         [Function (translate funType)
                   funName
-                  ((Ptr encoreCtxT, encoreCtxVar):(zip argTypes argNames))
+                  ((Ptr (Ptr encoreCtxT), encoreCtxVar):(zip argTypes argNames))
                   (Seq $
                    [bodyStat, returnStmnt bodyName funType])]
     where

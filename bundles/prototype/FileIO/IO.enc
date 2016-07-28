@@ -26,7 +26,7 @@ passive class File {
                   };
                   file;
                 end;
-  } 
+  }
 
   def close() : void {
     let f = this.file;
@@ -57,7 +57,7 @@ passive class File {
       }
       fprintf(fout, #{content});
     end
-  }  
+  }
 
   -----------------------------------
   -- Read file.
@@ -69,7 +69,7 @@ passive class File {
   def readlineChar() : embed char* end {
     let f = this.file;
     embed (embed char* end)
-      char* line = encore_alloc(encore_ctx(),255);
+      char* line = encore_alloc(*_ctx,255);
       fgets(line, 255, #{f});
       line;
     end;

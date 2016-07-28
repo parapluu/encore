@@ -11,8 +11,8 @@ def random(max:int) : int
         seed = (unsigned) time(NULL);
       }
     rand_r(&seed) % #{max};
-  end    
-    
+  end
+
 -- Simple random number generator encapsulating a seed of its own
 passive class Random
   seed:embed unsigned int end
@@ -32,4 +32,3 @@ passive class Random
     embed int
       rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
     end
-    

@@ -14,18 +14,17 @@ void closure_trace(pony_ctx_t *ctx, void *p)
   pony_traceobject(ctx, c->env, c->trace);
 }
 
-closure_t *closure_mk(pony_ctx_t *ctx, closure_fun fn, void *env,
+closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
     pony_trace_fn trace)
 {
-  ctx = pony_ctx();
-  closure_t *c = pony_alloc(ctx, sizeof(closure_t));
+  closure_t *c = encore_alloc(*ctx, sizeof(closure_t));
   c->call = fn;
   c->env = env;
   c->trace = trace;
   return c;
 }
 
-value_t closure_call(pony_ctx_t* ctx, closure_t *closure, value_t args[]){
+value_t closure_call(pony_ctx_t **ctx, closure_t *closure, value_t args[]){
   return closure->call(ctx, args, closure->env);
 }
 

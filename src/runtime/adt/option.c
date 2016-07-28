@@ -23,9 +23,8 @@ void option_trace(pony_ctx_t* ctx, void *p){
   }
 }
 
-option_t *option_mk(pony_ctx_t* ctx, option_tag tag, encore_arg_t arg, pony_type_t* type){
-  ctx = pony_ctx();
-  option_t *o = encore_alloc(ctx, sizeof(option_t));
+option_t *option_mk(pony_ctx_t** ctx, option_tag tag, encore_arg_t arg, pony_type_t* type){
+  option_t *o = encore_alloc(*ctx, sizeof(option_t));
   *o = (option_t) {.tag = tag, .val = arg, .type = type};
   return o;
 }

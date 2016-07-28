@@ -66,7 +66,7 @@ data CCode a where
     BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
     Dot          :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Arrow        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
-    Deref        :: UsableAs e Expr => CCode e -> CCode Expr
+    Deref        :: UsableAs e Expr => CCode e -> CCode e
     Cast         :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
     ArrAcc       :: Int -> CCode Lval -> CCode Lval
     Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr -- Ampersand

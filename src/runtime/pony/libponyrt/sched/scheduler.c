@@ -275,16 +275,18 @@ static void run(scheduler_t* sched)
     }
 
     // Run the current actor and get the next actor.
-    bool reschedule = actor_run(&sched->ctx, actor, SCHED_BATCH);
+    pony_ctx_t *ctx = &sched->ctx;
+    bool reschedule = actor_run(&ctx, actor, SCHED_BATCH);
 #ifdef LAZY_IMPL
     sched = this_scheduler;
 #endif
 
-    uint32_t counter = __atomic_load_n(&remaining_tasks, __ATOMIC_RELAXED);
-    if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){
-      unset_unscheduled((pony_actor_t*) this_encore_task);
-      push(sched, (pony_actor_t*) this_encore_task);
-    }
+    // TODO: enable task specific code
+    /* uint32_t counter = __atomic_load_n(&remaining_tasks, __ATOMIC_RELAXED); */
+    /* if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){ */
+    /*   unset_unscheduled((pony_actor_t*) this_encore_task); */
+    /*   push(sched, (pony_actor_t*) this_encore_task); */
+    /* } */
 
     pony_actor_t* next = pop_global(sched);
 
@@ -384,11 +386,12 @@ static void *run_thread(void *arg)
     return NULL;
   }
 #endif
-  pony_ctx_t *ctx = &sched->ctx;
+  /* pony_ctx_t *ctx = &sched->ctx; */
 
-  // setup task runner
-  assert(this_encore_task==NULL);
-  (void) ctx;
+  /* // setup task runner */
+  /* assert(this_encore_task==NULL); */
+  /* (void) ctx; */
+
   // TODO Re-enable tasks runners
   // this_encore_task = encore_create(ctx, task_gettype());
   // scheduler_add(ctx, (pony_actor_t*) this_encore_task);

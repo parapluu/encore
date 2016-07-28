@@ -42,7 +42,7 @@ void stream_trace(pony_ctx_t *ctx, void *p)
 }
 
 struct scons *scons_mk(pony_ctx_t *ctx, pony_type_t *type){
-  struct scons *scons = pony_alloc(ctx, sizeof(struct scons));
+  struct scons *scons = encore_alloc(ctx, sizeof(struct scons));
   scons->eos = false;
   scons->element = (value_t) {.p = NULL};
   scons->type = type;
@@ -61,73 +61,69 @@ static void scons_print(struct scons *scons){
   printf("}\n");
 }
 
-stream_t *stream_mk(pony_ctx_t *ctx)
+stream_t *stream_mk(pony_ctx_t **ctx)
 {
   return future_mk(ctx, &scons_type);
 }
 
-stream_t *stream_put(pony_ctx_t *ctx, stream_t *s, encore_arg_t value,
+stream_t *stream_put(pony_ctx_t **ctx, stream_t *s, encore_arg_t value,
         pony_type_t *type)
 {
-  ctx = pony_ctx();
   future_t *fut = future_mk(ctx, &scons_type);
-  struct scons *scons = scons_mk(ctx, type);
+  struct scons *scons = scons_mk(*ctx, type);
   scons->element = value;
   scons->next = fut;
   future_fulfil(ctx, (future_t *)s, (encore_arg_t){ .p = scons });
   return fut;
 }
 
-encore_arg_t stream_get(pony_ctx_t *ctx, stream_t *s)
+encore_arg_t stream_get(pony_ctx_t **ctx, stream_t *s)
 {
   struct scons *scons = future_get_actor(ctx, (future_t *)s).p;
   return scons->element;
 }
 
-stream_t *stream_get_next(pony_ctx_t *ctx, stream_t *s)
+stream_t *stream_get_next(pony_ctx_t **ctx, stream_t *s)
 {
   struct scons *scons = future_get_actor(ctx, (future_t *)s).p;
   return scons->next;
 }
 
-void stream_close(pony_ctx_t *ctx, stream_t *s)
+void stream_close(pony_ctx_t **ctx, stream_t *s)
 {
-  ctx = pony_ctx();
-  struct scons *scons = scons_mk(ctx, NULL);
+  struct scons *scons = scons_mk(*ctx, NULL);
   scons->eos = true;
   future_fulfil(ctx, (future_t *)s, (encore_arg_t){ .p = scons });
 }
 
-bool stream_eos(pony_ctx_t *ctx, stream_t *s)
+bool stream_eos(pony_ctx_t **ctx, stream_t *s)
 {
   struct scons *scons = future_get_actor(ctx, (future_t *)s).p;
   return scons->eos;
 }
 
-stream_t *stream_put_fut(pony_ctx_t *ctx, future_t* fut, stream_t *s,
+stream_t *stream_put_fut(pony_ctx_t **ctx, future_t* fut, stream_t *s,
                             encore_arg_t value, pony_type_t *type){
-  ctx = pony_ctx();
-  struct scons *scons = scons_mk(ctx,type);
+  struct scons *scons = scons_mk(*ctx,type);
   scons->element = value;
   scons->next = fut;
   future_fulfil(ctx,(future_t *)s, (encore_arg_t){ .p = scons });
   return fut;
 }
 
-bool scons_eos(pony_ctx_t *ctx, scons_t *scons){
+bool scons_eos(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
   return scons->eos;
 }
 
-encore_arg_t scons_element(pony_ctx_t *ctx, scons_t *scons){
+encore_arg_t scons_element(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
   return scons->element;
 }
 
-stream_t *scons_next(pony_ctx_t *ctx, scons_t *scons){
+stream_t *scons_next(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
   return scons->next;
 }
 
 scons_t *scons_end(pony_ctx_t *ctx){
-  ctx = pony_ctx();
   struct scons *scons = scons_mk(ctx, NULL);
   scons->eos = true;
   return scons;
@@ -135,7 +131,6 @@ scons_t *scons_end(pony_ctx_t *ctx){
 
 scons_t *scons_put_fut(pony_ctx_t *ctx, stream_t *s,
                             encore_arg_t value, pony_type_t *type){
-  ctx = pony_ctx();
   struct scons *scons = scons_mk(ctx,type);
   scons->element = value;
   scons->next = (future_t*)s;
