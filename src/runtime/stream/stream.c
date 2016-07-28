@@ -111,15 +111,18 @@ stream_t *stream_put_fut(pony_ctx_t **ctx, future_t* fut, stream_t *s,
   return fut;
 }
 
-bool scons_eos(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
+bool scons_eos(pony_ctx_t *ctx, scons_t *scons){
+  (void)ctx;
   return scons->eos;
 }
 
-encore_arg_t scons_element(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
+encore_arg_t scons_element(pony_ctx_t *ctx, scons_t *scons){
+  (void)ctx;
   return scons->element;
 }
 
-stream_t *scons_next(__attribute__((unused)) pony_ctx_t *ctx, scons_t *scons){
+stream_t *scons_next(pony_ctx_t *ctx, scons_t *scons){
+  (void)ctx;
   return scons->next;
 }
 

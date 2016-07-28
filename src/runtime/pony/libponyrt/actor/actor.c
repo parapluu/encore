@@ -212,7 +212,6 @@ bool actor_run(pony_ctx_t** ctx, pony_actor_t* actor, size_t batch)
       if(handle_message(ctx, actor, msg)) {
         // If we handle an application message, try to gc.
         app++;
-        *ctx = pony_ctx();
         try_gc(*ctx, actor);
 
         if(app == batch)
@@ -222,7 +221,6 @@ bool actor_run(pony_ctx_t** ctx, pony_actor_t* actor, size_t batch)
       }
     }
   }
-  *ctx = pony_ctx();
   assert((*ctx)->current == actor);
   // We didn't hit our app message batch limit. We now believe our queue to be
   // empty, but we may have received further messages.

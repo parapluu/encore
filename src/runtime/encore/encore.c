@@ -65,7 +65,8 @@ void actor_unlock(encore_actor_t *actor)
   }
 }
 
-encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, __attribute__((unused)) void* dep){
+encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep){
+  (void) dep;
   return run_closure(ctx, ((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
 }
 
@@ -342,8 +343,9 @@ encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type)
   return new;
 }
 
-encore_actor_t *encore_peer_create(__attribute__((unused)) pony_type_t *type)
+encore_actor_t *encore_peer_create(pony_type_t *type)
 {
+  (void)type;
   // TODO: this should create an actor in another work pool
   // printf("warning: creating peer not implemented by runtime\n");
   exit(-1);

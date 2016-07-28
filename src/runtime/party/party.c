@@ -317,9 +317,10 @@ par_t* party_sequence(pony_ctx_t **ctx, par_t* const p, closure_t* const f,
 // Forward declaration of party_join
 par_t* party_join(pony_ctx_t **ctx, par_t* const p);
 
-static inline par_t* party_join_v(pony_ctx_t ** __attribute__((unused)) ctx,
+static inline par_t* party_join_v(pony_ctx_t ** ctx,
                                   par_t* const p){
-   return ((par_t*)p->data.v.val.p);
+  (void) ctx;
+  return ((par_t*)p->data.v.val.p);
 }
 
 // TODO: uncomment when the empty par is added to the language

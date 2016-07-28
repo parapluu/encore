@@ -44,9 +44,10 @@ void task_setup(pony_type_t const* const type){
 }
 
 
-encore_task_s* task_mk(__attribute__((unused)) pony_ctx_t* ctx, task_fn const body,
+encore_task_s* task_mk(pony_ctx_t* ctx, task_fn const body,
                        void* const env, void* const dependencies,
                        pony_trace_fn trace){
+  (void)ctx;
   encore_task_s* task = malloc(sizeof(encore_task_s));
   __atomic_fetch_add(&remaining_tasks, 1, __ATOMIC_RELAXED);
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};

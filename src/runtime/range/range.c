@@ -17,8 +17,9 @@ pony_type_t range_type =
     .trace = range_trace,
   };
 
-void range_trace(__attribute__((unused)) pony_ctx_t* ctx, __attribute__((unused)) void *p)
+void range_trace(pony_ctx_t* ctx, __attribute__((unused)) void *p)
 {
+  (void)ctx;
   // No pointers
 }
 
