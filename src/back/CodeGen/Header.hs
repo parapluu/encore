@@ -114,7 +114,7 @@ generateHeader p =
      ponyMsgTTypedefs :: [CCode Toplevel]
      ponyMsgTTypedefs = map ponyMsgTTypedefClass allclasses
             where
-                ponyMsgTTypedefClass cdecl@(A.Class{A.cname, A.cmethods}) =
+                ponyMsgTTypedefClass A.Class{A.cname, A.cmethods} =
                     Concat $ concatMap ponyMsgTTypedef cmethods
                     where
                         ponyMsgTTypedef mdecl =
@@ -124,7 +124,7 @@ generateHeader p =
      ponyMsgTImpls :: [CCode Toplevel]
      ponyMsgTImpls = map ponyMsgTImplsClass allclasses
               where
-                ponyMsgTImplsClass cdecl@(A.Class{A.cname, A.cmethods}) =
+                ponyMsgTImplsClass A.Class{A.cname, A.cmethods} =
                     Concat $ map ponyMsgTImpl cmethods
                     where
                       ponyMsgTImpl :: A.MethodDecl -> CCode Toplevel
@@ -215,7 +215,7 @@ generateHeader p =
          where
            methodFwd m
                | A.isStreamMethod m =
-                   let params = (Ptr encoreCtxT) :
+                   let params = (Ptr (Ptr encoreCtxT)) :
                                 (Ptr . AsType $ classTypeName cname) : stream :
                                 map (translate . A.ptype) mparams
                    in
@@ -227,7 +227,7 @@ generateHeader p =
                                      map (translate . A.ptype) mparams
                    in
                      FunctionDecl (translate mtype) (methodImplName cname mname)
-                                  ((Ptr encoreCtxT):params)
+                                  (Ptr (Ptr encoreCtxT):params)
                where
                  mname = A.methodName m
                  mparams = A.methodParams m
@@ -237,15 +237,15 @@ generateHeader p =
        if Ty.isPassiveClassType $ cname then
          []
        else
-       map (genericMethod methodImplFutureName future) nonStreamMethods ++
-       map (genericMethod methodImplOneWayName void) nonStreamMethods ++
-       map (genericMethod methodImplStreamName stream) streamMethods
+         map (genericMethod methodImplFutureName future) nonStreamMethods ++
+         map (genericMethod methodImplOneWayName void) nonStreamMethods ++
+         map (genericMethod methodImplStreamName stream) streamMethods
        where
          genericMethod genMethodName retType m =
            let
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
-             args = Ptr encoreCtxT : thisType : rest
+             args = Ptr (Ptr encoreCtxT) : thisType : rest
              f = genMethodName cname (A.methodName m)
            in
              FunctionDecl retType f args
@@ -253,7 +253,7 @@ generateHeader p =
          (streamMethods, nonStreamMethods) =
            partition A.isStreamMethod cmethods
 
-     constructors A.Class{A.cname, A.cmethods} = [ctr]
+     constructors A.Class{A.cname} = [ctr]
        where
          ctr =
            let

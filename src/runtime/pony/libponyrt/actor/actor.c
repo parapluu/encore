@@ -38,7 +38,7 @@ static void unset_flag(pony_actor_t* actor, uint8_t flag)
   actor->flags &= (uint8_t)~flag;
 }
 
-static bool handle_message(pony_ctx_t* ctx, pony_actor_t* actor,
+static bool handle_message(pony_ctx_t** ctx, pony_actor_t* actor,
   pony_msg_t* msg)
 {
   if (!has_flag(actor, FLAG_SYSTEM)) {
@@ -86,7 +86,7 @@ static bool handle_message(pony_ctx_t* ctx, pony_actor_t* actor,
         // We're blocked and our RC hasn't changed since our last block
         // message, send confirm.
         pony_msgi_t* m = (pony_msgi_t*)msg;
-        cycle_ack(ctx, (unsigned long)m->i);
+        cycle_ack(*ctx, (unsigned long)m->i);
       }
 
       return false;
@@ -99,7 +99,7 @@ static bool handle_message(pony_ctx_t* ctx, pony_actor_t* actor,
         // Send unblock before continuing. We no longer need to send any
         // pending rc change to the cycle detector.
         unset_flag(actor, FLAG_BLOCKED | FLAG_RC_CHANGED);
-        cycle_unblock(ctx, actor);
+        cycle_unblock(*ctx, actor);
       }
 
 #ifndef LAZY_IMPL
@@ -156,9 +156,9 @@ static void try_gc(pony_ctx_t* ctx, pony_actor_t* actor)
 #endif
 }
 
-bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
+bool actor_run(pony_ctx_t** ctx, pony_actor_t* actor, size_t batch)
 {
-  ctx->current = actor;
+  (*ctx)->current = actor;
 
   size_t app = 0;
 
@@ -168,7 +168,7 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
         return false;
       }
       app++;
-      try_gc(ctx, actor);
+      try_gc(*ctx, actor);
       if (app == batch) {
         return true;
       }
@@ -188,7 +188,7 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
     {
       // If we handle an application message, try to gc.
       app++;
-      try_gc(ctx, actor);
+      try_gc(*ctx, actor);
 
       if(app == batch)
         return !has_flag(actor, FLAG_UNSCHEDULED);
@@ -205,15 +205,14 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
         return !has_flag(actor, FLAG_UNSCHEDULED);
       }
     }
-    pony_unschedule(ctx, actor);
+    pony_unschedule(*ctx, actor);
   } else {
     while((msg = messageq_pop(&actor->q)) != NULL)
     {
       if(handle_message(ctx, actor, msg)) {
         // If we handle an application message, try to gc.
         app++;
-        ctx = pony_ctx();
-        try_gc(ctx, actor);
+        try_gc(*ctx, actor);
 
         if(app == batch)
           return !has_flag(actor, FLAG_UNSCHEDULED);
@@ -222,12 +221,11 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
       }
     }
   }
-  ctx = pony_ctx();
-  assert(ctx->current == actor);
+  assert((*ctx)->current == actor);
   // We didn't hit our app message batch limit. We now believe our queue to be
   // empty, but we may have received further messages.
   assert(app < batch);
-  try_gc(ctx, actor);
+  try_gc(*ctx, actor);
 
   if(has_flag(actor, FLAG_UNSCHEDULED))
   {
@@ -248,7 +246,7 @@ bool actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
   {
     set_flag(actor, FLAG_BLOCKED);
     unset_flag(actor, FLAG_RC_CHANGED);
-    cycle_block(ctx, actor, &actor->gc);
+    cycle_block(*ctx, actor, &actor->gc);
   }
 
   // Return true (i.e. reschedule immediately) if our queue isn't empty.
@@ -520,11 +518,18 @@ void pony_become(pony_ctx_t* ctx, pony_actor_t* actor)
   ctx->current = actor;
 }
 
-void pony_poll(pony_ctx_t* ctx)
-{
-  assert(ctx->current != NULL);
-  actor_run(ctx, ctx->current, 1);
-}
+// NOTE: (Kiko) The function `pony_poll` is not used by Encore and/or the PonyRT.
+// This means that it is used by the Pony compiler. In the Encore context,
+// if we allow this function, we would need to pass a `pony_ctx_t**` as argument,
+// since the `actor_run` requires a `pony_ctx_t**`. The reason for this is that
+// the `actor_run` updates the `ctx` argument to point to a new context and this can
+// only be done with a pointer to a pointer.
+
+/* void pony_poll(pony_ctx_t* ctx) */
+/* { */
+/*   assert(ctx->current != NULL); */
+/*   actor_run(ctx, ctx->current, 1); */
+/* } */
 
 bool pony_system_actor(pony_actor_t *actor)
 {

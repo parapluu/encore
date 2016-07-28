@@ -37,11 +37,11 @@ traceVariable t var
 
 trace :: CCode Lval -> CCode Stat
 trace var =
-  Statement $ Call ponyTrace [encoreCtxVar, var]
+  Statement $ Call ponyTrace [Deref encoreCtxVar, var]
 
 traceActor :: CCode Lval -> CCode Stat
 traceActor var =
-  Statement $ Call ponyTraceActor  [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) var]
+  Statement $ Call ponyTraceActor  [AsExpr (Deref encoreCtxVar), Cast (Ptr ponyActorT) var]
 
 traceObject :: (UsableAs e Expr) => CCode Lval -> CCode e -> CCode Stat
 traceObject var f =
@@ -51,12 +51,12 @@ traceObject var f =
     toExpr e@(AsExpr _) = e
     toExpr _ = undefined
   in
-    Statement $ Call ponyTraceObject  [AsExpr encoreCtxVar, AsExpr var, toExpr f]
+    Statement $ Call ponyTraceObject [AsExpr (Deref encoreCtxVar), AsExpr var, toExpr f]
 
 encoreTracePolymorphicVariable :: CCode Lval -> CCode Lval  -> CCode Stat
 encoreTracePolymorphicVariable var t =
   Statement $ Call (Nam "encore_trace_polymorphic_variable")
-    [encoreCtxVar, t, var]
+    [Deref encoreCtxVar, t, var]
 
 traceTypeVar :: Ty.Type -> CCode Lval -> CCode Stat
 traceTypeVar t var =
@@ -71,7 +71,7 @@ traceCapability var =
     cap = Cast capability var
     traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
   in
-    Statement $ Call traceFunPath [encoreCtxVar, var]
+    Statement $ Call traceFunPath [Deref encoreCtxVar, var]
 
 tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
 tracefunCall (a, t) expectedType =

@@ -6,7 +6,7 @@
 typedef struct encore_task_s encore_task_s;
 
 #include "encore.h"
-typedef encore_arg_t (*task_fn)(pony_ctx_t*, void*, void*);
+typedef encore_arg_t (*task_fn)(pony_ctx_t**, void*, void*);
 
 extern __thread encore_actor_t* this_encore_task;
 

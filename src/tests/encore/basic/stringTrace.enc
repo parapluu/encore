@@ -2,8 +2,7 @@ class Foo
   def foo() : String {
     let s =
       embed (embed char* end)
-        _ctx = encore_ctx();
-        char *s = encore_alloc(_ctx, 1000);
+        char *s = encore_alloc(*_ctx, 1000);
         strcpy(s, "Hello");
         s;
       end;

@@ -7,10 +7,10 @@ import CodeGen.Trace (traceVariable, tracefunCall)
 
 gcRecv params traceFun = [Embed $ "",
                           Embed $ "// --- GC on receive ----------------------------------------",
-                          Statement $ Call ponyGcRecvName [encoreCtxVar]] ++
+                          Statement $ Call ponyGcRecvName [Deref encoreCtxVar]] ++
                          (map traceEachParam params) ++
                          [traceFun,
-                          Statement $ Call ponyRecvDoneName [encoreCtxVar],
+                          Statement $ Call ponyRecvDoneName [Deref encoreCtxVar],
                           Embed $ "// --- GC on receive ----------------------------------------",
                           Embed $ ""]
   where
@@ -20,9 +20,9 @@ gcRecv params traceFun = [Embed $ "",
 gcSend as expectedTypes traceFuns =
     [Embed $ "",
      Embed $ "// --- GC on sending ----------------------------------------",
-     Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+     Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
     traceFuns ++
     (zipWith tracefunCall as expectedTypes) ++
-    [Statement $ Call ponySendDoneName [encoreCtxVar],
+    [Statement $ Call ponySendDoneName [Deref encoreCtxVar],
      Embed $ "// --- GC on sending ----------------------------------------",
      Embed $ ""]

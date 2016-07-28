@@ -779,10 +779,11 @@ void check_views()
 
 #endif
 
-static void cycle_dispatch(pony_ctx_t* ctx, pony_actor_t* self,
+static void cycle_dispatch(pony_ctx_t** context, pony_actor_t* self,
   pony_msg_t* msg)
 {
   detector_t* d = (detector_t*)self;
+  pony_ctx_t *ctx = *context;
 
   switch(msg->id)
   {

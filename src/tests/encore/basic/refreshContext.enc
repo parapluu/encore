@@ -1,0 +1,21 @@
+def id(x:int) : int
+  x
+
+class Test
+  def f() : int
+    1
+
+  def g(f: int -> int) : int
+    f(this.f())
+
+class Main
+  def main(): void{
+    let v = 0;
+    repeat i <- 1000 {
+      let t = new Test;
+      get t.f();
+      let f = \(x:int) -> id(x);
+      v = v + get t.g(f);
+    };
+    print v;
+  }

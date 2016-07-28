@@ -100,10 +100,7 @@ lexer =
     ,"when"
     ,"liftf"
     ,"liftv"
-
-    -- TODO: Add this keyword as soon as as issue #434 is fixed
-    -- ,"extract"
-
+    ,"extract"
     ,"each"
     ,"typedef"
    ],

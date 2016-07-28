@@ -8,15 +8,15 @@ def chain(sa:Stream A, f:A->B) : Stream B {
   let
     futa = embed Fut Scons (future_t*)#{sa}; end
     fscons = \(scons: Scons) ->
-      if (embed bool scons_eos(encore_ctx(),(struct scons*)#{scons}); end) then
-        embed Scons scons_end(encore_ctx()); end
+      if (embed bool scons_eos(*_ctx,(struct scons*)#{scons}); end) then
+        embed Scons scons_end(*_ctx); end
       else {
-        let va = embed A scons_element(encore_ctx(),(struct scons*)#{scons}).i; end;
-        let nexta = embed Stream A scons_next(encore_ctx(),(struct scons*)#{scons}); end;
+        let va = embed A scons_element(*_ctx,(struct scons*)#{scons}).i; end;
+        let nexta = embed Stream A scons_next(*_ctx,(struct scons*)#{scons}); end;
         let vb = f(va);
         let nextb = chain(nexta,f);
         embed Scons
-          scons_put_fut(encore_ctx(),#{nextb},
+          scons_put_fut(*_ctx,#{nextb},
                        (encore_arg_t) {.i =#{vb}},ENCORE_PRIMITIVE);
         end;
       }

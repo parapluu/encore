@@ -65,7 +65,8 @@ void actor_unlock(encore_actor_t *actor)
   }
 }
 
-encore_arg_t default_task_handler(pony_ctx_t* ctx, void* env, void* dep){
+encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep){
+  (void) dep;
   return run_closure(ctx, ((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
 }
 
@@ -198,7 +199,7 @@ static void force_thread_local_variable_access(context *old_this_context,
 }
 #endif
 
-void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
+void actor_save_context(pony_ctx_t **ctx, encore_actor_t *actor,
         ucontext_t *uctx)
 {
 #ifndef LAZY_IMPL
@@ -213,7 +214,6 @@ void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
   assert(actor->page->stack);
   actor->run_to_completion = false;
   assert_swap(uctx, &actor->home_uctx);
-
 #else
 
 #if defined(PLATFORM_IS_MACOSX)
@@ -234,9 +234,10 @@ void actor_save_context(pony_ctx_t *ctx, encore_actor_t *actor,
   pony_become(pony_ctx(), (pony_actor_t *) old_actor);
 
 #endif
+  *ctx = pony_ctx(); // Context might have gone stale, update it
 }
 
-void actor_block(pony_ctx_t *ctx, encore_actor_t *actor)
+void actor_block(pony_ctx_t **ctx, encore_actor_t *actor)
 {
 
 #ifndef LAZY_IMPL
@@ -248,14 +249,13 @@ void actor_block(pony_ctx_t *ctx, encore_actor_t *actor)
 
 }
 
-void actor_suspend()
+void actor_suspend(pony_ctx_t **ctx)
 {
-  pony_ctx_t *ctx = pony_ctx();
-  encore_actor_t *actor = (encore_actor_t*)ctx->current;
+  encore_actor_t *actor = (encore_actor_t*)(*ctx)->current;
   actor->suspend_counter++;
 
   ucontext_t uctx;
-  pony_sendp(ctx, (pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &uctx);
+  pony_sendp(*ctx, (pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &uctx);
 
   actor_save_context(ctx, actor, &uctx);
 
@@ -263,9 +263,9 @@ void actor_suspend()
   assert(actor->suspend_counter >= 0);
 }
 
-void actor_await(pony_ctx_t *ctx, ucontext_t *uctx)
+void actor_await(pony_ctx_t **ctx, ucontext_t *uctx)
 {
-  encore_actor_t *actor = (encore_actor_t*)ctx->current;
+  encore_actor_t *actor = (encore_actor_t*)(*ctx)->current;
   actor->await_counter++;
 
   actor_save_context(ctx, actor, uctx);
@@ -282,8 +282,8 @@ void actor_set_resume(encore_actor_t *actor)
 
 static void actor_resume_context(encore_actor_t* actor, ucontext_t *uctx)
 {
+  (void)(actor);
 #ifndef LAZY_IMPL
-
   actor->run_to_completion = true;
 
   assert_swap(&actor->home_uctx, uctx);
@@ -345,6 +345,7 @@ encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type)
 
 encore_actor_t *encore_peer_create(pony_type_t *type)
 {
+  (void)type;
   // TODO: this should create an actor in another work pool
   // printf("warning: creating peer not implemented by runtime\n");
   exit(-1);

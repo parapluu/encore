@@ -22,6 +22,6 @@ struct option_t {
 
 extern option_t DEFAULT_NOTHING;
 
-option_t *option_mk(pony_ctx_t*, option_tag, encore_arg_t, pony_type_t*);
+option_t *option_mk(pony_ctx_t**, option_tag, encore_arg_t, pony_type_t*);
 
 #endif

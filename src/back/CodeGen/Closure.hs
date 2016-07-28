@@ -59,7 +59,7 @@ translateClosure closure typeVars ctable
          Concat [buildEnvironment envName freeVars fTypeVars,
                  tracefunDecl traceName envName freeVars,
                  Function (Typ "value_t") funName
-                          [(Ptr encoreCtxT, encoreCtxVar),
+                          [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                            (Typ "value_t", Var "_args[]"),
                            (Ptr void, Var "_env")]
                           (Seq $
@@ -107,12 +107,12 @@ translateClosure closure typeVars ctable
       tracefunDecl traceName envName members =
         Function void traceName args body
         where
-          args = [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
+          args = [(Ptr encoreCtxT, ctxArg), (Ptr void, Var "p")]
+          ctxArg = Var "_ctx_arg"
           body = Seq $
-            [
-              Assign (Decl ((Ptr $ Struct envName), (Var "_this"))) (Var "p")
-            ] ++
-            map traceMember members
+              Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg) :
+              Assign (Decl (Ptr $ Struct envName, Var "_this")) (Var "p") :
+              map traceMember members
           traceMember (name, ty) = traceVariable ty $ getVar name
           getVar name =
               (Var "_this") `Arrow` fieldName name

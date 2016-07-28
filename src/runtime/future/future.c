@@ -91,7 +91,7 @@ struct future
   actor_list *awaited_actors;
 };
 
-static void future_block_actor(pony_ctx_t *ctx, future_t *fut);
+static void future_block_actor(pony_ctx_t **ctx, future_t *fut);
 static void future_finalizer(future_t *fut);
 static inline void future_gc_send_value(pony_ctx_t *ctx, future_t *fut);
 static inline void future_gc_recv_value(pony_ctx_t *ctx, future_t *fut);
@@ -118,6 +118,8 @@ static void trace_closure_entry(pony_ctx_t *ctx, void *p)
 
 void future_trace(pony_ctx_t *ctx, void* p)
 {
+  (void) ctx;
+  (void) p;
   // TODO before we deal with deadlocking and closure with attached semantics
   // any actor in responsibilities also exists in children, so only trace children
   // for (int i = 0; i < fut->no_responsibilities; ++i) {
@@ -141,11 +143,12 @@ static inline void future_gc_trace_value(pony_ctx_t *ctx, future_t *fut)
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
-future_t *future_mk(pony_ctx_t *ctx, pony_type_t *type)
+future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
 {
-  assert(ctx->current);
+  pony_ctx_t *cctx = *ctx;
+  assert(cctx->current);
 
-  future_t *fut = pony_alloc_final(ctx, sizeof(future_t),
+  future_t *fut = pony_alloc_final(cctx, sizeof(future_t),
           (void *)&future_finalizer);
   *fut = (future_t) { .type = type };
 
@@ -154,9 +157,8 @@ future_t *future_mk(pony_ctx_t *ctx, pony_type_t *type)
   return fut;
 }
 
-encore_arg_t run_closure(pony_ctx_t* ctx, closure_t *c, encore_arg_t value)
+encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
 {
-  ctx = pony_ctx();
   return closure_call(ctx, c, (value_t[1]) { value });
 }
 
@@ -170,16 +172,18 @@ bool future_fulfilled(future_t *fut)
   return r;
 }
 
-void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
+void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 {
   assert(fut->fulfilled == false);
 
   BLOCK;
-  ctx = pony_ctx();
+  // Update the modifiable context
   fut->value = value;
   fut->fulfilled = true;
 
-  future_gc_send_value(ctx, fut);
+  // Create pointer to a `pony_ctx_t * const` (in practice, PonyRT omits the `const`)
+  pony_ctx_t *cctx = *ctx;
+  future_gc_send_value(cctx, fut);
 
   for (int i = 0; i < fut->no_responsibilities; ++i) {
     actor_entry_t e = fut->responsibilities[i];
@@ -187,7 +191,7 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
       case BLOCKED_MESSAGE:
         perr("Unblocking");
         actor_set_resume((encore_actor_t*)e.message.actor);
-        pony_schedule(ctx, e.message.actor);
+        pony_schedule(cctx, e.message.actor);
         break;
       case DETACHED_CLOSURE:
         assert(0);
@@ -201,36 +205,37 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   {
     closure_entry_t *current = fut->children;
     while(current) {
-      switch ((ctx->current == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
+      switch ((cctx->current == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
       {
       case DETACHED_CLOSURE:
         {
           encore_arg_t result = run_closure(ctx, current->closure, value);
           future_fulfil(ctx, current->future, result);
+          cctx = *ctx; // ctx might have been changed
 
-          pony_gc_recv(ctx);
-          trace_closure_entry(ctx, current);
-          pony_recv_done(ctx);
+          pony_gc_recv(cctx);
+          trace_closure_entry(cctx, current);
+          pony_recv_done(cctx);
           break;
         }
       case TASK_CLOSURE:
         {
-          default_task_env_s* env = encore_alloc(ctx, sizeof *env);
+          default_task_env_s* env = encore_alloc(cctx, sizeof *env);
           *env = (default_task_env_s){.fn = current->closure, .value = value};
-          encore_task_s* task = task_mk(ctx, default_task_handler, env, NULL, NULL);
+          encore_task_s* task = task_mk(cctx, default_task_handler, env, NULL, NULL);
           task_attach_fut(task, current->future);
           task_schedule(task);
 
           // Notify that I have received a children
-          pony_gc_recv(ctx);
-          trace_closure_entry(ctx, current);
-          pony_recv_done(ctx);
+          pony_gc_recv(cctx);
+          trace_closure_entry(cctx, current);
+          pony_recv_done(cctx);
 
           // Notify I am going to send the children
-          pony_gc_send(ctx);
-          pony_traceobject(ctx, task, task_trace);
-          pony_traceobject(ctx, current->future, future_type.trace);
-          pony_send_done(ctx);
+          pony_gc_send(cctx);
+          pony_traceobject(cctx, task, task_trace);
+          pony_traceobject(cctx, current->future, future_type.trace);
+          pony_send_done(cctx);
           break;
         }
       }
@@ -240,13 +245,13 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   {
     actor_list *current = fut->awaited_actors;
     while(current) {
-      pony_sendp(ctx, (pony_actor_t *)current->actor, _ENC__MSG_RESUME_AWAIT,
+      pony_sendp(cctx, (pony_actor_t *)current->actor, _ENC__MSG_RESUME_AWAIT,
           current->uctx);
 
-      pony_gc_recv(ctx);
-      pony_trace(ctx, current);
-      pony_traceactor(ctx, (pony_actor_t *)current->actor);
-      pony_recv_done(ctx);
+      pony_gc_recv(cctx);
+      pony_trace(cctx, current);
+      pony_traceactor(cctx, (pony_actor_t *)current->actor);
+      pony_recv_done(cctx);
 
       current = current->next;
     }
@@ -255,33 +260,31 @@ void future_fulfil(pony_ctx_t *ctx, future_t *fut, encore_arg_t value)
   UNBLOCK;
 }
 
-static void acquire_future_value(pony_ctx_t *ctx, future_t *fut)
+static void acquire_future_value(pony_ctx_t **ctx, future_t *fut)
 {
-  pony_gc_acquire(ctx);
-  future_gc_trace_value(ctx, fut);
-  pony_acquire_done(ctx);
+  pony_ctx_t *cctx = *ctx;
+  pony_gc_acquire(cctx);
+  future_gc_trace_value(cctx, fut);
+  pony_acquire_done(cctx);
 }
 
 // ===============================================================
 // Means for actors to get, block and chain
 // ===============================================================
-encore_arg_t future_get_actor(pony_ctx_t *ctx, future_t *fut)
+encore_arg_t future_get_actor(pony_ctx_t **ctx, future_t *fut)
 {
-  ctx = pony_ctx();
   if (!fut->fulfilled) {
     future_block_actor(ctx, fut);
   }
 
-  ctx = pony_ctx();
   acquire_future_value(ctx, fut);
 
   return fut->value;
 }
 
-future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, pony_type_t *type,
+future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c)
 {
-  ctx = pony_ctx();
   future_t *r = future_mk(ctx, type);
   perr("future_chain_actor");
   BLOCK;
@@ -294,16 +297,17 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, pony_type_t *type,
     return r;
   }
 
-  closure_entry_t *entry = encore_alloc(ctx, sizeof *entry);
-  entry->actor = ctx->current;
+  pony_ctx_t* cctx = *ctx;
+  closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
+  entry->actor = (cctx)->current;
   entry->future = r;
   entry->closure = c;
   entry->next = fut->children;
   fut->children = entry;
 
-  pony_gc_send(ctx);
-  trace_closure_entry(ctx, entry);
-  pony_send_done(ctx);
+  pony_gc_send(cctx);
+  trace_closure_entry(cctx, entry);
+  pony_send_done(cctx);
 
   UNBLOCK;
 
@@ -312,11 +316,11 @@ future_t *future_chain_actor(pony_ctx_t *ctx, future_t *fut, pony_type_t *type,
   return r;
 }
 
-static void future_block_actor(pony_ctx_t *ctx, future_t *fut)
+static void future_block_actor(pony_ctx_t **ctx, future_t *fut)
 {
   perr("future_block_actor");
-
-  pony_actor_t *a = ctx->current;
+  pony_ctx_t* cctx = *ctx;
+  pony_actor_t *a = (cctx)->current;
   BLOCK;
 
   if (fut->fulfilled) {
@@ -324,7 +328,7 @@ static void future_block_actor(pony_ctx_t *ctx, future_t *fut)
     return;
   }
 
-  pony_unschedule(ctx, a);
+  pony_unschedule(cctx, a);
   assert(fut->no_responsibilities < 16);
   fut->responsibilities[fut->no_responsibilities++] = (actor_entry_t) { .type = BLOCKED_MESSAGE, .message = (message_entry_t) { .actor = a } };
 
@@ -339,10 +343,10 @@ static void future_block_actor(pony_ctx_t *ctx, future_t *fut)
 // Possibly these functions do not belong in the future library
 // ===============================================================
 
-void future_await(future_t *fut)
+void future_await(pony_ctx_t **ctx, future_t *fut)
 {
-  pony_ctx_t *ctx = pony_ctx();
-  encore_actor_t *actor = (encore_actor_t *)ctx->current;
+  pony_ctx_t* cctx = *ctx;
+  encore_actor_t *actor = (encore_actor_t *)cctx->current;
   BLOCK;
   if (fut->fulfilled) {
     UNBLOCK;
@@ -351,16 +355,16 @@ void future_await(future_t *fut)
 
   ucontext_t uctx;
 
-  actor_list *entry = encore_alloc(ctx, sizeof *entry);
+  actor_list *entry = encore_alloc(cctx, sizeof *entry);
   entry->actor = actor;
   entry->uctx = &uctx;
   entry->next = fut->awaited_actors;
   fut->awaited_actors = entry;
 
-  pony_gc_send(ctx);
-  pony_trace(ctx, entry);
-  pony_traceactor(ctx, (pony_actor_t *)entry->actor);
-  pony_send_done(ctx);
+  pony_gc_send(cctx);
+  pony_trace(cctx, entry);
+  pony_traceactor(cctx, (pony_actor_t *)entry->actor);
+  pony_send_done(cctx);
 
   assert(actor->lock == NULL);
   actor->lock = &fut->lock;

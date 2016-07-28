@@ -29,13 +29,12 @@ void tuple_trace(pony_ctx_t* ctx, void *p)
   }
 }
 
-tuple_t *tuple_mk(pony_ctx_t* ctx, size_t size)
+tuple_t *tuple_mk(pony_ctx_t** ctx, size_t size)
 {
-  ctx = pony_ctx();
-  struct tuple_t *tuple = encore_alloc(ctx,
+  struct tuple_t *tuple = encore_alloc(*ctx,
       sizeof(struct tuple_t) + sizeof(encore_arg_t) * size);
   tuple->size = size;
-  tuple->types = encore_alloc(ctx, sizeof(pony_type_t*) * size);
+  tuple->types = encore_alloc(*ctx, sizeof(pony_type_t*) * size);
   return tuple;
 }
 
@@ -45,7 +44,7 @@ inline void tuple_set_type(tuple_t *t, size_t i, const pony_type_t *type)
 }
 
 
-tuple_t *tuple_from_tuple(pony_ctx_t* ctx, size_t size, const pony_type_t *types[], encore_arg_t elems[])
+tuple_t *tuple_from_tuple(pony_ctx_t** ctx, size_t size, const pony_type_t *types[], encore_arg_t elems[])
 {
   struct tuple_t *tuple = tuple_mk(ctx, size);
   for(size_t i = 0; i < size; i++) {

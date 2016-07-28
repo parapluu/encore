@@ -68,7 +68,7 @@ typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 dispatchFunDecl :: A.ClassDecl -> CCode Toplevel
 dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
     (Function (Static void) (classDispatchName cname)
-     ([(Ptr encoreCtxT, encoreCtxVar),
+     ([(Ptr (Ptr encoreCtxT), encoreCtxVar),
        (Ptr ponyActorT, Var "_a"),
        (Ptr ponyMsgT, Var "_m")])
      (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
@@ -109,7 +109,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              unpack :: A.ParamDecl -> Int -> CCode Stat
              unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (AsLval . argName $ pname))) ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
-       includeCtx xs = encoreCtxVar : xs
+       includeCtx xs = Deref encoreCtxVar : xs
 
        -- TODO: pack in encore_arg_t the task, infering its type
        taskDispatchClause :: (CCode Name, CCode Stat)
@@ -121,16 +121,16 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                               [AsExpr encoreCtxVar,AsExpr $ Var "_fut", AsExpr tmp]
              taskFreeStmt = Statement $ Call taskFree [AsExpr $ Var "_task"]
              traceFuture = Statement $ Call ponyTraceObject (includeCtx [Var "_fut", futureTypeRecName `Dot` Nam "trace"])
-             traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval $ Nam "NULL"])
+             traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval (Nam "NULL")])
          in
          (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
                              [Embed $ "",
                               Embed $ "// --- GC on receiving ----------------------------------------",
-                              Statement $ Call (Nam "pony_gc_recv") ([encoreCtxVar]),
+                              Statement $ Call (Nam "pony_gc_recv") ([Deref encoreCtxVar]),
                               traceFuture,
                               traceTask,
                               Embed $ "//---You need to trace the task env and task dependencies---",
-                              Statement $ Call (Nam "pony_recv_done") ([encoreCtxVar]),
+                              Statement $ Call (Nam "pony_recv_done") ([Deref encoreCtxVar]),
                               Embed $ "// --- GC on sending ----------------------------------------",
                               Embed $ ""]++
                        [futureFulfilStmt, taskFreeStmt])
@@ -175,12 +175,12 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        oneWaySendDispatchClause mdecl =
            (oneWayMsgId cname mName,
-            Seq $ args ++ gcRecieve ++ [methodCall])
+            Seq $ args ++ gcReceive ++ [methodCall])
            where
              args =
                  methodUnpackArguments mdecl
                  (Ptr . AsType $ oneWayMsgTypeName cname mName)
-             gcRecieve =
+             gcReceive =
                  gcRecv mParams
                  (Comm "Not tracing the future in a oneWay send")
              methodCall =
@@ -261,7 +261,7 @@ sendMsg cname mname msgId msgTypeName argPairs = [
     target = Cast (Ptr ponyActorT) $ Var thisName
     msgArg = Cast (Ptr ponyMsgT) $ Var msgName
     sendMsg = Statement $
-      Call ponySendvName [AsExpr encoreCtxVar, target, msgArg]
+      Call ponySendvName [AsExpr $ Deref encoreCtxVar, target, msgArg]
 
 initEncoreCtx :: CCode Stat
 initEncoreCtx =
@@ -276,9 +276,9 @@ methodImplWithFuture cname m =
   let
     retType = future
     fName = methodImplFutureName cname mName
-    args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
-    fBody = Seq $ [initEncoreCtx] ++
-      [assignFut] ++
+    args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+    fBody = Seq $
+      assignFut:
       ponyGcSendFuture argPairs ++
       msg ++
       [retStmt]
@@ -305,8 +305,8 @@ methodImplOneWay cname m =
   let
     retType = void
     fName = methodImplOneWayName cname mName
-    args = (Ptr encoreCtxT, encoreCtxVar): this : zip argTypes argNames
-    fBody = Seq $ [initEncoreCtx] ++
+    args = (Ptr (Ptr encoreCtxT), encoreCtxVar): this : zip argTypes argNames
+    fBody = Seq $
       ponyGcSendOneway argPairs ++
       msg
   in
@@ -328,8 +328,8 @@ methodImplStream cname m =
   let
     retType = stream
     fName = methodImplStreamName cname mName
-    args = (Ptr encoreCtxT, encoreCtxVar) : this : zip argTypes argNames
-    fBody = Seq $ [initEncoreCtx] ++
+    args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+    fBody = Seq $
       [assignFut] ++
       ponyGcSendStream argPairs ++
       msg ++
@@ -354,24 +354,24 @@ methodImplStream cname m =
 
 ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendFuture argPairs =
-  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
   (map (Statement . uncurry traceVariable) argPairs) ++
   [Statement . traceFuture $ Var "_fut"] ++
-  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
 
 ponyGcSendOneway :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendOneway argPairs =
-  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
   (map (Statement . uncurry traceVariable) argPairs) ++
   [Comm "No tracing future for oneway msg"] ++
-  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
 
 ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendStream argPairs =
-  [Statement $ Call ponyGcSendName [encoreCtxVar]] ++
+  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
   (map (Statement . uncurry traceVariable) argPairs) ++
   [Statement . traceStream $ Var "_stream"] ++
-  [Statement $ Call ponySendDoneName [encoreCtxVar]]
+  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
 
 data Activity = Active | Shared | Passive
 
@@ -380,12 +380,9 @@ constructorImpl act cname =
   let
     retType = translate cname
     fName = constructorImplName cname
-    args = [(Ptr encoreCtxT, encoreCtxVar)]
+    args = [(Ptr (Ptr encoreCtxT), encoreCtxVar)]
     fBody = Seq $
-      [
-      initEncoreCtx
-      , assignThis
-      ] ++
+      assignThis :
       decorateThis act ++
       [ret this]
   in
@@ -403,11 +400,11 @@ constructorImpl act cname =
 
     createCall :: Activity -> CCode Expr
     createCall Active =
-      Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+      Call encoreCreateName [AsExpr $ Deref encoreCtxVar, runtimeType]
     createCall Shared =
-      Call encoreCreateName [AsExpr encoreCtxVar, runtimeType]
+      Call encoreCreateName [AsExpr $ Deref encoreCtxVar, runtimeType]
     createCall Passive =
-      Call encoreAllocName [AsExpr encoreCtxVar, Sizeof classType]
+      Call encoreAllocName [AsExpr $ Deref encoreCtxVar, Sizeof classType]
 
     decorateThis :: Activity -> [CCode Stat]
     decorateThis Passive = [Assign (this `Arrow` selfTypeField) runtimeType]
@@ -451,7 +448,7 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable =
           methodDecl mdecl = translate mdecl cdecl ctable
     dispatchfunDecl =
       Function (Static void) (classDispatchName cname)
-               ([(Ptr encoreCtxT, encoreCtxVar),
+               ([(Ptr (Ptr encoreCtxT), encoreCtxVar),
                  (Ptr ponyActorT, Var "_a"),
                  (Ptr ponyMsgT, Var "_m")])
                (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
@@ -505,16 +502,18 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Statement $ Call (methodImplName cname (A.methodName mdecl))
-                                [encoreCtxVar, Var "p"])
+                                [Amp encoreCtxVar, AsExpr $ Var "p"])
       Nothing ->
           Function void (classTraceFnName cname)
-                   [(Ptr encoreCtxT, encoreCtxVar),
+                   [(Ptr encoreCtxT, ctxArg),
                    (Ptr void, Var "p")]
                    (Seq $
+                    (Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg)):
                     (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
                             (Var "p")) :
                      map traceField cfields)
     where
+      ctxArg = Var "_ctx_arg"
       traceField A.Field {A.ftype, A.fname} =
         let var = Var . show $ fieldName fname
             field = Var "_this" `Arrow` fieldName fname
