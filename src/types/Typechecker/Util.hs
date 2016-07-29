@@ -328,7 +328,8 @@ typeIsIntersectable ty =
     isPassiveClassType ty ||
     isCapabilityType ty ||
     isIntersectionType ty ||
-    isNullType ty
+    isNullType ty ||
+    isBottomType ty
 
 isIntersectable :: Type -> [Type] -> Bool
 isIntersectable ty types
@@ -337,8 +338,8 @@ isIntersectable ty types
       all (hasSameKind ty) types =
         isIntersectable (getResultType ty) (map getResultType types)
     | otherwise =
-        typeIsIntersectable ty && not (isNullType ty) &&
-        all typeIsIntersectable types
+        typeIsIntersectable ty && all typeIsIntersectable types &&
+        not (isNullType ty) && not (isBottomType ty)
 
 -- Assumes @isIntersectable inter args@
 intersectTypes :: Type -> [Type] -> TypecheckM Type
@@ -361,6 +362,10 @@ doIntersectTypes inter args@(ty:tys)
             args' = map getResultType args
         res' <- doIntersectTypes res args'
         return $ setResultType inter res'
+    | isNullType ty =
+        doIntersectTypes inter tys
+    | isBottomType ty =
+        doIntersectTypes inter tys
     | isPassiveClassType ty =
         if ty == inter
         then doIntersectTypes inter tys
@@ -382,7 +387,5 @@ doIntersectTypes inter args@(ty:tys)
           doIntersectTypes (intersectionType inter ty) tys
     | isIntersectionType ty =
         doIntersectTypes inter (intersectionMembers ty)
-    | isNullType ty =
-        doIntersectTypes inter tys
     | otherwise =
         error "Util.hs: Tried to form an intersection without a capability"
