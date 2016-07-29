@@ -203,6 +203,7 @@ data Error =
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
   | IntersectionMethodAmbiguityError Type Name
+  | MalformedIntersectionTypeError Type Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -383,6 +384,9 @@ instance Show Error where
     show (IntersectionMethodAmbiguityError ty name) =
         printf "Cannot disambiguate method '%s' in %s"
                (show name) (Types.showWithKind ty)
+    show (MalformedIntersectionTypeError ty inter) =
+        printf "Type '%s' is not compatible with %s"
+               (show ty) (Types.showWithKind inter)
     show (SimpleError msg) = msg
 
 

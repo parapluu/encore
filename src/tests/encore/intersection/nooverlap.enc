@@ -1,0 +1,15 @@
+trait Foo
+trait Bar
+trait Baz
+
+passive class C1 : Foo + Bar
+passive class C2 : Foo + Baz
+passive class C3 : Baz + Bar
+
+class Main
+  def main(): void {
+    match 1 with
+      0 => new C1
+      1 => new C2
+      _ => new C3
+  }

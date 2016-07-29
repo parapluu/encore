@@ -371,10 +371,15 @@ doIntersectTypes inter args@(ty:tys)
         cap <- findCapability inter
         doIntersectTypes cap (ty:tys)
     | isCapabilityType ty = do
-        isSubsumed <- anyM (ty `equivalentTo`) (intersectionMembers inter)
+        let members = intersectionMembers inter
+        isSubsumed <- anyM (ty `equivalentTo`) members
         if isSubsumed
         then doIntersectTypes inter tys
-        else doIntersectTypes (intersectionType inter ty) tys
+        else do
+          unlessM (anyM (\t -> allM (`subtypeOf` t) members)
+                        (typesFromCapability ty)) $
+                 tcError $ MalformedIntersectionTypeError ty inter
+          doIntersectTypes (intersectionType inter ty) tys
     | isIntersectionType ty =
         doIntersectTypes inter (intersectionMembers ty)
     | isNullType ty =
