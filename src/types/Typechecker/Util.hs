@@ -19,6 +19,8 @@ module Typechecker.Util(TypecheckM
                        ,findMethodWithCalledType
                        ,findCapability
                        ,propagateResultType
+                       ,isIntersectable
+                       ,intersectTypes
                        ) where
 
 import Identifiers
@@ -94,8 +96,8 @@ resolveSingleType ty
       unless (ty `elem` params) $
              tcError $ FreeTypeVariableError ty
       return ty
-  | isRefType ty = do
-      res <- resolveRefType ty
+  | isRefAtomType ty = do
+      res <- resolveRefAtomType ty
       if isTypeSynonym res
       then resolveType res -- Force unfolding of type synonyms
       else return res
@@ -109,10 +111,13 @@ resolveSingleType ty
       resolveType unfolded
   | otherwise = return ty
   where
-    resolveCapa t =
-        mapM_ resolveSingleTrait (typesFromCapability t) >> return t
+    resolveCapa t = do
+        let traits = typesFromCapability t
+        mapM_ resolveSingleTrait traits
+        assertDistinctThing "occurrence" "trait" traits
+        return t
     resolveSingleTrait t
-          | isRefType t = do
+          | isRefAtomType t = do
               result <- asks $ traitLookup t
               when (isNothing result) $
                  tcError $ UnknownTraitError t
@@ -123,21 +128,21 @@ resolveTypeAndCheckForLoops ty =
   evalStateT (typeMapM resolveAndCheck ty) []
   where
     resolveAndCheck ty
-      | isRefType ty = do
+      | isRefAtomType ty = do
           seen <- get
           let tyid = getId ty
           when (tyid `elem` seen) $
             lift . tcError $ RecursiveTypesynonymError ty
-          res <- lift $ resolveRefType ty
+          res <- lift $ resolveRefAtomType ty
           when (isTypeSynonym res) $ put (tyid : seen)
           if isTypeSynonym res
           then typeMapM resolveAndCheck res
           else return res
       | otherwise = lift $ resolveType ty
 
-resolveRefType :: Type -> TypecheckM Type
-resolveRefType ty
-  | isRefType ty = do
+resolveRefAtomType :: Type -> TypecheckM Type
+resolveRefAtomType ty
+  | isRefAtomType ty = do
       result <- asks $ refTypeLookup ty
       case result of
         Just formal -> do
@@ -186,6 +191,16 @@ subtypeOf ty1 ty2
         anyM (`subtypeOf` ty2) traits
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
+    | isIntersectionType ty1 && isIntersectionType ty2 = do
+        let members1 = intersectionMembers ty1
+            members2 = intersectionMembers ty2
+        allM (\ty -> anyM (ty `subtypeOf`) members2) members1
+    | isIntersectionType ty1 = do
+        let members1 = intersectionMembers ty1
+        allM (`subtypeOf` ty2) members1
+    | isIntersectionType ty2 = do
+        let members2 = intersectionMembers ty2
+        allM (ty1 `subtypeOf`) members2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
@@ -209,6 +224,12 @@ subtypeOf ty1 ty2
           | isIntType ty1 && isRealType ty2 = True
           | otherwise = ty1 == ty2
 
+equivalentTo :: Type -> Type -> TypecheckM Bool
+equivalentTo ty1 ty2 = do
+  b1 <- ty1 `subtypeOf` ty2
+  b2 <- ty2 `subtypeOf` ty1
+  return $ b1 && b2
+
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
 -- Bar]@ will throw an error with the message "Duplicate
@@ -221,7 +242,7 @@ assertDistinctThing something kind l =
     duplicate = head duplicates
   in
     unless (null duplicates) $
-      tcError $ DuplicateThingError something (kind ++ show duplicate)
+      tcError $ DuplicateThingError something (kind ++ " " ++ show duplicate)
 
 -- | Convenience function for asserting distinctness of a list of
 -- things that @HasMeta@ (and thus knows how to print its own
@@ -249,11 +270,19 @@ findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
 
 findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
-findMethodWithCalledType ty name = do
-  result <- asks $ methodAndCalledTypeLookup ty name
-  when (isNothing result) $
-    tcError $ MethodNotFoundError name ty
-  return $ fromJust result
+findMethodWithCalledType ty name
+    | isIntersectionType ty = do
+        let members = intersectionMembers ty
+        results <- mapM (`findMethodWithCalledType` name) members
+        let result@(_, calledType) = head results
+        unless (all (==calledType) (map snd results)) $
+               tcError $ IntersectionMethodAmbiguityError ty name
+        return result
+    | otherwise = do
+        result <- asks $ methodAndCalledTypeLookup ty name
+        when (isNothing result) $
+          tcError $ MethodNotFoundError name ty
+        return $ fromJust result
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do
@@ -294,3 +323,61 @@ propagateResultType ty e
 
       propagateMatchClause mc@MatchClause{mchandler} =
           mc{mchandler = propagateResultType ty mchandler}
+
+typeIsIntersectable ty =
+    isPassiveClassType ty ||
+    isCapabilityType ty ||
+    isIntersectionType ty ||
+    isNullType ty
+
+isIntersectable :: Type -> [Type] -> Bool
+isIntersectable ty types
+    | isArrowType ty = all isArrowType types
+    | hasResultType ty &&
+      all (hasSameKind ty) types =
+        isIntersectable (getResultType ty) (map getResultType types)
+    | otherwise =
+        typeIsIntersectable ty && not (isNullType ty) &&
+        all typeIsIntersectable types
+
+-- Assumes @isIntersectable inter args@
+intersectTypes :: Type -> [Type] -> TypecheckM Type
+intersectTypes ty tys = do
+  inter <- doIntersectTypes ty tys
+  lub inter
+  where
+    lub inter = do
+      let members = intersectionMembers inter
+      bounds <- filterM (\t -> allM (`subtypeOf` t) members) members
+      if null bounds
+      then return inter
+      else return $ head bounds
+
+doIntersectTypes :: Type -> [Type] -> TypecheckM Type
+doIntersectTypes inter [] = return inter
+doIntersectTypes inter args@(ty:tys)
+    | hasResultType inter = do
+        let res = getResultType inter
+            args' = map getResultType args
+        res' <- doIntersectTypes res args'
+        return $ setResultType inter res'
+    | isPassiveClassType ty =
+        if ty == inter
+        then doIntersectTypes inter tys
+        else do
+          cap <- findCapability ty
+          doIntersectTypes inter (cap:tys)
+    | isPassiveClassType inter = do
+        cap <- findCapability inter
+        doIntersectTypes cap (ty:tys)
+    | isCapabilityType ty = do
+        isSubsumed <- anyM (ty `equivalentTo`) (intersectionMembers inter)
+        if isSubsumed
+        then doIntersectTypes inter tys
+        else doIntersectTypes (intersectionType inter ty) tys
+    | isIntersectionType ty =
+        doIntersectTypes inter (intersectionMembers ty)
+    | isNullType ty =
+        doIntersectTypes inter tys
+    | otherwise =
+        error "Util.hs: Tried to form an intersection without a capability"
