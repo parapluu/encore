@@ -117,6 +117,7 @@ refTypeName ty
     | isClassType ty = "class '" ++ getId ty ++ "'"
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
+    | isUnionType ty = "union '" ++ show ty ++ "'"
     | otherwise = error $ "Util.hs: No refTypeName for " ++
                           Types.showWithKind ty
 
@@ -201,6 +202,8 @@ data Error =
   | TypeWithCapabilityMismatchError Type Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
+  | UnionMethodAmbiguityError Type Name
+  | MalformedUnionTypeError Type Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -378,6 +381,12 @@ instance Show Error where
                (show expected) (show ty1) (show ty2)
     show (FreeTypeVariableError ty) =
         printf "Type variable '%s' is unbound" (show ty)
+    show (UnionMethodAmbiguityError ty name) =
+        printf "Cannot disambiguate method '%s' in %s"
+               (show name) (Types.showWithKind ty)
+    show (MalformedUnionTypeError ty union) =
+        printf "Type '%s' is not compatible with %s"
+               (show ty) (Types.showWithKind union)
     show (SimpleError msg) = msg
 
 

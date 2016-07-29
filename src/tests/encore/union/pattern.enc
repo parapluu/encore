@@ -1,0 +1,26 @@
+def global(x : Foo) : void
+  print "In global"
+
+trait Foo
+  def foo() : void
+    print "In Foo"
+  def id() : Maybe Foo
+    Just this
+
+trait Bar
+
+trait Baz
+
+passive class C1 : Foo + Bar
+passive class C2 : Foo + Baz
+passive class C3 : Baz + Foo
+
+class Main
+  def main(): void{
+    let x = match 1 with
+              0 => new C1()
+              1 => new C2()
+              2 => new C3();
+    match x with
+      id(y) => {y.foo(); global(x)}
+  }
