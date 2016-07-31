@@ -200,7 +200,7 @@ subtypeOf ty1 ty2
         allM (`subtypeOf` ty2) members1
     | isIntersectionType ty2 = do
         let members2 = intersectionMembers ty2
-        allM (ty1 `subtypeOf`) members2
+        anyM (ty1 `subtypeOf`) members2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
