@@ -243,10 +243,10 @@ function run_out_test() {
 #
 # 3. Runs the test, and expects the test to fail, i.e., return a non-zero exit status
 #
-# 3. Ensures that .../.../testname.err exactly matches the output of 
+# 3. Ensures that .../.../testname.err exactly matches the output of
 #    executable, where stderr was redirected to stdout. NOTE that it may
 #    not be safe to mix and match stdout and stderr output because of how
-#    these are buffered. Ideally, write all output to the same stream 
+#    these are buffered. Ideally, write all output to the same stream
 #
 # If these conditions are not met, there is a line starting with "ERROR:" in the
 # output.
@@ -433,7 +433,7 @@ function run_test_suite() {
     if [ -e ${REL_PATH}/Makefile ]; then
         echo "    Found Makefile in ${REL_PATH}. Running!"
         make --directory ${REL_PATH} clean | sed "s/\(.*\)/     make clean | \1/"
-        make --directory ${REL_PATH}       | sed "s/\(.*\)/           make | \1/"
+        make --directory ${REL_PATH} -k    | sed "s/\(.*\)/           make | \1/"
     fi
 
     for ENC_FILE in "${REL_PATH}"/*.enc; do

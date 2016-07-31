@@ -1,0 +1,23 @@
+In this file we are going to have both Encore code and C-code.
+When no language is specified for the code block, Encore code is
+assumed:
+
+#+begin_src
+def foo() : void
+  print "Hello polyglottal literate world!"
+#+end_src
+
+Code blocks specifying a different language will be ignored by the
+compiler:
+
+#+begin_src C
+void foo() {
+  puts("This will be ignored");
+}
+#+end_src C
+
+#+begin_src encore
+class Main
+  def main(args : [String]) : void
+    foo()
+#+end_src encore

@@ -1,6 +1,7 @@
 # This file support line comments.
 # Note that the # must appear first on the line
 
+#
 # Modules used by 'modules' tests
 # Should not be considered as tests
 #
@@ -37,3 +38,17 @@ encore/concurrency/global_async
 #
 encore/basic/largestream
 encore/basic/foreach_construct
+
+#
+# Disabled 'par' tests
+#
+encore/par/extract
+encore/par/general
+
+#
+# Modules imported by 'literate' tests
+# Should not be considered as tests
+#
+encore/literate/Foo
+encore/literate/Bar
+

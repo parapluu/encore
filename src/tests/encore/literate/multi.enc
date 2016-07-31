@@ -1,0 +1,20 @@
+This file contains multiple code blocks. A class starts with the
+declaration of the class name:
+
+#+begin_src encore
+class Main
+#+end_src encore
+
+A method is defined using the "def" keyword followed by the method
+name, its arguments in parenthesis, and a colon followed by its
+return type:
+
+#+begin_src encore
+def main(args : [String]) : void
+#+end_src encore
+
+The method body follows directly after the header:
+
+#+begin_src encore
+print "Hello multi-block literate world!"
+#+end_src encore
