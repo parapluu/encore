@@ -1,0 +1,26 @@
+When writing literate programs in org-mode it is possible to give
+flags to the code blocks in order to control how they should be
+rendered etc. This file tests that this works.
+
+#+begin_src encore -n
+class Main
+  def main() : void {
+    new Foo;
+    print "Hello flagged literate world!";
+  }
+#+end_src encore
+
+Here is some C code that should be ignored
+
+#+begin_src C -n
+  void foo() {
+    2+3;
+  }
+#+end_src
+
+Here is an unspecified block that should be included
+
+#+begin_src -n -i
+class Foo
+  -- "another Encore class"
+#+end_src

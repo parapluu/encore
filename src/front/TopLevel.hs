@@ -28,6 +28,7 @@ import qualified Text.PrettyPrint.Boxes as Box
 
 import Makefile
 import Utils
+import Literate
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
@@ -60,6 +61,7 @@ data Option =
             | Imports [FilePath]
             | TypecheckOnly
             | Verbose
+            | Literate
             | NoGC
             | Help
             | Undefined String
@@ -91,6 +93,8 @@ optionMappings =
         "Inserts debugging symbols in executable. Use with -c for improved debugging experience."),
        (NoArg TypecheckOnly, "-tc", "--type-check", "",
         "Only type check program, do not produce an executable."),
+       (NoArg Literate, "", "--literate", "",
+        "Literate programming mode. Code blocks are delimited by '#+begin_src' and '#+end_src'."),
        (NoArg Verbose, "-v", "--verbose", "",
         "Print debug information during compiler stages."),
        (Arg Optimise, "-O", "--optimize", "N",
@@ -192,11 +196,18 @@ compileProgram prog sourcePath options =
        let encorecDir = dirname encorecPath
            incPath = encorecDir <> "inc/"
            libPath = encorecDir <> "lib/"
-           sourceName = changeFileExt sourcePath ""
+           dropExt src = let src' = changeFileExt src ""
+                         in if src == src'
+                            then src'
+                            else dropExt src'
+           sourceName = dropExt sourcePath
            execName = case find isOutput options of
                         Just (Output file) -> file
                         Nothing            -> sourceName
            srcDir = sourceName ++ "_src"
+       when (execName == sourcePath) $
+            abort $ "Compilation would overwrite the source! Aborting.\n" ++
+                    "You can specify the output file with -o [file]"
        createDirectoryIfMissing True srcDir
        let emitted = compileToC prog
            classes = processClassNames (getClasses emitted)
@@ -267,7 +278,14 @@ main =
        unless sourceExists
            (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
        verbose options $ "== Reading file '" ++ sourceName ++ "' =="
-       code <- readFile sourceName
+       raw <- readFile sourceName
+       code <- if Literate `elem` options || "#+literate\n" `isPrefixOf` raw
+               then do
+                 verbose options "== Extracting tangled code =="
+                 return $ getTangle raw
+               else
+                   return raw
+
        verbose options "== Parsing =="
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
