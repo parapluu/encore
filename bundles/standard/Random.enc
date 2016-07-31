@@ -1,9 +1,16 @@
+#+literate
+* Random standard library
+
+** A thread-local seed used by the global random function
+#+BEGIN_SRC encore 
 embed
 body
 __thread unsigned seed;
 end
+#+END_SRC
 
--- Random number generator with thread-local seed
+** Random number generator with thread-local seed
+#+BEGIN_SRC encore
 def random(max:int) : int
   embed int
     if (seed == 0)
@@ -12,8 +19,10 @@ def random(max:int) : int
       }
     rand_r(&seed) % #{max};
   end    
+#+END_SRC
     
--- Simple random number generator encapsulating a seed of its own
+** Simple random number generator encapsulating a seed of its own
+#+BEGIN_SRC encore
 passive class Random
   seed:embed unsigned int end
   -- Trace funcition required because of the embed type of seed
@@ -32,4 +41,4 @@ passive class Random
     embed int
       rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
     end
-    
+#+END_SRC
