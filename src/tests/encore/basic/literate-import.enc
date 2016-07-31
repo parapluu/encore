@@ -1,7 +1,0 @@
--- This file is not literate, but imports a literate program
-
-import Random
-
-class Main
-  def main() : void
-    print("Random {}\n", random(1))
