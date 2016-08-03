@@ -17,7 +17,7 @@ injectTraitsToClasses p =
   Util.mapProgramClass p injectTraitsToClass
   where
     injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
-    injectTraitsToClass c@A.Class{A.cname, A.ccapability} =
+    injectTraitsToClass c@A.Class{A.ccapability} =
         foldr injectTraitToClass c (Ty.typesFromCapability ccapability)
 
     injectTraitToClass :: Ty.Type -> A.ClassDecl -> A.ClassDecl

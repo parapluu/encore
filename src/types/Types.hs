@@ -3,6 +3,7 @@ module Types(
              Type
             ,Activity (..)
             ,arrowType
+            ,arrowWithTypeParam
             ,isArrowType
             ,futureType
             ,isFutureType
@@ -57,6 +58,7 @@ module Types(
             ,isStringType
             ,isPrimitive
             ,isNumeric
+            ,getTypeParams
             ,getArgTypes
             ,setArgTypes
             ,getResultType
@@ -86,6 +88,7 @@ module Types(
             ,typeSynonymRHS
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
+            ,getTypeParameterBindings
             ) where
 
 import Data.List
@@ -129,7 +132,8 @@ data Type = Unresolved{refInfo :: RefInfo}
           | UnionType{ltype :: Type, rtype :: Type}
           | EmptyCapability{}
           | TypeVar{ident :: String}
-          | ArrowType{argTypes   :: [Type]
+          | ArrowType{paramTypes :: [Type]
+                     ,argTypes   :: [Type]
                      ,resultType :: Type
                      }
           | FutureType{resultType :: Type}
@@ -159,6 +163,8 @@ hasResultType x
 setResultType ty res
   | hasResultType ty = ty { resultType = res}
   | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
+
+getTypeParams = paramTypes
 
 getArgTypes = argTypes
 setArgTypes ty argTypes = ty{argTypes}
@@ -284,8 +290,10 @@ hasSameKind ty1 ty2
     areBoth typeFun = typeFun ty1 && typeFun ty2
 
 typeComponents :: Type -> [Type]
-typeComponents arrow@(ArrowType argTys ty) =
-    arrow : (concatMap typeComponents argTys ++ typeComponents ty)
+typeComponents arrow@(ArrowType typeParams argTys ty) =
+    arrow : (concatMap typeComponents typeParams ++
+             concatMap typeComponents argTys ++
+             typeComponents ty)
 typeComponents fut@(FutureType ty) =
     fut : typeComponents ty
 typeComponents par@(ParType ty) =
@@ -413,6 +421,16 @@ setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
+getTypeParameterBindings :: [(Type, Type)] -> [(Type, Type)]
+getTypeParameterBindings [] = []
+getTypeParameterBindings (binding:ps) = findRootType binding ++
+                                        getTypeParameterBindings ps
+  where
+    findRootType (formal, actual)=
+      nub . filter (\(f, _) -> isTypeVar f) $
+      zip (typeComponents formal) (typeComponents actual)
+
+
 conjunctiveTypesFromCapability :: Type -> [([Type], [Type])]
 conjunctiveTypesFromCapability ty
     | isConjunction ty
@@ -504,7 +522,10 @@ unionMembers UnionType{ltype, rtype} =
     unionMembers ltype ++ unionMembers rtype
 unionMembers ty = [ty]
 
-arrowType = ArrowType
+arrowType :: [Type] -> Type -> Type
+arrowType = ArrowType []
+arrowWithTypeParam = ArrowType
+
 isArrowType (ArrowType {}) = True
 isArrowType _ = False
 
@@ -558,6 +579,7 @@ replaceTypeVars bindings = typeMap replace
 ctype :: String -> Type
 ctype = CType
 
+isCType :: Type -> Bool
 isCType CType{} = True
 isCType _ = False
 

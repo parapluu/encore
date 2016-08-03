@@ -25,29 +25,5 @@ closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
 }
 
 value_t closure_call(pony_ctx_t **ctx, closure_t *closure, value_t args[]){
-  return closure->call(ctx, args, closure->env);
-}
-
-value_t ptr_to_val(void *p){
-  return (value_t) {.p = p};
-}
-
-value_t int_to_val(uint64_t n){
-  return (value_t) {.i = n};
-}
-
-value_t dbl_to_val(double d){
-  return (value_t) {.d = d};
-}
-
-void *val_to_ptr(value_t v){
-  return v.p;
-}
-
-int val_to_int(value_t v){
-  return v.i;
-}
-
-double val_to_dbl(value_t v){
-  return v.d;
+  return closure->call(ctx, closure->runtimeTypes, args, closure->env);
 }

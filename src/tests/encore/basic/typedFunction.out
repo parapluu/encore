@@ -1,0 +1,51 @@
+
+-------------------------
+-- Array        
+-------------------------
+Test array literals
+Test array literals
+Test array literals
+Test array return type within parametric function
+pCreateParametricArray
+Test appending to existing array - True!
+1
+2
+3
+
+-------------------------
+-- Tuple        
+-------------------------
+Parametric tuple with key: 'k' and value '12'
+Flipped key Update tuple test with value 23
+-------------------------
+-- Option        
+-------------------------
+Test creation of 'Just a' inside parametric function
+Test create parametric Nothing and can be re-assigned
+
+Append this text
+
+-------------------------
+-- Functions        
+-------------------------
+
+test passing parametric type between parametric functions
+test calling function recursively
+
+-------------------------
+-- Parametric Objects        
+-------------------------
+Create Test of type 'String'
+Create Test of type 'String'
+Adding a new string
+(Create Test of type 'String', Adding to tuple)
+
+-------------------------
+-- ParT        
+-------------------------
+STRINGADDSPACE CREATES 'MAYBE STRING'
+HELLO WORLD!
+42: end of the Party
+kiko
+20
+20

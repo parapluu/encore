@@ -43,7 +43,7 @@ instance Translatable Ty.Type (CCode Ty) where
 
 runtimeType :: Ty.Type -> CCode Expr
 runtimeType ty
-    | Ty.isActiveClassType ty  = AsExpr $ Var "ENCORE_ACTIVE"
+    | Ty.isActiveClassType ty  = AsExpr encoreActive
     | Ty.isPassiveClassType ty = Amp $ runtimeTypeName ty
     | Ty.isFutureType ty ||
       Ty.isStreamType ty = Amp futureTypeRecName
@@ -51,12 +51,15 @@ runtimeType ty
     | Ty.isArrayType ty  = Amp arrayTypeRecName
     | Ty.isRangeType ty  = Amp rangeTypeRecName
     | Ty.isParType ty    = Amp partyTypeRecName
-    | Ty.isPrimitive ty  = AsExpr $ Var "ENCORE_PRIMITIVE"
+    | Ty.isPrimitive ty  = AsExpr encorePrimitive
     | Ty.isMaybeType ty  = Amp optionTypeRecName
-    | otherwise = AsExpr $ Var "ENCORE_PRIMITIVE"
+    | Ty.isTupleType ty  = Amp tupleTypeRecName
+    | Ty.isTypeVar ty    = AsExpr . AsLval $ typeVarRefName ty
+    | otherwise = AsExpr encorePrimitive
 
-getRuntimeTypeVariables t
-  | Ty.isTypeVar t =  AsExpr $ (Var "_this") `Arrow` typeVarRefName t
+getRuntimeTypeVariables :: (CCode Name -> CCode Lval) -> Ty.Type -> CCode Expr
+getRuntimeTypeVariables f t
+  | Ty.isTypeVar t = (AsExpr . f .typeVarRefName) t
   | otherwise = runtimeType t
 
 encoreArgTTag :: CCode Ty -> CCode Name

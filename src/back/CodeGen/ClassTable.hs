@@ -1,10 +1,13 @@
 module CodeGen.ClassTable (
   ClassTable,
+  FunctionTable,
   lookupMethod,
   lookupMethods,
   lookupField,
   lookupCalledType,
-  buildClassTable) where
+  lookupFunction,
+  buildClassTable,
+  buildFunctionTable) where
 
 import Types
 import AST.AST
@@ -17,6 +20,7 @@ import Control.Arrow
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
+type FunctionTable = [(Name, FunctionHeader)]
 
 buildClassTable :: Program -> ClassTable
 buildClassTable = traverseProgram getEntries
@@ -36,6 +40,11 @@ buildClassTable = traverseProgram getEntries
     getFieldEntry f     = (fname f, f)
     getReqMethodEntry r = (hname . rheader $ r, rheader r)
     getMethodEntry m    = (methodName m, mheader m)
+
+buildFunctionTable :: Program -> FunctionTable
+buildFunctionTable = traverseProgram getFunctions
+  where
+    getFunctions p = map (\f -> (functionName f, funheader f)) (functions p)
 
 lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
 lookupEntry ty ctable =
@@ -61,6 +70,12 @@ lookupMethods :: Type -> ClassTable -> [FunctionHeader]
 lookupMethods cls ctable =
     let (_, ms) = lookupEntry cls ctable
     in map snd ms
+
+lookupFunction :: Name -> FunctionTable -> FunctionHeader
+lookupFunction name ftable =
+  let failure = error $ "ClassTable.hs: Function '" ++ show name ++
+                       "' does not exist"
+  in fromMaybe failure (lookup name ftable)
 
 lookupCalledType :: Type -> Name -> ClassTable -> Type
 lookupCalledType ty m ctable

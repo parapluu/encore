@@ -99,17 +99,31 @@ typecheckNotNull expr = do
   else return eExpr
 
 instance Checkable Function where
-    --  E, x1 : t1, .., xn : tn |- funbody : funtype
+    --  E, x1 : t1, .., xn : tn, xa: a, xb: b |- funbody : funtype
     -- ----------------------------------------------------------
-    --  E |- def funname(x1 : t1, .., xn : tn) : funtype funbody
-    doTypecheck f@(Function {funheader, funbody}) = do
+    --  E |- def funname<a, b>(x1 : t1, .., xn : tn, xa: a, xb: b) : funtype funbody
+    doTypecheck f@(Function {funbody}) = do
       let funtype = functionType f
           funparams = functionParams f
-      eBody   <- local (addParams funparams) $
+          funtypeparams = functionTypeParams f
+          fName = functionName f
+          allTypeParams = concatMap (typeComponents . ptype) funparams ++
+                          typeComponents funtype
+      unless (all isTypeVar funtypeparams) $
+        let concreteType = head $ filter (not.isTypeVar) funtypeparams in
+        tcError $
+             SimpleError $ "Parametric function declaring concrete type '" ++
+                            show concreteType ++ "' as a type parameter"
+      unless (all (`elem` allTypeParams) funtypeparams) $
+        tcError $ WrongNumberOfFunctionTypeParameterArgumentsError
+                  fName (length funtypeparams)
+                        (length $ filter (not.isTypeVar) funtypeparams)
+      eBody <- local ((addTypeParameters funtypeparams).(addParams funparams)) $
                      if isVoidType funtype
                      then typecheckNotNull funbody
                      else hasType funbody funtype
-      return $ f{funbody = eBody}
+
+      return f{funbody = eBody}
 
 instance Checkable TraitDecl where
   doTypecheck t@Trait{tname, tmethods} = do
@@ -357,28 +371,70 @@ instance Checkable Expr where
         pushError pr $ TypeMismatchError rType (parType rType)
 
       lIsSubtype <- lType `subtypeOf` rType
-      rIsSubtype <- rType `subtypeOf` lType
+      rType `subtypeOf` lType
       if lIsSubtype
       then return $ setType rType p {parl = pl, parr = pr}
       else return $ setType lType p {parl = pl, parr = pr}
 
-    doTypecheck s@(PartySeq {par, seqfunc}) = do
+    doTypecheck pSeq@(PartySeq {par, seqfunc}) = do
       ePar <- typecheck par
       eSeqFunc <- typecheck seqfunc
       let seqType = AST.getType eSeqFunc
           pType = AST.getType ePar
-
+          numberArgs = length (getArgTypes seqType)
       unless (isCallable eSeqFunc) $
         pushError eSeqFunc $ NonFunctionTypeError seqType
-
+      unless (numberArgs == 1) $ pushError eSeqFunc $
+        WrongNumberOfFunctionArgumentsError (name seqfunc) 1 numberArgs
       unless (isParType pType) $
         pushError ePar $ TypeMismatchError pType (parType pType)
 
-      let resultType = getResultType seqType
-          expectedFunType = arrowType [getResultType pType] resultType
-      seqType `assertSubtypeOf` expectedFunType
+      expectedFunType <- typecheckParametricFun ePar eSeqFunc
+      let eSeqFunc' = setType expectedFunType eSeqFunc
+          funResultType = getResultType expectedFunType
+      return $ setType (parType funResultType) pSeq {par=ePar, seqfunc=eSeqFunc'}
+     where
+        isVarAccess VarAccess{} = True
+        isVarAccess _ = False
 
-      return $ setType (parType resultType) s {par=ePar, seqfunc=eSeqFunc}
+        isFunctionAsValue FunctionAsValue{} = True
+        isFunctionAsValue _ = False
+
+        typecheckParametricFun ePar eSeqFunc
+          | isVarAccess eSeqFunc || isClosure eSeqFunc = do
+              let seqType = AST.getType eSeqFunc -- (String -> String)
+                  resultType = getResultType seqType -- String
+
+                  pType = AST.getType ePar -- Maybe String
+
+                  expectedFunType = arrowType [getResultType pType] resultType
+              seqType `assertSubtypeOf` expectedFunType
+              return expectedFunType
+          | isFunctionAsValue eSeqFunc = do
+              let funname = (name eSeqFunc)
+                  actualTypeParams = typeParams eSeqFunc
+                  seqType = AST.getType eSeqFunc
+                  pType = AST.getType ePar
+                  funResultType = getResultType seqType
+              funType <- asks $ varLookup funname
+              ty <- case funType of
+                  Just ty -> return ty
+                  Nothing -> tcError $ UnboundFunctionError funname
+              let formalTypeParams = getTypeParams ty
+
+              unless ((length formalTypeParams) == (length actualTypeParams)) $
+                 tcError $
+                    WrongNumberOfFunctionTypeParameterArgumentsError funname
+                             (length formalTypeParams) (length actualTypeParams)
+
+              let bindings = zip formalTypeParams actualTypeParams
+                  expectedFunType = replaceTypeVars bindings $
+                                   arrowType [getResultType pType] funResultType
+              expectedFunType' <- resolveType expectedFunType
+              seqType `assertSubtypeOf` expectedFunType'
+              return expectedFunType
+          | otherwise = error $ "Function that is callable but distinct from" ++
+                         " 'VarAccess' or 'FunctionAsValue' AST node used."
 
     --  E |- e : t
     --  methodLookup(t, m) = (t1 .. tn, t')
@@ -481,19 +537,53 @@ instance Checkable Expr where
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
     doTypecheck fcall@(FunctionCall {name, args}) = do
+      -- TODO: Closures have a runtime type that is not used. this should be
+      --       fixed together with #523
+
       funType <- asks $ varLookup name
       ty <- case funType of
         Just ty -> return ty
         Nothing -> tcError $ UnboundFunctionError name
+      let argTypes = getArgTypes ty
+
       unless (isArrowType ty) $
         tcError $ NonFunctionTypeError ty
-      let argTypes = getArgTypes ty
       unless (length args == length argTypes) $
-             tcError $ WrongNumberOfFunctionArgumentsError
-                       name (length argTypes) (length args)
-      (eArgs, bindings) <- matchArguments args argTypes
-      let resultType = replaceTypeVars bindings (getResultType ty)
-      return $ setType resultType fcall {args = eArgs}
+        tcError $ WrongNumberOfFunctionArgumentsError
+                    name (length argTypes) (length args)
+      eAr <- mapM typecheck args
+      -- NOTE: matchArguments calls matchTypes. MatchTypes doesn't play well
+      -- with type variables. if the matchTypes has as input two different
+      -- type variables, it assumes that it's ok to check if one is a subtype
+      -- of the other one. i believe this doesn't make sense between type
+      -- variables. in order to get the match arguments to typecheck, i return
+      -- the type variable bindings and execute the matchArguments with these
+      -- new bindings
+      functionTypeVarBindings <- resolveParamBinding $
+                                      getTypeParameterBindings $
+                                        zip argTypes (map AST.getType eAr)
+      let argTypes' = map (replaceTypeVars functionTypeVarBindings) argTypes
+
+      (_, bindings) <- local (bindTypes functionTypeVarBindings) $
+                              matchArguments args argTypes'
+      let bindings' = nub $ functionTypeVarBindings ++ bindings
+      -- bindings' <- resolveParamBinding $ nub $ functionTypeVarBindings ++ bindings
+      -- END_NOTE
+
+      let resultType = replaceTypeVars bindings' (getResultType ty)
+          typeArguments = inferTypeParameters ty bindings'
+
+      -- error $ show resultType ++ "\n" ++ show typeArguments ++ "\nFuncTypeVarBnding: "
+      --         ++ show functionTypeVarBindings ++ "\nBinding: " ++ show bindings'
+      --         ++ "\nBindingsAAll: " ++ show (getTypeParameterBindings $
+      --                                   zip argTypes (map AST.getType eAr))
+      -- TODO: replace typeParams name by typeArguments
+      return $ setType resultType fcall {args = eAr,
+                                         typeParams = typeArguments}
+      where
+        inferTypeParameters :: Type -> [(Type, Type)] -> [Type]
+        inferTypeParameters ty bindings =
+          map (\t -> fromMaybe t (lookup t bindings)) $ getTypeParams ty
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -869,6 +959,32 @@ instance Checkable Expr where
                        tcError $ ValFieldAssignmentError name targetType
               | otherwise = return ()
 
+
+    doTypecheck fun@(FunctionAsValue {name, typeParams}) =
+      do varType <- asks $ varLookup name
+         case varType of
+           Just ty -> setTypeFun ty
+           Nothing -> tcError $ UnboundVariableError name
+      where
+        setTypeFun ty = do
+          filledTypeParams <- mapM resolveType typeParams
+
+          unless (isArrowType ty) $ tcError (NonFunctionTypeError ty)
+          let actualTypeParams = foldr (\typ acc-> if isTypeVar typ then typ:acc
+                                           else acc) [] typeParams
+
+          boundTypeParams <- mapM (asks.typeVarLookup) actualTypeParams
+          mapM checkBoundTypeVar $ zip actualTypeParams boundTypeParams
+          let bindings = zip (getTypeParams ty) filledTypeParams
+          ty' <- resolveType (replaceTypeVars bindings ty)
+          return $ setType ty' fun
+
+        checkBoundTypeVar (typ, mtype) =
+           case mtype of
+             Nothing -> tcError (FreeTypeVariableError typ)
+             Just t -> return (typ, t)
+
+
     --  name : t \in E
     -- ----------------
     --  E |- name : t
@@ -1195,8 +1311,7 @@ matchArguments (arg:args) (typ:types) = do
       return eArg
   let actualTyp = AST.getType eArg
   bindings <- matchTypes typ actualTyp
-  (eArgs, bindings') <-
-    local (bindTypes bindings) $ matchArguments args types
+  (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
   needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
   let
     casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
@@ -1240,6 +1355,7 @@ matchTypes expected ty
     | isFutureType expected && isFutureType ty ||
       isParType expected    && isParType ty    ||
       isStreamType expected && isStreamType ty ||
+      isArrayType expected  && isArrayType ty  ||
       isMaybeType expected  && isMaybeType ty =
         matchTypes (getResultType expected) (getResultType ty)
         `catchError` (\case
@@ -1247,6 +1363,8 @@ matchTypes expected ty
                            tcError $ TypeMismatchError ty expected
                        TCError err _ -> tcError err
                      )
+    | isTupleType expected && isTupleType ty =
+      matchArgs(getArgTypes expected) (getArgTypes ty)
     | isArrowType expected  && isArrowType ty =
         let expArgTypes = getArgTypes expected
             argTypes    = getArgTypes ty
@@ -1259,6 +1377,10 @@ matchTypes expected ty
             argBindings <- matchArgs expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
+      -- TODO: if there is a type param and we reach the `assertMatch` and/or
+      -- the `subtypeOf`, these functions cannot assert that type param `a`==`b`.
+      -- this case can happen inside parametric functions (it implements a simple
+      -- type inference system)
       params <- asks typeParameters
       if expected `elem` params then
           assertMatch expected ty
@@ -1272,6 +1394,7 @@ matchTypes expected ty
           Nothing -> do
             bindings <- asks bindings
             return $ (expected, ty) : bindings
+    | isTypeVar ty && (not.isTypeVar) expected = return [(ty, expected)]
     | otherwise = assertMatch expected ty
     where
       matchArgs [] [] = asks bindings
