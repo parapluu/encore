@@ -479,6 +479,21 @@ encoreCtxT = Typ "pony_ctx_t"
 encoreCtxVar :: CCode Lval
 encoreCtxVar = Var "_ctx"
 
+encorePrimitive :: CCode Lval
+encorePrimitive = Var "ENCORE_PRIMITIVE"
+
+encoreActive :: CCode Lval
+encoreActive = Var "ENCORE_ACTIVE"
+
+encoreRuntimeType :: CCode Lval
+encoreRuntimeType = Var "runtimeType"
+
+nullName :: CCode Name
+nullName = Nam "NULL"
+
+nullVar :: CCode Lval
+nullVar = Var "NULL"
+
 arrayGet :: CCode Name
 arrayGet = Nam "array_get"
 
@@ -523,3 +538,6 @@ taskFree = Nam "task_free"
 
 optionTypeRecName :: CCode Name
 optionTypeRecName = Nam "option_type"
+
+tupleTypeRecName :: CCode Name
+tupleTypeRecName = Nam "tuple_type"

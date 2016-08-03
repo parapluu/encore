@@ -87,9 +87,10 @@ buildEnvironment env p = (return $ mergeEnvs env (buildEnvironment' p), [])
     getFunctionType f =
         let funname   = functionName f
             funparams = functionParams f
+            funtypeparams = functionTypeParams f
             funtype   = functionType f
         in
-          (funname, arrowType (map ptype funparams) funtype)
+          (funname, arrowWithTypeParam funtypeparams (map ptype funparams) funtype)
 
 
 mergeEnvs :: Environment -> Environment -> Environment
@@ -260,7 +261,11 @@ isLocal x env = isJust $ lookup x (locals env)
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env
-    | isTypeVar ty = lookup ty (bindings env)
+    | isTypeVar ty =
+        let m = (lookup ty (bindings env)) in
+        case m of
+          Nothing -> find (==ty) (typeParameters env)
+          _ -> m
     | otherwise    = error
       "Tried to lookup the binding of something that was not a type variable"
 

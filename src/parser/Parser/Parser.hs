@@ -296,12 +296,14 @@ embedTL = do
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
 
+optionalTypeParameters = option [] (angles $ commaSep1 typ)
+
 typedef :: Parser Typedef
 typedef = do
   typedefmeta <- meta <$> getPosition
   reserved "typedef"
   name <- identifier
-  params <- option [] (angles $ commaSep1 typeVariable)
+  params <- optionalTypeParameters
   reservedOp "="
   typedeftype <- typ
   let typedefdef = typeSynonym name params typedeftype
@@ -310,10 +312,12 @@ typedef = do
 functionHeader :: Parser FunctionHeader
 functionHeader = do
   hname <- Name <$> identifier
+  htypeparams <- optionalTypeParameters
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
   return Header{kind = NonStreaming
+               ,htypeparams
                ,hname
                ,hparams
                ,htype
@@ -331,6 +335,7 @@ guard = do
 
 matchingHeader = do
    hname <- Name <$> identifier
+   htypeparams <- optionalTypeParameters
    args <- parens (commaSep patternParamDecl)
    colon
    htype <- typ
@@ -339,6 +344,7 @@ matchingHeader = do
    let hpatterns = map fst args
        hparamtypes = map snd args
    return MatchingHeader{kind = NonStreaming
+                        ,htypeparams
                         ,hname
                         ,hpatterns
                         ,hparamtypes
@@ -382,7 +388,7 @@ traitDecl = do
   tmeta <- meta <$> getPosition
   reserved "trait"
   ident <- identifier
-  params <- option [] (angles $ commaSep1 typeVariable)
+  params <- optionalTypeParameters
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
               ,tname = traitTypeFromRefType $
@@ -416,7 +422,7 @@ classDecl = do
   activity <- parseActivity
   reserved "class"
   name <- identifier
-  params <- option [] (angles $ commaSep1 typeVariable)
+  params <- optionalTypeParameters
   ccapability <- option incapability (do{reservedOp ":"; typ})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
@@ -634,6 +640,7 @@ expr :: Parser Expr
 expr  =  unit
      <|> try embed
      <|> try path
+     <|> try functionAsValue
      <|> try functionCall
      <|> try print
      <|> try closure
@@ -788,10 +795,15 @@ expr  =  unit
       suspend = do pos <- getPosition
                    reserved "suspend"
                    return $ Suspend (meta pos)
+      functionAsValue = do pos <- getPosition
+                           fun <- identifier
+                           typeParams <- angles $ commaSep1 typ
+                           return $
+                             FunctionAsValue (meta pos) typeParams (Name fun)
       functionCall = do pos <- getPosition
                         fun <- identifier
                         args <- parens arguments
-                        return $ FunctionCall (meta pos) (Name fun) args
+                        return $ FunctionCall (meta pos) [] (Name fun) args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)
@@ -849,7 +861,7 @@ expr  =  unit
       print = do pos <- getPosition
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) (Name "print") arg
+                 return $ FunctionCall (meta pos) [] (Name "print") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

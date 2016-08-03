@@ -145,6 +145,8 @@ ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
 ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
+ppExpr FunctionAsValue {name, typeParams} =
+  ppName name <> parens (commaSep (map ppType typeParams))
 ppExpr Closure {eparams, body} =
     "\\" <> parens (commaSep (map ppParamDecl eparams)) <+> "->" <+> ppExpr body
 ppExpr Async {body} =

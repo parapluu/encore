@@ -143,6 +143,7 @@ data Error =
     DistinctTypeParametersError Type
   | WrongNumberOfMethodArgumentsError Name Type Int Int
   | WrongNumberOfFunctionArgumentsError Name Int Int
+  | WrongNumberOfFunctionTypeParameterArgumentsError Name Int Int
   | WrongNumberOfTypeParametersError Type Int Type Int
   | MissingFieldRequirementError FieldDecl Type
   | CovarianceViolationError FieldDecl Type Type
@@ -209,6 +210,9 @@ data Error =
 arguments 1 = "argument"
 arguments _ = "arguments"
 
+typeParameters 1 = "type parameter"
+typeParameters _ = "type parameters"
+
 instance Show Error where
     show (DistinctTypeParametersError ty) =
         printf "Type parameters of '%s' must be distinct" (show ty)
@@ -223,6 +227,9 @@ instance Show Error where
     show (WrongNumberOfFunctionArgumentsError name expected actual) =
         printf "Function %s expects %d %s. Got %d"
                (show name) expected (arguments expected) actual
+    show (WrongNumberOfFunctionTypeParameterArgumentsError name expected actual) =
+        printf "Function %s expects %d %s. Got %d"
+               (show name) expected (typeParameters expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
         printf "'%s' expects %d type %s, but '%s' has %d"
               (show ty1) n1 (arguments n1) (show ty2) n2

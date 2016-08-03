@@ -76,7 +76,7 @@ informImport target src =
 
 addStdLib target ast@Program{imports = i} =
   if qname2string target == "String" then ast  -- avoids importing String from String
-  else ast{imports = i ++ stdLib}
+  else ast{imports = i ++ stdLib }
     where
       stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
 

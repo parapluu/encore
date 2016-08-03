@@ -31,8 +31,8 @@ varSubFromTypeVars = map each
       let ty' = typeVarRefName ty
       in (ID.Name $ show $ ty', AsLval ty')
 
-translateClosure :: A.Expr -> [Type] -> ClassTable -> CCode Toplevel
-translateClosure closure typeVars ctable
+translateClosure :: A.Expr -> [Type] -> ClassTable -> FunctionTable -> CCode Toplevel
+translateClosure closure typeVars ctable ftable
     | A.isClosure closure =
        let arrowType   = A.getType closure
            resultType  = Ty.getResultType arrowType
@@ -52,7 +52,7 @@ translateClosure closure typeVars ctable
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst ctable
+           ctx = Ctx.new subst ctable ftable
 
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
@@ -60,6 +60,7 @@ translateClosure closure typeVars ctable
                  tracefunDecl traceName envName freeVars,
                  Function (Typ "value_t") funName
                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                           (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                            (Typ "value_t", Var "_args[]"),
                            (Ptr void, Var "_env")]
                           (Seq $
@@ -92,7 +93,7 @@ translateClosure closure typeVars ctable
             translateTypeVar ty =
               (Ptr ponyTypeT, AsLval $ typeVarRefName ty)
 
-      extractEnvironment envName vars typeVars=
+      extractEnvironment envName vars typeVars =
         map assignVar vars ++ map assignTypeVar typeVars
         where
           assignVar (name, ty) =
