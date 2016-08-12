@@ -9,7 +9,6 @@ bundle Converter where
 embed
 #ifndef  _CONVERTER_ENC_
 #define  _CONVERTER_ENC_
-#include <math.h>
 #endif
 end
 

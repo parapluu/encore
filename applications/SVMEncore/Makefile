@@ -10,7 +10,7 @@ DIST       = dist
 LIB        = lib
 
 TEST_HIGGS = test/higgs
-TEST_EX1   = test/ex-svms
+TEST_EX1   = test/ex-svms/example1
 TEST_CVT   = test/converter
 
 LIB_SO    = libsvm_encore.so
@@ -22,8 +22,8 @@ tidy:
 	$(MAKE) -C $(ENCORE_SRC) tidy
 
 clean: tidy
-	rm -f $(DIST)/*
-	rm -f $(LIB)/$(LIB_SO)
+	rm -rf $(DIST)
+	rm -rf $(LIB)
 	$(MAKE) -C $(SVML_SRC) clean
 
 svm_light_api:
@@ -37,6 +37,8 @@ svm_encore:
 	$(MAKE) -C $(ENCORE_SRC) all
 
 distribute:
+	mkdir -p $(DIST)
+	mkdir -p $(LIB)
 	mv $(SVML_SRC)/svm_learn    $(DIST)
 	mv $(SVML_SRC)/svm_classify $(DIST)
 	mv $(ENCORE_SRC)/svm_encore $(DIST)
@@ -48,16 +50,18 @@ test_convert:
 	$(SE) convert -ei $(TEST_CVT)/train.csv -eo $(TEST_CVT)/train.svm -vv
 
 test_ex1: test_ex1_encore test_ex1_svm
+	@test/bin/test $(TEST_EX1)
 
 test_ex1_encore:
-	$(SE) learn -ei $(TEST_EX1)/example1/train.dat -eo $(TEST_EX1)/example1/model_encore -vv
-	$(SE) classify -ei $(TEST_EX1)/example1/test.dat -im $(TEST_EX1)/example1/model_encore -eo $(TEST_EX1)/example1/result_encore.out -vv
+	$(SE) learn -ei $(TEST_EX1)/train.dat -eo $(TEST_EX1)/model_encore -vv
+	$(SE) classify -ei $(TEST_EX1)/test.dat -im $(TEST_EX1)/model_encore -eo $(TEST_EX1)/result_encore.out -vv
 
 test_ex1_svm:
-	$(LEARN) $(TEST_EX1)/example1/train.dat $(TEST_EX1)/example1/model_svm
-	$(CLF) $(TEST_EX1)/example1/test.dat $(TEST_EX1)/example1/model_svm $(TEST_EX1)/example1/result_svm.out
+	$(LEARN) $(TEST_EX1)/train.dat $(TEST_EX1)/model_svm
+	$(CLF) $(TEST_EX1)/test.dat $(TEST_EX1)/model_svm $(TEST_EX1)/result_svm.out
 
 test_higgs: test_higgs_convert test_higgs_encore test_higgs_svm
+	@test/bin/test $(TEST_HIGGS)
 
 test_higgs_convert:
 	$(SE) convert -ei $(TEST_HIGGS)/training_higgs.csv -eo $(TEST_HIGGS)/training_higgs.svm -vv

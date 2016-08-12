@@ -1,5 +1,7 @@
 bundle Params where
 
+-- import Core
+
 passive class Params {
   chunk : int    -- number of chunks will be splitted.
   par   : bool
@@ -16,7 +18,7 @@ passive class Params {
 
   path   : String
 
-  loader : Loader
+  -- loader : Loader
 
   params : [(String,String)]
   opt    : int
@@ -88,7 +90,8 @@ passive class Params {
   a : String --       -a char     - write all alphas to this file after learning (in the
                                     --same order as in the training set)
 
-  def init(args: [String],loader:Loader) : void {
+  -- def init(args: [String],loader:Loader) : void {
+  def init(args: [String]) : void {
     this.par  = false;
     this.chunk = 1;  -- won't be splitted by default.
 
@@ -139,7 +142,7 @@ passive class Params {
 
     -- Set default path of *.so library
     this.path = "../lib/libsvm_encore.so";
-    this.loader = loader;
+    -- this.loader = loader;
   }
 
   def parseArgs() : void {
@@ -238,7 +241,7 @@ passive class Params {
               -- Printing all help instruction
               print("Please read the instruction in details: ");
               this.printHelp();
-              this.loader.call("print_help",0);
+              -- this.loader.call("print_help",0);
               exit(-1);
             }
             -- svm_learn & svm_classify arguments

@@ -1,5 +1,7 @@
 bundle Core where
 
+import Params
+
 embed
 #ifndef _LIB_LOADER_
 #include <dlfcn.h>

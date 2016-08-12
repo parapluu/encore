@@ -9,7 +9,7 @@ class Main {
 
   def initialize(args: [String]) : void {
     this.loader = new Loader();
-    this.params = new Params(args,this.loader);
+    this.params = new Params(args);--,this.loader);
   }
 
   def main(args: [String]) : void {
