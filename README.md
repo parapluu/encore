@@ -146,15 +146,11 @@ Now you can compile a program by using
 
     $ encorec my_file.enc
 
-or, if you you are calling C from your code, by using:
-
-    $ encorec -clang my_file.enc
-
 Then, you can run the executable, as usual, through
 
    ./my_file
 
-Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
+Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec --run` as its FIRST line. After you made the file executable:
 
     $ chmod u+x my_file.enc
 
@@ -173,14 +169,20 @@ Have fun!
 Running `encorec foo.enc` will typecheck the source and produce the executable
 `foo`. The following options are supported:
 
-* `-c` -- Keep intermediate C-files
-* `-tc` -- Typecheck only (don't produce an executable)
-* `-o [file]` -- Specify output file
-* `-run` -- Run the program and remove the executable
-* `-clang` -- Use clang to build the executable (default)
-* `-AST` -- Output the parsed AST as text to `foo.AST`
-* `-TypedAST` -- Output the typechecked AST as text to `foo.TAST`
-
+```
+  --import [dirs]   | -I [dirs] colon separated list of directories in which to look for modules.
+  --out-file [file] | -o [file] Specify output file.
+  --generate-c      | -c        Outputs intermediate C fields in separate source tree.
+  --debug           | -g        Inserts debugging symbols in executable. Use with -c for improved debugging experience.
+  --type-check      | -tc       Only type check program, do not produce an executable.
+  --literate        |           Literate programming mode. Code blocks are delimited by '#+begin_src' and '#+end_src'.
+  --verbose         | -v        Print debug information during compiler stages.
+  --optimize N      | -O N      Optimise produced executable. N=0,1,2 or 3.
+  --profile         | -pg       Embed profiling information in the executable.
+  --run             |           Compile and run the program, but do not produce executable file.
+  --no-gc           |           DEBUG: disable GC and use C-malloc for allocation.
+  --help            |           Display this information.
+```
 
 ## Language Specification
 
