@@ -247,6 +247,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
     kind CapabilityType{}              = "capability type"
+    kind EmptyCapability{}             = "the empty capability type"
     kind IntersectionType{}            = "intersection type"
     kind TypeVar{}                     = "polymorphic type"
     kind ArrowType{}                   = "function type"

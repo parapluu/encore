@@ -733,7 +733,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               noArgs = [] :: [A.Expr]
 
           (nCall, tCall) <-
-              if Ty.isTraitType argty || Ty.isCapabilityType argty ||
+              if Ty.isCapabilityType argty ||
                  Ty.isIntersectionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name

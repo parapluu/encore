@@ -22,7 +22,6 @@ traceVariable t var
   | Ty.isSharedClassType t  = traceActor var
   | Ty.isPassiveClassType t = traceObject var $ classTraceFnName t
   | Ty.isCapabilityType t   = traceCapability var
-  | Ty.isTraitType t        = traceCapability var
   | Ty.isFutureType t       = traceObject var futureTraceFn
   | Ty.isArrowType t        = traceObject var closureTraceFn
   | Ty.isArrayType t        = traceObject var arrayTraceFn

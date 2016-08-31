@@ -333,7 +333,7 @@ typeIsIntersectable ty =
 
 isIntersectable :: Type -> [Type] -> Bool
 isIntersectable ty types
-    | isArrowType ty = all isArrowType types
+    | isArrowType ty = False
     | hasResultType ty &&
       all (hasSameKind ty) types =
         isIntersectable (getResultType ty) (map getResultType types)
@@ -386,6 +386,6 @@ doIntersectTypes inter args@(ty:tys)
                  tcError $ MalformedIntersectionTypeError ty inter
           doIntersectTypes (intersectionType inter ty) tys
     | isIntersectionType ty =
-        doIntersectTypes inter (intersectionMembers ty)
+        doIntersectTypes inter (intersectionMembers ty ++ tys)
     | otherwise =
         error "Util.hs: Tried to form an intersection without a capability"
