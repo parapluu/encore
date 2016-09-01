@@ -577,9 +577,11 @@ instance Checkable Expr where
               | otherwise =
                   if ty2 == ty1
                   then return ty1
-                  else if isIntersectable ty1 [ty2]
-                       then intersectTypes ty1 [ty2]
-                       else tcError $ IfBranchMismatchError ty1 ty2
+                  else do
+                    isInter <- isIntersectable ty1 [ty2]
+                    if isInter
+                    then intersectTypes ty1 [ty2]
+                    else tcError $ IfBranchMismatchError ty1 ty2
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
@@ -609,7 +611,8 @@ instance Checkable Expr where
             Just clause -> do
               let ty = AST.getType $ mchandler clause
                   types = map (AST.getType . mchandler) clauses
-              if isIntersectable ty types
+              isInter <- isIntersectable ty types
+              if isInter
               then intersectTypes ty types
               else do
                 mapM_ (`assertSubtypeOf` ty) types

@@ -170,9 +170,6 @@ subtypeOf ty1 ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
         ty1 `refSubtypeOf` ty2
-    | isClassType ty1 && isTraitType ty2 = do
-        traits <- getImplementedTraits ty1
-        anyM (`subtypeOf` ty2) traits
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
         capability `capabilitySubtypeOf` ty2
@@ -331,15 +328,20 @@ typeIsIntersectable ty =
     isNullType ty ||
     isBottomType ty
 
-isIntersectable :: Type -> [Type] -> Bool
+isIntersectable :: Type -> [Type] -> TypecheckM Bool
 isIntersectable ty types
-    | isArrowType ty = False
+    | isArrowType ty = return False
     | hasResultType ty &&
       all (hasSameKind ty) types =
         isIntersectable (getResultType ty) (map getResultType types)
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        if isIncapability capability
+        then return $ all (==ty) types
+        else return $ all typeIsIntersectable types
     | otherwise =
-        typeIsIntersectable ty && all typeIsIntersectable types &&
-        not (isNullType ty) && not (isBottomType ty)
+        return $ typeIsIntersectable ty && all typeIsIntersectable types &&
+                 not (isNullType ty) && not (isBottomType ty)
 
 -- Assumes @isIntersectable inter args@
 intersectTypes :: Type -> [Type] -> TypecheckM Type
