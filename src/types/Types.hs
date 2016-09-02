@@ -18,6 +18,7 @@ module Types(
             ,refType
             ,traitTypeFromRefType
             ,classType
+            ,isRefAtomType
             ,isRefType
             ,isTraitType
             ,isActiveClassType
@@ -32,6 +33,9 @@ module Types(
             ,isCapabilityType
             ,incapability
             ,isIncapability
+            ,intersectionType
+            ,isIntersectionType
+            ,intersectionMembers
             ,typeVar
             ,isTypeVar
             ,replaceTypeVars
@@ -122,6 +126,7 @@ data Type = Unresolved{refInfo :: RefInfo}
           | CapabilityType{typeop :: TypeOp
                           ,ltype  :: Type
                           ,rtype  :: Type}
+          | IntersectionType{ltype :: Type, rtype :: Type}
           | EmptyCapability{}
           | TypeVar{ident :: String}
           | ArrowType{argTypes   :: [Type]
@@ -188,6 +193,7 @@ instance Show Type where
         in lhs ++ " " ++ show Product ++ " " ++ rhs
     show CapabilityType{typeop = Addition, ltype, rtype} =
         show ltype ++ " " ++ show Addition ++ " " ++ show rtype
+    show IntersectionType{ltype, rtype} = show ltype ++ " & " ++ show rtype
     show EmptyCapability = ""
     show TypeVar{ident} = ident
     show ArrowType{argTypes = [ty], resultType} =
@@ -217,12 +223,14 @@ instance Show Type where
     show BottomType = "Bottom"
 
 maybeParen :: Type -> String
-maybeParen arr@(ArrowType _ _) = "(" ++ show arr ++ ")"
-maybeParen fut@(FutureType _)  = "(" ++ show fut ++ ")"
-maybeParen par@(ParType _)     = "(" ++ show par ++ ")"
-maybeParen str@(StreamType _)  = "(" ++ show str ++ ")"
-maybeParen arr@(ArrayType _)   = "(" ++ show arr ++ ")"
-maybeParen opt@(MaybeType _)   = "(" ++ show opt ++ ")"
+maybeParen arr@(ArrowType{}) = "(" ++ show arr ++ ")"
+maybeParen fut@(FutureType{})  = "(" ++ show fut ++ ")"
+maybeParen par@(ParType{})     = "(" ++ show par ++ ")"
+maybeParen str@(StreamType{})  = "(" ++ show str ++ ")"
+maybeParen arr@(ArrayType{})   = "(" ++ show arr ++ ")"
+maybeParen opt@(MaybeType{})   = "(" ++ show opt ++ ")"
+maybeParen cap@(CapabilityType{}) = "(" ++ show cap ++ ")"
+maybeParen inter@(IntersectionType{}) = "(" ++ show inter ++ ")"
 maybeParen ty = show ty
 
 showWithKind :: Type -> String
@@ -239,6 +247,8 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
     kind CapabilityType{}              = "capability type"
+    kind EmptyCapability{}             = "the empty capability type"
+    kind IntersectionType{}            = "intersection type"
     kind TypeVar{}                     = "polymorphic type"
     kind ArrowType{}                   = "function type"
     kind FutureType{}                  = "future type"
@@ -266,7 +276,6 @@ hasSameKind ty1 ty2
     areBoth isTupleType ||
     areBoth isTypeVar ||
     areBoth isRefType ||
-    areBoth isCapabilityType ||
     areBoth isArrowType = True
   | otherwise = False
   where
@@ -289,6 +298,8 @@ typeComponents ref@(ClassType{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents cap@(CapabilityType{ltype, rtype}) =
     cap : typeComponents ltype ++ typeComponents rtype
+typeComponents ty@(IntersectionType{ltype, rtype}) =
+    ty : typeComponents ltype ++ typeComponents rtype
 typeComponents str@(StreamType ty) =
     str : typeComponents ty
 typeComponents arr@(ArrayType ty)  =
@@ -309,6 +320,9 @@ typeMap f ty@TraitType{refInfo} =
 typeMap f ty@ClassType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@CapabilityType{ltype, rtype} =
+    f ty{ltype = typeMap f ltype
+        ,rtype = typeMap f rtype}
+typeMap f ty@IntersectionType{ltype, rtype} =
     f ty{ltype = typeMap f ltype
         ,rtype = typeMap f rtype}
 typeMap f ty@ArrowType{argTypes, resultType} =
@@ -345,6 +359,10 @@ typeMapM f ty@ClassType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
 typeMapM f ty@CapabilityType{ltype, rtype} = do
+  ltype' <- typeMapM f ltype
+  rtype' <- typeMapM f rtype
+  f ty{ltype = ltype', rtype = rtype'}
+typeMapM f ty@IntersectionType{ltype, rtype} = do
   ltype' <- typeMapM f ltype
   rtype' <- typeMapM f rtype
   f ty{ltype = ltype', rtype = rtype'}
@@ -431,10 +449,15 @@ traitTypeFromRefType Unresolved{refInfo} =
 traitTypeFromRefType ty =
     error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
-isRefType Unresolved {} = True
-isRefType TraitType {} = True
-isRefType ClassType {} = True
-isRefType _ = False
+isRefAtomType Unresolved {} = True
+isRefAtomType TraitType {} = True
+isRefAtomType ClassType {} = True
+isRefAtomType _ = False
+
+isRefType ty =
+    isRefAtomType ty ||
+    isCapabilityType ty ||
+    isIntersectionType ty
 
 isTraitType TraitType{} = True
 isTraitType _ = False
@@ -470,6 +493,14 @@ incapability = EmptyCapability
 
 isIncapability EmptyCapability = True
 isIncapability _ = False
+
+intersectionType = IntersectionType
+isIntersectionType IntersectionType{} = True
+isIntersectionType _ = False
+
+intersectionMembers IntersectionType{ltype, rtype} =
+    intersectionMembers ltype ++ intersectionMembers rtype
+intersectionMembers ty = [ty]
 
 arrowType = ArrowType
 isArrowType (ArrowType {}) = True

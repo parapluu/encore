@@ -64,7 +64,10 @@ lookupMethods cls ctable =
 
 lookupCalledType :: Type -> Name -> ClassTable -> Type
 lookupCalledType ty m ctable
-  | isRefType ty = ty
+  | isRefAtomType ty = ty
+  | isIntersectionType ty =
+      let tyAsCap = foldr1 disjunctiveType (intersectionMembers ty)
+      in lookupCalledType tyAsCap m ctable
   | isCapabilityType ty =
       let traits = typesFromCapability ty
           ttable = map (\t -> (t, snd $ lookupEntry t ctable)) traits

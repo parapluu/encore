@@ -409,7 +409,7 @@ instance Checkable Expr where
     doTypecheck mcall@(MethodCall {target, name, args}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
-      unless (isRefType targetType || isCapabilityType targetType) $
+      unless (isRefType targetType) $
         tcError $ NonCallableTargetError targetType
       when (isMainMethod targetType name) $
            tcError MainMethodCallError
@@ -570,16 +570,18 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError IfInferenceError
-              | isNullType ty1 &&
-                (isRefType ty2 || isCapabilityType ty2) = return ty2
-              | isNullType ty2 &&
-                (isRefType ty1 || isCapabilityType ty1) = return ty1
-              | any isBottomType (typeComponents ty1) = ty1 `coercedInto` ty2
-              | any isBottomType (typeComponents ty2) = ty2 `coercedInto` ty1
-              | otherwise =
-                  if ty2 == ty1
-                  then return ty1
-                  else tcError $ IfBranchMismatchError ty1 ty2
+              | otherwise = do
+                  result <- intersectTypes [ty1, ty2]
+                  case result of
+                    Just ty -> return ty
+                    Nothing -> do
+                      ty1Sub <- ty1 `subtypeOf` ty2
+                      ty2Sub <- ty2 `subtypeOf` ty1
+                      if ty1Sub
+                      then return ty2
+                      else if ty2Sub
+                           then return ty1
+                           else tcError $ IfBranchMismatchError ty1 ty2
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
@@ -599,19 +601,29 @@ instance Checkable Expr where
           tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
         resultType <- checkAllHandlersSameType eClauses
-        return $ setType resultType match {arg = eArg, clauses = eClauses}
+        let updateClauseType m@MatchClause{mchandler} =
+                m{mchandler = setType resultType mchandler}
+            eClauses' = map updateClauseType eClauses
+        return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
-        checkAllHandlersSameType clauses =
-          case find (hasKnownType . mchandler) clauses of
-            Just clause -> do
-              let ty = AST.getType $ mchandler clause
-                  types = map (AST.getType . mchandler) clauses
-              mapM_ (`assertSubtypeOf` ty) types
-              return ty
+        checkAllHandlersSameType clauses = do
+          let types = map (AST.getType . mchandler) clauses
+          result <- intersectTypes types
+          case result of
+            Just ty -> return ty
             Nothing ->
-              tcError MatchInferenceError
+              case find (hasKnownType . mchandler) clauses of
+                Just e -> do
+                  let ty = AST.getType $ mchandler e
+                  mapM_ (`assertSubtypeOf` ty) types
+                  return ty
+                Nothing ->
+                  tcError MatchInferenceError
 
-        hasKnownType = all (not . isBottomType) . typeComponents . AST.getType
+        hasKnownType e =
+            let ty = AST.getType e
+            in all (not . isBottomType) (typeComponents ty) &&
+               not (isNullType ty)
 
         getPatternVars pt pattern =
             local (pushBT pattern) $
@@ -629,7 +641,7 @@ instance Checkable Expr where
             | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
         doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
-          unless (isRefType pt || isCapabilityType pt) $
+          unless (isRefType pt) $
             tcError $ NonCallableTargetError pt
           header <- findMethod pt name
           let hType = htype header
@@ -690,8 +702,7 @@ instance Checkable Expr where
         doCheckPattern pattern@(TypedExpr{body, ty}) argty = do
           eBody <- checkPattern body argty
           ty' <- resolveType ty
-          unless (ty' == argty) $
-            tcError $ TypeMismatchError ty' argty
+          argty `assertSubtypeOf` ty'
           return $ setType ty' eBody
 
         doCheckPattern pattern argty
@@ -1128,7 +1139,7 @@ instance Checkable Expr where
 -- ---------------------
 --  null : ty
 coerceNull null ty
-    | isRefType ty || isCapabilityType ty = return $ setType ty null
+    | isRefType ty = return $ setType ty null
     | isNullType ty = tcError NullTypeInferenceError
     | otherwise =
         tcError $ CannotBeNullError ty
@@ -1161,7 +1172,7 @@ coercedInto actual expected
   where
     canBeNull ty =
       isRefType ty || isFutureType ty || isArrayType ty ||
-      isStreamType ty || isCapabilityType ty || isArrowType ty || isParType ty
+      isStreamType ty || isArrowType ty || isParType ty
 
 --  E |- arg1 : t
 --  matchTypes(B, t1, t) = B1

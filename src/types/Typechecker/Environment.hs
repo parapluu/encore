@@ -14,7 +14,6 @@ module Typechecker.Environment(Environment,
                                refTypeLookup,
                                refTypeLookupUnsafe,
                                methodAndCalledTypeLookup,
-                               methodLookup,
                                fieldLookup,
                                capabilityLookup,
                                varLookup,
@@ -129,7 +128,7 @@ currentMethod = currentMethodFromBacktrace . bt
 
 formalBindings :: Type -> Type -> [(Type, Type)]
 formalBindings formal actual
-    | isRefType formal && isRefType actual =
+    | isRefAtomType formal && isRefAtomType actual =
         let formals = getTypeParameters formal
             actuals = getTypeParameters actual
         in
@@ -184,6 +183,10 @@ methodAndCalledTypeLookup ty m env
             results = map (\t -> (traitMethodLookup t m env, t)) traits
         (ret, ty') <- find (isJust . fst) results
         return (fromJust ret, ty')
+    | isIntersectionType ty = do
+        let members = intersectionMembers ty
+        mapM_ (\t -> methodLookup t m env) members
+        methodAndCalledTypeLookup (head members) m env
     | otherwise = do
         ret <- methodLookup ty m env
         return (ret, ty)
@@ -216,7 +219,7 @@ traitLookup t env =
 
 classLookup :: Type -> Environment -> Maybe ClassDecl
 classLookup cls env
-    | isRefType cls = Map.lookup (getId cls) $ classTable env
+    | isRefAtomType cls = Map.lookup (getId cls) $ classTable env
     | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env -- TODO: remove!!
     | otherwise = error $
       "Tried to lookup the class of '" ++ show cls
