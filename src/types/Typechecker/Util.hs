@@ -19,7 +19,6 @@ module Typechecker.Util(TypecheckM
                        ,findMethodWithCalledType
                        ,findCapability
                        ,propagateResultType
-                       ,isIntersectable
                        ,intersectTypes
                        ) where
 
@@ -51,6 +50,14 @@ whenM cond action = cond >>= (`when` action)
 
 unlessM :: (Monad m) => m Bool -> m () -> m ()
 unlessM cond action = cond >>= (`unless` action)
+
+findM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
+findM _ [] = return Nothing
+findM p (x:xs) = do
+  b <- p x
+  if b
+  then return $ Just x
+  else findM p xs
 
 -- | The monad in which all typechecking is performed. A function
 -- of return type @TypecheckM Bar@ may read from an 'Environment'
@@ -321,33 +328,42 @@ propagateResultType ty e
       propagateMatchClause mc@MatchClause{mchandler} =
           mc{mchandler = propagateResultType ty mchandler}
 
-typeIsIntersectable ty =
-    isPassiveClassType ty ||
-    isCapabilityType ty ||
-    isIntersectionType ty ||
-    isNullType ty ||
-    isBottomType ty
+typeIsIntersectable ty
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        return $ not (isIncapability capability)
+    | isCapabilityType ty = return $ not (isIncapability ty)
+    | otherwise =
+        return $
+        isIntersectionType ty ||
+        isNullType ty ||
+        isBottomType ty
 
-isIntersectable :: Type -> [Type] -> TypecheckM Bool
-isIntersectable ty types
+isIntersectableWith ty types
     | isArrowType ty = return False
     | hasResultType ty &&
       all (hasSameKind ty) types =
-        isIntersectable (getResultType ty) (map getResultType types)
+          isIntersectableWith (getResultType ty) (map getResultType types)
     | isPassiveClassType ty = do
-        capability <- findCapability ty
-        if isIncapability capability
-        then return $ all (==ty) types
-        else return $ all typeIsIntersectable types
-    | otherwise =
-        return $ typeIsIntersectable ty && all typeIsIntersectable types &&
+      capability <- findCapability ty
+      if isIncapability capability
+      then return $ all (==ty) types
+      else allM typeIsIntersectable types
+    | otherwise = do
+        tyInter <- typeIsIntersectable ty
+        tysInter <- allM typeIsIntersectable types
+        return $ tyInter && tysInter &&
                  not (isNullType ty) && not (isBottomType ty)
 
--- Assumes @isIntersectable inter args@
-intersectTypes :: Type -> [Type] -> TypecheckM Type
-intersectTypes ty tys = do
-  inter <- doIntersectTypes ty tys
-  lub inter
+intersectTypes :: [Type] -> TypecheckM (Maybe Type)
+intersectTypes tys = do
+  result <- findM (`isIntersectableWith` tys) tys
+  case result of
+    Just ty -> do
+      inter <- doIntersectTypes ty tys
+      liftM Just $ lub inter
+    Nothing ->
+      return Nothing
   where
     lub inter = do
       let members = intersectionMembers inter

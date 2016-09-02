@@ -570,18 +570,18 @@ instance Checkable Expr where
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError IfInferenceError
-              | isNullType ty1 && isRefType ty2 = return ty2
-              | isNullType ty2 && isRefType ty1 = return ty1
-              | any isBottomType (typeComponents ty1) = ty1 `coercedInto` ty2
-              | any isBottomType (typeComponents ty2) = ty2 `coercedInto` ty1
-              | otherwise =
-                  if ty2 == ty1
-                  then return ty1
-                  else do
-                    isInter <- isIntersectable ty1 [ty2]
-                    if isInter
-                    then intersectTypes ty1 [ty2]
-                    else tcError $ IfBranchMismatchError ty1 ty2
+              | otherwise = do
+                  result <- intersectTypes [ty1, ty2]
+                  case result of
+                    Just ty -> return ty
+                    Nothing -> do
+                      ty1Sub <- ty1 `subtypeOf` ty2
+                      ty2Sub <- ty2 `subtypeOf` ty1
+                      if ty1Sub
+                      then return ty2
+                      else if ty2Sub
+                           then return ty1
+                           else tcError $ IfBranchMismatchError ty1 ty2
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
@@ -606,19 +606,19 @@ instance Checkable Expr where
             eClauses' = map updateClauseType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
-        checkAllHandlersSameType clauses =
-          case find (hasKnownType . mchandler) clauses of
-            Just clause -> do
-              let ty = AST.getType $ mchandler clause
-                  types = map (AST.getType . mchandler) clauses
-              isInter <- isIntersectable ty types
-              if isInter
-              then intersectTypes ty types
-              else do
-                mapM_ (`assertSubtypeOf` ty) types
-                return ty
+        checkAllHandlersSameType clauses = do
+          let types = map (AST.getType . mchandler) clauses
+          result <- intersectTypes types
+          case result of
+            Just ty -> return ty
             Nothing ->
-              tcError MatchInferenceError
+              case find (hasKnownType . mchandler) clauses of
+                Just e -> do
+                  let ty = AST.getType $ mchandler e
+                  mapM_ (`assertSubtypeOf` ty) types
+                  return ty
+                Nothing ->
+                  tcError MatchInferenceError
 
         hasKnownType e =
             let ty = AST.getType e
