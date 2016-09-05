@@ -19,6 +19,7 @@ module Typechecker.Util(TypecheckM
                        ,findMethodWithCalledType
                        ,findCapability
                        ,propagateResultType
+                       ,unifyTypes
                        ) where
 
 import Identifiers
@@ -49,6 +50,14 @@ whenM cond action = cond >>= (`when` action)
 
 unlessM :: (Monad m) => m Bool -> m () -> m ()
 unlessM cond action = cond >>= (`unless` action)
+
+findM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
+findM _ [] = return Nothing
+findM p (x:xs) = do
+  b <- p x
+  if b
+  then return $ Just x
+  else findM p xs
 
 -- | The monad in which all typechecking is performed. A function
 -- of return type @TypecheckM Bar@ may read from an 'Environment'
@@ -94,8 +103,8 @@ resolveSingleType ty
       unless (ty `elem` params) $
              tcError $ FreeTypeVariableError ty
       return ty
-  | isRefType ty = do
-      res <- resolveRefType ty
+  | isRefAtomType ty = do
+      res <- resolveRefAtomType ty
       if isTypeSynonym res
       then resolveType res -- Force unfolding of type synonyms
       else return res
@@ -109,10 +118,13 @@ resolveSingleType ty
       resolveType unfolded
   | otherwise = return ty
   where
-    resolveCapa t =
-        mapM_ resolveSingleTrait (typesFromCapability t) >> return t
+    resolveCapa t = do
+        let traits = typesFromCapability t
+        mapM_ resolveSingleTrait traits
+        assertDistinctThing "occurrence" "trait" traits
+        return t
     resolveSingleTrait t
-          | isRefType t = do
+          | isRefAtomType t = do
               result <- asks $ traitLookup t
               when (isNothing result) $
                  tcError $ UnknownTraitError t
@@ -123,21 +135,21 @@ resolveTypeAndCheckForLoops ty =
   evalStateT (typeMapM resolveAndCheck ty) []
   where
     resolveAndCheck ty
-      | isRefType ty = do
+      | isRefAtomType ty = do
           seen <- get
           let tyid = getId ty
           when (tyid `elem` seen) $
             lift . tcError $ RecursiveTypesynonymError ty
-          res <- lift $ resolveRefType ty
+          res <- lift $ resolveRefAtomType ty
           when (isTypeSynonym res) $ put (tyid : seen)
           if isTypeSynonym res
           then typeMapM resolveAndCheck res
           else return res
       | otherwise = lift $ resolveType ty
 
-resolveRefType :: Type -> TypecheckM Type
-resolveRefType ty
-  | isRefType ty = do
+resolveRefAtomType :: Type -> TypecheckM Type
+resolveRefAtomType ty
+  | isRefAtomType ty = do
       result <- asks $ refTypeLookup ty
       case result of
         Just formal -> do
@@ -165,9 +177,6 @@ subtypeOf ty1 ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
         ty1 `refSubtypeOf` ty2
-    | isClassType ty1 && isTraitType ty2 = do
-        traits <- getImplementedTraits ty1
-        anyM (`subtypeOf` ty2) traits
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
         capability `capabilitySubtypeOf` ty2
@@ -186,6 +195,16 @@ subtypeOf ty1 ty2
         anyM (`subtypeOf` ty2) traits
     | isCapabilityType ty1 && isCapabilityType ty2 =
         ty1 `capabilitySubtypeOf` ty2
+    | isUnionType ty1 && isUnionType ty2 = do
+        let members1 = unionMembers ty1
+            members2 = unionMembers ty2
+        allM (\ty -> anyM (ty `subtypeOf`) members2) members1
+    | isUnionType ty1 = do
+        let members1 = unionMembers ty1
+        allM (`subtypeOf` ty2) members1
+    | isUnionType ty2 = do
+        let members2 = unionMembers ty2
+        anyM (ty1 `subtypeOf`) members2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
@@ -209,6 +228,12 @@ subtypeOf ty1 ty2
           | isIntType ty1 && isRealType ty2 = True
           | otherwise = ty1 == ty2
 
+equivalentTo :: Type -> Type -> TypecheckM Bool
+equivalentTo ty1 ty2 = do
+  b1 <- ty1 `subtypeOf` ty2
+  b2 <- ty2 `subtypeOf` ty1
+  return $ b1 && b2
+
 -- | Convenience function for asserting distinctness of a list of
 -- things. @assertDistinct "declaration" "field" [f : Foo, f :
 -- Bar]@ will throw an error with the message "Duplicate
@@ -221,7 +246,7 @@ assertDistinctThing something kind l =
     duplicate = head duplicates
   in
     unless (null duplicates) $
-      tcError $ DuplicateThingError something (kind ++ show duplicate)
+      tcError $ DuplicateThingError something (kind ++ " " ++ show duplicate)
 
 -- | Convenience function for asserting distinctness of a list of
 -- things that @HasMeta@ (and thus knows how to print its own
@@ -249,11 +274,19 @@ findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
 
 findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
-findMethodWithCalledType ty name = do
-  result <- asks $ methodAndCalledTypeLookup ty name
-  when (isNothing result) $
-    tcError $ MethodNotFoundError name ty
-  return $ fromJust result
+findMethodWithCalledType ty name
+    | isUnionType ty = do
+        let members = unionMembers ty
+        results <- mapM (`findMethodWithCalledType` name) members
+        let result@(_, calledType) = head results
+        unless (all (==calledType) (map snd results)) $
+               tcError $ UnionMethodAmbiguityError ty name
+        return result
+    | otherwise = do
+        result <- asks $ methodAndCalledTypeLookup ty name
+        when (isNothing result) $
+          tcError $ MethodNotFoundError name ty
+        return $ fromJust result
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do
@@ -294,3 +327,83 @@ propagateResultType ty e
 
       propagateMatchClause mc@MatchClause{mchandler} =
           mc{mchandler = propagateResultType ty mchandler}
+
+typeIsUnifiable ty
+    | isPassiveClassType ty = do
+        capability <- findCapability ty
+        return $ not (isIncapability capability)
+    | isCapabilityType ty = return $ not (isIncapability ty)
+    | otherwise =
+        return $
+        isUnionType ty ||
+        isNullType ty ||
+        isBottomType ty
+
+isUnifiableWith ty types
+    | isArrowType ty = return False
+    | hasResultType ty &&
+      all (hasSameKind ty) types =
+          isUnifiableWith (getResultType ty) (map getResultType types)
+    | isPassiveClassType ty = do
+      capability <- findCapability ty
+      if isIncapability capability
+      then return $ all (==ty) types
+      else allM typeIsUnifiable types
+    | otherwise = do
+        tyUniable <- typeIsUnifiable ty
+        tysUniable <- allM typeIsUnifiable types
+        return $ tyUniable && tysUniable &&
+                 not (isNullType ty) && not (isBottomType ty)
+
+unifyTypes :: [Type] -> TypecheckM (Maybe Type)
+unifyTypes tys = do
+  result <- findM (`isUnifiableWith` tys) tys
+  case result of
+    Just ty -> do
+      union <- doUnifyTypes ty tys
+      liftM Just $ lub union
+    Nothing ->
+      return Nothing
+  where
+    lub union = do
+      let members = unionMembers union
+      bounds <- filterM (\t -> allM (`subtypeOf` t) members) members
+      if null bounds
+      then return union
+      else return $ head bounds
+
+doUnifyTypes :: Type -> [Type] -> TypecheckM Type
+doUnifyTypes inter [] = return inter
+doUnifyTypes inter args@(ty:tys)
+    | hasResultType inter = do
+        let res = getResultType inter
+            args' = map getResultType args
+        res' <- doUnifyTypes res args'
+        return $ setResultType inter res'
+    | isNullType ty =
+        doUnifyTypes inter tys
+    | isBottomType ty =
+        doUnifyTypes inter tys
+    | isPassiveClassType ty =
+        if ty == inter
+        then doUnifyTypes inter tys
+        else do
+          cap <- findCapability ty
+          doUnifyTypes inter (cap:tys)
+    | isPassiveClassType inter = do
+        cap <- findCapability inter
+        doUnifyTypes cap (ty:tys)
+    | isCapabilityType ty = do
+        let members = unionMembers inter
+        isSubsumed <- anyM (ty `equivalentTo`) members
+        if isSubsumed
+        then doUnifyTypes inter tys
+        else do
+          unlessM (anyM (\t -> allM (`subtypeOf` t) members)
+                        (typesFromCapability ty)) $
+                 tcError $ MalformedUnionTypeError ty inter
+          doUnifyTypes (unionType inter ty) tys
+    | isUnionType ty =
+        doUnifyTypes inter (unionMembers ty ++ tys)
+    | otherwise =
+        error "Util.hs: Tried to form an union without a capability"

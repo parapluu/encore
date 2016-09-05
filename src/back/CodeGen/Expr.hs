@@ -61,8 +61,9 @@ typeToPrintfFstr ty
     | Ty.isStringType ty       = "%s"
     | Ty.isCharType ty         = "%c"
     | Ty.isBoolType ty         = "%s"
-    | Ty.isRefType ty          = show ty ++ "@%p"
+    | Ty.isRefAtomType ty      = show ty ++ "@%p"
     | Ty.isCapabilityType ty   = "(" ++ show ty ++ ")@%p"
+    | Ty.isUnionType ty        = "(" ++ show ty ++ ")@%p"
     | Ty.isFutureType ty       = "Fut@%p"
     | Ty.isStreamType ty       = "Stream@%p"
     | Ty.isParType ty          = "Par@%p"
@@ -522,7 +523,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          return (Var tmp, Seq [ttarg, theSize])
 
   translate call@(A.MethodCall { A.emeta, A.target, A.name, A.args})
-    | (Ty.isTraitType . A.getType) target = do
+    | (Ty.isTraitType . A.getType) target ||
+      (Ty.isUnionType . A.getType) target = do
         (ntarget, ttarget) <- translate target
         (nCall, tCall) <- traitMethod ntarget (A.getType target) name args
                                       (translate (A.getType call))
@@ -532,7 +534,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
     | isActive && isStream = delegateUse callTheMethodStream "stream"
     | isActive && isFuture = delegateUse callTheMethodFuture "fut"
-    | otherwise = error $ "No match for " ++ show targetTy
+    | otherwise = error $ "Expr.hs: Don't know how to call " ++ show targetTy
         where
           targetTy = A.getType target
           retTy = A.getType call
@@ -662,8 +664,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
-         let exportThn = Seq $ tthn : [Assign (Var tmp) nthn]
-             exportEls = Seq $ tels : [Assign (Var tmp) nels]
+         let resultType = A.getType ite
+             exportThn = Seq $ tthn :
+                         [Assign (Var tmp) (Cast (translate resultType) nthn)]
+             exportEls = Seq $ tels :
+                         [Assign (Var tmp) (Cast (translate resultType) nels)]
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
@@ -728,7 +733,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               noArgs = [] :: [A.Expr]
 
           (nCall, tCall) <-
-              if Ty.isTraitType argty || Ty.isCapabilityType argty
+              if Ty.isCapabilityType argty ||
+                 Ty.isUnionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name
                 traitMethod narg calledType name noArgs (translate tmpTy)
