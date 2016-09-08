@@ -106,6 +106,7 @@ instance Checkable Function where
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
+          fName = functionName f
           allTypeParams = concatMap (typeComponents . ptype) funparams ++
                           typeComponents funtype
       unless (all isTypeVar funtypeparams) $
@@ -115,13 +116,21 @@ instance Checkable Function where
                             show concreteType ++ "' as a type parameter"
       unless (all (`elem` allTypeParams) funtypeparams) $
         tcError $ WrongNumberOfFunctionTypeParameterArgumentsError
-                  (functionName f) (length funtypeparams)
+                  fName (length funtypeparams)
                         (length $ filter (not.isTypeVar) funtypeparams)
+      unless (all (not.isHighOrderParametricFunction) allTypeParams) $
+        tcError $ SimpleError $
+                   "Parametric function as input argument or return type"
+                    ++ " is currently not supported."
       eBody <- local ((addTypeParameters funtypeparams).(addParams funparams)) $
                      if isVoidType funtype
                      then typecheckNotNull funbody
                      else hasType funbody funtype
       return f{funbody = eBody}
+      where
+        isHighOrderParametricFunction typ =
+          if isArrowType typ && (any isTypeVar (typeComponents typ)) then True
+          else False
 
 instance Checkable TraitDecl where
   doTypecheck t@Trait{tname, tmethods} = do
