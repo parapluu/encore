@@ -106,6 +106,17 @@ instance Checkable Function where
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
+          allTypeParams = concatMap (typeComponents . ptype) funparams ++
+                          typeComponents funtype
+      unless (all isTypeVar funtypeparams) $
+        let concreteType = head $ filter (not.isTypeVar) funtypeparams in
+        tcError $
+             SimpleError $ "Parametric function declaring concrete type '" ++
+                            show concreteType ++ "' as a type parameter"
+      unless (all (`elem` allTypeParams) funtypeparams) $
+        tcError $ WrongNumberOfFunctionTypeParameterArgumentsError
+                  (functionName f) (length funtypeparams)
+                        (length $ filter (not.isTypeVar) funtypeparams)
       eBody <- local ((addTypeParameters funtypeparams).(addParams funparams)) $
                      if isVoidType funtype
                      then typecheckNotNull funbody
@@ -538,7 +549,6 @@ instance Checkable Expr where
       unless (length args == length argTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
                     name (length argTypes) (length args)
-
       eAr <- mapM typecheck args
       -- NOTE: matchArguments calls matchTypes. MatchTypes doesn't play well
       -- with type variables. if the matchTypes has as input two different
