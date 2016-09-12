@@ -343,14 +343,6 @@ capabilityLookup = newLookup capabilityLookupLE
 convert :: [Result a] -> Maybe a
 convert = listToMaybe . map result
 
-classLookup :: Type -> Environment -> Maybe ClassDecl
-classLookup cls env
-    | isRefAtomType cls = Map.lookup (getId cls) $ classTable env
-    | isTypeSynonym cls = classLookup (unfoldTypeSynonyms cls) env -- TODO: remove!!
-    | otherwise = error $
-      "Tried to lookup the class of '" ++ show cls
-      ++ "' which is not a reference type"
-
 traitLookup :: Type -> Environment -> [Result TraitDecl]
 traitLookup ty env = newLookup traitTableLookup ty env
 
@@ -358,16 +350,16 @@ refTypeLookupUnsafe :: Type -> Environment -> Type
 refTypeLookupUnsafe t env =
   let
     ret = refTypeLookup t env
-    found = isJust ret
+    found = length ret
   in
-    if found then
-      fromJust ret
+    if found > 0 then
+      result $ head ret
     else
       error $ printf "Can't find ref type %s" $ show t
 
 refTypeParameters :: Type -> Environment -> [Type]
 refTypeParameters t env =
-  let Just t' = refTypeLookup t env
+  let t' = result $ head $ refTypeLookup t env
   in getTypeParameters t'
 
 refTypeLookup :: Type -> Environment -> [Result Type]

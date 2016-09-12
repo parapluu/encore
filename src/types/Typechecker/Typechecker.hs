@@ -661,7 +661,7 @@ instance Checkable Expr where
                 in getPatternVars innerType e
             | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
-        doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
+        doGetPatternVars pt fcall@(FunctionCall {path, args = [arg]}) = do
           unless (isRefType pt) $
             tcError $ NonCallableTargetError pt
           header <- findMethod pt (unsafeBase 11 path)

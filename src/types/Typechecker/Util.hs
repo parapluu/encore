@@ -152,14 +152,10 @@ resolveTypeAndCheckForLoops ty =
 resolveRefAtomType :: Type -> TypecheckM Type
 resolveRefAtomType ty
   | isRefAtomType ty = do
-      result <- asks $ refTypeLookup ty
-      case result of
-        Just formal -> do
-          matchTypeParameterLength formal ty
-          let res = formal `setTypeParameters` getTypeParameters ty
-          return res
-        Nothing ->
-          tcError $ UnknownRefTypeError ty
+      formal <- findRefType ty
+      matchTypeParameterLength formal ty
+      let res = formal `setTypeParameters` getTypeParameters ty
+      return res
   | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
 
 findRefType :: Type -> TypecheckM Type
