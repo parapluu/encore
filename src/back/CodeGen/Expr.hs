@@ -1133,7 +1133,9 @@ globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
           argsWithFormalTypes = zip args' formalTypes
 
           argTypes = map A.getType args
-          bindings = Ty.getTypeParameterBindings $ zip formalTypes argTypes
+          bindingFn = fromJust . Ty.resolveParamBinding . Ty.getTypeParameterBindings
+          bindings = bindingFn $ zip formalTypes argTypes
+
       return $ map (\(arg, formalType) ->
                       if Ty.isTypeVar formalType then
                         asEncoreArgT ((translate . fromJust . lookup formalType) bindings) arg

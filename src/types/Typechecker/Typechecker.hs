@@ -118,19 +118,12 @@ instance Checkable Function where
         tcError $ WrongNumberOfFunctionTypeParameterArgumentsError
                   fName (length funtypeparams)
                         (length $ filter (not.isTypeVar) funtypeparams)
-      unless (all (not.isHighOrderParametricFunction) allTypeParams) $
-        tcError $ SimpleError $
-                   "Parametric function as input argument or return type"
-                    ++ " is currently not supported."
       eBody <- local ((addTypeParameters funtypeparams).(addParams funparams)) $
                      if isVoidType funtype
                      then typecheckNotNull funbody
                      else hasType funbody funtype
+
       return f{funbody = eBody}
-      where
-        isHighOrderParametricFunction typ =
-          if isArrowType typ && (any isTypeVar (typeComponents typ)) then True
-          else False
 
 instance Checkable TraitDecl where
   doTypecheck t@Trait{tname, tmethods} = do
@@ -566,16 +559,23 @@ instance Checkable Expr where
       -- variables. in order to get the match arguments to typecheck, i return
       -- the type variable bindings and execute the matchArguments with these
       -- new bindings
-      let functionTypeVarBindings = getTypeParameterBindings $
+      let functionTypeVarBindings = resolveParamBinding $
+                                      getTypeParameterBindings $
                                         zip argTypes (map AST.getType eAr)
-          argTypes' = map (replaceTypeVars functionTypeVarBindings) argTypes
-      (eArgs, bindings) <- matchArguments args argTypes'
-      let bindings' = nub (functionTypeVarBindings ++ bindings)
+      unless (isJust functionTypeVarBindings) $
+          tcError $ SimpleError "Type variable assigned different concrete types"
+      let functionTypeVarBindings' = fromJust functionTypeVarBindings
+          argTypes' = map (replaceTypeVars functionTypeVarBindings') argTypes
+
+      (_, bindings) <- local (bindTypes functionTypeVarBindings') $
+                              matchArguments args argTypes'
+      let bindings' = nub (functionTypeVarBindings' ++ bindings)
       -- END_NOTE
 
       let resultType = replaceTypeVars bindings' (getResultType ty)
           typeVarBindings = sortByTypeParamOrder ty bindings'
-      return $ setType resultType fcall {args = eArgs,
+
+      return $ setType resultType fcall {args = eAr,
                                          typeParams = typeVarBindings}
       where
         sortByTypeParamOrder :: Type -> [(Type, Type)] -> [Type]
@@ -1389,6 +1389,7 @@ matchTypes expected ty
           Nothing -> do
             bindings <- asks bindings
             return $ (expected, ty) : bindings
+    | isTypeVar ty && (not.isTypeVar) expected = return [(ty, expected)]
     | otherwise = assertMatch expected ty
     where
       matchArgs [] [] = asks bindings
