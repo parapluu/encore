@@ -61,6 +61,11 @@ isEncoreArgT :: CCode Ty -> Bool
 isEncoreArgT (Typ "encore_arg_t") = True
 isEncoreArgT _ = False
 
+showPath :: ID.Path -> String
+showPath (ID.Path qn) = intercalate "__" (map (\(ID.Name n) -> n) qn)
+
+pathId = showPath . Ty.getId
+
 ponyMsgT :: CCode Ty
 ponyMsgT = Typ "pony_msg_t"
 
@@ -73,8 +78,8 @@ ponyMainMsgT = Typ ponyMainMsgName
 encActiveMainName :: String
 encActiveMainName = "_enc__active_Main_t"
 
-encActiveMainT :: CCode Ty
-encActiveMainT = Typ encActiveMainName
+encActiveMainT :: Ty.Type -> CCode Ty
+encActiveMainT cname = AsType $ classTypeName cname
 
 encMsgT :: CCode Ty
 encMsgT = Typ "encore_fut_msg_t"
@@ -178,11 +183,11 @@ methodImplOneWayName clazz mname =
 
 methodImplStreamName :: Ty.Type -> ID.Name -> CCode Name
 methodImplStreamName clazz mname =
-  Nam $ encoreName "method" $ printf "%s_%s_stream" (Ty.getId clazz) (show mname)
+  Nam $ encoreName "method" $ printf "%s_%s_stream" (pathId clazz) (show mname)
 
 methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
-  encoreName "method" $ Ty.getId clazz ++ "_" ++ show mname
+  encoreName "method" $ pathId clazz ++ "_" ++ show mname
 
 methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
 methodImplFutureNameStr clazz mname =
@@ -193,7 +198,7 @@ methodImplOneWayNameStr clazz mname =
   methodImplNameStr clazz mname ++ "_one_way"
 
 constructorImplName :: Ty.Type -> CCode Name
-constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
+constructorImplName clazz = Nam $ encoreName "constructor" (pathId clazz)
 
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
@@ -229,23 +234,23 @@ fieldName :: ID.Name -> CCode Name
 fieldName name =
     Nam $ encoreName "field" (show name)
 
-globalClosureName :: ID.Name -> CCode Name
+globalClosureName :: ID.Path -> CCode Name
 globalClosureName funname =
-    Nam $ encoreName "closure" (show funname)
+    Nam $ encoreName "closure" (showPath funname)
 
 globalFunctionClosureNameOf :: A.Function -> CCode Name
 globalFunctionClosureNameOf f = globalClosureName $ A.functionName f
 
-globalFunctionName :: ID.Name -> CCode Name
+globalFunctionName :: ID.Path -> CCode Name
 globalFunctionName funname =
-    Nam $ encoreName "global_fun" (show funname)
+    Nam $ encoreName "global_fun" (showPath funname)
 
 globalFunctionNameOf :: A.Function -> CCode Name
 globalFunctionNameOf f = globalFunctionName $ A.functionName f
 
 globalFunctionWrapperNameOf :: A.Function -> CCode Name
 globalFunctionWrapperNameOf f =
-  Nam $ encoreName "global_fun_wrapper" $ show $ A.functionName f
+  Nam $ encoreName "global_fun_wrapper" $ showPath $ A.functionName f
 
 closureStructName :: CCode Name
 closureStructName = Nam "closure"
@@ -290,11 +295,11 @@ typeVarRefName ty =
 
 classId :: Ty.Type -> CCode Name
 classId ty =
-    Nam $ encoreName "ID" (Ty.getId ty)
+    Nam $ encoreName "ID" (pathId ty)
 
 refTypeId :: Ty.Type -> CCode Name
 refTypeId ty =
-    Nam $ encoreName "ID" (Ty.getId ty)
+    Nam $ encoreName "ID" (pathId ty)
 
 traitMethodSelectorName = Nam "trait_method_selector"
 
@@ -303,15 +308,15 @@ traitMethodSelectorName = Nam "trait_method_selector"
 -- function.
 classDispatchName :: Ty.Type -> CCode Name
 classDispatchName clazz =
-    Nam $ encoreName "dispatch" (Ty.getId clazz)
+    Nam $ encoreName "dispatch" (pathId clazz)
 
 classTraceFnName :: Ty.Type -> CCode Name
 classTraceFnName clazz =
-    Nam $ encoreName "trace" (Ty.getId clazz)
+    Nam $ encoreName "trace" (pathId clazz)
 
 runtimeTypeInitFnName :: Ty.Type -> CCode Name
 runtimeTypeInitFnName clazz =
-    Nam $ encoreName "type_init" (Ty.getId clazz)
+    Nam $ encoreName "type_init" (pathId clazz)
 
 ponyAllocMsgName :: CCode Name
 ponyAllocMsgName = Nam "pony_alloc_msg"
@@ -321,26 +326,26 @@ poolIndexName = Nam "POOL_INDEX"
 
 futMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 futMsgTypeName cls mname =
-    Nam $ encoreName "fut_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "fut_msg" (pathId cls ++ "_" ++ show mname ++ "_t")
 
 oneWayMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgTypeName cls mname =
-    Nam $ encoreName "oneway_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "oneway_msg" (pathId cls ++ "_" ++ show mname ++ "_t")
 
 msgId :: Ty.Type -> ID.Name -> CCode Name
 msgId ref mname =
-    Nam $ encoreName "MSG" (Ty.getId ref ++ "_" ++ show mname)
+    Nam $ encoreName "MSG" (pathId ref ++ "_" ++ show mname)
 
 futMsgId :: Ty.Type -> ID.Name -> CCode Name
 futMsgId ref mname =
-    Nam $ encoreName "FUT_MSG" (Ty.getId ref ++ "_" ++ show mname)
+    Nam $ encoreName "FUT_MSG" (pathId ref ++ "_" ++ show mname)
 
 taskMsgId :: CCode Name
 taskMsgId = Nam $ encoreName "MSG" "TASK"
 
 oneWayMsgId :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgId cls mname =
-    Nam $ encoreName "ONEWAY_MSG" (Ty.getId cls ++ "_" ++ show mname)
+    Nam $ encoreName "ONEWAY_MSG" (pathId cls ++ "_" ++ show mname)
 
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
@@ -351,7 +356,7 @@ typeNamePrefix ref
   | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                         "' isnt reference type!"
   where
-    id = Ty.getId ref
+    id = pathId ref
 
 ponySendvName :: CCode Name
 ponySendvName = Nam "pony_sendv"

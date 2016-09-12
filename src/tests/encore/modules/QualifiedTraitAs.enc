@@ -1,0 +1,9 @@
+import qualified FarLib as F
+import qualified A.B.QLib as Q
+
+passive class Z : Q.T + F.S
+
+class Main
+  def main() : void
+    let z = new Z
+    in print z.zero()

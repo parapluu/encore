@@ -2,6 +2,7 @@ module CodeGen.Header(generateHeader) where
 
 import Control.Arrow ((&&&))
 import Data.List (partition)
+import Data.Maybe (maybeToList)
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -90,13 +91,14 @@ generateHeader p =
     concatMap constructors allclasses ++
 
     [commentSection "Main actor rtti"] ++
-    [externMainRtti] ++
+    externMainRtti ++
 
     [commentSection "Trait types"] ++
     [traitMethodEnums] ++
     traitTypes
    where
-     externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
+     externMainRtti = map (\x -> DeclTL (Typ "extern pony_type_t", AsLval $ runtimeTypeName x)) 
+                        (maybeToList $ A.mainType p)
 
      sharedMessages =
           [DeclTL (ponyMsgT, Var "m_MSG_alloc"),

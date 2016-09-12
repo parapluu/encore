@@ -408,7 +408,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Just substName ->
             return (substName , Skip)
         Nothing ->
-            return (Var . show $ globalClosureName name, Skip)
+            return (Var . show $ globalClosureName $ ID.name2path name, Skip)
 
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
@@ -724,7 +724,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
-        translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
+        translatePattern (A.FunctionCall {A.path, A.args}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               innerExpr = head args -- args is known to only contain one element
@@ -736,12 +736,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
               then do
-                calledType <- gets $ Ctx.lookupCalledType argty name
-                traitMethod narg calledType name noArgs (translate tmpTy)
+                calledType <- gets $ Ctx.lookupCalledType argty (ID.unsafeBase 0 path)
+                traitMethod narg calledType (ID.unsafeBase 1 path) noArgs (translate tmpTy)
               else do
                 tmp <- Ctx.genNamedSym "extractedOption"
                 (argDecls, theCall) <-
-                    passiveMethodCall narg argty name noArgs tmpTy
+                    passiveMethodCall narg argty (ID.unsafeBase 2 path) noArgs tmpTy
                 let theAssign = Assign (Decl (translate tmpTy, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
@@ -1027,7 +1027,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             do c <- get
                let tname = case Ctx.substLkp c name of
                               Just substName -> substName
-                              Nothing -> AsLval $ globalClosureName name
+                              Nothing -> AsLval $ globalClosureName $ ID.name2path name
                return $ Assign ((Var $ show envName) `Arrow` (fieldName name)) tname
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
@@ -1057,7 +1057,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       insertVar (name, _) = do
         c <- get
 
-        let tname = fromMaybe (AsLval $ globalClosureName name)
+        let tname = fromMaybe (AsLval $ globalClosureName (ID.name2path name))
                               (Ctx.substLkp c name)
         return $ assignVar (fieldName name) tname
       insertTypeVar ty = do
@@ -1076,9 +1076,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         where
           name = ID.Name $ show $ typeVarRefName ty
 
-  translate fcall@(A.FunctionCall{A.name, A.args}) = do
+  translate fcall@(A.FunctionCall{A.path, A.args}) = do
     ctx <- get
-    case Ctx.substLkp ctx name of
+    case Ctx.substLkp ctx (ID.unsafeBase 3 path) of  -- TODO: surely dangerous
       Just clos -> closureCall clos fcall
       Nothing -> globalFunctionCall fcall
 
@@ -1086,7 +1086,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
 closureCall :: CCode Lval -> A.Expr ->
   State Ctx.Context (CCode Lval, CCode Stat)
-closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
+closureCall clos fcall@A.FunctionCall{A.args} = do
   targs <- mapM translateArgument args
   (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
   (calln, theCall) <- namedTmpVar "clos" typ $
@@ -1102,10 +1102,10 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
+globalFunctionCall fcall@A.FunctionCall{A.path, A.args} = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) (encoreCtxVar:args')
+    Call (globalFunctionName $ path) (encoreCtxVar:args')
   let ret = if Ty.isVoidType typ then unit else callVar
   return $ (ret, Seq $ initArgs ++ [call])
   where
@@ -1178,7 +1178,7 @@ castArguments expected targ targType
 traitMethod this targetType name args resultType =
   let
     id = msgId targetType name
-    tyStr = Ty.getId targetType
+    tyStr = pathId targetType
     nameStr = show name
   in
     do

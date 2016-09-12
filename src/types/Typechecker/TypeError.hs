@@ -25,7 +25,7 @@ import Types
 import AST.AST
 import AST.PrettyPrinter
 
-data BacktraceNode = BTFunction Name Type
+data BacktraceNode = BTFunction Path Type
                    | BTTrait Type
                    | BTClass Type
                    | BTParam ParamDecl
@@ -34,6 +34,7 @@ data BacktraceNode = BTFunction Name Type
                    | BTRequirement Requirement
                    | BTExpr Expr
                    | BTTypedef Type
+                   | BTBundle Path
 
 
 instance Show BacktraceNode where
@@ -64,6 +65,8 @@ instance Show BacktraceNode where
       in "In expression: \n" ++ str
   show (BTTypedef tl) =
      concat ["In typedef '", show tl, "'"]
+  show (BTBundle (Path [])) = ""
+  show (BTBundle path) = concat ["In bundle '", show path, "'"]
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -83,6 +86,10 @@ class Pushable a where
     push :: a -> Backtrace -> Backtrace
     pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
     pushMeta m n bt = (getPos m, n) : bt
+
+instance Pushable Program where
+  push prog =
+     pushMeta prog (BTBundle $ bundleName prog)
 
 instance Pushable Function where
   push fun =
@@ -114,8 +121,8 @@ instance Pushable Typedef where
 
 refTypeName :: Type -> String
 refTypeName ty
-    | isClassType ty = "class '" ++ getId ty ++ "'"
-    | isTraitType ty = "trait '" ++ getId ty ++ "'"
+    | isClassType ty = "class '" ++ show (unsafeBase 13 (getId ty)) ++ "'"
+    | isTraitType ty = "trait '" ++ show (unsafeBase 14 (getId ty)) ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
     | otherwise = error $ "Util.hs: No refTypeName for " ++
@@ -142,7 +149,7 @@ instance Show TCError where
 data Error =
     DistinctTypeParametersError Type
   | WrongNumberOfMethodArgumentsError Name Type Int Int
-  | WrongNumberOfFunctionArgumentsError Name Int Int
+  | WrongNumberOfFunctionArgumentsError Path Int Int
   | WrongNumberOfTypeParametersError Type Int Type Int
   | MissingFieldRequirementError FieldDecl Type
   | CovarianceViolationError FieldDecl Type Type
@@ -150,7 +157,7 @@ data Error =
   | NonDisjointConjunctionError Type Type FieldDecl
   | OverriddenMethodError Name Type
   | IncludedMethodConflictError Name Type Type
-  | MissingMethodRequirementError FunctionHeader Type
+  | MissingMethodRequirementError (FunctionHeader Name) Type
   | MissingMainClass
   | UnknownTraitError Type
   | UnknownRefTypeError Type
@@ -169,7 +176,7 @@ data Error =
   | ConstructorCallError
   | ExpectingOtherTypeError String Type
   | NonStreamingContextError Expr
-  | UnboundFunctionError Name
+  | UnboundFunctionError Path
   | NonFunctionTypeError Type
   | BottomTypeInferenceError
   | IfInferenceError
@@ -204,6 +211,13 @@ data Error =
   | FreeTypeVariableError Type
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
+  | AmbiguousLookup Type [Path]
+  | AmbiguousVariableLookup Name [Path]
+  | AmbiguousFunctionLookup Path [Path]
+  | ImportedNamesNotFound [Name]
+  | HiddenNamesNotFound [Name]
+  | NamesBothImportedAndHidden [Name]
+  | ExportedNamesLackingBinding [Name]
   | SimpleError String
 
 arguments 1 = "argument"
@@ -255,7 +269,7 @@ instance Show Error where
         printf "Cannot find method '%s' required by included %s"
                (show $ ppFunctionHeader header) (refTypeName trait)
     show (UnknownTraitError ty) =
-        printf "Couldn't find trait '%s'" (getId ty)
+        printf "Couldn't find trait '%s'" (show (getId ty))
     show MissingMainClass = "Couldn't find active class 'Main'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
@@ -263,7 +277,7 @@ instance Show Error where
         printf "Cannot form capability with %s" (Types.showWithKind ty)
     show (RecursiveTypesynonymError ty) =
         printf "Type synonyms cannot be recursive. One of the culprits is %s"
-               (getId ty)
+               (show (getId ty))
     show (DuplicateThingError kind thing) =
         printf "Duplicate %s of %s" kind thing
     show PassiveStreamingMethodError =
@@ -302,7 +316,7 @@ instance Show Error where
         printf "Cannot have '%s' outside of a streaming method"
                (show $ ppSugared e)
     show (UnboundFunctionError name) =
-        printf "Unbound function variable '%s'" (show name)
+        printf "Unbound function or variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
     show BottomTypeInferenceError = "Cannot infer type of 'Nothing'"
@@ -387,6 +401,23 @@ instance Show Error where
     show (MalformedUnionTypeError ty union) =
         printf "Type '%s' is not compatible with %s"
                (show ty) (Types.showWithKind union)
+    show (AmbiguousLookup ty paths) =  
+        printf "Ambiguous lookup of class, trait or typedef '%s'.\nFound in several modules:\n %s\n" (show ty)
+          (concat (map (\a -> "    " ++ show a ++ "\n") paths))
+    show (AmbiguousVariableLookup ty paths) =
+        printf "Ambiguous lookup of variable '%s'.\nFound in several modules:\n %s\n" (show ty)
+          (concat (map (\a -> "    " ++ show a ++ "\n") paths))
+    show (AmbiguousFunctionLookup ty paths) =
+        printf "Ambiguous lookup of function '%s'.\nFound in several modules:\n %s\n" (show ty)
+          (concat (map (\a -> "    " ++ show a ++ "\n") paths))
+    show (ImportedNamesNotFound names) =
+        printf "Imported names not found: %s." (intercalate ", " $ map show names)
+    show (HiddenNamesNotFound names) =
+        printf "Hidden names not found: %s." (intercalate ", " $ map show names)
+    show (NamesBothImportedAndHidden names) =
+        printf "Imported names not found: %s." (intercalate ", " $ map show names)
+    show (ExportedNamesLackingBinding names) =
+        printf "Exported names have no binding: %s." (intercalate ", " $ map show names)
     show (SimpleError msg) = msg
 
 

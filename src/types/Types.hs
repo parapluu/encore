@@ -26,6 +26,8 @@ module Types(
             ,isPassiveClassType
             ,isClassType
             ,isMainType
+            ,isModulePath
+            ,modulePath
             ,stringObjectType
             ,isStringObjectType
             ,conjunctiveType
@@ -61,6 +63,8 @@ module Types(
             ,setArgTypes
             ,getResultType
             ,getId
+            ,getName
+            ,getPath
             ,maybeGetId
             ,getTypeParameters
             ,setTypeParameters
@@ -86,14 +90,15 @@ module Types(
             ,typeSynonymRHS
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
+            ,qualifyType
+            ,localise
             ) where
 
+import Identifiers
 import Data.List
 import Data.Maybe
 import Data.Foldable (toList)
 import Data.Traversable
-
-import Debug.Trace
 
 data Activity = Active
               | Shared
@@ -107,16 +112,23 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
-data RefInfo = RefInfo{refId :: String
+data RefInfo = RefInfo{namespace :: Maybe Path
+                      ,identifier :: Name
                       ,parameters :: [Type]
                       } deriving(Eq)
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters}
-        | null parameters = refId
-        | otherwise = refId ++ "<" ++ params ++ ">"
+    show r@RefInfo{namespace, identifier, parameters}
+        | null parameters = show longname
+        | otherwise = show longname ++ "<" ++ params ++ ">"
         where
           params = intercalate ", " (map show parameters)
+          longname = fullname r
+
+fullname RefInfo{namespace, identifier} = ln namespace identifier
+  where
+   ln Nothing i = Path [i]
+   ln (Just (Path p)) i = Path (p ++ [i])
 
 data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
@@ -141,6 +153,7 @@ data Type = Unresolved{refInfo :: RefInfo}
           | TupleType {argTypes :: [Type]}
           | CType{ident :: String}
           | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
+          | ModulePath {path :: Path}
           | VoidType
           | StringType
           | CharType
@@ -171,13 +184,21 @@ getId ty = case maybeGetId ty of
      Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
      Just t -> t
 
-maybeGetId Unresolved{refInfo} = Just $ refId refInfo
-maybeGetId TraitType{refInfo} = Just $ refId refInfo
-maybeGetId ClassType{refInfo} = Just $ refId refInfo
-maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo
-maybeGetId TypeVar{ident} = Just $ ident
-maybeGetId CType{ident} = Just $ ident
+maybeGetId Unresolved{refInfo} = Just $ fullname refInfo
+maybeGetId TraitType{refInfo} = Just $ fullname refInfo
+maybeGetId ClassType{refInfo} = Just $ fullname refInfo
+maybeGetId TypeSynonym{refInfo} = Just $ fullname refInfo
+maybeGetId TypeVar{ident} = Just $ string2path ident
+maybeGetId CType{ident} = Just $ string2path ident
 maybeGetId _ = Nothing
+
+getName Unresolved{refInfo} = identifier refInfo
+getName TraitType{refInfo} = identifier refInfo
+getName ClassType{refInfo} = identifier refInfo
+getName TypeSynonym{refInfo} = identifier refInfo
+getName TypeVar{ident} = Name ident
+getName CType{ident} = Name ident
+getName ty = error $ "Types.hs: Tried to get the name of " ++ showWithKind ty
 
 instance Show Type where
     show Unresolved{refInfo} = show refInfo
@@ -213,6 +234,7 @@ instance Show Type where
         args = intercalate ", " (map show argTypes)
     show (CType ty) = ty
     show TypeSynonym{refInfo, resolvesTo} = show refInfo
+    show ModulePath {path} = show path
     show VoidType   = "void"
     show StringType = "string"
     show CharType   = "char"
@@ -261,6 +283,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind BottomType{}                  = "bottom type"
     kind CType{}                       = "embedded type"
     kind TypeSynonym{}                 = "type synonym"
+    kind ModulePath{}                  = "module access path"
     kind _                             = "type"
 
 
@@ -342,6 +365,7 @@ typeMap f ty@TupleType{argTypes} =
     f ty{argTypes = map (typeMap f) argTypes}
 typeMap f ty@TypeSynonym{refInfo, resolvesTo} =
  f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}
+typeMap f ty@ModulePath{} = f ty
 typeMap f ty = f ty
 
 refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
@@ -378,6 +402,8 @@ typeMapM f ty@TypeSynonym{refInfo, resolvesTo} = do
  refInfo' <- refInfoTypeMapM f refInfo
  resolvesTo' <- typeMapM f resolvesTo
  f ty{refInfo = refInfo', resolvesTo = resolvesTo'}
+typeMapM f ty@ModulePath{} = do
+  f ty
 typeMapM f ty
   | isFutureType ty || isParType ty || isStreamType ty ||
     isArrayType ty || isMaybeType ty = typeMapMResultType f ty
@@ -413,6 +439,11 @@ setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
+getPath ModulePath{path} = path
+getPath ty = error $ "Types.hs: Cannot get path of a non module path " ++ show ty
+
+modulePath path = ModulePath{path}
+
 conjunctiveTypesFromCapability :: Type -> [([Type], [Type])]
 conjunctiveTypesFromCapability ty
     | isConjunction ty
@@ -434,15 +465,15 @@ typesFromCapability CapabilityType{ltype, rtype} =
 typesFromCapability EmptyCapability{} = []
 typesFromCapability ty = [ty]
 
-refTypeWithParams refId parameters =
-    Unresolved{refInfo = RefInfo{refId, parameters}}
+refTypeWithParams path parameters =
+    Unresolved{refInfo = RefInfo{namespace = ns path, identifier = base path, parameters}}
 
-refType :: String -> Type
+refType :: Path -> Type
 refType id = refTypeWithParams id []
 
-classType :: Activity -> String -> [Type] -> Type
-classType activity name parameters =
-  ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
+classType :: Activity -> Path -> [Type] -> Type
+classType activity path parameters =
+  ClassType{refInfo = RefInfo{namespace = ns path, identifier = base path, parameters}, activity}
 
 traitTypeFromRefType Unresolved{refInfo} =
     TraitType{refInfo}
@@ -475,6 +506,9 @@ isPassiveClassType _ = False
 
 isClassType ClassType{} = True
 isClassType _ = False
+
+isModulePath ModulePath{} = True
+isModulePath _ = False
 
 disjunctiveType ltype rtype = CapabilityType{typeop = Addition, ltype, rtype}
 conjunctiveType ltype rtype = CapabilityType{typeop = Product, ltype, rtype}
@@ -544,12 +578,12 @@ typeVar = TypeVar
 isTypeVar (TypeVar _) = True
 isTypeVar _ = False
 
-isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
+isMainType ClassType{refInfo = RefInfo{identifier = Name "Main"}} = True
 isMainType _ = False
 
-stringObjectType = classType Passive "String" []
+stringObjectType = classType Passive (string2path "String") []
 
-isStringObjectType = (==stringObjectType)
+isStringObjectType = (== stringObjectType)
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
@@ -620,21 +654,21 @@ isPrintable ty
   | isTupleType ty   = all isPrintable $ getArgTypes ty
   | otherwise        = True
 
-typeSynonym :: String -> [Type] -> Type -> Type
-typeSynonym name parameters resolution =
-  TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
+typeSynonym :: Path -> [Type] -> Type -> Type
+typeSynonym path parameters resolution =
+  TypeSynonym{refInfo = RefInfo{namespace = ns path, identifier = base path, parameters}, resolvesTo = resolution}
 
-typeSynonymLHS :: Type -> (String, [Type])
-typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} = (name, parameters)
+typeSynonymLHS :: Type -> (Path, [Type])
+typeSynonymLHS TypeSynonym{refInfo = r@RefInfo{parameters}} = (fullname r, parameters)
 typeSynonymLHS _ = error $ "Types.hs: Expected type synonym"
 
 typeSynonymRHS :: Type -> Type
 typeSynonymRHS TypeSynonym{resolvesTo} = resolvesTo
-typeSynonymRHS _ = error $ "Types.hs: Expected type synonymm"
+typeSynonymRHS _ = error $ "Types.hs: Expected type synonym"
 
 typeSynonymSetRHS :: Type -> Type -> Type
 typeSynonymSetRHS t@TypeSynonym{} rhs = t{resolvesTo = rhs}
-typeSynonymSetRHS _ _ = error $ "Types.hs: Expected type synonymm"
+typeSynonymSetRHS _ _ = error $ "Types.hs: Expected type synonym"
 
 isTypeSynonym TypeSynonym{} = True
 isTypeSynonym _ = False
@@ -645,3 +679,23 @@ unfoldTypeSynonyms = typeMap unfoldSingleSynonym
 unfoldSingleSynonym :: Type -> Type
 unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
 unfoldSingleSynonym t = t
+
+qualifyType :: Path -> Type -> Type
+qualifyType path t@Unresolved{refInfo} = t{refInfo = qualifyRefInfo path refInfo}
+qualifyType path t@TraitType{refInfo} = t{refInfo = qualifyRefInfo path refInfo}
+qualifyType path t@ClassType{refInfo} | isStringObjectType t = t 
+                                      | otherwise = t{refInfo = qualifyRefInfo path refInfo}
+qualifyType path t@TypeSynonym{refInfo} = t{refInfo = qualifyRefInfo path refInfo}
+qualifyType _ _ | otherwise = error $ "Types.hs: Tried to qualify the unqualifiable"
+
+qualifyRefInfo path r@RefInfo{namespace=Nothing} = r{namespace=Just path}
+qualifyRefInfo path r@RefInfo{namespace=Just p} | path == p = r
+qualifyRefInfo _ _ = error $ "Types.hs: Type is already qualified enough."
+
+localise :: Type -> Type
+localise t@Unresolved{refInfo} = t{refInfo = refInfo{namespace=Nothing}}
+localise t@TraitType{refInfo} = t{refInfo = refInfo{namespace=Nothing}}
+localise t@ClassType{refInfo} = t{refInfo = refInfo{namespace=Nothing}}
+localise t@TypeSynonym{refInfo} = t{refInfo = refInfo{namespace=Nothing}}
+localise t = t
+

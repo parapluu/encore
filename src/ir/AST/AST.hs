@@ -18,6 +18,7 @@ import Types
 import AST.Meta hiding(Closure, Async)
 
 data Program = Program {
+  prmeta :: Meta Program,
   source :: SourceName,
   bundle :: BundleDecl,
   etl :: [EmbedTL],
@@ -55,6 +56,14 @@ class Show a => HasMeta a where
     showWithKind :: a -> String
     showWithKind = show
 
+instance HasMeta Program where
+    getMeta = prmeta
+
+    setMeta p m = p{prmeta = m}
+
+    setType ty p =
+        error "AST.hs: Cannot set the type of a Program"
+
 data EmbedTL = EmbedTL {
       etlmeta   :: Meta EmbedTL,
       etlheader :: String,
@@ -63,13 +72,24 @@ data EmbedTL = EmbedTL {
 
 data BundleDecl = Bundle {
       bmeta :: Meta BundleDecl,
-      bname :: QName
+      bname :: Path,
+      bexports :: Maybe [Name] -- Nothing = exports everything, Just list = export this list
     }
   | NoBundle deriving Show
 
+bundleName :: Program -> Path
+bundleName Program{bundle} = 
+    case bundle of
+        Bundle{bname} -> bname
+        NoBundle -> Path []
+
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
-      itarget :: QName
+      itarget :: Path,
+      iqualified :: Bool,        -- qualified import only (= true)
+      iimports :: Maybe [Name],  -- Nothing = import all, otherwise import elements in list
+      ihiding :: Maybe [Name],   -- Nothing = nothing hidden
+      irename :: Maybe Name      -- import module via another name
     } deriving (Show)
 
 instance HasMeta ImportDecl where
@@ -98,21 +118,21 @@ data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
 
-data FunctionHeader =
+data FunctionHeader nametype =
     Header {
         kind    :: HeaderKind,
-        hname   :: Name,
+        hname   :: nametype,
         htype   :: Type,
         hparams :: [ParamDecl]
     }
     | MatchingHeader {
         kind        :: HeaderKind,
-        hname       :: Name,
+        hname       :: nametype,
         htype       :: Type,
         hparamtypes :: [Type],
         hpatterns   :: [Expr],
         hguard      :: Expr
-    }deriving(Eq, Show)
+    } deriving (Eq, Show)
 
 
 setHeaderType ty h = h{htype = ty}
@@ -124,12 +144,12 @@ isStreamMethodHeader h = kind h == Streaming
 data Function =
     Function {
       funmeta   :: Meta Function,
-      funheader :: FunctionHeader,
+      funheader :: FunctionHeader Path,
       funbody   :: Expr
     }
   | MatchingFunction {
       funmeta         :: Meta Function,
-      matchfunheaders :: [FunctionHeader],
+      matchfunheaders :: [FunctionHeader Path],
       matchfunbodies  :: [Expr]
     } deriving (Show)
 
@@ -175,15 +195,14 @@ isPassive = isPassiveClassType . cname
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl =
     let ty = cname cdecl
-    in getId ty == "Main" && isActiveClassType ty
-
+    in unsafeBase 4 (getId ty) == Name "Main" && isActiveClassType ty
 
 instance HasMeta ClassDecl where
     getMeta = cmeta
     setMeta c m = c{cmeta = m}
     setType ty c@(Class {cmeta, cname}) =
       c {cmeta = AST.Meta.setType ty cmeta, cname = ty}
-    showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
+    showWithKind Class{cname} = "class '" ++ show (getId cname) ++ "'"
 
 data Requirement =
     RequiredField {
@@ -192,7 +211,7 @@ data Requirement =
     }
     | RequiredMethod {
        rmeta :: Meta Requirement
-      ,rheader :: FunctionHeader
+      ,rheader :: FunctionHeader Name
     } deriving(Show)
 
 isRequiredField RequiredField{} = True
@@ -234,11 +253,11 @@ requiredFields :: TraitDecl -> [FieldDecl]
 requiredFields Trait{treqs} =
     map rfield $ filter isRequiredField treqs
 
-requiredMethods :: TraitDecl -> [FunctionHeader]
+requiredMethods :: TraitDecl -> [FunctionHeader Name]
 requiredMethods Trait{treqs} =
     map rheader $ filter isRequiredMethod treqs
 
-traitInterface :: TraitDecl -> [FunctionHeader]
+traitInterface :: TraitDecl -> [FunctionHeader Name]
 traitInterface t@Trait{tmethods} =
     requiredMethods t ++ map mheader tmethods
 
@@ -250,7 +269,7 @@ instance HasMeta TraitDecl where
   setMeta t m = t{tmeta = m}
   setType ty t@Trait{tmeta, tname} =
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
-  showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
+  showWithKind Trait{tname} = "trait '" ++ show (getId tname) ++ "'"
 
 data Modifier = Val
                 deriving(Eq)
@@ -298,11 +317,11 @@ instance HasMeta ParamDecl where
 data MethodDecl =
     Method {
       mmeta   :: Meta MethodDecl,
-      mheader :: FunctionHeader,
+      mheader :: FunctionHeader Name,
       mbody   :: Expr}
   | MatchingMethod {
       mmeta    :: Meta MethodDecl,
-      mheaders :: [FunctionHeader],
+      mheaders :: [FunctionHeader Name],
       mbodies  :: [Expr]
     } deriving (Show)
 
@@ -329,7 +348,7 @@ emptyConstructor cdecl =
                               }
              ,mbody = Skip (meta pos)}
 
-replaceHeaderTypes :: [(Type, Type)] -> FunctionHeader -> FunctionHeader
+replaceHeaderTypes :: [(Type, Type)] -> FunctionHeader a -> FunctionHeader a
 replaceHeaderTypes bindings header =
     let hparams' = map (replaceParamType bindings) (hparams header)
         htype' = replaceTypeVars bindings (htype header)
@@ -371,6 +390,10 @@ data Expr = Skip {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}
+          | UnresolvedCall {emeta :: Meta Expr,
+                        target :: Expr,
+                        name :: Name,
+                        args :: Arguments}
           | MethodCall {emeta :: Meta Expr,
                         target :: Expr,
                         name :: Name,
@@ -380,7 +403,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name,
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
-                          name :: Name,
+                          path :: Path,
                           args :: Arguments}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
@@ -513,7 +536,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | Binop {emeta :: Meta Expr,
                    binop :: BinaryOp,
                    loper :: Expr,
-                   roper :: Expr} deriving(Show, Eq)
+                   roper :: Expr}
+          | QualifiedAccess {emeta :: Meta Expr,
+                             namespace :: Path,
+                             rest :: Expr}
+          deriving(Show, Eq)
 
 isLval :: Expr -> Bool
 isLval VarAccess {} = True
@@ -608,3 +635,7 @@ allTraits = traverseProgram traits
 allFunctions = traverseProgram functions
 
 allEmbedded = traverseProgram (map etlheader . etl)
+
+-- | Finds the type of the class that the Main method
+mainType :: Program -> Maybe Type
+mainType prog = fmap cname $ listToMaybe $ filter isMainClass $ allClasses prog

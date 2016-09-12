@@ -1,0 +1,7 @@
+
+import Lib
+
+class Main
+  def main() : void
+    let x = new Foo : Lib.Foo
+    in print x.name()

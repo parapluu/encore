@@ -120,18 +120,18 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
               }]
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
-desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
+desugar FunctionCall{emeta, path = Path [Name "exit"], args} = Exit emeta args
 
-desugar FunctionCall{emeta, name = Name "print", args = []} =
+desugar FunctionCall{emeta, path = Path [Name "print"], args = []} =
     Print emeta [StringLiteral emeta "\n"]
 
-desugar FunctionCall{emeta, name = Name "print", args = [arg]} =
+desugar FunctionCall{emeta, path = Path [Name "print"], args = [arg]} =
     Print emeta [StringLiteral emeta "{}\n", arg]
 
-desugar FunctionCall{emeta, name = Name "print", args} =
+desugar FunctionCall{emeta, path = Path [Name "print"], args} =
     Print emeta args
 
-desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
+desugar fCall@FunctionCall{emeta, path = Path [Name "assertTrue"], args = [cond]} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
@@ -141,7 +141,7 @@ desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
                                       show (ppSugared fCall) ++ "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
-desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
+desugar fCall@FunctionCall{emeta, path = Path [Name "assertFalse"], args = [cond]} =
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
@@ -151,7 +151,7 @@ desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
-desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
+desugar FunctionCall{emeta, path = Path [Name "assertTrue"], args = cond : rest} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
@@ -163,7 +163,7 @@ desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
-desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : rest} =
+desugar FunctionCall{emeta, path = Path [Name "assertFalse"], args = cond : rest} =
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
@@ -277,7 +277,7 @@ desugar new@NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
     | isRefType ty
-    , "String" <- getId ty
+    , Path [Name "String"] <- getId ty
     , [new'@NewWithInit{ty = ty', args = args'}] <- args
     , isStringObjectType ty'
     , length args' == 1 = new'

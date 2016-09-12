@@ -1,0 +1,5 @@
+import Top as Bottom
+
+class Main
+  def main() : void
+    print Bottom.top()
