@@ -9,8 +9,7 @@ extern pony_type_t party_type;
 
 void party_trace(pony_ctx_t*, void*);
 
-/* par_t* new_par_empty(pony_type_t const * const rtype); */
-
+par_t* new_par_empty(pony_ctx_t **ctx, pony_type_t const * const rtype);
 par_t* new_par_v(pony_ctx_t **ctx, encore_arg_t val, pony_type_t const * const rtype);
 par_t* new_par_f(pony_ctx_t **ctx,future_t* const fut, pony_type_t const * const rtype);
 par_t* new_par_p(pony_ctx_t **ctx, par_t* const p1, par_t* const p2, pony_type_t const * const rtype);
