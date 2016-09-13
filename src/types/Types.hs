@@ -425,7 +425,8 @@ setTypeParameters ty _ =
 resolveParamBinding :: [(Type, Type)] -> Maybe [(Type, Type)]
 resolveParamBinding [] = Just []
 resolveParamBinding ts =
-  let groups = groupBy equalFormal ts
+  let groups = groupBy equalFormal $
+                 filter (\(formal, actual) -> formal /= actual) ts
       result = map formatting groups
   in
     if (any isNothing result) then Nothing
@@ -443,7 +444,7 @@ resolveParamBinding ts =
           Just $ (fst (head ls), head concreteVars):map (\t -> (t, head concreteVars)) typeVars
         else Just ls
     equalFormal (formal1, _) (formal2, _)
-      | isTypeVar formal1 && isTypeVar formal2 = formal1 == formal2
+      | isTypeVar formal1 && isTypeVar formal2 = True
       | otherwise = False
 
 getTypeParameterBindings :: [(Type, Type)] -> [(Type, Type)]
