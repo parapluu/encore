@@ -89,7 +89,6 @@ module Types(
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
             ,getTypeParameterBindings
-            ,resolveParamBinding
             ) where
 
 import Data.List
@@ -421,31 +420,6 @@ setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
     in ty{refInfo = refInfo{parameters = params}, resolvesTo=replaceTypeVars subst resolvesTo}
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
-
-resolveParamBinding :: [(Type, Type)] -> Maybe [(Type, Type)]
-resolveParamBinding [] = Just []
-resolveParamBinding ts =
-  let groups = groupBy equalFormal $
-                 filter (\(formal, actual) -> formal /= actual) ts
-      result = map formatting groups
-  in
-    if (any isNothing result) then Nothing
-    else Just . nub . concat $ map fromJust result
-  where
-    formatting :: [(Type, Type)] -> Maybe [(Type, Type)]
-    formatting [] = Just []
-    formatting ls =
-      let typeVars = nub $ map snd $ filter (isTypeVar.snd) ls
-          concreteVars = nub $ map snd $ filter (not.isTypeVar.snd) ls
-      in
-        if length concreteVars > 1 then
-          Nothing
-        else if length concreteVars == 1 then
-          Just $ (fst (head ls), head concreteVars):map (\t -> (t, head concreteVars)) typeVars
-        else Just ls
-    equalFormal (formal1, _) (formal2, _)
-      | isTypeVar formal1 && isTypeVar formal2 = True
-      | otherwise = False
 
 getTypeParameterBindings :: [(Type, Type)] -> [(Type, Type)]
 getTypeParameterBindings [] = []

@@ -22,6 +22,7 @@ import qualified AST.Meta as Meta
 import qualified AST.PrettyPrinter as PP
 import qualified Identifiers as ID
 import qualified Types as Ty
+import Typechecker.Util (resolveParamBinding)
 
 import Control.Monad.State hiding (void)
 import Data.List
@@ -1112,29 +1113,29 @@ globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
           prototype = Call (globalFunctionName name)
                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ args'')
-      rPrototype <- (unwrapReturnType prototype)
+      rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
       return $ (callVar, Seq [tmpTypeDecl, call])
 
     unwrapReturnType functionCall = do
       -- this function checks if the formal parameter return type is a type variable
       -- and, if so, unwraps it (adds the .i, .p or .d)
-      ctx <- get
-      let formalReturnType = A.htype (Ctx.lookupFunction name ctx)
+      header <- gets (Ctx.lookupFunction name)
+      let formalReturnType = A.htype header
       return (if Ty.isTypeVar formalReturnType then
                AsExpr (fromEncoreArgT (translate typ) functionCall)
               else functionCall)
 
     wrapArgumentsWithTypeParams args' = do
       -- helper function. wrap parametric arguments inside an encoreArgT
-      ctx <- get
-      let fHeader = Ctx.lookupFunction name ctx
-          formalTypes = map A.ptype (A.hparams fHeader)
+      fHeader <- gets $ Ctx.lookupFunction name
+      let formalTypes = map A.ptype (A.hparams fHeader)
           argsWithFormalTypes = zip args' formalTypes
 
-          argTypes = map A.getType args
-          bindingFn = fromJust . Ty.resolveParamBinding . Ty.getTypeParameterBindings
-          bindings = bindingFn $ zip formalTypes argTypes
+          -- argTypes = map A.getType args
+      --     bindingFn = resolveParamBinding . Ty.getTypeParameterBindings
+      -- bindings <- bindingFn $ zip formalTypes argTypes
+          bindings = zip formalTypes typeParams
 
       return $ map (\(arg, formalType) ->
                       if Ty.isTypeVar formalType then

@@ -559,27 +559,30 @@ instance Checkable Expr where
       -- variables. in order to get the match arguments to typecheck, i return
       -- the type variable bindings and execute the matchArguments with these
       -- new bindings
-      let functionTypeVarBindings = resolveParamBinding $
+      functionTypeVarBindings <- resolveParamBinding $
                                       getTypeParameterBindings $
                                         zip argTypes (map AST.getType eAr)
-      unless (isJust functionTypeVarBindings) $
-          tcError $ SimpleError "Type variable assigned different concrete types"
-      let functionTypeVarBindings' = fromJust functionTypeVarBindings
-          argTypes' = map (replaceTypeVars functionTypeVarBindings') argTypes
+      let argTypes' = map (replaceTypeVars functionTypeVarBindings) argTypes
 
-      (_, bindings) <- local (bindTypes functionTypeVarBindings') $
+      (_, bindings) <- local (bindTypes functionTypeVarBindings) $
                               matchArguments args argTypes'
-      let bindings' = nub (functionTypeVarBindings' ++ bindings)
+      let bindings' = nub $ functionTypeVarBindings ++ bindings
+      -- bindings' <- resolveParamBinding $ nub $ functionTypeVarBindings ++ bindings
       -- END_NOTE
 
       let resultType = replaceTypeVars bindings' (getResultType ty)
-          typeVarBindings = sortByTypeParamOrder ty bindings'
+          typeArguments = inferTypeParameters ty bindings'
 
+      -- error $ show resultType ++ "\n" ++ show typeArguments ++ "\nFuncTypeVarBnding: "
+      --         ++ show functionTypeVarBindings ++ "\nBinding: " ++ show bindings'
+      --         ++ "\nBindingsAAll: " ++ show (getTypeParameterBindings $
+      --                                   zip argTypes (map AST.getType eAr))
+      -- TODO: replace typeParams name by typeArguments
       return $ setType resultType fcall {args = eAr,
-                                         typeParams = typeVarBindings}
+                                         typeParams = typeArguments}
       where
-        sortByTypeParamOrder :: Type -> [(Type, Type)] -> [Type]
-        sortByTypeParamOrder ty bindings =
+        inferTypeParameters :: Type -> [(Type, Type)] -> [Type]
+        inferTypeParameters ty bindings =
           map (\t -> fromMaybe t (lookup t bindings)) $ getTypeParams ty
 
    ---  |- t1 .. |- tn
