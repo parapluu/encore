@@ -168,12 +168,18 @@ traitMethodLookup ty m env = do
 classMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 classMethodLookup ty m env = do
   cls <- classLookup ty env
-  traits <- mapM (\t -> traitLookup t env) $
-    typesFromCapability $ ccapability cls
-  let
-    headers = map mheader $ cmethods cls ++ concatMap tmethods traits
-  header <- find (matchHeader m) headers
-  let bindings = formalBindings (cname cls) ty
+  let cap = ccapability cls
+      traits = typesFromCapability cap
+  formalTraits <- mapM (`traitLookup` env) traits
+  let classPairs = map (\m -> (cname cls, mheader m)) (cmethods cls)
+      traitPairs =
+        concatMap (\t -> map (\m -> (tname t, mheader m)) (tmethods t))
+                  formalTraits
+      methodTable = classPairs ++ traitPairs
+  (called, header) <- find (\(_, h) -> matchHeader m h) methodTable
+  let formalsTable = (cname cls, ty):zip (map tname formalTraits) traits
+  (formal, actual) <- find ((== called) . fst) formalsTable
+  let bindings = formalBindings formal actual
   return $ replaceHeaderTypes bindings header
 
 methodAndCalledTypeLookup ::

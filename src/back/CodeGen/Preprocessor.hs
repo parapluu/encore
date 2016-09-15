@@ -59,7 +59,7 @@ convertMethod bindings cdecl method =
     method{A.mheader, A.mbody}
   where
     convertType :: Ty.Type -> Ty.Type
-    convertType = Ty.typeMap (\ty -> fromMaybe ty (lookup ty bindings))
+    convertType = Ty.replaceTypeVars bindings
 
     convertExpr :: A.Expr -> A.Expr
     convertExpr e
@@ -70,10 +70,8 @@ convertMethod bindings cdecl method =
             in A.setType ty $ convertNode e
         | otherwise = convertNode e
 
-    isThisFieldAccess e
-        | A.FieldAccess{A.target} <- e
-          = A.isThisAccess target
-        | otherwise = False
+    isThisFieldAccess A.FieldAccess{A.target} = A.isThisAccess target
+    isThisFieldAccess _ = False
 
     getFieldType f =
         A.ftype . fromMaybe err . find ((== f) . A.fname)
