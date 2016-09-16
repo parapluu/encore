@@ -1243,6 +1243,8 @@ matchTypes expected ty
             resTy       = getResultType ty
         in
           do
+            unless (length argTypes == length expArgTypes) $
+                   tcError $ TypeMismatchError ty expected
             argBindings <- matchArgs expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
