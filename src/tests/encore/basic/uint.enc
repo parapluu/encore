@@ -1,0 +1,8 @@
+def addUnsigned(x : uint, y : int) : uint {
+  x + y
+}
+
+class Main
+  def main() : void {
+    print addUnsigned(42u, 13u);
+  }

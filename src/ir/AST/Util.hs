@@ -85,6 +85,7 @@ getChildren Exit {args} = args
 getChildren StringLiteral {} = []
 getChildren CharLiteral {} = []
 getChildren IntLiteral {} = []
+getChildren UIntLiteral {} = []
 getChildren RealLiteral {} = []
 getChildren RangeLiteral {start, stop, step} = [start, stop, step]
 getChildren Embed {} = []
@@ -158,6 +159,7 @@ putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop
 putChildren [] e@(StringLiteral {}) = e
 putChildren [] e@(CharLiteral {}) = e
 putChildren [] e@(IntLiteral {}) = e
+putChildren [] e@(UIntLiteral {}) = e
 putChildren [] e@(RealLiteral {}) = e
 putChildren [] e@(Embed {}) = e
 putChildren [operand] e@(Unary {}) = e{operand = operand}
@@ -213,6 +215,7 @@ putChildren _ e@(Peer {}) = error "'putChildren l Peer' expects l to have 0 elem
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
 putChildren _ e@(CharLiteral {}) = error "'putChildren l CharLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"
+putChildren _ e@(UIntLiteral {}) = error "'putChildren l UIntLiteral' expects l to have 0 elements"
 putChildren _ e@(RealLiteral {}) = error "'putChildren l RealLiteral' expects l to have 0 elements"
 putChildren _ e@(RangeLiteral {}) = error "'putChildren l RangeLiteral' expects l to have 3 elements"
 putChildren _ e@(Embed {}) = error "'putChildren l Embed' expects l to have 0 elements"

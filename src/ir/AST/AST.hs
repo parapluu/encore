@@ -502,6 +502,8 @@ data Expr = Skip {emeta :: Meta Expr}
                           step   :: Expr}
           | IntLiteral {emeta :: Meta Expr,
                         intLit :: Int}
+          | UIntLiteral {emeta :: Meta Expr,
+                         intLit :: Int}
           | RealLiteral {emeta :: Meta Expr,
                          realLit :: Double}
           | Embed {emeta :: Meta Expr,

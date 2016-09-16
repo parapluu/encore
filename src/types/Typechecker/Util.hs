@@ -207,6 +207,8 @@ subtypeOf ty1 ty2
 
       numericSubtypeOf ty1 ty2
           | isIntType ty1 && isRealType ty2 = True
+          | isIntType ty1 && isUIntType ty2 = True
+          | isUIntType ty1 && isIntType ty2 = True
           | otherwise = ty1 == ty2
 
 -- | Convenience function for asserting distinctness of a list of
