@@ -1,0 +1,19 @@
+trait Foo<t> {
+  require x:t
+  def getX() : t {
+    this.x
+  }
+}
+
+passive class Bar : Foo<int> {
+  x:int
+  def init() : void
+    this.x = 42
+}
+
+class Main {
+  def main() : void {
+    let b = new Bar();
+    print b.getX();
+  }
+}
