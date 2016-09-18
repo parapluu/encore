@@ -56,7 +56,7 @@ instance Translatable ID.UnaryOp (CCode Name) where
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
     | Ty.isIntType ty          = "%lli"
-    | Ty.isUIntType ty         = "%u"
+    | Ty.isUIntType ty         = "%llu"
     | Ty.isRealType ty         = "%f"
     | Ty.isStringObjectType ty = "%s"
     | Ty.isStringType ty       = "%s"
