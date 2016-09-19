@@ -60,3 +60,5 @@ src/tests/encore/par/*
 /.dist-buildwrapper/
 .project
 .stack*
+coverage/
+encorec.tix
