@@ -35,6 +35,7 @@ module Typechecker.Environment(Environment,
 import Data.List
 import Data.Maybe
 import Control.Applicative ((<|>))
+import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Printf (printf)
@@ -167,20 +168,16 @@ traitMethodLookup ty m env = do
 classMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
 classMethodLookup ty m env = do
   cls <- classLookup ty env
-  let cap = ccapability cls
-      traits = typesFromCapability cap
-  formalTraits <- mapM (`traitLookup` env) traits
-  let classPairs = map (\m -> (cname cls, mheader m)) (cmethods cls)
-      traitPairs = concatMap traitMethodPairs formalTraits
-      methodTable = classPairs ++ traitPairs
-      formalsTable = (cname cls, ty):zip (map tname formalTraits) traits
-  (called, header) <- find (matchHeader m . snd) methodTable
-  (formal, actual) <- find ((== called) . fst) formalsTable
-  let bindings = formalBindings formal actual
-  return $ replaceHeaderTypes bindings header
-  where
-    traitMethodPairs trait =
-      map (\m -> (tname trait, mheader m)) (tmethods trait)
+  case find (matchHeader m . mheader) (cmethods cls) of
+    Just mtd -> do
+      let header = mheader mtd
+          bindings = formalBindings (cname cls) ty
+      return $ replaceHeaderTypes bindings header
+    Nothing -> do
+      let cap = ccapability cls
+          traits = typesFromCapability cap
+          headers = map (\t -> traitMethodLookup t m env) traits
+      msum headers
 
 methodAndCalledTypeLookup ::
     Type -> Name -> Environment -> Maybe (FunctionHeader, Type)
