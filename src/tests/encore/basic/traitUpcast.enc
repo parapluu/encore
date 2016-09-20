@@ -1,15 +1,22 @@
-trait T<t>
-  def foo() : void
-    print "In T"
+trait Iterable<t>
+  require iterator(): Iter<t>
 
-passive class Foo<t> : T<t>
+trait Iter<t>
+  def skip() : Skip<t>
+    new Skip<t>()
 
-passive class Bar<t>
-  def bar() : T<t>
-    new Foo<t>
+passive class Skip<t> : Iter<t>
+
+passive class ArrayIter<t> : Iter<t>
+
+passive class ArrayIterable<t> : Iterable<t>
+  def iterator() : ArrayIter<t>
+    new ArrayIter<t>()
 
 class Main
+  def getIter(it : Iter<int>) : void
+    print "In getIter"
+
   def main() : void {
-    let x = new Bar<int>;
-    x.bar().foo()
+    this.getIter((new ArrayIterable<int>()).iterator().skip());
   }
