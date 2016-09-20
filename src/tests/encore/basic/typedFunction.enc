@@ -1,0 +1,308 @@
+------------------------------------------------------------
+--
+-- Parametric functions dealing with arrays
+--
+------------------------------------------------------------
+
+def pArrayLit<foo, bar>(x: bar, y: foo, z: foo) : [bar]
+  [x, x, x]
+
+def pArrayAccess<foo>(x: foo): foo
+  let arr = [x, x, x]
+  in arr[0]
+
+def pCreateParametricArray<foo>(x: foo): [foo]
+  new [foo](10)
+
+def pCreateTupleContainingArray<a>(fst: a, snd: String): (a, String)
+  (fst, snd)
+
+def pExtractParametricArgumentAndCreateArray<t>(xs: [t]): [t]
+  [xs[0]]
+
+def pExtractElementFromArray<t>(xs: [t]): t
+  xs[0]
+
+------------------------------------------------------------
+--
+-- Parametric functions dealing with tuples
+--
+------------------------------------------------------------
+
+def pCreateTuple<v, k>(key: k, value: v): (k, v)
+  (key, value)
+
+def pFlipInTuple<a, b>(tuple: (a, b)): (b, a)
+  match tuple with
+  (x, y) => (y, x)
+
+------------------------------------------------------------
+--
+-- Parametric functions dealing with option types
+--
+------------------------------------------------------------
+
+def fCreateParametricOptionType<t>(arg1: t): Maybe t
+  Just arg1
+
+def fCreateParametricOptionTypeNothing<t>(arg1: t): Maybe t
+  Nothing
+
+def extractAndCreateOptionValue<t>(op: Maybe t, v: t): Maybe t
+  match op with
+  Just ignored => Just v
+  Nothing => Nothing
+
+------------------------------------------------------------
+------------------------------------------------------------
+--
+-- Helper functions for parametric ParT
+--
+------------------------------------------------------------
+
+def id<a>(item: a): a
+  item
+
+-- constInt: always return the same integer
+def constInt<b>(x: b): int
+  30
+
+-- parametricResult: ignores input and returns a parametric option type
+def parametricResult<z>(x: int): Maybe z
+  Nothing
+
+-- aToMaybeB: ignore input and return the Nothing data type
+def aToMaybeB<a, b>(item: a): Maybe b
+  Nothing
+
+-- createNothing: given a parametric input and output parameter,
+--     call a parametric function that returns the right option type b
+def createNothing<a, b>(arg: Maybe a): Maybe b {
+  match arg with
+  Just v => aToMaybeB<a, b>(v)
+  Nothing => Nothing
+}
+
+def stringAddSpace(item: Maybe String): Maybe String
+  match item with
+    Just s => Just s.concatenate(" space added!")
+    Nothing => Just "stringAddSpace creates 'Maybe String'"
+
+def stringAddHello(item: Maybe String): String
+  match item with
+  Just s => s.concatenate("\nHello world!")
+  Nothing => "ERROR: this should have been a 'Hello World' string"
+
+------------------------------------------------------------
+--
+-- Parametric functions dealing with ParT
+--
+------------------------------------------------------------
+
+def createNewParT<t>(v: t): Par t
+  liftv v
+
+def extractPar<t>(par: Par t): [t]
+  extract(par)
+
+def joinPar<t>(par: Par (Par t)): Par t
+  join(par)
+
+def sequencePipeline<t>(par: Par t): Par String
+  let text = ": end of the Party"
+      p1 = par >> constInt<t>
+               >> parametricResult<String>
+               >> stringAddSpace
+               >> stringAddHello
+               >> \(s: String) -> { s.to_upper(); }
+      p2 = (liftv 42) >> (\(s: int) -> string_from_int(s))
+                      >> id<String> >> \(s: String) -> s.concatenate(text)
+      pClosure = par >> (\(s: t) -> id<t>(s))
+    f = (new Test<String>("kiko")).getArg()
+    pfut = (liftf f) >> id<String>
+  in p1 || p2 || pfut
+
+def joinParTest<p>(v: p): Par p
+  let v1 = liftv(liftv(v))
+      ft = liftf (new Test<p>(v)).getArg()
+  in joinPar<p>(liftv(ft)) || (joinPar<p>(v1))
+
+------------------------------------------------------------
+------------------------------------------------------------
+--
+-- Parametric functions tests
+--
+------------------------------------------------------------
+
+def compose<s, t, u>(f : s -> t, g : t -> u) : s -> u
+  \(x : s) -> g(apply<s, t>(f, x))
+
+def apply<a, b>(fn: a -> b, x: a): b
+  fn(x)
+
+def pSingleArgument<t>(arg1: t, arg2: int, arg3: t): t
+  arg3
+
+def pRecursiveCall<t>(arg1: t, counter: int): Maybe t
+  if counter == 0 then
+    Just arg1
+  else
+    pRecursiveCall<t>(arg1, counter-1)
+
+def helperForNestedFunction<a>(x: a): a
+  x
+
+def pNestedFunction<t>(x: t): t
+  helperForNestedFunction<t>(x)
+
+------------------------------------------------------------
+------------------------------------------------------------
+--
+-- Integration of Parametric functions and Parametric Classes
+--
+------------------------------------------------------------
+
+def fAppend<t>(x: t, y: t): [t]
+  [x, y]
+
+def createTest<t>(arg: t): Test<t>
+  new Test<t>(arg)
+
+class Test<a>
+  arg: a
+
+  def init(arg: a): void
+    this.arg = arg
+
+  def appendToArray(arg: a): [a]
+    fAppend<a>(this.arg, arg)
+
+  def toTuple(arg: a): (a, a)
+    pCreateTuple<a, a>(this.arg, arg)
+
+  def getArg(): a
+    this.arg
+
+------------------------------------------------------------
+--
+-- Main tests
+--
+------------------------------------------------------------
+
+class Main
+  def printTestName(name: String): void {
+    print("\n-------------------------");
+    print("-- {}        \n", name);
+    print("-------------------------");
+  }
+
+  def testParametricObjects(): void {
+    this.printTestName("Parametric Objects");
+    let t = createTest<String>("Create Test of type 'String'");
+    print(get t.getArg());
+
+    let arr = get t.appendToArray("Adding a new string");
+    repeat i <- |arr| { print(arr[i]);};
+
+    let tup = get t.toTuple("Adding to tuple");
+    print(tup);
+  }
+
+  def testArrays(): void {
+    this.printTestName("Array");
+    let test1 = pArrayLit<int, String>("Test array literals", 42, 12);
+    repeat i <- |test1| { print(test1[i])};
+
+    let test2 = pArrayAccess<String>("Test array return type within parametric function");
+    print(test2);
+
+    let test3 = pCreateParametricArray<String>("Test returns empty array of String type");
+    test3[0] = "pCreateParametricArray";
+    print(test3[0]);
+
+    let testPassingArray = pCreateTupleContainingArray<[String]>(["Test appending to existing array"], "True!");
+    match testPassingArray with {
+      (fst, snd) => repeat i <- |fst| { print("{} - {}\n", fst[i], snd);}
+    };
+
+    let testExtractElement = pExtractElementFromArray<[String]>([["1", "2", "3"]]);
+    repeat i <- |testExtractElement| print(testExtractElement[i]);
+  }
+
+  def testTuple(): void {
+    this.printTestName("Tuple");
+    let test1 = pCreateTuple<int, String>("k", 12);
+    match test1 with {
+      (k, v) => print("Parametric tuple with key: '{}' and value '{}'\n", k, v)
+        _ => print("error in 'pMultipleParametricArguments'\n")
+    };
+
+    let testFlipTuple = pFlipInTuple<String, int>(("Update tuple test", 23));
+    match testFlipTuple with
+      (v, k) => print("Flipped key {} with value {}", k, v);
+  }
+
+  def testOptionType(): void {
+    this.printTestName("Option");
+    let test1 = fCreateParametricOptionType<String>("Test creation of 'Just a' inside parametric function")
+    in {
+      match test1 with
+        Just s => print("{}\n", s)
+        Nothing => print("Error: expected 'Just' value constructor but got 'Nothing'")
+    };
+
+    let testNothing = fCreateParametricOptionTypeNothing<String>("Test the returns parametric Nothing")
+    in {
+      match testNothing with
+        Just s => print("Error, expected 'Nothing'")
+        Nothing => { testNothing = Just "re-assignment";
+                     print("Test create parametric Nothing and can be re-assigned\n");}
+    };
+
+    let testNewVal = extractAndCreateOptionValue<String>(Just "Remove this text", "Append this text")
+    in {
+      match testNewVal with
+        Just v => print(v)
+        Nothing => print("Error in 'extractAndCreateOptionValue', expected string 'Append this text'")
+    }
+  }
+
+  def testParT(): void {
+    this.printTestName("ParT");
+    let testSequence = sequencePipeline<int>(liftv 42)
+        result = extractPar<String>(testSequence)
+    in { repeat i <- |result| print(result[i]);};
+
+    let testJoin = extractPar<int>(joinParTest<int>(20));
+    repeat i <- |testJoin| print(testJoin[i])
+  }
+
+  def testGlobalFunctions(): void {
+    this.printTestName("Functions");
+    let test1 = pSingleArgument<String>("test single argument", 42, "");
+    print(test1);
+
+    let pNested = pNestedFunction<String>("test passing parametric type between parametric functions");
+    print(pNested);
+
+    let testRecursiveName = "test calling function recursively"
+        pRecursive = pRecursiveCall<String>(testRecursiveName, 20)
+    in {
+      match pRecursive with
+         Just result => print(result)
+         Nothing => print("Error in function pRecursiveCall, expected output: '{}'", testRecursiveName)
+    };
+
+    let compFn = compose<String, String, String>(id<String>, id<String>);
+    print compFn("42");
+  }
+
+  def main():void {
+    this.testArrays();
+    this.testTuple();
+    this.testOptionType();
+    this.testGlobalFunctions();
+    this.testParametricObjects();
+    this.testParT();
+    ()
+  }

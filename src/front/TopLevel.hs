@@ -143,7 +143,8 @@ parseArguments args =
                                 (arg':rest) -> (opt arg', rest)
       (sources, rest) = partition isSource (parseArguments' args)
       (imports, options) = partition isImport rest
-      importDirs homeDir = nub $ ([standardLibLocation ++ "/standard/",
+      importDirs homeDir =
+        nub $ ([standardLibLocation ++ "/standard/",
         standardLibLocation ++ "/prototype/",
         "./"] ++) $ map (++ "/") $ concatMap (\(Imports dirs) -> map getFullPath dirs) imports
           where

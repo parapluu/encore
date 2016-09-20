@@ -10,10 +10,10 @@ data MetaInfo = Unspecified
               | Async {metaId :: String}
                 deriving (Eq, Show)
 
-data Meta a = Meta {sourcePos :: SourcePos,
-                    metaType  :: Maybe Type,
-                    sugared   :: Maybe a,
-                    metaInfo  :: MetaInfo} deriving (Eq, Show)
+data Meta a = Meta {sourcePos   :: SourcePos,
+                    metaType    :: Maybe Type,
+                    sugared     :: Maybe a,
+                    metaInfo    :: MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
 meta pos = Meta {sourcePos = pos

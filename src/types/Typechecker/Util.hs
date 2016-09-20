@@ -20,6 +20,7 @@ module Typechecker.Util(TypecheckM
                        ,findCapability
                        ,propagateResultType
                        ,unifyTypes
+                       ,resolveParamBinding
                        ) where
 
 import Identifiers
@@ -206,6 +207,7 @@ subtypeOf ty1 ty2
         let members2 = unionMembers ty2
         anyM (ty1 `subtypeOf`) members2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
+    -- | isTypeVar ty1 = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
     | otherwise = return (ty1 == ty2)
@@ -407,3 +409,32 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter (unionMembers ty ++ tys)
     | otherwise =
         error "Util.hs: Tried to form an union without a capability"
+
+resolveParamBinding :: [(Type, Type)] -> TypecheckM [(Type, Type)]
+resolveParamBinding [] = return []
+resolveParamBinding ts = do
+  -- [(a,a),(b,a),(b,c),(c,a),(a,int)]
+  -- [[(b,a),(b,a)],[(c,a)],[(a,int)]]
+  let groups = groupBy equalFormal $
+                 filter (\(formal, actual) -> formal /= actual) ts
+      result = map formatting groups
+  when (any isNothing result) $
+      tcError $ SimpleError "Type variable assigned different concrete types"
+  let xs = nub . concat $ map fromJust result
+  return $ map (\(formal, actual) -> (formal, replaceTypeVars xs actual)) xs
+  where
+    formatting :: [(Type, Type)] -> Maybe [(Type, Type)]
+    formatting [] = Just []
+    formatting ls =
+      let typeVars = nub $ map snd $ filter (isTypeVar.snd) ls
+          concreteVars = nub $ map snd $ filter (not.isTypeVar.snd) ls
+          allTypeVars = concatMap (\(f, a) -> [f, a]) ts
+      in
+        if length concreteVars > 1 then
+          Nothing
+        else if length concreteVars == 1 then
+          Just $ (fst (head ls), head concreteVars):map (\t -> (t, head concreteVars)) typeVars
+        else Just ls
+    equalFormal (formal1, _) (formal2, _)
+      | isTypeVar formal1 && isTypeVar formal2 && formal1 == formal2 = True
+      | otherwise = False
