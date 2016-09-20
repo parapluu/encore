@@ -1,1 +1,0 @@
-Home for downloaded encore bundles (aka joy files).
