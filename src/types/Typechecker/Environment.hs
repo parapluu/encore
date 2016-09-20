@@ -177,7 +177,7 @@ classMethodLookup ty m env = do
       let cap = ccapability cls
           traits = typesFromCapability cap
           headers = map (\t -> traitMethodLookup t m env) traits
-      join $ find isJust headers
+      msum headers
 
 methodAndCalledTypeLookup ::
     Type -> Name -> Environment -> Maybe (FunctionHeader, Type)
