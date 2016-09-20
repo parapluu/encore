@@ -8,7 +8,6 @@ CONFIG=release
 RELEASE_DIR=release
 INC_DIR=$(RELEASE_DIR)/inc
 LIB_DIR=$(RELEASE_DIR)/lib
-ENCOREC=$(RELEASE_DIR)/encorec
 
 all: encorec
 
@@ -31,7 +30,7 @@ coverage: dirs pony
 	cabal clean;
 	cabal configure --enable-tests --enable-coverage;
 	ENCORE_BUNDLES="$(CURDIR)/bundles/" cabal build;
-	cp -r $(ENCOREC) $(RELEASE_DIR);
+	cp dist/build/encorec/encorec $(RELEASE_DIR);
 	-make -C $(SRC_DIR) test;
 	mkdir -p coverage;
 	find src -name "*.tix" -print0 | xargs -0 hpc sum > coverage/coverage.tix;
