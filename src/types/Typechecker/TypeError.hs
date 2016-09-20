@@ -416,8 +416,12 @@ instance Show TCWarning where
 
 data Warning = StringDeprecatedWarning
              | StringIdentityWarning
+             | PolymorphicIdentityWarning
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
     show StringIdentityWarning =
         "Comparing String identity. Equality should be compared using 'equals'"
+    show PolymorphicIdentityWarning =
+        "Comparing polymorphic values is unstable. \n" ++
+        "Later versions of Encore will require type constraints for this to work"

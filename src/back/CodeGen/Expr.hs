@@ -154,17 +154,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate bin@(A.Binop {A.binop, A.loper, A.roper}) = do
     (nlo, tlo) <- translate loper
     (nro, tro) <- translate roper
+    tmp <- Ctx.genNamedSym "binop"
     let ltype = A.getType loper
-        le = StatAsExpr nlo tlo
-        re' = StatAsExpr nro tro
+        le = StatAsExpr (if Ty.isTypeVar ltype
+                         then fromEncoreArgT (Ptr void) (AsExpr nlo)
+                         else nlo) tlo
+        re' = StatAsExpr (if Ty.isTypeVar ltype
+                          then fromEncoreArgT (Ptr void) (AsExpr nro)
+                          else nro) tro
         re = if Ty.isRefType ltype
              then Cast (translate ltype) re'
              else re'
-    tmp <- Ctx.genNamedSym "binop"
-    return $ (Var tmp,
-              Seq [Statement (Assign
-                              (Decl (translate $ A.getType bin, Var tmp))
-                              (BinOp (translate binop) le re))])
+        theAssign = Assign (Decl (translate $ A.getType bin, Var tmp))
+                           (BinOp (translate binop) le re)
+    return (Var tmp, Statement theAssign)
 
   translate l@(A.Liftf {A.val}) = do
     (nval, tval) <- translate val
