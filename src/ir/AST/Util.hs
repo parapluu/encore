@@ -338,6 +338,8 @@ extractTypes (Program{functions, traits, classes}) =
 extractExprTypes :: Expr -> [Type]
 extractExprTypes = foldrExp collectTypes []
   where
+    collectTypes e@(FunctionCall {typeArguments = Just typeArgs}) acc =
+      typeArgs ++ (typeComponents . getType) e ++ acc
     collectTypes e acc = (typeComponents . getType) e ++ acc
 
 freeTypeVars :: Expr -> [Type]

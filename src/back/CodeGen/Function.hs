@@ -16,6 +16,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
+import qualified Identifiers as Id
 import Types
 
 import Control.Monad.State hiding(void)
@@ -65,6 +66,13 @@ initGlobalFunctionClosure f =
     closureFun = AsLval closureStructFFieldName
     address = Cast (Ptr void) $ Amp $ globalFunctionWrapperNameOf f
 
+globalFunctionWrapperDecl :: A.Function -> CCode Toplevel
+globalFunctionWrapperDecl f =
+  FunctionDecl (Typ "value_t") name [Ptr (Ptr encoreCtxT), Ptr (Ptr ponyTypeT),
+                                     Ptr $ Typ "value_t", Ptr void]
+  where
+    name = globalFunctionWrapperNameOf f
+
 -- TODO: different header from shared!
 globalFunctionWrapper :: A.Function -> CCode Toplevel
 globalFunctionWrapper f =
@@ -106,9 +114,10 @@ instance Translatable A.Function (ClassTable -> FunctionTable -> CCode Toplevel)
                            <*> map (AsLval . typeVarRefName) funTypeParams
           assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
           runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
-          ctx       = Ctx.new (zip encArgNames argNames) ctable ftable
+          typeParamSubst = map (\t -> (Id.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
+          ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) ctable ftable
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos [] ctable ftable)
+          closures = map (\clos -> translateClosure clos funTypeParams ctable ftable)
                          (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas ctable ftable) $
                       reverse $ Util.filter A.isTask funbody

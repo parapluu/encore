@@ -134,6 +134,12 @@ def joinParTest<p>(v: p): Par p
 --
 ------------------------------------------------------------
 
+def compose<s, t, u>(f : s -> t, g : t -> u) : s -> u
+  \(x : s) -> g(apply<s, t>(f, x))
+
+def apply<a, b>(fn: a -> b, x: a): b
+  fn(x)
+
 def pSingleArgument<t>(arg1: t, arg2: int, arg3: t): t
   arg3
 
@@ -286,6 +292,9 @@ class Main
          Just result => print(result)
          Nothing => print("Error in function pRecursiveCall, expected output: '{}'", testRecursiveName)
     };
+
+    let compFn = compose<String, String, String>(id<String>, id<String>);
+    print compFn("42");
   }
 
   def main():void {

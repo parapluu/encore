@@ -247,6 +247,11 @@ globalFunctionWrapperNameOf :: A.Function -> CCode Name
 globalFunctionWrapperNameOf f =
   Nam $ encoreName "global_fun_wrapper" $ show $ A.functionName f
 
+globalFunctionAsValueWrapperNameOf :: A.Expr -> CCode Name
+globalFunctionAsValueWrapperNameOf (A.FunctionAsValue {A.name}) =
+  Nam $ encoreName "global_fun_wrapper" (show name)
+globalFunctionAsValueWrapperNameOf _ = error $ "Something happened"
+
 closureStructName :: CCode Name
 closureStructName = Nam "closure"
 

@@ -408,8 +408,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var . show $ globalClosureName name, Skip)
 
-  translate (A.FunctionAsValue {A.name}) =
-    return (Var . show $ globalClosureName name, Skip)
+  translate fun@(A.FunctionAsValue {A.name, A.typeArgs}) = do
+    tmp <- Ctx.genSym
+    let funName = globalFunctionAsValueWrapperNameOf fun
+        runtimeTypes = map runtimeType typeArgs
+    (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
+
+    let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
+    return (Var tmp,
+            Seq $
+             tmpTypeDecl:
+              [Assign (Decl (closure, Var tmp))
+              (Call closureMkFn [encoreCtxVar, AsLval funName,
+                                 nullVar, nullVar, runtimeTypeVar])])
 
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
@@ -1027,19 +1038,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
+    globalFunctionNames <- gets Ctx.getGlobalFunctionNames
+    let freeVars = Util.freeVariables (map A.pname eparams ++ globalFunctionNames) body
+    -- error $ show fTypeVars
     fillEnv <- insertAllVars freeVars fTypeVars
     return $
       (Var tmp,
       Seq $
         (mkEnv envName) : fillEnv ++
         [Assign (Decl (closure, Var tmp))
-          (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
+          (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
       metaId    = Meta.getMetaId . A.getMeta $ clos
       funName   = closureFunName metaId
       envName   = closureEnvName metaId
       traceName = closureTraceName metaId
-      freeVars  = Util.freeVariables (map A.pname eparams) body
       fTypeVars  = Util.freeTypeVars body
       mkEnv name =
         Assign (Decl (Ptr $ Struct name, AsLval name))
@@ -1062,14 +1075,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           fName = typeVarRefName ty
         return $ assignVar fName tname
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
       assignVar :: (UsableAs e Expr) => CCode Name -> CCode e -> CCode Stat
       assignVar lhs rhs = Assign ((Deref envName) `Dot` lhs) rhs
       localTypeVar ty = do
         c <- get
         return $ isJust $ Ctx.substLkp c name
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
     ctx <- get

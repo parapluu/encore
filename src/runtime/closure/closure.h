@@ -38,7 +38,7 @@ typedef value_t (*closure_fun)(pony_ctx_t**, pony_type_t**, value_t[], void*);
  *  @return A closure with body \p body and environment \p env
  */
 closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
-    pony_trace_fn trace);
+                      pony_trace_fn trace, pony_type_t **runtimeTypes);
 
 /**
  *  Call a closure.
@@ -52,7 +52,7 @@ struct closure {
   closure_fun call;
   void *env;
   pony_trace_fn trace;
-  pony_type_t* runtimeTypes[];
+  pony_type_t **runtimeTypes;
 };
 
 #endif

@@ -139,6 +139,7 @@ generateHeader p =
 
      globalFunctions =
        [globalFunctionDecl f | f <- allfunctions] ++
+       [globalFunctionWrapperDecl f | f <- allfunctions] ++
        [globalFunctionClosureDecl f | f <- allfunctions]
 
      messageEnums =

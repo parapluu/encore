@@ -579,15 +579,12 @@ instance Checkable Expr where
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
-      eEparams <- mapM (local addTypeVars . typecheck) eparams
-      eBody <- local (addTypeVars . addParams eEparams) $ typecheckNotNull body
+
+      eEparams <- mapM typecheck eparams
+      eBody <- local (addParams eEparams) $ typecheckNotNull body
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
-      where
-        typeParams = concatMap (typeComponents . ptype) eparams
-        typeVars = nub $ filter isTypeVar typeParams
-        addTypeVars = addTypeParameters typeVars
 
     --  E |- body : t
     --  ------------------

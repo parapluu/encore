@@ -1,6 +1,8 @@
+def fmap<a, b>(f: a -> b, x: a): b
+  f(x)
+
 class Main
   def main() : void
-    let app = \(f : a -> b, x : a) -> {f(x)}
-        printer = \(s : String) -> print s
+    let printer = \(s : String) -> print s
     in
-      app(printer, "Hello ponyworld")
+      fmap<String, void>(printer, "Hello ponyworld")
