@@ -1,8 +1,3 @@
-def stringToInt(s : string) : int {
-  embed int
-    atoi(#{s});
-  end;
-}
 
 class BigActor {
   id : int
@@ -13,7 +8,16 @@ class BigActor {
   expPinger : int
   random : int 
   neighbors : [BigActor]
-  
+
+  seed : int  
+
+  def genSeed(id:int) : int {
+    embed int
+      uint64_t s = time(NULL) + #{id} * 10;
+      s;
+    end
+  }
+
   def init(id : int, numMessages : int, sinkActor : SinkActor) : void {
     this.id = id;
     this.numMessages = numMessages;
@@ -21,15 +25,16 @@ class BigActor {
 
     this.numPings = 0;
     this.expPinger = -1;
+    this.seed = this.genSeed(this.id);
   }
 
-  def random(a:int,b:int) : int -- At the moment, each active object does not generate random numbers independently on other objects
+  def random(i:int) : int
     embed int
-      (random() % #{b}) + #{a};
+      (rand_r(&(_this->_enc__field_seed)) % #{i});
     end
 
   def ping(id : int) : void {
-    this.neighbors[id] ! pong(this.id);
+    this.neighbors[id] ! pong(this.id);   
   }
 
   def pong(id : int) : void {
@@ -37,21 +42,28 @@ class BigActor {
       print("ERROR: Expected: {} but received ping from {}\n", this.expPinger, id);
     };
 
+    this.numPings = this.numPings + 1;
+
     if(this.numPings == this.numMessages) then {
       this.sinkActor ! exit();
     } else {
-      this.sendPing();
-      this.numPings = this.numPings + 1;
+      this ! sendPing();  
     }
   }
 
   def setNeighbors(neighbors : [BigActor]) : void {
     this.neighbors = neighbors;
+        
+    -- let
+    --   rnd = this.random(|this.neighbors|)
+    -- in {	  
+    --   this.neighbors[rnd] ! ping(this.id);
+    -- }
   }
 
   def sendPing() : void {
     let
-      target = this.random(0, |this.neighbors|)
+      target = this.random(|this.neighbors|)
       targetActor = this.neighbors[target]
     in {
       this.expPinger = target;
@@ -78,13 +90,21 @@ class SinkActor {
 }
 
 class Main { 
-  def main(argv : [string]) : void {
+  def extractor(maybe : Maybe int) : int {
+    match maybe with
+      Nothing => -1
+      Just i => i
+  }
+  
+
+
+  def main(argv : [String]) : void {
     let
-      numMessages = 16000
-      numActors = if |argv| > 1 then stringToInt(argv[1]) else 1000
+      numMessages = 16 * 1024
+      numActors = if |argv| > 1 then this.extractor((argv[1]).to_int()) else 8 * 1024
       sinkActor = new SinkActor(numActors)
       counter = 1
-      chunkSize = 1000
+      chunkSize = 1 * 1024
       chunks = if(numActors >= chunkSize) then numActors / chunkSize else 1
     in {
       while(counter < chunks + 1) {
@@ -94,6 +114,7 @@ class Main {
                       else chunkSize -- Checks if numActors can be seperated into more chunks or if we should create one that's a bit bigger (at most 1999)
           bigActors = new [BigActor](arraySize)
         in {
+	  -- print arraySize;
           repeat i <- |bigActors|
             bigActors[i] = new BigActor(i, numMessages, sinkActor);
 
