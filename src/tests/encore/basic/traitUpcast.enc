@@ -1,0 +1,15 @@
+trait T<t>
+  def foo() : void
+    print "In T"
+
+passive class Foo<t> : T<t>
+
+passive class Bar<t>
+  def bar() : T<t>
+    new Foo<t>
+
+class Main
+  def main() : void {
+    let x = new Bar<int>;
+    x.bar().foo()
+  }
