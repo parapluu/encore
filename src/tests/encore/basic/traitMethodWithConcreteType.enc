@@ -1,0 +1,29 @@
+def showBar(b : Bar<String>) : void
+  print b.bar()
+
+trait Foo<t> {
+  require x:t
+  def getX() : t {
+    this.x
+  }
+}
+
+trait Bar<t> {
+  require bar() : t
+}
+
+passive class C : Foo<int> + Bar<String> {
+  x:int
+  def init() : void
+    this.x = 42
+  def bar() : String
+    "bar"
+}
+
+class Main {
+  def main() : void {
+    let c = new C();
+    print c.getX();
+    showBar(c);
+  }
+}

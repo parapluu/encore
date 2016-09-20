@@ -1,0 +1,25 @@
+class A
+
+passive class B : C
+
+trait C
+  def read() : String
+    "Hello"
+
+class Foo
+  def init(a : A, b : B, c : C) : void
+    ()
+  def foo(b : B) : B
+    b
+  def bar(b : B) : C
+    b : C
+
+class Main
+  def main() : void
+    let a = new A
+        b = new B
+        c = new B : C
+        x = new Foo(a, b, c)
+        b2 = get x.foo(b)
+    in
+      print ((get x.bar(b2)).read())

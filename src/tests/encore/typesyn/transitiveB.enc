@@ -1,0 +1,11 @@
+typedef D = T
+typedef E = D
+
+trait T
+
+passive class C1 : D -- This compiles
+
+class Main
+  def main() : void
+    let c = new C1 in
+    print("10")

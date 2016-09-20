@@ -4,8 +4,8 @@ class Main
       other.work()
 
 class Other
-  message : string
-  def init(va : string) : void
+  message : String
+  def init(va : String) : void
     this.message = va
   def work() : void
     print this.message

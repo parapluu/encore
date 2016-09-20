@@ -1,5 +1,6 @@
 #include "task.h"
 #include "sched/mpmcq.h"
+#include "sched/scheduler.h"
 #include <pony.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -34,6 +35,7 @@ static void set_encore_task_type(pony_type_t const* const type){
 
 void task_setup(pony_type_t const* const type){
   static int n_calls = 0;
+  (void) n_calls;
   assert(n_calls++ == 0);
 
   __atomic_store_n(&remaining_tasks, 0, __ATOMIC_RELAXED);
@@ -42,24 +44,30 @@ void task_setup(pony_type_t const* const type){
 }
 
 
-encore_task_s* task_mk(task_fn const body, void* const env, void* const dependencies, pony_trace_fn trace){
+encore_task_s* task_mk(pony_ctx_t* ctx, task_fn const body,
+                       void* const env, void* const dependencies,
+                       pony_trace_fn trace){
+  (void)ctx;
   encore_task_s* task = malloc(sizeof(encore_task_s));
   __atomic_fetch_add(&remaining_tasks, 1, __ATOMIC_RELAXED);
   *task = (encore_task_s){.run = body, .env = env, .dependencies = dependencies, .trace = trace};
   return task;
 }
 
-void task_trace(void* const p){
+void task_trace(pony_ctx_t *ctx, void* const p)
+{
+  assert(p);
   struct encore_task_s* t = (struct encore_task_s*)p;
   if(t->trace != NULL){
-    t->trace(t->env);
+    t->trace(ctx, t->env);
   }
   // future is traced via generated code
   // dependencies are null at the moment
 }
 
 value_t task_runner(encore_task_s const* const task){
-  return task->run(task->env, task->dependencies);
+  pony_ctx_t* ctx = pony_ctx(); // TODO: Pass ctx as argument instead!
+  return task->run(&ctx, task->env, task->dependencies);
 }
 
 
@@ -73,7 +81,7 @@ void task_attach_fut(encore_task_s* const task, void* const fut){
 }
 
 
-inline static encore_task_msg_s* const task_mk_msg(encore_task_s* const task){
+inline static encore_task_msg_s* task_mk_msg(encore_task_s* const task){
   encore_task_msg_s* const msg = (encore_task_msg_s* const) pony_alloc_msg(0, _ENC__MSG_TASK);
   msg->_fut = task->fut;
   msg->_task = task;

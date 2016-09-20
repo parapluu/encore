@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
-
 module CodeGen.Task where
 
 import CCode.Main
@@ -21,27 +19,27 @@ import Control.Monad.State hiding(void)
 translateTask :: A.Expr -> ClassTable -> CCode Toplevel
 translateTask task ctable
   |  A.isTask task =
-       let taskType = A.getType task
-           body = A.body task
-           resultType = Ty.getResultType taskType
-           id = Meta.getMetaId . A.getMeta $ task
-           funTaskName = taskFunctionName id
-           envTaskName = taskEnvName id
+       let taskType      = A.getType task
+           body          = A.body task
+           resultType    = Ty.getResultType taskType
+           id            = Meta.getMetaId . A.getMeta $ task
+           funTaskName   = taskFunctionName id
+           envTaskName   = taskEnvName id
            dependencyTaskName = taskDependencyName id
            traceTaskName = taskTraceName id
-           freeVars = Util.freeVariables [] body
-
-           encEnvNames = map fst freeVars
-           envNames     = map (AsLval . fieldName) encEnvNames
-           subst = zip encEnvNames envNames
-           ctx = Ctx.new subst ctable
+           freeVars      = Util.freeVariables [] body
+           encEnvNames   = map fst freeVars
+           envNames      = map (AsLval . fieldName) encEnvNames
+           subst         = zip encEnvNames envNames
+           ctx           = Ctx.new subst ctable
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
         Concat [buildEnvironment envTaskName freeVars,
                 buildDependency dependencyTaskName,
                 tracefunDecl traceTaskName envTaskName freeVars, -- TODO: Should we include dependencies?
                 Function (Typ "encore_arg_t") funTaskName
-                         [(Ptr void, Var "_env"), (Ptr void, Var "_dep")]
+                         [(Ptr encoreCtxT, encoreCtxVar),
+                          (Ptr void, Var "_env"), (Ptr void, Var "_dep")]
                          (Seq $ extractEnvironment envTaskName freeVars ++
                                 [bodyStat,
                                  returnStmnt bodyName resultType]
@@ -49,13 +47,14 @@ translateTask task ctable
   | otherwise = error "Tried to translate Task from something that wasn't a task"
   where
     returnStmnt var ty
-     | isVoidType ty = Return $ (asEncoreArgT (translate ty) unit)
-     | otherwise = Return $ (asEncoreArgT (translate ty) var)
+     | isVoidType ty = Return $ asEncoreArgT (translate ty) unit
+     | otherwise = Return $ asEncoreArgT (translate ty) var
 
     extractEnvironment _ [] = []
     extractEnvironment envName ((name, ty):freeVars) =
       let decl = Decl (translate ty, AsLval $ fieldName name)
-          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` (fieldName name)
+          rval = (Deref $ Cast (Ptr $ Struct envName) (Var "_env"))
+                 `Dot` fieldName name
       in Assign decl rval : extractEnvironment envName freeVars
 
     buildDependency name = StructDecl (Typ $ show name) []  -- TODO: extract dependencies
@@ -64,15 +63,15 @@ translateTask task ctable
         where
           translateBinding (name, ty) = (translate ty, AsLval $ fieldName name)
     tracefunDecl traceName envName members =
-      Function void traceName [(Ptr void, Var "p")]
+      Function void traceName [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
       (Seq $ map traceMember members)
       where
         traceMember (name, ty)
           | Ty.isActiveClassType ty =
-              Call (Nam "pony_traceactor") [Cast (Ptr ponyActorT) (getVar name)]
+              Call ponyTraceActor [AsExpr encoreCtxVar, Cast (Ptr ponyActorT) (getVar name)]
           | Ty.isPassiveClassType ty =
-              Call (Nam "pony_traceobject")
-              [getVar name, AsLval $ classTraceFnName ty]
+              Call ponyTraceObject
+              [encoreCtxVar, getVar name, AsLval $ classTraceFnName ty]
           | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
         getVar name =
-          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (fieldName name)
+          (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` fieldName name

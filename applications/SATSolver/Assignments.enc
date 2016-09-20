@@ -1,0 +1,228 @@
+bundle Assignments where
+passive class Variable {
+-- public attributes
+  value : int
+  dL : int
+  setByBranching : bool
+  guessedValue : int
+  visited : bool
+
+  def init() : void {
+    this.value = -1;
+    this.dL = -1;
+    this.setByBranching = false;
+    this.guessedValue = -1;
+    this.visited = false;
+  }
+
+  def toString() : void {
+    print("Value: {}, dL: {}, setByBranching: {}, guessedValue: {}, visited: {} \n", this.value, this.dL, this.setByBranching, this.guessedValue, this.visited);
+  }
+}
+
+passive class Assignments {
+-- public attributes
+  nSetVars : int
+-- private attributes
+  variables : [Variable]
+
+  def init(n : int, varsToAssign : [int]) : void {
+    this.variables = new [Variable](n);
+    repeat i <- n {
+      this.variables[i] = new Variable();
+    };
+    this.nSetVars = 0;
+    repeat i <- |varsToAssign| {
+      this.guessVariable(varsToAssign[i], 1, -1, false);
+    };
+  }
+-- public methods
+  def assignVariable(index :  int, value : int, dL : int, setByBranching : bool) : void {
+    let
+    var = this.variables[index]
+    in {
+      if (var.value == -1) then {
+        var.value = value;
+        var.dL = dL;
+        var.setByBranching = setByBranching;
+      } else {
+        print("Assign variable error, index {} already has a value.\n", index);
+        var.toString();
+        exit(0);
+      }
+    };
+    this.nSetVars = this.nSetVars + 1;
+  }
+
+  def getVariables() : [Variable] {
+    let
+    newVars = new Vector<Variable>((|this.variables|)/2)
+    in {
+      repeat i <- |this.variables| {
+        if (i%2 == 0) then {
+          newVars.push(this.variables[i])
+        }
+      };
+      newVars.toArray()
+    }
+  }
+
+  def resetVar(index : int) : void {
+    let
+    index1 = index*2
+    index2 = index1+1
+    var = this.variables[index1]
+    var2 = this.variables[index2]
+    in {
+      if (var.value != -1) then {
+        this.nSetVars = this.nSetVars - 1;
+      };
+      if (var2.value != -1) then {
+        this.nSetVars = this.nSetVars - 1;
+      };
+      var.value = -1;
+      var2.value = -1;
+      var.dL = -1;
+      var2.dL = -1;
+      var.setByBranching = false;
+      var2.setByBranching = false;
+      var.guessedValue = -1;
+      var2.guessedValue = -1;
+    };
+  }
+
+  def assignCounterpart(index : int) : void {
+    let
+    index2 = index
+    in {
+      if (index%2 == 0) then {
+        index2 = index2+1;
+      } else {
+        index2 = index2-1;
+      };
+      let
+      var = this.variables[index]
+      var2 = this.variables[index2]
+      in {
+        if (var2.value == -1) then {
+          var2.value = var.value;
+          var2.dL = var.dL;
+          var2.setByBranching = var.setByBranching;
+        } else {
+          print("Assign counterpart error, variable index {} already has a value.\n", index2);
+          var2.toString();
+          exit(0);
+        }
+      };
+      this.nSetVars = this.nSetVars + 1;
+    }
+  }
+
+  def guessVariable(index :  int, value : int, dL : int, setByBranching : bool) : void {
+    let
+    index1 = index*2
+    index2 = index1+1
+    var = this.variables[index1]
+    var2 = this.variables[index2]
+    in {
+      if ((var.value == -1) and (var2.value == -1)) then {
+        var.value = value;
+        var2.value = value;
+        var.dL = dL;
+        var2.dL = dL;
+        var.setByBranching = true;
+        var2.setByBranching = true;
+      } else {
+        print("Guess variable error, variable index {} already has a value.\n", index2);
+        var.toString();
+        var2.toString();
+        exit(0);
+      }
+    };
+    this.nSetVars = this.nSetVars + 2;
+  }
+
+  def getUnassignedIndexes() : [int] {
+    let
+    indexes = new Vector<int>(|this.variables|)
+    in {
+      repeat i <- |this.variables| {
+        let
+        var = this.variables[i]
+        in {
+          if (var.value == -1) then {
+            indexes.push(i);
+          }
+        }
+      };
+      indexes.toArray();
+    }
+  }
+
+  def toArray() : [int] {
+    let
+    variables = new Vector<int>(|this.variables|)
+    in {
+      repeat i <- |this.variables| {
+        let
+        var = this.variables[i]
+        in {
+          variables.push(var.value);
+        }
+      };
+      variables.toArray()
+    }
+  }
+
+  def toString() : void {
+    print("Assignments: ");
+    let
+    variables = this.getVariables()
+    in {
+      repeat i <- |variables| {
+        let
+        var = variables[i]
+        in {
+          if (var.value == 0) then {
+            print("{}","-");
+          } else if (var.value == -1) then {
+            print("{}","UNSAT");
+          };
+          print("x{} ",i+1);
+          if (((i+1)*2)%5 == 0) then {
+            print("");
+          }
+        }
+      };
+      print("\n");
+    }
+  }
+
+  def convertClauseToConflictClause(clause : Clause) : Clause {
+    let
+    conflictLiterals = new Vector<int>(1)
+    in {
+      repeat j <- |clause.literals| {
+        let
+        unique = true
+        loop = true
+        k = 0
+        literal = clause.literals[j]
+        var = this.variables[literal]
+        in {
+          if (var.value == 0) then {
+            if (literal%2 == 1) then {
+              literal = literal-1;
+            }
+          } else {
+            if (literal%2 == 0) then {
+              literal = literal+1;
+            }
+          };
+          conflictLiterals.push(literal);
+        }
+      };
+      new Clause(conflictLiterals.toArray())
+    }
+  }
+}

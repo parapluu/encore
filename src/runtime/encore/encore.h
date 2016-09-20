@@ -1,10 +1,14 @@
 #ifndef ENCORE_H_6Q243YHL
 #define ENCORE_H_6Q243YHL
-
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
 
 #define LAZY_IMPL
+
+// Only useful when using `party_each` on an array.
+// It will split up the array into chunks and start processing the chunk using
+// a task. Otherwise, the behaviour of `party_each` is sequential.
+/* #define PARTY_ARRAY_PARALLEL */
 
 #define Stack_Size 8*1024*1024
 
@@ -12,8 +16,14 @@
 #include <pony.h>
 #include <atomics.h>
 
+#define check_receiver(this, op, recv, msg, file)                                   \
+  if (!this) {                                                                      \
+    fprintf(stderr, "Error: empty receiver in " recv op msg "(...) in " file "\n"); \
+    abort();                                                                        \
+  }                                                                                 \
+
 typedef struct context {
-  ucontext_t ctx;
+  ucontext_t uctx;
   struct context *next;
 #if defined(PLATFORM_IS_MACOSX)
   void *ss_sp;
@@ -52,7 +62,10 @@ typedef enum {
   ID_FUTURE,
   ID_SCONS,
   ID_ARRAY,
+  ID_OPTION,
+  ID_TUPLE,
   ID_RANGE,
+  ID_PARTY
 } encore_type_id;
 
 typedef enum {
@@ -105,8 +118,8 @@ struct encore_actor
   int suspend_counter;
   pthread_mutex_t *lock;
 #ifndef LAZY_IMPL
-  ucontext_t ctx;
-  ucontext_t home_ctx;
+  ucontext_t uctx;
+  ucontext_t home_uctx;
   volatile bool run_to_completion;
   stack_page *page;
 #else
@@ -116,13 +129,28 @@ struct encore_actor
 };
 
 /// Create a new Encore actor
-encore_actor_t *encore_create(pony_type_t *type);
+encore_actor_t *encore_create(pony_ctx_t *ctx, pony_type_t *type);
 
 /// Create a new Encore actor in another work pool
 encore_actor_t *encore_peer_create(pony_type_t *type);
 
 /// Allocate s bytes of memory, zeroed out
-void *encore_alloc(size_t s);
+void *encore_alloc(pony_ctx_t *ctx, size_t s);
+#ifdef NO_GC
+#include <stdlib.h>
+#define encore_alloc(ctx,size) calloc(size,1)
+#endif
+
+/*
+ * Reallocate memory. It has to be manually zeroed since we cannot do
+ * arithmetic on void pointers. Example:
+ *
+ * int *a = encore_alloc(encore_ctx(), 4*sizeof(int)); //This is zeroed memory
+ * a = encore_realloc(encore_ctx(), a, 8*sizeof(int)); //This is only half zeroed
+ * memset(a + 4, 0, 8-4); // Zero the remaining
+ *
+ */
+void *encore_realloc(pony_ctx_t *ctx, void *p, size_t s);
 
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
@@ -130,7 +158,7 @@ int encore_start(int argc, char** argv, pony_type_t *type);
 void actor_unlock(encore_actor_t *actor);
 bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
-void actor_block(encore_actor_t *actor);
+void actor_block(pony_ctx_t **ctx, encore_actor_t *actor);
 void actor_set_resume(encore_actor_t *actor);
 
 #ifndef LAZY_IMPL
@@ -138,24 +166,34 @@ void actor_set_run_to_completion(encore_actor_t *actor);
 bool actor_run_to_completion(encore_actor_t *actor);
 #endif
 void actor_suspend();
-void actor_await(ucontext_t *ctx);
+void actor_await(pony_ctx_t **ctx, ucontext_t *uctx);
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();
 
 // task handler when chaining from an async future
-encore_arg_t default_task_handler(void* env, void* dep);
+encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep);
 
-static inline void encore_trace_polymorphic_variable(pony_type_t *type,
+pony_ctx_t* encore_ctx();
+static inline void encore_trace_polymorphic_variable(
+    pony_ctx_t* ctx,
+    pony_type_t *type,
     encore_arg_t x)
 {
   if (type != ENCORE_PRIMITIVE) {
     if (type == ENCORE_ACTIVE) {
-      pony_traceactor(x.p);
+      pony_traceactor(ctx, x.p);
     } else {
-      pony_traceobject(x.p, type->trace);
+      pony_traceobject(ctx, x.p, type->trace);
     }
   }
 }
+
+/// Prefix of all passive classes
+struct capability_t {
+  pony_type_t* _enc__self_type;
+};
+
+typedef struct capability_t capability_t;
 
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

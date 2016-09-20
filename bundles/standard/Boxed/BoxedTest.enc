@@ -1,0 +1,26 @@
+import Boxed.Integer
+import Boxed.Char
+import Boxed.Real
+import Boxed.Bool
+import Boxed.Unit
+
+class Main {
+  def main() : void {
+    let maxReal = embed real 1.7976931348623157E+308; end;
+    let minReal = embed real -1.7976931348623157E+308; end;
+    print((new Integer(12)) .show());
+    print((new Integer(-200)) .show());
+    print((new Char('a'))   .show());
+    print((new Real(maxReal)).show());
+    print((new Real(1.234)).show());
+    print((new Real(minReal)).show());
+    print((new Bool(true))   .show());
+    print((new Bool(false))  .show());
+    print((new Unit)         .show());
+    
+    assertTrue((new Integer(12)).value() == 12);
+    assertTrue((new Bool(true)).value());
+    assertFalse((new Bool(false)).value());
+    assertTrue((new Real(12.12)).value() > (new Real(6.06)).value());
+  }
+}

@@ -1,64 +1,31 @@
 #include "closure.h"
+#include <assert.h>
 
-// Control whether pony_alloc is used or not
-
-#define USE_PONY_ALLOC
-
-extern __thread pony_actor_t* this_actor;
-
-#ifdef USE_PONY_ALLOC
-  #include <pony.h>
-  #include "../libponyrt/actor/actor.h"
-  // Tobias: this is a hack to make top-level functions work as they are implemented as closures right now
-  // This hack creates a small memory leak which we can safely ignore until top-level functions change.
-  #define ALLOC(size) (actor_current() ? pony_alloc(size) : malloc(size))
-  #define FREE(ptr)
-#else
-  #include <stdlib.h>
-  #define ALLOC(size) malloc(size)
-  #define FREE(ptr) free(ptr)
-#endif
-
-struct closure{
-  closure_fun call;
-  void *env;
-  pony_trace_fn trace;
+pony_type_t closure_type = {
+  .id = ID_CLOSURE,
+  .size = sizeof(struct closure),
+  .trace = closure_trace,
 };
 
-pony_type_t closure_type =
-  {ID_CLOSURE,
-   sizeof(struct closure),
-   0,
-   0,
-   closure_trace,
-   NULL,
-   NULL,
-   NULL,
-   NULL
-  };
-
-void closure_trace(void *p){
+void closure_trace(pony_ctx_t *ctx, void *p)
+{
+  assert(p);
   closure_t *c = (closure_t *) p;
-  if(c->trace != NULL){
-    c->trace(c->env);
-  }
+  pony_traceobject(ctx, c->env, c->trace);
 }
 
-closure_t *closure_mk(closure_fun fn, void *env, pony_trace_fn trace){
-  closure_t *c = ALLOC(sizeof(closure_t));
+closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
+    pony_trace_fn trace)
+{
+  closure_t *c = encore_alloc(*ctx, sizeof(closure_t));
   c->call = fn;
   c->env = env;
   c->trace = trace;
   return c;
 }
 
-value_t closure_call(closure_t *closure, value_t args[]){
-  return closure->call(args, closure->env);
-}
-
-void closure_free(closure_t *closure){
-  FREE(closure->env); // Leaks copied memory!
-  FREE(closure);
+value_t closure_call(pony_ctx_t **ctx, closure_t *closure, value_t args[]){
+  return closure->call(ctx, args, closure->env);
 }
 
 value_t ptr_to_val(void *p){

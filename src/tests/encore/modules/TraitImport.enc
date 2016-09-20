@@ -1,0 +1,10 @@
+import TraitImportModule
+
+class Main {
+  def main() : void {
+    print 1;
+  }
+}
+
+passive class Foo : Reagent {
+}

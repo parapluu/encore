@@ -1,0 +1,10 @@
+import Random
+
+class Main
+  def main() : void
+    let
+      r = new Random(100)
+      v1 = r.random(1)
+      v2 = random(1)
+    in
+      print("{}\n{}\n", v1, v2)

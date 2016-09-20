@@ -39,6 +39,16 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword exc "!")
 @(encore/keyword k_let "let")
 @(encore/keyword repeat "repeat")
+@(encore/keyword party_par "||")
+@(encore/keyword party_seq ">>")
+@(encore/keyword party_join "join")
+
+@; TODO: Add this keyword as soon as as issue #434 is fixed
+@; (encore/keyword party_extract "extract")
+
+@(encore/keyword party_each "each")
+@(encore/keyword party_liftv "liftv")
+@(encore/keyword party_liftf "liftf")
 @(encore/keyword for "for")
 @(encore/keyword by "by")
 @(encore/keyword arrow "->")
@@ -66,6 +76,8 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword bundle)
 @(encore/keyword as)
 @(encore/keyword class)
+@(encore/keyword trait)
+@(encore/keyword require)
 @(encore/keyword print)
 @(encore/keyword in)
 @(encore/keyword if)
@@ -73,6 +85,10 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword else)
 @(encore/keyword unless)
 @(encore/keyword while)
+@(encore/keyword match)
+@(encore/keyword with)
+@(encore/keyword when)
+@(encore/keyword bold-arrow "=>")
 @(encore/keyword null)
 @(encore/keyword true)
 @(encore/keyword false)
@@ -81,12 +97,15 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/keyword not)
 @(encore/keyword and)
 @(encore/keyword or)
-@(encore/keyword string)
+@(encore/keyword char)
 @(encore/keyword int)
 @(encore/keyword bool)
 @(encore/keyword void)
 @(encore/keyword passive)
 @(encore/keyword end)
+@(encore/keyword typedef)
+@(encore/keyword Just)
+@(encore/keyword Nothing)
 
 @; Non-terminals
 @(encore/nonterm Program)
@@ -109,15 +128,21 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 @(encore/nonterm LetDecls)
 @(encore/nonterm Int)
 @(encore/nonterm Real)
+@(encore/nonterm Option)
 @(encore/nonterm Op)
+@(encore/nonterm Char)
 @(encore/nonterm String)
 @(encore/nonterm Arrow)
 @(encore/nonterm NonArrow)
+@(encore/nonterm MatchClause)
 @(encore/nonterm Types)
 @(encore/nonterm Tys)
 @(encore/nonterm RefType)
 @(encore/nonterm Fut)
 @(encore/nonterm Par)
+@(encore/nonterm TypeDef)
+@(encore/nonterm TypeParams)
+@(encore/nonterm TypeVar)
 
 
 @(define seq (lambda xs (apply BNF-seq xs)))
@@ -132,11 +157,20 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@optional[BundleDecl]
 			@kleenestar[Imports]
 			@optional[EmbedTL]
+            @kleenestar[TypeDef]
 		  	@nonterm{ClassDecl}]
 		eps])
 
       (list BundleDecl
          @seq[bundle QName where])
+
+      (list TypeDef
+         @seq[typedef Name @optional[TypeParams] equal Type])
+
+      (list TypeParams
+         @seq[l TypeVar @kleenestar[@BNF-group[comma TypeVar]] b])
+
+      (list TypeVar @seq[@elem{[a-z]} @kleenestar[@elem{[a-zA-Z0-9_]}]])
 
 	  (list ClassDecl
 	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
@@ -152,9 +186,6 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  	@alt[
 			@seq[embed @elem{.* body .*} end]
 			@seq[embed @elem{.*} end]])
-
-	  (list ClassDecl
-	  	@seq[@(optional passive) class  Name open-c FieldDecls MethodDecls close-c])
 
 	  (list FieldDecls
 	  	@alt[
@@ -207,6 +238,16 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[Name open-paren Arguments close-paren]
 	      @seq[open-paren Expr close-paren]
 	      @seq[Name]
+              @seq[party_liftv Expr]
+              @seq[party_liftf Expr]
+              @seq[party_join Expr]
+
+              @; TODO: Add this keyword as soon as as issue #434 is fixed
+              @; seq[party_extract Expr]
+
+              @seq[party_each Expr]
+              @seq[Expr party_seq Arrow]
+              @seq[Expr party_par Expr]
 	      @seq[let LetDecls in Expr]
 	      @seq[repeat Name larrow Expr Expr]
 	      @seq[for Name in Expr Expr]
@@ -217,6 +258,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      @seq[if Expr then Expr]
 	      @seq[unless Expr then Expr]
 	      @seq[while Expr Expr]
+	      @seq[match Expr with @kleenestar[MatchClause]]
 	      @seq[get Expr]
 	      @seq[new Type open-paren Arguments close-paren]
 	      @seq[new Type]
@@ -228,9 +270,11 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	      null
 	      true
 	      false
+              Char
 	      @elem{"String"}
 	      Int
 	      Real
+              Option
 	      @seq[Expr Op Expr]
 	      @seq[not Expr]
 	      @seq[lambda open-paren ParamDecls close-paren arrow Expr])
@@ -238,17 +282,24 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 	  (list Op
 	      @alt[l b equals distinct plus minus prod div mod and or])
 
+          (list Option
+              @seq[Just Expr]
+              Nothing)
 	  (list Name
 	      @elem{[a-zA-Z][a-zA-Z0-9]*})
 
 	  (list QName
 		      @seq[Name @optional[dot QName]])
 
+	  (list MatchClause @seq[Expr @optional[when Expr] bold-arrow Expr])
+
 	  (list Int @elem{[0-9]+})
 
 	  (list Real @seq[Int dot Int])
 
-	  (list String @kleenestar[open-paren @alt[@elem{[^\"]} @elem{\\\"}] close-paren])
+	  (list Char @alt[@elem{[^']} @elem{\'}])
+
+	  (list String @kleenestar[open-paren @alt[@elem{[^"]} @elem{\"}] close-paren])
 
 	  (list Type @alt[Arrow NonArrow])
 
@@ -258,7 +309,7 @@ This section introduces the Encore grammar by using the BNF-grammar notation and
 			@seq[NonArrow arrow NonArrow]])
 
 	(list NonArrow
-	      string int bool void RefType
+	      char int bool void RefType
 	      @seq[Fut Type]
 	      @seq[Par Type]
 	      @seq[open-paren Type close-paren]

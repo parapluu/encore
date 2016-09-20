@@ -10,31 +10,103 @@
 ;; init-file. There is a hook to enable encore-mode for all files
 ;; with extension .enc.
 
-(setq encore-keywords '("and" "async" "await" "by" "class" "chain" "def" "else" "eos" "for" "foreach" "get" "getNext" "if" "in" "let" "new" "not" "or" "passive" "print" "repeat" "require" "stream" "suspend" "then" "this" "trait" "unless" "val" "while" "yield" ))
-(setq encore-danger-words '("embed" "body" "end"))
-(setq encore-constants '("true" "false" "null"))
-(setq encore-primitives '("int" "string" "void" "bool"))
+;; Please keep these lists sorted
+(setq encore-keywords
+      '(
+        "and"
+        "async"
+        "await"
+        "by"
+        "chain"
+        "class"
+        "def"
+        "else"
+        "eos"
+        "for"
+        "foreach"
+        "get"
+        "getNext"
+        "if"
+        "in"
+        "join"
+        "let"
+        "liftf"
+        "liftv"
+        "match"
+        "new"
+        "not"
+        "or"
+        "passive"
+        "print"
+        "repeat"
+        "require"
+        "stream"
+        "suspend"
+        "then"
+        "this"
+        "trait"
+        "typedef"
+        "unless"
+        "val"
+        "when"
+        "while"
+        "with"
+        "yield"
+        ))
+
+(setq encore-danger-words
+      '(
+        "body"
+        "embed"
+        "end"
+        ))
+(setq encore-constants
+      '(
+        "false"
+        "null"
+        "true"
+        ))
+
+(setq encore-primitives
+      '(
+        "bool"
+        "char"
+        "int"
+        "void"
+        ))
+
+(setq encore-operators
+      '(
+        "||"
+        ">>"
+        ))
 
 (setq encore-keywords-regexp (regexp-opt encore-keywords 'symbols))
 (setq encore-danger-regexp (regexp-opt encore-danger-words 'symbols))
 (setq encore-constants-regexp (regexp-opt encore-constants 'symbols))
 (setq encore-primitives-regexp (regexp-opt encore-primitives 'symbols))
+(setq encore-operators-regexp (regexp-opt encore-operators 'symbols))
+
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
-(setq encore-function-regexp "\\<\\(def\\|stream\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
+(setq encore-function-regexp "\\<\\(def\\|stream\\|require\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
 (setq encore-comment-regexp "--.?*")
+(setq encore-char-regexp "'\\(\\\\.\\|.\\)'")
 
 (setq encore-font-lock-keywords
       `(
-	(,encore-comment-regexp    . font-lock-comment-face)
-	(,encore-keywords-regexp   . font-lock-keyword-face)
-	(,encore-danger-regexp     . font-lock-warning-face)
-	(,encore-constants-regexp  . font-lock-constant-face)
-	(,encore-primitives-regexp . font-lock-type-face)
-	(,encore-types-regexp      . font-lock-type-face)
-	(,encore-function-regexp   2 font-lock-function-name-face)
-	(,encore-variable-regexp   1 font-lock-variable-name-face)
-	)
+
+        (,encore-comment-regexp    . font-lock-comment-face)
+        (,encore-char-regexp       . font-lock-string-face)
+        (,encore-keywords-regexp   . font-lock-keyword-face)
+        (,encore-danger-regexp     . font-lock-warning-face)
+        (,encore-constants-regexp  . font-lock-constant-face)
+        (,encore-primitives-regexp . font-lock-type-face)
+        (,encore-operators-regexp  . font-lock-builtin-face)
+        (,encore-types-regexp      . font-lock-type-face)
+        (,encore-function-regexp   2 font-lock-function-name-face)
+        (,encore-variable-regexp   1 font-lock-variable-name-face)
+        )
       )
 
 (setq encore-tab-width 2)
@@ -47,8 +119,8 @@
 (defun first-word ()
   ""
   (let* ((current-line (current-line))
-	 (word-start (string-match "[^ \t]" current-line))
-	 (word-end (string-match "[^a-zA-Z]" current-line word-start)))
+         (word-start (string-match "[^ \t]" current-line))
+         (word-end (string-match "[^a-zA-Z]" current-line word-start)))
     (substring-no-properties current-line word-start word-end)))
 
 (defun classify-indent (line first)
@@ -57,67 +129,70 @@
       0
 
     (if (equal first "def")
-	(if (string-match "\\<def\\>" line)
-	    (match-beginning 0)
-	  (if (string-match "\\<passive\\>" line)
-	      (+ (match-beginning 0) encore-tab-width)
-	    (if (string-match "\\<class\\>" line)
-		(+ (match-beginning 0) encore-tab-width))))
+        (if (string-match "\\<def\\>" line)
+            (match-beginning 0)
+          (if (string-match "\\<passive\\>" line)
+              (+ (match-beginning 0) encore-tab-width)
+            (if (string-match "\\<class\\>" line)
+                (+ (match-beginning 0) encore-tab-width))))
 
       (if (string-match "\\<passive\\> .*" line)
-	  (+ (match-beginning 0) encore-tab-width)
+          (+ (match-beginning 0) encore-tab-width)
 
-	(if (string-match "\\<class\\> .*" line)
-	    (+ (match-beginning 0) encore-tab-width)
+        (if (string-match "\\<class\\> .*" line)
+            (+ (match-beginning 0) encore-tab-width)
 
-	  (if (string-match "\\<if\\>.*\\<then\\>.*\\<else\\>" line)
-	      (match-beginning 0)
-	    (if (string-match "\\<if\\>.*\\<then\\>" line)
-		(if (equal first "else")
-		    (match-beginning 0)
-		  (+ (match-beginning 0) encore-tab-width))
-	      (if (string-match "\\<then\\>" line)
-		  (if (equal first "else")
-		      (match-beginning 0)
-		    (+ (match-beginning 0) encore-tab-width))
-		(if (string-match "\\<if\\>.*" line)
-		    (if (or (equal first "then") (equal first "else"))
-			(match-beginning 0)
-		      (let ((indent (string-match "[^ \t]" line (+ (match-beginning 0) 2)))) (if indent indent (+ (match-beginning 0) encore-tab-width))))
-		  (if (string-match "\\<else\\>.*" line)
-		      (+ (match-beginning 0) encore-tab-width)
+          (if (string-match "\\<if\\>.*\\<then\\>.*\\<else\\>" line)
+              (match-beginning 0)
+            (if (string-match "\\<if\\>.*\\<then\\>" line)
+                (if (equal first "else")
+                    (match-beginning 0)
+                  (+ (match-beginning 0) encore-tab-width))
+              (if (string-match "\\<then\\>" line)
+                  (if (equal first "else")
+                      (match-beginning 0)
+                    (+ (match-beginning 0) encore-tab-width))
+                (if (string-match "\\<if\\>.*" line)
+                    (if (or (equal first "then") (equal first "else"))
+                        (match-beginning 0)
+                      (let ((indent (string-match "[^ \t]" line (+ (match-beginning 0) 2)))) (if indent indent (+ (match-beginning 0) encore-tab-width))))
+                  (if (string-match "\\<else\\>.*" line)
+                      (+ (match-beginning 0) encore-tab-width)
 
-		    (if (string-match "\\<while\\>" line)
-			(+ (match-beginning 0) encore-tab-width)
+                    (if (string-match "\\<while\\>" line)
+                        (+ (match-beginning 0) encore-tab-width)
 
-		      (if (string-match "\\<let\\>.*\\<in\\>$" line)
-			  (+ (match-beginning 0) encore-tab-width)
+                      (if (string-match "\\<match\\>" line)
+                          (+ (match-beginning 0) encore-tab-width)
 
-			(if (string-match "\\<embed\\>.*\\<end\\>" line)
-			    (match-beginning 0)
-			  (if (string-match "\\<embed\\>" line)
-			      (if (equal first "end")
-				  (match-beginning 0)
-				(+ (match-beginning 0) encore-tab-width))
+                        (if (string-match "\\<let\\>.*\\<in\\>$" line)
+                            (+ (match-beginning 0) encore-tab-width)
 
-			    (if (string-match "\\<let\\>\\W*\\(\\w+\\)" line)
-				(if (equal "in" first)
-				    (match-beginning 0)
-				  (match-beginning 1))
-			      (if (string-match "\\<let\\>" line)
-				  (if (equal "in" first)
-				      (match-beginning 0)
-				    (+ (match-beginning 0) encore-tab-width))
-				(if (string-match "\\<in\\>[ \t]*$" line)
-				    (+ (match-beginning 0) encore-tab-width)
+                          (if (string-match "\\<embed\\>.*\\<end\\>" line)
+                              (match-beginning 0)
+                            (if (string-match "\\<embed\\>" line)
+                                (if (equal first "end")
+                                    (match-beginning 0)
+                                  (+ (match-beginning 0) encore-tab-width))
 
-				  (if (string-match "\\<def\\>" line)
-				      (+ (match-beginning 0) encore-tab-width)
+                              (if (string-match "\\<let\\>\\W*\\(\\w+\\)" line)
+                                  (if (equal "in" first)
+                                      (match-beginning 0)
+                                    (match-beginning 1))
+                                (if (string-match "\\<let\\>" line)
+                                    (if (equal "in" first)
+                                        (match-beginning 0)
+                                      (+ (match-beginning 0) encore-tab-width))
+                                  (if (string-match "\\<in\\>[ \t]*$" line)
+                                      (+ (match-beginning 0) encore-tab-width)
 
-				    (if (string-match "\\W*\\([^;]*\\);" line)
-					(match-beginning 1)
-				      (if (bobp)
-					  0))))))))))))))))))))
+                                    (if (string-match "\\<def\\>" line)
+                                        (+ (match-beginning 0) encore-tab-width)
+
+                                      (if (string-match "\\W*\\([^;]*\\);" line)
+                                          (match-beginning 1)
+                                        (if (bobp)
+                                            0)))))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)
@@ -167,8 +242,6 @@
 ;; Open "*.enc" in encore-mode
 (add-to-list 'auto-mode-alist '("\\.enc\\'" . encore-mode))
 
-(provide 'encore-mode)
-
 (defvar encore-imenu-generic-expression
   '(("passive class" "^\s*passive\s+class\s*\\(.*\\)" 1)
     ("active class" "^\s*class\s*\\(.*\\)" 1)
@@ -186,12 +259,12 @@
 ;(dtrt-indent-mode 1)
 
 (add-hook 'encore-mode-hook
-	  (lambda ()
-	    (setq imenu-generic-expression (encore-imenu-configure))))
+          (lambda ()
+            (setq imenu-generic-expression (encore-imenu-configure))))
 
 ;; compilation-mode
 (add-hook 'encore-mode-hook
-	  (lambda ()
+          (lambda ()
             (set (make-local-variable 'compile-command)
                  (concat "encorec " (buffer-name)))))
 
@@ -200,3 +273,24 @@
           (lambda ()
             (add-to-list 'compilation-error-regexp-alist-alist encorec-error-regexp)
             (add-to-list 'compilation-error-regexp-alist 'encorec)))
+
+;; If you use flycheck-mode, add the following lines to your init file:
+;(flycheck-define-checker encorec
+;  "The Encore compiler"
+;  :command ("encorec" source)
+;  :error-patterns
+;    ((warning "Warning at" "\"" (file-name) "\"" " (line " line ", column " column "):\n"
+;              (message))
+;     (error "\"" (file-name) "\"" " (line " line ", column " column "):\n"
+;            (message))
+;     (error " *** Error during typechecking *** \n"
+;            "\"" (file-name) "\"" " (line " line ", column " column ")\n"
+;            (message))
+;     (info line-start "Importing module" (message) line-end)
+;     )
+;  :modes encore-mode)
+
+;(add-to-list 'flycheck-checkers 'encorec)
+
+(provide 'encore-mode)
+;;; encore-mode.el ends here

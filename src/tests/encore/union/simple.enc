@@ -1,0 +1,24 @@
+def global(x : Foo) : void
+  print "In global"
+
+trait Foo
+  def foo() : void
+    print "In Foo"
+
+trait Bar
+
+trait Baz
+
+passive class C1 : Foo + Baz
+
+passive class C2 : Foo + Bar
+
+class Main
+  def main(): void {
+    let x = if true then
+              new C1
+            else
+              new C2;
+    x.foo();
+    global(x);
+  }

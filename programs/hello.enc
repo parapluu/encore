@@ -1,4 +1,0 @@
-class Main 
-  def main() : void
-    print "Hello Ponyworld!"
-

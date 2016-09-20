@@ -1,0 +1,52 @@
+import Active.Active
+
+def getActiveInt() : Active<int> {
+  new Active<int>(\ () -> 1)
+}
+
+def getActiveFoo() : Active<Foo> {
+  new Active<Foo>(\ () -> new Foo())
+}
+
+def testInit() : void {
+  getActiveInt();
+  getActiveFoo();
+}
+
+def testMap() : void {
+  let a = getActiveInt() in {
+    assertTrue(1 == get a.getState());
+    a.map(\ (i:int) -> i+1);
+    assertTrue(2 == get a.getState());
+  }
+}
+
+def testApply() : void {
+  let a = getActiveFoo() in {
+    assertTrue(1 == (get a.getState()).read());
+    a.apply(\ (x:Foo) -> x.foo());
+    assertTrue(2 == (get a.getState()).read());
+  }
+}
+
+passive class Foo {
+  f : int
+
+  def init() : void
+    this.f = 1
+
+  def foo() : void
+    this.f = this.f*2
+
+  def read() : int
+    this.f
+}
+
+class Main {
+  def main() : void {
+    testInit();
+    testMap();
+    testApply();
+    print "All tests passed!"
+  }
+}

@@ -1,0 +1,24 @@
+def global(x : Foo) : void
+  print "In global"
+
+trait Foo
+  def foo() : void
+    print "In Foo"
+
+trait Bar
+
+trait Baz
+
+passive class C1 : Foo + Baz
+
+passive class C2 : Foo + Bar
+
+class Main
+  def main(): void {
+    let x = if true then
+              Just [new C1]
+            else
+              Just [new C2];
+    match x with
+      Just y => {(y[0]).foo(); global(y[0])}
+  }

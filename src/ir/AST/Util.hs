@@ -1,10 +1,20 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
-{-# OPTIONS_GHC -Werror #-}
 {-|
   Utility functions for "AST.AST".
 -}
-module AST.Util(foldr, foldrAll, filter, extend, extendAccum, extendAccumProgram, extractTypes, freeVariables) where
+module AST.Util(
+    foldr
+    , foldrAll
+    , filter
+    , extend
+    , extendAccum
+    , extendAccumProgram
+    , extractTypes
+    , freeVariables
+    , freeTypeVars
+    , mapProgramClass
+    ) where
 
 import qualified Data.List as List
 import Prelude hiding (foldr, filter)
@@ -16,19 +26,26 @@ import Identifiers
 -- | @getChildren e@ returns all children of @e@ that are Exprs themselves
 getChildren :: Expr -> [Expr]
 getChildren Skip{} = []
-getChildren Breathe{} = []
 getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
+getChildren Liftf {val} = [val]
+getChildren Liftv {val} = [val]
+getChildren PartyJoin {val} = [val]
+getChildren PartyExtract {val} = [val]
+getChildren PartyEach {val} = [val]
+getChildren PartySeq {par, seqfunc} = [par, seqfunc]
+getChildren PartyPar {parl, parr} = [parl, parr]
 getChildren Closure {body} = [body]
 getChildren (MaybeValue _ (JustData e)) = [e]
 getChildren (MaybeValue _ NothingData) = []
-getChildren MatchDecl {arg, matchbody} = arg : concat [x:y:[] | (x, y) <- matchbody]
+getChildren Tuple {args} = args
 getChildren Async {body} = [body]
 getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
+getChildren MiniLet {decl = (_, val)} = [val]
 getChildren Seq {eseq} = eseq
 getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
@@ -36,6 +53,12 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren For {name, step, src, body} = [step, src, body]
+getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
+  where
+    getChildrenClauses = concatMap getChildrenClause
+
+    getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
+        [mcpattern, mchandler, mcguard]
 getChildren Get {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
@@ -60,6 +83,7 @@ getChildren Peer {} = []
 getChildren Print {args} = args
 getChildren Exit {args} = args
 getChildren StringLiteral {} = []
+getChildren CharLiteral {} = []
 getChildren IntLiteral {} = []
 getChildren RealLiteral {} = []
 getChildren RangeLiteral {start, stop, step} = [start, stop, step]
@@ -72,25 +96,26 @@ getChildren Binop {loper, roper} = [loper, roper]
 -- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
 putChildren :: [Expr] -> Expr -> Expr
 putChildren [] e@Skip{} = e
-putChildren [] e@Breathe{} = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren args e@(FunctionCall {}) = e{args = args}
+putChildren [val] e@(Liftf {}) = e{val}
+putChildren [val] e@(Liftv {}) = e{val}
+putChildren [val] e@(PartyJoin {}) = e{val}
+putChildren [val] e@(PartyExtract {}) = e{val}
+putChildren [val] e@(PartyEach {}) = e{val}
+putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
+putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(FinishAsync {}) = e{body = body}
 putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
 putChildren [] e@(MaybeValue _ NothingData) = e
-putChildren (arg' : body) e@(MatchDecl {arg, matchbody}) =  e { arg = arg', matchbody = pair body}
-  where
-    pair :: [Expr] -> [(Expr, Expr)]
-    pair l =
-      let patternMatches = [l!!x | x <- [0..length l], x `mod` 2 == 0]
-          bodies = [l!!x | x <- [0..length l], x `mod` 2 == 1] in
-      zip patternMatches bodies
+putChildren args e@(Tuple {}) = e{args = args}
 putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
+putChildren [val] e@(MiniLet{decl = (x, _)}) = e{decl = (x, val)}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
 putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els = els}
 putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
@@ -98,6 +123,14 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
+putChildren (arg:clauseList) e@(Match {clauses}) =
+    e{arg = arg, clauses=putClausesChildren clauseList clauses}
+    where putClausesChildren [] [] = []
+          putClausesChildren (pattern:handler:guard:rest) (mc:rClauses) =
+              mc{mcpattern=pattern, mchandler=handler, mcguard=guard}:
+                putClausesChildren rest rClauses
+          putClausesChildren _ _ =
+              error "Util.hs: Wrong number of children of of match clause"
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
@@ -123,6 +156,7 @@ putChildren args e@(Print {}) = e{args = args}
 putChildren args e@(Exit {}) = e{args = args}
 putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
 putChildren [] e@(StringLiteral {}) = e
+putChildren [] e@(CharLiteral {}) = e
 putChildren [] e@(IntLiteral {}) = e
 putChildren [] e@(RealLiteral {}) = e
 putChildren [] e@(Embed {}) = e
@@ -131,24 +165,32 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 -- This very explicit error handling is there to make
 -- -fwarn-incomplete-patterns help us find missing patterns
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
-putChildren _ e@Breathe{} = error "'putChildren l Breathe' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
-putChildren _ e@(MatchDecl {}) = error $  "'putChildren l MatchDecl' expects l to have at least 1 elements"
+putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
+putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 element"
+putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
+putChildren _ e@(PartyJoin {}) = error "'putChildren l PartyJoin' expects l to have 1 element"
+putChildren _ e@(PartyExtract {}) = error "'putChildren l PartyExtract' expects l to have 1 element"
+putChildren _ e@(PartyEach {}) = error "'putChildren l PartyEach' expects l to have 1 element"
+putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
+putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
 putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
 putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
+putChildren _ e@(MiniLet{decl}) = error "'putChildren l MiniLet' expects l to have 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
 putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 elements"
 putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
+putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
@@ -169,6 +211,7 @@ putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 
 putChildren _ e@(New {}) = error "'putChildren l New' expects l to have 0 elements"
 putChildren _ e@(Peer {}) = error "'putChildren l Peer' expects l to have 0 elements"
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
+putChildren _ e@(CharLiteral {}) = error "'putChildren l CharLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"
 putChildren _ e@(RealLiteral {}) = error "'putChildren l RealLiteral' expects l to have 0 elements"
 putChildren _ e@(RangeLiteral {}) = error "'putChildren l RangeLiteral' expects l to have 3 elements"
@@ -185,14 +228,17 @@ foldr f acc e =
 
 foldrAll :: (Expr -> a -> a) -> a -> Program -> [a]
 foldrAll f e Program{functions, traits, classes} =
-  map (foldFunction f e) functions ++
+  concatMap (foldFunction f e) functions ++
   concatMap (foldTrait f e) traits ++
   concatMap (foldClass f e) classes
     where
-      foldFunction f e (Function {funbody}) = foldr f e funbody
-      foldClass f e (Class {cmethods}) = map (foldMethod f e) cmethods
-      foldTrait f e (Trait {tmethods}) = map (foldMethod f e) tmethods
-      foldMethod f e m = foldr f e (mbody m)
+      foldFunction f e (Function {funbody}) = [foldr f e funbody]
+      foldFunction f e (MatchingFunction {matchfunbodies}) =
+          map (foldr f e) matchfunbodies
+      foldClass f e (Class {cmethods}) = concatMap (foldMethod f e) cmethods
+      foldTrait f e (Trait {tmethods}) = concatMap (foldMethod f e) tmethods
+      foldMethod f e (Method {mbody}) = [foldr f e mbody]
+      foldMethod f e (MatchingMethod {mbodies}) = map (foldr f e) mbodies
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
@@ -207,16 +253,24 @@ extendAccum f acc0 e =
     in
       f acc1 (putChildren childResults e)
 
+mapProgramClass :: Program -> (ClassDecl -> ClassDecl) -> Program
+mapProgramClass p@Program{classes} f = p{classes = map f classes}
+
 extendAccumProgram ::
     (acc -> Expr -> (acc, Expr)) -> acc -> Program -> (acc, Program)
-extendAccumProgram f acc0 p@Program{functions, traits, classes} =
-  (acc3, p{functions = funs', traits = traits', classes = classes'})
+extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
+  (acc3, p{functions = funs', traits = traits', classes = classes', imports = imports})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
       extendAccumFunction f acc fun@(Function{funbody}) =
         (acc', fun{funbody = funbody'})
         where
           (acc', funbody') = extendAccum f acc funbody
+
+      extendAccumFunction f acc fun@(MatchingFunction{matchfunbodies}) =
+        (acc', fun{matchfunbodies = funbodies'})
+        where
+          (acc', funbodies') = List.mapAccumL (extendAccum f) acc matchfunbodies
 
       (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
       extendAccumTrait f acc trt@(Trait{tmethods}) =
@@ -230,10 +284,15 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes} =
         where
           (acc', cmethods') = List.mapAccumL (extendAccumMethod f) acc cmethods
 
-      extendAccumMethod f acc mtd =
+      extendAccumMethod f acc mtd@(Method{mbody}) =
         (acc', mtd{mbody = mbody'})
         where
-          (acc', mbody') = extendAccum f acc (mbody mtd)
+          (acc', mbody') = extendAccum f acc mbody
+
+      extendAccumMethod f acc mtd@(MatchingMethod{mbodies}) =
+        (acc', mtd{mbodies = mbodies'})
+        where
+          (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
@@ -242,55 +301,93 @@ filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
 extractTypes (Program{functions, traits, classes}) =
-    List.nub $ concat $ concatMap extractFunctionTypes functions ++
-                        concatMap extractTraitTypes traits ++
-                        concatMap extractClassTypes classes
+    List.nub $ concatMap extractFunctionTypes functions ++
+               concatMap extractTraitTypes traits ++
+               concatMap extractClassTypes classes
     where
-      extractFunctionTypes Function {funtype, funparams, funbody} =
-          typeComponents funtype :
-          map extractParamTypes funparams ++
-          [extractExprTypes funbody]
+      extractHeaderTypes :: FunctionHeader -> [Type]
+      extractHeaderTypes header =
+          typeComponents (htype header) ++
+          concatMap extractParamTypes (hparams header)
 
-      extractTraitTypes Trait {tname, tfields, tmethods} =
-          typeComponents tname :
-          map extractFieldTypes tfields ++
+      extractFunctionTypes :: Function -> [Type]
+      extractFunctionTypes Function{funheader, funbody} =
+          extractHeaderTypes funheader ++
+          extractExprTypes funbody
+      extractFunctionTypes MatchingFunction{matchfunheaders, matchfunbodies} =
+          List.foldr (\h acc -> (extractHeaderTypes h) ++ acc) [] matchfunheaders ++
+          List.foldr (\b acc -> (extractExprTypes b) ++ acc) [] matchfunbodies
+
+      extractTraitTypes :: TraitDecl -> [Type]
+      extractTraitTypes Trait {tname, treqs, tmethods} =
+          typeComponents tname ++
+          concatMap extractReqType treqs ++
           concatMap extractMethodTypes tmethods
 
+      extractReqType RequiredField {rfield} = extractFieldTypes rfield
+      extractReqType RequiredMethod {rheader} = extractHeaderTypes rheader
+
+      extractClassTypes :: ClassDecl -> [Type]
       extractClassTypes Class {cname, cfields, cmethods} =
-          typeComponents cname :
-          map extractFieldTypes cfields ++
+          typeComponents cname ++
+          concatMap extractFieldTypes cfields ++
           concatMap extractMethodTypes cmethods
+
+      extractFieldTypes :: FieldDecl -> [Type]
       extractFieldTypes Field {ftype} = typeComponents ftype
 
-      extractMethodTypes m =
-          typeComponents (mtype m) :
-          map extractParamTypes (mparams m) ++
-          [extractExprTypes (mbody m)]
+      extractMethodTypes :: MethodDecl -> [Type]
+      extractMethodTypes Method{mheader, mbody} =
+          extractHeaderTypes mheader ++
+          extractExprTypes mbody
+      extractMethodTypes MatchingMethod{mheaders, mbodies} =
+        List.foldr (\h -> (extractHeaderTypes h ++)) [] mheaders ++
+        List.foldr (\b -> (extractExprTypes b ++)) [] mbodies
 
+      extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype
 
-      extractExprTypes = foldr collectTypes []
-          where
-            collectTypes e acc = (typeComponents . getType) e ++ acc
+extractExprTypes :: Expr -> [Type]
+extractExprTypes = foldr collectTypes []
+  where
+    collectTypes e acc = (typeComponents . getType) e ++ acc
+
+freeTypeVars :: Expr -> [Type]
+freeTypeVars = List.nub . List.filter isTypeVar . extractExprTypes
 
 freeVariables :: [Name] -> Expr -> [(Name, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
-    where
-      freeVariables' bound var@(VarAccess {name})
-          | name `elem` bound = []
-          | otherwise = [(name, getType var)]
-      freeVariables' bound fCall@(FunctionCall {name, args})
-          | name `elem` bound = concatMap (freeVariables' bound) args
-          | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
-          where
-            arrType = arrowType (map getType args) (getType fCall)
-      freeVariables' bound Closure {eparams, body} =
-          freeVariables' bound' body
-          where
-            bound' = bound ++ map pname eparams
-      freeVariables' bound Let {decls, body} =
-          freeVars ++ freeVariables' bound' body
-          where
-            (freeVars, bound') = List.foldr fvDecls ([], bound) decls
-            fvDecls (x, expr) (free, bound) = (freeVariables' (x:bound) expr ++ free, x:bound)
-      freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
+  where
+    freeVariables' :: [Name] -> Expr -> [(Name, Type)]
+    freeVariables' bound Match {arg, clauses} =
+        freeVariables' bound arg ++ clausesFreeVars
+        where
+          clausesFreeVars = concatMap clauseFreeVars clauses
+          clauseFreeVars MatchClause{mcpattern, mcguard, mchandler} =
+              let boundInPattern = map fst $ freeVariables' [] mcpattern
+                  bound' = boundInPattern ++ bound
+                  freeInGuard = freeVariables' bound' mcguard
+                  freeInHandler = freeVariables' bound' mchandler
+              in
+                freeInGuard ++ freeInHandler
+    freeVariables' bound var@(VarAccess {name})
+        | name `elem` bound = []
+        | otherwise = [(name, getType var)]
+    freeVariables' bound fCall@(FunctionCall {name, args})
+        | name `elem` bound = concatMap (freeVariables' bound) args
+        | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
+        where
+          arrType = arrowType (map getType args) (getType fCall)
+    freeVariables' bound Closure {eparams, body} =
+        freeVariables' bound' body
+        where
+          bound' = bound ++ map pname eparams
+    freeVariables' bound Let {decls, body} =
+        freeVars ++ freeVariables' bound' body
+        where
+          (freeVars, bound') = List.foldr fvDecls ([], bound) decls
+          fvDecls (x, expr) (free, bound) =
+            (freeVariables' (x:bound) expr ++ free, x:bound)
+    freeVariables' bound e@For{name, step, src, body} =
+      freeVariables' (name:bound) =<< getChildren e
+    freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)

@@ -1,0 +1,15 @@
+-- A boxed integer.
+passive class Integer {
+  value : int
+  def init(x: int) : void {
+    this.value = x;
+  }
+
+  def show() : String {
+    string_from_int(this.value)
+  }
+
+  def value() : int {
+    this.value
+  }
+}

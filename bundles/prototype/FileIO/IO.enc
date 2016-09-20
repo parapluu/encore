@@ -1,0 +1,82 @@
+bundle FileIO.IO where
+
+passive class File {
+
+  file   : embed FILE* end
+  fname  : String
+  mode   : String
+
+  def init(fname:String, mode:String) : void {
+    this.fname  = fname;
+    this.mode   = mode;
+  }
+
+  def open(fin:String, mode:String) : void {
+    this.mode = if (mode.equals("")) then "w+r+a"
+                else mode;
+    this.fname= fin;
+
+    let fin   = fin.data;
+    let mChar = this.mode.data;
+    this.file = embed (embed FILE* end)
+                  FILE *file = fopen(#{fin}, #{mChar});
+                  if (!file) {
+                    printf("Cannot open file, exiting.\n");
+                    exit(1);
+                  };
+                  file;
+                end;
+  }
+
+  def close() : void {
+    let f = this.file;
+    this.file = embed (embed FILE* end)
+      if (!#{f}) {
+        printf("Cannot close file, exiting.\n");
+        exit(1);
+      };
+      fclose(#{f});
+      (FILE*)NULL;
+    end;
+  }
+
+  -----------------------------------
+  -- Write to file.
+  -----------------------------------
+  def write(content:String) : void {
+    this.writeChar(content.data);
+  }
+
+  def writeChar(content:embed char* end) : void {
+    let file  = this.file;
+    embed void
+      FILE *fout = #{file};
+      if (!fout) {
+        printf("Cannot open file, exiting.\n");
+        exit(1);
+      }
+      fprintf(fout, #{content});
+    end
+  }
+
+  -----------------------------------
+  -- Read file.
+  -----------------------------------
+  def readline() : String {
+    new String(this.readlineChar());
+  }
+
+  def readlineChar() : embed char* end {
+    let f = this.file;
+    embed (embed char* end)
+      char* line = encore_alloc(*_ctx,255);
+      fgets(line, 255, #{f});
+      line;
+    end;
+  }
+
+  def eof() : bool {
+    let f = this.file;
+    embed bool feof(#{f}); end
+  }
+}

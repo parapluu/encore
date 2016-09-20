@@ -34,9 +34,9 @@ static void date_to_tm(date_t* date, struct tm* tm)
   tm->tm_isdst = -1;
 }
 
-static void tm_to_date(struct tm* tm, int64_t nsec, date_t* date)
+static void tm_to_date(struct tm* tm, int nsec, date_t* date)
 {
-  date->nsec = (int)nsec;
+  date->nsec = nsec;
   date->sec = tm->tm_sec;
   date->min = tm->tm_min;
   date->hour = tm->tm_hour;
@@ -61,7 +61,7 @@ int64_t os_timegm(date_t* date)
 
 void os_gmtime(date_t* date, int64_t sec, int64_t nsec)
 {
-  int64_t overflow_sec = nsec / 1000000000;
+  time_t overflow_sec = (time_t)(nsec / 1000000000);
   nsec -= (overflow_sec * 1000000000);
 
   if(nsec < 0)
@@ -70,7 +70,7 @@ void os_gmtime(date_t* date, int64_t sec, int64_t nsec)
     overflow_sec--;
   }
 
-  time_t t = sec + overflow_sec;
+  time_t t = (time_t)sec + overflow_sec;
 
   struct tm tm;
 
@@ -80,17 +80,18 @@ void os_gmtime(date_t* date, int64_t sec, int64_t nsec)
   gmtime_r(&t, &tm);
 #endif
 
-  tm_to_date(&tm, nsec, date);
+  tm_to_date(&tm, (int)nsec, date);
 }
 
 char* os_formattime(date_t* date, const char* fmt)
 {
+  pony_ctx_t* ctx = pony_ctx();
   char* buffer;
 
   // Bail out on strftime formats that can produce a zero-length string.
   if((fmt[0] == '\0') || !strcmp(fmt, "%p") || !strcmp(fmt, "%P"))
   {
-    buffer = (char*)pony_alloc(1);
+    buffer = (char*)pony_alloc(ctx, 1);
     buffer[0] = '\0';
     return buffer;
   }
@@ -103,7 +104,7 @@ char* os_formattime(date_t* date, const char* fmt)
 
   while(r == 0)
   {
-    buffer = (char*)pony_alloc(len);
+    buffer = (char*)pony_alloc(ctx, len);
     r = strftime(buffer, len, fmt, &tm);
     len <<= 1;
   }

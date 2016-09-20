@@ -1,0 +1,21 @@
+def foo() : (Maybe int, Maybe int) {
+  if true then{
+    if false then{
+      (Just 42, Nothing : Maybe int)
+    } else{
+      (Nothing, Just 42)
+    }
+  } else {
+    (Nothing, Nothing)
+  }
+}
+
+
+class Main {
+  def main() : void {
+    match foo() with
+      (Nothing, Just x) => print x
+    ;
+    print "Done!"
+  }
+}

@@ -1,0 +1,9 @@
+-- See https://github.com/parapluu/mylittlepony/issues/7
+class Main
+  def main() : void
+    let result = embed int
+      printf("Hello, world!\n");
+      27;
+    end in
+      if result == 27 then print "Test OK"
+      else print "Test failed"

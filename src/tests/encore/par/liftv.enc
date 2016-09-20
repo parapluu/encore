@@ -1,0 +1,39 @@
+def show_string(x: String, const: String, type: String): void
+  if x.equals(const) then
+    print("{} {}: OK\n", x, type)
+  else
+    print("{} {}: ERROR\n", const, type)
+
+def show_passive(x: PassiveTest, const: String, type: String): void
+  if x.elem.equals(const) then
+    print("{} {}: OK\n", x.elem, type)
+  else
+    print("{} {}: ERROR\n", x.elem, type)
+
+def primitive_const(): String
+  "Primitive Test"
+
+def passive_const(): String
+  "Passive Test"
+
+passive class PassiveTest
+  elem: String
+
+  def init():void
+    this.elem = "Liftv"
+
+class Main
+
+  def test_primitive_liftv(): void
+    let primitive_par = liftv "Liftv"
+    in
+      primitive_par >> \(x: String) -> show_string(x, "Liftv", primitive_const())
+
+  def test_passive_liftv(): void
+    let passive_par = liftv (new PassiveTest()) in
+      passive_par >> \(x: PassiveTest) -> show_passive(x, "Liftv", passive_const())
+
+  def main(): void {
+    this.test_primitive_liftv();
+    this.test_passive_liftv();
+  }

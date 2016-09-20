@@ -1,0 +1,35 @@
+class Main
+  def main() : void
+    let
+      t = new Test()
+    in
+      {
+        t ! run1();
+      }
+
+class Producer
+  def foo(t : Test) : int {
+    get t.run2();
+    17
+  }
+
+class Test
+  p:Producer
+
+  def init() : void
+    this.p = new Producer
+
+  def run2() : void {
+    print "While awaiting";
+  }
+
+  def run1() : void
+    let
+      f = this.p.foo(this)
+    in
+      {
+        print "Before await";
+        await f;
+        print "After await";
+        print get f
+      }

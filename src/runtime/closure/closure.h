@@ -20,7 +20,7 @@ typedef union value {
 
 extern pony_type_t closure_type;
 
-void closure_trace(void *p);
+void closure_trace(pony_ctx_t *ctx, void *p);
 
 /**
  *  The body of a closure.
@@ -29,19 +29,20 @@ void closure_trace(void *p);
  *  closure_get_arg_ptr() et al. It should return a value using
  *  ptr_to_val() et al.
  */
-typedef value_t (*closure_fun)(value_t[], void*);
+typedef value_t (*closure_fun)(pony_ctx_t**, value_t[], void*);
 
 /**
  *  Create a new closure.
  *
  *  Use closure_free"()" to free the allocated memory.
  *
- *  @param body The body of the closure (see the typedef of closure_fun)
+ *  @param fn The body of the closure (see the typedef of closure_fun)
  *  @param env The environment of the closure
  *  @param trace The trace function of the environment
  *  @return A closure with body \p body and environment \p env
  */
-closure_t *closure_mk(closure_fun body, void *env, pony_trace_fn trace);
+closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
+    pony_trace_fn trace);
 
 /**
  *  Call a closure.
@@ -49,12 +50,12 @@ closure_t *closure_mk(closure_fun body, void *env, pony_trace_fn trace);
  *  @param args An array of values used as the arguments to the closure
  *  @return The pointer returned * by \p closure
  */
-value_t closure_call(closure_t *closure, value_t args[]);
+value_t closure_call(pony_ctx_t **ctx, closure_t *closure, value_t args[]);
 
-/**
- *  Free a closure.
- *  @param closure a closure
- */
-void closure_free(closure_t *closure);
+struct closure {
+  closure_fun call;
+  void *env;
+  pony_trace_fn trace;
+};
 
 #endif

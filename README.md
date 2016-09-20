@@ -22,10 +22,13 @@ Would you like to play around with Encore without having to install all the depe
 This installs the Encore compiler in a Virtual Machine (VM).
 
 At this point, you have a Ubuntu VM working for you. You will work on your localhost (marked as `localhost$`) and compile on the VM (marked as `vm$`).
+Your Encore code needs to be placed inside the `encore` folder (the VM is restricted to work only inside that folder).
 
 To connect to the VM:
 
     localhost$ vagrant ssh
+
+This command will connect you to the VM (user: `vagrant`, password: `vagrant`).
 
 From the VM, compile using Encore:
 
@@ -50,11 +53,19 @@ To start and connect again to the VM:
 
     localhost$ vagrant up && vagrant ssh
 
-
 ## Building Encore from Source
 
 Make sure that you have `doxygen` (for documentation), `premake4`, an up-to-date
-`clang` and `ghc` in your path.
+`clang` and `stack` in your path.
+
+### Installing on Debian based Linux distros
+
+To install Encore on a Debian based Linux distribution you can use the `debian-install.sh` script.
+To perform a full install run the script with the `-f` flag to completely install all dependencies,
+setup the correct Haskell version and build and install Encore.
+
+If you do not want the script to alter your `$PATH` variable or change the Haskell version use the
+`-h` flag to see available options.
 
 ### Step 1: Preliminaries
 
@@ -66,7 +77,7 @@ We're using:
     Target: x86_64-apple-darwin14.5.0
     Thread model: posix
  - g++ 4.8
- - ghc: The Glorious Glasgow Haskell Compilation System, version 7.10.2
+ - stack (the haskell build tool)
  - premake4 (Premake Build Script Generator) 4.3
  - `scribble` -- only for building the documentation
 
@@ -93,42 +104,17 @@ distribution.
 
 Run: `brew update; brew install llvm`
 
-##### Installing `ghc`
+##### Installing `premake4`
 
-You need at least version `7.10.2`.
+Go to the [Premake4 Download page](http://premake.github.io/download.html),
+download and install `premake4`.
 
-- If you have an older version of `ghc` installed with `homebrew`: get rid of it by saying `brew uninstall haskell-platform; brew uninstall ghc`.
-- If you have an older version of `ghc` installed downloaded from the haskell webpage: you need to remove it. Here is a discussion thread on how to do that: http://www.haskell.org/pipermail/haskell-cafe/2011-March/090170.html Warning: we did not test this, and even if we did: every computer is configured differently. In the future: please use homebrew for every installation where a formula is available. It allows you to uninstall stuff easily once you don't need it any more.
+Alternatively, run: `brew update; brew install premake`
 
-Then install the newest version:
+##### Installing `stack`
 
-```
-brew update && brew install cabal && cabal install cabal-install && brew install ghc
-```
-
-#### Installing the preliminaries on Linux
-
-It's only tested on Ubuntu 14.04, and hopefully it works as well on other
-distributions based on Ubuntu or Debian.
-
-
-    # add sources
-    sudo add-apt-repository -y ppa:hvr/ghc
-    # update
-    sudo apt-get update
-    # set up the building infrastructure
-    sudo apt-get install -y clang lldb-3.5 g++ make premake4 zlib1g-dev ghc-7.10.2 cabal-install-1.22 racket doxygen
-	# update cabal packages
-	cabal update && cabal install cabal-install
-
-
-##### Version checking
-
-Due to the incomplete support for C++11 in gcc
-[4.7](https://gcc.gnu.org/gcc-4.7/cxx0x_status.html), the minimal version of gcc
-is [4.8](https://gcc.gnu.org/gcc-4.8/cxx0x_status.html).
-
-    gcc/g++: ~> 4.8
+If you have homebrew, you can run `brew install haskell-stack`. Otherwise,
+use these [installation instructions](http://docs.haskellstack.org/en/stable/README/#how-to-install).
 
 #### Step 2: Compiling and installing encore
 
@@ -152,15 +138,11 @@ Now you can compile a program by using
 
     $ encorec my_file.enc
 
-or, if you you are calling C from your code, by using:
-
-    $ encorec -clang my_file.enc
-
 Then, you can run the executable, as usual, through
 
    ./my_file
 
-Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec -run` as its FIRST line. After you made the file executable:
+Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env encorec --run` as its FIRST line. After you made the file executable:
 
     $ chmod u+x my_file.enc
 
@@ -179,31 +161,32 @@ Have fun!
 Running `encorec foo.enc` will typecheck the source and produce the executable
 `foo`. The following options are supported:
 
-* `-c` -- Keep intermediate C-files
-* `-tc` -- Typecheck only (don't produce an executable)
-* `-o [file]` -- Specify output file
-* `-run` -- Run the program and remove the executable
-* `-clang` -- Use clang to build the executable (default)
-* `-AST` -- Output the parsed AST as text to `foo.AST`
-* `-TypedAST` -- Output the typechecked AST as text to `foo.TAST`
-
+```
+  --import [dirs]   | -I [dirs] colon separated list of directories in which to look for modules.
+  --out-file [file] | -o [file] Specify output file.
+  --generate-c      | -c        Outputs intermediate C fields in separate source tree.
+  --debug           | -g        Inserts debugging symbols in executable. Use with -c for improved debugging experience.
+  --type-check      | -tc       Only type check program, do not produce an executable.
+  --literate        |           Literate programming mode. Code blocks are delimited by '#+begin_src' and '#+end_src'.
+  --verbose         | -v        Print debug information during compiler stages.
+  --optimize N      | -O N      Optimise produced executable. N=0,1,2 or 3.
+  --profile         | -pg       Embed profiling information in the executable.
+  --run             |           Compile and run the program, but do not produce executable file.
+  --no-gc           |           DEBUG: disable GC and use C-malloc for allocation.
+  --help            |           Display this information.
+```
 
 ## Language Specification
 
 Update the language specification whenever you change the Encore compiler.
 
-#### Dependencies
+#### Generate documentation
 
-In order to update the language specification, first you need to:
+Generate the documentation and check your changes by typing:
 
-  1. download the [Racket language](http://download.racket-lang.org/)
-  2. clone the project upscale (https://github.com/fxpl/upscale)
-  3. cd upscale/doc/encore
-  4. make
+  - `make doc`
 
-After following the instructions above, you should have a folder under
-`upscale/doc/encore` named `build` that contains the documentation in
-pdf and html.
+After this, you should have a folder under `encore/doc/encore` named `build` that contains the documentation in pdf and html.
 
 #### Update the language specification
 

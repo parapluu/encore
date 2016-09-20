@@ -15,7 +15,8 @@ module CodeGen.Context (
   genNamedSym,
   genSym,
   lookupField,
-  lookupMethod
+  lookupMethod,
+  lookupCalledType,
 ) where
 
 import Identifiers
@@ -25,6 +26,7 @@ import Control.Monad.State
 import qualified CodeGen.ClassTable as Tbl
 
 import qualified CCode.Main as C
+import CodeGen.CCodeNames
 
 type NextSym = Int
 
@@ -43,11 +45,12 @@ new subs ctable = Context subs 0 ctable
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
+  let (_, name') = fixPrimes name
   c <- get
   case c of
     Context s n t ->
         do put $ Context s (n+1) t
-           return $ "_" ++ name ++ "_" ++ show n
+           return $ "_" ++ name' ++ "_" ++ show n
 
 genSym :: State Context String
 genSym = genNamedSym "tmp"
@@ -67,5 +70,8 @@ substLkp (Context s _ _) n = lookup n s
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . classTable
 
-lookupMethod :: Type -> Name -> Context -> MethodDecl
+lookupMethod :: Type -> Name -> Context -> FunctionHeader
 lookupMethod ty m = Tbl.lookupMethod ty m . classTable
+
+lookupCalledType :: Type -> Name -> Context -> Type
+lookupCalledType ty m = Tbl.lookupCalledType ty m . classTable

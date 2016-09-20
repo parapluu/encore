@@ -1,0 +1,286 @@
+def inc(number: int): int
+  number + 1
+
+def dec(number: int): int
+  number - 1
+
+def switch_tag(p: PassiveObject): PassiveObject
+  if (p.tag.equals("pass")) then p.update("fail", p.life)
+  else p.update("pass", p.life)
+
+def switch_life(p: PassiveObject): PassiveObject
+  if p.life == 42 then p.update(p.tag, 1)
+  else p.update(p.tag, 42)
+
+def from_string_to_int(sentence: String): int
+  if (sentence.equals("Liftv String")) then 7
+  else 1
+
+def formatted_print(p: PassiveObject): void
+  print("{}: {}\n", p.tag, p.life)
+
+passive class PassiveObject
+  tag: String
+  life: int
+
+  def init(tag: String, life: int): void {
+    this.tag = tag;
+    this.life = life;
+  }
+
+  def update(tag: String, life: int): PassiveObject {
+    this.tag = tag;
+    this.life = life;
+    this
+  }
+
+class Test
+  def number(number: int): int number
+  def stringf(sentence: String): String sentence
+  def passive_object(pObject: PassiveObject): PassiveObject pObject
+  def par_int_case(): Par int (liftv 42) || (liftv 30)
+  def par_passive_case(pObject: PassiveObject): Par PassiveObject
+    (liftv pObject) || liftv (new PassiveObject("TEST_COVERAGE", 1))
+
+  --
+  -- test user defined functions
+  --
+  def test_number(): void
+    let test = new Test
+        expected = 34
+        value = get test.number(expected)
+    in
+      assertTrue(value == expected,
+                 "ERROR in 'test_number', found {} but expecting {}", value, expected)
+
+  def test_stringf(): void
+    let test = new Test
+        expected = "string"
+        value = get test.stringf(expected)
+    in assertTrue(value.equals(expected),
+                  "ERROR in 'test_stringf', found {} but expecting {}", value, expected)
+
+  def test_int_and_dec(): void
+    let value = 42
+        expected = 43
+    in
+      assertTrue(inc(inc(dec(value))) == expected, "ERROR in 'test_int_and_dec'")
+
+  def test_from_string_to_int(): void
+    let seven = from_string_to_int("Liftv String")
+        one = from_string_to_int("Something else")
+        expected1 = 7
+        expected2 = 1
+    in {
+        assertTrue(seven == expected1, "ERROR in 'test_from_string_to_int'");
+        assertTrue(one == expected2, "ERROR in 'test_from_string_to_int'");
+    }
+
+  def test_switch_test(): void
+    let switchTest = switch_life(switch_tag(new PassiveObject("pass", 42)))
+        expectedTag = "fail"
+        expectedLife = 1
+    in {
+       assertTrue(switchTest.tag.equals(expectedTag),
+                  "ERROR in 'test_switch_life', wrong tag");
+       assertTrue(switchTest.life == expectedLife,
+                  "ERROR in 'test_switch_life', wrong life");
+    }
+
+  def test_passive_object(): void
+    let test = new Test
+        pObject = new PassiveObject("pass", 42)
+        pObjectFulfilled = get test.passive_object(pObject)
+    in {
+       assertTrue(pObjectFulfilled.tag.equals("pass"));
+       assertTrue(pObjectFulfilled.life == 42);
+    }
+
+  --
+  -- test parallel combinator extract
+  --
+  def test_liftv_primitive_int(): void{
+    let expectedInt = 34
+        arr_int = extract(liftv expectedInt)
+    in
+       for v in arr_int assertTrue(v == expectedInt,
+                                   "ERROR in 'test_liftv_primitive'");
+  }
+
+  def test_liftv_primitive_string(): void {
+    let expectedString = "Liftv String"
+        arr_string = extract(liftv expectedString)
+    in
+      for v in arr_string
+       assertTrue(v.equals(expectedString), "ERROR in 'test_liftv_primitive_string");
+  }
+
+  def test_liftv_passive(): void {
+    let expectedLife = 42
+        expectedTag = "pass"
+        arr_passive = extract(liftv (new PassiveObject("pass", 42)))
+    in
+       for v in arr_passive {
+         assertTrue(v.tag.equals(expectedTag));
+         assertTrue(v.life == expectedLife);
+       }
+  }
+
+  def test_liftv_par_primitive(): void {
+    let expectedInt = 34
+        expectedString = "Liftv String"
+        arr_par_int = extract(liftv(liftv expectedInt))
+        arr_par_string = extract(liftv(liftv expectedString))
+    in {
+       for vp in arr_par_int
+         for v in extract(vp)
+           assertTrue(v == expectedInt, "ERROR in 'test_liftv_par_primitive'");
+       for vp in arr_par_string
+         for v in extract(vp)
+           assertTrue(v.equals(expectedString), "ERROR in 'test_liftv_par_primitive'");
+    }
+  }
+
+  def test_liftv_par_passive(): void {
+    let expectedTag = "pass"
+        expectedLife = 42
+        arr_par = liftv(liftv (new PassiveObject(expectedTag, expectedLife)))
+    in
+       for vp in extract(arr_par)
+         for v in extract(vp){
+           assertTrue(v.life == expectedLife, "ERROR in 'test_liftv_par_passive'");
+           assertTrue(v.tag.equals(expectedTag), "ERROR in 'test_liftv_par_passive'");
+         }
+  }
+
+  def test_par_primitive_int(): void {
+    let expected1 = 34
+        expected2 = 20
+        arr_int = extract(liftv expected1 || liftv expected2)
+    in
+      for v in arr_int assertTrue((v == expected1) or (v == expected2),
+                                  "ERROR in 'test_par_extract'")
+  }
+
+  def test_par_primitive_string(): void
+    let expectedString = "Liftv String"
+        expectedAnotherString = "Liftv Another String"
+        arr_string = extract(liftv expectedString || liftv expectedAnotherString)
+    in
+      for v in arr_string assertTrue((v.equals(expectedString)) or
+                                     (v.equals(expectedAnotherString)),
+                                     "ERROR in 'test_par_string'")
+
+  def test_par_passive(): void
+    let expPass = new PassiveObject("pass", 42)
+        expFail = new PassiveObject("fail", 2)
+        poPass = new PassiveObject("pass", 42)
+        poFail = new PassiveObject("fail", 2)
+        arr_passive = extract(liftv poPass || liftv poFail)
+    in
+       for v in arr_passive
+         if (v.tag.equals(expPass.tag)) then
+           assertTrue(v.life == expPass.life, "ERROR in 'test_par_passive'")
+         else
+           assertTrue(v.life == expFail.life, "ERROR in 'test_par_passive'")
+
+  def test_seq_primitive(): void
+    let arr_int = extract((liftv 34 || liftv 20) >> inc >> inc >> dec)
+        par_string = (liftv "Liftv String" || liftv "Liftv String2") >> from_string_to_int
+        expectedInt1 = 35
+        expectedInt2 = 21
+        expectedString1 = 7
+        expectedString2 = 1
+    in {
+       for v in arr_int
+         assertTrue((v == expectedInt1) or (v == expectedInt2),
+        "ERROR in 'test_seq_primitive', in 'int' case");
+       for v in extract(par_string)
+         assertTrue((v == expectedString1) or (v == expectedString2),
+                    "ERROR in 'test_seq_primitive', in 'string' case");
+    }
+
+  def test_seq_passive(): void
+    let poPass = new PassiveObject("pass", 42)
+        poFail = new PassiveObject("fail", 2)
+        par_passive = (liftv poPass || liftv poFail) >> switch_tag >> switch_life
+    in
+       for v in extract(par_passive)
+         if (v.tag.equals("fail")) then
+           assertTrue(v.life == 1, "ERROR in 'test_seq_passive'")
+         else
+           assertTrue(v.life == 42, "ERROR in 'test_seq_passive")
+
+  def test_liftf_primitive(): void
+    let test = new Test
+        pObject = new PassiveObject("pass", 42)
+
+        expString = "Liftf String"
+        arr_int = extract(liftf test.number(34))
+        arr_string = extract(liftf test.stringf(expString))
+    in {
+       for v in arr_int assertTrue(v == 34, "ERROR in 'test_liftf_primitive'");
+       for v in arr_string assertTrue(v.equals(expString), "ERROR in 'test_liftf_primitive'")
+    }
+
+  def test_liftf_passive(): void
+    let test = new Test
+        pObject = new PassiveObject("pass", 42)
+        expIntJoin1 = 42
+        expIntJoin2 = 30
+
+        arr_passive = extract(liftf test.passive_object(pObject))
+        arr_int_join = extract(join(liftf test.par_int_case()))
+        arr_passive_join = extract(join(liftf test.par_passive_case(pObject)))
+    in {
+       for v in arr_passive {
+         assertTrue(v.tag.equals("pass"), "ERROR in 'test_liftf_passive'");
+         assertTrue(v.life == 42, "ERROR in 'test_liftf_passive'");
+       };
+
+       for v in arr_int_join
+         assertTrue((v == expIntJoin1) or (v == expIntJoin2),
+                    "ERROR in 'test_liftf_passive'");
+
+       for v in arr_passive_join
+         if(v.tag.equals("pass")) then
+           assertTrue(v.life == expIntJoin1, "ERROR in 'test_liftf_passive'")
+         else
+           assertTrue(v.life == 1, "ERROR in 'test_liftf_passive'")
+    }
+
+class Main
+  def main(): void {
+    let test = new Test in {
+      --
+      -- Test user defined functions for simple values
+      --
+
+      get test.test_number();
+      get test.test_stringf();
+      get test.test_int_and_dec();
+      get test.test_from_string_to_int();
+      get test.test_switch_test();
+      get test.test_passive_object();
+
+      --
+      -- Test with parallel combinators
+      --
+
+      test.test_liftv_primitive_int();
+      test.test_liftv_primitive_string();
+      test.test_liftv_passive();
+      test.test_liftv_par_primitive();
+      test.test_liftv_par_passive();
+
+      test.test_par_primitive_int();
+      test.test_par_primitive_string();
+      test.test_par_passive();
+
+      test.test_seq_primitive();
+      test.test_seq_passive();
+
+      test.test_liftf_primitive();
+      test.test_liftf_passive();
+      }
+  }

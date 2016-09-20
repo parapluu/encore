@@ -1,0 +1,22 @@
+def fun(x : Animal) : Dog {
+  new Dog
+}
+
+trait Animal
+  require speak() : void
+
+passive class Dog : Animal
+  def speak() : void
+    print "Woof"
+
+passive class Cat : Animal
+  def speak() : void
+    print "Meow"
+
+class Main {
+  def main() : void {
+    let f = fun : Cat -> Animal;
+    let animal = f(new Cat);
+    animal.speak();
+  }
+}

@@ -1,15 +1,20 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
-
 {-| Makes @Closure@ (see "AST") an instance of @Translatable@ (see "CodeGen.Typeclasses") -}
-module CodeGen.Closure where
+module CodeGen.Closure (
+  translateClosure,
+  varSubFromTypeVars,
+) where
 
 import CodeGen.Type
 import CodeGen.Typeclasses
 import CodeGen.Expr ()
+import CodeGen.Trace (traceVariable)
 import CodeGen.CCodeNames
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 import CCode.Main
+import qualified Identifiers as ID
+
+import Data.List (intersect)
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
@@ -19,77 +24,95 @@ import Types as Ty
 
 import Control.Monad.State hiding (void)
 
-translateClosure :: A.Expr -> ClassTable -> CCode Toplevel
-translateClosure closure ctable
+varSubFromTypeVars :: [Type] -> [(ID.Name, CCode Lval)]
+varSubFromTypeVars = map each
+  where
+    each ty =
+      let ty' = typeVarRefName ty
+      in (ID.Name $ show $ ty', AsLval ty')
+
+translateClosure :: A.Expr -> [Type] -> ClassTable -> CCode Toplevel
+translateClosure closure typeVars ctable
     | A.isClosure closure =
-           let arrowType  = A.getType closure
-               resultType = Ty.getResultType arrowType
-               argTypes   = Ty.getArgTypes arrowType
-               params     = A.eparams closure
-               body       = A.body closure
-               id         = Meta.getMetaId . A.getMeta $ closure
-               funName   = closureFunName id
-               envName   = closureEnvName id
-               traceName = closureTraceName id
-               freeVars   = Util.freeVariables (map A.pname params) body
+       let arrowType   = A.getType closure
+           resultType  = Ty.getResultType arrowType
+           argTypes    = Ty.getArgTypes arrowType
+           params      = A.eparams closure
+           body        = A.body closure
+           id          = Meta.getMetaId . A.getMeta $ closure
+           funName     = closureFunName id
+           envName     = closureEnvName id
+           traceName   = closureTraceName id
+           freeVars    = Util.freeVariables (map A.pname params) body
+           fTypeVars = typeVars `intersect` Util.freeTypeVars body
+           encEnvNames = map fst freeVars
+           envNames    = map (AsLval . fieldName) encEnvNames
+           encArgNames = map A.pname params
+           argNames    = map (AsLval . argName) encArgNames
+           subst       = zip encEnvNames envNames ++
+                         zip encArgNames argNames ++
+                         varSubFromTypeVars fTypeVars
+           ctx = Ctx.new subst ctable
 
-               encEnvNames = map fst freeVars
-               envNames     = map (AsLval . fieldName) encEnvNames
-               encArgNames = map A.pname params
-               encArgTypes = map A.ptype params
-               argNames = map argName encArgNames
-               --argTypes = map translate encArgTypes
-               subst     = (zip encEnvNames envNames) ++
-                           (zip encArgNames argNames)
-               ctx = Ctx.new subst ctable
-
-               ((bodyName, bodyStat), _) = runState (translate body) ctx
-           in
-             Concat [buildEnvironment envName freeVars,
-                     tracefunDecl traceName envName freeVars,
-                     Function (Typ "value_t") funName
-                              [(Typ "value_t", Var "_args[]"), (Ptr void, Var "_env")]
-                              (Seq $
-                                extractArguments params ++
-                                extractEnvironment envName freeVars ++
-                                [bodyStat, returnStmnt bodyName resultType])]
-    | otherwise = error "Tried to translate a closure from something that was not a closure"
+           ((bodyName, bodyStat), _) = runState (translate body) ctx
+       in
+         Concat [buildEnvironment envName freeVars fTypeVars,
+                 tracefunDecl traceName envName freeVars,
+                 Function (Typ "value_t") funName
+                          [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                           (Typ "value_t", Var "_args[]"),
+                           (Ptr void, Var "_env")]
+                          (Seq $
+                            extractArguments params ++
+                            extractEnvironment envName freeVars fTypeVars ++
+                            [bodyStat, returnStmnt bodyName resultType])]
+  | otherwise =
+        error
+        "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty
-          | isVoidType ty = Return $ (asEncoreArgT (translate ty) unit)
-          | otherwise     = Return $ (asEncoreArgT (translate ty) var)
+          | isVoidType ty = Return $ asEncoreArgT (translate ty) unit
+          | otherwise     = Return $ asEncoreArgT (translate ty) var
 
       extractArguments params = extractArguments' params 0
       extractArguments' [] _ = []
       extractArguments' ((A.Param{A.pname, A.ptype}):args) i =
-          (Assign (Decl (ty, arg)) (getArgument i)) : (extractArguments' args (i+1))
+          Assign (Decl (ty, arg)) (getArgument i) : extractArguments' args (i+1)
           where
             ty = translate ptype
-            arg = argName pname
+            arg = AsLval $ argName pname
             getArgument i = fromEncoreArgT ty $ AsExpr $ ArrAcc i (Var "_args")
 
-      buildEnvironment name members =
-          StructDecl (Typ $ show name) (map translateBinding members)
-              where
-                translateBinding (name, ty) = (translate ty, AsLval $ fieldName name)
+      buildEnvironment name vars typeVars =
+        StructDecl (Typ $ show name) $
+          (map translateBinding vars) ++ (map translateTypeVar typeVars)
+          where
+            translateBinding (name, ty) =
+              (translate ty, AsLval $ fieldName name)
+            translateTypeVar ty =
+              (Ptr ponyTypeT, AsLval $ typeVarRefName ty)
 
-      extractEnvironment _ [] = []
-      extractEnvironment envName ((name, ty):vars) =
-          (Assign (Decl (translate ty, AsLval $ fieldName name)) (getVar name)) : extractEnvironment envName vars
-              where
-                getVar name =
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` fieldName name
+      extractEnvironment envName vars typeVars=
+        map assignVar vars ++ map assignTypeVar typeVars
+        where
+          assignVar (name, ty) =
+            let fName = fieldName name
+            in Assign (Decl (translate ty, AsLval fName)) $ getVar fName
+          assignTypeVar ty =
+            let fName = typeVarRefName ty
+            in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+          getVar name =
+              (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
 
       tracefunDecl traceName envName members =
-          Function void traceName [(Ptr void, Var "p")]
-                   (Seq $ map traceMember members)
-              where
-                traceMember (name, ty)
-                    | Ty.isActiveClassType ty =
-                        Call (Nam "pony_traceactor") [getVar name]
-                    | Ty.isPassiveClassType ty =
-                        Call (Nam "pony_traceobject")
-                             [getVar name, AsLval $ classTraceFnName ty]
-                    | otherwise = Comm $ "Not tracing member '" ++ show name ++ "'"
-                getVar name =
-                    (Deref $ Cast (Ptr $ Struct envName) (Var "p")) `Dot` (Nam $ show name)
+        Function void traceName args body
+        where
+          args = [(Ptr encoreCtxT, ctxArg), (Ptr void, Var "p")]
+          ctxArg = Var "_ctx_arg"
+          body = Seq $
+              Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg) :
+              Assign (Decl (Ptr $ Struct envName, Var "_this")) (Var "p") :
+              map traceMember members
+          traceMember (name, ty) = traceVariable ty $ getVar name
+          getVar name =
+              (Var "_this") `Arrow` fieldName name

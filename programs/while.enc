@@ -1,7 +1,0 @@
-class Main
-  def main() : void
-    let i = 10 in
-      while i > 0
-        {print "Hello Ponyworld!";
-         i = i - 1}
-  

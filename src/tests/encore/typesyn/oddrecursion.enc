@@ -1,0 +1,10 @@
+typedef A = int
+
+def foo(x:A,f:A->A) : A
+  f(x)
+
+class Main
+  def main() : void {
+    let f = \(x:A) -> x*100 in
+    print foo(9,f)
+  }

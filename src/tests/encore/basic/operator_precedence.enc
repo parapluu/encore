@@ -1,0 +1,9 @@
+class Main
+
+  def main() : void {
+    print((123 == 100+23 and 789 <= 888) and ((123 == (100+23)) and (789 <= 888)));
+    print((1+1 == 2 == true or false) and (((1+1 == 2) == true) or false)) ;
+    let a = Just 45;
+    let b = Nothing : Maybe int;
+    print((a != Nothing and b == Nothing) and ((a != Nothing) and (b == Nothing)))
+  }

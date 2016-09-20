@@ -1,14 +1,17 @@
 class Foo {
   def work() : void {
-    print("working\n")
+    print("working")
   }
 }
 
 class Client {
   def start() : void {
     let
-      f1 = peer Foo
-      f2 = peer Foo
+      -- peer is not supported by the compiler yet
+      -- f1 = peer Foo
+      -- f2 = peer Foo
+      f1 = new Foo
+      f2 = new Foo
     in {
       f1.work();
       f2.work();

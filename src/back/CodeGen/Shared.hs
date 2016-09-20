@@ -1,11 +1,9 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
-
 module CodeGen.Shared(generateShared) where
 
 import CCode.Main
 import CodeGen.CCodeNames
 import CodeGen.Typeclasses
-import CodeGen.Function ()
+import CodeGen.Function
 import CodeGen.ClassTable
 import qualified AST.AST as A
 
@@ -28,13 +26,16 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
     where
       allfunctions = A.allFunctions prog
 
-      globalFunctions = map (\fun -> translate fun ctable) allfunctions
+      globalFunctions =
+        [translate f ctable | f <- allfunctions] ++
+        [globalFunctionWrapper f | f <- allfunctions] ++
+        [initGlobalFunctionClosure f | f <- allfunctions]
 
       embeddedCode = A.traverseProgram embedded prog
         where
-          embedded A.Program{A.source, A.etl = A.EmbedTL{A.etlbody}} =
+          embedded A.Program{A.source, A.etl} =
               [commentSection $ "Embedded Code from " ++ show source] ++
-              [Embed etlbody]
+              map (Embed . A.etlbody) etl
 
       sharedMessages = [msgAllocDecl, msgFutResumeDecl, msgFutSuspendDecl, msgFutAwaitDecl, msgFutRunClosureDecl]
           where
@@ -57,16 +58,8 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
       mainFunction =
           Function (Typ "int") (Nam "main")
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                   (Seq $ initGlobals ++ [Return encoreStart])
+                   $ Return encoreStart
           where
-            initGlobals = map initGlobal allfunctions
-                where
-                  initGlobal A.Function{A.funname} =
-                      Assign (globalClosureName funname)
-                             (Call (Nam "closure_mk")
-                                   [AsExpr $ AsLval $ globalFunctionName funname,
-                                    Null,
-                                    Null])
             encoreStart =
                 Call (Nam "encore_start")
                      [AsExpr $ Var "argc",

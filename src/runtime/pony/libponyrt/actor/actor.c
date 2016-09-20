@@ -1,9 +1,6 @@
-#define _XOPEN_SOURCE 800
-#include <ucontext.h>
 #include "actor.h"
-#include "messageq.h"
-#include "../sched/mpmcq.h"
 #include "../sched/scheduler.h"
+#include "../sched/cpu.h"
 #include "../mem/pool.h"
 #include "../gc/cycle.h"
 #include "../gc/trace.h"
@@ -15,32 +12,18 @@
 enum
 {
   FLAG_BLOCKED = 1 << 0,
-  FLAG_SYSTEM = 1 << 1,
-  FLAG_UNSCHEDULED = 1 << 2,
-  FLAG_PENDINGDESTROY = 1 << 3,
+  FLAG_RC_CHANGED = 1 << 1,
+  FLAG_SYSTEM = 1 << 2,
+  FLAG_UNSCHEDULED = 1 << 3,
+  FLAG_PENDINGDESTROY = 1 << 4,
 };
 
-typedef struct pony_actor_t
-{
-  pony_type_t* type;
-  messageq_t q;
-  pony_msg_t* continuation;
-
-  // keep things accessed by other actors on a separate cache line
-  __pony_spec_align__(heap_t heap, 64);
-  gc_t gc;
-  struct pony_actor_t* next;
-  uint8_t flags;
-} pony_actor_t;
-
-extern void post_gc_mark(gc_t* gc);
 extern __thread encore_actor_t* this_encore_task;
 extern uint32_t remaining_tasks;
 extern mpmcq_t taskq;
+extern bool gc_disabled(pony_ctx_t *ctx);
 
-static __pony_thread_local pony_actor_t* this_actor;
-
-bool has_flag(pony_actor_t* actor, uint8_t flag)
+static bool has_flag(pony_actor_t* actor, uint8_t flag)
 {
   return (actor->flags & flag) != 0;
 }
@@ -55,7 +38,8 @@ static void unset_flag(pony_actor_t* actor, uint8_t flag)
   actor->flags &= (uint8_t)~flag;
 }
 
-static bool handle_message(pony_actor_t* actor, pony_msg_t* msg, bool* notify)
+static bool handle_message(pony_ctx_t** ctx, pony_actor_t* actor,
+  pony_msg_t* msg)
 {
   if (!has_flag(actor, FLAG_SYSTEM)) {
     if (encore_actor_handle_message_hook((encore_actor_t*)actor, msg)) {
@@ -72,7 +56,9 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg, bool* notify)
       if(gc_acquire(&actor->gc, (actorref_t*)m->p) &&
         has_flag(actor, FLAG_BLOCKED))
       {
-        *notify = true;
+        // If our rc changes, we have to tell the cycle detector before sending
+        // any CONF messages.
+        set_flag(actor, FLAG_RC_CHANGED);
       }
 
       return false;
@@ -85,7 +71,9 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg, bool* notify)
       if(gc_release(&actor->gc, (actorref_t*)m->p) &&
         has_flag(actor, FLAG_BLOCKED))
       {
-        *notify = true;
+        // If our rc changes, we have to tell the cycle detector before sending
+        // any CONF messages.
+        set_flag(actor, FLAG_RC_CHANGED);
       }
 
       return false;
@@ -93,8 +81,14 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg, bool* notify)
 
     case ACTORMSG_CONF:
     {
-      pony_msgi_t* m = (pony_msgi_t*)msg;
-      cycle_ack(m->i);
+      if(has_flag(actor, FLAG_BLOCKED) && !has_flag(actor, FLAG_RC_CHANGED))
+      {
+        // We're blocked and our RC hasn't changed since our last block
+        // message, send confirm.
+        pony_msgi_t* m = (pony_msgi_t*)msg;
+        cycle_ack(*ctx, (unsigned long)m->i);
+      }
+
       return false;
     }
 
@@ -102,91 +96,136 @@ static bool handle_message(pony_actor_t* actor, pony_msg_t* msg, bool* notify)
     {
       if(has_flag(actor, FLAG_BLOCKED))
       {
-        *notify = false;
-        cycle_unblock(actor);
-        unset_flag(actor, FLAG_BLOCKED);
+        // Send unblock before continuing. We no longer need to send any
+        // pending rc change to the cycle detector.
+        unset_flag(actor, FLAG_BLOCKED | FLAG_RC_CHANGED);
+        cycle_unblock(*ctx, actor);
       }
 
-      /* printf("MESSAGE: %d\n", msg->id); */
 #ifndef LAZY_IMPL
       if (!has_flag(actor, FLAG_SYSTEM)) {
-      // if (0) {
         encore_actor_t *a = (encore_actor_t *)actor;
-        getcontext(&a->ctx);
-        a->ctx.uc_stack.ss_sp = get_local_page_stack();
-        a->ctx.uc_stack.ss_size = Stack_Size;
-        a->ctx.uc_link = &a->home_ctx;
-        a->ctx.uc_stack.ss_flags = 0;
-        makecontext(&a->ctx, (void(*)(void))actor->type->dispatch, 2, a, msg);
-        int ret = swapcontext(&a->home_ctx, &a->ctx);
+        getcontext(&a->uctx);
+        a->uctx.uc_stack.ss_sp = get_local_page_stack();
+        a->uctx.uc_stack.ss_size = Stack_Size;
+        a->uctx.uc_link = &a->home_uctx;
+        a->uctx.uc_stack.ss_flags = 0;
+        makecontext(&a->uctx,
+            (void(*)(void))actor->type->dispatch, 3, ctx, a, msg);
+        int ret = swapcontext(&a->home_uctx, &a->uctx);
         assert(ret == 0);
+        return !has_flag(actor, FLAG_UNSCHEDULED);
       } else {
-        actor->type->dispatch(actor, msg);
+        actor->type->dispatch(ctx, actor, msg);
       }
 #else
-      actor->type->dispatch(actor, msg);
+      actor->type->dispatch(ctx, actor, msg);
 #endif
-
       return true;
     }
   }
 }
 
-bool actor_run(pony_actor_t* actor)
+static void try_gc(pony_ctx_t* ctx, pony_actor_t* actor)
 {
-  this_actor = actor;
+
+  if (gc_disabled(ctx)) {
+    return;
+  }
+
+  if(!heap_startgc(&actor->heap))
+    return;
+
+#ifdef USE_TELEMETRY
+  ctx->count_gc_passes++;
+  size_t tsc = cpu_tick();
+#endif
+
+  pony_gc_mark(ctx);
+
+  if(actor->type->trace != NULL)
+    actor->type->trace(ctx, actor);
+
+  gc_handlestack(ctx);
+  gc_sweep(ctx, &actor->gc);
+  gc_done(&actor->gc);
+  heap_endgc(&actor->heap);
+
+#ifdef USE_TELEMETRY
+  ctx->time_in_gc += (cpu_tick() - tsc);
+#endif
+}
+
+bool actor_run(pony_ctx_t** ctx, pony_actor_t* actor, size_t batch)
+{
+  (*ctx)->current = actor;
+
+  size_t app = 0;
 
   if (!has_flag(actor, FLAG_SYSTEM)) {
     if (encore_actor_run_hook((encore_actor_t *)actor)) {
-      return !has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED);
+      if (has_flag((pony_actor_t *)actor, FLAG_UNSCHEDULED)) {
+        return false;
+      }
+      app++;
+      try_gc(*ctx, actor);
+      if (app == batch) {
+        return true;
+      }
     }
-  }
-
-  // if(1)
-  if(heap_startgc(&actor->heap))
-  {
-    pony_gc_mark();
-
-    if(actor->type->trace != NULL)
-      actor->type->trace(actor);
-
-    gc_handlestack();
-    gc_sweep(&actor->gc);
-    gc_done(&actor->gc);
-    heap_endgc(&actor->heap);
   }
 
   pony_msg_t* msg;
-  bool notify = false;
 
-  if(actor->continuation != NULL)
+  while(actor->continuation != NULL)
   {
     msg = actor->continuation;
     actor->continuation = NULL;
-    bool ret = handle_message(actor, msg, &notify);
+    bool ret = handle_message(ctx, actor, msg);
     pool_free(msg->size, msg);
 
     if(ret)
-      return !has_flag(actor, FLAG_UNSCHEDULED);
+    {
+      // If we handle an application message, try to gc.
+      app++;
+      try_gc(*ctx, actor);
+
+      if(app == batch)
+        return !has_flag(actor, FLAG_UNSCHEDULED);
+    }
   }
-  if(actor==(pony_actor_t*)this_encore_task){
-    assert(this_encore_task!=NULL);
+
+  if (actor == (pony_actor_t*)this_encore_task) {
+    assert(this_encore_task != NULL);
     pony_msg_t* task_msg;
-    while((task_msg = mpmcq_pop(&taskq)) != NULL){
+    while ((task_msg = mpmcq_pop(&taskq)) != NULL) {
       __atomic_fetch_sub(&remaining_tasks, 1, __ATOMIC_RELAXED);
       assert(task_msg->id == _ENC__MSG_TASK);
-      if(handle_message(actor, task_msg, &notify)){ // TODO: (kiko) Check!
+      if (handle_message(ctx, actor, task_msg)) { // TODO: (kiko) Check!
         return !has_flag(actor, FLAG_UNSCHEDULED);
       }
     }
-    pony_unschedule();
-  }else{
+    pony_unschedule(*ctx, actor);
+  } else {
     while((msg = messageq_pop(&actor->q)) != NULL)
     {
-      if(handle_message(actor, msg, &notify))
-        return !has_flag(actor, FLAG_UNSCHEDULED);
+      if(handle_message(ctx, actor, msg)) {
+        // If we handle an application message, try to gc.
+        app++;
+        try_gc(*ctx, actor);
+
+        if(app == batch)
+          return !has_flag(actor, FLAG_UNSCHEDULED);
+      } else if (has_flag(actor, FLAG_UNSCHEDULED)) {
+        return false;
+      }
     }
   }
+  assert((*ctx)->current == actor);
+  // We didn't hit our app message batch limit. We now believe our queue to be
+  // empty, but we may have received further messages.
+  assert(app < batch);
+  try_gc(*ctx, actor);
 
   if(has_flag(actor, FLAG_UNSCHEDULED))
   {
@@ -195,25 +234,37 @@ bool actor_run(pony_actor_t* actor)
     return false;
   }
 
-  // If we are just now blocking, or we received an acquire or a release
-  // message, tell the cycle detector.
-  if(notify || !has_flag(actor, FLAG_BLOCKED | FLAG_SYSTEM)) // TODO (kiko) Tasks
+  // If we have processed any application level messages, defer blocking.
+  if(app > 0)
+    return true;
+
+  // Tell the cycle detector we are blocking. We may not actually block if a
+  // message is received between now and when we try to mark our queue as
+  // empty, but that's ok, we have still logically blocked.
+  if(!has_flag(actor, FLAG_BLOCKED | FLAG_SYSTEM) ||
+    has_flag(actor, FLAG_RC_CHANGED))
   {
-    cycle_block(actor, &actor->gc);
     set_flag(actor, FLAG_BLOCKED);
+    unset_flag(actor, FLAG_RC_CHANGED);
+    cycle_block(*ctx, actor, &actor->gc);
   }
 
+  // Return true (i.e. reschedule immediately) if our queue isn't empty.
   return !messageq_markempty(&actor->q);
-}
-
-bool actor_emptyqueue(pony_actor_t* actor)
-{
-  return messageq_markempty(&actor->q);
 }
 
 void actor_destroy(pony_actor_t* actor)
 {
   assert(has_flag(actor, FLAG_PENDINGDESTROY));
+
+  // Make sure the actor being destroyed has finished marking its queue
+  // as empty. Otherwise, it may spuriously see that tail and head are not
+  // the same and fail to mark the queue as empty, resulting in it getting
+  // rescheduled.
+  pony_msg_t* head = _atomic_load(&actor->q.head);
+
+  while(((uintptr_t)head & (uintptr_t)1) != (uintptr_t)1)
+    head = _atomic_load(&actor->q.head);
 
   messageq_destroy(&actor->q);
   gc_destroy(&actor->gc);
@@ -221,11 +272,6 @@ void actor_destroy(pony_actor_t* actor)
 
   // Free variable sized actors correctly.
   pool_free_size(actor->type->size, actor);
-}
-
-pony_actor_t* actor_current()
-{
-  return this_actor;
 }
 
 // TODO: this should be in task.c. Called from future.c
@@ -262,27 +308,27 @@ void actor_setpendingdestroy(pony_actor_t* actor)
   set_flag(actor, FLAG_PENDINGDESTROY);
 }
 
-void actor_final(pony_actor_t* actor)
+void actor_final(pony_ctx_t* ctx, pony_actor_t* actor)
 {
   // This gets run while the cycle detector is handling a message. Set the
   // current actor before running anything.
-  pony_actor_t* prev = this_actor;
-  this_actor = actor;
+  pony_actor_t* prev = ctx->current;
+  ctx->current = actor;
 
   // Run the actor finaliser if it has one.
   if(actor->type->final != NULL)
     actor->type->final(actor);
 
   // Run all outstanding object finalisers.
-  gc_final(&actor->gc);
+  gc_final(ctx, &actor->gc);
 
   // Restore the current actor.
-  this_actor = prev;
+  ctx->current = prev;
 }
 
-void actor_sendrelease(pony_actor_t* actor)
+void actor_sendrelease(pony_ctx_t* ctx, pony_actor_t* actor)
 {
-  gc_sendrelease(&actor->gc);
+  gc_sendrelease(ctx, &actor->gc);
 }
 
 void actor_setsystem(pony_actor_t* actor)
@@ -290,20 +336,13 @@ void actor_setsystem(pony_actor_t* actor)
   set_flag(actor, FLAG_SYSTEM);
 }
 
-pony_actor_t* actor_next(pony_actor_t* actor)
-{
-  return actor->next;
-}
-
-void actor_setnext(pony_actor_t* actor, pony_actor_t* next)
-{
-  actor->next = next;
-}
-
-pony_actor_t* pony_create(pony_type_t* type)
+pony_actor_t* pony_create(pony_ctx_t* ctx, pony_type_t* type)
 {
   assert(type != NULL);
-  pony_actor_t* current = this_actor;
+
+#ifdef USE_TELEMETRY
+  ctx->count_alloc_actors++;
+#endif
 
   // allocate variable sized actors correctly
   pony_actor_t* actor = (pony_actor_t*)pool_alloc_size(type->size);
@@ -314,11 +353,11 @@ pony_actor_t* pony_create(pony_type_t* type)
   heap_init(&actor->heap);
   gc_done(&actor->gc);
 
-  if(this_actor != NULL)
+  if(ctx->current != NULL)
   {
     // actors begin unblocked and referenced by the creating actor
     actor->gc.rc = GC_INC_MORE;
-    gc_createactor(&current->heap, &current->gc, actor);
+    gc_createactor(ctx->current, actor);
   } else {
     // no creator, so the actor isn't referenced by anything
     actor->gc.rc = 0;
@@ -330,9 +369,8 @@ pony_actor_t* pony_create(pony_type_t* type)
 void pony_destroy(pony_actor_t* actor)
 {
   // This destroy an actor immediately. If any other actor has a reference to
-  // this actor, the program will likely crash.
+  // this actor, the program will likely crash. The finaliser is not called.
   actor_setpendingdestroy(actor);
-  actor_final(actor);
   actor_destroy(actor);
 }
 
@@ -345,39 +383,50 @@ pony_msg_t* pony_alloc_msg(uint32_t size, uint32_t id)
   return msg;
 }
 
-void pony_sendv(pony_actor_t* to, pony_msg_t* m)
+void pony_sendv(pony_ctx_t* ctx, pony_actor_t* to, pony_msg_t* m)
 {
+#ifdef USE_TELEMETRY
+  switch(m->id)
+  {
+    case ACTORMSG_BLOCK: ctx->count_msg_block++; break;
+    case ACTORMSG_UNBLOCK: ctx->count_msg_unblock++; break;
+    case ACTORMSG_ACQUIRE: ctx->count_msg_acquire++; break;
+    case ACTORMSG_RELEASE: ctx->count_msg_release++; break;
+    case ACTORMSG_CONF: ctx->count_msg_conf++; break;
+    case ACTORMSG_ACK: ctx->count_msg_ack++; break;
+    default: ctx->count_msg_app++;
+  }
+#endif
+
   if(messageq_push(&to->q, m))
   {
     if(!has_flag(to, FLAG_UNSCHEDULED))
-      scheduler_add(to);
+      scheduler_add(ctx, to);
   }
-
-  scheduler_respond();
 }
 
-void pony_send(pony_actor_t* to, uint32_t id)
+void pony_send(pony_ctx_t* ctx, pony_actor_t* to, uint32_t id)
 {
   pony_msg_t* m = pony_alloc_msg(POOL_INDEX(sizeof(pony_msg_t)), id);
-  pony_sendv(to, m);
+  pony_sendv(ctx, to, m);
 }
 
-void pony_sendp(pony_actor_t* to, uint32_t id, void* p)
+void pony_sendp(pony_ctx_t* ctx, pony_actor_t* to, uint32_t id, void* p)
 {
   pony_msgp_t* m = (pony_msgp_t*)pony_alloc_msg(
     POOL_INDEX(sizeof(pony_msgp_t)), id);
   m->p = p;
 
-  pony_sendv(to, &m->msg);
+  pony_sendv(ctx, to, &m->msg);
 }
 
-void pony_sendi(pony_actor_t* to, uint32_t id, intptr_t i)
+void pony_sendi(pony_ctx_t* ctx, pony_actor_t* to, uint32_t id, intptr_t i)
 {
   pony_msgi_t* m = (pony_msgi_t*)pony_alloc_msg(
     POOL_INDEX(sizeof(pony_msgi_t)), id);
   m->i = i;
 
-  pony_sendv(to, &m->msg);
+  pony_sendv(ctx, to, &m->msg);
 }
 
 void pony_continuation(pony_actor_t* to, pony_msg_t* m)
@@ -387,66 +436,100 @@ void pony_continuation(pony_actor_t* to, pony_msg_t* m)
   to->continuation = m;
 }
 
-void* pony_alloc(size_t size)
+void* pony_alloc(pony_ctx_t* ctx, size_t size)
 {
-  return heap_alloc(this_actor, &this_actor->heap, size);
+#ifdef USE_TELEMETRY
+  ctx->count_alloc++;
+  ctx->count_alloc_size += size;
+#endif
+
+  return heap_alloc(ctx->current, &ctx->current->heap, size);
 }
 
-void* pony_realloc(void* p, size_t size)
+void* pony_alloc_small(pony_ctx_t* ctx, uint32_t sizeclass)
 {
-  return heap_realloc(this_actor, &this_actor->heap, p, size);
+#ifdef USE_TELEMETRY
+  ctx->count_alloc++;
+  ctx->count_alloc_size += HEAP_MIN << sizeclass;
+#endif
+
+  return heap_alloc_small(ctx->current, &ctx->current->heap, sizeclass);
 }
 
-void* pony_alloc_final(size_t size, pony_final_fn final)
+void* pony_alloc_large(pony_ctx_t* ctx, size_t size)
 {
-  void* p = heap_alloc(this_actor, &this_actor->heap, size);
-  gc_register_final(&this_actor->gc, p, final);
+#ifdef USE_TELEMETRY
+  ctx->count_alloc++;
+  ctx->count_alloc_size += size;
+#endif
+
+  return heap_alloc_large(ctx->current, &ctx->current->heap, size);
+}
+
+void* pony_realloc(pony_ctx_t* ctx, void* p, size_t size)
+{
+#ifdef USE_TELEMETRY
+  ctx->count_alloc++;
+  ctx->count_alloc_size += size;
+#endif
+
+  return heap_realloc(ctx->current, &ctx->current->heap, p, size);
+}
+
+void* pony_alloc_final(pony_ctx_t* ctx, size_t size, pony_final_fn final)
+{
+#ifdef USE_TELEMETRY
+  ctx->count_alloc++;
+  ctx->count_alloc_size += size;
+#endif
+
+  void* p = heap_alloc(ctx->current, &ctx->current->heap, size);
+  gc_register_final(ctx, p, final);
   return p;
 }
 
-void pony_triggergc()
+void pony_triggergc(pony_actor_t* actor)
 {
-  this_actor->heap.next_gc = 0;
+  actor->heap.next_gc = 0;
 }
 
-void pony_schedule(pony_actor_t* actor)
+void pony_schedule(pony_ctx_t* ctx, pony_actor_t* actor)
 {
   if(!has_flag(actor, FLAG_UNSCHEDULED))
     return;
 
   unset_flag(actor, FLAG_UNSCHEDULED);
-  scheduler_add(actor);
+  scheduler_add(ctx, actor);
 }
 
-void pony_schedule_first(pony_actor_t* actor)
+void pony_unschedule(pony_ctx_t* ctx, pony_actor_t* actor)
 {
-  if(!has_flag(actor, FLAG_UNSCHEDULED))
-    return;
-
-  unset_flag(actor, FLAG_UNSCHEDULED);
-  scheduler_add_first(actor);
-}
-
-void pony_unschedule(void)
-{
-  if(has_flag(this_actor, FLAG_BLOCKED))
+  if(has_flag(actor, FLAG_BLOCKED))
   {
-    cycle_unblock(this_actor);
-    unset_flag(this_actor, FLAG_BLOCKED);
+    cycle_unblock(ctx, actor);
+    unset_flag(actor, FLAG_BLOCKED | FLAG_RC_CHANGED);
   }
 
-  set_flag(this_actor, FLAG_UNSCHEDULED);
+  set_flag(actor, FLAG_UNSCHEDULED);
 }
 
-void pony_become(pony_actor_t* actor)
+void pony_become(pony_ctx_t* ctx, pony_actor_t* actor)
 {
-  this_actor = actor;
+  ctx->current = actor;
 }
 
-bool pony_poll(pony_actor_t* actor)
-{
-  return actor_run(actor);
-}
+// NOTE: (Kiko) The function `pony_poll` is not used by Encore and/or the PonyRT.
+// This means that it is used by the Pony compiler. In the Encore context,
+// if we allow this function, we would need to pass a `pony_ctx_t**` as argument,
+// since the `actor_run` requires a `pony_ctx_t**`. The reason for this is that
+// the `actor_run` updates the `ctx` argument to point to a new context and this can
+// only be done with a pointer to a pointer.
+
+/* void pony_poll(pony_ctx_t* ctx) */
+/* { */
+/*   assert(ctx->current != NULL); */
+/*   actor_run(ctx, ctx->current, 1); */
+/* } */
 
 bool pony_system_actor(pony_actor_t *actor)
 {

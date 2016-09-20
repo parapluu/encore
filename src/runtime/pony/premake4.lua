@@ -54,7 +54,6 @@ function c_lib()
       end
     end
 
-
   configuration "*"
 end
 
@@ -66,11 +65,9 @@ solution "ponyrt"
       "-mcx16",
       "-pthread",
       "-std=gnu11",
-      "-fms-extensions",
       "-march=native",
 
-      "-Wno-unused-variable",
-      "-Wno-unused-function",
+      "-Wno-error=deprecated-declarations",
       }
 
     linkoptions {
@@ -82,18 +79,18 @@ solution "ponyrt"
 
   includedirs {
     "../closure",
-    "../set",
+    "../array",
     "../encore",
     "../future",
     "../task",
     "../adt",
+    "../party",
     "libponyrt",
     "../common",
   }
 
   flags {
     "ExtraWarnings",
---    "FatalWarnings",
     "Symbols"
     }
 
@@ -146,6 +143,13 @@ project "array"
     "../array/array.c"
   }
 
+project "tuple"
+  c_lib()
+  files {
+    "../tuple/tuple.h",
+    "../tuple/tuple.c"
+  }
+
 project "range"
   c_lib()
   files {
@@ -176,12 +180,17 @@ project "closure"
     "../closure/closure.c"
   }
 
+project "party"
+  c_lib()
+  links { "future", "array" }
+
+  files {
+    "../party/party.*",
+  }
+
 project "future"
   c_lib()
-  links { "closure" }
-  buildoptions {
-      "-Wno-deprecated-declarations",
-  }
+  links { "closure", "array" }
   files {
     "../future/future.c",
   }

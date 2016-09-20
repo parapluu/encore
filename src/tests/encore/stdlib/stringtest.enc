@@ -1,0 +1,352 @@
+embed
+#include <string.h>
+#include <strings.h>
+#include <ctype.h>
+end
+
+def strcmp(a:String, b:String) : bool
+  embed bool
+    strcmp(#{a}->_enc__field_data, #{b}->_enc__field_data) == 0;
+  end
+
+def arraycmp(a:[String], b:[String]) : bool
+  if |a| == |b|
+  then
+    let
+      same = true
+    in {
+      repeat i <- |a|
+        if not strcmp(a[i] , b[i]) then same = false;
+      same;
+    }
+    else
+      false
+
+class Main
+  def main() : void
+    new Test()
+
+passive class Test
+  def init() : void
+  {
+    this.test_concatenate();
+    print "Concatenate passed";
+    this.test_copy();
+    print "Copy passed";
+    this.test_contains();
+    print "Contains passed";
+    this.test_contains_ignore_case();
+    print "Contains ignore case passed";
+    this.test_compare();
+    print "Compare passed";
+    this.test_compare_ignore_case();
+    print "Compare ignore case passed";
+    this.test_to_upper();
+    print "To upper passed";
+    this.test_to_lower();
+    print "To lower passed";
+    this.test_length();
+    print "Length passed";
+    this.test_join();
+    print "Join passed";
+    this.test_format();
+    print "Format passed";
+    this.test_substring();
+    print "Substring passed";
+    this.test_equals();
+    print "Equals passed";
+    this.test_occurrences();
+    print "Occurrences passed";
+    this.test_split();
+    print "Split passed";
+    this.test_trim();
+    print "Trim passed";
+    this.test_replace();
+    print "Replace passed";
+    this.test_find();
+    print "Find passed";
+    this.test_find_from();
+    print "Find from passed";
+    this.test_delete();
+    print "Delete passed";
+    this.test_format();
+    print "Format passed";
+    this.test_char_at();
+    print "Char at passed";
+    this.test_to_array();
+    print "To array passed";
+    this.test_from_array();
+    print "From array passed";
+    this.test_from_char();
+    print "From char passed";
+    this.test_string_from_int();
+    print "String from int passed";
+    this.test_to_int();
+    print "To int passed";
+    print "================";
+    print "All tests passed";
+    print "================";
+  }
+
+  def test_concatenate() : void
+    let
+      a = "aa"
+      b = "bb"
+      e = ""
+    in
+      {
+        assertTrue(strcmp(a.concatenate(b), "aabb"));
+        assertTrue(strcmp(a.concatenate(a), "aaaa"));
+        assertTrue(strcmp(a.concatenate(e), "aa"));
+        assertTrue(strcmp(e.concatenate(a), "aa"));
+        assertFalse(a.concatenate(e) == a);
+      }
+
+  def test_copy() : void
+    let
+      orig = "foobarbaz"
+      copy = orig.copy()
+    in
+      {
+        assertTrue(strcmp(orig, copy));
+        assertFalse(orig == copy);
+        assertTrue(orig.contains(copy));
+        assertTrue(copy.contains(orig));
+        assertTrue(orig.contains_ignore_case(copy));
+        assertTrue(copy.contains_ignore_case(orig));
+      }
+
+  def test_contains() : void {
+    assertTrue(("foobarbaz").contains("bar"));
+    assertFalse(("foobarbaz").contains("Bar"));
+    assertTrue(("").contains(""));
+    assertFalse(("").contains("nonempty"));
+ }
+
+  def test_contains_ignore_case() : void {
+    assertTrue(("foobarbaz").contains_ignore_case("bar"));
+    assertTrue(("foobarbaz").contains_ignore_case("Bar"));
+    assertTrue(("").contains_ignore_case(""));
+    assertFalse(("").contains_ignore_case("nonempty"));
+ }
+
+  def test_compare() : void {
+    assertTrue(("foobarbaz").compare("foobarbaz") == 0);
+    assertTrue(("foobarbaz").compare("Foobarbaz") > 0);
+    assertTrue(("").compare("") == 0);
+    assertTrue(("foobarbaz").compare("something") < 0);
+ }
+
+  def test_compare_ignore_case() : void {
+    assertTrue(("foobarbaz").compare_ignore_case("foobarbaz") == 0);
+    assertTrue(("foobarbaz").compare_ignore_case("Foobarbaz") == 0);
+    assertTrue(("").compare_ignore_case("") == 0);
+    assertTrue(("foobarbaz").compare_ignore_case("something") < 0);
+ }
+
+  def test_to_upper() : void {
+    assertTrue(strcmp(("uppercase").to_upper(), "UPPERCASE"));
+    assertTrue(strcmp(("UPPERCASE").to_upper(), "UPPERCASE"));
+    assertTrue(strcmp(("").to_upper(), ""));
+    assertFalse(strcmp(("lowercase").to_upper(), "lowercase"));
+ }
+
+  def test_to_lower() : void {
+    assertTrue(strcmp(("UPPERCASE").to_lower(), "uppercase"));
+    assertTrue(strcmp(("uppercase").to_lower(), "uppercase"));
+    assertTrue(strcmp(("").to_lower(), ""));
+    assertFalse(strcmp(("lowercase").to_lower(), "LOWERCASE"));
+ }
+
+  def test_length() : void {
+    assertTrue(("13 characters").length() == 13);
+    assertTrue(("").length() == 0);
+  }
+
+  def test_substring() : void {
+    assertTrue(match ("abcdefghijklmnop").substring(0, 0) with
+                 Just s => strcmp(s, "")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(0, 10) with
+                 Just s => strcmp(s, "abcdefghij")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(0, 20) with
+                 Just s => strcmp(s, "abcdefghijklmnop")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(100, 0) with
+                 Just s => strcmp(s, "")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(10,12) with
+                 Just s => strcmp(s, "kl")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(10, 20) with
+                 Just s => strcmp(s, "klmnop")
+                 Nothing => false);
+    assertTrue(match ("abcdefghijklmnop").substring(-1, 5) with
+                 Nothing => true
+                 _       => false);
+  }
+
+  def test_equals() : void {
+    assertTrue(("foo").equals("foo"));
+    assertFalse(("foo").equals("foo1"));
+  }
+
+  def test_occurrences() : void
+    let
+      s = "lorem ipsum dolor lorem"
+    in {
+      assertTrue(s.occurrences("lorem") == 2);
+      assertTrue(s.occurrences("lorem ") == 1);
+      assertTrue(s.occurrences(" lorem") == 1);
+      assertTrue(s.occurrences(" lorem ") == 0);
+      assertTrue(s.occurrences(" ") == 3);
+    }
+
+  def test_split() : void
+    let
+      s = "lorem ipsum dolor lorem"
+    in {
+      assertTrue(arraycmp(s.split("lorem"), ["", " ipsum dolor ",""]));
+      assertTrue(arraycmp(s.split(" "), ["lorem", "ipsum", "dolor", "lorem"]));
+      assertTrue(s.equals(("").join(s.split(""))));
+      assertTrue(arraycmp(s.split(""), ["l", "o", "r", "e", "m", " ",
+                                        "i", "p", "s", "u", "m", " ",
+                                        "d", "o", "l", "o", "r", " ",
+                                        "l", "o", "r", "e", "m"]));
+    }
+
+  def test_trim() : void {
+    assertTrue(strcmp((" \n \t foo \n\t\t\t\n     \t").trim(), "foo"));
+    assertTrue(strcmp(("foo").trim(), "foo"));
+  }
+
+  def test_replace() : void
+    let
+      s = "lorem ipsum dolor lorem"
+    in {
+      assertTrue(strcmp(s.replace("ipsum", "dolor").replace("dolor", "lorem"), "lorem lorem lorem lorem"));
+      assertTrue(strcmp(s.replace(" ", "").replace("dolOR", "lorem"), "loremipsumdolorlorem"));
+     ();
+    }
+
+  def test_find() : void {
+    assertTrue(("gggggggggghgggg").find("h") == 10);
+    assertTrue(("gggggggggghgggg").find("hg") == 10);
+    assertFalse(("gggggggggghgggg").find("hggggggggggggg") == 10);
+    assertTrue(("gggggggggghgggg").find("g") == 0);
+  }
+
+  def test_find_from() : void {
+    assertTrue(("0123456789").find_from("2", 10) == -1);
+    assertTrue(("0123456789").find_from("2", 1) == 2);
+    assertTrue(("gggggggggghgggg").find_from("g", 10) == 11);
+  }
+
+  def test_delete() : void
+    let
+      s = "foo bar  baz"
+    in {
+      assertTrue(strcmp(s.delete(" "), "foobarbaz"));
+      assertTrue(strcmp(s.delete("foo "), "bar  baz"));
+      assertTrue(strcmp(s.delete(" bar "), "foo baz"));
+      assertTrue(strcmp(s.delete("baz"), "foo bar  "));
+    }
+
+  def test_join() : void
+    let
+      s  = ["A"]
+      ss = ["A", "B", "C"]
+      comma   = ", "
+      nothing = ""
+    in {
+      assertTrue(strcmp(nothing.join(ss), "ABC"));
+      assertTrue(strcmp(comma.join(ss), "A, B, C"));
+      assertTrue(strcmp(comma.join(s), "A"));
+    }
+
+
+  def test_format() : void
+    assertTrue(strcmp(("%s-%s").format(["Bar", "Baz"]), "To be implemented"))
+
+  def test_char_at() : void
+    let
+      s = "Hello, world!"
+    in {
+      assertTrue(match s.char_at(0) with
+                   Just c => c == 'H'
+                   Nothing => false);
+      assertTrue(match s.char_at(4) with
+                   Just c => c == 'o'
+                   Nothing => false);
+      assertTrue(match s.char_at(12) with
+                   Just c => c == '!'
+                   Nothing => false);
+      assertTrue(match s.char_at(-1) with
+                   Just c => false
+                   Nothing => true);
+      assertTrue(match s.char_at(13) with
+                   Just c => false
+                   Nothing => true);
+    }
+
+  def test_to_array() : void
+    let
+      s = "Hello, world!"
+      arr1 = s.to_array()
+      arr2 = ['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']
+      empty = ("").to_array()
+    in{
+      for i in [0..|arr1|-1]
+        assertTrue(arr1[i] == arr2[i]);
+      assertTrue(|empty| == 0);
+    }
+
+  def test_from_array() : void
+    let
+      s1 = "Hello, world!"
+      arr = ['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']
+      s2 = string_from_array(arr)
+      empty = string_from_array(new [char](0))
+    in{
+      assertTrue(s1.equals(s2));
+      assertTrue(empty.equals(""));
+    }
+
+  def test_from_char() : void
+    let
+      s = string_from_char('A')
+    in
+      assertTrue(s.equals("A"))
+
+  def test_string_from_int() : void
+    let
+      s1 = string_from_int(123456789)
+      s2 = string_from_int(-42)
+      s3 = string_from_int(0)
+    in {
+      assertTrue(s1.equals("123456789"));
+      assertTrue(s2.equals("-42"));
+      assertTrue(s3.equals("0"));
+    }
+
+  def test_to_int() : void
+    let
+      s1 = "42"
+      s2 = "-42"
+      s3 = "foobar"
+      s4 = "0x10xyz"
+    in {
+      assertTrue(match s1.to_int() with
+                   Just n => n == 42
+                   Nothing => false);
+      assertTrue(match s2.to_int() with
+                   Just n => n == -42
+                   Nothing => false);
+      assertTrue(match s3.to_int() with
+                   Just n => false
+                   _ => true);
+      assertTrue(match s4.to_int() with
+                   Just n => n == 16
+                   Nothing => false);
+    }

@@ -1,0 +1,22 @@
+trait Foo
+  def foo() : void
+    print "In Foo"
+
+trait Bar
+  def foo() : void
+    print "In Bar"
+
+trait Baz
+
+passive class C1 : Foo + Baz
+
+passive class C2 : Bar + Baz
+
+class Main
+  def main(): void {
+    let x = if true then
+              new C1
+            else
+              new C2;
+    x.foo();
+  }

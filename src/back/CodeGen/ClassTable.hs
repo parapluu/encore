@@ -3,6 +3,7 @@ module CodeGen.ClassTable (
   lookupMethod,
   lookupMethods,
   lookupField,
+  lookupCalledType,
   buildClassTable) where
 
 import Types
@@ -11,9 +12,10 @@ import Identifiers
 
 import Data.List
 import Data.Maybe
+import Control.Arrow
 
 type FieldTable  = [(Name, FieldDecl)]
-type MethodTable = [(Name, MethodDecl)]
+type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 
 buildClassTable :: Program -> ClassTable
@@ -24,10 +26,16 @@ buildClassTable = traverseProgram getEntries
     getClassEntry Class{cname, cfields, cmethods} =
       (cname, (map getFieldEntry cfields,
                map getMethodEntry cmethods))
-    getTraitEntry Trait{tname, tfields, tmethods} =
-      (tname, (map getFieldEntry tfields, map getMethodEntry tmethods))
-    getFieldEntry f = (fname f, f)
-    getMethodEntry m = (mname m, m)
+    getTraitEntry Trait{tname, treqs, tmethods} =
+        let (reqFields, reqMethods) = partition isRequiredField treqs
+            fieldTable  = map (getFieldEntry . rfield) reqFields
+            methodTable = map getReqMethodEntry reqMethods ++
+                          map getMethodEntry tmethods
+        in
+          (tname, (fieldTable, methodTable))
+    getFieldEntry f     = (fname f, f)
+    getReqMethodEntry r = (hname . rheader $ r, rheader r)
+    getMethodEntry m    = (methodName m, mheader m)
 
 lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
 lookupEntry ty ctable =
@@ -42,14 +50,29 @@ lookupField ty f ctable =
                        Types.showWithKind ty
     in fromMaybe fail $ lookup f fs
 
-lookupMethod :: Type -> Name -> ClassTable -> MethodDecl
+lookupMethod :: Type -> Name -> ClassTable -> FunctionHeader
 lookupMethod ty m ctable =
     let (_, ms) = lookupEntry ty ctable
         fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
                        Types.showWithKind ty
     in fromMaybe fail $ lookup m ms
 
-lookupMethods :: Type -> ClassTable -> [MethodDecl]
+lookupMethods :: Type -> ClassTable -> [FunctionHeader]
 lookupMethods cls ctable =
     let (_, ms) = lookupEntry cls ctable
     in map snd ms
+
+lookupCalledType :: Type -> Name -> ClassTable -> Type
+lookupCalledType ty m ctable
+  | isRefAtomType ty = ty
+  | isUnionType ty =
+      let tyAsCap = foldr1 disjunctiveType (unionMembers ty)
+      in lookupCalledType tyAsCap m ctable
+  | isCapabilityType ty =
+      let traits = typesFromCapability ty
+          ttable = map (\t -> (t, snd $ lookupEntry t ctable)) traits
+          results = map (second (lookup m)) ttable
+          fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
+                 Types.showWithKind ty
+      in
+        fst . fromMaybe fail $ find (isJust . snd) results

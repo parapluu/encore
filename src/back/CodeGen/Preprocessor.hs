@@ -13,8 +13,8 @@ preprocess :: A.Program -> A.Program
 preprocess = injectTraitsToClasses . giveClosuresUniqueNames
 
 injectTraitsToClasses :: A.Program -> A.Program
-injectTraitsToClasses p@A.Program{A.classes} =
-  p{A.classes = map injectTraitsToClass classes}
+injectTraitsToClasses p =
+  Util.mapProgramClass p injectTraitsToClass
   where
     injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
     injectTraitsToClass c@A.Class{A.cname, A.ccapability} =
@@ -50,14 +50,16 @@ convertMethod ::
     [(Ty.Type, Ty.Type)] -> A.ClassDecl -> A.MethodDecl -> A.MethodDecl
 convertMethod bindings cdecl method =
   let
-    mtype = convertType $ A.mtype method
-    mparams = map convertNode $ A.mparams method
+    header = A.mheader method
+    htype = convertType $ A.methodType method
+    hparams = map convertNode $ A.methodParams method
+    mheader = header{A.htype, A.hparams}
     mbody = Util.extend convertExpr $ A.mbody method
   in
-    method{A.mtype, A.mparams, A.mbody}
+    method{A.mheader, A.mbody}
   where
     convertType :: Ty.Type -> Ty.Type
-    convertType = Ty.typeMap (\ty -> fromMaybe ty (lookup ty bindings))
+    convertType = Ty.replaceTypeVars bindings
 
     convertExpr :: A.Expr -> A.Expr
     convertExpr e
@@ -68,10 +70,8 @@ convertMethod bindings cdecl method =
             in A.setType ty $ convertNode e
         | otherwise = convertNode e
 
-    isThisFieldAccess e
-        | A.FieldAccess{A.target} <- e
-          = A.isThisAccess target
-        | otherwise = False
+    isThisFieldAccess A.FieldAccess{A.target} = A.isThisAccess target
+    isThisFieldAccess _ = False
 
     getFieldType f =
         A.ftype . fromMaybe err . find ((== f) . A.fname)

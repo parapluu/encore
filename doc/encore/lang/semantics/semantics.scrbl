@@ -9,14 +9,16 @@ This section describes the semantics of the language.
 
 @section{Classes}
 
-Classes in @tt{encore} have fields and methods. There is no
-inheritance. A class is either active or passive, all objects of an
-active class are active objects with asynchronous method calls and all
-objects of a passive class are passive objects with synchronous method
-calls.
+Classes in @tt{encore} have fields and methods. There is no class
+inheritance (but there are traits, see below). A class is either
+active or passive; all objects of an active class are active
+objects with asynchronous method calls and all objects of a
+passive class are passive objects with synchronous method calls.
 
-Every encore program needs a class @tt{Main} with an argument-less,
-@tt{void} method @tt{main}, which is the starting point of a program.
+Every encore program needs a class @tt{Main} with a method
+@tt{main}, which is the starting point of a program. The @tt{main}
+method may take an array of strings as arguments. This array
+contains the command line arguments to the program.
 
 
 
@@ -59,6 +61,60 @@ class Main
       print("f.sum={}\n", f.sum) -- prints "f.sum=12"
 }|
 
+@subsection{Traits}
+
+Passive objects may implement one or several @italic{traits}. A
+trait is like an interface with default implementations. It
+@code{require}s fields and methods and provides implemented
+methods. The class that implements a trait must provide all the
+fields and methods required by the trait (methods may have a more
+specialized return type), and will have its own interface extended
+with the methods provided by the trait:
+
+@codeblock|{
+trait Introduce
+  require name : string
+  require greeting() : string
+  def introduce() : void
+    print("{}! My name is {}\n", this.greeting(), this.name)
+
+trait HasName
+  require name : string
+
+passive class Person : HasName + Introduce
+  name : string
+  def init(name : string) : void
+    this.name = name
+
+  def greeting() : string
+    "Hello"
+
+passive class Dog : HasName + Introduce
+  name : string
+  def init(name : string) : void
+    this.name = name
+
+  def greeting() : string
+    "Woof"
+
+class Main
+  def meeting(x : Introduce, y : Introduce) : void{
+    x.introduce();
+    y.introduce();
+  }
+
+  def main() : void
+    let p = new Person("Bob")
+        d = new Dog("Fido")
+    in
+      this.meeting(p, d)
+}|
+
+In this example, both @code{Person} and @code{Dog} are subtypes of
+the traits @code{Introduce} (and @code{HasName}) and can use the
+method @code{introduce}. Traits are (currently) only available for
+passive classes.
+
 @subsection{Parametric Class Polymorphism}
 
 Classes can take type parameters. This allows to implement, for
@@ -66,7 +122,6 @@ example, 2-tuples:
 
 @codeblock|{
 passive class Pair<a, b>
-passive class Pair<a,b>
   fst : a
   snd : b
   def init(fst_ : a, snd_ : b) : void{
@@ -80,7 +135,7 @@ We can now use the class like this:
 @codeblock|{
 class Main
   def main() : void
-    let pair = new (Pair int string)(65, "a") in
+    let pair = new (Pair<int, String>)(65, "a") in
       print("({},{})\n", pair.fst, pair.snd)
 }|
 @subsection{Methods}
@@ -119,8 +174,21 @@ If you desire to run several expressions in sequence, you must use a
 }|
 
 A sequence expression is a number of expressions, separated by
-semicolons and wrapped in curly braces. It evaluates to whatever the
-last subexpression evaluates.
+semicolons and wrapped in curly braces. It evaluates to whatever
+the last subexpression evaluates. To simplify the introduction of
+variables, you can use the following syntax instead of normal
+let-expressions:
+
+@codeblock|{
+  def variables() : String {
+    print "Variables can be introduced anywhere in a sequence";
+    let x = 42;
+    let s = "Foo";
+    print("x is {}", x);
+    s;
+  }
+
+}|
 
 
 @section[#:tag "futures"]{Futures}
@@ -252,11 +320,12 @@ fulfilled and @code{run1} continues from where it left off.
 
 @bold{NOTE}
 
-The current implementation uses a polling strategy for the @code{await} semantics.
-Therefore, the actor (instead of being awoken by the future)
-sends a message to itself to check the status of the future on which it depends.
-If this future is not fulfilled then, send (again) a message to yourself to check the future
-in the future. If the future is fulfilled, then continue where you left off.
+In the current implementation, @code{await} would cause the actor to save the
+context and process other messages in the mailbox if the future is not
+fulfilled. Otherwise, @code{await} would behave like a no-op. When the future
+is fulfilled, the producer (the actor who fulfills the future) would send a
+message to awaited actor, who would resume the save context on processing this
+message.
 
 @subsection{@code{chain} on a @code{future}}
 
@@ -273,7 +342,7 @@ contain the result of the chained `lambda`. For instance:
 
   class Main
     def main(): void {
-      let p = new Producer in
+      let p = new Producer
           l = \ (x:int) -> { print x; x + 1 } in {
         print get p.produce() ~~> l;
       }
@@ -502,6 +571,151 @@ and continue processing other messages. Upon reaching the message
 that resumes the execution of the method @code{calculate_decimals}, it
 will continue from where he left off.
 
+@section{Parallel Combinators}
+Parallel combinators provide high- and low-level coordination of parallel
+computations. There are different operators that lift values and futures
+into a parallel collection. Other combinators are in charge of performing
+low-level coordination of this parallel collection.
+
+@subsection{liftv}
+The @code{liftv} combinator lifts a value to a parallel collection. Its
+signature is: @code{liftv :: t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+  let p = liftv 42 in
+    p
+}|
+
+@subsection{liftf}
+The @code{liftf} combinator lifts a value to a parallel collection. Its
+signature is: @code{liftf :: Fut t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Card
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card = new Card in
+      liftf(card.valid())
+}|
+
+@subsection{||}
+The @code{||} combinator (named @code{par}) merges two parallel computations into a single
+parallel collection. Its type signature is: @code{|| :: Par t -> Par t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Card
+  card: int
+
+  def init(card: int): void
+    this.card = card
+
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card1 = new Card(1234)
+        card2 = new Card(4567)
+    in
+      liftf(card1.valid()) || liftf(card2.valid())
+}|
+
+@subsection{>>}
+The @code{>>} combinator (named @code{sequence}) performs a @code{pmap} operation on the
+parallel collection. Its type signature is: @code{>> :: Par a -> (a -> b) -> Par b}.
+
+@codeblock[#:line-numbers 1]|{
+-- prints if the card is valid
+def show(valid: bool): void
+  print valid
+
+class Card
+  card: int
+
+  def init(card: int): void
+    this.card = card
+
+  def valid(): bool
+    return true
+
+class Main
+  def main(): void
+    let card1 = new Card(1234)
+        card2 = new Card(4567)
+        p = liftf(card1.valid()) || liftf(card2.valid())
+    in
+      p >> show
+}|
+
+@subsection{join}
+The @code{join} combinator merges two parallel computations into a single one.
+Its type signature is: @code{Par Par t -> Par t}.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void
+    let par = liftv 42  -- :: Par int
+        par_par = liftv par  -- :: Par Par in
+    in
+      (join par_par)  -- :: Par Par int -> Par int
+}|
+
+@;{ TODO: Add this as soon as #434 gets resolved
+@subsection{extract}
+The @code{extract} combinator returns the parallel computations into a
+single array. This operation might block some threads since you are
+going from the parallel world to the sequential world. Whether the
+runtime uses @code{get} or @code{await} is not under the control of the
+developer and the runtime will try to choose the one that gets better performance
+taking into account different metrics.
+Its type signature is: @code{Par t -> [t]}.
+
+@codeblock[#:line-numbers 1]|{
+class Main
+  def main(): void
+    let par = liftv 42 || liftv 23 -- : Par int
+        arr = extract par
+    in
+      for value in arr
+        print value
+}|
+}
+
+@subsection{each}
+The @code{each} combinator lifts an @code{array} to a parallel collection.
+Currently, this combinator runs in a single thread. If the collection
+is too big, this is not performant. As a temporary fix, you can
+define a flag (@code{PARTY_ARRAY_PARALLEL}) in @code{encore.h}
+to create workers that process a fixed amount of items from the array.
+Future work will improve this to create and remove workers based on some
+runtime metrics, instead of on a fixed amount of items.
+Its type signature is: @code{[t] -> Par t}.
+
+The following example shows how to calculate the euclidian distance
+for the K-means algorithm using the @code{each} combinator:
+
+@codeblock[#:line-numbers 1]|{
+class Kmeans
+
+  def _euclidian(xs: (int, int), ks: (int, int)): int
+    let x1 = get_first(xs)
+        x2 = get_second(xs)
+
+        k1 = get_first(ks)
+        k2 = get_first(ks)
+
+        z1 = square(x1-k1)
+        z2 = square(x2-k2)
+    in
+      square_root(z1 + z2)
+
+  def distance(observations: [(int, int)], ks: (int, int)): int
+    each(observations) >> \ (xs: (int, int) -> _euclidian(xs, ks))
+}|
+
 @section{Embedding of C code}
 
 For implementing low level functionality, @tt{encore} allows to
@@ -582,14 +796,14 @@ The following table documents how @tt{encore}'s types map to C types:
 @tabular[#:sep @hspace[5]
 	  (list
 	    (list @bold{encore}              @bold{C})
-	    (list @code{string}              @tt{char*})
+	    (list @code{char}                @tt{char})
 	    (list @code{real}                @tt{double})
  	    (list @code{int}                 @tt{int64_t})
             (list @code{uint}                @tt{uint64_t})
             (list @code{bool}                @tt{int64_t})
 	    (list "<any active class type>"  @code{pony_actor_t*})
 	    (list "<any passive class type>" @code{CLASSNAME_data*})
-	    (list "<a type parameter>"       @code{void*})
+	    (list "<a type variable> "       @code{encore_arg_t})
 	  )
         ]
 
@@ -632,9 +846,14 @@ Encore has anonymous functions:
 }|
 
 
-The backslash @literal{\} syntax is borrowed from Haskell and is supposed to resemble a lambda. It is followed by a comma separated list of parameter declarations, an arrow @code{->} and an expression that is the function body.
+The backslash @literal{\} syntax is borrowed from Haskell and is
+supposed to resemble a lambda. It is followed by a comma separated
+list of parameter declarations, an arrow @code{->} and an
+expression that is the function body.
 
-The type of a function is declared similarly. The function @code{f} above has type @code{int -> int}. Multi-argument functions have types such as @code{(int, string) -> bool}.
+The type of a function is declared similarly. The function
+@code{f} above has type @code{int -> int}. Multi-argument
+functions have types such as @code{(int, String) -> bool}.
 
 @codeblock|{
   #! /usr/bin/env encorec -run
@@ -683,3 +902,167 @@ function:
           let bump = \ (x : int) -> x + 1 in
             print(apply(bump, 3))
 }|
+
+@section{Option types}
+Option types, (sometimes called 'Maybe types') are polymorphic
+types that represent optional values. Using option types is simple:
+a value is wrapped inside a @code{Just} data constructor
+(e.g. @code{Just 32}), while @code{Nothing} presents an absent value.
+
+Option types are useful to substitute the @code{null} reference to objects.
+The following example shows the use of option types in a function
+that creates a string (wrapped inside a @code{Just}) if the input value
+is greater than @code{0} and @code{Nothing} otherwise.
+
+@codeblock|{
+    def test_if_greater_than_zero(x: int): Maybe String {
+      if x > 0 then Just("Test passes")
+      else Nothing
+    }
+}|
+
+There exists limited support for type inference when using the
+@code{Nothing} data constructor. This means that, sometimes,
+you will have to cast the type of @code{Nothing}. In the previous
+example, you would substitute the @code{Nothing} (line 3)
+by @code{Nothing : Maybe String}.
+
+The section related to pattern matching (below) explains how to
+extract the value (if it exists) from an option type.
+
+@section{Pattern Matching}
+Pattern matching allows the programmer to branch on both the value of data,
+as well as its structure, while binding local names to sub-structures. Encore's
+match expression looks like this:
+@codeblock|{
+     match theArgument with
+       pattern when optionalGuard => handler -- First match clause
+       pattern2 => handler2 -- Second match clause
+}|
+
+The match expressions's argument will be matched against each of
+the patterns in the order they are written. If both a pattern and
+its guard matches the handler is executed and no more clauses are
+checked. The match expression will evaluated to the same value as
+the selected handler. If no clause matches a runtime error will
+the thrown and the program will crash.
+
+@subsection{Patterns}
+
+In Encore there are 5 different types of patterns. First is the
+value pattern, it matches whenever the value in the pattern is
+equal to the match expression's argument. Equality is checked
+using C's @code{==} except for on strings when C's @code{strcmp}
+function is used. Do not use value patterns to match on objects.
+
+@codeblock|{
+     match 42 with
+       4711 => print "This doesn't match."
+       42 => print "But this does."
+}|
+
+Second we have the variable pattern. It matches any expression and
+also binds it so that the variable may be used inside both the
+guard and the handler.
+
+@codeblock|{
+     match 42 with
+       4711 => print "This doesn't match."
+       x => print "This matches, and x is now bound to the value 42."
+}|
+
+Third we have the @code{Maybe} type patterns: @code{Just} and
+@code{Nothing}. Any number of other patterns can be nested inside
+the Just pattern. In this example a simple variable pattern have
+been used.
+
+@codeblock|{
+     match myMap.lookup(42) with
+       Just res => print("myMap is associating 42 with {}.", res)
+       Nothing => print "myMap had no association for 42."
+}|
+
+Fourth is the tuple pattern. It will recursively match all its
+components against those of the argument, and will only match if
+all components match.
+
+@codeblock|{
+     match (42, "foo") with
+       (3, "wrong") => print "This doesn't match."
+       (x, "foo") => print "But this does."
+}|
+
+Finally there is the extractor pattern that is used to match
+against objects. Extractor patterns arise from the definition of
+extractor methods, which are simply methods with the @code{void ->
+Maybe T} type signature, for some type @code{T}.
+
+In the @code{Link} class below, the method @code{link} implicitly
+(because of its type) defines an extractor pattern with the same
+name.
+
+@codeblock|{
+    passive class Link
+      assoc : (int, string)
+      next : Link
+
+      def link() : Maybe((int, string), Link)
+        Just (this.assoc, this.next)
+}|
+
+When an extractor pattern is used, the corresponding extractor
+method will be called on the argument of the match. If it returns
+a @code{Just}, then the inside of the @code{Just} will be
+recursively matched with the argument of the extractor pattern.
+
+@codeblock|{
+     def loopkup(key : int, current : Link) : Maybe int
+       match current with
+         null => Nothing : Maybe int
+         link((k, v), next) when k == key => Just v
+         link(x, next) => this.lookup(key, next)
+}|
+
+Note that you can define many different extractor methods for the
+same class, and that they may return @code{Nothing} under some
+circumstances, in which case the match for that clause will fail.
+You are also allowed to call extractor methods outside of a
+pattern, in which case they will function exactly like any other
+method.
+
+Regular functions may not be called inside a pattern. Anything
+that looks like a function call will be interpretted and
+typechecked as an extractor pattern.
+
+@subsection{Guards}
+
+Each match clause may have an optional guard. If there is a guard
+present, it must evaluate to @code{true} for the handler to be
+executed. If it evaluates to @code{false} the matcher will proceed
+to check the next clause. The following code demonstrates how to
+use guards in Encore:
+
+@codeblock|{
+     match 42 with
+         x when x < 0 => print("{} is negative", x)
+         x when x > 0 => print("{} is positive", x)
+         x => print("{} is zero", x)
+}|
+
+@subsection{Multi-headed functions}
+
+Encore also allow you to use pattern-matching when defining
+functions, methods and streams. However, anonymous functions do
+not support patterns directly in the function head.
+
+@codeblock|{
+     def myFactorial(0 : int) : int {
+       1
+     }\| myFactorial(n : int) : int {
+       n * myFactorial(n-1)
+     }
+}|
+
+One limitation of the current implementation is that you have to
+declare the type of the function in every function head, even
+though the type has to be the same for all clauses.

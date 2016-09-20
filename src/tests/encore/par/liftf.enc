@@ -1,0 +1,92 @@
+def show_string(x: String): void
+  if x.equals(primitive_const()) then
+    print("{}: OK\n", x)
+  else
+    print("{} vs {}: ERROR\n", x, primitive_const())
+
+def show_passive(x: String): void
+  if x.equals(passive_const()) then
+    print("{}: OK\n", x)
+  else
+    print("{}: ERROR\n", x)
+
+def primitive_const(): String
+  "Liftf Primitive Test"
+
+def passive_const(): String
+  "Liftf Passive Test"
+
+passive class PassiveTest
+  elem: String
+
+  def init(s: String):void
+    this.elem = s
+
+class StringChecker
+  primitive: bool
+  passiv: bool
+
+  prim_string: String
+  pass_string: String
+
+  def init(): void {
+    this.primitive = false;
+    this.passiv = false;
+  }
+
+  def deterministicOutput(s: String): void {
+    let p = primitive_const()
+        pa = passive_const()
+    in {
+      if s.equals(p) then {
+        this.primitive = true;
+        this.prim_string = s;
+      } else if s.equals(pa) then {
+        this.passiv = true;
+        this.pass_string = s;
+      } else {
+          print("ERROR: expecting '{}' or '{}' but got {}", p, pa, s)
+      };
+
+      if (this.primitive and this.passiv) then {
+        show_string(this.prim_string);
+        show_passive(this.pass_string);
+      }
+    }
+  }
+
+class Test
+  passiveTest: PassiveTest
+  output: [String]
+
+  def init(s: String): void {
+    this.passiveTest = new PassiveTest(s);
+  }
+
+  def get_string(): String
+    this.passiveTest.elem
+
+  def get_pasive(): PassiveTest
+    this.passiveTest
+
+class Main
+
+  def test_primitive_liftf(m: StringChecker): void
+    let testContentFuture = new Test("Liftf Primitive Test")
+        primitive_par = liftf(testContentFuture.get_string())
+    in
+        primitive_par >> \(s: String) -> m.deterministicOutput(s)
+
+  def test_passive_liftf(m: StringChecker): void
+    let test = new Test("Liftf Passive Test")
+        passive_par = liftf(test.get_pasive())
+    in
+      passive_par >> (\(t: PassiveTest) -> { t.elem })
+                  >> \(s: String) -> m.deterministicOutput(s)
+
+  def main(): void {
+    let master = new StringChecker in {
+        this.test_primitive_liftf(master);
+        this.test_passive_liftf(master);
+    }
+  }

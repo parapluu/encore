@@ -1,0 +1,331 @@
+def assertEqualsPassive(p: PObject, tag: String): void {
+  assertTrue(p.tag.equals(tag));
+}
+
+def inc(i: int): int
+  i + 4
+
+def dec(i: int): int
+  i - 4
+
+def incPar(p: Par int): Par int
+  p >> inc
+
+def updatePassivePlusFive(pass: PObject): PObject
+  pass.updateValuePlusFive(pass.value)
+
+def updateParPlusFive(par: Par PObject): Par PObject
+  par >> updatePassivePlusFive
+
+class AObject
+  def ints(): int 21
+  def intsPar(): Par int {
+    (liftv 21);
+  }
+  def intsFut(): Fut int let that = this in that.ints()
+  def passivePar(): Par PObject liftv(new PObject())
+
+passive class PObject
+  tag: String
+  value: int
+
+  def init(): void {
+    this.tag = "TAG";
+    this.value = 32;
+  }
+
+  def getValue(): int
+    this.value
+
+  def setValue(v: int): PObject{
+    this.value = v;
+    this;
+  }
+
+  def updateValuePlusFive(value: int): PObject {
+    this.value = value + 5;
+    this;
+  }
+
+class Main
+
+  --
+  -- Test parallel computations with values
+  --
+
+  def test_value_primitive(): void
+    let int_value = 32
+        par_int = (liftv int_value) >> inc >> inc >> dec >> inc
+        par_par_int = liftv(liftv int_value) >> incPar >> incPar
+        testfn = \(v: int) -> assertTrue(v == 40)
+    in {
+        par_int >> testfn;
+        par_par_int >> \(p: Par int) -> p >> testfn;
+    }
+
+  def test_value_passive(): void
+    let pass_value1 = new PObject()
+        default_tag = "TAG"
+        default_value = 42
+        par_passive = (liftv pass_value1) >> updatePassivePlusFive >> updatePassivePlusFive
+    in {
+        par_passive >> \(v: PObject) -> {
+              assertEqualsPassive(v, default_tag);
+              assertTrue(pass_value1.value == default_value,
+                "ERROR in function assertEqualsPassive, expected {}", default_value);
+        }
+    }
+
+  def test_value_passive_par_par(): void
+    let pass_value1 = new PObject()
+        pass_value2 = new PObject()
+        pass_value3 = new PObject()
+        expected_tag = "TAG"
+        expected_val1 = 42
+        expected_val2 = 47
+        expected_val3 = 32
+
+        par_par_pass1 = (liftv(liftv pass_value1)) >> updateParPlusFive
+        par_par_pass2 = (par_par_pass1 || liftv(liftv pass_value2)) >> updateParPlusFive
+        par_par_pass3 = (par_par_pass2 >> updateParPlusFive) || (liftv (liftv pass_value3))
+        testfn = \(v: PObject) -> {
+             assertEqualsPassive(v, expected_tag);
+             assertTrue((v.value == expected_val1) or
+                        (v.value == expected_val2) or
+                        (v.value == expected_val3),
+                        "ERROR in function assertEqualsPassive: {}", v.value);
+        }
+        testfnPar = \(p: Par PObject) -> p >> testfn
+    in par_par_pass3 >> testfnPar
+
+
+  --
+  -- Test parallel computations of futures
+  --
+
+  def test_future_primitive(): void
+    let o = new AObject
+        expected_value1 = 33
+        expected_value2 = 21
+        testfn = \(v: int) -> {
+            assertTrue((v == expected_value1) or (v == expected_value2),
+                       "ERROR in 'test_future_primitive', found {}, expected {} or {}",
+                       v, expected_value1, expected_value2)
+        }
+        pfut1 = (liftf o.ints()) >> inc >> inc >> dec >> inc
+        pfut2 = (liftf o.ints()) >> dec >> dec >> inc
+        pfut_final = (pfut1 || pfut2) >> inc >> inc >> dec
+    in for v in extract(pfut_final) testfn(v)
+
+  def test_future_primitive_par_par(): void
+    let o = new AObject
+        expected_value1 = 37
+        expected_value2 = 29
+        ppfut1 = (liftv(liftf o.ints())) >> incPar >> incPar
+        ppfut2 = liftv(liftf o.ints())
+        testfn = \(v: int) -> {
+                   assertTrue((v == expected_value1) or (v == expected_value2),
+                   "ERROR in 'test_future_primitive_par_par_seq', expected {} or {}, found {}",
+                   expected_value1, expected_value2, v)
+        }
+        testfnPar = \(p: Par int) -> p >> testfn
+        ppfinal = (ppfut1 || ppfut2) >> incPar >> incPar
+    in
+      for v in extract(ppfinal) testfnPar(v)
+
+  def test_future_par_primitive(): void
+    let o = new AObject
+        expected_value = 33
+        testfn = \(v: int) -> {
+                  assertTrue(v == expected_value,
+                             "ERROR in 'test_future_par_primitive', expected {}, found {}",
+                             expected_value, v)
+        }
+        testfnPar = \(p: Par int) -> p >> testfn
+        parfut = (liftf o.intsPar()) >> incPar >> incPar >> incPar
+    in
+      for v in extract(parfut) testfnPar(v)
+
+  def test_combine_primitive_futures_into_par_sequence(): void
+    let o = new AObject
+        expected1 = 25
+        expected2 = 33
+        expected3 = 37
+        pfut_int = (liftf o.ints()) >> inc >> dec                               -- Par 21
+        ppfut_int = liftv(liftf o.ints()) >> incPar >> incPar                   -- Par Par 29
+        ppfut2_int = liftv(liftf o.ints()) >> incPar >> incPar                  -- Par Par 29
+        parfut = (liftf o.intsPar()) >> incPar >> incPar >> incPar              -- Par Par 33
+        p1 = ((liftv pfut_int) || ppfut_int || parfut || ppfut2_int) >> incPar  -- Par Par int
+        testfn = \(v: int) -> {
+          assertTrue((v==21) or (v == expected1) or (v == expected2) or (v == expected3),
+                     "ERROR in 'test_combine_primitive_futures_into_par_sequence', found {}", v)
+        }
+        testfnPar = \(p: Par int) -> p >> testfn
+    in for v in extract(p1) testfnPar(v)
+
+  def test_future_passive_par(): void
+    let a = new PObject()
+      b = new PObject()
+      expected1 = 37
+      expected2 = 42
+
+      p1 = (liftv a) >> updatePassivePlusFive
+      p2 = (liftv b)
+      p3 = (p1 || p2) >> updatePassivePlusFive
+    in
+      for v in extract(p3)
+        assertTrue((expected1 == v.getValue()) or (expected2 == v.getValue()),
+                   "ERROR in 'test_future_passive_par', found {}", v.getValue())
+
+  def test_future_passive_par_par(): void
+    let a = liftf((new AObject).passivePar())
+      b = new PObject()
+      expected = 42
+
+      p1 = a >> updateParPlusFive
+      p2 = (liftv (liftv b)) >> updateParPlusFive
+      p3 = p1 >> updateParPlusFive
+      testfn = \(v: PObject) -> {
+         assertTrue((expected == v.getValue()),
+                    "ERROR in 'test_future_passive_par_par', found {}", v.getValue())
+      }
+      testfnPar = \(p: Par PObject) -> p >> testfn
+   in
+     for v in extract(p3) testfnPar(v)
+
+  --
+  -- Test parallel computations using || combinator
+  --
+
+  def test_par_primitive(): void
+    let a = new AObject
+        fut_par = liftf(a.ints())
+        par_int = liftv 42 || liftv 42
+        ppar_int = (par_int || par_int) >> inc
+        par_mixed_with_fut = (ppar_int || fut_par) >> inc
+        expected1 = 42
+        expected2 = 46
+        testfn1 = \(v: int) -> { assertTrue(v == expected1,
+                              "ERROR in 'test_par_primitive', extracting 'par_int'"); }
+        testfn2 = \(v: int) -> { assertTrue(v == expected2,
+                               "ERROR in 'test_par_primitive', extracting 'ppar_int'"); }
+        testfn3 = \(v: int) -> { assertTrue((v == 50) or (v == 25),
+                              "ERROR in 'test_par_primitive', extracting 'par_mixed_with_fut'"); }
+    in {
+      par_int >> testfn1;
+      ppar_int >> testfn2;
+      par_mixed_with_fut >> testfn3
+    }
+
+
+  def test_par_passive(): void
+    let o1 = new PObject()
+        o2 = new PObject()
+        p1 = (liftv o1) >> updatePassivePlusFive
+        p2 = (liftv o2) >> updatePassivePlusFive >> updatePassivePlusFive
+        p12 = (p1 || p2) >> updatePassivePlusFive
+        expected1 = 42
+        expected2 = 47
+    in
+      for v in extract(p12)
+        assertTrue((v.getValue() == expected1) or (v.getValue() == expected2),
+                   "ERROR in 'test_par_passive', found {}", v.getValue())
+
+  --
+  -- Test parallel compitutations using FUTUREPAR (implementation detail)
+  --
+
+  def test_future_to_par_of_primitive_type(): void
+    let a = new AObject
+        futpar = liftf a.intsPar()
+        pfinal = (join futpar) >> inc
+        expected = 25
+    in
+      for v in extract(pfinal)
+          assertTrue(v == expected,
+                     "ERROR in 'test_future_to_par_of_primitive_type', found {}", v)
+
+  --
+  -- Test parallel computation using `join`
+  --
+
+  def test_join_primitive(): void
+    let a = new AObject
+        expected1 = 29
+        expected2 = 33
+        expected3 = 50
+        parvv = liftv (liftv 42)                 -- Par Par 42
+        futpar = (liftf a.intsPar()) >> incPar   -- Par Par 25
+        pp1 = (futpar || parvv) >> incPar        -- Par Par 46, 29
+        pp2 = (pp1 || futpar) >> incPar          -- Par Par 50, 33, 29
+        pfinal = join pp2
+    in
+      for v in extract(pfinal)
+          assertTrue((v == expected1) or (v == expected2) or (v == expected3),
+                     "ERROR in 'test_join_primitive', found {}", v)
+
+  def test_join_future_par_primitive(): void
+    let a = new AObject
+        expected1 = 29
+        expected2 = 33
+        expected3 = 37
+        expected4 = 50
+        parvv = liftv (liftv 42)                      -- Par Par 42
+        futpar = (liftf a.intsPar()) >> incPar        -- Par Par 25
+        fp_join = (liftv (join(futpar))) >> incPar    -- Par Par 29
+        pp1 = (futpar || parvv || fp_join) >> incPar  -- Par Par 46, 29, 33
+        pp2 = (pp1 || futpar) >> incPar               -- Par Par 50, 33, 29, 37
+        pfinal = join pp2
+    in
+        for v in extract(pfinal)
+            assertTrue((v == expected1) or (v == expected2) or (v == expected3) or (v == expected4),
+                       "ERROR in 'test_join_future_par_primitive', found {}", v)
+
+  --
+  -- Test aggregation by class type
+  --
+
+  def test_value(): void {
+    this.test_value_primitive();
+    this.test_value_passive();
+    this.test_value_passive_par_par();
+  }
+
+  def test_future(): void {
+    -- test primitive types
+    for i in [1..100]{
+    this.test_future_primitive();
+    this.test_future_primitive_par_par();
+    this.test_future_par_primitive();
+    this.test_combine_primitive_futures_into_par_sequence();
+
+    -- test passive objects
+    this.test_future_passive_par();
+    this.test_future_passive_par_par();
+    }
+  }
+
+  def test_par(): void {
+    for i in [1..100] {
+    this.test_par_primitive();
+    this.test_par_passive();
+    }
+  }
+
+  def test_future_to_par(): void
+    this.test_future_to_par_of_primitive_type()
+
+  def test_join(): void {
+    this.test_join_primitive();
+    this.test_join_future_par_primitive();
+  }
+
+  def main(): void {
+    for i in [1..100] {
+      this.test_value();
+      this.test_future();
+      this.test_par();
+      this.test_future_to_par();
+      this.test_join();
+    }
+  }

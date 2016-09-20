@@ -10,61 +10,169 @@ import Types
 import qualified Data.List as List
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions, imports}) =
+desugarProgram p@(Program{traits, classes, functions}) =
   p{
     traits = map desugarTrait traits,
     classes = map desugarClass classes,
-    functions = map desugarFunction functions,
-    imports = map desugarImports imports
+    functions = map desugarFunction functions
   }
   where
+    desugarFunctionHeadMatch headers bodies =
+      let oldHeader = head headers
+          pos = Meta.getPos $ getMeta $ head $ hpatterns oldHeader
+          emeta = Meta.meta pos
+          paramTypes = hparamtypes oldHeader
+          maxLen = maximum $ map (length . hpatterns) headers
+          paramNames = case List.find (isCatchAll maxLen) headers of
+                         Just header -> map name (hpatterns header)
+                         Nothing -> map (Name . ("_match" ++) . show) [0..]
+
+          accesses = take (length paramTypes) $
+                          map (VarAccess emeta) paramNames
+          arg = Tuple{emeta, args = accesses}
+
+          patterns = map getPattern headers
+          handlers = bodies
+          guards = map hguard headers
+          clauses = zipWith3 makeClause patterns handlers guards
+
+          newParams = zipWith (makeParam pos) paramNames paramTypes
+
+          header = makeHeader oldHeader newParams
+
+          body = Match{emeta, arg, clauses}
+      in
+        (header, desugarExpr body)
+      where
+        isCatchAll len header =
+            let patterns = hpatterns header
+            in length patterns == len && all isVarAccess patterns
+        isVarAccess VarAccess{} = True
+        isVarAccess _ = False
+
+        getPattern header =
+            let patterns = hpatterns header
+                types = hparamtypes header
+                typePattern body ty =
+                    let emeta = Meta.meta . Meta.getPos . getMeta $ body
+                    in TypedExpr{emeta, body, ty}
+            in
+              zipWith typePattern patterns types
+
+        makeHeader (MatchingHeader{kind, hname, htype}) hparams =
+          Header{kind, hname, htype, hparams}
+
+        makeParam pos pname ptype =
+          Param{pmeta = Meta.meta pos, pname, ptype}
+
+        makeClause pattern mchandler mcguard =
+          let pos = if null pattern
+                    then Meta.getPos . getMeta $ mcguard
+                    else Meta.getPos . getMeta . head $ pattern
+              emeta = Meta.meta pos
+              actualPattern = Tuple{emeta, args = pattern}
+          in MatchClause{mcpattern = actualPattern,
+                         mchandler,
+                         mcguard}
+
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}
-    desugarImports f@(PulledImport{iprogram}) =
-      f{iprogram = desugarProgram iprogram}
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
+    desugarFunction f@(MatchingFunction{funmeta
+                                       ,matchfunheaders
+                                       ,matchfunbodies}) =
+      let (funheader, funbody) = desugarFunctionHeadMatch
+                                   matchfunheaders matchfunbodies
+      in Function{funmeta, funheader, funbody}
+
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
-    desugarMethod m
-      | mname m == Name "init" =
-        m{mname = Name "_init", mbody = desugarExpr (mbody m)}
-      | otherwise = m{mbody = desugarExpr (mbody m)}
-    desugarExpr = extend desugar . extend (\e -> setSugared e e)
+    desugarMethod m@(Method {mmeta, mheader, mbody})
+      | methodName m == Name "init" =
+          let header  = mheader
+              header' = header{hname = Name "_init"}
+          in
+        m{mheader = header', mbody = desugarExpr mbody}
+      | otherwise = m{mbody = desugarExpr mbody}
+    desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies}) =
+      let (mheader, mbody) = desugarFunctionHeadMatch mheaders mbodies
+      in Method{mmeta, mheader, mbody}
+
+    desugarExpr = extend desugar . extend selfSugar
+
+
+selfSugar :: Expr -> Expr
+selfSugar e = setSugared e e
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
 cloneMeta m = Meta.meta (Meta.sourcePos m)
 
 desugar :: Expr -> Expr
 
+desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
+    where
+      expandMiniLets [] = []
+      expandMiniLets (MiniLet{emeta, decl}:seq) =
+          [Let{emeta
+              ,decls = [decl]
+              ,body = Seq emeta $ case expandMiniLets seq of
+                                   [] -> [Skip emeta]
+                                   seq' -> seq'
+              }]
+      expandMiniLets (e:seq) = e:expandMiniLets seq
+
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 
-desugar FunctionCall{emeta, name = Name "print", args = (string@(StringLiteral {stringLit = s})):args} =
-    Print emeta s args
+desugar FunctionCall{emeta, name = Name "print", args = []} =
+    Print emeta [StringLiteral emeta "\n"]
 
-desugar FunctionCall{emeta, name = Name "print", args = [e]} =
-    Print emeta "{}\n" [e]
+desugar FunctionCall{emeta, name = Name "print", args = [arg]} =
+    Print emeta [StringLiteral emeta "{}\n", arg]
+
+desugar FunctionCall{emeta, name = Name "print", args} =
+    Print emeta args
 
 desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+           (Seq (cloneMeta emeta)
+                [Print (cloneMeta emeta)
+                       [StringLiteral (cloneMeta emeta) $
+                                      "Assertion failed: " ++
+                                      show (ppSugared fCall) ++ "\n"],
+                 Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
 desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
     IfThenElse emeta cond
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ (show $ ppExpr fCall) ++ "\n") [],
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+           (Seq (cloneMeta emeta)
+                [Print (cloneMeta emeta)
+                       [StringLiteral (cloneMeta emeta) $
+                                      "Assertion failed: " ++
+                                      show (ppSugared fCall) ++ "\n"],
+                 Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
-desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : lit@(StringLiteral {stringLit = s}) : rest} =
+desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ s ++ "\n") rest,
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+           (Seq (cloneMeta emeta)
+                [Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta)
+                                                  "Assertion failed: "],
+                 Print (cloneMeta emeta) rest,
+                 Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
+                 Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
-desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : lit@(StringLiteral {stringLit = s}) : rest} =
+desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : rest} =
     IfThenElse emeta cond
-           (Seq (cloneMeta emeta) [Print (cloneMeta emeta) ("Assertion failed: " ++ s ++ "\n") rest,
-                       Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
+           (Seq (cloneMeta emeta)
+                [Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta)
+                                                  "Assertion failed: "],
+                 Print (cloneMeta emeta) rest,
+                 Print (cloneMeta emeta)
+                       [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
+                 Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
 desugar IfThen{emeta, cond, thn} =
@@ -145,7 +253,7 @@ desugar Foreach{emeta, item, arr, body} =
     (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arrSize) (IntLiteral emeta 0))
      (Skip (cloneMeta emeta))
      (Let emeta
-        [(it, (IntLiteral emeta 0)),
+        [(it, IntLiteral emeta 0),
          (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
        (While emeta
              (Binop emeta
@@ -153,27 +261,31 @@ desugar Foreach{emeta, item, arr, body} =
                    (VarAccess emeta it)
                    (VarAccess emeta arrSize))
              (Seq emeta
-                  [(Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it))),
+                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it)),
                    Async emeta body,
-                   (Assign emeta
+                   Assign emeta
                       (VarAccess emeta it)
                       (Binop emeta
                        PLUS
                        (VarAccess emeta it)
-                       (IntLiteral emeta 1)))
+                       (IntLiteral emeta 1))
                   ]))))
 
+desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 
-desugar NewWithInit{emeta, ty, args}
+desugar new@NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
-    | otherwise =
-        Let emeta
-            [(Name "to_init", (New (cloneMeta emeta) ty))]
-            (Seq (cloneMeta emeta)
-                 [(MethodCall ((cloneMeta emeta))
-                              (VarAccess (cloneMeta emeta) (Name "to_init"))
-                              (Name "_init") (map desugar args)),
-                  (VarAccess (cloneMeta emeta) (Name "to_init"))])
+    | isRefType ty
+    , "String" <- getId ty
+    , [new'@NewWithInit{ty = ty', args = args'}] <- args
+    , isStringObjectType ty'
+    , length args' == 1 = new'
+    | otherwise = new
+
+desugar s@StringLiteral{emeta, stringLit} =
+    NewWithInit{emeta
+               ,ty = stringObjectType
+               ,args = [Embed emeta (ctype "char*") $ show stringLit ++ ";"]}
 
 desugar e = e

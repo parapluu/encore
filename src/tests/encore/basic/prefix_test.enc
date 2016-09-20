@@ -11,4 +11,3 @@ class Main
             print(not anders);
             print(ping and anders);
          }
-        

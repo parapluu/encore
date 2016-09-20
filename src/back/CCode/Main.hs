@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances,FlexibleContexts,MultiParamTypeClasses,StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances,MultiParamTypeClasses,StandaloneDeriving #-}
 
 {-| Provides the CCode data type, a representation of C
 programs that can be pretty-printed to sometimes-legal C code. The
@@ -66,7 +66,7 @@ data CCode a where
     BinOp        :: UsableAs e Expr => CCode Name -> CCode e -> CCode e -> CCode Expr
     Dot          :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
     Arrow        :: (UsableAs e Expr) => CCode e -> CCode Name -> CCode Lval
-    Deref        :: UsableAs e Expr => CCode e -> CCode Expr
+    Deref        :: UsableAs e Expr => CCode e -> CCode e
     Cast         :: UsableAs e Expr => CCode Ty -> CCode e -> CCode Expr
     ArrAcc       :: Int -> CCode Lval -> CCode Lval
     Amp          :: (UsableAs e Expr) => CCode e -> CCode Expr -- Ampersand
@@ -90,11 +90,15 @@ data CCode a where
     While        :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr   :: CCode Lval -> CCode Stat -> CCode Expr
     If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
+    Ternary      :: UsableAs e Expr => CCode e -> CCode Expr -> CCode Expr -> CCode Expr
     Return       :: UsableAs e Expr => CCode e -> CCode Stat
     UnionInst    :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     Int          :: Int -> CCode Expr
+    Char         :: Char -> CCode Expr
     String       :: String -> CCode Expr
     Double       :: Double -> CCode Expr
     Comm         :: String -> CCode a
     Annotated    :: String -> CCode a -> CCode a
     FunPtrDecl   :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Stat
+    CompoundLiteral :: CCode Ty -> [(CCode Lval, CCode Expr)] -> CCode Expr
+    DesignatedInitializer :: [(CCode Name, CCode Expr)] -> CCode Expr

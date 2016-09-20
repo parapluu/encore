@@ -57,36 +57,19 @@ to ensure that each file is only imported once.
 
 @subsection{Standard Library}
 
-Encore supports a standard library, which is currently stored in the @code{bundles} directory
-of the @code{git} hierarchy, but in the future will be available in the directory @code{.encore/bundles}
-in a user's home directory.
+Encore supports a standard library, which is currently stored in
+the @code{bundles} directory of the @code{git} hierarchy, but in
+the future will be available in the directory
+@code{.encore/bundles} in a user's home directory.
 
-The @code{bundles} directory contains three subdirectories. Directory @code{standard} includes
-stable library functionality. Directory @code{prototype} contains experimental and unstable
-libraries. These libraries should all be sub-bundles of the @code{Proto} bundle to remind
-the programmer of their status. Finally, directory @code{joy} contains bundles obtained
-through the @code{enjoy} package manager (functionality to be implemented).
-
-@;@section{Keywords}
-@;Keywords are special words used by the Encore language and they have special meaning.
-@;In Encore, we have the following keywords:
-@;
-@;@tabular[#:sep @hspace[4]]{
-@;  @list[
-@;    (list "passive" "class" "def" "let" "in" "if" "unless" "then" "else")
-@;    (list "and" "or" "not" "while" "get" "null" "true" "false" "new")
-@;    (list "embed" "body" "end" "Fut" "Par" "import" "qualified" "module" "")]}
-@;
-@;
-@;@section{Literals}
-@;Literals allow the programmer to represent data with some semantics.
-@;In Encore, you have the following literals:
-@;
-@;@itemlist[
-@;  @item{boolean values @verbatim|{true false null}|}
-@;  @item{numeric values @verbatim{int real}}
-@;  @item{strings}
-@;]
+The @code{bundles} directory contains three subdirectories.
+Directory @code{standard} includes stable library functionality.
+Directory @code{prototype} contains experimental and unstable
+libraries. These libraries should all be sub-bundles of the
+@code{Proto} bundle to remind the programmer of their status.
+Finally, directory @code{joy} contains bundles obtained through
+the @code{enjoy} package manager (functionality to be
+implemented).
 
 @section{Operators}
 Operators are special tokens that apply operations on expressions.
@@ -98,29 +81,26 @@ The following tokens are operators:
          (list "==" "!=" "+" "-" "*" "/" "%")]
 }
 
-@;{
-@section{Types}
 
-void
-string
-int
-real
-bool
-null
-Fut
-Par
+@section{Type Synonyms}
+
+Type synonyms allow abbreviations to be used for types.
+These take one of the two forms, where a single name can be
+used to abbreviate another type, or where a name has parameters.
 
 @codeblock|{
-  class Person:
-    name: string
-    age: int
-    def init(name: string, age: int){
-      self.name = name;
-      self.age = age;
-  }
+  typedef Fint = Foo<int,int>
+}|
+or
+@codeblock|{
+  typedef F<x,y> = Foo<y,x>
 }|
 
-}
+The types @code{Fint} and @code{F<type1,type2>} can be used in code as synonyms
+for @code{Foo<int,int>} and @code{Foo<type2,type1>}, respectively.
+
+Type synonyms cannot be recursive.
+
 
 @section{Comments}
 @;{TODO: Figure out how to write '{' and '}' inside @code}
@@ -148,13 +128,19 @@ The available primitive types and example literals for them are:
 
 @tabular[#:sep @hspace[5]
 (list
-  (list @code{string} @code{"hello"})
+  (list @code{char}   @tt{'a'})
   (list @code{real}   @code{1.234, -3.141592})
   (list @code{int}    @code{1, -12})
   (list @code{uint}   @code{42})
   (list @code{bool}   @code{true, false})
   (list @code{void}   @code{()})
 )]
+
+While not technically a primitive type, there is special support
+for the @code{String} type. Strings can be created using the
+normal syntax @code{"Hello world!"} (which is just short-hand for
+@code{new String("Hello world!")}). The @code{String} class in
+@code{bundles/standard} provides basic operations on strings.
 
 @section{Loops}
 There are @code{while}, @code{repeat} and @code{for} loops.

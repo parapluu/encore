@@ -1,0 +1,10 @@
+class Main {
+  def higherOrder(f: () -> int) : void {
+    print f();
+  }
+
+  def main() : void {
+    let f = \ (x: int) -> 2*x;
+    this.higherOrder(f);
+  }
+}
