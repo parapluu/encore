@@ -44,7 +44,7 @@ translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable ftab
       [tracefunDecl cdecl] ++
       [constructorImpl Active cname] ++
       methodImpls ++
-      (map (methodImplWithFuture cname ctable) nonStreamMethods) ++
+      (map (methodImplWithFuture cname) nonStreamMethods) ++
       (map (methodImplOneWay cname) nonStreamMethods) ++
       (map (methodImplStream cname) streamMethods) ++
       [dispatchFunDecl cdecl] ++
@@ -263,8 +263,8 @@ sendMsg cname mname msgId msgTypeName argPairs = [
     sendMsg = Statement $
       Call ponySendvName [AsExpr $ Deref encoreCtxVar, target, msgArg]
 
-methodImplWithFuture :: Ty.Type -> ClassTable -> A.MethodDecl -> CCode Toplevel
-methodImplWithFuture cname ctable m =
+methodImplWithFuture :: Ty.Type -> A.MethodDecl -> CCode Toplevel
+methodImplWithFuture cname m =
   let
     retType = future
     fName = methodImplFutureName cname mName
@@ -417,7 +417,7 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) ctable ftab
     [tracefunDecl cdecl] ++
     [constructorImpl Shared cname] ++
     methodImpls ++
-    (map (methodImplWithFuture cname ctable) cmethods) ++
+    (map (methodImplWithFuture cname) cmethods) ++
     (map (methodImplOneWay cname) cmethods) ++
     [dispatchFunDecl cdecl] ++
     [runtimeTypeDecl cname]

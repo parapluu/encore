@@ -384,11 +384,11 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name,
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
-                          typeParams :: [Type],
+                          typeArguments :: Maybe [Type],
                           name :: Name,
                           args :: Arguments}
           | FunctionAsValue {emeta :: Meta Expr,
-                             typeParams :: [Type],
+                             typeArgs :: [Type],
                              name :: Name}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],

@@ -43,8 +43,8 @@ translateClosure closure typeVars ctable ftable
            funName     = closureFunName id
            envName     = closureEnvName id
            traceName   = closureTraceName id
-           freeVars    = Util.freeVariables (map A.pname params) body
-           fTypeVars = typeVars `intersect` Util.freeTypeVars body
+           freeVars    = Util.freeVariables (map A.pname params ++ map fst ftable) body
+           fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
            encArgNames = map A.pname params

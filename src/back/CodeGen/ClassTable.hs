@@ -7,7 +7,8 @@ module CodeGen.ClassTable (
   lookupCalledType,
   lookupFunction,
   buildClassTable,
-  buildFunctionTable) where
+  buildFunctionTable,
+  getGlobalFunctionNames) where
 
 import Types
 import AST.AST
@@ -91,3 +92,6 @@ lookupCalledType ty m ctable
                  Types.showWithKind ty
       in
         fst . fromMaybe fail $ find (isJust . snd) results
+
+getGlobalFunctionNames :: FunctionTable -> [Name]
+getGlobalFunctionNames = map fst

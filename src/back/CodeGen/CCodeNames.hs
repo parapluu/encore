@@ -247,6 +247,13 @@ globalFunctionWrapperNameOf :: A.Function -> CCode Name
 globalFunctionWrapperNameOf f =
   Nam $ encoreName "global_fun_wrapper" $ show $ A.functionName f
 
+globalFunctionAsValueWrapperNameOf :: A.Expr -> CCode Name
+globalFunctionAsValueWrapperNameOf (A.FunctionAsValue {A.name}) =
+  Nam $ encoreName "global_fun_wrapper" (show name)
+globalFunctionAsValueWrapperNameOf e =
+    error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
+            show e ++ "'"
+
 closureStructName :: CCode Name
 closureStructName = Nam "closure"
 

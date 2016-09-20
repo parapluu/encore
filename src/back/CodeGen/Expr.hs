@@ -22,7 +22,6 @@ import qualified AST.Meta as Meta
 import qualified AST.PrettyPrinter as PP
 import qualified Identifiers as ID
 import qualified Types as Ty
-import Typechecker.Util (resolveParamBinding)
 
 import Control.Monad.State hiding (void)
 import Data.List
@@ -408,8 +407,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var . show $ globalClosureName name, Skip)
 
-  translate (A.FunctionAsValue {A.name}) =
-    return (Var . show $ globalClosureName name, Skip)
+  translate fun@(A.FunctionAsValue {A.name, A.typeArgs}) = do
+    tmp <- Var <$> Ctx.genSym
+    let funName = globalFunctionAsValueWrapperNameOf fun
+    (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
+    return (tmp,
+            Seq $
+             rtArrayInit:
+              [Assign (Decl (closure, tmp))
+              (Call closureMkFn [encoreCtxVar, AsLval funName,
+                                 nullVar, nullVar, rtArray])])
 
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
@@ -1027,19 +1034,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
+    globalFunctionNames <- gets Ctx.getGlobalFunctionNames
+    let freeVars = Util.freeVariables (map A.pname eparams ++ globalFunctionNames) body
+    -- error $ show fTypeVars
     fillEnv <- insertAllVars freeVars fTypeVars
     return $
       (Var tmp,
       Seq $
         (mkEnv envName) : fillEnv ++
         [Assign (Decl (closure, Var tmp))
-          (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
+          (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
       metaId    = Meta.getMetaId . A.getMeta $ clos
       funName   = closureFunName metaId
       envName   = closureEnvName metaId
       traceName = closureTraceName metaId
-      freeVars  = Util.freeVariables (map A.pname eparams) body
       fTypeVars  = Util.freeTypeVars body
       mkEnv name =
         Assign (Decl (Ptr $ Struct name, AsLval name))
@@ -1062,14 +1071,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           fName = typeVarRefName ty
         return $ assignVar fName tname
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
       assignVar :: (UsableAs e Expr) => CCode Name -> CCode e -> CCode Stat
       assignVar lhs rhs = Assign ((Deref envName) `Dot` lhs) rhs
       localTypeVar ty = do
         c <- get
         return $ isJust $ Ctx.substLkp c name
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
     ctx <- get
@@ -1097,25 +1106,25 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
-  (args', initArgs) <- fmap unzip $ mapM translate args
-  (callVar, call) <- buildFunctionCallExpr args'
+globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.name, A.args} = do
+  (argNames, initArgs) <- unzip <$> mapM translate args
+  (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
 
-  return $ (ret, Seq $ initArgs ++ [call])
+  return (ret, Seq $ initArgs ++ [call])
   where
     typ = A.getType fcall
-    buildFunctionCallExpr args' = do
-      args'' <- wrapArgumentsWithTypeParams args'
-      let runtimeTypes = map runtimeType typeParams
+    buildFunctionCallExpr args cArgs = do
+      cArgs' <- wrapArgumentsWithTypeParams args cArgs
+      let runtimeTypes = map runtimeType typeArguments
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
 
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
           prototype = Call (globalFunctionName name)
-                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ args'')
+                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
       rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
-      return $ (callVar, Seq [tmpTypeDecl, call])
+      return (callVar, Seq [tmpTypeDecl, call])
 
     unwrapReturnType functionCall = do
       -- this function checks if the formal parameter return type is a type variable
@@ -1126,21 +1135,17 @@ globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
                AsExpr (fromEncoreArgT (translate typ) functionCall)
               else functionCall)
 
-    wrapArgumentsWithTypeParams args' = do
+    wrapArgumentsWithTypeParams args cArgs = do
       -- helper function. wrap parametric arguments inside an encoreArgT
       fHeader <- gets $ Ctx.lookupFunction name
       let formalTypes = map A.ptype (A.hparams fHeader)
-          argsWithFormalTypes = zip args' formalTypes
+          argsWithFormalTypes = zip formalTypes $ zip args cArgs
 
-          -- argTypes = map A.getType args
-      --     bindingFn = resolveParamBinding . Ty.getTypeParameterBindings
-      -- bindings <- bindingFn $ zip formalTypes argTypes
-          bindings = zip formalTypes typeParams
-
-      return $ map (\(arg, formalType) ->
+      return $ map (\(formalType, (arg, cArg)) ->
                       if Ty.isTypeVar formalType then
-                        asEncoreArgT ((translate . fromJust . lookup formalType) bindings) arg
-                      else AsExpr arg
+                        asEncoreArgT (translate $ A.getType arg) cArg
+                      else
+                        AsExpr cArg
                    ) argsWithFormalTypes
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
@@ -1241,8 +1246,22 @@ traitMethod this targetType name args resultType =
 targetNullCheck ntarget target name meta op =
   Statement $
     Call (Nam "check_receiver")
-      [AsExpr $ ntarget,
+      [AsExpr ntarget,
        String op,
        String (show (PP.ppExpr target)),
        String (show name),
        String (show (Meta.getPos meta))]
+
+runtimeTypeArguments [] = return (nullVar, Skip)
+runtimeTypeArguments typeArgs = do
+  tmpArray <- Var <$> Ctx.genNamedSym "rt_array"
+  let runtimeTypes = map runtimeType typeArgs
+      rtArraySize = BinOp (translate ID.TIMES)
+                          (Int $ length typeArgs) (Sizeof $ Ptr ponyTypeT)
+      rtArrayDecl = Decl (Ptr . Ptr $ ponyTypeT, tmpArray)
+      rtArrayAlloc = Call encoreAllocName [AsExpr $ Deref encoreCtxVar
+                                          ,rtArraySize]
+      rtArrayAssign = Assign rtArrayDecl rtArrayAlloc
+      rtArrayInit = Seq $ zipWith (\i t -> Assign (ArrAcc i tmpArray) t)
+                                  [0..] runtimeTypes
+  return (tmpArray, Seq [rtArrayAssign, rtArrayInit])

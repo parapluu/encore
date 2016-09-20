@@ -70,7 +70,7 @@ instance Precheckable Typedef where
 
 instance Precheckable FunctionHeader where
     doPrecheck header = do
-      let htypeparams' = (htypeparams header)
+      let htypeparams' = htypeparams header
       htype' <- local (addTypeParameters htypeparams') $ resolveType (htype header)
       hparams' <- local (addTypeParameters htypeparams') $ mapM precheck (hparams header)
       assertDistinctThing "declaration" "type parameter" htypeparams'

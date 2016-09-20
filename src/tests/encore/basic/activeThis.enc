@@ -1,3 +1,5 @@
+def id<t>(x: t): t x
+
 class Foo
   def fr0b() : bool
     true
@@ -14,8 +16,7 @@ class Foo
     }
 
   def baz() : Fut bool
-    let id = \ (x : a) -> x
-        that = id(this)
+    let that = id<Foo>(this)
     in
       that.fr0b()
 

@@ -14,6 +14,7 @@ module CodeGen.Context (
   substRem,
   genNamedSym,
   genSym,
+  getGlobalFunctionNames,
   lookupFunction,
   lookupField,
   lookupMethod,
@@ -82,3 +83,6 @@ lookupCalledType ty m = Tbl.lookupCalledType ty m . classTable
 
 lookupFunction :: Name -> Context -> FunctionHeader
 lookupFunction fname = Tbl.lookupFunction fname . functionTable
+
+getGlobalFunctionNames :: Context -> [Name]
+getGlobalFunctionNames = Tbl.getGlobalFunctionNames . functionTable

@@ -228,7 +228,7 @@ static value_t fmap_party_closure(pony_ctx_t **ctx,
 }
 
 static inline par_t* fmap_run_fp(pony_ctx_t **ctx, par_t* in, fmap_s* const f){
-  closure_t *cp = closure_mk(ctx, fmap_party_closure, f, NULL);
+  closure_t *cp = closure_mk(ctx, fmap_party_closure, f, NULL, NULL);
   future_t *fut = future_chain_actor(ctx, in->data.fp.fut, &party_type, cp);
   return new_par_fp(ctx, fut, &future_type);
 }
@@ -348,7 +348,7 @@ static value_t party_join_fp_closure(pony_ctx_t **ctx,
 
 static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
   future_t* const fut = p->data.fp.fut;
-  closure_t* const clos = closure_mk(ctx, party_join_fp_closure, NULL, NULL);
+  closure_t* const clos = closure_mk(ctx, party_join_fp_closure, NULL, NULL, NULL);
   future_t* const chained_fut = future_chain_actor(ctx, fut, p->rtype, clos);
   return new_par_fp(ctx, chained_fut, p->rtype);
 }
@@ -361,8 +361,7 @@ static value_t closure_join(pony_ctx_t **ctx,
 }
 
 static inline par_t* party_join_array(pony_ctx_t **ctx, par_t* const p){
-  // TODO: check that the ctx does not need to be passed as env (probably not!)
-  closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace);
+  closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace, NULL);
   return party_sequence(ctx, p, clos, get_rtype(p));
 }
 
