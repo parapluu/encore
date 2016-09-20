@@ -1,5 +1,5 @@
 #
-# makefile for svm_light 
+# makefile for svm_light
 #
 # Thorsten Joachims, 2002
 #
@@ -19,8 +19,8 @@ LIBS=-L. -lm                               # used libraries
 
 all: svm_learn_hideo svm_classify
 
-tidy: 
-	rm -f *.o 
+tidy:
+	rm -f *.o
 	rm -f pr_loqo/*.o
 
 clean:	tidy
@@ -35,11 +35,11 @@ info:
 	@echo "make for SVM-light               Thorsten Joachims, 1998"
 	@echo
 	@echo "Thanks to Ralf Herbrich for the initial version."
-	@echo 
+	@echo
 	@echo "USAGE: make [svm_learn | svm_learn_loqo | svm_learn_hideo | "
 	@echo "             libsvmlight_hideo | libsvmlight_loqo | "
 	@echo "             svm_classify | all | clean | tidy]"
-	@echo 
+	@echo
 	@echo "    svm_learn           builds the learning module (prefers HIDEO)"
 	@echo "    svm_learn_hideo     builds the learning module using HIDEO optimizer"
 	@echo "    svm_learn_loqo      builds the learning module using PR_LOQO optimizer"
@@ -55,61 +55,44 @@ info:
 
 # Create executables svm_learn and svm_classify
 
-svm_learn_hideo: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o 
+svm_learn_hideo: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o
 	$(LD) $(LFLAGS) svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o -o svm_learn $(LIBS)
 
-#svm_learn_loqo: svm_learn_main.o svm_learn.o svm_common.o svm_loqo.o loqo
-#	$(LD) $(LFLAGS) svm_learn_main.o svm_learn.o svm_common.o svm_loqo.o pr_loqo/pr_loqo.o -o svm_learn $(LIBS)
-
-svm_classify: svm_classify.o svm_common.o 
+svm_classify: svm_classify.o svm_common.o
 	$(LD) $(LFLAGS) svm_classify.o svm_common.o -o svm_classify $(LIBS)
 
 
 # Create library libsvmlight.so, so that external code can get access to the
 # learning and classification functions of svm-light by linking this library.
 
-svm_learn_hideo_noexe: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o 
+svm_learn_hideo_noexe: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o
 
-libsvmlight_hideo: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o 
+libsvmlight_hideo: svm_learn_main.o svm_learn.o svm_common.o svm_hideo.o
 	$(LD) -shared svm_learn.o svm_common.o svm_hideo.o -o libsvmlight.so
 
-libsvm_encore: lib_svm_learn_main.o lib_svm_classify_main.o svm_learn.o svm_common.o svm_hideo.o 
+libsvm_encore: lib_svm_learn_main.o lib_svm_classify_main.o svm_learn.o svm_common.o svm_hideo.o
 	$(LD) -shared lib_svm_learn_main.o lib_svm_classify_main.o svm_learn.o svm_common.o svm_hideo.o -o libsvm_encore.so
-
-#svm_learn_loqo_noexe: svm_learn_main.o svm_learn.o svm_common.o svm_loqo.o loqo
-
-#libsvmlight_loqo: svm_learn_main.o svm_learn.o svm_common.o svm_loqo.o 
-#	$(LD) -shared svm_learn.o svm_common.o svm_loqo.o  pr_loqo/pr_loqo.o -o libsvmlight.so
 
 # Compile components
 
 svm_hideo.o: svm_hideo.c
-	$(CC) -c $(CFLAGS) svm_hideo.c -o svm_hideo.o 
-
-#svm_loqo.o: svm_loqo.c 
-#	$(CC) -c $(CFLAGS) svm_loqo.c -o svm_loqo.o 
+	$(CC) -c $(CFLAGS) svm_hideo.c -o svm_hideo.o
 
 svm_common.o: svm_common.c svm_common.h kernel.h
-	$(CC) -c $(CFLAGS) svm_common.c -o svm_common.o 
+	$(CC) -c $(CFLAGS) svm_common.c -o svm_common.o
 
 svm_learn.o: svm_learn.c svm_common.h
-	$(CC) -c $(CFLAGS) svm_learn.c -o svm_learn.o 
+	$(CC) -c $(CFLAGS) svm_learn.c -o svm_learn.o
 
 
 svm_learn_main.o: svm_learn_main.c svm_learn.h svm_common.h
-	$(CC) -c $(CFLAGS) svm_learn_main.c -o svm_learn_main.o 
-	
+	$(CC) -c $(CFLAGS) svm_learn_main.c -o svm_learn_main.o
+
 lib_svm_learn_main.o: lib_svm_learn_main.c svm_learn.h svm_common.h
-	$(CC) -c $(CFLAGS) lib_svm_learn_main.c -o lib_svm_learn_main.o 
+	$(CC) -c $(CFLAGS) lib_svm_learn_main.c -o lib_svm_learn_main.o
 
 lib_svm_classify_main.o: lib_svm_classify_main.c svm_common.h
-	$(CC) -c $(CFLAGS) lib_svm_classify_main.c -o lib_svm_classify_main.o 
+	$(CC) -c $(CFLAGS) lib_svm_classify_main.c -o lib_svm_classify_main.o
 
 svm_classify.o: svm_classify.c svm_common.h kernel.h
 	$(CC) -c $(CFLAGS) svm_classify.c -o svm_classify.o
-
-#loqo: pr_loqo/pr_loqo.o
-
-#pr_loqo/pr_loqo.o: pr_loqo/pr_loqo.c
-#	$(CC) -c $(CFLAGS) pr_loqo/pr_loqo.c -o pr_loqo/pr_loqo.o
-

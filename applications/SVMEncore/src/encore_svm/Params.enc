@@ -1,7 +1,5 @@
 bundle Params where
 
--- import Core
-
 passive class Params {
   chunk : int    -- number of chunks will be splitted.
   par   : bool
@@ -17,8 +15,6 @@ passive class Params {
   fdef  : String
 
   path   : String
-
-  -- loader : Loader
 
   params : [(String,String)]
   opt    : int
@@ -90,7 +86,6 @@ passive class Params {
   a : String --       -a char     - write all alphas to this file after learning (in the
                                     --same order as in the training set)
 
-  -- def init(args: [String],loader:Loader) : void {
   def init(args: [String]) : void {
     this.par  = false;
     this.chunk = 1;  -- won't be splitted by default.
@@ -99,37 +94,6 @@ passive class Params {
     this.opt = 0;
 
     this.params = [("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("",""),("","")];
-
-    this.help = "";
-    this.v = "";
-    this.z = "";
-    this.c = "";
-    this.w = "";
-    this.j = "";
-    this.b = "";
-    this.i = "";
-    this.x = "";
-    this.o = "";
-
-    this.k = "";
-    this.p = "";
-    this.t = "";
-    this.d = "";
-    this.g = "";
-    this.s = "";
-    this.r = "";
-    this.u = "";
-    this.q = "";
-    this.n = "";
-
-    this.m = "";
-    this.e = "";
-    this.h = "";
-    this.f = "";
-    this.y = "";
-    this.sharp = "";
-    this.l = "";
-    this.a = "";
 
     this.args   = args;
     this.mode   = "[]";
@@ -142,7 +106,6 @@ passive class Params {
 
     -- Set default path of *.so library
     this.path = "../lib/libsvm_encore.so";
-    -- this.loader = loader;
   }
 
   def parseArgs() : void {
@@ -241,173 +204,142 @@ passive class Params {
               -- Printing all help instruction
               print("Please read the instruction in details: ");
               this.printHelp();
-              -- this.loader.call("print_help",0);
               exit(-1);
             }
             -- svm_learn & svm_classify arguments
-            "-?"  => {
-              this.help = args[a];
-              this.params[b] = (args[a],args[a]); b = b + 1;
-            }
+            "-?"  => {this.params[b] = (args[a],args[a]); b = b + 1;}
             "-v"  => {
               if (a + 1 < |args|) then {
-                this.v = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-z"  => {
               if (a + 1 < |args|) then {
-                this.z = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-c"  => {
               if (a + 1 < |args|) then {
-                this.c = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-w"  => {
               if (a + 1 < |args|) then {
-                this.w = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-j"  => {
               if (a + 1 < |args|) then {
-                this.j = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-b"  => {
               if (a + 1 < |args|) then {
-                this.b = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-i"  => {
               if (a + 1 < |args|) then {
-                this.i = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-x"  => {
               if (a + 1 < |args|) then {
-                this.x = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-o"  => {
               if (a + 1 < |args|) then {
-                this.o = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-k"  => {
               if (a + 1 < |args|) then {
-                this.k = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-p"  => {
               if (a + 1 < |args|) then {
-                this.p = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-t"  => {
               if (a + 1 < |args|) then {
-                this.t = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-d"  => {
               if (a + 1 < |args|) then {
-                this.d = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-g"  => {
               if (a + 1 < |args|) then {
-                this.g = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-s"  => {
               if (a + 1 < |args|) then {
-                this.s = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-r"  => {
               if (a + 1 < |args|) then {
-                this.r = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-u"  => {
               if (a + 1 < |args|) then {
-                this.u = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-q"  => {
               if (a + 1 < |args|) then {
-                this.q = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-n"  => {
               if (a + 1 < |args|) then {
-                this.n = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-m"  => {
               if (a + 1 < |args|) then {
-                this.m = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-e"  => {
               if (a + 1 < |args|) then {
-                this.e = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-h"  => {
               if (a + 1 < |args|) then {
-                this.h = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-f"  => {
               if (a + 1 < |args|) then {
-                this.f = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-y"  => {
               if (a + 1 < |args|) then {
-                this.y = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-#"  => {
               if (a + 1 < |args|) then {
-                this.sharp = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-l"  => {
               if (a + 1 < |args|) then {
-                this.l = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
             "-a"  => {
               if (a + 1 < |args|) then {
-                this.a = args[a+1];
                 this.params[b] = (args[a],args[a+1]); b = b + 1; a = a + 1;
               } else print("Missing argument.");
             }
@@ -504,7 +436,8 @@ passive class Params {
     print("\nThanks to SVMLight's authors for the open source library.");
     print("\nUSAGE: make [clean | help | info | all | tidy");
     print("\n             svm_light_api | svm_encore | ");
-    print("\n             svm_lib | distribute]");
+    print("\n             svm_lib | distribute |");
+    print("\n             test_all | test_convert | test_ex1 | test_higgs ]");
     print("\n    svm_light_api       builds the learning, classfication modules, and libraries");
     print("\n    svm_encore          builds the svm_encore module");
     print("\n    svm_lib             builds shared object library that can be linked into");
@@ -514,7 +447,7 @@ passive class Params {
     print("\n    all (default)       builds svm_light_api, svm_encore, and svm_lib,");
     print("\n                        then distributes libraries");
     print("\n    clean               removes .o and target files");
+    print("\n    test_XXXXXX         executes different testcases");
     print("\n----------------------------------------------------------------------------------------");
   }
-
 }

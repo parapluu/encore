@@ -9,7 +9,7 @@ class Main {
 
   def initialize(args: [String]) : void {
     this.loader = new Loader();
-    this.params = new Params(args);--,this.loader);
+    this.params = new Params(args);
   }
 
   def main(args: [String]) : void {
@@ -51,8 +51,7 @@ class Main {
             args[3] = params.fout;
             this.loader!setArgs(args,this.params);
 
-            -- svm-encore-train mode
-            if params.mode.equals("learn") then {
+            if params.mode.equals("learn") then { -- svm-encore-train mode
                 if params.vv then print("=== Training ===\n\tfin  = {}\n\tfout = {}\n",params.fin1, params.fout);
                 await this.loader.call("svm_learn_main",3);
             } else { -- svm-encore-classify mode

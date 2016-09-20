@@ -25,6 +25,7 @@ clean: tidy
 	rm -rf $(DIST)
 	rm -rf $(LIB)
 	$(MAKE) -C $(SVML_SRC) clean
+	$(MAKE) -C test all
 
 svm_light_api:
 	$(MAKE) -C $(SVML_SRC) clean
@@ -44,7 +45,7 @@ distribute:
 	mv $(ENCORE_SRC)/svm_encore $(DIST)
 	mv $(SVML_SRC)/$(LIB_SO)    $(LIB)/
 
-test_all: test_convert test_ex1 test_higgs
+test_all: clean all test_convert test_ex1 test_higgs
 
 test_convert:
 	$(SE) convert -ei $(TEST_CVT)/train.csv -eo $(TEST_CVT)/train.svm -vv

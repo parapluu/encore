@@ -14,9 +14,10 @@ function check_results() {
       continue
     else
       echo "Test passed - CHECKING: ${BASE} vs ${OUT_FILE}"
-      ${PASSED}=0
+      PASSED=1
     fi
   done
+
   if [ ${PASSED} -eq 0 ]; then
     echo "vvv DIFF vvvvvvvvvvvvvvvvvvv"
     echo "${BASE}" | diff ${OUT_FILE} -
