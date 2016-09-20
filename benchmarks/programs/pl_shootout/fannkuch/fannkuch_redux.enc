@@ -1,9 +1,3 @@
-def stringToInt(s : string) : int {
-  embed int
-    atoi(#{s});
-  end;
-}
-
 def split(fact: int, i: int) : int {
   (fact + i - 1)/i
 }
@@ -247,11 +241,17 @@ class Fannkuch {
     this.manager ! report(this.cksum, this.flips);
   }
 }
-
+	
 class Main {
-  def main(argv : [string]) : void { 
+  def extractor(maybe : Maybe int) : int {
+    match maybe with
+      Nothing => -1
+      Just i => i
+  }
+      
+  def main(argv : [String]) : void { 
     let
-      temp = if |argv| > 1 then stringToInt(argv[1]) else 7
+      temp = if |argv| > 1 then this.extractor((argv[1]).to_int()) else 7
       n = if temp >= 20 then 19 else temp -- make sure that n < 20
 
       -- CPU utilization seems to increase when this is increased, but execution time is also increased with it

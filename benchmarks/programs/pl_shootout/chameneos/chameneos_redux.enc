@@ -5,34 +5,13 @@
 
 import list
 
-def stringToInt(s : string) : int {
-  embed int
-    atoi(#{s});
-  end;
-}
-
-def listToString(list : List<string>) : string {
+def listToString(list : List<String>) : String {
   let
     tempStr = ""
     cursor = list.first
   in {
-    embed string
-      #{tempStr} = pony_alloc(256 * sizeof(char));
-    end;
-    while(cursor != null) {
-      let 
-        value = cursor.getData().getValue()
-      in {
-        embed void
-	  char *whitespace = " ";
-          strcat(#{tempStr}, whitespace);
-	  strcat(#{tempStr}, #{value});
-        end;
-	cursor = cursor.getNextLink();
-      }
-    };
-    tempStr;
-  };
+    "TODO"
+  }
 }
 
 def doCompliment(c1 : int, c2 : int) : int {
@@ -48,7 +27,7 @@ def doCompliment(c1 : int, c2 : int) : int {
   else {print("This should never happen!\n"); 1}
 }
 
-def lookup(n : int) : string {
+def lookup(n : int) : String {
   if(n == 0) then "zero"
   else if(n == 1) then "one"
   else if(n == 2) then "two"
@@ -62,10 +41,10 @@ def lookup(n : int) : string {
   else "this should not happen!"
 }
 
-def spell(n : int) : List<string> {
+def spell(n : int) : List<String> {
   if(n == 0) then {
     let
-      spelledList = new List<string>()
+      spelledList = new List<String>()
     in {
       spelledList.prepend(lookup(n));
       spelledList;
@@ -73,7 +52,7 @@ def spell(n : int) : List<string> {
   } else {
       let
         remaining = n
-        spelledList = new List<string>()
+        spelledList = new List<String>()
       in {
         while(remaining > 0) {
 	  spelledList.prepend(lookup(remaining % 10));
@@ -87,26 +66,13 @@ def spell(n : int) : List<string> {
 def spellAndPrint(n : int) : void {
   let
     spelledList = spell(n)
-    cursor = null : Link<string>
+    cursor = null : Link<String>
   in {
     cursor = spelledList.first;
     while(cursor != null) {
       print("{} ", cursor.getData().getValue());
       cursor = cursor.getNextLink();
     };
-  }
-}
-
-class IDGenerator {
-  nextID : int
-
-  def init() : void {
-    this.nextID = 0;
-  }
-
-  def genID() : int {
-    this.nextID = this.nextID + 1;
-    this.nextID;
   }
 }
 
@@ -118,10 +84,10 @@ class Creature {
   count : int
   silent : bool -- Whether to print or not
 
-  def init(place : MeetingPlace, colour : int, idGenerator : IDGenerator, silent : bool) : void {
+  def init(place : MeetingPlace, colour : int, id : int, silent : bool) : void {
     this.place = place;
     this.colour = colour;
-    this.id = get idGenerator.genID();
+    this.id = id;
     this.sameCount = 0;
     this.count = 0;
     this.silent = silent;
@@ -137,7 +103,7 @@ class Creature {
 
   def stop() : void {
     unless this.silent then
-      print("{} {}\n", this.count, listToString(spell(this.sameCount)));
+      print("{} {}\n", this.count, this.sameCount);
     this.place ! sumMeetings(this.count);
   }
 
@@ -156,6 +122,11 @@ class MeetingPlace {
   numberOfCreatures : int
   main : Main
   firstRun : bool
+  started : bool
+
+  def start() : void {
+    this.started = true
+  }
 
   def init(meetingsLeft : int, main : Main, numberOfCreatures : int, firstRun : bool) : void {
     this.meetingsLeft = meetingsLeft;
@@ -167,6 +138,7 @@ class MeetingPlace {
     this.main = main;
     this.numberOfCreatures = numberOfCreatures;
     this.firstRun = firstRun;
+    this.started = false;
   }
 
   def sumMeetings(meetings : int) : void {
@@ -175,29 +147,32 @@ class MeetingPlace {
     
     if(this.amountOfCreaturesDone == this.numberOfCreatures) then {
       spellAndPrint(this.meetings);
-      print("\n\n");
       if(this.firstRun) then this.main ! runSecondScenario();
     }
   }
 
   def meet(chameneos : Creature, id : int, c : int) : void {
-    if(this.meetingsLeft == 0) then {
-      chameneos ! stop();
+    if not this.started then {
+      this ! meet(chameneos, id, c);
     } else {
-      if(this.firstColour == -1) then {
-	this.firstChameneos = chameneos;
-  	this.firstColour = c;
-  	this.firstID = id;
-      } else {
-	let
-          newColour = doCompliment(c, this.firstColour)
-        in {
-          this.firstColour = -1;
-  	  this.meetingsLeft = this.meetingsLeft - 1;
-          chameneos ! meet(this.firstID, newColour);
-          this.firstChameneos ! meet(id, newColour);
-        }
-      };
+        if(this.meetingsLeft == 0) then {
+          chameneos ! stop();
+        } else {
+            if(this.firstColour == -1) then {
+	      this.firstChameneos = chameneos;
+              this.firstColour = c;
+  	      this.firstID = id;
+            } else {
+	        let
+                   newColour = doCompliment(c, this.firstColour)
+                in {
+                   this.firstColour = -1;
+  	           this.meetingsLeft = this.meetingsLeft - 1;
+                   chameneos ! meet(this.firstID, newColour);
+                   this.firstChameneos ! meet(id, newColour);
+                   }
+              };
+           };
     };
   }
 }
@@ -209,7 +184,7 @@ class Main {
     let
       colours = [1,2,3,2,3,1,2,3,2,1]
     in {
-      this.runDefault(this.meetings, colours, false);
+      this ! runDefault(this.meetings, colours, false);
     }
   }
 
@@ -221,18 +196,15 @@ class Main {
       repeat i <- |colours|
 	print("{} ", colours[i]);
       print("\n");
-      let
-	idGenerator = new IDGenerator()
-      in {
-	repeat i <- |colours| {
-          let
-	    colour = colours[i]
-            creature = new Creature(place, colour, idGenerator, false)
-	  in {
-	    creature.run();
-	  }
-        };
+      repeat i <- |colours| {
+        let
+	  colour = colours[i]
+          creature = new Creature(place, colour, i, false)
+	in {
+	  creature ! run();
+	};
       };
+     place ! start();
     };
   }
 
@@ -242,18 +214,15 @@ class Main {
       place = new MeetingPlace(meetings, this, creatureAmount, false)
       i = 0
     in {
-      let
-	idGenerator = new IDGenerator()
-      in {
-	repeat i <- creatureAmount {
-          let
-            colour = (i % 3) + 1
-            creature = new Creature(place, colour, idGenerator, true)
-	  in {
-	    creature.run();
-	  }
-        };
+      repeat i <- creatureAmount {
+      	let
+          colour = (i % 3) + 1
+          creature = new Creature(place, colour, i, true)
+	in {
+	  creature ! run();
+	}
       };
+      place ! start();
     };
   }
 
@@ -274,19 +243,26 @@ class Main {
     print("\n");
   }
 
-  def main(argv : [string]) : void {
+  def extractor(maybe : Maybe int) : int {
+    match maybe with
+      Nothing => -1
+      Just i => i
+  }
+    
+
+  def main(argv : [String]) : void {
     let
-      colours = [1,2,3] 
-      numberOfMeetings = if |argv| > 1 then stringToInt(argv[1]) else 800000
-      numberOfCreatures = if |argv| > 2 then stringToInt(argv[2]) else -1
+      colours = [1,2,3]
+      numberOfMeetings = if |argv| > 1 then this.extractor((argv[1]).to_int()) else 800000
+      numberOfCreatures = if |argv| > 2 then this.extractor((argv[2]).to_int()) else -1
     in {
-      this.printColours();
+      this ! printColours();
       this.meetings = numberOfMeetings;
 
       if(numberOfCreatures != -1) then {
-        this.run(numberOfMeetings, numberOfCreatures);
+        this ! run(numberOfMeetings, numberOfCreatures);
       } else {
-        this.runDefault(numberOfMeetings, colours, true);
+        this ! runDefault(numberOfMeetings, colours, true);
       };
     }
   }

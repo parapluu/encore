@@ -18,7 +18,7 @@ passive class Link<t> {
   def getNextLink() : Link<t>
     this.next
   def show() : void{
-    print this.data.getValue();
+    print("TBI"); -- not implemented (broke after some update to Encore)
     if this.next != null then
       this.next.show()
     else
