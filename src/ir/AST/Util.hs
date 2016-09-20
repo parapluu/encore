@@ -361,11 +361,13 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound var@(VarAccess {name})
         | name `elem` bound = []
         | otherwise = [(name, getType var)]
-    freeVariables' bound fCall@(FunctionCall {typeParams, name, args})
+    freeVariables' bound fCall@(FunctionCall {typeArguments, name, args})
         | name `elem` bound = concatMap (freeVariables' bound) args
         | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
         where
-          arrType = arrowWithTypeParam typeParams (map getType args) (getType fCall)
+          arrType = case typeArguments of
+                      Just tys -> arrowWithTypeParam tys (map getType args) (getType fCall)
+                      Nothing -> arrowType (map getType args) (getType fCall)
     freeVariables' bound Closure {eparams, body} =
         freeVariables' bound' body
         where

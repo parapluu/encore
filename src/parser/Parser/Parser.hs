@@ -640,8 +640,8 @@ expr :: Parser Expr
 expr  =  unit
      <|> try embed
      <|> try path
-     <|> try functionAsValue
      <|> try functionCall
+     <|> try functionAsValue
      <|> try print
      <|> try closure
      <|> try tupleLit
@@ -802,8 +802,9 @@ expr  =  unit
                              FunctionAsValue (meta pos) typeParams (Name fun)
       functionCall = do pos <- getPosition
                         fun <- identifier
+                        typeParams <- option Nothing (try $ angles $ Just <$> commaSep typ)
                         args <- parens arguments
-                        return $ FunctionCall (meta pos) [] (Name fun) args
+                        return $ FunctionCall (meta pos) typeParams (Name fun) args
       closure = do pos <- getPosition
                    reservedOp "\\"
                    params <- parens (commaSep paramDecl)
@@ -827,7 +828,7 @@ expr  =  unit
                       return $ FinishAsync (meta pos) body
       varAccess = do pos <- getPosition
                      id <- (do reserved "this"; return "this") <|> identifier
-                     return $ VarAccess (meta pos) $ Name id
+                     return $ VarAccess (meta pos) (Name id)
       arraySize = do pos <- getPosition
                      bar
                      arr <- expression
@@ -861,7 +862,7 @@ expr  =  unit
       print = do pos <- getPosition
                  reserved "print"
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) [] (Name "print") arg
+                 return $ FunctionCall (meta pos) Nothing (Name "print") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

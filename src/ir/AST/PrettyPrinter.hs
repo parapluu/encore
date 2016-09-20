@@ -29,6 +29,7 @@ import AST.AST
 indent = nest 2
 
 commaSep l = cat $ punctuate ", " l
+angles s = cat ["<", s, ">"]
 
 ppName :: Name -> Doc
 ppName (Name x) = text x
@@ -145,8 +146,8 @@ ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
 ppExpr FunctionCall {name, args} =
     ppName name <> parens (commaSep (map ppExpr args))
-ppExpr FunctionAsValue {name, typeParams} =
-  ppName name <> parens (commaSep (map ppType typeParams))
+ppExpr FunctionAsValue {name, typeArgs} =
+  ppName name <> angles (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, body} =
     "\\" <> parens (commaSep (map ppParamDecl eparams)) <+> "->" <+> ppExpr body
 ppExpr Async {body} =

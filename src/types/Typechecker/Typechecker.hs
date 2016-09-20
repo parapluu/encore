@@ -412,7 +412,7 @@ instance Checkable Expr where
               return expectedFunType
           | isFunctionAsValue eSeqFunc = do
               let funname = (name eSeqFunc)
-                  actualTypeParams = typeParams eSeqFunc
+                  actualTypeParams = typeArgs eSeqFunc
                   seqType = AST.getType eSeqFunc
                   pType = AST.getType ePar
                   funResultType = getResultType seqType
@@ -536,7 +536,7 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {name, args}) = do
+    doTypecheck fcall@(FunctionCall {name, args, typeArguments}) = do
       -- TODO: Closures have a runtime type that is not used. this should be
       --       fixed together with #523
 
@@ -544,46 +544,34 @@ instance Checkable Expr where
       ty <- case funType of
         Just ty -> return ty
         Nothing -> tcError $ UnboundFunctionError name
-      let argTypes = getArgTypes ty
 
+      let argTypes = getArgTypes ty
+          typeParams = getTypeParameters ty
       unless (isArrowType ty) $
         tcError $ NonFunctionTypeError ty
       unless (length args == length argTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
                     name (length argTypes) (length args)
-      eAr <- mapM typecheck args
-      -- NOTE: matchArguments calls matchTypes. MatchTypes doesn't play well
-      -- with type variables. if the matchTypes has as input two different
-      -- type variables, it assumes that it's ok to check if one is a subtype
-      -- of the other one. i believe this doesn't make sense between type
-      -- variables. in order to get the match arguments to typecheck, i return
-      -- the type variable bindings and execute the matchArguments with these
-      -- new bindings
-      functionTypeVarBindings <- resolveParamBinding $
-                                      getTypeParameterBindings $
-                                        zip argTypes (map AST.getType eAr)
-      let argTypes' = map (replaceTypeVars functionTypeVarBindings) argTypes
+      typeArgs <- case typeArguments of
+                    Nothing -> do
+                      unless (null typeParams) $
+                             tcError $ SimpleError "Wrong number of type arguments"
+                      return []
+                    Just typeArgs -> do
+                      unless (length typeArgs == length typeParams) $
+                             tcError $ SimpleError "Wrong number of type arguments"
+                      return typeArgs
 
-      (_, bindings) <- local (bindTypes functionTypeVarBindings) $
-                              matchArguments args argTypes'
-      let bindings' = nub $ functionTypeVarBindings ++ bindings
-      -- bindings' <- resolveParamBinding $ nub $ functionTypeVarBindings ++ bindings
-      -- END_NOTE
+      typeArgs' <- mapM resolveType typeArgs
+      let bindings = zip typeParams typeArgs'
+
+      (eArgs, bindings') <- local (bindTypes bindings) $
+                                  matchArguments args argTypes
 
       let resultType = replaceTypeVars bindings' (getResultType ty)
-          typeArguments = inferTypeParameters ty bindings'
 
-      -- error $ show resultType ++ "\n" ++ show typeArguments ++ "\nFuncTypeVarBnding: "
-      --         ++ show functionTypeVarBindings ++ "\nBinding: " ++ show bindings'
-      --         ++ "\nBindingsAAll: " ++ show (getTypeParameterBindings $
-      --                                   zip argTypes (map AST.getType eAr))
-      -- TODO: replace typeParams name by typeArguments
-      return $ setType resultType fcall {args = eAr,
-                                         typeParams = typeArguments}
-      where
-        inferTypeParameters :: Type -> [(Type, Type)] -> [Type]
-        inferTypeParameters ty bindings =
-          map (\t -> fromMaybe t (lookup t bindings)) $ getTypeParams ty
+      return $ setType resultType fcall {args = eArgs,
+                                         typeArguments = Just typeArgs'}
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -960,30 +948,23 @@ instance Checkable Expr where
               | otherwise = return ()
 
 
-    doTypecheck fun@(FunctionAsValue {name, typeParams}) =
-      do varType <- asks $ varLookup name
+    doTypecheck fun@(FunctionAsValue {name, typeArgs}) = do
+         varType <- asks $ varLookup name
          case varType of
-           Just ty -> setTypeFun ty
-           Nothing -> tcError $ UnboundVariableError name
-      where
-        setTypeFun ty = do
-          filledTypeParams <- mapM resolveType typeParams
+           Nothing -> tcError $ UnboundFunctionError name
+           Just ty -> do
+             unless (isArrowType ty) $
+                    tcError (NonFunctionTypeError ty)
+             typeArgs' <- mapM resolveType typeArgs
+             let typeParams = getTypeParameters ty
+             unless (length typeArgs' == length typeParams) $
+                    tcError $ SimpleError "Wrong number of type arguments"
 
-          unless (isArrowType ty) $ tcError (NonFunctionTypeError ty)
-          let actualTypeParams = foldr (\typ acc-> if isTypeVar typ then typ:acc
-                                           else acc) [] typeParams
+             let bindings = zip typeParams typeArgs'
+                 ty' = replaceTypeVars bindings ty
+                 ty'' = setTypeParameters ty' []
 
-          boundTypeParams <- mapM (asks.typeVarLookup) actualTypeParams
-          mapM checkBoundTypeVar $ zip actualTypeParams boundTypeParams
-          let bindings = zip (getTypeParams ty) filledTypeParams
-          ty' <- resolveType (replaceTypeVars bindings ty)
-          return $ setType ty' fun
-
-        checkBoundTypeVar (typ, mtype) =
-           case mtype of
-             Nothing -> tcError (FreeTypeVariableError typ)
-             Just t -> return (typ, t)
-
+             return $ setType ty'' fun
 
     --  name : t \in E
     -- ----------------
@@ -991,7 +972,14 @@ instance Checkable Expr where
     doTypecheck var@(VarAccess {name}) =
         do varType <- asks $ varLookup name
            case varType of
-             Just ty -> return $ setType ty var
+             Just ty ->
+               if isArrowType ty
+               then do
+                 let typeParams = getTypeParameters ty
+                 unless (null typeParams) $
+                    tcError $ SimpleError "Wrong number of type arguments"
+                 return $ setType ty var
+               else return $ setType ty var
              Nothing -> tcError $ UnboundVariableError name
 
     --

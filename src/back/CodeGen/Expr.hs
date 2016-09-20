@@ -1097,22 +1097,22 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
-  (args', initArgs) <- fmap unzip $ mapM translate args
-  (callVar, call) <- buildFunctionCallExpr args'
+globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.name, A.args} = do
+  (argNames, initArgs) <- fmap unzip $ mapM translate args
+  (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
 
   return $ (ret, Seq $ initArgs ++ [call])
   where
     typ = A.getType fcall
-    buildFunctionCallExpr args' = do
-      args'' <- wrapArgumentsWithTypeParams args'
-      let runtimeTypes = map runtimeType typeParams
+    buildFunctionCallExpr args cArgs = do
+      cArgs' <- wrapArgumentsWithTypeParams args cArgs
+      let runtimeTypes = map runtimeType typeArguments
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
 
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
           prototype = Call (globalFunctionName name)
-                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ args'')
+                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
       rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
       return $ (callVar, Seq [tmpTypeDecl, call])
@@ -1126,21 +1126,17 @@ globalFunctionCall fcall@A.FunctionCall{A.typeParams, A.name, A.args} = do
                AsExpr (fromEncoreArgT (translate typ) functionCall)
               else functionCall)
 
-    wrapArgumentsWithTypeParams args' = do
+    wrapArgumentsWithTypeParams args cArgs = do
       -- helper function. wrap parametric arguments inside an encoreArgT
       fHeader <- gets $ Ctx.lookupFunction name
       let formalTypes = map A.ptype (A.hparams fHeader)
-          argsWithFormalTypes = zip args' formalTypes
+          argsWithFormalTypes = zip formalTypes $ zip args cArgs
 
-          -- argTypes = map A.getType args
-      --     bindingFn = resolveParamBinding . Ty.getTypeParameterBindings
-      -- bindings <- bindingFn $ zip formalTypes argTypes
-          bindings = zip formalTypes typeParams
-
-      return $ map (\(arg, formalType) ->
+      return $ map (\(formalType, (arg, cArg)) ->
                       if Ty.isTypeVar formalType then
-                        asEncoreArgT ((translate . fromJust . lookup formalType) bindings) arg
-                      else AsExpr arg
+                        asEncoreArgT (translate $ A.getType arg) cArg
+                      else
+                        AsExpr cArg
                    ) argsWithFormalTypes
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)

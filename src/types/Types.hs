@@ -406,6 +406,7 @@ getTypeParameters Unresolved{refInfo} = parameters refInfo
 getTypeParameters TraitType{refInfo} = parameters refInfo
 getTypeParameters ClassType{refInfo} = parameters refInfo
 getTypeParameters TypeSynonym{refInfo} = parameters refInfo
+getTypeParameters ArrowType{paramTypes} = paramTypes
 getTypeParameters ty =
     error $ "Types.hs: Can't get type parameters from type " ++ show ty
 
@@ -418,6 +419,8 @@ setTypeParameters ty@ClassType{refInfo} parameters =
 setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
     let subst = zip (parameters refInfo) params
     in ty{refInfo = refInfo{parameters = params}, resolvesTo=replaceTypeVars subst resolvesTo}
+setTypeParameters ty@ArrowType{} paramTypes =
+    ty{paramTypes}
 setTypeParameters ty _ =
     error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
