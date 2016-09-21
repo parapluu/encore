@@ -833,9 +833,8 @@ instance Checkable Expr where
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
       unless (isThisAccess target || isPassiveClassType targetType) $
-        tcError $ CannotReadFieldError target
-      fdecl <- findField targetType name
-      let ty = ftype fdecl
+        tcError $ CannotReadFieldError eTarget
+      ty <- ftype <$> findField targetType name
       return $ setType ty fAcc {target = eTarget}
 
     --  E |- lhs : t
