@@ -1,0 +1,22 @@
+trait Iterable<t>
+  require iterator(): Iter<t>
+
+trait Iter<t>
+  def skip() : Skip<t>
+    new Skip<t>()
+
+passive class Skip<t> : Iter<t>
+
+passive class ArrayIter<t> : Iter<t>
+
+passive class ArrayIterable<t> : Iterable<t>
+  def iterator() : ArrayIter<t>
+    new ArrayIter<t>()
+
+class Main
+  def getIter(it : Iter<int>) : void
+    print "In getIter"
+
+  def main() : void {
+    this.getIter((new ArrayIterable<int>()).iterator().skip());
+  }
