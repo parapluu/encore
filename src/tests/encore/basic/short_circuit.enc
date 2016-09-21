@@ -1,0 +1,14 @@
+def foo() : bool {
+  print "In foo";
+  true
+}
+def bar() : bool {
+  print "In bar";
+  false
+}
+class Main
+  def main() : void
+    if foo() or bar() then
+      print "yes"
+    else
+      print "no"
