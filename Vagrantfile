@@ -87,6 +87,12 @@ Vagrant.configure(2) do |config|
     sudo add-apt-repository -y ppa:hvr/ghc;
     sudo apt-get update -qq;
     sudo apt-get install -y -qq ghc-7.10.2 cabal-install-1.22;
+
+    # Add Stackage to Trusty64
+    sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 575159689BEFB442
+    echo 'deb http://download.fpcomplete.com/ubuntu trusty main'|sudo tee /etc/apt/sources.list.d/fpco.list
+    sudo apt-get update && sudo apt-get install stack -y
+
     cabal sandbox init;
     export HOME=/home/vagrant && ./debian-install.sh -f
   SHELL
