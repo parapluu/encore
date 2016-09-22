@@ -206,6 +206,7 @@ data Error =
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
   | ConcreteTypeParameterError Type
+  | TypeArgumentInferenceError Name Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -398,6 +399,9 @@ instance Show Error where
     show (ConcreteTypeParameterError ty) =
         printf "Concrete type '%s' cannot be used as a type parameter"
                (show ty)
+    show (TypeArgumentInferenceError fn param) =
+        printf "Cannot infer the type of parameter '%s' of function '%s'"
+               (show param) (show fn)
     show (SimpleError msg) = msg
 
 

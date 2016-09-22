@@ -1,0 +1,9 @@
+def foo<a>(x : a, y : a) : a
+  x
+
+def bar<a>() : a
+  foo(42, "foo")
+
+class Main
+  def main() : void
+    ()

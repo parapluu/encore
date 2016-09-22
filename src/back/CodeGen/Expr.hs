@@ -133,7 +133,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
-  translate (A.TypedExpr {A.body, A.ty}) = do
+  translate A.TypedExpr {A.body, A.ty} = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
     let ty' = translate ty
@@ -1036,7 +1036,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     tmp <- Ctx.genSym
     globalFunctionNames <- gets Ctx.getGlobalFunctionNames
     let freeVars = Util.freeVariables (map A.pname eparams ++ globalFunctionNames) body
-    -- error $ show fTypeVars
     fillEnv <- insertAllVars freeVars fTypeVars
     return $
       (Var tmp,

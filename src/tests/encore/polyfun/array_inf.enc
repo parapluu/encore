@@ -1,0 +1,39 @@
+def pArrayLit<foo, bar>(x: bar, y: foo, z: foo) : [bar]
+  [x, x, x]
+
+def pArrayAccess<foo>(x: foo): foo
+  let arr = [x, x, x]
+  in arr[0]
+
+def pCreateParametricArray<foo>(x: foo): [foo]
+  new [foo](10)
+
+def pCreateTupleContainingArray<a>(fst: a, snd: String): (a, String)
+  (fst, snd)
+
+def pExtractParametricArgumentAndCreateArray<t>(xs: [t]): [t]
+  [xs[0]]
+
+def pExtractElementFromArray<t>(xs: [t]): t
+  xs[0]
+
+class Main
+  def main() : void {
+    let test1 = pArrayLit("Test array literals", 42, 12);
+    repeat i <- |test1| { print(test1[i])};
+
+    let test2 = pArrayAccess("Test array return type within parametric function");
+    print(test2);
+
+    let test3 = pCreateParametricArray("Test returns empty array of String type");
+    test3[0] = "pCreateParametricArray";
+    print(test3[0]);
+
+    let testPassingArray = pCreateTupleContainingArray(["Test appending to existing array"], "True!");
+    match testPassingArray with {
+      (fst, snd) => repeat i <- |fst| { print("{} - {}\n", fst[i], snd);}
+    };
+
+    let testExtractElement = pExtractElementFromArray([["1", "2", "3"]]);
+    repeat i <- |testExtractElement| print(testExtractElement[i]);
+  }

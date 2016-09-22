@@ -269,10 +269,8 @@ isLocal x env = isJust $ lookup x (locals env)
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env
     | isTypeVar ty =
-        let m = (lookup ty (bindings env)) in
-        case m of
-          Nothing -> find (==ty) (typeParameters env)
-          _ -> m
+        lookup ty (bindings env) <|>
+        find (==ty) (typeParameters env)
     | otherwise    = error
       "Tried to lookup the binding of something that was not a type variable"
 

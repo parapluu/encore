@@ -206,7 +206,6 @@ subtypeOf ty1 ty2
         let members2 = unionMembers ty2
         anyM (ty1 `subtypeOf`) members2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
-    -- | isTypeVar ty1 = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
     | otherwise = return (ty1 == ty2)

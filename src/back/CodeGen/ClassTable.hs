@@ -1,13 +1,11 @@
 module CodeGen.ClassTable (
-  ClassTable,
-  FunctionTable,
+  ProgramTable,
   lookupMethod,
   lookupMethods,
   lookupField,
   lookupCalledType,
   lookupFunction,
-  buildClassTable,
-  buildFunctionTable,
+  buildProgramTable,
   getGlobalFunctionNames) where
 
 import Types
@@ -22,6 +20,10 @@ type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 type FunctionTable = [(Name, FunctionHeader)]
+type ProgramTable = (ClassTable, FunctionTable)
+
+buildProgramTable :: Program -> ProgramTable
+buildProgramTable = buildClassTable &&& buildFunctionTable
 
 buildClassTable :: Program -> ClassTable
 buildClassTable = traverseProgram getEntries
@@ -45,53 +47,53 @@ buildClassTable = traverseProgram getEntries
 buildFunctionTable :: Program -> FunctionTable
 buildFunctionTable = traverseProgram getFunctions
   where
-    getFunctions p = map (\f -> (functionName f, funheader f)) (functions p)
+    getFunctions p = map (functionName &&& funheader) (functions p)
 
-lookupEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
-lookupEntry ty ctable =
+lookupClassEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
+lookupClassEntry ty ctable =
     let fail = error $ "ClassTable.hs: No entry for " ++ Types.showWithKind ty
     in snd $
        fromMaybe fail $ find ((== getId ty) . getId . fst) ctable
 
-lookupField :: Type -> Name -> ClassTable -> FieldDecl
-lookupField ty f ctable =
-    let (fs, _) = lookupEntry ty ctable
+lookupField :: Type -> Name -> ProgramTable -> FieldDecl
+lookupField ty f (ctable, _) =
+    let (fs, _) = lookupClassEntry ty ctable
         fail = error $ "ClassTable.hs: No field '" ++ show f ++ "' in " ++
                        Types.showWithKind ty
     in fromMaybe fail $ lookup f fs
 
-lookupMethod :: Type -> Name -> ClassTable -> FunctionHeader
-lookupMethod ty m ctable =
-    let (_, ms) = lookupEntry ty ctable
+lookupMethod :: Type -> Name -> ProgramTable -> FunctionHeader
+lookupMethod ty m (ctable, _) =
+    let (_, ms) = lookupClassEntry ty ctable
         fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
                        Types.showWithKind ty
     in fromMaybe fail $ lookup m ms
 
-lookupMethods :: Type -> ClassTable -> [FunctionHeader]
-lookupMethods cls ctable =
-    let (_, ms) = lookupEntry cls ctable
+lookupMethods :: Type -> ProgramTable -> [FunctionHeader]
+lookupMethods cls (ctable, _) =
+    let (_, ms) = lookupClassEntry cls ctable
     in map snd ms
 
-lookupFunction :: Name -> FunctionTable -> FunctionHeader
-lookupFunction name ftable =
+lookupFunction :: Name -> ProgramTable -> FunctionHeader
+lookupFunction name (_, ftable) =
   let failure = error $ "ClassTable.hs: Function '" ++ show name ++
                        "' does not exist"
   in fromMaybe failure (lookup name ftable)
 
-lookupCalledType :: Type -> Name -> ClassTable -> Type
-lookupCalledType ty m ctable
+lookupCalledType :: Type -> Name -> ProgramTable -> Type
+lookupCalledType ty m table@(ctable, _)
   | isRefAtomType ty = ty
   | isUnionType ty =
       let tyAsCap = foldr1 disjunctiveType (unionMembers ty)
-      in lookupCalledType tyAsCap m ctable
+      in lookupCalledType tyAsCap m table
   | isCapabilityType ty =
       let traits = typesFromCapability ty
-          ttable = map (\t -> (t, snd $ lookupEntry t ctable)) traits
+          ttable = map (\t -> (t, snd $ lookupClassEntry t ctable)) traits
           results = map (second (lookup m)) ttable
           fail = error $ "ClassTable.hs: No method '" ++ show m ++ "' in " ++
                  Types.showWithKind ty
       in
         fst . fromMaybe fail $ find (isJust . snd) results
 
-getGlobalFunctionNames :: FunctionTable -> [Name]
-getGlobalFunctionNames = map fst
+getGlobalFunctionNames :: ProgramTable -> [Name]
+getGlobalFunctionNames (_, ftable) = map fst ftable

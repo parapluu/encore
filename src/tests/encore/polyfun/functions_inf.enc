@@ -1,0 +1,43 @@
+def id<a>(item: a): a
+  item
+
+def compose<s, t, u>(f : s -> t, g : t -> u) : s -> u
+  \(x : s) -> g(apply(f, x))
+
+def apply<a, b>(fn: a -> b, x: a): b
+  fn(x)
+
+def pSingleArgument<t>(arg1: t, arg2: int, arg3: t): t
+  arg3
+
+def pRecursiveCall<t>(arg1: t, counter: int): Maybe t
+  if counter == 0 then
+    Just arg1
+  else
+    pRecursiveCall(arg1, counter-1)
+
+def helperForNestedFunction<a>(x: a): a
+  x
+
+def pNestedFunction<t>(x: t): t
+  helperForNestedFunction(x)
+
+class Main
+  def main() : void {
+    let test1 = pSingleArgument("test single argument", 42, "single");
+    print(test1);
+
+    let pNested = pNestedFunction("test passing parametric type between parametric functions");
+    print(pNested);
+
+    let testRecursiveName = "test calling function recursively"
+        pRecursive = pRecursiveCall(testRecursiveName, 20)
+    in {
+      match pRecursive with
+         Just result => print(result)
+         Nothing => print("Error in function pRecursiveCall, expected output: '{}'", testRecursiveName)
+    };
+
+    let compFn = compose(id<String>, id<String>);
+    print compFn("42");
+  }

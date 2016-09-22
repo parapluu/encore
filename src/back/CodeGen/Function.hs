@@ -101,9 +101,9 @@ globalFunctionWrapper f =
     returnStmnt :: UsableAs e Expr => CCode e -> Type -> CCode Stat
     returnStmnt var ty = Return $ asEncoreArgT (translate ty) var
 
-instance Translatable A.Function (ClassTable -> FunctionTable -> CCode Toplevel) where
+instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
-  translate fun@(A.Function {A.funbody}) ctable ftable =
+  translate fun@(A.Function {A.funbody}) table =
       let funParams = A.functionParams fun
           funTypeParams = A.functionTypeParams fun
           funType   = A.functionType fun
@@ -115,11 +115,11 @@ instance Translatable A.Function (ClassTable -> FunctionTable -> CCode Toplevel)
           assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
           runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
           typeParamSubst = map (\t -> (Id.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
-          ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) ctable ftable
+          ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) table
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos funTypeParams ctable ftable)
+          closures = map (\clos -> translateClosure clos funTypeParams table)
                          (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas ctable ftable) $
+          tasks = map (\tas -> translateTask tas table) $
                       reverse $ Util.filter A.isTask funbody
           bodyResult = (Seq $ runtimeTypeAssignments ++
                              [bodyStat, returnStmnt bodyName funType])

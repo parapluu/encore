@@ -31,8 +31,8 @@ varSubFromTypeVars = map each
       let ty' = typeVarRefName ty
       in (ID.Name $ show $ ty', AsLval ty')
 
-translateClosure :: A.Expr -> [Type] -> ClassTable -> FunctionTable -> CCode Toplevel
-translateClosure closure typeVars ctable ftable
+translateClosure :: A.Expr -> [Type] -> ProgramTable -> CCode Toplevel
+translateClosure closure typeVars table
     | A.isClosure closure =
        let arrowType   = A.getType closure
            resultType  = Ty.getResultType arrowType
@@ -43,7 +43,8 @@ translateClosure closure typeVars ctable ftable
            funName     = closureFunName id
            envName     = closureEnvName id
            traceName   = closureTraceName id
-           freeVars    = Util.freeVariables (map A.pname params ++ map fst ftable) body
+           boundVars   = map A.pname params ++ getGlobalFunctionNames table
+           freeVars    = Util.freeVariables boundVars body
            fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
@@ -52,7 +53,7 @@ translateClosure closure typeVars ctable ftable
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst ctable ftable
+           ctx = Ctx.new subst table
 
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in

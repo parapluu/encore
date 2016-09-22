@@ -540,28 +540,45 @@ instance Checkable Expr where
       unless (length args == length argTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
                     name (length argTypes) (length args)
-      typeArgs <- case typeArguments of
-                    Nothing -> do
-                      unless (null typeParams) $
-                        tcError $ WrongNumberOfFunctionTypeArgumentsError name
-                                  (length typeParams) 0
-                      return []
-                    Just typeArgs -> do
-                      unless (length typeArgs == length typeParams) $
-                        tcError $ WrongNumberOfFunctionTypeArgumentsError name
-                                  (length typeParams) (length typeArgs)
-                      return typeArgs
-
-      typeArgs' <- mapM resolveType typeArgs
-      let bindings = zip typeParams typeArgs'
-
-      (eArgs, bindings') <- local (bindTypes bindings) $
-                                  matchArguments args argTypes
-
-      let resultType = replaceTypeVars bindings' (getResultType ty)
+      (eArgs, resultType, typeArgs) <-
+          case typeArguments of
+            Nothing -> do
+              let uniquify = uniquifyTypeVars typeParams
+              argTypes' <- mapM uniquify argTypes
+              (eArgs, bindings) <- matchArguments args argTypes'
+              let resolve t = replaceTypeVars bindings <$> uniquify t
+              resultType <- resolve (getResultType ty)
+              typeArgs <- mapM resolve typeParams
+              typeParams' <- mapM uniquify typeParams
+              let unresolved =
+                    filter (isNothing . (`lookup` bindings)) typeParams'
+              unless (null unresolved) $
+                   tcError $ TypeArgumentInferenceError name (head unresolved)
+              return (eArgs, resultType, typeArgs)
+            Just typeArgs -> do
+              unless (length typeArgs == length typeParams) $
+                     tcError $ WrongNumberOfFunctionTypeArgumentsError name
+                               (length typeParams) (length typeArgs)
+              typeArgs' <- mapM resolveType typeArgs
+              let bindings = zip typeParams typeArgs'
+              (eArgs, _) <-
+                  local (bindTypes bindings) $
+                        matchArguments args argTypes
+              let resultType = replaceTypeVars bindings (getResultType ty)
+              return (eArgs, resultType, typeArgs')
 
       return $ setType resultType fcall {args = eArgs,
-                                         typeArguments = Just typeArgs'}
+                                         typeArguments = Just typeArgs}
+
+      where
+        uniquifyTypeVars params = typeMapM (uniquifyTypeVar params)
+        uniquifyTypeVar params ty
+            | isTypeVar ty = do
+                localTypeVars <- asks typeParameters
+                if ty `elem` params && ty `elem` localTypeVars
+                then return $ typeVar ("_" ++ getId ty)
+                else return ty
+            | otherwise = return ty
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -952,7 +969,7 @@ instance Checkable Expr where
                  ty' = replaceTypeVars bindings ty
                  ty'' = setTypeParameters ty' []
 
-             return $ setType ty'' fun
+             return $ setType ty'' fun{typeArgs = typeArgs'}
 
     --  name : t \in E
     -- ----------------
@@ -1354,10 +1371,6 @@ matchTypes expected ty
             argBindings <- matchArgs expArgTypes argTypes
             local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
-      -- TODO: if there is a type param and we reach the `assertMatch` and/or
-      -- the `subtypeOf`, these functions cannot assert that type param `a`==`b`.
-      -- this case can happen inside parametric functions (it implements a simple
-      -- type inference system)
       params <- asks typeParameters
       if expected `elem` params then
           assertMatch expected ty
