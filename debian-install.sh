@@ -15,7 +15,7 @@ while getopts 'qrbphf' flag; do
     h)  echo "Available flags are:";\
             echo "-q  Quiet. Run in quiet mode, I.e don't print as much stuff";
             echo "-r  Replace ghc and cabal. Will change the path \$PATH";
-            echo "    to point to ghc version 7.10.2 and cabal to version 1.22.";
+            echo "    to point to ghc version 7.10.3 and cabal to version 1.22.";
             echo "-s  Adds Encore to the \$PATH variable. Has no effect unless the \`-b\` flag is used.";
             echo "-b  Builds Encore.";
             echo "-h  Print this message and exit.";
@@ -38,20 +38,20 @@ sudo apt-get install -y $quiet\
   make\
   premake4\
   zlib1g-dev \
-  ghc-7.10.2\
+  ghc-7.10.3\
   cabal-install-1.22\
   racket\
   doxygen
 
 if $replace
 then
-  if ((hash ghc 2>/dev/null) && (ghc --version | grep -q 7.10.2))
+  if ((hash ghc 2>/dev/null) && (ghc --version | grep -q 7.10.3))
   then
     echo "--==HASKELL VERSION IS CORRECT==--"
   else
     echo "--==SETTING HASKELL PATH==--"
-    echo 'export PATH=/opt/ghc/7.10.2/bin:$PATH' >> $HOME/.profile
-    export PATH=/opt/ghc/7.10.2/bin:$PATH
+    echo 'export PATH=/opt/ghc/7.10.3/bin:$PATH' >> $HOME/.profile
+    export PATH=/opt/ghc/7.10.3/bin:$PATH
   fi
 
   if ((hash cabal 2>/dev/null) && (cabal --version | grep -q 1.22))
