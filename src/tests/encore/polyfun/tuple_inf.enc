@@ -1,0 +1,19 @@
+def pCreateTuple<v, k>(key: k, value: v): (k, v)
+  (key, value)
+
+def pFlipInTuple<a, b>(tuple: (a, b)): (b, a)
+  match tuple with
+  (x, y) => (y, x)
+
+class Main
+  def main() : void {
+    let test1 = pCreateTuple("k", 12);
+    match test1 with {
+      (k, v) => print("Parametric tuple with key: '{}' and value '{}'\n", k, v)
+        _ => print("error in 'pMultipleParametricArguments'\n")
+    };
+
+    let testFlipTuple = pFlipInTuple(("Update tuple test", 23));
+    match testFlipTuple with
+      (v, k) => print("Flipped key {} with value {}", k, v);
+  }

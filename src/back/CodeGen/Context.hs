@@ -6,14 +6,14 @@ moment. -}
 
 module CodeGen.Context (
   Context,
-  classTable,
-  empty,
   new,
   substAdd,
   substLkp,
   substRem,
   genNamedSym,
   genSym,
+  getGlobalFunctionNames,
+  lookupFunction,
   lookupField,
   lookupMethod,
   lookupCalledType,
@@ -32,16 +32,13 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Tbl.ClassTable
+data Context = Context VarSubTable NextSym Tbl.ProgramTable
 
-classTable :: Context -> Tbl.ClassTable
-classTable (Context _ _ ctable) = ctable
+programTable :: Context -> Tbl.ProgramTable
+programTable (Context _ _ table) = table
 
-empty :: Tbl.ClassTable -> Context
-empty ctable = new [] ctable
-
-new :: VarSubTable -> Tbl.ClassTable -> Context
-new subs ctable = Context subs 0 ctable
+new :: VarSubTable -> Tbl.ProgramTable -> Context
+new subs = Context subs 0
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
@@ -56,22 +53,28 @@ genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt ctable) na lv = Context ((na,lv):s) nxt ctable
+substAdd c@(Context s nxt table) na lv = Context ((na,lv):s) nxt table
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt ctable) na = Context [] nxt ctable
-substRem (Context ((na, lv):s) nxt ctable) na'
-     | na == na'  = Context s nxt ctable
-     | na /= na'  = substAdd (substRem (Context s nxt ctable) na') na lv
+substRem (Context [] nxt table) na = Context [] nxt table
+substRem (Context ((na, lv):s) nxt table) na'
+     | na == na'  = Context s nxt table
+     | na /= na'  = substAdd (substRem (Context s nxt table) na') na lv
 
 substLkp :: Context -> Name -> Maybe (C.CCode C.Lval)
 substLkp (Context s _ _) n = lookup n s
 
 lookupField :: Type -> Name -> Context -> FieldDecl
-lookupField ty f = Tbl.lookupField ty f . classTable
+lookupField ty f = Tbl.lookupField ty f . programTable
 
 lookupMethod :: Type -> Name -> Context -> FunctionHeader
-lookupMethod ty m = Tbl.lookupMethod ty m . classTable
+lookupMethod ty m = Tbl.lookupMethod ty m . programTable
 
 lookupCalledType :: Type -> Name -> Context -> Type
-lookupCalledType ty m = Tbl.lookupCalledType ty m . classTable
+lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable
+
+lookupFunction :: Name -> Context -> FunctionHeader
+lookupFunction fname = Tbl.lookupFunction fname . programTable
+
+getGlobalFunctionNames :: Context -> [Name]
+getGlobalFunctionNames = Tbl.getGlobalFunctionNames . programTable

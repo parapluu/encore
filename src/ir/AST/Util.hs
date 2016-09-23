@@ -4,8 +4,7 @@
   Utility functions for "AST.AST".
 -}
 module AST.Util(
-    foldr
-    , foldrAll
+    foldrExp
     , filter
     , extend
     , extendAccum
@@ -30,6 +29,7 @@ getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren FunctionCall {args} = args
+getChildren FunctionAsValue {} = []
 getChildren Liftf {val} = [val]
 getChildren Liftv {val} = [val]
 getChildren PartyJoin {val} = [val]
@@ -96,6 +96,7 @@ getChildren Binop {loper, roper} = [loper, roper]
 -- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
 putChildren :: [Expr] -> Expr -> Expr
 putChildren [] e@Skip{} = e
+putChildren [] e@(FunctionAsValue {}) = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
@@ -171,6 +172,7 @@ putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 el
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(FunctionCall {}) = error "'putChildren l FunctionCall' expects l to have at least 1 element"
+putChildren _ e@(FunctionAsValue {}) = error "'putChildren l FunctionAsValue' expects l to have 0 elements"
 putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 element"
 putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
 putChildren _ e@(PartyJoin {}) = error "'putChildren l PartyJoin' expects l to have 1 element"
@@ -221,24 +223,10 @@ putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 el
 
 --------------- The functions below this line depend only on the two above --------------------
 
-foldr :: (Expr -> a -> a) -> a -> Expr -> a
-foldr f acc e =
-    let childResult = List.foldr (\e acc -> foldr f acc e) acc (getChildren e)
+foldrExp :: (Expr -> a -> a) -> a -> Expr -> a
+foldrExp f l e =
+    let childResult = List.foldr (\expr acc -> foldrExp f acc expr) l (getChildren e)
     in f e childResult
-
-foldrAll :: (Expr -> a -> a) -> a -> Program -> [a]
-foldrAll f e Program{functions, traits, classes} =
-  concatMap (foldFunction f e) functions ++
-  concatMap (foldTrait f e) traits ++
-  concatMap (foldClass f e) classes
-    where
-      foldFunction f e (Function {funbody}) = [foldr f e funbody]
-      foldFunction f e (MatchingFunction {matchfunbodies}) =
-          map (foldr f e) matchfunbodies
-      foldClass f e (Class {cmethods}) = concatMap (foldMethod f e) cmethods
-      foldTrait f e (Trait {tmethods}) = concatMap (foldMethod f e) tmethods
-      foldMethod f e (Method {mbody}) = [foldr f e mbody]
-      foldMethod f e (MatchingMethod {mbodies}) = map (foldr f e) mbodies
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
@@ -297,7 +285,7 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
 filter :: (Expr -> Bool) -> Expr -> [Expr]
-filter cond = foldr (\e acc -> if cond e then e:acc else acc) []
+filter cond = foldrExp (\e acc -> if cond e then e:acc else acc) []
 
 extractTypes :: Program -> [Type]
 extractTypes (Program{functions, traits, classes}) =
@@ -348,8 +336,10 @@ extractTypes (Program{functions, traits, classes}) =
       extractParamTypes Param {ptype} = typeComponents ptype
 
 extractExprTypes :: Expr -> [Type]
-extractExprTypes = foldr collectTypes []
+extractExprTypes = foldrExp collectTypes []
   where
+    collectTypes e@(FunctionCall {typeArguments = Just typeArgs}) acc =
+      typeArgs ++ (typeComponents . getType) e ++ acc
     collectTypes e acc = (typeComponents . getType) e ++ acc
 
 freeTypeVars :: Expr -> [Type]
@@ -373,11 +363,13 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound var@(VarAccess {name})
         | name `elem` bound = []
         | otherwise = [(name, getType var)]
-    freeVariables' bound fCall@(FunctionCall {name, args})
+    freeVariables' bound fCall@(FunctionCall {typeArguments, name, args})
         | name `elem` bound = concatMap (freeVariables' bound) args
         | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
         where
-          arrType = arrowType (map getType args) (getType fCall)
+          arrType = case typeArguments of
+                      Just tys -> arrowWithTypeParam tys (map getType args) (getType fCall)
+                      Nothing -> arrowType (map getType args) (getType fCall)
     freeVariables' bound Closure {eparams, body} =
         freeVariables' bound' body
         where

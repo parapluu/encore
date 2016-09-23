@@ -13,7 +13,6 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
-import Debug.Trace
 
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
@@ -27,10 +26,11 @@ import Typechecker.Util
 -- | The top-level type checking function
 precheckEncoreProgram :: Environment -> Program -> (Either TCError Program, [TCWarning])
 precheckEncoreProgram env p =
-  -- TODO: We should be able to write this using do-notation!
   case buildEnvironment env p of
-    (Right env, warnings) ->
-      runState (runExceptT (runReaderT (doPrecheck p) env)) warnings
+    (Right env, warnings) -> do
+      let readerVar = runReaderT (doPrecheck p) env
+      let exceptVar = runExceptT readerVar
+      runState exceptVar warnings
     (Left err, warnings) -> (Left err, warnings)
 
 class Precheckable a where
@@ -70,10 +70,14 @@ instance Precheckable Typedef where
 
 instance Precheckable FunctionHeader where
     doPrecheck header = do
-      htype' <- resolveType (htype header)
-      hparams' <- mapM precheck (hparams header)
+      let htypeparams' = htypeparams header
+      htype' <- local (addTypeParameters htypeparams') $ resolveType (htype header)
+      hparams' <- local (addTypeParameters htypeparams') $ mapM precheck (hparams header)
+      assertDistinctThing "declaration" "type parameter" htypeparams'
       assertDistinctThing "definition" "parameter" $ map pname hparams'
-      return $ header{htype = htype', hparams = hparams'}
+      return $ header{htype = htype',
+                      hparams = hparams',
+                      htypeparams= htypeparams'}
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do

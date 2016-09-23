@@ -1,0 +1,35 @@
+def fCreateParametricOptionType<t>(arg1: t): Maybe t
+  Just arg1
+
+def fCreateParametricOptionTypeNothing<t>(arg1: t): Maybe t
+  Nothing
+
+def extractAndCreateOptionValue<t>(op: Maybe t, v: t): Maybe t
+  match op with
+  Just ignored => Just v
+  Nothing => Nothing
+
+class Main
+  def main() : void {
+    let test1 = fCreateParametricOptionType("Test creation of 'Just a' inside parametric function")
+    in {
+      match test1 with
+        Just s => print("{}\n", s)
+        Nothing => print("Error: expected 'Just' value constructor but got 'Nothing'")
+    };
+
+    let testNothing = fCreateParametricOptionTypeNothing("Test the returns parametric Nothing")
+    in {
+      match testNothing with
+        Just s => print("Error, expected 'Nothing'")
+        Nothing => { testNothing = Just "re-assignment";
+                     print("Test create parametric Nothing and can be re-assigned\n");}
+    };
+
+    let testNewVal = extractAndCreateOptionValue(Just "Remove this text", "Append this text")
+    in {
+      match testNewVal with
+        Just v => print(v)
+        Nothing => print("Error in 'extractAndCreateOptionValue', expected string 'Append this text'")
+    }
+  }

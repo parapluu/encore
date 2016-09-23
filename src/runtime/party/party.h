@@ -29,7 +29,7 @@ par_t* new_par_array(pony_ctx_t **ctx, array_t* arr, pony_type_t const * const r
  *  @return The pointer to the parallel collection
  */
 
-par_t* party_sequence(pony_ctx_t **ctx, par_t* const p, closure_t* const closure,
+par_t* party_sequence(pony_ctx_t **ctx, par_t* p, closure_t* const closure,
                       pony_type_t const * const rtype);
 
 /**

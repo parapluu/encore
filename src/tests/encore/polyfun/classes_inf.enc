@@ -1,0 +1,35 @@
+def pCreateTuple<v, k>(key: k, value: v): (k, v)
+  (key, value)
+
+def fAppend<t>(x: t, y: t): [t]
+  [x, y]
+
+def createTest<t>(arg: t): Test<t>
+  new Test<t>(arg)
+
+class Test<a>
+  arg: a
+
+  def init(arg: a): void
+    this.arg = arg
+
+  def appendToArray(arg: a): [a]
+    fAppend(this.arg, arg)
+
+  def toTuple(arg: a): (a, a)
+    pCreateTuple(this.arg, arg)
+
+  def getArg(): a
+    this.arg
+
+class Main
+  def main() : void {
+    let t = createTest("Create Test of type 'String'");
+    print(get t.getArg());
+
+    let arr = get t.appendToArray("Adding a new string");
+    repeat i <- |arr| { print(arr[i]);};
+
+    let tup = get t.toTuple("Adding to tuple");
+    print(tup);
+  }

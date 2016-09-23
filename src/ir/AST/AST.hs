@@ -100,13 +100,15 @@ data HeaderKind = Streaming
 
 data FunctionHeader =
     Header {
-        kind    :: HeaderKind,
-        hname   :: Name,
-        htype   :: Type,
-        hparams :: [ParamDecl]
+        kind        :: HeaderKind,
+        htypeparams :: [Type],
+        hname       :: Name,
+        htype       :: Type,
+        hparams     :: [ParamDecl]
     }
     | MatchingHeader {
         kind        :: HeaderKind,
+        htypeparams :: [Type],
         hname       :: Name,
         htype       :: Type,
         hparamtypes :: [Type],
@@ -135,6 +137,7 @@ data Function =
 
 functionName = hname . funheader
 functionParams = hparams . funheader
+functionTypeParams = htypeparams . funheader
 functionType = htype . funheader
 
 instance Eq Function where
@@ -323,6 +326,7 @@ emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
              ,mheader = Header{kind = NonStreaming
+                              ,htypeparams = []
                               ,hname = Name "_init"
                               ,hparams = []
                               ,htype = voidType
@@ -380,8 +384,12 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name,
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
+                          typeArguments :: Maybe [Type],
                           name :: Name,
                           args :: Arguments}
+          | FunctionAsValue {emeta :: Meta Expr,
+                             typeArgs :: [Type],
+                             name :: Name}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}

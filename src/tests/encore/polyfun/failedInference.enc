@@ -1,0 +1,6 @@
+def foo<a, b>(x : a) : a
+  x
+
+class Main
+  def main() : void
+    foo(42)

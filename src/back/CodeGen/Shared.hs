@@ -9,8 +9,8 @@ import qualified AST.AST as A
 
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
-generateShared :: A.Program -> ClassTable -> CCode FIN
-generateShared prog@(A.Program{A.functions, A.imports}) ctable =
+generateShared :: A.Program -> ProgramTable -> CCode FIN
+generateShared prog@(A.Program{A.functions, A.imports}) table =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -27,7 +27,7 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
       allfunctions = A.allFunctions prog
 
       globalFunctions =
-        [translate f ctable | f <- allfunctions] ++
+        [translate f table | f <- allfunctions] ++
         [globalFunctionWrapper f | f <- allfunctions] ++
         [initGlobalFunctionClosure f | f <- allfunctions]
 
@@ -44,16 +44,16 @@ generateShared prog@(A.Program{A.functions, A.imports}) ctable =
                         (Record [Int 0, Record ([] :: [CCode Expr])])
             msgFutResumeDecl =
                AssignTL (Decl (ponyMsgT, Var "m_resume_get"))
-                        (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
+                        (Record [Int 1, Record [encorePrimitive]])
             msgFutSuspendDecl =
                AssignTL (Decl (ponyMsgT, Var "m_resume_suspend"))
-                        (Record [Int 1, Record [Var "ENCORE_PRIMITIVE"]])
+                        (Record [Int 1, Record [encorePrimitive]])
             msgFutAwaitDecl =
                AssignTL (Decl (ponyMsgT, Var "m_resume_await"))
-                        (Record [Int 2, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
+                        (Record [Int 2, Record [encorePrimitive, encorePrimitive]])
             msgFutRunClosureDecl =
                AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
-                        (Record [Int 3, Record [Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE", Var "ENCORE_PRIMITIVE"]])
+                        (Record [Int 3, Record [encorePrimitive, encorePrimitive, encorePrimitive]])
 
       mainFunction =
           Function (Typ "int") (Nam "main")

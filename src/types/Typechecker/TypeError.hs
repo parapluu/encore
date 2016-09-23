@@ -143,6 +143,7 @@ data Error =
     DistinctTypeParametersError Type
   | WrongNumberOfMethodArgumentsError Name Type Int Int
   | WrongNumberOfFunctionArgumentsError Name Int Int
+  | WrongNumberOfFunctionTypeArgumentsError Name Int Int
   | WrongNumberOfTypeParametersError Type Int Type Int
   | MissingFieldRequirementError FieldDecl Type
   | CovarianceViolationError FieldDecl Type Type
@@ -204,10 +205,15 @@ data Error =
   | FreeTypeVariableError Type
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
+  | ConcreteTypeParameterError Type
+  | TypeArgumentInferenceError Name Type
   | SimpleError String
 
 arguments 1 = "argument"
 arguments _ = "arguments"
+
+typeParameters 1 = "type parameter"
+typeParameters _ = "type parameters"
 
 instance Show Error where
     show (DistinctTypeParametersError ty) =
@@ -223,6 +229,9 @@ instance Show Error where
     show (WrongNumberOfFunctionArgumentsError name expected actual) =
         printf "Function %s expects %d %s. Got %d"
                (show name) expected (arguments expected) actual
+    show (WrongNumberOfFunctionTypeArgumentsError name expected actual) =
+        printf "Function %s expects %d %s. Got %d"
+               (show name) expected (typeParameters expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
         printf "'%s' expects %d type %s, but '%s' has %d"
               (show ty1) n1 (arguments n1) (show ty2) n2
@@ -387,6 +396,12 @@ instance Show Error where
     show (MalformedUnionTypeError ty union) =
         printf "Type '%s' is not compatible with %s"
                (show ty) (Types.showWithKind union)
+    show (ConcreteTypeParameterError ty) =
+        printf "Concrete type '%s' cannot be used as a type parameter"
+               (show ty)
+    show (TypeArgumentInferenceError fn param) =
+        printf "Cannot infer the type of parameter '%s' of function '%s'"
+               (show param) (show fn)
     show (SimpleError msg) = msg
 
 

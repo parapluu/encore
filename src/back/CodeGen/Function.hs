@@ -16,18 +16,41 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
+import qualified Identifiers as Id
 import Types
 
 import Control.Monad.State hiding(void)
 import Control.Arrow((&&&))
 
-globalFunctionDecl :: A.Function -> CCode Toplevel
-globalFunctionDecl f =
-  FunctionDecl typ name (Ptr (Ptr encoreCtxT):params)
+globalFunction :: A.Function -> (Maybe (CCode Stat) -> CCode Toplevel)
+globalFunction fun = createHeader
   where
-    params = map (translate . A.ptype) $ A.functionParams f
-    typ = translate $ A.functionType f
-    name = globalFunctionNameOf f
+    createHeader (Just body) =
+      Function (translate funType) funName
+                   ((Ptr (Ptr encoreCtxT), encoreCtxVar):
+                   encoreRuntimeTypeParam :
+                   (zip argTypes argNames)) body
+
+    createHeader Nothing  =
+      FunctionDecl (translate funType) funName
+                  (Ptr (Ptr encoreCtxT): encoreRuntimeTypeT :
+                   argTypes)
+
+    funParams = A.functionParams fun
+    funType   = A.functionType fun
+
+    encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
+    encoreRuntimeTypeT = (fst encoreRuntimeTypeParam)
+
+    funName   = globalFunctionName $ A.functionName fun
+    (encArgNames, encArgTypes) =
+              unzip . map (A.pname &&& A.ptype) $ funParams
+    argNames  = map (AsLval . argName) encArgNames
+    argTypes  = map translate encArgTypes
+
+
+globalFunctionDecl :: A.Function -> CCode Toplevel
+globalFunctionDecl f = globalFunction f Nothing
 
 globalFunctionClosureDecl :: A.Function -> CCode Toplevel
 globalFunctionClosureDecl f =
@@ -43,58 +66,65 @@ initGlobalFunctionClosure f =
     closureFun = AsLval closureStructFFieldName
     address = Cast (Ptr void) $ Amp $ globalFunctionWrapperNameOf f
 
+globalFunctionWrapperDecl :: A.Function -> CCode Toplevel
+globalFunctionWrapperDecl f =
+  FunctionDecl (Typ "value_t") name [Ptr (Ptr encoreCtxT), Ptr (Ptr ponyTypeT),
+                                     Ptr $ Typ "value_t", Ptr void]
+  where
+    name = globalFunctionWrapperNameOf f
+
+-- TODO: different header from shared!
 globalFunctionWrapper :: A.Function -> CCode Toplevel
 globalFunctionWrapper f =
-  let
-    args = A.functionParams f
-    argList = encoreCtxVar : extractArgs args
+  let argList = encoreCtxVar : encoreRuntimeType : extractArgs
   in
     Function
       (Typ "value_t")
       name
-      [(Ptr (Ptr encoreCtxT), encoreCtxVar), (Typ "value_t", Var "_args[]"), (Ptr void, Var "_env_not_used")]
-      $ returnStmnt (Call globalFunctionName argList) typ
+      [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+       (Ptr (Ptr ponyTypeT), encoreRuntimeType),
+       (Typ "value_t", Var "_args[]"),
+       (Ptr void, Var "_env_not_used")]
+      $ returnStmnt (Call (globalFunctionNameOf f) argList) typ
   where
     typ = A.functionType f
     name = globalFunctionWrapperNameOf f
 
-    globalFunctionName = globalFunctionNameOf f
+    extractArgs :: [CCode Lval]
+    extractArgs =
+      let typeArgs = map A.ptype (A.functionParams f)
+      in [getArg arg i | (arg, i) <- zip typeArgs [0..]]
 
-    extractArgs :: [A.ParamDecl] -> [CCode Lval]
-    extractArgs args = [getArg arg i | (arg, i) <- zip args [0..]]
-
-    getArg :: A.ParamDecl -> Int -> CCode Lval
-    getArg A.Param{A.ptype} i =
-      fromEncoreArgT (translate ptype) $ AsExpr $ ArrAcc i $ Var "_args"
+    getArg :: Type -> Int -> CCode Lval
+    getArg ty i = fromEncoreArgT (translate ty) $ AsExpr $ ArrAcc i $ Var "_args"
 
     returnStmnt :: UsableAs e Expr => CCode e -> Type -> CCode Stat
     returnStmnt var ty = Return $ asEncoreArgT (translate ty) var
 
-instance Translatable A.Function (ClassTable -> CCode Toplevel) where
+instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
-  translate fun@(A.Function {A.funbody}) ctable =
+  translate fun@(A.Function {A.funbody}) table =
       let funParams = A.functionParams fun
+          funTypeParams = A.functionTypeParams fun
           funType   = A.functionType fun
-          funName   = globalFunctionName $ A.functionName fun
-          (encArgNames, encArgTypes) =
-              unzip . map (A.pname &&& A.ptype) $ funParams
+          encArgNames = map A.pname funParams
           argNames  = map (AsLval . argName) encArgNames
-          argTypes  = map translate encArgTypes
-          ctx       = Ctx.new (zip encArgNames argNames) ctable
+          paramTypesDecl = (\x y -> Decl (x, y))
+                           <$> [Ptr ponyTypeT]
+                           <*> map (AsLval . typeVarRefName) funTypeParams
+          assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
+          runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
+          typeParamSubst = map (\t -> (Id.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
+          ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) table
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos [] ctable)
+          closures = map (\clos -> translateClosure clos funTypeParams table)
                          (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas ctable) $
+          tasks = map (\tas -> translateTask tas table) $
                       reverse $ Util.filter A.isTask funbody
+          bodyResult = (Seq $ runtimeTypeAssignments ++
+                             [bodyStat, returnStmnt bodyName funType])
       in
-        Concat $
-        closures ++
-        tasks ++
-        [Function (translate funType)
-                  funName
-                  ((Ptr (Ptr encoreCtxT), encoreCtxVar):(zip argTypes argNames))
-                  (Seq $
-                   [bodyStat, returnStmnt bodyName funType])]
+        Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
     where
       returnStmnt var ty
           | isVoidType ty = Return unit

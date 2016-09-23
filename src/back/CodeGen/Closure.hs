@@ -31,8 +31,8 @@ varSubFromTypeVars = map each
       let ty' = typeVarRefName ty
       in (ID.Name $ show $ ty', AsLval ty')
 
-translateClosure :: A.Expr -> [Type] -> ClassTable -> CCode Toplevel
-translateClosure closure typeVars ctable
+translateClosure :: A.Expr -> [Type] -> ProgramTable -> CCode Toplevel
+translateClosure closure typeVars table
     | A.isClosure closure =
        let arrowType   = A.getType closure
            resultType  = Ty.getResultType arrowType
@@ -43,8 +43,9 @@ translateClosure closure typeVars ctable
            funName     = closureFunName id
            envName     = closureEnvName id
            traceName   = closureTraceName id
-           freeVars    = Util.freeVariables (map A.pname params) body
-           fTypeVars = typeVars `intersect` Util.freeTypeVars body
+           boundVars   = map A.pname params ++ getGlobalFunctionNames table
+           freeVars    = Util.freeVariables boundVars body
+           fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
            encArgNames = map A.pname params
@@ -52,7 +53,7 @@ translateClosure closure typeVars ctable
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst ctable
+           ctx = Ctx.new subst table
 
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
@@ -60,6 +61,7 @@ translateClosure closure typeVars ctable
                  tracefunDecl traceName envName freeVars,
                  Function (Typ "value_t") funName
                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                           (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                            (Typ "value_t", Var "_args[]"),
                            (Ptr void, Var "_env")]
                           (Seq $
@@ -92,7 +94,7 @@ translateClosure closure typeVars ctable
             translateTypeVar ty =
               (Ptr ponyTypeT, AsLval $ typeVarRefName ty)
 
-      extractEnvironment envName vars typeVars=
+      extractEnvironment envName vars typeVars =
         map assignVar vars ++ map assignTypeVar typeVars
         where
           assignVar (name, ty) =

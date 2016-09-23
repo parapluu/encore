@@ -1,0 +1,77 @@
+def pCreateTuple<v, k>(key: k, value: v): (k, v)
+  (key, value)
+
+def id<a>(item: a): a
+  item
+
+-- constInt: always return the same integer
+def constInt<b>(x: b): int
+  30
+
+-- parametricResult: ignores input and returns a parametric option type
+def parametricResult<z>(x: int): Maybe z
+  Nothing
+
+-- aToMaybeB: ignore input and return the Nothing data type
+def aToMaybeB<a, b>(item: a): Maybe b
+  Nothing
+
+def stringAddSpace(item: Maybe String): Maybe String
+  match item with
+    Just s => Just s.concatenate(" space added!")
+    Nothing => Just "stringAddSpace creates 'Maybe String'"
+
+def stringAddHello(item: Maybe String): String
+  match item with
+  Just s => s.concatenate("\nHello world!")
+  Nothing => "ERROR: this should have been a 'Hello World' string"
+
+def createNewParT<t>(v: t): Par t
+  liftv v
+
+def extractPar<t>(par: Par t): [t]
+  extract(par)
+
+def joinPar<t>(par: Par (Par t)): Par t
+  join(par)
+
+def sequencePipeline<t>(par: Par t): Par String
+  let text = ": end of the Party"
+      p1 = par >> constInt<t>
+               >> parametricResult<String>
+               >> stringAddSpace
+               >> stringAddHello
+               >> \(s: String) -> { s.to_upper(); }
+      p2 = (liftv 42) >> (\(s: int) -> string_from_int(s))
+                      >> id<String> >> \(s: String) -> s.concatenate(text)
+      pClosure = par >> (\(s: t) -> id<t>(s))
+    f = (new Test<String>("kiko")).getArg()
+    pfut = (liftf f) >> id<String>
+  in p1 || p2 || pfut
+
+def joinParTest<p>(v: p): Par p
+  let v1 = liftv(liftv(v))
+      ft = liftf (new Test<p>(v)).getArg()
+  in joinPar<p>(liftv(ft)) || (joinPar<p>(v1))
+
+def fAppend<t>(x: t, y: t): [t]
+  [x, y]
+
+class Test<a>
+  arg: a
+
+  def init(arg: a): void
+    this.arg = arg
+
+  def getArg(): a
+    this.arg
+
+class Main
+  def main() : void {
+    let testSequence = sequencePipeline<int>(liftv 42)
+        result = extractPar<String>(testSequence)
+    in { repeat i <- |result| print(result[i]);};
+
+    let testJoin = extractPar<int>(joinParTest<int>(20));
+    repeat i <- |testJoin| print(testJoin[i])
+  }

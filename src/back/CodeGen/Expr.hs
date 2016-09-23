@@ -8,8 +8,6 @@ import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import qualified CodeGen.CCodeNames as C
 import CodeGen.Type
-import CodeGen.Trace (traceVariable, tracefunCall)
-import CodeGen.GC (gcSend)
 import qualified CodeGen.Context as Ctx
 
 import qualified Parser.Parser as P -- for string interpolation in the embed expr
@@ -26,7 +24,6 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
-import Control.Applicative((<$>))
 import Data.List
 import qualified Data.Set as Set
 import Data.Maybe
@@ -77,7 +74,7 @@ typeToPrintfFstr ty
     | Ty.isMaybeType ty        = "%s" -- A generated string
     | Ty.isVoidType ty         = "%s" -- Always "()"
     | otherwise = case translate ty of
-                    Ptr something -> "%p"
+                    Ptr _ -> "%p"
                     _ -> error $ "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
 
 -- | If the type is not void, create a variable to store it in. If it is void, return the lval UNIT
@@ -107,7 +104,6 @@ unsubstituteVar na = do
 getRuntimeType = runtimeType . Ty.getResultType . A.getType
 
 -- these two are exclusively used for A.Embed translation:
-type ParsedEmbed = [Either String VarLkp]
 newtype VarLkp = VarLkp String
 
 newParty :: A.Expr -> CCode Name
@@ -137,7 +133,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)
 
-  translate tye@(A.TypedExpr {A.body, A.ty}) = do
+  translate A.TypedExpr {A.body, A.ty} = do
     (nbody, tbody) <- translate body
     tmp <- Ctx.genNamedSym "cast"
     let ty' = translate ty
@@ -364,12 +360,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               return (Deref (StatAsExpr ntarg ttarg) `Dot` (fieldName name))
         mkLval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
 
-  translate maybe@(A.MaybeValue _ (A.JustData e)) = do
+  translate mayb@(A.MaybeValue _ (A.JustData e)) = do
     (nE, tE) <- translate e
+    let runtimeT = (runtimeType . A.getType) e
     let bodyDecl = asEncoreArgT (translate $ A.getType e) nE
         optionLval = Call optionMkFn [AsExpr encoreCtxVar, AsExpr just,
-                                      bodyDecl, (runtimeType . A.getType) e]
-    (nalloc, talloc) <- namedTmpVar "option" (A.getType maybe) optionLval
+                                      bodyDecl, runtimeT]
+    (nalloc, talloc) <- namedTmpVar "option" (A.getType mayb) optionLval
     return (nalloc, Seq [tE, talloc])
 
   translate maybe@(A.MaybeValue _ (A.NothingData {})) = do
@@ -384,7 +381,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         realTypes = map runtimeType elemTypes
         tupLen = Int $ length args
         tupType = A.getType tuple
-    let eAlloc = Call tupleMkFn [AsExpr encoreCtxVar, tupLen]
+        eAlloc = Call tupleMkFn [AsExpr encoreCtxVar, tupLen]
         theTupleDecl = Assign (Decl (translate tupType, Var tupleName)) eAlloc
         tSetTupleType = Seq $ zipWith (tupleSetType tupleName) [0..] realTypes
         (theTupleVars, theTupleContent) = unzip transArgs
@@ -410,6 +407,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Nothing ->
             return (Var . show $ globalClosureName name, Skip)
 
+  translate fun@(A.FunctionAsValue {A.name, A.typeArgs}) = do
+    tmp <- Var <$> Ctx.genSym
+    let funName = globalFunctionAsValueWrapperNameOf fun
+    (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
+    return (tmp,
+            Seq $
+             rtArrayInit:
+              [Assign (Decl (closure, tmp))
+              (Call closureMkFn [encoreCtxVar, AsLval funName,
+                                 nullVar, nullVar, rtArray])])
+
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
@@ -428,7 +436,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     mapM_ (unsubstituteVar . fst) decls
     return (nbody, Seq $ concat tdecls ++ [tbody])
 
-  translate (A.NewWithInit {A.ty, A.args})
+  translate new@(A.NewWithInit {A.ty, A.args})
     | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
     | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
     | otherwise = delegateUse callTheMethodSync
@@ -442,10 +450,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           callTypeParamsInit args = Call (runtimeTypeInitFnName ty) args
         in
           do
-            typeArgs <- mapM getTypeVar typeParams
+            let typeArgs = map runtimeType typeParams
             (nnew, constructorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <-
-              methodCall nnew ty initName args ty
+            (initArgs, result) <- methodCall nnew ty initName args ty
             return (nnew,
               Seq $
                 [constructorCall] ++
@@ -466,10 +473,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate arrNew@(A.ArrayNew {A.ty, A.size}) = do
     arrName <- Ctx.genNamedSym "array"
-    sizeName <- Ctx.genNamedSym "size"
     (nsize, tsize) <- translate size
-    ty' <- getTypeVar ty
-    let theArrayDecl =
+    let ty' = runtimeType ty
+        theArrayDecl =
           Assign (Decl (array, Var arrName))
             (Call arrayMkFn [AsExpr encoreCtxVar, AsExpr nsize, ty'])
     return (Var arrName, Seq [tsize, theArrayDecl])
@@ -499,13 +505,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          targs <- mapM translate args
          let len = length args
              ty  = Ty.getResultType $ A.getType arrLit
+         let runtimeT = runtimeType ty
              theArrayDecl =
                 Assign (Decl (array, Var arrName))
-                       (Call arrayMkFn [AsExpr encoreCtxVar, Int len, runtimeType ty])
+                       (Call arrayMkFn [AsExpr encoreCtxVar, Int len, runtimeT])
              theArrayContent = Seq $ map (\(_, targ) -> targ) targs
-             theArraySets =
-                let (_, sets) = mapAccumL (arraySet arrName ty) 0 targs
-                in sets
+             theArraySets = snd $ mapAccumL (arraySet arrName ty) 0 targs
          return (Var arrName, Seq $ theArrayDecl : theArrayContent : theArraySets)
       where
         arraySet arrName ty index (narg, _) =
@@ -846,7 +851,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           return $ Seq [errorPrint, exitCall]
 
         ifChain (clause:rest) narg argty retTmp retTy = do
-          let freeVars = Util.foldr (\e a -> getExprVars e ++ a) [] (A.mcpattern clause)
+          let freeVars = Util.foldrExp (\e a -> getExprVars e ++ a) [] (A.mcpattern clause)
           assocs <- mapM createAssoc freeVars
           thenExpr <- translateHandler clause retTmp assocs retTy
           elseExpr <- ifChain rest narg argty retTmp retTy
@@ -946,8 +951,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target
          tmp <- Ctx.genSym
-         let resultType = translate (A.getType target)
-             theCall = Assign (Decl (bool, Var tmp)) (Call streamEos [encoreCtxVar, ntarg])
+         let theCall = Assign (Decl (bool, Var tmp)) (Call streamEos [encoreCtxVar, ntarg])
          return (Var tmp, Seq [ttarg, theCall])
 
   translate next@(A.StreamNext{A.target}) =
@@ -966,7 +970,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate futureChain@(A.FutureChain{A.future, A.chain}) = do
     (nfuture,tfuture) <- translate future
     (nchain, tchain)  <- translate chain
-    futName <- Ctx.genSym
     let ty = getRuntimeType chain
     result <- Ctx.genSym
     return $ (Var result,
@@ -980,7 +983,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate async@(A.Async{A.body, A.emeta}) =
       do taskName <- Ctx.genNamedSym "task"
          futName <- Ctx.genNamedSym "fut"
-         msgName <- Ctx.genNamedSym "arg"
          let metaId = Meta.getMetaId emeta
              funName = taskFunctionName metaId
              envName = taskEnvName metaId
@@ -1032,19 +1034,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
+    globalFunctionNames <- gets Ctx.getGlobalFunctionNames
+    let freeVars = Util.freeVariables (map A.pname eparams ++ globalFunctionNames) body
     fillEnv <- insertAllVars freeVars fTypeVars
     return $
       (Var tmp,
       Seq $
         (mkEnv envName) : fillEnv ++
         [Assign (Decl (closure, Var tmp))
-          (Call closureMkFn [encoreCtxName, funName, envName, traceName])])
+          (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
       metaId    = Meta.getMetaId . A.getMeta $ clos
       funName   = closureFunName metaId
       envName   = closureEnvName metaId
       traceName = closureTraceName metaId
-      freeVars  = Util.freeVariables (map A.pname eparams) body
       fTypeVars  = Util.freeTypeVars body
       mkEnv name =
         Assign (Decl (Ptr $ Struct name, AsLval name))
@@ -1067,14 +1070,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           fName = typeVarRefName ty
         return $ assignVar fName tname
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
       assignVar :: (UsableAs e Expr) => CCode Name -> CCode e -> CCode Stat
       assignVar lhs rhs = Assign ((Deref envName) `Dot` lhs) rhs
       localTypeVar ty = do
         c <- get
         return $ isJust $ Ctx.substLkp c name
         where
-          name = ID.Name $ show $ typeVarRefName ty
+          name = ID.Name $ Ty.getId ty
 
   translate fcall@(A.FunctionCall{A.name, A.args}) = do
     ctx <- get
@@ -1102,14 +1105,47 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.name, A.args} = do
-  (args', initArgs) <- fmap unzip $ mapM translate args
-  (callVar, call) <- namedTmpVar "global_f" typ $
-    Call (globalFunctionName name) (encoreCtxVar:args')
+globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.name, A.args} = do
+  (argNames, initArgs) <- unzip <$> mapM translate args
+  (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
-  return $ (ret, Seq $ initArgs ++ [call])
+
+  return (ret, Seq $ initArgs ++ [call])
   where
     typ = A.getType fcall
+    buildFunctionCallExpr args cArgs = do
+      cArgs' <- wrapArgumentsWithTypeParams args cArgs
+      let runtimeTypes = map runtimeType typeArguments
+      (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
+
+      let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
+          prototype = Call (globalFunctionName name)
+                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
+      rPrototype <- unwrapReturnType prototype
+      (callVar, call) <- namedTmpVar "global_f" typ rPrototype
+      return (callVar, Seq [tmpTypeDecl, call])
+
+    unwrapReturnType functionCall = do
+      -- this function checks if the formal parameter return type is a type variable
+      -- and, if so, unwraps it (adds the .i, .p or .d)
+      header <- gets (Ctx.lookupFunction name)
+      let formalReturnType = A.htype header
+      return (if Ty.isTypeVar formalReturnType then
+               AsExpr (fromEncoreArgT (translate typ) functionCall)
+              else functionCall)
+
+    wrapArgumentsWithTypeParams args cArgs = do
+      -- helper function. wrap parametric arguments inside an encoreArgT
+      fHeader <- gets $ Ctx.lookupFunction name
+      let formalTypes = map A.ptype (A.hparams fHeader)
+          argsWithFormalTypes = zip formalTypes $ zip args cArgs
+
+      return $ map (\(formalType, (arg, cArg)) ->
+                      if Ty.isTypeVar formalType then
+                        asEncoreArgT (translate $ A.getType arg) cArg
+                      else
+                        AsExpr cArg
+                   ) argsWithFormalTypes
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
 
@@ -1206,20 +1242,25 @@ traitMethod this targetType name args resultType =
     callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
-getTypeVar ty = do
-  c <- get
-  return $ maybe (getRuntimeTypeVariables ty) AsExpr $ Ctx.substLkp c name
-  where
-    name = ID.Name $ show $ typeVarRefName ty
-
-msgSize :: CCode Ty -> CCode Expr
-msgSize t = Call (Nam "POOL_INDEX") [Sizeof t]
-
 targetNullCheck ntarget target name meta op =
   Statement $
     Call (Nam "check_receiver")
-      [AsExpr $ ntarget,
+      [AsExpr ntarget,
        String op,
        String (show (PP.ppExpr target)),
        String (show name),
        String (show (Meta.getPos meta))]
+
+runtimeTypeArguments [] = return (nullVar, Skip)
+runtimeTypeArguments typeArgs = do
+  tmpArray <- Var <$> Ctx.genNamedSym "rt_array"
+  let runtimeTypes = map runtimeType typeArgs
+      rtArraySize = BinOp (translate ID.TIMES)
+                          (Int $ length typeArgs) (Sizeof $ Ptr ponyTypeT)
+      rtArrayDecl = Decl (Ptr . Ptr $ ponyTypeT, tmpArray)
+      rtArrayAlloc = Call encoreAllocName [AsExpr $ Deref encoreCtxVar
+                                          ,rtArraySize]
+      rtArrayAssign = Assign rtArrayDecl rtArrayAlloc
+      rtArrayInit = Seq $ zipWith (\i t -> Assign (ArrAcc i tmpArray) t)
+                                  [0..] runtimeTypes
+  return (tmpArray, Seq [rtArrayAssign, rtArrayInit])
