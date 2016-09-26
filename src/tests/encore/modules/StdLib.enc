@@ -1,7 +1,15 @@
 
-import Proto.Id  -- imports from standard library
+import Active.Active  -- imports from standard library
 
+passive class Greeter {
+  def greet() : void {
+    print "Hello";
+  }
+}
 
-class Main
-  def main(): void
-    print(id("Hello"))
+class Main {
+  def main(): void {
+    let a = new Active<Greeter>(\ () -> new Greeter);
+    a.apply(\ (g:Greeter) -> { g.greet(); })
+  }
+}

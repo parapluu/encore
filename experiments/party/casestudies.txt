@@ -1,5 +1,0 @@
-Prime Sieve
-
-Calculate tax for bank accounts. LINQ
-
-Something Map-Reducy
