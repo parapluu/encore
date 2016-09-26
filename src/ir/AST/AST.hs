@@ -552,6 +552,11 @@ isStringLiteral :: Expr -> Bool
 isStringLiteral StringLiteral {} = True
 isStringLiteral _ = False
 
+isNullLiteral :: Expr -> Bool
+isNullLiteral Null{} = True
+isNullLiteral TypedExpr{body} = isNullLiteral body
+isNullLiteral _ = False
+
 isPrimitiveLiteral :: Expr -> Bool
 isPrimitiveLiteral Skip{}          = True
 isPrimitiveLiteral BTrue{}         = True

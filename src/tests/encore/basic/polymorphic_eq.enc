@@ -1,0 +1,19 @@
+passive class Pair<k,v>
+  key   : k
+  value : v
+  def init(key : k, value : v) : void {
+    this.key  = key;
+    this.value = value
+  }
+
+  def compare(other : Pair<k, v>) : void{
+    if this.key == other.key then
+      print "I compiled and ran!"
+  }
+
+class Main
+  def main() : void {
+    let first = new Pair<int,int>(1,1);
+    let second = new Pair<int,int>(1,1);
+    first.compare(second);
+  }
