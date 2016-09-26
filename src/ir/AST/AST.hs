@@ -553,7 +553,8 @@ isStringLiteral StringLiteral {} = True
 isStringLiteral _ = False
 
 isNullLiteral :: Expr -> Bool
-isNullLiteral Null {} = True
+isNullLiteral Null{} = True
+isNullLiteral TypedExpr{body} = isNullLiteral body
 isNullLiteral _ = False
 
 isPrimitiveLiteral :: Expr -> Bool
