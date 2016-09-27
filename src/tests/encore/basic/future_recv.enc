@@ -1,0 +1,22 @@
+class Main {
+  a : Agent
+
+  def main() : void {
+     this.a = new Agent();
+     this.do(1000)
+   }
+
+   def do(n:int) : void {
+     if n == 0 then {
+       print("done");
+     } else {
+       this.a.go(this.a);
+       new [int](100);
+       this!do(n-1)
+     }
+   }
+}
+
+class Agent {
+   def go(a:Agent) : void ()
+}
