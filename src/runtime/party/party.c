@@ -14,7 +14,7 @@ typedef par_t* (*fmapfn)(par_t*, fmap_s*);
 // TODO: add JOIN_PAR
 enum PTAG { EMPTY_PAR, VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR, ARRAY_PAR};
 
-typedef struct EMPTY_PARs {char padding[4];} EMPTY_PARs;
+typedef struct EMPTY_PARs {} EMPTY_PARs;
 typedef struct VALUE_PARs { value_t val; char padding[8];} VALUE_PARs;
 typedef struct FUTURE_PARs { future_t* fut; } FUTURE_PARs;
 typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
