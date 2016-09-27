@@ -1,0 +1,14 @@
+def addUnsigned(x : uint, y : int) : uint {
+  x + y
+}
+
+class Main
+  def main() : void {
+    print addUnsigned(42u, 13u);
+    let large =
+          embed uint
+            unsigned long long x = 1ul << 32 << 31;
+            x;
+          end;
+    print(large);
+  }

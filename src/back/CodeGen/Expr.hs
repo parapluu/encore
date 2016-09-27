@@ -53,6 +53,7 @@ instance Translatable ID.UnaryOp (CCode Name) where
 typeToPrintfFstr :: Ty.Type -> String
 typeToPrintfFstr ty
     | Ty.isIntType ty          = "%lli"
+    | Ty.isUIntType ty         = "%llu"
     | Ty.isRealType ty         = "%f"
     | Ty.isStringObjectType ty = "%s"
     | Ty.isStringType ty       = "%s"
@@ -129,6 +130,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate true@(A.BTrue {}) = namedTmpVar "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = namedTmpVar "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)
   translate lit@(A.IntLiteral {A.intLit = i}) = namedTmpVar "literal" (A.getType lit) (Int i)
+  translate lit@(A.UIntLiteral {A.intLit = i}) = namedTmpVar "literal" (A.getType lit) (Int i)
   translate lit@(A.RealLiteral {A.realLit = r}) = namedTmpVar "literal" (A.getType lit) (Double r)
   translate lit@(A.StringLiteral {A.stringLit = s}) = namedTmpVar "literal" (A.getType lit) (String s)
   translate lit@(A.CharLiteral {A.charLit = c}) = namedTmpVar "literal" (A.getType lit) (Char c)

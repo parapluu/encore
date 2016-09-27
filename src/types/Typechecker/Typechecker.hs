@@ -1159,6 +1159,8 @@ instance Checkable Expr where
 
     doTypecheck intLit@(IntLiteral {}) = return $ setType intType intLit
 
+    doTypecheck uintLit@(UIntLiteral {}) = return $ setType uintType uintLit
+
     doTypecheck realLit@(RealLiteral {}) = return $ setType realType realLit
 
    ---  |- ty
@@ -1173,7 +1175,8 @@ instance Checkable Expr where
     --  E |- not operand : bool
     doTypecheck unary@(Unary {uop, operand}) = do
         let isExpected | uop == Identifiers.NOT = isBoolType
-                       | uop == Identifiers.NEG = isNumeric
+                       | uop == Identifiers.NEG = \ty -> isNumeric ty &&
+                                                         not (isUIntType ty)
         eOperand <- typecheck operand
         let eType = AST.getType eOperand
         unless (isExpected eType) $
@@ -1244,6 +1247,7 @@ instance Checkable Expr where
         coerceTypes ty1 ty2
             | isRealType ty1 = realType
             | isRealType ty2 = realType
+            | isUIntType ty1 = uintType
             | otherwise = intType
 
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)

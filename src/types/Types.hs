@@ -50,6 +50,8 @@ module Types(
             ,isBoolType
             ,intType
             ,isIntType
+            ,uintType
+            ,isUIntType
             ,realType
             ,isRealType
             ,charType
@@ -149,6 +151,7 @@ data Type = Unresolved{refInfo :: RefInfo}
           | StringType
           | CharType
           | IntType
+          | UIntType
           | BoolType
           | RealType
           | NullType
@@ -223,6 +226,7 @@ instance Show Type where
     show StringType = "string"
     show CharType   = "char"
     show IntType    = "int"
+    show UIntType   = "uint"
     show RealType   = "real"
     show BoolType   = "bool"
     show NullType   = "null type"
@@ -246,6 +250,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind StringType                    = "primitive type"
     kind CharType                      = "primitive type"
     kind IntType                       = "primitive type"
+    kind UIntType                      = "primitive type"
     kind RealType                      = "primitive type"
     kind BoolType                      = "primitive type"
     kind Unresolved{}                  = "unresolved type"
@@ -610,6 +615,12 @@ intType = IntType
 isIntType :: Type -> Bool
 isIntType = (== intType)
 
+uintType :: Type
+uintType = UIntType
+
+isUIntType :: Type -> Bool
+isUIntType = (== uintType)
+
 realType :: Type
 realType = RealType
 
@@ -629,13 +640,19 @@ isCharType :: Type -> Bool
 isCharType = (== charType)
 
 primitives :: [Type]
-primitives = [voidType, intType, realType, boolType, stringType, charType]
+primitives = [voidType
+             ,intType
+             ,uintType
+             ,realType
+             ,boolType
+             ,stringType
+             ,charType]
 
 isPrimitive :: Type -> Bool
 isPrimitive = (`elem` primitives)
 
 isNumeric :: Type -> Bool
-isNumeric ty = isRealType ty || isIntType ty
+isNumeric ty = isRealType ty || isIntType ty || isUIntType ty
 
 isPrintable :: Type -> Bool
 isPrintable ty

@@ -17,6 +17,7 @@ translatePrimitive :: Ty.Type -> CCode Ty
 translatePrimitive ty
     | Ty.isVoidType ty   = Ptr void
     | Ty.isIntType ty    = int
+    | Ty.isUIntType ty   = uint
     | Ty.isRealType ty   = double
     | Ty.isBoolType ty   = bool
     | Ty.isCharType ty   = char
@@ -65,6 +66,7 @@ getRuntimeTypeVariables f t
 encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"
 encoreArgTTag (Typ "int64_t") = Nam "i"
+encoreArgTTag (Typ "uint64_t") = Nam "i"
 encoreArgTTag (Typ "double")  = Nam "d"
 encoreArgTTag (Embed _)       = Nam "p"
 encoreArgTTag (Typ "char")    = Nam "i"

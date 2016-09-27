@@ -49,6 +49,7 @@ lexer =
     ,"def"
     ,"stream"
     ,"int"
+    ,"uint"
     ,"string"
     ,"char"
     ,"real"
@@ -222,6 +223,7 @@ typ = buildExpressionParser opTable singleType
         return $ refTypeWithParams refId parameters
       primitive =
         do {reserved "int"; return intType} <|>
+        do {reserved "uint"; return uintType} <|>
         do {reserved "bool"; return boolType} <|>
         do {reserved "string"; return stringType} <|>
         do {reserved "char"; return charType} <|>
@@ -871,7 +873,10 @@ expr  =  unit
                    return $ CharLiteral (meta pos) char
       int = do pos <- getPosition
                n <- natural
-               return $ IntLiteral (meta pos) (fromInteger n)
+               kind <- do symbol "u" <|> symbol "U"
+                          return UIntLiteral
+                    <|> return IntLiteral
+               return $ kind (meta pos) (fromInteger n)
       real = do pos <- getPosition
                 r <- float
                 return $ RealLiteral (meta pos) r
