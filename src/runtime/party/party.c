@@ -11,12 +11,10 @@
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
 
-// TODO: add EMPTY_PAR, JOIN_PAR
-enum PTAG { VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR, ARRAY_PAR};
+// TODO: add JOIN_PAR
+enum PTAG { EMPTY_PAR, VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR, ARRAY_PAR};
 
-// TODO: uncomment once we handle the empty par case
-/* typedef struct EMPTY_PARs {} EMPTY_PARs; */
-
+typedef struct EMPTY_PARs {} EMPTY_PARs;
 typedef struct VALUE_PARs { value_t val; char padding[8];} VALUE_PARs;
 typedef struct FUTURE_PARs { future_t* fut; } FUTURE_PARs;
 typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
@@ -28,14 +26,13 @@ struct par_t {
     enum PTAG tag;
     pony_type_t* rtype;
     union ParU {
-      /* EMPTY_PARs s; */
+      EMPTY_PARs s;
       VALUE_PARs v;
       FUTURE_PARs f;
       PAR_PARs p;
       FUTUREPAR_PARs fp;
       JOIN_PARs j;
       ARRAY_PARs a;
-      /* struct EMPTY_PARs; */
     } data;
 };
 
@@ -122,7 +119,7 @@ void party_trace(pony_ctx_t* ctx, void* p){
       trace_array_par(ctx, obj);
   }else if(obj->rtype != ENCORE_PRIMITIVE){
     switch(obj->tag){
-    /* case EMPTY_PAR: break; */
+    case EMPTY_PAR: break;
     case VALUE_PAR: {
       pony_traceobject(ctx, obj->data.v.val.p, obj->rtype->trace);
       break;
@@ -168,10 +165,9 @@ static par_t* init_par(pony_ctx_t **ctx, enum PTAG tag, pony_type_t const * cons
   return res;
 }
 
-// TODO: (kiko) uncomment once we can create empty computations
-/* par_t* new_par_empty(pony_type_t const * const rtype){ */
-/*   return init_par(EMPTY_PAR, rtype); */
-/* } */
+par_t* new_par_empty(pony_ctx_t **ctx, pony_type_t const * const rtype){
+  return init_par(ctx, EMPTY_PAR, rtype);
+}
 
 par_t* new_par_v(pony_ctx_t **ctx, encore_arg_t val, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, VALUE_PAR, rtype);
@@ -285,13 +281,13 @@ static inline par_t* fmap_run_array(pony_ctx_t **ctx, par_t * in, fmap_s * const
  *  @return a pointer to a new parallel collection of \p rtype runtime type
  */
 
-// TODO: enable EMPTY_PAR and JOIN_PAR once it is added to the language
+// TODO: enable JOIN_PAR once it is added to the language
 static par_t* fmap(pony_ctx_t** ctx, closure_t* const f, par_t* in,
                    pony_type_t const * const rtype){
   fmap_s *fm = (fmap_s*) encore_alloc(*ctx, sizeof* fm);
   *fm = (fmap_s){.fn = f, .rtype=rtype};
   switch(in->tag){
-  /* case EMPTY_PAR: return new_par_empty(rtype); */
+  case EMPTY_PAR: return new_par_empty(ctx, rtype);
   case VALUE_PAR: return fmap_run_v(ctx, in, fm);
   case FUTURE_PAR: return fmap_run_f(ctx, in, fm);
   case PAR_PAR: {
@@ -319,23 +315,24 @@ par_t* party_sequence(pony_ctx_t **ctx, par_t* p, closure_t* const f,
 // Forward declaration of party_join
 par_t* party_join(pony_ctx_t **ctx, par_t* const p);
 
-static inline par_t* party_join_v(pony_ctx_t ** ctx,
-                                  par_t* const p){
+static inline par_t* party_join_v(pony_ctx_t ** ctx, par_t* const p){
   (void) ctx;
   return ((par_t*)p->data.v.val.p);
 }
 
-// TODO: uncomment when the empty par is added to the language
 static inline par_t* party_join_p(pony_ctx_t **ctx, par_t* const p){
-  /* if(p->data.left->tag == EMPTY_PAR){ */
-  /*   return party_join(p->data.right); */
-  /* }else if(p->data.right->tag == EMPTY_PAR){ */
-  /*   return party_join(p->data.left); */
-  /* }else{ */
-  par_t* pleft = party_join(ctx, p->data.p.left);
-  par_t* pright = party_join(ctx,p->data.p.right);
-  return new_par_p(ctx, pleft, pright, &party_type);
-  /* } */
+  par_t *left = p->data.p.left;
+  par_t *right = p->data.p.right;
+
+  if(left->tag == EMPTY_PAR){
+    return party_join(ctx, right);
+  }else if(right->tag == EMPTY_PAR){
+    return party_join(ctx, left);
+  }else{
+    par_t* pleft = party_join(ctx, left);
+    par_t* pright = party_join(ctx, right);
+    return new_par_p(ctx, pleft, pright, &party_type);
+  }
 }
 
 static value_t party_join_fp_closure(pony_ctx_t **ctx,
@@ -349,8 +346,8 @@ static value_t party_join_fp_closure(pony_ctx_t **ctx,
 static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
   future_t* const fut = p->data.fp.fut;
   closure_t* const clos = closure_mk(ctx, party_join_fp_closure, NULL, NULL, NULL);
-  future_t* const chained_fut = future_chain_actor(ctx, fut, p->rtype, clos);
-  return new_par_fp(ctx, chained_fut, p->rtype);
+  future_t* const chained_fut = future_chain_actor(ctx, fut, get_rtype(p), clos);
+  return new_par_fp(ctx, chained_fut, get_rtype(p));
 }
 
 static value_t closure_join(pony_ctx_t **ctx,
@@ -367,7 +364,7 @@ static inline par_t* party_join_array(pony_ctx_t **ctx, par_t* const p){
 
 par_t* party_join(pony_ctx_t **ctx, par_t* const p){
   switch(p->tag){
-  /* case EMPTY_PAR: return p; */
+  case EMPTY_PAR: return p;
   case VALUE_PAR: return party_join_v(ctx, p);
   case FUTURE_PAR: return new_par_fp(ctx, p->data.f.fut, get_rtype(p));
   case PAR_PAR: return party_join_p(ctx, p);
@@ -384,7 +381,7 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 
 static inline list_t* extract_helper(pony_ctx_t **ctx, list_t * const list, par_t * const p){
   switch(p->tag){
-  /* case EMPTY_PAR: return list; */
+  case EMPTY_PAR: return list;
   case VALUE_PAR: return list_push(list, p->data.v.val);
   case FUTURE_PAR: {
     future_t *fut = p->data.f.fut;
@@ -452,16 +449,18 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
     *root = new_par_p(ctx, *root, node, get_rtype(*root));
 }
 
-#ifdef PARTY_ARRAY_PARALLEL
-typedef struct env_par {
-  par_t* p;
-} env_par;
 
-static value_t id_as_task(void* env, void* __attribute__((unused)) null){
-  par_t* par = ((env_par*)env)->p;
-  return (value_t){.p = par};
-}
-#endif
+// TODO: Fix tasks. Tasks were removed from the language
+/* #ifdef PARTY_ARRAY_PARALLEL */
+/* typedef struct env_par { */
+/*   par_t* p; */
+/* } env_par; */
+
+/* static value_t id_as_task(void* env, void* __attribute__((unused)) null){ */
+/*   par_t* par = ((env_par*)env)->p; */
+/*   return (value_t){.p = par}; */
+/* } */
+/* #endif */
 
 par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
   size_t start, end;
@@ -477,21 +476,22 @@ par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
 
     array_t* const chunk = array_get_chunk(ctx, start, end, ar);
     par_t* par = new_par_array(ctx, chunk, type);
-#ifdef PARTY_ARRAY_PARALLEL
-    future_t* fut = future_mk(ctx, array_get_type(ar));
-    env_par* env = encore_alloc(ctx, sizeof* env);
-    env->p = par;
-    encore_task_s* task = task_mk(ctx, id_as_task, env, NULL, NULL);
-    task_attach_fut(task, fut);
-    task_schedule(task);
+    // TODO: Fix tasks. Tasks were removed from the language
+/* #ifdef PARTY_ARRAY_PARALLEL */
+/*     future_t* fut = future_mk(ctx, array_get_type(ar)); */
+/*     env_par* env = encore_alloc(ctx, sizeof* env); */
+/*     env->p = par; */
+/*     encore_task_s* task = task_mk(ctx, id_as_task, env, NULL, NULL); */
+/*     task_attach_fut(task, fut); */
+/*     task_schedule(task); */
 
-    pony_gc_send(ctx);
-    pony_traceobject(ctx, fut, future_type.trace);
-    pony_traceobject(ctx, task, NULL);
-    pony_send_done(ctx);
+/*     pony_gc_send(ctx); */
+/*     pony_traceobject(ctx, fut, future_type.trace); */
+/*     pony_traceobject(ctx, task, NULL); */
+/*     pony_send_done(ctx); */
 
-    par = new_par_fp(ctx, fut, type);
-#endif
+/*     par = new_par_fp(ctx, fut, type); */
+/* #endif */
     build_party_tree(ctx, &root, par);
   }
   return root;
