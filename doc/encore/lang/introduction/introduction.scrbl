@@ -47,6 +47,7 @@ Running @code{encorec foo.enc} will typecheck the source and produce the executa
 @item{@code{-nogc} -- Disable the garbage collection of passive objects.}
 @item{@code{-help} -- Prints a help message and then exits.}
 @item{@code{-I path1:path2:...} -- Directories in which to look for modules. (Not needed for modules which are in the current folder.)}
+@item{@code{-F [flags]} -- Provides additional flags to the C compiler. Nessesary when using some C libraries. Use quatitionmarks to add more than one.}
 ]
 
 For instance, we might want to keep the intermediate C-files:

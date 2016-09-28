@@ -59,6 +59,7 @@ data Option =
             | Profile
             | KeepCFiles
             | Debug
+            | CustomFlags String
             | Output FilePath
             | Source FilePath
             | Imports [FilePath]
@@ -90,6 +91,8 @@ optionMappings =
        "colon separated list of directories in which to look for modules."),
        (Arg Output, "-o", "--out-file", "[file]",
         "Specify output file."),
+       (Arg CustomFlags, "-F", "--custom-flags", "[flags]",
+        "Supply custom flags for the C compiler. (Use quotation marks to supply more than one flag)"),
        (NoArg KeepCFiles, "-c", "--generate-c", "",
         "Outputs intermediate C fields in separate source tree."),
        (NoArg Debug, "-g", "--debug", "",
@@ -232,7 +235,10 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
            cc    = "clang"
-           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes"
+           customFlags = case find isCustomFlags options of
+                           Just (CustomFlags str) -> str
+                           Nothing                -> ""
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value -lpthread -ldl -lm -Wno-attributes" <+> customFlags
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
@@ -267,6 +273,9 @@ compileProgram prog sourcePath options =
 
       isOptimise (Optimise _) = True
       isOptimise _ = False
+
+      isCustomFlags (CustomFlags _) = True
+      isCustomFlags _ = False
 
       getDefines = unwords . map ("-D"++) .
                    filter (/= "") . map getDefine
