@@ -637,28 +637,25 @@ highOrderExpr = adtExpr
 
 
 expr :: Parser Expr
-expr  =  unit
-     <|> try embed
+expr  =  try embed
      <|> try path
      <|> try functionCall
      <|> try functionAsValue
      <|> try print
      <|> try closure
-     <|> try tupleLit
+     <|> tupled
      <|> match
      <|> task
      <|> finishTask
      <|> for
      <|> foreach
      <|> extract
-     <|> parens expression
      <|> varAccess
      <|> arraySize
      <|> try rangeLit
      <|> arrayLit
      <|> letExpression
-     <|> try ifThenElse
-     <|> ifThen
+     <|> ifExpression
      <|> unless
      <|> repeat
      <|> while
@@ -670,10 +667,9 @@ expr  =  unit
      <|> await
      <|> suspend
      <|> yield
-     <|> try newWithInit
      <|> new
      <|> peer
-     <|> null
+     <|> nullLiteral
      <|> true
      <|> false
      <|> sequence
@@ -688,16 +684,18 @@ expr  =  unit
                  ty <- typ
                  code <- manyTill anyChar $ try $ do {space; reserved "end"}
                  return $ Embed (meta pos) ty code
-      unit = do pos <- getPosition
-                reservedOp "()"
-                return $ Skip (meta pos)
       path = do pos <- getPosition
-                root <- parens expression <|> try functionCall <|> varAccess <|> stringLit
+                root <- parens expression <|>
+                        stringLit <|>
+                        try (do x <- varAccess
+                                notFollowedBy (symbol "(")
+                                return x) <|>
+                        functionCall
                 first <- pathComponent
                 rest <- many $ try pathComponent
                 return $ foldl (buildPath pos) root (first:rest)
              where
-               pathComponent = do {dot; (try functionCall <|> varAccess)}
+               pathComponent = do {dot; try functionCall <|> varAccess}
                buildPath pos target (VarAccess{name}) =
                    FieldAccess (meta pos) target name
                buildPath pos target (FunctionCall{name, args}) =
@@ -714,7 +712,7 @@ expr  =  unit
                                      val <- expression
                                      return (Name x, val)
       sequence = do pos <- getPosition
-                    seq <- braces ((try expression <|> miniLet) `sepEndBy1` semi)
+                    seq <- braces ((try miniLet <|> expression) `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
           where
             miniLet = do
@@ -723,21 +721,18 @@ expr  =  unit
               x <- Name <$> identifier
               reservedOp "="
               val <- expression
+              lookAhead semi
               return MiniLet{emeta, decl = (x, val)}
-      ifThenElse = do pos <- getPosition
-                      reserved "if"
-                      cond <- expression
-                      reserved "then"
-                      thn <- expression
-                      reserved "else"
-                      els <- expression
-                      return $ IfThenElse (meta pos) cond thn els
-      ifThen = do pos <- getPosition
-                  reserved "if"
-                  cond <- expression
-                  reserved "then"
-                  thn <- expression
-                  return $ IfThen (meta pos) cond thn
+      ifExpression = do pos <- getPosition
+                        reserved "if"
+                        cond <- expression
+                        reserved "then"
+                        thn <- expression
+                        (do reserved "else"
+                            els <- expression
+                            return $ IfThenElse (meta pos) cond thn els
+                         ) <|>
+                         (return $ IfThen (meta pos) cond thn)
       repeat = do pos <- getPosition
                   reserved "repeat"
                   name <- identifier
@@ -766,9 +761,12 @@ expr  =  unit
                  reserved "with"
                  clauses <- maybeBraces $ many matchClause
                  return $ Match (meta pos) arg clauses
-      tupleLit = do pos <- getPosition
-                    args <- parens (expression `sepBy2` comma)
-                    return $ Tuple (meta pos) args
+      tupled = do pos <- getPosition
+                  args <- parens (expression `sepBy` comma)
+                  case args of
+                    [] -> return $ Skip (meta pos)
+                    [e] -> return e
+                    _ -> return $ Tuple (meta pos) args
       get = do pos <- getPosition
                reserved "get"
                expr <- expression
@@ -798,6 +796,7 @@ expr  =  unit
       functionAsValue = do pos <- getPosition
                            fun <- identifier
                            typeParams <- angles $ commaSep1 typ
+                           notFollowedBy (symbol "(")
                            return $
                              FunctionAsValue (meta pos) typeParams (Name fun)
       functionCall = do pos <- getPosition
@@ -837,24 +836,23 @@ expr  =  unit
       arrayLit = do pos <- getPosition
                     args <- brackets $ commaSep expression
                     return $ ArrayLiteral (meta pos) args
-      null = do pos <- getPosition
-                reserved "null"
-                return $ Null (meta pos)
+      nullLiteral = do pos <- getPosition
+                       reserved "null"
+                       return $ Null (meta pos)
       true = do pos <- getPosition
                 reserved "true"
                 return $ BTrue (meta pos)
       false = do pos <- getPosition
                  reserved "false"
                  return $ BFalse (meta pos)
-      newWithInit = do pos <- getPosition
-                       reserved "new"
-                       ty <- typ
-                       args <- parens arguments
-                       return $ NewWithInit (meta pos) ty args
       new = do pos <- getPosition
                reserved "new"
                ty <- typ
-               return $ New (meta pos) ty
+               (do notFollowedBy (symbol "(")
+                   return $ New (meta pos) ty
+                ) <|>
+                do args <- parens arguments
+                   return $ NewWithInit (meta pos) ty args
       peer = do pos <- getPosition
                 reserved "peer"
                 ty <- typ
