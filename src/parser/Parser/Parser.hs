@@ -683,7 +683,7 @@ expr  =  embed
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>
-                        varOrCall
+                        varOrFun
                 longerPath pos root <|> return root
              where
                tupled = do
@@ -694,7 +694,7 @@ expr  =  embed
                    [e] -> return e
                    _ -> return $ Tuple (meta pos) args
 
-               varOrCall = do
+               varOrFun = do
                  x <- varAccess
                  functionOrCall x <|> return x
 
@@ -723,11 +723,16 @@ expr  =  embed
 
                pathComponent = do {dot; varOrCall}
 
+               varOrCall = do
+                 x <- varAccess
+                 functionCall x <|> return x
+
+               functionCall VarAccess{emeta, name} = do
+                 typeParams <- option Nothing (try $ angles $ Just <$> commaSep typ)
+                 args <- parens arguments
+                 return $ FunctionCall emeta typeParams name args
+
                buildPath pos target (VarAccess{name}) =
-                   FieldAccess (meta pos) target name
-               -- TODO: A little strange that fields can take type
-               -- arguments which are then ignored
-               buildPath pos target (FunctionAsValue{name}) =
                    FieldAccess (meta pos) target name
                -- TODO: Pass type arguments to parametric method
                buildPath pos target (FunctionCall{name, args}) =
