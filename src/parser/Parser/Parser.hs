@@ -704,8 +704,7 @@ expr  =  embed
                  return $ VarAccess (meta pos) (Name id)
 
                functionOrCall VarAccess{emeta, name} = do
-                 optTypeArgs <- option Nothing (try . angles $
-                                                 Just <$> commaSep typ)
+                 optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
                  case optTypeArgs of
                    Just typeArgs ->
                        call emeta optTypeArgs name <|>
@@ -721,14 +720,14 @@ expr  =  embed
                  rest <- many $ try pathComponent
                  return $ foldl (buildPath pos) root (first:rest)
 
-               pathComponent = do {dot; varOrCall}
+               pathComponent = dot >> varOrCall
 
                varOrCall = do
                  x <- varAccess
                  functionCall x <|> return x
 
                functionCall VarAccess{emeta, name} = do
-                 typeParams <- option Nothing (try $ angles $ Just <$> commaSep typ)
+                 typeParams <- optionMaybe (try . angles $ commaSep typ)
                  args <- parens arguments
                  return $ FunctionCall emeta typeParams name args
 
@@ -910,14 +909,15 @@ expr  =  embed
               range pos first
                <|> arrayLit pos first
             range pos start = do
-              notFollowedBy comma
               dotdot
               stop <- expression
               step <- option (IntLiteral (meta pos) 1)
-                             (do {reserved "by"; expression})
+                             (reserved "by" >> expression)
               return $ RangeLiteral (meta pos) start stop step
             arrayLit pos first = (do
+              lookAhead (symbol "]")
+              return (ArrayLiteral (meta pos) [first])
+              ) <|> do
               comma
-              rest <- commaSep expression
+              rest <- commaSep1 expression
               return $ ArrayLiteral (meta pos) (first:rest)
-              ) <|> return (ArrayLiteral (meta pos) [first])
