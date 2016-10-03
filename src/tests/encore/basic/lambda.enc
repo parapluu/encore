@@ -46,7 +46,7 @@ class Main
       for i in [0..5] {
         print i;
       }
-    }
+    };
   }
 
   def pprint(x: int): void
