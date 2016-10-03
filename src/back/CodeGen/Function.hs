@@ -127,5 +127,5 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
     where
       returnStmnt var ty
-          | isVoidType ty = Return unit
-          | otherwise     = Return var
+          | isVoidType ty = Return $ AsExpr unit
+          | otherwise     = Return $ Cast (translate ty) var
