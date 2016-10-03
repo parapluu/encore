@@ -44,7 +44,9 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
-        retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
+        retStmt = Return $ if Ty.isVoidType mType
+                           then AsExpr unit
+                           else Cast returnType bodyn
     in
       Concat $ closures ++ tasks ++
                [Function returnType name args
