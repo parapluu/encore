@@ -236,6 +236,9 @@ passive class String
         result;
       }
 
+  def getData(): embed char* end
+     this.data
+
   -- Removes trailing whitespace
   -- The definition of whitespace can be found in man 3 isspace.
   def trim() : String
