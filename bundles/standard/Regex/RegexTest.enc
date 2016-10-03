@@ -1,0 +1,23 @@
+import Regex
+
+class Main
+  def findRegex(regex: Regex, s: String): void
+    match regex.exec(s) with
+      Just true => {
+                     print("Number matches: {}\n", regex.matches());
+                     for i in [1..regex.matches()]
+                       print("Found: {}\n", regex.getAt(i));
+                     }
+      Just false => print("No pattern found")
+      Nothing => print("Error")
+
+  def main(): void
+    let pattern = "(.*) (si)"
+        regex = new Regex(pattern, 200)
+        result = regex.compile()
+    in
+      if result then {
+        this.findRegex(regex, "a very sim string sipe sd");
+        this.findRegex(regex, "nothing to find");
+        regex.close();
+      }
