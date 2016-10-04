@@ -59,7 +59,7 @@ translateClosure closure typeVars table
        in
          Concat [buildEnvironment envName freeVars fTypeVars,
                  tracefunDecl traceName envName freeVars,
-                 Function (Typ "value_t") funName
+                 Function (Static $ Typ "value_t") funName
                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                            (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                            (Typ "value_t", Var "_args[]"),
@@ -107,7 +107,7 @@ translateClosure closure typeVars table
               (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
 
       tracefunDecl traceName envName members =
-        Function void traceName args body
+        Function (Static void) traceName args body
         where
           args = [(Ptr encoreCtxT, ctxArg), (Ptr void, Var "p")]
           ctxArg = Var "_ctx_arg"

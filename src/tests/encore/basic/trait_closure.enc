@@ -1,0 +1,16 @@
+trait T
+  def getClosure() : () -> void
+    \ () -> print "You have finally reached closure!"
+
+passive class Foo : T
+passive class Bar : T
+
+class Main
+  def main() : void {
+    let x = new Foo();
+    let y = new Bar();
+    let f1 = x.getClosure();
+    let f2 = y.getClosure();
+    f1();
+    f2();
+  }
