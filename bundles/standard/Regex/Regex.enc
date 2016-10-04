@@ -5,25 +5,24 @@ embed
 end
 
 typedef RegexT = embed regex_t end
+typedef PMatch = embed regmatch_t* end
 
 passive class Regex
-  pattern: String
-  maxSize: int
-  flagICase: bool
-  flagNewLine: bool
-  pMatch: embed regmatch_t* end  -- private attribute
-  regex: RegexT       -- private attribute
-  executed: embed char* end
+  pattern: String           -- private attribute
+  maxSize: int              -- private attribute
+  flagICase: bool           -- private attribute
+  flagNewLine: bool         -- private attribute
+  pMatch: PMatch            -- private attribute
+  regex: RegexT             -- private attribute
+  executed: embed char* end -- private attribute
 
   def Regex_trace(): void {
     embed void
-    _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
-    pony_traceobject((*_ctx), _enc__field_pattern, _enc__trace_String);
-    int64_t _enc__field_maxSize = _this->_enc__field_maxSize;
+      _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
+      pony_traceobject((*_ctx), _enc__field_pattern, _enc__trace_String);
 
-    int64_t _enc__field_flagICase = _this->_enc__field_flagICase;
-
-    int64_t _enc__field_flagNewLine = _this->_enc__field_flagNewLine;
+      regmatch_t* _enc__field_pMatch = _this->_enc__field_pMatch;
+      pony_trace((*_ctx), _enc__field_pMatch);
     end
   }
 
@@ -31,7 +30,7 @@ passive class Regex
   def init(pattern: String, maxSize: int): void {
     this.pattern = pattern;
     this.maxSize = maxSize;
-    this.pMatch = embed (embed regmatch_t* end)
+    this.pMatch = embed PMatch
                   regmatch_t *pMatch = encore_alloc(encore_ctx(), sizeof(regmatch_t) * #{maxSize});
                   pMatch;
                   end;
@@ -49,15 +48,15 @@ passive class Regex
     in
       embed bool
         bool result = 0;
-        if (#{fIc}==1 && #{fNl}==1){
+        if (#{fIc} && #{fNl}){
            result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED|REG_ICASE|REG_NEWLINE);
-        } else if (#{fIc}==1) {
+        } else if (#{fIc}) {
            result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED|REG_ICASE);
         } else {
            result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED);
         }
 
-        0 == result;
+        !result;
       end
 
   -- exec(str: String): returns true if the exec method found a match,
@@ -74,7 +73,7 @@ passive class Regex
       end;
       if (embed bool #{result} == REG_NOMATCH; end) then Just false
       else if (result == 0) then Just true
-      else Nothing : Maybe bool
+      else Nothing
     }
 
   def matches(): int {
