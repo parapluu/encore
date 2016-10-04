@@ -287,7 +287,9 @@ hasSameKind ty1 ty2
     areBoth isTupleType ||
     areBoth isTypeVar ||
     areBoth isRefType ||
-    areBoth isArrowType = True
+    areBoth isArrowType ||
+    areBoth isRangeType ||
+    areBoth isCType = True
   | otherwise = False
   where
     isBottomTy1 = isBottomType ty1

@@ -1,0 +1,41 @@
+trait S
+trait T
+
+typedef MyType = embed my_c_type end
+
+class Foo<t>
+  f: [embed my_c_type end]
+  g: [Range]
+  h: [Maybe int]
+  i: [T]
+  j: [S + T]
+  k: [t]
+  l: [int -> void]
+  m: [Fut int]
+  n: [Par int]
+  o: [Stream int]
+  p: [[int]]
+  q: [(int, Maybe int)]
+  r: [MyType]
+  s: [int]
+  def init(): void {
+    this.f = new [embed my_c_type end](42);
+    this.g = new [Range](42);
+    this.h = new [Maybe int](42);
+    this.i = new [T](42);
+    this.j = new [T + S](42);
+    this.k = new [t](42);
+    this.l = new [int -> void](42);
+    this.m = new [Fut int](42);
+    this.n = new [Par int](42);
+    this.o = new [Stream int](42);
+    this.p = new [[int]](42);
+    this.q = new [(int, Maybe int)](42);
+    this.r = new [MyType](42);
+    this.s = new [int](42);
+  }
+
+class Main
+  def main() : void {
+    print "I compile and run!"
+  }
