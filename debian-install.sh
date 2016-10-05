@@ -43,6 +43,13 @@ sudo apt-get install -y $quiet\
   racket\
   doxygen
 
+wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre2-10.21.tar.bz2
+tar xvf pcre2-10.21.tar.bz2
+cd pcre2-10.21
+./configure --prefix=/usr
+make
+sudo make install
+
 if $replace
 then
   if ((hash ghc 2>/dev/null) && (ghc --version | grep -q 7.10.3))

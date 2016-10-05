@@ -72,7 +72,7 @@ solution "ponyrt"
 
     linkoptions {
       "-lm",
-      "-pthread"
+      "-pthread",
       }
 
   configuration "*"

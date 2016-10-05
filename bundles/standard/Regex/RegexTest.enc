@@ -12,12 +12,12 @@ class Main
       Nothing => print("Error")
 
   def main(): void
-    let pattern = "(.*) (si)"
+    let pattern = "([a-z]+@[a-z]+\\.\\w+)"
         regex = new Regex(pattern, 200)
         result = regex.compile()
     in
       if result then {
-        this.findRegex(regex, "a very sim string sipe sd");
+        this.findRegex(regex, "a very sim test@noreply.com sdsd");
         this.findRegex(regex, "nothing to find");
         regex.close();
       }

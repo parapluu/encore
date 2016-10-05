@@ -77,6 +77,7 @@ We're using:
     Target: x86_64-apple-darwin14.5.0
     Thread model: posix
  - g++ 4.8
+ - pcre2-10.21 (for Regex library)
  - stack (the haskell build tool)
  - premake4 (Premake Build Script Generator) 4.3
  - `scribble` -- only for building the documentation
@@ -115,6 +116,10 @@ Alternatively, run: `brew update; brew install premake`
 
 If you have homebrew, you can run `brew install haskell-stack`. Otherwise,
 use these [installation instructions](http://docs.haskellstack.org/en/stable/README/#how-to-install).
+
+##### Installing `pcre2`
+
+Run: `brew update; brew install pcre2`
 
 #### Step 2: Compiling and installing encore
 
