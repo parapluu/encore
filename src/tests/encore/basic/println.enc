@@ -1,0 +1,11 @@
+class Main
+  def main() : void {
+    print "First a print with a newline";
+    print("Then two prints ");
+    print("without newlines");
+    print; -- This prints a newline
+    println("Look, a number: {}", 42);
+    print("Here's another one: {}", 99);
+    print(", but that one wasn't followed by a newline");
+    println(); -- Another way to print a newline
+  }

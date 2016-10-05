@@ -1,0 +1,4 @@
+First a print with a newline
+Then two prints without newlines
+Look, a number: 42
+Here's another one: 99, but that one wasn't followed by a newline
