@@ -12,8 +12,8 @@ trait Either<a,b>
 
   def map(f: b -> b) : Either<a,b> {
     match this with
-      Left(x)  => new Left<a,b>(x) : Either<a,b>
-      Right(x) => new Right<a,b>(f(x)) : Either<a,b>
+      Left(x)  => new Left<a,b>(x)
+      Right(x) => new Right<a,b>(f(x))
     }
 
   def foreach(f: b -> void) : void {
@@ -24,7 +24,7 @@ trait Either<a,b>
 
   def flatMap(f : b -> Either<a,b>) : Either<a,b> {
     match this with
-      Left(x)  => new Left<a,b>(x) : Either<a,b>
+      Left(x)  => new Left<a,b>(x)
       Right(x) => f(x)
   }
 
