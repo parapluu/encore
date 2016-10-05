@@ -176,7 +176,7 @@ subtypeOf ty1 ty2
               getResultType ty1 `subtypeOf` getResultType ty2
     | isNullType ty1 = return (isNullType ty2 || isRefType ty2)
     | isClassType ty1 && isClassType ty2 =
-        return $ ty1 `refSubtypeOf` ty2
+        return $ ty1 == ty2
     | isClassType ty1 && isCapabilityType ty2 = do
         capability <- findCapability ty1
         capability `capabilitySubtypeOf` ty2
@@ -186,7 +186,7 @@ subtypeOf ty1 ty2
       results <- zipWithM subtypeOf argTys1 argTys2
       return $ and results && length argTys1 == length argTys2
     | isTraitType ty1 && isTraitType ty2 =
-        return $ ty1 `refSubtypeOf` ty2
+        return $ ty1 == ty2
     | isTraitType ty1 && isCapabilityType ty2 = do
         let traits = typesFromCapability ty2
         allM (ty1 `subtypeOf`) traits
@@ -210,10 +210,6 @@ subtypeOf ty1 ty2
         return $ ty1 `numericSubtypeOf` ty2
     | otherwise = return (ty1 == ty2)
     where
-      refSubtypeOf ref1 ref2 =
-          getId ref1 == getId ref2 &&
-          getTypeParameters ref1 == getTypeParameters ref2
-
       capabilitySubtypeOf cap1 cap2 = do
         let traits1 = typesFromCapability cap1
             traits2 = typesFromCapability cap2
