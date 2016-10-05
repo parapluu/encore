@@ -1,7 +1,10 @@
 bundle Regex where
 
 embed
-  #include <regex.h>
+  // Do not forget to link against the C library
+  // e.g. encorec RegexTest.enc -F "-I /usr/local/include -L /usr/local/lib/ -lpcre2-posix -lpcre2-8"
+  #define PCRE2_CODE_UNIT_WIDTH 8
+  #include <pcre2posix.h>
 end
 
 typedef RegexT = embed regex_t end
