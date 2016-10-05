@@ -17,5 +17,5 @@ class Main
     this.foo = new Success<int>(5);
     match this.foo with
       Fail(n) => print("This shouldn't happen!")
-      Success(x) => print("It's a success! The resulting value is {}\n", x)
+      Success(x) => println("It's a success! The resulting value is {}", x)
   }

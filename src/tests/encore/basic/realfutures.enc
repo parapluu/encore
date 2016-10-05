@@ -1,6 +1,6 @@
 class Main
     def main() : void
-      print("{}\n",get (new Bob).glenn())
+      print (get (new Bob).glenn())
 
 class Bob
     def glenn() : real

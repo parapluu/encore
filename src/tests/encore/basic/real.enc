@@ -4,6 +4,6 @@ def foo(x : real) : real
 class Main
   def main() : void {
     let pi = 3.141593;
-    print("Pi is something like {}\n", pi);
-    print("Ints can be promoted to reals: {}\n", foo(42))
+    println("Pi is something like {}", pi);
+    println("Ints can be promoted to reals: {}", foo(42))
   }

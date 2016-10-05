@@ -14,6 +14,6 @@ class Main
     let x = new Foo();
     for i in [0..20] {
       let s = get x.foo();
-      print("{} {}\n", s, i);
+      println("{} {}", s, i);
     };
   }

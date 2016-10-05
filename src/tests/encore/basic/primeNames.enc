@@ -17,5 +17,5 @@ class Main
     let x' = "is";
     let x'' = "prime";
     let x''' = "stuff!";
-    print("{} {} {} {}\n", x, x', x'', x''')
+    println("{} {} {} {}", x, x', x'', x''')
   }

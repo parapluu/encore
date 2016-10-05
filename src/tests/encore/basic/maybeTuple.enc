@@ -115,7 +115,7 @@ class Main
      test_unification_last_expression();
      test_multiple_assignments(x);
      match poly.morphic((32,32)) with
-       Just (y,z) => print ("{},{}\n",y,z)
+       Just (y,z) => println("{},{}",y,z)
        Nothing => print "0,0"
-     ; 
+     ;
    }
