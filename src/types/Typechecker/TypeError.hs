@@ -207,6 +207,8 @@ data Error =
   | MalformedUnionTypeError Type Type
   | ConcreteTypeParameterError Type
   | TypeArgumentInferenceError Name Type
+  | ProvidingTraitFootprintError Type Type Name [FieldDecl]
+  | ProvidingTraitPermissionError Type Type Name [FieldDecl]
   | SimpleError String
 
 arguments 1 = "argument"
@@ -402,6 +404,18 @@ instance Show Error where
     show (TypeArgumentInferenceError fn param) =
         printf "Cannot infer the type of parameter '%s' of function '%s'"
                (show param) (show fn)
+    show (ProvidingTraitFootprintError provider requirer mname fields) =
+        printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++
+                "'%s' can mutate fields that are not in '%s':\n%s")
+               (show provider) (show mname) (show requirer)
+               (show provider) (show requirer)
+               (unlines (map (("  " ++) . show) fields))
+    show (ProvidingTraitPermissionError provider requirer mname fields) =
+        printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++
+                "'%s' can mutate fields that are marked immutable in '%s':\n%s")
+               (show provider) (show mname) (show requirer)
+               (show provider) (show requirer)
+               (unlines (map (("  " ++) . show) fields))
     show (SimpleError msg) = msg
 
 

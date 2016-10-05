@@ -1,0 +1,26 @@
+trait Inc
+  require f: int
+  require get_(): int
+
+  def inc(): void
+    this.f = this.get_() + 1
+
+trait Get
+  require val f: int
+  require inc(): void
+
+  def get_(): int
+    this.f
+
+passive class Counter: Inc + Get
+  f: int
+  def init(f: int): void
+    this.f = f
+
+class Main
+  def main(): void {
+    let x = new Counter(42) : Inc;
+    print("The answer is {}\n", x.get_());
+    x.inc();
+    print("The answer is now {}\n", x.get_());
+  }
