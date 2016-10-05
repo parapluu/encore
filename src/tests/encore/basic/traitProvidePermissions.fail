@@ -1,0 +1,1 @@
+Trait 'Inc' cannot provide method 'inc' to trait 'Get'.

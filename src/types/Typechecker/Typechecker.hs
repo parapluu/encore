@@ -221,14 +221,48 @@ ensureNoMethodConflict methods tdecls =
                          (tname (head overlappingTraits))
                          (tname (overlappingTraits !! 1))
 
-meetRequiredMethods :: [MethodDecl] -> Type -> TypecheckM ()
-meetRequiredMethods cMethods trait = do
+ensureMatchingTraitFootprint :: [Type] -> Type -> TypecheckM ()
+ensureMatchingTraitFootprint traits trait = do
   tdecl <- liftM fromJust . asks . traitLookup $ trait
-  mapM_ matchMethod (requiredMethods tdecl)
+  let otherTraits = traits \\ [trait]
+  tdecls <- mapM (liftM fromJust . asks . traitLookup) otherTraits
+  mapM_ (checkMatchingFootprint tdecl) tdecls
   where
-    matchMethod reqHeader = do
+    checkMatchingFootprint requirer provider = do
+      let reqMethods = requiredMethods requirer
+          reqFields = requiredFields requirer
+          reqValFields = filter isValField reqFields
+          methods = tmethods provider
+          provided = filter (`isRequiredBy` reqMethods) methods
+          footprint = requiredFields provider
+          varFootprint = filter (not . isValField) footprint
+          exceededFootprint = varFootprint \\ reqFields
+          mutatedValFields = filter (`elem` reqValFields) varFootprint
+      unless (null provided) $ do
+        unless (null exceededFootprint) $
+          tcError $ ProvidingTraitFootprintError
+                      (tname provider) (tname requirer)
+                      (methodName $ head provided) exceededFootprint
+        unless (null mutatedValFields) $
+          tcError $ ProvidingTraitPermissionError
+                      (tname provider) (tname requirer)
+                      (methodName $ head provided) mutatedValFields
+
+    isRequiredBy :: MethodDecl -> [FunctionHeader] -> Bool
+    isRequiredBy m = any ((== methodName m) . hname)
+
+meetRequiredMethods :: [MethodDecl] -> [Type] -> Type -> TypecheckM ()
+meetRequiredMethods cMethods traits trait = do
+  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  let otherTraits = traits \\ [trait]
+  tdecls <- mapM (liftM fromJust . asks . traitLookup) otherTraits
+  let tMethods = concatMap tmethods tdecls
+      allMethods = cMethods ++ tMethods
+  mapM_ (matchMethod allMethods) (requiredMethods tdecl)
+  where
+    matchMethod methods reqHeader = do
       expHeader <- findMethod trait (hname reqHeader)
-      unlessM (anyM (matchesHeader expHeader) cMethods) $
+      unlessM (anyM (matchesHeader expHeader) methods) $
            tcError $ MissingMethodRequirementError expHeader trait
     matchesHeader header mdecl =
       let
@@ -252,7 +286,8 @@ instance Checkable ClassDecl where
     unless (isPassiveClassType cname || null traits) $
            tcError TraitsInActiveClassError
     mapM_ (meetRequiredFields cfields) traits
-    mapM_ (meetRequiredMethods cmethods) traits
+    mapM_ (meetRequiredMethods cmethods traits) traits
+    mapM_ (ensureMatchingTraitFootprint traits) traits
     noOverlapFields ccapability
     -- TODO: Add namespace for trait methods
     tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
