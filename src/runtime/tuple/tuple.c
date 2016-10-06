@@ -5,8 +5,8 @@
 struct tuple
 {
   size_t size;
-  pony_type_t **types;
   encore_arg_t *elements;
+  pony_type_t **types;
 };
 
 pony_type_t tuple_type =
@@ -38,15 +38,15 @@ void tuple_trace(pony_ctx_t* ctx, void *p)
 
 tuple_t *tuple_mk(pony_ctx_t** ctx, size_t size)
 {
-  size_t tuple_size = sizeof(struct tuple);
-  size_t type_size = size * sizeof(pony_type_t *);
-  size_t elem_size = size * sizeof(encore_arg_t);
+  size_t tuple_size    = sizeof(struct tuple);
+  size_t elements_size = size * sizeof(encore_arg_t);
+  size_t types_size    = size * sizeof(pony_type_t *);
   
-  struct tuple *tuple = encore_alloc(*ctx, tuple_size + type_size + elem_size);
+  struct tuple *tuple = encore_alloc(*ctx, tuple_size + elements_size + types_size);
 
   tuple->size     = size;
-  tuple->types    = ((void *)tuple) + tuple_size;
-  tuple->elements = ((void *)tuple) + tuple_size + type_size;
+  tuple->elements = ((void *)tuple) + tuple_size;
+  tuple->types    = ((void *)tuple) + tuple_size + elements_size;
 
   return tuple;
 }
