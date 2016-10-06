@@ -20,6 +20,7 @@ void tuple_trace(pony_ctx_t* ctx, void *p)
 {
   assert(p);
   struct tuple_t *tuple = p;
+  pony_trace(ctx, tuple->types);
   for(size_t i = 0; i < tuple->size; i++) {
     if (tuple->types[i] == ENCORE_ACTIVE) {
       pony_traceactor(ctx, tuple->elements[i].p);
