@@ -4,17 +4,17 @@
 #include <pony.h>
 #include <encore.h>
 
-typedef void tuple_t;
+typedef struct tuple tuple_t;
 
 extern pony_type_t tuple_type;
 
-void tuple_trace(pony_ctx_t*, void *);
+void tuple_trace(pony_ctx_t *ctx, void *tuple);
 
-tuple_t *tuple_mk(pony_ctx_t** ctx, size_t size);
+tuple_t *tuple_mk(pony_ctx_t **ctx, size_t arity);
 
-void tuple_set_type(tuple_t *t, size_t i, pony_type_t *type);
+void tuple_set_type(tuple_t *t, size_t arity, pony_type_t *types);
 
-tuple_t *tuple_from_tuple(pony_ctx_t** ctx, size_t size, pony_type_t **type, encore_arg_t arr[]);
+tuple_t *tuple_from_tuple(pony_ctx_t **ctx, size_t arity, pony_type_t **types, encore_arg_t elements[]);
 
 size_t tuple_size(tuple_t *t);
 
