@@ -875,9 +875,9 @@ expr  =  embed
                 return $ Peer (meta pos) ty
       print = do pos <- getPosition
                  reserved "print"
-                 notFollowedBy (symbol "(")
+                 notFollowedBy (symbol "(" >> symbol "\"")
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) Nothing (Name "print") arg
+                 return $ FunctionCall (meta pos) Nothing (Name "println") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

@@ -3,4 +3,4 @@ def bump(x : int) : int
 
 class Main
   def main() : void
-    print("42 + 1 = {}\n", bump(42))
+    println("42 + 1 = {}", bump(42))

@@ -1,7 +1,7 @@
 class Main
   def main() : void {
     let x = 42;
-    print("x = {}\n", x);
+    println("x = {}", x);
     let f = \ (x : int) -> x + 1;
-    print("f(x) = {}\n", f(x));
+    println("f(x) = {}", f(x));
   }

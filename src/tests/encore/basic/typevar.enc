@@ -33,7 +33,7 @@ passive class Bar<b, c> {
 class Main {
   def main() : void {
     let bar = new Bar<real, int>(3.14, 42) in {
-      print("assert(bar.fun(4.13) == 42): {}\n", bar.fun(4.13))
+      println("assert(bar.fun(4.13) == 42): {}", bar.fun(4.13))
     }
   }
 }

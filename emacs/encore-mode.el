@@ -38,6 +38,7 @@
         "or"
         "passive"
         "print"
+        "println"
         "repeat"
         "require"
         "stream"

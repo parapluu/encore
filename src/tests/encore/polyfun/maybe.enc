@@ -14,22 +14,22 @@ class Main
     let test1 = fCreateParametricOptionType<String>("Test creation of 'Just a' inside parametric function")
     in {
       match test1 with
-        Just s => print("{}\n", s)
-        Nothing => print("Error: expected 'Just' value constructor but got 'Nothing'")
+        Just s => print s
+        Nothing => print "Error: expected 'Just' value constructor but got 'Nothing'"
     };
 
     let testNothing = fCreateParametricOptionTypeNothing<String>("Test the returns parametric Nothing")
     in {
       match testNothing with
-        Just s => print("Error, expected 'Nothing'")
+        Just s => print "Error, expected 'Nothing'"
         Nothing => { testNothing = Just "re-assignment";
-                     print("Test create parametric Nothing and can be re-assigned\n");}
+                     print "Test create parametric Nothing and can be re-assigned";}
     };
 
     let testNewVal = extractAndCreateOptionValue<String>(Just "Remove this text", "Append this text")
     in {
       match testNewVal with
-        Just v => print(v)
-        Nothing => print("Error in 'extractAndCreateOptionValue', expected string 'Append this text'")
+        Just v => print v
+        Nothing => print "Error in 'extractAndCreateOptionValue', expected string 'Append this text'"
     }
   }

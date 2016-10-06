@@ -17,7 +17,7 @@ def expectEven(Odd(a) : IntContainer) : void {
 }
 
 def printMaybe((Just (x)) : Maybe int) : void {
-  print("Just {}\n", x)
+  println("Just {}", x)
 } | printMaybe(Nothing : Maybe int) : void {
   print "Nothing"
 }
@@ -113,7 +113,7 @@ class Main {
   def valueVariableTuplePatternsTestWithFailingGuard() : void
     match (1, 2, "123") with
       (a, b, "123") when a > b => print "nope"
-      (1, b, "123") => print("{}{}123\n", 1, b)
+      (1, b, "123") => println("{}{}123", 1, b)
 
   def evaluatesToTraitTest() : Letter{
     -- Just to test the typechecker
@@ -148,7 +148,7 @@ class Main {
     let f = \(x : int) -> x in
       match f with
 	x => print "foo"
-    
+
   def main() : void {
     this.objectPatternTestWithFailingGuard();
     this.valueVariableTuplePatternsTestWithFailingGuard();

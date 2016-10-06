@@ -122,14 +122,28 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
 
 desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
 
-desugar FunctionCall{emeta, name = Name "print", args = []} =
+desugar FunctionCall{emeta, name = Name "println", args = []} =
     Print emeta [StringLiteral emeta "\n"]
 
 desugar FunctionCall{emeta, name = Name "print", args = [arg]} =
+    Print emeta [StringLiteral emeta "{}", arg]
+
+desugar FunctionCall{emeta, name = Name "println", args = [arg]} =
     Print emeta [StringLiteral emeta "{}\n", arg]
 
 desugar FunctionCall{emeta, name = Name "print", args} =
     Print emeta args
+
+desugar FunctionCall{emeta = fmeta, name = Name "println", args} =
+    let first = head args
+        rest = tail args in
+    case getSugared first of
+      Just StringLiteral{emeta = smeta, stringLit} ->
+        let stringWithNewline = stringLit ++ "\n"
+            newString = selfSugar $ StringLiteral smeta stringWithNewline
+            newHead = desugar newString
+        in Print fmeta (newHead:rest)
+      _ -> Print fmeta args
 
 desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
     IfThenElse emeta cond

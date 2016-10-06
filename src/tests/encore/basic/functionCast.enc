@@ -6,6 +6,6 @@ class Main {
   def main() : void {
     let foo = fun : () -> (String, String);
     match foo() with
-      (h, w) => print("{} {}\n", h, w)
+      (h, w) => println("{} {}", h, w)
   }
 }

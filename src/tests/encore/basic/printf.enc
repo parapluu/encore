@@ -1,15 +1,15 @@
 class Main
   def main() : void {
     for i in [1..9] {
-      print("The square of {} is {}\n", i, i*i);
+      println("The square of {} is {}", i, i*i);
     };
     let row = [false, true];
     for b1 in row {
       for b2 in row {
-        print("{} | {}\n", (b1, b2), b1 and b2);
+        println("{} | {}", (b1, b2), b1 and b2);
       }
     };
-    print ("void = {}\n", ());
-    print ("Zero is {}\n", Nothing : Maybe int);
-    print ("The answer is {}\n", Just 42);
+    println("void = {}", ());
+    println("Zero is {}", Nothing : Maybe int);
+    println("The answer is {}", Just 42);
   }
