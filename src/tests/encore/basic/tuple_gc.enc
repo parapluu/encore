@@ -8,6 +8,7 @@ class Foo
     print this.f
 
   def tryForceGc(): void {
+    "dummy";
     new [int](100000);
   }
 
