@@ -4,7 +4,7 @@
 
 struct tuple
 {
-  size_t size;
+  size_t arity;
   encore_arg_t *elements;
   pony_type_t **types;
 };
@@ -12,17 +12,17 @@ struct tuple
 pony_type_t tuple_type =
   {
     .id = ID_TUPLE,
-    .size=sizeof(struct tuple),
+    .size=sizeof(tuple_t),
     .trace=tuple_trace
   };
 
-void tuple_trace(pony_ctx_t* ctx, void *p)
+void tuple_trace(pony_ctx_t *ctx, void *p)
 {
-  struct tuple *tuple = p;
+  tuple_t *tuple = p;
 
   pony_trace(ctx, tuple->types);
 
-  for(size_t i = 0; i < tuple->size; ++i)
+  for(size_t i = 0; i < tuple->arity; ++i)
     {
       if (tuple->types[i] == ENCORE_ACTIVE)
         {
@@ -36,15 +36,15 @@ void tuple_trace(pony_ctx_t* ctx, void *p)
     }
 }
 
-tuple_t *tuple_mk(pony_ctx_t** ctx, size_t size)
+tuple_t *tuple_mk(pony_ctx_t **ctx, size_t arity)
 {
-  size_t tuple_size    = sizeof(struct tuple);
-  size_t elements_size = size * sizeof(encore_arg_t);
-  size_t types_size    = size * sizeof(pony_type_t *);
+  size_t tuple_size    = sizeof(tuple_t);
+  size_t elements_size = arity * sizeof(encore_arg_t);
+  size_t types_size    = arity * sizeof(pony_type_t *);
   
-  struct tuple *tuple = encore_alloc(*ctx, tuple_size + elements_size + types_size);
+  tuple_t *tuple = encore_alloc(*ctx, tuple_size + elements_size + types_size);
 
-  tuple->size     = size;
+  tuple->arity    = arity;
   tuple->elements = ((void *)tuple) + tuple_size;
   tuple->types    = ((void *)tuple) + tuple_size + elements_size;
 
@@ -57,11 +57,11 @@ inline void tuple_set_type(tuple_t *t, size_t i, const pony_type_t *type)
 }
 
 
-tuple_t *tuple_from_tuple(pony_ctx_t** ctx, size_t size, const pony_type_t *types[], encore_arg_t elems[])
+tuple_t *tuple_from_tuple(pony_ctx_t **ctx, size_t arity, const pony_type_t *types[], encore_arg_t elems[])
 {
-  struct tuple *tuple = tuple_mk(ctx, size);
+  tuple_t *tuple = tuple_mk(ctx, arity);
   
-  for(size_t i = 0; i < size; ++i)
+  for(size_t i = 0; i < arity; ++i)
     {
       tuple_set(tuple, i, elems[i]);
       tuple_set_type(tuple, i, types[i]);
@@ -72,7 +72,7 @@ tuple_t *tuple_from_tuple(pony_ctx_t** ctx, size_t size, const pony_type_t *type
 
 inline size_t tuple_size(tuple_t *t)
 {
-  return t->size;
+  return t->arity;
 }
 
 inline encore_arg_t tuple_get(tuple_t *t, size_t i)
