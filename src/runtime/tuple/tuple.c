@@ -20,15 +20,13 @@ void tuple_trace(pony_ctx_t *ctx, void *p)
 {
   tuple_t *tuple = p;
 
-  pony_trace(ctx, tuple->types);
-
   for(size_t i = 0; i < tuple->arity; ++i)
     {
       if (tuple->types[i] == ENCORE_ACTIVE)
         {
           pony_traceactor(ctx, tuple->elements[i].p);
-          continue;
         }
+      else 
       if (tuple->types[i] != ENCORE_PRIMITIVE)
         {
           pony_traceobject(ctx, tuple->elements[i].p, tuple->types[i]->trace);
