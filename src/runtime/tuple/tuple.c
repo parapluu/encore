@@ -42,9 +42,9 @@ tuple_t *tuple_mk(pony_ctx_t **ctx, size_t arity)
   
   tuple_t *tuple = encore_alloc(*ctx, tuple_size + elements_size + types_size);
 
-  tuple->arity    = arity;
-  tuple->elements = ((void *)tuple) + tuple_size;
-  tuple->types    = ((void *)tuple) + tuple_size + elements_size;
+  *tuple = (tuple_t) { .arity    = arity,
+                       .elements = ((void *)tuple) + tuple_size,
+                       .types    = ((void *)tuple) + tuple_size + elements_size };
 
   return tuple;
 }
