@@ -87,6 +87,7 @@ solution "ponyrt"
     "../party",
     "libponyrt",
     "../common",
+    "../dtrace",
   }
 
   flags {
@@ -118,6 +119,31 @@ solution "ponyrt"
 
     if(cppforce) then
       cppforce { "**.c" }
+    end
+
+  configuration "not windows"
+    if(table.contains(_ARGS, "dtrace")) then
+      defines "USE_DYNAMIC_TRACE"
+
+      os.execute("dtrace -h -s ../common/encore_probes.d -o ../common/encore_probes.h")
+      os.execute("dtrace -h -s ../common/dtrace_probes.d -o ../common/dtrace_probes.h")
+
+      if os.is("linux") then
+        os.execute("dtrace -G -s ../common/encore_probes.d -o ../common/encore_probes.o")
+        os.execute("dtrace -G -s ../common/dtrace_probes.d -o ../common/dtrace_probes.o")
+        project "ponyrt"
+          configuration "Debug"
+            postbuildcommands {
+              'ar -rcs bin/debug/libponyrt.a ../common/encore_probes.o',
+              'ar -rcs bin/debug/libponyrt.a ../common/dtrace_probes.o'
+            }
+
+          configuration "Release"
+            postbuildcommands {
+              'ar -rcs bin/release/libponyrt.a ../common/encore_probes.o',
+              'ar -rcs bin/release/libponyrt.a ../common/dtrace_probes.o',
+            }
+      end
     end
 
 project "ponyrt"
