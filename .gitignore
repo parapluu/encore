@@ -57,6 +57,11 @@ src/tests/encore/par/*
 !src/tests/encore/par/*.out
 !src/tests/encore/par/*.chk
 !src/tests/encore/par/*.fail
+src/tests/encore/traits/*
+!src/tests/encore/traits/*.enc
+!src/tests/encore/traits/*.out
+!src/tests/encore/traits/*.chk
+!src/tests/encore/traits/*.fail
 /.dist-buildwrapper/
 .project
 .stack*
