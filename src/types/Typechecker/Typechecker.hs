@@ -233,20 +233,15 @@ ensureMatchingTraitFootprint traits trait = do
           reqFields = requiredFields requirer
           reqValFields = filter isValField reqFields
           methods = tmethods provider
-          provided = filter (`isRequiredBy` reqMethods) methods
+          providedMethods = filter (`isRequiredBy` reqMethods) methods
           footprint = requiredFields provider
           varFootprint = filter (not . isValField) footprint
-          exceededFootprint = varFootprint \\ reqFields
           mutatedValFields = filter (`elem` reqValFields) varFootprint
-      unless (null provided) $ do
-        unless (null exceededFootprint) $
+      unless (null providedMethods) $
+        unless (null mutatedValFields) $
           tcError $ ProvidingTraitFootprintError
                       (tname provider) (tname requirer)
-                      (methodName $ head provided) exceededFootprint
-        unless (null mutatedValFields) $
-          tcError $ ProvidingTraitPermissionError
-                      (tname provider) (tname requirer)
-                      (methodName $ head provided) mutatedValFields
+                      (methodName $ head providedMethods) mutatedValFields
 
     isRequiredBy :: MethodDecl -> [FunctionHeader] -> Bool
     isRequiredBy m = any ((== methodName m) . hname)
