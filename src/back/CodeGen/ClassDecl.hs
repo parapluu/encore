@@ -301,17 +301,13 @@ methodImplWithFuture cname m =
                         (Seq [Statement $ initFut1 fut])
                         Skip]
     fBody = Seq $
--- <<<<<<< 61a481ad5747004bf3ec15f689b9f53cc2306b53
       runtimeTypeAssignment mType :
-      -- assignFut :
--- =======
       (if not (A.isConstructor m || A.isMainMethod cname mName)
        then
          (if U.isForwardMethod m
           then [initFut]
           else [checkFut futVar])
        else [initFut]) ++
--- >>>>>>> Add forward for future
       ponyGcSendFuture argPairs ++
       msg ++
       [retStmt]

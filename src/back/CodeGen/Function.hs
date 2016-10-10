@@ -29,12 +29,12 @@ globalFunction fun = createHeader
       Function (translate funType) funName
                    ((Ptr (Ptr encoreCtxT), encoreCtxVar):
                    encoreRuntimeTypeParam :
-                   ((zip argTypes argNames)) body) ++ [future]
+                   (zip argTypes argNames) ++ [(future, Var "_fut")]) body
 
     createHeader Nothing  =
       FunctionDecl (translate funType) funName
                   (Ptr (Ptr encoreCtxT): encoreRuntimeTypeT :
-                   argTypes) ++ [future]
+                   argTypes ++ [future])
 
     funParams = A.functionParams fun
     funType   = A.functionType fun
@@ -124,8 +124,8 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
           bodyResult = (Seq $ runtimeTypeAssignments ++
                              [bodyStat, returnStatement funType bodyName])
       in
--- <<<<<<< 61a481ad5747004bf3ec15f689b9f53cc2306b53
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
+-- <<<<<<< fc80ba4596a9619eac93f8d5fac77d59f779ef2f
 -- <<<<<<< 95f6cba4381d9a1beb7fe0e017570c31a19f0435
 
 returnStatement ty var
@@ -147,3 +147,9 @@ returnStatement ty var
 --           | isVoidType ty = Return unit
 --           | otherwise     = Return var
 -- >>>>>>> Add forward for future
+-- =======
+--     where
+--       returnStmnt var ty
+--           | isVoidType ty = Return unit
+--           | otherwise     = Return var
+-- >>>>>>> Rebase the code

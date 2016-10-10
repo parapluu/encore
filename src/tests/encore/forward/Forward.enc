@@ -7,6 +7,9 @@ class Next
   def two() : int
     forward (new Base).one()
 
+  def two_get() : int
+    get (new Base).one()
+
 class Main
   def main() : void
     print get (new Next).two()

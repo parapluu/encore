@@ -48,13 +48,13 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
         args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (if A.isMainMethod cname mName && null argNames
-                then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
+                then [(array, Var "_argv")] ++ [(future, Var "_fut")] --"_fut_unused")]
                 else zip argTypes argNames ++ [(future, Var "_fut")])
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
         argsFwd = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                   (Ptr . AsType $ classTypeName cname, Var "_this") :
                   (if A.isMainMethod cname mName && null argNames
-                  then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
+                  then [(array, Var "_argv")] ++ [(future, Var "_fut")] --"_fut_unused")]
                   else zip argTypes argNames ++ [(future, Var "_fut")])
         futureFulfilStmt = Statement $ If (CUnary (translate ID.NOT)
                                           (Call futureFulfilled [AsExpr $ Var "_fut"]))
@@ -62,7 +62,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                                           Skip
         retStmtFwd = Seq [futureFulfilStmt, Return Skip]--Seq [Return Skip, Return Skip] -- $ if Ty.isVoidType mType then unit else bodyn
     in
-      Concat $ closures ++ tasks ++
+      Concat $ closures ++ tasks ++ -- _forward's body
                [Function void nameFwd argsFwd
                  (Seq [extractTypeVars, bodys, retStmtFwd])] ++
                [Function returnType name args

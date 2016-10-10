@@ -1196,6 +1196,7 @@ callTheMethodForName
         ++ if (endswith "_forward" (show cMethodName))
            then [AsExpr $ Var "_fut"]
            else [AsExpr $ Var "NULL"]
+        -- ++ [AsExpr $ Var "_fut"]
     )
   where
     cMethodName = genCMethodName targetType methodName
