@@ -1,4 +1,4 @@
-bundle List where
+module List
 
 passive class List {
   -- ..

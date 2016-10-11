@@ -1,0 +1,10 @@
+import Top
+
+def apply<a, b>(f : a -> b, x : a) : b
+  f(x)
+
+class Main
+  def main() : void {
+    print apply(id<int>, 10);
+    print apply(Top.id<int>, 10)
+  }

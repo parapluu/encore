@@ -8,6 +8,7 @@ import CodeGen.ClassTable
 import CodeGen.CCodeNames
 import Types as Ty
 
+import qualified Identifiers as ID
 import qualified AST.AST as A
 import qualified AST.Meta as Meta
 import qualified AST.Util as Util
@@ -15,6 +16,7 @@ import qualified CodeGen.Context as Ctx
 
 
 import Control.Monad.State hiding(void)
+import Control.Arrow(first)
 
 translateTask :: A.Expr -> ProgramTable -> CCode Toplevel
 translateTask task table
@@ -27,7 +29,9 @@ translateTask task table
            envTaskName   = taskEnvName id
            dependencyTaskName = taskDependencyName id
            traceTaskName = taskTraceName id
-           freeVars      = Util.freeVariables [] body
+           freeVars      = map (first ID.qnlocal) $
+                           filter (ID.isLocalQName . fst) $
+                           Util.freeVariables [] body
            encEnvNames   = map fst freeVars
            envNames      = map (AsLval . fieldName) encEnvNames
            subst         = zip encEnvNames envNames

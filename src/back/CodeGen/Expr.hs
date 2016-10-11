@@ -27,6 +27,7 @@ import Control.Monad.State hiding (void)
 import Data.List
 import qualified Data.Set as Set
 import Data.Maybe
+import Debug.Trace
 
 instance Translatable ID.BinaryOp (CCode Name) where
   translate op = Nam $ case op of
@@ -102,6 +103,7 @@ unsubstituteVar na = do
   put $ Ctx.substRem c na
   return ()
 
+getRuntimeType :: A.Expr -> CCode Expr
 getRuntimeType = runtimeType . Ty.getResultType . A.getType
 
 newParty :: A.Expr -> CCode Name
@@ -353,11 +355,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             rhsType = A.getType rhs
             needUpCast = rhsType /= lhsType
             cast = Cast (translate lhsType)
-        mkLval (A.VarAccess {A.name}) =
+        mkLval (A.VarAccess {A.qname}) =
            do ctx <- get
-              case Ctx.substLkp ctx name of
+              case Ctx.substLkp ctx qname of
                 Just substName -> return substName
-                Nothing -> return $ Var (show name)
+                Nothing -> error $ "Expr.hs: LVal is not assignable: " ++
+                                   show qname
         mkLval (A.FieldAccess {A.target, A.name}) =
            do (ntarg, ttarg) <- translate target
               return (Deref (StatAsExpr ntarg ttarg) `Dot` (fieldName name))
@@ -402,15 +405,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Int index,
                             asEncoreArgT (translate ty) $ AsExpr narg]
 
-  translate (A.VarAccess {A.name}) = do
+  translate (A.VarAccess {A.qname}) = do
       c <- get
-      case Ctx.substLkp c name of
+      case Ctx.substLkp c qname of
         Just substName ->
             return (substName , Skip)
         Nothing ->
-            return (Var . show $ globalClosureName name, Skip)
+            return (Var . show $ globalClosureName qname, Skip)
 
-  translate fun@(A.FunctionAsValue {A.name, A.typeArgs}) = do
+  translate fun@(A.FunctionAsValue {A.typeArgs}) = do
     tmp <- Var <$> Ctx.genSym
     let funName = globalFunctionAsValueWrapperNameOf fun
     (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
@@ -732,8 +735,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
-        translatePattern (A.FunctionCall {A.name, A.args}) narg argty assocs usedVars = do
-          let eSelfArg = AsExpr narg
+        translatePattern (A.FunctionCall {A.qname, A.args}) narg argty assocs usedVars = do
+          let name = ID.qnlocal qname
+              eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               innerExpr = head args -- args is known to only contain one element
               innerTy = A.getType innerExpr
@@ -796,8 +800,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let derefedArg = Deref larg
           translateMaybePattern e derefedArg argty assocs usedVars
 
-        translatePattern (A.VarAccess{A.name}) larg argty assocs usedVars
-          | Set.member name usedVars = do
+        translatePattern (A.VarAccess{A.qname}) larg argty assocs usedVars
+          | name <- ID.qnlocal qname
+          , Set.member name usedVars = do
               tmp <- Ctx.genNamedSym "varBinding"
               let eVar = AsExpr $ fromJust $ lookup (show name) assocs
                   eArg = AsExpr larg
@@ -806,7 +811,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               return (Var tmp, tBindRet, usedVars)
           | otherwise = do
               tmp <- Ctx.genNamedSym "varBinding"
-              let lVar = fromJust $ lookup (show name) assocs
+              let name = ID.qnlocal qname
+                  lVar = fromJust $ lookup (show name) assocs
                   eArg = AsExpr larg
                   tBindVar = Assign lVar eArg
                   tBindRet = Assign (Var tmp) (Int 1)
@@ -872,8 +878,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   let tname = fromJust $ lookup (show name) assocs
                   in Statement $ Decl (translate ty, tname)
 
-              getExprVars var@(A.VarAccess {A.name}) =
-                  [(name, A.getType var)]
+              getExprVars var@(A.VarAccess {A.qname}) =
+                  [(ID.qnlocal qname, A.getType var)]
               getExprVars _ =
                   []
 
@@ -889,9 +895,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         return $ code ++ pp interpolated
       translateInterpolated A.Skip{} =
         return (Embed "")
-      translateInterpolated A.VarAccess{A.name} = do
-        result <- gets (`Ctx.substLkp` name)
-        let var = fromMaybe (AsLval $ globalClosureName name) result
+      translateInterpolated A.VarAccess{A.qname} = do
+        result <- gets (`Ctx.substLkp` qname)
+        let var = fromMaybe (AsLval $ globalClosureName qname) result
         return $ AsExpr var
       translateInterpolated A.FieldAccess{A.name, A.target} = do
         targ <- translateInterpolated target
@@ -969,7 +975,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
              envName = taskEnvName metaId
              dependencyName = taskDependencyName metaId
              traceName = taskTraceName metaId
-             freeVars = Util.freeVariables [] body
+             freeVars = filter (ID.isLocalQName . fst) $
+                        Util.freeVariables [] body
              taskMk = Assign (Decl (task, Var taskName))
                       (Call taskMkFn [encoreCtxName, funName, envName, dependencyName, traceName])
              -- TODO: (kiko) refactor to use traceVariable from Trace.hs
@@ -1006,22 +1013,25 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         taskRunner async futName = Assign (Decl (C.future, Var futName))
                                              (Call futureMkFn
                                                 [AsExpr encoreCtxVar, getRuntimeType async])
-        packFreeVars envName (name, _) =
+        packFreeVars envName (qname, _) =
             do c <- get
-               let tname = case Ctx.substLkp c name of
+               let tname = case Ctx.substLkp c qname of
                               Just substName -> substName
-                              Nothing -> AsLval $ globalClosureName name
-               return $ Assign ((Var $ show envName) `Arrow` (fieldName name)) tname
+                              Nothing -> AsLval $ globalClosureName qname
+               return $ Assign ((Var $ show envName) `Arrow`
+                               fieldName (ID.qnlocal qname)) tname
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
     globalFunctionNames <- gets Ctx.getGlobalFunctionNames
-    let freeVars = Util.freeVariables (map A.pname eparams ++ globalFunctionNames) body
+    let bound = map (ID.qLocal . A.pname) eparams
+        freeVars = filter (ID.isLocalQName . fst) $
+                   Util.freeVariables bound body
     fillEnv <- insertAllVars freeVars fTypeVars
-    return $
+    return
       (Var tmp,
       Seq $
-        (mkEnv envName) : fillEnv ++
+        mkEnv envName : fillEnv ++
         [Assign (Decl (closure, Var tmp))
           (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
@@ -1043,7 +1053,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
         let tname = fromMaybe (AsLval $ globalClosureName name)
                               (Ctx.substLkp c name)
-        return $ assignVar (fieldName name) tname
+        return $ assignVar (fieldName (ID.qnlocal name)) tname
       insertTypeVar ty = do
         c <- get
         let
@@ -1051,18 +1061,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           fName = typeVarRefName ty
         return $ assignVar fName tname
         where
-          name = ID.Name $ Ty.getId ty
+          name = ID.qName $ Ty.getId ty
       assignVar :: (UsableAs e Expr) => CCode Name -> CCode e -> CCode Stat
       assignVar lhs rhs = Assign ((Deref envName) `Dot` lhs) rhs
       localTypeVar ty = do
         c <- get
         return $ isJust $ Ctx.substLkp c name
         where
-          name = ID.Name $ Ty.getId ty
+          name = ID.qName $ Ty.getId ty
 
-  translate fcall@(A.FunctionCall{A.name, A.args}) = do
+  translate fcall@(A.FunctionCall{A.qname, A.args}) = do
     ctx <- get
-    case Ctx.substLkp ctx name of
+    case Ctx.substLkp ctx qname of
       Just clos -> closureCall clos fcall
       Nothing -> globalFunctionCall fcall
 
@@ -1070,7 +1080,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
 closureCall :: CCode Lval -> A.Expr ->
   State Ctx.Context (CCode Lval, CCode Stat)
-closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
+closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
   targs <- mapM translateArgument args
   (tmpArgs, tmpArgDecl) <- tmpArr (Typ "value_t") targs
   (calln, theCall) <- namedTmpVar "clos" typ $
@@ -1086,7 +1096,7 @@ closureCall clos fcall@A.FunctionCall{A.name, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.name, A.args} = do
+globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.qname, A.args} = do
   (argNames, initArgs) <- unzip <$> mapM translate args
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
@@ -1100,7 +1110,7 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
 
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
-          prototype = Call (globalFunctionName name)
+          prototype = Call (globalFunctionName qname)
                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
       rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
@@ -1109,7 +1119,7 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
     unwrapReturnType functionCall = do
       -- this function checks if the formal parameter return type is a type variable
       -- and, if so, unwraps it (adds the .i, .p or .d)
-      header <- gets (Ctx.lookupFunction name)
+      header <- gets (Ctx.lookupFunction qname)
       let formalReturnType = A.htype header
       return (if Ty.isTypeVar formalReturnType then
                AsExpr (fromEncoreArgT (translate typ) functionCall)
@@ -1117,7 +1127,7 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
 
     wrapArgumentsWithTypeParams args cArgs = do
       -- helper function. wrap parametric arguments inside an encoreArgT
-      fHeader <- gets $ Ctx.lookupFunction name
+      fHeader <- gets $ Ctx.lookupFunction qname
       let formalTypes = map A.ptype (A.hparams fHeader)
           argsWithFormalTypes = zip formalTypes $ zip args cArgs
 

@@ -39,7 +39,7 @@ instance Translatable A.Program Emitted where
       table = buildProgramTable prog
       header = generateHeader prog
       shared = generateShared prog table
-      classes = A.traverseProgram (nameAndClass table) prog
+      classes = nameAndClass table prog
     in
       Emitted{classes, header, shared}
     where

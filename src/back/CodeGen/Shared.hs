@@ -1,5 +1,6 @@
 module CodeGen.Shared(generateShared) where
 
+import Types
 import CCode.Main
 import CodeGen.CCodeNames
 import CodeGen.Typeclasses
@@ -7,10 +8,13 @@ import CodeGen.Function
 import CodeGen.ClassTable
 import qualified AST.AST as A
 
+import Data.Maybe
+import Data.List
+
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generateShared :: A.Program -> ProgramTable -> CCode FIN
-generateShared prog@(A.Program{A.functions, A.imports}) table =
+generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) table =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -24,14 +28,12 @@ generateShared prog@(A.Program{A.functions, A.imports}) table =
 
       [mainFunction]
     where
-      allfunctions = A.allFunctions prog
-
       globalFunctions =
-        [translate f table | f <- allfunctions] ++
-        [globalFunctionWrapper f | f <- allfunctions] ++
-        [initGlobalFunctionClosure f | f <- allfunctions]
+        [translate f table | f <- functions] ++
+        [globalFunctionWrapper f | f <- functions] ++
+        [initGlobalFunctionClosure f | f <- functions]
 
-      embeddedCode = A.traverseProgram embedded prog
+      embeddedCode = embedded prog
         where
           embedded A.Program{A.source, A.etl} =
               [commentSection $ "Embedded Code from " ++ show source] ++
@@ -61,10 +63,19 @@ generateShared prog@(A.Program{A.functions, A.imports}) table =
                    $ Return encoreStart
           where
             encoreStart =
-                Call (Nam "encore_start")
-                     [AsExpr $ Var "argc",
-                      AsExpr $ Var "argv",
-                      Amp (Var "_enc__active_Main_type")]
+                case find isLocalMain classes of
+                  Just mainClass ->
+                      Call (Nam "encore_start")
+                           [AsExpr $ Var "argc"
+                           ,AsExpr $ Var "argv"
+                           ,Amp (AsLval $ runtimeTypeName (A.cname mainClass))
+                           ]
+                  Nothing ->
+                      let msg =
+                            "This program has no Main class and will now exit"
+                      in Call (Nam "puts") [String msg]
+            isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
+                                             getRefSourceFile cname == source
 
 
 commentSection :: String -> CCode Toplevel

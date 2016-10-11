@@ -17,7 +17,7 @@ import Data.Char(isUpper)
 import Control.Applicative ((<$>))
 
 -- Module dependencies
-import Identifiers
+import Identifiers hiding(namespace)
 import Types hiding(refType)
 import AST.AST
 import AST.Meta hiding(Closure, Async)
@@ -82,7 +82,7 @@ lexer =
     ,"Stream"
     ,"import"
     ,"qualified"
-    ,"bundle"
+    ,"module"
     ,"peer"
     ,"finish"
     ,"trait"
@@ -160,12 +160,10 @@ natural = P.natural lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
--- ! For parsing qualified names such as A.B.C
-longidentifier :: Parser QName
-longidentifier = do
-    id <- identifier
-    rest <- option [] (do { dot ; longidentifier })
-    return $ Name id : rest
+namespace :: Parser Namespace
+namespace =
+    (Name <$> (lookAhead upper >> identifier)) `sepBy1`
+    try (dot >> lookAhead upper)
 
 typ :: Parser Type
 typ = buildExpressionParser opTable singleType
@@ -219,10 +217,14 @@ typ = buildExpressionParser opTable singleType
         reserved "Range"
         return rangeType
       refType = do
-        notFollowedBy lower
-        refId <- identifier
+        full <- namespace
+        let ns = init full
+            refId = show $ last full
         parameters <- option [] $ angles (commaSep1 typ)
-        return $ refTypeWithParams refId parameters
+        if null ns
+        then return $ refTypeWithParams refId parameters
+        else return $ setRefNamespace ns $
+                      refTypeWithParams refId parameters
       primitive =
         do {reserved "int"; return intType} <|>
         do {reserved "uint"; return uintType} <|>
@@ -255,36 +257,49 @@ program = do
   source <- sourceName <$> getPosition
   optional hashbang
   whiteSpace
-  bundle <- bundledecl
+  moduledecl <- moduleDecl
   imports <- many importdecl
   etls <- embedTL
   let etl = [etls]
   decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function)
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
-  return Program{source, bundle, etl, imports, typedefs, functions, traits, classes}
+  return Program{source, moduledecl, etl, imports, typedefs, functions, traits, classes}
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
 
-bundledecl :: Parser BundleDecl
-bundledecl = option NoBundle $ do
-  pos <- getPosition
-  reserved "bundle"
-  bname <- longidentifier
-  reserved "where"
-  return $ Bundle (meta pos) bname
+moduleDecl :: Parser ModuleDecl
+moduleDecl = option NoModule $ do
+  modmeta <- meta <$> getPosition
+  reserved "module"
+  lookAhead upper
+  modname <- Name <$> identifier
+  modexports <- optionMaybe (parens ((Name <$> identifier) `sepEndBy` comma))
+  return Module{modmeta
+               ,modname
+               ,modexports
+               }
 
 importdecl :: Parser ImportDecl
 importdecl = do
-  pos <- getPosition
+  imeta <- meta <$> getPosition
   reserved "import"
---  qualified <- option $ reserved "qualified"
-  iname <- longidentifier
---  {(Name,...)}?
---  stringliteral "as"; qname <- name
---  {as Name}
-  return $ Import (meta pos) iname
+  iqualified <- option False $ reserved "qualified" >> return True
+  itarget <- namespace
+  iselect <- optionMaybe $ parens ((Name <$> identifier) `sepEndBy` comma)
+  ialias <- optionMaybe $ reserved "as" >> namespace
+  ihiding <- optionMaybe $
+             reserved "hiding" >>
+             parens ((Name <$> identifier) `sepEndBy` comma)
+  return Import{imeta
+               ,itarget
+               ,iqualified
+               ,iselect
+               ,ihiding
+               ,ialias
+               ,isource = Nothing
+               }
 
 embedTL :: Parser EmbedTL
 embedTL = do
@@ -306,11 +321,12 @@ typedef :: Parser Typedef
 typedef = do
   typedefmeta <- meta <$> getPosition
   reserved "typedef"
-  name <- identifier
+  name <- lookAhead upper >> identifier
   params <- optionalTypeParameters
   reservedOp "="
   typedeftype <- typ
-  let typedefdef = typeSynonym name params typedeftype
+  let typedefdef = setRefNamespace [] $
+                   typeSynonym name params typedeftype
   return Typedef{typedefmeta, typedefdef}
 
 functionHeader :: Parser FunctionHeader
@@ -371,7 +387,8 @@ function =  try regularFunction <|> matchingFunction
       funbody <- expression
       return Function{funmeta
                      ,funheader
-                     ,funbody}
+                     ,funbody
+                     ,funsource = ""}
     matchingFunction = do
       funmeta <- meta <$> getPosition
       reserved "def"
@@ -380,7 +397,8 @@ function =  try regularFunction <|> matchingFunction
           matchfunbodies = map snd clauses
       return MatchingFunction{funmeta
                              ,matchfunheaders
-                             ,matchfunbodies}
+                             ,matchfunbodies
+                             ,funsource = ""}
       where
         functionClause = do
           funheader <- matchingHeader
@@ -391,11 +409,12 @@ traitDecl :: Parser TraitDecl
 traitDecl = do
   tmeta <- meta <$> getPosition
   reserved "trait"
-  ident <- identifier
+  ident <- lookAhead upper >> identifier
   params <- optionalTypeParameters
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
-              ,tname = traitTypeFromRefType $
+              ,tname = setRefNamespace [] $
+                       traitTypeFromRefType $
                        refTypeWithParams ident params
               ,treqs
               ,tmethods
@@ -425,12 +444,13 @@ classDecl = do
   cmeta <- meta <$> getPosition
   activity <- parseActivity
   reserved "class"
-  name <- identifier
+  name <- lookAhead upper >> identifier
   params <- optionalTypeParameters
   ccapability <- option incapability (do{reservedOp ":"; typ})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = classType activity name params
+              ,cname = setRefNamespace [] $
+                       classType activity name params
               ,ccapability
               ,cfields
               ,cmethods
@@ -530,7 +550,7 @@ matchClause = do
     where
       dontCare = do pos <- getPosition
                     symbol "_"
-                    return (VarAccess (meta pos) (Name "_"))
+                    return (VarAccess (meta pos) (qName "_"))
 
 expression :: Parser Expr
 expression = buildExpressionParser opTable highOrderExpr
@@ -706,6 +726,7 @@ expr  =  embed
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>
+                        try qualifiedVarOrFun <|>
                         varOrFun
                 longerPath pos root <|> return root
              where
@@ -717,22 +738,34 @@ expr  =  embed
                    [e] -> return e
                    _ -> return $ Tuple (meta pos) args
 
+               qualifiedVarOrFun = do
+                 qx <- qualifiedVarAccess
+                 functionOrCall qx <|> return qx
+
                varOrFun = do
                  x <- varAccess
                  functionOrCall x <|> return x
 
+               qualifiedVarAccess = do
+                 pos <- getPosition
+                 ns <- namespace
+                 dot
+                 x <- identifier
+                 let qx = setNamespace ns (qName x)
+                 return $ VarAccess (meta pos) qx
+
                varAccess = do
                  pos <- getPosition
                  id <- (do reserved "this"; return "this") <|> identifier
-                 return $ VarAccess (meta pos) (Name id)
+                 return $ VarAccess (meta pos) (qName id)
 
-               functionOrCall VarAccess{emeta, name} = do
+               functionOrCall VarAccess{emeta, qname} = do
                  optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
                  case optTypeArgs of
                    Just typeArgs ->
-                       call emeta optTypeArgs name <|>
-                            return (FunctionAsValue emeta typeArgs name)
-                   Nothing -> call emeta Nothing name
+                       call emeta optTypeArgs qname <|>
+                            return (FunctionAsValue emeta typeArgs qname)
+                   Nothing -> call emeta Nothing qname
 
                call emeta typeArgs name = do
                  args <- parens arguments
@@ -749,16 +782,16 @@ expr  =  embed
                  x <- varAccess
                  functionCall x <|> return x
 
-               functionCall VarAccess{emeta, name} = do
+               functionCall VarAccess{emeta, qname} = do
                  typeParams <- optionMaybe (try . angles $ commaSep typ)
                  args <- parens arguments
-                 return $ FunctionCall emeta typeParams name args
+                 return $ FunctionCall emeta typeParams qname args
 
-               buildPath pos target (VarAccess{name}) =
-                   FieldAccess (meta pos) target name
+               buildPath pos target (VarAccess{qname}) =
+                   FieldAccess (meta pos) target (qnlocal qname)
                -- TODO: Pass type arguments to parametric method
-               buildPath pos target (FunctionCall{name, args}) =
-                   MethodCall (meta pos) target name args
+               buildPath pos target (FunctionCall{qname, args}) =
+                   MethodCall (meta pos) target (qnlocal qname) args
 
       letExpression = do pos <- getPosition
                          reserved "let"
@@ -898,7 +931,8 @@ expr  =  embed
                  reserved "print"
                  notFollowedBy (symbol "(" >> symbol "\"")
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) Nothing (Name "println") arg
+                 return $ FunctionCall (meta pos) Nothing
+                                       (qName "println") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string

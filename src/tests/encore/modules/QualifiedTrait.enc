@@ -1,0 +1,9 @@
+import qualified TraitLib
+import qualified A.B.QLib
+
+passive class Z : A.B.QLib.T + TraitLib.S
+
+class Main
+  def main() : void
+    let z = new Z
+    in print z.zero()

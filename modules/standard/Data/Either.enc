@@ -1,0 +1,53 @@
+module Either
+
+def Left<a,b>(x:a) : Either<a,b>
+  new Left<a,b>(x) : Either<a,b>
+
+def Right<a,b>(x:b) : Either<a,b>
+  new Right<a,b>(x) : Either<a,b>
+
+trait Either<a,b>
+  require Left() : Maybe a
+  require Right() : Maybe b
+
+  def map(f: b -> b) : Either<a,b> {
+    match this with
+      Left(x)  => new Left<a,b>(x)
+      Right(x) => new Right<a,b>(f(x))
+    }
+
+  def foreach(f: b -> void) : void {
+    match this with
+      Left(x)  => ()
+      Right(x) => f(x)
+    }
+
+  def flatMap(f : b -> Either<a,b>) : Either<a,b> {
+    match this with
+      Left(x)  => new Left<a,b>(x)
+      Right(x) => f(x)
+  }
+
+passive class Left<a,b> : Either<a,b>
+  x : a
+
+  def init(x:a) : void
+    this.x = x
+
+  def Left() : Maybe a
+    Just this.x
+
+  def Right() : Maybe b
+    Nothing
+
+passive class Right<a,b> : Either<a,b>
+  x : b
+
+  def init(x:b) : void
+    this.x = x
+
+  def Left() : Maybe a
+    Nothing
+
+  def Right() : Maybe b
+    Just this.x

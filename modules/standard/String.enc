@@ -1,0 +1,376 @@
+module String
+
+embed
+#include <string.h>
+#include <strings.h>
+#include <alloca.h>
+#include <ctype.h>
+#include <math.h>
+array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv);
+body
+// This function is called in the very beginning of the program to
+// build an array containing the arguments of the program.
+array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
+  array_t *arr = array_mk(ctx, argc, &_enc__passive_String_String_type);
+  for(int i = 0; i < argc; i++) {
+    _enc__passive_String_String_t* s =
+      encore_alloc(*ctx, sizeof(_enc__passive_String_String_t));
+    s->_enc__self_type = &_enc__passive_String_String_type;
+    _enc__method_String_String__init(ctx, s, argv[i]);
+    array_set(arr, i, (encore_arg_t){.p = s});
+  }
+  return arr;
+}
+end
+
+def string_from_char(c : char) : String
+  let
+    s = embed (embed char* end) encore_alloc(*_ctx, 2); end
+  in
+    new String(embed (embed char* end) *#{s} = #{c}; #{s}; end)
+
+def string_from_array(arr : [char]) : String
+  let
+    len = |arr|
+    s = embed (embed char* end) encore_alloc(*_ctx, #{len} + 1); end
+    p = s
+  in{
+    for c in arr
+      embed void *#{p}++ = #{c}; end;
+    new String(s)
+  }
+
+def string_from_real(n : real) : String
+  new String(embed
+    (embed char* end)
+    double n = #{n};
+    char buf[13] = { 0 }; // long enough to print the minimum double value.
+    char *s = encore_alloc(*_ctx, sizeof(buf));
+    snprintf(s, sizeof(buf), "%.5g", n);
+    s;
+    end
+  )
+
+
+def string_from_int(n : int) : String
+  new String(embed
+    (embed char* end)
+    int n = #{n};
+    int len = n == 0? 2:
+              n < 0? (int) ceil(log10(-n)) + 2:
+                     (int) ceil(log10(n)) + 1;
+    char *s = encore_alloc(*_ctx, len);
+    sprintf(s, "%d", n);
+    s;
+    end
+  )
+
+def string_from_bool(x : bool) : String
+  if x then "true" else "false"
+
+-- This is a utility library for working with strings.
+-- [x] build a wrapper around string.h
+-- [x] build tests for wrapper
+-- [x] expose these functions to the Encore compiler
+-- [x] change this.length(a) ==> a.length()
+-- [ ] Write proper docs
+-- Be aware of issue #204
+passive class String
+  data : embed char* end
+  length : int
+
+  def init(s:embed char* end) : void
+  {
+    this.data = s;
+    this.length = embed int; strlen(#{s}); end;
+  }
+
+  def is_empty() : bool
+    this.length == 0
+
+  -- Returns a new string which is the concatenation of the
+  -- current string and b
+  def concatenate(b:String) : String
+    let
+      t_len  = this.length()
+      b_len  = b.length()
+      t_data = this.data
+      b_data = b.data
+    in
+      new String(embed (embed char* end)
+        void *str = encore_alloc(*_ctx, #{t_len} + #{b_len} + 1);
+        strncpy(str, (char *)#{t_data}, #{t_len});
+        strncat(str, (char *)#{b_data}, #{b_len});
+        str;
+      end)
+  -- Returns a copy of the current string
+  def copy() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed (embed char* end)
+        char *str = encore_alloc(*_ctx, #{t_len} + 1);
+        strncpy(str, (char *)#{data}, #{t_len} + 1);
+        str;
+      end)
+
+  -- Returns true if b is a substring of the current string
+  def contains(b:String) : bool
+    let
+      data  = this.data
+      b_data  = b.data
+    in
+      embed bool
+        strstr((char *)#{data}, (char *)#{b_data}) != NULL;
+      end
+
+  -- As contains, but ignores case
+  def contains_ignore_case(b:String) : bool
+    this.to_upper().contains(b.to_upper())
+
+  -- Performs a string comparison á la man 3 strncmp
+  def compare(b:String) : int
+    let
+      t_len  = this.length
+      b_len  = b.length
+      len = if t_len > b_len then t_len else b_len
+      t_data = this.data
+      b_data = b.data
+    in
+      embed int strncmp((char *)#{t_data}, (char *)#{b_data}, #{len}); end
+
+  -- As compare, but ignores case
+  def compare_ignore_case(b:String) : int
+    this.to_upper().compare(b.to_upper())
+
+  -- Returns a copy of the string in uppercase
+  def to_upper() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed (embed char* end)
+        char *str = encore_alloc(*_ctx, #{t_len} + 1);
+        for (int i = 0; i < #{t_len}; ++i)
+          {
+            str[i] = toupper(((char *)#{data})[i]);
+          }
+        str[#{t_len}] = '\0';
+        str;
+      end)
+
+  -- Returns a copy of the string in lowercase
+  def to_lower() : String
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      new String(embed (embed char* end)
+        char *str = encore_alloc(*_ctx, #{t_len} + 1);
+        for (int i = 0; i < #{t_len}; ++i)
+          {
+            str[i] = tolower(((char *)#{data})[i]);
+          }
+        str[#{t_len}] = '\0';
+        str;
+      end)
+
+  -- Returns the length of a string in O(1) time
+  def length() : int
+    this.length
+
+  -- See length()
+  def size() : int
+    this.length
+
+  -- Returns a substring from the current string starting
+  -- in index from, ending in index to (inclusive).
+  def substring(from:int, to:int) : Maybe String
+    if to < from
+    then Just ""
+    else
+    let
+      t_len = this.length()
+      data  = this.data
+    in
+      if from >= 0
+      then Just new String(embed (embed char* end)
+          int siz = #{to} - #{from};
+          siz = siz < #{t_len} ? siz : #{t_len};
+          char *str = encore_alloc(*_ctx, siz + 1);
+          strncpy(str, ((char *)#{data})+#{from}, siz);
+          str[siz] = '\0';
+          str;
+        end)
+      else Nothing : Maybe String
+
+  -- Checks structural equivalence between this and s
+  def equals(s:String) : bool
+    this.compare(s) == 0
+
+  -- Calculates the number of occurrences of s in the string
+  def occurrences(s:String) : int
+    if s.length() == 0
+    then this.length()
+    else let
+      counter = 0
+      i       = this.find(s)
+      s_len   = s.length()
+    in {
+      while i >= 0 { counter = counter + 1; i = this.find_from(s, i + s_len); };
+      counter
+    }
+
+  -- Joins a given list of strings over the current string,
+  -- e.g., ",".join(["A", "B", "C"]) ==> "A, B, C".
+  -- The current implementation creates many intermediate
+  -- strings.
+  def join(strings:[String]) : String
+    if |strings| == 0
+    then ""
+    else
+      let
+        result = strings[0]
+      in {
+        for i in [1..|strings|-1]
+          result = result.concatenate(this).concatenate(strings[i]);
+        result;
+      }
+
+  def getData(): embed char* end
+     this.data
+
+  -- Removes trailing whitespace
+  -- The definition of whitespace can be found in man 3 isspace.
+  def trim() : String
+    let
+      len = this.length()
+      str = this.data
+      start_index = embed int int s = 0;        while (#{str}[s] && isspace(#{str}[s])) ++s; s; end
+      stop_index  = embed int int s = #{len}-1; while (#{str}[s] && isspace(#{str}[s])) --s; s; end
+    in
+      match this.substring(start_index, stop_index + 1) with
+        Just s => s
+
+  -- Replaces all occurrences of a by b in the string.
+  -- The current implementation creates many intermediate
+  -- strings.
+  def replace(a:String, b:String) : String
+    b.join(this.split(a))
+
+  -- Searches for the first occurrence of a
+  -- Returns -1 if not found
+  def find(a:String) : int
+    this.find_from(a, 0)
+
+  -- Searches for the first occurrence of a, from index b forward.
+  -- Returns -1 if not found
+  def find_from(a:String, b:int) : int
+    if (b < 0) or (b >= this.length())
+    then -1
+    else embed int
+      char *str = _this->_enc__field_data;
+      char *pattern = #{a}->_enc__field_data;
+      char *loc = strstr(str + #{b}, pattern);
+      loc ? loc - str : -1;
+    end
+
+  -- Terrible code
+  def delete(s:String) : String
+    let
+      to_len = this.length()
+      s_len = s.length()
+    in
+      new String(embed (embed char* end)
+      const int STACK_ALLOC_MAX = 16536;
+      char *from = _this->_enc__field_data;
+      char *pattern  = #{s}->_enc__field_data;
+      char *tmp = NULL;
+
+      if (#{to_len} > STACK_ALLOC_MAX) { tmp = encore_alloc(*_ctx, #{to_len} + 1); } else { tmp = alloca(#{to_len}); }
+
+      int copied = 0;
+      int skipped = 0;
+      for (char *next = strstr(from, pattern); next; next = strstr(next+#{s_len}, pattern))
+        {
+          strncpy(tmp + copied, from + copied + skipped, next - from - copied - skipped);
+          copied  = next - from - skipped;
+          skipped += #{s_len};
+        }
+      strcpy(tmp + copied, from + copied + skipped);
+
+      char *result = encore_alloc(*_ctx, copied + 1);
+      strcpy(result, tmp);
+      result;
+    end)
+
+  def format(b:[String]) : String
+    "To be implemented"
+
+  def char_at(i : int) : Maybe char
+    let s = this.data
+        len = this.length()
+    in if (i >= 0) and (i < len)
+       then Just (embed char #{s}[#{i}]; end)
+       else Nothing : Maybe char
+
+  def to_array() : [char]
+    let
+      len = this.length()
+      arr = new [char](len)
+    in {
+      for i in [0..len-1]
+        arr[i] = match this.char_at(i) with Just c => c;
+      arr
+    }
+
+  -- Splits a string over a pattern p, e.g., "A, B, C" turns
+  -- into ["A", "B", "C"].
+  def split(p:String) : [String]
+    let
+      occurrences = this.occurrences(p)
+      pattern_len = p.length()
+    in
+    if (occurrences == 0)
+    then [this]
+    else if (pattern_len == 0)
+    then
+      let s_arr = new [String](this.length())
+      in{
+        for i in [0..|s_arr|-1]
+          s_arr[i] = string_from_char(match this.char_at(i) with Just c => c);
+        s_arr
+      }
+    else
+      let
+        result = new [String](occurrences + 1)
+        start  = 0
+        stop   = 0
+      in {
+        repeat i <- occurrences {
+          stop = this.find_from(p, start);
+          result[i] = match this.substring(start, stop) with Just s => s;
+          start = stop + pattern_len;
+        };
+        result[occurrences] = match this.substring(start, this.length()) with Just s => s;
+        result;
+      }
+
+  def to_int() : Maybe int {
+    let s = this.data;
+    let n = 0;
+    let success = false;
+    embed void
+      char *s = #{s};
+      char *endptr;
+      #{n} = strtol(s,&endptr,0);
+      if (s != endptr)
+         #{success} = true;
+    end;
+    if success then {
+      Just n;
+    } else {
+      Nothing : Maybe int
+    }
+  }

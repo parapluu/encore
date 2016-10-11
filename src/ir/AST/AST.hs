@@ -19,7 +19,7 @@ import AST.Meta hiding(Closure, Async)
 
 data Program = Program {
   source :: SourceName,
-  bundle :: BundleDecl,
+  moduledecl :: ModuleDecl,
   etl :: [EmbedTL],
   imports :: [ImportDecl],
   typedefs :: [Typedef],
@@ -27,6 +27,8 @@ data Program = Program {
   traits :: [TraitDecl],
   classes :: [ClassDecl]
 } deriving (Show)
+
+setProgramSource source p = p{source}
 
 class Show a => HasMeta a where
     getMeta :: a -> Meta a
@@ -61,15 +63,36 @@ data EmbedTL = EmbedTL {
       etlbody   :: String
     } deriving (Show)
 
-data BundleDecl = Bundle {
-      bmeta :: Meta BundleDecl,
-      bname :: QName
+data ModuleDecl = Module {
+      modmeta :: Meta ModuleDecl,
+      modname :: Name,
+      modexports :: Maybe [Name]
     }
-  | NoBundle deriving Show
+  | NoModule deriving(Show, Eq)
+
+instance HasMeta ModuleDecl where
+    getMeta = modmeta
+
+    setMeta NoModule _ = error "AST.hs: Cannot set meta of NoModule"
+    setMeta m modmeta = m{modmeta}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of a ModuleDecl"
+
+moduleName NoModule = Name "<default>"
+moduleName Module{modname} = modname
+
+moduleExports NoModule = Nothing
+moduleExports Module{modexports} = modexports
 
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
-      itarget :: QName
+      itarget :: Namespace,
+      iqualified :: Bool,
+      ihiding :: Maybe [Name],
+      iselect :: Maybe [Name],
+      ialias :: Maybe Namespace,
+      isource :: Maybe SourceName
     } deriving (Show)
 
 instance HasMeta ImportDecl where
@@ -127,12 +150,14 @@ data Function =
     Function {
       funmeta   :: Meta Function,
       funheader :: FunctionHeader,
-      funbody   :: Expr
+      funbody   :: Expr,
+      funsource :: SourceName
     }
   | MatchingFunction {
       funmeta         :: Meta Function,
       matchfunheaders :: [FunctionHeader],
-      matchfunbodies  :: [Expr]
+      matchfunbodies  :: [Expr],
+      funsource       :: SourceName
     } deriving (Show)
 
 functionName = hname . funheader
@@ -385,11 +410,11 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
                           typeArguments :: Maybe [Type],
-                          name :: Name,
+                          qname :: QualifiedName,
                           args :: Arguments}
           | FunctionAsValue {emeta :: Meta Expr,
                              typeArgs :: [Type],
-                             name :: Name}
+                             qname :: QualifiedName}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
                      body :: Expr}
@@ -485,7 +510,7 @@ data Expr = Skip {emeta :: Meta Expr}
                     lhs :: Expr,
                     rhs :: Expr}
           | VarAccess {emeta :: Meta Expr,
-                       name :: Name}
+                       qname :: QualifiedName}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}
@@ -532,7 +557,7 @@ isLval ArrayAccess {} = True
 isLval _ = False
 
 isThisAccess :: Expr -> Bool
-isThisAccess VarAccess {name = Name "this"} = True
+isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"
 isThisAccess _ = False
 
 isClosure :: Expr -> Bool
@@ -603,23 +628,11 @@ setSugared e sugared = e {emeta = AST.Meta.setSugared sugared (emeta e)}
 getSugared :: Expr -> Maybe Expr
 getSugared e = AST.Meta.getSugared (emeta e)
 
-traverseProgram :: (Program -> [a]) -> Program -> [a]
-traverseProgram f program = f program
-
 getTrait :: Type -> Program -> TraitDecl
 getTrait t p =
   let
-    traits = allTraits p
     match t trait = getId t == getId (tname trait)
   in
-    fromJust $ find (match t) traits
+    fromJust $ find (match t) (traits p)
 
-allTypedefs = traverseProgram typedefs
-
-allClasses = traverseProgram classes
-
-allTraits = traverseProgram traits
-
-allFunctions = traverseProgram functions
-
-allEmbedded = traverseProgram (map etlheader . etl)
+allEmbedded = map etlheader . etl

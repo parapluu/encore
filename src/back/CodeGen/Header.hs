@@ -49,7 +49,7 @@ generateHeader p =
     sharedMessages ++
 
     [commentSection "Embedded code"] ++
-    map Embed allembedded ++
+    map Embed embedded ++
 
     [commentSection "Class type decls"] ++
     classTypeDecls ++
@@ -83,11 +83,11 @@ generateHeader p =
     runtimeTypeFnDecls ++
 
     [commentSection "Methods"] ++
-    concatMap methodFwds allclasses ++
-    concatMap wrapperMethods allclasses ++
+    concatMap methodFwds classes ++
+    concatMap wrapperMethods classes ++
 
     [commentSection "Constructors"] ++
-    concatMap constructors allclasses ++
+    concatMap constructors classes ++
 
     [commentSection "Main actor rtti"] ++
     [externMainRtti] ++
@@ -106,13 +106,13 @@ generateHeader p =
            DeclTL (ponyMsgT, Var "m_run_closure")
           ]
 
-     allTraits = A.allTraits p
-     allclasses = A.allClasses p
-     allfunctions = A.allFunctions p
-     allembedded = A.allEmbedded p
+     traits = A.traits p
+     classes = A.classes p
+     functions = A.functions p
+     embedded = A.allEmbedded p
 
      ponyMsgTTypedefs :: [CCode Toplevel]
-     ponyMsgTTypedefs = map ponyMsgTTypedefClass allclasses
+     ponyMsgTTypedefs = map ponyMsgTTypedefClass classes
             where
                 ponyMsgTTypedefClass A.Class{A.cname, A.cmethods} =
                     Concat $ concatMap ponyMsgTTypedef cmethods
@@ -122,7 +122,7 @@ generateHeader p =
                              Typedef (Struct $ oneWayMsgTypeName cname (A.methodName mdecl)) (oneWayMsgTypeName cname (A.methodName mdecl))]
 
      ponyMsgTImpls :: [CCode Toplevel]
-     ponyMsgTImpls = map ponyMsgTImplsClass allclasses
+     ponyMsgTImpls = map ponyMsgTImplsClass classes
               where
                 ponyMsgTImplsClass A.Class{A.cname, A.cmethods} =
                     Concat $ map ponyMsgTImpl cmethods
@@ -138,13 +138,13 @@ generateHeader p =
                                     ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpecOneway : argspecs)]
 
      globalFunctions =
-       [globalFunctionDecl f | f <- allfunctions] ++
-       [globalFunctionWrapperDecl f | f <- allfunctions] ++
-       [globalFunctionClosureDecl f | f <- allfunctions]
+       [globalFunctionDecl f | f <- functions] ++
+       [globalFunctionWrapperDecl f | f <- functions] ++
+       [globalFunctionClosureDecl f | f <- functions]
 
      messageEnums =
                 let
-                    meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.methodName (A.cmethods cdecl))) allclasses
+                    meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.methodName (A.cmethods cdecl))) classes
                     methodMsgNames = map (show . (uncurry futMsgId)) meta
                     oneWayMsgNames = map (show . (uncurry oneWayMsgId)) meta
                 in
@@ -152,27 +152,27 @@ generateHeader p =
 
      classEnums =
        let
-        classIds = map (refTypeId . A.getType) allclasses
-        traitIds = map (refTypeId . A.getType) allTraits
+        classIds = map (refTypeId . A.getType) classes
+        traitIds = map (refTypeId . A.getType) traits
        in
         Enum $ (Nam "__ID_DUMMY__ = 1024") : classIds ++ traitIds
 
-     traceFnDecls = map traceFnDecl allclasses
+     traceFnDecls = map traceFnDecl classes
          where
            traceFnDecl A.Class{A.cname} =
                FunctionDecl void (classTraceFnName cname) [Ptr encoreCtxT,Ptr void]
 
-     runtimeTypeFnDecls = map runtimeTypeFnDecl allclasses
+     runtimeTypeFnDecls = map runtimeTypeFnDecl classes
          where
            runtimeTypeFnDecl A.Class{A.cname} =
                FunctionDecl void (runtimeTypeInitFnName cname) [Ptr . AsType $ classTypeName cname, Embed "..."]
 
-     classTypeDecls = map classTypeDecl allclasses
+     classTypeDecls = map classTypeDecl classes
                  where
                    classTypeDecl A.Class{A.cname} =
                        Typedef (Struct $ classTypeName cname) (classTypeName cname)
 
-     passiveTypes = map passiveType $ filter (A.isPassive) allclasses
+     passiveTypes = map passiveType $ filter (A.isPassive) classes
                  where
                    passiveType A.Class{A.cname, A.cfields} =
                        let typeParams = Ty.getTypeParameters cname in
@@ -184,17 +184,17 @@ generateHeader p =
                                    (map (AsLval . fieldName . A.fname) cfields))
      traitMethodEnums =
        let
-         dicts = map (A.getType &&& A.traitInterface) allTraits
+         dicts = map (A.getType &&& A.traitInterface) traits
          pairs = concatMap (\(t, hs) -> zip (repeat t) (map A.hname hs)) dicts
          syncs = map (show . (uncurry msgId)) pairs
        in Enum $ (Nam "__TRAIT_METHOD_DUMMY__ = 1024") : map Nam syncs
 
-     traitTypeDecls = map traitTypeDecl allTraits
+     traitTypeDecls = map traitTypeDecl traits
        where
          traitTypeDecl A.Trait{A.tname} =
            let ty = refTypeName tname in Typedef (Struct $ ty) ty
 
-     traitTypes = map traitType allTraits
+     traitTypes = map traitType traits
        where
          traitType A.Trait{A.tname} =
            let
@@ -203,7 +203,7 @@ generateHeader p =
            in
              StructDecl (AsType $ refTypeName tname) [self]
 
-     runtimeTypeDecls = map typeDecl allclasses ++ map typeDecl allTraits
+     runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where
          typeDecl ref =
            let

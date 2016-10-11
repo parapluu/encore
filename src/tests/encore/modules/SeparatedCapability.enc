@@ -1,0 +1,7 @@
+import Lib.FarLib
+import Lib.TraitLib
+
+class Main
+  def main() : void
+    let x = new FarFoo : S
+    in x.s()

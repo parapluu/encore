@@ -1,0 +1,52 @@
+module ParTTest
+
+import ParT
+
+def toUpperAndSmall(s: String): Par String
+  liftv(s.to_upper()) || liftv(s)
+
+def printUpper(s: String): void
+  print s.to_upper()
+
+class Test
+  def producer(): String
+    "producer"
+
+class Main
+  def testBindAndFilter(): void
+    -- this test filters and creates two versions of the filtered items
+    let fut = (new Test).producer()
+        p = empty<String>() || liftv("Test") || liftv("Quick") ||
+            liftv("Encore") || liftf(fut)
+        filteredP = filter<String>(\(s: String) ->
+                                     s.contains("k") or s.contains("prod"), p)
+        bindP = bind<String, String>(toUpperAndSmall, filteredP)
+    in for s in extract(bindP) print(s)
+
+  def testReduce(): void
+    -- this test concats items in a ParT
+    let p = empty<String>() || liftv("Test") || liftv("Quick") || liftv("Encore")
+        concatFn = \(x: String, acc: String) -> x.concatenate(acc)
+        red = reduce<String, String>(concatFn, "", p)
+        result = get(red)
+    in print(result)
+
+  def testForeach(): void
+    let p = empty<String>() || liftv("Test") || liftv("Quick") || liftv("Encore")
+    in foreach<String>(p, printUpper)
+
+  def testAggregate(): void
+    let p = liftv("Test") || liftv("Quick") || liftv("Encore")
+        result = aggregate<String, int, int>(p, 0,
+                                             \(s: String, acc: int) -> acc + 1,
+                                             \(x: int) -> x)
+                 >> \(total: int) ->
+                      "Aggregation result: ".concatenate(string_from_int(total))
+    in print((extract(result))[0])
+
+  def main(): void {
+    this.testBindAndFilter();
+    this.testReduce();
+    this.testForeach();
+    this.testAggregate();
+  }

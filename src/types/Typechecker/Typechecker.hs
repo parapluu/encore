@@ -8,9 +8,11 @@ with a meaningful error message if it fails.
 
 -}
 
-module Typechecker.Typechecker(typecheckEncoreProgram, checkForMainClass) where
+module Typechecker.Typechecker(typecheckProgram, checkForMainClass) where
 
 import Data.List
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text as T
 import Control.Monad.Reader
@@ -18,6 +20,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Control.Arrow((&&&), second)
 import Debug.Trace
+import Text.Parsec.Pos as P
 
 -- Module dependencies
 import Identifiers
@@ -32,22 +35,26 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckEncoreProgram :: Environment -> Program -> (Either TCError (Environment, Program), [TCWarning])
-typecheckEncoreProgram env p =
-  case buildEnvironment env p of
-    (Right env, warnings) -> do
-      let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
-      runState (runExceptT reader) warnings
-    (Left err, warnings) -> (Left err, warnings)
+typecheckProgram :: Map SourceName LookupTable -> Program ->
+                    (Either TCError (Environment, Program), [TCWarning])
+typecheckProgram table p = do
+  let env = buildEnvironment table p
+  let reader = (\p -> (env, p)) <$> runReaderT (doTypecheck p) env
+  runState (runExceptT reader) []
 
-checkForMainClass :: Program -> Maybe TCError
-checkForMainClass Program{classes} =
-  case find isMainClass classes of
+checkForMainClass :: FilePath -> Program -> Maybe TCError
+checkForMainClass source Program{classes} =
+  case find (isLocalMain source) classes of
     Just Class{cname,cmethods} ->
       if any (isMainMethod cname . methodName) cmethods
       then Nothing
       else Just $ TCError (MethodNotFoundError (Name "main") cname) []
     Nothing -> Just $ TCError MissingMainClass []
+  where
+    isLocalMain source c@Class{cname} =
+        isMainClass c &&
+        getRefSourceFile cname == source
+
 
 -- | The actual typechecking is done using a Reader monad wrapped
 -- in an Error monad. The Reader monad lets us do lookups in the
@@ -138,7 +145,7 @@ matchArgumentLength targetType header args =
 
 meetRequiredFields :: [FieldDecl] -> Type -> TypecheckM ()
 meetRequiredFields cFields trait = do
-  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  tdecl <- findTrait trait
   mapM_ matchField (requiredFields tdecl)
     where
     matchField tField = do
@@ -200,7 +207,7 @@ noOverlapFields capability =
 
     pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
     pairTypeFields t = do
-      trait <- liftM fromJust . asks . traitLookup $ t
+      trait <- findTrait t
       return (t, requiredFields trait)
 
 ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
@@ -224,9 +231,9 @@ ensureNoMethodConflict methods tdecls =
 
 ensureMatchingTraitFootprint :: [Type] -> Type -> TypecheckM ()
 ensureMatchingTraitFootprint traits trait = do
-  tdecl <- liftM fromJust . asks . traitLookup $ trait
+  tdecl <- findTrait trait
   let otherTraits = traits \\ [trait]
-  tdecls <- mapM (liftM fromJust . asks . traitLookup) otherTraits
+  tdecls <- mapM findTrait otherTraits
   mapM_ (checkMatchingFootprint tdecl) tdecls
   where
     checkMatchingFootprint requirer provider = do
@@ -256,7 +263,7 @@ meetRequiredMethods cMethods traits = do
   where
     tdeclAssoc :: Type -> TypecheckM (Type, TraitDecl)
     tdeclAssoc t = do
-      tdecl <- liftM fromJust . asks . traitLookup $ t
+      tdecl <- findTrait t
       return (t, tdecl)
 
     collectReqPairs :: [(Type, TraitDecl)] -> [(Type, FunctionHeader)]
@@ -303,7 +310,7 @@ instance Checkable ClassDecl where
     mapM_ (ensureMatchingTraitFootprint traits) traits
     noOverlapFields ccapability
     -- TODO: Add namespace for trait methods
-    tdecls <- mapM (liftM fromJust . asks . traitLookup) traits
+    tdecls <- mapM findTrait traits
     ensureNoMethodConflict cmethods tdecls
 
     emethods <- mapM typecheckMethod cmethods
@@ -425,7 +432,7 @@ instance Checkable Expr where
       unless (isCallable eSeqFunc) $
         pushError eSeqFunc $ NonFunctionTypeError seqType
       unless (numberArgs == 1) $ pushError eSeqFunc $
-        WrongNumberOfFunctionArgumentsError (name seqfunc) 1 numberArgs
+        WrongNumberOfFunctionArgumentsError (qname seqfunc) 1 numberArgs
       unless (isParType pType) $
         pushError ePar $ TypeMismatchError pType (parType pType)
 
@@ -451,14 +458,14 @@ instance Checkable Expr where
               seqType `assertSubtypeOf` expectedFunType
               return expectedFunType
           | isFunctionAsValue eSeqFunc = do
-              let funname = (name eSeqFunc)
+              let funname = (qname eSeqFunc)
                   actualTypeParams = typeArgs eSeqFunc
                   seqType = AST.getType eSeqFunc
                   pType = AST.getType ePar
                   funResultType = getResultType seqType
-              funType <- asks $ varLookup funname
-              ty <- case funType of
-                  Just ty -> return ty
+              result <- findVar funname
+              ty <- case result of
+                  Just (_, ty) -> return ty
                   Nothing -> tcError $ UnboundFunctionError funname
               let formalTypeParams = getTypeParams ty
 
@@ -575,11 +582,11 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {name, args, typeArguments}) = do
-      funType <- asks $ varLookup name
-      ty <- case funType of
-        Just ty -> return ty
-        Nothing -> tcError $ UnboundFunctionError name
+    doTypecheck fcall@(FunctionCall {qname, args, typeArguments}) = do
+      result <- findVar qname
+      (qname', ty) <- case result of
+        Just (qname', ty) -> return (qname', ty)
+        Nothing -> tcError $ UnboundFunctionError qname
 
       let argTypes = getArgTypes ty
           typeParams = getTypeParameters ty
@@ -587,7 +594,7 @@ instance Checkable Expr where
         tcError $ NonFunctionTypeError ty
       unless (length args == length argTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
-                    name (length argTypes) (length args)
+                    qname (length argTypes) (length args)
       (eArgs, resultType, typeArgs) <-
           case typeArguments of
             Nothing -> do
@@ -601,11 +608,11 @@ instance Checkable Expr where
               let unresolved =
                     filter (isNothing . (`lookup` bindings)) typeParams'
               unless (null unresolved) $
-                   tcError $ TypeArgumentInferenceError name (head unresolved)
+                   tcError $ TypeArgumentInferenceError qname (head unresolved)
               return (eArgs, resultType, typeArgs)
             Just typeArgs -> do
               unless (length typeArgs == length typeParams) $
-                     tcError $ WrongNumberOfFunctionTypeArgumentsError name
+                     tcError $ WrongNumberOfFunctionTypeArgumentsError qname
                                (length typeParams) (length typeArgs)
               typeArgs' <- mapM resolveType typeArgs
               let bindings = zip typeParams typeArgs'
@@ -616,6 +623,7 @@ instance Checkable Expr where
               return (eArgs, resultType, typeArgs')
 
       return $ setType resultType fcall {args = eArgs,
+                                         qname = qname',
                                          typeArguments = Just typeArgs}
 
       where
@@ -759,10 +767,10 @@ instance Checkable Expr where
             local (pushBT pattern) $
               doGetPatternVars pt pattern
 
-        doGetPatternVars pt va@(VarAccess {name}) = do
+        doGetPatternVars pt va@(VarAccess {qname}) = do
           when (isThisAccess va) $
             tcError ThisReassignmentError
-          return [(name, pt)]
+          return [(qnlocal qname, pt)]
 
         doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
             | isMaybeType pt =
@@ -770,17 +778,17 @@ instance Checkable Expr where
                 in getPatternVars innerType e
             | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
-        doGetPatternVars pt fcall@(FunctionCall {name, args = [arg]}) = do
+        doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]}) = do
           unless (isRefType pt) $
             tcError $ NonCallableTargetError pt
-          header <- findMethod pt name
+          header <- findMethod pt (qnlocal qname)
           let hType = htype header
           unless (isMaybeType hType) $
             tcError $ NonMaybeExtractorPatternError fcall
           let extractedType = getResultType hType
           getPatternVars extractedType arg
 
-        doGetPatternVars pt fcall@(FunctionCall {name, args}) = do
+        doGetPatternVars pt fcall@(FunctionCall {args}) = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args}
           getPatternVars pt (fcall {args = [tupArg]})
@@ -802,15 +810,15 @@ instance Checkable Expr where
             local (pushBT pattern) $
               doCheckPattern pattern argty
 
-        doCheckPattern pattern@(FunctionCall {name, args = [arg]}) argty = do
-          header <- findMethod argty name
+        doCheckPattern pattern@(FunctionCall {qname, args = [arg]}) argty = do
+          header <- findMethod argty (qnlocal qname)
           let hType = htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
           return $ setType extractedType pattern {args = [eArg]}
 
-        doCheckPattern pattern@(FunctionCall {name, args}) argty = do
+        doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
           checkPattern (pattern {args = [tupArg]}) argty
@@ -972,9 +980,9 @@ instance Checkable Expr where
     --  E |- rhs : t
     -- ------------------------
     --  E |- name = rhs : void
-    doTypecheck assign@(Assign {lhs = lhs@VarAccess{name}, rhs}) =
+    doTypecheck assign@(Assign {lhs = lhs@VarAccess{qname}, rhs}) =
         do eLhs <- typecheck lhs
-           varIsLocal <- asks $ isLocal name
+           varIsLocal <- asks $ isLocal qname
            unless varIsLocal $
                   pushError eLhs NonAssignableLHSError
            eRhs <- hasType rhs (AST.getType eLhs)
@@ -999,41 +1007,41 @@ instance Checkable Expr where
               | otherwise = return ()
 
 
-    doTypecheck fun@(FunctionAsValue {name, typeArgs}) = do
-         varType <- asks $ varLookup name
-         case varType of
-           Nothing -> tcError $ UnboundFunctionError name
-           Just ty -> do
+    doTypecheck fun@(FunctionAsValue {qname, typeArgs}) = do
+         result <- findVar qname
+         case result of
+           Nothing -> tcError $ UnboundFunctionError qname
+           Just (qname', ty) -> do
              unless (isArrowType ty) $
                     tcError (NonFunctionTypeError ty)
              typeArgs' <- mapM resolveType typeArgs
              let typeParams = getTypeParameters ty
              unless (length typeArgs' == length typeParams) $
-                    tcError $ WrongNumberOfFunctionTypeArgumentsError name
+                    tcError $ WrongNumberOfFunctionTypeArgumentsError qname
                               (length typeParams) (length typeArgs')
 
              let bindings = zip typeParams typeArgs'
                  ty' = replaceTypeVars bindings ty
                  ty'' = setTypeParameters ty' []
 
-             return $ setType ty'' fun{typeArgs = typeArgs'}
+             return $ setType ty'' fun{qname = qname', typeArgs = typeArgs'}
 
     --  name : t \in E
     -- ----------------
     --  E |- name : t
-    doTypecheck var@(VarAccess {name}) =
-        do varType <- asks $ varLookup name
-           case varType of
-             Just ty ->
+    doTypecheck var@(VarAccess {qname}) = do
+           result <- findVar qname
+           case result of
+             Just (qname', ty) ->
                if isArrowType ty
                then do
                  let typeParams = getTypeParameters ty
                  unless (null typeParams) $
-                    tcError $ WrongNumberOfFunctionTypeArgumentsError name
+                    tcError $ WrongNumberOfFunctionTypeArgumentsError qname
                               (length typeParams) 0
-                 return $ setType ty var
-               else return $ setType ty var
-             Nothing -> tcError $ UnboundVariableError name
+                 return $ setType ty var{qname = qname'}
+               else return $ setType ty var{qname = qname'}
+             Nothing -> tcError $ UnboundVariableError qname
 
     --
     -- ----------------------
@@ -1197,7 +1205,8 @@ instance Checkable Expr where
            let expectedTypes = [intType]
            unless (length args == length expectedTypes) $
              tcError $ WrongNumberOfFunctionArgumentsError
-                       (Name "exit") (length expectedTypes) (length args)
+                       (topLevelQName (Name "exit"))
+                       (length expectedTypes) (length args)
            matchArguments args expectedTypes
            return $ setType voidType exit {args = eArgs}
 

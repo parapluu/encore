@@ -1,0 +1,9 @@
+
+import RestrictedExport
+
+def bar() : void
+  print "This is bar"
+
+class Main
+  def main() : void
+    foo()

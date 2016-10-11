@@ -9,8 +9,11 @@ encore/modules/ClosureImporter
 encore/modules/ClosureImp
 encore/modules/DeepLib
 encore/modules/Lib
-encore/modules/lib
-encore/modules/otherlib
+encore/modules/lib/DupLib
+encore/modules/lib/FarLib
+encore/modules/lib/TraitLib
+encore/modules/lib/A/B/QLib
+encore/modules/otherlib/DupLib
 encore/modules/Vector
 encore/modules/Utils
 encore/modules/MidImport
@@ -19,6 +22,8 @@ encore/modules/Top
 encore/modules/Right
 encore/modules/Left
 encore/modules/TraitImportModule
+encore/modules/RestrictedExport
+encore/modules/SelectiveLib
 
 #
 # Disabled 'concurrency' tests
@@ -52,3 +57,8 @@ encore/par/general
 encore/literate/Foo
 encore/literate/Bar
 
+#
+# Module used by 'stream' tests
+# Should not be considered as a test
+#
+encore/stream/StreamIO

@@ -1,3 +1,5 @@
+module Vector
+
 passive class Vector<t> {
   data : [t]
 

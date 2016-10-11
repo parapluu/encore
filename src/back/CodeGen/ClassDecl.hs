@@ -78,7 +78,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              taskDispatchClause :
              (if (A.isMainClass cdecl)
               then ponyMainClause :
-                   (methodClauses $ filter ((/= ID.Name "main") . A.methodName) cmethods)
+                   methodClauses (filter ((/= ID.Name "main") . A.methodName) cmethods)
               else methodClauses $ cmethods
              ))
             (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ (Var "_m") `Arrow` (Nam "id")]))]))
@@ -86,14 +86,13 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        ponyMainClause =
            (Nam "_ENC__MSG_MAIN",
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
-                   Statement $ Call ((methodImplName (Ty.refType "Main") (ID.Name "main")))
+                   Statement $ Call ((methodImplName cname (ID.Name "main")))
                                     [AsExpr encoreCtxVar,
-                                     (Cast (Ptr encActiveMainT) (Var "_a")),
+                                     (Cast (translate cname) (Var "_a")),
                                      Call (Nam "_init_argv")
                                           [AsExpr encoreCtxVar,
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
-
        methodClauses = concatMap methodClause
 
        methodClause m = (mthdDispatchClause m) :

@@ -24,11 +24,11 @@ desugarProgram p@(Program{traits, classes, functions}) =
           paramTypes = hparamtypes oldHeader
           maxLen = maximum $ map (length . hpatterns) headers
           paramNames = case List.find (isCatchAll maxLen) headers of
-                         Just header -> map name (hpatterns header)
+                         Just header -> map (qnlocal . qname) (hpatterns header)
                          Nothing -> map (Name . ("_match" ++) . show) [0..]
 
           accesses = take (length paramTypes) $
-                          map (VarAccess emeta) paramNames
+                          map (VarAccess emeta . qLocal) paramNames
           arg = Tuple{emeta, args = accesses}
 
           patterns = map getPattern headers
@@ -80,10 +80,12 @@ desugarProgram p@(Program{traits, classes, functions}) =
     desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
     desugarFunction f@(MatchingFunction{funmeta
                                        ,matchfunheaders
-                                       ,matchfunbodies}) =
+                                       ,matchfunbodies
+                                       ,funsource
+                                       }) =
       let (funheader, funbody) = desugarFunctionHeadMatch
                                    matchfunheaders matchfunbodies
-      in Function{funmeta, funheader, funbody}
+      in Function{funmeta, funheader, funbody, funsource}
 
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
     desugarMethod m@(Method {mmeta, mheader, mbody})
@@ -120,21 +122,28 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
               }]
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
-desugar FunctionCall{emeta, name = Name "exit", args} = Exit emeta args
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
+                    ,args} =
+    Exit emeta args
 
-desugar FunctionCall{emeta, name = Name "println", args = []} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
+                    ,args = []} =
     Print emeta [StringLiteral emeta "\n"]
 
-desugar FunctionCall{emeta, name = Name "print", args = [arg]} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "print"}
+                    ,args = [arg]} =
     Print emeta [StringLiteral emeta "{}", arg]
 
-desugar FunctionCall{emeta, name = Name "println", args = [arg]} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
+                    ,args = [arg]} =
     Print emeta [StringLiteral emeta "{}\n", arg]
 
-desugar FunctionCall{emeta, name = Name "print", args} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "print"}
+                    ,args} =
     Print emeta args
 
-desugar FunctionCall{emeta = fmeta, name = Name "println", args} =
+desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
+                    ,args} =
     let first = head args
         rest = tail args in
     case getSugared first of
@@ -145,7 +154,8 @@ desugar FunctionCall{emeta = fmeta, name = Name "println", args} =
         in Print fmeta (newHead:rest)
       _ -> Print fmeta args
 
-desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
+desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
+                          ,args = [cond]} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
@@ -155,7 +165,8 @@ desugar fCall@FunctionCall{emeta, name = Name "assertTrue", args = [cond]} =
                                       show (ppSugared fCall) ++ "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
-desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
+desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
+                          ,args = [cond]} =
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
@@ -165,7 +176,8 @@ desugar fCall@FunctionCall{emeta, name = Name "assertFalse", args = [cond]} =
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
-desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
+                    ,args = cond : rest} =
     IfThenElse emeta cond
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
@@ -177,7 +189,8 @@ desugar FunctionCall{emeta, name = Name "assertTrue", args = cond : rest} =
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
-desugar FunctionCall{emeta, name = Name "assertFalse", args = cond : rest} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
+                    ,args = cond : rest} =
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
@@ -213,14 +226,14 @@ desugar Repeat{emeta, name, times, body} =
        (While emeta
              (Binop emeta
                    Identifiers.LT
-                   (VarAccess emeta name)
-                   (VarAccess emeta (Name "__gub__")))
+                   (VarAccess emeta (qLocal name))
+                   (VarAccess emeta (qLocal (Name "__gub__"))))
              (Seq emeta
                   [body, (Assign emeta
-                               (VarAccess emeta name)
+                               (VarAccess emeta (qLocal name))
                                (Binop emeta
                                      PLUS
-                                     (VarAccess emeta name)
+                                     (VarAccess emeta (qLocal name))
                                      (IntLiteral emeta 1)))]))
 
 
@@ -232,19 +245,19 @@ desugar Repeat{emeta, name, times, body} =
 --   get f2
 
 desugar FinishAsync{emeta, body} =
-    Seq emeta $ [desugarBody body]
+    Seq emeta [desugarBody body]
   where
     isAsyncTask (Async _ _) = True
     isAsyncTask _ = False
 
     desugarBody seq@Seq{eseq, emeta} =
-      let sizeSeq = (length eseq)
-          bindings = [((Name $ "__seq__" ++ show i , eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
-          stmts = map fst $ List.filter (\x -> (snd x) == True) bindings
+      let sizeSeq = length eseq
+          bindings = [((Name $ "__seq__" ++ show i, eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
+          stmts = map fst $ List.filter snd bindings
       in
           Let emeta
               (map fst bindings)
-              (Seq emeta $ [(Get emeta $ VarAccess emeta $ fst b) | b <- stmts])
+              (Seq emeta [Get emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts])
     desugarBody a = a
 
 -- foreach item in arr {
@@ -264,7 +277,7 @@ desugar Foreach{emeta, item, arr, body} =
   let it = Name "__it__"
       arrSize = Name "__arr_size__" in
    Let emeta [(arrSize, ArraySize emeta arr)]
-    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta arrSize) (IntLiteral emeta 0))
+    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta (qLocal arrSize)) (IntLiteral emeta 0))
      (Skip (cloneMeta emeta))
      (Let emeta
         [(it, IntLiteral emeta 0),
@@ -272,16 +285,16 @@ desugar Foreach{emeta, item, arr, body} =
        (While emeta
              (Binop emeta
                    Identifiers.LT
-                   (VarAccess emeta it)
-                   (VarAccess emeta arrSize))
+                   (VarAccess emeta (qLocal it))
+                   (VarAccess emeta (qLocal arrSize)))
              (Seq emeta
-                  [Assign emeta (VarAccess emeta item) (ArrayAccess emeta arr (VarAccess emeta it)),
+                  [Assign emeta (VarAccess emeta (qLocal item)) (ArrayAccess emeta arr (VarAccess emeta (qLocal it))),
                    Async emeta body,
                    Assign emeta
-                      (VarAccess emeta it)
+                      (VarAccess emeta (qLocal it))
                       (Binop emeta
                        PLUS
-                       (VarAccess emeta it)
+                       (VarAccess emeta (qLocal it))
                        (IntLiteral emeta 1))
                   ]))))
 

@@ -1,0 +1,32 @@
+module ParT
+
+def empty<a>(): Par a
+  embed Par a
+    new_par_empty(_ctx, runtimeType[0]);
+  end
+
+def filter<a>(fn: a -> bool, ps: Par a): Par a
+  join(ps >> \(item: a) -> if fn(item) then liftv(item)
+                           else empty<a>())
+
+def bind<a, b>(fn: a -> Par b, p: Par a): Par b
+  join(p >> fn)
+
+def foreach<t>(p: Par t, fn: t -> void): Par void
+  p >> fn
+
+def aggregate<t, a, r>(p: Par t, init: a, fn1: (t, a) -> a, fn2: a -> r): Par r
+  liftf(reduce(fn1, init, p)) >> fn2
+
+def reduce<a, b>(fn: (a, b) -> b, init: b, p: Par a): Fut b
+-- This is inefficient but will get us going until we have something better
+  let result = init
+      ls = extract(p)
+  in {
+    repeat i <- |ls| { result = fn(ls[i], result); };
+    embed Fut b
+      future_t *fut = future_mk(_ctx, #{b});
+      future_fulfil(_ctx, fut, #{result});
+      fut;
+    end
+  }

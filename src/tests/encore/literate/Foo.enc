@@ -6,7 +6,7 @@ should be read as a literate program. It is an alternative to
 using the --literate flag that also works for imported modules.
 
 #+begin_src encore
-bundle Foo where
+module Foo
   def foo() : void
     print "In foo"
 #+end_src encore

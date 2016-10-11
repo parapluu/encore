@@ -1,4 +1,0 @@
-
-passive class FarFoo
-  def name() : String
-    "FarFoo"

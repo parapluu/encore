@@ -1,3 +1,7 @@
+module Lib
+
+def bar() : int
+  10
 
 passive class Foo
   def name() : String

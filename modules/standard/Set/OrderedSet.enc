@@ -1,0 +1,226 @@
+module OrderedSet
+
+-- An OrderedSet implementation.
+--
+-- Based on a binary tree. Non-balanced. Doesn't support removal yet.
+passive class OrderedSet<t>
+  root : Node<t>
+  size : int
+  cmp      : (t, t) -> int
+
+  -- Constructor.
+  --
+  -- Takes a binary relation that returns true if the first argument should go
+  -- left of the second argument and a binary relation that is used as equality
+  -- for elements.
+  def init(cmp : (t, t) -> int) : void {
+    this.cmp = cmp;
+    this.size = 0
+  }
+
+  -- Add an element to the tree, if not already present.
+  def add(e : t) : void {
+    if (this.root == null) then {
+      this.root = new Node<t>(e);
+      this.size = 1
+    } else {
+      if (this.root.add(e, this.cmp)) then {
+        this.size = this.size + 1;
+      }
+    }
+  }
+
+  -- Look up an element.
+  def lookup(e : t) : Maybe t {
+    if (this.root == null) then {
+      Nothing : Maybe t
+    } else {
+      this.root.lookup(e, this.cmp);
+    }
+  }
+
+  def remove(e : t) : void {
+    assertTrue(false);
+  }
+
+  --def iterator() : OrderedSetIterator<t> {
+  --new OrderedSetIterator<t>(this)
+  --}
+
+  def forEach(f : t -> void) : void {
+    this.root.forEach(f)
+  }
+
+  --  def fold(f : (acc, t) -> acc, a : acc) : acc {
+  --    if (this.root != null) then {
+  --      this.root.fold(f, a)
+  --    } else {
+  --      a
+  --    }
+  --  }
+
+  def size() : int {
+    this.size
+  }
+
+  def iter() : OrderedSetIterator<t> {
+    new OrderedSetIterator<t>(this.root)
+  }
+
+  def getMin() : Maybe t {
+    if (this.root != null) then {
+      Just this.root.getMinNode().elem
+    } else {
+      Nothing : Maybe t
+    }
+  }
+
+passive class Node<t> {
+  elem   : t
+  left   : Node<t>
+  right  : Node<t>
+  parent : Node<t>
+
+  def init(e : t) : void {
+    this.elem = e
+  }
+
+  def addAsLeftChild(n : Node<t>) : void {
+    this.left = n;
+    n.parent = this;
+  }
+
+  def addAsRightChild(n : Node<t>) : void {
+    this.right = n;
+    n.parent = this;
+  }
+
+  def add(e : t, cmp : (t, t) -> int) : bool {
+    if cmp(e, this.elem) < 0 then {
+      if this.left == null then {
+        if cmp(this.elem, e) == 0 then {
+          false
+        } else {
+          this.addAsLeftChild(new Node<t>(e));
+          true
+        }
+      } else {
+        this.left.add(e, cmp);
+      }
+    } else {
+      if this.right == null then {
+        if cmp(this.elem, e) == 0 then {
+          false
+        } else {
+          this.addAsRightChild(new Node<t>(e));
+          true
+        }
+      } else {
+        this.right.add(e, cmp)
+      }
+    }
+  }
+
+  def lookup(e : t, cmp : (t,t) -> int) : Maybe t {
+    if (cmp(e, this.elem) == 0) then {
+      Just this.elem
+    } else {
+      if (cmp(e, this.elem) < 0) then {
+        if (this.left != null) then {
+          this.left.lookup(e, cmp);
+        } else {
+          Nothing : Maybe t
+        }
+      } else {
+        if (this.right != null) then {
+          this.right.lookup(e, cmp);
+        } else {
+          Nothing : Maybe t
+        }
+      }
+    }
+  }
+
+  def forEach(f : t -> void) : void {
+    if this.left != null then {
+      this.left.forEach(f)
+    };
+    f(this.elem);
+    if this.right != null then {
+      this.right.forEach(f)
+    }
+  }
+
+  def getNextNode() : Node<t> {
+    if (this.parent != null) then {
+      if (this == this.parent.left) then {
+        -- am left child
+        this.parent
+      } else {
+        -- am right child
+        assertTrue(this == this.parent.right);
+        if (this.right != null) then {
+          this.right.getMinNode()
+        } else {
+          null : Node<t>
+        }
+      }
+    } else {
+      -- am root node
+      if (this.right == null) then {
+        null : Node<t>
+      } else {
+        this.right.getMinNode()
+      }
+    }
+  }
+
+  def getMinNode() : Node<t> {
+    if (this.left == null) then {
+      this
+    } else {
+      this.left.getMinNode()
+    }
+  }
+
+  def getMaxNode() : Node<t> {
+    if (this.right == null) then {
+      this
+    } else {
+      this.right.getMaxNode()
+    }
+  }
+}
+
+passive class OrderedSetIterator<t> {
+  cur  : Node<t>
+
+  def init(n : Node<t>) : void {
+    if (n == null) then {
+      this.cur = null;
+    } else {
+      this.cur = n.getMinNode();
+    }
+  }
+
+  def step() : void {
+    if (this.cur != null) then {
+      this.cur = this.cur.getNextNode();
+    };
+  }
+
+  def hasNext() : bool {
+    if (this.cur == null) then {
+      false;
+    } else {
+      true
+    }
+  }
+
+  def next() : t {
+    let ret = this.cur.elem in {
+      this.step();
+      ret
+    }
+  }
+}

@@ -1,4 +1,4 @@
-bundle InfiniteImport where
+module InfiniteImport
 import InfiniteImport
 
 class Main {

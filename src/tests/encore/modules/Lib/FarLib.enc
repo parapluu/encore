@@ -1,0 +1,7 @@
+module FarLib
+
+import TraitLib
+
+passive class FarFoo : S
+  def name() : String
+    "FarFoo"

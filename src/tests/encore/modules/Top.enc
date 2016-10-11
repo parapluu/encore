@@ -1,5 +1,7 @@
-
-bundle Top where
+module Top
 
 def top() : int
     10
+
+def id<a>(x : a) : a
+  x
