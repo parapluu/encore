@@ -117,8 +117,10 @@ instance Precheckable TraitDecl where
         addThis = extendEnvironment [(thisName, tname)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
-          assertDistinct "requirement" treqs
+          assertDistinct "declaration" treqs
           assertDistinct "definition" tmethods
+          let allNames = map hname $ requiredMethods t ++ map mheader tmethods
+          assertDistinctThing "declaration" "method" allNames
 
 instance Precheckable ClassDecl where
     doPrecheck c@Class{cname, ccapability, cfields, cmethods} = do

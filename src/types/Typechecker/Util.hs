@@ -6,6 +6,7 @@ module Typechecker.Util(TypecheckM
                        ,whenM
                        ,anyM
                        ,unlessM
+                       ,concatMapM
                        ,tcError
                        ,pushError
                        ,tcWarning
@@ -58,6 +59,19 @@ findM p (x:xs) = do
   if b
   then return $ Just x
   else findM p xs
+
+-- | A version of 'concatMap' that works with a monadic predicate.
+-- Source: https://hackage.haskell.org/package/extra-1.5/docs/src/Control-Monad-Extra.html
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+{-# INLINE concatMapM #-}
+concatMapM op = foldr f (return [])
+    where
+      f x xs = do x <- op x
+                  if null x
+                  then xs
+                  else do
+                    xs <- xs
+                    return $ x++xs
 
 -- | The monad in which all typechecking is performed. A function
 -- of return type @TypecheckM Bar@ may read from an 'Environment'
