@@ -1,0 +1,18 @@
+trait T<s>
+  require foo(): s
+
+trait U<t>
+  require f: t
+  def foo(): t
+    this.f
+
+passive class C : T<int> + U<int>
+  f: int
+  def init(f: int): void
+    this.f = f
+
+class Main
+  def main(args : [String]): void {
+    let x = new C(42) : T<int>;
+    print(x.foo());
+  }

@@ -16,6 +16,7 @@ import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Arrow((&&&), second)
 import Debug.Trace
 
 -- Module dependencies
@@ -229,11 +230,10 @@ ensureMatchingTraitFootprint traits trait = do
   mapM_ (checkMatchingFootprint tdecl) tdecls
   where
     checkMatchingFootprint requirer provider = do
-      let reqMethods = requiredMethods requirer
-          reqFields = requiredFields requirer
+      let reqFields = requiredFields requirer
           reqValFields = filter isValField reqFields
           methods = tmethods provider
-          providedMethods = filter (`isRequiredBy` reqMethods) methods
+          providedMethods = filter (`isRequiredBy` requirer) methods
           footprint = requiredFields provider
           varFootprint = filter (not . isValField) footprint
           mutatedValFields = filter (`elem` reqValFields) varFootprint
@@ -243,33 +243,51 @@ ensureMatchingTraitFootprint traits trait = do
                       (tname provider) (tname requirer)
                       (methodName $ head providedMethods) mutatedValFields
 
-    isRequiredBy :: MethodDecl -> [FunctionHeader] -> Bool
-    isRequiredBy m = any ((== methodName m) . hname)
+    isRequiredBy :: MethodDecl -> TraitDecl -> Bool
+    isRequiredBy m = any ((== methodName m) . hname) . requiredMethods
 
-meetRequiredMethods :: [MethodDecl] -> [Type] -> Type -> TypecheckM ()
-meetRequiredMethods cMethods traits trait = do
-  tdecl <- liftM fromJust . asks . traitLookup $ trait
-  let otherTraits = traits \\ [trait]
-  tdecls <- mapM (liftM fromJust . asks . traitLookup) otherTraits
-  let tMethods = concatMap tmethods tdecls
-      allMethods = cMethods ++ tMethods
-  mapM_ (matchMethod allMethods) (requiredMethods tdecl)
+meetRequiredMethods :: [MethodDecl] -> [Type] -> TypecheckM ()
+meetRequiredMethods cMethods traits = do
+  tdeclPairs <- mapM tdeclAssoc traits
+  let reqMethodPairs = collectReqPairs tdeclPairs
+  tMethods <- concatMapM collectMethods tdeclPairs
+  let allMethods = map mheader cMethods ++ tMethods
+  mapM_ (matchMethod allMethods) reqMethodPairs
   where
-    matchMethod methods reqHeader = do
-      expHeader <- findMethod trait (hname reqHeader)
-      unlessM (anyM (matchesHeader expHeader) methods) $
-           tcError $ MissingMethodRequirementError expHeader trait
-    matchesHeader header mdecl =
+    tdeclAssoc :: Type -> TypecheckM (Type, TraitDecl)
+    tdeclAssoc t = do
+      tdecl <- liftM fromJust . asks . traitLookup $ t
+      return (t, tdecl)
+
+    collectReqPairs :: [(Type, TraitDecl)] -> [(Type, FunctionHeader)]
+    collectReqPairs tdeclPairs =
+        let reqMethods = map (second requiredMethods) tdeclPairs
+        in concatMap (\(t, reqs) ->
+                          map (\req -> (t, req)) reqs)
+                     reqMethods
+
+    collectMethods :: (Type, TraitDecl) -> TypecheckM [FunctionHeader]
+    collectMethods (t, tdecl) = do
+      let methods = tmethods tdecl
+      mapM (findMethod t . methodName) methods
+
+    matchMethod :: [FunctionHeader] -> (Type, FunctionHeader) -> TypecheckM ()
+    matchMethod provided (requirer, reqHeader) = do
+      expHeader <- findMethod requirer (hname reqHeader)
+      unlessM (anyM (matchesHeader expHeader) provided) $
+           tcError $ MissingMethodRequirementError expHeader requirer
+    matchesHeader expected actual =
       let
-        mName = methodName mdecl
-        mType = methodType mdecl
-        mParamTypes = map ptype (methodParams mdecl)
-        hName = hname header
-        hType = htype header
-        hParamTypes = map ptype (hparams header)
+        expectedName = hname expected
+        expectedType = htype expected
+        expectedParamTypes = map ptype (hparams expected)
+        actualName = hname actual
+        actualType = htype actual
+        actualParamTypes = map ptype (hparams actual)
       in
-        liftM ((mName == hName && mParamTypes == hParamTypes) &&) $
-              mType `subtypeOf` hType
+        liftM ((actualName == expectedName &&
+                actualParamTypes == expectedParamTypes) &&) $
+              actualType `subtypeOf` expectedType
 
 instance Checkable ClassDecl where
   -- TODO: Update this rule!
@@ -281,7 +299,7 @@ instance Checkable ClassDecl where
     unless (isPassiveClassType cname || null traits) $
            tcError TraitsInActiveClassError
     mapM_ (meetRequiredFields cfields) traits
-    mapM_ (meetRequiredMethods cmethods traits) traits
+    meetRequiredMethods cmethods traits
     mapM_ (ensureMatchingTraitFootprint traits) traits
     noOverlapFields ccapability
     -- TODO: Add namespace for trait methods
