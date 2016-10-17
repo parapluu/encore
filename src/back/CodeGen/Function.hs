@@ -125,31 +125,7 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
                              [bodyStat, returnStatement funType bodyName])
       in
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
--- <<<<<<< fc80ba4596a9619eac93f8d5fac77d59f779ef2f
--- <<<<<<< 95f6cba4381d9a1beb7fe0e017570c31a19f0435
 
 returnStatement ty var
     | isVoidType ty = Return $ AsExpr unit
     | otherwise     = Return $ Cast (translate ty) var
--- =======
--- =======
---         Concat $
---         closures ++
---         tasks ++
---         [Function (translate funType)
---                   funName
---                   ((Ptr (Ptr encoreCtxT), encoreCtxVar):(zip argTypes argNames) ++ [(future, Var "_fut")])
---                   (Seq $
---                    [bodyStat, returnStmnt bodyName funType])]
--- >>>>>>> Add forward for future
---     where
---       returnStmnt var ty
---           | isVoidType ty = Return unit
---           | otherwise     = Return var
--- >>>>>>> Add forward for future
--- =======
---     where
---       returnStmnt var ty
---           | isVoidType ty = Return unit
---           | otherwise     = Return var
--- >>>>>>> Rebase the code

@@ -343,8 +343,8 @@ methodImplOneWay cname m =
     retType = void
     fName = methodImplOneWayName cname mName
     args = (Ptr (Ptr encoreCtxT), encoreCtxVar): this : zip argTypes argNames
-           ++ [(future, Var "_fut")]
-    fBody = Seq $ [assignNullFut] ++
+           ++ [(future, Var "_fut_unused")]
+    fBody = Seq $
       ponyGcSendOneway argPairs ++
       msg
   in
@@ -356,7 +356,6 @@ methodImplOneWay cname m =
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
     this = (Ptr . AsType $ classTypeName cname, Var thisName)
-    assignNullFut = Assign (Var "_fut") $ (Var "NULL")
     argPairs = zip (map A.ptype mParams) argNames
     msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
 
@@ -457,9 +456,6 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     [tracefunDecl cdecl] ++
     [constructorImpl Shared cname] ++
     methodImpls ++
-    -- (if (not $ A.isMainClass cdecl) -- && not (any A.isConstructor cmethods)
-    --  then (map (methodImplWithForward methodImpls cname) cmethods)
-    --  else []) ++
     (map (methodImplWithFuture cname) cmethods) ++
     (map (methodImplOneWay cname) cmethods) ++
     [dispatchFunDecl cdecl] ++

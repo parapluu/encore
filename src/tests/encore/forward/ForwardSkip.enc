@@ -1,11 +1,13 @@
--- TEST SIMPLE FORWARD
+-- TEST FORWARD SKIPS LATER CODE
 class Base
   def one() : int
     1806
 
 class Next
-  def two() : int
-    forward (new Base).one()
+  def two() : int {
+    forward (new Base).one();
+    42;
+  }
 
 class Main
   def main() : void

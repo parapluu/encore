@@ -919,8 +919,7 @@ instance Checkable Expr where
          unless (isFutureType ty || isStreamType ty) $
                  pushError eVal $ ExpectingOtherTypeError
                                     "a future or a stream" ty
-         return $ setType bottomType forward {val = eVal}
-        --  return $ setType (getResultType ty) forward {val = eVal}
+         return $ setType (getResultType ty) forward {val = eVal}
 
     --  E |- val : t
     --  isStreaming(currentMethod)

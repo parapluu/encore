@@ -925,19 +925,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = error $ "Cannot translate get of " ++ show val
 
   translate forward@(A.Forward{A.val})
+    -- TODO: add stream forward
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
            let resultType = translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
-           return $ if True then (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
-                    else (Var tmp, Seq [tval, Return Skip])
-    -- | Ty.isStreamType $ A.getType val =
-    --     do (nval, tval) <- translate val
-    --        let resultType = translate (Ty.getResultType $ A.getType val)
-    --            theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
-    --        tmp <- Ctx.genSym
-    --        return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+           return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate forward of " ++ show val
 
   translate yield@(A.Yield{A.val}) =
@@ -1188,15 +1182,15 @@ callTheMethodForName
   genCMethodName targetName targetType methodName args resultType = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
+  mName <- gets $ Ctx.getMethodName
+  methodDecl <- gets $ Ctx.lookupMethodDecl (ID.Name mName)
   return (initArgs,
         Call cMethodName $
         map AsExpr [encoreCtxVar, targetName] ++
         doCast (map A.ptype (A.hparams header)) args'
-        -- ++ if (endswith "_one_way" (show cMethodName))
-        ++ if (endswith "_forward" (show cMethodName))
+        ++ if ((length mName)>0 && Util.isForwardMethod methodDecl)
            then [AsExpr $ Var "_fut"]
            else [AsExpr $ Var "NULL"]
-        -- ++ [AsExpr $ Var "_fut"]
     )
   where
     cMethodName = genCMethodName targetType methodName

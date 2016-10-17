@@ -4,7 +4,7 @@ class Base
     1806
 
 class Next
-  def one() : int
+  def three() : int
     this.two()
 
   def two() : int
@@ -12,4 +12,4 @@ class Next
 
 class Main
   def main() : void
-    print get (new Next).one()
+    print get (new Next).three()
