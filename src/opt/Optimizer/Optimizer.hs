@@ -29,7 +29,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors]
+optimizerPasses = [constantFolding, constructors, sugarPrintedStrings]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -57,3 +57,15 @@ constructors = extend constr
                           ,args = args}
           | otherwise = e
       constr e = e
+
+sugarPrintedStrings = extend sugarPrintedString
+    where
+      sugarPrintedString e@(Print{args}) =
+        e{args = map simplifyStringLit args}
+      sugarPrintedString e = e
+      simplifyStringLit arg
+        | NewWithInit{ty} <- arg
+        , isStringObjectType ty
+        , Just sugared <- getSugared arg
+          = setType stringType sugared
+        | otherwise = arg
