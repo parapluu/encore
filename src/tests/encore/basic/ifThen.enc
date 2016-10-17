@@ -1,5 +1,7 @@
 class Main
   def main() : void{
+    (if true then 42) : void;
+
     if true then
       print "Hello Ponyworld 1!";
 
