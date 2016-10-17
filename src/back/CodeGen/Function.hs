@@ -109,7 +109,7 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
           funType   = A.functionType fun
           encArgNames = map A.pname funParams
           argNames  = map (AsLval . argName) encArgNames
-          paramTypesDecl = (\x y -> Decl (x, y))
+          paramTypesDecl = curry Decl
                            <$> [Ptr ponyTypeT]
                            <*> map (AsLval . typeVarRefName) funTypeParams
           assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
@@ -122,10 +122,10 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
           tasks = map (\tas -> translateTask tas table) $
                       reverse $ Util.filter A.isTask funbody
           bodyResult = (Seq $ runtimeTypeAssignments ++
-                             [bodyStat, returnStmnt bodyName funType])
+                             [bodyStat, returnStatement funType bodyName])
       in
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
-    where
-      returnStmnt var ty
-          | isVoidType ty = Return $ AsExpr unit
-          | otherwise     = Return $ Cast (translate ty) var
+
+returnStatement ty var
+    | isVoidType ty = Return $ AsExpr unit
+    | otherwise     = Return $ Cast (translate ty) var

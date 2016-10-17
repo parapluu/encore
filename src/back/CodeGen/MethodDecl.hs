@@ -9,6 +9,7 @@ import CodeGen.Expr ()
 import CodeGen.Closure
 import CodeGen.Task
 import CodeGen.ClassTable
+import CodeGen.Function(returnStatement)
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -44,13 +45,10 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
-        retStmt = Return $ if Ty.isVoidType mType
-                           then AsExpr unit
-                           else Cast returnType bodyn
     in
       Concat $ closures ++ tasks ++
                [Function returnType name args
-                 (Seq [extractTypeVars, bodys, retStmt])]
+                 (Seq [extractTypeVars, bodys, returnStatement mType bodyn])]
     where
       mName = A.methodName mdecl
       mType = A.methodType mdecl
