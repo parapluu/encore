@@ -15,6 +15,7 @@ import qualified Text.Parsec as Parsec
 import qualified Text.Parsec.String as PString
 
 import CCode.Main
+import CCode.PrettyCCode
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
@@ -880,50 +881,30 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               getExprVars _ =
                   []
 
-  translate e@(A.Embed {A.code=code}) = do
-    interpolated <- interpolate code
+  translate e@(A.Embed {A.embedded, A.interpolated}) = do
+    translated <- mapM translateInterpolated interpolated
+    let result = concat $ zipWith combine embedded translated
     if Ty.isVoidType (A.getType e) then
-        return (unit, Embed $ "({" ++ interpolated  ++ "})")
+        return (unit, Embed $ "({" ++ result ++ "})")
     else
-        namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ interpolated  ++ "})")
-        where
-          interpolate :: String -> State Ctx.Context String
-          interpolate embedstr =
-              case (Parsec.parse interpolateParser "embed expression" embedstr) of
-                (Right parsed) -> do
-                  strs <- mapM toLookedUpString parsed
-                  return $ concat strs
-                (Left err) -> error $ show err
-
-          toLookedUpString :: Either String VarLkp -> State Ctx.Context String
-          toLookedUpString e = case e of
-                                 (Right (VarLkp var)) -> do
-                                        ctx <- get
-                                        case Ctx.substLkp ctx $ (ID.Name var) of
-                                          (Just found) -> return $ show found
-                                          Nothing      -> return var -- hope that it's a parameter,
-                                                                     -- let clang handle the rest
-
-                                 (Left str)           -> return str
-
-          interpolateParser :: PString.Parser [Either String VarLkp]
-          interpolateParser = do
-            Parsec.many
-                  (Parsec.try
-                             (do
-                               var <- varlkpParser
-                               return (Right (VarLkp var)))
-                   Parsec.<|>
-                         (do
-                           c <- Parsec.anyChar
-                           return (Left [c])))
-
-          varlkpParser :: PString.Parser String
-          varlkpParser = do
-                           Parsec.string "#{"
-                           id <- P.identifierParser
-                           Parsec.string "}"
-                           return id
+        namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ result ++ "})")
+    where
+      combine code expr = code ++ pp expr
+      translateInterpolated (A.Skip{}) =
+        return $ Embed ""
+      translateInterpolated (A.VarAccess{A.name}) = do
+        result <- gets (`Ctx.substLkp` name)
+        case result of
+          Just substName ->
+            return $ AsExpr substName
+          Nothing ->
+            return $ AsExpr . Var . show $ globalClosureName name
+      translateInterpolated (A.FieldAccess{A.name, A.target}) = do
+        targ <- translateInterpolated target
+        return $ AsExpr (targ `Arrow` fieldName name)
+      translateInterpolated e = do
+        (ne, te) <- translate e
+        return $ StatAsExpr ne te
 
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =

@@ -151,6 +151,13 @@ angles     = P.angles lexer
 brackets   = P.brackets lexer
 braces     = P.braces lexer
 maybeBraces p = braces p <|> p
+encoreEscapeStart = symbol "#{"
+encoreEscapeEnd = symbol "}"
+encoreEscaped p = do
+  encoreEscapeStart
+  x <- p
+  encoreEscapeEnd
+  return x
 
 stringLiteral = P.stringLiteral lexer
 charLiteral = P.charLiteral lexer
@@ -680,8 +687,28 @@ expr  =  embed
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ
-                 code <- manyTill anyChar $ try $ do {space; reserved "end"}
-                 return $ Embed (meta pos) ty code
+                 pairs <- many cAndEncore
+                 let (embedded, interpolated) = unzip pairs
+                 end
+                 return $ Embed (meta pos) ty embedded interpolated
+              where
+                cAndEncore :: Parser (String, Expr)
+                cAndEncore = (do
+                  code <- c
+                  pos <- getPosition
+                  e <- option (Skip (meta pos))
+                       (try $ encoreEscaped expression)
+                  return (code, e))
+                  <|> (do
+                        e <- encoreEscaped expression
+                        return ("", e))
+                c = do
+                  notFollowedBy (end <|> encoreEscapeStart)
+                  first <- anyChar
+                  rest <- manyTill anyChar (try $ lookAhead (end <|> encoreEscapeStart))
+                  return (first:rest)
+                end = whiteSpace >> reserved "end" >> return "end"
+
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>

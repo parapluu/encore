@@ -1214,9 +1214,11 @@ instance Checkable Expr where
    ---  |- ty
     -- ---------------------
     -- E |- embed ty _ : ty
-    doTypecheck embed@(Embed {ty}) =
+    doTypecheck embed@(Embed {ty, interpolated}) =
         do ty' <- resolveType ty
-           return $ setType ty' embed{ty = ty'}
+           interpolated' <- mapM typecheck interpolated
+           return $ setType ty' embed{ty = ty'
+                                     ,interpolated = interpolated'}
 
     --  E |- operand : bool
     -- -------------------------
