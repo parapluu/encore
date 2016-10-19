@@ -687,10 +687,9 @@ expr  =  embed
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ
-                 pairs <- many cAndEncore
-                 let (embedded, interpolated) = unzip pairs
+                 embedded <- many cAndEncore
                  end
-                 return $ Embed (meta pos) ty embedded interpolated
+                 return $ Embed (meta pos) ty embedded
               where
                 cAndEncore :: Parser (String, Expr)
                 cAndEncore = (do

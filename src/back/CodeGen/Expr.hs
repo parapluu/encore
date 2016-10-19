@@ -881,27 +881,25 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               getExprVars _ =
                   []
 
-  translate e@(A.Embed {A.embedded, A.interpolated}) = do
-    translated <- mapM translateInterpolated interpolated
-    let result = concat $ zipWith combine embedded translated
+  translate e@(A.Embed {A.embedded}) = do
+    translated <- liftM concat $ mapM translatePair embedded
     if Ty.isVoidType (A.getType e) then
-        return (unit, Embed $ "({" ++ result ++ "})")
+        return (unit, Embed $ "({" ++ translated ++ "})")
     else
-        namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ result ++ "})")
+        namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ translated ++ "})")
     where
-      combine code expr = code ++ pp expr
-      translateInterpolated (A.Skip{}) =
-        return $ Embed ""
-      translateInterpolated (A.VarAccess{A.name}) = do
+      translatePair (code, e) = do
+        interpolated <- translateInterpolated e
+        return $ code ++ pp interpolated
+      translateInterpolated A.Skip{} =
+        return (Embed "")
+      translateInterpolated A.VarAccess{A.name} = do
         result <- gets (`Ctx.substLkp` name)
-        case result of
-          Just substName ->
-            return $ AsExpr substName
-          Nothing ->
-            return $ AsExpr . Var . show $ globalClosureName name
-      translateInterpolated (A.FieldAccess{A.name, A.target}) = do
+        let var = fromMaybe (AsLval $ globalClosureName name) result
+        return $ AsExpr var
+      translateInterpolated A.FieldAccess{A.name, A.target} = do
         targ <- translateInterpolated target
-        return $ AsExpr (targ `Arrow` fieldName name)
+        return $ AsExpr $ targ `Arrow` fieldName name
       translateInterpolated e = do
         (ne, te) <- translate e
         return $ StatAsExpr ne te

@@ -229,9 +229,9 @@ ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} =
   "[" <+> ppExpr start <+> "," <+> ppExpr stop <+> "by" <+> ppExpr step <+> "]"
-ppExpr Embed {ty, embedded, interpolated} =
+ppExpr Embed {ty, embedded} =
   "embed" <+> ppType ty <+>
-          hcat (zipWith ppPair embedded interpolated) <+> "end"
+          hcat (map (uncurry ppPair) embedded) <+> "end"
   where
     ppPair code Skip{} = text code
     ppPair code expr = text code <> "#{" <> ppExpr expr <> "}#"

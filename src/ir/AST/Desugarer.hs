@@ -301,7 +301,8 @@ desugar s@StringLiteral{emeta, stringLit} =
     NewWithInit{emeta
                ,ty = stringObjectType
                ,args = [Embed emeta (ctype "char*")
-                              [show stringLit ++ ";"]
-                              [Skip emeta]]}
+                              [(show stringLit ++ ";", Skip emeta)]
+                       ]
+               }
 
 desugar e = e
