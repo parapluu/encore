@@ -5,10 +5,7 @@ grammar found in @doc/encore/@
 
 -}
 
-module Parser.Parser(
-                      parseEncoreProgram
-                    , identifierParser
-                    ) where
+module Parser.Parser(parseEncoreProgram) where
 
 -- Library dependencies
 import Text.Parsec
@@ -30,8 +27,6 @@ import AST.Meta hiding(Closure, Async)
 -- unless a parse error occurs.
 parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
-
-identifierParser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
