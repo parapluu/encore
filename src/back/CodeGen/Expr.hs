@@ -10,7 +10,6 @@ import qualified CodeGen.CCodeNames as C
 import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 
-import qualified Parser.Parser as P -- for string interpolation in the embed expr
 import qualified Text.Parsec as Parsec
 import qualified Text.Parsec.String as PString
 
@@ -104,9 +103,6 @@ unsubstituteVar na = do
   return ()
 
 getRuntimeType = runtimeType . Ty.getResultType . A.getType
-
--- these two are exclusively used for A.Embed translation:
-newtype VarLkp = VarLkp String
 
 newParty :: A.Expr -> CCode Name
 newParty (A.Liftv {}) = partyNewParV
@@ -884,7 +880,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate e@(A.Embed {A.embedded}) = do
     translated <- liftM concat $ mapM translatePair embedded
     if Ty.isVoidType (A.getType e) then
-        return (unit, Embed $ "({" ++ translated ++ "})")
+        return (unit, Embed $ "({" ++ translated ++ "});")
     else
         namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ translated ++ "})")
     where
