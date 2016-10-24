@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <pony.h>
+#include <dtrace_encore.h>
 
 #include "encore.h"
 #include "future.h"
@@ -162,6 +163,8 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
 
   pthread_mutex_init(&fut->lock, NULL);
 
+  ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
+
   return fut;
 }
 
@@ -183,6 +186,7 @@ bool future_fulfilled(future_t *fut)
 void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 {
   assert(fut->fulfilled == false);
+  ENC_DTRACE2(FUTURE_FULFIL_START, (uintptr_t) *ctx, (uintptr_t) fut);
 
   BLOCK;
   // Update the modifiable context
@@ -270,6 +274,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
   }
 
   UNBLOCK;
+  ENC_DTRACE2(FUTURE_FULFIL_END, (uintptr_t) cctx, (uintptr_t) fut);
 }
 
 static void acquire_future_value(pony_ctx_t **ctx, future_t *fut)
@@ -286,10 +291,13 @@ static void acquire_future_value(pony_ctx_t **ctx, future_t *fut)
 encore_arg_t future_get_actor(pony_ctx_t **ctx, future_t *fut)
 {
   if (!fut->fulfilled) {
+    ENC_DTRACE2(FUTURE_BLOCK, (uintptr_t) *ctx, (uintptr_t) fut);
     future_block_actor(ctx, fut);
+    ENC_DTRACE2(FUTURE_UNBLOCK, (uintptr_t) *ctx, (uintptr_t) fut);
   }
 
   acquire_future_value(ctx, fut);
+  ENC_DTRACE2(FUTURE_GET, (uintptr_t) *ctx, (uintptr_t) fut);
 
   return fut->value;
 }
@@ -297,6 +305,7 @@ encore_arg_t future_get_actor(pony_ctx_t **ctx, future_t *fut)
 future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c)
 {
+  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
   future_t *r = future_mk(ctx, type);
   perr("future_chain_actor");
   BLOCK;
@@ -385,7 +394,9 @@ void future_await(pony_ctx_t **ctx, future_t *fut)
 
 static void future_finalizer(future_t *fut)
 {
-  future_gc_recv_value(pony_ctx(), fut);
+  pony_ctx_t* cctx = pony_ctx();
+  future_gc_recv_value(cctx, fut);
+  ENC_DTRACE2(FUTURE_DESTROY, (uintptr_t) cctx, (uintptr_t) fut);
 }
 
 static inline void future_gc_send_value(pony_ctx_t *ctx, future_t *fut)
