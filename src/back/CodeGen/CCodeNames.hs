@@ -127,10 +127,10 @@ ponyTrace :: CCode Name
 ponyTrace = Nam "pony_trace"
 
 ponyTraceObject :: CCode Name
-ponyTraceObject = Nam "pony_traceobject"
+ponyTraceObject = Nam "encore_trace_object"
 
 ponyTraceActor :: CCode Name
-ponyTraceActor = Nam "pony_traceactor"
+ponyTraceActor = Nam "encore_trace_actor"
 
 unit :: CCode Lval
 unit = Embed "UNIT"

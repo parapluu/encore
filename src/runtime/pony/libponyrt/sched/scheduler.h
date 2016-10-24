@@ -5,11 +5,13 @@
 #include <platform.h>
 #include "actor/messageq.h"
 #include "gc/gc.h"
+#include "gc/serialise.h"
 #include "mpmcq.h"
 
 PONY_EXTERN_C_BEGIN
 
-typedef void (*trace_object_fn)(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+typedef void (*trace_object_fn)(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
 typedef void (*trace_actor_fn)(pony_ctx_t* ctx, pony_actor_t* actor);
 
@@ -25,26 +27,9 @@ typedef struct pony_ctx_t
   actormap_t acquire;
   bool finalising;
 
-#ifdef USE_TELEMETRY
-  size_t tsc;
-
-  size_t count_gc_passes;
-  size_t count_alloc;
-  size_t count_alloc_size;
-  size_t count_alloc_actors;
-
-  size_t count_msg_app;
-  size_t count_msg_block;
-  size_t count_msg_unblock;
-  size_t count_msg_acquire;
-  size_t count_msg_release;
-  size_t count_msg_conf;
-  size_t count_msg_ack;
-
-  size_t time_in_gc;
-  size_t time_in_send_scan;
-  size_t time_in_recv_scan;
-#endif
+  void* serialise_buffer;
+  size_t serialise_size;
+  ponyint_serialise_t serialise;
 } pony_ctx_t;
 
 struct scheduler_t
@@ -69,17 +54,16 @@ struct scheduler_t
   messageq_t mq;
 };
 
-pony_ctx_t* scheduler_init(uint32_t threads, bool noyield);
+pony_ctx_t* ponyint_sched_init(uint32_t threads, bool noyield, bool nopin,
+  bool pinasio);
 
-bool scheduler_start(bool library);
+bool ponyint_sched_start(bool library);
 
-void scheduler_stop();
+void ponyint_sched_stop();
 
-void scheduler_add(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_sched_add(pony_ctx_t* ctx, pony_actor_t* actor);
 
-uint32_t scheduler_cores();
-
-void scheduler_terminate();
+uint32_t ponyint_sched_cores();
 
 PONY_EXTERN_C_END
 

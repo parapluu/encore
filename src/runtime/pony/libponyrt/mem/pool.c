@@ -1,6 +1,9 @@
+#define PONY_WANT_ATOMIC_DEFS
+
 #include "pool.h"
 #include "alloc.h"
 #include "../ds/fun.h"
+#include "../sched/cpu.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -9,6 +12,7 @@
 #include <assert.h>
 
 #include <platform.h>
+#include <pony/detail/atomics.h>
 
 #ifdef USE_VALGRIND
 #include <valgrind/valgrind.h>
@@ -58,27 +62,14 @@ typedef struct pool_central_t
   struct pool_central_t* central;
 } pool_central_t;
 
-/// An ABA protected CAS pointer to a per-size global free list.
-typedef struct pool_cmp_t
-{
-  union
-  {
-    struct
-    {
-      uintptr_t aba;
-      pool_central_t* node;
-    };
-
-    dw_t dw;
-  };
-} pool_cmp_t;
-
 /// A per-size global list of free lists header.
 typedef struct pool_global_t
 {
   size_t size;
   size_t count;
-  dw_t central;
+  PONY_ATOMIC(pool_central_t*) central;
+  PONY_ATOMIC(size_t )ticket;
+  PONY_ATOMIC(size_t) waiting_for;
 } pool_global_t;
 
 /// An item on a thread-local list of free blocks.
@@ -99,22 +90,22 @@ typedef struct pool_block_header_t
 
 static pool_global_t pool_global[POOL_COUNT] =
 {
-  {POOL_MIN << 0, POOL_MAX / (POOL_MIN << 0), 0},
-  {POOL_MIN << 1, POOL_MAX / (POOL_MIN << 1), 0},
-  {POOL_MIN << 2, POOL_MAX / (POOL_MIN << 2), 0},
-  {POOL_MIN << 3, POOL_MAX / (POOL_MIN << 3), 0},
-  {POOL_MIN << 4, POOL_MAX / (POOL_MIN << 4), 0},
-  {POOL_MIN << 5, POOL_MAX / (POOL_MIN << 5), 0},
-  {POOL_MIN << 6, POOL_MAX / (POOL_MIN << 6), 0},
-  {POOL_MIN << 7, POOL_MAX / (POOL_MIN << 7), 0},
-  {POOL_MIN << 8, POOL_MAX / (POOL_MIN << 8), 0},
-  {POOL_MIN << 9, POOL_MAX / (POOL_MIN << 9), 0},
-  {POOL_MIN << 10, POOL_MAX / (POOL_MIN << 10), 0},
-  {POOL_MIN << 11, POOL_MAX / (POOL_MIN << 11), 0},
-  {POOL_MIN << 12, POOL_MAX / (POOL_MIN << 12), 0},
-  {POOL_MIN << 13, POOL_MAX / (POOL_MIN << 13), 0},
-  {POOL_MIN << 14, POOL_MAX / (POOL_MIN << 14), 0},
-  {POOL_MIN << 15, POOL_MAX / (POOL_MIN << 15), 0},
+  {POOL_MIN << 0, POOL_MAX / (POOL_MIN << 0), NULL, 0, 0},
+  {POOL_MIN << 1, POOL_MAX / (POOL_MIN << 1), NULL, 0, 0},
+  {POOL_MIN << 2, POOL_MAX / (POOL_MIN << 2), NULL, 0, 0},
+  {POOL_MIN << 3, POOL_MAX / (POOL_MIN << 3), NULL, 0, 0},
+  {POOL_MIN << 4, POOL_MAX / (POOL_MIN << 4), NULL, 0, 0},
+  {POOL_MIN << 5, POOL_MAX / (POOL_MIN << 5), NULL, 0, 0},
+  {POOL_MIN << 6, POOL_MAX / (POOL_MIN << 6), NULL, 0, 0},
+  {POOL_MIN << 7, POOL_MAX / (POOL_MIN << 7), NULL, 0, 0},
+  {POOL_MIN << 8, POOL_MAX / (POOL_MIN << 8), NULL, 0, 0},
+  {POOL_MIN << 9, POOL_MAX / (POOL_MIN << 9), NULL, 0, 0},
+  {POOL_MIN << 10, POOL_MAX / (POOL_MIN << 10), NULL, 0, 0},
+  {POOL_MIN << 11, POOL_MAX / (POOL_MIN << 11), NULL, 0, 0},
+  {POOL_MIN << 12, POOL_MAX / (POOL_MIN << 12), NULL, 0, 0},
+  {POOL_MIN << 13, POOL_MAX / (POOL_MIN << 13), NULL, 0, 0},
+  {POOL_MIN << 14, POOL_MAX / (POOL_MIN << 14), NULL, 0, 0},
+  {POOL_MIN << 15, POOL_MAX / (POOL_MIN << 15), NULL, 0, 0},
 };
 
 static __pony_thread_local pool_local_t pool_local[POOL_COUNT];
@@ -132,8 +123,8 @@ static __pony_thread_local pool_block_header_t pool_block_header;
 #define POOL_TRACK_PULL_LIST ((void*)5)
 #define POOL_TRACK_MAX_THREADS 64
 
-DECLARE_STACK(pool_track, void);
-DEFINE_STACK(pool_track, void);
+DECLARE_STACK(pool_track, pool_track_t, void);
+DEFINE_STACK(pool_track, pool_track_t, void);
 
 typedef struct
 {
@@ -144,7 +135,7 @@ typedef struct
 } pool_track_info_t;
 
 static __pony_thread_local pool_track_info_t track;
-static int volatile track_global_thread_id;
+static PONY_ATOMIC(int) track_global_thread_id;
 static pool_track_info_t* track_global_info[POOL_TRACK_MAX_THREADS];
 
 static void pool_event_print(int thread, void* op, size_t event, size_t tsc,
@@ -170,7 +161,7 @@ static void pool_event_print(int thread, void* op, size_t event, size_t tsc,
       thread, event, tsc, (size_t)addr, size);
 }
 
-void pool_track(int thread_filter, void* addr_filter, int op_filter,
+static void pool_track(int thread_filter, void* addr_filter, int op_filter,
   size_t event_filter)
 {
   for(int i = 0; i < POOL_TRACK_MAX_THREADS; i++)
@@ -258,7 +249,8 @@ static void track_init()
     return;
 
   track.init = true;
-  track.thread_id = _atomic_add(&track_global_thread_id, 1);
+  track.thread_id = atomic_fetch_add(&track_global_thread_id, 1,
+    memory_order_relaxed);
   track_global_info[track.thread_id] = &track;
 
   // Force the symbol to be linked.
@@ -277,7 +269,7 @@ static void track_alloc(void* p, size_t size)
   track.stack = pool_track_push(track.stack, POOL_TRACK_ALLOC);
   track.stack = pool_track_push(track.stack, p);
   track.stack = pool_track_push(track.stack, (void*)size);
-  track.stack = pool_track_push(track.stack, (void*)cpu_tick());
+  track.stack = pool_track_push(track.stack, (void*)ponyint_cpu_tick());
 
   track.internal = false;
 }
@@ -292,7 +284,7 @@ static void track_free(void* p, size_t size)
   track.stack = pool_track_push(track.stack, POOL_TRACK_FREE);
   track.stack = pool_track_push(track.stack, p);
   track.stack = pool_track_push(track.stack, (void*)size);
-  track.stack = pool_track_push(track.stack, (void*)cpu_tick());
+  track.stack = pool_track_push(track.stack, (void*)ponyint_cpu_tick());
 
   track.internal = false;
 }
@@ -303,7 +295,7 @@ static void track_push(pool_item_t* p, size_t length, size_t size)
   assert(!track.internal);
 
   track.internal = true;
-  uint64_t tsc = cpu_tick();
+  uint64_t tsc = ponyint_cpu_tick();
 
   track.stack = pool_track_push(track.stack, POOL_TRACK_PUSH_LIST);
   track.stack = pool_track_push(track.stack, (void*)length);
@@ -328,7 +320,7 @@ static void track_pull(pool_item_t* p, size_t length, size_t size)
   assert(!track.internal);
 
   track.internal = true;
-  uint64_t tsc = cpu_tick();
+  uint64_t tsc = ponyint_cpu_tick();
 
   track.stack = pool_track_push(track.stack, POOL_TRACK_PULL_LIST);
   track.stack = pool_track_push(track.stack, (void*)length);
@@ -444,9 +436,9 @@ static void* pool_alloc_pages(size_t size)
 
   // We have no free blocks big enough.
   if(size >= POOL_MMAP)
-    return virtual_alloc(size);
+    return ponyint_virt_alloc(size);
 
-  pool_block_t* block = (pool_block_t*)virtual_alloc(POOL_MMAP);
+  pool_block_t* block = (pool_block_t*)ponyint_virt_alloc(POOL_MMAP);
   size_t rem = POOL_MMAP - size;
 
   block->size = rem;
@@ -476,7 +468,6 @@ static void pool_free_pages(void* p, size_t size)
 
 static void pool_push(pool_local_t* thread, pool_global_t* global)
 {
-  pool_cmp_t cmp, xchg;
   pool_central_t* p = (pool_central_t*)thread->pool;
   p->length = thread->length;
 
@@ -486,40 +477,63 @@ static void pool_push(pool_local_t* thread, pool_global_t* global)
   assert(p->length == global->count);
   TRACK_PUSH((pool_item_t*)p, p->length, global->size);
 
-  cmp.dw = global->central;
-  xchg.node = p;
+  size_t my_ticket = atomic_fetch_add_explicit(&global->ticket, 1,
+    memory_order_relaxed);
 
-  do
-  {
-    p->central = cmp.node;
-    xchg.aba = cmp.aba + 1;
-  } while(!_atomic_dwcas(&global->central, &cmp.dw, xchg.dw));
+  while(my_ticket != atomic_load_explicit(&global->waiting_for,
+    memory_order_relaxed))
+    ponyint_cpu_relax();
+
+  atomic_thread_fence(memory_order_acquire);
+
+  pool_central_t* top = atomic_load_explicit(&global->central,
+    memory_order_relaxed);
+  p->central = top;
+
+  atomic_store_explicit(&global->central, p, memory_order_relaxed);
+  atomic_store_explicit(&global->waiting_for, my_ticket + 1,
+    memory_order_release);
 }
 
 static pool_item_t* pool_pull(pool_local_t* thread, pool_global_t* global)
 {
-  pool_cmp_t cmp, xchg;
-  pool_central_t* next;
-  cmp.dw = global->central;
+  // If we believe the global free list is empty, bailout immediately without
+  // taking a ticket to avoid unnecessary contention.
+  if(atomic_load_explicit(&global->central, memory_order_relaxed) == NULL)
+    return NULL;
 
-  do
+  size_t my_ticket = atomic_fetch_add_explicit(&global->ticket, 1,
+    memory_order_relaxed);
+
+  while(my_ticket != atomic_load_explicit(&global->waiting_for,
+    memory_order_relaxed))
+    ponyint_cpu_relax();
+
+  atomic_thread_fence(memory_order_acquire);
+
+  pool_central_t* top = atomic_load_explicit(&global->central,
+    memory_order_relaxed);
+
+  if(top == NULL)
   {
-    next = cmp.node;
+    atomic_store_explicit(&global->waiting_for, my_ticket + 1,
+      memory_order_relaxed);
+    return NULL;
+  }
 
-    if(next == NULL)
-      return NULL;
+  pool_central_t* next = top->central;
 
-    xchg.node = next->central;
-    xchg.aba = cmp.aba + 1;
-  } while(!_atomic_dwcas(&global->central, &cmp.dw, xchg.dw));
+  atomic_store_explicit(&global->central, next, memory_order_relaxed);
+  atomic_store_explicit(&global->waiting_for, my_ticket + 1,
+    memory_order_release);
 
-  pool_item_t* p = (pool_item_t*)next;
+  pool_item_t* p = (pool_item_t*)top;
 
-  assert(next->length == global->count);
-  TRACK_PULL(p, next->length, global->size);
+  assert(top->length == global->count);
+  TRACK_PULL(p, top->length, global->size);
 
   thread->pool = p->next;
-  thread->length = next->length - 1;
+  thread->length = top->length - 1;
 
   return p;
 }
@@ -570,7 +584,7 @@ static void* pool_get(pool_local_t* pool, size_t index)
   return pool_alloc_pages(global->size);
 }
 
-void* pool_alloc(size_t index)
+void* ponyint_pool_alloc(size_t index)
 {
 #ifdef USE_VALGRIND
   VALGRIND_DISABLE_ERROR_REPORTING;
@@ -583,13 +597,13 @@ void* pool_alloc(size_t index)
 
 #ifdef USE_VALGRIND
   VALGRIND_ENABLE_ERROR_REPORTING;
-  VALGRIND_MALLOCLIKE_BLOCK(p, pool_size(index), 0, 0);
+  VALGRIND_MALLOCLIKE_BLOCK(p, ponyint_pool_size(index), 0, 0);
 #endif
 
   return p;
 }
 
-void pool_free(size_t index, void* p)
+void ponyint_pool_free(size_t index, void* p)
 {
 #ifdef USE_VALGRIND
   VALGRIND_DISABLE_ERROR_REPORTING;
@@ -615,18 +629,18 @@ void pool_free(size_t index, void* p)
 #endif
 }
 
-void* pool_alloc_size(size_t size)
+void* ponyint_pool_alloc_size(size_t size)
 {
-  size_t index = pool_index(size);
+  size_t index = ponyint_pool_index(size);
 
   if(index < POOL_COUNT)
-    return pool_alloc(index);
+    return ponyint_pool_alloc(index);
 
 #ifdef USE_VALGRIND
   VALGRIND_DISABLE_ERROR_REPORTING;
 #endif
 
-  size = pool_adjust_size(size);
+  size = ponyint_pool_adjust_size(size);
   void* p = pool_alloc_pages(size);
 
   TRACK_ALLOC(p, size);
@@ -639,18 +653,18 @@ void* pool_alloc_size(size_t size)
   return p;
 }
 
-void pool_free_size(size_t size, void* p)
+void ponyint_pool_free_size(size_t size, void* p)
 {
-  size_t index = pool_index(size);
+  size_t index = ponyint_pool_index(size);
 
   if(index < POOL_COUNT)
-    return pool_free(index, p);
+    return ponyint_pool_free(index, p);
 
 #ifdef USE_VALGRIND
   VALGRIND_DISABLE_ERROR_REPORTING;
 #endif
 
-  size = pool_adjust_size(size);
+  size = ponyint_pool_adjust_size(size);
   pool_free_pages(p, size);
 
   TRACK_FREE(p, size);
@@ -661,7 +675,7 @@ void pool_free_size(size_t size, void* p)
 #endif
 }
 
-size_t pool_index(size_t size)
+size_t ponyint_pool_index(size_t size)
 {
   if(size <= POOL_MIN)
     return 0;
@@ -669,16 +683,16 @@ size_t pool_index(size_t size)
   if(size > POOL_MAX)
     return POOL_COUNT;
 
-  size = next_pow2(size);
+  size = ponyint_next_pow2(size);
   return __pony_ffsl(size) - (POOL_MIN_BITS + 1);
 }
 
-size_t pool_size(size_t index)
+size_t ponyint_pool_size(size_t index)
 {
   return (size_t)1 << (POOL_MIN_BITS + index);
 }
 
-size_t pool_adjust_size(size_t size)
+size_t ponyint_pool_adjust_size(size_t size)
 {
   if((size & POOL_ALIGN_MASK) != 0)
     size = (size & ~POOL_ALIGN_MASK) + POOL_ALIGN;

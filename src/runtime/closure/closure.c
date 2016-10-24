@@ -11,7 +11,7 @@ void closure_trace(pony_ctx_t *ctx, void *p)
 {
   assert(p);
   closure_t *c = (closure_t *) p;
-  pony_traceobject(ctx, c->env, c->trace);
+  encore_trace_object(ctx, c->env, c->trace);
   pony_trace(ctx, c->runtimeTypes);
 }
 

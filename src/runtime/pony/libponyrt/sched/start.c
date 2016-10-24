@@ -1,5 +1,9 @@
+#define PONY_WANT_ATOMIC_DEFS
+
 #include "scheduler.h"
+#include "cpu.h"
 #include "../mem/heap.h"
+#include "../actor/actor.h"
 #include "../gc/cycle.h"
 #include "../lang/socket.h"
 #include "../options/options.h"
@@ -16,10 +20,13 @@ typedef struct options_t
   size_t gc_initial;
   double gc_factor;
   bool noyield;
+  bool noblock;
+  bool nopin;
+  bool pinasio;
 } options_t;
 
 // global data
-static int volatile exit_code;
+static PONY_ATOMIC(int) exit_code;
 
 enum
 {
@@ -29,7 +36,10 @@ enum
   OPT_CDCONF,
   OPT_GCINITIAL,
   OPT_GCFACTOR,
-  OPT_NOYIELD
+  OPT_NOYIELD,
+  OPT_NOBLOCK,
+  OPT_NOPIN,
+  OPT_PINASIO
 };
 
 static opt_arg_t args[] =
@@ -41,6 +51,9 @@ static opt_arg_t args[] =
   {"ponygcinitial", 0, OPT_ARG_REQUIRED, OPT_GCINITIAL},
   {"ponygcfactor", 0, OPT_ARG_REQUIRED, OPT_GCFACTOR},
   {"ponynoyield", 0, OPT_ARG_NONE, OPT_NOYIELD},
+  {"ponynoblock", 0, OPT_ARG_NONE, OPT_NOBLOCK},
+  {"ponynopin", 0, OPT_ARG_NONE, OPT_NOPIN},
+  {"ponypinasio", 0, OPT_ARG_NONE, OPT_PINASIO},
 
   OPT_ARGS_FINISH
 };
@@ -49,9 +62,9 @@ static int parse_opts(int argc, char** argv, options_t* opt)
 {
   opt_state_t s;
   int id;
-  opt_init(args, &s, &argc, argv);
+  ponyint_opt_init(args, &s, &argc, argv);
 
-  while((id = opt_next(&s)) != -1)
+  while((id = ponyint_opt_next(&s)) != -1)
   {
     switch(id)
     {
@@ -62,6 +75,9 @@ static int parse_opts(int argc, char** argv, options_t* opt)
       case OPT_GCINITIAL: opt->gc_initial = atoi(s.arg_val); break;
       case OPT_GCFACTOR: opt->gc_factor = atof(s.arg_val); break;
       case OPT_NOYIELD: opt->noyield = true; break;
+      case OPT_NOBLOCK: opt->noblock = true; break;
+      case OPT_NOPIN: opt->nopin = true; break;
+      case OPT_PINASIO: opt->pinasio = true; break;
 
       default: exit(-1);
     }
@@ -85,16 +101,18 @@ int pony_init(int argc, char** argv)
 
   argc = parse_opts(argc, argv, &opt);
 
-#if defined(PLATFORM_IS_LINUX)
-  pony_numa_init();
-#endif
+  ponyint_cpu_init();
 
-  heap_setinitialgc(opt.gc_initial);
-  heap_setnextgcfactor(opt.gc_factor);
+  ponyint_heap_setinitialgc(opt.gc_initial);
+  ponyint_heap_setnextgcfactor(opt.gc_factor);
+  ponyint_actor_setnoblock(opt.noblock);
 
   pony_exitcode(0);
-  pony_ctx_t* ctx = scheduler_init(opt.threads, opt.noyield);
-  cycle_create(ctx,
+
+  pony_ctx_t* ctx = ponyint_sched_init(opt.threads, opt.noyield, opt.nopin,
+    opt.pinasio);
+
+  ponyint_cycle_create(ctx,
     opt.cd_min_deferred, opt.cd_max_deferred, opt.cd_conf_group);
 
   return argc;
@@ -102,27 +120,27 @@ int pony_init(int argc, char** argv)
 
 int pony_start(bool library)
 {
-  if(!os_socket_init())
+  if(!ponyint_os_sockets_init())
     return -1;
 
-  if(!scheduler_start(library))
+  if(!ponyint_sched_start(library))
     return -1;
 
   if(library)
     return 0;
 
-  return _atomic_load(&exit_code);
+  return atomic_load_explicit(&exit_code, memory_order_relaxed);
 }
 
 int pony_stop()
 {
-  scheduler_stop();
-  os_socket_shutdown();
+  ponyint_sched_stop();
+  ponyint_os_sockets_final();
 
-  return _atomic_load(&exit_code);
+  return atomic_load_explicit(&exit_code, memory_order_relaxed);
 }
 
 void pony_exitcode(int code)
 {
-  _atomic_store(&exit_code, code);
+  atomic_store_explicit(&exit_code, code, memory_order_relaxed);
 }

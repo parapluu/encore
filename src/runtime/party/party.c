@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "closure.h"
-#include "list.h"
+#include "list.c"
 #include <array.h>
 #include <math.h>
 #include <encore.h>
@@ -98,13 +98,13 @@ static inline void trace_array_par(pony_ctx_t *ctx, par_t* obj){
   if(obj->rtype == ENCORE_PRIMITIVE){
     for(size_t i = 0; i<array_size(ar); i++){
       void* val = array_get(ar, i).p;
-      pony_traceactor(ctx, val);
+      encore_trace_actor(ctx, val);
     }
   }else{
     pony_trace_fn trace_fn = obj->rtype->trace;
     for(size_t i = 0; i<array_size(ar); i++){
       void* val = array_get(ar, i).p;
-      pony_traceobject(ctx, val, trace_fn);
+      encore_trace_object(ctx, val, trace_fn);
     }
   }
 }
@@ -114,18 +114,18 @@ void party_trace(pony_ctx_t* ctx, void* p){
   par_t *obj = p;
   if(obj->rtype == ENCORE_ACTIVE){
     if(obj->tag == VALUE_PAR)
-      pony_traceactor(ctx, (pony_actor_t*) obj->data.v.val.p);
+      encore_trace_actor(ctx, (pony_actor_t*) obj->data.v.val.p);
     else
       trace_array_par(ctx, obj);
   }else if(obj->rtype != ENCORE_PRIMITIVE){
     switch(obj->tag){
     case EMPTY_PAR: break;
     case VALUE_PAR: {
-      pony_traceobject(ctx, obj->data.v.val.p, obj->rtype->trace);
+      encore_trace_object(ctx, obj->data.v.val.p, obj->rtype->trace);
       break;
     }
     case FUTURE_PAR: {
-      pony_traceobject(ctx, obj->data.f.fut, obj->rtype->trace);
+      encore_trace_object(ctx, obj->data.f.fut, obj->rtype->trace);
       break;
     }
     case PAR_PAR: {
@@ -134,7 +134,7 @@ void party_trace(pony_ctx_t* ctx, void* p){
       break;
     }
     case FUTUREPAR_PAR: {
-      pony_traceobject(ctx, obj->data.fp.fut, obj->rtype->trace);
+      encore_trace_object(ctx, obj->data.fp.fut, obj->rtype->trace);
       break;
     }
     case ARRAY_PAR: {
@@ -486,8 +486,8 @@ par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
 /*     task_schedule(task); */
 
 /*     pony_gc_send(ctx); */
-/*     pony_traceobject(ctx, fut, future_type.trace); */
-/*     pony_traceobject(ctx, task, NULL); */
+/*     encore_trace_object(ctx, fut, future_type.trace); */
+/*     encore_trace_object(ctx, task, NULL); */
 /*     pony_send_done(ctx); */
 
 /*     par = new_par_fp(ctx, fut, type); */

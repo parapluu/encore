@@ -12,13 +12,13 @@ option_t DEFAULT_NOTHING = {.tag = NOTHING};
 void option_trace(pony_ctx_t* ctx, void *p){
   struct option_t *option = p;
   if(option->tag == DEFAULT_NOTHING.tag){
-    pony_traceobject(ctx, option, NULL);
+    encore_trace_object(ctx, option, NULL);
   } else {
     encore_arg_t val = option->val;
     if(option->type == ENCORE_ACTIVE){
-      pony_traceactor(ctx, val.p);
+      encore_trace_actor(ctx, val.p);
     }else if (option->type != ENCORE_PRIMITIVE){
-      pony_traceobject(ctx, val.p, option->type->trace);
+      encore_trace_object(ctx, val.p, option->type->trace);
     }
   }
 }

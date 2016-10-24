@@ -49,7 +49,7 @@ typedef struct pony_stat_t
 
 #ifdef PLATFORM_IS_WINDOWS
 
-void filetime_to_ts(FILETIME* ft, int64_t* s, int64_t* ns)
+static void filetime_to_ts(FILETIME* ft, int64_t* s, int64_t* ns)
 {
   int64_t epoch = ((int64_t)ft->dwHighDateTime << 32) | ft->dwLowDateTime;
   epoch -= 116444736000000000;
@@ -101,19 +101,24 @@ static void windows_stat(const char* path, pony_stat_t* p, struct __stat64* st,
 
 #else
 
+static void unix_file_type(pony_stat_t* p, struct stat* st)
+{
+  p->file = S_ISREG(st->st_mode) != 0;
+  p->directory = S_ISDIR(st->st_mode) != 0;
+  p->pipe = S_ISFIFO(st->st_mode) != 0;
+  p->size = (size_t)st->st_size;
+}
+
 static void unix_stat(pony_stat_t* p, struct stat* st)
 {
-  p->symlink = S_ISLNK(st->st_mode) != 0;
-  p->broken = false;
-
   // Report information other than size based on the symlink if there is one.
   p->hard_links = (uint32_t)st->st_nlink;
   p->uid = st->st_uid;
   p->gid = st->st_gid;
 
-  p->file = S_ISREG(st->st_mode) != 0;
-  p->directory = S_ISDIR(st->st_mode) != 0;
-  p->pipe = S_ISFIFO(st->st_mode) != 0;
+  unix_file_type(p, st);
+  p->symlink = S_ISLNK(st->st_mode) != 0;
+  p->broken = false;
 
   p->mode->setuid = (st->st_mode & S_ISUID) != 0;
   p->mode->setgid = (st->st_mode & S_ISGID) != 0;
@@ -144,13 +149,24 @@ static void unix_stat(pony_stat_t* p, struct stat* st)
   p->modified_time_nsec = st->st_mtimespec.tv_nsec;
   p->change_time_nsec = st->st_ctimespec.tv_nsec;
 #endif
+}
 
-  p->size = (size_t)st->st_size;
+static void unix_symlink(int r, pony_stat_t* p, struct stat* st)
+{
+  if(r != 0)
+  {
+    // Report a broken symlink with everything set except the size.
+    p->broken = true;
+    p->size = 0;
+  } else {
+    // Set the file type information based on the target.
+    unix_file_type(p, st);
+  }
 }
 
 #endif
 
-bool os_fstatat(int fd, const char* path, pony_stat_t* p)
+bool pony_os_fstatat(int fd, const char* path, pony_stat_t* p)
 {
 #if defined(PLATFORM_IS_WINDOWS) || defined(PLATFORM_IS_MACOSX)
   (void)fd;
@@ -161,15 +177,19 @@ bool os_fstatat(int fd, const char* path, pony_stat_t* p)
 #elif defined(PLATFORM_IS_POSIX_BASED)
   struct stat st;
 
-  if(fstatat(fd, path, &st, 0) != 0)
+  if(fstatat(fd, path, &st, AT_SYMLINK_NOFOLLOW) != 0)
     return false;
 
   unix_stat(p, &st);
+
+  if(p->symlink)
+    unix_symlink(fstatat(fd, path, &st, 0) != 0, p, &st);
+
   return true;
 #endif
 }
 
-bool os_fstat(int fd, const char* path, pony_stat_t* p)
+bool pony_os_fstat(int fd, const char* path, pony_stat_t* p)
 {
 #if defined(PLATFORM_IS_WINDOWS)
   HANDLE h = (HANDLE)_get_osfhandle(fd);
@@ -199,7 +219,7 @@ bool os_fstat(int fd, const char* path, pony_stat_t* p)
 #endif
 }
 
-bool os_stat(const char* path, pony_stat_t* p)
+bool pony_os_stat(const char* path, pony_stat_t* p)
 {
 #if defined(PLATFORM_IS_WINDOWS)
   WIN32_FILE_ATTRIBUTE_DATA fa;
@@ -229,12 +249,8 @@ bool os_stat(const char* path, pony_stat_t* p)
 
   unix_stat(p, &st);
 
-  if(p->symlink && (stat(path, &st) != 0))
-  {
-    // Report a broken symlink with everything set except the size.
-    p->broken = true;
-    p->size = 0;
-  }
+  if(p->symlink)
+    unix_symlink(stat(path, &st) != 0, p, &st);
 
   return true;
 #endif

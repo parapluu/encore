@@ -5,8 +5,8 @@
 #include <string.h>
 #include <assert.h>
 
-asio_event_t* asio_event_create(pony_actor_t* owner, int fd, uint32_t flags,
-  uint64_t nsec, bool noisy)
+asio_event_t* pony_asio_event_create(pony_actor_t* owner, int fd,
+  uint32_t flags, uint64_t nsec, bool noisy)
 {
   if((flags == ASIO_DISPOSABLE) || (flags == ASIO_DESTROYED))
     return NULL;
@@ -30,14 +30,14 @@ asio_event_t* asio_event_create(pony_actor_t* owner, int fd, uint32_t flags,
   // The event is effectively being sent to another thread, so mark it here.
   pony_ctx_t* ctx = pony_ctx();
   pony_gc_send(ctx);
-  pony_traceactor(ctx, owner);
+  pony_traceknown(ctx, owner, type, PONY_TRACE_OPAQUE);
   pony_send_done(ctx);
 
-  asio_event_subscribe(ev);
+  pony_asio_event_subscribe(ev);
   return ev;
 }
 
-void asio_event_destroy(asio_event_t* ev)
+void pony_asio_event_destroy(asio_event_t* ev)
 {
   if((ev == NULL) || (ev->magic != ev) || (ev->flags != ASIO_DISPOSABLE))
   {
@@ -51,13 +51,13 @@ void asio_event_destroy(asio_event_t* ev)
   // the asio thread.
   pony_ctx_t* ctx = pony_ctx();
   pony_gc_recv(ctx);
-  pony_traceactor(ctx, ev->owner);
+  pony_traceunknown(ctx, ev->owner, PONY_TRACE_OPAQUE);
   pony_recv_done(ctx);
 
   POOL_FREE(asio_event_t, ev);
 }
 
-int asio_event_fd(asio_event_t* ev)
+int pony_asio_event_fd(asio_event_t* ev)
 {
   if(ev == NULL)
     return -1;
@@ -65,7 +65,7 @@ int asio_event_fd(asio_event_t* ev)
   return ev->fd;
 }
 
-uint64_t asio_event_nsec(asio_event_t* ev)
+uint64_t pony_asio_event_nsec(asio_event_t* ev)
 {
   if(ev == NULL)
     return 0;
@@ -73,7 +73,7 @@ uint64_t asio_event_nsec(asio_event_t* ev)
   return ev->nsec;
 }
 
-void asio_event_send(asio_event_t* ev, uint32_t flags, uint32_t arg)
+void pony_asio_event_send(asio_event_t* ev, uint32_t flags, uint32_t arg)
 {
   asio_msg_t* m = (asio_msg_t*)pony_alloc_msg(POOL_INDEX(sizeof(asio_msg_t)),
     ev->msg_id);

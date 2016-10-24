@@ -438,8 +438,8 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     [tracefunDecl cdecl] ++
     [constructorImpl Passive cname] ++
     methodImpls ++
-    [dispatchfunDecl] ++
-    [runtimeTypeDecl cname]
+    -- [dispatchfunDecl] ++
+    [runtimePassiveTypeDecl cname]
   where
     methodImpls = map methodDecl cmethods
         where
@@ -525,5 +525,14 @@ runtimeTypeDecl cname =
       , (Nam "size", Call (Nam "sizeof") [AsLval $ classTypeName cname])
       , (Nam "trace", AsExpr . AsLval $ (classTraceFnName cname))
       , (Nam "dispatch", AsExpr . AsLval $ (classDispatchName cname))
+      , (Nam "vtable", AsExpr . AsLval $ traitMethodSelectorName)
+      ]
+
+runtimePassiveTypeDecl cname =
+  AssignTL
+   (Decl (Typ "pony_type_t", AsLval $ runtimeTypeName cname)) $
+      DesignatedInitializer $ [ (Nam "id", AsExpr . AsLval $ classId cname)
+      , (Nam "size", Call (Nam "sizeof") [AsLval $ classTypeName cname])
+      , (Nam "trace", AsExpr . AsLval $ (classTraceFnName cname))
       , (Nam "vtable", AsExpr . AsLval $ traitMethodSelectorName)
       ]

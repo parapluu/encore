@@ -1,5 +1,7 @@
+#define PONY_WANT_ATOMIC_DEFS
 #define _XOPEN_SOURCE 800
 #include <ucontext.h>
+
 #include "scheduler.h"
 #include "cpu.h"
 #include "mpmcq.h"
@@ -7,12 +9,12 @@
 #include "../gc/cycle.h"
 #include "../asio/asio.h"
 #include "../mem/pool.h"
-#include "encore.h"
-#include "task.h"
 #include <string.h>
 #include <stdio.h>
-#include <signal.h>
 #include <assert.h>
+#include <signal.h>
+#include "encore.h"
+#include "task.h"
 
 #define SCHED_BATCH 100
 
@@ -39,7 +41,7 @@ static uint32_t scheduler_count;
 static uint32_t context_waiting = 0;
 static uint32_t thread_exit = 0;
 static scheduler_t* scheduler;
-static bool volatile detect_quiescence;
+static PONY_ATOMIC(bool) detect_quiescence;
 static bool use_yield;
 static mpmcq_t inject;
 static __pony_thread_local scheduler_t* this_scheduler;
@@ -49,7 +51,7 @@ static __pony_thread_local scheduler_t* this_scheduler;
  */
 static pony_actor_t* pop(scheduler_t* sched)
 {
-  return (pony_actor_t*)mpmcq_pop(&sched->q);
+  return (pony_actor_t*)ponyint_mpmcq_pop(&sched->q);
 }
 
 /**
@@ -57,7 +59,7 @@ static pony_actor_t* pop(scheduler_t* sched)
  */
 static void push(scheduler_t* sched, pony_actor_t* actor)
 {
-  mpmcq_push_single(&sched->q, actor);
+  ponyint_mpmcq_push_single(&sched->q, actor);
 }
 
 /**
@@ -65,7 +67,7 @@ static void push(scheduler_t* sched, pony_actor_t* actor)
  */
 static pony_actor_t* pop_global(scheduler_t* sched)
 {
-  pony_actor_t* actor = (pony_actor_t*)mpmcq_pop(&inject);
+  pony_actor_t* actor = (pony_actor_t*)ponyint_mpmcq_pop(&inject);
 
   if(actor != NULL)
     return actor;
@@ -76,20 +78,21 @@ static pony_actor_t* pop_global(scheduler_t* sched)
 /**
  * Sends a message to a thread.
  */
+
 static void send_msg(uint32_t to, sched_msg_t msg, intptr_t arg)
 {
   pony_msgi_t* m = (pony_msgi_t*)pony_alloc_msg(
     POOL_INDEX(sizeof(pony_msgi_t)), msg);
 
   m->i = arg;
-  messageq_push(&scheduler[to].mq, &m->msg);
+  ponyint_messageq_push(&scheduler[to].mq, &m->msg);
 }
 
 static void read_msg(scheduler_t* sched)
 {
   pony_msgi_t* m;
 
-  while((m = (pony_msgi_t*)messageq_pop(&sched->mq)) != NULL)
+  while((m = (pony_msgi_t*)ponyint_messageq_pop(&sched->mq)) != NULL)
   {
     switch(m->msg.id)
     {
@@ -97,7 +100,8 @@ static void read_msg(scheduler_t* sched)
       {
         sched->block_count++;
 
-        if(detect_quiescence && (sched->block_count == scheduler_count))
+        if(atomic_load_explicit(&detect_quiescence, memory_order_relaxed) &&
+          (sched->block_count == scheduler_count))
         {
           // If we think all threads are blocked, send CNF(token) to everyone.
           for(uint32_t i = 0; i < scheduler_count; i++)
@@ -142,11 +146,13 @@ static void read_msg(scheduler_t* sched)
   }
 }
 
+
 /**
  * If we can terminate, return true. If all schedulers are waiting, one of
  * them will stop the ASIO back end and tell the cycle detector to try to
  * terminate.
  */
+
 static bool quiescent(scheduler_t* sched, uint64_t tsc, uint64_t tsc2)
 {
   read_msg(sched);
@@ -158,11 +164,12 @@ static bool quiescent(scheduler_t* sched, uint64_t tsc, uint64_t tsc2)
   {
     if(sched->asio_stopped)
     {
-      // Reset the ACK token in case we are rescheduling ourself.
-      cycle_terminate(&sched->ctx);
+      for(uint32_t i = 0; i < scheduler_count; i++)
+        send_msg(i, SCHED_TERMINATE, 0);
+
       sched->ack_token++;
       sched->ack_count = 0;
-    } else if(asio_stop()) {
+    } else if(ponyint_asio_stop()) {
       sched->asio_stopped = true;
       sched->ack_token++;
       sched->ack_count = 0;
@@ -173,9 +180,11 @@ static bool quiescent(scheduler_t* sched, uint64_t tsc, uint64_t tsc2)
     }
   }
 
-  cpu_core_pause(tsc, tsc2, use_yield);
+  ponyint_cpu_core_pause(tsc, tsc2, use_yield);
   return false;
 }
+
+
 
 static scheduler_t* choose_victim(scheduler_t* sched)
 {
@@ -183,11 +192,14 @@ static scheduler_t* choose_victim(scheduler_t* sched)
 
   while(true)
   {
+    // Schedulers are laid out sequentially in memory
+
     // Back up one.
     victim--;
 
-    // Wrap around to the end.
     if(victim < scheduler)
+      // victim is before the first scheduler location
+      // wrap around to the end.
       victim = &scheduler[scheduler_count - 1];
 
     if(victim == sched->last_victim)
@@ -210,6 +222,7 @@ static scheduler_t* choose_victim(scheduler_t* sched)
   return NULL;
 }
 
+
 /**
  * Use mpmcqs to allow stealing directly from a victim, without waiting for a
  * response.
@@ -217,7 +230,7 @@ static scheduler_t* choose_victim(scheduler_t* sched)
 static pony_actor_t* steal(scheduler_t* sched, pony_actor_t* prev)
 {
   send_msg(0, SCHED_BLOCK, 0);
-  uint64_t tsc = cpu_tick();
+  uint64_t tsc = ponyint_cpu_tick();
   pony_actor_t* actor;
 
   while(true)
@@ -232,7 +245,7 @@ static pony_actor_t* steal(scheduler_t* sched, pony_actor_t* prev)
     if(actor != NULL)
       break;
 
-    uint64_t tsc2 = cpu_tick();
+    uint64_t tsc2 = ponyint_cpu_tick();
 
     if(quiescent(sched, tsc, tsc2))
       return NULL;
@@ -269,14 +282,14 @@ static void run(scheduler_t* sched)
       if(actor == NULL)
       {
         // Termination.
-        assert(pop_global(sched) == NULL);
+        assert(pop(sched) == NULL);
         return;
       }
     }
 
     // Run the current actor and get the next actor.
     pony_ctx_t *ctx = &sched->ctx;
-    bool reschedule = actor_run(&ctx, actor, SCHED_BATCH);
+    bool reschedule = ponyint_actor_run(&ctx, actor, SCHED_BATCH);
 #ifdef LAZY_IMPL
     sched = this_scheduler;
 #endif
@@ -301,7 +314,7 @@ static void run(scheduler_t* sched)
         // we continue to run this actor.
         push(sched, actor);
         actor = next;
-      } else if(is_cycle(actor)) {
+      } else if(ponyint_is_cycle(actor)) {
         // If all we have is the cycle detector, try to steal something else to
         // run as well.
         next = steal(sched, actor);
@@ -373,7 +386,7 @@ static void *run_thread(void *arg)
 {
   scheduler_t* sched = (scheduler_t*) arg;
   this_scheduler = sched;
-  cpu_affinity(sched->cpu);
+  ponyint_cpu_affinity(sched->cpu);
 
 #ifdef LAZY_IMPL
   context uctx;
@@ -408,14 +421,11 @@ static void *run_thread(void *arg)
   return NULL;
 }
 
-static void scheduler_shutdown()
+static void ponyint_sched_shutdown()
 {
   uint32_t start;
 
-  if(scheduler[0].tid == pony_thread_self())
-    start = 1;
-  else
-    start = 0;
+  start = 0;
 
   for(uint32_t i = start; i < scheduler_count; i++) {
     pony_thread_join(scheduler[i].tid);
@@ -423,116 +433,70 @@ static void scheduler_shutdown()
   }
   assert(pop_global(&scheduler[0]) == NULL);
 
-#ifdef USE_TELEMETRY
-  printf("\"telemetry\": [\n");
-#endif
+  // back to main thread, but uses ctx from schedule[0]
+  this_scheduler = &scheduler[0];
+  ponyint_cycle_terminate(&scheduler[0].ctx);
 
   for(uint32_t i = 0; i < scheduler_count; i++)
   {
-    while(messageq_pop(&scheduler[i].mq) != NULL);
-    messageq_destroy(&scheduler[i].mq);
-    mpmcq_destroy(&scheduler[i].q);
-
-#ifdef USE_TELEMETRY
-    pony_ctx_t* ctx = &scheduler[i].ctx;
-
-    printf(
-      "  {\n"
-      "    \"count_gc_passes\": " __zu ",\n"
-      "    \"count_alloc\": " __zu ",\n"
-      "    \"count_alloc_size\": " __zu ",\n"
-      "    \"count_alloc_actors\": " __zu ",\n"
-      "    \"count_msg_app\": " __zu ",\n"
-      "    \"count_msg_block\": " __zu ",\n"
-      "    \"count_msg_unblock\": " __zu ",\n"
-      "    \"count_msg_acquire\": " __zu ",\n"
-      "    \"count_msg_release\": " __zu ",\n"
-      "    \"count_msg_conf\": " __zu ",\n"
-      "    \"count_msg_ack\": " __zu ",\n"
-      "    \"time_in_gc\": " __zu ",\n"
-      "    \"time_in_send_scan\": " __zu ",\n"
-      "    \"time_in_recv_scan\": " __zu "\n"
-      "  }",
-      ctx->count_gc_passes,
-      ctx->count_alloc,
-      ctx->count_alloc_size,
-      ctx->count_alloc_actors,
-      ctx->count_msg_app,
-      ctx->count_msg_block,
-      ctx->count_msg_unblock,
-      ctx->count_msg_acquire,
-      ctx->count_msg_release,
-      ctx->count_msg_conf,
-      ctx->count_msg_ack,
-      ctx->time_in_gc,
-      ctx->time_in_send_scan,
-      ctx->time_in_recv_scan
-      );
-
-    if(i < (scheduler_count - 1))
-      printf(",\n");
-#endif
+    while(ponyint_messageq_pop(&scheduler[i].mq) != NULL);
+    ponyint_messageq_destroy(&scheduler[i].mq);
+    ponyint_mpmcq_destroy(&scheduler[i].q);
   }
 
-#ifdef USE_TELEMETRY
-  printf("\n]\n");
-#endif
-
-  pool_free_size(scheduler_count * sizeof(scheduler_t), scheduler);
+  ponyint_pool_free_size(scheduler_count * sizeof(scheduler_t), scheduler);
   scheduler = NULL;
   scheduler_count = 0;
 
-  mpmcq_destroy(&inject);
+  ponyint_mpmcq_destroy(&inject);
 }
 
-pony_ctx_t* scheduler_init(uint32_t threads, bool noyield)
+pony_ctx_t* ponyint_sched_init(uint32_t threads, bool noyield, bool nopin,
+  bool pinasio)
 {
   use_yield = !noyield;
 
   // If no thread count is specified, use the available physical core count.
   if(threads == 0)
-    threads = cpu_count();
+    threads = ponyint_cpu_count();
 
   scheduler_count = threads;
-  scheduler = (scheduler_t*)pool_alloc_size(
+  scheduler = (scheduler_t*)ponyint_pool_alloc_size(
     scheduler_count * sizeof(scheduler_t));
   memset(scheduler, 0, scheduler_count * sizeof(scheduler_t));
 
-  cpu_assign(scheduler_count, scheduler);
+  uint32_t asio_cpu = ponyint_cpu_assign(scheduler_count, scheduler, nopin,
+    pinasio);
 
   for(uint32_t i = 0; i < scheduler_count; i++)
   {
     scheduler[i].ctx.scheduler = &scheduler[i];
     scheduler[i].last_victim = &scheduler[i];
-    messageq_init(&scheduler[i].mq);
-    mpmcq_init(&scheduler[i].q);
+    ponyint_messageq_init(&scheduler[i].mq);
+    ponyint_mpmcq_init(&scheduler[i].q);
   }
 
   this_scheduler = &scheduler[0];
-  mpmcq_init(&inject);
-  asio_init();
+  ponyint_mpmcq_init(&inject);
+  ponyint_asio_init(asio_cpu);
 
   return &scheduler[0].ctx;
 }
 
-bool scheduler_start(bool library)
+bool ponyint_sched_start(bool library)
 {
   this_scheduler = NULL;
 
-  if(!asio_start())
+  if(!ponyint_asio_start())
     return false;
 
-  detect_quiescence = !library;
+  atomic_store_explicit(&detect_quiescence, !library, memory_order_relaxed);
 
-  uint32_t start;
+  uint32_t start = 0;
 
   if(library)
   {
-    start = 0;
     pony_register_thread();
-  } else {
-    start = 1;
-    scheduler[0].tid = pony_thread_self();
   }
 
   for(uint32_t i = start; i < scheduler_count; i++)
@@ -544,20 +508,19 @@ bool scheduler_start(bool library)
 
   if(!library)
   {
-    run_thread(&scheduler[0]);
-    scheduler_shutdown();
+    ponyint_sched_shutdown();
   }
 
   return true;
 }
 
-void scheduler_stop()
+void ponyint_sched_stop()
 {
-  _atomic_store(&detect_quiescence, true);
-  scheduler_shutdown();
+  atomic_store_explicit(&detect_quiescence, true, memory_order_relaxed);
+  ponyint_sched_shutdown();
 }
 
-void scheduler_add(pony_ctx_t* ctx, pony_actor_t* actor)
+void ponyint_sched_add(pony_ctx_t* ctx, pony_actor_t* actor)
 {
   if(ctx->scheduler != NULL)
   {
@@ -565,17 +528,11 @@ void scheduler_add(pony_ctx_t* ctx, pony_actor_t* actor)
     push(ctx->scheduler, actor);
   } else {
     // Put on the shared mpmcq.
-    mpmcq_push(&inject, actor);
+    ponyint_mpmcq_push(&inject, actor);
   }
 }
 
-void scheduler_terminate()
-{
-  for(uint32_t i = 0; i < scheduler_count; i++)
-    send_msg(i, SCHED_TERMINATE, 0);
-}
-
-uint32_t scheduler_cores()
+uint32_t ponyint_sched_cores()
 {
   return scheduler_count;
 }

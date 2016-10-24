@@ -8,15 +8,20 @@
 
 PONY_EXTERN_C_BEGIN
 
-uint32_t cpu_count();
+void ponyint_cpu_init();
 
-void cpu_assign(uint32_t count, scheduler_t* scheduler);
+uint32_t ponyint_cpu_count();
 
-void cpu_affinity(uint32_t cpu);
+uint32_t ponyint_cpu_assign(uint32_t count, scheduler_t* scheduler,
+  bool nopin, bool pinasio);
 
-void cpu_core_pause(uint64_t tsc, uint64_t tsc2, bool yield);
+void ponyint_cpu_affinity(uint32_t cpu);
 
-uint64_t cpu_tick();
+void ponyint_cpu_core_pause(uint64_t tsc, uint64_t tsc2, bool yield);
+
+void ponyint_cpu_relax();
+
+uint64_t ponyint_cpu_tick();
 
 PONY_EXTERN_C_END
 
