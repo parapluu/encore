@@ -20,8 +20,16 @@
 
 extern pony_actor_t* task_runner_current();
 
-extern void pony_gc_acquire(pony_ctx_t *ctx);
-extern void pony_acquire_done(pony_ctx_t *ctx);
+
+extern void encore_future_gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor);
+extern void encore_future_gc_acquireobject(pony_ctx_t* ctx, void* p,
+    pony_type_t *t, int mutability);
+static void encore_gc_acquire(pony_ctx_t* ctx)
+{
+  assert(ctx->stack == NULL);
+  ctx->trace_object = encore_future_gc_acquireobject;
+  ctx->trace_actor = encore_future_gc_acquireactor;
+}
 
 typedef struct actor_entry actor_entry_t;
 typedef struct closure_entry closure_entry_t;
@@ -111,9 +119,9 @@ static void trace_closure_entry(pony_ctx_t *ctx, void *p)
   assert(p);
   pony_trace(ctx, p);
   closure_entry_t *c = (closure_entry_t*)p;
-  pony_traceactor(ctx, c->actor);
-  pony_traceobject(ctx, c->future, &future_trace);
-  pony_traceobject(ctx, c->closure, &closure_trace);
+  encore_trace_actor(ctx, c->actor);
+  encore_trace_object(ctx, c->future, &future_trace);
+  encore_trace_object(ctx, c->closure, &closure_trace);
 }
 
 void future_trace(pony_ctx_t *ctx, void* p)
@@ -123,20 +131,20 @@ void future_trace(pony_ctx_t *ctx, void* p)
   // TODO before we deal with deadlocking and closure with attached semantics
   // any actor in responsibilities also exists in children, so only trace children
   // for (int i = 0; i < fut->no_responsibilities; ++i) {
-  //   pony_traceactor(fut->responsibilities[i].message.actor);
+  //   encore_trace_actor(fut->responsibilities[i].message.actor);
   // }
 
   // TODO closure now has detached semantics, deadlock is not resolved.
-  // if (fut->parent) pony_traceobject(fut->parent, future_trace);
+  // if (fut->parent) encore_trace_object(fut->parent, future_trace);
 }
 
 static inline void future_gc_trace_value(pony_ctx_t *ctx, future_t *fut)
 {
   assert(fut);
   if (fut->type == ENCORE_ACTIVE) {
-    pony_traceactor(ctx, fut->value.p);
+    encore_trace_actor(ctx, fut->value.p);
   } else if (fut->type != ENCORE_PRIMITIVE) {
-    pony_traceobject(ctx, fut->value.p, fut->type->trace);
+    encore_trace_object(ctx, fut->value.p, fut->type->trace);
   }
 }
 
@@ -233,8 +241,8 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 
           // Notify I am going to send the children
           pony_gc_send(cctx);
-          pony_traceobject(cctx, task, task_trace);
-          pony_traceobject(cctx, current->future, future_type.trace);
+          encore_trace_object(cctx, task, task_trace);
+          encore_trace_object(cctx, current->future, future_type.trace);
           pony_send_done(cctx);
           break;
         }
@@ -250,7 +258,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 
       pony_gc_recv(cctx);
       pony_trace(cctx, current);
-      pony_traceactor(cctx, (pony_actor_t *)current->actor);
+      encore_trace_actor(cctx, (pony_actor_t *)current->actor);
       pony_recv_done(cctx);
 
       current = current->next;
@@ -263,7 +271,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 static void acquire_future_value(pony_ctx_t **ctx, future_t *fut)
 {
   pony_ctx_t *cctx = *ctx;
-  pony_gc_acquire(cctx);
+  encore_gc_acquire(cctx);
   future_gc_trace_value(cctx, fut);
   pony_acquire_done(cctx);
 }
@@ -363,7 +371,7 @@ void future_await(pony_ctx_t **ctx, future_t *fut)
 
   pony_gc_send(cctx);
   pony_trace(cctx, entry);
-  pony_traceactor(cctx, (pony_actor_t *)entry->actor);
+  encore_trace_actor(cctx, (pony_actor_t *)entry->actor);
   pony_send_done(cctx);
 
   assert(actor->lock == NULL);
@@ -388,5 +396,5 @@ static inline void future_gc_recv_value(pony_ctx_t *ctx, future_t *fut)
   pony_gc_recv(ctx);
   future_gc_trace_value(ctx, fut);
   // note the asymmetry with send
-  gc_handlestack(ctx);
+  ponyint_gc_handlestack(ctx);
 }

@@ -4,112 +4,113 @@
 #include "../sched/cpu.h"
 #include "../actor/actor.h"
 #include <assert.h>
+#include <dtrace.h>
 
 void pony_gc_send(pony_ctx_t* ctx)
 {
   assert(ctx->stack == NULL);
-  ctx->trace_object = gc_sendobject;
-  ctx->trace_actor = gc_sendactor;
+  ctx->trace_object = ponyint_gc_sendobject;
+  ctx->trace_actor = ponyint_gc_sendactor;
 
-#ifdef USE_TELEMETRY
-  ctx->tsc = cpu_tick();
-#endif
+  DTRACE1(GC_SEND_START, (uintptr_t)ctx->scheduler);
 }
 
 void pony_gc_recv(pony_ctx_t* ctx)
 {
   assert(ctx->stack == NULL);
-  ctx->trace_object = gc_recvobject;
-  ctx->trace_actor = gc_recvactor;
+  ctx->trace_object = ponyint_gc_recvobject;
+  ctx->trace_actor = ponyint_gc_recvactor;
 
-#ifdef USE_TELEMETRY
-  ctx->tsc = cpu_tick();
-#endif
+  DTRACE1(GC_RECV_START, (uintptr_t)ctx->scheduler);
 }
 
-void pony_gc_mark(pony_ctx_t* ctx)
+void ponyint_gc_mark(pony_ctx_t* ctx)
 {
   assert(ctx->stack == NULL);
-  ctx->trace_object = gc_markobject;
-  ctx->trace_actor = gc_markactor;
+  ctx->trace_object = ponyint_gc_markobject;
+  ctx->trace_actor = ponyint_gc_markactor;
 }
 
-void pony_gc_acquire(pony_ctx_t *ctx)
+void pony_gc_acquire(pony_ctx_t* ctx)
 {
   assert(ctx->stack == NULL);
-  ctx->trace_object = gc_acquireobject;
-  ctx->trace_actor = gc_acquireactor;
+  ctx->trace_object = ponyint_gc_acquireobject;
+  ctx->trace_actor = ponyint_gc_acquireactor;
 }
 
-void pony_acquire_done(pony_ctx_t *ctx)
+void pony_gc_release(pony_ctx_t* ctx)
 {
-  gc_handlestack(ctx);
-  gc_sendacquire(ctx);
-  gc_done(actor_gc(ctx->current));
+  assert(ctx->stack == NULL);
+  ctx->trace_object = ponyint_gc_releaseobject;
+  ctx->trace_actor = ponyint_gc_releaseactor;
 }
 
 void pony_send_done(pony_ctx_t* ctx)
 {
-  gc_handlestack(ctx);
-  gc_sendacquire(ctx);
-  gc_done(actor_gc(ctx->current));
+  ponyint_gc_handlestack(ctx);
+  ponyint_gc_sendacquire(ctx);
+  ponyint_gc_done(ponyint_actor_gc(ctx->current));
 
-#ifdef USE_TELEMETRY
-  ctx->time_in_send_scan += (cpu_tick() - ctx->tsc);
-#endif
+  DTRACE1(GC_SEND_END, (uintptr_t)ctx->scheduler);
 }
 
 void pony_recv_done(pony_ctx_t* ctx)
 {
-  gc_handlestack(ctx);
-  gc_done(actor_gc(ctx->current));
+  ponyint_gc_handlestack(ctx);
+  ponyint_gc_done(ponyint_actor_gc(ctx->current));
 
-#ifdef USE_TELEMETRY
-  ctx->time_in_recv_scan += (cpu_tick() - ctx->tsc);
-#endif
+  DTRACE1(GC_RECV_END, (uintptr_t)ctx->scheduler);
+}
+
+void ponyint_mark_done(pony_ctx_t* ctx)
+{
+  ponyint_gc_markimmutable(ctx, ponyint_actor_gc(ctx->current));
+  ponyint_gc_handlestack(ctx);
+  ponyint_gc_sendacquire(ctx);
+  ponyint_gc_sweep(ctx, ponyint_actor_gc(ctx->current));
+  ponyint_gc_done(ponyint_actor_gc(ctx->current));
+}
+
+void pony_acquire_done(pony_ctx_t* ctx)
+{
+  ponyint_gc_handlestack(ctx);
+  ponyint_gc_sendacquire(ctx);
+  ponyint_gc_done(ponyint_actor_gc(ctx->current));
+}
+
+void pony_release_done(pony_ctx_t* ctx)
+{
+  ponyint_gc_handlestack(ctx);
+  ponyint_gc_sendrelease_manual(ctx);
+  ponyint_gc_done(ponyint_actor_gc(ctx->current));
 }
 
 void pony_trace(pony_ctx_t* ctx, void* p)
 {
-  ctx->trace_object(ctx, p, NULL);
+  if (!p) { return; }
+  ctx->trace_object(ctx, p, NULL, PONY_TRACE_OPAQUE);
 }
 
-void pony_traceactor(pony_ctx_t* ctx, pony_actor_t* p)
+void pony_traceknown(pony_ctx_t* ctx, void* p, pony_type_t* t, int m)
 {
-  if (!p) {
-    return;
-  }
-  ctx->trace_actor(ctx, p);
-}
-
-void pony_traceobject(pony_ctx_t* ctx, void* p, pony_trace_fn f)
-{
-  if (!p) {
-    return;
-  }
-  ctx->trace_object(ctx, p, f);
-}
-
-void pony_traceunknown(pony_ctx_t* ctx, void* p)
-{
-  pony_type_t* type = *(pony_type_t**)p;
-
-  if(type->dispatch != NULL)
+  if (!p) { return; }
+  if(t->dispatch != NULL)
   {
     ctx->trace_actor(ctx, (pony_actor_t*)p);
   } else {
-    ctx->trace_object(ctx, p, type->trace);
+    ctx->trace_object(ctx, p, t, m);
   }
 }
 
-void pony_trace_tag_or_actor(pony_ctx_t* ctx, void* p)
+void pony_traceunknown(pony_ctx_t* ctx, void* p, int m)
 {
-  pony_type_t* type = *(pony_type_t**)p;
+  if (!p) { return; }
+  pony_type_t* t = *(pony_type_t**)p;
 
-  if(type->dispatch != NULL)
+  if(t->dispatch != NULL)
   {
     ctx->trace_actor(ctx, (pony_actor_t*)p);
   } else {
-    ctx->trace_object(ctx, p, NULL);
+    ctx->trace_object(ctx, p, t, m);
   }
 }

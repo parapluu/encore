@@ -24,49 +24,64 @@ typedef struct gc_t
   deltamap_t* delta;
 } gc_t;
 
-DECLARE_STACK(gcstack, void);
+DECLARE_STACK(ponyint_gcstack, gcstack_t, void);
 
-void gc_sendobject(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+void ponyint_gc_sendobject(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
-void gc_recvobject(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+void ponyint_gc_recvobject(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
-void gc_markobject(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+void ponyint_gc_markobject(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
-void gc_sendactor(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_gc_acquireobject(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
-void gc_recvactor(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_gc_releaseobject(pony_ctx_t* ctx, void* p, pony_type_t* t,
+  int mutability);
 
-void gc_markactor(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_gc_sendactor(pony_ctx_t* ctx, pony_actor_t* actor);
 
-void gc_createactor(pony_actor_t* current, pony_actor_t* actor);
+void ponyint_gc_recvactor(pony_ctx_t* ctx, pony_actor_t* actor);
 
-void gc_handlestack(pony_ctx_t* ctx);
+void ponyint_gc_markactor(pony_ctx_t* ctx, pony_actor_t* actor);
 
-void gc_sweep(pony_ctx_t* ctx, gc_t* gc);
+void ponyint_gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor);
 
-void gc_sendacquire(pony_ctx_t* ctx);
+void ponyint_gc_releaseactor(pony_ctx_t* ctx, pony_actor_t* actor);
 
-void gc_sendrelease(pony_ctx_t* ctx, gc_t* gc);
+void ponyint_gc_createactor(pony_actor_t* current, pony_actor_t* actor);
 
-bool gc_acquire(gc_t* gc, actorref_t* aref);
+void ponyint_gc_markimmutable(pony_ctx_t* ctx, gc_t* gc);
 
-bool gc_release(gc_t* gc, actorref_t* aref);
+void ponyint_gc_handlestack(pony_ctx_t* ctx);
 
-void gc_acquireobject(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+void ponyint_gc_discardstack(pony_ctx_t* ctx);
 
-void gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_gc_sweep(pony_ctx_t* ctx, gc_t* gc);
 
-size_t gc_rc(gc_t* gc);
+void ponyint_gc_sendacquire(pony_ctx_t* ctx);
 
-deltamap_t* gc_delta(gc_t* gc);
+void ponyint_gc_sendrelease(pony_ctx_t* ctx, gc_t* gc);
 
-void gc_register_final(pony_ctx_t* ctx, void* p, pony_final_fn final);
+void ponyint_gc_sendrelease_manual(pony_ctx_t* ctx);
 
-void gc_final(pony_ctx_t* ctx, gc_t* gc);
+bool ponyint_gc_acquire(gc_t* gc, actorref_t* aref);
 
-void gc_done(gc_t* gc);
+bool ponyint_gc_release(gc_t* gc, actorref_t* aref);
 
-void gc_destroy(gc_t* gc);
+size_t ponyint_gc_rc(gc_t* gc);
+
+deltamap_t* ponyint_gc_delta(gc_t* gc);
+
+void ponyint_gc_register_final(pony_ctx_t* ctx, void* p, pony_final_fn final);
+
+void ponyint_gc_final(pony_ctx_t* ctx, gc_t* gc);
+
+void ponyint_gc_done(gc_t* gc);
+
+void ponyint_gc_destroy(gc_t* gc);
 
 PONY_EXTERN_C_END
 

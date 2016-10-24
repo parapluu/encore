@@ -24,12 +24,12 @@ void tuple_trace(pony_ctx_t *ctx, void *p)
     {
       if (tuple->types[i] == ENCORE_ACTIVE)
         {
-          pony_traceactor(ctx, tuple->elements[i].p);
+          encore_trace_actor(ctx, tuple->elements[i].p);
         }
-      else 
+      else
       if (tuple->types[i] != ENCORE_PRIMITIVE)
         {
-          pony_traceobject(ctx, tuple->elements[i].p, tuple->types[i]->trace);
+          encore_trace_object(ctx, tuple->elements[i].p, tuple->types[i]->trace);
         }
     }
 }
@@ -39,7 +39,7 @@ tuple_t *tuple_mk(pony_ctx_t **ctx, size_t arity)
   size_t tuple_size    = sizeof(tuple_t);
   size_t elements_size = arity * sizeof(encore_arg_t);
   size_t types_size    = arity * sizeof(pony_type_t *);
-  
+
   tuple_t *tuple = encore_alloc(*ctx, tuple_size + elements_size + types_size);
 
   *tuple = (tuple_t) { .arity    = arity,
@@ -58,13 +58,13 @@ inline void tuple_set_type(tuple_t *t, size_t i, const pony_type_t *type)
 tuple_t *tuple_from_tuple(pony_ctx_t **ctx, size_t arity, const pony_type_t *types[], encore_arg_t elems[])
 {
   tuple_t *tuple = tuple_mk(ctx, arity);
-  
+
   for(size_t i = 0; i < arity; ++i)
     {
       tuple_set(tuple, i, elems[i]);
       tuple_set_type(tuple, i, types[i]);
     }
-  
+
   return tuple;
 }
 

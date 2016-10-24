@@ -17,11 +17,11 @@ void scons_trace(pony_ctx_t *ctx, void *p)
   if (!scons->eos) {
     pony_type_t *type = scons->type;
     if(type == ENCORE_ACTIVE){
-      pony_traceactor(ctx, scons->element.p);
+      encore_trace_actor(ctx, scons->element.p);
     } else if(type != ENCORE_PRIMITIVE){
-      pony_traceobject(ctx, scons->element.p, type->trace);
+      encore_trace_object(ctx, scons->element.p, type->trace);
     }
-    pony_traceobject(ctx, scons->next, future_trace);
+    encore_trace_object(ctx, scons->next, future_trace);
   }
 }
 

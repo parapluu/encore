@@ -1,3 +1,5 @@
+#define PONY_WANT_ATOMIC_DEFS
+
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -10,10 +12,11 @@ struct asio_base_t
 {
   pony_thread_id_t tid;
   asio_backend_t* backend;
-  uint64_t volatile noisy_count;
+  PONY_ATOMIC(uint64_t) noisy_count;
 };
 
 static asio_base_t running_base;
+static uint32_t asio_cpu;
 
 /** Start an asynchronous I/O event mechanism.
  *
@@ -25,33 +28,34 @@ static asio_base_t running_base;
  *  not need to maintain a thread pool. Instead, I/O is processed in the
  *  context of the owning actor.
  */
-asio_backend_t* asio_get_backend()
+asio_backend_t* ponyint_asio_get_backend()
 {
   return running_base.backend;
 }
 
-void asio_init()
+void ponyint_asio_init(uint32_t cpu)
 {
-  running_base.backend = asio_backend_init();
+  asio_cpu = cpu;
+  running_base.backend = ponyint_asio_backend_init();
 }
 
-bool asio_start()
+bool ponyint_asio_start()
 {
-  if(!pony_thread_create(&running_base.tid, asio_backend_dispatch, -1,
-    running_base.backend))
+  if(!pony_thread_create(&running_base.tid, ponyint_asio_backend_dispatch,
+    asio_cpu, running_base.backend))
     return false;
 
   return true;
 }
 
-bool asio_stop()
+bool ponyint_asio_stop()
 {
-  if(_atomic_load(&running_base.noisy_count) > 0)
+  if(atomic_load_explicit(&running_base.noisy_count, memory_order_relaxed) > 0)
     return false;
 
   if(running_base.backend != NULL)
   {
-    asio_backend_terminate(running_base.backend);
+    ponyint_asio_backend_final(running_base.backend);
     pony_thread_join(running_base.tid);
 
     running_base.backend = NULL;
@@ -61,12 +65,12 @@ bool asio_stop()
   return true;
 }
 
-void asio_noisy_add()
+void ponyint_asio_noisy_add()
 {
-  _atomic_add(&running_base.noisy_count, 1);
+  atomic_fetch_add_explicit(&running_base.noisy_count, 1, memory_order_relaxed);
 }
 
-void asio_noisy_remove()
+void ponyint_asio_noisy_remove()
 {
-  _atomic_add(&running_base.noisy_count, -1);
+  atomic_fetch_sub_explicit(&running_base.noisy_count, 1, memory_order_relaxed);
 }

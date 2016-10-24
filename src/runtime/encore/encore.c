@@ -429,3 +429,15 @@ static void pony_sendargs(pony_ctx_t *ctx, pony_actor_t* to, uint32_t id,
 
   pony_sendv(ctx, to, &m->msg);
 }
+
+void encore_trace_actor(pony_ctx_t *ctx, pony_actor_t *a)
+{
+  if (!a) { return; }
+  ctx->trace_actor(ctx, a);
+}
+
+void encore_trace_object(pony_ctx_t *ctx, void *p, pony_trace_fn f)
+{
+  if (!p) { return; }
+  ctx->trace_object(ctx, p, &(pony_type_t){.trace = f}, PONY_TRACE_MUTABLE);
+}

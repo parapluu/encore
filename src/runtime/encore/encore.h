@@ -14,7 +14,7 @@
 
 #include <platform.h>
 #include <pony.h>
-#include <atomics.h>
+#include <pony/detail/atomics.h>
 
 #define check_receiver(this, op, recv, msg, file)                                   \
   if (!this) {                                                                      \
@@ -33,6 +33,7 @@ typedef struct context {
 extern __pony_thread_local context *root_context;
 extern __pony_thread_local context *this_context;
 
+__attribute__ ((unused))
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
 
@@ -175,16 +176,19 @@ void call_respond_with_current_scheduler();
 encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep);
 
 pony_ctx_t* encore_ctx();
+void encore_trace_actor(pony_ctx_t *ctx, pony_actor_t *a);
+void encore_trace_object(pony_ctx_t *ctx, void *p, pony_trace_fn f);
 static inline void encore_trace_polymorphic_variable(
     pony_ctx_t* ctx,
     pony_type_t *type,
     encore_arg_t x)
 {
   if (type != ENCORE_PRIMITIVE) {
+    if (!x.p) { return; }
     if (type == ENCORE_ACTIVE) {
-      pony_traceactor(ctx, x.p);
+      encore_trace_actor(ctx, x.p);
     } else {
-      pony_traceobject(ctx, x.p, type->trace);
+      pony_traceknown(ctx, x.p, type, PONY_TRACE_MUTABLE);
     }
   }
 }

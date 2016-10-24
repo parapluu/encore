@@ -39,7 +39,7 @@ void task_setup(pony_type_t const* const type){
   assert(n_calls++ == 0);
 
   __atomic_store_n(&remaining_tasks, 0, __ATOMIC_RELAXED);
-  mpmcq_init(&taskq);
+  ponyint_mpmcq_init(&taskq);
   set_encore_task_type(type);
 }
 
@@ -90,7 +90,7 @@ inline static encore_task_msg_s* task_mk_msg(encore_task_s* const task){
 
 inline static void encore_send_task(encore_task_msg_s* const msg){
   // send message to global queue of actors
-  mpmcq_push(&taskq, msg);
+  ponyint_mpmcq_push(&taskq, msg);
 }
 
 void task_schedule(encore_task_s const* const task){

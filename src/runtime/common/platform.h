@@ -42,6 +42,7 @@
 #  pragma warning(disable:4510)
 #  pragma warning(disable:4512)
 #  pragma warning(disable:4610)
+#  pragma warning(disable:4146)
 /** Disable warning about __declspec(restrict) not being used at function
  *  definition. According to the documentation, it should not matter.
  *  Also, using extern "C" does not remove this warning.
@@ -216,6 +217,8 @@ inline int snprintf(char* str, size_t size, const char* format, ...)
 #  define __pony_popcount(X) __builtin_popcount((X))
 #  define __pony_ffs(X) __builtin_ffs((X))
 #  define __pony_ffsl(X) __builtin_ffsl((X))
+#  define __pony_clz(X) __builtin_clz((X))
+#  define __pony_clzl(X) __builtin_clzl((X))
 #else
 #  include <intrin.h>
 #  define __pony_popcount(X) __popcnt((X))
@@ -232,6 +235,20 @@ inline uint64_t __pony_ffsl(uint64_t x)
   DWORD i = 0;
   _BitScanForward64(&i, x);
   return i + 1;
+}
+
+inline uint32_t __pony_clz(uint32_t x)
+{
+  DWORD i = 0;
+  _BitScanReverse(&i, x);
+  return 31 - i;
+}
+
+inline uint64_t __pony_clzl(uint64_t x)
+{
+  DWORD i = 0;
+  _BitScanReverse64(&i, x);
+  return 63 - i;
 }
 
 #endif
@@ -270,15 +287,6 @@ inline uint64_t __pony_ffsl(uint64_t x)
             __builtin_choose_expr(COND, THEN, ELSE)
 #endif
 
-#if defined(PLATFORM_IS_ILP32)
-typedef int64_t dw_t;
-#elif defined(PLATFORM_IS_VISUAL_STUDIO)
-typedef struct dw_t { uint64_t low; int64_t high; } dw_t;
-#else
-typedef __int128_t dw_t;
-#endif
-
-#include "atomics.h"
 #include "threads.h"
 #include "paths.h"
 

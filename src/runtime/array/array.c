@@ -41,11 +41,11 @@ void array_trace(pony_ctx_t* ctx, void *p)
   struct array_t *array = p;
   if (array->type == ENCORE_ACTIVE) {
     for(size_t i = 0; i < array->size; i++) {
-      pony_traceactor(ctx, array->elements[i].p);
+      encore_trace_actor(ctx, array->elements[i].p);
     }
   } else if (array->type != ENCORE_PRIMITIVE) {
     for(size_t i = 0; i < array->size; i++) {
-      pony_traceobject(ctx, array->elements[i].p, array->type->trace);
+      encore_trace_object(ctx, array->elements[i].p, array->type->trace);
     }
   }
 }
