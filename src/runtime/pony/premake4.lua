@@ -91,6 +91,7 @@ solution "ponyrt"
 
   flags {
     "ExtraWarnings",
+    "FatalWarnings",
     "Symbols"
     }
 

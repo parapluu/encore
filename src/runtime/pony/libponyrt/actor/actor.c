@@ -375,7 +375,6 @@ pony_actor_t* pony_create(pony_ctx_t* ctx, pony_type_t* type)
     actor->gc.rc = 0;
   }
 
-  // printf("create actor %p\n", actor);
   return actor;
 }
 

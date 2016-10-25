@@ -551,8 +551,8 @@ void encore_future_gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor)
 
   actorref_t* aref = ponyint_actormap_getorput(&gc->foreign, actor, gc->mark);
   actorref_t* aquire_aref = ponyint_actormap_getorput(&ctx->acquire, actor, 0);
-  if (aref->rc != gc->mark) {
-    aref->rc = gc->mark;
+  if (aref->mark != gc->mark) {
+    aref->mark = gc->mark;
     aref->rc++;
     gc->delta = ponyint_deltamap_update(gc->delta, aref->actor, aref->rc);
     aquire_aref->rc++;
@@ -581,8 +581,8 @@ void encore_future_gc_acquireobject(pony_ctx_t* ctx, void* p, pony_type_t *t,
 
   actorref_t* aref = ponyint_actormap_getorput(&gc->foreign, actor, gc->mark);
   actorref_t* aquire_aref = ponyint_actormap_getorput(&ctx->acquire, actor, 0);
-  if (aref->rc != gc->mark) {
-    aref->rc = gc->mark;
+  if (aref->mark != gc->mark) {
+    aref->mark = gc->mark;
     aref->rc++;
     gc->delta = ponyint_deltamap_update(gc->delta, aref->actor, aref->rc);
     aquire_aref->rc++;
