@@ -516,7 +516,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          realLit :: Double}
           | Embed {emeta :: Meta Expr,
                    ty    :: Type,
-                   code  :: String}
+                   embedded :: [(String, Expr)]}
           | Unary {emeta :: Meta Expr,
                    uop   :: UnaryOp,
                    operand  :: Expr }

@@ -1,0 +1,28 @@
+passive class Foo
+  f : int
+
+class Main
+  f : int
+  def main(): void {
+    let x = new Foo();
+    let y = embed int
+              #{embed int
+                  #{embed int 21; end};
+                end};
+            end;
+    let z = 0;
+    embed void
+      int x = #{y} + 21;
+      #{x.f} = x;
+      #{z} = #{x.f};
+      #{let z' = x.f in assertTrue(z == z')};
+    end;
+    embed void
+      #{
+      embed void
+        #{this.f = 42};
+      end
+      };
+    end;
+    println("Embedding is cool: {}", this.f);
+  }

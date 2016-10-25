@@ -5,10 +5,7 @@ grammar found in @doc/encore/@
 
 -}
 
-module Parser.Parser(
-                      parseEncoreProgram
-                    , identifierParser
-                    ) where
+module Parser.Parser(parseEncoreProgram) where
 
 -- Library dependencies
 import Text.Parsec
@@ -30,8 +27,6 @@ import AST.Meta hiding(Closure, Async)
 -- unless a parse error occurs.
 parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
-
-identifierParser = identifier
 
 -- | This creates a tokenizer that reads a language derived from
 -- the empty language definition 'emptyDef' extended as shown.
@@ -151,6 +146,13 @@ angles     = P.angles lexer
 brackets   = P.brackets lexer
 braces     = P.braces lexer
 maybeBraces p = braces p <|> p
+encoreEscapeStart = symbol "#{"
+encoreEscapeEnd = symbol "}"
+encoreEscaped p = do
+  encoreEscapeStart
+  x <- p
+  encoreEscapeEnd
+  return x
 
 stringLiteral = P.stringLiteral lexer
 charLiteral = P.charLiteral lexer
@@ -680,8 +682,27 @@ expr  =  embed
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ
-                 code <- manyTill anyChar $ try $ do {space; reserved "end"}
-                 return $ Embed (meta pos) ty code
+                 embedded <- many cAndEncore
+                 end
+                 return $ Embed (meta pos) ty embedded
+              where
+                cAndEncore :: Parser (String, Expr)
+                cAndEncore = (do
+                  code <- c
+                  pos <- getPosition
+                  e <- option (Skip (meta pos))
+                       (try $ encoreEscaped expression)
+                  return (code, e))
+                  <|> (do
+                        e <- encoreEscaped expression
+                        return ("", e))
+                c = do
+                  notFollowedBy (end <|> encoreEscapeStart)
+                  first <- anyChar
+                  rest <- manyTill anyChar (try $ lookAhead (end <|> encoreEscapeStart))
+                  return (first:rest)
+                end = whiteSpace >> reserved "end" >> return "end"
+
       path = do pos <- getPosition
                 root <- tupled <|>
                         stringLit <|>

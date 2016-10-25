@@ -88,7 +88,7 @@ getChildren IntLiteral {} = []
 getChildren UIntLiteral {} = []
 getChildren RealLiteral {} = []
 getChildren RangeLiteral {start, stop, step} = [start, stop, step]
-getChildren Embed {} = []
+getChildren Embed {embedded} = map snd embedded
 getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
 
@@ -162,7 +162,9 @@ putChildren [] e@(CharLiteral {}) = e
 putChildren [] e@(IntLiteral {}) = e
 putChildren [] e@(UIntLiteral {}) = e
 putChildren [] e@(RealLiteral {}) = e
-putChildren [] e@(Embed {}) = e
+putChildren exprs e@(Embed {embedded}) = e{embedded = zipWith replace embedded exprs}
+  where
+    replace (code, _) e = (code, e)
 putChildren [operand] e@(Unary {}) = e{operand = operand}
 putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 -- This very explicit error handling is there to make
