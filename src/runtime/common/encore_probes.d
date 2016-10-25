@@ -1,5 +1,12 @@
 provider encore {
   /**
+   * Fired when a closure has been created
+   * @param ctx the pony context
+   * @param closure the pointer to the closure structure
+   */
+  probe closure__create(uintptr_t ctx, uintptr_t closure);
+
+  /**
    * Fired when a future blocks an actor
    * @param ctx the pony context
    * @param fut the pointer to the future structure
