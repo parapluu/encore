@@ -18,10 +18,12 @@ module Types(
             ,refTypeWithParams
             ,refType
             ,traitTypeFromRefType
+            ,abstractTraitFromTraitType
             ,classType
             ,isRefAtomType
             ,isRefType
             ,isTraitType
+            ,isAbstractTraitType
             ,isActiveClassType
             ,isSharedClassType
             ,isPassiveClassType
@@ -30,6 +32,9 @@ module Types(
             ,stringObjectType
             ,isStringObjectType
             ,conjunctiveType
+            ,isConjunctiveType
+            ,isDisjunctiveType
+            ,getTypeOperands
             ,disjunctiveType
             ,isCapabilityType
             ,incapability
@@ -142,6 +147,7 @@ instance Show RefInfo where
 
 data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
+          | AbstractTraitType{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
                      ,activity   :: Activity
                      }
@@ -234,6 +240,7 @@ translateTypeNamespace table = typeMap translate
 
 maybeGetId Unresolved{refInfo} = Just $ refId refInfo
 maybeGetId TraitType{refInfo} = Just $ refId refInfo
+maybeGetId AbstractTraitType{refInfo} = Just $ refId refInfo
 maybeGetId ClassType{refInfo} = Just $ refId refInfo
 maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo
 maybeGetId TypeVar{ident} = Just $ ident
@@ -243,12 +250,13 @@ maybeGetId _ = Nothing
 instance Show Type where
     show Unresolved{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
+    show AbstractTraitType{refInfo} = show refInfo
     show ClassType{refInfo} = show refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
-        let lhs = if isDisjunction ltype
+        let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
                   else show ltype
-            rhs = if isDisjunction rtype
+            rhs = if isDisjunctiveType rtype
                   then "(" ++ show rtype ++ ")"
                   else show rtype
         in lhs ++ " " ++ show Product ++ " " ++ rhs
@@ -307,6 +315,7 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind BoolType                      = "primitive type"
     kind Unresolved{}                  = "unresolved type"
     kind TraitType{}                   = "trait type"
+    kind AbstractTraitType{}           = "abstract trait type"
     kind ClassType{activity = Active}  = "active class type"
     kind ClassType{activity = Passive} = "passive class type"
     kind CapabilityType{}              = "capability type"
@@ -361,6 +370,8 @@ typeComponents ref@(Unresolved{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents ref@(TraitType{refInfo}) =
     ref : refInfoTypeComponents refInfo
+typeComponents ref@(AbstractTraitType{refInfo}) =
+    ref : refInfoTypeComponents refInfo
 typeComponents ref@(ClassType{refInfo}) =
     ref : refInfoTypeComponents refInfo
 typeComponents cap@(CapabilityType{ltype, rtype}) =
@@ -383,6 +394,8 @@ typeMap :: (Type -> Type) -> Type -> Type
 typeMap f ty@Unresolved{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@TraitType{refInfo} =
+    f ty{refInfo = refInfoTypeMap f refInfo}
+typeMap f ty@AbstractTraitType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
 typeMap f ty@ClassType{refInfo} =
     f ty{refInfo = refInfoTypeMap f refInfo}
@@ -420,6 +433,9 @@ typeMapM f ty@Unresolved{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
 typeMapM f ty@TraitType{refInfo} = do
+  refInfo' <- refInfoTypeMapM f refInfo
+  f ty{refInfo = refInfo'}
+typeMapM f ty@AbstractTraitType{refInfo} = do
   refInfo' <- refInfoTypeMapM f refInfo
   f ty{refInfo = refInfo'}
 typeMapM f ty@ClassType{refInfo} = do
@@ -463,6 +479,7 @@ refInfoTypeMapM f info@RefInfo{parameters} = do
 getTypeParameters :: Type -> [Type]
 getTypeParameters Unresolved{refInfo} = parameters refInfo
 getTypeParameters TraitType{refInfo} = parameters refInfo
+getTypeParameters AbstractTraitType{refInfo} = parameters refInfo
 getTypeParameters ClassType{refInfo} = parameters refInfo
 getTypeParameters TypeSynonym{refInfo} = parameters refInfo
 getTypeParameters ArrowType{paramTypes} = paramTypes
@@ -472,6 +489,8 @@ getTypeParameters ty =
 setTypeParameters ty@Unresolved{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@TraitType{refInfo} parameters =
+    ty{refInfo = refInfo{parameters}}
+setTypeParameters ty@AbstractTraitType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
 setTypeParameters ty@ClassType{refInfo} parameters =
     ty{refInfo = refInfo{parameters}}
@@ -495,13 +514,13 @@ getTypeParameterBindings (binding:ps) = findRootType binding ++
 
 conjunctiveTypesFromCapability :: Type -> [([Type], [Type])]
 conjunctiveTypesFromCapability ty
-    | isConjunction ty
+    | isConjunctiveType ty
     , ltype <- ltype ty
     , rtype <- rtype ty =
         (typesFromCapability ltype, typesFromCapability rtype) :
         conjunctiveTypesFromCapability ltype ++
         conjunctiveTypesFromCapability rtype
-    | isDisjunction ty
+    | isDisjunctiveType ty
     , ltype <- ltype ty
     , rtype <- rtype ty =
         conjunctiveTypesFromCapability ltype ++
@@ -539,8 +558,14 @@ traitTypeFromRefType Unresolved{refInfo} =
 traitTypeFromRefType ty =
     error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
+abstractTraitFromTraitType TraitType{refInfo} = AbstractTraitType{refInfo}
+abstractTraitFromTraitType ty@AbstractTraitType{refInfo} = ty
+abstractTraitFromTraitType ty =
+  error $ "Types.hs: Can't form abstract trait from " ++ showWithKind ty
+
 isRefAtomType Unresolved {} = True
 isRefAtomType TraitType {} = True
+isRefAtomType AbstractTraitType {} = True
 isRefAtomType ClassType {} = True
 isRefAtomType _ = False
 
@@ -552,7 +577,11 @@ isRefType ty
         isCapabilityType ty
 
 isTraitType TraitType{} = True
+isTraitType AbstractTraitType{} = True
 isTraitType _ = False
+
+isAbstractTraitType AbstractTraitType{} = True
+isAbstractTraitType _ = False
 
 isActiveClassType ClassType{activity = Active} = True
 isActiveClassType _ = False
@@ -571,14 +600,19 @@ conjunctiveType ltype rtype = CapabilityType{typeop = Product, ltype, rtype}
 
 isCapabilityType CapabilityType{} = True
 isCapabilityType TraitType{} = True
+isCapabilityType AbstractTraitType{} = True
 isCapabilityType EmptyCapability{} = True
 isCapabilityType _ = False
 
-isDisjunction CapabilityType{typeop = Addition} = True
-isDisjunction _ = False
+isDisjunctiveType CapabilityType{typeop = Addition} = True
+isDisjunctiveType _ = False
 
-isConjunction CapabilityType{typeop = Product} = True
-isConjunction _ = False
+isConjunctiveType CapabilityType{typeop = Product} = True
+isConjunctiveType _ = False
+
+getTypeOperands CapabilityType{ltype, rtype} = (ltype, rtype)
+getTypeOperands ty =
+  error $ "Types.hs: Cannot get type operands of " ++ showWithKind ty
 
 incapability :: Type
 incapability = EmptyCapability

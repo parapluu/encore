@@ -19,6 +19,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Text.Printf (printf)
 import Text.Parsec.Pos as P
+
 import Debug.Trace
 
 -- Module dependencies
@@ -82,6 +83,7 @@ type VarTable = [(Name, (Mutability, Type))]
 data Environment = Env {
   defaultNamespace :: Namespace,
   lookupTables   :: Map Namespace LookupTable,
+  abstractTraitTable :: Map String TraitDecl,
   namespaceTable :: Map SourceName Namespace,
   locals         :: VarTable,
   bindings       :: [(Type, Type)],
@@ -93,6 +95,7 @@ emptyEnv = Env {
   defaultNamespace = [],
   lookupTables = Map.empty,
   namespaceTable = Map.empty,
+  abstractTraitTable = Map.empty,
   locals = [],
   bindings = [],
   typeParameters = [],
@@ -118,6 +121,7 @@ buildEnvironment tables Program{source, imports, moduledecl} =
      defaultNamespace
     ,lookupTables
     ,namespaceTable
+    ,abstractTraitTable = Map.empty
     ,locals = []
     ,bindings = []
     ,typeParameters = []
@@ -236,7 +240,7 @@ classMethodLookup ty m env =
     Just [cls] -> do
       let headers = map mheader $ cmethods cls
           bindings = formalBindings (cname cls) ty
-          tys = typesFromCapability $ ccapability cls
+          tys = typesFromTraitComposition $ ccomposition cls
           classResults = find (matchHeader m) headers
           traitResults = msum (map (\ty -> traitMethodLookup ty m env) tys)
       header <- classResults <|> traitResults
@@ -278,13 +282,13 @@ methodLookup ty m env
     return $ fromJust ret
   | otherwise = Nothing
 
-
 capabilityLookup :: Type -> Environment -> Maybe Type
 capabilityLookup ty env
     | isClassType ty = do
         let Just [cls] = classLookup ty env
             bindings = formalBindings (cname cls) ty
-        return $ replaceTypeVars bindings $ ccapability cls
+        return $ replaceTypeVars bindings $
+                 capabilityFromTraitComposition (ccomposition cls)
     | otherwise = error $ "Environment.hs: Tried to look up the capability " ++
                           "of non-class type " ++ show ty
 
@@ -294,7 +298,10 @@ fromSameSource tables (ns1, _) (ns2, _) =
   sourceFile (tables Map.! ns1) == sourceFile (tables Map.! ns2)
 
 traitLookup :: Type -> Environment -> Maybe [TraitDecl]
-traitLookup t Env{defaultNamespace, lookupTables}
+traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
+    | isAbstractTraitType t = do
+        result <- Map.lookup (getId t) abstractTraitTable
+        return [result]
     | isRefAtomType t =
         case getRefNamespace t of
           Just ns -> do
@@ -329,6 +336,12 @@ traitLookup t Env{defaultNamespace, lookupTables}
                                     } =
         Map.filterWithKey (\t _ -> Name t `elem` names) traitTable
 
+abstractTraitLookup :: Type -> Environment -> Maybe TraitDecl
+abstractTraitLookup t env =
+  Map.lookup (getId t) $ abstractTraitTable env
+
+
+
 classLookup :: Type -> Environment -> Maybe [ClassDecl]
 classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
     | isRefAtomType cls =
@@ -355,9 +368,9 @@ classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
       "Tried to lookup the class of '" ++ show cls
       ++ "' which is not a reference type"
     where
-      setNamespace ns c@Class{cname, ccapability} =
+      setNamespace ns c@Class{cname, ccomposition} =
           c{cname = setRefNamespace ns cname
-           ,ccapability = translateTypeNamespace namespaceTable ccapability}
+           ,ccomposition = translateCompositionNamespace namespaceTable ccomposition}
       filteredClassTable LookupTable{classTable
                                     ,selectiveExports = Nothing
                                     } =
@@ -538,3 +551,12 @@ bindType var ty env
 
 bindTypes :: [(Type, Type)] -> Environment -> Environment
 bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env bindings
+
+replaceLocals :: VarTable -> Environment -> Environment
+replaceLocals newTypes env = env {locals = newTypes}
+
+withAbstractTrait :: TraitDecl -> Environment -> Environment
+withAbstractTrait tdecl env@Env{abstractTraitTable} =
+    let key = getId (tname tdecl)
+        abstractTraitTable' = Map.insert key tdecl abstractTraitTable
+    in env{abstractTraitTable = abstractTraitTable'}

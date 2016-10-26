@@ -10,6 +10,8 @@ meta-information about its type (filled in by
 module AST.AST where
 
 import Data.List
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Text.Parsec(SourcePos, SourceName)
 
@@ -183,7 +185,7 @@ instance HasMeta Function where
 data ClassDecl = Class {
   cmeta       :: Meta ClassDecl,
   cname       :: Type,
-  ccapability :: Type,
+  ccomposition :: Maybe TraitComposition,
   cfields     :: [FieldDecl],
   cmethods    :: [MethodDecl]
 } deriving (Show)
@@ -215,12 +217,10 @@ instance HasMeta ClassDecl where
 
 data Requirement =
     RequiredField {
-       rmeta :: Meta Requirement
-      ,rfield :: FieldDecl
+      rfield :: FieldDecl
     }
-    | RequiredMethod {
-       rmeta :: Meta Requirement
-      ,rheader :: FunctionHeader
+  | RequiredMethod {
+      rheader :: FunctionHeader
     } deriving(Show)
 
 isRequiredField RequiredField{} = True
@@ -238,18 +238,6 @@ instance Eq Requirement where
         , isRequiredMethod b =
             rheader a == rheader b
         | otherwise = False
-
-instance HasMeta Requirement where
-    getMeta = rmeta
-    setMeta r m = r{rmeta = m}
-    setType ty r@(RequiredField{rmeta, rfield}) =
-      r{rmeta = AST.Meta.setType ty rmeta, rfield = AST.AST.setType ty rfield}
-    setType ty r@(RequiredMethod{rmeta, rheader}) =
-      r{rmeta = AST.Meta.setType ty rmeta, rheader = setHeaderType ty rheader}
-    showWithKind RequiredField{rfield} =
-        "required field '" ++ show rfield ++ "'"
-    showWithKind RequiredMethod{rheader} =
-        "required method '" ++ show (hname rheader) ++ "'"
 
 data TraitDecl = Trait {
   tmeta :: Meta TraitDecl,
@@ -279,6 +267,76 @@ instance HasMeta TraitDecl where
   setType ty t@Trait{tmeta, tname} =
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
+
+data TraitComposition =
+    Conjunction{tcleft  :: TraitComposition
+               ,tcright :: TraitComposition
+               }
+  | Disjunction{tcleft  :: TraitComposition
+               ,tcright :: TraitComposition
+               }
+  | TraitLeaf{tcname :: Type
+             ,tcext  :: [TraitExtension]
+             } deriving(Show, Eq)
+
+data TraitExtension =
+    FieldExtension{extname :: Name}
+  | MethodExtension{extname :: Name}
+    deriving(Show, Eq)
+
+type ExtendedTrait = (Type, [TraitExtension])
+
+partitionTraitExtensions :: [TraitExtension] -> ([Name], [Name])
+partitionTraitExtensions l = (fields, methods)
+  where
+    fields  = map extname $ filter isField l
+    methods = map extname $ filter isMethod l
+    isField FieldExtension{} = True
+    isField _ = False
+    isMethod MethodExtension{} = True
+    isMethod _ = False
+
+capabilityFromTraitComposition (Just Conjunction{tcleft, tcright}) =
+    capabilityFromTraitComposition (Just tcleft) `conjunctiveType`
+    capabilityFromTraitComposition (Just tcright)
+capabilityFromTraitComposition (Just Disjunction{tcleft, tcright}) =
+    capabilityFromTraitComposition (Just tcleft) `disjunctiveType`
+    capabilityFromTraitComposition (Just tcright)
+capabilityFromTraitComposition (Just TraitLeaf{tcname}) = tcname
+capabilityFromTraitComposition Nothing = incapability
+
+typesFromTraitComposition =
+  typesFromCapability . capabilityFromTraitComposition
+
+extendedTraitsFromComposition :: Maybe TraitComposition -> [ExtendedTrait]
+extendedTraitsFromComposition (Just TraitLeaf{tcname, tcext}) =
+  [(tcname, tcext)]
+extendedTraitsFromComposition (Just tc) =
+  extendedTraitsFromComposition (Just $ tcleft tc) ++
+  extendedTraitsFromComposition (Just $ tcright tc)
+extendedTraitsFromComposition Nothing = []
+
+conjunctiveTypesFromComposition (Just Conjunction{tcleft, tcright}) =
+  (extendedTraitsFromComposition (Just tcleft)
+  ,extendedTraitsFromComposition (Just tcright)):
+  conjunctiveTypesFromComposition (Just tcleft) ++
+  conjunctiveTypesFromComposition (Just tcright)
+conjunctiveTypesFromComposition (Just Disjunction{tcleft, tcright}) =
+  conjunctiveTypesFromComposition (Just tcleft) ++
+  conjunctiveTypesFromComposition (Just tcright)
+conjunctiveTypesFromComposition _ = []
+
+translateCompositionNamespace ::
+  Map SourceName Namespace -> Maybe TraitComposition -> Maybe TraitComposition
+translateCompositionNamespace table Nothing = Nothing
+translateCompositionNamespace table (Just tc@TraitLeaf{tcname}) =
+  let source = getRefSourceFile tcname
+      ns = table Map.! source
+  in Just tc{tcname = setRefNamespace ns tcname}
+translateCompositionNamespace table (Just tc) =
+  let Just tcleft' = translateCompositionNamespace table (Just $ tcleft tc)
+      Just tcright' = translateCompositionNamespace table (Just $ tcright tc)
+  in Just tc{tcleft = tcleft', tcright = tcright'}
 
 data Modifier = MVal
                 deriving(Eq)

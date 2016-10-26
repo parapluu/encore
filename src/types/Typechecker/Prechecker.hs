@@ -151,13 +151,13 @@ instance Precheckable ParamDecl where
 instance Precheckable Requirement where
     doPrecheck req
         | isRequiredField req = do
-            rfield' <- doPrecheck $ rfield req
+            rfield' <- precheck $ rfield req
             let ty = AST.getType rfield'
-            return $ setType ty req{rfield = rfield'}
+            return $ req{rfield = rfield'}
         | isRequiredMethod req = do
             rheader' <- doPrecheck $ rheader req
             let ty = htype rheader'
-            return $ setType ty req{rheader = rheader'}
+            return $ req{rheader = rheader'}
         | otherwise =
             error $ "Prechecker.hs: requirement '" ++ show req ++
                     "' is neither a field, nor a method"
@@ -166,7 +166,7 @@ instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
       tname'    <- local addTypeParams $ resolveType tname
-      treqs'  <- mapM (local addTypeParams . precheck) treqs
+      treqs'    <- mapM (local addTypeParams . doPrecheck) treqs
       tmethods' <- mapM (local (addTypeParams . addThis tname') . precheck) tmethods
       return $ setType tname' t{treqs = treqs', tmethods = tmethods'}
       where
@@ -175,19 +175,57 @@ instance Precheckable TraitDecl where
         addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
-          assertDistinct "declaration" treqs
+          assertDistinctThing "declaration" "Requirement" treqs
           assertDistinct "definition" tmethods
           let allNames = map hname $ requiredMethods t ++ map mheader tmethods
           assertDistinctThing "declaration" "method" allNames
 
+instance Precheckable TraitExtension where
+    doPrecheck f@FieldExtension{extname} = do
+      Just (_, thisType) <- findVar $ qLocal thisName
+      findField thisType extname
+      return f
+    doPrecheck m@MethodExtension{extname} = do
+      Just (_, thisType) <- findVar $ qLocal thisName
+      findMethod thisType extname
+      return m
+
+instance Precheckable TraitComposition where
+    doPrecheck leaf@TraitLeaf{tcname, tcext} = do
+      tcname' <- resolveType tcname
+      let (left, right) = getTypeOperands tcname'
+          tcleft = TraitLeaf{tcname = left, tcext}
+          tcright = TraitLeaf{tcname = right, tcext}
+      if isConjunctiveType tcname' then
+          doPrecheck Conjunction{tcleft, tcright}
+      else if isDisjunctiveType tcname' then
+          doPrecheck Disjunction{tcleft, tcright}
+      else do
+        mapM_ doPrecheck tcext
+        return leaf{tcname = tcname'}
+
+    doPrecheck comp = do
+      tcleft' <- doPrecheck $ tcleft comp
+      tcright' <- doPrecheck $ tcright comp
+      return comp{tcleft = tcleft', tcright = tcright'}
+
 instance Precheckable ClassDecl where
-    doPrecheck c@Class{cname, ccapability, cfields, cmethods} = do
+    doPrecheck c@Class{cname, ccomposition, cfields, cmethods} = do
       assertDistinctness
-      cname'       <- local addTypeParams $ resolveType cname
-      ccapability' <- local addTypeParams $ resolveType ccapability
-      cfields'     <- mapM (local addTypeParams . precheck) cfields
-      cmethods'    <- mapM (local (addTypeParams . addThis cname') . precheck) cmethods
-      return $ setType cname' c{ccapability = ccapability'
+      cname' <- local addTypeParams $ resolveType cname
+      let capability = capabilityFromTraitComposition ccomposition
+      local addTypeParams $
+            resolveType capability
+      ccomposition' <- case ccomposition of
+                         Just composition -> do
+                           composition' <- local (addTypeParams . addThis cname') $
+                                                 doPrecheck composition
+                           return $ Just composition'
+                         Nothing -> return Nothing
+
+      cfields' <- mapM (local addTypeParams . precheck) cfields
+      cmethods' <- mapM (local (addTypeParams . addThis cname') . precheck) cmethods
+      return $ setType cname' c{ccomposition = ccomposition'
                                ,cfields = cfields'
                                ,cmethods = if any isConstructor cmethods'
                                            then cmethods'
@@ -200,7 +238,7 @@ instance Precheckable ClassDecl where
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" typeParameters
             assertDistinctThing "inclusion" "trait" $
-                                typesFromCapability ccapability
+                                typesFromTraitComposition ccomposition
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
 

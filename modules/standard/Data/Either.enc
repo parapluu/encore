@@ -28,7 +28,7 @@ trait Either<a,b>
       Right(x) => f(x)
   }
 
-passive class Left<a,b> : Either<a,b>
+passive class Left<a,b> : Either<a,b>(x)
   x : a
 
   def init(x:a) : void
@@ -40,7 +40,7 @@ passive class Left<a,b> : Either<a,b>
   def Right() : Maybe b
     Nothing
 
-passive class Right<a,b> : Either<a,b>
+passive class Right<a,b> : Either<a,b>(x)
   x : b
 
   def init(x:b) : void

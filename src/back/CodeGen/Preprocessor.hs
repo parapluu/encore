@@ -17,8 +17,8 @@ injectTraitsToClasses p =
   Util.mapProgramClass p injectTraitsToClass
   where
     injectTraitsToClass :: A.ClassDecl -> A.ClassDecl
-    injectTraitsToClass c@A.Class{A.ccapability} =
-        foldr injectTraitToClass c (Ty.typesFromCapability ccapability)
+    injectTraitsToClass c@A.Class{A.ccomposition} =
+        foldr injectTraitToClass c (A.typesFromTraitComposition ccomposition)
 
     injectTraitToClass :: Ty.Type -> A.ClassDecl -> A.ClassDecl
     injectTraitToClass traitType c@A.Class{A.cmethods} =
@@ -38,9 +38,11 @@ flattenTrait cdecl traitType template =
     formals = Ty.getTypeParameters $ A.tname template
     actuals = Ty.getTypeParameters traitType
     bindings = zip formals actuals
-    methods = A.tmethods template
+    traitMethods = A.tmethods template
+    classMethods = map A.methodName $ A.cmethods cdecl
+    nonOverridden = filter ((`notElem` classMethods) . A.methodName) traitMethods
   in
-    map (convertMethod bindings cdecl) methods
+    map (convertMethod bindings cdecl) nonOverridden
 
 -- | @convertMethod bindings cdecl m@ converts all types
 -- appearing in @m@ using @bindings@ as a convertion table. It

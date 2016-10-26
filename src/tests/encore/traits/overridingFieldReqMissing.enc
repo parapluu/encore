@@ -1,0 +1,28 @@
+trait T
+  require f : int
+  def foo() : int
+    this.f
+
+trait S
+  require g : int
+  def foo() : int
+    this.g
+
+passive class Foo : T(g) + S {
+  f : int
+  g : int
+  def init(f : int, g : int) : void {
+    this.f = f;
+    this.g = g;
+  }
+
+  def foo() : int {
+    this.f + this.g;
+  }
+}
+
+class Main
+  def main() : void{
+    val x = new Foo(2, 3) : T;
+    println("Five = {}", x.foo());
+  }

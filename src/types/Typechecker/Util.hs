@@ -23,6 +23,7 @@ module Typechecker.Util(TypecheckM
                        ,findVar
                        ,propagateResultType
                        ,unifyTypes
+                       ,abstractTraitFrom
                        ) where
 
 import Identifiers
@@ -205,6 +206,10 @@ subtypeOf ty1 ty2
           argTys2 = getArgTypes ty2
       results <- zipWithM subtypeOf argTys1 argTys2
       return $ and results && length argTys1 == length argTys2
+    | isAbstractTraitType ty1 && isTraitType ty2 =
+        return $ ty1 == abstractTraitFromTraitType ty2
+    | isTraitType ty1 && isAbstractTraitType ty2 =
+        return $ abstractTraitFromTraitType ty1 == ty2
     | isTraitType ty1 && isTraitType ty2 =
         return $ ty1 == ty2
     | isTraitType ty1 && isCapabilityType ty2 = do
@@ -446,3 +451,20 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter (unionMembers ty ++ tys)
     | otherwise =
         error "Util.hs: Tried to form an union without a capability"
+
+abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
+abstractTraitFrom cname (t, exts) = do
+  tdecl@Trait{tname, treqs} <- findTrait t
+  let (fieldNames, methodNames) = partitionTraitExtensions exts
+  fields <- mapM (findField cname) fieldNames
+  methods <- mapM (findMethod cname) methodNames
+  treqs' <- mapM (resolveReq t) treqs
+  let newReqs = treqs' ++ map RequiredField fields ++ map RequiredMethod methods
+  return tdecl{treqs = newReqs}
+  where
+    resolveReq trait r@RequiredField{rfield = Field{fname}} = do
+      rfield' <- findField trait fname
+      return r{rfield = rfield'}
+    resolveReq trait r@RequiredMethod{rheader} = do
+      rheader' <- findMethod trait (hname rheader)
+      return r{rheader = rheader'}

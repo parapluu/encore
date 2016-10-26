@@ -1,0 +1,1 @@
+Overridden method 'foo' calls method 'm' which is not in requiring trait 'T'.
