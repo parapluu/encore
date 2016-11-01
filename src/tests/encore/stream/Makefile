@@ -1,9 +1,8 @@
 ENCOREC=../../../../release/encorec
 
-STREAM_LIB=../../../../bundles/prototype/StreamLib/StreamChain
+STREAM_LIB=../../../../bundles/standard/StreamLib/StreamChain
 
 all:
-	pwd
 	$(ENCOREC) -I $(STREAM_LIB) streamChainTest.enc
 
 clean:
