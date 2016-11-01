@@ -218,8 +218,7 @@ generateHeader p =
                | A.isStreamMethod m =
                    let params = (Ptr (Ptr encoreCtxT)) :
                                 (Ptr . AsType $ classTypeName cname) : stream :
-                                (map (translate . A.ptype) mparams)
-                                ++ [future]
+                                map (translate . A.ptype) mparams ++ [future]
                    in
                      FunctionDecl void (methodImplName cname mname) params
                | otherwise =

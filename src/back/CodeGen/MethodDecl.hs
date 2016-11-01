@@ -33,7 +33,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
     let args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
-               ++ [(future, Var "_fut")]
+               ++ [(future, futVar)]
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
@@ -46,16 +46,16 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (if A.isMainMethod cname mName && null argNames
                 then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
-                else zip argTypes argNames ++ [(future, Var "_fut")])
+                else zip argTypes argNames ++ [(future, futVar)])
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
         argsFwd = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                   (Ptr . AsType $ classTypeName cname, Var "_this") :
                   (if A.isMainMethod cname mName && null argNames
                   then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
-                  else zip argTypes argNames ++ [(future, Var "_fut")])
+                  else zip argTypes argNames ++ [(future, futVar)])
         futureFulfilStmt = Statement $ If (CUnary (translate ID.NOT)
-                                          (Call futureFulfilled [AsExpr $ Var "_fut"]))
-                                          (Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr $ Var "_fut", asEncoreArgT (translate mType) $ AsExpr bodyn])
+                                          (Call futureFulfilled [AsExpr $ futVar]))
+                                          (Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr $ futVar, asEncoreArgT (translate mType) $ AsExpr bodyn])
                                           Skip
         retStmtFwd = Seq [futureFulfilStmt, Return Skip]
     in
@@ -73,7 +73,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (if A.isMainMethod cname mName && null argNames
                 then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
-                else zip argTypes argNames ++ [(future, Var "_fut")])
+                else zip argTypes argNames ++ [(future, futVar)])
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
     in
       Concat $ closures ++ tasks ++

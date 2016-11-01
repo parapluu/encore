@@ -71,7 +71,7 @@ translateClosure closure typeVars table
                           (Seq $
                             extractArguments params ++
                             extractEnvironment envName freeVars fTypeVars ++
-                            [Assign (Decl (future, Var "_fut")) $ (Var "NULL")] ++
+                            [Assign (Decl (future, futVar)) $ nullVar] ++
                             [bodyStat, returnStmnt bodyName resultType])]
   | otherwise =
         error

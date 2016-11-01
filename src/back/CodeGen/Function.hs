@@ -29,7 +29,7 @@ globalFunction fun = createHeader
       Function (translate funType) funName
                    ((Ptr (Ptr encoreCtxT), encoreCtxVar):
                    encoreRuntimeTypeParam :
-                   (zip argTypes argNames) ++ [(future, Var "_fut")]) body
+                   (zip argTypes argNames) ++ [(future, futVar)]) body
 
     createHeader Nothing  =
       FunctionDecl (translate funType) funName

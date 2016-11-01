@@ -534,6 +534,9 @@ nullName = Nam "NULL"
 nullVar :: CCode Lval
 nullVar = Var "NULL"
 
+futVar :: CCode Lval
+futVar = Var "_fut"
+
 arrayGet :: CCode Name
 arrayGet = Nam "array_get"
 

@@ -37,7 +37,12 @@ type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for suppo
 
 type MethodName = String
 
-data Context = Context VarSubTable NextSym MethodName Tbl.ProgramTable
+data Context = Context {
+  varSubTable :: VarSubTable,
+  nextSym :: NextSym,
+  methodName :: MethodName,
+  tblProgramTable :: Tbl.ProgramTable
+}
 
 programTable :: Context -> Tbl.ProgramTable
 programTable (Context _ _ _ table) = table
