@@ -113,6 +113,7 @@ inline size_t array_size(array_t *a)
 
 inline encore_arg_t array_get(array_t *a, size_t i)
 {
+  assert(i < ((struct array_t *)a)->size);
   return ((struct array_t *)a)->elements[i];
 }
 
