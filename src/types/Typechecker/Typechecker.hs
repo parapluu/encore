@@ -1427,19 +1427,21 @@ matchTypes expected ty
                            tcError $ TypeMismatchError ty expected
                        TCError err _ -> tcError err
                      )
-    | isTupleType expected && isTupleType ty =
-      matchArgs(getArgTypes expected) (getArgTypes ty)
-    | isArrowType expected  && isArrowType ty =
+    | isTupleType expected && isTupleType ty = do
+        let expArgTypes = getArgTypes expected
+            argTypes = getArgTypes ty
+        unless (length expArgTypes == length argTypes) $
+               tcError $ TypeMismatchError ty expected
+        matchArgs expArgTypes argTypes
+    | isArrowType expected  && isArrowType ty = do
         let expArgTypes = getArgTypes expected
             argTypes    = getArgTypes ty
             expRes      = getResultType expected
             resTy       = getResultType ty
-        in
-          do
-            unless (length argTypes == length expArgTypes) $
-                   tcError $ TypeMismatchError ty expected
-            argBindings <- matchArgs expArgTypes argTypes
-            local (bindTypes argBindings) $ matchTypes expRes resTy
+        unless (length argTypes == length expArgTypes) $
+               tcError $ TypeMismatchError ty expected
+        argBindings <- matchArgs expArgTypes argTypes
+        local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
       params <- asks typeParameters
       if expected `elem` params then
