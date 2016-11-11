@@ -1,6 +1,6 @@
 class Main
   def main() : void {
-    let x = 41;
-    let f = \ () -> {let x = x + 1; x};
+    val x = 41;
+    val f = \ () -> {val x = x + 1; x};
     print f();
   }

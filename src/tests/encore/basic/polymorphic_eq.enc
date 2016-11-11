@@ -13,7 +13,7 @@ passive class Pair<k,v>
 
 class Main
   def main() : void {
-    let first = new Pair<int,int>(1,1);
-    let second = new Pair<int,int>(1,1);
+    val first = new Pair<int,int>(1,1);
+    val second = new Pair<int,int>(1,1);
     first.compare(second);
   }

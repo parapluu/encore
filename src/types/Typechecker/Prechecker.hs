@@ -172,7 +172,7 @@ instance Precheckable TraitDecl where
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
-        addThis self = extendEnvironment [(thisName, self)]
+        addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
           assertDistinct "declaration" treqs
@@ -196,7 +196,7 @@ instance Precheckable ClassDecl where
       where
         typeParameters = getTypeParameters cname
         addTypeParams = addTypeParameters typeParameters
-        addThis self = extendEnvironment [(thisName, self)]
+        addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" typeParameters
             assertDistinctThing "inclusion" "trait" $

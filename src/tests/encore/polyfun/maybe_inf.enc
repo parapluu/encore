@@ -18,13 +18,11 @@ class Main
         Nothing => print "Error: expected 'Just' value constructor but got 'Nothing'"
     };
 
-    let testNothing = fCreateParametricOptionTypeNothing("Test the returns parametric Nothing")
-    in {
+    var testNothing = fCreateParametricOptionTypeNothing("Test the returns parametric Nothing");
       match testNothing with
         Just s => print "Error, expected 'Nothing'"
         Nothing => { testNothing = Just "re-assignment";
-                     print "Test create parametric Nothing and can be re-assigned";}
-    };
+                     print "Test create parametric Nothing and can be re-assigned";};
 
     let testNewVal = extractAndCreateOptionValue(Just "Remove this text", "Append this text")
     in {

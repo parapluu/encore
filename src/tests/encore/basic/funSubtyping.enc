@@ -15,8 +15,8 @@ passive class Cat : Animal
 
 class Main {
   def main() : void {
-    let f = fun : Cat -> Animal;
-    let animal = f(new Cat);
+    val f = fun : Cat -> Animal;
+    val animal = f(new Cat);
     animal.speak();
   }
 }

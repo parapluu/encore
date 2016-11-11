@@ -1,27 +1,35 @@
 module StreamIO
 
 class StreamIO {
-  stream produceInt(i : int) : int
+  stream produceInt(n : int) : int {
+    var i = n;
     while i>0 {
       yield i;
       i = i - 1;
     }
+  }
 
-  stream produceReal(i : int) : real
+  stream produceReal(n : int) : real {
+    var i = n;
     while i>0 {
       yield i*1.0;
       i = i - 1;
     }
+  }
 
-  def printStreamReal(sr : Stream real) : void
-    while (not eos sr) {
-      print(get sr);
-      sr = getNext sr;
+  def printStreamReal(sr : Stream real) : void {
+    var str = sr;
+    while (not eos str) {
+      print(get str);
+      str = getNext str;
     }
+  }
 
-  def printStreamInt(sr : Stream int) : void
-    while (not eos sr) {
-      print(get sr);
-      sr = getNext sr;
+  def printStreamInt(si : Stream int) : void {
+    var str = si;
+    while (not eos str) {
+      print(get str);
+      str = getNext str;
     }
+  }
 }

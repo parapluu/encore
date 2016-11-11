@@ -11,16 +11,14 @@ def strcmp(a:String, b:String) : bool
 
 def arraycmp(a:[String], b:[String]) : bool
   if |a| == |b|
-  then
-    let
-      same = true
-    in {
-      repeat i <- |a|
-        if not strcmp(a[i] , b[i]) then same = false;
-      same;
-    }
-    else
-      false
+  then {
+    var same = true;
+    repeat i <- |a|
+      if not strcmp(a[i] , b[i]) then same = false;
+    same;
+  }
+  else
+    false
 
 class Main
   def main() : void

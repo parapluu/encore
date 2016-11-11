@@ -7,10 +7,10 @@ passive class Bar : T
 
 class Main
   def main() : void {
-    let x = new Foo();
-    let y = new Bar();
-    let f1 = x.getClosure();
-    let f2 = y.getClosure();
+    val x = new Foo();
+    val y = new Bar();
+    val f1 = x.getClosure();
+    val f2 = y.getClosure();
     f1();
     f2();
   }

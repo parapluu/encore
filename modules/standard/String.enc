@@ -213,11 +213,10 @@ passive class String
   def occurrences(s:String) : int
     if s.length() == 0
     then this.length()
-    else let
-      counter = 0
-      i       = this.find(s)
-      s_len   = s.length()
-    in {
+    else {
+      var counter = 0;
+      var i       = this.find(s);
+      val s_len   = s.length();
       while i >= 0 { counter = counter + 1; i = this.find_from(s, i + s_len); };
       counter
     }
@@ -229,14 +228,12 @@ passive class String
   def join(strings:[String]) : String
     if |strings| == 0
     then ""
-    else
-      let
-        result = strings[0]
-      in {
-        for i in [1..|strings|-1]
-          result = result.concatenate(this).concatenate(strings[i]);
-        result;
-      }
+    else {
+      var result = strings[0];
+      for i in [1..|strings|-1]
+        result = result.concatenate(this).concatenate(strings[i]);
+      result;
+    }
 
   def getData(): embed char* end
      this.data
@@ -342,25 +339,23 @@ passive class String
           s_arr[i] = string_from_char(match this.char_at(i) with Just c => c);
         s_arr
       }
-    else
-      let
-        result = new [String](occurrences + 1)
-        start  = 0
-        stop   = 0
-      in {
-        repeat i <- occurrences {
-          stop = this.find_from(p, start);
-          result[i] = match this.substring(start, stop) with Just s => s;
-          start = stop + pattern_len;
-        };
-        result[occurrences] = match this.substring(start, this.length()) with Just s => s;
-        result;
-      }
+    else {
+      val result = new [String](occurrences + 1);
+      var start  = 0;
+      var stop   = 0;
+      repeat i <- occurrences {
+        stop = this.find_from(p, start);
+        result[i] = match this.substring(start, stop) with Just s => s;
+        start = stop + pattern_len;
+      };
+      result[occurrences] = match this.substring(start, this.length()) with Just s => s;
+      result;
+    }
 
   def to_int() : Maybe int {
-    let s = this.data;
-    let n = 0;
-    let success = false;
+    val s = this.data;
+    val n = 0;
+    val success = false;
     embed void
       char *s = #{s};
       char *endptr;

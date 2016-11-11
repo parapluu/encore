@@ -5,7 +5,7 @@ def addUnsigned(x : uint, y : int) : uint {
 class Main
   def main() : void {
     print addUnsigned(42u, 13u);
-    let large =
+    val large =
           embed uint
             unsigned long long x = 1ul << 32 << 31;
             x;

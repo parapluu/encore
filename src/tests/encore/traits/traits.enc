@@ -28,11 +28,11 @@ trait Pop
 
 passive class Stack : Push + Pop
   top : Link
-  def steal(other : Pop) : void
-    let x = other in {
-      x = other;
-      this.push(x.pop())
-    }
+  def steal(other : Pop) : void {
+    var x = other;
+    x = other;
+    this.push(x.pop())
+  }
 
 class Driver
   myPop : Pop

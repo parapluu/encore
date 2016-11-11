@@ -1,20 +1,19 @@
 def foo() : Foo{
-  let x = 42 in
-    while x < 0 {
-      x = x - 1;
-      null;
-    }
+  var x = 42;
+  while x < 0 {
+    x = x - 1;
+    null;
   }
+}
 
 class Foo
 
 class Main
-  def main() : void
-    let x = null : Foo
-        y = Just (null : Foo)
-        f = \ () -> null : Foo
-    in {
-      null : Foo;
-      x = foo();
-      print "I ain't scared of no null!";
-    }
+  def main() : void {
+    var x = null : Foo;
+    val y = Just (null : Foo);
+    val f = \ () -> null : Foo;
+    null : Foo;
+    x = foo();
+    print "I ain't scared of no null!";
+  }

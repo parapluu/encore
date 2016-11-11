@@ -13,6 +13,6 @@ passive class C : T<int> + U<int>
 
 class Main
   def main(args : [String]): void {
-    let x = new C(42) : T<int>;
+    val x = new C(42) : T<int>;
     print(x.foo());
   }

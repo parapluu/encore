@@ -85,36 +85,20 @@ def test_unification_last_expression(x: Maybe int) : Maybe int
 -- Test multiple assignments and changes between them
 --
 def test_multiple_assignments(x: Maybe int) : int {
-  let y = Nothing : Maybe int
-      z = Just(32)
-  in {
-    x = y;
-    y = (Just 23);
-    y = x;
-    y = z;
-    x = Nothing : Maybe int;
-    y;
-    match x with {
-    	Just(z) => 23
-        Nothing => 34
-    }
+  var x' = x;
+  var y = Nothing : Maybe int;
+  val z = Just(32);
+  x' = y;
+  y = (Just 23);
+  y = x;
+  y = z;
+  x' = Nothing : Maybe int;
+  y;
+  match x with {
+      Just(z) => 23
+      Nothing => 34
   }
 }
-
--- def bad2() : Maybe int
---   let x = Just(42)
---       y = Nothing : Maybe String
---   in{
---       y = Just 42;
---       y
---   }
-
--- def bad1() : void
---   let y = Nothing : Maybe (Maybe ThisTypeDoesNotExist) in
---         ()
-
--- def foo(x : Maybe String) : Maybe int
---   x
 
 passive class Poly<t> {
   def morphic(x: t): Maybe t {
@@ -127,7 +111,6 @@ class Main
    let
      x = Just(32)
      poly = new Poly<int>
-     -- u = foo(Just 32)
    in {
 
      print test_catch_all(x);

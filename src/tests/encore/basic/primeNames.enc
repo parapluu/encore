@@ -11,11 +11,11 @@ class Baz'<t'>
 
 class Main
   def main() : void {
-    let foo = new Foo'<int>;
-    let baz = new Baz'<Foo'<int>>;
-    let x = "This";
-    let x' = "is";
-    let x'' = "prime";
-    let x''' = "stuff!";
+    val foo = new Foo'<int>;
+    val baz = new Baz'<Foo'<int>>;
+    val x = "This";
+    val x' = "is";
+    val x'' = "prime";
+    val x''' = "stuff!";
     println("{} {} {} {}", x, x', x'', x''')
   }

@@ -191,6 +191,7 @@ data Error =
   | ActiveMatchError
   | MatchInferenceError
   | ThisReassignmentError
+  | ImmutableVariableError QualifiedName
   | PatternTypeMismatchError Expr Type
   | NonMaybeExtractorPatternError Expr
   | InvalidPatternError Expr
@@ -343,6 +344,9 @@ instance Show Error where
     show ActiveMatchError = "Cannot match on an active object"
     show MatchInferenceError = "Cannot infer result type of match expression"
     show ThisReassignmentError = "Cannot rebind variable 'this'"
+    show (ImmutableVariableError qname) =
+        printf "Variable '%s' is immutable and cannot be re-assigned"
+               (show qname)
     show (PatternTypeMismatchError pattern ty) =
         printf "Pattern '%s' does not match expected type '%s'"
                (show $ ppSugared pattern) (show ty)

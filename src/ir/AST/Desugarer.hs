@@ -113,8 +113,9 @@ desugar :: Expr -> Expr
 desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
     where
       expandMiniLets [] = []
-      expandMiniLets (MiniLet{emeta, decl}:seq) =
+      expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
           [Let{emeta
+              ,mutability
               ,decls = [decl]
               ,body = Seq emeta $ case expandMiniLets seq of
                                    [] -> [Skip emeta]
@@ -215,21 +216,22 @@ desugar Unless{emeta, cond, thn} =
 --         id = id + 1;
 --       }
 desugar Repeat{emeta, name, times, body} =
-    Let emeta
-        [(name, (IntLiteral emeta 0)), (Name "__gub__", times)]
-       (While emeta
-             (Binop emeta
-                   Identifiers.LT
-                   (VarAccess emeta (qLocal name))
-                   (VarAccess emeta (qLocal (Name "__gub__"))))
-             (Seq emeta
-                  [body, (Assign emeta
-                               (VarAccess emeta (qLocal name))
-                               (Binop emeta
-                                     PLUS
-                                     (VarAccess emeta (qLocal name))
-                                     (IntLiteral emeta 1)))]))
-
+    Let{emeta
+       ,mutability = Var
+       ,decls = [(name, IntLiteral emeta 0), (Name "__gub__", times)]
+       ,body = While emeta
+               (Binop emeta
+                      Identifiers.LT
+                      (VarAccess emeta (qLocal name))
+                      (VarAccess emeta (qLocal (Name "__gub__"))))
+               (Seq emeta
+                    [body, Assign emeta
+                                  (VarAccess emeta (qLocal name))
+                                  (Binop emeta
+                                        PLUS
+                                        (VarAccess emeta (qLocal name))
+                                        (IntLiteral emeta 1))])
+       }
 
 --   finish { f1 = async e1; f2 = async e2 }
 -- into
@@ -246,12 +248,15 @@ desugar FinishAsync{emeta, body} =
 
     desugarBody seq@Seq{eseq, emeta} =
       let sizeSeq = length eseq
-          bindings = [((Name $ "__seq__" ++ show i, eseq !! i), isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
+          bindings = [((Name $ "__seq__" ++ show i , eseq !! i)
+                       ,isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
           stmts = map fst $ List.filter snd bindings
       in
-          Let emeta
-              (map fst bindings)
-              (Seq emeta [Get emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts])
+          Let{emeta
+             ,mutability = Var
+             ,decls = map fst bindings
+             ,body = Seq emeta [Get emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts]
+             }
     desugarBody a = a
 
 -- foreach item in arr {
@@ -269,20 +274,31 @@ desugar FinishAsync{emeta, body} =
 --   }
 desugar Foreach{emeta, item, arr, body} =
   let it = Name "__it__"
-      arrSize = Name "__arr_size__" in
-   Let emeta [(arrSize, ArraySize emeta arr)]
-    (IfThenElse emeta (Binop emeta Identifiers.EQ (VarAccess emeta (qLocal arrSize)) (IntLiteral emeta 0))
-     (Skip (cloneMeta emeta))
-     (Let emeta
-        [(it, IntLiteral emeta 0),
-         (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
-       (While emeta
+      arrSize = Name "__arr_size__"
+      isEmpty = Binop emeta Identifiers.EQ
+                      (VarAccess emeta (qLocal arrSize))
+                      (IntLiteral emeta 0)
+  in
+   Let{emeta
+      ,mutability = Val
+      ,decls = [(arrSize, ArraySize emeta arr)]
+      ,body =
+        IfThenElse emeta isEmpty
+                   (Skip (cloneMeta emeta))
+                   Let{emeta
+                       ,mutability = Var
+                       ,decls =
+                         [(it, IntLiteral emeta 0),
+                          (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
+                       ,body =
+          While emeta
              (Binop emeta
                    Identifiers.LT
                    (VarAccess emeta (qLocal it))
                    (VarAccess emeta (qLocal arrSize)))
              (Seq emeta
-                  [Assign emeta (VarAccess emeta (qLocal item)) (ArrayAccess emeta arr (VarAccess emeta (qLocal it))),
+                  [Assign emeta (VarAccess emeta (qLocal item))
+                                (ArrayAccess emeta arr (VarAccess emeta (qLocal it))),
                    Async emeta body,
                    Assign emeta
                       (VarAccess emeta (qLocal it))
@@ -290,7 +306,7 @@ desugar Foreach{emeta, item, arr, body} =
                        PLUS
                        (VarAccess emeta (qLocal it))
                        (IntLiteral emeta 1))
-                  ]))))
+                  ])}}
 
 desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 

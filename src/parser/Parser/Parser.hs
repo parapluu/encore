@@ -88,6 +88,7 @@ lexer =
     ,"trait"
     ,"require"
     ,"val"
+    ,"var"
     ,"Maybe"
     ,"Just"
     ,"Nothing"
@@ -471,7 +472,7 @@ modifier = val
     where
       val = do
         reserved "val"
-        return Val
+        return MVal
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
@@ -798,7 +799,7 @@ expr  =  embed
                          decls <- many varDecl
                          reserved "in"
                          expr <- expression
-                         return $ Let (meta pos) decls expr
+                         return $ Let (meta pos) Val decls expr
                       where
                         varDecl = do x <- identifier
                                      reservedOp "="
@@ -810,12 +811,13 @@ expr  =  embed
           where
             miniLet = do
               emeta <- meta <$> getPosition
-              reserved "let"
+              mutability <- (reserved "var" >> return Var)
+                        <|> (reserved "val" >> return Val)
               x <- Name <$> identifier
               reservedOp "="
               val <- expression
               lookAhead semi
-              return MiniLet{emeta, decl = (x, val)}
+              return MiniLet{emeta, mutability, decl = (x, val)}
       ifExpression = do pos <- getPosition
                         reserved "if"
                         cond <- expression

@@ -24,12 +24,12 @@ class Test<a>
 
 class Main
   def main() : void {
-    let t = createTest<String>("Create Test of type 'String'");
+    val t = createTest<String>("Create Test of type 'String'");
     print(get t.getArg());
 
-    let arr = get t.appendToArray("Adding a new string");
+    val arr = get t.appendToArray("Adding a new string");
     repeat i <- |arr| { print(arr[i]);};
 
-    let tup = get t.toTuple("Adding to tuple");
+    val tup = get t.toTuple("Adding to tuple");
     print(tup);
   }

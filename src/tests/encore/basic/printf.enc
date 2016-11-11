@@ -3,7 +3,7 @@ class Main
     for i in [1..9] {
       println("The square of {} is {}", i, i*i);
     };
-    let row = [false, true];
+    val row = [false, true];
     for b1 in row {
       for b2 in row {
         println("{} | {}", (b1, b2), b1 and b2);

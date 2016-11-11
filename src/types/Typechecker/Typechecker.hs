@@ -26,6 +26,7 @@ import Text.Parsec.Pos as P
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
+import AST.Util (freeVariables)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -131,7 +132,7 @@ instance Checkable TraitDecl where
     return t{tmethods = emethods}
     where
       addTypeParams = addTypeParameters $ getTypeParameters tname
-      addThis = extendEnvironment [(thisName, tname)]
+      addThis = extendEnvironmentImmutable [(thisName, tname)]
       typecheckMethod = local (addTypeParams . addThis) . typecheck
 
 matchArgumentLength :: Type -> FunctionHeader -> Arguments -> TypecheckM ()
@@ -318,7 +319,7 @@ instance Checkable ClassDecl where
     where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
-      addThis = extendEnvironment [(thisName, cname)]
+      addThis = extendEnvironmentImmutable [(thisName, cname)]
       typecheckMethod m = local (addTypeVars . addThis) $ typecheck m
 
 instance Checkable MethodDecl where
@@ -645,6 +646,11 @@ instance Checkable Expr where
 
       eEparams <- mapM typecheck eparams
       eBody <- local (addParams eEparams) $ typecheckNotNull body
+      let paramNames = map pname eEparams
+          capturedVariables = map (qnlocal . fst) $
+                              freeVariables (map qLocal paramNames) eBody
+      local (addParams eEparams . makeImmutable capturedVariables) $
+            typecheck eBody -- Check for mutation of captured variables
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
@@ -662,19 +668,27 @@ instance Checkable Expr where
     --  x1 != nullType .. xn != nullType
     -- --------------------------------------------------------------------------------------
     --  E |- let x1 = e1 .. xn = en in body : t
-    doTypecheck let_@(Let {decls, body}) =
+    doTypecheck let_@(Let {mutability, decls, body}) =
         do eDecls <- typecheckDecls decls
            let declNames = map fst eDecls
                declTypes = map (AST.getType . snd) eDecls
+               addNames = (if mutability == Val
+                           then extendEnvironmentImmutable
+                           else extendEnvironment) $ zip declNames declTypes
            when (any isBottomType (concatMap typeComponents declTypes)) $
                 tcError BottomTypeInferenceError
-           eBody <- local (extendEnvironment (zip declNames declTypes)) $ typecheck body
-           return $ setType (AST.getType eBody) let_ {decls = eDecls, body = eBody}
+           eBody <- local addNames $ typecheck body
+           return $ setType (AST.getType eBody) let_ {decls = eDecls
+                                                     ,body = eBody}
         where
           typecheckDecls [] = return []
           typecheckDecls ((name, expr):decls') =
               do eExpr <- typecheckNotNull expr
-                 eDecls <- local (extendEnvironment [(name, AST.getType eExpr)]) $ typecheckDecls decls'
+                 let addName =
+                         (if mutability == Val
+                          then extendEnvironmentImmutable
+                          else extendEnvironment) [(name, AST.getType eExpr)]
+                 eDecls <- local addName $ typecheckDecls decls'
                  return $ (name, eExpr):eDecls
 
     --  E |- en : t
@@ -849,7 +863,7 @@ instance Checkable Expr where
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
           vars <- getPatternVars pt mcpattern
-          let withLocalEnv = local (extendEnvironment vars)
+          let withLocalEnv = local (extendEnvironmentImmutable vars)
           ePattern <- withLocalEnv $ checkPattern mcpattern pt
           eHandler <- withLocalEnv $ typecheck mchandler
           eGuard <- withLocalEnv $ hasType mcguard boolType
@@ -982,9 +996,12 @@ instance Checkable Expr where
     --  E |- name = rhs : void
     doTypecheck assign@(Assign {lhs = lhs@VarAccess{qname}, rhs}) =
         do eLhs <- typecheck lhs
+           varIsMutable <- asks $ isMutableLocal qname
            varIsLocal <- asks $ isLocal qname
-           unless varIsLocal $
-                  pushError eLhs NonAssignableLHSError
+           unless varIsMutable $
+                  if varIsLocal
+                  then tcError $ ImmutableVariableError qname
+                  else pushError eLhs NonAssignableLHSError
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
 
@@ -1124,7 +1141,7 @@ instance Checkable Expr where
                                                        ,src  = srcTyped
                                                        ,body = bodyTyped}
         where
-          addIteratorVariable ty = extendEnvironment [(name, ty)]
+          addIteratorVariable ty = extendEnvironmentImmutable [(name, ty)]
           typecheckBody ty = local (addIteratorVariable ty) . typecheck
 
    ---  |- ty

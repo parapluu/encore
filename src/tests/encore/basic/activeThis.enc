@@ -9,11 +9,11 @@ class Foo
       that.fr0b();
     }
 
-  def bar() : Fut bool
-    let that = null : Foo in{
-      that = this;
-      that.fr0b()
-    }
+  def bar() : Fut bool {
+    var that = null : Foo;
+    that = this;
+    that.fr0b();
+  }
 
   def baz() : Fut bool
     let that = id<Foo>(this)

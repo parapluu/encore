@@ -70,8 +70,8 @@ class Main
   def main() : void {
     let testSequence = sequencePipeline(liftv 42)
         result = extractPar(testSequence)
-    in { repeat i <- |result| print(result[i]);};
+    in { repeat i <- |result| print(result[i]) };
 
-    let testJoin = extractPar(joinParTest(20));
+    val testJoin = extractPar(joinParTest(20));
     repeat i <- |testJoin| print(testJoin[i])
   }
