@@ -1,5 +1,5 @@
 import StreamLib.StreamChain.StreamChain
-import StreamLib.StreamChain.StreamIO
+import StreamIO
 
 class Main
   def main() : void

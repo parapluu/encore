@@ -1,7 +1,6 @@
 bundle StreamIO where
 
 class StreamIO {
-
   stream produceInt(i : int) : int
     while i>0 {
       yield i;
@@ -25,5 +24,4 @@ class StreamIO {
       print(get sr);
       sr = getNext sr;
     }
-
 }
