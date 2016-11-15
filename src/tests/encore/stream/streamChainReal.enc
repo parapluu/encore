@@ -1,0 +1,13 @@
+import StreamLib.StreamChain.StreamChain
+import StreamIO
+
+class Main
+  def main() : void
+    let
+      sio = new StreamIO
+      f = \(x:real) -> x*10
+      n = 5
+      sa1 = sio.produceReal(n)
+      sb1 = chain<real,real>(sa1,f)
+    in
+      sio.printStreamReal(sb1)

@@ -1,0 +1,27 @@
+bundle StreamIO where
+
+class StreamIO {
+  stream produceInt(i : int) : int
+    while i>0 {
+      yield i;
+      i = i - 1;
+    }
+
+  stream produceReal(i : int) : real
+    while i>0 {
+      yield i*1.0;
+      i = i - 1;
+    }
+
+  def printStreamReal(sr : Stream real) : void
+    while (not eos sr) {
+      print(get sr);
+      sr = getNext sr;
+    }
+
+  def printStreamInt(sr : Stream int) : void
+    while (not eos sr) {
+      print(get sr);
+      sr = getNext sr;
+    }
+}

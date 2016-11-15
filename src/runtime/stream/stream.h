@@ -9,15 +9,15 @@ typedef void stream_t;
 
 typedef struct scons scons_t;
 
-bool scons_eos(pony_ctx_t *ctx, scons_t *scons);
+bool scons_eos(pony_ctx_t **ctx, scons_t *scons);
 
-encore_arg_t scons_element(pony_ctx_t *ctx, scons_t *scons);
+encore_arg_t scons_element(pony_ctx_t **ctx, scons_t *scons);
 
-stream_t *scons_next(pony_ctx_t *ctx, scons_t *scons);
+stream_t *scons_next(pony_ctx_t **ctx, scons_t *scons);
 
-scons_t *scons_end(pony_ctx_t *ctx);
+scons_t *scons_tail(pony_ctx_t **ctx);
 
-scons_t *scons_put_fut(pony_ctx_t *ctx, stream_t *s,
+scons_t *scons_put_fut(pony_ctx_t **ctx, stream_t *s,
                             encore_arg_t value, pony_type_t *type);
 
 pony_type_t *get_scons_type();
