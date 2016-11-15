@@ -8,7 +8,7 @@ def chain<a,b>(sa:Stream a, f:a->b) : Stream b {
     fscons = \(scons: Scons) ->
       if (embed bool scons_eos(_ctx,(struct scons*)#{scons}); end) then {
         embed Scons
-          scons_tail(_ctx);
+          scons_end(_ctx);
         end;
       }
       else {
