@@ -128,7 +128,8 @@ findSource importDirs sourceDir Import{itarget} = do
   case candidates of
     [] -> abort $ "Module " ++ showNamespace itarget ++
                   " cannot be found in imports. Directories searched:\n" ++
-                  unlines (map (("  " ++) . dirname) sources)
+                  unlines (map (("  " ++) . dirname) sources) ++
+                  "\nUse '-I PATH' to add additional import paths"
     [src] -> return src
     l -> do
       putStrLn $ "Module " ++ showNamespace itarget ++
