@@ -830,7 +830,7 @@ static pony_type_t cycle_type =
   NULL,
   NULL,
   NULL,
-  cycle_dispatch,
+  (void*)cycle_dispatch,
   NULL,
   0,
   NULL,
