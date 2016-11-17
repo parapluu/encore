@@ -11,7 +11,7 @@ class Main
 
   def main(): void {
     this.setup();
-    let rng = [0..this.size]
+    let rng = [0..this.size-1]
         arr = new [int](this.size)
         size = this.size
     in {
