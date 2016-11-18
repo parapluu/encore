@@ -1,0 +1,6 @@
+module SelectiveExportFail(Foo)
+
+class Main
+  def main() : void {
+    print "I shouldn't compile"
+  }

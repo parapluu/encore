@@ -1,0 +1,10 @@
+import Top
+
+def apply(f : () -> int) : int
+  f()
+
+class Main
+  def main() : void {
+    print apply(top);
+    print apply(Top.top)
+  }

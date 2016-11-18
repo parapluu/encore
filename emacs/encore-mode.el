@@ -13,6 +13,7 @@
 ;; Please keep these lists sorted
 (setq encore-keywords
       '(
+        "as"
         "and"
         "async"
         "await"
@@ -26,19 +27,23 @@
         "foreach"
         "get"
         "getNext"
+        "hiding"
         "if"
+        "import"
         "in"
         "join"
         "let"
         "liftf"
         "liftv"
         "match"
+        "module"
         "new"
         "not"
         "or"
         "passive"
         "print"
         "println"
+        "qualified"
         "repeat"
         "require"
         "stream"
@@ -278,7 +283,7 @@
 ;; If you use flycheck-mode, add the following lines to your init file:
 ;(flycheck-define-checker encorec
 ;  "The Encore compiler"
-;  :command ("encorec" source)
+;  :command ("encorec" "-I" "." "-tc" source)
 ;  :error-patterns
 ;    ((warning "Warning at" "\"" (file-name) "\"" " (line " line ", column " column "):\n"
 ;              (message))

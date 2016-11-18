@@ -1,0 +1,28 @@
+module StreamChain
+
+typedef Scons = embed struct scons* end
+
+def chain<a,b>(sa:Stream a, f:a->b) : Stream b {
+  let
+    futa = embed Fut Scons (future_t*)#{sa}; end
+    fscons = \(scons: Scons) ->
+      if (embed bool scons_eos(_ctx,(struct scons*)#{scons}); end) then {
+        embed Scons
+          scons_tail(_ctx);
+        end;
+      }
+      else {
+        let va = embed a (encore_arg_t)scons_element(_ctx,(struct scons*)#{scons}).p; end;
+        let nexta = embed Stream a scons_next(_ctx,(struct scons*)#{scons}); end;
+        let vb = f(va);
+        let nextb = chain<a,b>(nexta,f);
+        embed Scons
+          scons_put_fut(_ctx,#{nextb},(encore_arg_t)#{vb}, _enc__type_b);
+        end;
+      }
+    -- Chaining by embeded function instead of ~~>
+    futb = embed (Stream b)
+              (stream_t*)future_chain_actor(_ctx, #{futa}, get_scons_type(), #{fscons});
+           end
+  in (embed (Stream b) (stream_t*)#{futb}; end)
+}

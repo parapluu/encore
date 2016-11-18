@@ -1,0 +1,5 @@
+module TraitLib
+
+trait S
+  def s(): void
+    print "In TraitLib.S"

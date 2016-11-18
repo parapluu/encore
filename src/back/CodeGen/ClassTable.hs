@@ -19,17 +19,16 @@ import Control.Arrow
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
-type FunctionTable = [(Name, FunctionHeader)]
+type FunctionTable = [(QualifiedName, FunctionHeader)]
 type ProgramTable = (ClassTable, FunctionTable)
 
 buildProgramTable :: Program -> ProgramTable
 buildProgramTable = buildClassTable &&& buildFunctionTable
 
 buildClassTable :: Program -> ClassTable
-buildClassTable = traverseProgram getEntries
-  where
-    getEntries p = map getClassEntry (classes p) ++
-                   map getTraitEntry (traits p)
+buildClassTable p = map getClassEntry (classes p) ++
+                    map getTraitEntry (traits p)
+    where
     getClassEntry Class{cname, cfields, cmethods} =
       (cname, (map getFieldEntry cfields,
                map getMethodEntry cmethods))
@@ -45,9 +44,10 @@ buildClassTable = traverseProgram getEntries
     getMethodEntry m    = (methodName m, mheader m)
 
 buildFunctionTable :: Program -> FunctionTable
-buildFunctionTable = traverseProgram getFunctions
+buildFunctionTable p = map (fname &&& funheader) (functions p)
   where
-    getFunctions p = map (functionName &&& funheader) (functions p)
+    fname f@Function{funsource} =
+      setSourceFile funsource . topLevelQName . functionName $ f
 
 lookupClassEntry :: Type -> ClassTable -> (FieldTable, MethodTable)
 lookupClassEntry ty ctable =
@@ -74,11 +74,13 @@ lookupMethods cls (ctable, _) =
     let (_, ms) = lookupClassEntry cls ctable
     in map snd ms
 
-lookupFunction :: Name -> ProgramTable -> FunctionHeader
-lookupFunction name (_, ftable) =
-  let failure = error $ "ClassTable.hs: Function '" ++ show name ++
+lookupFunction :: QualifiedName -> ProgramTable -> FunctionHeader
+lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, ftable) =
+  let failure = error $ "ClassTable.hs: Function '" ++ show qname ++
                        "' does not exist"
-  in fromMaybe failure (lookup name ftable)
+      key = setSourceFile source $
+            topLevelQName qnlocal
+  in fromMaybe failure (lookup key ftable)
 
 lookupCalledType :: Type -> Name -> ProgramTable -> Type
 lookupCalledType ty m table@(ctable, _)
@@ -95,5 +97,5 @@ lookupCalledType ty m table@(ctable, _)
       in
         fst . fromMaybe fail $ find (isJust . snd) results
 
-getGlobalFunctionNames :: ProgramTable -> [Name]
+getGlobalFunctionNames :: ProgramTable -> [QualifiedName]
 getGlobalFunctionNames (_, ftable) = map fst ftable

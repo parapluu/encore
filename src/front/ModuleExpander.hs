@@ -1,94 +1,163 @@
-module ModuleExpander(importAndCheckModules,compressModules) where
+module ModuleExpander(
+                      ProgramTable
+                     ,buildProgramTable
+                     ,compressProgramTable
+                     ,dirAndName
+                     ) where
 
 import Identifiers
 import Utils
 import AST.AST
-import Control.Monad
-import System.Directory(doesFileExist)
 import Parser.Parser
-import Data.Map (Map)
-import Data.List
 import Literate
-import qualified Data.Map as Map
 import Typechecker.Environment
-import qualified AST.Meta as Meta
-import Text.Parsec.Pos as P
+import AST.Meta
+import Types(setRefSourceFile, setRefNamespace)
 
-type ModuleMap = Map QName Program
+import SystemUtils
+import Control.Monad
+import Control.Arrow((&&&))
+import System.Directory(doesFileExist)
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map
+import Data.List
+import Text.Parsec.Pos(SourceName, initialPos)
+import Debug.Trace
 
-importAndCheckModules :: (Environment -> Program -> IO (Environment, Program)) ->
-                                [FilePath] -> Program -> IO ModuleMap
-importAndCheckModules checker importDirs p = do
-    (modules, _) <- importAndCheckProgram [] Map.empty emptyEnv [] p -- [] is QName of top-level module.
-    return modules
+type ProgramTable = Map SourceName Program
+
+dirAndName = dirname' &&& basename
   where
-    importAndCheckProgram :: [QName] -> ModuleMap -> Environment -> QName -> Program -> IO (ModuleMap, Environment)
-    importAndCheckProgram seen importTable env target prg = do
-        when (target `elem` seen) $ abort $ "Module \"" ++ qname2string target ++
-                      "\" imports itself recursively! Aborting."
-        let pp@Program{imports} = addStdLib target prg
-        (newImportTable, newEnv) <- foldM (performImport (target:seen)) (importTable, env) imports
-        (newerEnv, checkedAST) <- checker newEnv pp
-        return $ (Map.insert target checkedAST newImportTable, newerEnv)
+    dirname' p =
+        let dir = dirname p
+        in if last dir == '/'
+           then init dir
+           else dir
 
-    performImport :: [QName] -> (ModuleMap, Environment) -> ImportDecl -> IO (ModuleMap, Environment)
-    performImport seen (importTable, env) i@(Import _ target) =
-      if Map.member target importTable then
-        return (importTable, env)
-      else do
-        impl <- importOne importDirs i
-        importAndCheckProgram seen importTable env target impl
+buildProgramTable :: [FilePath] -> [FilePath] -> Program -> IO ProgramTable
+buildProgramTable importDirs preludePaths p = do
+  let (sourceDir, sourceName) = dirAndName (source p)
+  findAndImportModules importDirs preludePaths sourceDir sourceName Map.empty p
 
-importOne :: [FilePath] -> ImportDecl -> IO Program
-importOne importDirs (Import _ target) = do
-  let sources = map (\dir -> tosrc dir target) importDirs
-  candidates <- filterM doesFileExist sources
-  source <-
-       case candidates of
-         [] -> abort $ "Module \"" ++ qname2string target ++
-                      "\" cannot be found in imports! Aborting."
-         [src] -> do { informImport target src; return src }
-         l@(src:_) -> do
-             putStrLn $ "Error: Module " ++ (qname2string target) ++ " found in multiple places:"
-             mapM_ (\src -> putStrLn $ "-- " ++ src) l
-             abort "Unable to determine which one to use."
-  raw <- readFile source
-  let code = if "#+literate\n" `isPrefixOf` raw
-             then getTangle raw
-             else raw
-  ast <- case parseEncoreProgram source code of
-           Right ast  -> return ast
-           Left error -> abort $ show error
-  return ast
+shortenPrelude :: [FilePath] -> FilePath -> FilePath
+shortenPrelude preludePaths source =
+    if any (`isPrefixOf` source) preludePaths
+    then basename source
+    else source
 
-qname2string :: QName -> String
-qname2string [] = ""
-qname2string [(Name a)] = a
-qname2string ((Name a):as) = a ++ "." ++ qname2string as
-
-printImports = False
-
-informImport target src =
-    if printImports then
-        putStrLn $ "Importing module " ++ (qname2string target) ++ " from " ++ src
-    else
-        return ()
-
-addStdLib target ast@Program{imports = i} =
-  if qname2string target == "String" then ast  -- avoids importing String from String
-  else ast{imports = i ++ stdLib }
+stdLib source = [lib "String"]
     where
-      stdLib = [Import (Meta.meta (P.initialPos "String.enc")) (Name "String" : [])]
+      lib s = Import{imeta = meta $ initialPos source
+                    ,itarget = [Name s]
+                    ,isource = Nothing
+                    ,iqualified = False
+                    ,iselect = Nothing
+                    ,ialias  = Nothing
+                    ,ihiding = Nothing
+                    }
 
-tosrc :: FilePath -> QName -> FilePath
-tosrc dir target = dir ++ tosrc' target
+addStdLib :: SourceName -> ModuleDecl -> [ImportDecl] -> [ImportDecl]
+addStdLib source NoModule imports = stdLib source ++ imports
+addStdLib source Module{modname} imports =
+  filter ((/= [modname]) . itarget) (stdLib source) ++ imports
+
+
+findAndImportModules :: [FilePath] -> [FilePath] -> FilePath -> FilePath ->
+                        ProgramTable -> Program -> IO ProgramTable
+findAndImportModules importDirs preludePaths sourceDir sourceName
+                     table p@Program{moduledecl
+                                    ,imports
+                                    ,classes
+                                    ,traits
+                                    ,typedefs
+                                    ,functions} = do
+  let sourcePath = sourceDir </> sourceName
+      shortSource = shortenPrelude preludePaths sourcePath
+      withStdlib = addStdLib sourcePath moduledecl imports
+  sources <- mapM (findSource importDirs sourceDir) withStdlib
+  let imports'   = zipWith setImportSource sources withStdlib
+      classes'   = map (setClassSource shortSource) classes
+      traits'    = map (setTraitSource shortSource) traits
+      typedefs'  = map (setTypedefSource shortSource) typedefs
+      functions' = map (setFunctionSource shortSource) functions
+      p' = p{source    = shortSource
+            ,imports   = imports'
+            ,classes   = classes'
+            ,traits    = traits'
+            ,typedefs  = typedefs'
+            ,functions = functions'
+            }
+      newTable = Map.insert shortSource p' table
+  foldM (importModule importDirs preludePaths) newTable sources
   where
-    tosrc' [(Name a)] = a ++ ".enc"
-    tosrc' ((Name a) : as) = a ++ "/" ++ tosrc' as
+    moduleNamespace = if moduledecl == NoModule
+                      then []
+                      else [modname moduledecl]
+    setImportSource source i =
+        let shortPath = shortenPrelude preludePaths source
+        in i{isource = Just shortPath}
+    setClassSource source c@Class{cname} =
+      c{cname = setRefNamespace moduleNamespace $
+                setRefSourceFile source cname}
+    setTraitSource source t@Trait{tname} =
+      t{tname = setRefNamespace moduleNamespace $
+                setRefSourceFile source tname}
+    setTypedefSource source d@Typedef{typedefdef} =
+      d{typedefdef = setRefNamespace moduleNamespace $
+                     setRefSourceFile source typedefdef}
+    setFunctionSource source f =
+      f{funsource = source}
 
+buildModulePath :: Namespace -> FilePath
+buildModulePath ns =
+  let prefix = init ns
+      suffix = last ns
+      moduleDir = foldl (</>) "" $ map show prefix
+      moduleName = show suffix <> ".enc"
+  in if null moduleDir
+     then moduleName
+     else moduleDir </> moduleName
 
-compressModules :: ModuleMap -> Program
-compressModules = foldl1 joinTwo
+findSource :: [FilePath] -> FilePath -> ImportDecl -> IO SourceName
+findSource importDirs sourceDir Import{itarget} = do
+  let modulePath = buildModulePath itarget
+      sources = nub $
+                sourceDir </> modulePath :
+                map (</> modulePath) importDirs
+  candidates <- filterM doesFileExist sources
+  case candidates of
+    [] -> abort $ "Module " ++ showNamespace itarget ++
+                  " cannot be found in imports. Directories searched:\n" ++
+                  unlines (map (("  " ++) . dirname) sources) ++
+                  "\nUse '-I PATH' to add additional import paths"
+    [src] -> return src
+    l -> do
+      putStrLn $ "Module " ++ showNamespace itarget ++
+                 " found in multiple places:"
+      mapM_ (putStrLn . ("  " ++)) l
+      abort "Unable to determine which one to use."
+
+importModule :: [FilePath] -> [FilePath] -> ProgramTable -> FilePath
+                -> IO ProgramTable
+importModule importDirs preludePaths table source
+  | shortSource <- shortenPrelude preludePaths source
+  , Map.member shortSource table = return table
+  | otherwise = do
+      raw <- readFile source
+      let code = if "#+literate\n" `isPrefixOf` raw
+                 then getTangle raw
+                 else raw
+      ast <- case parseEncoreProgram source code of
+               Right ast  -> return ast
+               Left error -> abort $ show error
+      if moduledecl ast == NoModule
+      then abort $ "No module in file " ++ source ++ ". Aborting!"
+      else let (sourceDir, sourceName) = dirAndName source
+           in findAndImportModules importDirs preludePaths
+                                   sourceDir sourceName table ast
+
+compressProgramTable :: ProgramTable -> Program
+compressProgramTable = foldl1 joinTwo
   where
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes}

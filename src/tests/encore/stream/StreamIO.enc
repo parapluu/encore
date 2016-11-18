@@ -1,4 +1,4 @@
-bundle StreamIO where
+module StreamIO
 
 class StreamIO {
   stream produceInt(i : int) : int

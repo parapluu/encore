@@ -16,7 +16,7 @@ import CCode.Main
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
-import qualified Identifiers as Id
+import qualified Identifiers as ID
 import Types
 
 import Control.Monad.State hiding(void)
@@ -40,9 +40,9 @@ globalFunction fun = createHeader
     funType   = A.functionType fun
 
     encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
-    encoreRuntimeTypeT = (fst encoreRuntimeTypeParam)
+    encoreRuntimeTypeT = fst encoreRuntimeTypeParam
 
-    funName   = globalFunctionName $ A.functionName fun
+    funName   = globalFunctionNameOf fun
     (encArgNames, encArgTypes) =
               unzip . map (A.pname &&& A.ptype) $ funParams
     argNames  = map (AsLval . argName) encArgNames
@@ -114,7 +114,7 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
                            <*> map (AsLval . typeVarRefName) funTypeParams
           assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
           runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
-          typeParamSubst = map (\t -> (Id.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
+          typeParamSubst = map (\t -> (ID.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
           ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) table
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
           closures = map (\clos -> translateClosure clos funTypeParams table)

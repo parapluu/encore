@@ -1,0 +1,6 @@
+import Top
+import SelectiveLib as Top
+
+class Main
+  def main() : void
+    print "Should not compile"

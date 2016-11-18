@@ -16,6 +16,7 @@ module AST.Util(
     ) where
 
 import qualified Data.List as List
+import Control.Arrow(first)
 import Prelude hiding (foldr, filter)
 
 import AST.AST
@@ -350,10 +351,10 @@ extractExprTypes = foldrExp collectTypes []
 freeTypeVars :: Expr -> [Type]
 freeTypeVars = List.nub . List.filter isTypeVar . extractExprTypes
 
-freeVariables :: [Name] -> Expr -> [(Name, Type)]
+freeVariables :: [QualifiedName] -> Expr -> [(QualifiedName, Type)]
 freeVariables bound expr = List.nub $ freeVariables' bound expr
   where
-    freeVariables' :: [Name] -> Expr -> [(Name, Type)]
+    freeVariables' :: [QualifiedName] -> Expr -> [(QualifiedName, Type)]
     freeVariables' bound Match {arg, clauses} =
         freeVariables' bound arg ++ clausesFreeVars
         where
@@ -365,12 +366,16 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
                   freeInHandler = freeVariables' bound' mchandler
               in
                 freeInGuard ++ freeInHandler
-    freeVariables' bound var@(VarAccess {name})
-        | name `elem` bound = []
-        | otherwise = [(name, getType var)]
-    freeVariables' bound fCall@(FunctionCall {typeArguments, name, args})
-        | name `elem` bound = concatMap (freeVariables' bound) args
-        | otherwise = concatMap (freeVariables' bound) args ++ [(name, arrType)]
+    freeVariables' bound var@(VarAccess {qname})
+        | qname `elem` bound = []
+        | otherwise = [(qname, getType var)]
+    freeVariables' bound var@(FunctionAsValue {qname})
+        | qname `elem` bound = []
+        | otherwise = [(qname, getType var)]
+    freeVariables' bound fCall@(FunctionCall {typeArguments, qname, args})
+        | qname `elem` bound = concatMap (freeVariables' bound) args
+        | otherwise = concatMap (freeVariables' bound) args ++
+                      [(qname, arrType)]
         where
           arrType = case typeArguments of
                       Just tys -> arrowWithTypeParam tys (map getType args) (getType fCall)
@@ -378,13 +383,13 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound Closure {eparams, body} =
         freeVariables' bound' body
         where
-          bound' = bound ++ map pname eparams
+          bound' = bound ++ map (qLocal . pname) eparams
     freeVariables' bound Let {decls, body} =
         freeVars ++ freeVariables' bound' body
         where
-          (freeVars, bound') = List.foldr fvDecls ([], bound) decls
+          (freeVars, bound') = List.foldr (fvDecls . first qLocal) ([], bound) decls
           fvDecls (x, expr) (free, bound) =
             (freeVariables' (x:bound) expr ++ free, x:bound)
     freeVariables' bound e@For{name, step, src, body} =
-      freeVariables' (name:bound) =<< getChildren e
+      freeVariables' (qLocal name:bound) =<< getChildren e
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)

@@ -1,0 +1,6 @@
+def foo() : void
+  print "foo"
+
+class Main
+  def main() : void
+    Foo.Bar.foo()

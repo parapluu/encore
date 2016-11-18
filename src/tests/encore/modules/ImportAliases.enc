@@ -1,0 +1,6 @@
+import Lib
+import Lib as X
+
+class Main
+  def main() : void
+    print bar() + Lib.bar() + X.bar()

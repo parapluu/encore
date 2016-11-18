@@ -32,17 +32,20 @@ commaSep l = cat $ punctuate ", " l
 angles s = cat ["<", s, ">"]
 
 ppName :: Name -> Doc
-ppName (Name x) = text x
+ppName = text . show
 
-ppQName :: QName -> Doc
-ppQName q = cat $ punctuate "." (map ppName q)
+ppNamespace :: Namespace -> Doc
+ppNamespace = text . showNamespace
+
+ppQName :: QualifiedName -> Doc
+ppQName = text . show
 
 ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{bundle, etl, imports, typedefs, functions, classes} =
-    ppBundleDecl bundle $+$
+ppProgram Program{moduledecl, etl, imports, typedefs, functions, classes} =
+    ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppTypedef typedefs) $+$
@@ -58,12 +61,12 @@ ppHeader header code =
   then empty
   else "embed" $+$ text header $+$ "body" $+$ text code $+$ "end\n"
 
-ppBundleDecl :: BundleDecl -> Doc
-ppBundleDecl NoBundle = empty
-ppBundleDecl Bundle{bname} = "bundle" <+> ppQName bname
+ppModuleDecl :: ModuleDecl -> Doc
+ppModuleDecl NoModule = empty
+ppModuleDecl Module{modname} = "module" <+> ppName modname
 
 ppImportDecl :: ImportDecl -> Doc
-ppImportDecl Import {itarget} = "import" <+> ppQName itarget
+ppImportDecl Import {itarget} = "import" <+> ppNamespace itarget
 
 ppTypedef :: Typedef -> Doc
 ppTypedef Typedef { typedefdef=t } =
@@ -144,10 +147,10 @@ ppExpr PartyExtract {val} = "extract" <+> ppExpr val
 ppExpr PartyEach {val} = "each" <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
-ppExpr FunctionCall {name, args} =
-    ppName name <> parens (commaSep (map ppExpr args))
-ppExpr FunctionAsValue {name, typeArgs} =
-  ppName name <> angles (commaSep (map ppType typeArgs))
+ppExpr FunctionCall {qname, args} =
+    ppQName qname <> parens (commaSep (map ppExpr args))
+ppExpr FunctionAsValue {qname, typeArgs} =
+  ppQName qname <> angles (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, body} =
     "\\" <> parens (commaSep (map ppParamDecl eparams)) <+> "->" <+> ppExpr body
 ppExpr Async {body} =
@@ -211,7 +214,7 @@ ppExpr ArrayAccess {target, index} = ppExpr target <> brackets (ppExpr index)
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = brackets (ppType ty) <> parens (ppExpr size)
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
-ppExpr VarAccess {name} = ppName name
+ppExpr VarAccess {qname} = ppQName qname
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> "=" <+> ppExpr rhs
 ppExpr Null {} = "null"
 ppExpr BTrue {} = "true"

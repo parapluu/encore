@@ -20,14 +20,12 @@ import Data.List.Utils(split)
 import Data.Maybe
 import Data.String.Utils
 import Control.Monad
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
-import System.Directory (getHomeDirectory)
 import System.FilePath (splitPath, joinPath)
-
 
 import Makefile
 import Utils
@@ -37,21 +35,23 @@ import AST.AST
 import AST.PrettyPrinter
 import AST.Desugarer
 import ModuleExpander
+import Typechecker.Environment
 import Typechecker.Prechecker
 import Typechecker.Typechecker
-import Typechecker.Environment
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
 import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
-
 import Identifiers
 
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
-standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_BUNDLES" ))
+standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_MODULES" ))
+
+preludePaths =
+  [standardLibLocation ++ "/standard", standardLibLocation ++ "/prototype"]
 
 data Option =
               Run
@@ -147,9 +147,8 @@ parseArguments args =
       (sources, rest) = partition isSource (parseArguments' args)
       (imports, options) = partition isImport rest
       importDirs homeDir =
-        nub $ ([standardLibLocation ++ "/standard/",
-        standardLibLocation ++ "/prototype/",
-        "./"] ++) $ map (++ "/") $ concatMap (\(Imports dirs) -> map getFullPath dirs) imports
+        nub $ (preludePaths ++) $
+          concatMap (\(Imports dirs) -> map getFullPath dirs) imports
           where
             getFullPath s =
               case splitPath s of
@@ -157,10 +156,9 @@ parseArguments args =
                 _ -> s
   in do
     homeDir <- getHomeDirectory
-    return $
-      (map (\(Source name) -> name) sources,
-       importDirs homeDir,
-       options)
+    return (map (\(Source name) -> name) sources,
+            importDirs homeDir,
+            options)
   where
     isSource (Source _) = True
     isSource _ = False
@@ -311,17 +309,29 @@ main =
                 Right ast  -> return ast
                 Left error -> abort $ show error
 
-       verbose options "== Expanding modules =="
-       allModules <- importAndCheckModules (typecheck options sourceName) importDirs ast
+       verbose options "== Importing modules =="
+       programTable <- buildProgramTable importDirs preludePaths ast
+
+       verbose options "== Desugaring =="
+       let desugaredTable = fmap desugarProgram programTable
+
+       verbose options "== Prechecking =="
+       precheckedTable <- precheckProgramTable desugaredTable
+
+       verbose options "== Typechecking =="
+       typecheckedTable <- typecheckProgramTable precheckedTable
 
        verbose options "== Optimizing =="
-       let optimizedModules = fmap optimizeProgram allModules
+       let optimizedTable = fmap optimizeProgram typecheckedTable
 
        verbose options "== Generating code =="
-       let fullAst = compressModules optimizedModules
+       let (mainDir, mainName) = dirAndName sourceName
+           mainSource = mainDir </> mainName
+       let fullAst = setProgramSource mainSource $
+                     compressProgramTable optimizedTable
 
        unless (TypecheckOnly `elem` options) $
-         case checkForMainClass fullAst of
+         case checkForMainClass mainSource fullAst of
            Just error -> abort $ show error
            Nothing    -> return ()
 
@@ -332,31 +342,37 @@ main =
                system $ "rm " ++ exeName
                return ())
        verbose options "== Done =="
+
     where
-      typecheck :: [Option] -> FilePath -> Environment -> Program -> IO (Environment, Program)
-      typecheck options sourceName env prog = do
-         verbose options "== Desugaring =="
-         let desugaredAST = desugarProgram prog
+      precheckProgramTable :: ProgramTable -> IO ProgramTable
+      precheckProgramTable table = do
+        let lookupTableTable = fmap buildLookupTable table
+        mapM (precheckAndShowWarnings lookupTableTable) table
+        where
+          precheckAndShowWarnings table p = do
+            (precheckedAST, precheckingWarnings) <-
+                case precheckProgram table p of
+                  (Right ast, warnings)  -> return (ast, warnings)
+                  (Left error, warnings) -> do
+                    showWarnings warnings
+                    abort $ show error
+            showWarnings precheckingWarnings
+            return precheckedAST
 
-         verbose options "== Prechecking =="
-         (precheckedAST, precheckingWarnings) <-
-           case precheckEncoreProgram env desugaredAST of
-             (Right ast, warnings)  -> return (ast, warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-         showWarnings precheckingWarnings
-
-         verbose options "== Typechecking =="
-         ((newEnv, typecheckedAST), typecheckingWarnings) <-
-           case typecheckEncoreProgram env precheckedAST of
-             (Right (newEnv, ast), warnings) -> return ((newEnv, ast), warnings)
-             (Left error, warnings) -> do
-               showWarnings warnings
-               abort $ show error
-         showWarnings typecheckingWarnings
-
-         return (newEnv, typecheckedAST)
+      typecheckProgramTable :: ProgramTable -> IO ProgramTable
+      typecheckProgramTable table = do
+        let lookupTableTable = fmap buildLookupTable table
+        mapM (typecheckAndShowWarnings lookupTableTable) table
+        where
+          typecheckAndShowWarnings table p = do
+            (typecheckedAST, typecheckingWarnings) <-
+                case typecheckProgram table p of
+                  (Right (newEnv, ast), warnings) -> return (ast, warnings)
+                  (Left error, warnings) -> do
+                    showWarnings warnings
+                    abort $ show error
+            showWarnings typecheckingWarnings
+            return typecheckedAST
 
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)

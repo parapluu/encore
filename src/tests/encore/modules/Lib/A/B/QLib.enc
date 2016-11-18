@@ -1,0 +1,11 @@
+module QLib
+
+typedef X = QFoo
+
+trait T
+  def zero() : int
+    0
+
+passive class QFoo : T
+  def name() : String
+    "QFoo"

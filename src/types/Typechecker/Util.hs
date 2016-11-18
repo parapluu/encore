@@ -15,10 +15,12 @@ module Typechecker.Util(TypecheckM
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
+                       ,findTrait
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
                        ,findCapability
+                       ,findVar
                        ,propagateResultType
                        ,unifyTypes
                        ) where
@@ -166,12 +168,16 @@ resolveRefAtomType ty
   | isRefAtomType ty = do
       result <- asks $ refTypeLookup ty
       case result of
-        Just formal -> do
+        Just [] ->
+          tcError $ UnknownRefTypeError ty
+        Just [formal] -> do
           matchTypeParameterLength formal ty
           let res = formal `setTypeParameters` getTypeParameters ty
           return res
+        Just l ->
+          tcError $ AmbiguousTypeError ty l
         Nothing ->
-          tcError $ UnknownRefTypeError ty
+          tcError $ UnknownNamespaceError (getRefNamespace ty)
   | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
@@ -270,6 +276,19 @@ assertDistinct something l =
     unless (null duplicates) $
       tcError $ DuplicateThingError something (AST.showWithKind first)
 
+findTrait :: Type -> TypecheckM TraitDecl
+findTrait t = do
+  result <- asks $ traitLookup t
+  case result of
+    Just [] ->
+      tcError $ UnknownTraitError t
+    Just [tdecl] ->
+      return tdecl
+    Just l ->
+      tcError $ AmbiguousTypeError t (map tname l)
+    Nothing ->
+      tcError $ UnknownNamespaceError (getRefNamespace t)
+
 findField :: Type -> Name -> TypecheckM FieldDecl
 findField ty f = do
   result <- asks $ fieldLookup ty f
@@ -301,6 +320,19 @@ findCapability ty = do
   return $ fromMaybe err result
     where
         err = error $ "Util.hs: No capability in " ++ Ty.showWithKind ty
+
+findVar :: QualifiedName -> TypecheckM (Maybe (QualifiedName, Type))
+findVar x = do
+  result <- asks $ varLookup x
+  case result of
+    Just [] ->
+      return Nothing
+    Just [qvar] ->
+      return (Just qvar)
+    Just l ->
+      tcError $ AmbiguousNameError x l
+    Nothing ->
+      tcError $ UnknownNamespaceError (qnspace x)
 
 getImplementedTraits :: Type -> TypecheckM [Type]
 getImplementedTraits ty

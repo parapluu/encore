@@ -1,0 +1,36 @@
+module Random
+
+embed
+body
+__thread unsigned seed;
+end
+
+-- Random number generator with thread-local seed
+def random(max:int) : int
+  embed int
+    if (seed == 0)
+      {
+        seed = (unsigned) time(NULL);
+      }
+    rand_r(&seed) % #{max};
+  end
+
+-- Simple random number generator encapsulating a seed of its own
+passive class Random
+  seed:embed unsigned int end
+  -- Trace funcition required because of the embed type of seed
+  def Random_trace() : void
+    ()
+  -- Initialisation always with a seed in [0..2^32)
+  def init(seed:int) : void {
+    assertFalse(seed < 0) ;
+    assertFalse(seed > 4294967295) ; -- for want of an Encore 2^32 operator
+    embed void
+      _this->_enc__field_seed = (unsigned) #{seed};
+    end;
+    }
+  -- Returns random % max where max [0..2^32)
+  def random(max:int) : int
+    embed int
+      rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
+    end

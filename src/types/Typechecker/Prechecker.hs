@@ -7,12 +7,19 @@ exception with a meaningful error message if it fails.
 
 -}
 
-module Typechecker.Prechecker(precheckEncoreProgram) where
+module Typechecker.Prechecker(precheckProgram) where
 
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
+import Data.List
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map
+import Text.Parsec.Pos as P
+import SystemUtils
+
+import Debug.Trace
 
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
@@ -24,14 +31,13 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckEncoreProgram :: Environment -> Program -> (Either TCError Program, [TCWarning])
-precheckEncoreProgram env p =
-  case buildEnvironment env p of
-    (Right env, warnings) -> do
-      let readerVar = runReaderT (doPrecheck p) env
-      let exceptVar = runExceptT readerVar
-      runState exceptVar warnings
-    (Left err, warnings) -> (Left err, warnings)
+precheckProgram :: Map SourceName LookupTable -> Program ->
+                   (Either TCError Program, [TCWarning])
+precheckProgram table p =
+  let env = buildEnvironment table p
+      readerVar = runReaderT (doPrecheck p) env
+      exceptVar = runExceptT readerVar
+  in runState exceptVar []
 
 class Precheckable a where
     doPrecheck :: a -> TypecheckM a
@@ -40,9 +46,19 @@ class Precheckable a where
     precheck x = local (pushBT x) $ doPrecheck x
 
 instance Precheckable Program where
-    doPrecheck p@Program{typedefs, functions, traits, classes} = do
+    doPrecheck p@Program{source
+                        ,moduledecl
+                        ,imports
+                        ,typedefs
+                        ,functions
+                        ,traits
+                        ,classes} = do
       assertDistinctness
-      typedefs'   <- mapM precheck typedefs
+      precheck moduledecl
+      assertCorrectModuleName source moduledecl
+      assertNoShadowedImports
+      mapM_ precheck imports
+      typedefs'  <- mapM precheck typedefs
       functions' <- mapM precheck functions
       traits'    <- mapM precheck traits
       classes'   <- mapM precheck classes
@@ -53,13 +69,55 @@ instance Precheckable Program where
               }
       where
       assertDistinctness = do
-        assertDistinct "definition" (allFunctions p)
-        assertDistinct "definition" (allTraits p)
-        assertDistinct "definition" (allClasses p)
+        assertDistinct "definition" functions
+        assertDistinct "definition" traits
+        assertDistinct "definition" classes
         assertDistinctThing "declaration" "typedef, class or trait name" $
-                            map (getId . tname) (allTraits p) ++
-                            map (getId . cname) (allClasses p) ++
-                            map (getId . typedefdef) (allTypedefs p)
+                            map (getId . tname) traits ++
+                            map (getId . cname) classes ++
+                            map (getId . typedefdef) typedefs
+      assertCorrectModuleName _ NoModule = return ()
+      assertCorrectModuleName source m@Module{modname} = do
+        let sourceName = basename source
+            expectedModuleName = Name $ dropSuffix sourceName
+        unless (modname == expectedModuleName) $
+               pushError m $ WrongModuleNameError modname sourceName
+      assertNoShadowedImports = do
+        let importAliases = mapMaybe ialias imports
+        assertDistinctThing "usage" "module alias"
+                            (map showNamespace importAliases)
+        let shadowedImports =
+              filter (\i -> itarget i /= fromMaybe [] (ialias i)) $
+                     filter ((`elem` importAliases) . itarget) imports
+        unless (null shadowedImports) $ do
+          let shadowedImport = head shadowedImports
+              illegalAlias =
+                fromJust $
+                  find ((== Just (itarget shadowedImport)) . ialias) imports
+          pushError illegalAlias $ ShadowedImportError shadowedImport
+
+
+instance Precheckable ModuleDecl where
+    doPrecheck m@NoModule = return m
+    doPrecheck m@Module{modname, modexports} = do
+      env <- ask
+      let unknowns =
+            maybe [] (filter (\x -> not $ isKnownName [modname] x env)) modexports
+      unless (null unknowns) $
+             tcError $ UnknownNameError [modname] (head unknowns)
+      return m
+
+instance Precheckable ImportDecl where
+    doPrecheck i@Import{itarget, iselect, ihiding, ialias} = do
+      env <- ask
+      let unknownSelects =
+            maybe [] (filter (\x -> not $ isKnownName itarget x env)) iselect
+          unknownHiding =
+            maybe [] (filter (\x -> not $ isKnownName itarget x env)) ihiding
+          unknowns = unknownSelects ++ unknownHiding
+      unless (null unknowns) $
+             tcError $ UnknownNameError itarget (head unknowns)
+      return i
 
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
@@ -109,12 +167,12 @@ instance Precheckable TraitDecl where
       assertDistinctness
       tname'    <- local addTypeParams $ resolveType tname
       treqs'  <- mapM (local addTypeParams . precheck) treqs
-      tmethods' <- mapM (local (addTypeParams . addThis) . precheck) tmethods
+      tmethods' <- mapM (local (addTypeParams . addThis tname') . precheck) tmethods
       return $ setType tname' t{treqs = treqs', tmethods = tmethods'}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
-        addThis = extendEnvironment [(thisName, tname)]
+        addThis self = extendEnvironment [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
           assertDistinct "declaration" treqs
@@ -128,7 +186,7 @@ instance Precheckable ClassDecl where
       cname'       <- local addTypeParams $ resolveType cname
       ccapability' <- local addTypeParams $ resolveType ccapability
       cfields'     <- mapM (local addTypeParams . precheck) cfields
-      cmethods'    <- mapM (local (addTypeParams . addThis) . precheck) cmethods
+      cmethods'    <- mapM (local (addTypeParams . addThis cname') . precheck) cmethods
       return $ setType cname' c{ccapability = ccapability'
                                ,cfields = cfields'
                                ,cmethods = if any isConstructor cmethods'
@@ -138,7 +196,7 @@ instance Precheckable ClassDecl where
       where
         typeParameters = getTypeParameters cname
         addTypeParams = addTypeParameters typeParameters
-        addThis = extendEnvironment [(thisName, cname)]
+        addThis self = extendEnvironment [(thisName, self)]
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" typeParameters
             assertDistinctThing "inclusion" "trait" $
@@ -154,7 +212,7 @@ instance Precheckable FieldDecl where
 instance Precheckable MethodDecl where
     doPrecheck m@Method{mheader} = do
       mheader' <- doPrecheck mheader
-      thisType <- liftM fromJust $ asks $ varLookup thisName
+      Just (_, thisType) <- findVar (qLocal thisName)
       when (isMainMethod thisType (methodName m))
            (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do
@@ -166,6 +224,9 @@ instance Precheckable MethodDecl where
       return $ setType mtype m{mheader = mheader'}
       where
         checkMainParams params =
-            unless (map ptype params `elem` allowedMainArguments) $
+            unless (allowedMainArguments $ map ptype params) $
               tcError MainMethodArgumentsError
-        allowedMainArguments = [[], [arrayType stringObjectType]]
+        allowedMainArguments [] = True
+        allowedMainArguments [ty] = isArrayType ty &&
+                                    isStringObjectType (getResultType ty)
+        allowedMainArguments _ = False

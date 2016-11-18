@@ -66,6 +66,11 @@ module Types(
             ,getResultType
             ,getId
             ,maybeGetId
+            ,getRefNamespace
+            ,setRefNamespace
+            ,getRefSourceFile
+            ,setRefSourceFile
+            ,translateTypeNamespace
             ,getTypeParameters
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
@@ -93,10 +98,15 @@ module Types(
             ,getTypeParameterBindings
             ) where
 
+import Identifiers
+
 import Data.List
 import Data.Maybe
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map
 import Data.Foldable (toList)
 import Data.Traversable
+import Text.Parsec.Pos as P
 
 import Debug.Trace
 
@@ -112,15 +122,22 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
-data RefInfo = RefInfo{refId :: String
-                      ,parameters :: [Type]
+data RefInfo = RefInfo{refId         :: String
+                      ,parameters    :: [Type]
+                      ,refNamespace  :: Maybe Namespace
+                      ,refSourceFile :: Maybe SourceName
                       } deriving(Eq)
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters}
-        | null parameters = refId
-        | otherwise = refId ++ "<" ++ params ++ ">"
+    show RefInfo{refId, parameters, refNamespace}
+        | null parameters = fullName refNamespace refId
+        | otherwise = fullName refNamespace refId ++ "<" ++ params ++ ">"
         where
+          fullName Nothing refId = refId
+          fullName (Just ns) refId =
+              if null ns
+              then refId
+              else intercalate "." (map show ns) ++ "." ++ refId
           params = intercalate ", " (map show parameters)
 
 data Type = Unresolved{refInfo :: RefInfo}
@@ -179,6 +196,41 @@ getResultType ty
 getId ty = case maybeGetId ty of
      Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
      Just t -> t
+
+getRefNamespace ty
+    | isRefAtomType ty || isTypeSynonym ty = refNamespace (refInfo ty)
+    | otherwise = error $ "Types.hs: tried to get the namespace of " ++ show ty
+
+setRefNamespace ns ty
+    | isRefAtomType ty || isTypeSynonym ty
+    , info <- refInfo ty = ty{refInfo = info{refNamespace = Just ns}}
+    | otherwise = error $ "Types.hs: tried to set the namespace of " ++ show ty
+
+getRefSourceFile ty
+    | isRefAtomType ty || isTypeSynonym ty =
+        fromMaybe err $ refSourceFile (refInfo ty)
+    | otherwise = error $ "Types.hs: tried to get the sourcefile of " ++ showWithKind ty
+    where err = error "Types.hs: type without sourceFile: " ++ showWithKind ty
+
+setRefSourceFile file ty
+    | isRefAtomType ty || isTypeSynonym ty
+    , info <- refInfo ty = ty{refInfo = info{refSourceFile = Just file}}
+    | otherwise = error $ "Types.hs: tried to set the source of " ++ show ty
+
+hasRefSourceFile ty
+    | isRefAtomType ty || isTypeSynonym ty
+    , info <- refInfo ty = isJust $ refSourceFile info
+    | otherwise = False
+
+translateTypeNamespace :: Map SourceName Namespace -> Type -> Type
+translateTypeNamespace table = typeMap translate
+    where
+      translate ty
+        | hasRefSourceFile ty =
+            let source = getRefSourceFile ty
+                ns = table Map.! source
+            in setRefNamespace ns ty
+        | otherwise = ty
 
 maybeGetId Unresolved{refInfo} = Just $ refId refInfo
 maybeGetId TraitType{refInfo} = Just $ refId refInfo
@@ -463,14 +515,24 @@ typesFromCapability EmptyCapability{} = []
 typesFromCapability ty = [ty]
 
 refTypeWithParams refId parameters =
-    Unresolved{refInfo = RefInfo{refId, parameters}}
+    Unresolved{refInfo = RefInfo{refId
+                                ,parameters
+                                ,refNamespace = Nothing
+                                ,refSourceFile = Nothing
+                                }
+              }
 
 refType :: String -> Type
 refType id = refTypeWithParams id []
 
 classType :: Activity -> String -> [Type] -> Type
 classType activity name parameters =
-  ClassType{refInfo = RefInfo{refId = name, parameters}, activity}
+  ClassType{refInfo = RefInfo{refId = name
+                             ,parameters
+                             ,refNamespace = Nothing
+                             ,refSourceFile = Nothing
+                             }
+           ,activity}
 
 traitTypeFromRefType Unresolved{refInfo} =
     TraitType{refInfo}
@@ -578,9 +640,11 @@ isTypeVar _ = False
 isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
 isMainType _ = False
 
-stringObjectType = classType Passive "String" []
+stringObjectType = setRefSourceFile "String.enc" $
+                    classType Passive "String" []
 
-isStringObjectType = (==stringObjectType)
+isStringObjectType ty = isPassiveClassType ty &&
+                        getId ty == "String"
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
@@ -666,19 +730,25 @@ isPrintable ty
 
 typeSynonym :: String -> [Type] -> Type -> Type
 typeSynonym name parameters resolution =
-  TypeSynonym{refInfo = RefInfo{refId = name, parameters}, resolvesTo = resolution}
+  TypeSynonym{refInfo = RefInfo{refId = name
+                               ,parameters
+                               ,refNamespace = Nothing
+                               ,refSourceFile = Nothing
+                               }
+             ,resolvesTo = resolution}
 
 typeSynonymLHS :: Type -> (String, [Type])
-typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} = (name, parameters)
-typeSynonymLHS _ = error $ "Types.hs: Expected type synonym"
+typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} =
+                   (name, parameters)
+typeSynonymLHS ty = error "Types.hs: Expected type synonym"
 
 typeSynonymRHS :: Type -> Type
 typeSynonymRHS TypeSynonym{resolvesTo} = resolvesTo
-typeSynonymRHS _ = error $ "Types.hs: Expected type synonymm"
+typeSynonymRHS ty = error "Types.hs: Expected type synonym"
 
 typeSynonymSetRHS :: Type -> Type -> Type
 typeSynonymSetRHS t@TypeSynonym{} rhs = t{resolvesTo = rhs}
-typeSynonymSetRHS _ _ = error $ "Types.hs: Expected type synonymm"
+typeSynonymSetRHS ty _ = error "Types.hs: Expected type synonym"
 
 isTypeSynonym TypeSynonym{} = True
 isTypeSynonym _ = False

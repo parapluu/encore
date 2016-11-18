@@ -19,10 +19,12 @@ import CCode.Main
 import Data.List
 import Data.Char
 import Data.String.Utils
+import Text.Parsec.Pos as P
 
 import qualified AST.AST as A
 
 import Text.Printf (printf)
+import Debug.Trace
 
 char :: CCode Ty
 char = Typ "char"
@@ -69,12 +71,6 @@ ponyMainMsgName = "pony_main_msg_t"
 
 ponyMainMsgT :: CCode Ty
 ponyMainMsgT = Typ ponyMainMsgName
-
-encActiveMainName :: String
-encActiveMainName = "_enc__active_Main_t"
-
-encActiveMainT :: CCode Ty
-encActiveMainT = Typ encActiveMainName
 
 encMsgT :: CCode Ty
 encMsgT = Typ "encore_fut_msg_t"
@@ -153,6 +149,12 @@ encoreName kind name =
   in
     intercalate "_" nonEmptys
 
+qualifyRefType :: Ty.Type -> String
+qualifyRefType ty
+  | isRefAtomType ty = sourceToString (Ty.getRefSourceFile ty) ++
+                       "_" ++ Ty.getId ty
+  | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
+
 fixPrimes name
     | '\'' `elem` name =
         let nameWithoutPrimes = replace "'" "_" name
@@ -178,11 +180,12 @@ methodImplOneWayName clazz mname =
 
 methodImplStreamName :: Ty.Type -> ID.Name -> CCode Name
 methodImplStreamName clazz mname =
-  Nam $ encoreName "method" $ printf "%s_%s_stream" (Ty.getId clazz) (show mname)
+  Nam $ encoreName "method" $ printf "%s_%s_stream"
+                              (qualifyRefType clazz) (show mname)
 
 methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
-  encoreName "method" $ Ty.getId clazz ++ "_" ++ show mname
+  encoreName "method" $ qualifyRefType clazz ++ "_" ++ show mname
 
 methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
 methodImplFutureNameStr clazz mname =
@@ -193,7 +196,8 @@ methodImplOneWayNameStr clazz mname =
   methodImplNameStr clazz mname ++ "_one_way"
 
 constructorImplName :: Ty.Type -> CCode Name
-constructorImplName clazz = Nam $ encoreName "constructor" (Ty.getId clazz)
+constructorImplName clazz =
+  Nam $ encoreName "constructor" (qualifyRefType clazz)
 
 encoreCreateName :: CCode Name
 encoreCreateName = Nam "encore_create"
@@ -229,27 +233,49 @@ fieldName :: ID.Name -> CCode Name
 fieldName name =
     Nam $ encoreName "field" (show name)
 
-globalClosureName :: ID.Name -> CCode Name
+qualifiedToString :: ID.QualifiedName -> String
+qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
+qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} =
+  sourceToString s ++ show qnlocal
+
+sourceToString :: SourceName -> String
+sourceToString = map translateSep . filter (/='.') . dropEnc
+  where
+    translateSep '/' = '_'
+    translateSep '-' = '_'
+    translateSep c = c
+    dropEnc [] = []
+    dropEnc ".enc" = []
+    dropEnc (c:s) = c:dropEnc s
+
+globalClosureName :: ID.QualifiedName -> CCode Name
 globalClosureName funname =
-    Nam $ encoreName "closure" (show funname)
+    Nam $ encoreName "closure" (qualifiedToString funname)
 
 globalFunctionClosureNameOf :: A.Function -> CCode Name
-globalFunctionClosureNameOf f = globalClosureName $ A.functionName f
+globalFunctionClosureNameOf f =
+    globalClosureName $ ID.setSourceFile (A.funsource f) $
+                        ID.topLevelQName (A.functionName f)
 
-globalFunctionName :: ID.Name -> CCode Name
+globalFunctionName :: ID.QualifiedName -> CCode Name
 globalFunctionName funname =
-    Nam $ encoreName "global_fun" (show funname)
+    Nam $ encoreName "global_fun" (qualifiedToString funname)
 
 globalFunctionNameOf :: A.Function -> CCode Name
-globalFunctionNameOf f = globalFunctionName $ A.functionName f
+globalFunctionNameOf f@A.Function{A.funsource} =
+  globalFunctionName $ ID.setSourceFile funsource $
+                       ID.topLevelQName $ A.functionName f
 
 globalFunctionWrapperNameOf :: A.Function -> CCode Name
-globalFunctionWrapperNameOf f =
-  Nam $ encoreName "global_fun_wrapper" $ show $ A.functionName f
+globalFunctionWrapperNameOf f@A.Function{A.funsource} =
+  Nam $ encoreName "global_fun_wrapper" $
+      qualifiedToString $
+      ID.setSourceFile funsource $
+      ID.topLevelQName $ A.functionName f
 
 globalFunctionAsValueWrapperNameOf :: A.Expr -> CCode Name
-globalFunctionAsValueWrapperNameOf (A.FunctionAsValue {A.name}) =
-  Nam $ encoreName "global_fun_wrapper" (show name)
+globalFunctionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
+  Nam $ encoreName "global_fun_wrapper" (qualifiedToString qname)
 globalFunctionAsValueWrapperNameOf e =
     error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
             show e ++ "'"
@@ -297,11 +323,11 @@ typeVarRefName ty =
 
 classId :: Ty.Type -> CCode Name
 classId ty =
-    Nam $ encoreName "ID" (Ty.getId ty)
+    Nam $ encoreName "ID" (qualifyRefType ty)
 
 refTypeId :: Ty.Type -> CCode Name
 refTypeId ty =
-    Nam $ encoreName "ID" (Ty.getId ty)
+    Nam $ encoreName "ID" (qualifyRefType ty)
 
 traitMethodSelectorName = Nam "trait_method_selector"
 
@@ -310,15 +336,15 @@ traitMethodSelectorName = Nam "trait_method_selector"
 -- function.
 classDispatchName :: Ty.Type -> CCode Name
 classDispatchName clazz =
-    Nam $ encoreName "dispatch" (Ty.getId clazz)
+    Nam $ encoreName "dispatch" (qualifyRefType clazz)
 
 classTraceFnName :: Ty.Type -> CCode Name
 classTraceFnName clazz =
-    Nam $ encoreName "trace" (Ty.getId clazz)
+    Nam $ encoreName "trace" (qualifyRefType clazz)
 
 runtimeTypeInitFnName :: Ty.Type -> CCode Name
 runtimeTypeInitFnName clazz =
-    Nam $ encoreName "type_init" (Ty.getId clazz)
+    Nam $ encoreName "type_init" (qualifyRefType clazz)
 
 ponyAllocMsgName :: CCode Name
 ponyAllocMsgName = Nam "pony_alloc_msg"
@@ -328,37 +354,37 @@ poolIndexName = Nam "POOL_INDEX"
 
 futMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 futMsgTypeName cls mname =
-    Nam $ encoreName "fut_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "fut_msg" (qualifyRefType cls ++ "_" ++ show mname ++ "_t")
 
 oneWayMsgTypeName :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgTypeName cls mname =
-    Nam $ encoreName "oneway_msg" (Ty.getId cls ++ "_" ++ show mname ++ "_t")
+    Nam $ encoreName "oneway_msg" (qualifyRefType cls ++ "_" ++ show mname ++ "_t")
 
 msgId :: Ty.Type -> ID.Name -> CCode Name
 msgId ref mname =
-    Nam $ encoreName "MSG" (Ty.getId ref ++ "_" ++ show mname)
+    Nam $ encoreName "MSG" (qualifyRefType ref ++ "_" ++ show mname)
 
 futMsgId :: Ty.Type -> ID.Name -> CCode Name
 futMsgId ref mname =
-    Nam $ encoreName "FUT_MSG" (Ty.getId ref ++ "_" ++ show mname)
+    Nam $ encoreName "FUT_MSG" (qualifyRefType ref ++ "_" ++ show mname)
 
 taskMsgId :: CCode Name
 taskMsgId = Nam $ encoreName "MSG" "TASK"
 
 oneWayMsgId :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgId cls mname =
-    Nam $ encoreName "ONEWAY_MSG" (Ty.getId cls ++ "_" ++ show mname)
+    Nam $ encoreName "ONEWAY_MSG" (qualifyRefType cls ++ "_" ++ show mname)
 
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
-  | Ty.isActiveClassType ref = encoreName "active" id
-  | Ty.isSharedClassType ref = encoreName "shared" id
-  | Ty.isPassiveClassType ref = encoreName "passive" id
-  | Ty.isTraitType ref = encoreName "trait" id
+  | Ty.isActiveClassType ref = encoreName "active" qname
+  | Ty.isSharedClassType ref = encoreName "shared" qname
+  | Ty.isPassiveClassType ref = encoreName "passive" qname
+  | Ty.isTraitType ref = encoreName "trait" qname
   | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                         "' isnt reference type!"
   where
-    id = Ty.getId ref
+    qname = qualifyRefType ref
 
 ponySendvName :: CCode Name
 ponySendvName = Nam "pony_sendv"

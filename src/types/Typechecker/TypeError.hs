@@ -22,7 +22,7 @@ import Text.Printf (printf)
 
 import Identifiers
 import Types
-import AST.AST
+import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
 
 data BacktraceNode = BTFunction Name Type
@@ -34,6 +34,8 @@ data BacktraceNode = BTFunction Name Type
                    | BTRequirement Requirement
                    | BTExpr Expr
                    | BTTypedef Type
+                   | BTModule Name
+                   | BTImport Namespace
 
 
 instance Show BacktraceNode where
@@ -64,6 +66,10 @@ instance Show BacktraceNode where
       in "In expression: \n" ++ str
   show (BTTypedef tl) =
      concat ["In typedef '", show tl, "'"]
+  show (BTModule m) =
+     concat ["In declaration of module '", show m, "'"]
+  show (BTImport ns) =
+     concat ["In import of module '", showNamespace ns, "'"]
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -112,6 +118,12 @@ instance Pushable Expr where
 instance Pushable Typedef where
     push t@(Typedef {typedefdef}) = pushMeta t (BTTypedef typedefdef)
 
+instance Pushable ModuleDecl where
+    push m@(Module{modname}) = pushMeta m (BTModule modname)
+
+instance Pushable ImportDecl where
+    push i@(Import{itarget}) = pushMeta i (BTImport itarget)
+
 refTypeName :: Type -> String
 refTypeName ty
     | isClassType ty = "class '" ++ getId ty ++ "'"
@@ -119,7 +131,7 @@ refTypeName ty
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
     | otherwise = error $ "Util.hs: No refTypeName for " ++
-                          Types.showWithKind ty
+                          showWithKind ty
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
@@ -142,8 +154,8 @@ instance Show TCError where
 data Error =
     DistinctTypeParametersError Type
   | WrongNumberOfMethodArgumentsError Name Type Int Int
-  | WrongNumberOfFunctionArgumentsError Name Int Int
-  | WrongNumberOfFunctionTypeArgumentsError Name Int Int
+  | WrongNumberOfFunctionArgumentsError QualifiedName Int Int
+  | WrongNumberOfFunctionTypeArgumentsError QualifiedName Int Int
   | WrongNumberOfTypeParametersError Type Int Type Int
   | MissingFieldRequirementError FieldDecl Type
   | CovarianceViolationError FieldDecl Type Type
@@ -170,7 +182,7 @@ data Error =
   | ConstructorCallError
   | ExpectingOtherTypeError String Type
   | NonStreamingContextError Expr
-  | UnboundFunctionError Name
+  | UnboundFunctionError QualifiedName
   | NonFunctionTypeError Type
   | BottomTypeInferenceError
   | IfInferenceError
@@ -185,7 +197,7 @@ data Error =
   | CannotReadFieldError Expr
   | NonAssignableLHSError
   | ValFieldAssignmentError Name Type
-  | UnboundVariableError Name
+  | UnboundVariableError QualifiedName
   | ObjectCreationError Type
   | NonIterableError Type
   | EmptyArrayLiteralError
@@ -206,8 +218,14 @@ data Error =
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
   | ConcreteTypeParameterError Type
-  | TypeArgumentInferenceError Name Type
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
+  | TypeArgumentInferenceError QualifiedName Type
+  | AmbiguousTypeError Type [Type]
+  | AmbiguousNameError QualifiedName [(QualifiedName, Type)]
+  | UnknownNamespaceError (Maybe Namespace)
+  | UnknownNameError Namespace Name
+  | ShadowedImportError ImportDecl
+  | WrongModuleNameError Name FilePath
   | SimpleError String
 
 arguments 1 = "argument"
@@ -270,7 +288,7 @@ instance Show Error where
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =
-        printf "Cannot form capability with %s" (Types.showWithKind ty)
+        printf "Cannot form capability with %s" (showWithKind ty)
     show (RecursiveTypesynonymError ty) =
         printf "Type synonyms cannot be recursive. One of the culprits is %s"
                (getId ty)
@@ -291,7 +309,7 @@ instance Show Error where
                            else "method '" ++ show name ++ "'"
             targetType = if isRefType ty
                          then refTypeName ty
-                         else Types.showWithKind ty
+                         else showWithKind ty
         in printf "No %s in %s"
                   nameWithKind targetType
     show (TraitsInActiveClassError) =
@@ -336,7 +354,7 @@ instance Show Error where
                (show $ ppSugared pattern)
     show (CannotReadFieldError target) =
         printf "Cannot read field of expression '%s' of %s"
-          (show $ ppSugared target) (Types.showWithKind $ getType target)
+          (show $ ppSugared target) (showWithKind $ getType target)
     show NonAssignableLHSError =
         "Left-hand side cannot be assigned to"
     show (ValFieldAssignmentError name targetType) =
@@ -393,10 +411,10 @@ instance Show Error where
         printf "Type variable '%s' is unbound" (show ty)
     show (UnionMethodAmbiguityError ty name) =
         printf "Cannot disambiguate method '%s' in %s"
-               (show name) (Types.showWithKind ty)
+               (show name) (showWithKind ty)
     show (MalformedUnionTypeError ty union) =
         printf "Type '%s' is not compatible with %s"
-               (show ty) (Types.showWithKind union)
+               (show ty) (showWithKind union)
     show (ConcreteTypeParameterError ty) =
         printf "Concrete type '%s' cannot be used as a type parameter"
                (show ty)
@@ -409,6 +427,28 @@ instance Show Error where
                (show provider) (show mname) (show requirer)
                (show provider) (show requirer)
                (unlines (map (("  " ++) . show) fields))
+    show (AmbiguousTypeError ty candidates) =
+        printf "Ambiguous reference to %s. Possible candidates are:\n%s"
+               (showWithKind ty) (unlines $ map (("  " ++) . show) candidates)
+    show (AmbiguousNameError qname candidates) =
+        printf "Ambiguous reference to function %s. Possible candidates are:\n%s"
+               (show qname) candidateList
+        where
+          candidateList =
+            unlines $ map (("  " ++) . showCandidate) candidates
+          showCandidate (qn, ty) = show qn ++ " : " ++ show ty
+    show (UnknownNamespaceError maybeNs) =
+        printf "Unknown namespace %s"
+               (maybe "" showNamespace maybeNs)
+    show (UnknownNameError ns name) =
+        printf "Module %s has no function or type called '%s'"
+               (showNamespace ns) (show name)
+    show (ShadowedImportError i) =
+        printf "Introduction of module alias '%s' shadows existing import"
+               (showNamespace $ itarget i)
+    show (WrongModuleNameError modname expected) =
+        printf "Module name '%s' and file name '%s' must match"
+               (show modname) expected
     show (SimpleError msg) = msg
 
 

@@ -1,0 +1,7 @@
+module SelectiveLib
+
+def foo() : void
+    print "Foo"
+
+def bar() : int
+    10

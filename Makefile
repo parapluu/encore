@@ -15,7 +15,7 @@ typecheck:
 	cabal build --ghc-option=-fno-code
 
 encorec: dirs pony install-deps
-	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
+	export ENCORE_MODULES="$(CURDIR)/modules/" && \
 	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
 
 install-deps:

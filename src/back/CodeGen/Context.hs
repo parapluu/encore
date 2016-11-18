@@ -61,8 +61,10 @@ substRem (Context ((na, lv):s) nxt table) na'
      | na == na'  = Context s nxt table
      | na /= na'  = substAdd (substRem (Context s nxt table) na') na lv
 
-substLkp :: Context -> Name -> Maybe (C.CCode C.Lval)
-substLkp (Context s _ _) n = lookup n s
+substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
+substLkp (Context s _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
+substLkp (Context s _ _) QName{qnspace = Just [], qnlocal} = lookup qnlocal s
+substLkp _ _ = Nothing
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable
@@ -73,8 +75,8 @@ lookupMethod ty m = Tbl.lookupMethod ty m . programTable
 lookupCalledType :: Type -> Name -> Context -> Type
 lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable
 
-lookupFunction :: Name -> Context -> FunctionHeader
+lookupFunction :: QualifiedName -> Context -> FunctionHeader
 lookupFunction fname = Tbl.lookupFunction fname . programTable
 
-getGlobalFunctionNames :: Context -> [Name]
+getGlobalFunctionNames :: Context -> [QualifiedName]
 getGlobalFunctionNames = Tbl.getGlobalFunctionNames . programTable

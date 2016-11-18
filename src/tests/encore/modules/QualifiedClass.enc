@@ -1,0 +1,6 @@
+import qualified Lib
+
+class Main
+  def main() : void
+    let x = new Lib.Foo : Lib.Foo
+    in print x.name()

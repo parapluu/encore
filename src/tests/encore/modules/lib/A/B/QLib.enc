@@ -1,4 +1,0 @@
-
-passive class QFoo
-  def name() : String
-    "QFoo"

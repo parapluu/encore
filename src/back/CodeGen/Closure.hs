@@ -23,6 +23,8 @@ import qualified AST.Meta as Meta
 import Types as Ty
 
 import Control.Monad.State hiding (void)
+import Control.Arrow(first)
+import Debug.Trace
 
 varSubFromTypeVars :: [Type] -> [(ID.Name, CCode Lval)]
 varSubFromTypeVars = map each
@@ -43,8 +45,10 @@ translateClosure closure typeVars table
            funName     = closureFunName id
            envName     = closureEnvName id
            traceName   = closureTraceName id
-           boundVars   = map A.pname params ++ getGlobalFunctionNames table
-           freeVars    = Util.freeVariables boundVars body
+           boundVars   = map (ID.qName . show . A.pname) params
+           freeVars    = map (first ID.qnlocal) $
+                         filter (ID.isLocalQName . fst) $
+                         Util.freeVariables boundVars body
            fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
