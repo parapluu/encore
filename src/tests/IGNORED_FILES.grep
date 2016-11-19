@@ -9,11 +9,11 @@ encore/modules/ClosureImporter
 encore/modules/ClosureImp
 encore/modules/DeepLib
 encore/modules/Lib
-encore/modules/lib/DupLib
-encore/modules/lib/FarLib
-encore/modules/lib/TraitLib
-encore/modules/lib/A/B/QLib
-encore/modules/otherlib/DupLib
+encore/modules/Lib/DupLib
+encore/modules/Lib/FarLib
+encore/modules/Lib/TraitLib
+encore/modules/Lib/A/B/QLib
+encore/modules/OtherLib/DupLib
 encore/modules/Vector
 encore/modules/Utils
 encore/modules/MidImport
