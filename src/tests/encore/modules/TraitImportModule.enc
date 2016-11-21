@@ -1,3 +1,5 @@
+module TraitImportModule
+
 trait Reagent {
   def react() : void {
     ();
