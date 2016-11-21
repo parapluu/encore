@@ -1430,16 +1430,12 @@ matchTypes expected ty
     | isTupleType expected && isTupleType ty = do
         let expArgTypes = getArgTypes expected
             argTypes = getArgTypes ty
-        unless (length expArgTypes == length argTypes) $
-               tcError $ TypeMismatchError ty expected
         matchArgs expArgTypes argTypes
     | isArrowType expected  && isArrowType ty = do
         let expArgTypes = getArgTypes expected
             argTypes    = getArgTypes ty
             expRes      = getResultType expected
             resTy       = getResultType ty
-        unless (length argTypes == length expArgTypes) $
-               tcError $ TypeMismatchError ty expected
         argBindings <- matchArgs expArgTypes argTypes
         local (bindTypes argBindings) $ matchTypes expRes resTy
     | isTypeVar expected = do
@@ -1459,10 +1455,15 @@ matchTypes expected ty
     | isTypeVar ty && (not.isTypeVar) expected = return [(ty, expected)]
     | otherwise = assertMatch expected ty
     where
-      matchArgs [] [] = asks bindings
-      matchArgs (ty1:types1) (ty2:types2) = do
+      matchArgs tys1 tys2 = do
+        unless (length tys1 == length tys2) $
+               tcError $ TypeMismatchError ty expected
+        matchArgs' tys1 tys2
+
+      matchArgs' [] [] = asks bindings
+      matchArgs' (ty1:types1) (ty2:types2) = do
         bindings <- matchTypes ty1 ty2
-        local (bindTypes bindings) $ matchArgs types1 types2
+        local (bindTypes bindings) $ matchArgs' types1 types2
 
       assertMatch expected ty = do
         ty `assertSubtypeOf` expected
