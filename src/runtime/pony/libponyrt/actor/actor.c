@@ -12,6 +12,10 @@
 #include <dtrace.h>
 #include "encore.h"
 
+#ifdef USE_VALGRIND
+#include <valgrind/helgrind.h>
+#endif
+
 enum
 {
   FLAG_BLOCKED = 1 << 0,
@@ -107,6 +111,7 @@ static bool handle_message(pony_ctx_t** ctx, pony_actor_t* actor,
         ponyint_cycle_unblock(*ctx, actor);
       }
 
+      DTRACE3(ACTOR_MSG_RUN, (uintptr_t)ctx->scheduler, (uintptr_t)actor, msg->id);
       if (!has_flag(actor, FLAG_SYSTEM)) {
 #ifndef LAZY_IMPL
         encore_actor_t *a = (encore_actor_t *)actor;
@@ -272,6 +277,10 @@ void ponyint_actor_destroy(pony_actor_t* actor)
   while(((uintptr_t)head & (uintptr_t)1) != (uintptr_t)1)
     head = atomic_load_explicit(&actor->q.head, memory_order_acquire);
 
+#ifdef USE_VALGRIND
+  ANNOTATE_HAPPENS_AFTER(&actor->q.head);
+#endif
+
   ponyint_messageq_destroy(&actor->q);
   ponyint_gc_destroy(&actor->gc);
   ponyint_heap_destroy(&actor->heap);
@@ -380,7 +389,7 @@ pony_actor_t* pony_create(pony_ctx_t* ctx, pony_type_t* type)
 
 void ponyint_destroy(pony_actor_t* actor)
 {
-  // This destroy an actor immediately. If any other actor has a reference to
+  // This destroys an actor immediately. If any other actor has a reference to
   // this actor, the program will likely crash. The finaliser is not called.
   ponyint_actor_setpendingdestroy(actor);
   ponyint_actor_destroy(actor);
