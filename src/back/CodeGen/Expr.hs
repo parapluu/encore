@@ -933,7 +933,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate eos@(A.Eos{}) =
       let eosCall = Call streamClose [encoreCtxVar, streamHandle]
-      in return (unit, Statement eosCall)
+      in return (unit, Seq [Statement eosCall, Return Skip])
 
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target
