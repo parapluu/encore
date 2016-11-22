@@ -160,9 +160,7 @@ desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
-                       [StringLiteral (cloneMeta emeta) $
-                                      "Assertion failed: " ++
-                                      show (ppSugared fCall) ++ "\n"],
+                       [assertionFailed emeta (show (ppSugared fCall) ++ "\n")],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
 desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
@@ -170,9 +168,7 @@ desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
-                       [StringLiteral (cloneMeta emeta) $
-                                      "Assertion failed: " ++
-                                      show (ppSugared fCall) ++ "\n"],
+                       [assertionFailed emeta (show (ppSugared fCall) ++ "\n")],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
@@ -182,8 +178,7 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
-                       [selfSugar $ StringLiteral (cloneMeta emeta)
-                                                  "Assertion failed: "],
+                       [selfSugar $ assertionFailed emeta ""],
                  Print (cloneMeta emeta) rest,
                  Print (cloneMeta emeta)
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
@@ -194,8 +189,7 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
-                       [selfSugar $ StringLiteral (cloneMeta emeta)
-                                                  "Assertion failed: "],
+                       [selfSugar $ assertionFailed emeta ""],
                  Print (cloneMeta emeta) rest,
                  Print (cloneMeta emeta)
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
@@ -319,3 +313,8 @@ desugar s@StringLiteral{emeta, stringLit} =
                }
 
 desugar e = e
+
+assertionFailed emeta assert =
+  StringLiteral (cloneMeta emeta) $
+                "Assertion failed at " ++
+                show (Meta.getPos emeta) ++ ":\n" ++ assert
