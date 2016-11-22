@@ -25,7 +25,7 @@ closure_t *closure_mk(pony_ctx_t **ctx, closure_fun fn, void *env,
   c->trace = trace;
   c->runtimeTypes = runtimeTypes;
 
-  ENC_DTRACE2(CLOSURE_CREATE, *ctx, c);
+  ENC_DTRACE2(CLOSURE_CREATE, (uintptr_t)(*ctx), (uintptr_t)c);
 
   return c;
 }
