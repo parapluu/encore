@@ -134,9 +134,9 @@ instance Precheckable FunctionHeader where
       htype' <- local (addTypeParameters htypeparams') $ resolveType (htype header)
       hparams' <- local (addTypeParameters htypeparams') $ mapM precheck (hparams header)
       classTypeParams <- getClassTypeParams
-      assertDistinctThing "declaration" "type parameter" htypeparams'
+      assertDistinctThing "declaration" "type parameter" $
+                          htypeparams' ++ classTypeParams
       assertDistinctThing "definition" "parameter" $ map pname hparams'
-      assertDistinctThing "declaration" "method type parameter" (htypeparams' ++ classTypeParams)
       return $ header{htype = htype',
                       hparams = hparams',
                       htypeparams= htypeparams'}
@@ -147,10 +147,16 @@ instance Precheckable FunctionHeader where
 
 
 instance Precheckable Function where
-    doPrecheck f@Function{funheader} = do
+    doPrecheck f@Function{funheader, funlocals} = do
       funheader' <- doPrecheck funheader
+      let htypeparams' = htypeparams funheader
+      funlocals' <- local (addTypeParameters htypeparams') $
+                          mapM precheck funlocals
+      let localNames = map functionName funlocals'
+      assertDistinctThing "declaration" "local function" localNames
       let funtype = htype funheader'
-      return $ setType funtype f{funheader = funheader'}
+      return $ setType funtype f{funheader = funheader'
+                                ,funlocals = funlocals'}
 
 instance Precheckable ParamDecl where
     doPrecheck p@Param{ptype} = do
@@ -259,7 +265,7 @@ instance Precheckable FieldDecl where
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where
-    doPrecheck m@Method{mheader} = do
+    doPrecheck m@Method{mheader, mlocals} = do
       mheader' <- doPrecheck mheader
       Just (_, thisType) <- findVar (qLocal thisName)
       when (isMainMethod thisType (methodName m))
@@ -272,8 +278,14 @@ instance Precheckable MethodDecl where
       when (isConstructor m) $
             unless((null . methodTypeParams) m) $
               tcError PolymorphicConstructorError
+      let typeParams = htypeparams mheader'
+      mlocals' <- local (addTypeParameters typeParams) $
+                        mapM precheck mlocals
+      let localNames = map functionName mlocals'
+      assertDistinctThing "declaration" "local function" localNames
       let mtype = htype mheader'
-      return $ setType mtype m{mheader = mheader'}
+      return $ setType mtype m{mheader = mheader'
+                              ,mlocals = mlocals'}
       where
         checkMainParams params =
             unless (allowedMainArguments $ map ptype params) $

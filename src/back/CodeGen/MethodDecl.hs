@@ -10,7 +10,7 @@ import CodeGen.Closure
 import CodeGen.Task
 import CodeGen.ClassTable
 import CodeGen.Type(runtimeType)
-import CodeGen.Function(returnStatement)
+import CodeGen.Function(returnStatement, translateLocalFunctions)
 import qualified CodeGen.Context as Ctx
 import qualified CodeGen.GC as Gc
 import CodeGen.DTrace
@@ -29,13 +29,13 @@ import Control.Arrow ((&&&), (>>>), arr)
 
 instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplevel]) where
   -- | Translates a method into the corresponding C-function
-  translate mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table =
+  translate mdecl cdecl table =
     -- this code uses the chain of responsibility pattern to decouple
     -- methods from processing functions.
-    let pipelineFn = (arr $ translateGeneral mdecl cdecl table)    >>>
-                            methodImplWithFuture mdecl cdecl       >>>
-                            methodImplOneWay mdecl cdecl table     >>>
-                            methodImplStream mdecl cdecl table
+    let pipelineFn = arr (translateGeneral mdecl cdecl table) >>>
+                         methodImplWithFuture mdecl cdecl     >>>
+                         methodImplOneWay mdecl cdecl table   >>>
+                         methodImplStream mdecl cdecl table
     in pipelineFn []
 
 encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
@@ -44,14 +44,15 @@ initialiseMethodDecl cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                               (Ptr . AsType $ classTypeName cname, thisVar),
                               encoreRuntimeTypeParam]
 
-translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
+translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
+                 cdecl@(A.Class {A.cname}) table code
   | A.isStreamMethod mdecl =
     let args = initialiseMethodDecl cname ++
                (stream, streamHandle) : zip argTypes argNames
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
-      code ++ (return $ Concat $ closures ++ tasks ++
+      code ++ (return $ Concat $ locals ++ closures ++ tasks ++
                [Function void name args
                  (Seq [parametricMethodTypeVars, extractTypeVars,
                        bodys, streamCloseStmt])])
@@ -62,7 +63,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
                then [(array, Var "_argv")]
                else zip argTypes argNames
     in
-      code ++ (return $ Concat $ closures ++ tasks ++
+      code ++ (return $ Concat $ locals ++ closures ++ tasks ++
                [Function returnType name args
                  (Seq [dtraceMethodEntry thisVar mName argNames
                       ,parametricMethodTypeVars
@@ -72,6 +73,12 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
                       ,returnStatement mType bodyn])])
   where
       mName = A.methodName mdecl
+      localNames = map (ID.qLocal . A.functionName) mlocals
+      localized  = map (localize cname (A.methodName mdecl)) mlocals
+      localHeaders = map A.funheader localized
+      localCNames = map localFunctionNameOf localized
+      newTable = withLocalFunctions localNames localHeaders localCNames table
+      locals = translateLocalFunctions newTable localized
       mType = A.methodType mdecl
       name = methodImplName cname (A.methodName mdecl)
       (encArgNames, encArgTypes) =
@@ -81,7 +88,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
       subst = [(ID.thisName, thisVar)] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx = Ctx.new subst table
+      ctx = Ctx.new subst newTable
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       mTypeVars = A.methodTypeParams mdecl
       typeVars = Ty.getTypeParameters cname
@@ -97,10 +104,17 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
-      closures = map (\clos -> translateClosure clos typeVars table)
+      closures = map (\clos -> translateClosure clos typeVars newTable)
                      (reverse (Util.filter A.isClosure mbody))
-      tasks = map (\tas -> translateTask tas table) $
+      tasks = map (\tas -> translateTask tas newTable) $
                   reverse $ Util.filter A.isTask mbody
+
+      localize cls prefix fun =
+        let oldName = A.functionName fun
+            newName = ID.Name $ Ty.getId cls ++ "_" ++
+                                show prefix ++ "_" ++
+                                show oldName
+        in A.setFunctionName newName fun
 
 methodImplWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||

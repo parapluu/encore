@@ -1,0 +1,22 @@
+passive class Foo<a>
+  def foo() : int
+    13 + 14 + id(15)
+  where
+    def id<t>(x : t) : t
+      x
+  end
+
+  def id(x : a) : a
+    myOtherId(myId(x))
+  where
+    def myId(x : a) : a
+      x
+    def myOtherId<b>(x : b) : b
+      x
+  end
+
+class Main
+  def main() : void {
+    val x = new Foo<int>;
+    print x.id(x.foo())
+  }

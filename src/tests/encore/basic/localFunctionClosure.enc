@@ -1,0 +1,13 @@
+def app<a, b>(f : a -> b, x : a) : b
+  f(x)
+
+def foo(x : int) : int
+  app(local, x)
+where
+  def local(x : int) : int
+    x + 1
+end
+
+class Main
+  def main() : void
+    print foo(41)

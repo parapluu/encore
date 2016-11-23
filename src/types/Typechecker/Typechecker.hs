@@ -26,7 +26,7 @@ import Text.Parsec.Pos as P
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import AST.Util (freeVariables)
+import AST.Util(freeVariables)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -124,17 +124,31 @@ instance Checkable Function where
     --  E, x1 : t1, .., xn : tn, xa: a, xb: b |- funbody : funtype
     -- ----------------------------------------------------------
     --  E |- def funname<a, b>(x1 : t1, .., xn : tn, xa: a, xb: b) : funtype funbody
-    doTypecheck f@(Function {funbody}) = do
+    doTypecheck f@(Function {funbody, funlocals}) = do
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
-      assertTypeParams funtypeparams
-      eBody <- local (addTypeParameters funtypeparams . addParams funparams) $
-                     if isVoidType funtype
-                     then typecheckNotNull funbody
-                     else hasType funbody funtype
+      eBody <-
+        local (addTypeParameters funtypeparams .
+               addParams funparams .
+               addLocalFunctions) $
+                  if isVoidType funtype
+                  then typecheckNotNull funbody
+                  else hasType funbody funtype
+      eLocals <- local (addTypeParameters funtypeparams . addLocalFunctions) $
+                       mapM typecheck funlocals
 
-      return f{funbody = eBody}
+      return f{funbody = eBody, funlocals = eLocals}
+      where
+        addLocalFunctions = extendEnvironment (map localFunctionType funlocals)
+        localFunctionType f =
+          let params = functionParams f
+              ptypes = map ptype params
+              typeParams = functionTypeParams f
+              returnType = functionType f
+              arrowType = arrowWithTypeParam typeParams ptypes returnType
+          in
+            (functionName f, arrowType)
 
 
 instance Checkable TraitDecl where
@@ -390,16 +404,33 @@ instance Checkable MethodDecl where
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
     -- -----------------------------------------------------
     --  E |- stream mname(x1 : t1, .., xn : tn) : mtype mbody
-    doTypecheck m@(Method {mbody}) = do
+    doTypecheck m@(Method {mbody, mlocals}) = do
         let mType   = methodType m
             mparams = methodParams m
             mtypeparams = methodTypeParams m
         assertTypeParams mtypeparams
-        eBody <- local (addTypeParameters mtypeparams . addParams mparams) $
+        eBody <-
+            local (addTypeParameters mtypeparams .
+                   addParams mparams .
+                   addLocalFunctions) $
                        if isVoidType mType || isStreamMethod m
                        then typecheckNotNull mbody
                        else hasType mbody mType
-        return $ m{mbody = eBody}
+        eLocals <- local (addLocalFunctions . dropLocal thisName) $
+                         mapM typecheck mlocals
+        return $ m{mbody = eBody
+                  ,mlocals = eLocals}
+        where
+          addLocalFunctions =
+            extendEnvironment (map localFunctionType mlocals)
+          localFunctionType f =
+            let params = functionParams f
+                ptypes = map ptype params
+                typeParams = functionTypeParams f
+                returnType = functionType f
+                arrowType = arrowWithTypeParam typeParams ptypes returnType
+            in
+              (functionName f, arrowType)
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do

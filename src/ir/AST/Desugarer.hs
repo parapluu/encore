@@ -77,22 +77,35 @@ desugarProgram p@(Program{traits, classes, functions}) =
 
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}
-    desugarFunction f@(Function{funbody}) = f{funbody = desugarExpr funbody}
+    desugarFunction f@(Function{funbody
+                               ,funlocals}) =
+      f{funbody = desugarExpr funbody
+       ,funlocals = map desugarFunction funlocals}
     desugarFunction f@(MatchingFunction{funmeta
                                        ,matchfunheaders
                                        ,matchfunbodies
+                                       ,funlocals
                                        ,funsource
                                        }) =
       let (funheader, funbody) = desugarFunctionHeadMatch
                                    matchfunheaders matchfunbodies
-      in Function{funmeta, funheader, funbody, funsource}
+      in Function{funmeta
+                 ,funheader
+                 ,funbody
+                 ,funlocals = map desugarFunction funlocals
+                 ,funsource
+                 }
 
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
-    desugarMethod m@(Method {mmeta, mheader, mbody}) =
-      m{mbody = desugarExpr mbody}
-    desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies}) =
+    desugarMethod m@(Method {mbody, mlocals}) =
+      m{mbody = desugarExpr mbody
+       ,mlocals = map desugarFunction mlocals}
+    desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies, mlocals}) =
       let (mheader, mbody) = desugarFunctionHeadMatch mheaders mbodies
-      in Method{mmeta, mheader, mbody}
+      in Method{mmeta
+               ,mheader
+               ,mbody
+               ,mlocals = map desugarFunction mlocals}
 
     desugarExpr = extend desugar . extend selfSugar
 

@@ -153,12 +153,14 @@ data Function =
       funmeta   :: Meta Function,
       funheader :: FunctionHeader,
       funbody   :: Expr,
+      funlocals :: [Function],
       funsource :: SourceName
     }
   | MatchingFunction {
       funmeta         :: Meta Function,
       matchfunheaders :: [FunctionHeader],
       matchfunbodies  :: [Expr],
+      funlocals       :: [Function],
       funsource       :: SourceName
     } deriving (Show)
 
@@ -166,6 +168,9 @@ functionName = hname . funheader
 functionParams = hparams . funheader
 functionTypeParams = htypeparams . funheader
 functionType = htype . funheader
+
+setFunctionName name fun@Function{funheader} =
+  fun{funheader = funheader{hname = name}}
 
 instance Eq Function where
   a == b = (hname . funheader $ a) == (hname . funheader $ b)
@@ -428,10 +433,12 @@ data MethodDecl =
     Method {
       mmeta   :: Meta MethodDecl,
       mheader :: FunctionHeader,
+      mlocals :: [Function],
       mbody   :: Expr}
   | MatchingMethod {
       mmeta    :: Meta MethodDecl,
       mheaders :: [FunctionHeader],
+      mlocals  :: [Function],
       mbodies  :: [Expr]
     } deriving (Show)
 
@@ -458,7 +465,8 @@ emptyConstructor cdecl =
                               ,hparams = []
                               ,htype = voidType
                               }
-             ,mbody = Skip (meta pos)}
+             ,mbody = Skip (meta pos)
+             ,mlocals = []}
 
 replaceHeaderTypes :: [(Type, Type)] -> FunctionHeader -> FunctionHeader
 replaceHeaderTypes bindings header =

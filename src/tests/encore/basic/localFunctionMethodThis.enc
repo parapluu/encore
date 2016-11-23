@@ -1,0 +1,11 @@
+passive class Foo
+  def foo() : int
+    local()
+  where
+    def local() : int
+      this.foo()
+  end
+
+class Main
+  def main() : void
+    ()

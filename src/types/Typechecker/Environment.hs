@@ -570,6 +570,9 @@ makeImmutable names env@Env{locals} =
       | name `elem` names = (name, (Val, ty))
       | otherwise = (name, (mut, ty))
 
+dropLocal :: Name -> Environment -> Environment
+dropLocal name env@Env{locals} = env{locals = filter ((/=name) .fst) locals}
+
 addTypeParameters :: [Type] -> Environment -> Environment
 addTypeParameters [] env = env
 addTypeParameters xs env@(Env{typeParameters}) =

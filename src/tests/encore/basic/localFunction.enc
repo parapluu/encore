@@ -1,0 +1,23 @@
+def foo() : int
+  13 + local1() + local2(15)
+where
+  def local1() : int {
+    val x = 14;
+    x;
+  }
+  def local2(x : int) : int
+    x
+end
+
+def bar() : int
+  local1()
+where
+  def local1() : int
+    0
+  def foo() : String
+    "foo"
+end
+
+class Main
+  def main() : void
+    print (foo() + bar())
