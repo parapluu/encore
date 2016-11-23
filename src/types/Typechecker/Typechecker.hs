@@ -778,6 +778,9 @@ instance Checkable Expr where
                 in getPatternVars innerType e
             | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
+        doGetPatternVars pt fcall@(FunctionCall {qname, args = []}) =
+          return []
+
         doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]}) = do
           unless (isRefType pt) $
             tcError $ NonCallableTargetError pt
@@ -809,6 +812,11 @@ instance Checkable Expr where
         checkPattern pattern argty =
             local (pushBT pattern) $
               doCheckPattern pattern argty
+
+        doCheckPattern pattern@(FunctionCall {args = []}) argty = do
+          let meta = getMeta $ pattern
+              voidArg = Skip {emeta = meta}
+          checkPattern (pattern {args = [voidArg]}) argty
 
         doCheckPattern pattern@(FunctionCall {qname, args = [arg]}) argty = do
           header <- findMethod argty (qnlocal qname)
