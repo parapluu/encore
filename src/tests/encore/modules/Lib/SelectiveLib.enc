@@ -1,0 +1,11 @@
+module SelectiveLib(Foo)
+
+trait T
+
+passive class Foo
+  def foo() : Bar
+    new Bar()
+
+passive class Bar : T
+  def bar() : void
+    print "bar"

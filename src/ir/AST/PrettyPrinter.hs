@@ -35,7 +35,7 @@ ppName :: Name -> Doc
 ppName = text . show
 
 ppNamespace :: Namespace -> Doc
-ppNamespace = text . showNamespace
+ppNamespace = text . show
 
 ppQName :: QualifiedName -> Doc
 ppQName = text . show

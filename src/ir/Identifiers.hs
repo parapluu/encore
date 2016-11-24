@@ -17,10 +17,27 @@ newtype Name = Name String deriving (Read, Eq, Ord)
 instance Show Name where
   show (Name n) = n
 
-type Namespace = [Name]
+data Namespace = NSExplicit [Name]
+               | NSImplicit SourceName
+                 deriving(Eq, Ord)
 
-showNamespace :: Namespace -> String
-showNamespace = intercalate "." . map show
+instance Show Namespace where
+  show (NSExplicit ns) = intercalate "." $ map show ns
+  show (NSImplicit s)  = "<" ++ s ++ ">"
+
+explicitNamespace = NSExplicit
+implicitNamespace = NSImplicit
+
+emptyNamespace :: Namespace
+emptyNamespace = explicitNamespace []
+
+isEmptyNamespace :: Namespace -> Bool
+isEmptyNamespace (NSExplicit []) = True
+isEmptyNamespace _ = False
+
+isExplicitNamespace :: Namespace -> Bool
+isExplicitNamespace (NSExplicit _) = True
+isExplicitNamespace _ = False
 
 data QualifiedName =
     QName{qnspace  :: Maybe Namespace
@@ -29,14 +46,14 @@ data QualifiedName =
          } deriving(Eq)
 
 instance Show QualifiedName where
-    show QName{qnspace = Just [], qnlocal} =
-        show qnlocal
     show QName{qnspace = Just ns, qnlocal} =
-        showNamespace ns ++ "." ++ show qnlocal
+        if isEmptyNamespace ns
+        then show qnlocal
+        else show ns ++ "." ++ show qnlocal
     show QName{qnspace = Nothing, qnlocal} =
         show qnlocal
 
-topLevelQName = QName (Just []) Nothing
+topLevelQName = QName (Just emptyNamespace) Nothing
 qLocal = QName Nothing Nothing
 qName = qLocal . Name
 

@@ -92,7 +92,7 @@ data Environment = Env {
 }
 
 emptyEnv = Env {
-  defaultNamespace = [],
+  defaultNamespace = explicitNamespace [],
   lookupTables = Map.empty,
   namespaceTable = Map.empty,
   abstractTraitTable = Map.empty,
@@ -106,12 +106,13 @@ buildEnvironment :: Map SourceName LookupTable -> Program -> Environment
 buildEnvironment tables Program{source, imports, moduledecl} =
   let defaultNamespace =
         if moduledecl == NoModule
-        then []
-        else [moduleName moduledecl]
+        then emptyNamespace
+        else explicitNamespace [moduleName moduledecl]
       defaultTable = tables Map.! source
       defaultAssoc =
         (defaultNamespace, defaultTable{selectiveExports = Nothing})
-      assocList = defaultAssoc : concatMap (buildAssoc tables) imports
+      assocs = filter ((/= source) . fst) $ Map.assocs tables
+      assocList = defaultAssoc : concatMap (performImport imports) assocs
       lookupTables =
         Map.fromList assocList
       namespaceTable =
@@ -128,47 +129,57 @@ buildEnvironment tables Program{source, imports, moduledecl} =
     ,bt = emptyBT
   }
   where
-    buildAssoc lookupTables Import{itarget
+    performImport :: [ImportDecl] -> (SourceName, LookupTable) ->
+                     [(Namespace, LookupTable)]
+    performImport imports (source, table) =
+      case filter ((Just source ==) . isource) imports of
+        [] -> [(implicitNamespace source, table)]
+        l -> concatMap performSingleImport l
+      where
+        performSingleImport Import{itarget
                                   ,iqualified
                                   ,ihiding
                                   ,iselect
                                   ,ialias
-                                  ,isource = Just source} =
-      let lookupTable@LookupTable{classTable
-                                 ,traitTable
-                                 ,typeSynonymTable
-                                 ,functionTable} = lookupTables Map.! source
-          classTable' = selectiveImport classTable
-          traitTable' = selectiveImport traitTable
-          typeSynonymTable' = selectiveImport typeSynonymTable
-          functionTable' = selectiveImport' functionTable
-          lookupTable' = lookupTable{isQualified = iqualified
-                                    ,classTable = classTable'
-                                    ,traitTable = traitTable'
-                                    ,typeSynonymTable = typeSynonymTable'
-                                    ,functionTable = functionTable'
-                                    }
-      in (itarget, lookupTable'):case ialias of
-                                   Just alias -> [(alias, lookupTable')]
-                                   Nothing -> []
-      where
-        selectiveImport :: Map String a -> Map String a
-        selectiveImport = Map.filterWithKey importCond
+                                  } =
+          let lookupTable@LookupTable{classTable
+                                     ,traitTable
+                                     ,typeSynonymTable
+                                     ,functionTable} = table
+              classTable' = selectiveImport iselect ihiding classTable
+              traitTable' = selectiveImport iselect ihiding traitTable
+              typeSynonymTable' =
+                selectiveImport iselect ihiding typeSynonymTable
+              functionTable' = selectiveImport' iselect ihiding functionTable
+              lookupTable' = lookupTable{isQualified = iqualified
+                                        ,classTable = classTable'
+                                        ,traitTable = traitTable'
+                                        ,typeSynonymTable = typeSynonymTable'
+                                        ,functionTable = functionTable'
+                                        }
+          in (itarget, lookupTable'):
+             case ialias of
+               Just alias -> [(alias, lookupTable')]
+               Nothing -> []
+          where
+            selectiveImport ::
+              Maybe [Name] -> Maybe [Name] -> Map String a -> Map String a
+            selectiveImport select hiding =
+              Map.filterWithKey (importCond select hiding)
 
-        selectiveImport' :: Map Name a -> Map Name a
-        selectiveImport' = Map.filterWithKey importCond'
+            selectiveImport' ::
+              Maybe [Name] -> Maybe [Name] -> Map Name a -> Map Name a
+            selectiveImport' select hiding =
+              Map.filterWithKey (importCond' select hiding)
 
-        importCond :: String -> a -> Bool
-        importCond k = importCond' (Name k)
+            importCond :: Maybe [Name] -> Maybe [Name] -> String -> a -> Bool
+            importCond select hiding k = importCond' select hiding (Name k)
 
-        importCond' :: Name -> a -> Bool
-        importCond' k _ =
-          let selectCond = maybe True (k `elem`) iselect
-              hidingCond = maybe True (k `notElem`) ihiding
-          in selectCond && hidingCond
-
-    buildAssoc _ Import{itarget} =
-        error $ "Environment.hs: Import not resolved " ++ showNamespace itarget
+            importCond' :: Maybe [Name] -> Maybe [Name] -> Name -> a -> Bool
+            importCond' select hiding k _ =
+              let selectCond = maybe True (k `elem`) select
+                  hidingCond = maybe True (k `notElem`) hiding
+              in selectCond && hidingCond
 
 pushBT :: Pushable a => a -> Environment -> Environment
 pushBT x env@Env{bt} = env{bt = push x bt}
@@ -203,9 +214,13 @@ fieldLookup ty f env@Env{namespaceTable}
             ftype' = translateTypeNamespace namespaceTable $
                      replaceTypeVars bindings $ ftype fld
         return fld{ftype = ftype'}
-      _ ->
-        error $ "Environment.hs: Tried to do fieldLookup of field '" ++
-                show f ++ "' with " ++ showWithKind ty
+      Just l ->
+        error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
+                "Possible targets are: " ++ show l
+      Nothing ->
+        error $
+          printf "Environment.hs: Tried to lookup field %s in unresolved trait %s"
+                 (show f) (show ty)
   | isClassType ty =
     case classLookup ty env of
       Just [cls] -> do
@@ -214,9 +229,13 @@ fieldLookup ty f env@Env{namespaceTable}
             ftype' = translateTypeNamespace namespaceTable $
                      replaceTypeVars bindings $ ftype fld
         return fld{ftype = ftype'}
-      _ ->
-        error $ "Environment.hs: Tried to do fieldLookup of field '" ++
-                show f ++ "' with " ++ showWithKind ty
+      Just l ->
+        error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
+                "Possible targets are: " ++ show l
+      Nothing ->
+        error $
+          printf "Environment.hs: Tried to lookup field %s in unresolved class %s"
+                 (show f) (show ty)
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show ty
 
 matchHeader :: Name -> FunctionHeader -> Bool
@@ -291,10 +310,15 @@ methodLookup ty m env
 capabilityLookup :: Type -> Environment -> Maybe Type
 capabilityLookup ty env@Env{namespaceTable}
     | isClassType ty = do
-        let Just [cls] = classLookup ty env
-            bindings = formalBindings (cname cls) ty
-        return $ replaceTypeVars bindings $
-                 capabilityFromTraitComposition (ccomposition cls)
+        classes <- classLookup ty env
+        case classes of
+          [] -> return incapability -- Unimported class
+          [cls] -> do
+            let bindings = formalBindings (cname cls) ty
+            return $ replaceTypeVars bindings $
+                     capabilityFromTraitComposition (ccomposition cls)
+          _ -> error $ "Environment.hs: Tried to look up the capability of " ++
+                       "ambiguous type " ++ show ty
     | otherwise = error $ "Environment.hs: Tried to look up the capability " ++
                           "of non-class type " ++ show ty
 
@@ -311,7 +335,7 @@ traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
     | isRefAtomType t =
         case getRefNamespace t of
           Just ns -> do
-            let key = if null ns
+            let key = if isEmptyNamespace ns
                       then defaultNamespace
                       else ns
             table <- Map.lookup key lookupTables
@@ -353,7 +377,7 @@ classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
     | isRefAtomType cls =
         case getRefNamespace cls of
           Just ns -> do
-            let key = if null ns
+            let key = if isEmptyNamespace ns
                       then defaultNamespace
                       else ns
             table <- Map.lookup key lookupTables
@@ -391,7 +415,7 @@ typeSynonymLookup t Env{defaultNamespace, lookupTables, namespaceTable}
     | isRefAtomType t =
         case getRefNamespace t of
           Just ns -> do
-            let key = if null ns
+            let key = if isEmptyNamespace ns
                       then defaultNamespace
                       else ns
             table <- Map.lookup key lookupTables
@@ -440,7 +464,7 @@ varLookup qname@QName{qnspace, qnlocal = x}
           Env{locals, defaultNamespace, lookupTables, namespaceTable} =
   case qnspace of
     Just ns -> do
-      let key = if null ns
+      let key = if isEmptyNamespace ns
                 then defaultNamespace
                 else ns
       table <- Map.lookup key lookupTables
@@ -488,20 +512,21 @@ varLookup qname@QName{qnspace, qnlocal = x}
 isLocal :: QualifiedName -> Environment -> Bool
 isLocal QName{qnspace = Nothing, qnlocal = x} Env{locals} =
     isJust $ lookup x locals
-isLocal QName{qnspace = Just [], qnlocal = x} Env{locals} =
-    isJust $ lookup x locals
-isLocal _ _ = False
+isLocal QName{qnspace = Just ns, qnlocal = x} Env{locals}
+    | isEmptyNamespace ns = isJust $ lookup x locals
+    | otherwise = False
 
 isMutableLocal :: QualifiedName -> Environment -> Bool
 isMutableLocal QName{qnspace = Nothing, qnlocal = x} Env{locals} =
   case lookup x locals of
     Just (mut, _) -> mut == Var
     Nothing -> False
-isMutableLocal QName{qnspace = Just [], qnlocal = x} Env{locals} =
-  case lookup x locals of
-    Just (mut, _) -> mut == Var
-    Nothing -> False
-isMutableLocal _ _ = False
+isMutableLocal QName{qnspace = Just ns, qnlocal = x} Env{locals}
+  | isEmptyNamespace ns =
+      case lookup x locals of
+        Just (mut, _) -> mut == Var
+        Nothing -> False
+  | otherwise = False
 
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env

@@ -140,9 +140,9 @@ instance Show RefInfo where
         where
           fullName Nothing refId = refId
           fullName (Just ns) refId =
-              if null ns
+              if isEmptyNamespace ns
               then refId
-              else intercalate "." (map show ns) ++ "." ++ refId
+              else show ns ++ "." ++ refId
           params = intercalate ", " (map show parameters)
 
 data Type = Unresolved{refInfo :: RefInfo}
@@ -242,8 +242,9 @@ translateTypeNamespace table = typeMap translate
       translate ty
         | hasRefSourceFile ty =
             let source = getRefSourceFile ty
-                ns = table Map.! source
-            in setRefNamespace ns ty
+            in case Map.lookup source table of
+                 Just ns -> setRefNamespace ns ty
+                 Nothing -> ty
         | otherwise = ty
 
 maybeGetId Unresolved{refInfo} = Just $ refId refInfo

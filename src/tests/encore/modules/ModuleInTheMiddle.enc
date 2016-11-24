@@ -1,0 +1,8 @@
+import ModuleOnTheLeft
+import ModuleOnTheRight
+
+class Main
+  def main() : void {
+    val x = getToken();
+    recieveToken(x);
+  }

@@ -48,7 +48,7 @@ shortenPrelude preludePaths source =
 stdLib source = [lib "String"]
     where
       lib s = Import{imeta = meta $ initialPos source
-                    ,itarget = [Name s]
+                    ,itarget = explicitNamespace [Name s]
                     ,isource = Nothing
                     ,iqualified = False
                     ,iselect = Nothing
@@ -59,7 +59,7 @@ stdLib source = [lib "String"]
 addStdLib :: SourceName -> ModuleDecl -> [ImportDecl] -> [ImportDecl]
 addStdLib source NoModule imports = stdLib source ++ imports
 addStdLib source Module{modname} imports =
-  filter ((/= [modname]) . itarget) (stdLib source) ++ imports
+  filter ((/= explicitNamespace [modname]) . itarget) (stdLib source) ++ imports
 
 
 findAndImportModules :: [FilePath] -> [FilePath] -> FilePath -> FilePath ->
@@ -91,8 +91,8 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
   foldM (importModule importDirs preludePaths) newTable sources
   where
     moduleNamespace = if moduledecl == NoModule
-                      then []
-                      else [modname moduledecl]
+                      then emptyNamespace
+                      else explicitNamespace [modname moduledecl]
     setImportSource source i =
         let shortPath = shortenPrelude preludePaths source
         in i{isource = Just shortPath}
@@ -109,7 +109,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       f{funsource = source}
 
 buildModulePath :: Namespace -> FilePath
-buildModulePath ns =
+buildModulePath (NSExplicit ns) =
   let prefix = init ns
       suffix = last ns
       moduleDir = foldl (</>) "" $ map show prefix
@@ -126,13 +126,13 @@ findSource importDirs sourceDir Import{itarget} = do
                 map (</> modulePath) importDirs
   candidates <- filterM doesFileExist sources
   case candidates of
-    [] -> abort $ "Module " ++ showNamespace itarget ++
+    [] -> abort $ "Module " ++ show itarget ++
                   " cannot be found in imports. Directories searched:\n" ++
                   unlines (map (("  " ++) . dirname) sources) ++
                   "\nUse '-I PATH' to add additional import paths"
     [src] -> return src
     l -> do
-      putStrLn $ "Module " ++ showNamespace itarget ++
+      putStrLn $ "Module " ++ show itarget ++
                  " found in multiple places:"
       mapM_ (putStrLn . ("  " ++)) l
       abort "Unable to determine which one to use."

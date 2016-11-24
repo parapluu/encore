@@ -1,0 +1,6 @@
+module ModuleOnTheLeft
+
+import TokenModule
+
+def getToken() : Token
+  new Token

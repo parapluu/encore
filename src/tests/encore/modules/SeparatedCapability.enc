@@ -1,7 +1,8 @@
 import Lib.FarLib
-import Lib.TraitLib
 
 class Main
-  def main() : void
-    let x = new FarFoo
-    in x.foo(x.f).s()
+  def main() : void {
+    val x = new FarFoo;
+    x.foo(x.f);
+    x.s();
+  }

@@ -1556,10 +1556,10 @@ assertSubtypeOf sub super =
     unlessM (sub `subtypeOf` super) $ do
       capability <- if isClassType sub
                     then do
-                      cap <- asks $ capabilityLookup sub
-                      if maybe False (not . isIncapability) cap
-                      then return cap
-                      else return Nothing
+                      cap <- findCapability sub
+                      if isIncapability cap
+                      then return Nothing
+                      else return $ Just cap
                     else return Nothing
       case capability of
         Just cap ->

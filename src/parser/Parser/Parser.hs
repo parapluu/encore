@@ -162,8 +162,8 @@ natural = P.natural lexer
 float = P.float lexer
 whiteSpace = P.whiteSpace lexer
 
-namespace :: Parser Namespace
-namespace =
+modulePath :: Parser [Name]
+modulePath =
     (Name <$> (lookAhead upper >> identifier)) `sepBy1`
     try (dot >> lookAhead upper)
 
@@ -219,11 +219,11 @@ typ = buildExpressionParser opTable singleType
         reserved "Range"
         return rangeType
       refType = do
-        full <- namespace
-        let ns = init full
+        full <- modulePath
+        let ns = explicitNamespace $ init full
             refId = show $ last full
         parameters <- option [] $ angles (commaSep1 typ)
-        if null ns
+        if isEmptyNamespace ns
         then return $ refTypeWithParams refId parameters
         else return $ setRefNamespace ns $
                       refTypeWithParams refId parameters
@@ -288,9 +288,9 @@ importdecl = do
   imeta <- meta <$> getPosition
   reserved "import"
   iqualified <- option False $ reserved "qualified" >> return True
-  itarget <- namespace
+  itarget <- explicitNamespace <$> modulePath
   iselect <- optionMaybe $ parens ((Name <$> identifier) `sepEndBy` comma)
-  ialias <- optionMaybe $ reserved "as" >> namespace
+  ialias <- optionMaybe $ reserved "as" >> (explicitNamespace <$> modulePath)
   ihiding <- optionMaybe $
              reserved "hiding" >>
              parens ((Name <$> identifier) `sepEndBy` comma)
@@ -327,7 +327,7 @@ typedef = do
   params <- optionalTypeParameters
   reservedOp "="
   typedeftype <- typ
-  let typedefdef = setRefNamespace [] $
+  let typedefdef = setRefNamespace emptyNamespace $
                    typeSynonym name params typedeftype
   return Typedef{typedefmeta, typedefdef}
 
@@ -415,7 +415,7 @@ traitDecl = do
   params <- optionalTypeParameters
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
-              ,tname = setRefNamespace [] $
+              ,tname = setRefNamespace emptyNamespace $
                        traitTypeFromRefType $
                        refTypeWithParams ident params
               ,treqs
@@ -452,12 +452,12 @@ traitComposition = buildExpressionParser opTable includedTrait
         <?> "trait-inclusion"
       trait = do
         notFollowedBy lower
-        full <- namespace
-        let ns = init full
+        full <- modulePath
+        let ns = explicitNamespace $ init full
             refId = show $ last full
         parameters <- option [] $ angles (commaSep1 typ)
         tcext <- option [] $ parens (commaSep1 extension)
-        let tcname = if null ns
+        let tcname = if isEmptyNamespace ns
                      then traitTypeFromRefType $
                           refTypeWithParams refId parameters
                      else setRefNamespace ns $
@@ -483,7 +483,7 @@ classDecl = do
   ccomposition <- optionMaybe (do{reservedOp ":"; traitComposition})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
-              ,cname = setRefNamespace [] $
+              ,cname = setRefNamespace emptyNamespace $
                        classType activity name params
               ,ccomposition
               ,cfields
@@ -782,7 +782,7 @@ expr  =  embed
 
                qualifiedVarAccess = do
                  pos <- getPosition
-                 ns <- namespace
+                 ns <- explicitNamespace <$> modulePath
                  dot
                  x <- identifier
                  let qx = setNamespace ns (qName x)
