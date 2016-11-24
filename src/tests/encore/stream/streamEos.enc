@@ -1,0 +1,16 @@
+class Foo
+  stream bar() : int {
+    yield 1;
+    eos;
+    print "Never come here";
+    yield 2;
+  }
+
+class Main
+  def main() : void {
+    let s = (new Foo).bar() in
+    while (not eos s) {
+      print (get s);
+      s = getNext s;
+    }
+  }
