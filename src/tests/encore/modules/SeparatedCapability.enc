@@ -3,5 +3,5 @@ import Lib.TraitLib
 
 class Main
   def main() : void
-    let x = new FarFoo : S
-    in x.s()
+    let x = new FarFoo
+    in x.foo(x.f).s()

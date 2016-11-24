@@ -452,6 +452,17 @@ replaceHeaderTypes bindings header =
       replaceParamType bindings p@Param{ptype} =
           p{ptype = replaceTypeVars bindings ptype}
 
+translateHeaderNamespace ::
+  Map SourceName Namespace -> FunctionHeader -> FunctionHeader
+translateHeaderNamespace table header =
+    let hparams' = map (translateParamType table) (hparams header)
+        htype' = translateTypeNamespace table (htype header)
+    in
+      header{hparams = hparams', htype = htype'}
+    where
+      translateParamType table p@Param{ptype} =
+          p{ptype = translateTypeNamespace table ptype}
+
 instance Eq MethodDecl where
   a == b = methodName a == methodName b
 

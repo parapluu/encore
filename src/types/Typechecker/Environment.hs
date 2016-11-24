@@ -194,38 +194,43 @@ isKnownName ns name Env{lookupTables} =
   name `elem` allNames (lookupTables Map.! ns)
 
 fieldLookup :: Type -> Name -> Environment -> Maybe FieldDecl
-fieldLookup ty f env
+fieldLookup ty f env@Env{namespaceTable}
   | isTraitType ty =
     case traitLookup ty env of
       Just [trait] -> do
         fld <- find ((== f) . fname) $ requiredFields trait
         let bindings = formalBindings (tname trait) ty
-            ftype' = replaceTypeVars bindings $ ftype fld
+            ftype' = translateTypeNamespace namespaceTable $
+                     replaceTypeVars bindings $ ftype fld
         return fld{ftype = ftype'}
       _ ->
-        error "Environment.hs: Tried to do fieldLookup with unresolved type"
+        error $ "Environment.hs: Tried to do fieldLookup of field '" ++
+                show f ++ "' with " ++ showWithKind ty
   | isClassType ty =
     case classLookup ty env of
       Just [cls] -> do
         fld <- find ((== f) . fname) $ cfields cls
         let bindings = formalBindings (cname cls) ty
-            ftype' = replaceTypeVars bindings $ ftype fld
+            ftype' = translateTypeNamespace namespaceTable $
+                     replaceTypeVars bindings $ ftype fld
         return fld{ftype = ftype'}
       _ ->
-        error "Environment.hs: Tried to do fieldLookup with unresolved type"
+        error $ "Environment.hs: Tried to do fieldLookup of field '" ++
+                show f ++ "' with " ++ showWithKind ty
   | otherwise = error $ "Trying to lookup field in a non ref type " ++ show ty
 
 matchHeader :: Name -> FunctionHeader -> Bool
 matchHeader m = (==m) . hname
 
 traitMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
-traitMethodLookup ty m env =
+traitMethodLookup ty m env@Env{namespaceTable} =
   case traitLookup ty env of
     Just [trait] -> do
       let headers = requiredMethods trait ++ map mheader (tmethods trait)
           bindings = formalBindings (tname trait) ty
       header <- find (matchHeader m) headers
-      return $ replaceHeaderTypes bindings header
+      return $ translateHeaderNamespace namespaceTable $
+               replaceHeaderTypes bindings header
     Just l ->
       error $ "Environment.hs: Ambiguous target of trait method lookup. \n" ++
               "Possible targets are: " ++ show l
@@ -235,7 +240,7 @@ traitMethodLookup ty m env =
                (show m) (show ty)
 
 classMethodLookup :: Type -> Name -> Environment -> Maybe FunctionHeader
-classMethodLookup ty m env =
+classMethodLookup ty m env@Env{namespaceTable} =
   case classLookup ty env of
     Just [cls] -> do
       let headers = map mheader $ cmethods cls
@@ -244,7 +249,8 @@ classMethodLookup ty m env =
           classResults = find (matchHeader m) headers
           traitResults = msum (map (\ty -> traitMethodLookup ty m env) tys)
       header <- classResults <|> traitResults
-      return $ replaceHeaderTypes bindings header
+      return $ translateHeaderNamespace namespaceTable $
+               replaceHeaderTypes bindings header
     Just l ->
       error $ "Environment.hs: Ambiguous target of class method lookup. \n" ++
               "Possible targets are: " ++ show l
@@ -283,7 +289,7 @@ methodLookup ty m env
   | otherwise = Nothing
 
 capabilityLookup :: Type -> Environment -> Maybe Type
-capabilityLookup ty env
+capabilityLookup ty env@Env{namespaceTable}
     | isClassType ty = do
         let Just [cls] = classLookup ty env
             bindings = formalBindings (cname cls) ty
