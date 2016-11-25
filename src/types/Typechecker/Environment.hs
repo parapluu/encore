@@ -346,6 +346,7 @@ traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
           Nothing -> do
             let tables = map (second filteredTraitTable) $
                          filter (not . isQualified . snd) $
+                         filter (isExplicitNamespace . fst) $
                          Map.assocs lookupTables
                 results = map (second (Map.lookup $ getId t)) tables
                 hits = nubBy (fromSameSource lookupTables) $
@@ -388,6 +389,7 @@ classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
           Nothing -> do
             let tables = map (second filteredClassTable) $
                          filter (not . isQualified . snd) $
+                         filter (isExplicitNamespace . fst) $
                          Map.assocs lookupTables
                 results = map (second (Map.lookup $ getId cls)) tables
                 hits = nubBy (fromSameSource lookupTables) $
@@ -426,6 +428,7 @@ typeSynonymLookup t Env{defaultNamespace, lookupTables, namespaceTable}
           Nothing -> do
             let tables = map (second filteredTypeSynonymTable) $
                          filter (not . isQualified . snd) $
+                         filter (isExplicitNamespace . fst) $
                          Map.assocs lookupTables
                 results = map (second (Map.lookup $ getId t)) tables
                 hits = nubBy (fromSameSource lookupTables) $
@@ -483,6 +486,7 @@ varLookup qname@QName{qnspace, qnlocal = x}
     globalSearch =
       let tables = map (second filterFunctionTable) $
                    filter (not . isQualified . snd) $
+                   filter (isExplicitNamespace . fst) $
                    Map.assocs lookupTables
           results = map (second (Map.lookup x)) tables
           hits = nubBy (fromSameSource lookupTables) $

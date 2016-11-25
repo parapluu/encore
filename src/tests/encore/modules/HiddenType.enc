@@ -1,7 +1,9 @@
 import Lib.SelectiveLib
 
-def foo(x : int) : void
+def foo(x : Bar) : void
   ()
+
+class Bar -- Same name as result type of Lib.SelectiveLib.Foo.foo()
 
 class Main
   def main() : void {
