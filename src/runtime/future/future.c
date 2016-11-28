@@ -246,6 +246,10 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
           pony_send_done(cctx);
           break;
         }
+      case BLOCKED_MESSAGE:
+        {
+          assert(false);
+        }
       }
       current = current->next;
     }
