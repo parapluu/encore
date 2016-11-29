@@ -4,6 +4,8 @@ def fac(0 : int) : int {
   n * fac(n-1)
 }
 
+  
+
 def testGuardInFunctionHead(x : String) : void when false {
   print "error"
 } | testGuardInFunctionHead(x : String) : void when true {
@@ -104,7 +106,11 @@ class NumberStreamer
       }
     }
 
-class Main {
+passive class Foo
+  def AlwaysMatchingExtractor() : Maybe void
+    Just ()
+	
+class Main {  
   def objectPatternTestWithFailingGuard() : void
     match new Container<String>("foobar") with
       _ when false => print "baaaad"
@@ -149,6 +155,13 @@ class Main {
       match f with
 	x => print "foo"
 
+  -- Very closely related to issue #521
+  def testEmptyExtractors(): void
+    match new Foo with
+      AlwaysMatchingExtractor() => print "good"
+      _ => print "bad"
+
+	
   def main() : void {
     this.objectPatternTestWithFailingGuard();
     this.valueVariableTuplePatternsTestWithFailingGuard();
@@ -159,6 +172,7 @@ class Main {
     this.matchingOnStreamHead();
     testGuardInFunctionHead("correct");
     testHigherOrderExprInMatchingFunctionHead();
-    this.variablePatternAgainstLambda()
+    this.variablePatternAgainstLambda();
+    this.testEmptyExtractors()
   }
 }
