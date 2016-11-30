@@ -53,11 +53,12 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                   (if A.isMainMethod cname mName && null argNames
                   then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
                   else zip argTypes argNames ++ [(future, futVar)])
-        futureFulfilStmt = Statement $ If (CUnary (translate ID.NOT)
-                                          (Call futureFulfilled [AsExpr $ futVar]))
-                                          (Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr $ futVar, asEncoreArgT (translate mType) $ AsExpr bodyn])
-                                          Skip
-        retStmtFwd = Seq [futureFulfilStmt, Return Skip]
+        -- futureFulfilStmt = Statement $ If (CUnary (translate ID.NOT)
+        --                                   (Call futureFulfilled [AsExpr $ futVar]))
+        --                                   (Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr $ futVar, asEncoreArgT (translate mType) $ AsExpr bodyn])
+        --                                   Skip
+        -- retStmtFwd = Seq [futureFulfilStmt, Return Skip]
+        retStmtFwd = Seq [Return Skip]
     in
       Concat $ closures ++ tasks ++
                 -- Generate 1 forward method

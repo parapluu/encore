@@ -7,6 +7,8 @@ class Next
   def two() : int {
     forward (new Base).one();
     42;
+    print "String 42";
+    24;
   }
 
 class Main

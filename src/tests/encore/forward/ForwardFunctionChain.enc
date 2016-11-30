@@ -4,7 +4,7 @@ def cl(x : int) : int
 
 class Base
   def one(x : int) : int
-    x + 1806
+    x + 42 
 
 class Main
   def main() : void

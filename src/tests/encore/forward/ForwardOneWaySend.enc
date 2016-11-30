@@ -9,6 +9,6 @@ class Next
 
 class Main
   def main() : void {
-    (new Next).two();
+    (new Next)!two();
     print 10
   }

@@ -1,0 +1,13 @@
+class Worker
+  def work() : int
+    42
+
+class Delegator
+  def delegate() : int
+    get (new Worker()).work()
+
+class Main
+  def main() : void {
+    let d = new Delegator();
+    d.delegate();
+  }
