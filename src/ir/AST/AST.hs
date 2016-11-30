@@ -268,6 +268,11 @@ instance HasMeta TraitDecl where
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
+-- | A @TraitComposition@ is the (possibly extended) capability of
+-- a class, i.e. what is after the colon in @class C : T(f) + S@.
+-- It is not a type per se (@T(f)@ is not allowed anywhere else),
+-- but it can be used to obtain a capability type without the
+-- extensions.
 data TraitComposition =
     Conjunction{tcleft  :: TraitComposition
                ,tcright :: TraitComposition
@@ -286,16 +291,19 @@ data TraitExtension =
 
 type ExtendedTrait = (Type, [TraitExtension])
 
+-- | Partitions a list of trait extensions into its field and
+-- method extensions.
 partitionTraitExtensions :: [TraitExtension] -> ([Name], [Name])
-partitionTraitExtensions l = (fields, methods)
+partitionTraitExtensions l =
+  let (fields, methods) = partition isField l
+  in (map extname fields, map extname methods)
   where
-    fields  = map extname $ filter isField l
-    methods = map extname $ filter isMethod l
     isField FieldExtension{} = True
     isField _ = False
-    isMethod MethodExtension{} = True
-    isMethod _ = False
 
+-- | Turns the included traits of a class (if any) into a
+-- capability type.
+capabilityFromTraitComposition :: Maybe TraitComposition -> Type
 capabilityFromTraitComposition (Just Conjunction{tcleft, tcright}) =
     capabilityFromTraitComposition (Just tcleft) `conjunctiveType`
     capabilityFromTraitComposition (Just tcright)
@@ -305,9 +313,19 @@ capabilityFromTraitComposition (Just Disjunction{tcleft, tcright}) =
 capabilityFromTraitComposition (Just TraitLeaf{tcname}) = tcname
 capabilityFromTraitComposition Nothing = incapability
 
+-- | Takes the included traits of a class (if any) and returns
+-- a list of these traits without their extensions
+typesFromTraitComposition :: Maybe TraitComposition -> [Type]
 typesFromTraitComposition =
   typesFromCapability . capabilityFromTraitComposition
 
+-- | Takes the included traits of a class (if any) and returns a
+-- list of these traits together with their extensions. For
+-- example, calling this function on the capability of
+-- @
+-- class C : T(f) + S
+-- @
+-- returns the list @[(T, [f]), (S, [])]@.
 extendedTraitsFromComposition :: Maybe TraitComposition -> [ExtendedTrait]
 extendedTraitsFromComposition (Just TraitLeaf{tcname, tcext}) =
   [(tcname, tcext)]
@@ -316,6 +334,12 @@ extendedTraitsFromComposition (Just tc) =
   extendedTraitsFromComposition (Just $ tcright tc)
 extendedTraitsFromComposition Nothing = []
 
+-- | Takes the included traits of a class (if any) and returns a
+-- list of tuples @(ts, ts')@ where @ts@ and @ts'@ are the
+-- (extended) traits that respectively appear to the left and
+-- right of a @*@ in the composition.
+conjunctiveTypesFromComposition ::
+  Maybe TraitComposition -> [([ExtendedTrait], [ExtendedTrait])]
 conjunctiveTypesFromComposition (Just Conjunction{tcleft, tcright}) =
   (extendedTraitsFromComposition (Just tcleft)
   ,extendedTraitsFromComposition (Just tcright)):
@@ -326,6 +350,8 @@ conjunctiveTypesFromComposition (Just Disjunction{tcleft, tcright}) =
   conjunctiveTypesFromComposition (Just tcright)
 conjunctiveTypesFromComposition _ = []
 
+-- | @translateCompositionNamespace table@ gives the included
+-- traits of a class (if any) the namespace specified by @table@.
 translateCompositionNamespace ::
   Map SourceName Namespace -> Maybe TraitComposition -> Maybe TraitComposition
 translateCompositionNamespace table Nothing = Nothing

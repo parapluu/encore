@@ -147,6 +147,14 @@ instance Show RefInfo where
 
 data Type = Unresolved{refInfo :: RefInfo}
           | TraitType{refInfo :: RefInfo}
+          -- | The @AbstractTraitType@ is used to type @this@ when
+          -- overriding methods. A class that implements a trait
+          -- @T@ and overrides one of its methods @m@ will
+          -- typecheck @m@ with @this@ as the *abstract* trait
+          -- @T@. This is to be able to distinguish e.g. method
+          -- parameters that have the type @T@ from the included
+          -- trait @T@, which might have been extended with
+          -- additional attributes.
           | AbstractTraitType{refInfo :: RefInfo}
           | ClassType{refInfo :: RefInfo
                      ,activity   :: Activity
@@ -558,8 +566,11 @@ traitTypeFromRefType Unresolved{refInfo} =
 traitTypeFromRefType ty =
     error $ "Types.hs: Can't make trait type from type: " ++ show ty
 
+-- | Callsing @abstractTraitFromTraitType ty@ returns the *trait
+-- type* @ty@ as an *abstract* trait type. See the definition of
+-- @AbstractTraitType@ for more details.
 abstractTraitFromTraitType TraitType{refInfo} = AbstractTraitType{refInfo}
-abstractTraitFromTraitType ty@AbstractTraitType{refInfo} = ty
+abstractTraitFromTraitType ty@AbstractTraitType{} = ty
 abstractTraitFromTraitType ty =
   error $ "Types.hs: Can't form abstract trait from " ++ showWithKind ty
 
