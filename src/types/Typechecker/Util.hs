@@ -454,13 +454,17 @@ doUnifyTypes inter args@(ty:tys)
 
 abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
 abstractTraitFrom cname (t, exts) = do
-  tdecl@Trait{tname, treqs} <- findTrait t
-  let (fieldNames, methodNames) = partitionTraitExtensions exts
+  tdecl@Trait{tname, treqs, tmethods} <- findTrait t
+  let bindings = zip (getTypeParameters tname) (getTypeParameters t)
+      (fieldNames, methodNames) = partitionTraitExtensions exts
   fields <- mapM (findField cname) fieldNames
   methods <- mapM (findMethod cname) methodNames
   treqs' <- mapM (resolveReq t) treqs
   let newReqs = treqs' ++ map RequiredField fields ++ map RequiredMethod methods
-  return tdecl{treqs = newReqs}
+      tmethods' = map (concretizeMethod bindings) tmethods
+  return tdecl{treqs = newReqs
+              ,tname = t
+              ,tmethods = tmethods'}
   where
     resolveReq trait r@RequiredField{rfield = Field{fname}} = do
       rfield' <- findField trait fname
@@ -468,3 +472,7 @@ abstractTraitFrom cname (t, exts) = do
     resolveReq trait r@RequiredMethod{rheader} = do
       rheader' <- findMethod trait (hname rheader)
       return r{rheader = rheader'}
+    concretizeMethod :: [(Type, Type)] -> MethodDecl -> MethodDecl
+    concretizeMethod bindings m =
+      let mheader' = replaceHeaderTypes bindings (mheader m)
+      in m{mheader = mheader'}
