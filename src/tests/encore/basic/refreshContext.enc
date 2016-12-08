@@ -10,11 +10,11 @@ class Test
 
 class Main
   def main(): void{
-    let v = 0;
+    var v = 0;
     repeat i <- 1000 {
-      let t = new Test;
+      val t = new Test;
       get t.f();
-      let f = \(x:int) -> id(x);
+      val f = \(x:int) -> id(x);
       v = v + get t.g(f);
     };
     print v;

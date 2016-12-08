@@ -1,4 +1,3 @@
-
 import Active.Active  -- imports from standard library
 
 passive class Greeter {
@@ -9,7 +8,7 @@ passive class Greeter {
 
 class Main {
   def main(): void {
-    let a = new Active<Greeter>(\ () -> new Greeter);
+    val a = new Active<Greeter>(\ () -> new Greeter);
     a.apply(\ (g:Greeter) -> { g.greet(); })
   }
 }

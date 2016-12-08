@@ -1,6 +1,6 @@
 class Foo
   def foo() : String {
-    let s =
+    val s =
       embed (embed char* end)
         char *s = encore_alloc(*_ctx, 1000);
         strcpy(s, "Hello");
@@ -11,9 +11,9 @@ class Foo
 
 class Main
   def main() : void {
-    let x = new Foo();
+    val x = new Foo();
     for i in [0..20] {
-      let s = get x.foo();
+      val s = get x.foo();
       println("{} {}", s, i);
     };
   }

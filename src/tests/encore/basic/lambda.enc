@@ -42,7 +42,7 @@ class Main
   funFun : (int -> (int -> int))
 
   def free() : void {
-    let f = \() -> {
+    val f = \() -> {
       for i in [0..5] {
         print i;
       }

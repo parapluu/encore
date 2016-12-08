@@ -1,11 +1,10 @@
 import Data.Either
 class Main
   def main() : void {
-    let l = Left<String,int>("error");
-    let r = Right<String,int>(12);
+    val l = Left<String,int>("error");
+    val r = Right<String,int>(12);
     l.map(\ (x:int) -> {print "should not print"; x});
     l.foreach(\ (x:int) -> print "should not print");
     r.map(\ (x:int) -> {print "should print"; x});
     r.foreach(\ (x:int) -> print "should print");
-
   }

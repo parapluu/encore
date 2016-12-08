@@ -77,7 +77,7 @@ buildLookupTable Program{source
           arrowWithTypeParam funtypeparams (map ptype funparams) funtype
 
 
-type VarTable    = [(Name, Type)]
+type VarTable = [(Name, (Mutability, Type))]
 
 data Environment = Env {
   defaultNamespace :: Namespace,
@@ -434,8 +434,8 @@ varLookup qname@QName{qnspace, qnlocal = x}
     Nothing -> localLookup <|> globalSearch
   where
     localLookup = do
-      result <- lookup x locals
-      return [(qname, result)]
+      (_, ty) <- lookup x locals
+      return [(qname, ty)]
 
     globalSearch =
       let tables = map (second filterFunctionTable) $
@@ -473,6 +473,17 @@ isLocal QName{qnspace = Just [], qnlocal = x} Env{locals} =
     isJust $ lookup x locals
 isLocal _ _ = False
 
+isMutableLocal :: QualifiedName -> Environment -> Bool
+isMutableLocal QName{qnspace = Nothing, qnlocal = x} Env{locals} =
+  case lookup x locals of
+    Just (mut, _) -> mut == Var
+    Nothing -> False
+isMutableLocal QName{qnspace = Just [], qnlocal = x} Env{locals} =
+  case lookup x locals of
+    Just (mut, _) -> mut == Var
+    Nothing -> False
+isMutableLocal _ _ = False
+
 typeVarLookup :: Type -> Environment -> Maybe Type
 typeVarLookup ty env
     | isTypeVar ty =
@@ -481,20 +492,35 @@ typeVarLookup ty env
     | otherwise    = error
       "Tried to lookup the binding of something that was not a type variable"
 
-extendEnvironment :: [(Name, Type)] -> Environment -> Environment
-extendEnvironment [] env = env
-extendEnvironment ((name, ty):newTypes) env =
-    extendEnvironment newTypes $ env {locals = extend (locals env) name ty}
+extendEnvironment' :: Mutability -> [(Name, Type)] -> Environment -> Environment
+extendEnvironment' mut [] env = env
+extendEnvironment' mut ((name, ty):newTypes) env =
+    extendEnvironment' mut newTypes $ env {locals = extend (locals env) name ty}
     where
-      extend [] name' ty' = [(name', ty')]
-      extend ((name, ty):locals) name' ty'
-          | name == name' = (name', ty') : locals
-          | otherwise     = (name, ty) : extend locals name' ty'
+      extend [] name' ty' = [(name', (mut, ty'))]
+      extend ((name, tup):locals) name' ty'
+          | name == name' = (name', (mut, ty')) : locals
+          | otherwise     = (name, tup) : extend locals name' ty'
+
+extendEnvironment :: [(Name, Type)] -> Environment -> Environment
+extendEnvironment = extendEnvironment' Var
+
+extendEnvironmentImmutable :: [(Name, Type)] -> Environment -> Environment
+extendEnvironmentImmutable = extendEnvironment' Val
 
 -- | Convenience function for extending the environment with a
 -- list of parameter declarations
 addParams :: [ParamDecl] -> Environment -> Environment
-addParams = extendEnvironment . map (\(Param {pname, ptype}) -> (pname, ptype))
+addParams = extendEnvironmentImmutable .
+            map (\(Param {pname, ptype}) -> (pname, ptype))
+
+makeImmutable :: [Name] -> Environment -> Environment
+makeImmutable names env@Env{locals} =
+  env{locals = map (makeVarImmutable names) locals}
+  where
+    makeVarImmutable names (name, (mut, ty))
+      | name `elem` names = (name, (Val, ty))
+      | otherwise = (name, (mut, ty))
 
 addTypeParameters :: [Type] -> Environment -> Environment
 addTypeParameters [] env = env
@@ -512,6 +538,3 @@ bindType var ty env
 
 bindTypes :: [(Type, Type)] -> Environment -> Environment
 bindTypes bindings env = foldr (\(tyVar, ty) env -> bindType tyVar ty env) env bindings
-
-replaceLocals :: VarTable -> Environment -> Environment
-replaceLocals newTypes env = env {locals = newTypes}

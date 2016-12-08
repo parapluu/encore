@@ -24,10 +24,10 @@ def pNestedFunction<t>(x: t): t
 
 class Main
   def main() : void {
-    let test1 = pSingleArgument<String>("test single argument", 42, "single");
+    val test1 = pSingleArgument<String>("test single argument", 42, "single");
     print(test1);
 
-    let pNested = pNestedFunction<String>("test passing parametric type between parametric functions");
+    val pNested = pNestedFunction<String>("test passing parametric type between parametric functions");
     print(pNested);
 
     let testRecursiveName = "test calling function recursively"
@@ -38,6 +38,6 @@ class Main
          Nothing => print("Error in function pRecursiveCall, expected output: '{}'", testRecursiveName)
     };
 
-    let compFn = compose<String, String, String>(id<String>, id<String>);
+    val compFn = compose<String, String, String>(id<String>, id<String>);
     print compFn("42");
   }

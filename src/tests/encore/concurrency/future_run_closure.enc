@@ -23,12 +23,12 @@ class Test
 
 class Main
   def main(): void {
-    let t = new Test;
-    let t2 = new Test;
-    let f1 = t.createMoney();
+    val t = new Test;
+    val t2 = new Test;
+    val f1 = t.createMoney();
     await f1;
-    let f2 = f1 ~~> \(m: Money) -> { t2.update(m) ~~> \(m: Money) -> m };
+    val f2 = f1 ~~> \(m: Money) -> { t2.update(m) ~~> \(m: Money) -> m };
     await f2;
-    let money = get (get f2);
+    val money = get (get f2);
     print(money.amount)
   }

@@ -280,11 +280,11 @@ instance HasMeta TraitDecl where
     t{tmeta = AST.Meta.setType ty tmeta, tname = ty}
   showWithKind Trait{tname} = "trait '" ++ getId tname ++ "'"
 
-data Modifier = Val
+data Modifier = MVal
                 deriving(Eq)
 
 instance Show Modifier where
-    show Val = "val"
+    show MVal = "val"
 
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
@@ -309,7 +309,7 @@ instance HasMeta FieldDecl where
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
 isValField :: FieldDecl -> Bool
-isValField = (Val `elem`) . fmods
+isValField = (MVal `elem`) . fmods
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -396,6 +396,9 @@ type Arguments = [Expr]
 data MaybeContainer = JustData { e :: Expr}
                     | NothingData deriving(Eq, Show)
 
+data Mutability = Var
+                | Val deriving(Eq, Show)
+
 data Expr = Skip {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
@@ -447,9 +450,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | FinishAsync {emeta :: Meta Expr,
                          body :: Expr}
           | Let {emeta :: Meta Expr,
+                 mutability :: Mutability,
                  decls :: [(Name, Expr)],
                  body :: Expr}
           | MiniLet {emeta :: Meta Expr,
+                     mutability :: Mutability,
                      decl :: (Name, Expr)}
           | Seq {emeta :: Meta Expr,
                  eseq :: [Expr]}

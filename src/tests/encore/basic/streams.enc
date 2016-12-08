@@ -1,22 +1,24 @@
 class Streamer
   stream even(n : int) : int{
-    let i = 0 in
-      while i < n{
-        yield i;
-        i = i + 2;
-      }
+    var i = 0;
+    while i < n {
+      yield i;
+      i = i + 2;
+    }
   }
 
   stream odd(n : int) : int{
-    let i = 1 in
-      while i < n{
-        yield i;
-        i = i + 2;
-      }
+    var i = 1;
+    while i < n{
+      yield i;
+      i = i + 2;
+    }
   }
 
 class Combinator
   stream interleave(s1 : Stream int, s2 : Stream int) : int{
+    var s1 = s1;
+    var s2 = s2;
     while ((not eos s1) and (not eos s2)) {
       yield get s1;
       yield get s2;
@@ -26,16 +28,15 @@ class Combinator
   }
 
 class Main
-  def main() : void
-    let x = new Streamer
-        even = x.even(10)
-        odd  = x.odd(10)
-        c = new Combinator
-        range = c.interleave(even, odd)
-    in{
-      while (not eos range){
-        print get range;
-        range = getNext range;
-      };
-      print "Done!"
-    }
+  def main() : void {
+    val x = new Streamer;
+    val even = x.even(10);
+    val odd  = x.odd(10);
+    val c = new Combinator;
+    var range = c.interleave(even, odd);
+    while (not eos range) {
+      print get range;
+      range = getNext range;
+    };
+    print "Done!"
+  }

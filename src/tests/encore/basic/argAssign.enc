@@ -1,0 +1,7 @@
+def foo(x : int) : void
+  x = 42
+
+class Main
+  def main() : void {
+    ()
+  }

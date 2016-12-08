@@ -1,0 +1,5 @@
+class Main
+  def main() : void {
+    var x = 42;
+    val f = \ (y : int) -> {x = 3; x};
+  }

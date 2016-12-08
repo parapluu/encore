@@ -54,6 +54,7 @@
         "typedef"
         "unless"
         "val"
+        "var"
         "when"
         "while"
         "with"

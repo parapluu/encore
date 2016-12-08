@@ -12,10 +12,10 @@ def chain<a,b>(sa:Stream a, f:a->b) : Stream b {
         end;
       }
       else {
-        let va = embed a (encore_arg_t)scons_element(_ctx,(struct scons*)#{scons}).p; end;
-        let nexta = embed Stream a scons_next(_ctx,(struct scons*)#{scons}); end;
-        let vb = f(va);
-        let nextb = chain<a,b>(nexta,f);
+        val va = embed a (encore_arg_t)scons_element(_ctx,(struct scons*)#{scons}).p; end;
+        val nexta = embed Stream a scons_next(_ctx,(struct scons*)#{scons}); end;
+        val vb = f(va);
+        val nextb = chain<a,b>(nexta,f);
         embed Scons
           scons_put_fut(_ctx,#{nextb},(encore_arg_t)#{vb}, _enc__type_b);
         end;

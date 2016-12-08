@@ -14,7 +14,7 @@ passive class C2 : Bar + Baz
 
 class Main
   def main(): void {
-    let x = if true then
+    val x = if true then
               new C1
             else
               new C2;

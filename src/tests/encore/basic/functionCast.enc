@@ -4,7 +4,7 @@ def fun() : (String, String) {
 
 class Main {
   def main() : void {
-    let foo = fun : () -> (String, String);
+    val foo = fun : () -> (String, String);
     match foo() with
       (h, w) => println("{} {}", h, w)
   }

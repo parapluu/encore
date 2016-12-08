@@ -15,12 +15,12 @@ passive class C3 : Baz + Foo
 
 class Main
   def main(): void{
-    let x = match 1 with
+    val x = match 1 with
               0 => new C1()
               1 => new C2()
               2 => new C3()
               3 => null;
-    let y = match 1 with
+    val y = match 1 with
               0 => Just new C1()
               1 => Just new C2()
               2 => Just new C3()

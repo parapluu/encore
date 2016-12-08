@@ -22,7 +22,7 @@ passive class C : Foo<int> + Bar<String> {
 
 class Main {
   def main() : void {
-    let c = new C();
+    val c = new C();
     print c.getX();
     showBar(c);
   }

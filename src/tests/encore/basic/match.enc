@@ -92,19 +92,19 @@ class NumberStreamer
     ()
 
   stream multiples(1 : int, limit : int) : int {
-    let i = 0 in
-      while i < limit {
-        yield i;
-        i = i + 1;
-      }
+    var i = 0;
+    while i < limit {
+      yield i;
+      i = i + 1;
     }
-  |      multiples(n : int, limit : int) : int {
-    let i = 0 in
-      while i < limit {
-        yield i;
-        i = i + n;
-      }
+  }
+  | multiples(n : int, limit : int) : int {
+    var i = 0;
+    while i < limit {
+      yield i;
+      i = i + n;
     }
+  }
 
 passive class Foo
   def AlwaysMatchingExtractor() : Maybe void
@@ -136,15 +136,14 @@ class Main {
   def matchingOnFunctionHead() : void
     print fac(5)
 
-  def matchingOnStreamHead() : void
-    let x = new NumberStreamer
-        evens = x.multiples(2, 10)
-    in{
-      while (not eos evens) {
-        print get evens;
-        evens = getNext evens
-      }
+  def matchingOnStreamHead() : void {
+    val x = new NumberStreamer;
+    var evens = x.multiples(2, 10);
+    while (not eos evens) {
+      print get evens;
+      evens = getNext evens
     }
+  }
 
   def objectPatternsInFunctionHead() : void
     expectEven(new IntContainer(4))
@@ -153,7 +152,7 @@ class Main {
   def variablePatternAgainstLambda() : void
     let f = \(x : int) -> x in
       match f with
-	x => print "foo"
+        x => print "foo"
 
   -- Very closely related to issue #521
   def testEmptyExtractors(): void

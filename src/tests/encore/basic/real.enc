@@ -3,7 +3,7 @@ def foo(x : real) : real
 
 class Main
   def main() : void {
-    let pi = 3.141593;
+    val pi = 3.141593;
     println("Pi is something like {}", pi);
     println("Ints can be promoted to reals: {}", foo(42))
   }

@@ -76,19 +76,18 @@ def test_unification_last_expression() : Maybe (int,int)
 -- Test multiple assignments and changes between them
 --
 def test_multiple_assignments(x: Maybe (int,int)) : (int,int) {
-  let y = Nothing : Maybe (int,int)
-      z = Just((32,32))
-  in {
-    x = y;
-    y = (Just (23,23));
-    y = x;
-    y = z;
-    x = Nothing : Maybe (int,int);
-    y;
-    match x with {
-      Just(z) => (23,23)
-        Nothing => (34,34)
-    }
+  var x' = x;
+  var y = Nothing : Maybe (int,int);
+  val z = Just((32,32));
+  x' = y;
+  y = (Just (23,23));
+  y = x;
+  y = z;
+  x' = Nothing : Maybe (int,int);
+  y;
+  match x with {
+    Just(z) => (23,23)
+    Nothing => (34,34)
   }
 }
 
@@ -103,7 +102,6 @@ class Main
    let
      x = Just((32,32))
      poly = new Poly<(int,int)>
-     -- u = foo(Just (32,32))
    in {
      print test_catch_all(x);
      print test_catch_specific_val(x);

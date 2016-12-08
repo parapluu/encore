@@ -1,0 +1,5 @@
+class Main
+  def main() : void {
+    val x = 42;
+    x = 0;
+  }

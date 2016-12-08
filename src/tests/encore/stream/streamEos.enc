@@ -8,7 +8,7 @@ class Foo
 
 class Main
   def main() : void {
-    let s = (new Foo).bar() in
+    var s = (new Foo).bar();
     while (not eos s) {
       print (get s);
       s = getNext s;

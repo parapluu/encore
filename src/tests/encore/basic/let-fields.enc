@@ -2,15 +2,14 @@ class Main
   value : int
   def main() : void {
     this.value = 1024;
-    let x = this.value in {
-      x = x + 1;
-      if x == 1024 then
-        print "Failue when reading x -- got 1024, expected something else"
-      else
-        print "Test 1 OK";
-      if x == this.value then
-        print "Failue when comparing x and this.value -- they are the same but should not be"
-      else
-        print "Test 2 OK";
-    }
+    var x = this.value;
+    x = x + 1;
+    if x == 1024 then
+      print "Failue when reading x -- got 1024, expected something else"
+    else
+      print "Test 1 OK";
+    if x == this.value then
+      print "Failue when comparing x and this.value -- they are the same but should not be"
+    else
+      print "Test 2 OK";
   }

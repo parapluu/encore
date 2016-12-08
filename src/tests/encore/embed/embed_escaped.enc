@@ -4,13 +4,13 @@ passive class Foo
 class Main
   f : int
   def main(): void {
-    let x = new Foo();
-    let y = embed int
+    val x = new Foo();
+    val y = embed int
               #{embed int
                   #{embed int 21; end};
                 end};
             end;
-    let z = 0;
+    val z = 0;
     embed void
       int x = #{y} + 21;
       #{x.f} = x;
