@@ -1,5 +1,23 @@
+def id<a>(x : a) : a
+  x
+
+class Foo<t>
+  def init(x : t) : void
+    ()
+
 trait T<t> {
   require x : t
+  def foo<t>() : void {
+    val arr = new [t](10);
+    val x = arr[0] : t;
+    new Foo<t>(x);
+    val f = id<t>;
+    f(x);
+    id(x);
+    embed t
+      #{x};
+    end;
+  }
 }
 
 passive class C : T<int> {
