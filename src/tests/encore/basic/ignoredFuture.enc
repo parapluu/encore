@@ -1,0 +1,8 @@
+class Foo
+  def foo() : void
+    print "foo"
+
+class Main
+  def main() : void
+    if true then
+      (new Foo).foo()

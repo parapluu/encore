@@ -545,7 +545,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
     | isActive && isStream = delegateUse callTheMethodStream "stream"
     | isActive && isFuture = delegateUse callTheMethodFuture "fut"
-    | otherwise = error $ "Expr.hs: Don't know how to call " ++ show targetTy
+    | otherwise = error $ "Expr.hs: Don't know how to call target of type " ++
+                          Ty.showWithKind targetTy ++
+                          " at " ++ show (A.getPos call)
         where
           targetTy = A.getType target
           retTy = A.getType call

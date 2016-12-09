@@ -7,6 +7,8 @@ def foo() : Foo{
 }
 
 class Foo
+  def foo() : void
+    ()
 
 class Main
   def main() : void {
@@ -14,6 +16,10 @@ class Main
     val y = Just (null : Foo);
     val f = \ () -> null : Foo;
     null : Foo;
+    (if false then
+      null
+    else
+      new Foo)!foo();
     x = foo();
     print "I ain't scared of no null!";
   }

@@ -714,11 +714,21 @@ instance Checkable Expr where
            let thnType = AST.getType eThn
                elsType = AST.getType eEls
            resultType <- matchBranches thnType elsType
-           return $ setType resultType ifThenElse {cond = eCond
-                                                  ,thn = setType resultType eThn
-                                                  ,els = setType resultType eEls
-                                                  }
+           thnTypeInf <- if knownType thnType
+                         then return thnType
+                         else thnType `coercedInto` resultType
+           elsTypeInf <- if knownType elsType
+                         then return elsType
+                         else elsType `coercedInto` resultType
+           return $ setType resultType
+                    ifThenElse {cond = eCond
+                               ,thn = setType thnTypeInf eThn
+                               ,els = setType elsTypeInf eEls
+                               }
         where
+          knownType ty =
+              not (isNullType ty) &&
+              all (not . isBottomType) (typeComponents ty)
           matchBranches ty1 ty2
               | isNullType ty1 && isNullType ty2 =
                   tcError IfInferenceError
@@ -734,6 +744,7 @@ instance Checkable Expr where
                       else if ty2Sub || isVoidType ty1
                            then return ty1
                            else tcError $ IfBranchMismatchError ty1 ty2
+
 
     --  E |- arg : t'
     --  clauses = (pattern1, guard1, expr1),..., (patternN, guardN, exprN)
