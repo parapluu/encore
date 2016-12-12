@@ -204,6 +204,10 @@ isForward :: Expr -> Bool
 isForward Forward {} = True
 isForward _ = False
 
+isFunctionCall :: Expr -> Bool
+isFunctionCall FunctionCall{} = True
+isFunctionCall _ = False
+
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl =
     let ty = cname cdecl

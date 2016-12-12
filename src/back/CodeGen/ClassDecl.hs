@@ -89,21 +89,12 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
                    Statement $ Call ((methodImplName cname (ID.Name "main")))
                                     [AsExpr encoreCtxVar,
--- <<<<<<< 5a8257a3af50870d05b3fda23fd6077dd3b81886
---                                      (Cast (translate cname) (Var "_a")),
---                                      Call (Nam "_init_argv")
---                                           [AsExpr encoreCtxVar,
---                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
---                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
--- =======
-                                     (Cast (Ptr encActiveMainT) (Var "_a")),
+                                     (Cast (translate cname) (Var "_a")),
                                      (Call (Nam "_init_argv")
                                           [AsExpr encoreCtxVar,
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]),
                                      (AsExpr $ nullVar)]])
-
--- >>>>>>> Add forward for future
        methodClauses = concatMap methodClause
 
        methodClause m = (mthdDispatchClause m) :

@@ -13,17 +13,10 @@ body
 array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
   array_t *arr = array_mk(ctx, argc, &_enc__passive_String_String_type);
   for(int i = 0; i < argc; i++) {
--- <<<<<<< 5a8257a3af50870d05b3fda23fd6077dd3b81886:modules/standard/String.enc
     _enc__passive_String_String_t* s =
       encore_alloc(*ctx, sizeof(_enc__passive_String_String_t));
     s->_enc__self_type = &_enc__passive_String_String_type;
     _enc__method_String_String__init(ctx, s, argv[i], NULL);
--- =======
---     _enc__passive_String_t* s =
---       encore_alloc(*ctx, sizeof(_enc__passive_String_t));
---     s->_enc__self_type = &_enc__passive_String_type;
---     _enc__method_String__init(ctx, s, argv[i], NULL);
--- >>>>>>> Add forward for future:bundles/standard/String.enc
     array_set(arr, i, (encore_arg_t){.p = s});
   }
   return arr;

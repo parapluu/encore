@@ -21,16 +21,11 @@ type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type MethodDeclTable = [(Name, MethodDecl)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
--- <<<<<<< 65432d6eaa5484e8c0b82de739f175cfec9b53dd
 type FunctionTable = [(QualifiedName, FunctionHeader)]
-type ProgramTable = (ClassTable, FunctionTable)
--- =======
--- type FunctionTable = [(Name, FunctionHeader)]
--- type ProgramTable = (ClassTable, (FunctionTable, MethodDeclTable))
--- >>>>>>> Fix finding method name from inside of its body
+type ProgramTable = (ClassTable, (FunctionTable, MethodDeclTable))
 
 buildProgramTable :: Program -> ProgramTable
-buildProgramTable = buildClassTable &&& buildFunctionTable --(buildFunctionTable &&& buildMethodDeclTable)
+buildProgramTable = buildClassTable &&& (buildFunctionTable &&& buildMethodDeclTable)
 
 buildClassTable :: Program -> ClassTable
 buildClassTable p = map getClassEntry (classes p) ++
@@ -51,7 +46,7 @@ buildClassTable p = map getClassEntry (classes p) ++
     getMethodEntry m    = (methodName m, mheader m)
 
 buildMethodDeclTable :: Program -> MethodDeclTable
-buildMethodDeclTable = traverseProgram getEntries
+buildMethodDeclTable = getEntries
   where
     getEntries p = concat $ map getMethodDecl (classes p)
     getMethodDecl Class{cmethods} = zip (getMethodNames cmethods) cmethods
@@ -88,22 +83,17 @@ lookupMethods cls (ctable, _) =
     let (_, ms) = lookupClassEntry cls ctable
     in map snd ms
 
--- <<<<<<< 65432d6eaa5484e8c0b82de739f175cfec9b53dd
+lookupMethodDecl :: Name -> ProgramTable -> MethodDecl
+lookupMethodDecl name (_, (_, mdecTable)) =
+  let failure = error $ "ClassTable.hs: Function '" ++ show name ++
+                        "' does not exist"
+  in fromMaybe failure (lookup name mdecTable)
+
+
 lookupFunction :: QualifiedName -> ProgramTable -> FunctionHeader
-lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, ftable) =
+lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, (ftable,_)) =
   let failure = error $ "ClassTable.hs: Function '" ++ show qname ++
--- =======
--- lookupMethodDecl :: Name -> ProgramTable -> MethodDecl
--- lookupMethodDecl name (_, (_, mdecTable)) =
---   let failure = error $ "ClassTable.hs: Function '" ++ show name ++
---                        "' does not exist"
---   in fromMaybe failure (lookup name mdecTable)
---
--- lookupFunction :: Name -> ProgramTable -> FunctionHeader
--- lookupFunction name (_, (ftable,_)) =
---   let failure = error $ "ClassTable.hs: Function '" ++ show name ++
--- >>>>>>> Fix finding method name from inside of its body
-                       "' does not exist"
+                        "' does not exist"
       key = setSourceFile source $
             topLevelQName qnlocal
   in fromMaybe failure (lookup key ftable)
@@ -123,10 +113,5 @@ lookupCalledType ty m table@(ctable, _)
       in
         fst . fromMaybe fail $ find (isJust . snd) results
 
--- <<<<<<< 65432d6eaa5484e8c0b82de739f175cfec9b53dd
 getGlobalFunctionNames :: ProgramTable -> [QualifiedName]
-getGlobalFunctionNames (_, ftable) = map fst ftable
--- =======
--- getGlobalFunctionNames :: ProgramTable -> [Name]
--- getGlobalFunctionNames (_, (ftable, _)) = map fst ftable
--- >>>>>>> Fix finding method name from inside of its body
+getGlobalFunctionNames (_, (ftable,_)) = map fst ftable

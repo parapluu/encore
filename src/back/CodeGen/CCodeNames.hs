@@ -176,7 +176,7 @@ methodImplFutureName clazz mname =
 
 methodImplForwardName :: Ty.Type -> ID.Name -> CCode Name
 methodImplForwardName clazz mname =
-  Nam $ methodImplNameStr clazz mname ++ "_forward"
+  Nam $ methodImplNameStr clazz mname ++ "_async"
 
 methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
 methodImplOneWayName clazz mname =

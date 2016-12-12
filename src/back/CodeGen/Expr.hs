@@ -557,6 +557,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             (ntarget, ttarget) <- translate target
             (initArgs, resultExpr) <-
               methodCall ntarget targetTy name args retTy
+            -- (fname, key) <- gets $ Ctx.getMethodName
+            -- unsubstituteVar $ ID.Name fname
+            -- if startswith key ("Forward") then
+            --   return (Var result,
+            --     Seq $
+            --       ttarget :
+            --       targetNullCheck ntarget target name emeta "." :
+            --       initArgs
+            --       -- ++
+            --       -- [Statement resultExpr]
+            --     )
+            -- else
             return (Var result,
               Seq $
                 ttarget :
@@ -678,11 +690,29 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
+         (fname, key) <- gets $ Ctx.getMethodName
          let resultType = A.getType ite
+             futureFulfilStmt = Statement $
+                                   Call futureFulfil [
+                                       AsExpr encoreCtxVar,
+                                       AsExpr $ futVar,
+                                       asEncoreArgT (translate resultType) $ AsExpr $ Var tmp]
+             inForwardMethod = startswith key ("forward") && (A.isForward thn || A.isForward els)
              exportThn = Seq $ tthn :
-                         [Assign (Var tmp) (Cast (translate resultType) nthn)]
+                         (if inForwardMethod then
+                            if A.isForward thn then []
+                            else [Assign (Var tmp) (Cast (translate resultType) nthn), futureFulfilStmt, Return Skip]
+                          else [Assign (Var tmp) (Cast (translate resultType) nthn)]
+                         )
              exportEls = Seq $ tels :
-                         [Assign (Var tmp) (Cast (translate resultType) nels)]
+                         (if inForwardMethod then
+                            if A.isForward els then []
+                            else [Assign (Var tmp) (Cast (translate resultType) nels), futureFulfilStmt, Return Skip]
+                          else [Assign (Var tmp) (Cast (translate resultType) nels)])
+                        --    ++
+                        --  (if (startswith key ("forward")) && usedForward then [futureFulfilStmt, Return Skip]
+                        --   else []
+                        --  )
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
@@ -928,10 +958,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     -- TODO: add stream forward
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
-               theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
+           let  resultType = translate (Ty.getResultType $ A.getType val)
+                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
-           return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+           (fname, key) <- gets $ Ctx.getMethodName
+           if (startswith key ("forward")) then
+              return (unit, Seq [tval, Return Skip])--(AsExpr $ Var key)])
+           else
+              return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate forward of " ++ show val
 
   translate yield@(A.Yield{A.val}) =
@@ -1122,17 +1156,8 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
 
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
--- <<<<<<< 5a8257a3af50870d05b3fda23fd6077dd3b81886
---           prototype = Call (globalFunctionName qname)
---                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
--- =======
-          prototype = Call (globalFunctionName name)
--- <<<<<<< a23410635178da8583fe19693e0043ac719c784b
---                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs' ++ [AsExpr $ Var "NULL"])
--- -- >>>>>>> Add forward for future
--- =======
+          prototype = Call (globalFunctionName qname)
                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs' ++ [AsExpr $ nullVar])
--- >>>>>>> Rebased and reflected all comments
       rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
       return (callVar, Seq [tmpTypeDecl, call])
@@ -1186,7 +1211,7 @@ callTheMethodForName
   genCMethodName targetName targetType methodName args resultType = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
-  mName <- gets $ Ctx.getMethodName
+  (mName,_) <- gets $ Ctx.getMethodName
   methodDecl <- gets $ Ctx.lookupMethodDecl (ID.Name mName)
   return (initArgs,
         Call cMethodName $

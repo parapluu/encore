@@ -35,7 +35,7 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-type MethodName = String
+type MethodName = (String, String)
 
 data Context = Context {
   varSubTable :: VarSubTable,
@@ -48,7 +48,7 @@ programTable :: Context -> Tbl.ProgramTable
 programTable (Context _ _ _ table) = table
 
 new :: VarSubTable -> Tbl.ProgramTable -> Context
-new subs = Context subs 0 ""
+new subs = Context subs 0 ("","")
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
@@ -71,21 +71,16 @@ substRem (Context ((na, lv):s) nxt m table) na'
      | na == na'  = Context s nxt m table
      | na /= na'  = substAdd (substRem (Context s nxt m table) na') na lv
 
--- <<<<<<< 65432d6eaa5484e8c0b82de739f175cfec9b53dd
 substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
 substLkp (Context s _ _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
 substLkp (Context s _ _ _) QName{qnspace = Just [], qnlocal} = lookup qnlocal s
 substLkp _ _ = Nothing
--- =======
--- substLkp :: Context -> Name -> Maybe (C.CCode C.Lval)
--- substLkp (Context s _ _ _) n = lookup n s
 
-putMethodName :: Context -> String -> Context
+putMethodName :: Context -> (String, String) -> Context
 putMethodName c@(Context s next name table) m = Context s next m table
 
-getMethodName :: Context -> String
+getMethodName :: Context -> (String, String)
 getMethodName c@(Context s nxt m table) = m
--- >>>>>>> Fix finding method name from inside of its body
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable
