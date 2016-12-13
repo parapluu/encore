@@ -910,6 +910,17 @@ instance Checkable Expr where
                                      "a future or a stream" ty
            return $ setType (getResultType ty) get {val = eVal}
 
+    --  E |- val : Fut t
+    -- ------------------
+    --  E |- forward val : t
+    doTypecheck forward@(Forward {val}) =
+      do eVal <- typecheck val
+         let ty = AST.getType eVal
+         unless (isFutureType ty || isStreamType ty) $
+                 pushError eVal $ ExpectingOtherTypeError
+                                    "a future or a stream" ty
+         return $ setType (getResultType ty) forward {val = eVal}
+
     --  E |- val : t
     --  isStreaming(currentMethod)
     -- -----------------------------

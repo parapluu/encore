@@ -1,0 +1,16 @@
+-- TEST FORWARD SKIPS LATER CODE
+class Base
+  def one() : int
+    1806
+
+class Next
+  def two() : int {
+    forward (new Base).one();
+    42;
+    print "String 42";
+    24;
+  }
+
+class Main
+  def main() : void
+    print get (new Next).two()

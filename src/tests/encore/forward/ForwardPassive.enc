@@ -1,0 +1,12 @@
+-- TEST FORWARD IN PASSIVE - acts as GET
+class Base
+  def one() : int
+    1806
+
+passive class Next
+  def two() : int
+    forward (new Base).one()
+
+class Main
+  def main() : void
+    print (new Next).two()

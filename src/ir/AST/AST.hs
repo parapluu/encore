@@ -200,10 +200,21 @@ isShared = isSharedClassType . cname
 isPassive :: ClassDecl -> Bool
 isPassive = isPassiveClassType . cname
 
+isForward :: Expr -> Bool
+isForward Forward {} = True
+isForward _ = False
+
+isFunctionCall :: Expr -> Bool
+isFunctionCall FunctionCall{} = True
+isFunctionCall _ = False
+
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl =
     let ty = cname cdecl
     in getId ty == "Main" && isActiveClassType ty
+
+isStringClass :: ClassDecl -> Bool
+isStringClass cdecl = (== "String") . getId . cname $ cdecl
 
 
 instance HasMeta ClassDecl where
@@ -485,6 +496,8 @@ data Expr = Skip {emeta :: Meta Expr}
                    clauses :: [MatchClause]}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
+          | Forward {emeta :: Meta Expr,
+                     val :: Expr}
           | Yield {emeta :: Meta Expr,
                    val :: Expr}
           | Eos {emeta :: Meta Expr}

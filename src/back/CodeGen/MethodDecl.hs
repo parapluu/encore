@@ -10,6 +10,7 @@ import CodeGen.Closure
 import CodeGen.Task
 import CodeGen.ClassTable
 import CodeGen.Function(returnStatement)
+import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 
 import CCode.Main
@@ -32,19 +33,43 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
     let args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
                (stream, streamHandle) : zip argTypes argNames
+               ++ [(future, futVar)]
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
       Concat $ closures ++ tasks ++
                [Function void name args
                  (Seq [extractTypeVars, bodys, streamCloseStmt])]
+      | Util.isForwardMethod mdecl =
+    let returnType = translate mType
+        args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
+               (Ptr . AsType $ classTypeName cname, Var "_this") :
+               (if A.isMainMethod cname mName && null argNames
+                then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
+                else zip argTypes argNames ++ [(future, futVar)])
+        futureFulfilStmt = Statement $
+                              Call futureFulfil [
+                                  AsExpr encoreCtxVar,
+                                  AsExpr $ futVar,
+                                  asEncoreArgT (translate mType) $ AsExpr bodyn]
+        retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
+    in
+      Concat $ closures ++ tasks ++
+                -- Generate 1 forward method
+               (if (A.isPassive cdecl)
+                then []
+                else [Function void nameFwd args
+                        (Seq [extractTypeVars, bodysFwd])]) ++
+               [Function returnType name args
+                 (Seq [extractTypeVars, bodys, retStmt])]
       | otherwise =
     let returnType = translate mType
         args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
-               if A.isMainMethod cname mName && null argNames
-               then [(array, Var "_argv")]
-               else zip argTypes argNames
+               (if A.isMainMethod cname mName && null argNames
+                then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
+                else zip argTypes argNames ++ [(future, futVar)])
+        retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
     in
       Concat $ closures ++ tasks ++
                [Function returnType name args
@@ -53,7 +78,8 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
       mName = A.methodName mdecl
       mType = A.methodType mdecl
       typeVars = Ty.getTypeParameters cname
-      name = methodImplName cname (A.methodName mdecl)
+      name = methodImplName cname mName
+      nameFwd = methodImplForwardName cname mName
       (encArgNames, encArgTypes) =
           unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
       argNames = map (AsLval . argName) encArgNames
@@ -61,7 +87,12 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
       subst = [(ID.Name "this", Var "_this")] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx = Ctx.new subst table
+      key = if (A.isShared cdecl || A.isFunctionCall mbody)
+            then "nonForward"
+            else "forward"
+      ctx1 = Ctx.putMethodName (Ctx.new subst table) (show mName, key)
+      ((bodynFwd,bodysFwd),_) = runState (translate mbody) ctx1
+      ctx = Ctx.putMethodName ctx1 (show mName, "nonForward")
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       extractTypeVars = Seq $ map assignTypeVar typeVars
       assignTypeVar ty =

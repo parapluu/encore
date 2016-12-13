@@ -2,6 +2,7 @@ module CodeGen.ClassTable (
   ProgramTable,
   lookupMethod,
   lookupMethods,
+  lookupMethodDecl,
   lookupField,
   lookupCalledType,
   lookupFunction,
@@ -18,12 +19,13 @@ import Control.Arrow
 
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
+type MethodDeclTable = [(Name, MethodDecl)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
 type FunctionTable = [(QualifiedName, FunctionHeader)]
-type ProgramTable = (ClassTable, FunctionTable)
+type ProgramTable = (ClassTable, (FunctionTable, MethodDeclTable))
 
 buildProgramTable :: Program -> ProgramTable
-buildProgramTable = buildClassTable &&& buildFunctionTable
+buildProgramTable = buildClassTable &&& (buildFunctionTable &&& buildMethodDeclTable)
 
 buildClassTable :: Program -> ClassTable
 buildClassTable p = map getClassEntry (classes p) ++
@@ -42,6 +44,13 @@ buildClassTable p = map getClassEntry (classes p) ++
     getFieldEntry f     = (fname f, f)
     getReqMethodEntry r = (hname . rheader $ r, rheader r)
     getMethodEntry m    = (methodName m, mheader m)
+
+buildMethodDeclTable :: Program -> MethodDeclTable
+buildMethodDeclTable = getEntries
+  where
+    getEntries p = concat $ map getMethodDecl (classes p)
+    getMethodDecl Class{cmethods} = zip (getMethodNames cmethods) cmethods
+    getMethodNames m = map methodName m
 
 buildFunctionTable :: Program -> FunctionTable
 buildFunctionTable p = map (fname &&& funheader) (functions p)
@@ -74,10 +83,17 @@ lookupMethods cls (ctable, _) =
     let (_, ms) = lookupClassEntry cls ctable
     in map snd ms
 
+lookupMethodDecl :: Name -> ProgramTable -> [MethodDecl]
+lookupMethodDecl name (_, (_, mdecTable)) =
+  let mdecl = lookup name mdecTable
+  in  if isNothing mdecl
+      then []
+      else [fromJust mdecl]
+
 lookupFunction :: QualifiedName -> ProgramTable -> FunctionHeader
-lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, ftable) =
+lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, (ftable,_)) =
   let failure = error $ "ClassTable.hs: Function '" ++ show qname ++
-                       "' does not exist"
+                        "' does not exist"
       key = setSourceFile source $
             topLevelQName qnlocal
   in fromMaybe failure (lookup key ftable)
@@ -98,4 +114,4 @@ lookupCalledType ty m table@(ctable, _)
         fst . fromMaybe fail $ find (isJust . snd) results
 
 getGlobalFunctionNames :: ProgramTable -> [QualifiedName]
-getGlobalFunctionNames (_, ftable) = map fst ftable
+getGlobalFunctionNames (_, (ftable,_)) = map fst ftable

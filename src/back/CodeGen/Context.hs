@@ -13,9 +13,12 @@ module CodeGen.Context (
   genNamedSym,
   genSym,
   getGlobalFunctionNames,
+  getMethodName,
+  putMethodName,
   lookupFunction,
   lookupField,
   lookupMethod,
+  lookupMethodDecl,
   lookupCalledType,
 ) where
 
@@ -32,45 +35,61 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Tbl.ProgramTable
+type MethodName = (String, String)
+
+data Context = Context {
+  varSubTable :: VarSubTable,
+  nextSym :: NextSym,
+  methodName :: MethodName,
+  tblProgramTable :: Tbl.ProgramTable
+}
 
 programTable :: Context -> Tbl.ProgramTable
-programTable (Context _ _ table) = table
+programTable (Context _ _ _ table) = table
 
 new :: VarSubTable -> Tbl.ProgramTable -> Context
-new subs = Context subs 0
+new subs = Context subs 0 ("","")
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
   let (_, name') = fixPrimes name
   c <- get
   case c of
-    Context s n t ->
-        do put $ Context s (n+1) t
+    Context s n m t ->
+        do put $ Context s (n+1) m t
            return $ "_" ++ name' ++ "_" ++ show n
 
 genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt table) na lv = Context ((na,lv):s) nxt table
+substAdd c@(Context s nxt m table) na lv = Context ((na,lv):s) nxt m table
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt table) na = Context [] nxt table
-substRem (Context ((na, lv):s) nxt table) na'
-     | na == na'  = Context s nxt table
-     | na /= na'  = substAdd (substRem (Context s nxt table) na') na lv
+substRem (Context [] nxt m table) na = Context [] nxt m table
+substRem (Context ((na, lv):s) nxt m table) na'
+     | na == na'  = Context s nxt m table
+     | na /= na'  = substAdd (substRem (Context s nxt m table) na') na lv
 
 substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
-substLkp (Context s _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
-substLkp (Context s _ _) QName{qnspace = Just [], qnlocal} = lookup qnlocal s
+substLkp (Context s _ _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
+substLkp (Context s _ _ _) QName{qnspace = Just [], qnlocal} = lookup qnlocal s
 substLkp _ _ = Nothing
+
+putMethodName :: Context -> (String, String) -> Context
+putMethodName c@(Context s next name table) m = Context s next m table
+
+getMethodName :: Context -> (String, String)
+getMethodName c@(Context s nxt m table) = m
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable
 
 lookupMethod :: Type -> Name -> Context -> FunctionHeader
 lookupMethod ty m = Tbl.lookupMethod ty m . programTable
+
+lookupMethodDecl :: Name -> Context -> [MethodDecl]
+lookupMethodDecl m = Tbl.lookupMethodDecl m . programTable
 
 lookupCalledType :: Type -> Name -> Context -> Type
 lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable

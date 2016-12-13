@@ -25,6 +25,7 @@ import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
 import Data.List
+import Data.String.Utils
 import qualified Data.Set as Set
 import Data.Maybe
 import Debug.Trace
@@ -677,11 +678,29 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (ncond, tcond) <- translate cond
          (nthn, tthn) <- translate thn
          (nels, tels) <- translate els
+         (fname, key) <- gets $ Ctx.getMethodName
          let resultType = A.getType ite
+             futureFulfilStmt = Statement $
+                                   Call futureFulfil [
+                                       AsExpr encoreCtxVar,
+                                       AsExpr $ futVar,
+                                       asEncoreArgT (translate resultType) $ AsExpr $ Var tmp]
+             inForwardMethod = startswith key ("forward") && (A.isForward thn || A.isForward els)
+             thnStmt = Assign (Var tmp) (Cast (translate resultType) nthn)
+             elsStmt = Assign (Var tmp) (Cast (translate resultType) nels)
              exportThn = Seq $ tthn :
-                         [Assign (Var tmp) (Cast (translate resultType) nthn)]
+                         (if inForwardMethod then
+                              if A.isForward thn
+                              then  []
+                              else  [thnStmt, futureFulfilStmt, Return Skip]
+                          else [thnStmt]
+                         )
              exportEls = Seq $ tels :
-                         [Assign (Var tmp) (Cast (translate resultType) nels)]
+                         (if inForwardMethod then
+                              if A.isForward els
+                              then  []
+                              else  [elsStmt, futureFulfilStmt, Return Skip]
+                          else [elsStmt])
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
@@ -733,7 +752,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               let strcmpCall = Call (Nam "strcmp") [e1, e2]
               return $ BinOp (translate ID.EQ) strcmpCall (Int 0)
           | Ty.isStringObjectType ty = do
-              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [AsExpr encoreCtxVar, e1, e2]
+              return $ Call (methodImplName Ty.stringObjectType (ID.Name "equals")) [AsExpr encoreCtxVar, e1, e2, AsExpr $ nullVar]
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
@@ -923,6 +942,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate get of " ++ show val
 
+  translate forward@(A.Forward{A.val})
+    -- TODO: add stream forward
+    | Ty.isFutureType $ A.getType val =
+        do (nval, tval) <- translate val
+           let  resultType = translate (Ty.getResultType $ A.getType val)
+                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
+           tmp <- Ctx.genSym
+           (fname, key) <- gets $ Ctx.getMethodName
+           if (startswith key ("forward")) then
+              return (unit, Seq [tval, Return Skip])
+           else
+              return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+    | otherwise = error $ "Cannot translate forward of " ++ show val
+
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym
@@ -1102,7 +1135,6 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
   (argNames, initArgs) <- unzip <$> mapM translate args
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
-
   return (ret, Seq $ initArgs ++ [call])
   where
     typ = A.getType fcall
@@ -1113,7 +1145,7 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.
 
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
           prototype = Call (globalFunctionName qname)
-                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
+                           (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs' ++ [AsExpr $ nullVar])
       rPrototype <- unwrapReturnType prototype
       (callVar, call) <- namedTmpVar "global_f" typ rPrototype
       return (callVar, Seq [tmpTypeDecl, call])
@@ -1167,16 +1199,23 @@ callTheMethodForName
   genCMethodName targetName targetType methodName args resultType = do
   (args', initArgs) <- fmap unzip $ mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
+  (mName,_) <- gets $ Ctx.getMethodName
+  methodDecl <- gets $ Ctx.lookupMethodDecl $ ID.Name mName
   return (initArgs,
-      Call cMethodName $
+        Call cMethodName $
         map AsExpr [encoreCtxVar, targetName] ++
         doCast (map A.ptype (A.hparams header)) args'
+        ++ if ((not $ null mName) && (checkForward methodDecl))
+           then [AsExpr $ futVar]
+           else [AsExpr $ nullVar]
     )
   where
     cMethodName = genCMethodName targetType methodName
     actualArgTypes = map A.getType args
     doCast expectedArgTypes args =
       zipWith3 castArguments expectedArgTypes args actualArgTypes
+    checkForward mdecl = if null mdecl then False
+                         else Util.isForwardMethod $ head mdecl
 
 passiveMethodCall :: CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Ty.Type
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
@@ -1192,10 +1231,12 @@ passiveMethodCall targetName targetType name args resultType = do
               AsExpr $ fromEncoreArgT (translate resultType)
                                       (Call (methodImplName targetType name)
                                       (AsExpr encoreCtxVar :
-                                       AsExpr targetName : castedArguments))
+                                       AsExpr targetName : castedArguments
+                                       ++ [AsExpr $ futVar]))
           else
               Call (methodImplName targetType name)
-                   (AsExpr encoreCtxVar : AsExpr targetName : castedArguments)
+                   (AsExpr encoreCtxVar : AsExpr targetName : castedArguments
+                   ++ [AsExpr $ futVar])
   return (argDecls, theCall)
 
 castArguments :: Ty.Type -> CCode Lval -> Ty.Type -> CCode Expr

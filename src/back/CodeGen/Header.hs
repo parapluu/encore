@@ -218,7 +218,7 @@ generateHeader p =
                | A.isStreamMethod m =
                    let params = (Ptr (Ptr encoreCtxT)) :
                                 (Ptr . AsType $ classTypeName cname) : stream :
-                                map (translate . A.ptype) mparams
+                                map (translate . A.ptype) mparams ++ [future]
                    in
                      FunctionDecl void (methodImplName cname mname) params
                | otherwise =
@@ -228,7 +228,8 @@ generateHeader p =
                                      map (translate . A.ptype) mparams
                    in
                      FunctionDecl (translate mtype) (methodImplName cname mname)
-                                  (Ptr (Ptr encoreCtxT):params)
+                                  (Ptr (Ptr encoreCtxT):params
+                                  ++ [future])
                where
                  mname = A.methodName m
                  mparams = A.methodParams m
@@ -238,6 +239,7 @@ generateHeader p =
        if Ty.isPassiveClassType $ cname then
          []
        else
+         map (genericMethod methodImplForwardName void) nonStreamMethods ++
          map (genericMethod methodImplFutureName future) nonStreamMethods ++
          map (genericMethod methodImplOneWayName void) nonStreamMethods ++
          map (genericMethod methodImplStreamName stream) streamMethods
@@ -247,6 +249,7 @@ generateHeader p =
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
              args = Ptr (Ptr encoreCtxT) : thisType : rest
+                    ++ [future]
              f = genMethodName cname (A.methodName m)
            in
              FunctionDecl retType f args

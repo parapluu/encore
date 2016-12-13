@@ -1,0 +1,13 @@
+-- TEST FORWARD TO PRE-EXISTING FUTURE
+class Base
+  def one() : int
+    1806
+
+class Next
+  def two() : int
+    let x = (new Base).one() in
+    forward x
+
+class Main
+  def main() : void
+    print get (new Next).two()

@@ -204,6 +204,7 @@ ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
 ppExpr Get {val} = "get" <+> ppExpr val
 ppExpr Yield {val} = "yield" <+> ppExpr val
+ppExpr Forward {val} = "forward" <+> ppExpr val
 ppExpr Eos {} = "eos"
 ppExpr Await {val} = "await" <+> ppExpr val
 ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty

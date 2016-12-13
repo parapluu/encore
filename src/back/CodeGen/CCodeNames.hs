@@ -174,6 +174,10 @@ methodImplFutureName :: Ty.Type -> ID.Name -> CCode Name
 methodImplFutureName clazz mname =
   Nam $ methodImplFutureNameStr clazz mname
 
+methodImplForwardName :: Ty.Type -> ID.Name -> CCode Name
+methodImplForwardName clazz mname =
+  Nam $ methodImplNameStr clazz mname ++ "_async"
+
 methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
 methodImplOneWayName clazz mname =
   Nam $ methodImplOneWayNameStr clazz mname
@@ -416,6 +420,9 @@ futureTraceFn = Nam "future_trace"
 futureFulfil :: CCode Name
 futureFulfil = Nam "future_fulfil"
 
+futureFulfilled :: CCode Name
+futureFulfilled = Nam "future_fulfilled"
+
 futureAwait :: CCode Name
 futureAwait = Nam "future_await"
 
@@ -526,6 +533,9 @@ nullName = Nam "NULL"
 
 nullVar :: CCode Lval
 nullVar = Var "NULL"
+
+futVar :: CCode Lval
+futVar = Var "_fut"
 
 arrayGet :: CCode Name
 arrayGet = Nam "array_get"

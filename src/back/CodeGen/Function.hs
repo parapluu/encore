@@ -29,12 +29,12 @@ globalFunction fun = createHeader
       Function (translate funType) funName
                    ((Ptr (Ptr encoreCtxT), encoreCtxVar):
                    encoreRuntimeTypeParam :
-                   (zip argTypes argNames)) body
+                   (zip argTypes argNames) ++ [(future, futVar)]) body
 
     createHeader Nothing  =
       FunctionDecl (translate funType) funName
                   (Ptr (Ptr encoreCtxT): encoreRuntimeTypeT :
-                   argTypes)
+                   argTypes ++ [future])
 
     funParams = A.functionParams fun
     funType   = A.functionType fun
@@ -76,7 +76,7 @@ globalFunctionWrapperDecl f =
 -- TODO: different header from shared!
 globalFunctionWrapper :: A.Function -> CCode Toplevel
 globalFunctionWrapper f =
-  let argList = encoreCtxVar : encoreRuntimeType : extractArgs
+  let argList = encoreCtxVar : encoreRuntimeType : extractArgs ++ [AsLval $ Nam "NULL"]
   in
     Function
       (Typ "value_t")
@@ -104,27 +104,31 @@ globalFunctionWrapper f =
 instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
   -- | Translates a global function into the corresponding C-function
   translate fun@(A.Function {A.funbody}) table =
-      let funParams = A.functionParams fun
-          funTypeParams = A.functionTypeParams fun
-          funType   = A.functionType fun
-          encArgNames = map A.pname funParams
-          argNames  = map (AsLval . argName) encArgNames
-          paramTypesDecl = curry Decl
-                           <$> [Ptr ponyTypeT]
-                           <*> map (AsLval . typeVarRefName) funTypeParams
-          assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
-          runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
-          typeParamSubst = map (\t -> (ID.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
-          ctx       = Ctx.new (zip encArgNames argNames ++ typeParamSubst) table
-          ((bodyName, bodyStat), _) = runState (translate funbody) ctx
-          closures = map (\clos -> translateClosure clos funTypeParams table)
-                         (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas table) $
-                      reverse $ Util.filter A.isTask funbody
-          bodyResult = (Seq $ runtimeTypeAssignments ++
-                             [bodyStat, returnStatement funType bodyName])
-      in
-        Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
+    let funParams = A.functionParams fun
+        funTypeParams = A.functionTypeParams fun
+        funType   = A.functionType fun
+        encArgNames = map A.pname funParams
+        argNames  = map (AsLval . argName) encArgNames
+        paramTypesDecl = curry Decl
+                         <$> [Ptr ponyTypeT]
+                         <*> map (AsLval . typeVarRefName) funTypeParams
+        assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
+        runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
+        typeParamSubst = map (\t -> (ID.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
+        subst = zip encArgNames argNames ++ typeParamSubst
+        funName = A.functionName fun
+        ctx  =  if A.isForward funbody
+                then Ctx.putMethodName (Ctx.new subst table) (show funName, "global-function")
+                else Ctx.new subst table
+        ((bodyName, bodyStat), _) = runState (translate funbody) ctx
+        closures = map (\clos -> translateClosure clos funTypeParams table)
+                       (reverse (Util.filter A.isClosure funbody))
+        tasks = map (\tas -> translateTask tas table) $
+                    reverse $ Util.filter A.isTask funbody
+        bodyResult = (Seq $ runtimeTypeAssignments ++
+                           [bodyStat, returnStatement funType bodyName])
+    in
+      Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
 
 returnStatement ty var
     | isVoidType ty = Return $ AsExpr unit

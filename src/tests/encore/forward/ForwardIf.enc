@@ -1,0 +1,24 @@
+-- TEST FORWARD IN IF STATEMENT
+class Base
+  def one() : int
+    1806
+
+class Next
+  def two(b : bool) : int
+    if b then
+      forward (new Base).one()
+    else
+      10
+  def three(b : bool) : int
+    if b then
+      10
+    else
+      forward (new Base).one()
+
+class Main
+  def main() : void {
+    print get (new Next).two(true);
+    print get (new Next).two(false);
+    print get (new Next).three(true);
+    print get (new Next).three(false);
+  }

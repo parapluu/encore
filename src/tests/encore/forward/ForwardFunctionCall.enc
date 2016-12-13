@@ -1,0 +1,11 @@
+-- TEST FORWARD IN FUNCTION (synchronous call)
+def cl(x : int) : int
+  forward (new Base).one(x)
+
+class Base
+  def one(x : int) : int
+    x + 1806
+
+class Main
+  def main() : void
+    print cl(0)
