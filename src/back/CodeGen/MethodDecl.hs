@@ -47,23 +47,12 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
                (if A.isMainMethod cname mName && null argNames
                 then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
                 else zip argTypes argNames ++ [(future, futVar)])
-        -- argsFwd = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
-        --           (Ptr . AsType $ classTypeName cname, Var "_this") :
-        --           (if A.isMainMethod cname mName && null argNames
-        --             then [(array, Var "_argv")] ++ [(future, Var "_fut_unused")]
-        --             else zip argTypes argNames ++ [(future, futVar)])
-        -- futureFulfilStmt = Statement $ If (CUnary (translate ID.NOT)
-        --                                   (Call futureFulfilled [AsExpr $ futVar]))
-        --                                   (Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr $ futVar, asEncoreArgT (translate mType) $ AsExpr bodyn])
-        --                                   Skip
         futureFulfilStmt = Statement $
                               Call futureFulfil [
                                   AsExpr encoreCtxVar,
                                   AsExpr $ futVar,
                                   asEncoreArgT (translate mType) $ AsExpr bodyn]
-        -- retStmtFwd = [futureFulfilStmt, Return Skip]
         retStmt = Return $ if Ty.isVoidType mType then unit else bodyn
-        -- retStmtFwd = Seq [Return Skip]
     in
       Concat $ closures ++ tasks ++
                 -- Generate 1 forward method
@@ -98,9 +87,12 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> CCode Topleve
       subst = [(ID.Name "this", Var "_this")] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx1 = Ctx.putMethodName (Ctx.new subst table) (show mName, "forward")--show nameFwd)
+      key = if (A.isShared cdecl || A.isFunctionCall mbody)
+            then "nonForward"
+            else "forward"
+      ctx1 = Ctx.putMethodName (Ctx.new subst table) (show mName, key)
       ((bodynFwd,bodysFwd),_) = runState (translate mbody) ctx1
-      ctx = Ctx.putMethodName (Ctx.new subst table) (show mName, "nonForward")--show nameFwd)
+      ctx = Ctx.putMethodName ctx1 (show mName, "nonForward")
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       extractTypeVars = Seq $ map assignTypeVar typeVars
       assignTypeVar ty =

@@ -557,18 +557,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             (ntarget, ttarget) <- translate target
             (initArgs, resultExpr) <-
               methodCall ntarget targetTy name args retTy
-            -- (fname, key) <- gets $ Ctx.getMethodName
-            -- unsubstituteVar $ ID.Name fname
-            -- if startswith key ("Forward") then
-            --   return (Var result,
-            --     Seq $
-            --       ttarget :
-            --       targetNullCheck ntarget target name emeta "." :
-            --       initArgs
-            --       -- ++
-            --       -- [Statement resultExpr]
-            --     )
-            -- else
             return (Var result,
               Seq $
                 ttarget :
@@ -698,21 +686,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                        AsExpr $ futVar,
                                        asEncoreArgT (translate resultType) $ AsExpr $ Var tmp]
              inForwardMethod = startswith key ("forward") && (A.isForward thn || A.isForward els)
+             thnStmt = Assign (Var tmp) (Cast (translate resultType) nthn)
+             elsStmt = Assign (Var tmp) (Cast (translate resultType) nels)
              exportThn = Seq $ tthn :
                          (if inForwardMethod then
-                            if A.isForward thn then []
-                            else [Assign (Var tmp) (Cast (translate resultType) nthn), futureFulfilStmt, Return Skip]
-                          else [Assign (Var tmp) (Cast (translate resultType) nthn)]
+                              if A.isForward thn
+                              then  []
+                              else  [thnStmt, futureFulfilStmt, Return Skip]
+                          else [thnStmt]
                          )
              exportEls = Seq $ tels :
                          (if inForwardMethod then
-                            if A.isForward els then []
-                            else [Assign (Var tmp) (Cast (translate resultType) nels), futureFulfilStmt, Return Skip]
-                          else [Assign (Var tmp) (Cast (translate resultType) nels)])
-                        --    ++
-                        --  (if (startswith key ("forward")) && usedForward then [futureFulfilStmt, Return Skip]
-                        --   else []
-                        --  )
+                              if A.isForward els
+                              then  []
+                              else  [elsStmt, futureFulfilStmt, Return Skip]
+                          else [elsStmt])
          return (Var tmp,
                  Seq [AsExpr $ Decl (translate (A.getType ite), Var tmp),
                       If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
@@ -963,7 +951,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            tmp <- Ctx.genSym
            (fname, key) <- gets $ Ctx.getMethodName
            if (startswith key ("forward")) then
-              return (unit, Seq [tval, Return Skip])--(AsExpr $ Var key)])
+              return (unit, Seq [tval, Return Skip])
            else
               return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate forward of " ++ show val
@@ -1212,12 +1200,12 @@ callTheMethodForName
   (args', initArgs) <- fmap unzip $ mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
   (mName,_) <- gets $ Ctx.getMethodName
-  methodDecl <- gets $ Ctx.lookupMethodDecl (ID.Name mName)
+  methodDecl <- gets $ Ctx.lookupMethodDecl $ ID.Name mName
   return (initArgs,
         Call cMethodName $
         map AsExpr [encoreCtxVar, targetName] ++
         doCast (map A.ptype (A.hparams header)) args'
-        ++ if ((length mName)>0 && Util.isForwardMethod methodDecl)
+        ++ if ((not $ null mName) && (checkForward methodDecl))
            then [AsExpr $ futVar]
            else [AsExpr $ nullVar]
     )
@@ -1226,6 +1214,8 @@ callTheMethodForName
     actualArgTypes = map A.getType args
     doCast expectedArgTypes args =
       zipWith3 castArguments expectedArgTypes args actualArgTypes
+    checkForward mdecl = if null mdecl then False
+                         else Util.isForwardMethod $ head mdecl
 
 passiveMethodCall :: CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Ty.Type
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)

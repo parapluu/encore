@@ -88,7 +88,7 @@ lookupField ty f = Tbl.lookupField ty f . programTable
 lookupMethod :: Type -> Name -> Context -> FunctionHeader
 lookupMethod ty m = Tbl.lookupMethod ty m . programTable
 
-lookupMethodDecl :: Name -> Context -> MethodDecl
+lookupMethodDecl :: Name -> Context -> [MethodDecl]
 lookupMethodDecl m = Tbl.lookupMethodDecl m . programTable
 
 lookupCalledType :: Type -> Name -> Context -> Type

@@ -180,10 +180,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                    Call (methodImplForwardName cname mName)
                         (encoreCtxVar : Var "_this" :
                           (map (AsLval . argName . A.pname) mParams) ++
-                          (--if (A.isStringClass cdecl)
-                          --  then []
-                          --  else
-                           if A.isPassive cdecl
+                          (if A.isPassive cdecl
                            then [nullVar]
                            else [futVar]))
              mName   = A.methodName mdecl
@@ -468,7 +465,6 @@ translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     [tracefunDecl cdecl] ++
     [constructorImpl Passive cname] ++
     methodImpls ++
-    -- [dispatchfunDecl] ++
     [runtimePassiveTypeDecl cname]
   where
     methodImpls = map methodDecl cmethods

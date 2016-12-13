@@ -83,12 +83,12 @@ lookupMethods cls (ctable, _) =
     let (_, ms) = lookupClassEntry cls ctable
     in map snd ms
 
-lookupMethodDecl :: Name -> ProgramTable -> MethodDecl
+lookupMethodDecl :: Name -> ProgramTable -> [MethodDecl]
 lookupMethodDecl name (_, (_, mdecTable)) =
-  let failure = error $ "ClassTable.hs: Function '" ++ show name ++
-                        "' does not exist"
-  in fromMaybe failure (lookup name mdecTable)
-
+  let mdecl = lookup name mdecTable
+  in  if isNothing mdecl
+      then []
+      else [fromJust mdecl]
 
 lookupFunction :: QualifiedName -> ProgramTable -> FunctionHeader
 lookupFunction qname@QName{qnsource = Just source, qnlocal} (_, (ftable,_)) =
