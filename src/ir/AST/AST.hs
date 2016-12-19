@@ -397,6 +397,7 @@ isValField = (MVal `elem`) . fmods
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
+  pmut  :: Mutability,
   pname :: Name,
   ptype :: Type
 } deriving (Show, Eq)

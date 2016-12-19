@@ -63,7 +63,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
           Header{kind, htypeparams, hname, htype, hparams}
 
         makeParam pos pname ptype =
-          Param{pmeta = Meta.meta pos, pname, ptype}
+          Param{pmeta = Meta.meta pos, pmut = Val, pname, ptype}
 
         makeClause pattern mchandler mcguard =
           let pos = if null pattern

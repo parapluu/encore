@@ -519,11 +519,15 @@ fieldDecl = do fmeta <- meta <$> getPosition
                            ,ftype}
 
 paramDecl :: Parser ParamDecl
-paramDecl = do pos <- getPosition
-               x <- identifier
-               colon
-               ty <- typ
-               return $ Param (meta pos) (Name x) ty
+paramDecl = do
+  pmeta <- meta <$> getPosition
+  pmut <- option Val $
+              (reserved "var" >> return Var)
+          <|> (reserved "val" >> return Val)
+  pname <- Name <$> identifier
+  colon
+  ptype <- typ
+  return Param{pmeta, pmut, pname, ptype}
 
 patternParamDecl :: Parser (Expr, Type)
 patternParamDecl = do

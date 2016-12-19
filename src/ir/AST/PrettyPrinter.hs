@@ -102,7 +102,10 @@ ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl = text . show
 
 ppParamDecl :: ParamDecl -> Doc
-ppParamDecl (Param {pname, ptype}) =  ppName pname <+> ":" <+> ppType ptype
+ppParamDecl (Param {pmut = Val, pname, ptype}) =
+    ppName pname <+> ":" <+> ppType ptype
+ppParamDecl (Param {pmut = Var, pname, ptype}) =
+    "var" <+> ppName pname <+> ":" <+> ppType ptype
 
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
