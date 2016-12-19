@@ -165,17 +165,17 @@ meetRequiredFields cFields trait = do
         unless (cFieldType == expected) $
             tcError $ RequiredFieldMismatchError cField expected trait isSub
 
-noOverlapFields :: Type -> TypecheckM ()
-noOverlapFields capability =
+noOverlapFields :: Type -> Maybe TraitComposition -> TypecheckM ()
+noOverlapFields cname composition =
   let
-    conjunctiveTraits = conjunctiveTypesFromCapability capability
+    conjunctiveTraits = conjunctiveTypesFromComposition composition
   in
-    mapM_ checkPair conjunctiveTraits
+    mapM_ (checkPair cname) conjunctiveTraits
   where
-    checkPair :: ([Type], [Type]) -> TypecheckM ()
-    checkPair (left, right) = do
-      leftPairs <- mapM pairTypeFields left
-      rightPairs <- mapM pairTypeFields right
+    checkPair :: Type -> ([ExtendedTrait], [ExtendedTrait]) -> TypecheckM ()
+    checkPair cname (left, right) = do
+      leftPairs  <- mapM (pairTypeFields cname) left
+      rightPairs <- mapM (pairTypeFields cname) right
       mapM_ conjunctiveVarErr (concatMap (commonVarFields rightPairs) leftPairs)
 
     findTypeHasField :: [(Type, [FieldDecl])] -> FieldDecl -> Type
@@ -206,36 +206,34 @@ noOverlapFields capability =
     notVal :: FieldDecl -> Bool
     notVal = not . isValField
 
-    pairTypeFields :: Type -> TypecheckM (Type, [FieldDecl])
-    pairTypeFields t = do
-      trait <- findTrait t
-      return (t, requiredFields trait)
+    pairTypeFields ::
+      Type -> ExtendedTrait -> TypecheckM (Type, [FieldDecl])
+    pairTypeFields cname (t, ext) = do
+      abstractDecl <- abstractTraitFrom cname (t, ext)
+      return (t, requiredFields abstractDecl)
 
-ensureNoMethodConflict :: [MethodDecl] -> [TraitDecl] -> TypecheckM ()
-ensureNoMethodConflict methods tdecls =
-  let allMethods = methods ++ concatMap tmethods tdecls
-      unique = nub allMethods
-      diff = allMethods \\ unique
-      dup = head diff
+ensureNoMethodConflict :: [MethodDecl] -> [Type] -> TypecheckM ()
+ensureNoMethodConflict methods traits = do
+  tdecls <- mapM findTrait traits
+  let traitMethods = concatMap tmethods tdecls
+      duplicates = traitMethods \\ nub traitMethods
+      nonOverridden = duplicates \\ methods
+      dup = head nonOverridden
       overlappingTraits = filter ((dup `elem`) . tmethods) tdecls
-  in
-  unless (null diff) $
-         if dup `elem` methods then
-             tcError $ OverriddenMethodError
-                         (methodName dup)
-                         (tname $ head overlappingTraits)
-         else
-             tcError $ IncludedMethodConflictError
-                         (methodName dup)
-                         (tname (head overlappingTraits))
-                         (tname (overlappingTraits !! 1))
+  unless (null nonOverridden) $
+         tcError $ IncludedMethodConflictError
+                     (methodName dup)
+                     (tname (head overlappingTraits))
+                     (tname (overlappingTraits !! 1))
 
-ensureMatchingTraitFootprint :: [Type] -> Type -> TypecheckM ()
-ensureMatchingTraitFootprint traits trait = do
-  tdecl <- findTrait trait
-  let otherTraits = traits \\ [trait]
-  tdecls <- mapM findTrait otherTraits
-  mapM_ (checkMatchingFootprint tdecl) tdecls
+ensureMatchingTraitFootprint ::
+  Type -> [ExtendedTrait] -> ExtendedTrait ->
+  TypecheckM ()
+ensureMatchingTraitFootprint cname extTraits extTrait = do
+  abstractDecl <- abstractTraitFrom cname extTrait
+  let otherTraits = extTraits \\ [extTrait]
+  abstractDecls <- mapM (abstractTraitFrom cname) otherTraits
+  mapM_ (checkMatchingFootprint abstractDecl) abstractDecls
   where
     checkMatchingFootprint requirer provider = do
       let reqFields = requiredFields requirer
@@ -297,24 +295,72 @@ meetRequiredMethods cMethods traits = do
                 actualParamTypes == expectedParamTypes) &&) $
               actualType `subtypeOf` expectedType
 
+checkOverriding ::
+  Type -> [Type] -> [MethodDecl] -> [ExtendedTrait] -> TypecheckM ()
+checkOverriding cname typeParameters methods extendedTraits = do
+  abstractDecls <- mapM (abstractTraitFrom cname) extendedTraits
+  let overridden = concatMap (pairMethod methods) abstractDecls
+  mapM_ (checkOverride typeParameters) overridden
+  where
+    pairMethod :: [MethodDecl] -> TraitDecl ->
+                  [(TraitDecl, FunctionHeader, MethodDecl)]
+    pairMethod methods abstractDecl =
+      mapMaybe (matchHeader abstractDecl) methods
+      where
+      matchHeader abstractDecl method =
+        let headers = traitInterface abstractDecl in
+        case find ((== methodName method) . hname) headers of
+          Just required -> Just (abstractDecl, required, method)
+          Nothing -> Nothing
+
+    checkOverride typeParameters (abstractDecl, required, method) = do
+      let expectedParamTypes = map ptype $ hparams required
+          expectedType = htype required
+          expectedMethodType = arrowType expectedParamTypes expectedType
+          actualParamTypes = map ptype $ methodParams method
+          actualType = methodType method
+          actualMethodType = arrowType actualParamTypes actualType
+          requirer = tname abstractDecl
+      unlessM (actualMethodType `subtypeOf` expectedMethodType) $
+             pushError method $
+               OverriddenMethodTypeError
+                 (methodName method) expectedMethodType requirer
+      typecheckWithTrait `catchError`
+                          \(TCError e bt) ->
+                             throwError $
+                               TCError (OverriddenMethodError
+                                        (methodName method) requirer e) bt
+
+      where
+        addAbstractTrait = withAbstractTrait abstractDecl
+        addTypeParams = addTypeParameters typeParameters
+        extendedThisType = abstractTraitFromTraitType (tname abstractDecl)
+        addThis = extendEnvironment [(thisName, extendedThisType)]
+        typecheckWithTrait =
+          local (addAbstractTrait . addTypeParams . addThis) $
+                typecheck method
 instance Checkable ClassDecl where
   -- TODO: Update this rule!
   --  E, this : cname |- method1 .. E, this : cname |- methodm
   -- -----------------------------------------------------------
   --  E |- class cname fields methods
-  doTypecheck c@(Class {cname, cfields, cmethods, ccapability}) = do
-    let traits = typesFromCapability ccapability
-    unless (isPassiveClassType cname || null traits) $
+  doTypecheck c@(Class {cname, cfields, cmethods, ccomposition}) = do
+    unless (isPassiveClassType cname || isNothing ccomposition) $
            tcError TraitsInActiveClassError
+    emethods <- mapM typecheckMethod cmethods
+    let traits = typesFromTraitComposition ccomposition
+        extendedTraits = extendedTraitsFromComposition ccomposition
+
     mapM_ (meetRequiredFields cfields) traits
     meetRequiredMethods cmethods traits
-    mapM_ (ensureMatchingTraitFootprint traits) traits
-    noOverlapFields ccapability
-    -- TODO: Add namespace for trait methods
-    tdecls <- mapM findTrait traits
-    ensureNoMethodConflict cmethods tdecls
+    ensureNoMethodConflict cmethods traits
 
-    emethods <- mapM typecheckMethod cmethods
+    mapM_ (ensureMatchingTraitFootprint cname extendedTraits) extendedTraits
+    noOverlapFields cname ccomposition
+
+    checkOverriding cname typeParameters cmethods extendedTraits
+    -- TODO: Add namespace for trait methods
+
     return c{cmethods = emethods}
     where
       typeParameters = getTypeParameters cname
@@ -849,7 +895,7 @@ instance Checkable Expr where
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
-          return $ setType extractedType pattern {args = [eArg]}
+          return $ setType argty pattern {args = [eArg]}
 
         doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args

@@ -1,0 +1,1 @@
+Overridden method 'foo' writes field 'f' which is marked as immutable in requiring trait 'T'

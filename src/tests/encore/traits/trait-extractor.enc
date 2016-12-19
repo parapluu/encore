@@ -3,7 +3,7 @@ trait Result<b>
   def Fail() : Maybe int
     Nothing
 
-passive class Success<b> : Result<b>
+passive class Success<b> : Result<b>(data)
   data : b
   def init(data : b) : void
     this.data = data

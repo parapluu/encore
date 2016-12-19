@@ -1,0 +1,1 @@
+Overridden method 'foo' requires access to field 'f' which is not in requiring trait 'S'.

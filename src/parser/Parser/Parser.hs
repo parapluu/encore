@@ -15,6 +15,7 @@ import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Control.Applicative ((<$>))
+import Control.Arrow ((&&&))
 
 -- Module dependencies
 import Identifiers hiding(namespace)
@@ -426,19 +427,51 @@ traitDecl = do
       methods <- many methodDecl
       return (reqs, methods)
     reqField = do
-      rmeta <- meta <$> getPosition
       reserved "require"
       rfield <- fieldDecl
-      return RequiredField{rmeta
-                          ,rfield
-                          }
+      return RequiredField{rfield}
     reqMethod = do
-      rmeta <- meta <$> getPosition
       reserved "require"
       rheader <- functionHeader
-      return RequiredMethod{rmeta
-                           ,rheader
-                           }
+      return RequiredMethod{rheader}
+
+traitComposition :: Parser TraitComposition
+traitComposition = buildExpressionParser opTable includedTrait
+    where
+      opTable = [
+                 [compositionOp "*" Conjunction],
+                 [compositionOp "+" Disjunction]
+                ]
+      compositionOp op constructor =
+          Infix (do reservedOp op
+                    return constructor) AssocLeft
+
+      includedTrait =
+            trait
+        <|> parens traitComposition
+        <?> "trait-inclusion"
+      trait = do
+        notFollowedBy lower
+        full <- namespace
+        let ns = init full
+            refId = show $ last full
+        parameters <- option [] $ angles (commaSep1 typ)
+        tcext <- option [] $ parens (commaSep1 extension)
+        let tcname = if null ns
+                     then traitTypeFromRefType $
+                          refTypeWithParams refId parameters
+                     else setRefNamespace ns $
+                          traitTypeFromRefType $
+                          refTypeWithParams refId parameters
+        return TraitLeaf{tcname, tcext}
+        where
+          extension = do
+            name <- Name <$> identifier
+
+            methodExtension name <|> return (FieldExtension name)
+          methodExtension name = do
+            reservedOp "()"
+            return $ MethodExtension name
 
 classDecl :: Parser ClassDecl
 classDecl = do
@@ -447,12 +480,12 @@ classDecl = do
   reserved "class"
   name <- lookAhead upper >> identifier
   params <- optionalTypeParameters
-  ccapability <- option incapability (do{reservedOp ":"; typ})
+  ccomposition <- optionMaybe (do{reservedOp ":"; traitComposition})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
               ,cname = setRefNamespace [] $
                        classType activity name params
-              ,ccapability
+              ,ccomposition
               ,cfields
               ,cmethods
               }

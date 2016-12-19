@@ -31,7 +31,6 @@ data BacktraceNode = BTFunction Name Type
                    | BTParam ParamDecl
                    | BTField FieldDecl
                    | BTMethod MethodDecl
-                   | BTRequirement Requirement
                    | BTExpr Expr
                    | BTTypedef Type
                    | BTModule Name
@@ -52,13 +51,6 @@ instance Show BacktraceNode where
                  | otherwise = "method"
       in
         concat ["In ", method, " '", show name, "' of type '", show ty, "'"]
-  show (BTRequirement req)
-      | isRequiredField req =
-          concat ["In required field '", show . ppFieldDecl . rfield $ req, "'"]
-      | isRequiredMethod req =
-          concat ["In required method '"
-                 ,show . ppFunctionHeader . rheader $ req
-                 , "'"]
   show (BTExpr expr)
     | (isNothing . getSugared) expr = ""
     | otherwise =
@@ -109,9 +101,6 @@ instance Pushable ParamDecl where
 instance Pushable MethodDecl where
     push m = pushMeta m (BTMethod m)
 
-instance Pushable Requirement where
-    push m = pushMeta m (BTRequirement m)
-
 instance Pushable Expr where
     push expr = pushMeta expr (BTExpr expr)
 
@@ -161,7 +150,8 @@ data Error =
   | CovarianceViolationError FieldDecl Type Type
   | RequiredFieldMismatchError FieldDecl Type Type Bool
   | NonDisjointConjunctionError Type Type FieldDecl
-  | OverriddenMethodError Name Type
+  | OverriddenMethodTypeError Name Type Type
+  | OverriddenMethodError Name Type Error
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
   | MissingMainClass
@@ -274,9 +264,41 @@ instance Show Error where
         printf
           "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
            (show left) (show right) (show field)
-    show (OverriddenMethodError name trait) =
-        printf "Method '%s' is defined both in current class and %s"
-               (show name) (refTypeName trait)
+    show (OverriddenMethodTypeError name expected trait) =
+        printf ("Overridden method '%s' does not " ++
+                "have the expected type '%s' required by %s")
+               (show name) (show expected) (refTypeName trait)
+    show (OverriddenMethodError name trait err) =
+        case err of
+          FieldNotFoundError f _ ->
+            printf ("Overridden method '%s' requires access to field '%s' " ++
+                    "which is not in requiring %s.\n" ++
+                    "Consider extending the trait on inclusion: %s(%s)")
+                   (show name) (show f) (refTypeName trait) (show trait) (show f)
+          MethodNotFoundError m _ ->
+            printf ("Overridden method '%s' calls method '%s' " ++
+                    "which is not in requiring %s.\n" ++
+                    "Consider extending the trait on inclusion: %s(%s())")
+                   (show name) (show m) (refTypeName trait) (show trait) (show m)
+          TypeMismatchError actual expected ->
+            if actual == abstractTraitFromTraitType trait
+            then printf ("Overridden method '%s' uses 'this' as %s " ++
+                         "and cannot be typechecked in requiring %s")
+                        (show name) (show expected) (refTypeName trait)
+            else defaultMessage
+          ValFieldAssignmentError f targetType ->
+            if targetType == abstractTraitFromTraitType trait
+            then printf ("Overridden method '%s' writes field '%s' " ++
+                         "which is marked as immutable in requiring %s.")
+                         (show name) (show f) (refTypeName trait)
+            else defaultMessage
+          err -> defaultMessage
+        where
+          defaultMessage =
+            printf ("Overridden method '%s' cannot be typechecked in " ++
+                    "requiring %s:\n%s")
+                   (show name) (refTypeName trait) (show err)
+
     show (IncludedMethodConflictError name left right) =
         printf "Conflicting inclusion of method '%s' from %s and %s"
                (show name) (refTypeName left) (refTypeName right)
