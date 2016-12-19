@@ -14,7 +14,7 @@ import Data.Maybe
 import Data.Tuple
 import Control.Applicative ((<|>), (<$>))
 import Control.Monad
-import Control.Arrow(first, second)
+import Control.Arrow(first, second, (***), (&&&))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Text.Printf (printf)
@@ -511,8 +511,11 @@ extendEnvironmentImmutable = extendEnvironment' Val
 -- | Convenience function for extending the environment with a
 -- list of parameter declarations
 addParams :: [ParamDecl] -> Environment -> Environment
-addParams = extendEnvironmentImmutable .
-            map (\(Param {pname, ptype}) -> (pname, ptype))
+addParams params = extendEnvironmentImmutable vals .
+                   extendEnvironment vars
+    where
+      (vals, vars) = map (pname &&& ptype) *** map (pname &&& ptype) $
+                         partition ((== Val) . pmut) params
 
 makeImmutable :: [Name] -> Environment -> Environment
 makeImmutable names env@Env{locals} =

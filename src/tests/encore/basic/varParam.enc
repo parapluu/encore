@@ -1,0 +1,11 @@
+def countdown(var cnt : int) : void {
+  while (cnt > 0) {
+    println("{}...", cnt);
+    cnt = cnt - 1;
+  };
+  print "Boom!"
+}
+
+class Main
+  def main(val args : [String]) : void
+    countdown(5)
