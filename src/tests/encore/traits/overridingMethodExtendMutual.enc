@@ -1,0 +1,16 @@
+trait T
+  require f : int
+  require foo() : void
+
+trait S
+  def bar() : void
+    print "I compile and run!"
+
+passive class Foo : T(bar()) + S
+  val f : int
+  def foo() : void
+    this.bar()
+
+class Main
+  def main() : void
+    (new Foo).foo()

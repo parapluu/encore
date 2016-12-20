@@ -364,6 +364,20 @@ translateCompositionNamespace table (Just tc) =
       Just tcright' = translateCompositionNamespace table (Just $ tcright tc)
   in Just tc{tcleft = tcleft', tcright = tcright'}
 
+-- | The inversion of 'capabilityFromTraitComposition'. All trait
+-- compositions are without extensions.
+traitCompositionFromCapability :: Type -> TraitComposition
+traitCompositionFromCapability cap
+  | isConjunctiveType cap =
+      let (left, right) = getTypeOperands cap
+      in Conjunction{tcleft = traitCompositionFromCapability left
+                    ,tcright = traitCompositionFromCapability right}
+  | isDisjunctiveType cap =
+      let (left, right) = getTypeOperands cap
+      in Disjunction{tcleft = traitCompositionFromCapability left
+                    ,tcright = traitCompositionFromCapability right}
+  | otherwise = TraitLeaf{tcname = cap, tcext = []}
+
 data Modifier = MVal
                 deriving(Eq)
 

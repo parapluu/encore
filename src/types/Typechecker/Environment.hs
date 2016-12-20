@@ -560,3 +560,13 @@ withAbstractTrait tdecl env@Env{abstractTraitTable} =
     let key = getId (tname tdecl)
         abstractTraitTable' = Map.insert key tdecl abstractTraitTable
     in env{abstractTraitTable = abstractTraitTable'}
+
+setTraitComposition :: Type -> Type -> Environment -> Environment
+setTraitComposition c cap env@Env{defaultNamespace, lookupTables} =
+  let table@LookupTable{classTable} = lookupTables Map.! defaultNamespace
+      key = getId c
+      cls = classTable Map.! key
+      cls' = cls{ccomposition = Just $ traitCompositionFromCapability cap}
+      table' = table{classTable = Map.insert key cls' classTable}
+      lookupTables' = Map.insert defaultNamespace table' lookupTables
+   in env{lookupTables = lookupTables'}
