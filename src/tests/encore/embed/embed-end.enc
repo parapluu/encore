@@ -1,0 +1,11 @@
+class Main
+  def main() : void {
+    val x =
+      embed int
+        int bend = 12;
+        int ender = 14;
+        int bender = 16;
+        bend + ender + bender;
+      end;
+    print x;
+  }

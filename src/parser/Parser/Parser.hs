@@ -755,7 +755,7 @@ expr  =  embed
                   first <- anyChar
                   rest <- manyTill anyChar (try $ lookAhead (end <|> encoreEscapeStart))
                   return (first:rest)
-                end = whiteSpace >> reserved "end" >> return "end"
+                end = space >> reserved "end" >> return "end"
 
       path = do pos <- getPosition
                 root <- tupled <|>
