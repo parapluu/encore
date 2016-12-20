@@ -1,0 +1,10 @@
+trait T
+  require f : int
+  require foo() : void
+
+passive class Foo : T(bad())
+  val f : int
+  def bar() : void
+    ()
+  def foo() : void
+    this.bar()

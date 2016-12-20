@@ -223,12 +223,14 @@ instance Precheckable ClassDecl where
       assertDistinctness
       cname' <- local addTypeParams $ resolveType cname
       let capability = capabilityFromTraitComposition ccomposition
-      local addTypeParams $
-            resolveType capability
+      capability' <- local addTypeParams $
+                           resolveType capability
       ccomposition' <- case ccomposition of
                          Just composition -> do
-                           composition' <- local (addTypeParams . addThis cname') $
-                                                 doPrecheck composition
+                           composition' <-
+                             local (addTypeParams . addThis cname' .
+                                    setTraitComposition cname' capability') $
+                                   doPrecheck composition
                            return $ Just composition'
                          Nothing -> return Nothing
 
