@@ -16,6 +16,7 @@ import CodeGen.ClassTable
 import CodeGen.Type
 import CodeGen.Trace
 import CodeGen.GC
+import CodeGen.DTrace
 
 import CCode.Main
 import CCode.PrettyCCode ()
@@ -67,7 +68,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
      ([(Ptr (Ptr encoreCtxT), encoreCtxVar),
        (Ptr ponyActorT, Var "_a"),
        (Ptr ponyMsgT, Var "_m")])
-     (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
+     (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, thisVar))
                   (Cast (Ptr . AsType $ classTypeName cname) (Var "_a")),
            Seq $ map assignTypeVar classTypeVars,
            (Switch (Var "_m" `Arrow` Nam "id")
@@ -83,7 +84,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        classTypeVars = Ty.getTypeParameters cname
        assignTypeVar t =
             Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName t))
-                   (Arrow (Nam "_this") (typeVarRefName t))
+                   (Arrow thisName (typeVarRefName t))
        ponyMainClause =
            (Nam "_ENC__MSG_MAIN",
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
@@ -167,7 +168,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
                                   (encoreCtxVar :
-                                   Var "_this" :
+                                   thisVar :
                                    nullVar :
                                    Var "_fut" :
                                    map (AsLval . argName . A.pname) mParams)
@@ -178,7 +179,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                          AsExpr $ Var "_fut",
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
-                               (encoreCtxVar : Var "_this" :
+                               (encoreCtxVar : thisVar :
                                 pMethodArrName :
                                 map (AsLval . argName . A.pname) mParams))]
              mName   = A.methodName mdecl
@@ -199,7 +200,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              methodCall =
                  Statement $
                    Call (methodImplName cname mName)
-                        (encoreCtxVar : Var "_this" : pMethodArrName :
+                        (encoreCtxVar : thisVar : pMethodArrName :
                            map (AsLval . argName . A.pname) mParams)
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
@@ -237,15 +238,14 @@ constructorImpl act cname =
     fBody = Seq $
       assignThis :
       decorateThis act ++
-      [ret this]
+      [ret thisVar]
   in
     Function retType fName args fBody
   where
     classType = AsType $ classTypeName cname
     thisType = Ptr classType
     cast = Cast thisType
-    this = Var "this"
-    declThis = Decl (thisType, this)
+    declThis = Decl (thisType, thisVar)
     runtimeType = Amp $ runtimeTypeName cname
     create = createCall act
     assignThis = Assign declThis $ cast create
@@ -260,7 +260,7 @@ constructorImpl act cname =
       Call encoreAllocName [AsExpr $ Deref encoreCtxVar, Sizeof classType]
 
     decorateThis :: Activity -> [CCode Stat]
-    decorateThis Passive = [Assign (this `Arrow` selfTypeField) runtimeType]
+    decorateThis Passive = [Assign (thisVar `Arrow` selfTypeField) runtimeType]
     decorateThis _ = []
 
 translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
@@ -327,16 +327,16 @@ traitMethodSelector table A.Class{A.cname, A.ccomposition} =
 runtimeTypeInitFunDecl :: A.ClassDecl -> CCode Toplevel
 runtimeTypeInitFunDecl A.Class{A.cname, A.cfields, A.cmethods} =
     Function void (runtimeTypeInitFnName cname)
-                 [(Ptr . AsType $ classTypeName cname, Var "this"), (Embed "...", Embed "")]
+                 [(Ptr . AsType $ classTypeName cname, thisVar), (Embed "...", Embed "")]
                    (Seq $
                     (Statement $ Decl (Typ "va_list", Var "params")) :
-                    (Statement $ Call (Nam "va_start") [Var "params", Var "this"]) :
+                    (Statement $ Call (Nam "va_start") [Var "params", thisVar]) :
                     map initRuntimeType typeParams ++
                     [Statement $ Call (Nam "va_end") [Var "params"]])
         where
           typeParams = Ty.getTypeParameters cname
           initRuntimeType ty =
-              Assign (Var "this" `Arrow` typeVarRefName ty)
+              Assign (thisVar `Arrow` typeVarRefName ty)
                      (Call (Nam "va_arg") [Var "params", Var "pony_type_t *"])
 
 tracefunDecl :: A.ClassDecl -> CCode Toplevel
@@ -353,7 +353,7 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                    (Ptr void, Var "p")]
                    (Seq $
                     (Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg)):
-                    (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
+                    (Assign (Decl (Ptr . AsType $ classTypeName cname, thisVar))
                             (Var "p")) :
                      runtimeTypeAssignment ++
                      map traceField cfields)
@@ -363,12 +363,12 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
       extractTypeVariable t =
          if Ty.isTypeVar t then
             Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName t))
-                   (Arrow (Nam "_this") (typeVarRefName t))
-         else error $ "Expected type variable but found concrete type"
+                   (Arrow thisName (typeVarRefName t))
+         else error "Expected type variable but found concrete type"
       typeParams = Ty.getTypeParameters cname
       traceField A.Field {A.ftype, A.fname} =
         let var = Var . show $ fieldName fname
-            field = Var "_this" `Arrow` fieldName fname
+            field = thisVar `Arrow` fieldName fname
             fieldAssign = Assign (Decl (translate ftype, var)) field
         in Seq [fieldAssign, traceVariable ftype var]
 
