@@ -13,6 +13,7 @@ module AST.Util(
     , freeVariables
     , freeTypeVars
     , mapProgramClass
+    , exprTypeMap
     ) where
 
 import qualified Data.List as List
@@ -22,6 +23,35 @@ import Prelude hiding (foldr, filter)
 import AST.AST
 import Types
 import Identifiers
+
+-- | @getTypeChildren e@ returns all types that are part of @e@
+-- _syntactically_ (i.e. part of the AST node of @e@)
+getTypeChildren :: Expr -> [Type]
+getTypeChildren NewWithInit{ty} = [ty]
+getTypeChildren ArrayNew{ty} = [ty]
+getTypeChildren TypedExpr{ty} = [ty]
+getTypeChildren Embed{ty} = [ty]
+getTypeChildren FunctionCall{typeArguments = Just args} = args
+getTypeChildren FunctionAsValue{typeArgs} = typeArgs
+getTypeChildren e = []
+
+
+-- | @putTypeChildren tys e@ sets the syntactic types of @e@ to
+-- @tys@. The expected invariant is that @putTypeChildren
+-- (getTypeChildren e) e = e@
+putTypeChildren :: [Type] -> Expr -> Expr
+putTypeChildren [ty] e@NewWithInit{} = e{ty}
+putTypeChildren [ty] e@ArrayNew{} = e{ty}
+putTypeChildren [ty] e@TypedExpr{} = e{ty}
+putTypeChildren [ty] e@Embed{} = e{ty}
+putTypeChildren args e@FunctionCall{typeArguments = Just _} =
+  e{typeArguments = Just args}
+putTypeChildren typeArgs e@FunctionAsValue{} = e{typeArgs}
+putTypeChildren [] e = e
+putTypeChildren l e =
+  error $ "Util.hs: Trying to give " ++ show (length l) ++
+          " types to expression without syntactic types: " ++
+          show e
 
 -- | @getChildren e@ returns all children of @e@ that are Exprs themselves
 getChildren :: Expr -> [Expr]
@@ -227,7 +257,13 @@ putChildren _ e@(Embed {}) = error "'putChildren l Embed' expects l to have 0 el
 putChildren _ e@(Unary {}) = error "'putChildren l Unary' expects l to have 1 element"
 putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 elements"
 
---------------- The functions below this line depend only on the two above --------------------
+--------------- The functions below this line depend only on the ones above --------------------
+
+exprTypeMap :: (Type -> Type) -> Expr -> Expr
+exprTypeMap f e =
+    let tys = getTypeChildren e
+        tys' = map f tys
+    in putTypeChildren tys' e
 
 foldrExp :: (Expr -> a -> a) -> a -> Expr -> a
 foldrExp f l e =
