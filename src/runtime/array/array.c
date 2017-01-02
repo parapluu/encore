@@ -78,7 +78,7 @@ array_t *array_get_chunk(pony_ctx_t **ctx, size_t start, size_t end, array_t* a)
   size_t total_size = array_size(arr);
 
   // size of the new chunk
-  size_t local_size = end - start + 1;
+  size_t local_size = end - start - 1;
 
   if((start < total_size) && ((end - 1) <= total_size)){
     array_t* new_array = array_mk(ctx, local_size, arr->type);

@@ -183,9 +183,15 @@ par_t* new_par_f(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype)
 
 par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
                  pony_type_t const * const rtype){
-  par_t* p = init_par(ctx, PAR_PAR, rtype);
-  set_par_par(p1, p2, p);
-  return p;
+  if (p1->tag == EMPTY_PAR) {
+    return p2;
+  } else if (p2->tag == EMPTY_PAR) {
+    return p1;
+  } else {
+    par_t* p = init_par(ctx, PAR_PAR, rtype);
+    set_par_par(p1, p2, p);
+    return p;
+  }
 }
 
 par_t* new_par_fp(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
