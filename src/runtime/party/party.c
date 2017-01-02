@@ -456,6 +456,21 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
 }
 
 
+static inline size_t batch_size_from_array(array_t * const ar){
+  size_t size = array_size(ar);
+  return (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
+}
+
+static inline array_t* const chunk_from_array(size_t i,
+                                              size_t batch_size,
+                                              array_t *ar){
+    size_t arr_size = array_size(ar);
+    size_t start = i * SPLIT_THRESHOLD;
+    size_t end = (i+1 == batch_size) ? arr_size+1 : (i+1) * SPLIT_THRESHOLD;
+    pony_ctx_t* ctx = encore_ctx();
+    return (array_t* const) array_get_chunk(&ctx, start, end, ar);
+}
+
 // TODO: Fix tasks. Tasks were removed from the language
 /* #ifdef PARTY_ARRAY_PARALLEL */
 /* typedef struct env_par { */
@@ -469,18 +484,12 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
 /* #endif */
 
 par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
-  size_t start, end;
   par_t* root = NULL;
-
-  size_t size = array_size(ar);
   pony_type_t* type = array_get_type(ar);
-  size_t groups = (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
+  size_t batch_size = batch_size_from_array(ar);
 
-  for(size_t i=0; i<groups; i++){
-    start = i * SPLIT_THRESHOLD;
-    end = (i+1 == groups) ? size+1 : (i+1) * SPLIT_THRESHOLD;
-
-    array_t* const chunk = array_get_chunk(ctx, start, end, ar);
+  for(size_t i=0; i<batch_size; i++){
+    array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
     // TODO: Fix tasks. Tasks were removed from the language
 /* #ifdef PARTY_ARRAY_PARALLEL */

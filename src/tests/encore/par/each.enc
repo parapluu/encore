@@ -1,3 +1,10 @@
+def presetArray(size: int): [int]
+  let arr = new [int](size)
+  in {
+    for i in [0..size-1] arr[i] = i;
+    arr;
+  }
+
 
 class Main
   check_arr: [bool]
@@ -9,15 +16,18 @@ class Main
     for v in [0..this.size] this.check_arr[v] = false;
   }
 
+  def test_setting_array(): void
+    let arr = presetArray(this.size) in
+    each(arr) >> (\(i: int) -> { this.check_arr[i] = true; i; } )
+              >> \(i: int) -> assertTrue(this.check_arr[i])
+
+  def test_split_words_and_print(): void {
+    let words = (new String("this is a test")).split(" ")
+    in (each(words)) >> (\(w: String) -> print("Word: {}\n", w))
+  }
+
   def main(): void {
     this.setup();
-    let rng = [0..this.size-1]
-        arr = new [int](this.size)
-        size = this.size
-    in {
-        for i in rng arr[i] = i;
-
-        each(arr) >> (\(i: int) -> { this.check_arr[i] = true; i; } )
-                  >> \(i: int) -> assertTrue(this.check_arr[i])
-        };
+    this.test_setting_array();
+    this.test_split_words_and_print();
   }
