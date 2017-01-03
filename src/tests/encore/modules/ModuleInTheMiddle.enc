@@ -4,5 +4,5 @@ import ModuleOnTheRight
 class Main
   def main() : void {
     val x = getToken();
-    recieveToken(x);
+    receiveToken(x);
   }

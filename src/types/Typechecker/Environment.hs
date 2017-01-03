@@ -92,7 +92,7 @@ data Environment = Env {
 }
 
 emptyEnv = Env {
-  defaultNamespace = explicitNamespace [],
+  defaultNamespace = emptyNamespace,
   lookupTables = Map.empty,
   namespaceTable = Map.empty,
   abstractTraitTable = Map.empty,
@@ -111,12 +111,14 @@ buildEnvironment tables Program{source, imports, moduledecl} =
       defaultTable = tables Map.! source
       defaultAssoc =
         (defaultNamespace, defaultTable{selectiveExports = Nothing})
-      assocs = filter ((/= source) . fst) $ Map.assocs tables
-      assocList = defaultAssoc : concatMap (performImport imports) assocs
+      nonLocalLookupTables = filter ((/= source) . fst) $ Map.assocs tables
+      importedLookupTables =
+        defaultAssoc :
+        concatMap (performImport imports) nonLocalLookupTables
       lookupTables =
-        Map.fromList assocList
+        Map.fromList importedLookupTables
       namespaceTable =
-        Map.fromList (map (first sourceFile . swap) assocList)
+        Map.fromList $ map (first sourceFile . swap) importedLookupTables
   in
   Env {
      defaultNamespace
@@ -165,18 +167,15 @@ buildEnvironment tables Program{source, imports, moduledecl} =
             selectiveImport ::
               Maybe [Name] -> Maybe [Name] -> Map String a -> Map String a
             selectiveImport select hiding =
-              Map.filterWithKey (importCond select hiding)
+              Map.filterWithKey (\k _ -> importCond select hiding (Name k))
 
             selectiveImport' ::
               Maybe [Name] -> Maybe [Name] -> Map Name a -> Map Name a
             selectiveImport' select hiding =
-              Map.filterWithKey (importCond' select hiding)
+              Map.filterWithKey (\k _ -> importCond select hiding k)
 
-            importCond :: Maybe [Name] -> Maybe [Name] -> String -> a -> Bool
-            importCond select hiding k = importCond' select hiding (Name k)
-
-            importCond' :: Maybe [Name] -> Maybe [Name] -> Name -> a -> Bool
-            importCond' select hiding k _ =
+            importCond :: Maybe [Name] -> Maybe [Name] -> Name -> Bool
+            importCond select hiding k =
               let selectCond = maybe True (k `elem`) select
                   hidingCond = maybe True (k `notElem`) hiding
               in selectCond && hidingCond
@@ -327,6 +326,15 @@ fromSameSource :: Map Namespace LookupTable -> (Namespace, a) -> (Namespace, a)
 fromSameSource tables (ns1, _) (ns2, _) =
   sourceFile (tables Map.! ns1) == sourceFile (tables Map.! ns2)
 
+extractTables :: (LookupTable -> Map a b) -> Map Namespace LookupTable ->
+                 [(Namespace, Map a b)]
+extractTables extractMap =
+  map (second extractMap) .
+  filter (not . isQualified . snd) .
+  filter (isExplicitNamespace . fst) .
+  Map.assocs
+
+
 traitLookup :: Type -> Environment -> Maybe [TraitDecl]
 traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
     | isAbstractTraitType t = do
@@ -341,14 +349,11 @@ traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
             table <- Map.lookup key lookupTables
             let results = maybeToList $
                           Map.lookup (getId t) $
-                          filteredTraitTable table
+                          filterTraitTable table
             return $ map (setNamespace key) results
           Nothing -> do
-            let tables = map (second filteredTraitTable) $
-                         filter (not . isQualified . snd) $
-                         filter (isExplicitNamespace . fst) $
-                         Map.assocs lookupTables
-                results = map (second (Map.lookup $ getId t)) tables
+            let traitTables = extractTables filterTraitTable lookupTables
+                results = map (second (Map.lookup $ getId t)) traitTables
                 hits = nubBy (fromSameSource lookupTables) $
                        map (second fromJust) $
                        filter (isJust . snd) results
@@ -358,13 +363,13 @@ traitLookup t Env{defaultNamespace, lookupTables, abstractTraitTable}
       ++ "' which is not a reference type"
     where
       setNamespace ns t@Trait{tname} = t{tname = setRefNamespace ns tname}
-      filteredTraitTable LookupTable{traitTable
-                                    ,selectiveExports = Nothing
-                                    } =
+      filterTraitTable LookupTable{traitTable
+                                  ,selectiveExports = Nothing
+                                  } =
         traitTable
-      filteredTraitTable LookupTable{traitTable
-                                    ,selectiveExports = Just names
-                                    } =
+      filterTraitTable LookupTable{traitTable
+                                  ,selectiveExports = Just names
+                                  } =
         Map.filterWithKey (\t _ -> Name t `elem` names) traitTable
 
 abstractTraitLookup :: Type -> Environment -> Maybe TraitDecl
@@ -384,14 +389,11 @@ classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
             table <- Map.lookup key lookupTables
             let results = maybeToList $
                           Map.lookup (getId cls) $
-                          filteredClassTable table
+                          filterClassTable table
             return $ map (setNamespace key) results
           Nothing -> do
-            let tables = map (second filteredClassTable) $
-                         filter (not . isQualified . snd) $
-                         filter (isExplicitNamespace . fst) $
-                         Map.assocs lookupTables
-                results = map (second (Map.lookup $ getId cls)) tables
+            let classTables = extractTables filterClassTable lookupTables
+                results = map (second (Map.lookup $ getId cls)) classTables
                 hits = nubBy (fromSameSource lookupTables) $
                        map (second fromJust) $
                        filter (isJust . snd) results
@@ -403,13 +405,13 @@ classLookup cls Env{defaultNamespace, lookupTables, namespaceTable}
       setNamespace ns c@Class{cname, ccomposition} =
           c{cname = setRefNamespace ns cname
            ,ccomposition = translateCompositionNamespace namespaceTable ccomposition}
-      filteredClassTable LookupTable{classTable
-                                    ,selectiveExports = Nothing
-                                    } =
+      filterClassTable LookupTable{classTable
+                                  ,selectiveExports = Nothing
+                                  } =
         classTable
-      filteredClassTable LookupTable{classTable
-                                    ,selectiveExports = Just names
-                                    } =
+      filterClassTable LookupTable{classTable
+                                  ,selectiveExports = Just names
+                                  } =
         Map.filterWithKey (\c _ -> Name c `elem` names) classTable
 
 typeSynonymLookup :: Type -> Environment -> Maybe [Typedef]
@@ -423,14 +425,12 @@ typeSynonymLookup t Env{defaultNamespace, lookupTables, namespaceTable}
             table <- Map.lookup key lookupTables
             let results = maybeToList $
                           Map.lookup (getId t) $
-                          filteredTypeSynonymTable table
+                          filterTypeSynonymTable table
             return $ map (setNamespace key) results
           Nothing -> do
-            let tables = map (second filteredTypeSynonymTable) $
-                         filter (not . isQualified . snd) $
-                         filter (isExplicitNamespace . fst) $
-                         Map.assocs lookupTables
-                results = map (second (Map.lookup $ getId t)) tables
+            let typeSynonymTables =
+                  extractTables filterTypeSynonymTable lookupTables
+                results = map (second (Map.lookup $ getId t)) typeSynonymTables
                 hits = nubBy (fromSameSource lookupTables) $
                        map (second fromJust) $
                        filter (isJust . snd) results
@@ -441,13 +441,13 @@ typeSynonymLookup t Env{defaultNamespace, lookupTables, namespaceTable}
     where
       setNamespace ns t@Typedef{typedefdef} =
           t{typedefdef = translateTypeNamespace namespaceTable typedefdef}
-      filteredTypeSynonymTable LookupTable{typeSynonymTable
-                                          ,selectiveExports = Nothing
-                                          } =
+      filterTypeSynonymTable LookupTable{typeSynonymTable
+                                        ,selectiveExports = Nothing
+                                        } =
         typeSynonymTable
-      filteredTypeSynonymTable LookupTable{typeSynonymTable
-                                          ,selectiveExports = Just names
-                                          } =
+      filterTypeSynonymTable LookupTable{typeSynonymTable
+                                        ,selectiveExports = Just names
+                                        } =
         Map.filterWithKey (\s _ -> Name s `elem` names) typeSynonymTable
 
 refTypeLookup :: Type -> Environment -> Maybe [Type]
@@ -484,11 +484,8 @@ varLookup qname@QName{qnspace, qnlocal = x}
       return [(qname, ty)]
 
     globalSearch =
-      let tables = map (second filterFunctionTable) $
-                   filter (not . isQualified . snd) $
-                   filter (isExplicitNamespace . fst) $
-                   Map.assocs lookupTables
-          results = map (second (Map.lookup x)) tables
+      let functionTables = extractTables filterFunctionTable lookupTables
+          results = map (second (Map.lookup x)) functionTables
           hits = nubBy (fromSameSource lookupTables) $
                  map (second fromJust) $
                  filter (isJust . snd) results

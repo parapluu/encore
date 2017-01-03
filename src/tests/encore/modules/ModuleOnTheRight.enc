@@ -2,5 +2,5 @@ module ModuleOnTheRight
 
 import TokenModule
 
-def recieveToken(x : Token) : void
+def receiveToken(x : Token) : void
   x.foo()
