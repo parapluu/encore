@@ -244,7 +244,9 @@ translateTypeNamespace table = typeMap translate
             let source = getRefSourceFile ty
             in case Map.lookup source table of
                  Just ns -> setRefNamespace ns ty
-                 Nothing -> ty
+                 Nothing ->
+                   error $ "Types.hs: Type '" ++ show ty ++
+                           "' has unknown source '" ++ show source ++ "'"
         | otherwise = ty
 
 maybeGetId Unresolved{refInfo} = Just $ refId refInfo
