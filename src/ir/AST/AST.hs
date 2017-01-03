@@ -421,6 +421,7 @@ data MethodDecl =
 
 methodName = hname . mheader
 methodParams = hparams . mheader
+methodTypeParams = htypeparams . mheader
 methodType = htype . mheader
 
 isStreamMethod Method{mheader} = isStreamMethodHeader mheader
@@ -500,6 +501,7 @@ data Expr = Skip {emeta :: Meta Expr}
                        body :: Expr,
                        ty   :: Type}
           | MethodCall {emeta :: Meta Expr,
+                        typeArguments :: Maybe [Type],
                         target :: Expr,
                         name :: Name,
                         args :: Arguments}

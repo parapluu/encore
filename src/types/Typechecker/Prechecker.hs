@@ -133,11 +133,18 @@ instance Precheckable FunctionHeader where
       let htypeparams' = htypeparams header
       htype' <- local (addTypeParameters htypeparams') $ resolveType (htype header)
       hparams' <- local (addTypeParameters htypeparams') $ mapM precheck (hparams header)
+      classTypeParams <- getClassTypeParams
       assertDistinctThing "declaration" "type parameter" htypeparams'
       assertDistinctThing "definition" "parameter" $ map pname hparams'
+      assertDistinctThing "declaration" "method type parameter" (htypeparams' ++ classTypeParams)
       return $ header{htype = htype',
                       hparams = hparams',
                       htypeparams= htypeparams'}
+      where
+        getClassTypeParams = do
+          environment <- ask
+          return $ typeParameters environment
+
 
 instance Precheckable Function where
     doPrecheck f@Function{funheader} = do

@@ -827,9 +827,9 @@ expr  =  embed
 
                buildPath pos target (VarAccess{qname}) =
                    FieldAccess (meta pos) target (qnlocal qname)
-               -- TODO: Pass type arguments to parametric method
-               buildPath pos target (FunctionCall{qname, args}) =
-                   MethodCall (meta pos) target (qnlocal qname) args
+
+               buildPath pos target (FunctionCall{qname, args, typeArguments}) =
+                   MethodCall (meta pos) typeArguments target (qnlocal qname) args
 
       letExpression = do pos <- getPosition
                          reserved "let"

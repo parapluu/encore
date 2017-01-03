@@ -130,12 +130,25 @@ generateHeader p =
                       ponyMsgTImpl :: A.MethodDecl -> CCode Toplevel
                       ponyMsgTImpl mdecl =
                           let argrttys = map (translate . A.getType) (A.methodParams mdecl)
-                              argnamesWComments = zipWith (\n name -> (Annotated (show name) (Var ("f"++show n)))) ([1..]:: [Int]) (map A.pname $ A.methodParams mdecl)
-                              argspecs = zip argrttys argnamesWComments :: [CVarSpec]
+                              argspecs = zip argrttys (argnamesWComments mdecl):: [CVarSpec]
+                              argspecs' = argspecs ++ argMethodTypeParamsSpecs mdecl
                               encoreMsgTSpec = (encMsgT, Var "")
                               encoreMsgTSpecOneway = (encOnewayMsgT, Var "msg")
-                          in Concat [StructDecl (AsType $ futMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpec : argspecs)
-                                    ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpecOneway : argspecs)]
+                          in Concat [StructDecl (AsType $ futMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpec : argspecs')
+                                    ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpecOneway : argspecs')]
+                      argnamesWComments mdecl =
+                          zipWith (\n name -> (Annotated (show name) (Var ("f"++show n))))
+                                  ([1..]:: [Int])
+                                  (map A.pname $ A.methodParams mdecl)
+                      argMethodTypeParamsSpecs mdecl =
+                          zip (argMethodTypeParamsTypes mdecl)
+                              (argMethodTypeParamsWComments mdecl)
+                      argMethodTypeParamsTypes mdecl =
+                          let l = length (A.methodTypeParams mdecl)
+                          in replicate l (Ptr ponyTypeT)
+                      argMethodTypeParamsWComments mdecl =
+                          map (\name -> (Annotated (show name) (Var (show name))))
+                            $ map typeVarRefName (A.methodTypeParams mdecl)
 
      globalFunctions =
        [globalFunctionDecl f | f <- functions] ++
@@ -212,19 +225,23 @@ generateHeader p =
            in
              DeclTL (Extern ponyTypeT, AsLval runtimeTy)
 
+     encoreRuntimeTypeParam = Ptr (Ptr ponyTypeT)
      methodFwds cdecl@(A.Class{A.cname, A.cmethods}) = map methodFwd cmethods
          where
            methodFwd m
                | A.isStreamMethod m =
                    let params = (Ptr (Ptr encoreCtxT)) :
-                                (Ptr . AsType $ classTypeName cname) : stream :
+                                (Ptr . AsType $ classTypeName cname) :
+                                encoreRuntimeTypeParam : stream :
                                 map (translate . A.ptype) mparams
                    in
                      FunctionDecl void (methodImplName cname mname) params
                | otherwise =
                    let params = if A.isMainClass cdecl && mname == ID.Name "main"
-                                then [Ptr . AsType $ classTypeName cname, array]
+                                then [Ptr . AsType $ classTypeName cname,
+                                      encoreRuntimeTypeParam, array]
                                 else (Ptr . AsType $ classTypeName cname) :
+                                     encoreRuntimeTypeParam :
                                      map (translate . A.ptype) mparams
                    in
                      FunctionDecl (translate mtype) (methodImplName cname mname)
@@ -246,7 +263,7 @@ generateHeader p =
            let
              thisType = Ptr . AsType $ classTypeName cname
              rest = map (translate . A.ptype) (A.methodParams m)
-             args = Ptr (Ptr encoreCtxT) : thisType : rest
+             args = Ptr (Ptr encoreCtxT) : thisType : encoreRuntimeTypeParam : rest
              f = genMethodName cname (A.methodName m)
            in
              FunctionDecl retType f args

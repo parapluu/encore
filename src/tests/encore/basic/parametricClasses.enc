@@ -1,5 +1,13 @@
 def id<a>(x: a): a x
 
+class Test
+  def test<d>(x: d, y: int): d {
+    this.test2<int>(y);
+    x;
+  }
+
+  def test2<d>(x: d): d { x }
+
 class Cell<a>
   value : a
   def init(value : a) : void
@@ -7,6 +15,9 @@ class Cell<a>
 
   def getVal() : a
     this.value
+
+  def getVal2() : void
+    new Cell<a>(this.value)
 
   def clone(value : a): void
     new Cell<a>(value)
@@ -30,13 +41,24 @@ class Pair<a, b>
     id(3);
   }
 
+  def getCustom<d, g>(z: a, x: d, y: g): Maybe d {
+    id(x);
+    this.liftJust<d>(x)
+  }
+
+  def liftJust<d>(x: d): Maybe d { Just x; }
+
 class Main
   def main() : void{
     let p = new Pair<int, String>(42, "fortytwo")
         c = new Cell<Pair<int, String>>(p)
         pp = get c.getVal()
+        d = p.getCustom<int, String>(23, 5, "")
     in {
       print get pp.getFst();
       print get pp.getSnd();
+      match (get d) with
+        Just x => print x
+        Nothing => print "Error"
     };
   }

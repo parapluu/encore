@@ -36,32 +36,37 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplev
                             methodImplStream mdecl cdecl table
     in pipelineFn []
 
+encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
+
+initialiseMethodDecl cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                              (Ptr . AsType $ classTypeName cname, Var "_this"),
+                              encoreRuntimeTypeParam]
+
 translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
-      | A.isStreamMethod mdecl =
-    let args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
-               (Ptr . AsType $ classTypeName cname, Var "_this") :
+  | A.isStreamMethod mdecl =
+    let args = initialiseMethodDecl cname ++
                (stream, streamHandle) : zip argTypes argNames
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
       code ++ (return $ Concat $ closures ++ tasks ++
                [Function void name args
-                 (Seq [extractTypeVars, bodys, streamCloseStmt])])
-      | otherwise =
+                 (Seq [parametricMethodTypeVars, extractTypeVars,
+                       bodys, streamCloseStmt])])
+  | otherwise =
     let returnType = translate mType
-        args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
-               (Ptr . AsType $ classTypeName cname, Var "_this") :
+        args = initialiseMethodDecl cname ++
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
     in
       code ++ (return $ Concat $ closures ++ tasks ++
                [Function returnType name args
-                 (Seq [extractTypeVars, bodys, returnStatement mType bodyn])])
-    where
+                 (Seq [parametricMethodTypeVars, extractTypeVars,
+                       bodys, returnStatement mType bodyn])])
+  where
       mName = A.methodName mdecl
       mType = A.methodType mdecl
-      typeVars = Ty.getTypeParameters cname
       name = methodImplName cname (A.methodName mdecl)
       (encArgNames, encArgTypes) =
           unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
@@ -72,7 +77,15 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
         zip encArgNames argNames
       ctx = Ctx.new subst table
       ((bodyn,bodys),_) = runState (translate mbody) ctx
+      mTypeVars = A.methodTypeParams mdecl
+      typeVars = Ty.getTypeParameters cname
       extractTypeVars = Seq $ map assignTypeVar typeVars
+      parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
+      assignTypeVarMethod ty i =
+        let fName = typeVarRefName ty
+        in Assign (Decl (Ptr ponyTypeT, AsLval fName))
+                  (ArrAcc i encoreRuntimeType)
+
       assignTypeVar ty =
         let fName = typeVarRefName ty
         in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
@@ -85,15 +98,15 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
       tasks = map (\tas -> translateTask tas table) $
                   reverse $ Util.filter A.isTask mbody
 
-
 methodImplWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
         fName = methodImplFutureName cname mName
-        args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+        args = initialiseMethodDecl cname ++ zip argTypes argNames
         fBody = Seq $
-           runtimeTypeAssignment mType :
+           parametricMethodTypeVars :
+           map assignTypeVar (Ty.getTypeParameters cname) ++
            assignFut :
            Gc.ponyGcSendFuture argPairs ++
            msg ++ [retStmt]
@@ -103,32 +116,41 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) code
     thisName = "_this"
     mName = A.methodName m
     mParams = A.methodParams m
+    mTypeParams = A.methodTypeParams m
     mType = A.methodType m
-    runtimeTypeAssignment mtype
-      | Ty.isTypeVar mtype =
-          Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName mtype))
-                 (Arrow (Nam "_this") (typeVarRefName mType))
-      | otherwise = Skip
+    assignTypeVar ty =
+        let fName = typeVarRefName ty
+        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+    getVar name =
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        `Dot`
+        name
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
-    this = (Ptr . AsType $ classTypeName cname, Var thisName)
     futVar = Var "_fut"
     declFut = Decl (future, futVar)
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
                                       runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
     argPairs = zip (map A.ptype mParams) argNames
-    msg = sendFutMsg cname mName $ map (argName . A.pname) mParams
+    msg = expandMethodArgs (sendFutMsg cname) m
     retStmt = Return futVar
+    mTypeVars = A.methodTypeParams m
+    parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
+    assignTypeVarMethod ty i =
+      let fName = typeVarRefName ty
+      in Assign (Decl (Ptr ponyTypeT, AsLval fName))
+                (ArrAcc i encoreRuntimeType)
 
 methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
   | A.isActive cdecl ||
     A.isShared cdecl =
       let retType = void
           fName = methodImplOneWayName cname mName
-          args = (Ptr (Ptr encoreCtxT), encoreCtxVar): this :
-                   zip argTypes argNames
-          fBody = Seq $ Gc.ponyGcSendOneway argPairs ++ msg
+          args = initialiseMethodDecl cname ++ zip argTypes argNames
+          extractedTypeVars = map assignTypeVar (Ty.getTypeParameters cname)
+          fBody = Seq $ parametricMethodTypeVars : extractedTypeVars ++
+                        Gc.ponyGcSendOneway argPairs ++ msg
       in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
@@ -137,16 +159,32 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
     mParams = A.methodParams m
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
-    this = (Ptr . AsType $ classTypeName cname, Var thisName)
 
     argPairs = zip (map A.ptype mParams) argNames
-    msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
+    msg = expandMethodArgs (sendOneWayMsg cname) m
+
+    -- extract method type vars
+    mTypeVars = A.methodTypeParams m
+    parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
+    assignTypeVarMethod ty i =
+      let fName = typeVarRefName ty
+      in Assign (Decl (Ptr ponyTypeT, AsLval fName))
+                (ArrAcc i encoreRuntimeType)
+
+    -- extract class type vars
+    assignTypeVar ty =
+        let fName = typeVarRefName ty
+        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+    getVar name =
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        `Dot`
+        name
 
 methodImplStream m cdecl@(A.Class {A.cname}) _ code
   | A.isStreamMethod m =
     let retType = stream
         fName = methodImplStreamName cname mName
-        args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
+        args = initialiseMethodDecl cname ++ zip argTypes argNames
         fBody = Seq $ [assignFut] ++ Gc.ponyGcSendStream argPairs ++
                       msg ++ [retStmt]
     in code ++ [Function retType fName args fBody]
@@ -158,42 +196,48 @@ methodImplStream m cdecl@(A.Class {A.cname}) _ code
     mType = A.methodType m
     argNames = map (AsLval . argName . A.pname) mParams
     argTypes = map (translate . A.ptype) mParams
-    this = (Ptr . AsType $ classTypeName cname, Var thisName)
     retVar = Var "_stream"
     declVar = Decl (stream, retVar)
     streamMk mtype = Call streamMkFn [encoreCtxVar]
     assignFut = Assign declVar $ streamMk mType
     argPairs = zip (map A.ptype mParams) argNames
-    msg = sendStreamMsg cname mName $ map (argName . A.pname) mParams
+    msg = expandMethodArgs (sendStreamMsg cname) m
     retStmt = Return retVar
 
-sendFutMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Stat]
-sendFutMsg cname mname args =
+expandMethodArgs :: forall t.
+                    (ID.Name -> [CCode Name] -> [CCode Name] -> t) ->
+                    A.MethodDecl -> t
+expandMethodArgs fn mdecl =
+  fn (A.methodName mdecl)
+     (map (argName . A.pname) (A.methodParams mdecl))
+     (map typeVarRefName $ A.methodTypeParams mdecl)
+
+mkArgPairs :: [CCode Name] -> [CCode Name] -> [(CCode Name, CCode Name)]
+mkArgPairs args tparams =
+    let fields = [Nam $ "f" ++ show i | i <- [1..length args]]
+    in zip fields args ++ zip tparams tparams
+
+sendFutMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Name] -> [CCode Stat]
+sendFutMsg cname mname args tparams =
   let
-    msgId = futMsgId cname mname
-    msgTypeName = futMsgTypeName cname mname
-    fields = [Nam $ "f" ++ show i | i <- [1..length args]]
-    argPairs = zip fields args ++ [(Nam "_fut", Nam "_fut")]
+    (msgId, msgTypeName) = (uncurry futMsgId &&& uncurry futMsgTypeName) (cname, mname)
+    argPairs = mkArgPairs args tparams ++ [(Nam "_fut", Nam "_fut")]
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
-sendOneWayMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Stat]
-sendOneWayMsg cname mname args =
+sendOneWayMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Name] -> [CCode Stat]
+sendOneWayMsg cname mname args tparams =
   let
-    msgId = oneWayMsgId cname mname
-    msgTypeName = oneWayMsgTypeName cname mname
-    fields = [Nam $ "f" ++ show i | i <- [1..length args]]
-    argPairs = zip fields args
+    (msgId, msgTypeName) = (uncurry oneWayMsgId &&& uncurry oneWayMsgTypeName) (cname, mname)
+    argPairs = mkArgPairs args tparams
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
-sendStreamMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Stat]
-sendStreamMsg cname mname args =
+sendStreamMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Name] -> [CCode Stat]
+sendStreamMsg cname mname args tparams =
   let
-    msgId = futMsgId cname mname
-    msgTypeName = futMsgTypeName cname mname
-    fields = [Nam $ "f" ++ show i | i <- [1..length args]]
-    argPairs = zip fields args ++ [(Nam "_fut", Nam "_stream")]
+    (msgId, msgTypeName) = (uncurry futMsgId &&& uncurry futMsgTypeName) (cname, mname)
+    argPairs = mkArgPairs args tparams ++ [(Nam "_fut", Nam "_stream")]
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
