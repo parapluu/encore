@@ -171,10 +171,16 @@ resolveRefAtomType ty
       case result of
         Just [] ->
           tcError $ UnknownRefTypeError ty
-        Just [formal] -> do
-          matchTypeParameterLength formal ty
-          let res = formal `setTypeParameters` getTypeParameters ty
-          return res
+        Just [formal] ->
+          case getRefNamespace formal of
+            Just ns -> do
+              unless (isExplicitNamespace ns) $
+                     tcError $ UnknownRefTypeError ty
+              matchTypeParameterLength formal ty
+              let res = formal `setTypeParameters` getTypeParameters ty
+              return res
+            Nothing ->
+              error $ "Util.hs: No namespace after resolving type " ++ show ty
         Just l ->
           tcError $ AmbiguousTypeError ty l
         Nothing ->
@@ -294,8 +300,32 @@ findTrait t = do
     Nothing ->
       tcError $ UnknownNamespaceError (getRefNamespace t)
 
+isKnownRefType :: Type -> TypecheckM Bool
+isKnownRefType ty
+  | isRefAtomType ty = do
+      result <- asks $ refTypeLookup ty
+      case result of
+        Just [] -> return False
+        Just [ref] -> return $ maybe False isExplicitNamespace
+                               (getRefNamespace ref)
+        Just l -> tcError $ AmbiguousTypeError ty l
+        Nothing -> return False
+  | isCapabilityType ty = do
+      let traits = typesFromCapability ty
+      results <- mapM isKnownRefType traits
+      return $ and results
+  | isUnionType ty = do
+      let members = unionMembers ty
+      results <- mapM isKnownRefType members
+      return $ and results
+  | otherwise = return True
+
+
 findField :: Type -> Name -> TypecheckM FieldDecl
 findField ty f = do
+  isKnown <- isKnownRefType ty
+  unless isKnown $
+         tcError $ UnknownTypeUsageError "access field of" ty
   result <- asks $ fieldLookup ty f
   case result of
     Just fdecl -> return fdecl
@@ -314,6 +344,9 @@ findMethodWithCalledType ty name
                tcError $ UnionMethodAmbiguityError ty name
         return result
     | otherwise = do
+        isKnown <- isKnownRefType ty
+        unless isKnown $
+               tcError $ UnknownTypeUsageError "call method on" ty
         result <- asks $ methodAndCalledTypeLookup ty name
         when (isNothing result) $
           tcError $ MethodNotFoundError name ty

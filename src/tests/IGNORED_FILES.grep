@@ -12,6 +12,7 @@ encore/modules/Lib
 encore/modules/Lib/DupLib
 encore/modules/Lib/FarLib
 encore/modules/Lib/TraitLib
+encore/modules/Lib/SelectiveLib
 encore/modules/Lib/A/B/QLib
 encore/modules/OtherLib/DupLib
 encore/modules/Vector
@@ -24,6 +25,9 @@ encore/modules/Left
 encore/modules/TraitImportModule
 encore/modules/RestrictedExport
 encore/modules/SelectiveLib
+encore/modules/TokenModule
+encore/modules/ModuleOnTheLeft
+encore/modules/ModuleOnTheRight
 
 #
 # Disabled 'concurrency' tests

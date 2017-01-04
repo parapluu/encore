@@ -85,9 +85,9 @@ instance Precheckable Program where
       assertNoShadowedImports = do
         let importAliases = mapMaybe ialias imports
         assertDistinctThing "usage" "module alias"
-                            (map showNamespace importAliases)
+                            (map show importAliases)
         let shadowedImports =
-              filter (\i -> itarget i /= fromMaybe [] (ialias i)) $
+              filter (\i -> itarget i /= fromMaybe emptyNamespace (ialias i)) $
                      filter ((`elem` importAliases) . itarget) imports
         unless (null shadowedImports) $ do
           let shadowedImport = head shadowedImports
@@ -101,10 +101,12 @@ instance Precheckable ModuleDecl where
     doPrecheck m@NoModule = return m
     doPrecheck m@Module{modname, modexports} = do
       env <- ask
-      let unknowns =
-            maybe [] (filter (\x -> not $ isKnownName [modname] x env)) modexports
+      let modNamespace = explicitNamespace [modname]
+          unknowns =
+            maybe [] (filter (\x -> not $ isKnownName modNamespace x env))
+                     modexports
       unless (null unknowns) $
-             tcError $ UnknownNameError [modname] (head unknowns)
+             tcError $ UnknownNameError modNamespace (head unknowns)
       return m
 
 instance Precheckable ImportDecl where

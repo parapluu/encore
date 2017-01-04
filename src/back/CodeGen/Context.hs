@@ -63,8 +63,9 @@ substRem (Context ((na, lv):s) nxt table) na'
 
 substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
 substLkp (Context s _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
-substLkp (Context s _ _) QName{qnspace = Just [], qnlocal} = lookup qnlocal s
-substLkp _ _ = Nothing
+substLkp (Context s _ _) QName{qnspace = Just ns, qnlocal}
+     | isEmptyNamespace ns = lookup qnlocal s
+     | otherwise = Nothing
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable

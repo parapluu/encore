@@ -61,7 +61,7 @@ instance Show BacktraceNode where
   show (BTModule m) =
      concat ["In declaration of module '", show m, "'"]
   show (BTImport ns) =
-     concat ["In import of module '", showNamespace ns, "'"]
+     concat ["In import of module '", show ns, "'"]
 
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
@@ -212,6 +212,7 @@ data Error =
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
   | TypeArgumentInferenceError QualifiedName Type
   | AmbiguousTypeError Type [Type]
+  | UnknownTypeUsageError String Type
   | AmbiguousNameError QualifiedName [(QualifiedName, Type)]
   | UnknownNamespaceError (Maybe Namespace)
   | UnknownNameError Namespace Name
@@ -456,6 +457,9 @@ instance Show Error where
     show (AmbiguousTypeError ty candidates) =
         printf "Ambiguous reference to %s. Possible candidates are:\n%s"
                (showWithKind ty) (unlines $ map (("  " ++) . show) candidates)
+    show (UnknownTypeUsageError usage ty) =
+        printf "Cannot %s unimported type %s"
+               usage (show ty)
     show (AmbiguousNameError qname candidates) =
         printf "Ambiguous reference to function %s. Possible candidates are:\n%s"
                (show qname) candidateList
@@ -465,13 +469,13 @@ instance Show Error where
           showCandidate (qn, ty) = show qn ++ " : " ++ show ty
     show (UnknownNamespaceError maybeNs) =
         printf "Unknown namespace %s"
-               (maybe "" showNamespace maybeNs)
+               (maybe "" show maybeNs)
     show (UnknownNameError ns name) =
         printf "Module %s has no function or type called '%s'"
-               (showNamespace ns) (show name)
+               (show ns) (show name)
     show (ShadowedImportError i) =
         printf "Introduction of module alias '%s' shadows existing import"
-               (showNamespace $ itarget i)
+               (show $ itarget i)
     show (WrongModuleNameError modname expected) =
         printf "Module name '%s' and file name '%s' must match"
                (show modname) expected

@@ -1,0 +1,6 @@
+module ModuleOnTheRight
+
+import TokenModule
+
+def receiveToken(x : Token) : void
+  x.foo()
