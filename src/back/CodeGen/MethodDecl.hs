@@ -23,19 +23,18 @@ import qualified Identifiers as ID
 import qualified Types as Ty
 
 import Control.Monad.State hiding(void)
-import Control.Arrow ((&&&))
+import Control.Arrow ((&&&), (>>>), arr)
 
 instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplevel]) where
   -- | Translates a method into the corresponding C-function
   translate mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table =
-    let generalMethod = translateGeneral mdecl cdecl table
-        futureMethod = methodImplWithFuture mdecl cdecl table
-        oneWayMethod = methodImplOneWay mdecl cdecl table
-        streamMethod = methodImplStream mdecl cdecl table
-    in  generalMethod ++ futureMethod ++ oneWayMethod ++ streamMethod
+    let pipelineFn = (arr $ translateGeneral mdecl cdecl table)     >>>
+                             methodImplWithFuture mdecl cdecl table >>>
+                             methodImplOneWay mdecl cdecl table     >>>
+                             methodImplStream mdecl cdecl table
+    in pipelineFn []
 
-
-translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table
+translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
       | A.isStreamMethod mdecl =
     let args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
                (Ptr . AsType $ classTypeName cname, Var "_this") :
@@ -43,9 +42,9 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
-      return $ Concat $ closures ++ tasks ++
+      code ++ (return $ Concat $ closures ++ tasks ++
                [Function void name args
-                 (Seq [extractTypeVars, bodys, streamCloseStmt])]
+                 (Seq [extractTypeVars, bodys, streamCloseStmt])])
       | otherwise =
     let returnType = translate mType
         args = (Ptr (Ptr encoreCtxT), encoreCtxVar) :
@@ -54,9 +53,9 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table
                then [(array, Var "_argv")]
                else zip argTypes argNames
     in
-      return $ Concat $ closures ++ tasks ++
+      code ++ (return $ Concat $ closures ++ tasks ++
                [Function returnType name args
-                 (Seq [extractTypeVars, bodys, returnStatement mType bodyn])]
+                 (Seq [extractTypeVars, bodys, returnStatement mType bodyn])])
     where
       mName = A.methodName mdecl
       mType = A.methodType mdecl
@@ -85,7 +84,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table
                   reverse $ Util.filter A.isTask mbody
 
 
-methodImplWithFuture m cdecl@(A.Class {A.cname}) _
+methodImplWithFuture m cdecl@(A.Class {A.cname}) _ code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
@@ -96,8 +95,8 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) _
            assignFut :
            Gc.ponyGcSendFuture argPairs ++
            msg ++ [retStmt]
-    in [Function retType fName args fBody]
-  | otherwise = []
+    in code ++ [Function retType fName args fBody]
+  | otherwise = code
   where
     thisName = "_this"
     mName = A.methodName m
@@ -120,7 +119,7 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) _
     msg = sendFutMsg cname mName $ map (argName . A.pname) mParams
     retStmt = Return futVar
 
-methodImplOneWay m cdecl@(A.Class {A.cname}) _
+methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
   | A.isActive cdecl ||
     A.isShared cdecl =
       let retType = void
@@ -128,8 +127,8 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _
           args = (Ptr (Ptr encoreCtxT), encoreCtxVar): this :
                    zip argTypes argNames
           fBody = Seq $ Gc.ponyGcSendOneway argPairs ++ msg
-      in return $ Function retType fName args fBody
-  | otherwise = []
+      in code ++ [Function retType fName args fBody]
+  | otherwise = code
   where
     thisName = "_this"
     mName = A.methodName m
@@ -141,15 +140,15 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _
     argPairs = zip (map A.ptype mParams) argNames
     msg = sendOneWayMsg cname mName $ map (argName . A.pname) mParams
 
-methodImplStream m cdecl@(A.Class {A.cname}) _
+methodImplStream m cdecl@(A.Class {A.cname}) _ code
   | A.isStreamMethod m =
     let retType = stream
         fName = methodImplStreamName cname mName
         args = (Ptr (Ptr encoreCtxT), encoreCtxVar) : this : zip argTypes argNames
         fBody = Seq $ [assignFut] ++ Gc.ponyGcSendStream argPairs ++
                       msg ++ [retStmt]
-    in return $ Function retType fName args fBody
-  | otherwise = []
+    in code ++ [Function retType fName args fBody]
+  | otherwise = code
   where
     thisName = "_this"
     mName = A.methodName m
