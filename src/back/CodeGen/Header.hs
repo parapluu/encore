@@ -42,7 +42,7 @@ generateHeader p =
       "string.h",
       "stdio.h",
       "stdarg.h",
-      "assert.h"
+      "dtrace_encore.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
