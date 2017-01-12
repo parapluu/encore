@@ -108,7 +108,7 @@ provider encore {
    * @param name function name
    * @param args arguments used
    */
-  probe function__entry__probe(uintptr_t scheduler, uintptr_t name. uintptr_t args);
+  probe function__entry__probe(uintptr_t scheduler, uintptr_t name, uintptr_t args);
 
   /**
    * Fired on function exit
