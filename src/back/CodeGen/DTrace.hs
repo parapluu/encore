@@ -7,6 +7,8 @@ import Data.List
 import Text.Printf
 
 dtrace :: String -> [String] -> CCode Stat
+dtrace probe [] =
+    Embed $ printf "ENC_DTRACE0(%s)" probe
 dtrace probe args =
   let n = length args
   in
