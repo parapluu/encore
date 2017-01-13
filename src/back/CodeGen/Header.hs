@@ -25,6 +25,7 @@ generateHeader p =
     Concat $
     HashDefine "HEADER_H" :
     HashDefine "_XOPEN_SOURCE 800" :
+    HashDefine "USE_DYNAMIC_TRACE" : -- TODO: Only when compiled with use=dtrace
     (Includes [
       "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
       "pony.h",
@@ -42,7 +43,7 @@ generateHeader p =
       "string.h",
       "stdio.h",
       "stdarg.h",
-      "dtrace_encore.h"
+      "dtrace_encore.h" -- TODO: Only when compiled with use=dtrace
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
