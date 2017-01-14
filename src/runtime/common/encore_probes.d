@@ -81,14 +81,14 @@ provider encore {
    * @param name method name
    * @param args arguments used
    */
-  probe method__call(uintptr_t scheduler, uintptr_t name, uintptr_t args);
+  probe method__call(uintptr_t scheduler, uintptr_t name);
 
   /**
    * Fired on method entry
    * @param name method name
    * @param args arguments used
    */
-  probe method__entry(uintptr_t scheduler, uintptr_t name, uintptr_t args);
+  probe method__entry(uintptr_t scheduler, uintptr_t name);
 
   /**
    * Fired on method exit
@@ -101,14 +101,14 @@ provider encore {
    * @param name function name
    * @param args arguments used
    */
-  probe function__call(uintptr_t scheduler, uintptr_t name, uintptr_t args);
+  probe function__call(uintptr_t scheduler, uintptr_t name);
 
   /**
    * Fired on function entry
    * @param name function name
    * @param args arguments used
    */
-  probe function__entry(uintptr_t scheduler, uintptr_t name, uintptr_t args);
+  probe function__entry(uintptr_t scheduler, uintptr_t name);
 
   /**
    * Fired on function exit
@@ -121,13 +121,13 @@ provider encore {
    * @param name closure name
    * @param args arguments used
    */
-  probe closure__call(uintptr_t scheduler, uintptr_t name,  uintptr_t args);
+  probe closure__call(uintptr_t scheduler, uintptr_t name);
 
   /**
    * Fired on closure entry
    * @param name closure name
    */
-  probe closure__entry(uintptr_t scheduler, uintptr_t name);
+  probe closure__entry(uintptr_t scheduler);
 
   /**
    * Fired on closure exit

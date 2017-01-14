@@ -6,7 +6,7 @@
 #include "encore_probes.h"
 
 #define ENC_DTRACE_ENABLED(name)                         \
-  ENCORE_##name##_enabled()
+  ENCORE_##name##_ENABLED()
 #define ENC_DTRACE0(name)                                \
   ENCORE_##name()
 #define ENC_DTRACE1(name, a0)                            \
