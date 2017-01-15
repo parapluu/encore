@@ -125,7 +125,7 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
           bodyResult = (Seq $ dtraceFunctionEntry (A.functionName fun) argNames :
                               runtimeTypeAssignments ++
                               [bodyStat
-                              -- ,dtraceFunctionExit (A.functionName fun)
+                              ,dtraceFunctionExit (A.functionName fun)
                               ,returnStatement funType bodyName
                               ])
       in

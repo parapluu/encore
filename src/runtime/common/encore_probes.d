@@ -1,4 +1,7 @@
 provider encore {
+  // TODO: 'char*' is supposed to be 'string' in DTrace syntax, however this
+  // will give an error in the Clang compilation.
+
   /**
    * Fired when a closure has been created
    * @param ctx the pony context
@@ -68,69 +71,69 @@ provider encore {
    * Fired on field access
    * @param name the name of the field
    */
-  probe field__access(uintptr_t scheduler, uintptr_t name);
+  probe field__access(uintptr_t ctx, uintptr_t target, char* name);
 
   /**
    * Fired on field write
    * @param name the name of the field
    */
-  probe field__write(uintptr_t scheduler, uintptr_t name);
+  probe field__write(uintptr_t ctx, uintptr_t target, char* name);
 
   /**
    * Fired on method call
    * @param name method name
    * @param args arguments used
    */
-  probe method__call(uintptr_t scheduler, uintptr_t name);
+  probe method__call(uintptr_t ctx, uintptr_t target, char* name);
 
   /**
    * Fired on method entry
    * @param name method name
    * @param args arguments used
    */
-  probe method__entry(uintptr_t scheduler, uintptr_t name);
+  probe method__entry(uintptr_t ctx, uintptr_t target, char* name);
 
   /**
    * Fired on method exit
    * @param name method name
    */
-  probe method__exit(uintptr_t scheduler, uintptr_t name);
+  probe method__exit(uintptr_t ctx, uintptr_t target, char* name);
 
   /**
    * Fired on function call
    * @param name function name
    * @param args arguments used
    */
-  probe function__call(uintptr_t scheduler, uintptr_t name);
+  probe function__call(uintptr_t ctx, char* name);
 
   /**
    * Fired on function entry
    * @param name function name
    * @param args arguments used
    */
-  probe function__entry(uintptr_t scheduler, uintptr_t name);
+  probe function__entry(uintptr_t ctx, char* name);
 
   /**
    * Fired on function exit
    * @param name function name
    */
-  probe function__exit(uintptr_t scheduler, uintptr_t name);
+  probe function__exit(uintptr_t ctx, char* name);
 
   /**
    * Fired on closure call
    * @param name closure name
    * @param args arguments used
    */
-  probe closure__call(uintptr_t scheduler, uintptr_t name);
+  probe closure__call(uintptr_t ctx, char* name);
 
   /**
    * Fired on closure entry
    * @param name closure name
    */
-  probe closure__entry(uintptr_t scheduler);
+  probe closure__entry(uintptr_t ctx);
 
   /**
    * Fired on closure exit
    */
-  probe closure__exit();
+  probe closure__exit(uintptr_t ctx);
 };

@@ -1126,13 +1126,9 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
 
-  return (ret, Seq $ initArgs ++ [call
+  return (ret, Seq $ initArgs ++ [dtraceFunctionCall qname argNames
+                                 ,call
                                  ])
-  -- return (ret, Seq $ initArgs ++ [dtraceFunctionCall qname argNames
-  --                                ,call
-  --                                ])
-
-
   where
     typ = A.getType fcall
     buildFunctionCallExpr args cArgs = do
