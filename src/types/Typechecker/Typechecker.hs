@@ -572,71 +572,17 @@ instance Checkable Expr where
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
 
-      -- Common typechecking errors
       methodCallTypecheckingErrors targetType
 
-      -- Typecheck method call
       (eTarget', eArgs, resultType, typeArgs) <-
-         case typeArguments of
-           Nothing -> inferenceTypecheckingMethodCall eTarget typeArguments
-           Just tArgs -> typecheckMethodCall eTarget tArgs
+         if null typeArguments then
+           inferenceTypecheckingMethodCall eTarget mcall
+         else
+           typecheckMethodCall eTarget mcall
       return $ setType resultType mcall {target = eTarget'
                                         ,args = eArgs
                                         ,typeArguments = typeArgs}
       where
-        -- | 'inferenceTypecheckingMethodCall target tArgs' performs the type
-        -- inference over the passed types. this case needs to consider that
-        -- there may not be any type arguments at all and handle the situation
-        -- as if there where. the mecanichs should be similar to FunctionCall.
-        inferenceTypecheckingMethodCall eTarget _ = do
-          let targetType = AST.getType eTarget
-          (header, calledType) <- findMethodWithCalledType targetType name
-          let (expectedTypes, (mType, formalTypeParams)) = getFormalTypes header
-
-          if null formalTypeParams then
-             typecheckMethodCall eTarget []
-          else
-             tcError $ SimpleError "Type inference not supported yet"
-
-
-        -- | 'typecheckMethodCall eTarget tArgs' typchecks the method considering
-        -- that, if there are type arguments, then they should have the
-        -- explicitly state type and should match the actual arguments.
-        typecheckMethodCall eTarget tArgs = do
-
-          -- the target type cannot be of parametric method type parameter,
-          -- as parametric types are always opaque
-          let targetType = AST.getType eTarget
-
-          (header, calledType) <- findMethodWithCalledType targetType name
-          let eTarget' = setType calledType eTarget
-          matchArgumentLength targetType header args
-
-          -- get formal types
-          let (expectedTypes, (mType, formalTypeParams)) = getFormalTypes header
-
-          -- resolve type arguments and create bindings from formal -> actual
-          -- type parameters, checking that the arguments match the expected type
-          typeArgs' <- mapM resolveType tArgs
-          let bindings = zip formalTypeParams typeArgs'
-
-          -- NOTE: it seems redundant to use the bindTypes when we are substituting
-          --  the expectedTypes by the bindings. this is necessary because the
-          --  method type params get mixed with the function type params in the
-          --  doPrecheck functionheader and there is no simple way to disambiguate
-          --  these two.
-          (eArgs, _) <- local (bindTypes bindings) $ matchArguments args $
-                                  map (replaceTypeVars bindings) expectedTypes
-
-          let resultType = replaceTypeVars bindings mType
-              returnType = retType calledType header resultType
-          return (eTarget', eArgs, returnType, Just typeArgs')
-
-        getFormalTypes header =
-           let expectedTypesFn x = map ptype $ hparams x
-           in (expectedTypesFn &&& htype &&& htypeparams) header
-
-
         methodCallTypecheckingErrors targetType = do
           unless (isRefType targetType) $
             tcError $ NonCallableTargetError targetType
@@ -645,15 +591,6 @@ instance Checkable Expr where
           when (name == Name "init") $
             tcError ConstructorCallError
 
-        retType targetType header t
-         | isSyncCall targetType = t
-         | isStreamMethodHeader header = streamType t
-         | otherwise = futureType t
-        isSyncCall targetType =
-          isThisAccess target ||
-          isPassiveClassType targetType ||
-          isTraitType targetType -- TODO now all trait methods calls are sync
-
     --  E |- e : t'
     --  isActiveRefType(t')
     --  methodLookup(t', m) = (t1 .. tn, _)
@@ -661,16 +598,21 @@ instance Checkable Expr where
     --  E, B |- arg1 : t1 .. argn : tn -| B'
     -- --------------------------------------
     --  E |- e!m(arg1, .., argn) : ()
-    doTypecheck msend@(MessageSend {target, name, args}) = do
+    doTypecheck msend@(MessageSend {target, name, args, typeArguments}) = do
       eTarget <- typecheck target
       let targetType = AST.getType eTarget
       unless (isActiveClassType targetType || isSharedClassType targetType) $
            tcError $ NonSendableTargetError targetType
-      header <- findMethod targetType name
-      matchArgumentLength targetType header args
-      let expectedTypes = map ptype (hparams header)
-      (eArgs, _) <- matchArguments args expectedTypes
-      return $ setType voidType msend {target = eTarget, args = eArgs}
+
+      (eTarget', eArgs, _, typeArgs) <-
+         if null typeArguments then
+           inferenceTypecheckingMethodCall eTarget msend
+         else
+           typecheckMethodCall eTarget msend
+
+      return $ setType voidType msend {target = eTarget',
+                                       args = eArgs,
+                                       typeArguments = typeArgs}
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
       eBody <- maybeTypecheck mdt
@@ -715,8 +657,9 @@ instance Checkable Expr where
                     qname (length argTypes) (length args)
       uniqueArgTypes <- mapM uniquify argTypes
       (eArgs, resultType, typeArgs) <-
-          case typeArguments of
-            Nothing -> do
+          if null typeArguments then
+            do
+              let uniquify = uniquifyTypeVars typeParams
               (eArgs, bindings) <- matchArguments args uniqueArgTypes
               let resolve t = replaceTypeVars bindings <$> uniquify t
               resultType <- resolve (getResultType ty)
@@ -727,21 +670,21 @@ instance Checkable Expr where
               unless (null unresolved) $
                    tcError $ TypeArgumentInferenceError qname (head unresolved)
               return (eArgs, resultType, typeArgs)
-            Just typeArgs -> do
-              unless (length typeArgs == length typeParams) $
+          else
+              do
+              unless (length typeArguments == length typeParams) $
                      tcError $ WrongNumberOfFunctionTypeArgumentsError qname
-                               (length typeParams) (length typeArgs)
-              typeArgs' <- mapM resolveType typeArgs
-              let bindings = zip typeParams typeArgs'
+                               (length typeParams) (length typeArguments)
+              typeArguments' <- mapM resolveType typeArguments
+              let bindings = zip typeParams typeArguments'
               (eArgs, _) <-
                   local (bindTypes bindings) $
                         matchArguments args uniqueArgTypes
               let resultType = replaceTypeVars bindings (getResultType ty)
-              return (eArgs, resultType, typeArgs')
-
+              return (eArgs, resultType, typeArguments')
       return $ setType resultType fcall {args = eArgs,
                                          qname = qname',
-                                         typeArguments = Just typeArgs}
+                                         typeArguments = typeArgs}
 
       where
         uniquifyTypeVars params = typeMapM (uniquifyTypeVar params)
@@ -1636,3 +1579,61 @@ assertSubtypeOf sub super =
             tcError $ TypeWithCapabilityMismatchError sub cap super
         Nothing ->
             tcError $ TypeMismatchError sub super
+
+
+getFormalTypes header =
+   let expectedTypesFn x = map ptype $ hparams x
+   in (expectedTypesFn &&& htype &&& htypeparams) header
+
+inferenceTypecheckingMethodCall eTarget mcall
+  | isMethodCall mcall = do
+      let mname = name mcall
+          targetType = AST.getType eTarget
+      (header, calledType) <- findMethodWithCalledType targetType mname
+      let (expectedTypes, (mType, formalTypeParams)) = getFormalTypes header
+
+      if null formalTypeParams then
+        typecheckMethodCall eTarget mcall
+      else
+        tcError $ SimpleError $ "Type inference for polymorphic method " ++
+                                "calls is not supported yet"
+ | otherwise = tcError $ SimpleError $ "Function 'inferenceTypecheckingMethodCall'"
+                       ++ " is not a method call"
+
+typecheckMethodCall eTarget mcall
+  | isMethodCall mcall = do
+      let targetType = AST.getType eTarget
+      (header, calledType) <- findMethodWithCalledType targetType name'
+      let eTarget' = setType calledType eTarget
+      matchArgumentLength targetType header args'
+
+      let (expectedTypes, (mType, formalTypeParams)) = getFormalTypes header
+      typeArgs' <- mapM resolveType typeArguments'
+      let bindings = zip formalTypeParams typeArgs'
+
+  -- NOTE: it seems redundant to use the bindTypes when we are substituting
+  --  the expectedTypes by the bindings. this is necessary because the
+  --  method type params get mixed with the function type params in the
+  --  doPrecheck functionheader and there is no simple way to disambiguate
+  --  these two.
+      (eArgs, _) <- local (bindTypes bindings) $ matchArguments args' $
+                                  map (replaceTypeVars bindings) expectedTypes
+
+      let resultType = replaceTypeVars bindings mType
+          returnType = retType calledType header resultType
+      return (eTarget', eArgs, returnType, typeArgs')
+  where
+    target' = target mcall
+    typeArguments' = typeArguments mcall
+    name' = name mcall
+    args' = args mcall
+
+    retType targetType header t
+      | isSyncCall targetType = t
+      | isStreamMethodHeader header = streamType t
+      | otherwise = futureType t
+
+    isSyncCall targetType =
+      isThisAccess target' ||
+      isPassiveClassType targetType ||
+      isTraitType targetType -- TODO now all trait methods calls are sync

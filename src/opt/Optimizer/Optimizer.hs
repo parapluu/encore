@@ -54,7 +54,8 @@ constructors = extend constr
               MessageSend {name = Name "_init"
                           ,emeta = emeta
                           ,target = target
-                          ,args = args}
+                          ,args = args
+                          ,typeArguments = []}
           | otherwise = e
       constr e = e
 

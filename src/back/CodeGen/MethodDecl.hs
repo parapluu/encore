@@ -16,6 +16,7 @@ import qualified CodeGen.GC as Gc
 
 import CCode.Main
 import Data.List (intersect)
+import Data.Either(isLeft, isRight)
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
@@ -79,16 +80,14 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       mTypeVars = A.methodTypeParams mdecl
       typeVars = Ty.getTypeParameters cname
-      extractTypeVars = Seq $ map assignTypeVar typeVars
-      parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
-      assignTypeVarMethod ty i =
+      extractTypeVars = Seq $ assignTypeVar <$> typeVars <*> [Nothing]
+      parametricMethodTypeVars = Seq $ zipWith assignTypeVar mTypeVars (Just <$> [0..])
+      assignTypeVar ty e =
         let fName = typeVarRefName ty
         in Assign (Decl (Ptr ponyTypeT, AsLval fName))
-                  (ArrAcc i encoreRuntimeType)
-
-      assignTypeVar ty =
-        let fName = typeVarRefName ty
-        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+           (case e of
+              Just i -> (ArrAcc i encoreRuntimeType)
+              Nothing -> getVar fName)
       getVar name =
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
         `Dot`

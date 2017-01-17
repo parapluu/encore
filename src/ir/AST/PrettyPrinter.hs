@@ -175,10 +175,10 @@ ppExpr PartyExtract {val} = "extract" <+> ppExpr val
 ppExpr PartyEach {val} = "each" <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
-ppExpr FunctionCall {qname, args, typeArguments = Nothing} =
+ppExpr FunctionCall {qname, args, typeArguments = []} =
     ppQName qname <> parens (commaSep (map ppExpr args))
-ppExpr FunctionCall {qname, args, typeArguments = Just typeArgs} =
-    ppQName qname <> angles (commaSep (map ppType typeArgs)) <>
+ppExpr FunctionCall {qname, args, typeArguments} =
+    ppQName qname <> angles (commaSep (map ppType typeArguments)) <>
                      parens (commaSep (map ppExpr args))
 ppExpr FunctionAsValue {qname, typeArgs} =
   ppQName qname <> angles (commaSep (map ppType typeArgs))

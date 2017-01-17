@@ -14,6 +14,7 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
+import Data.Maybe(fromMaybe)
 import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
 
@@ -644,9 +645,14 @@ expression = buildExpressionParser opTable highOrderExpr
           Postfix (do pos <- getPosition
                       bang
                       name <- identifier
+                      optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend (meta pos) target
-                                                     (Name name) args))
+                      let typeArguments = fromMaybe [] optTypeArgs
+                      return (\target -> MessageSend { emeta = (meta pos),
+                                                       typeArguments,
+                                                       target,
+                                                       name=(Name name),
+                                                       args }))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
@@ -799,11 +805,12 @@ expr  =  embed
 
                functionOrCall VarAccess{emeta, qname} = do
                  optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
-                 case optTypeArgs of
-                   Just typeArgs ->
-                       call emeta optTypeArgs qname <|>
-                            return (FunctionAsValue emeta typeArgs qname)
-                   Nothing -> call emeta Nothing qname
+                 let optTypeArgs' = fromMaybe [] optTypeArgs
+                 if null optTypeArgs' then
+                   call emeta [] qname
+                 else
+                   call emeta optTypeArgs' qname <|>
+                   return (FunctionAsValue emeta optTypeArgs' qname)
 
                call emeta typeArgs name = do
                  args <- parens arguments
@@ -823,7 +830,8 @@ expr  =  embed
                functionCall VarAccess{emeta, qname} = do
                  typeParams <- optionMaybe (try . angles $ commaSep typ)
                  args <- parens arguments
-                 return $ FunctionCall emeta typeParams qname args
+                 let typeParams' = fromMaybe [] typeParams
+                 return $ FunctionCall emeta typeParams' qname args
 
                buildPath pos target (VarAccess{qname}) =
                    FieldAccess (meta pos) target (qnlocal qname)
@@ -970,7 +978,7 @@ expr  =  embed
                  reserved "print"
                  notFollowedBy (symbol "(" >> symbol "\"")
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) Nothing
+                 return $ FunctionCall (meta pos) []
                                        (qName "println") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral

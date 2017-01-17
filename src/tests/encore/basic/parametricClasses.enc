@@ -1,13 +1,5 @@
 def id<a>(x: a): a x
 
-class Test
-  def test<d>(x: d, y: int): d {
-    this.test2<int>(y);
-    x;
-  }
-
-  def test2<d>(x: d): d { x }
-
 class Cell<a>
   value : a
   def init(value : a) : void
@@ -35,15 +27,12 @@ class Pair<a, b>
   def getSnd() : b
     this.snd
 
-  -- tests type inference and explicit usage of parametric functions
-  def getFstViaId() : int {
-    id<int>(2);
-    id(3);
-  }
-
   def getCustom<d, g>(z: a, x: d, y: g): Maybe d {
     id(x);
-    this.liftJust<d>(x)
+    -- test that it works with explicit parametric type
+    this.liftJust<d>(x);
+    -- test that it can infer the type
+    -- this.liftJust(x)
   }
 
   def liftJust<d>(x: d): Maybe d { Just x; }
@@ -55,6 +44,7 @@ class Main
         pp = get c.getVal()
         d = p.getCustom<int, String>(23, 5, "")
     in {
+      p!getCustom<int, String>(23, 5, "");
       print get pp.getFst();
       print get pp.getSnd();
       match (get d) with

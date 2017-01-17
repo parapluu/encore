@@ -458,7 +458,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           do
             let typeArgs = map runtimeType typeParams
             (nnew, constructorCall) <- namedTmpVar "new" ty callCtor
-            (initArgs, result) <- methodCall nnew ty initName args Nothing ty
+            (initArgs, result) <- methodCall nnew ty initName args [] ty
             return (nnew,
               Seq $
                 [constructorCall] ++
@@ -570,7 +570,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           isStream = Ty.isStreamType retTy
           isFuture = Ty.isFutureType retTy
 
-  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args}
+  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
     | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
     | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
     | otherwise = error
@@ -580,7 +580,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           delegateUse methodCall = do
             (ntarget, ttarget) <- translate target
             (initArgs, resultExpr) <-
-              methodCall ntarget ty name args Nothing Ty.voidType
+              methodCall ntarget ty name args typeArguments Ty.voidType
             return (unit,
               Seq $
                 ttarget :
@@ -753,7 +753,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  Ty.isUnionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name
-                traitMethod narg calledType name nullVar noArgs (translate tmpTy)
+                -- TODO: should we pass the typeArguments? I don't think so because
+                -- pattern matching a function header works only on methods with
+                -- no arguments, and there is no meaning in allowing this at
+                -- the time being
+                traitMethod narg calledType name [] noArgs (translate tmpTy)
               else do
                 tmp <- Ctx.genNamedSym "extractedOption"
                 (argDecls, theCall) <-
@@ -1100,7 +1104,7 @@ closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
           (StatAsExpr ntother tother)
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.typeArguments = Just typeArguments, A.qname, A.args} = do
+globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
   (argNames, initArgs) <- unzip <$> mapM translate args
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
@@ -1163,7 +1167,7 @@ callTheMethodSync targetName targetType methodName args typeargs resultType = do
 
 callTheMethodForName ::
   (Ty.Type -> ID.Name -> CCode Name) ->
-  CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> Maybe [Ty.Type] -> Ty.Type
+  CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> [Ty.Type] -> Ty.Type
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
 callTheMethodForName
   genCMethodName targetName targetType methodName args typeargs resultType = do
@@ -1171,7 +1175,7 @@ callTheMethodForName
   header <- gets $ Ctx.lookupMethod targetType methodName
 
   -- translate actual method type variables
-  let runtimeTypes = map runtimeType (fromMaybe [] typeargs)
+  let runtimeTypes = map runtimeType typeargs
   (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
   let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
   return (initArgs ++ [tmpTypeDecl],
@@ -1230,6 +1234,11 @@ traitMethod this targetType name typeargs args resultType =
       vtable <- Ctx.genNamedSym $ concat [tyStr, "_", "vtable"]
       tmp <- Ctx.genNamedSym "trait_method_call"
       (args, initArgs) <- fmap unzip $ mapM translate args
+
+      let runtimeTypes = map runtimeType typeargs
+      (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
+      let tmpType' = if null runtimeTypes then nullVar else tmpType
+
       return $ (Var tmp,
         Seq $
           initArgs ++
@@ -1237,19 +1246,19 @@ traitMethod this targetType name typeargs args resultType =
           [declVtable vtable] ++
           [initVtable this vtable] ++
           [initF f vtable id] ++
-          [ret tmp $ callF f this args]
+          tmpTypeDecl : [ret tmp $ callF f this args tmpType']
         )
   where
     thisType = translate targetType
     argTypes = map (translate . A.getType) args
     declF f = FunPtrDecl resultType (Nam f) $
-                Ptr (Ptr encoreCtxT):thisType: Ptr (Ptr encoreCtxT): argTypes
+                Ptr (Ptr encoreCtxT):thisType: Ptr (Ptr ponyTypeT): argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this :
-                                       AsExpr nullVar : map AsExpr args
+    callF f this args typeArgs = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this :
+                                       AsExpr typeArgs : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 targetNullCheck ntarget target name meta op =

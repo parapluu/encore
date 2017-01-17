@@ -131,11 +131,16 @@ generateHeader p =
                       ponyMsgTImpl mdecl =
                           let argrttys = map (translate . A.getType) (A.methodParams mdecl)
                               argspecs = zip argrttys (argnamesWComments mdecl):: [CVarSpec]
-                              argspecs' = argspecs ++ argMethodTypeParamsSpecs mdecl
+                              argspecsWithTypeParams = argspecs ++ argMethodTypeParamsSpecs mdecl
                               encoreMsgTSpec = (encMsgT, Var "")
                               encoreMsgTSpecOneway = (encOnewayMsgT, Var "msg")
-                          in Concat [StructDecl (AsType $ futMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpec : argspecs')
-                                    ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl)) (encoreMsgTSpecOneway : argspecs')]
+                          in Concat
+                            [StructDecl (AsType $ futMsgTypeName cname (A.methodName mdecl))
+                                        (encoreMsgTSpec :
+                                         argspecsWithTypeParams)
+                            ,StructDecl (AsType $ oneWayMsgTypeName cname (A.methodName mdecl))
+                                        (encoreMsgTSpecOneway :
+                                         argspecsWithTypeParams)]
                       argnamesWComments mdecl =
                           zipWith (\n name -> (Annotated (show name) (Var ("f"++show n))))
                                   ([1..]:: [Int])
