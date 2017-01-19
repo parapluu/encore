@@ -26,8 +26,14 @@ class Main
     in (each(words)) >> (\(w: String) -> print("Word: {}\n", w))
   }
 
+  def test_array_of_one(): void{
+    let arr = presetArray(1) in
+      each(arr) >> (\(x: int) -> print("result: {}", x + 1))
+  }
+
   def main(): void {
     this.setup();
     this.test_setting_array();
     this.test_split_words_and_print();
+    this.test_array_of_one();
   }

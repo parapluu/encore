@@ -455,7 +455,6 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
     *root = new_par_p(ctx, *root, node, get_rtype(*root));
 }
 
-
 static inline size_t batch_size_from_array(array_t * const ar){
   size_t size = array_size(ar);
   return (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
@@ -463,12 +462,14 @@ static inline size_t batch_size_from_array(array_t * const ar){
 
 static inline array_t* const chunk_from_array(size_t i,
                                               size_t batch_size,
-                                              array_t *ar){
-    size_t arr_size = array_size(ar);
-    size_t start = i * SPLIT_THRESHOLD;
-    size_t end = (i+1 == batch_size) ? arr_size+1 : (i+1) * SPLIT_THRESHOLD;
-    pony_ctx_t* ctx = encore_ctx();
-    return (array_t* const) array_get_chunk(&ctx, start, end, ar);
+                                              array_t * const ar){
+  assert(i < batch_size);
+
+  size_t arr_size = array_size(ar);
+  size_t start = i * SPLIT_THRESHOLD;
+  size_t end = (i+1 == batch_size) ? arr_size : (i+1) * SPLIT_THRESHOLD;
+  pony_ctx_t* ctx = encore_ctx();
+  return (array_t* const) array_get_chunk(&ctx, start, end, ar);
 }
 
 // TODO: Fix tasks. Tasks were removed from the language
