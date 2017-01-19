@@ -186,7 +186,7 @@ Running `encorec foo.enc` will typecheck the source and produce the executable
 Update the language specification whenever you change the Encore compiler.
 
 There is a prebuilt version of the documentation in
-`doc/encore/prebuilt/` for the people who do not have Scribble
+`doc/encore/prebuilt/` [direct link](https://github.com/parapluu/encore/raw/development/doc/encore/prebuilt/encore.pdf) for the people who do not have Scribble
 installed. Please also update these PDFs after updating the
 specification.
 
