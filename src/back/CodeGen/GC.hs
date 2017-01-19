@@ -34,19 +34,19 @@ gcSend as expectedTypes traceFuns =
 
 ponyGcSend :: [(Ty.Type, CCode Lval)] -> CCode Stat -> [CCode Stat]
 ponyGcSend argPairs futTrace =
-    [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
-  (map (Statement . uncurry traceVariable) argPairs) ++
-  [Statement futTrace] ++
+  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs)     ++
+  [Statement futTrace]                                   ++
   [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
 
 ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendFuture argPairs =
-    ponyGcSend argPairs (traceFuture $ Var "_fut")
+  ponyGcSend argPairs (traceFuture $ Var "_fut")
 
 ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendStream argPairs =
-    ponyGcSend argPairs (traceStream $ Var "_stream")
+  ponyGcSend argPairs (traceStream $ Var "_stream")
 
 ponyGcSendOneway :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendOneway argPairs =
-    ponyGcSend argPairs (Comm "No tracing future for oneway msg")
+  ponyGcSend argPairs (Comm "No tracing future for oneway msg")

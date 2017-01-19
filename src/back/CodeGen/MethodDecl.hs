@@ -28,6 +28,8 @@ import Control.Arrow ((&&&), (>>>), arr)
 instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplevel]) where
   -- | Translates a method into the corresponding C-function
   translate mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table =
+    -- this code uses the chain of responsibility pattern to decouple
+    -- methods from processing functions.
     let pipelineFn = (arr $ translateGeneral mdecl cdecl table)    >>>
                             methodImplWithFuture mdecl cdecl       >>>
                             methodImplOneWay mdecl cdecl table     >>>
