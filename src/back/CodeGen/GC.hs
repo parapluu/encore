@@ -32,23 +32,21 @@ gcSend as expectedTypes traceFuns =
      Embed $ "// --- GC on sending ----------------------------------------",
      Embed $ ""]
 
+ponyGcSend :: [(Ty.Type, CCode Lval)] -> CCode Stat -> [CCode Stat]
+ponyGcSend argPairs futTrace =
+    [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs) ++
+  [Statement futTrace] ++
+  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
+
 ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendFuture argPairs =
-  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
-  (map (Statement . uncurry traceVariable) argPairs) ++
-  [Statement . traceFuture $ Var "_fut"] ++
-  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
+    ponyGcSend argPairs (traceFuture $ Var "_fut")
 
 ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendStream argPairs =
-  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
-  (map (Statement . uncurry traceVariable) argPairs) ++
-  [Statement . traceStream $ Var "_stream"] ++
-  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
+    ponyGcSend argPairs (traceStream $ Var "_stream")
 
 ponyGcSendOneway :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendOneway argPairs =
-  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
-  (map (Statement . uncurry traceVariable) argPairs) ++
-  [Comm "No tracing future for oneway msg"] ++
-  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
+    ponyGcSend argPairs (Comm "No tracing future for oneway msg")

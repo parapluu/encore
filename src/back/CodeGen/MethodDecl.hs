@@ -28,10 +28,10 @@ import Control.Arrow ((&&&), (>>>), arr)
 instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplevel]) where
   -- | Translates a method into the corresponding C-function
   translate mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table =
-    let pipelineFn = (arr $ translateGeneral mdecl cdecl table)     >>>
-                             methodImplWithFuture mdecl cdecl table >>>
-                             methodImplOneWay mdecl cdecl table     >>>
-                             methodImplStream mdecl cdecl table
+    let pipelineFn = (arr $ translateGeneral mdecl cdecl table)    >>>
+                            methodImplWithFuture mdecl cdecl       >>>
+                            methodImplOneWay mdecl cdecl table     >>>
+                            methodImplStream mdecl cdecl table
     in pipelineFn []
 
 translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
@@ -84,7 +84,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
                   reverse $ Util.filter A.isTask mbody
 
 
-methodImplWithFuture m cdecl@(A.Class {A.cname}) _ code
+methodImplWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
