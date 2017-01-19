@@ -66,14 +66,7 @@ traceTypeVar t var =
 
 traceCapability :: CCode Lval -> CCode Stat
 traceCapability var =
-  let
-    cap = Cast capability var
-    traceFunPath = cap `Arrow` selfTypeField `Arrow` Nam "trace"
-    nullCheck = BinOp (Nam "!=") var nullVar
-    doTrace = Statement $ Call traceFunPath [Deref encoreCtxVar, var]
-    dontTrace = Comm "Not tracing null valued field"
-  in
-    Statement $ If nullCheck doTrace Skip
+  Statement $ Call (Nam "encore_trace_capability") [Deref encoreCtxVar, var]
 
 tracefunCall :: (CCode Lval, Ty.Type) -> Ty.Type -> CCode Stat
 tracefunCall (a, t) expectedType =
