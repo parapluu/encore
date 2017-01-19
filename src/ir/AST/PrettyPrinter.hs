@@ -31,6 +31,10 @@ indent = nest 2
 commaSep l = cat $ punctuate ", " l
 angles s = cat ["<", s, ">"]
 
+ppMut :: Mutability -> Doc
+ppMut Val = "val"
+ppMut Var = "var"
+
 ppName :: Name -> Doc
 ppName = text . show
 
@@ -78,7 +82,8 @@ ppTypedef Typedef { typedefdef=t } =
 ppFunctionHeader :: FunctionHeader -> Doc
 ppFunctionHeader header =
     ppName (hname header) <>
-    parens (commaSep (map ppParamDecl (hparams header))) <+>
+    angles (commaSep $ map ppType $ htypeparams header) <>
+    parens (commaSep $ map ppParamDecl $ hparams header) <+>
     ":" <+> ppType (htype header)
 
 ppFunctionHelper :: FunctionHeader -> Expr -> Doc
@@ -92,11 +97,31 @@ ppFunction Function {funheader, funbody} =
 ppFunction MatchingFunction {matchfunheaders, matchfunbodies} =
     foldr ($+$) "" (zipWith ppFunctionHelper matchfunheaders matchfunbodies)
 
+ppTraitExtension :: TraitExtension -> Doc
+ppTraitExtension FieldExtension{extname} = ppName extname
+ppTraitExtension MethodExtension{extname} = ppName extname <> "()"
+
+ppComposition :: TraitComposition -> Doc
+ppComposition Conjunction{tcleft, tcright} =
+  ppConjunctionChild tcleft <+> "*" <+> ppConjunctionChild tcright
+  where
+    ppConjunctionChild disj@Disjunction{} = "(" <> ppComposition disj <> ")"
+    ppConjunctionChild c = ppComposition c
+ppComposition Disjunction{tcleft, tcright} =
+  ppComposition tcleft <+> "+" <+> ppComposition tcright
+ppComposition TraitLeaf{tcname, tcext} =
+  ppType tcname <> parens (commaSep (map ppTraitExtension tcext))
+
 ppClassDecl :: ClassDecl -> Doc
-ppClassDecl Class {cname, cfields, cmethods} =
-    "class" <+> ppType cname $+$
+ppClassDecl Class {cname, cfields, cmethods, ccomposition} =
+    "class" <+> ppType cname <+> compositionDoc $+$
         indent (vcat (map ppFieldDecl cfields) $$
                 vcat (map ppMethodDecl cmethods))
+  where
+    compositionDoc =
+      case ccomposition of
+        Just c -> ":" <+> ppComposition c
+        Nothing -> empty
 
 ppFieldDecl :: FieldDecl -> Doc
 ppFieldDecl = text . show
@@ -150,8 +175,11 @@ ppExpr PartyExtract {val} = "extract" <+> ppExpr val
 ppExpr PartyEach {val} = "each" <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
-ppExpr FunctionCall {qname, args} =
+ppExpr FunctionCall {qname, args, typeArguments = Nothing} =
     ppQName qname <> parens (commaSep (map ppExpr args))
+ppExpr FunctionCall {qname, args, typeArguments = Just typeArgs} =
+    ppQName qname <> angles (commaSep (map ppType typeArgs)) <>
+                     parens (commaSep (map ppExpr args))
 ppExpr FunctionAsValue {qname, typeArgs} =
   ppQName qname <> angles (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, body} =
@@ -164,8 +192,8 @@ ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
 ppExpr Let {decls, body} =
   "let" <+> vcat (map (\(Name x, e) -> text x <+> "=" <+> ppExpr e) decls) $+$
   "in" $+$ indent (ppExpr body)
-ppExpr MiniLet {decl = (x, val)} =
-    "let" <+> ppName x <+> "=" <+> ppExpr val
+ppExpr MiniLet {mutability, decl = (x, val)} =
+    ppMut mutability <+> ppName x <+> "=" <+> ppExpr val
 ppExpr Seq {eseq = [expr]} =
     ppExpr expr
 ppExpr Seq {eseq} =
@@ -240,7 +268,7 @@ ppExpr Embed {ty, embedded} =
           hcat (map (uncurry ppPair) embedded) <+> "end"
   where
     ppPair code Skip{} = text code
-    ppPair code expr = text code <> "#{" <> ppExpr expr <> "}#"
+    ppPair code expr = text code <> "#{" <> ppExpr expr <> "}"
 ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
 ppExpr Binop {binop, loper, roper} =
   ppExpr loper <+> ppBinop binop <+> ppExpr roper
