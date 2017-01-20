@@ -1,9 +1,14 @@
-module CodeGen.GC (gcSend, gcRecv) where
+module CodeGen.GC (gcSend
+                  ,gcRecv
+                  ,ponyGcSendFuture
+                  ,ponyGcSendStream
+                  ,ponyGcSendOneway) where
 
 import CodeGen.CCodeNames
 import CCode.Main
 import qualified AST.AST as A
-import CodeGen.Trace (traceVariable, tracefunCall)
+import qualified Types as Ty
+import CodeGen.Trace (traceVariable, tracefunCall, traceFuture, traceStream)
 
 gcRecv params traceFun = [Embed $ "",
                           Embed $ "// --- GC on receive ----------------------------------------",
@@ -26,3 +31,22 @@ gcSend as expectedTypes traceFuns =
     [Statement $ Call ponySendDoneName [Deref encoreCtxVar],
      Embed $ "// --- GC on sending ----------------------------------------",
      Embed $ ""]
+
+ponyGcSend :: [(Ty.Type, CCode Lval)] -> CCode Stat -> [CCode Stat]
+ponyGcSend argPairs futTrace =
+  [Statement $ Call ponyGcSendName [Deref encoreCtxVar]] ++
+  (map (Statement . uncurry traceVariable) argPairs)     ++
+  [Statement futTrace]                                   ++
+  [Statement $ Call ponySendDoneName [Deref encoreCtxVar]]
+
+ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendFuture argPairs =
+  ponyGcSend argPairs (traceFuture $ Var "_fut")
+
+ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendStream argPairs =
+  ponyGcSend argPairs (traceStream $ Var "_stream")
+
+ponyGcSendOneway :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
+ponyGcSendOneway argPairs =
+  ponyGcSend argPairs (Comm "No tracing future for oneway msg")
