@@ -200,4 +200,13 @@ struct capability_t {
 
 typedef struct capability_t capability_t;
 
+static inline void encore_trace_capability(
+    pony_ctx_t* ctx,
+    void *p)
+{
+  if (p) {
+    ((capability_t*) p)->_enc__self_type->trace(ctx, p);
+  }
+}
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */

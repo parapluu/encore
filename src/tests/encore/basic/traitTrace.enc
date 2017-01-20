@@ -1,0 +1,14 @@
+trait T
+
+passive class Foo
+  g : T
+
+class Other
+  def pass(x : Foo) : void
+    ()
+
+class Main
+  def main() : void {
+    (new Other).pass(new Foo);
+    print "Done!";
+  }
