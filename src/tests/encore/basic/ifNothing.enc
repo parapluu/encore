@@ -1,0 +1,7 @@
+class Main
+  def main() : void {
+    if true then
+       Nothing
+    else
+      Nothing
+  }
