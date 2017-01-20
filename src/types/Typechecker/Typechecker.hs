@@ -637,17 +637,17 @@ instance Checkable Expr where
 
       let argTypes = getArgTypes ty
           typeParams = getTypeParameters ty
+          uniquify = uniquifyTypeVars typeParams
       unless (isArrowType ty) $
         tcError $ NonFunctionTypeError ty
       unless (length args == length argTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
                     qname (length argTypes) (length args)
+      uniqueArgTypes <- mapM uniquify argTypes
       (eArgs, resultType, typeArgs) <-
           case typeArguments of
             Nothing -> do
-              let uniquify = uniquifyTypeVars typeParams
-              argTypes' <- mapM uniquify argTypes
-              (eArgs, bindings) <- matchArguments args argTypes'
+              (eArgs, bindings) <- matchArguments args uniqueArgTypes
               let resolve t = replaceTypeVars bindings <$> uniquify t
               resultType <- resolve (getResultType ty)
               typeArgs <- mapM resolve typeParams
@@ -665,7 +665,7 @@ instance Checkable Expr where
               let bindings = zip typeParams typeArgs'
               (eArgs, _) <-
                   local (bindTypes bindings) $
-                        matchArguments args argTypes
+                        matchArguments args uniqueArgTypes
               let resultType = replaceTypeVars bindings (getResultType ty)
               return (eArgs, resultType, typeArgs')
 
