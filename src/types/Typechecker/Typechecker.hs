@@ -785,11 +785,14 @@ instance Checkable Expr where
                     Nothing -> do
                       ty1Sub <- ty1 `subtypeOf` ty2
                       ty2Sub <- ty2 `subtypeOf` ty1
-                      if ty1Sub || isVoidType ty2
-                      then return ty2
-                      else if ty2Sub || isVoidType ty1
-                           then return ty1
-                           else tcError $ IfBranchMismatchError ty1 ty2
+                      if ty1Sub || isVoidType ty2 then
+                          return ty2
+                      else if ty2Sub || isVoidType ty1 then
+                          return ty1
+                      else if knownType ty1 || knownType ty2 then
+                          tcError $ IfBranchMismatchError ty1 ty2
+                      else
+                          tcError IfInferenceError
 
 
     --  E |- arg : t'

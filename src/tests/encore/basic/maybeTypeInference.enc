@@ -1,4 +1,8 @@
 def foo() : (Maybe int, Maybe int) {
+  if false then
+    Nothing
+  else
+    Just (Just 42);
   if true then{
     if false then{
       (Just 42, Nothing : Maybe int)

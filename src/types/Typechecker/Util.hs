@@ -419,6 +419,7 @@ typeIsUnifiable ty
 isUnifiableWith ty types
     | isArrowType ty = return False
     | hasResultType ty &&
+      all hasResultType types &&
       all (hasSameKind ty) types =
           isUnifiableWith (getResultType ty) (map getResultType types)
     | isPassiveClassType ty = do
