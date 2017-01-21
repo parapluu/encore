@@ -124,6 +124,7 @@ solution "ponyrt"
   configuration "not windows"
     if(table.contains(_ARGS, "dtrace")) then
       defines "USE_DYNAMIC_TRACE"
+      os.execute("echo '#define USE_DYNAMIC_TRACE' > ../../../release/inc/dtrace_enabled.h")
 
       if os.execute("dtrace -h -s ../common/encore_probes.d -o ../common/encore_probes.h") ~= 0 then
         print("Error generating encore DTrace headers. Stop");
@@ -152,6 +153,8 @@ solution "ponyrt"
               'ar -rcs bin/release/libponyrt.a ../common/dtrace_probes.o',
             }
       end
+    else
+      os.execute("cat /dev/null > ../../../release/inc/dtrace_enabled.h")
     end
 
 project "ponyrt"
