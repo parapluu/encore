@@ -137,6 +137,9 @@ nothing = Var "NOTHING"
 just :: CCode Lval
 just = Var "JUST"
 
+assertName :: CCode Name
+assertName = Nam "assert"
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let

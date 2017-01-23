@@ -34,8 +34,8 @@ extern __pony_thread_local context *root_context;
 extern __pony_thread_local context *this_context;
 
 __attribute__ ((unused))
-static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)1;
-static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)NULL;
+static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)2;
+static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)1;
 
 __pony_spec_align__(typedef struct encore_actor encore_actor_t, 64);
 typedef struct encore_oneway_msg encore_oneway_msg_t;

@@ -41,7 +41,8 @@ generateHeader p =
       "party.h",
       "string.h",
       "stdio.h",
-      "stdarg.h"
+      "stdarg.h",
+      "assert.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 
