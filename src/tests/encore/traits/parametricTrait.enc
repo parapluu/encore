@@ -13,6 +13,6 @@ class Main
     in {
       print("Id result: {}\n", f);
       match f' with
-      Nothing => print("Phatom type is 'Nothing'")
+      Nothing => print("Phantom type is 'Nothing'")
       Just s => print("ERROR")
     }

@@ -645,11 +645,10 @@ expression = buildExpressionParser opTable highOrderExpr
           Postfix (do pos <- getPosition
                       bang
                       name <- identifier
-                      optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
+                      optTypeArgs <- option [] (try . angles $ commaSep typ)
                       args <- parens arguments
-                      let typeArguments = fromMaybe [] optTypeArgs
                       return (\target -> MessageSend { emeta = (meta pos),
-                                                       typeArguments,
+                                                       typeArguments=optTypeArgs,
                                                        target,
                                                        name=(Name name),
                                                        args }))
@@ -804,13 +803,12 @@ expr  =  embed
                  return $ VarAccess (meta pos) (qName id)
 
                functionOrCall VarAccess{emeta, qname} = do
-                 optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
-                 let optTypeArgs' = fromMaybe [] optTypeArgs
-                 if null optTypeArgs' then
-                   call emeta [] qname
+                 optTypeArgs <- option [] (try . angles $ commaSep typ)
+                 if null optTypeArgs then
+                   call emeta optTypeArgs qname
                  else
-                   call emeta optTypeArgs' qname <|>
-                   return (FunctionAsValue emeta optTypeArgs' qname)
+                   call emeta optTypeArgs qname <|>
+                   return (FunctionAsValue emeta optTypeArgs qname)
 
                call emeta typeArgs name = do
                  args <- parens arguments
@@ -828,10 +826,9 @@ expr  =  embed
                  functionCall x <|> return x
 
                functionCall VarAccess{emeta, qname} = do
-                 typeParams <- optionMaybe (try . angles $ commaSep typ)
+                 typeParams <- option [] (try . angles $ commaSep typ)
                  args <- parens arguments
-                 let typeParams' = fromMaybe [] typeParams
-                 return $ FunctionCall emeta typeParams' qname args
+                 return $ FunctionCall emeta typeParams qname args
 
                buildPath pos target (VarAccess{qname}) =
                    FieldAccess (meta pos) target (qnlocal qname)

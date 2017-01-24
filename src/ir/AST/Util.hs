@@ -412,10 +412,7 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
         | otherwise = concatMap (freeVariables' bound) args ++
                       [(qname, arrType)]
         where
-          arrType = if null typeArguments then
-                      arrowType (map getType args) (getType fCall)
-                    else
-                      arrowWithTypeParam typeArguments (map getType args) (getType fCall)
+          arrType = arrowWithTypeParam typeArguments (map getType args) (getType fCall)
     freeVariables' bound Closure {eparams, body} =
         freeVariables' bound' body
         where

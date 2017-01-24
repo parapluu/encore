@@ -267,6 +267,8 @@ instance Precheckable MethodDecl where
                   tcError PassiveStreamingMethodError
            when (isConstructor m) $
                 tcError StreamingConstructorError
+      when ((hname mheader == Name "_init") && ((not . null . methodTypeParams) m)) $
+            tcError $ SimpleError "Constructors (a.k.a. 'init methods') cannot use parametric methods"
       let mtype = htype mheader'
       return $ setType mtype m{mheader = mheader'}
       where

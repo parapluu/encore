@@ -1597,7 +1597,7 @@ inferenceTypecheckingMethodCall eTarget mcall
       else
         tcError $ SimpleError $ "Type inference for polymorphic method " ++
                                 "calls is not supported yet"
- | otherwise = tcError $ SimpleError $ "Function 'inferenceTypecheckingMethodCall'"
+ | otherwise = error $ "Function 'inferenceTypecheckingMethodCall'"
                        ++ " is not a method call"
 
 typecheckMethodCall eTarget mcall
@@ -1622,6 +1622,7 @@ typecheckMethodCall eTarget mcall
       let resultType = replaceTypeVars bindings mType
           returnType = retType calledType header resultType
       return (eTarget', eArgs, returnType, typeArgs')
+ | otherwise = error $ "Function 'typecheckMethodCall' is not a method call"
   where
     target' = target mcall
     typeArguments' = typeArguments mcall
