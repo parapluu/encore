@@ -1,0 +1,18 @@
+trait T
+def id<a>(x : a) : a
+  x
+def phantom<a, b>(x: a): Maybe b
+  Nothing
+
+passive class Foo<s> : T
+
+class Main
+  def main() : void
+    let f = (new Foo<int> : T).id<int>(42)
+        f' = (new Foo<int> : T).phantom<int, String>(42)
+    in {
+      print("Id result: {}\n", f);
+      match f' with
+      Nothing => print("Phantom type is 'Nothing'")
+      Just s => print("ERROR")
+    }

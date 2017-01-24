@@ -421,6 +421,7 @@ data MethodDecl =
 
 methodName = hname . mheader
 methodParams = hparams . mheader
+methodTypeParams = htypeparams . mheader
 methodType = htype . mheader
 
 isStreamMethod Method{mheader} = isStreamMethodHeader mheader
@@ -500,15 +501,17 @@ data Expr = Skip {emeta :: Meta Expr}
                        body :: Expr,
                        ty   :: Type}
           | MethodCall {emeta :: Meta Expr,
+                        typeArguments :: [Type],
                         target :: Expr,
                         name :: Name,
                         args :: Arguments}
           | MessageSend {emeta :: Meta Expr,
+                         typeArguments :: [Type],
                          target :: Expr,
                          name :: Name,
                          args :: Arguments}
           | FunctionCall {emeta :: Meta Expr,
-                          typeArguments :: Maybe [Type],
+                          typeArguments :: [Type],
                           qname :: QualifiedName,
                           args :: Arguments}
           | FunctionAsValue {emeta :: Meta Expr,
@@ -656,6 +659,11 @@ isLval VarAccess {} = True
 isLval FieldAccess {} = True
 isLval ArrayAccess {} = True
 isLval _ = False
+
+isMethodCall :: Expr -> Bool
+isMethodCall MethodCall {} = True
+isMethodCall MessageSend {} = True
+isMethodCall _ = False
 
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"

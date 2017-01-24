@@ -161,6 +161,7 @@ data Error =
   | RecursiveTypesynonymError Type
   | DuplicateThingError String String
   | PassiveStreamingMethodError
+  | PolymorphicConstructorError
   | StreamingConstructorError
   | MainMethodArgumentsError
   | FieldNotFoundError Name Type
@@ -479,6 +480,8 @@ instance Show Error where
     show (WrongModuleNameError modname expected) =
         printf "Module name '%s' and file name '%s' must match"
                (show modname) expected
+    show PolymorphicConstructorError =
+        printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show (SimpleError msg) = msg
 
 

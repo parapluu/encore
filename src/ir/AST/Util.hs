@@ -31,7 +31,7 @@ getTypeChildren NewWithInit{ty} = [ty]
 getTypeChildren ArrayNew{ty} = [ty]
 getTypeChildren TypedExpr{ty} = [ty]
 getTypeChildren Embed{ty} = [ty]
-getTypeChildren FunctionCall{typeArguments = Just args} = args
+getTypeChildren FunctionCall{typeArguments} = typeArguments
 getTypeChildren FunctionAsValue{typeArgs} = typeArgs
 getTypeChildren e = []
 
@@ -44,8 +44,7 @@ putTypeChildren [ty] e@NewWithInit{} = e{ty}
 putTypeChildren [ty] e@ArrayNew{} = e{ty}
 putTypeChildren [ty] e@TypedExpr{} = e{ty}
 putTypeChildren [ty] e@Embed{} = e{ty}
-putTypeChildren args e@FunctionCall{typeArguments = Just _} =
-  e{typeArguments = Just args}
+putTypeChildren args e@FunctionCall{typeArguments} = e{typeArguments = args}
 putTypeChildren typeArgs e@FunctionAsValue{} = e{typeArgs}
 putTypeChildren [] e = e
 putTypeChildren l e =
@@ -380,7 +379,7 @@ extractTypes (Program{functions, traits, classes}) =
 extractExprTypes :: Expr -> [Type]
 extractExprTypes = foldrExp collectTypes []
   where
-    collectTypes e@(FunctionCall {typeArguments = Just typeArgs}) acc =
+    collectTypes e@(FunctionCall {typeArguments = typeArgs}) acc =
       typeArgs ++ (typeComponents . getType) e ++ acc
     collectTypes e acc = (typeComponents . getType) e ++ acc
 
@@ -413,9 +412,7 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
         | otherwise = concatMap (freeVariables' bound) args ++
                       [(qname, arrType)]
         where
-          arrType = case typeArguments of
-                      Just tys -> arrowWithTypeParam tys (map getType args) (getType fCall)
-                      Nothing -> arrowType (map getType args) (getType fCall)
+          arrType = arrowWithTypeParam typeArguments (map getType args) (getType fCall)
     freeVariables' bound Closure {eparams, body} =
         freeVariables' bound' body
         where

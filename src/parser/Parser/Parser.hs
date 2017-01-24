@@ -14,6 +14,7 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Expr
 import Data.Char(isUpper)
+import Data.Maybe(fromMaybe)
 import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
 
@@ -644,9 +645,13 @@ expression = buildExpressionParser opTable highOrderExpr
           Postfix (do pos <- getPosition
                       bang
                       name <- identifier
+                      optTypeArgs <- option [] (try . angles $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend (meta pos) target
-                                                     (Name name) args))
+                      return (\target -> MessageSend { emeta = (meta pos),
+                                                       typeArguments=optTypeArgs,
+                                                       target,
+                                                       name=(Name name),
+                                                       args }))
       chain =
           Infix (do pos <- getPosition ;
                     reservedOp "~~>" ;
@@ -798,12 +803,12 @@ expr  =  embed
                  return $ VarAccess (meta pos) (qName id)
 
                functionOrCall VarAccess{emeta, qname} = do
-                 optTypeArgs <- optionMaybe (try . angles $ commaSep typ)
-                 case optTypeArgs of
-                   Just typeArgs ->
-                       call emeta optTypeArgs qname <|>
-                            return (FunctionAsValue emeta typeArgs qname)
-                   Nothing -> call emeta Nothing qname
+                 optTypeArgs <- option [] (try . angles $ commaSep typ)
+                 if null optTypeArgs then
+                   call emeta optTypeArgs qname
+                 else
+                   call emeta optTypeArgs qname <|>
+                   return (FunctionAsValue emeta optTypeArgs qname)
 
                call emeta typeArgs name = do
                  args <- parens arguments
@@ -821,15 +826,15 @@ expr  =  embed
                  functionCall x <|> return x
 
                functionCall VarAccess{emeta, qname} = do
-                 typeParams <- optionMaybe (try . angles $ commaSep typ)
+                 typeParams <- option [] (try . angles $ commaSep typ)
                  args <- parens arguments
                  return $ FunctionCall emeta typeParams qname args
 
                buildPath pos target (VarAccess{qname}) =
                    FieldAccess (meta pos) target (qnlocal qname)
-               -- TODO: Pass type arguments to parametric method
-               buildPath pos target (FunctionCall{qname, args}) =
-                   MethodCall (meta pos) target (qnlocal qname) args
+
+               buildPath pos target (FunctionCall{qname, args, typeArguments}) =
+                   MethodCall (meta pos) typeArguments target (qnlocal qname) args
 
       letExpression = do pos <- getPosition
                          reserved "let"
@@ -970,7 +975,7 @@ expr  =  embed
                  reserved "print"
                  notFollowedBy (symbol "(" >> symbol "\"")
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) Nothing
+                 return $ FunctionCall (meta pos) []
                                        (qName "println") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral

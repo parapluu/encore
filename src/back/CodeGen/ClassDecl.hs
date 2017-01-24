@@ -69,6 +69,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        (Ptr ponyMsgT, Var "_m")])
      (Seq [Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
                   (Cast (Ptr . AsType $ classTypeName cname) (Var "_a")),
+           Seq $ map assignTypeVar classTypeVars,
            (Switch (Var "_m" `Arrow` Nam "id")
             (
              taskDispatchClause :
@@ -79,12 +80,17 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              ))
             (Statement $ Call (Nam "printf") [String "error, got invalid id: %zd", AsExpr $ (Var "_m") `Arrow` (Nam "id")]))]))
      where
+       classTypeVars = Ty.getTypeParameters cname
+       assignTypeVar t =
+            Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName t))
+                   (Arrow (Nam "_this") (typeVarRefName t))
        ponyMainClause =
            (Nam "_ENC__MSG_MAIN",
             Seq $ [Assign (Decl (Ptr ponyMainMsgT, Var "msg")) (Cast (Ptr ponyMainMsgT) (Var "_m")),
                    Statement $ Call ((methodImplName cname (ID.Name "main")))
                                     [AsExpr encoreCtxVar,
                                      (Cast (translate cname) (Var "_a")),
+                                     AsExpr nullVar,
                                      Call (Nam "_init_argv")
                                           [AsExpr encoreCtxVar,
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
@@ -99,10 +105,18 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        -- explode _enc__Foo_bar_msg_t struct into variable names
        methodUnpackArguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
        methodUnpackArguments mdecl msgTypeName =
+         map unpackMethodTypeParam (A.methodTypeParams mdecl) ++
          zipWith unpack (A.methodParams mdecl) [1..]
            where
+             unpackMethodTypeParam :: Ty.Type -> CCode Stat
+             unpackMethodTypeParam ty =
+               (Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName ty))
+                       ((Cast (msgTypeName) (Var "_m")) `Arrow` (typeVarRefName ty)))
+
              unpack :: A.ParamDecl -> Int -> CCode Stat
-             unpack A.Param{A.pname, A.ptype} n = (Assign (Decl (translate ptype, (AsLval . argName $ pname))) ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
+             unpack A.Param{A.pname, A.ptype} n =
+               (Assign (Decl (translate ptype, (AsLval . argName $ pname)))
+                       ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
        includeCtx xs = Deref encoreCtxVar : xs
 
@@ -134,16 +148,17 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
            | A.isStreamMethod mdecl =
                (futMsgId cname mName,
                 Seq $ unpackFuture : args ++
-                      gcRecieve ++ [streamMethodCall])
+                      gcReceive ++ [streamMethodCall])
            | otherwise =
                (futMsgId cname mName,
                 Seq $ unpackFuture : args ++
-                      gcRecieve ++ [methodCall])
+                      gcReceive ++ [pMethodDecl, methodCall])
            where
+             (pMethodArrName, pMethodDecl) = arrMethodTypeVars mdecl
              args =
                  methodUnpackArguments mdecl
                  (Ptr . AsType $ futMsgTypeName cname mName)
-             gcRecieve  =
+             gcReceive  =
                  gcRecv mParams
                  (Statement $ Call ponyTraceObject
                                    (includeCtx
@@ -153,16 +168,18 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                  Statement $ Call (methodImplName cname mName)
                                   (encoreCtxVar :
                                    Var "_this" :
+                                   nullVar :
                                    Var "_fut" :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
-                 Statement $
+                   Statement $
                    Call futureFulfil
                         [AsExpr encoreCtxVar,
                          AsExpr $ Var "_fut",
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
                                (encoreCtxVar : Var "_this" :
+                                pMethodArrName :
                                 map (AsLval . argName . A.pname) mParams))]
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
@@ -170,8 +187,9 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        oneWaySendDispatchClause mdecl =
            (oneWayMsgId cname mName,
-            Seq $ args ++ gcReceive ++ [methodCall])
+            Seq $ args ++ gcReceive ++ [pMethodDecl, methodCall])
            where
+             (pMethodArrName, pMethodDecl) = arrMethodTypeVars mdecl
              args =
                  methodUnpackArguments mdecl
                  (Ptr . AsType $ oneWayMsgTypeName cname mName)
@@ -181,7 +199,8 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
              methodCall =
                  Statement $
                    Call (methodImplName cname mName)
-                        (encoreCtxVar : Var "_this" : map (AsLval . argName . A.pname) mParams)
+                        (encoreCtxVar : Var "_this" : pMethodArrName :
+                           map (AsLval . argName . A.pname) mParams)
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
 
@@ -199,6 +218,13 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
          in
            Assign lval rval
 
+arrMethodTypeVars mdecl =
+  let arrName = "methodTypeVars"
+      arr = map (AsExpr . AsLval . typeVarRefName) (A.methodTypeParams mdecl) :: [CCode Expr]
+  in (Var arrName, Assign
+                       (Decl (Ptr ponyTypeT, Var $ arrName ++ "[]"))
+                       (Record arr))
+
 data Activity = Active | Shared | Passive
 
 constructorImpl :: Activity -> Ty.Type -> CCode Toplevel
@@ -206,7 +232,8 @@ constructorImpl act cname =
   let
     retType = translate cname
     fName = constructorImplName cname
-    args = [(Ptr (Ptr encoreCtxT), encoreCtxVar)]
+    args = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+            (Ptr (Ptr ponyTypeT), encoreRuntimeType)]
     fBody = Seq $
       assignThis :
       decorateThis act ++
@@ -319,7 +346,7 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, encoreCtxVar), (Ptr void, Var "p")]
                    (Statement $ Call (methodImplName cname (A.methodName mdecl))
-                                [Amp encoreCtxVar, AsExpr $ Var "p"])
+                                [Amp encoreCtxVar, AsExpr $ Var "p", AsExpr nullVar])
       Nothing ->
           Function void (classTraceFnName cname)
                    [(Ptr encoreCtxT, ctxArg),
@@ -328,9 +355,17 @@ tracefunDecl A.Class{A.cname, A.cfields, A.cmethods} =
                     (Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg)):
                     (Assign (Decl (Ptr . AsType $ classTypeName cname, Var "_this"))
                             (Var "p")) :
+                     runtimeTypeAssignment ++
                      map traceField cfields)
     where
       ctxArg = Var "_ctx_arg"
+      runtimeTypeAssignment = map extractTypeVariable typeParams
+      extractTypeVariable t =
+         if Ty.isTypeVar t then
+            Assign (Decl (Ptr ponyTypeT, AsLval $ typeVarRefName t))
+                   (Arrow (Nam "_this") (typeVarRefName t))
+         else error $ "Expected type variable but found concrete type"
+      typeParams = Ty.getTypeParameters cname
       traceField A.Field {A.ftype, A.fname} =
         let var = Var . show $ fieldName fname
             field = Var "_this" `Arrow` fieldName fname

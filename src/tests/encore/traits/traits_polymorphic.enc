@@ -7,7 +7,7 @@ class Foo<t>
 
 trait T<t> {
   require x : t
-  def foo<t>() : void {
+  def foo() : void {
     val arr = new [t](10);
     val x = arr[0] : t;
     new Foo<t>(x);

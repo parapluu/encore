@@ -8,6 +8,9 @@ class Cell<a>
   def getVal() : a
     this.value
 
+  def getVal2() : void
+    new Cell<a>(this.value)
+
   def clone(value : a): void
     new Cell<a>(value)
 
@@ -24,19 +27,28 @@ class Pair<a, b>
   def getSnd() : b
     this.snd
 
-  -- tests type inference and explicit usage of parametric functions
-  def getFstViaId() : int {
-    id<int>(2);
-    id(3);
+  def getCustom<d, g>(z: a, x: d, y: g): Maybe d {
+    id(x);
+    -- test that it works with explicit parametric type
+    this.liftJust<d>(x);
+    -- test that it can infer the type
+    -- this.liftJust(x)
   }
+
+  def liftJust<d>(x: d): Maybe d { Just x; }
 
 class Main
   def main() : void{
     let p = new Pair<int, String>(42, "fortytwo")
         c = new Cell<Pair<int, String>>(p)
         pp = get c.getVal()
+        d = p.getCustom<int, String>(23, 5, "")
     in {
+      p!getCustom<int, String>(23, 5, "");
       print get pp.getFst();
       print get pp.getSnd();
+      match (get d) with
+        Just x => print x
+        Nothing => print "Error"
     };
   }

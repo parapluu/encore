@@ -58,11 +58,6 @@ runtimeType ty
     | Ty.isTypeVar ty    = AsExpr . AsLval $ typeVarRefName ty
     | otherwise = AsExpr encorePrimitive
 
-getRuntimeTypeVariables :: (CCode Name -> CCode Lval) -> Ty.Type -> CCode Expr
-getRuntimeTypeVariables f t
-  | Ty.isTypeVar t = (AsExpr . f .typeVarRefName) t
-  | otherwise = runtimeType t
-
 encoreArgTTag :: CCode Ty -> CCode Name
 encoreArgTTag (Ptr _)         = Nam "p"
 encoreArgTTag (Typ "int64_t") = Nam "i"

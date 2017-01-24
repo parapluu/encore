@@ -1,0 +1,8 @@
+class Test
+  def foo<t>(x: t): void
+    x
+
+class Main
+  def main(): void
+    let t = new Test
+    in t.foo(2)

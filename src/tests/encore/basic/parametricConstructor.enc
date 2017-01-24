@@ -1,0 +1,8 @@
+passive class Test
+  def init<a>(x: a): void
+    ()
+
+
+class Main
+  def main(): void
+    ()
