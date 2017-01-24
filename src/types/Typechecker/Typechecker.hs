@@ -659,7 +659,6 @@ instance Checkable Expr where
       (eArgs, resultType, typeArgs) <-
           if null typeArguments then
             do
-              let uniquify = uniquifyTypeVars typeParams
               (eArgs, bindings) <- matchArguments args uniqueArgTypes
               let resolve t = replaceTypeVars bindings <$> uniquify t
               resultType <- resolve (getResultType ty)
@@ -1598,10 +1597,27 @@ inferenceTypecheckingMethodCall eTarget mcall
       if null formalTypeParams then
         typecheckMethodCall eTarget mcall
       else
-        tcError $ SimpleError $ "Type inference for polymorphic method " ++
-                                "calls is not supported yet"
- | otherwise = error $ "Function 'inferenceTypecheckingMethodCall'"
+        do
+          let uniquify = uniquifyTypeVars formalTypeParams
+          uniqueArgTypes <- mapM uniquify expectedTypes
+          (eArgs, bindings) <- matchArguments (args mcall) uniqueArgTypes
+          let resolve t = replaceTypeVars bindings <$> uniquify t
+          resultType <- resolve mType
+          typeArgs <- mapM resolve formalTypeParams
+          return (eTarget, eArgs, resultType, typeArgs)
+  | otherwise = error $ "Function 'inferenceTypecheckingMethodCall'"
                        ++ " is not a method call"
+  where
+  uniquifyTypeVars :: [Type] -> Type -> TypecheckM Type
+  uniquifyTypeVars params = typeMapM (uniquifyTypeVar params)
+  uniquifyTypeVar :: [Type] -> Type -> TypecheckM Type
+  uniquifyTypeVar params ty
+    | isTypeVar ty = do
+      localTypeVars <- asks typeParameters
+      if ty `elem` params && ty `elem` localTypeVars
+      then return $ typeVar ("_" ++ getId ty)
+      else return ty
+    | otherwise = return ty
 
 typecheckMethodCall eTarget mcall
   | isMethodCall mcall = do

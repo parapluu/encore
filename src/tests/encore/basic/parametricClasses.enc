@@ -31,8 +31,12 @@ class Pair<a, b>
     id(x);
     -- test that it works with explicit parametric type
     this.liftJust<d>(x);
+
     -- test that it can infer the type
-    -- this.liftJust(x)
+    this.liftJust<int>(34);
+    this.liftJust(34);
+
+    this.liftJust(x);
   }
 
   def liftJust<d>(x: d): Maybe d { Just x; }
