@@ -1604,7 +1604,9 @@ inferenceTypecheckingMethodCall eTarget mcall
           let resolve t = replaceTypeVars bindings <$> uniquify t
           resultType <- resolve mType
           typeArgs <- mapM resolve formalTypeParams
-          return (eTarget, eArgs, resultType, typeArgs)
+          let eTarget' = setType calledType eTarget
+              returnType = retType calledType header resultType
+          return (eTarget', eArgs, returnType, typeArgs)
   | otherwise = error $ "Function 'inferenceTypecheckingMethodCall'"
                        ++ " is not a method call"
   where
@@ -1618,6 +1620,17 @@ inferenceTypecheckingMethodCall eTarget mcall
       then return $ typeVar ("_" ++ getId ty)
       else return ty
     | otherwise = return ty
+
+  retType targetType header t
+    | isSyncCall targetType = t
+    | isStreamMethodHeader header = streamType t
+    | otherwise = futureType t
+
+  isSyncCall targetType =
+    isThisAccess (target mcall) ||
+    isPassiveClassType targetType ||
+    isTraitType targetType -- TODO now all trait methods calls are sync
+
 
 typecheckMethodCall eTarget mcall
   | isMethodCall mcall = do

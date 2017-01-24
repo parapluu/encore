@@ -41,6 +41,11 @@ class Pair<a, b>
 
   def liftJust<d>(x: d): Maybe d { Just x; }
 
+  def testMethodInference<d, g>(x: g, y: d): void {
+    this.getCustom(this.fst, y, x);
+    this.getCustom(this.fst, x, y);
+  }
+
 class Main
   def main() : void{
     let p = new Pair<int, String>(42, "fortytwo")
