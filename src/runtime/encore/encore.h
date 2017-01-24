@@ -193,6 +193,9 @@ static inline void encore_trace_polymorphic_variable(
   }
 }
 
+/// Internal assert function
+void encore_assert(intptr_t p);
+
 /// Prefix of all passive classes
 struct capability_t {
   pony_type_t* _enc__self_type;

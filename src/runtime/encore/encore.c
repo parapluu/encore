@@ -331,6 +331,10 @@ bool gc_disabled(pony_ctx_t *ctx)
   return actor->suspend_counter > 0 || actor->await_counter > 0;
 }
 
+void encore_assert(intptr_t p) {
+  assert(p);
+}
+
 pony_ctx_t* encore_ctx()
 {
   return pony_ctx();

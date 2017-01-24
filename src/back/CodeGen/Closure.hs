@@ -107,7 +107,7 @@ translateClosure closure typeVars table
           assignTypeVar ty =
             let fName = typeVarRefName ty
             in Seq [Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName,
-                    Statement $ Call assertName [fName]]
+                    encoreAssert (AsExpr $ AsLval fName)]
           getVar name =
               (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
 
