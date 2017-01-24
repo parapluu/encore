@@ -137,6 +137,10 @@ nothing = Var "NOTHING"
 just :: CCode Lval
 just = Var "JUST"
 
+encoreAssert :: CCode Expr -> CCode Stat
+encoreAssert p =
+  Statement $ Call (Nam "encore_assert") [Cast (Typ "intptr_t") p]
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let

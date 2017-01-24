@@ -31,7 +31,7 @@ varSubFromTypeVars = map each
   where
     each ty =
       let ty' = typeVarRefName ty
-      in (ID.Name $ show $ ty', AsLval ty')
+      in (ID.Name $ Ty.getId ty, AsLval ty')
 
 translateClosure :: A.Expr -> [Type] -> ProgramTable -> CCode Toplevel
 translateClosure closure typeVars table
@@ -106,7 +106,8 @@ translateClosure closure typeVars table
             in Assign (Decl (translate ty, AsLval fName)) $ getVar fName
           assignTypeVar ty =
             let fName = typeVarRefName ty
-            in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+            in Seq [Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName,
+                    encoreAssert (AsExpr $ AsLval fName)]
           getVar name =
               (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
 
