@@ -269,8 +269,7 @@ instance Precheckable MethodDecl where
                 tcError StreamingConstructorError
       when (isConstructor m) $
             unless((null . methodTypeParams) m) $
-              tcError $ SimpleError $ "Constructors (a.k.a. 'init methods') " ++
-                                      "cannot use parametric methods"
+              tcError PolymorphicConstructorError
       let mtype = htype mheader'
       return $ setType mtype m{mheader = mheader'}
       where
