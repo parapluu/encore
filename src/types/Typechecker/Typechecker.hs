@@ -1605,7 +1605,7 @@ inferenceCall call
       resultType <- resolve mType
       typeArgs <- mapM resolve typeParams
       let eTarget' = setType calledType eTarget
-          returnType = retType calledType header resultType
+          returnType = retType call calledType header resultType
       return (Just eTarget', eArgs, returnType, typeArgs)
   | isFunctionCall call = do
       let args = getArgs
@@ -1636,21 +1636,9 @@ inferenceCall call
   functionCallName = qname call
   methodCallName = name call
 
-  retType targetType header t
-    | isSyncCall targetType = t
-    | isStreamMethodHeader header = streamType t
-    | otherwise = futureType t
-
-  isSyncCall targetType =
-    isThisAccess (target call) ||
-    isPassiveClassType targetType ||
-    isTraitType targetType -- TODO now all trait methods calls are sync
-
 typecheckMethodCall mcall
   | isMethodCall mcall = do
       eTarget <- typecheck (target mcall)
-      let targetType = AST.getType eTarget
-
       let targetType = AST.getType eTarget
       (header, calledType) <- findMethodWithCalledType targetType name'
       let eTarget' = setType calledType eTarget
@@ -1669,21 +1657,21 @@ typecheckMethodCall mcall
                                   map (replaceTypeVars bindings) expectedTypes
 
       let resultType = replaceTypeVars bindings mType
-          returnType = retType calledType header resultType
+          returnType = retType mcall calledType header resultType
       return (Just eTarget', eArgs, returnType, typeArgs')
  | otherwise = error $ "Function 'typecheckMethodCall' is not a method call"
   where
-    target' = target mcall
     typeArguments' = typeArguments mcall
     name' = name mcall
     args' = args mcall
 
-    retType targetType header t
-      | isSyncCall targetType = t
-      | isStreamMethodHeader header = streamType t
-      | otherwise = futureType t
-
+-- Helper function for return type of method calls
+retType mcall targetType header t
+  | isSyncCall targetType = t
+  | isStreamMethodHeader header = streamType t
+  | otherwise = futureType t
+  where
     isSyncCall targetType =
-      isThisAccess target' ||
+      isThisAccess (target mcall) ||
       isPassiveClassType targetType ||
       isTraitType targetType -- TODO now all trait methods calls are sync
