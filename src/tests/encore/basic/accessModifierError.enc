@@ -1,0 +1,8 @@
+passive class Test
+  def- privateMethod(): void
+    ()
+
+class Main
+  def main(): void
+    let t = new Test
+    in t.privateMethod()

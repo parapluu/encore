@@ -547,6 +547,7 @@ instance Checkable Expr where
       | isMethodCall mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
+          typecheckPrivateModifier eTarget (name mcall)
           handleErrors targetType mcall
           (header, calledType) <- findMethodWithCalledType targetType (name mcall)
 
@@ -1134,6 +1135,8 @@ instance Checkable Expr where
           unless (isClassType ty && not (isMainType ty)) $
                  tcError $ ObjectCreationError ty
           header <- findMethod ty constructorName
+          when (isPrivateMethod header) $
+               tcError $ PrivateAccessModifierTargetError constructorName
           matchArgumentLength ty header args
           return header
 
@@ -1605,3 +1608,10 @@ retType mcall targetType header t
       isThisAccess (target mcall) ||
       isPassiveClassType targetType ||
       isTraitType targetType -- TODO now all trait methods calls are sync
+
+typecheckPrivateModifier target name = do
+  let targetType = AST.getType target
+  header <- fst <$> findMethodWithCalledType targetType name
+  unless (isThisAccess target) $
+    when (isPrivateMethod header) $
+       tcError $ PrivateAccessModifierTargetError name

@@ -1,0 +1,7 @@
+class Test
+  def- init(): void
+    ()
+
+class Main
+  def main(): void
+    new Test
