@@ -665,6 +665,10 @@ isMethodCall MethodCall {} = True
 isMethodCall MessageSend {} = True
 isMethodCall _ = False
 
+isFunctionCall :: Expr -> Bool
+isFunctionCall FunctionCall {} = True
+isFunctionCall _ = False
+
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"
 isThisAccess _ = False
