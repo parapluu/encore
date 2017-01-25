@@ -1581,7 +1581,8 @@ getFormalTypes call
           typeParams = getTypeParameters ty
           resultType = getResultType ty
       return (argTypes, resultType, typeParams, ty)
-  | otherwise = error $ "Typechecker: ..."
+  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
+                        "is not a method call"
   where
     functionCallName = qname call
     methodCallName = name call
