@@ -212,6 +212,7 @@ data Error =
   | ConcreteTypeParameterError Type
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
   | TypeArgumentInferenceError QualifiedName Type
+  | MethodTypeArgumentInferenceError Name Type
   | AmbiguousTypeError Type [Type]
   | UnknownTypeUsageError String Type
   | AmbiguousNameError QualifiedName [(QualifiedName, Type)]
@@ -449,6 +450,9 @@ instance Show Error where
     show (TypeArgumentInferenceError fn param) =
         printf "Cannot infer the type of parameter '%s' of function '%s'"
                (show param) (show fn)
+    show (MethodTypeArgumentInferenceError name param) =
+        printf "Cannot infer the type of parameter '%s' of method '%s'"
+               (show param) (show name)
     show (ProvidingTraitFootprintError provider requirer mname fields) =
         printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++
                 "'%s' can mutate fields that are marked immutable in '%s':\n%s")

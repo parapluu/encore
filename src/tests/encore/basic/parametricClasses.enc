@@ -19,7 +19,7 @@ class Pair<a, b>
   snd : b
   def init(fst : a, snd : b) : void{
     this.fst = fst;
-    this.snd = snd
+    this.snd = snd;
   }
   def getFst() : a
     this.fst

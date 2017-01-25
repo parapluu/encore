@@ -1605,8 +1605,15 @@ inferenceCall call
 
       resultType <- resolve mType
       typeArgs <- mapM resolve typeParams
+
+      typeParams' <- mapM uniquify typeParams
+      let unresolved = filter (isNothing . (`lookup` bindings)) typeParams'
+      unless (null unresolved) $
+         tcError $ MethodTypeArgumentInferenceError methodCallName (head unresolved)
+
       let eTarget' = setType calledType eTarget
           returnType = retType call calledType header resultType
+
       return (Just eTarget', eArgs, returnType, typeArgs)
   | isFunctionCall call = do
       let args = getArgs

@@ -1,0 +1,9 @@
+class A
+  def f<t>() : void {
+    ()
+    }
+
+class Main
+  def main() : void {
+    (new A).f();
+     }
