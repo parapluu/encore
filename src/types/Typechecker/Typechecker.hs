@@ -1577,33 +1577,6 @@ assertSubtypeOf sub super =
             tcError $ TypeMismatchError sub super
 
 
-getFormalTypes call
-  | isMethodCall call = do
-      eTarget <- typecheck (target call)
-      let targetType = AST.getType eTarget
-      header <- fst <$> findMethodWithCalledType targetType (methodCallName)
-      let (argTypes, (resultType, typeParams)) = getFormalFunctionTypes header
-      return (argTypes, resultType, typeParams, targetType)
-  | isFunctionCall call = do
-      result <- (findVar functionCallName)
-      ty <- case result of
-        Just (_, ty) -> return ty
-        Nothing -> tcError $ UnboundFunctionError functionCallName
-
-      let argTypes = getArgTypes ty
-          typeParams = getTypeParameters ty
-          resultType = getResultType ty
-      return (argTypes, resultType, typeParams, ty)
-  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
-                        "is not a method call"
-  where
-    functionCallName = qname call
-    methodCallName = name call
-    getFormalFunctionTypes header =
-      let expectedTypesFn x = map ptype $ hparams x
-      in (expectedTypesFn &&& htype &&& htypeparams) header
-
-
 inferenceCall call typeParams argTypes resultType
   | isMethodCall call || isFunctionCall call = do
       let uniquify = uniquifyTypeVars typeParams
