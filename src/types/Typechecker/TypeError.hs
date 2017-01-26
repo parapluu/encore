@@ -312,11 +312,11 @@ instance Show Error where
         printf "Couldn't find trait '%s'" (getId ty)
     show MissingMainClass = "Couldn't find active class 'Main'"
     show (PrivateAccessModifierTargetError name) =
-        printf "Cannot call private %s '%s'" kind
+        printf "Cannot call private %s" kind
      where
-       kind = if name == (Name "_init")
+       kind = if name == Name "_init"
               then "constructor"
-              else "method" ++ show name
+              else "method '" ++ show name ++ "'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =

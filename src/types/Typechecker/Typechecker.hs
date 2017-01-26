@@ -771,12 +771,27 @@ instance Checkable Expr where
         when (isActiveClassType argType) $
           tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
+        checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
         let updateClauseType m@MatchClause{mchandler} =
                 m{mchandler = setType resultType mchandler}
             eClauses' = map updateClauseType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
+        checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
+
+        checkForPrivateExtractor arg FunctionCall{qname, args} = do
+          let mname = qnlocal qname
+          typecheckPrivateModifier arg mname
+          zipWithM_ checkForPrivateExtractor args args
+        checkForPrivateExtractor Tuple{args}
+                                 Tuple{args = patternArgs} =
+          zipWithM_ checkForPrivateExtractor args patternArgs
+        checkForPrivateExtractor MaybeValue{mdt = JustData{e}}
+                                 MaybeValue{mdt = JustData{e = patternE}} =
+          checkForPrivateExtractor e patternE
+        checkForPrivateExtractor _ _ = return ()
+
         checkAllHandlersSameType clauses = do
           let types = map (AST.getType . mchandler) clauses
           result <- unifyTypes types

@@ -16,7 +16,7 @@ import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
 import Control.Applicative ((<$>))
-import Control.Arrow ((&&&), (***))
+import Control.Arrow (first)
 
 -- Module dependencies
 import Identifiers hiding(namespace)
@@ -366,7 +366,7 @@ matchingHeader = do
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
    let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifier = Private
+   return MatchingHeader{hmodifier = Public
                         ,kind = NonStreaming
                         ,htypeparams
                         ,hname
@@ -557,10 +557,10 @@ methodDecl = try regularMethod <|> matchingMethod
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def-"
-                    map ((setHeaderModifier Private) *** id) <$>
+                    map (first (setHeaderModifier Private)) <$>
                       methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "def"
-                    map ((setHeaderModifier Public) *** id) <$>
+                    map (first (setHeaderModifier Public)) <$>
                       methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"
                     methodClause matchingStreamHeader `sepBy1` reservedOp "|"

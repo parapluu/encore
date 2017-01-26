@@ -332,7 +332,7 @@ bool gc_disabled(pony_ctx_t *ctx)
 }
 
 void encore_assert(intptr_t p) {
-  (void) p;
+  (void)p;
   assert(p);
 }
 

@@ -1,0 +1,8 @@
+passive class Foo
+  def- foo() : Maybe int
+    Just 42
+
+class Main
+  def main() : void
+    match (new Foo, 42) with
+      (foo(x), y) when x == y => print "Shouldn't compile!"
