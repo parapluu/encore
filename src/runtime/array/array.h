@@ -24,6 +24,14 @@ void array_set(array_t *a, size_t i, encore_arg_t element);
 
 void array_qsort(array_t *a, int64_t start, int64_t end);
 
+
+/** Get chunk from array from [start, end)
+ *
+ * @param start Initial position from which to get the chunk (included)
+ * @param end End position to stop (excluded)
+ * @param a Array
+ * @return New array with items from [start, end)
+ */
 array_t* array_get_chunk(pony_ctx_t **ctx, size_t start, size_t end, array_t* a);
 
 #endif

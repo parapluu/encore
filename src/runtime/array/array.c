@@ -1,5 +1,6 @@
 #include "array.h"
 #include "encore.h"
+#include <stdio.h>
 #include <assert.h>
 
 struct array_t
@@ -16,13 +17,7 @@ pony_type_t array_type =
     .trace = array_trace,
   };
 
-/* int int_cmp(const void *a, const void *b) {  */
-/*   const intptr_t *ia = (const intptr_t*) __atomic_load_n(&a, __ATOMIC_SEQ_CST);  */
-/*   const intptr_t *ib = (const intptr_t*) __atomic_load_n(&b, __ATOMIC_SEQ_CST);  */
-/*   return *ia - *ib; */
-/* } */
-
-int int_cmp(const void *a, const void *b) {
+static int int_cmp(const void *a, const void *b) {
   const intptr_t *ia = (const intptr_t*) a;
   const intptr_t *ib = (const intptr_t*) b;
   return *ia - *ib;
@@ -68,30 +63,17 @@ array_t *array_from_array(pony_ctx_t **ctx, size_t size, pony_type_t *type, enco
   return array;
 }
 
+array_t *array_get_chunk(pony_ctx_t **ctx, size_t start,
+                         size_t end, array_t* const a){
+  assert(start < end);
+  assert(end <= array_size(a));
+  assert(array_size(a) > start);
 
-array_t *array_get_chunk(pony_ctx_t **ctx, size_t start, size_t end, array_t* a){
-  assert(start <= end);
-
-  struct array_t* arr = a;
-
-  // total size of the original array
-  size_t total_size = array_size(arr);
-
-  // size of the new chunk
-  size_t local_size = end - start + 1;
-
-  if((start < total_size) && ((end - 1) <= total_size)){
-    array_t* new_array = array_mk(ctx, local_size, arr->type);
-    size_t pivot = total_size - start;
-    value_t* elements = arr->elements;
-
-    for(; start<=end; start++){
-      size_t index = pivot + start - total_size;
-      array_set(new_array, index, elements[start]);
-    }
-    return new_array;
+  array_t* const new_array = array_mk(ctx, end-start, array_get_type(a));
+  for(size_t index = start; index < end; ++index){
+    array_set(new_array, index, array_get(a, index));
   }
-  exit(-1);
+  return new_array;
 }
 
 inline size_t array_size(array_t *a)

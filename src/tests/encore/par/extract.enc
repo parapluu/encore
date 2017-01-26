@@ -16,9 +16,6 @@ def from_string_to_int(sentence: String): int
   if (sentence.equals("Liftv String")) then 7
   else 1
 
-def formatted_print(p: PassiveObject): void
-  print("{}: {}\n", p.tag, p.life)
-
 passive class PassiveObject
   tag: String
   life: int

@@ -51,7 +51,6 @@ encore/basic/foreach_construct
 #
 # Disabled 'par' tests
 #
-encore/par/extract
 encore/par/general
 
 #

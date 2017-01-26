@@ -183,9 +183,15 @@ par_t* new_par_f(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype)
 
 par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
                  pony_type_t const * const rtype){
-  par_t* p = init_par(ctx, PAR_PAR, rtype);
-  set_par_par(p1, p2, p);
-  return p;
+  if (p1->tag == EMPTY_PAR) {
+    return p2;
+  } else if (p2->tag == EMPTY_PAR) {
+    return p1;
+  } else {
+    par_t* p = init_par(ctx, PAR_PAR, rtype);
+    set_par_par(p1, p2, p);
+    return p;
+  }
 }
 
 par_t* new_par_fp(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
@@ -449,6 +455,22 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
     *root = new_par_p(ctx, *root, node, get_rtype(*root));
 }
 
+static inline size_t batch_size_from_array(array_t * const ar){
+  size_t size = array_size(ar);
+  return (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
+}
+
+static inline array_t* const chunk_from_array(size_t i,
+                                              size_t batch_size,
+                                              array_t * const ar){
+  assert(i < batch_size);
+
+  size_t arr_size = array_size(ar);
+  size_t start = i * SPLIT_THRESHOLD;
+  size_t end = (i+1 == batch_size) ? arr_size : (i+1) * SPLIT_THRESHOLD;
+  pony_ctx_t* ctx = encore_ctx();
+  return (array_t* const) array_get_chunk(&ctx, start, end, ar);
+}
 
 // TODO: Fix tasks. Tasks were removed from the language
 /* #ifdef PARTY_ARRAY_PARALLEL */
@@ -463,18 +485,12 @@ static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
 /* #endif */
 
 par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
-  size_t start, end;
   par_t* root = NULL;
-
-  size_t size = array_size(ar);
   pony_type_t* type = array_get_type(ar);
-  size_t groups = (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
+  size_t batch_size = batch_size_from_array(ar);
 
-  for(size_t i=0; i<groups; i++){
-    start = i * SPLIT_THRESHOLD;
-    end = (i+1 == groups) ? size+1 : (i+1) * SPLIT_THRESHOLD;
-
-    array_t* const chunk = array_get_chunk(ctx, start, end, ar);
+  for(size_t i=0; i<batch_size; i++){
+    array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
     // TODO: Fix tasks. Tasks were removed from the language
 /* #ifdef PARTY_ARRAY_PARALLEL */
