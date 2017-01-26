@@ -19,7 +19,7 @@ class Pair<a, b>
   snd : b
   def init(fst : a, snd : b) : void{
     this.fst = fst;
-    this.snd = snd
+    this.snd = snd;
   }
   def getFst() : a
     this.fst
@@ -31,11 +31,20 @@ class Pair<a, b>
     id(x);
     -- test that it works with explicit parametric type
     this.liftJust<d>(x);
+
     -- test that it can infer the type
-    -- this.liftJust(x)
+    this.liftJust<int>(34);
+    this.liftJust(34);
+
+    this.liftJust(x);
   }
 
   def liftJust<d>(x: d): Maybe d { Just x; }
+
+  def testMethodInference<d, g>(x: g, y: d): void {
+    this.getCustom(this.fst, y, x);
+    this.getCustom(this.fst, x, y);
+  }
 
 class Main
   def main() : void{

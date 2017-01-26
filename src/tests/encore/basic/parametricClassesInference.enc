@@ -1,8 +1,40 @@
+def replicate<t>(counter: int, item: t, acc: [t]): [t] {
+  acc[counter-1] = item;
+  if counter == 1 then acc
+  else replicate(counter-1, item, acc)
+}
+
 class Test
-  def foo<t>(x: t): void
+  def id<t>(x: t): t
+    x
+
+  def replicate<t>(counter: int, item: t): [t] {
+    let ar = new [t](counter)
+    in replicate(counter, item, ar)
+  }
+
+
+passive class TestPassive
+  def id<t>(x: t): t
     x
 
 class Main
-  def main(): void
-    let t = new Test
-    in t.foo(2)
+  a: Test
+  p: TestPassive
+
+  def testIdInference(): void {
+    print(get this.a.id("Hello type inference in active class"));
+    print(this.p.id("Hello type inference in passive class"));
+  }
+
+  def testIntegrationBetweenParamFunctionsAndMethods(): void {
+    for item in get(this.a.replicate(4, "Works"))
+      print(item)
+  }
+
+  def main(): void {
+    this.a = new Test;
+    this.p = new TestPassive;
+    this.testIdInference();
+    this.testIntegrationBetweenParamFunctionsAndMethods();
+  }

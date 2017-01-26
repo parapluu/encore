@@ -211,7 +211,7 @@ data Error =
   | MalformedUnionTypeError Type Type
   | ConcreteTypeParameterError Type
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
-  | TypeArgumentInferenceError QualifiedName Type
+  | TypeArgumentInferenceError Expr Type
   | AmbiguousTypeError Type [Type]
   | UnknownTypeUsageError String Type
   | AmbiguousNameError QualifiedName [(QualifiedName, Type)]
@@ -446,9 +446,18 @@ instance Show Error where
     show (ConcreteTypeParameterError ty) =
         printf "Concrete type '%s' cannot be used as a type parameter"
                (show ty)
-    show (TypeArgumentInferenceError fn param) =
-        printf "Cannot infer the type of parameter '%s' of function '%s'"
-               (show param) (show fn)
+    show (TypeArgumentInferenceError call param) =
+        printf "Cannot infer the type of parameter '%s' of %s '%s'"
+               (show param) kind calledName
+        where
+          kind | isFunctionCall call = "function"
+               | isMethodCall call = "method"
+               | otherwise = error msg
+          calledName | isFunctionCall call = show $ qname call
+                     | isMethodCall call = show $ name call
+                     | otherwise = error msg
+          msg = "TypeError.hs: " ++ show call ++
+                " is not a function or method call"
     show (ProvidingTraitFootprintError provider requirer mname fields) =
         printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++
                 "'%s' can mutate fields that are marked immutable in '%s':\n%s")

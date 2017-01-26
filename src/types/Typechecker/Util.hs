@@ -23,6 +23,7 @@ module Typechecker.Util(TypecheckM
                        ,findVar
                        ,propagateResultType
                        ,unifyTypes
+                       ,uniquifyTypeVars
                        ,abstractTraitFrom
                        ) where
 
@@ -485,6 +486,18 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter (unionMembers ty ++ tys)
     | otherwise =
         error "Util.hs: Tried to form an union without a capability"
+
+uniquifyTypeVars :: [Type] -> Type -> TypecheckM Type
+uniquifyTypeVars params = typeMapM (uniquifyTypeVar params)
+uniquifyTypeVar :: [Type] -> Type -> TypecheckM Type
+uniquifyTypeVar params ty
+  | isTypeVar ty = do
+      localTypeVars <- asks typeParameters
+      if ty `elem` params && ty `elem` localTypeVars
+      then return $ typeVar ("_" ++ getId ty)
+      else return ty
+  | otherwise = return ty
+
 
 abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
 abstractTraitFrom cname (t, exts) = do
