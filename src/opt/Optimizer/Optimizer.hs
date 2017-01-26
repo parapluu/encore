@@ -51,7 +51,7 @@ constructors = extend constr
     where
       constr e@(MethodCall {name = Name "_init", emeta, target, args})
           | (liftA2 (||) isActiveClassType isSharedClassType . getType) target =
-              MessageSend {name = Name "_init"
+              MessageSend {name = constructorName
                           ,emeta = emeta
                           ,target = target
                           ,args = args

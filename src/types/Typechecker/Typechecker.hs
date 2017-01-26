@@ -1111,7 +1111,7 @@ instance Checkable Expr where
       ty' <- resolveType ty
       unless (isClassType ty' && not (isMainType ty')) $
              tcError $ ObjectCreationError ty'
-      header <- findMethod ty' (Name "_init")
+      header <- findMethod ty' constructorName
       matchArgumentLength ty' header args
       let expectedTypes = map ptype (hparams header)
       (eArgs, bindings) <- matchArguments args expectedTypes
