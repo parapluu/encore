@@ -11,6 +11,7 @@ import CodeGen.Closure
 import CodeGen.Task
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
+import CodeGen.DTrace
 
 import CCode.Main
 
@@ -121,8 +122,12 @@ instance Translatable A.Function (ProgramTable -> CCode Toplevel) where
                          (reverse (Util.filter A.isClosure funbody))
           tasks = map (\tas -> translateTask tas table) $
                       reverse $ Util.filter A.isTask funbody
-          bodyResult = (Seq $ runtimeTypeAssignments ++
-                             [bodyStat, returnStatement funType bodyName])
+          bodyResult = (Seq $ dtraceFunctionEntry (A.functionName fun) argNames :
+                              runtimeTypeAssignments ++
+                              [bodyStat
+                              ,dtraceFunctionExit (A.functionName fun)
+                              ,returnStatement funType bodyName
+                              ])
       in
         Concat $ closures ++ tasks ++ [globalFunction fun (Just bodyResult)]
 

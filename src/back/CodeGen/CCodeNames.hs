@@ -141,6 +141,15 @@ encoreAssert :: CCode Expr -> CCode Stat
 encoreAssert p =
   Statement $ Call (Nam "encore_assert") [Cast (Typ "intptr_t") p]
 
+this :: String
+this = "_this"
+
+thisName :: CCode Name
+thisName = Nam this
+
+thisVar :: CCode Lval
+thisVar = Var this
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let

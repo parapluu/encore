@@ -111,7 +111,7 @@ static bool handle_message(pony_ctx_t** ctx, pony_actor_t* actor,
         ponyint_cycle_unblock(*ctx, actor);
       }
 
-      DTRACE3(ACTOR_MSG_RUN, (uintptr_t)ctx->scheduler, (uintptr_t)actor, msg->id);
+      DTRACE3(ACTOR_MSG_RUN, (uintptr_t)(*ctx)->scheduler, (uintptr_t)actor, msg->id);
       if (!has_flag(actor, FLAG_SYSTEM)) {
 #ifndef LAZY_IMPL
         encore_actor_t *a = (encore_actor_t *)actor;

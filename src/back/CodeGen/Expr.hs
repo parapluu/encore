@@ -9,6 +9,7 @@ import CodeGen.CCodeNames
 import qualified CodeGen.CCodeNames as C
 import CodeGen.Type
 import qualified CodeGen.Context as Ctx
+import CodeGen.DTrace
 
 import qualified Text.Parsec as Parsec
 import qualified Text.Parsec.String as PString
@@ -347,7 +348,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                  _ -> return $ upCast nrhs
 
     lval <- mkLval lhs
-    return (unit, Seq [trhs, Assign lval castRhs])
+    let theAssign = Assign lval castRhs
+    return (unit, Seq [trhs, theAssign])
       where
         upCast e = if needUpCast then cast e else AsExpr e
           where
@@ -363,8 +365,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                    show qname
         mkLval (A.FieldAccess {A.target, A.name}) =
            do (ntarg, ttarg) <- translate target
-              return (Deref (StatAsExpr ntarg ttarg) `Dot` (fieldName name))
-        mkLval e = error $ "Cannot translate '" ++ (show e) ++ "' to a valid lval"
+              let ttargTrace = Seq [ttarg
+                                   ,dtraceFieldWrite ntarg name
+                                   ]
+              return (Deref (StatAsExpr ntarg ttargTrace) `Dot` fieldName name)
+        mkLval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
 
   translate mayb@(A.MaybeValue _ (A.JustData e)) = do
     (nE, tE) <- translate e
@@ -427,13 +432,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate acc@(A.FieldAccess {A.target, A.name}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "fieldacc"
-    theAccess <- do fld <- gets $ Ctx.lookupField (A.getType target) name
-                    if Ty.isTypeVar (A.ftype fld) then
-                        return $ fromEncoreArgT (translate . A.getType $ acc) $ AsExpr (Deref ntarg `Dot` (fieldName name))
+    fld <- gets $ Ctx.lookupField (A.getType target) name
+    let theAccess = if Ty.isTypeVar (A.ftype fld) then
+                        fromEncoreArgT (translate . A.getType $ acc) $
+                                       AsExpr (Deref ntarg `Dot` fieldName name)
                     else
-                        return (Deref ntarg `Dot` (fieldName name))
-    return (Var tmp, Seq [ttarg,
-                      (Assign (Decl (translate (A.getType acc), Var tmp)) theAccess)])
+                        Deref ntarg `Dot` fieldName name
+        theAssign = Assign (Decl (translate (A.getType acc), Var tmp)) theAccess
+    return (Var tmp, Seq [ttarg
+                         ,dtraceFieldAccess ntarg name
+                         ,theAssign
+                         ])
 
   translate (A.Let {A.decls, A.body}) = do
     tmpsTdecls <- mapM translateDecl decls
@@ -540,7 +549,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         (nCall, tCall) <- traitMethod ntarget (A.getType target) name
                               typeArguments args (translate (A.getType call))
         let recvNullCheck = targetNullCheck ntarget target name emeta "."
-        return (nCall, Seq $ ttarget : recvNullCheck : [tCall])
+        return (nCall, Seq [ttarget
+                           ,recvNullCheck
+                           ,tCall
+                           ])
     | syncAccess = delegateUse callTheMethodSync "sync_method_call"
     | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
     | isActive && isStream = delegateUse callTheMethodStream "stream"
@@ -1095,13 +1107,18 @@ closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
     AsExpr $
       fromEncoreArgT (translate typ) $
         Call closureCallName [encoreCtxVar, clos, tmpArgs]
-  return (if Ty.isVoidType typ then unit else calln, Seq [tmpArgDecl, theCall])
+  return (if Ty.isVoidType typ then unit else calln
+         ,Seq [tmpArgDecl
+              ,dtraceClosureCall qname (extractArgs tmpArgs (length args))
+              ,theCall
+              ])
     where
       typ = A.getType fcall
       translateArgument arg = do
         (ntother, tother) <- translate arg
         return $ asEncoreArgT (translate $ A.getType arg)
           (StatAsExpr ntother tother)
+      extractArgs arr n = map (\i -> ArrAcc i arr) [0..n-1]
 
 globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
@@ -1109,7 +1126,9 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
 
-  return (ret, Seq $ initArgs ++ [call])
+  return (ret, Seq $ initArgs ++ [dtraceFunctionCall qname argNames
+                                 ,call
+                                 ])
   where
     typ = A.getType fcall
     buildFunctionCallExpr args cArgs = do
@@ -1158,7 +1177,8 @@ callTheMethodSync targetName targetType methodName args typeargs resultType = do
   (initArgs, expr) <- callTheMethodForName methodImplName
     targetName targetType methodName args typeargs resultType
   header <- gets $ Ctx.lookupMethod targetType methodName
-  return (initArgs, convertBack (A.htype header) expr)
+  return (initArgs
+         ,convertBack (A.htype header) expr)
   where
     convertBack retType
       | Ty.isTypeVar retType && (not . Ty.isTypeVar) resultType =
@@ -1171,7 +1191,7 @@ callTheMethodForName ::
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
 callTheMethodForName
   genCMethodName targetName targetType methodName args typeargs resultType = do
-  (args', initArgs) <- fmap unzip $ mapM translate args
+  (args', initArgs) <- unzip <$> mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
 
   -- translate actual method type variables
@@ -1233,20 +1253,22 @@ traitMethod this targetType name typeargs args resultType =
       f <- Ctx.genNamedSym $ concat [tyStr, "_", nameStr]
       vtable <- Ctx.genNamedSym $ concat [tyStr, "_", "vtable"]
       tmp <- Ctx.genNamedSym "trait_method_call"
-      (args, initArgs) <- fmap unzip $ mapM translate args
+      (args, initArgs) <- unzip <$> mapM translate args
 
       let runtimeTypes = map runtimeType typeargs
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
       let tmpType' = if null runtimeTypes then nullVar else tmpType
 
-      return $ (Var tmp,
+      return (Var tmp,
         Seq $
           initArgs ++
-          [declF f] ++
-          [declVtable vtable] ++
-          [initVtable this vtable] ++
-          [initF f vtable id] ++
-          tmpTypeDecl : [ret tmp $ callF f this args tmpType']
+          [declF f
+          ,declVtable vtable
+          ,initVtable this vtable
+          ,initF f vtable id
+          ,tmpTypeDecl
+          ,ret tmp $ callF f this args tmpType'
+          ]
         )
   where
     thisType = translate targetType

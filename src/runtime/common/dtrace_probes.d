@@ -5,7 +5,7 @@ provider pony {
   probe actor__alloc(uintptr_t scheduler);
 
   /**
-   * Fired when a message is being send
+   * Fired when a message is being sent
    * @param id the message id
    */
   probe actor__msg__send(uintptr_t scheduler, uint32_t id);

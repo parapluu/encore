@@ -81,7 +81,7 @@ RANGE_INC=$(RUNTIME_DIR)/range/range.h
 RANGE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/librange.a
 
 pony: dirs $(PONY_INC)
-	make -C $(SRC_DIR) pony
+	make -C $(SRC_DIR) pony use=$(use)
 	cp -r $(COMMON_INC) $(INC_DIR)
 	cp -r $(POOL_INC) $(INC_DIR)
 	cp -r $(PONY_INC) $(INC_DIR)

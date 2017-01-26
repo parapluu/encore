@@ -13,6 +13,7 @@ import CodeGen.Type(runtimeType)
 import CodeGen.Function(returnStatement)
 import qualified CodeGen.Context as Ctx
 import qualified CodeGen.GC as Gc
+import CodeGen.DTrace
 
 import CCode.Main
 import Data.List (intersect)
@@ -40,7 +41,7 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplev
 encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
 
 initialiseMethodDecl cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
-                              (Ptr . AsType $ classTypeName cname, Var "_this"),
+                              (Ptr . AsType $ classTypeName cname, thisVar),
                               encoreRuntimeTypeParam]
 
 translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
@@ -63,8 +64,12 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
     in
       code ++ (return $ Concat $ closures ++ tasks ++
                [Function returnType name args
-                 (Seq [parametricMethodTypeVars, extractTypeVars,
-                       bodys, returnStatement mType bodyn])])
+                 (Seq [dtraceMethodEntry thisVar mName argNames
+                      ,parametricMethodTypeVars
+                      ,extractTypeVars
+                      ,bodys
+                      ,dtraceMethodExit thisVar mName
+                      ,returnStatement mType bodyn])])
   where
       mName = A.methodName mdecl
       mType = A.methodType mdecl
@@ -73,7 +78,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
           unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
       argNames = map (AsLval . argName) encArgNames
       argTypes = map translate encArgTypes
-      subst = [(ID.Name "this", Var "_this")] ++
+      subst = [(ID.thisName, thisVar)] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
       ctx = Ctx.new subst table
@@ -89,7 +94,7 @@ translateGeneral mdecl@(A.Method {A.mbody}) cdecl@(A.Class {A.cname}) table code
               Just i -> (ArrAcc i encoreRuntimeType)
               Nothing -> getVar fName)
       getVar name =
-        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
       closures = map (\clos -> translateClosure clos typeVars table)
@@ -112,7 +117,6 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) code
     in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
-    thisName = "_this"
     mName = A.methodName m
     mParams = A.methodParams m
     mTypeParams = A.methodTypeParams m
@@ -121,7 +125,7 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) code
         let fName = typeVarRefName ty
         in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
     getVar name =
-        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
     argNames = map (AsLval . argName . A.pname) mParams
@@ -153,7 +157,6 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
       in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
-    thisName = "_this"
     mName = A.methodName m
     mParams = A.methodParams m
     argNames = map (AsLval . argName . A.pname) mParams
@@ -175,7 +178,7 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
         let fName = typeVarRefName ty
         in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
     getVar name =
-        (Deref $ Cast (Ptr . AsType $ classTypeName cname) (Var "_this"))
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
 
@@ -189,7 +192,6 @@ methodImplStream m cdecl@(A.Class {A.cname}) _ code
     in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
-    thisName = "_this"
     mName = A.methodName m
     mParams = A.methodParams m
     mType = A.methodType m
@@ -249,7 +251,6 @@ sendMsg cname mname msgId msgTypeName argPairs = [
   , sendMsg
   ]
   where
-    thisName = "_this"
     msgType = AsType msgTypeName
     msgTypePtr = Ptr msgType
     msgName = "msg"
@@ -264,7 +265,7 @@ sendMsg cname mname msgId msgTypeName argPairs = [
       [Assign (Var msgName `Arrow` f) rhs | (f,rhs) <- argPairs]
     initMsg = Seq assignMsgFields
 
-    target = Cast (Ptr ponyActorT) $ Var thisName
+    target = Cast (Ptr ponyActorT) $ thisVar
     msgArg = Cast (Ptr ponyMsgT) $ Var msgName
     sendMsg = Statement $
       Call ponySendvName [AsExpr $ Deref encoreCtxVar, target, msgArg]

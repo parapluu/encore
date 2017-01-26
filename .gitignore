@@ -74,3 +74,5 @@ src/tests/encore/traits/*
 .stack*
 coverage/
 encorec.tix
+src/runtime/common/dtrace_probes.h
+src/runtime/common/encore_probes.h

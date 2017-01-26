@@ -11,6 +11,7 @@ import CodeGen.Trace (traceVariable)
 import CodeGen.CCodeNames
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
+import CodeGen.DTrace
 import CCode.Main
 import qualified Identifiers as ID
 
@@ -69,9 +70,12 @@ translateClosure closure typeVars table
                            (Typ "value_t", Var "_args[]"),
                            (Ptr void, Var "_env")]
                           (Seq $
+                            dtraceClosureEntry argNames :
                             extractArguments params ++
                             extractEnvironment envName freeVars fTypeVars ++
-                            [bodyStat, returnStmnt bodyName resultType])]
+                            [bodyStat
+                            ,dtraceClosureExit
+                            ,returnStmnt bodyName resultType])]
   | otherwise =
         error
         "Tried to translate a closure from something that was not a closure"
@@ -118,8 +122,7 @@ translateClosure closure typeVars table
           ctxArg = Var "_ctx_arg"
           body = Seq $
               Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg) :
-              Assign (Decl (Ptr $ Struct envName, Var "_this")) (Var "p") :
+              Assign (Decl (Ptr $ Struct envName, thisVar)) (Var "p") :
               map traceMember members
           traceMember (name, ty) = traceVariable ty $ getVar name
-          getVar name =
-              (Var "_this") `Arrow` fieldName name
+          getVar name = thisVar `Arrow` fieldName name
