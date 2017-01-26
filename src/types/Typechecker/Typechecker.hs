@@ -542,64 +542,6 @@ instance Checkable Expr where
           | otherwise = error $ "Function that is callable but distinct from" ++
                          " 'VarAccess' or 'FunctionAsValue' AST node used."
 
-    --  E |- e : t
-    --  methodLookup(t, m) = (t1 .. tn, t')
-    --  E |- arg1 : t1 .. E |- argn : tn
-    --  typeVarBindings() = B
-    --  E, B |- arg1 : t1 .. argn : tn -| B'
-    --  B'(t') = t''
-    -- ----------------------------------------
-    --  E |- this.m(arg1, .., argn) : t''
-    --
-    --  E |- e : t
-    --  isPassiveRefType(t)
-    --  methodLookup(t, m) = (t1 .. tn, t')
-    --  typeVarBindings() = B
-    --  E, B |- arg1 : t1 .. argn : tn -| B'
-    --  B'(t') = t''
-    -- ----------------------------------------
-    --  E |- e.m(arg1, .., argn) : t''
-    --
-    --  E |- e : t
-    --  isActiveRefType(t)
-    --  methodLookup(t, m) = (t1 .. tn, t')
-    --  typeVarBindings() = B
-    --  E, B |- arg1 : t1 .. argn : tn -| B'
-    --  B'(t') = t''
-    -- ----------------------------------------
-    --  E |- e.m(arg1, .., argn) : Fut t
-    doTypecheck mcall@(MethodCall {target, name, args, typeArguments}) = do
-      eTarget <- typecheck target
-      let targetType = AST.getType eTarget
-
-      methodCallTypecheckingErrors targetType
-      (header, calledType) <- findMethodWithCalledType targetType name
-
-      matchArgumentLength targetType header args
-      let eTarget' = setType calledType eTarget
-          typeParams = htypeparams header
-          argTypes = map ptype $ hparams header
-          resultType = htype header
-
-      (eArgs, resultType', typeArgs) <-
-         if null typeArguments then
-           inferenceCall mcall typeParams argTypes resultType
-         else
-           typecheckCall mcall typeParams argTypes resultType
-
-      let returnType = retType mcall calledType header resultType'
-      return $ setType returnType mcall {target = eTarget'
-                                        ,args = eArgs
-                                        ,typeArguments = typeArgs}
-      where
-        methodCallTypecheckingErrors targetType = do
-          unless (isRefType targetType) $
-            tcError $ NonCallableTargetError targetType
-          when (isMainMethod targetType name) $
-            tcError MainMethodCallError
-          when (name == Name "init") $
-            tcError ConstructorCallError
-
     --  E |- e : t'
     --  isActiveRefType(t')
     --  methodLookup(t', m) = (t1 .. tn, _)
@@ -607,30 +549,52 @@ instance Checkable Expr where
     --  E, B |- arg1 : t1 .. argn : tn -| B'
     -- --------------------------------------
     --  E |- e!m(arg1, .., argn) : ()
-    doTypecheck msend@(MessageSend {target, name, args, typeArguments}) = do
-      eTarget <- typecheck target
-      let targetType = AST.getType eTarget
+    doTypecheck mcall
+      | isMethodCall mcall = do
+          eTarget <- typecheck (target mcall)
+          let targetType = AST.getType eTarget
+          handleError targetType mcall
+          (header, calledType) <- findMethodWithCalledType targetType (name mcall)
 
-      unless (isActiveClassType targetType || isSharedClassType targetType) $
-           tcError $ NonSendableTargetError targetType
+          matchArgumentLength targetType header (args mcall)
+          let eTarget' = setType calledType eTarget
+              typeParams = htypeparams header
+              argTypes = map ptype $ hparams header
+              resultType = htype header
 
-      (header, calledType) <- findMethodWithCalledType targetType name
+          (eArgs, resultType', typeArgs) <-
+             if null (typeArguments mcall) then
+                inferenceCall mcall typeParams argTypes resultType
+             else
+                typecheckCall mcall typeParams argTypes resultType
+          let returnType = retType mcall calledType header resultType'
+          return $ setReturnType (voidType, returnType)
+                                 mcall {target = eTarget'
+                                       ,args = eArgs
+                                       ,typeArguments = typeArgs}
+        where
+          setReturnType (msendType, _) m@MessageSend {} = setType msendType m
+          setReturnType (_, mcallType) m@MethodCall {} = setType mcallType m
 
-      matchArgumentLength targetType header args
-      let eTarget' = setType calledType eTarget
-          typeParams = htypeparams header
-          argTypes = map ptype $ hparams header
-          resultType = htype header
+          errorInitMethod targetType name =
+            when (isMainMethod targetType name) $
+                 tcError MainMethodCallError
 
-      (eArgs, _, typeArgs) <-
-         if null typeArguments then
-           inferenceCall msend typeParams argTypes resultType
-         else
-           typecheckCall msend typeParams argTypes resultType
-
-      return $ setType voidType msend {target = eTarget',
-                                       args = eArgs,
-                                       typeArguments = typeArgs}
+          handleError targetType msend@MessageSend {} = do
+            errorInitMethod targetType (name msend)
+            unless (isActiveClassType targetType ||
+                    isSharedClassType targetType) $
+                    tcError $ NonSendableTargetError targetType
+          handleError targetType mcall@MethodCall {} = do
+            let name' = name mcall
+            unless (isRefType targetType) $
+                   tcError $ NonCallableTargetError targetType
+            errorInitMethod targetType name'
+            when (name' == Name "init") $
+                 tcError ConstructorCallError
+          handleError _ mcall =
+            error $ "Typechecker.hs: expression '" ++ show mcall ++ "' " ++
+                    "is not a method or function call"
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
       eBody <- maybeTypecheck mdt
