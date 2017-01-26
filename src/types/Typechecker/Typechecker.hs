@@ -542,18 +542,11 @@ instance Checkable Expr where
           | otherwise = error $ "Function that is callable but distinct from" ++
                          " 'VarAccess' or 'FunctionAsValue' AST node used."
 
-    --  E |- e : t'
-    --  isActiveRefType(t')
-    --  methodLookup(t', m) = (t1 .. tn, _)
-    --  typeVarBindings() = B
-    --  E, B |- arg1 : t1 .. argn : tn -| B'
-    -- --------------------------------------
-    --  E |- e!m(arg1, .., argn) : ()
     doTypecheck mcall
       | isMethodCall mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
-          handleError targetType mcall
+          handleErrors targetType mcall
           (header, calledType) <- findMethodWithCalledType targetType (name mcall)
 
           matchArgumentLength targetType header (args mcall)
@@ -568,31 +561,25 @@ instance Checkable Expr where
              else
                 typecheckCall mcall typeParams argTypes resultType
           let returnType = retType mcall calledType header resultType'
-          return $ setReturnType (voidType, returnType)
-                                 mcall {target = eTarget'
-                                       ,args = eArgs
-                                       ,typeArguments = typeArgs}
+          return $ setType returnType mcall {target = eTarget'
+                                            ,args = eArgs
+                                            ,typeArguments = typeArgs}
         where
-          setReturnType (msendType, _) m@MessageSend {} = setType msendType m
-          setReturnType (_, mcallType) m@MethodCall {} = setType mcallType m
+          errorInitMethod targetType name = do
+            when (name == constructorName) $ tcError ConstructorCallError
+            when (isMainMethod targetType name) $ tcError MainMethodCallError
 
-          errorInitMethod targetType name =
-            when (isMainMethod targetType name) $
-                 tcError MainMethodCallError
-
-          handleError targetType msend@MessageSend {} = do
+          handleErrors targetType msend@MessageSend {} = do
             errorInitMethod targetType (name msend)
             unless (isActiveClassType targetType ||
                     isSharedClassType targetType) $
                     tcError $ NonSendableTargetError targetType
-          handleError targetType mcall@MethodCall {} = do
+          handleErrors targetType mcall@MethodCall {} = do
             let name' = name mcall
             unless (isRefType targetType) $
                    tcError $ NonCallableTargetError targetType
             errorInitMethod targetType name'
-            when (name' == Name "init") $
-                 tcError ConstructorCallError
-          handleError _ mcall =
+          handleErrors _ mcall =
             error $ "Typechecker.hs: expression '" ++ show mcall ++ "' " ++
                     "is not a method or function call"
 

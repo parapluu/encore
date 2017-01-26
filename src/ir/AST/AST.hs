@@ -432,6 +432,8 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 isConstructor :: MethodDecl -> Bool
 isConstructor m = methodName m == Name "_init"
 
+constructorName = Name "_init"
+
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
