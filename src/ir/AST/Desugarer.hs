@@ -88,13 +88,8 @@ desugarProgram p@(Program{traits, classes, functions}) =
       in Function{funmeta, funheader, funbody, funsource}
 
     desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
-    desugarMethod m@(Method {mmeta, mheader, mbody})
-      | methodName m == Name "init" =
-          let header  = mheader
-              header' = header{hname = Name "_init"}
-          in
-        m{mheader = header', mbody = desugarExpr mbody}
-      | otherwise = m{mbody = desugarExpr mbody}
+    desugarMethod m@(Method {mmeta, mheader, mbody}) =
+      m{mbody = desugarExpr mbody}
     desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies}) =
       let (mheader, mbody) = desugarFunctionHeadMatch mheaders mbodies
       in Method{mmeta, mheader, mbody}

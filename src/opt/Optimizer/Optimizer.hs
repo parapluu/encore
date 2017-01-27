@@ -49,9 +49,10 @@ constantFolding = extend foldConst
 constructors :: Expr -> Expr
 constructors = extend constr
     where
-      constr e@(MethodCall {name = Name "_init", emeta, target, args})
-          | (liftA2 (||) isActiveClassType isSharedClassType . getType) target =
-              MessageSend {name = Name "_init"
+      constr e@(MethodCall {name, emeta, target, args})
+          | name == constructorName &&
+            (liftA2 (||) isActiveClassType isSharedClassType . getType) target =
+              MessageSend {name = constructorName
                           ,emeta = emeta
                           ,target = target
                           ,args = args

@@ -232,7 +232,7 @@ instance Show Error where
         printf "Type parameters of '%s' must be distinct" (show ty)
     show (WrongNumberOfMethodArgumentsError name targetType expected actual) =
         let nameWithKind =
-              (if name == Name "_init"
+              (if name == constructorName
                then "Constructor"
                else "Method '" ++ show name ++ "'") ++
                " in " ++ refTypeName targetType
@@ -329,7 +329,7 @@ instance Show Error where
         printf "No field '%s' in %s"
                (show name) (refTypeName ty)
     show (MethodNotFoundError name ty) =
-        let nameWithKind = if name == Name "_init"
+        let nameWithKind = if name == constructorName
                            then "constructor"
                            else "method '" ++ show name ++ "'"
             targetType = if isRefType ty

@@ -446,7 +446,7 @@ isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
 
 isConstructor :: MethodDecl -> Bool
-isConstructor m = methodName m == Name "_init"
+isConstructor m = methodName m == constructorName
 
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
@@ -454,7 +454,7 @@ emptyConstructor cdecl =
     in Method{mmeta = meta pos
              ,mheader = Header{kind = NonStreaming
                               ,htypeparams = []
-                              ,hname = Name "_init"
+                              ,hname = constructorName
                               ,hparams = []
                               ,htype = voidType
                               }
