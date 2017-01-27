@@ -460,9 +460,9 @@ static inline size_t batch_size_from_array(array_t * const ar){
   return (size_t) ceil(size / (MARGIN * SPLIT_THRESHOLD));
 }
 
-static inline array_t* const chunk_from_array(size_t i,
-                                              size_t batch_size,
-                                              array_t * const ar){
+static inline array_t* chunk_from_array(size_t i,
+                                        size_t batch_size,
+                                        array_t * const ar){
   assert(i < batch_size);
 
   size_t arr_size = array_size(ar);
