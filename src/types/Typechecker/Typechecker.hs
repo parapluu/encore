@@ -547,8 +547,10 @@ instance Checkable Expr where
       | isMethodCall mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
-          typecheckPrivateModifier eTarget (name mcall)
+
           handleErrors targetType mcall
+          typecheckPrivateModifier eTarget (name mcall)
+
           (header, calledType) <- findMethodWithCalledType targetType (name mcall)
 
           matchArgumentLength targetType header (args mcall)

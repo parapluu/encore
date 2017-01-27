@@ -1,8 +1,8 @@
 class Test<t>
-  def- privateMethod(x: t): t
+  def private method(x: t): t
     x
   def publicMethod(x: t): t
-    x
+    this.method(x)
 
 class Main
   def main(): void

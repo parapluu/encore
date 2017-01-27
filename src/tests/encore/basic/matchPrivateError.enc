@@ -1,5 +1,5 @@
 passive class Foo
-  def- foo() : Maybe int
+  def private foo() : Maybe int
     Just 42
 
 class Main

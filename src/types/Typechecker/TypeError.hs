@@ -314,7 +314,7 @@ instance Show Error where
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
-       kind = if name == Name "_init"
+       kind = if name == constructorName
               then "constructor"
               else "method '" ++ show name ++ "'"
     show (UnknownRefTypeError ty) =

@@ -123,11 +123,11 @@ data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
 
-data AccessModifier = Private | Public deriving (Eq, Show)
+data AccessModifier = Public | Private deriving (Eq, Ord, Show)
 
 data FunctionHeader =
     Header {
-        hmodifier   :: AccessModifier,
+        hmodifier   :: [AccessModifier],
         kind        :: HeaderKind,
         htypeparams :: [Type],
         hname       :: Name,
@@ -135,7 +135,7 @@ data FunctionHeader =
         hparams     :: [ParamDecl]
     }
     | MatchingHeader {
-        hmodifier   :: AccessModifier,
+        hmodifier   :: [AccessModifier],
         kind        :: HeaderKind,
         htypeparams :: [Type],
         hname       :: Name,
@@ -148,14 +148,14 @@ data FunctionHeader =
 
 setHeaderType ty h = h{htype = ty}
 
-setHeaderModifier mod h = h {hmodifier = mod}
+setHeaderModifier :: [AccessModifier] -> FunctionHeader -> FunctionHeader
+setHeaderModifier mod h = h {hmodifier = nub mod}
 
 isPublicMethod :: FunctionHeader -> Bool
-isPublicMethod Header{hmodifier = Public} = True
-isPublicMethod _ = False
+isPublicMethod Header{hmodifier} = elem Public hmodifier
 
 isPrivateMethod :: FunctionHeader -> Bool
-isPrivateMethod = not . isPublicMethod
+isPrivateMethod Header{hmodifier} = elem Private hmodifier
 
 isStreamMethodHeader h = kind h == Streaming
 
@@ -465,7 +465,7 @@ emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
-             ,mheader = Header{hmodifier = Public
+             ,mheader = Header{hmodifier = [Public]
                               ,kind = NonStreaming
                               ,htypeparams = []
                               ,hname = constructorName

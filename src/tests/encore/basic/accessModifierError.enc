@@ -1,5 +1,5 @@
 passive class Test
-  def- privateMethod(): void
+  def private privateMethod(): void
     ()
 
 class Main

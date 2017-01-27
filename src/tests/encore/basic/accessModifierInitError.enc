@@ -1,5 +1,5 @@
 class Test
-  def- init(): void
+  def private init(): void
     ()
 
 class Main
