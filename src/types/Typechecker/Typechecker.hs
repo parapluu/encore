@@ -347,7 +347,6 @@ instance Checkable ClassDecl where
   doTypecheck c@(Class {cname, cfields, cmethods, ccomposition}) = do
     unless (isPassiveClassType cname || isNothing ccomposition) $
            tcError TraitsInActiveClassError
-    emethods <- mapM typecheckMethod cmethods
     let traits = typesFromTraitComposition ccomposition
         extendedTraits = extendedTraitsFromComposition ccomposition
 
@@ -360,6 +359,8 @@ instance Checkable ClassDecl where
 
     checkOverriding cname typeParameters cmethods extendedTraits
     -- TODO: Add namespace for trait methods
+
+    emethods <- mapM typecheckMethod cmethods
 
     return c{cmethods = emethods}
     where

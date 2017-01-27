@@ -364,8 +364,10 @@ translateCompositionNamespace table (Just tc) =
       Just tcright' = translateCompositionNamespace table (Just $ tcright tc)
   in Just tc{tcleft = tcleft', tcright = tcright'}
 
--- | The inversion of 'capabilityFromTraitComposition'. All trait
--- compositions are without extensions.
+-- | The inversion of 'capabilityFromTraitComposition'. The
+-- resulting trait composition will have no extensions, meaning that
+-- @c == traitCompositionFromCapability (capabilityFromTraitComposition c)@
+-- will hold if and only if @c@ has no extensions.
 traitCompositionFromCapability :: Type -> TraitComposition
 traitCompositionFromCapability cap
   | isConjunctiveType cap =
