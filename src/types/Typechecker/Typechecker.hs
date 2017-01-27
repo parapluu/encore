@@ -1102,7 +1102,7 @@ instance Checkable Expr where
 
    ---  |- ty
     --  classLookup(ty) = _
-    --  methodLookup(ty, "_init") = (t1 .. tn, _)
+    --  methodLookup(ty, "init") = (t1 .. tn, _)
     --  E |- arg1 : t1 .. argn : tn
     --  ty != Main
     -- -----------------------

@@ -69,6 +69,9 @@ isLocalQName QName{qnspace} = isNothing qnspace
 thisName :: Name
 thisName = Name "this"
 
+constructorName :: Name
+constructorName = Name "init"
+
 -- | The supported binary operators
 data BinaryOp = AND
               | OR
