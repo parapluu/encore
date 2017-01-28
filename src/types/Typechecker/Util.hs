@@ -12,6 +12,7 @@ module Typechecker.Util(TypecheckM
                        ,tcWarning
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
+                       ,resolveFormalType
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
@@ -180,6 +181,27 @@ resolveRefAtomType ty
               matchTypeParameterLength formal ty
               let res = formal `setTypeParameters` getTypeParameters ty
               return res
+            Nothing ->
+              error $ "Util.hs: No namespace after resolving type " ++ show ty
+        Just l ->
+          tcError $ AmbiguousTypeError ty l
+        Nothing ->
+          tcError $ UnknownNamespaceError (getRefNamespace ty)
+  | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
+
+resolveFormalType :: Type -> TypecheckM Type
+resolveFormalType ty
+  | isRefAtomType ty = do
+      result <- asks $ refTypeLookup ty
+      case result of
+        Just [] ->
+          tcError $ UnknownRefTypeError ty
+        Just [formal] ->
+          case getRefNamespace formal of
+            Just ns -> do
+              unless (isExplicitNamespace ns) $
+                     tcError $ UnknownRefTypeError ty
+              return formal
             Nothing ->
               error $ "Util.hs: No namespace after resolving type " ++ show ty
         Just l ->

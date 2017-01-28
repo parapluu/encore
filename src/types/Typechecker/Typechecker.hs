@@ -1108,15 +1108,43 @@ instance Checkable Expr where
     --  ty != Main
     -- -----------------------
     --  E |- new ty(args) : ty
-    doTypecheck new@(NewWithInit {ty, args}) = do
-      ty' <- resolveType ty
-      unless (isClassType ty' && not (isMainType ty')) $
-             tcError $ ObjectCreationError ty'
-      header <- findMethod ty' constructorName
-      matchArgumentLength ty' header args
-      let expectedTypes = map ptype (hparams header)
-      (eArgs, bindings) <- matchArguments args expectedTypes
-      return $ setType ty' new{ty = ty', args = eArgs}
+    doTypecheck new@(NewWithInit {ty, args})
+      | isRefAtomType ty && null (getTypeParameters ty) = do
+          formal <- resolveFormalType ty
+
+          header <- findConstructor formal args
+          let fakeCall = fakeInitCall new
+              typeParams = getTypeParameters formal
+              argTypes = map ptype (hparams header)
+
+          (eArgs, resolvedTy, _) <-
+              inferenceCall fakeCall typeParams argTypes formal
+          return $ setType resolvedTy new{ty = resolvedTy, args = eArgs}
+
+      | otherwise = do
+          ty' <- resolveType ty
+
+          header <- findConstructor ty' args
+          let expectedTypes = map ptype (hparams header)
+
+          (eArgs, _) <- matchArguments args expectedTypes
+          return $ setType ty' new{ty = ty', args = eArgs}
+
+      where
+        findConstructor ty args = do
+          unless (isClassType ty && not (isMainType ty)) $
+                 tcError $ ObjectCreationError ty
+          header <- findMethod ty constructorName
+          matchArgumentLength ty header args
+          return header
+
+        fakeInitCall NewWithInit{emeta, args} =
+          MethodCall{emeta
+                    ,typeArguments = []
+                    ,target = setType ty Skip{emeta}
+                    ,name = constructorName
+                    ,args
+                    }
 
    ---  |- ty
     --  classLookup(ty) = _

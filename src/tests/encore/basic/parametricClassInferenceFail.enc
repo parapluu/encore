@@ -1,0 +1,7 @@
+class Foo<t, u>
+  def init(x : t) : void
+    ()
+
+class Main
+  def main() : void
+    new Foo(42)
