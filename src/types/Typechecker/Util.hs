@@ -12,7 +12,7 @@ module Typechecker.Util(TypecheckM
                        ,tcWarning
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
-                       ,resolveFormalType
+                       ,findFormalRefType
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
@@ -166,31 +166,20 @@ resolveTypeAndCheckForLoops ty =
           else return res
       | otherwise = lift $ resolveType ty
 
+-- | Resolve a ref atom type (class type, trait type or typedef)
+-- and ensure that it has the correct number type arguments.
 resolveRefAtomType :: Type -> TypecheckM Type
-resolveRefAtomType ty
-  | isRefAtomType ty = do
-      result <- asks $ refTypeLookup ty
-      case result of
-        Just [] ->
-          tcError $ UnknownRefTypeError ty
-        Just [formal] ->
-          case getRefNamespace formal of
-            Just ns -> do
-              unless (isExplicitNamespace ns) $
-                     tcError $ UnknownRefTypeError ty
-              matchTypeParameterLength formal ty
-              let res = formal `setTypeParameters` getTypeParameters ty
-              return res
-            Nothing ->
-              error $ "Util.hs: No namespace after resolving type " ++ show ty
-        Just l ->
-          tcError $ AmbiguousTypeError ty l
-        Nothing ->
-          tcError $ UnknownNamespaceError (getRefNamespace ty)
-  | otherwise = error $ "Util.hs: " ++ Ty.showWithKind ty ++ " isn't a ref-type"
+resolveRefAtomType ty = do
+  formal <- findFormalRefType ty
+  matchTypeParameterLength formal ty
+  return $ formal `setTypeParameters` getTypeParameters ty
 
-resolveFormalType :: Type -> TypecheckM Type
-resolveFormalType ty
+-- | Find the formal version of a type with any type parameters of
+-- that type uninstantied. Throws a typechecking error if a formal
+-- type is not found or if several matching formal types are
+-- found.
+findFormalRefType :: Type -> TypecheckM Type
+findFormalRefType ty
   | isRefAtomType ty = do
       result <- asks $ refTypeLookup ty
       case result of

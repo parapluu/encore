@@ -1110,15 +1110,14 @@ instance Checkable Expr where
     --  E |- new ty(args) : ty
     doTypecheck new@(NewWithInit {ty, args})
       | isRefAtomType ty && null (getTypeParameters ty) = do
-          formal <- resolveFormalType ty
+          formal <- findFormalRefType ty
 
           header <- findConstructor formal args
-          let fakeCall = fakeInitCall new
-              typeParams = getTypeParameters formal
+          let typeParams = getTypeParameters formal
               argTypes = map ptype (hparams header)
 
           (eArgs, resolvedTy, _) <-
-              inferenceCall fakeCall typeParams argTypes formal
+              inferenceCall fakeInitCall typeParams argTypes formal
           return $ setType resolvedTy new{ty = resolvedTy, args = eArgs}
 
       | otherwise = do
@@ -1138,10 +1137,10 @@ instance Checkable Expr where
           matchArgumentLength ty header args
           return header
 
-        fakeInitCall NewWithInit{emeta, args} =
-          MethodCall{emeta
+        fakeInitCall =
+          MethodCall{emeta = emeta new
                     ,typeArguments = []
-                    ,target = setType ty Skip{emeta}
+                    ,target = setType ty Skip{emeta = emeta new}
                     ,name = constructorName
                     ,args
                     }
