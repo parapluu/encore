@@ -16,7 +16,7 @@ import Text.Parsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
 import Control.Applicative ((<$>))
-import Control.Arrow ((&&&))
+import Control.Arrow (first)
 
 -- Module dependencies
 import Identifiers hiding(namespace)
@@ -339,7 +339,8 @@ functionHeader = do
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return Header{kind = NonStreaming
+  return Header{hmodifier = [Public]
+               ,kind = NonStreaming
                ,htypeparams
                ,hname
                ,hparams
@@ -364,9 +365,9 @@ matchingHeader = do
    htype <- typ
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
-   let hpatterns = map fst args
-       hparamtypes = map snd args
-   return MatchingHeader{kind = NonStreaming
+   let (hpatterns, hparamtypes) = unzip  args
+   return MatchingHeader{hmodifier = [Public]
+                        ,kind = NonStreaming
                         ,htypeparams
                         ,hname
                         ,hpatterns
@@ -543,7 +544,8 @@ methodDecl = try regularMethod <|> matchingMethod
     regularMethod = do
       mmeta <- meta <$> getPosition
       mheader <- do reserved "def"
-                    functionHeader
+                    modifiers <- option [Public] $ many modifiersDecl
+                    setHeaderModifier modifiers <$> functionHeader
              <|> do reserved "stream"
                     streamMethodHeader
       mbody <- expression
@@ -554,11 +556,13 @@ methodDecl = try regularMethod <|> matchingMethod
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    methodClause matchingHeader `sepBy1` reservedOp "|"
+                    modifiers <- option [Public] $ many modifiersDecl
+                    map (first (setHeaderModifier modifiers)) <$>
+                      methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"
                     methodClause matchingStreamHeader `sepBy1` reservedOp "|"
-      let mheaders = map fst clauses
-          mbodies = map snd clauses
+      let (mheaders, mbodies) = unzip clauses
+
       return MatchingMethod{mmeta
                            ,mheaders
                            ,mbodies
@@ -568,6 +572,10 @@ methodDecl = try regularMethod <|> matchingMethod
           mheader <- headerParser
           mbody <- expression
           return (mheader, mbody)
+
+modifiersDecl :: Parser AccessModifier
+modifiersDecl = (reserved "private" >> return Private)
+
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma

@@ -10,7 +10,7 @@
 // a task. Otherwise, the behaviour of `party_each` is sequential.
 /* #define PARTY_ARRAY_PARALLEL */
 
-#define Stack_Size 8*1024*1024
+#define Stack_Size 100*1024
 
 #include <platform.h>
 #include <pony.h>

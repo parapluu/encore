@@ -1,0 +1,13 @@
+class Test<t>
+  def private method(x: t): t
+    x
+  def publicMethod(x: t): t
+    this.method(x)
+
+class Main
+  def main(): void
+    let t = new Test<String>
+    in {
+       t!publicMethod("test");
+       print(get t.publicMethod("Testing access modifiers"));
+    }

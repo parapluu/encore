@@ -219,6 +219,7 @@ data Error =
   | UnknownNameError Namespace Name
   | ShadowedImportError ImportDecl
   | WrongModuleNameError Name FilePath
+  | PrivateAccessModifierTargetError Name
   | SimpleError String
 
 arguments 1 = "argument"
@@ -310,6 +311,12 @@ instance Show Error where
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
     show MissingMainClass = "Couldn't find active class 'Main'"
+    show (PrivateAccessModifierTargetError name) =
+        printf "Cannot call private %s" kind
+     where
+       kind = if name == constructorName
+              then "constructor"
+              else "method '" ++ show name ++ "'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =

@@ -547,7 +547,10 @@ instance Checkable Expr where
       | isMethodCall mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
+
           handleErrors targetType mcall
+          typecheckPrivateModifier eTarget (name mcall)
+
           (header, calledType) <- findMethodWithCalledType targetType (name mcall)
 
           matchArgumentLength targetType header (args mcall)
@@ -770,12 +773,27 @@ instance Checkable Expr where
         when (isActiveClassType argType) $
           tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
+        checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
         let updateClauseType m@MatchClause{mchandler} =
                 m{mchandler = setType resultType mchandler}
             eClauses' = map updateClauseType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
+        checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
+
+        checkForPrivateExtractor arg FunctionCall{qname, args} = do
+          let mname = qnlocal qname
+          typecheckPrivateModifier arg mname
+          zipWithM_ checkForPrivateExtractor args args
+        checkForPrivateExtractor Tuple{args}
+                                 Tuple{args = patternArgs} =
+          zipWithM_ checkForPrivateExtractor args patternArgs
+        checkForPrivateExtractor MaybeValue{mdt = JustData{e}}
+                                 MaybeValue{mdt = JustData{e = patternE}} =
+          checkForPrivateExtractor e patternE
+        checkForPrivateExtractor _ _ = return ()
+
         checkAllHandlersSameType clauses = do
           let types = map (AST.getType . mchandler) clauses
           result <- unifyTypes types
@@ -1134,6 +1152,8 @@ instance Checkable Expr where
           unless (isClassType ty && not (isMainType ty)) $
                  tcError $ ObjectCreationError ty
           header <- findMethod ty constructorName
+          when (isPrivateMethod header) $
+               tcError $ PrivateAccessModifierTargetError constructorName
           matchArgumentLength ty header args
           return header
 
@@ -1605,3 +1625,10 @@ retType mcall targetType header t
       isThisAccess (target mcall) ||
       isPassiveClassType targetType ||
       isTraitType targetType -- TODO now all trait methods calls are sync
+
+typecheckPrivateModifier target name = do
+  let targetType = AST.getType target
+  header <- fst <$> findMethodWithCalledType targetType name
+  unless (isThisAccess target) $
+    when (isPrivateMethod header) $
+       tcError $ PrivateAccessModifierTargetError name

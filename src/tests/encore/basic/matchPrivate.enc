@@ -1,0 +1,11 @@
+passive class Foo
+  def private foo() : Maybe int
+    Just 42
+  def bar() : void
+    match (this, 42) with
+      (foo(x), y) when x == y => print "Success!"
+      _ => print "Fail :("
+
+class Main
+  def main() : void
+    (new Foo).bar()
