@@ -450,11 +450,18 @@ instance Show Error where
         printf "Cannot infer the type of parameter '%s' of %s '%s'"
                (show param) kind calledName
         where
+          mname = name call
           kind | isFunctionCall call = "function"
-               | isMethodCall call = "method"
+               | isMethodCall call =
+                   if mname == constructorName
+                   then "class"
+                   else "method"
                | otherwise = error msg
           calledName | isFunctionCall call = show $ qname call
-                     | isMethodCall call = show $ name call
+                     | isMethodCall call =
+                         if mname == constructorName
+                         then show $ getType (target call)
+                         else show mname
                      | otherwise = error msg
           msg = "TypeError.hs: " ++ show call ++
                 " is not a function or method call"
