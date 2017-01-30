@@ -15,7 +15,7 @@ module Typechecker.TypeError (Backtrace
                              ,currentMethodFromBacktrace) where
 
 import Text.PrettyPrint
-import Text.Parsec(SourcePos)
+import Text.Megaparsec(SourcePos)
 import Data.Maybe
 import Data.List
 import Text.Printf (printf)
@@ -24,6 +24,7 @@ import Identifiers
 import Types
 import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
+import AST.Meta(showSourcePos)
 
 data BacktraceNode = BTFunction Name Type
                    | BTTrait Type
@@ -131,7 +132,7 @@ instance Show TCError where
         show err ++ "\n"
     show (TCError err bt@((pos, _):_)) =
         " *** Error during typechecking *** \n" ++
-        show pos ++ "\n" ++
+        showSourcePos pos ++ "\n" ++
         show err ++ "\n" ++
         concatMap showBT bt
         where
@@ -514,7 +515,7 @@ instance Show TCWarning where
         "Warning:\n" ++
         show w
     show (TCWarning ((pos, _):_) w) =
-        "Warning at " ++ show pos ++ ":\n" ++
+        "Warning at " ++ showSourcePos pos ++ ":\n" ++
         show w
 
 data Warning = StringDeprecatedWarning

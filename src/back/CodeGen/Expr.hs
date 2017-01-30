@@ -11,9 +11,6 @@ import CodeGen.Type
 import qualified CodeGen.Context as Ctx
 import CodeGen.DTrace
 
-import qualified Text.Parsec as Parsec
-import qualified Text.Parsec.String as PString
-
 import CCode.Main
 import CCode.PrettyCCode
 
@@ -569,7 +566,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | isActive && isFuture = delegateUse callTheMethodFuture "fut"
     | otherwise = error $ "Expr.hs: Don't know how to call target of type " ++
                           Ty.showWithKind targetTy ++
-                          " at " ++ show (A.getPos call)
+                          " at " ++ Meta.showPos (A.getMeta call)
         where
           targetTy = A.getType target
           retTy = A.getType call
@@ -1302,7 +1299,7 @@ targetNullCheck ntarget target name meta op =
        String op,
        String (show (PP.ppExpr target)),
        String (show name),
-       String (show (Meta.getPos meta))]
+       String (Meta.showPos meta)]
 
 runtimeTypeArguments [] = return (nullVar, Skip)
 runtimeTypeArguments typeArgs = do

@@ -21,10 +21,10 @@ import System.Directory(doesFileExist)
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.List
-import Text.Parsec.Pos(SourceName, initialPos)
+import Text.Megaparsec(parseErrorPretty, initialPos)
 import Debug.Trace
 
-type ProgramTable = Map SourceName Program
+type ProgramTable = Map FilePath Program
 
 dirAndName = dirname' &&& basename
   where
@@ -56,7 +56,7 @@ stdLib source = [lib "String"]
                     ,ihiding = Nothing
                     }
 
-addStdLib :: SourceName -> ModuleDecl -> [ImportDecl] -> [ImportDecl]
+addStdLib :: FilePath -> ModuleDecl -> [ImportDecl] -> [ImportDecl]
 addStdLib source NoModule imports = stdLib source ++ imports
 addStdLib source Module{modname} imports =
   filter ((/= explicitNamespace [modname]) . itarget) (stdLib source) ++ imports
@@ -118,7 +118,7 @@ buildModulePath (NSExplicit ns) =
      then moduleName
      else moduleDir </> moduleName
 
-findSource :: [FilePath] -> FilePath -> ImportDecl -> IO SourceName
+findSource :: [FilePath] -> FilePath -> ImportDecl -> IO FilePath
 findSource importDirs sourceDir Import{itarget} = do
   let modulePath = buildModulePath itarget
       sources = nub $
@@ -149,7 +149,7 @@ importModule importDirs preludePaths table source
                  else raw
       ast <- case parseEncoreProgram source code of
                Right ast  -> return ast
-               Left error -> abort $ show error
+               Left error -> abort $ parseErrorPretty error
       if moduledecl ast == NoModule
       then abort $ "No module in file " ++ source ++ ". Aborting!"
       else let (sourceDir, sourceName) = dirAndName source

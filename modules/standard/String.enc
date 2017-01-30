@@ -27,7 +27,7 @@ def string_from_char(c : char) : String
   let
     s = embed (embed char* end) encore_alloc(*_ctx, 2); end
   in
-    new String(embed (embed char* end) *#{s} = #{c}; #{s}; end)
+    new String(embed (embed char* end) (*#{s}) = #{c}; #{s}; end)
 
 def string_from_array(arr : [char]) : String
   let
@@ -36,7 +36,7 @@ def string_from_array(arr : [char]) : String
     p = s
   in{
     for c in arr
-      embed void *#{p}++ = #{c}; end;
+      embed void (*#{p}++) = #{c}; end;
     new String(s)
   }
 

@@ -4,6 +4,5 @@ class Main
   def main() : void
     let
       x = null:Main
-    in 
-      x ! test() 
-
+    in
+      x ! test()

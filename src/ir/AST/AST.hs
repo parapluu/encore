@@ -13,14 +13,14 @@ import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
-import Text.Parsec(SourcePos, SourceName)
+import Text.Megaparsec(SourcePos)
 
 import Identifiers
 import Types
 import AST.Meta hiding(Closure, Async)
 
 data Program = Program {
-  source :: SourceName,
+  source :: FilePath,
   moduledecl :: ModuleDecl,
   etl :: [EmbedTL],
   imports :: [ImportDecl],
@@ -94,7 +94,7 @@ data ImportDecl = Import {
       ihiding :: Maybe [Name],
       iselect :: Maybe [Name],
       ialias :: Maybe Namespace,
-      isource :: Maybe SourceName
+      isource :: Maybe FilePath
     } deriving (Show)
 
 instance HasMeta ImportDecl where
@@ -167,14 +167,14 @@ data Function =
       funheader :: FunctionHeader,
       funbody   :: Expr,
       funlocals :: [Function],
-      funsource :: SourceName
+      funsource :: FilePath
     }
   | MatchingFunction {
       funmeta         :: Meta Function,
       matchfunheaders :: [FunctionHeader],
       matchfunbodies  :: [Expr],
       funlocals       :: [Function],
-      funsource       :: SourceName
+      funsource       :: FilePath
     } deriving (Show)
 
 functionName = hname . funheader
@@ -371,7 +371,7 @@ conjunctiveTypesFromComposition _ = []
 -- | @translateCompositionNamespace table@ gives the included
 -- traits of a class (if any) the namespace specified by @table@.
 translateCompositionNamespace ::
-  Map SourceName Namespace -> Maybe TraitComposition -> Maybe TraitComposition
+  Map FilePath Namespace -> Maybe TraitComposition -> Maybe TraitComposition
 translateCompositionNamespace table Nothing = Nothing
 translateCompositionNamespace table (Just tc@TraitLeaf{tcname}) =
   let source = getRefSourceFile tcname
@@ -493,7 +493,7 @@ replaceHeaderTypes bindings header =
           p{ptype = replaceTypeVars bindings ptype}
 
 translateHeaderNamespace ::
-  Map SourceName Namespace -> FunctionHeader -> FunctionHeader
+  Map FilePath Namespace -> FunctionHeader -> FunctionHeader
 translateHeaderNamespace table header =
     let hparams' = map (translateParamType table) (hparams header)
         htype' = translateTypeNamespace table (htype header)

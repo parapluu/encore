@@ -6,6 +6,7 @@ import qualified AST.Meta as Meta
 import AST.PrettyPrinter
 import AST.Util
 import Types
+import Text.Megaparsec
 
 import qualified Data.List as List
 
@@ -345,4 +346,4 @@ desugar e = e
 assertionFailed emeta assert =
   StringLiteral (cloneMeta emeta) $
                 "Assertion failed at " ++
-                show (Meta.getPos emeta) ++ ":\n" ++ assert
+                Meta.showPos emeta ++ ":\n" ++ assert

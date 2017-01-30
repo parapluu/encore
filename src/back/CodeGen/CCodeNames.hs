@@ -19,7 +19,6 @@ import CCode.Main
 import Data.List
 import Data.Char
 import Data.String.Utils
-import Text.Parsec.Pos as P
 
 import qualified AST.AST as A
 
@@ -251,7 +250,7 @@ qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
 qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} =
   sourceToString s ++ show qnlocal
 
-sourceToString :: SourceName -> String
+sourceToString :: FilePath -> String
 sourceToString = map translateSep . filter (/='.') . dropEnc
   where
     translateSep '/' = '_'

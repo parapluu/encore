@@ -111,7 +111,6 @@ import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Foldable (toList)
 import Data.Traversable
-import Text.Parsec.Pos as P
 
 import Debug.Trace
 
@@ -130,7 +129,7 @@ instance Show TypeOp where
 data RefInfo = RefInfo{refId         :: String
                       ,parameters    :: [Type]
                       ,refNamespace  :: Maybe Namespace
-                      ,refSourceFile :: Maybe SourceName
+                      ,refSourceFile :: Maybe FilePath
                       } deriving(Eq)
 
 instance Show RefInfo where
@@ -236,7 +235,7 @@ hasRefSourceFile ty
     , info <- refInfo ty = isJust $ refSourceFile info
     | otherwise = False
 
-translateTypeNamespace :: Map SourceName Namespace -> Type -> Type
+translateTypeNamespace :: Map FilePath Namespace -> Type -> Type
 translateTypeNamespace table = typeMap translate
     where
       translate ty
