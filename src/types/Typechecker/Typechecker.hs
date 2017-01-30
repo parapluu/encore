@@ -107,17 +107,17 @@ typecheckNotNull expr = do
   then local (pushBT expr) $ coerceNull eExpr ty
   else return eExpr
 
-concreteTypes :: [Type] -> [Type]
-concreteTypes = filter (not . isTypeVar)
 
--- | 'assertTypeParams ts' asserts that the types passed in are all
--- type variables and are not concrete types. otherwise, throw an error.
-assertTypeParams :: (MonadReader Environment f, MonadError TCError f) =>
-                    [Type] -> f ()
-assertTypeParams ts = do
-  unless (all isTypeVar ts) $
-    let concreteType = (head . concreteTypes) ts
-    in tcError $ ConcreteTypeParameterError concreteType
+addLocalFunctions = extendEnvironment . map localFunctionType
+  where
+    localFunctionType f =
+        let params = functionParams f
+            ptypes = map ptype params
+            typeParams = functionTypeParams f
+            returnType = functionType f
+            arrowType = arrowWithTypeParam typeParams ptypes returnType
+        in
+          (functionName f, arrowType)
 
 
 instance Checkable Function where
@@ -131,25 +131,16 @@ instance Checkable Function where
       eBody <-
         local (addTypeParameters funtypeparams .
                addParams funparams .
-               addLocalFunctions) $
+               addLocalFunctions funlocals) $
                   if isVoidType funtype
                   then typecheckNotNull funbody
                   else hasType funbody funtype
-      eLocals <- local (addTypeParameters funtypeparams . addLocalFunctions) $
+      eLocals <- local (addTypeParameters funtypeparams .
+                        addLocalFunctions funlocals) $
                        mapM typecheck funlocals
 
-      return f{funbody = eBody, funlocals = eLocals}
-      where
-        addLocalFunctions = extendEnvironment (map localFunctionType funlocals)
-        localFunctionType f =
-          let params = functionParams f
-              ptypes = map ptype params
-              typeParams = functionTypeParams f
-              returnType = functionType f
-              arrowType = arrowWithTypeParam typeParams ptypes returnType
-          in
-            (functionName f, arrowType)
-
+      return f{funbody = eBody
+              ,funlocals = eLocals}
 
 instance Checkable TraitDecl where
   doTypecheck t@Trait{tname, tmethods} = do
@@ -372,6 +363,7 @@ instance Checkable ClassDecl where
   doTypecheck c@(Class {cname, cfields, cmethods, ccomposition}) = do
     unless (isPassiveClassType cname || isNothing ccomposition) $
            tcError TraitsInActiveClassError
+
     let traits = typesFromTraitComposition ccomposition
         extendedTraits = extendedTraitsFromComposition ccomposition
 
@@ -408,29 +400,20 @@ instance Checkable MethodDecl where
         let mType   = methodType m
             mparams = methodParams m
             mtypeparams = methodTypeParams m
-        assertTypeParams mtypeparams
         eBody <-
             local (addTypeParameters mtypeparams .
                    addParams mparams .
-                   addLocalFunctions) $
+                   addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
                        then typecheckNotNull mbody
                        else hasType mbody mType
-        eLocals <- local (addLocalFunctions . dropLocal thisName) $
+        eLocals <- local (addTypeParameters mtypeparams .
+                          addLocalFunctions mlocals .
+                          dropLocal thisName) $
                          mapM typecheck mlocals
+
         return $ m{mbody = eBody
                   ,mlocals = eLocals}
-        where
-          addLocalFunctions =
-            extendEnvironment (map localFunctionType mlocals)
-          localFunctionType f =
-            let params = functionParams f
-                ptypes = map ptype params
-                typeParams = functionTypeParams f
-                returnType = functionType f
-                arrowType = arrowWithTypeParam typeParams ptypes returnType
-            in
-              (functionName f, arrowType)
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do

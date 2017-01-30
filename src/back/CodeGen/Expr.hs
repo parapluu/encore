@@ -417,14 +417,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             return (substName , Skip)
         Nothing -> do
           (_, header) <- gets $ Ctx.lookupFunction qname
-          let name = case ID.qnsource qname of
-                       Just source ->
-                           ID.setSourceFile source $
-                           ID.qLocal $ A.hname header
-                       Nothing ->
-                           ID.qLocal $ A.hname header
+          let name = resolveFunctionSource header
           return (Var . show $ globalClosureName name, Skip)
-
+      where
+        resolveFunctionSource header =
+          case ID.qnsource qname of
+            Just source ->
+                ID.setSourceFile source $
+                ID.qLocal $ A.hname header
+            Nothing ->
+                ID.qLocal $ A.hname header
 
   translate fun@(A.FunctionAsValue {A.typeArgs}) = do
     tmp <- Var <$> Ctx.genSym
@@ -1146,11 +1148,7 @@ functionCall fcall@A.FunctionCall{A.typeArguments = typeArguments
       let runtimeTypes = map runtimeType typeArguments
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
       (cname, header) <- gets (Ctx.lookupFunction qname)
-      let fname = case ID.qnsource qname of
-                    Just source -> ID.setSourceFile source $
-                                   ID.qLocal (A.hname header)
-                    Nothing -> ID.qLocal (A.hname header)
-          runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
+      let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
           prototype = Call cname
                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
       rPrototype <- unwrapReturnType prototype
