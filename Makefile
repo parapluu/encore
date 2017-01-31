@@ -15,11 +15,11 @@ typecheck:
 	cabal build --ghc-option=-fno-code
 
 encorec: dirs pony install-deps
-	stack setup
 	export ENCORE_MODULES="$(CURDIR)/modules/" && \
 	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
 
 install-deps:
+	stack setup
 	stack --install-ghc --system-ghc install --dependencies-only
 
 test: encorec
