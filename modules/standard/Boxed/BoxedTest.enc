@@ -6,8 +6,8 @@ import Boxed.Unit
 
 class Main {
   def main() : void {
-    let maxReal = embed real 1.7976931348623157E+308; end;
-    let minReal = embed real -1.7976931348623157E+308; end;
+    val maxReal = EMBED (real) 1.7976931348623157E+308; END;
+    val minReal = EMBED (real) -1.7976931348623157E+308; END;
     print((new Integer(12)) .show());
     print((new Integer(-200)) .show());
     print((new Char('a'))   .show());
@@ -17,7 +17,7 @@ class Main {
     print((new Bool(true))   .show());
     print((new Bool(false))  .show());
     print((new Unit)         .show());
-    
+
     assertTrue((new Integer(12)).value() == 12);
     assertTrue((new Bool(true)).value());
     assertFalse((new Bool(false)).value());

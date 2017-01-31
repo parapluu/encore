@@ -1,10 +1,10 @@
 trait S
 trait T
 
-typedef MyType = embed my_c_type end
+typedef MyType = EMBED my_c_type END
 
 class Foo<t>
-  f: [embed my_c_type end]
+  f: [EMBED my_c_type END]
   g: [Range]
   h: [Maybe int]
   i: [T]
@@ -19,7 +19,7 @@ class Foo<t>
   r: [MyType]
   s: [int]
   def init(): void {
-    this.f = new [embed my_c_type end](42);
+    this.f = new [EMBED my_c_type END](42);
     this.g = new [Range](42);
     this.h = new [Maybe int](42);
     this.i = new [T](42);

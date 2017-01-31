@@ -5,24 +5,24 @@ class Main
   f : int
   def main(): void {
     val x = new Foo();
-    val y = embed int
-              #{embed int
-                  #{embed int 21; end};
-                end};
-            end;
+    val y = EMBED (int)
+              #{EMBED (int)
+                  #{EMBED (int) 21; END};
+                END};
+            END;
     val z = 0;
-    embed void
+    EMBED (void)
       int x = #{y} + 21;
       #{x.f} = x;
       #{z} = #{x.f};
       #{let z' = x.f in assertTrue(z == z')};
-    end;
-    embed void
+    END;
+    EMBED (void)
       #{
-      embed void
+      EMBED (void)
         #{this.f = 42};
-      end
+      END
       };
-    end;
+    END;
     println("Embedding is cool: {}", this.f);
   }

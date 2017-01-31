@@ -1,14 +1,14 @@
 module Regex
 
-embed
+EMBED
   // Do not forget to link against the C library
   // e.g. encorec RegexTest.enc -F "-I /usr/local/include -L /usr/local/lib/ -lpcre2-posix -lpcre2-8"
   #define PCRE2_CODE_UNIT_WIDTH 8
   #include <pcre2posix.h>
-end
+END
 
-typedef RegexT = embed regex_t end
-typedef PMatch = embed regmatch_t* end
+typedef RegexT = EMBED regex_t END
+typedef PMatch = EMBED regmatch_t* END
 
 passive class Regex
   pattern: String           -- private attribute
@@ -17,26 +17,26 @@ passive class Regex
   flagNewLine: bool         -- private attribute
   pMatch: PMatch            -- private attribute
   regex: RegexT             -- private attribute
-  executed: embed char* end -- private attribute
+  executed: EMBED char* END -- private attribute
 
   def Regex_trace(): void {
-    embed void
+    EMBED (void)
       _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
       encore_trace_object((*_ctx), _enc__field_pattern, _enc__trace_String);
 
       regmatch_t* _enc__field_pMatch = _this->_enc__field_pMatch;
       pony_trace((*_ctx), _enc__field_pMatch);
-    end
+    END
   }
 
 
   def init(pattern: String, maxSize: int): void {
     this.pattern = pattern;
     this.maxSize = maxSize;
-    this.pMatch = embed PMatch
+    this.pMatch = EMBED (PMatch)
                   regmatch_t *pMatch = encore_alloc(encore_ctx(), sizeof(regmatch_t) * #{maxSize});
                   pMatch;
-                  end;
+                  END;
   }
 
   def icase(): void this.flagICase = true
@@ -49,7 +49,7 @@ passive class Regex
         pattern = this.pattern.getData()
         regex = this.regex
     in
-      embed bool
+      EMBED (bool)
         bool result = 0;
         if (#{fIc} && #{fNl}){
            result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED|REG_ICASE|REG_NEWLINE);
@@ -60,7 +60,7 @@ passive class Regex
         }
 
         !result;
-      end
+      END
 
   -- exec(str: String): returns true if the exec method found a match,
   --                    otherwise it returns false (indicates error or no match found)
@@ -68,38 +68,37 @@ passive class Regex
     let s = str.getData()
         nmatch = this.maxSize
         pMatch = this.pMatch
-        result = 0
     in {
       this.executed = s;
-      result = embed int
+      var result = EMBED (int)
         regexec(&((*_this)._enc__field_regex), #{s}, #{nmatch}, #{pMatch}, 0);
-      end;
-      if (embed bool #{result} == REG_NOMATCH; end) then Just false
+      END;
+      if (EMBED (bool) #{result} == REG_NOMATCH; END) then Just false
       else if (result == 0) then Just true
       else Nothing
     }
 
   def matches(): int {
     let regex = this.regex in
-      embed int
+      EMBED (int)
         (int) #{regex}.re_nsub;
-      end
+      END
   }
 
   def getAt(i: int): String {
     let pmatch = this.pMatch
         executed = this.executed
-    in new String(embed (embed char* end)
+    in new String(EMBED (EMBED char* END)
         regoff_t match = #{pmatch}[#{i}].rm_eo - #{pmatch}[#{i}].rm_so;
         char *str = encore_alloc(*_ctx, ((size_t) match) + 1);
         strncpy(str, &#{executed}[#{pmatch}[#{i}].rm_so], (size_t) match);
         str;
-       end)
+       END)
   }
 
   def close(): void {
     let regex = this.regex in
-    embed void
+    EMBED (void)
       regfree(&#{regex});
-    end
+    END
   }

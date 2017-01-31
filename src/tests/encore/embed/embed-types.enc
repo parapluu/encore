@@ -8,9 +8,9 @@ passive class Container<t>
 
 class Main
   def main() : void
-    let c = new Container<embed char* end>
+    let c = new Container<EMBED char* END>
     in{
-      c.write(embed (embed char* end) "Hello"; end);
+      c.write(EMBED (EMBED char* END) "Hello"; END);
       let s = c.read() in
-        embed void puts(#{s}); end
+        EMBED (void) puts(#{s}); END
     }

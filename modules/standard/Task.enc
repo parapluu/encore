@@ -20,9 +20,9 @@ whether it is fulfilled or not. This is a blocking operation.
 
 #+BEGIN_SRC encore
 def fulfilled<t>(f : Fut t) : bool
-  embed bool
+  EMBED(bool)
     future_fulfilled(#{f});
-  end
+  END
 
 def fulfilled2<t1, t2>(f1 : Fut t1, f2 : Fut t2) : bool
   fulfilled(f1) and fulfilled(f2)

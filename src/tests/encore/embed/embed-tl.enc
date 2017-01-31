@@ -1,12 +1,12 @@
-embed
+EMBED
 #include "embed_tl.h"
 int bar();
-body
+BODY
 int bar() {
   return 2;
 }
-end
+END
 
 class Main
   def main() : void
-    print embed int foo(1)+bar(); end
+    print EMBED (int) foo(1)+bar(); END

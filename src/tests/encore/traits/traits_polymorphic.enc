@@ -14,9 +14,9 @@ trait T<t> {
     val f = id<t>;
     f(x);
     id(x);
-    embed t
+    EMBED (t)
       #{x};
-    end;
+    END;
   }
 }
 

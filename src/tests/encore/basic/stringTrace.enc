@@ -1,11 +1,11 @@
 class Foo
   def foo() : String {
     val s =
-      embed (embed char* end)
+      EMBED (EMBED char* END)
         char *s = encore_alloc(*_ctx, 1000);
         strcpy(s, "Hello");
         s;
-      end;
+      END;
     new String(s);
   }
 

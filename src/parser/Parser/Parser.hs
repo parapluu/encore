@@ -75,7 +75,8 @@ reservedNames =
     ,"def"
     ,"each"
     ,"else"
-    ,"embed"
+    ,"EMBED"
+    ,"END"
     ,"end"
     ,"eos"
     ,"extract"
@@ -222,8 +223,8 @@ typ = makeExprParser singleType opTable
         ty <- brackets typ
         return $ arrayType ty
       embed = do
-        reserved "embed"
-        ty <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
+        reserved "EMBED"
+        ty <- manyTill anyChar $ try $ do {spaceChar; reserved "END"}
         return $ ctype ty
       range = do
         reserved "Range"
@@ -316,13 +317,13 @@ importdecl = do
 embedTL :: Parser EmbedTL
 embedTL = do
   pos <- getPosition
-  (try (do string "embed"
-           header <- manyTill anyChar $ try $ do {spaceChar; string "body"}
-           code <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
+  (try (do string "EMBED"
+           header <- manyTill anyChar $ try $ do {spaceChar; string "BODY"}
+           code <- manyTill anyChar $ try $ do {spaceChar; reserved "END"}
            return $ EmbedTL (meta pos) header code
        ) <|>
-   try (do string "embed"
-           header <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
+   try (do string "EMBED"
+           header <- manyTill anyChar $ try $ do {spaceChar; reserved "END"}
            return $ EmbedTL (meta pos) header ""
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
@@ -781,10 +782,11 @@ expr  =  embed
      <?> "expression"
     where
       embed = do pos <- getPosition
-                 reserved "embed"
-                 ty <- typ
+                 reserved "EMBED"
+                 ty <- label "parenthesized type" $
+                       parens typ
                  embedded <- many cAndEncore
-                 end
+                 embedEnd
                  return $ Embed (meta pos) ty embedded
               where
                 cAndEncore :: Parser (String, Expr)
@@ -798,11 +800,13 @@ expr  =  embed
                         e <- encoreEscaped expression
                         return ("", e))
                 c = do
-                  notFollowedBy (end <|> encoreEscapeStart)
+                  notFollowedBy (embedEnd <|> encoreEscapeStart)
                   first <- anyChar
-                  rest <- manyTill anyChar (try $ lookAhead (end <|> encoreEscapeStart))
+                  rest <-
+                    manyTill anyChar (try $ lookAhead (embedEnd <|>
+                                                       encoreEscapeStart))
                   return (first:rest)
-                end = spaceChar >> reserved "end" >> return "end"
+                embedEnd = spaceChar >> reserved "END" >> return "END"
 
       path = do pos <- getPosition
                 root <- tupled <|>
@@ -886,7 +890,7 @@ expr  =  embed
                                      val <- expression
                                      return (Name x, val)
       sequence = do pos <- getPosition
-                    seq <- braces ((try miniLet <|> expression) `sepEndBy1` semi)
+                    seq <- braces ((miniLet <|> expression) `sepEndBy1` semi)
                     return $ Seq (meta pos) seq
           where
             miniLet = do

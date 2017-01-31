@@ -64,9 +64,9 @@
 
 (setq encore-danger-words
       '(
-        "body"
-        "embed"
-        "end"
+        "BODY"
+        "EMBED"
+        "END"
         ))
 (setq encore-constants
       '(
