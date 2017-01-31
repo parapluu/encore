@@ -297,7 +297,7 @@ program = do
   let etl = [etls]
   scn
 
-  decls <- (`sepBy` nl) . foldr1 (<|>) $
+  decls <- (`sepEndBy` nl) . foldr1 (<|>) $
            map (L.nonIndented sc)
                    [CDecl <$> classDecl
                    ,TDecl <$> traitDecl
