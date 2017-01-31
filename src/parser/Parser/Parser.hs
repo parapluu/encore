@@ -14,7 +14,7 @@ import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
-import Control.Monad(void, foldM)
+import Control.Monad(void, foldM, unless)
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -22,7 +22,7 @@ import Control.Arrow (first)
 import Identifiers hiding(namespace)
 import Types hiding(refType)
 import AST.AST
-import AST.Meta hiding(Closure, Async)
+import AST.Meta hiding(Closure, Async, getPos)
 
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
@@ -32,9 +32,27 @@ parseEncoreProgram = parse program
 lineComment = L.skipLineComment "--"
 blockComment = L.skipBlockComment "{-" "-}"
 
--- | A "space consumer", used for parsing white-space.
+-- | A "space consumer", used for parsing non-linebreaking white-space.
 sc :: Parser ()
-sc = L.space (void spaceChar) lineComment blockComment
+sc = L.space (void $ oneOf " \t") lineComment blockComment
+
+-- | A "space consumer", used for parsing white-space, including line breaks.
+scn :: Parser ()
+scn = L.space (void spaceChar) lineComment blockComment
+
+-- | Parse a newline and any whitespace following it (including
+-- additional newlines)
+nl :: Parser ()
+nl = newline >> scn
+
+-- | @atLevel ind p@ parses @p@ if the current indentation level
+-- is @lvl@, and fails otherwise
+atLevel :: Pos -> Parser a -> Parser a
+atLevel expectedIndent p = do
+  currentIndent <- L.indentLevel
+  unless (currentIndent == expectedIndent) $
+         L.incorrectIndent Prelude.EQ expectedIndent currentIndent
+  p
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -265,27 +283,38 @@ partitionDecls = partitionDecls' [] [] [] []
     partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
     partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
 
-manyOf :: [Parser a] -> Parser [a]
-manyOf = many . foldr1 (<|>)
-
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
   optional hashbang
-  sc
+  scn
+
   moduledecl <- L.nonIndented sc moduleDecl
-  imports <- many $ L.nonIndented sc importdecl
+  unless (moduledecl == NoModule) nl
+
+  imports <- L.nonIndented sc importdecl `endBy` nl
   etls <- L.nonIndented sc embedTL
   let etl = [etls]
-  decls <- manyOf $ map (L.nonIndented sc)
-                        [CDecl <$> classDecl
-                        ,TDecl <$> traitDecl
-                        ,TDef <$> typedef
-                        ,FDecl <$> function
-                        ]
+  scn
+
+  decls <- (`sepBy` nl) . foldr1 (<|>) $
+           map (L.nonIndented sc)
+                   [CDecl <$> classDecl
+                   ,TDecl <$> traitDecl
+                   ,TDef <$> typedef
+                   ,FDecl <$> globalFunction
+                   ]
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
-  return Program{source, moduledecl, etl, imports, typedefs, functions, traits, classes}
+  return Program{source
+                ,moduledecl
+                ,etl
+                ,imports
+                ,typedefs
+                ,functions
+                ,traits
+                ,classes
+                }
     where
       hashbang = do string "#!"
                     many (noneOf "\n\r")
@@ -296,6 +325,7 @@ moduleDecl = option NoModule $ do
   reserved "module"
   lookAhead upperChar
   modname <- Name <$> identifier
+  -- TODO: Allow linebreaks
   modexports <- optional (parens ((Name <$> identifier) `sepEndBy` comma))
   return Module{modmeta
                ,modname
@@ -308,6 +338,7 @@ importdecl = do
   reserved "import"
   iqualified <- option False $ reserved "qualified" >> return True
   itarget <- explicitNamespace <$> modulePath
+  -- TODO: Allow linebreaks
   iselect <- optional $ parens ((Name <$> identifier) `sepEndBy` comma)
   ialias <- optional $ reserved "as" >> (explicitNamespace <$> modulePath)
   ihiding <- optional $
@@ -324,6 +355,7 @@ importdecl = do
 
 embedTL :: Parser EmbedTL
 embedTL = do
+  -- TODO: Make sure BODY and END are not indented
   pos <- getPosition
   (try (do string "EMBED"
            header <- manyTill anyChar $ try $ do {spaceChar; string "BODY"}
@@ -345,6 +377,7 @@ typedef = do
   name <- lookAhead upperChar >> identifier
   params <- optionalTypeParameters
   reservedOp "="
+  -- TODO: Allow linebreaks
   typedeftype <- typ
   let typedefdef = setRefNamespace emptyNamespace $
                    typeSynonym name params typedeftype
@@ -354,6 +387,7 @@ functionHeader :: Parser FunctionHeader
 functionHeader = do
   hname <- Name <$> identifier
   htypeparams <- optionalTypeParameters
+  -- TODO: Allow linebreaks
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
@@ -399,31 +433,49 @@ matchingStreamHeader = do
   header <- matchingHeader
   return header{kind = Streaming}
 
-localFunctions :: Parser [Function]
-localFunctions =
-    option [] $ do
-      reserved "where"
-      locals <- some (try regularFunction <|> matchingFunction)
-      reserved "end"
-      return locals
+whereClause :: Parser [Function]
+whereClause =
+  L.indentBlock scn $ do
+    reserved "where"
+    return $ L.IndentSome Nothing return localFunction
 
-function :: Parser Function
-function = do
-  fun <- try regularFunction <|> matchingFunction
-  funlocals <- localFunctions
+localFunction :: Parser Function
+localFunction = do
+  funIndent <- L.indentLevel
+  fun <- funHeaderAndBody
+  atLevel funIndent $ reserved "end"
+  return fun
+
+globalFunction :: Parser Function
+globalFunction = do
+  funIndent <- L.indentLevel
+  fun <- funHeaderAndBody
+
+  funlocals <- option [] $ atLevel funIndent whereClause
+
+  atLevel funIndent $ reserved "end"
+
   return fun{funlocals}
 
-regularFunction = do
-  funmeta <- meta <$> getPosition
-  reserved "def"
-  funheader <- functionHeader
-  funbody <- expression
-  return Function{funmeta
-                 ,funheader
-                 ,funbody
-                 ,funlocals = []
-                 ,funsource = ""
-                 }
+funHeaderAndBody =
+  -- TODO: Re-add matching functions
+  L.indentBlock scn $ do
+    funmeta <- meta <$> getPosition
+    reserved "fun"
+    funheader <- functionHeader
+    return $ L.IndentSome Nothing (buildFun funmeta funheader) expression
+  where
+    buildFun funmeta funheader bodyblock =
+      let funbody =
+            case bodyblock of
+              [e] -> e
+              e:es -> Seq (meta (getPos e)) (e:es)
+      in return Function{funmeta
+                        ,funheader
+                        ,funbody
+                        ,funlocals = []
+                        ,funsource = ""
+                        }
 
 matchingFunction = do
   funmeta <- meta <$> getPosition
@@ -443,25 +495,38 @@ matchingFunction = do
       funbody <- expression
       return (funheader, funbody)
 
+data TraitAttribute = TReqAttribute {treq :: Requirement}
+                    | TMethodAttribute {tmdecl :: MethodDecl}
+
+partitionTraitAttributes :: [TraitAttribute] -> ([Requirement], [MethodDecl])
+partitionTraitAttributes = partitionTraitAttributes' [] []
+  where
+    partitionTraitAttributes' rs ms [] = (rs, ms)
+    partitionTraitAttributes' rs ms (TReqAttribute{treq}:as) =
+      partitionTraitAttributes' (treq:rs) ms as
+    partitionTraitAttributes' rs ms (TMethodAttribute{tmdecl}:as) =
+      partitionTraitAttributes' rs (tmdecl:ms) as
+
+
 traitDecl :: Parser TraitDecl
 traitDecl = do
-  tmeta <- meta <$> getPosition
-  reserved "trait"
-  ident <- lookAhead upperChar >> identifier
-  params <- optionalTypeParameters
-  (treqs, tmethods) <- maybeBraces traitBody
-  return Trait{tmeta
-              ,tname = setRefNamespace emptyNamespace $
-                       traitTypeFromRefType $
-                       refTypeWithParams ident params
-              ,treqs
-              ,tmethods
-              }
+  tIndent <- L.indentLevel
+  tdecl <- L.indentBlock scn $ do
+    tmeta <- meta <$> getPosition
+    reserved "trait"
+    ident <- lookAhead upperChar >> identifier
+    params <- optionalTypeParameters
+    return $ L.IndentMany
+               Nothing
+               (buildTrait tmeta ident params)
+               traitAttribute
+  atLevel tIndent $ reserved "end"
+  return tdecl
   where
-    traitBody = do
-      reqs    <- many (try reqField <|> reqMethod <?> "requirement")
-      methods <- many methodDecl
-      return (reqs, methods)
+    traitAttribute = label "requirement"
+                     (TReqAttribute <$> (try reqField <|>
+                                         reqMethod))
+                 <|> (TMethodAttribute <$> methodDecl)
     reqField = do
       reserved "require"
       rfield <- fieldDecl
@@ -470,6 +535,16 @@ traitDecl = do
       reserved "require"
       rheader <- functionHeader
       return RequiredMethod{rheader}
+    buildTrait tmeta ident params attributes =
+      let (treqs, tmethods) = partitionTraitAttributes attributes
+      in
+        return Trait{tmeta
+                    ,tname = setRefNamespace emptyNamespace $
+                             traitTypeFromRefType $
+                             refTypeWithParams ident params
+                    ,treqs
+                    ,tmethods
+                    }
 
 traitComposition :: Parser TraitComposition
 traitComposition = makeExprParser includedTrait opTable
@@ -509,30 +584,52 @@ traitComposition = makeExprParser includedTrait opTable
             reservedOp "()"
             return $ MethodExtension name
 
+data ClassAttribute = FieldAttribute {flddecl :: FieldDecl}
+                    | MethodAttribute {mdecl :: MethodDecl}
+
+partitionClassAttributes :: [ClassAttribute] -> ([FieldDecl], [MethodDecl])
+partitionClassAttributes = partitionClassAttributes' [] []
+  where
+    partitionClassAttributes' fs ms [] = (fs, ms)
+    partitionClassAttributes' fs ms (FieldAttribute{flddecl}:as) =
+      partitionClassAttributes' (flddecl:fs) ms as
+    partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
+      partitionClassAttributes' fs (mdecl:ms) as
+
+
 classDecl :: Parser ClassDecl
 classDecl = do
-  cmeta <- meta <$> getPosition
-  activity <- parseActivity
-  reserved "class"
-  name <- lookAhead upperChar >> identifier
-  params <- optionalTypeParameters
-  ccomposition <- optional (do{reservedOp ":"; traitComposition})
-  (cfields, cmethods) <- maybeBraces classBody
-  return Class{cmeta
-              ,cname = setRefNamespace emptyNamespace $
-                       classType activity name params
-              ,ccomposition
-              ,cfields
-              ,cmethods
-              }
+  cIndent <- L.indentLevel
+  cdecl <- L.indentBlock scn $ do
+    cmeta <- meta <$> getPosition
+    activity <- parseActivity
+    reserved "class"
+    name <- lookAhead upperChar >> identifier
+    params <- optionalTypeParameters
+    ccomposition <- optional (do{reservedOp ":"; traitComposition})
+    return $ L.IndentMany
+               Nothing
+               (buildClass cmeta activity name params ccomposition)
+               classAttribute
+  -- TODO: clocals <- option [] $ atLevel cIndent whereClause
+  atLevel cIndent $ reserved "end"
+  return cdecl
   where
     parseActivity = (reserved "shared" >> return Shared)
       <|> (reserved "passive" >> return Passive)
       <|> return Active
-    classBody = do
-              fields <- many fieldDecl
-              methods <- many methodDecl
-              return (fields, methods)
+    classAttribute = (FieldAttribute <$> fieldDecl)
+                 <|> (MethodAttribute <$> methodDecl)
+    buildClass cmeta activity name params ccomposition attributes =
+      let (cfields, cmethods) = partitionClassAttributes attributes
+      in
+        return Class{cmeta
+                    ,cname = setRefNamespace emptyNamespace $
+                             classType activity name params
+                    ,ccomposition
+                    ,cfields
+                    ,cmethods
+                    }
 
 modifier :: Parser Modifier
 modifier = val
@@ -574,23 +671,33 @@ patternParamDecl = do
 
 methodDecl :: Parser MethodDecl
 methodDecl = do
-  mtd <- try regularMethod <|> matchingMethod
-  mlocals <- localFunctions
+  mIndent <- L.indentLevel
+  -- TODO: Re-add support for matching methods
+  mtd <- methodHeaderAndBody -- <|> matchingMethod
+
+  mlocals <- option [] $ atLevel mIndent whereClause
+  atLevel mIndent $ reserved "end"
   return mtd{mlocals}
   where
-    regularMethod = do
-      mmeta <- meta <$> getPosition
-      mheader <- do reserved "def"
-                    modifiers <- option [Public] $ many modifiersDecl
-                    setHeaderModifier modifiers <$> functionHeader
-             <|> do reserved "stream"
-                    streamMethodHeader
-      mbody <- expression
-      return Method{mmeta
-                   ,mheader
-                   ,mbody
-                   ,mlocals = []
-                   }
+    methodHeaderAndBody =
+      L.indentBlock scn $ do
+        mmeta <- meta <$> getPosition
+        mheader <- do reserved "def"
+                      modifiers <- option [Public] $ many modifiersDecl
+                      setHeaderModifier modifiers <$> functionHeader
+               <|> do reserved "stream"
+                      streamMethodHeader
+        return $ L.IndentSome Nothing (buildMethod mmeta mheader) expression
+    buildMethod mmeta mheader bodyblock =
+      let mbody =
+            case bodyblock of
+              [e] -> e
+              e:es -> Seq (meta (getPos e)) (e:es)
+      in return Method{mmeta
+                      ,mheader
+                      ,mbody
+                      ,mlocals = []
+                      }
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
