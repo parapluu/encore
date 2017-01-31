@@ -32,6 +32,7 @@ parseEncoreProgram = parse program
 lineComment = L.skipLineComment "--"
 blockComment = L.skipBlockComment "{-" "-}"
 
+-- | A "space consumer", used for parsing white-space.
 sc :: Parser ()
 sc = L.space (void spaceChar) lineComment blockComment
 

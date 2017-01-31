@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
+
 {-|
 
 The machinery used by "Typechecker.Typechecker" for handling

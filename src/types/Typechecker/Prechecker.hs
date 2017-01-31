@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
+
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with

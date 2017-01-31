@@ -34,12 +34,6 @@ showPos = showSourcePos . sourcePos
 getPos :: Meta a -> SourcePos
 getPos = sourcePos
 
-getLine :: Meta a -> Word
-getLine = unPos . sourceLine . sourcePos
-
-getCol :: Meta a -> Word
-getCol = unPos . sourceColumn . sourcePos
-
 setType :: Type -> Meta a -> Meta a
 setType newType m = m {metaType = Just newType}
 

@@ -116,6 +116,8 @@ Alternatively, run: `brew update; brew install premake`
 
 If you have homebrew, you can run `brew install haskell-stack`. Otherwise,
 use these [installation instructions](http://docs.haskellstack.org/en/stable/README/#how-to-install).
+You might have to run `stack update` in order to get the latest version
+of all the dependencies.
 
 ##### Installing `pcre2`
 
