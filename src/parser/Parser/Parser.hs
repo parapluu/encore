@@ -14,7 +14,7 @@ import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
-import Control.Monad(void)
+import Control.Monad(void, foldM)
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -265,16 +265,24 @@ partitionDecls = partitionDecls' [] [] [] []
     partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
     partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
 
+manyOf :: [Parser a] -> Parser [a]
+manyOf = many . foldr1 (<|>)
+
 program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
   optional hashbang
   sc
-  moduledecl <- moduleDecl
-  imports <- many importdecl
-  etls <- embedTL
+  moduledecl <- L.nonIndented sc moduleDecl
+  imports <- many $ L.nonIndented sc importdecl
+  etls <- L.nonIndented sc embedTL
   let etl = [etls]
-  decls <- many $ (CDecl <$> classDecl) <|> (TDecl <$> traitDecl) <|> (TDef <$> typedef) <|> (FDecl <$> function)
+  decls <- manyOf $ map (L.nonIndented sc)
+                        [CDecl <$> classDecl
+                        ,TDecl <$> traitDecl
+                        ,TDef <$> typedef
+                        ,FDecl <$> function
+                        ]
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
   return Program{source, moduledecl, etl, imports, typedefs, functions, traits, classes}
