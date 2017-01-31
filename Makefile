@@ -46,7 +46,7 @@ ENCORE_DIR=$(RUNTIME_DIR)/encore
 doc: install-deps
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
 	make -C doc/encore/ && \
-	stack haddock
+	stack --system-ghc haddock
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -109,7 +109,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:
-	stack clean
+	stack --system-ghc clean
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
