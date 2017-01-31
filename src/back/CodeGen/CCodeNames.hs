@@ -265,8 +265,8 @@ globalClosureName :: ID.QualifiedName -> CCode Name
 globalClosureName funname =
     Nam $ encoreName "closure" (qualifiedToString funname)
 
-globalFunctionClosureNameOf :: A.Function -> CCode Name
-globalFunctionClosureNameOf f =
+functionClosureNameOf :: A.Function -> CCode Name
+functionClosureNameOf f =
     globalClosureName $ ID.setSourceFile (A.funsource f) $
                         ID.topLevelQName (A.functionName f)
 
@@ -274,22 +274,31 @@ globalFunctionName :: ID.QualifiedName -> CCode Name
 globalFunctionName funname =
     Nam $ encoreName "global_fun" (qualifiedToString funname)
 
+localFunctionName :: ID.QualifiedName -> CCode Name
+localFunctionName funname =
+    Nam $ encoreName "local_fun" (qualifiedToString funname)
+
 globalFunctionNameOf :: A.Function -> CCode Name
 globalFunctionNameOf f@A.Function{A.funsource} =
   globalFunctionName $ ID.setSourceFile funsource $
                        ID.topLevelQName $ A.functionName f
 
-globalFunctionWrapperNameOf :: A.Function -> CCode Name
-globalFunctionWrapperNameOf f@A.Function{A.funsource} =
-  Nam $ encoreName "global_fun_wrapper" $
+localFunctionNameOf :: A.Function -> CCode Name
+localFunctionNameOf f@A.Function{A.funsource} =
+  localFunctionName $ ID.setSourceFile funsource $
+                      ID.topLevelQName $ A.functionName f
+
+functionWrapperNameOf :: A.Function -> CCode Name
+functionWrapperNameOf f@A.Function{A.funsource} =
+  Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
       ID.setSourceFile funsource $
       ID.topLevelQName $ A.functionName f
 
-globalFunctionAsValueWrapperNameOf :: A.Expr -> CCode Name
-globalFunctionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
-  Nam $ encoreName "global_fun_wrapper" (qualifiedToString qname)
-globalFunctionAsValueWrapperNameOf e =
+functionAsValueWrapperNameOf :: A.Expr -> CCode Name
+functionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
+  Nam $ encoreName "fun_wrapper" (qualifiedToString qname)
+functionAsValueWrapperNameOf e =
     error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
             show e ++ "'"
 

@@ -97,6 +97,7 @@ lexer =
     ,"match"
     ,"with"
     ,"when"
+    ,"where"
     ,"liftf"
     ,"liftv"
     ,"extract"
@@ -381,33 +382,49 @@ matchingStreamHeader = do
   header <- matchingHeader
   return header{kind = Streaming}
 
+localFunctions :: Parser [Function]
+localFunctions =
+    option [] $ do
+      reserved "where"
+      locals <- many1 (try regularFunction <|> matchingFunction)
+      reserved "end"
+      return locals
+
 function :: Parser Function
-function =  try regularFunction <|> matchingFunction
+function = do
+  fun <- try regularFunction <|> matchingFunction
+  funlocals <- localFunctions
+  return fun{funlocals}
+
+regularFunction = do
+  funmeta <- meta <$> getPosition
+  reserved "def"
+  funheader <- functionHeader
+  funbody <- expression
+  return Function{funmeta
+                 ,funheader
+                 ,funbody
+                 ,funlocals = []
+                 ,funsource = ""
+                 }
+
+matchingFunction = do
+  funmeta <- meta <$> getPosition
+  reserved "def"
+  clauses <- functionClause `sepBy1` reservedOp "|"
+  let matchfunheaders = map fst clauses
+      matchfunbodies = map snd clauses
+  return MatchingFunction{funmeta
+                         ,matchfunheaders
+                         ,matchfunbodies
+                         ,funlocals = []
+                         ,funsource = ""
+                         }
   where
-    regularFunction = do
-      funmeta <- meta <$> getPosition
-      reserved "def"
-      funheader <- functionHeader
+    functionClause = do
+      funheader <- matchingHeader
       funbody <- expression
-      return Function{funmeta
-                     ,funheader
-                     ,funbody
-                     ,funsource = ""}
-    matchingFunction = do
-      funmeta <- meta <$> getPosition
-      reserved "def"
-      clauses <- functionClause `sepBy1` reservedOp "|"
-      let matchfunheaders = map fst clauses
-          matchfunbodies = map snd clauses
-      return MatchingFunction{funmeta
-                             ,matchfunheaders
-                             ,matchfunbodies
-                             ,funsource = ""}
-      where
-        functionClause = do
-          funheader <- matchingHeader
-          funbody <- expression
-          return (funheader, funbody)
+      return (funheader, funbody)
 
 traitDecl :: Parser TraitDecl
 traitDecl = do
@@ -539,7 +556,10 @@ patternParamDecl = do
   return (x, ty)
 
 methodDecl :: Parser MethodDecl
-methodDecl = try regularMethod <|> matchingMethod
+methodDecl = do
+  mtd <- try regularMethod <|> matchingMethod
+  mlocals <- localFunctions
+  return mtd{mlocals}
   where
     regularMethod = do
       mmeta <- meta <$> getPosition
@@ -552,6 +572,7 @@ methodDecl = try regularMethod <|> matchingMethod
       return Method{mmeta
                    ,mheader
                    ,mbody
+                   ,mlocals = []
                    }
     matchingMethod = do
       mmeta <- meta <$> getPosition
@@ -566,6 +587,7 @@ methodDecl = try regularMethod <|> matchingMethod
       return MatchingMethod{mmeta
                            ,mheaders
                            ,mbodies
+                           ,mlocals = []
                            }
       where
         methodClause headerParser= do

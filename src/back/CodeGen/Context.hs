@@ -76,7 +76,7 @@ lookupMethod ty m = Tbl.lookupMethod ty m . programTable
 lookupCalledType :: Type -> Name -> Context -> Type
 lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable
 
-lookupFunction :: QualifiedName -> Context -> FunctionHeader
+lookupFunction :: QualifiedName -> Context -> (C.CCode C.Name, FunctionHeader)
 lookupFunction fname = Tbl.lookupFunction fname . programTable
 
 getGlobalFunctionNames :: Context -> [QualifiedName]

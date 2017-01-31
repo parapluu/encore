@@ -1,0 +1,12 @@
+def foo() : int
+  13 + local1() + local2(15)
+where
+  def local1() : int
+    14
+  def local1(x : int) : int
+    x
+end
+
+class Main
+  def main() : void
+    print foo()

@@ -56,6 +56,7 @@
         "val"
         "var"
         "when"
+        "where"
         "while"
         "with"
         "yield"

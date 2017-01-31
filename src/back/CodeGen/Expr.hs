@@ -415,12 +415,22 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       case Ctx.substLkp c qname of
         Just substName ->
             return (substName , Skip)
-        Nothing ->
-            return (Var . show $ globalClosureName qname, Skip)
+        Nothing -> do
+          (_, header) <- gets $ Ctx.lookupFunction qname
+          let name = resolveFunctionSource header
+          return (Var . show $ globalClosureName name, Skip)
+      where
+        resolveFunctionSource header =
+          case ID.qnsource qname of
+            Just source ->
+                ID.setSourceFile source $
+                ID.qLocal $ A.hname header
+            Nothing ->
+                ID.qLocal $ A.hname header
 
   translate fun@(A.FunctionAsValue {A.typeArgs}) = do
     tmp <- Var <$> Ctx.genSym
-    let funName = globalFunctionAsValueWrapperNameOf fun
+    let funName = functionAsValueWrapperNameOf fun
     (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
     return (tmp,
             Seq $
@@ -1094,7 +1104,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     ctx <- get
     case Ctx.substLkp ctx qname of
       Just clos -> closureCall clos fcall
-      Nothing -> globalFunctionCall fcall
+      Nothing -> functionCall fcall
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
@@ -1120,8 +1130,10 @@ closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
           (StatAsExpr ntother tother)
       extractArgs arr n = map (\i -> ArrAcc i arr) [0..n-1]
 
-globalFunctionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
-globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
+functionCall :: A.Expr -> State Ctx.Context (CCode Lval, CCode Stat)
+functionCall fcall@A.FunctionCall{A.typeArguments = typeArguments
+                                 ,A.qname
+                                 ,A.args} = do
   (argNames, initArgs) <- unzip <$> mapM translate args
   (callVar, call) <- buildFunctionCallExpr args argNames
   let ret = if Ty.isVoidType typ then unit else callVar
@@ -1135,18 +1147,18 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
       cArgs' <- wrapArgumentsWithTypeParams args cArgs
       let runtimeTypes = map runtimeType typeArguments
       (tmpType, tmpTypeDecl) <- tmpArr (Ptr ponyTypeT) runtimeTypes
-
+      (cname, header) <- gets (Ctx.lookupFunction qname)
       let runtimeTypeVar = if null runtimeTypes then nullVar else tmpType
-          prototype = Call (globalFunctionName qname)
+          prototype = Call cname
                            (map AsExpr [encoreCtxVar, runtimeTypeVar] ++ cArgs')
       rPrototype <- unwrapReturnType prototype
-      (callVar, call) <- namedTmpVar "global_f" typ rPrototype
+      (callVar, call) <- namedTmpVar "fun_call" typ rPrototype
       return (callVar, Seq [tmpTypeDecl, call])
 
     unwrapReturnType functionCall = do
       -- this function checks if the formal parameter return type is a type variable
       -- and, if so, unwraps it (adds the .i, .p or .d)
-      header <- gets (Ctx.lookupFunction qname)
+      (_, header) <- gets (Ctx.lookupFunction qname)
       let formalReturnType = A.htype header
       return (if Ty.isTypeVar formalReturnType then
                AsExpr (fromEncoreArgT (translate typ) functionCall)
@@ -1154,7 +1166,7 @@ globalFunctionCall fcall@A.FunctionCall{A.typeArguments, A.qname, A.args} = do
 
     wrapArgumentsWithTypeParams args cArgs = do
       -- helper function. wrap parametric arguments inside an encoreArgT
-      fHeader <- gets $ Ctx.lookupFunction qname
+      (_, fHeader) <- gets $ Ctx.lookupFunction qname
       let formalTypes = map A.ptype (A.hparams fHeader)
           argsWithFormalTypes = zip formalTypes $ zip args cArgs
 
