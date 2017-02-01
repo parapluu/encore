@@ -14,13 +14,12 @@ all: encorec
 typecheck:
 	cabal build --ghc-option=-fno-code
 
-encorec: dirs pony install-deps
+encorec: dirs pony stack-setup
 	export ENCORE_MODULES="$(CURDIR)/modules/" && \
-	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
+	stack install --system-ghc --local-bin-path $(RELEASE_DIR)
 
-install-deps:
-	stack setup
-	stack --install-ghc --system-ghc install --dependencies-only
+stack-setup:
+	stack setup --install-ghc --system-ghc
 
 test: encorec
 	make -C $(SRC_DIR) test
@@ -43,10 +42,10 @@ coverage: dirs pony
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
-doc: install-deps
+doc: stack-setup
 	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
 	make -C doc/encore/ && \
-	stack --system-ghc haddock
+	stack haddock --system-ghc
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -109,7 +108,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:
-	stack --system-ghc clean
+	stack clean --system-ghc
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
