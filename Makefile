@@ -29,7 +29,7 @@ coverage: dirs pony
 	find src -name "*.tix" -print0 | xargs -0 rm -rf;
 	cabal clean;
 	cabal configure --enable-tests --enable-coverage;
-	ENCORE_BUNDLES="$(CURDIR)/bundles/" cabal build;
+	ENCORE_MODULES="$(CURDIR)/modules/" cabal build;
 	cp dist/build/encorec/encorec $(RELEASE_DIR);
 	-make -C $(SRC_DIR) test;
 	mkdir -p coverage;
@@ -43,7 +43,7 @@ SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
 doc: stack-setup
-	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
+	export ENCORE_MODULES="$(CURDIR)/modules/" && \
 	make -C doc/encore/ && \
 	stack haddock --system-ghc
 
