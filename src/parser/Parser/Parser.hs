@@ -520,6 +520,7 @@ traitDecl = do
                Nothing
                (buildTrait tmeta ident params)
                traitAttribute
+  -- TODO: tlocals <- option [] $ atLevel tIndent whereClause
   atLevel tIndent $ reserved "end"
   return tdecl
   where
