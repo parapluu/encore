@@ -14,8 +14,8 @@ import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
-import Control.Monad(void, foldM, unless)
-import Control.Applicative ((<$>))
+import Control.Monad(void, foldM, unless, when)
+import Control.Applicative ((<$>), empty)
 import Control.Arrow (first)
 
 -- Module dependencies
@@ -78,7 +78,9 @@ float = lexeme L.float
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
 reservedNames =
-    ["Fut"
+    ["EMBED"
+    ,"END"
+    ,"Fut"
     ,"Just"
     ,"Maybe"
     ,"Nothing"
@@ -93,13 +95,12 @@ reservedNames =
     ,"def"
     ,"each"
     ,"else"
-    ,"EMBED"
-    ,"END"
     ,"end"
     ,"eos"
     ,"extract"
     ,"false"
     ,"for"
+    ,"fun"
     ,"get"
     ,"getNext"
     ,"if"
@@ -465,17 +466,20 @@ funHeaderAndBody =
     funheader <- functionHeader
     return $ L.IndentSome Nothing (buildFun funmeta funheader) expression
   where
-    buildFun funmeta funheader bodyblock =
-      let funbody =
-            case bodyblock of
-              [e] -> e
-              e:es -> Seq (meta (getPos e)) (e:es)
-      in return Function{funmeta
-                        ,funheader
-                        ,funbody
-                        ,funlocals = []
-                        ,funsource = ""
-                        }
+    buildFun funmeta funheader block =
+      return Function{funmeta
+                     ,funheader
+                     ,funbody = makeBody block
+                     ,funlocals = []
+                     ,funsource = ""
+                     }
+
+makeBody :: [Expr] -> Expr
+makeBody es =
+  case es of
+    [] -> error "Parser.hs: Cannot build block from empty list"
+    [e] -> e
+    es@(e:_) -> Seq (meta (getPos e)) es
 
 matchingFunction = do
   funmeta <- meta <$> getPosition
@@ -689,16 +693,12 @@ methodDecl = do
                <|> do reserved "stream"
                       streamMethodHeader
         return $ L.IndentSome Nothing (buildMethod mmeta mheader) expression
-    buildMethod mmeta mheader bodyblock =
-      let mbody =
-            case bodyblock of
-              [e] -> e
-              e:es -> Seq (meta (getPos e)) (e:es)
-      in return Method{mmeta
-                      ,mheader
-                      ,mbody
-                      ,mlocals = []
-                      }
+    buildMethod mmeta mheader block =
+      return Method{mmeta
+                   ,mheader
+                   ,mbody = makeBody block
+                   ,mlocals = []
+                   }
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
@@ -872,7 +872,7 @@ expr  =  embed
      <|> bracketed
      <|> letExpression
      <|> ifExpression
-     <|> unless
+     <|> unlessIf
      <|> repeat
      <|> while
      <|> get
@@ -897,32 +897,43 @@ expr  =  embed
      <|> int
      <?> "expression"
     where
-      embed = do pos <- getPosition
-                 reserved "EMBED"
-                 ty <- label "parenthesized type" $
-                       parens typ
-                 embedded <- many cAndEncore
-                 embedEnd
-                 return $ Embed (meta pos) ty embedded
-              where
-                cAndEncore :: Parser (String, Expr)
-                cAndEncore = (do
-                  code <- c
-                  pos <- getPosition
-                  e <- option (Skip (meta pos))
-                       (try $ encoreEscaped expression)
-                  return (code, e))
-                  <|> (do
-                        e <- encoreEscaped expression
-                        return ("", e))
-                c = do
-                  notFollowedBy (embedEnd <|> encoreEscapeStart)
-                  first <- anyChar
-                  rest <-
-                    manyTill anyChar (try $ lookAhead (embedEnd <|>
-                                                       encoreEscapeStart))
-                  return (first:rest)
-                embedEnd = spaceChar >> reserved "END" >> return "END"
+      embed = do
+        indent <- L.indentLevel
+        startLine <- sourceLine <$> getPosition
+        emeta <- meta <$> getPosition
+        reserved "EMBED"
+        ty <- label "parenthesized type" $
+                    parens typ
+        scn
+        embedded <- many cAndEncore
+        scn
+        endLine <- sourceLine <$> getPosition
+        if endLine == startLine
+        then sc >> reserved "END"
+        else atLevel indent $ reserved "END"
+        when (null embedded) $
+             fail "EMBED block cannot be empty"
+        return Embed{emeta, ty, embedded}
+        where
+          cAndEncore :: Parser (String, Expr)
+          cAndEncore = (do
+            notFollowedBy $ reserved "END"
+            code <- c
+            emeta <- meta <$> getPosition
+            e <- option Skip{emeta}
+                 (try $ encoreEscaped expression)
+            return (code, e))
+            <|> (do
+                  e <- encoreEscaped expression
+                  return ("", e))
+          c = do
+            notFollowedBy (embedEnd <|> void encoreEscapeStart)
+            first <- anyChar
+            rest <-
+              manyTill anyChar (try $ lookAhead (embedEnd <|>
+                                                 void encoreEscapeStart))
+            return (first:rest)
+          embedEnd = scn >> reserved "END"
 
       path = do pos <- getPosition
                 root <- tupled <|>
@@ -1035,12 +1046,12 @@ expr  =  embed
                   times <- expression
                   body <- expression
                   return $ Repeat (meta pos) (Name name) times body
-      unless = do pos <- getPosition
-                  reserved "unless"
-                  cond <- expression
-                  reserved "then"
-                  thn <- expression
-                  return $ Unless (meta pos) cond thn
+      unlessIf = do pos <- getPosition
+                    reserved "unless"
+                    cond <- expression
+                    reserved "then"
+                    thn <- expression
+                    return $ Unless (meta pos) cond thn
       while = do pos <- getPosition
                  reserved "while"
                  cond <- expression
@@ -1092,12 +1103,31 @@ expr  =  embed
       suspend = do pos <- getPosition
                    reserved "suspend"
                    return $ Suspend (meta pos)
-      closure = do pos <- getPosition
-                   reservedOp "\\"
-                   params <- parens (commaSep paramDecl)
-                   reservedOp "->"
-                   body <- expression
-                   return $ Closure (meta pos) params body
+      closure = do
+        indent <- L.indentLevel
+        funLine <- sourceLine <$> getPosition
+        clos <- L.indentBlock scn $ do
+          emeta <- meta <$> getPosition
+          reserved "fun"
+          eparams <- parens (commaSep paramDecl)
+          singleLineClosure emeta eparams <|>
+            blockClosure emeta eparams
+        endLine <- sourceLine <$> getPosition
+        unless (endLine == funLine) $
+               atLevel indent $ reserved "end"
+        return clos
+      singleLineClosure emeta eparams = do
+        reservedOp "=>"
+        body <- expression
+        return $ L.IndentNone Closure{emeta, eparams, body}
+      blockClosure emeta eparams =
+          return $ L.IndentSome Nothing (buildClosure emeta eparams) expression
+      buildClosure emeta eparams block =
+        return Closure{emeta
+                      ,eparams
+                      ,body = makeBody block
+                      }
+
       task = do pos <- getPosition
                 reserved "async"
                 body <- expression
@@ -1135,12 +1165,16 @@ expr  =  embed
                 reserved "peer"
                 ty <- typ
                 return $ Peer (meta pos) ty
-      print = do pos <- getPosition
-                 reserved "print"
-                 notFollowedBy (symbol "(" >> symbol "\"")
-                 arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) []
-                                       (qName "println") arg
+      print = do
+        emeta <- meta <$> getPosition
+        reserved "print"
+        notFollowedBy (symbol "(" >> symbol "\"")
+        args <- option [] ((:[]) <$> expression)
+        return FunctionCall{emeta
+                           ,typeArguments = []
+                           ,qname = qName "println"
+                           ,args
+                           }
       stringLit = do pos <- getPosition
                      string <- stringLiteral
                      return $ StringLiteral (meta pos) string
