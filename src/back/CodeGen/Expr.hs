@@ -318,6 +318,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let exitCall = Call (Nam "exit") [narg]
       return (unit, Seq [Statement targ, Statement exitCall])
 
+  translate exit@(A.Abort {A.args = [arg]}) = do
+      (narg, targ) <- translate arg
+      let errorPrint = Statement $ Call (Nam "fprintf") [AsExpr C.stderr, String "%s\n", AsExpr $ narg `Arrow` fieldName (ID.Name "data")]
+      let exitCall = Call (Nam "abort") ([]::[CCode Lval])
+      return (unit, Seq [Statement targ, Statement errorPrint, Statement exitCall])
+
   translate seq@(A.Seq {A.eseq}) = do
     ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes

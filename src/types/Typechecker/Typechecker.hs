@@ -1314,6 +1314,20 @@ instance Checkable Expr where
            matchArguments args expectedTypes
            return $ setType voidType exit {args = eArgs}
 
+    --  E |- arg : String
+    -- ------------------------
+    --  E |- abort(arg) : _|_
+    doTypecheck abort@(Abort {args}) =
+        do eArgs <- mapM typecheck args
+           stringObjectType' <- resolveType stringObjectType
+           let expectedTypes = [stringObjectType']
+           unless (length args == length expectedTypes) $
+             tcError $ WrongNumberOfFunctionArgumentsError
+                       (topLevelQName (Name "abort"))
+                       (length expectedTypes) (length args)
+           matchArguments args expectedTypes
+           return $ setType bottomType abort {args = eArgs}
+
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
     doTypecheck charLit@(CharLiteral {}) = return $ setType charType charLit

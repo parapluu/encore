@@ -667,6 +667,8 @@ data Expr = Skip {emeta :: Meta Expr}
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
+          | Abort {emeta :: Meta Expr,
+                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
           | CharLiteral {emeta :: Meta Expr,

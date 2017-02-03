@@ -112,6 +112,7 @@ getChildren New {} = []
 getChildren Peer {} = []
 getChildren Print {args} = args
 getChildren Exit {args} = args
+getChildren Abort {args} = args
 getChildren StringLiteral {} = []
 getChildren CharLiteral {} = []
 getChildren IntLiteral {} = []
@@ -186,6 +187,7 @@ putChildren [] e@(New {}) = e
 putChildren [] e@(Peer {}) = e
 putChildren args e@(Print {}) = e{args = args}
 putChildren args e@(Exit {}) = e{args = args}
+putChildren args e@(Abort {}) = e{args = args}
 putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
 putChildren [] e@(StringLiteral {}) = e
 putChildren [] e@(CharLiteral {}) = e
