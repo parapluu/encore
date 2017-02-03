@@ -19,7 +19,7 @@ encorec: dirs pony stack-setup
 	stack install --system-ghc --local-bin-path $(RELEASE_DIR)
 
 stack-setup:
-	stack setup --install-ghc --system-ghc
+	stack setup --system-ghc
 
 test: encorec
 	make -C $(SRC_DIR) test
