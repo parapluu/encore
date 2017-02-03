@@ -1,2 +1,0 @@
-Assertion failed at "assertTrueMsg.enc" (line 4, column 5):
-Int 42 Bool false String Foo

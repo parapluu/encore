@@ -664,6 +664,7 @@ data Expr = Skip {emeta :: Meta Expr}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}
           | Print {emeta :: Meta Expr,
+                   stdout :: Bool,
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
