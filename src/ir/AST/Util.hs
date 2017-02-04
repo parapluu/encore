@@ -83,6 +83,7 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren For {name, step, src, body} = [step, src, body]
+getChildren TryOrDie {expr} = [expr]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
@@ -194,6 +195,8 @@ putChildren [] e@(CharLiteral {}) = e
 putChildren [] e@(IntLiteral {}) = e
 putChildren [] e@(UIntLiteral {}) = e
 putChildren [] e@(RealLiteral {}) = e
+putChildren [expr] e@(TryOrDie {}) = e{expr = expr}
+putChildren [] e@(TryOrDie {}) = e
 putChildren exprs e@(Embed {embedded}) = e{embedded = zipWith replace embedded exprs}
   where
     replace (code, _) e = (code, e)
@@ -257,6 +260,7 @@ putChildren _ e@(RangeLiteral {}) = error "'putChildren l RangeLiteral' expects 
 putChildren _ e@(Embed {}) = error "'putChildren l Embed' expects l to have 0 elements"
 putChildren _ e@(Unary {}) = error "'putChildren l Unary' expects l to have 1 element"
 putChildren _ e@(Binop {}) = error "'putChildren l Binop' expects l to have 2 elements"
+putChildren _ e@(TryOrDie {}) = error "'putChildren l TryOrDie' expects l to have 2 elements"
 
 --------------- The functions below this line depend only on the ones above --------------------
 

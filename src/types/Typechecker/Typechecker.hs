@@ -1328,6 +1328,16 @@ instance Checkable Expr where
            matchArguments args expectedTypes
            return $ setType bottomType abort {args = eArgs}
 
+    --  E |- expr : Maybe t
+    -- ------------------------
+    --  E |- tryOrDie expr : t
+    doTypecheck tryOrDie@(TryOrDie {expr}) =
+      do e <- typecheck expr
+         unless (isMaybeType (AST.getType e)) $
+           tcError $ SimpleError "tryOrDie only works on expressions of Maybe type"
+         let resultType = Types.removeMaybeWrapper (AST.getType e)
+         return $ setType resultType tryOrDie {expr = e}
+
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 
     doTypecheck charLit@(CharLiteral {}) = return $ setType charType charLit

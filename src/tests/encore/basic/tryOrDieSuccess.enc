@@ -1,0 +1,7 @@
+class Main
+  def foo() : Maybe int
+    Just 42
+  def main() : void {
+    tryOrDie this.foo() ;
+    print("Success!\n")
+  }

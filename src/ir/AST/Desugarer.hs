@@ -346,6 +346,7 @@ desugar s@StringLiteral{emeta, stringLit} =
 
 desugar e = e
 
+
 assertionFailed emeta assert =
   StringLiteral (cloneMeta emeta) $
                 "Assertion failed at " ++

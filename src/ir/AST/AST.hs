@@ -686,6 +686,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | Embed {emeta :: Meta Expr,
                    ty    :: Type,
                    embedded :: [(String, Expr)]}
+          | TryOrDie {emeta :: Meta Expr,
+                      expr  :: Expr}
           | Unary {emeta :: Meta Expr,
                    uop   :: UnaryOp,
                    operand  :: Expr }

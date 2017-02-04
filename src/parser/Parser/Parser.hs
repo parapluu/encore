@@ -718,14 +718,14 @@ expression = buildExpressionParser opTable highOrderExpr
 
 highOrderExpr :: Parser Expr
 highOrderExpr = adtExpr
-                <|> expr
+                <|> Parser.Parser.expr
   where
     adtExpr = justExpr
               <|> nothingExpr
     justExpr = do
       pos <- getPosition
       reserved "Just"
-      body <- expr <|> nothingExpr
+      body <- Parser.Parser.expr <|> nothingExpr
       return $ MaybeValue (meta pos) (JustData body)
     nothingExpr = do
       pos <- getPosition
@@ -753,6 +753,7 @@ expr  =  embed
      <|> get
      <|> yield
      <|> try isEos
+     <|> tryOrDie
      <|> eos
      <|> getNext
      <|> await
@@ -772,6 +773,10 @@ expr  =  embed
      <|> int
      <?> "expression"
     where
+      tryOrDie = do pos <- getPosition
+                    reserved "tryOrDie"
+                    e <- expression
+                    return $ TryOrDie (meta pos) e
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ

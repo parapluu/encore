@@ -101,6 +101,7 @@ module Types(
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
             ,getTypeParameterBindings
+            ,removeMaybeWrapper
             ) where
 
 import Identifiers
@@ -807,3 +808,6 @@ unfoldTypeSynonyms = typeMap unfoldSingleSynonym
 unfoldSingleSynonym :: Type -> Type
 unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
 unfoldSingleSynonym t = t
+
+removeMaybeWrapper MaybeType{resultType} = resultType
+removeMaybeWrapper t = t
