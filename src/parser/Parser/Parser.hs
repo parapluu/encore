@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 {-|
 
 Produces an "AST.AST" (or an error) of a @Program@ built from the
@@ -14,7 +16,7 @@ import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
-import Control.Monad(void, foldM, unless, when)
+import Control.Monad(void, foldM, unless, when, liftM)
 import Control.Applicative ((<$>), empty)
 import Control.Arrow (first)
 
@@ -46,13 +48,58 @@ nl :: Parser ()
 nl = newline >> scn
 
 -- | @atLevel ind p@ parses @p@ if the current indentation level
--- is @lvl@, and fails otherwise
+-- is @ind@, and fails otherwise. Note that only the start of @p@
+-- is checked; if @p@ can consume newlines, subsequent lines are
+-- not controlled.
 atLevel :: Pos -> Parser a -> Parser a
 atLevel expectedIndent p = do
   currentIndent <- L.indentLevel
   unless (currentIndent == expectedIndent) $
          L.incorrectIndent Prelude.EQ expectedIndent currentIndent
   p
+
+-- | @indented ind p@ parses @p@ if the current level is greater
+-- than @ind@, and fails otherwise. Note that only the start of
+-- @p@ is checked; if @p@ can consume newlines, subsequent lines
+-- are not controlled.
+indented :: Pos -> Parser a -> Parser a
+indented refIndent p = do
+  currentIndent <- L.indentLevel
+  unless (currentIndent > refIndent) $
+         L.incorrectIndent Prelude.GT refIndent currentIndent
+  p
+
+-- | @parseBody ind c@ is inteded for use in the end of an
+-- `indentBlock` construct. It parses the body of a loop or
+-- conditional, which is either a "do", a newline and a list of
+-- indented expressions, or a single expression at an indentation
+-- level greater than @ind@. In the first case, the returned
+-- boolean is @True@ to signal that some terminating token is
+-- needed (e.g. "end"). @c@ is a function that takes the loop body
+-- as the argument and builds a (possibly partial) expression.
+parseBody :: Pos -> (Expr -> a) -> Parser (L.IndentOpt Parser (Bool, a) Expr)
+parseBody indent constructor = blockBody <|> shortBody
+  where
+    blockBody = do
+      reserved "do"
+      return $ L.IndentSome Nothing
+               (return . (True,) . constructor . makeBody) expression
+    shortBody = do
+      nl
+      body <- indented indent expression
+      return $ L.IndentNone (False, constructor body)
+
+-- | @blockedConstruct p@ parses a construct whose header is
+-- parsed by @p@, and whose body is either a single indented
+-- expression, or a block between "do"/"end".
+blockedConstruct header = do
+  indent <- L.indentLevel
+  (needsEnd, loop) <- L.indentBlock scn $ do
+    constructor <- header
+    parseBody indent constructor
+  when needsEnd $
+       atLevel indent $ reserved "end"
+  return loop
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -66,11 +113,6 @@ charLiteral = char '\'' *> L.charLiteral <* char '\'' <* sc
 -- TODO: What about escape sequences? e.g. \n
 stringLiteral :: Parser String
 stringLiteral = char '"' >> manyTill L.charLiteral (char '"') <* sc
-
--- TODO: Maybe we want to read negative numbers directly (instead
--- of going via unary minus)
-natural :: Parser Integer
-natural = lexeme L.integer
 
 float :: Parser Double
 float = lexeme L.float
@@ -90,9 +132,11 @@ reservedNames =
     ,"await"
     ,"body"
     ,"bool"
+    ,"case"
     ,"char"
     ,"class"
     ,"def"
+    ,"do"
     ,"each"
     ,"else"
     ,"end"
@@ -175,6 +219,7 @@ commaSep   = (`sepBy` comma)
 commaSep1  = (`sepBy1` comma)
 semiSep    = (`sepBy` semi)
 parens     = between (symbol "(") (symbol ")")
+-- TODO: Get rid of angles for type parameters
 angles     = between (symbol "<") (symbol ">")
 brackets   = between (symbol "[") (symbol "]")
 braces     = between (symbol "{") (symbol "}")
@@ -477,7 +522,7 @@ funHeaderAndBody =
 makeBody :: [Expr] -> Expr
 makeBody es =
   case es of
-    [] -> error "Parser.hs: Cannot build block from empty list"
+    [] -> error "Parser.hs: Cannot make body from empty list"
     [e] -> e
     es@(e:_) -> Seq (meta (getPos e)) es
 
@@ -734,17 +779,32 @@ sepBy2 p sep = do first <- p
 
 matchClause :: Parser MatchClause
 matchClause = do
-  pos <- getPosition
-  mcpattern <- expression <|> dontCare
-  posGuard <- getPosition
-  mcguard <- option (BTrue (meta posGuard)) guard
-  reservedOp "=>"
-  mchandler <- expression
-  return MatchClause{mcpattern, mcguard, mchandler}
-    where
-      dontCare = do pos <- getPosition
-                    symbol "_"
-                    return (VarAccess (meta pos) (qName "_"))
+  indent <- L.indentLevel
+  (needsEnd, clause) <- L.indentBlock scn $ do
+    reserved "case"
+    mcpattern <- expression <|> dontCare
+    guardMeta <- meta <$> getPosition
+    mcguard <- option (BTrue guardMeta) guard
+    lineClause mcpattern mcguard <|> blockClause mcpattern mcguard
+  when needsEnd $
+       atLevel indent $ reserved "end"
+  return clause
+  where
+    lineClause mcpattern mcguard = do
+      reservedOp "=>"
+      mchandler <- expression
+      return $ L.IndentNone (False, MatchClause{mcpattern, mcguard, mchandler})
+    blockClause mcpattern mcguard = do
+      reservedOp "do"
+      return $ L.IndentSome Nothing
+               (\body -> return (True, MatchClause{mcpattern
+                                                  ,mcguard
+                                                  ,mchandler = makeBody body
+                                                  })) expression
+    dontCare = do
+      emeta <- meta <$> getPosition
+      symbol "_"
+      return VarAccess{emeta, qname = qName "_"}
 
 expression :: Parser Expr
 expression = makeExprParser highOrderExpr opTable
@@ -866,15 +926,14 @@ expr  =  embed
      <|> match
      <|> task
      <|> for
-     <|> foreach
+     <|> while
+     <|> repeat
      <|> extract
      <|> arraySize
      <|> bracketed
      <|> letExpression
      <|> ifExpression
      <|> unlessIf
-     <|> repeat
-     <|> while
      <|> get
      <|> yield
      <|> try isEos
@@ -886,6 +945,7 @@ expr  =  embed
      <|> new
      <|> peer
      <|> sequence
+     <|> miniLet
      <|> path
      --- literals ---
      <|> nullLiteral
@@ -923,9 +983,7 @@ expr  =  embed
             e <- option Skip{emeta}
                  (try $ encoreEscaped expression)
             return (code, e))
-            <|> (do
-                  e <- encoreEscaped expression
-                  return ("", e))
+            <|> (liftM ("",) $ encoreEscaped expression)
           c = do
             notFollowedBy (embedEnd <|> void encoreEscapeStart)
             first <- anyChar
@@ -935,174 +993,299 @@ expr  =  embed
             return (first:rest)
           embedEnd = scn >> reserved "END"
 
-      path = do pos <- getPosition
-                root <- tupled <|>
-                        stringLit <|>
-                        try qualifiedVarOrFun <|>
-                        varOrFun
-                longerPath pos root <|> return root
-             where
-               tupled = do
-                 pos <- getPosition
-                 args <- parens (expression `sepBy` comma)
-                 case args of
-                   [] -> return $ Skip (meta pos)
-                   [e] -> return e
-                   _ -> return $ Tuple (meta pos) args
+      path = do
+        pos <- getPosition
+        root <- tupled <|>
+                stringLit <|>
+                try qualifiedVarOrFun <|>
+                varOrFun
+        longerPath pos root <|> return root
+        where
+          tupled = do
+            pos <- getPosition
+            args <- parens (expression `sepBy` comma)
+            case args of
+              [] -> return $ Skip (meta pos)
+              [e] -> return e
+              _ -> return $ Tuple (meta pos) args
 
-               qualifiedVarOrFun = do
-                 qx <- qualifiedVarAccess
-                 functionOrCall qx <|> return qx
+          qualifiedVarOrFun = do
+            qx <- qualifiedVarAccess
+            functionOrCall qx <|> return qx
 
-               varOrFun = do
-                 x <- varAccess
-                 functionOrCall x <|> return x
+          varOrFun = do
+            x <- varAccess
+            functionOrCall x <|> return x
 
-               qualifiedVarAccess = do
-                 pos <- getPosition
-                 ns <- explicitNamespace <$> modulePath
-                 dot
-                 x <- identifier
-                 let qx = setNamespace ns (qName x)
-                 return $ VarAccess (meta pos) qx
+          qualifiedVarAccess = do
+            pos <- getPosition
+            ns <- explicitNamespace <$> modulePath
+            dot
+            x <- identifier
+            let qx = setNamespace ns (qName x)
+            return $ VarAccess (meta pos) qx
 
-               varAccess = do
-                 pos <- getPosition
-                 id <- (do reserved "this"; return "this") <|> identifier
-                 return $ VarAccess (meta pos) (qName id)
+          varAccess = do
+            pos <- getPosition
+            id <- (do reserved "this"; return "this") <|> identifier
+            return $ VarAccess (meta pos) (qName id)
 
-               functionOrCall VarAccess{emeta, qname} = do
-                 optTypeArgs <- option [] (try . angles $ commaSep typ)
-                 if null optTypeArgs then
-                   call emeta optTypeArgs qname
-                 else
-                   call emeta optTypeArgs qname <|>
-                   return (FunctionAsValue emeta optTypeArgs qname)
+          functionOrCall VarAccess{emeta, qname} = do
+            optTypeArgs <- option [] (try . angles $ commaSep typ)
+            if null optTypeArgs then
+              call emeta optTypeArgs qname
+            else
+              call emeta optTypeArgs qname <|>
+              return (FunctionAsValue emeta optTypeArgs qname)
 
-               call emeta typeArgs name = do
-                 args <- parens arguments
-                 return $ FunctionCall emeta typeArgs name args
+          call emeta typeArgs name = do
+            args <- parens arguments
+            return $ FunctionCall emeta typeArgs name args
 
-               longerPath pos root = do
-                 first <- pathComponent
-                 rest <- many $ try pathComponent
-                 return $ foldl (buildPath pos) root (first:rest)
+          longerPath pos root = do
+            first <- pathComponent
+            rest <- many $ try pathComponent
+            return $ foldl (buildPath pos) root (first:rest)
 
-               pathComponent = dot >> varOrCall
+          pathComponent = dot >> varOrCall
 
-               varOrCall = do
-                 x <- varAccess
-                 functionCall x <|> return x
+          varOrCall = do
+            x <- varAccess
+            functionCall x <|> return x
 
-               functionCall VarAccess{emeta, qname} = do
-                 typeParams <- option [] (try . angles $ commaSep typ)
-                 args <- parens arguments
-                 return $ FunctionCall emeta typeParams qname args
+          functionCall VarAccess{emeta, qname} = do
+            typeParams <- option [] (try . angles $ commaSep typ)
+            args <- parens arguments
+            return $ FunctionCall emeta typeParams qname args
 
-               buildPath pos target (VarAccess{qname}) =
-                   FieldAccess (meta pos) target (qnlocal qname)
+          buildPath pos target (VarAccess{qname}) =
+            FieldAccess (meta pos) target (qnlocal qname)
 
-               buildPath pos target (FunctionCall{qname, args, typeArguments}) =
-                   MethodCall (meta pos) typeArguments target (qnlocal qname) args
+          buildPath pos target (FunctionCall{qname, args, typeArguments}) =
+            MethodCall (meta pos) typeArguments target (qnlocal qname) args
 
-      letExpression = do pos <- getPosition
-                         reserved "let"
-                         decls <- many varDecl
-                         reserved "in"
-                         expr <- expression
-                         return $ Let (meta pos) Val decls expr
-                      where
-                        varDecl = do x <- identifier
-                                     reservedOp "="
-                                     val <- expression
-                                     return (Name x, val)
-      sequence = do pos <- getPosition
-                    seq <- braces ((miniLet <|> expression) `sepEndBy1` semi)
-                    return $ Seq (meta pos) seq
-          where
-            miniLet = do
-              emeta <- meta <$> getPosition
-              mutability <- (reserved "var" >> return Var)
-                        <|> (reserved "val" >> return Val)
-              x <- Name <$> identifier
-              reservedOp "="
-              val <- expression
-              lookAhead semi
-              return MiniLet{emeta, mutability, decl = (x, val)}
-      ifExpression = do pos <- getPosition
-                        reserved "if"
-                        cond <- expression
-                        reserved "then"
-                        thn <- expression
-                        (do reserved "else"
-                            els <- expression
-                            return $ IfThenElse (meta pos) cond thn els
-                         ) <|>
-                         (return $ IfThen (meta pos) cond thn)
-      repeat = do pos <- getPosition
-                  reserved "repeat"
-                  name <- identifier
-                  symbol "<-"
-                  times <- expression
-                  body <- expression
-                  return $ Repeat (meta pos) (Name name) times body
-      unlessIf = do pos <- getPosition
-                    reserved "unless"
-                    cond <- expression
-                    reserved "then"
-                    thn <- expression
-                    return $ Unless (meta pos) cond thn
-      while = do pos <- getPosition
-                 reserved "while"
-                 cond <- expression
-                 expr <- expression
-                 return $ While (meta pos) cond expr
-      extract = do pos <- getPosition
-                   reserved "extract"
-                   expr <- expression
-                   return $ PartyExtract (meta pos) expr
-      reduce = do pos <- getPosition
-                  reserved "reduce"
-                  (f, i, p) <- parens (do
-                                       seqfun <- expression
-                                       comma
-                                       pinit <- expression
-                                       comma
-                                       par <- expression
-                                       return (seqfun, pinit, par))
-                  return $ PartyReduce (meta pos) f i p False
-      match = do pos <- getPosition
-                 reserved "match"
-                 arg <- expression
-                 reserved "with"
-                 clauses <- maybeBraces $ many matchClause
-                 return $ Match (meta pos) arg clauses
-      get = do pos <- getPosition
-               reserved "get"
-               expr <- expression
-               return $ Get (meta pos) expr
-      getNext = do pos <- getPosition
-                   reserved "getNext"
-                   expr <- expression
-                   return $ StreamNext (meta pos) expr
-      yield = do pos <- getPosition
-                 reserved "yield"
-                 expr <- expression
-                 return $ Yield (meta pos) expr
-      isEos = do pos <- getPosition
-                 reserved "eos"
-                 expr <- expression
-                 return $ IsEos (meta pos) expr
-      eos = do pos <- getPosition
-               reserved "eos"
-               return $ Eos (meta pos)
-      await = do pos <- getPosition
-                 reserved "await"
-                 expr <- expression
-                 return $ Await (meta pos) expr
-      suspend = do pos <- getPosition
-                   reserved "suspend"
-                   return $ Suspend (meta pos)
+      letExpression = do
+        indent <- L.indentLevel
+        letLine <- sourceLine <$> getPosition
+        (withDo, letExpr) <- L.indentBlock scn $ do
+          emeta <- meta <$> getPosition
+          decls <- L.indentBlock scn $ do
+            reserved "let"
+            singleLineDecl <|> multiLineDecl
+          inLine <- sourceLine <$> getPosition
+          if inLine == letLine
+          then do -- let ... in
+            reserved "in"
+            inlineLet emeta decls <|> nonInlineLet indent emeta decls
+          else do -- let
+                  --   ...
+                  -- in
+            atLevel indent $ reserved "in"
+            nonInlineLet indent emeta decls
+        when withDo $
+             atLevel indent $ reserved "end"
+        return letExpr
+        where
+          singleLineDecl = do
+            notFollowedBy nl
+            decl <- varDecl
+            return $ L.IndentNone [decl]
+          multiLineDecl =
+            return $ L.IndentSome Nothing return varDecl
+          inlineLet emeta decls = do
+            notFollowedBy (reserved "do" <|> nl)
+            body <- expression
+            return $ L.IndentNone (False, Let{emeta
+                                             ,mutability = Val
+                                             ,decls
+                                             ,body
+                                             })
+          nonInlineLet indent emeta decls =
+            parseBody indent $ \body -> Let{emeta
+                                           ,mutability = Val
+                                           ,decls
+                                           ,body
+                                           }
+          varDecl = do
+            x <- Name <$> identifier
+            reservedOp "="
+            val <- expression
+            return (x, val)
+
+      sequence = singleLineBlock <|> multiLineBlock
+      singleLineBlock = do
+        emeta <- meta <$> getPosition
+        eseq <- braces (expression `sepEndBy1` semi)
+        return Seq{emeta, eseq}
+      multiLineBlock = do
+        indent <- L.indentLevel
+        block <- L.indentBlock scn $ do
+          emeta <- meta <$> getPosition
+          reserved "do"
+          return $ L.IndentSome Nothing (return . Seq emeta) expression
+        atLevel indent $ reserved "end"
+        return block
+
+      miniLet = do
+        indent <- L.indentLevel
+        emeta <- meta <$> getPosition
+        mutability <- (reserved "var" >> return Var)
+                  <|> (reserved "val" >> return Val)
+        x <- Name <$> identifier
+        reservedOp "="
+        val <- expression
+        return MiniLet{emeta, mutability, decl = (x, val)}
+
+      ifExpression = do
+        indent <- L.indentLevel
+        ifLine <- sourceLine <$> getPosition
+        (withDo, ifThen) <- L.indentBlock scn $ do
+          emeta <- meta <$> getPosition
+          reserved "if"
+          cond <- expression
+          reserved "then"
+          inlineIfThen emeta cond <|> nonInlineIfThen indent emeta cond
+        ifThenNoElse indent withDo ifThen
+         <|> ifThenElse indent ifLine withDo ifThen
+
+      inlineIfThen emeta cond  = do
+        notFollowedBy (reserved "do" <|> nl)
+        thn <- expression
+        return $ L.IndentNone (False, IfThen{emeta, cond, thn})
+      nonInlineIfThen indent emeta cond =
+        parseBody indent $ \thn -> IfThen{emeta, cond, thn}
+      ifThenNoElse indent withDo ifThen = do
+        notFollowedBy (reserved "else" <|> (nl >> reserved "else"))
+        when withDo $
+             atLevel indent $ reserved "end"
+        return ifThen
+      ifThenElse indent ifLine withDo ifThen = do
+        elseLine <- sourceLine <$> getPosition
+        if ifLine == elseLine -- Single line if
+        then do
+          reserved "else"
+          els <- expression
+          return $ extendIfThen ifThen els
+        else if withDo -- if b then do
+        then do
+          ifThenElse <- L.indentBlock scn $ do
+            atLevel indent $ reserved "else"
+            reserved "do"
+            return $ L.IndentSome Nothing
+                     (return . extendIfThen ifThen . makeBody) expression
+          atLevel indent $ reserved "end"
+          return ifThenElse
+        else do -- if b then
+          nl
+          atLevel indent $ reserved "else"
+          nl
+          els <- indented indent expression
+          return $ extendIfThen ifThen els
+
+      extendIfThen IfThen{emeta, cond, thn} els =
+        IfThenElse{emeta, cond, thn, els}
+
+      unlessIf = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "unless"
+        cond <- expression
+        reserved "then"
+        return $ \thn -> Unless{emeta, cond, thn}
+
+      for = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "for"
+        name <- Name <$> identifier
+        reserved "in"
+        src <- expression
+        stepMeta <- meta <$> getPosition
+        step <- option (IntLiteral stepMeta 1)
+                       (do {reserved "by"; expression})
+        return $ \body -> For{emeta, name, src, step, body}
+
+      while = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "while"
+        cond <- expression
+        return $ \body -> While{emeta, cond, body}
+
+      repeat = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "repeat"
+        name <- Name <$> identifier
+        symbol "<-"
+        times <- expression
+        return $ \body -> Repeat{emeta, name, times, body}
+
+      reduce = do
+        pos <- getPosition
+        reserved "reduce"
+        (f, i, p) <- parens (do
+                             seqfun <- expression
+                             comma
+                             pinit <- expression
+                             comma
+                             par <- expression
+                             return (seqfun, pinit, par))
+        return $ PartyReduce (meta pos) f i p False
+
+      match = do
+        indent <- L.indentLevel
+        theMatch <- L.indentBlock scn $ do
+          emeta <- meta <$> getPosition
+          reserved "match"
+          arg <- expression
+          reserved "with"
+          return $ L.IndentSome Nothing (return . Match emeta arg) matchClause
+        atLevel indent $ reserved "end"
+        return theMatch
+
+      extract = do
+        emeta <- meta <$> getPosition
+        reserved "extract"
+        val <- expression
+        return PartyExtract{emeta, val}
+
+      get = do
+        emeta <- meta <$> getPosition
+        reserved "get"
+        val <- expression
+        return Get{emeta, val}
+
+      getNext = do
+        emeta <- meta <$> getPosition
+        reserved "getNext"
+        target <- expression
+        return StreamNext{emeta, target}
+
+      yield = do
+        emeta <- meta <$> getPosition
+        reserved "yield"
+        val <- expression
+        return Yield{emeta, val}
+
+      isEos = do
+        emeta <- meta <$> getPosition
+        reserved "eos"
+        target <- expression
+        return IsEos{emeta, target}
+
+      eos = do
+        emeta <- meta <$> getPosition
+        reserved "eos"
+        return Eos{emeta}
+
+      await = do
+        emeta <- meta <$> getPosition
+        reserved "await"
+        val <- expression
+        return Await{emeta, val}
+
+      suspend = do
+        emeta <- meta <$> getPosition
+        reserved "suspend"
+        return Suspend{emeta}
+
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
@@ -1110,6 +1293,7 @@ expr  =  embed
           emeta <- meta <$> getPosition
           reserved "fun"
           eparams <- parens (commaSep paramDecl)
+          -- TODO: Add optional type annotation
           singleLineClosure emeta eparams <|>
             blockClosure emeta eparams
         endLine <- sourceLine <$> getPosition
@@ -1121,50 +1305,60 @@ expr  =  embed
         body <- expression
         return $ L.IndentNone Closure{emeta, eparams, body}
       blockClosure emeta eparams =
-          return $ L.IndentSome Nothing (buildClosure emeta eparams) expression
+        return $ L.IndentSome Nothing (buildClosure emeta eparams) expression
       buildClosure emeta eparams block =
         return Closure{emeta
                       ,eparams
                       ,body = makeBody block
                       }
 
-      task = do pos <- getPosition
-                reserved "async"
-                body <- expression
-                return $ Async (meta pos) body
-      foreach = do pos <- getPosition
-                   reserved "foreach"
-                   item <- identifier
-                   reserved "in"
-                   arr <- expression
-                   body <- expression
-                   return $ Foreach (meta pos) (Name item) arr body
-      arraySize = do pos <- getPosition
-                     bar
-                     arr <- expression
-                     bar
-                     return $ ArraySize (meta pos) arr
-      nullLiteral = do pos <- getPosition
-                       reserved "null"
-                       return $ Null (meta pos)
-      true = do pos <- getPosition
-                reserved "true"
-                return $ BTrue (meta pos)
-      false = do pos <- getPosition
-                 reserved "false"
-                 return $ BFalse (meta pos)
-      new = do pos <- getPosition
-               reserved "new"
-               ty <- typ
-               (do notFollowedBy (symbol "(")
-                   return $ New (meta pos) ty
-                ) <|>
-                do args <- parens arguments
-                   return $ NewWithInit (meta pos) ty args
-      peer = do pos <- getPosition
-                reserved "peer"
-                ty <- typ
-                return $ Peer (meta pos) ty
+      task = do
+        emeta <- meta <$> getPosition
+        reserved "async"
+        body <- expression
+        return Async{emeta, body}
+
+      arraySize = do
+        emeta <- meta <$> getPosition
+        bar
+        target <- expression
+        bar
+        return ArraySize{emeta, target}
+
+      nullLiteral = do
+        emeta <- meta <$> getPosition
+        reserved "null"
+        return Null{emeta}
+
+      true = do
+        emeta <- meta <$> getPosition
+        reserved "true"
+        return BTrue{emeta}
+
+      false = do
+        emeta <- meta <$> getPosition
+        reserved "false"
+        return BFalse{emeta}
+
+      new = do
+        emeta <- meta <$> getPosition
+        reserved "new"
+        ty <- typ
+        newWithoutInit emeta ty <|> newWithInit emeta ty
+        where
+          newWithoutInit emeta ty = do
+            notFollowedBy (symbol "(")
+            return New{emeta, ty}
+          newWithInit emeta ty = do
+            args <- parens arguments
+            return NewWithInit{emeta, ty, args}
+
+      peer = do
+        emeta <- meta <$> getPosition
+        reserved "peer"
+        ty <- typ
+        return Peer{emeta, ty}
+
       print = do
         emeta <- meta <$> getPosition
         reserved "print"
@@ -1175,51 +1369,53 @@ expr  =  embed
                            ,qname = qName "println"
                            ,args
                            }
-      stringLit = do pos <- getPosition
-                     string <- stringLiteral
-                     return $ StringLiteral (meta pos) string
-      charLit = do pos <- getPosition
-                   char <- charLiteral
-                   return $ CharLiteral (meta pos) char
-      int = do pos <- getPosition
-               n <- natural
-               kind <- do symbol "u" <|> symbol "U"
-                          return UIntLiteral
-                    <|> return IntLiteral
-               return $ kind (meta pos) (fromInteger n)
-      real = do pos <- getPosition
-                r <- float
-                return $ RealLiteral (meta pos) r
-      for = do pos <- getPosition
-               reserved "for"
-               name <- identifier
-               reserved "in"
-               src <- expression
-               step <- option (IntLiteral (meta pos) 1)
-                              (do {reserved "by"; expression})
-               body <- expression
-               return $ For (meta pos) (Name name) step src body
+
+      stringLit = do
+        emeta <- meta <$> getPosition
+        stringLit <- stringLiteral
+        return StringLiteral{emeta, stringLit}
+
+      charLit = do
+        emeta <- meta <$> getPosition
+        charLit <- charLiteral
+        return CharLiteral{emeta, charLit}
+
+      int = do
+        emeta <- meta <$> getPosition
+        n <- L.integer
+        kind <- do symbol "u" <|> symbol "U"
+                   return UIntLiteral
+               <|> (sc >> return IntLiteral)
+        return $ kind emeta (fromInteger n)
+      real = do
+        emeta <- meta <$> getPosition
+        realLit <- float
+        return RealLiteral{emeta, realLit}
+
       bracketed = brackets (rangeOrArray <|> empty)
           where
             empty = do
-              pos <- getPosition
+              emeta <- meta <$> getPosition
               lookAhead (symbol "]")
-              return $ ArrayLiteral (meta pos) []
+              return ArrayLiteral{emeta, args = []}
             rangeOrArray = do
-              pos <- getPosition
+              emeta <- meta <$> getPosition
               first <- expression
-              range pos first
-               <|> arrayLit pos first
-            range pos start = do
+              range emeta first
+               <|> arrayLit emeta first
+            range emeta start = do
               dotdot
               stop <- expression
-              step <- option (IntLiteral (meta pos) 1)
+              stepMeta <- meta <$> getPosition
+              step <- option (IntLiteral stepMeta 1)
                              (reserved "by" >> expression)
-              return $ RangeLiteral (meta pos) start stop step
-            arrayLit pos first = (do
-              lookAhead (symbol "]")
-              return (ArrayLiteral (meta pos) [first])
-              ) <|> do
-              comma
-              rest <- commaSep1 expression
-              return $ ArrayLiteral (meta pos) (first:rest)
+              return RangeLiteral{emeta, start, stop, step}
+            arrayLit emeta first = singletonArray <|> longerArray
+              where
+                singletonArray = do
+                  lookAhead (symbol "]")
+                  return ArrayLiteral{emeta, args = [first]}
+                longerArray = do
+                  comma
+                  rest <- commaSep1 expression
+                  return ArrayLiteral{emeta, args = first:rest}

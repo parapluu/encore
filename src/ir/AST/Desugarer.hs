@@ -112,14 +112,20 @@ desugarProgram p@(Program{traits, classes, functions}) =
                ,mbody
                ,mlocals = map desugarFunction mlocals}
 
-    desugarExpr = extend desugar . extend selfSugar
+    desugarExpr = extend removeDeadMiniLet . extend desugar . extend selfSugar
 
-
+-- | Let an expression remember its sugared form.
 selfSugar :: Expr -> Expr
 selfSugar e = setSugared e e
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
 cloneMeta m = Meta.meta (Meta.sourcePos m)
+
+-- | A @MiniLet@ that has not been taken care of by @desugar@ is
+-- dead and can be removed.
+removeDeadMiniLet :: Expr -> Expr
+removeDeadMiniLet MiniLet{emeta, decl = (_, e)} = e{emeta}
+removeDeadMiniLet e = e
 
 desugar :: Expr -> Expr
 
