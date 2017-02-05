@@ -123,9 +123,7 @@ reservedNames =
     ["EMBED"
     ,"END"
     ,"Fut"
-    ,"Just"
     ,"Maybe"
-    ,"Nothing"
     ,"Par"
     ,"Stream"
     ,"and"
@@ -145,8 +143,6 @@ reservedNames =
     ,"false"
     ,"for"
     ,"fun"
-    ,"get"
-    ,"getNext"
     ,"if"
     ,"import"
     ,"in"
@@ -714,7 +710,7 @@ paramDecl = do
 
 patternParamDecl :: Parser (Expr, Type)
 patternParamDecl = do
-  x <- highOrderExpr
+  x <- expr
   colon
   ty <- typ
   return (x, ty)
@@ -807,7 +803,7 @@ matchClause = do
       return VarAccess{emeta, qname = qName "_"}
 
 expression :: Parser Expr
-expression = makeExprParser highOrderExpr opTable
+expression = makeExprParser expr opTable
     where
       opTable = [
                  [arrayAccess],
@@ -871,6 +867,7 @@ expression = makeExprParser highOrderExpr opTable
           InfixL (do pos <- getPosition ;
                      reservedOp "~~>" ;
                      return (FutureChain (meta pos)))
+      -- TODO: What is the correct syntax here?
       partyLiftf =
           Prefix (do pos <- getPosition
                      reserved "liftf"
@@ -901,26 +898,8 @@ expression = makeExprParser highOrderExpr opTable
                      return (Assign (meta pos)))
 
 
-highOrderExpr :: Parser Expr
-highOrderExpr = adtExpr
-                <|> expr
-  where
-    adtExpr = justExpr
-              <|> nothingExpr
-    justExpr = do
-      pos <- getPosition
-      reserved "Just"
-      body <- expr <|> nothingExpr
-      return $ MaybeValue (meta pos) (JustData body)
-    nothingExpr = do
-      pos <- getPosition
-      reserved "Nothing"
-      return $ MaybeValue (meta pos) NothingData
-
-
 expr :: Parser Expr
 expr  =  embed
-     <|> try print
      <|> closure
      <|> reduce
      <|> match
@@ -934,12 +913,9 @@ expr  =  embed
      <|> letExpression
      <|> ifExpression
      <|> unlessIf
-     <|> get
      <|> yield
      <|> try isEos
      <|> eos
-     <|> getNext
-     <|> await
      <|> suspend
      <|> yield
      <|> new
@@ -983,7 +959,7 @@ expr  =  embed
             e <- option Skip{emeta}
                  (try $ encoreEscaped expression)
             return (code, e))
-            <|> (liftM ("",) $ encoreEscaped expression)
+            <|> liftM ("",) (encoreEscaped expression)
           c = do
             notFollowedBy (embedEnd <|> void encoreEscapeStart)
             first <- anyChar
@@ -1106,11 +1082,11 @@ expr  =  embed
                                            ,decls
                                            ,body
                                            }
-          varDecl = do
-            x <- Name <$> identifier
-            reservedOp "="
-            val <- expression
-            return (x, val)
+      varDecl = do
+        x <- Name <$> identifier
+        reservedOp "="
+        val <- expression
+        return (x, val)
 
       sequence = singleLineBlock <|> multiLineBlock
       singleLineBlock = do
@@ -1131,9 +1107,7 @@ expr  =  embed
         emeta <- meta <$> getPosition
         mutability <- (reserved "var" >> return Var)
                   <|> (reserved "val" >> return Val)
-        x <- Name <$> identifier
-        reservedOp "="
-        val <- expression
+        (x, val) <- varDecl
         return MiniLet{emeta, mutability, decl = (x, val)}
 
       ifExpression = do
@@ -1240,23 +1214,12 @@ expr  =  embed
         atLevel indent $ reserved "end"
         return theMatch
 
+      -- TODO: What is the correct syntax here?
       extract = do
         emeta <- meta <$> getPosition
         reserved "extract"
         val <- expression
         return PartyExtract{emeta, val}
-
-      get = do
-        emeta <- meta <$> getPosition
-        reserved "get"
-        val <- expression
-        return Get{emeta, val}
-
-      getNext = do
-        emeta <- meta <$> getPosition
-        reserved "getNext"
-        target <- expression
-        return StreamNext{emeta, target}
 
       yield = do
         emeta <- meta <$> getPosition
@@ -1274,12 +1237,6 @@ expr  =  embed
         emeta <- meta <$> getPosition
         reserved "eos"
         return Eos{emeta}
-
-      await = do
-        emeta <- meta <$> getPosition
-        reserved "await"
-        val <- expression
-        return Await{emeta, val}
 
       suspend = do
         emeta <- meta <$> getPosition
@@ -1312,6 +1269,7 @@ expr  =  embed
                       ,body = makeBody block
                       }
 
+      -- TODO: Should we keep these three?
       task = do
         emeta <- meta <$> getPosition
         reserved "async"
@@ -1358,17 +1316,6 @@ expr  =  embed
         reserved "peer"
         ty <- typ
         return Peer{emeta, ty}
-
-      print = do
-        emeta <- meta <$> getPosition
-        reserved "print"
-        notFollowedBy (symbol "(" >> symbol "\"")
-        args <- option [] ((:[]) <$> expression)
-        return FunctionCall{emeta
-                           ,typeArguments = []
-                           ,qname = qName "println"
-                           ,args
-                           }
 
       stringLit = do
         emeta <- meta <$> getPosition

@@ -129,6 +129,7 @@ removeDeadMiniLet e = e
 
 desugar :: Expr -> Expr
 
+-- Unfold sequenced declarations into let-expressions
 desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
     where
       expandMiniLets [] = []
@@ -142,10 +143,12 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
               }]
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
+-- Exit
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
                     ,args} =
     Exit emeta args
 
+-- Print functions
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
                     ,args = []} =
     Print emeta Stdout [StringLiteral emeta "\n"]
@@ -182,6 +185,7 @@ desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
         in Print fmeta Stdout (newHead:rest)
       _ -> Print fmeta Stdout args
 
+-- Assertions
 desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
                           ,args = [cond]} =
     IfThenElse emeta cond
@@ -230,11 +234,20 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
+-- If-expressions without else
 desugar IfThen{emeta, cond, thn} =
-    IfThenElse emeta cond thn (Skip (Meta.meta (Meta.sourcePos (cloneMeta emeta))))
+    IfThenElse{emeta
+              ,cond
+              ,thn
+              ,els = Skip (Meta.meta (Meta.sourcePos (cloneMeta emeta)))
+              }
 
-desugar Unless{emeta, cond, thn} =
-    IfThenElse emeta (Unary (cloneMeta emeta) Identifiers.NOT cond) thn (Skip (cloneMeta emeta))
+desugar Unless{emeta, cond = originalCond, thn} =
+    IfThenElse{emeta
+              ,cond = Unary (cloneMeta emeta) Identifiers.NOT originalCond
+              ,thn
+              ,els = Skip (cloneMeta emeta)
+              }
 
 -- Desugars
 --   repeat id <- e1 e2
@@ -323,8 +336,8 @@ desugar Foreach{emeta, item, arr, body} =
                        (IntLiteral emeta 1))
                   ])}}
 
+-- Constructor calls
 desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
-
 desugar new@NewWithInit{emeta, ty, args}
     | isArrayType ty &&
       length args == 1 = ArrayNew emeta (getResultType ty) (head args)
@@ -335,6 +348,7 @@ desugar new@NewWithInit{emeta, ty, args}
     , length args' == 1 = new'
     | otherwise = new
 
+-- Build String objects from literals
 desugar s@StringLiteral{emeta, stringLit} =
     NewWithInit{emeta
                ,ty = stringObjectType
@@ -342,6 +356,23 @@ desugar s@StringLiteral{emeta, stringLit} =
                               [(show stringLit ++ ";", Skip emeta)]
                        ]
                }
+
+-- Operations on futures
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "get"}
+                      ,args = [val]} = Get{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "await"}
+                      ,args = [val]} = Await{emeta, val}
+desugar f@FunctionCall{emeta, qname = QName{qnlocal = Name "getNext"}
+                      ,args = [target]} = StreamNext{emeta, target}
+
+-- Maybe values
+desugar x@VarAccess{emeta, qname = QName{qnlocal = Name "Nothing"}} =
+  MaybeValue{emeta, mdt = NothingData}
+desugar f@FunctionCall{emeta, qname = QName{qnlocal = Name "Just"}
+                      ,args = [arg]} =
+  MaybeValue{emeta, mdt = JustData arg}
 
 desugar e = e
 
