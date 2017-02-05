@@ -814,8 +814,8 @@ expression = makeExprParser expr opTable
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [textualPrefix "not" Identifiers.NOT],
-                 [textualOperator "and" Identifiers.AND,
-                  textualOperator "or" Identifiers.OR],
+                 [op "&&" Identifiers.AND,
+                  op "||" Identifiers.OR],
                  [messageSend],
                  [partyLiftf, partyLiftv, partyEach],
                  [typedExpression],
@@ -830,10 +830,6 @@ expression = makeExprParser expr opTable
           Prefix (try(do pos <- getPosition
                          reserved s
                          return (Unary (meta pos) operator)))
-      textualOperator s binop =
-          InfixL (try(do pos <- getPosition
-                         reserved s
-                         return (Binop (meta pos) binop)))
       prefix s operator =
           Prefix (do pos <- getPosition
                      reservedOp s
