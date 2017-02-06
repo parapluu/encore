@@ -1,0 +1,10 @@
+class Foo {
+  stream foo1() : int
+    yield 1
+  stream foo2() : int
+    let foo3 = this.foo1()
+    in yield 2
+}
+class Main
+  def main() : void
+    ()
