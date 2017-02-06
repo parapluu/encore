@@ -215,8 +215,6 @@ commaSep   = (`sepBy` comma)
 commaSep1  = (`sepBy1` comma)
 semiSep    = (`sepBy` semi)
 parens     = between (symbol "(") (symbol ")")
--- TODO: Get rid of angles for type parameters
-angles     = between (symbol "<") (symbol ">")
 brackets   = between (symbol "[") (symbol "]")
 braces     = between (symbol "{") (symbol "}")
 maybeBraces p = braces p <|> p
@@ -293,7 +291,7 @@ typ = makeExprParser singleType opTable
         full <- modulePath
         let ns = explicitNamespace $ init full
             refId = show $ last full
-        parameters <- option [] $ angles (commaSep1 typ)
+        parameters <- option [] $ brackets (commaSep1 typ)
         if isEmptyNamespace ns
         then return $ refTypeWithParams refId parameters
         else return $ setRefNamespace ns $
@@ -410,7 +408,7 @@ embedTL = do
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
 
-optionalTypeParameters = option [] (angles $ commaSep1 typ)
+optionalTypeParameters = option [] (brackets $ commaSep1 typ)
 
 typedef :: Parser Typedef
 typedef = do
@@ -612,7 +610,7 @@ traitComposition = makeExprParser includedTrait opTable
         full <- modulePath
         let ns = explicitNamespace $ init full
             refId = show $ last full
-        parameters <- option [] $ angles (commaSep1 typ)
+        parameters <- option [] $ brackets (commaSep1 typ)
         tcext <- option [] $ parens (commaSep1 extension)
         let tcname = if isEmptyNamespace ns
                      then traitTypeFromRefType $
@@ -852,9 +850,9 @@ expression = makeExprParser expr opTable
           Postfix (do pos <- getPosition
                       bang
                       name <- identifier
-                      optTypeArgs <- option [] (try . angles $ commaSep typ)
+                      optTypeArgs <- option [] (try . brackets $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend { emeta = (meta pos),
+                      return (\target -> MessageSend { emeta = meta pos,
                                                        typeArguments=optTypeArgs,
                                                        target,
                                                        name=(Name name),
@@ -1003,7 +1001,7 @@ expr  =  embed
             return $ VarAccess (meta pos) (qName id)
 
           functionOrCall VarAccess{emeta, qname} = do
-            optTypeArgs <- option [] (try . angles $ commaSep typ)
+            optTypeArgs <- option [] (try . brackets $ commaSep typ)
             if null optTypeArgs then
               call emeta optTypeArgs qname
             else
@@ -1026,7 +1024,7 @@ expr  =  embed
             functionCall x <|> return x
 
           functionCall VarAccess{emeta, qname} = do
-            typeParams <- option [] (try . angles $ commaSep typ)
+            typeParams <- option [] (try . brackets $ commaSep typ)
             args <- parens arguments
             return $ FunctionCall emeta typeParams qname args
 
