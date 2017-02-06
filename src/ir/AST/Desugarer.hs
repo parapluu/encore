@@ -286,6 +286,14 @@ desugar FinishAsync{emeta, body} =
              }
     desugarBody a = a
 
+desugar Async{emeta, body} =
+  FunctionCall {emeta, typeArguments=[], qname, args}
+  where
+    qname = QName{qnspace = Nothing, qnsource=Nothing, qnlocal = Name "spawn"}
+    args = [lifted_body]
+    lifted_body = Closure {emeta, eparams=[], body=body}
+    
+
 -- foreach item in arr {
 --   stmt using item
 -- }

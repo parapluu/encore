@@ -56,8 +56,6 @@ typedef struct pony_main_msg_t
 
 typedef union { encore_arg_t_content; } encore_arg_t;
 
-#include "task.h"
-
 typedef enum {
   ID_CLOSURE = 0,
   ID_FUTURE,

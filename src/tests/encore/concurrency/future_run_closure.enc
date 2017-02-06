@@ -1,3 +1,5 @@
+import Task
+
 -- This test makes a non-deterministic bug completely deterministic:
 -- The error is that the Main actor performs the chain on the future.
 -- If the future has already been fulfilled, Main runs the closure but

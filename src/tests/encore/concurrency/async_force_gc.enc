@@ -1,3 +1,5 @@
+import Task
+
 def print_side_effect(): void
   print 42
 
