@@ -1331,12 +1331,12 @@ instance Checkable Expr where
     --  E |- expr : Maybe t
     -- ------------------------
     --  E |- tryOrDie expr : t
-    doTypecheck tryOrDie@(TryOrDie {expr}) =
-      do e <- typecheck expr
+    doTypecheck tryOrDie@(TryOrDie {target}) =
+      do e <- typecheck target
          unless (isMaybeType (AST.getType e)) $
-           tcError $ SimpleError "tryOrDie only works on expressions of Maybe type"
-         let resultType = Types.removeMaybeWrapper (AST.getType e)
-         return $ setType resultType tryOrDie {expr = e}
+           tcError $ TryOrDieError "tryOrDie only works on targetessions of Maybe type"
+         let resultType = getResultType (AST.getType e)
+         return $ setType resultType tryOrDie {target = e}
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 

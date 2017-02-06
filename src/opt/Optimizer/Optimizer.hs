@@ -74,20 +74,20 @@ sugarPrintedStrings = extend sugarPrintedString
           = setType stringType sugared
         | otherwise = arg
 
-typedDesugar TryOrDie{emeta, expr} =
-  Match emeta expr [succ, fail]
+typedDesugar TryOrDie{emeta, target} =
+  Match emeta target [succ, fail]
   where
     succ = buildMatchClause (JustData value) value guard
     fail = buildMatchClause NothingData (Abort emeta [msg]) guard
     buildMatchClause matchPattern value guard = MatchClause (setType maybeType $ MaybeValue emeta matchPattern) value guard
-    value = setType (removeMaybeWrapper maybeType) $ VarAccess emeta (qLocal (Name "result"))
+    value = setType (getResultType maybeType) $ VarAccess emeta (qLocal (Name "result"))
     guard = setType boolType (BTrue emeta) 
-    maybeType = getType expr
+    maybeType = getType target
     pos = show (Meta.getPos emeta) 
     msg  = setType stringObjectType $ NewWithInit{emeta
                ,ty = stringObjectType
                ,args = [setType stringType $ Embed emeta (ctype "char*")
-                        [(show ("tryOrDie failed at " ++ pos ++ ": died executing " ++ (show (ppExpr expr))) ++ ";", Skip emeta)]]
+                        [(show ("tryOrDie failed at " ++ pos ++ ": died executing " ++ (show (ppExpr target))) ++ ";", Skip emeta)]]
                }
 
 typedDesugar e = e
