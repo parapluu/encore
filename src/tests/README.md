@@ -19,12 +19,21 @@ now, and one of which may be supported in the future:
 
  - `testname.out` -- the most common test specification. It contains the exact
    output that is expected from running the program. In order for the test to
-   pass, the program must compile.
+   pass, the program must compile, and the test return a zero value.
+ 
+ - `testname.err` -- the second most common test specification. It contains the
+   exact output that is expected from a failing program. In order for the test
+   to pass, the program must compile, and the test should return a non-zero
+   value.
  
  - `testname.fail` -- some tests ensure that the type checker does what it
    should. In these tests, `testname.fail` contains one regular expression per
    line that must appear in the compiler output. In order for the test to pass,
    the program must *fail* to compile.
+
+ - `testname.flags` -- should contain any extra flags passed to encorec to
+   compile the program *on a single line*. Extra flags for running the program
+   is currently not supported.
 
  - `testname.chk` -- Currently not used/implemented.
 
@@ -61,3 +70,4 @@ add any blank lines.
 ## Test output
 
 You will get nicer output if you have the `tree` tool on your path.
+
