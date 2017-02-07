@@ -1,12 +1,170 @@
-module Task
+* Encore Task Module  
+Version 0.1 
+Authors 
+- Tobias Wrigstad <tobias.wrigstad@it.uu.se>
+- Kiko Fernandez <kiko.fernandez@it.uu.se>
 
+The Encore Task Module provides support for creation and
+inspection of futures, promises and tasks. 
+
+** Preamble with includes        
+#+BEGIN_SRC encore
+module Task
+#+END_SRC
+
+** Manipulation of futures
+The `fulfilled` family of functions supports asking a future
+whether it is fulfilled or not. This is a non-blocking operation.
+
+#+BEGIN_SRC encore
+def fulfilled<t>(f : Fut t) : bool
+  embed bool
+    future_fulfilled(#{f});
+  end
+
+def fulfilled2<t1, t2>(f1 : Fut t1, f2 : Fut t2) : bool
+  fulfilled(f1) and fulfilled(f2)
+  
+def fulfilled3<t1, t2, t3>(f1 : Fut t1, f2 : Fut t2, f3 : Fut t3) : bool
+  fulfilled(f1) and fulfilled(f2) and fulfilled(f3) 
+  
+def fulfilled4<t1, t2, t3, t4>(f1 : Fut t1, f2 : Fut t2, f3 : Fut t3, f4 : Fut t4) : bool
+  fulfilled(f1) and fulfilled(f2) and fulfilled(f3) and fulfilled(f4)
+#+END_SRC
+
+** Syncing multiple futures
+The `sync` family of functions provide convenience support for
+waiting on several futures and getting the result as a tuple.
+The order of the arguments in the tuple matches the order of 
+the future arguments. 
+
+The sync operation will block if at least one of the futures is
+not fulfilled. 
+
+Example: 
+
+(a, b) = sync2(actor.msg(), actor'.msg'())
+
+
+#+BEGIN_SRC encore
+def sync2<t1, t2>(f1 : Fut t1, f2: Fut t2) : (t1, t2) {
+  if not fulfilled(f1) then await f1 ;
+  if not fulfilled(f2) then await f2 ;
+  (get f1, get f2) ;
+}
+   
+def sync3<t1, t2, t3>(f1 : Fut t1, f2: Fut t2, f3: Fut t3) : (t1, t2, t3) {
+  if not fulfilled(f1) then await f1 ;
+  if not fulfilled(f2) then await f2 ;
+  if not fulfilled(f3) then await f3 ;
+  (get f1, get f2, get f3) ;
+}
+   
+def sync4<t1, t2, t3, t4>(f1 : Fut t1, f2: Fut t2, f3: Fut t3, f4: Fut t4) : (t1, t2, t3, t4) {
+  if not fulfilled(f1) then await f1 ;
+  if not fulfilled(f2) then await f2 ;
+  if not fulfilled(f3) then await f3 ;
+  if not fulfilled(f4) then await f4 ;
+  (get f1, get f2, get f3, get f4) ;
+}
+
+def syncN<t>(futures : [Fut t]) : [t] {
+  val result = new [t](|futures|) ;
+  repeat i <- |futures| {
+    if not fulfilled(futures[i]) then await futures[i] ;
+    result[i] = get futures[i] ;
+  } ;
+  result
+}
+#+END_SRC   
+
+* Promises
+An expensive implementation of a promise, built using futures and
+suspend. Multiple fulfilment of a promise is handled dynamically.
+
+#+BEGIN_SRC encore
+class Promise<a>
+  value : Maybe a
+  def fulfil(value:a) : bool
+    if this.fulfilled() then {
+      false ;
+    } else {
+      this.value = Just value ;
+      true ;
+    }
+  def fulfilled() : bool
+    this.value == Nothing
+  -- This is how I would rather write deliver()
+  -- def deliver() : a
+  --   match this.value with 
+  --     Just v  => v 
+  --     Nothing => forward this.read()
+  -- This should ofc compile to a loop (tail call opt.)
+  def deliver() : a {
+    while this.fulfilled() == false
+      suspend ;
+    match this.value with 
+      Just v => v 
+  }
+#+END_SRC
+
+* Synchroniser
+A synchroniser is an actor that given a list of futures waits on
+these futures until they are all fulfilled. 
+
+#+BEGIN_SRC encore
+def Synchroniser<t>(f : Fut t) : Synchroniser<t>
+  new Synchroniser([f])
+
+class Synchroniser<t> {
+  result : [t]
+  countDown : int
+  callback : t -> void
+
+  def init(ar: [Fut t]): void {
+    this.result = new [t](|ar|);
+    this.countDown = |ar| ;
+    var i = 0;
+    for f in ar {
+      f ~~> \(r:t) -> { this ! fulfil(i, r) };
+      i = i + 1;
+    }
+  }
+
+  def fulfil(pos:int, r:t) : void {
+    this.countDown = this.countDown - 1 ;
+    this.result[pos] = r ;
+  }
+
+  def register(closure : t -> void) : void
+    this.callback = closure
+
+  def result(): [t] {
+    while this.countDown > 0 suspend ;
+    this.result
+  }
+}
+#+END_SRC
+
+* Task Spawning
+The spawn function is a system function that takes a closure and
+passes it on to a task runner actor to perform. Currently, each
+call to spawn creates a new task runner.
+
+#+BEGIN_SRC encore
 def spawn<t>(task : () -> t) : Fut t
   let
     runner = new TaskRunner()
   in 
     runner.perform(task)   
-        
-class TaskRunner 
+
+class TaskRunner {
   def perform<t>(task : () -> t) : t
     task()
+}
+#+END_SRC
 
+
+# Local Variables:
+# mode: org
+# End:
