@@ -224,7 +224,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                     runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
-  translate (A.Print {A.args, A.stdout}) = do
+  translate (A.Print {A.args, A.file}) = do
       let string = head args
           rest = tail args
       unless (Ty.isStringType $ A.getType string) $
@@ -235,7 +235,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           argTys   = map A.getType rest
           fstring  = formatString (A.stringLit string) argTys
           expandedArgs = concat $ zipWith expandPrintfArg argTys argNames
-          outputOn = if stdout then C.stdout else C.stderr
+          outputOn = case file of
+                       A.Stdout -> C.stdout
+                       A.Stderr -> C.stderr
       return (unit,
               Seq $ argDecls ++
                     [Statement
