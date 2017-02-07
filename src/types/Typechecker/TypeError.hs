@@ -155,7 +155,7 @@ data Error =
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
   | MissingMainClass
-  | SynStreamCall
+  | SyncStreamCall
   | UnknownTraitError Type
   | UnknownRefTypeError Type
   | MalformedCapabilityError Type
@@ -312,7 +312,7 @@ instance Show Error where
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
     show MissingMainClass = "Couldn't find active class 'Main'"
-    show SynStreamCall = "Typechecker.hs: stream method can not be called synchronously"
+    show SyncStreamCall = "Typechecker.hs: stream method can not be called synchronously"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where

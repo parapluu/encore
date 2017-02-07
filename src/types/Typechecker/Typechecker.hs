@@ -581,7 +581,7 @@ instance Checkable Expr where
           let returnType = retType mcall calledType header resultType'
               syncAccess = isThisAccess (target mcall)
               isStream = isStreamMethodHeader header
-          when (isStream && syncAccess) $ tcError SynStreamCall
+          when (isStream && syncAccess) $ tcError SyncStreamCall
           return $ setType returnType mcall {target = eTarget'
                                             ,args = eArgs
                                             ,typeArguments = typeArgs}
