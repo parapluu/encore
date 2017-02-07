@@ -141,19 +141,27 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
 
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
                     ,args = []} =
-    Print emeta [StringLiteral emeta "\n"]
+    Print emeta Stdout [StringLiteral emeta "\n"]
 
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "print"}
                     ,args = [arg]} =
-    Print emeta [StringLiteral emeta "{}", arg]
+    Print emeta Stdout [StringLiteral emeta "{}", arg]
 
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
                     ,args = [arg]} =
-    Print emeta [StringLiteral emeta "{}\n", arg]
+    Print emeta Stdout [StringLiteral emeta "{}\n", arg]
 
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "print"}
                     ,args} =
-    Print emeta args
+    Print emeta Stdout args
+
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "perror"}
+                    ,args = [arg]} =
+    Print emeta Stderr [StringLiteral emeta "{}\n", arg]
+
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "perror"}
+                    ,args} =
+    Print emeta Stderr args
 
 desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
                     ,args} =
@@ -164,8 +172,8 @@ desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
         let stringWithNewline = stringLit ++ "\n"
             newString = selfSugar $ StringLiteral smeta stringWithNewline
             newHead = desugar newString
-        in Print fmeta (newHead:rest)
-      _ -> Print fmeta args
+        in Print fmeta Stdout (newHead:rest)
+      _ -> Print fmeta Stdout args
 
 desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
                           ,args = [cond]} =
@@ -173,6 +181,7 @@ desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
+                       Stderr
                        [assertionFailed emeta (show (ppSugared fCall) ++ "\n")],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
@@ -181,6 +190,7 @@ desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
+                       Stderr
                        [assertionFailed emeta (show (ppSugared fCall) ++ "\n")],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
@@ -191,9 +201,11 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}
            (Skip (cloneMeta emeta))
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
+                       Stderr
                        [selfSugar $ assertionFailed emeta ""],
-                 Print (cloneMeta emeta) rest,
+                 Print (cloneMeta emeta) Stderr rest,
                  Print (cloneMeta emeta)
+                       Stderr
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
 
@@ -202,9 +214,11 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
     IfThenElse emeta cond
            (Seq (cloneMeta emeta)
                 [Print (cloneMeta emeta)
+                       Stderr
                        [selfSugar $ assertionFailed emeta ""],
-                 Print (cloneMeta emeta) rest,
+                 Print (cloneMeta emeta) Stderr rest,
                  Print (cloneMeta emeta)
+                       Stderr
                        [selfSugar $ StringLiteral (cloneMeta emeta) "\n"],
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))

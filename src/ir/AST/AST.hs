@@ -19,6 +19,9 @@ import Identifiers
 import Types
 import AST.Meta hiding(Closure, Async)
 
+data FileDescriptor = Stdout | Stderr
+  deriving (Show, Eq)
+
 data Program = Program {
   source :: SourceName,
   moduledecl :: ModuleDecl,
@@ -664,6 +667,7 @@ data Expr = Skip {emeta :: Meta Expr}
           | Peer {emeta :: Meta Expr,
                   ty ::Type}
           | Print {emeta :: Meta Expr,
+                   file :: FileDescriptor,
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}

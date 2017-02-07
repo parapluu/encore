@@ -1,0 +1,16 @@
+class Main
+  def main() : void {
+    for i in [1..9] {
+      perror("The square of {} is {}\n", i, i*i);
+    };
+    val row = [false, true];
+    for b1 in row {
+      for b2 in row {
+        perror("{} | {}\n", (b1, b2), b1 and b2);
+      }
+    };
+    perror("void = {}\n", ());
+    perror("Zero is {}\n", Nothing : Maybe int);
+    perror("The answer is {}\n", Just 42);
+    exit(-1);
+  }

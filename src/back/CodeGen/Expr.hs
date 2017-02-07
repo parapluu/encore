@@ -224,7 +224,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                     runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
-  translate (A.Print {A.args}) = do
+  translate (A.Print {A.args, A.file}) = do
       let string = head args
           rest = tail args
       unless (Ty.isStringType $ A.getType string) $
@@ -235,11 +235,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           argTys   = map A.getType rest
           fstring  = formatString (A.stringLit string) argTys
           expandedArgs = concat $ zipWith expandPrintfArg argTys argNames
+          outputOn = case file of
+                       A.Stdout -> C.stdout
+                       A.Stderr -> C.stderr
       return (unit,
               Seq $ argDecls ++
                     [Statement
-                       (Call (Nam "printf")
-                       (String fstring : expandedArgs))])
+                       (Call (Nam "fprintf")
+                       (AsExpr outputOn : String fstring : expandedArgs))])
       where
         formatString s [] = s
         formatString "" (ty:tys) =
@@ -886,7 +889,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let errorCode = Int 1
               exitCall = Statement $ Call (Nam "exit") [errorCode]
               errorMsg = String "*** Runtime error: No matching clause was found ***\n"
-              errorPrint = Statement $ Call (Nam "printf") [errorMsg]
+              errorPrint = Statement $ Call (Nam "fprintf") [AsExpr C.stderr, errorMsg]
           return $ Seq [errorPrint, exitCall]
 
         ifChain (clause:rest) narg argty retTmp retTy = do

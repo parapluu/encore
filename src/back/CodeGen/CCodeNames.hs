@@ -596,3 +596,10 @@ optionTypeRecName = Nam "option_type"
 
 tupleTypeRecName :: CCode Name
 tupleTypeRecName = Nam "tuple_type"
+
+stdout :: CCode Lval
+stdout = Var "stdout"
+
+stderr :: CCode Lval
+stderr = Var "stderr"
+
