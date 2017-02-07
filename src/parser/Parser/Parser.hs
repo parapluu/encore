@@ -17,6 +17,7 @@ import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
 import Control.Monad(void, foldM, unless, when, liftM)
+import Control.Monad.Reader hiding(guard)
 import Control.Applicative ((<$>), empty)
 import Control.Arrow (first)
 
@@ -29,7 +30,8 @@ import AST.Meta hiding(Closure, Async, getPos)
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
 -- unless a parse error occurs.
-parseEncoreProgram = parse program
+parseEncoreProgram :: FilePath -> String -> Either (ParseError Char Dec) Program
+parseEncoreProgram = parse (runReaderT program sc)
 
 lineComment = L.skipLineComment "--"
 blockComment = L.skipBlockComment "{-" "-}"
@@ -42,16 +44,61 @@ sc = L.space (void $ oneOf " \t") lineComment blockComment
 scn :: Parser ()
 scn = L.space (void spaceChar) lineComment blockComment
 
+-- | The Parser monad wrapped in a Reader that carries the current
+-- space consumer (if newlines may be consumed or not)
+type EncParser = ReaderT (Parser ()) Parser
+currentSpaceConsumer = lift <$> ask
+
+-- | The 'EncParser' equivalent of 'sc'
+hspace :: EncParser ()
+hspace = lift sc
+
+-- | The 'EncParser' equivalent of 'scn'
+vspace :: EncParser ()
+vspace = lift scn
+
+-- | Parse a section of code allowing line breaks
+withLinebreaks :: EncParser a -> EncParser a
+withLinebreaks = local (const scn)
+
+-- | Parse a section of code disallowing line breaks
+withoutLinebreaks :: EncParser a -> EncParser a
+withoutLinebreaks = local (const sc)
+
 -- | Parse a newline and any whitespace following it (including
 -- additional newlines)
-nl :: Parser ()
-nl = newline >> scn
+nl :: EncParser ()
+nl = newline >> vspace
+
+lexeme :: EncParser a -> EncParser a
+lexeme p = do
+  sc <- currentSpaceConsumer
+  L.lexeme sc p
+
+symbol :: String -> EncParser String
+symbol s = do
+  sc <- currentSpaceConsumer
+  L.symbol sc s
+
+charLiteral :: EncParser Char
+charLiteral = do
+  sc <- currentSpaceConsumer
+  char '\'' *> L.charLiteral <* char '\'' <* sc
+
+-- TODO: What about escape sequences? e.g. \n
+stringLiteral :: EncParser String
+stringLiteral = do
+  sc <- currentSpaceConsumer
+  char '"' >> manyTill L.charLiteral (char '"') <* sc
+
+float :: EncParser Double
+float = lexeme L.float
 
 -- | @atLevel ind p@ parses @p@ if the current indentation level
 -- is @ind@, and fails otherwise. Note that only the start of @p@
 -- is checked; if @p@ can consume newlines, subsequent lines are
 -- not controlled.
-atLevel :: Pos -> Parser a -> Parser a
+atLevel :: Pos -> EncParser a -> EncParser a
 atLevel expectedIndent p = do
   currentIndent <- L.indentLevel
   unless (currentIndent == expectedIndent) $
@@ -62,12 +109,24 @@ atLevel expectedIndent p = do
 -- than @ind@, and fails otherwise. Note that only the start of
 -- @p@ is checked; if @p@ can consume newlines, subsequent lines
 -- are not controlled.
-indented :: Pos -> Parser a -> Parser a
+indented :: Pos -> EncParser a -> EncParser a
 indented refIndent p = do
   currentIndent <- L.indentLevel
   unless (currentIndent > refIndent) $
          L.incorrectIndent Prelude.GT refIndent currentIndent
   p
+
+-- | Parse a token in column one
+nonIndented :: EncParser a -> EncParser a
+nonIndented = L.nonIndented hspace
+
+-- | See 'L.indentBlock'. Used to parse indented blocks of code.
+indentBlock = L.indentBlock vspace
+
+-- | See 'L.lineFold'. Used to fold lines, i.e. allow linebreaks
+-- but require proper indentation
+lineFold :: (EncParser () -> EncParser a) -> EncParser a
+lineFold = L.lineFold vspace
 
 -- | @parseBody ind c@ is inteded for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
@@ -77,7 +136,7 @@ indented refIndent p = do
 -- boolean is @True@ to signal that some terminating token is
 -- needed (e.g. "end"). @c@ is a function that takes the loop body
 -- as the argument and builds a (possibly partial) expression.
-parseBody :: Pos -> (Expr -> a) -> Parser (L.IndentOpt Parser (Bool, a) Expr)
+parseBody :: Pos -> (Expr -> a) -> EncParser (L.IndentOpt EncParser (Bool, a) Expr)
 parseBody indent constructor = blockBody <|> shortBody
   where
     blockBody = do
@@ -94,28 +153,12 @@ parseBody indent constructor = blockBody <|> shortBody
 -- expression, or a block between "do"/"end".
 blockedConstruct header = do
   indent <- L.indentLevel
-  (needsEnd, loop) <- L.indentBlock scn $ do
+  (needsEnd, loop) <- indentBlock $ do
     constructor <- header
     parseBody indent constructor
   when needsEnd $
        atLevel indent $ reserved "end"
   return loop
-
-lexeme :: Parser a -> Parser a
-lexeme = L.lexeme sc
-
-symbol :: String -> Parser String
-symbol = L.symbol sc
-
-charLiteral :: Parser Char
-charLiteral = char '\'' *> L.charLiteral <* char '\'' <* sc
-
--- TODO: What about escape sequences? e.g. \n
-stringLiteral :: Parser String
-stringLiteral = char '"' >> manyTill L.charLiteral (char '"') <* sc
-
-float :: Parser Double
-float = lexeme L.float
 
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
@@ -183,19 +226,23 @@ reservedNames =
     ,"yield"
    ]
 
-validIdentifierChar :: Parser Char
+validIdentifierChar :: EncParser Char
 validIdentifierChar = alphaNumChar <|> char '_' <|> char '\''
 
-validOpChar :: Parser Char
+validOpChar :: EncParser Char
 validOpChar = oneOf ".:=!<>+-*/%\\~|"
 
-reserved :: String -> Parser ()
-reserved w = try $ string w *> notFollowedBy validIdentifierChar *> sc
+reserved :: String -> EncParser ()
+reserved w = do
+  sc <- currentSpaceConsumer
+  try $ string w *> notFollowedBy validIdentifierChar *> sc
 
-reservedOp :: String -> Parser ()
-reservedOp op = try $ string op <* notFollowedBy validOpChar *> sc
+reservedOp :: String -> EncParser ()
+reservedOp op = do
+  sc <- currentSpaceConsumer
+  try $ string op <* notFollowedBy validOpChar *> sc
 
-identifier :: Parser String
+identifier :: EncParser String
 identifier = (lexeme . try) (p >>= check)
   where
     p = (:) <$> letterChar <*> many validIdentifierChar
@@ -227,12 +274,12 @@ encoreEscaped p = do
   encoreEscapeEnd
   return x
 
-modulePath :: Parser [Name]
+modulePath :: EncParser [Name]
 modulePath =
     (Name <$> (lookAhead upperChar >> identifier)) `sepBy1`
     try (dot >> lookAhead upperChar)
 
-typ :: Parser Type
+typ :: EncParser Type
 typ = makeExprParser singleType opTable
     where
       opTable = [
@@ -305,7 +352,7 @@ typ = makeExprParser singleType opTable
         do {reserved "real"; return realType} <|>
         do {reserved "void"; return voidType}
 
-typeVariable :: Parser Type
+typeVariable :: EncParser Type
 typeVariable = do
   notFollowedBy upperChar
   id <- identifier
@@ -323,22 +370,22 @@ partitionDecls = partitionDecls' [] [] [] []
     partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
     partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
 
-program :: Parser Program
+program :: EncParser Program
 program = do
   source <- sourceName <$> getPosition
   optional hashbang
-  scn
+  vspace
 
-  moduledecl <- L.nonIndented sc moduleDecl
+  moduledecl <- nonIndented moduleDecl
   unless (moduledecl == NoModule) nl
 
-  imports <- L.nonIndented sc importdecl `endBy` nl
-  etls <- L.nonIndented sc embedTL
+  imports <- nonIndented importdecl `endBy` nl
+  etls <- nonIndented embedTL
   let etl = [etls]
-  scn
+  vspace
 
   decls <- (`sepEndBy` nl) . foldr1 (<|>) $
-           map (L.nonIndented sc)
+           map nonIndented
                    [CDecl <$> classDecl
                    ,TDecl <$> traitDecl
                    ,TDef <$> typedef
@@ -359,20 +406,20 @@ program = do
       hashbang = do string "#!"
                     many (noneOf "\n\r")
 
-moduleDecl :: Parser ModuleDecl
+moduleDecl :: EncParser ModuleDecl
 moduleDecl = option NoModule $ do
   modmeta <- meta <$> getPosition
   reserved "module"
   lookAhead upperChar
   modname <- Name <$> identifier
   -- TODO: Allow linebreaks
-  modexports <- optional (parens ((Name <$> identifier) `sepEndBy` comma))
+  modexports <- optional $ parens ((Name <$> identifier) `sepEndBy` comma)
   return Module{modmeta
                ,modname
                ,modexports
                }
 
-importdecl :: Parser ImportDecl
+importdecl :: EncParser ImportDecl
 importdecl = do
   imeta <- meta <$> getPosition
   reserved "import"
@@ -393,7 +440,7 @@ importdecl = do
                ,isource = Nothing
                }
 
-embedTL :: Parser EmbedTL
+embedTL :: EncParser EmbedTL
 embedTL = do
   -- TODO: Make sure BODY and END are not indented
   pos <- getPosition
@@ -410,7 +457,7 @@ embedTL = do
 
 optionalTypeParameters = option [] (brackets $ commaSep1 typ)
 
-typedef :: Parser Typedef
+typedef :: EncParser Typedef
 typedef = do
   typedefmeta <- meta <$> getPosition
   reserved "typedef"
@@ -423,7 +470,7 @@ typedef = do
                    typeSynonym name params typedeftype
   return Typedef{typedefmeta, typedefdef}
 
-functionHeader :: Parser FunctionHeader
+functionHeader :: EncParser FunctionHeader
 functionHeader = do
   hname <- Name <$> identifier
   htypeparams <- optionalTypeParameters
@@ -439,12 +486,12 @@ functionHeader = do
                ,htype
                }
 
-streamMethodHeader :: Parser FunctionHeader
+streamMethodHeader :: EncParser FunctionHeader
 streamMethodHeader = do
   header <- functionHeader
   return header{kind = Streaming}
 
-guard :: Parser Expr
+guard :: EncParser Expr
 guard = do
   reserved "when"
   expression
@@ -468,25 +515,25 @@ matchingHeader = do
                         ,hguard
                         }
 
-matchingStreamHeader :: Parser FunctionHeader
+matchingStreamHeader :: EncParser FunctionHeader
 matchingStreamHeader = do
   header <- matchingHeader
   return header{kind = Streaming}
 
-whereClause :: Parser [Function]
+whereClause :: EncParser [Function]
 whereClause =
-  L.indentBlock scn $ do
+  indentBlock $ do
     reserved "where"
     return $ L.IndentSome Nothing return localFunction
 
-localFunction :: Parser Function
+localFunction :: EncParser Function
 localFunction = do
   funIndent <- L.indentLevel
   fun <- funHeaderAndBody
   atLevel funIndent $ reserved "end"
   return fun
 
-globalFunction :: Parser Function
+globalFunction :: EncParser Function
 globalFunction = do
   funIndent <- L.indentLevel
   fun <- funHeaderAndBody
@@ -499,7 +546,7 @@ globalFunction = do
 
 funHeaderAndBody =
   -- TODO: Re-add matching functions
-  L.indentBlock scn $ do
+  indentBlock $ do
     funmeta <- meta <$> getPosition
     reserved "fun"
     funheader <- functionHeader
@@ -551,10 +598,10 @@ partitionTraitAttributes = partitionTraitAttributes' [] []
       partitionTraitAttributes' rs (tmdecl:ms) as
 
 
-traitDecl :: Parser TraitDecl
+traitDecl :: EncParser TraitDecl
 traitDecl = do
   tIndent <- L.indentLevel
-  tdecl <- L.indentBlock scn $ do
+  tdecl <- indentBlock $ do
     tmeta <- meta <$> getPosition
     reserved "trait"
     ident <- lookAhead upperChar >> identifier
@@ -590,7 +637,7 @@ traitDecl = do
                     ,tmethods
                     }
 
-traitComposition :: Parser TraitComposition
+traitComposition :: EncParser TraitComposition
 traitComposition = makeExprParser includedTrait opTable
     where
       opTable = [
@@ -641,10 +688,10 @@ partitionClassAttributes = partitionClassAttributes' [] []
       partitionClassAttributes' fs (mdecl:ms) as
 
 
-classDecl :: Parser ClassDecl
+classDecl :: EncParser ClassDecl
 classDecl = do
   cIndent <- L.indentLevel
-  cdecl <- L.indentBlock scn $ do
+  cdecl <- indentBlock $ do
     cmeta <- meta <$> getPosition
     activity <- parseActivity
     reserved "class"
@@ -675,7 +722,7 @@ classDecl = do
                     ,cmethods
                     }
 
-modifier :: Parser Modifier
+modifier :: EncParser Modifier
 modifier = val
            <?>
            "modifier"
@@ -684,7 +731,7 @@ modifier = val
         reserved "val"
         return MVal
 
-fieldDecl :: Parser FieldDecl
+fieldDecl :: EncParser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
                fmods <- many modifier
                fname <- Name <$> identifier
@@ -695,7 +742,7 @@ fieldDecl = do fmeta <- meta <$> getPosition
                            ,fname
                            ,ftype}
 
-paramDecl :: Parser ParamDecl
+paramDecl :: EncParser ParamDecl
 paramDecl = do
   pmeta <- meta <$> getPosition
   pmut <- option Val $
@@ -706,14 +753,14 @@ paramDecl = do
   ptype <- typ
   return Param{pmeta, pmut, pname, ptype}
 
-patternParamDecl :: Parser (Expr, Type)
+patternParamDecl :: EncParser (Expr, Type)
 patternParamDecl = do
   x <- expr
   colon
   ty <- typ
   return (x, ty)
 
-methodDecl :: Parser MethodDecl
+methodDecl :: EncParser MethodDecl
 methodDecl = do
   mIndent <- L.indentLevel
   -- TODO: Re-add support for matching methods
@@ -724,7 +771,7 @@ methodDecl = do
   return mtd{mlocals}
   where
     methodHeaderAndBody =
-      L.indentBlock scn $ do
+      indentBlock $ do
         mmeta <- meta <$> getPosition
         mheader <- do reserved "def"
                       modifiers <- option [Public] $ many modifiersDecl
@@ -759,11 +806,11 @@ methodDecl = do
           mbody <- expression
           return (mheader, mbody)
 
-modifiersDecl :: Parser AccessModifier
+modifiersDecl :: EncParser AccessModifier
 modifiersDecl = reserved "private" >> return Private
 
 
-arguments :: Parser Arguments
+arguments :: EncParser Arguments
 arguments = expression `sepBy` comma
 
 sepBy2 p sep = do first <- p
@@ -771,10 +818,10 @@ sepBy2 p sep = do first <- p
                   last <- p `sepBy1` sep
                   return $ first:last
 
-matchClause :: Parser MatchClause
+matchClause :: EncParser MatchClause
 matchClause = do
   indent <- L.indentLevel
-  (needsEnd, clause) <- L.indentBlock scn $ do
+  (needsEnd, clause) <- indentBlock $ do
     reserved "case"
     mcpattern <- expression <|> dontCare
     guardMeta <- meta <$> getPosition
@@ -800,7 +847,7 @@ matchClause = do
       symbol "_"
       return VarAccess{emeta, qname = qName "_"}
 
-expression :: Parser Expr
+expression :: EncParser Expr
 expression = makeExprParser expr opTable
     where
       opTable = [
@@ -892,7 +939,7 @@ expression = makeExprParser expr opTable
                      return (Assign (meta pos)))
 
 
-expr :: Parser Expr
+expr :: EncParser Expr
 expr  =  embed
      <|> closure
      <|> reduce
@@ -934,18 +981,18 @@ expr  =  embed
         reserved "EMBED"
         ty <- label "parenthesized type" $
                     parens typ
-        scn
+        vspace
         embedded <- many cAndEncore
-        scn
+        vspace
         endLine <- sourceLine <$> getPosition
         if endLine == startLine
-        then sc >> reserved "END"
+        then hspace >> reserved "END"
         else atLevel indent $ reserved "END"
         when (null embedded) $
              fail "EMBED block cannot be empty"
         return Embed{emeta, ty, embedded}
         where
-          cAndEncore :: Parser (String, Expr)
+          cAndEncore :: EncParser (String, Expr)
           cAndEncore = (do
             notFollowedBy $ reserved "END"
             code <- c
@@ -961,7 +1008,7 @@ expr  =  embed
               manyTill anyChar (try $ lookAhead (embedEnd <|>
                                                  void encoreEscapeStart))
             return (first:rest)
-          embedEnd = scn >> reserved "END"
+          embedEnd = vspace >> reserved "END"
 
       path = do
         pos <- getPosition
@@ -1037,9 +1084,9 @@ expr  =  embed
       letExpression = do
         indent <- L.indentLevel
         letLine <- sourceLine <$> getPosition
-        (withDo, letExpr) <- L.indentBlock scn $ do
+        (withDo, letExpr) <- indentBlock $ do
           emeta <- meta <$> getPosition
-          decls <- L.indentBlock scn $ do
+          decls <- indentBlock $ do
             reserved "let"
             singleLineDecl <|> multiLineDecl
           inLine <- sourceLine <$> getPosition
@@ -1089,7 +1136,7 @@ expr  =  embed
         return Seq{emeta, eseq}
       multiLineBlock = do
         indent <- L.indentLevel
-        block <- L.indentBlock scn $ do
+        block <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "do"
           return $ L.IndentSome Nothing (return . Seq emeta) expression
@@ -1107,7 +1154,7 @@ expr  =  embed
       ifExpression = do
         indent <- L.indentLevel
         ifLine <- sourceLine <$> getPosition
-        (withDo, ifThen) <- L.indentBlock scn $ do
+        (withDo, ifThen) <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "if"
           cond <- expression
@@ -1136,7 +1183,7 @@ expr  =  embed
           return $ extendIfThen ifThen els
         else if withDo -- if b then do
         then do
-          ifThenElse <- L.indentBlock scn $ do
+          ifThenElse <- indentBlock $ do
             atLevel indent $ reserved "else"
             reserved "do"
             return $ L.IndentSome Nothing
@@ -1199,7 +1246,7 @@ expr  =  embed
 
       match = do
         indent <- L.indentLevel
-        theMatch <- L.indentBlock scn $ do
+        theMatch <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "match"
           arg <- expression
@@ -1240,7 +1287,7 @@ expr  =  embed
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
-        clos <- L.indentBlock scn $ do
+        clos <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "fun"
           eparams <- parens (commaSep paramDecl)
@@ -1326,7 +1373,7 @@ expr  =  embed
         n <- L.integer
         kind <- do symbol "u" <|> symbol "U"
                    return UIntLiteral
-               <|> (sc >> return IntLiteral)
+               <|> (hspace >> return IntLiteral)
         return $ kind emeta (fromInteger n)
       real = do
         emeta <- meta <$> getPosition
