@@ -124,9 +124,22 @@ nonIndented = L.nonIndented hspace
 indentBlock = L.indentBlock vspace
 
 -- | See 'L.lineFold'. Used to fold lines, i.e. allow linebreaks
--- but require proper indentation
+-- but require some indentation
 lineFold :: (EncParser () -> EncParser a) -> EncParser a
 lineFold = L.lineFold vspace
+
+-- | Intended to be used together with 'lineFold', to parse a
+-- piece of code with the folding parser.
+-- TODO: Add example
+foldWith :: EncParser () -> EncParser a -> EncParser a
+foldWith p = local (const $ runReaderT p undefined)
+
+-- | @folded delimiters fold p@ parses @delimiters p@ folded with
+-- the space consumer @fold@. Inteded for use inside a @lineFold@.
+-- TODO: Add example
+folded :: (EncParser a -> EncParser a) -> EncParser () -> EncParser a -> EncParser a
+folded delimiters fold p =
+  delimiters (fold >> foldWith fold p)
 
 -- | @parseBody ind c@ is inteded for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
@@ -407,38 +420,45 @@ program = do
                     many (noneOf "\n\r")
 
 moduleDecl :: EncParser ModuleDecl
-moduleDecl = option NoModule $ do
-  modmeta <- meta <$> getPosition
-  reserved "module"
-  lookAhead upperChar
-  modname <- Name <$> identifier
-  -- TODO: Allow linebreaks
-  modexports <- optional $ parens ((Name <$> identifier) `sepEndBy` comma)
-  return Module{modmeta
-               ,modname
-               ,modexports
-               }
+moduleDecl = option NoModule $
+  lineFold $ \sc' -> do
+    modmeta <- meta <$> getPosition
+    reserved "module"
+    lookAhead upperChar
+    modname <- Name <$> identifier
+    modexports <- optional $
+                  folded parens sc' ((Name <$> identifier) `sepEndBy` comma)
+    return Module{modmeta
+                 ,modname
+                 ,modexports
+                 }
 
 importdecl :: EncParser ImportDecl
-importdecl = do
-  imeta <- meta <$> getPosition
-  reserved "import"
-  iqualified <- option False $ reserved "qualified" >> return True
-  itarget <- explicitNamespace <$> modulePath
-  -- TODO: Allow linebreaks
-  iselect <- optional $ parens ((Name <$> identifier) `sepEndBy` comma)
-  ialias <- optional $ reserved "as" >> (explicitNamespace <$> modulePath)
-  ihiding <- optional $
-             reserved "hiding" >>
-             parens ((Name <$> identifier) `sepEndBy` comma)
-  return Import{imeta
-               ,itarget
-               ,iqualified
-               ,iselect
-               ,ihiding
-               ,ialias
-               ,isource = Nothing
-               }
+importdecl =
+  lineFold $ \sc' -> do
+    indent <- L.indentLevel
+    imeta <- meta <$> getPosition
+    reserved "import"
+    iqualified <- option False $ reserved "qualified" >> return True
+    itarget <- explicitNamespace <$> modulePath
+    iselect <- optional $
+               folded parens sc' ((Name <$> identifier) `sepEndBy` comma)
+    ialias <- optional $ do
+                try sc'
+                reserved "as"
+                explicitNamespace <$> modulePath
+    ihiding <- optional $ do
+                 try sc'
+                 reserved "hiding"
+                 folded parens sc' ((Name <$> identifier) `sepEndBy` comma)
+    return Import{imeta
+                 ,itarget
+                 ,iqualified
+                 ,iselect
+                 ,ihiding
+                 ,ialias
+                 ,isource = Nothing
+                 }
 
 embedTL :: EncParser EmbedTL
 embedTL = do
@@ -471,20 +491,20 @@ typedef = do
   return Typedef{typedefmeta, typedefdef}
 
 functionHeader :: EncParser FunctionHeader
-functionHeader = do
-  hname <- Name <$> identifier
-  htypeparams <- optionalTypeParameters
-  -- TODO: Allow linebreaks
-  hparams <- parens (commaSep paramDecl)
-  colon
-  htype <- typ
-  return Header{hmodifier = [Public]
-               ,kind = NonStreaming
-               ,htypeparams
-               ,hname
-               ,hparams
-               ,htype
-               }
+functionHeader =
+  lineFold $ \sc' -> do
+    hname <- Name <$> identifier
+    htypeparams <- optionalTypeParameters
+    hparams <- folded parens sc' (commaSep paramDecl)
+    colon
+    htype <- typ
+    return Header{hmodifier = [Public]
+                 ,kind = NonStreaming
+                 ,htypeparams
+                 ,hname
+                 ,hparams
+                 ,htype
+                 }
 
 streamMethodHeader :: EncParser FunctionHeader
 streamMethodHeader = do
@@ -637,6 +657,7 @@ traitDecl = do
                     ,tmethods
                     }
 
+-- TODO: Allow linebreaks
 traitComposition :: EncParser TraitComposition
 traitComposition = makeExprParser includedTrait opTable
     where
@@ -687,7 +708,7 @@ partitionClassAttributes = partitionClassAttributes' [] []
     partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
       partitionClassAttributes' fs (mdecl:ms) as
 
-
+-- TODO: Allow linebreaks for trait inclusion
 classDecl :: EncParser ClassDecl
 classDecl = do
   cIndent <- L.indentLevel
@@ -731,6 +752,7 @@ modifier = val
         reserved "val"
         return MVal
 
+-- TODO: Require var/val
 fieldDecl :: EncParser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
                fmods <- many modifier
@@ -809,14 +831,14 @@ methodDecl = do
 modifiersDecl :: EncParser AccessModifier
 modifiersDecl = reserved "private" >> return Private
 
-
 arguments :: EncParser Arguments
 arguments = expression `sepBy` comma
 
-sepBy2 p sep = do first <- p
-                  sep
-                  last <- p `sepBy1` sep
-                  return $ first:last
+sepBy2 p sep = do
+  first <- p
+  sep
+  last <- p `sepBy1` sep
+  return $ first:last
 
 matchClause :: EncParser MatchClause
 matchClause = do
@@ -881,12 +903,12 @@ expression = makeExprParser expr opTable
                      return (Unary (meta pos) operator))
       op s binop =
           InfixL (do pos <- getPosition
-                     reservedOp s
+                     withLinebreaks $ reservedOp s
                      return (Binop (meta pos) binop))
 
       typedExpression =
           Postfix (do pos <- getPosition
-                      reservedOp ":"
+                      withLinebreaks colon
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
       arrayAccess =
@@ -895,7 +917,7 @@ expression = makeExprParser expr opTable
                            return (\e -> ArrayAccess (meta pos) e index)))
       messageSend =
           Postfix (do pos <- getPosition
-                      bang
+                      withLinebreaks bang
                       name <- identifier
                       optTypeArgs <- option [] (try . brackets $ commaSep typ)
                       args <- parens arguments
@@ -905,8 +927,8 @@ expression = makeExprParser expr opTable
                                                        name=(Name name),
                                                        args }))
       chain =
-          InfixL (do pos <- getPosition ;
-                     reservedOp "~~>" ;
+          InfixL (do pos <- getPosition
+                     withLinebreaks $ reservedOp "~~>"
                      return (FutureChain (meta pos)))
       -- TODO: What is the correct syntax here?
       partyLiftf =
@@ -1154,26 +1176,46 @@ expr  =  embed
       ifExpression = do
         indent <- L.indentLevel
         ifLine <- sourceLine <$> getPosition
-        (withDo, ifThen) <- indentBlock $ do
+        (withDo, ifThen) <- ifWithSimpleCond indent ifLine <|>
+                            ifWithComplexCond indent
+        ifThenNoElse indent withDo ifThen
+         <|> ifThenElse indent ifLine withDo ifThen
+
+      ifWithSimpleCond indent ifLine = do
+        notFollowedBy (reserved "if" >> nl)
+        indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "if"
           cond <- expression
+          thenLine <- sourceLine <$> getPosition
+          unless (thenLine == ifLine) $
+                 fail "Expected 'then' on same line as 'if'"
           reserved "then"
           inlineIfThen emeta cond <|> nonInlineIfThen indent emeta cond
-        ifThenNoElse indent withDo ifThen
-         <|> ifThenElse indent ifLine withDo ifThen
+
+      ifWithComplexCond indent = do
+        emeta <- meta <$> getPosition
+        reserved "if"
+        nl
+        cond <- indented indent expression
+        indentBlock $ do
+          atLevel indent $ reserved "then"
+          parseBody indent $ \thn -> IfThen{emeta, cond, thn}
 
       inlineIfThen emeta cond  = do
         notFollowedBy (reserved "do" <|> nl)
         thn <- expression
         return $ L.IndentNone (False, IfThen{emeta, cond, thn})
+
       nonInlineIfThen indent emeta cond =
         parseBody indent $ \thn -> IfThen{emeta, cond, thn}
+
       ifThenNoElse indent withDo ifThen = do
         notFollowedBy (reserved "else" <|> (nl >> reserved "else"))
         when withDo $
              atLevel indent $ reserved "end"
         return ifThen
+
       ifThenElse indent ifLine withDo ifThen = do
         elseLine <- sourceLine <$> getPosition
         if ifLine == elseLine -- Single line if
@@ -1193,6 +1235,9 @@ expr  =  embed
         else do -- if b then
           nl
           atLevel indent $ reserved "else"
+          hasDo <- option False $ reserved "do" >> return True
+          when hasDo $
+               fail "'else do' can only be used after 'if do'"
           nl
           els <- indented indent expression
           return $ extendIfThen ifThen els
@@ -1380,7 +1425,9 @@ expr  =  embed
         realLit <- float
         return RealLiteral{emeta, realLit}
 
-      bracketed = brackets (rangeOrArray <|> empty)
+      bracketed =
+          lineFold $ \sc' ->
+            folded brackets sc' (rangeOrArray <|> empty)
           where
             empty = do
               emeta <- meta <$> getPosition
