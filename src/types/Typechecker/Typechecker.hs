@@ -404,7 +404,7 @@ instance Checkable MethodDecl where
             local (addTypeParameters mtypeparams .
                    addParams mparams .
                    addLocalFunctions mlocals) $
-                       if isVoidType mType || isStreamMethod m
+                       if isVoidType mType || isStreamMethodDecl m
                        then typecheckNotNull mbody
                        else hasType mbody mType
         eLocals <- local (addTypeParameters mtypeparams .
@@ -580,7 +580,7 @@ instance Checkable Expr where
                 typecheckCall mcall typeParams argTypes resultType
           let returnType = retType mcall calledType header resultType'
               syncAccess = isThisAccess (target mcall)
-              isStream = isStreamMethodHeader header
+              isStream = isStreamMethodDecl header
           when (isStream && syncAccess) $ tcError SyncStreamCall
           return $ setType returnType mcall {target = eTarget'
                                             ,args = eArgs
@@ -964,7 +964,7 @@ instance Checkable Expr where
            let mtd = fromJust result
                mType = methodType mtd
                eType = AST.getType eVal
-           unless (isStreamMethod mtd) $
+           unless (isStreamMethodDecl mtd) $
                   tcError $ NonStreamingContextError yield
            eType `assertSubtypeOf` mType
            return $ setType voidType yield {val = eVal}
@@ -977,7 +977,7 @@ instance Checkable Expr where
            when (isNothing result) $
                 tcError $ NonStreamingContextError eos
            let mtd = fromJust result
-           unless (isStreamMethod mtd) $
+           unless (isStreamMethodDecl mtd) $
                   tcError $ NonStreamingContextError eos
            return $ setType voidType eos
 

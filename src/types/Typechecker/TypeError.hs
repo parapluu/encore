@@ -47,7 +47,7 @@ instance Show BacktraceNode where
   show (BTMethod m) =
       let name = hname $ mheader m
           ty   = htype $ mheader m
-          method | isStreamMethod m = "stream method"
+          method | isStreamMethodDecl m = "stream method"
                  | otherwise = "method"
       in
         concat ["In ", method, " '", show name, "' of type '", show ty, "'"]
@@ -312,7 +312,7 @@ instance Show Error where
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
     show MissingMainClass = "Couldn't find active class 'Main'"
-    show SyncStreamCall = "Typechecker.hs: stream method can not be called synchronously"
+    show SyncStreamCall = "Stream method can not be called synchronously since it will invariably deadlock"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where

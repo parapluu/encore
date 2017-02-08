@@ -297,7 +297,7 @@ instance Precheckable MethodDecl where
       Just (_, thisType) <- findVar (qLocal thisName)
       when (isMainMethod thisType (methodName m))
            (checkMainParams $ hparams mheader')
-      when (isStreamMethod m) $ do
+      when (isStreamMethodDecl m) $ do
            unless (isActiveClassType thisType) $
                   tcError PassiveStreamingMethodError
            when (isConstructor m) $

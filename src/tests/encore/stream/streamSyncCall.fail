@@ -1,1 +1,1 @@
-Typechecker.hs: stream method can not be called synchronously
+Stream method can not be called synchronously

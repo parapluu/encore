@@ -99,7 +99,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        methodClauses = concatMap methodClause
 
        methodClause m = (mthdDispatchClause m) :
-                         if not (A.isStreamMethod m)
+                         if not (A.isStreamMethodDecl m)
                          then [oneWaySendDispatchClause m]
                          else []
 
@@ -146,7 +146,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                        [futureFulfilStmt, taskFreeStmt])
 
        mthdDispatchClause mdecl
-           | A.isStreamMethod mdecl =
+           | A.isStreamMethodDecl mdecl =
                (futMsgId cname mName,
                 Seq $ unpackFuture : args ++
                       gcReceive ++ [streamMethodCall])

@@ -136,7 +136,7 @@ ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
     let header = mheader m
         body = mbody m
-        def | isStreamMethod m = "stream"
+        def | isStreamMethodDecl m = "stream"
             | otherwise = "def"
     in
       def <+> ppFunctionHeader header $+$

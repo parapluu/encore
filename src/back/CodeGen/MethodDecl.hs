@@ -46,7 +46,7 @@ initialiseMethodDecl cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
 
 translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                  cdecl@(A.Class {A.cname}) table code
-  | A.isStreamMethod mdecl =
+  | A.isStreamMethodDecl mdecl =
     let args = initialiseMethodDecl cname ++
                (stream, streamHandle) : zip argTypes argNames
         streamCloseStmt = Statement $
@@ -197,7 +197,7 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
         name
 
 methodImplStream m cdecl@(A.Class {A.cname}) _ code
-  | A.isStreamMethod m =
+  | A.isStreamMethodDecl m =
     let retType = stream
         fName = methodImplStreamName cname mName
         args = initialiseMethodDecl cname ++ zip argTypes argNames
