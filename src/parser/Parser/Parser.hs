@@ -300,18 +300,10 @@ typ = makeExprParser singleType opTable
       opTable = [
                  [typeOp "*" conjunctiveType],
                  [typeOp "+" disjunctiveType],
-                 [typeConstructor "Maybe" maybeType
-                 ,typeConstructor "Fut" futureType
-                 ,typeConstructor "Par" parType
-                 ,typeConstructor "Stream" streamType
-                 ],
                  [arrow]
                 ]
       typeOp op constructor =
           InfixL (do withLinebreaks $ reservedOp op
-                     return constructor)
-      typeConstructor op constructor =
-          Prefix (do reserved op
                      return constructor)
       arrow =
           InfixR (do withLinebreaks $ reservedOp "->"
@@ -326,6 +318,7 @@ typ = makeExprParser singleType opTable
         <|> array
         <|> embed
         <|> range
+        <|> builtin
         <|> refType
         <|> primitive
         <|> typeVariable
@@ -349,6 +342,13 @@ typ = makeExprParser singleType opTable
       range = do
         reserved "Range"
         return rangeType
+      builtin = maybe <|> fut <|> par <|> stream
+        where
+          builtin' t r = liftM t (reserved r >> brackets typ)
+          maybe  = builtin' maybeType "Maybe"
+          fut    = builtin' futureType "Fut"
+          par    = builtin' parType "Par"
+          stream = builtin' streamType "Stream"
       refType = do
         full <- modulePath
         let ns = explicitNamespace $ init full

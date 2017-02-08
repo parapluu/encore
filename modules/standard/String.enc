@@ -194,7 +194,7 @@ passive class String
 
   -- Returns a substring from the current string starting
   -- in index from, ending in index to (inclusive).
-  def substring(from:int, to:int) : Maybe String
+  def substring(from:int, to:int) : Maybe[String]
     if to < from then
       Just("")
     else
@@ -334,7 +334,7 @@ passive class String
     "To be implemented"
   end
 
-  def char_at(i : int) : Maybe char
+  def char_at(i : int) : Maybe[char]
     let
       s = this.data
       len = this.length()
@@ -392,7 +392,8 @@ passive class String
         result
       end
   end
-  def to_int() : Maybe int
+
+  def to_int() : Maybe[int]
     val s = this.data
     val n = 0
     val success = false
