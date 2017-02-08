@@ -875,7 +875,6 @@ expression :: EncParser Expr
 expression = makeExprParser expr opTable
     where
       opTable = [
-                 [arrayAccess],
                  [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
@@ -913,10 +912,6 @@ expression = makeExprParser expr opTable
                       withLinebreaks colon
                       t <- typ
                       return (\e -> TypedExpr (meta pos) e t))
-      arrayAccess =
-          Postfix (try (do pos <- getPosition
-                           index <- brackets expression
-                           return (\e -> ArrayAccess (meta pos) e index)))
       messageSend =
           Postfix (do pos <- getPosition
                       withLinebreaks bang
@@ -1454,12 +1449,12 @@ expr  =  embed
               step <- option (IntLiteral stepMeta 1)
                              (reserved "by" >> expression)
               return RangeLiteral{emeta, start, stop, step}
-            arrayLit emeta first = singletonArray <|> longerArray
+            arrayLit emeta first = longerArray <|> singletonArray
               where
-                singletonArray = do
-                  lookAhead (symbol "]")
+                singletonArray =
                   return ArrayLiteral{emeta, args = [first]}
                 longerArray = do
+                  notFollowedBy (symbol "]")
                   comma
                   rest <- commaSep1 expression
                   return ArrayLiteral{emeta, args = first:rest}

@@ -623,35 +623,40 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {qname, args, typeArguments}) = do
+    doTypecheck fcall@(FunctionCall {emeta, qname, args, typeArguments}) = do
       result <- findVar qname
       (qname', ty) <- case result of
         Just (qname', ty) -> return (qname', ty)
         Nothing -> tcError $ UnboundFunctionError qname
 
-      let typeParams = getTypeParameters ty
-          argTypes = getArgTypes ty
-          uniquify = uniquifyTypeVars typeParams
-          resultType = getResultType ty
+      if isArrayType ty && length args == 1 then
+          doTypecheck ArrayAccess{emeta
+                                 ,target = VarAccess{emeta, qname}
+                                 ,index = head args}
+      else do
+        let typeParams = getTypeParameters ty
+            argTypes = getArgTypes ty
+            uniquify = uniquifyTypeVars typeParams
+            resultType = getResultType ty
 
-      unless (isArrowType ty) $
-        tcError $ NonFunctionTypeError ty
-      unless (length args == length argTypes) $
-        tcError $ WrongNumberOfFunctionArgumentsError
-                    qname (length argTypes) (length args)
+        unless (isArrowType ty) $
+          tcError $ NonFunctionTypeError ty
+        unless (length args == length argTypes) $
+          tcError $ WrongNumberOfFunctionArgumentsError
+                      qname (length argTypes) (length args)
 
-      uniqueArgTypes <- mapM uniquify argTypes
-      (eArgs, returnType, typeArgs) <-
-        if null typeArguments
-        then inferenceCall fcall typeParams uniqueArgTypes resultType
-        else do
-          unless (length typeArguments == length typeParams) $
-                 tcError $ WrongNumberOfFunctionTypeArgumentsError qname
-                           (length typeParams) (length typeArguments)
-          typecheckCall fcall typeParams uniqueArgTypes resultType
-      return $ setType returnType fcall {args = eArgs,
-                                         qname = qname',
-                                         typeArguments = typeArgs}
+        uniqueArgTypes <- mapM uniquify argTypes
+        (eArgs, returnType, typeArgs) <-
+          if null typeArguments
+          then inferenceCall fcall typeParams uniqueArgTypes resultType
+          else do
+            unless (length typeArguments == length typeParams) $
+                   tcError $ WrongNumberOfFunctionTypeArgumentsError qname
+                             (length typeParams) (length typeArguments)
+            typecheckCall fcall typeParams uniqueArgTypes resultType
+        return $ setType returnType fcall {args = eArgs,
+                                           qname = qname',
+                                           typeArguments = typeArgs}
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
