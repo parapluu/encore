@@ -293,6 +293,7 @@ modulePath =
     (Name <$> (lookAhead upperChar >> identifier)) `sepBy1`
     try (dot >> lookAhead upperChar)
 
+-- TODO: Make Maybe, Fut etc less magic
 typ :: EncParser Type
 typ = makeExprParser singleType opTable
     where
@@ -307,13 +308,13 @@ typ = makeExprParser singleType opTable
                  [arrow]
                 ]
       typeOp op constructor =
-          InfixL (do reservedOp op
+          InfixL (do withLinebreaks $ reservedOp op
                      return constructor)
       typeConstructor op constructor =
           Prefix (do reserved op
                      return constructor)
       arrow =
-          InfixR (do reservedOp "->"
+          InfixR (do withLinebreaks $ reservedOp "->"
                      return (arrowType . unfoldArgs))
           where
             unfoldArgs ty
@@ -481,12 +482,12 @@ optionalTypeParameters = option [] (brackets $ commaSep1 typ)
 typedef :: EncParser Typedef
 typedef = do
   typedefmeta <- meta <$> getPosition
+  indent <- L.indentLevel
   reserved "typedef"
   name <- lookAhead upperChar >> identifier
   params <- optionalTypeParameters
   reservedOp "="
-  -- TODO: Allow linebreaks
-  typedeftype <- typ
+  typedeftype <- typ <|> (hidden nl >> indented indent typ)
   let typedefdef = setRefNamespace emptyNamespace $
                    typeSynonym name params typedeftype
   return Typedef{typedefmeta, typedefdef}
@@ -658,7 +659,6 @@ traitDecl = do
                     ,tmethods
                     }
 
--- TODO: Allow linebreaks
 traitComposition :: EncParser TraitComposition
 traitComposition = makeExprParser includedTrait opTable
     where
@@ -667,7 +667,7 @@ traitComposition = makeExprParser includedTrait opTable
                  [compositionOp "+" Disjunction]
                 ]
       compositionOp op constructor =
-          InfixL (do reservedOp op
+          InfixL (do withLineBreaks $ reservedOp op
                      return constructor)
 
       includedTrait =
@@ -709,7 +709,7 @@ partitionClassAttributes = partitionClassAttributes' [] []
     partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
       partitionClassAttributes' fs (mdecl:ms) as
 
--- TODO: Allow linebreaks for trait inclusion
+-- TODO: Allow linebreak (with indent) for trait inclusion
 classDecl :: EncParser ClassDecl
 classDecl = do
   cIndent <- L.indentLevel
