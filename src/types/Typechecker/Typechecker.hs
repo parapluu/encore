@@ -936,7 +936,7 @@ instance Checkable Expr where
     doTypecheck while@(While {cond, body}) =
         do eCond <- hasType cond boolType
            eBody <- typecheck body
-           return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
+           return $ setType voidType while {cond = eCond, body = eBody}
 
     --  E |- val : Fut t
     -- ------------------
@@ -1224,9 +1224,9 @@ instance Checkable Expr where
                              then intType
                              else getResultType srcType
            bodyTyped <- typecheckBody elementType body
-           return $ setType (AST.getType bodyTyped) for{step = stepTyped
-                                                       ,src  = srcTyped
-                                                       ,body = bodyTyped}
+           return $ setType voidType for{step = stepTyped
+                                        ,src  = srcTyped
+                                        ,body = bodyTyped}
         where
           addIteratorVariable ty = extendEnvironmentImmutable [(name, ty)]
           typecheckBody ty = local (addIteratorVariable ty) . typecheck

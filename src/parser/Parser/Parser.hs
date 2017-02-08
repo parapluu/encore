@@ -293,7 +293,6 @@ modulePath =
     (Name <$> (lookAhead upperChar >> identifier)) `sepBy1`
     try (dot >> lookAhead upperChar)
 
--- TODO: Make Maybe, Fut etc less magic
 typ :: EncParser Type
 typ = makeExprParser singleType opTable
     where
