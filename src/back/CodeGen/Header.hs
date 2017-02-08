@@ -236,7 +236,7 @@ generateHeader p =
      methodFwds cdecl@(A.Class{A.cname, A.cmethods}) = map methodFwd cmethods
          where
            methodFwd m
-               | A.isStreamMethodDecl m =
+               | A.isStreamMethod m =
                    let params = (Ptr (Ptr encoreCtxT)) :
                                 (Ptr . AsType $ classTypeName cname) :
                                 encoreRuntimeTypeParam : stream :
@@ -276,7 +276,7 @@ generateHeader p =
              FunctionDecl retType f args
 
          (streamMethods, nonStreamMethods) =
-           partition A.isStreamMethodDecl cmethods
+           partition A.isStreamMethod cmethods
 
      constructors A.Class{A.cname} = [ctr]
        where

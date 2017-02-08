@@ -460,14 +460,7 @@ methodParams = hparams . mheader
 methodTypeParams = htypeparams . mheader
 methodType = htype . mheader
 
-class StreamMethodDecl a where
-  isStreamMethodDecl :: a -> Bool
-
-instance StreamMethodDecl MethodDecl where
-  isStreamMethodDecl Method{mheader} = isStreamMethodHeader mheader
-
-instance StreamMethodDecl FunctionHeader where
-  isStreamMethodDecl h@Header{} = isStreamMethodHeader h
+isStreamMethod Method{mheader} = isStreamMethodHeader mheader
 
 isMainMethod :: Type -> Name -> Bool
 isMainMethod ty name = isMainType ty && (name == Name "main")
@@ -523,7 +516,7 @@ instance HasMeta MethodDecl where
         m{mmeta = AST.Meta.setType ty meta
          ,mheader = setHeaderType ty header}
   showWithKind m
-      | isStreamMethodDecl m = "streaming method '" ++ show (methodName m) ++ "'"
+      | isStreamMethod m = "streaming method '" ++ show (methodName m) ++ "'"
       | otherwise = "method '" ++ show (methodName m) ++ "'"
 
 data MatchClause =
