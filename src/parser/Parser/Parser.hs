@@ -957,9 +957,11 @@ expression = makeExprParser expr opTable
                      reservedOp "=" ;
                      return (Assign (meta pos)))
 
-
+-- Elias: I don't know why the first 'notFollowedBy nl' needed,
+-- but it improves error messages
 expr :: EncParser Expr
-expr  =  embed
+expr = notFollowedBy nl >>
+        (embed
      <|> closure
      <|> reduce
      <|> match
@@ -990,7 +992,7 @@ expr  =  embed
      <|> stringLit
      <|> charLit
      <|> try real
-     <|> int
+     <|> int)
      <?> "expression"
     where
       embed = do
