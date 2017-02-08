@@ -159,7 +159,7 @@ parseBody indent constructor = blockBody <|> shortBody
     shortBody = do
       nl
       body <- indented indent expression
-      nl
+      vspace
       return $ L.IndentNone (False, constructor body)
 
 -- | @blockedConstruct p@ parses a construct whose header is
@@ -667,7 +667,7 @@ traitComposition = makeExprParser includedTrait opTable
                  [compositionOp "+" Disjunction]
                 ]
       compositionOp op constructor =
-          InfixL (do withLineBreaks $ reservedOp op
+          InfixL (do withLinebreaks $ reservedOp op
                      return constructor)
 
       includedTrait =
@@ -832,6 +832,7 @@ methodDecl = do
 modifiersDecl :: EncParser AccessModifier
 modifiersDecl = reserved "private" >> return Private
 
+-- TODO: Allow linebreaks
 arguments :: EncParser Arguments
 arguments = expression `sepBy` comma
 
@@ -1178,12 +1179,12 @@ expr  =  embed
         indent <- L.indentLevel
         ifLine <- sourceLine <$> getPosition
         (withDo, ifThen) <-
-          ifWithSimpleCond indent ifLine (reserved "if") Nothing <|>
-          ifWithComplexCond indent (reserved "if") Nothing
+          ifWithSimpleCond indent ifLine (reserved "if") <|>
+          ifWithComplexCond indent (reserved "if")
         ifThenNoElse indent withDo ifThen
-         <|> ifThenElse indent ifLine withDo ifThen
+         <|> ifThenElse indent ifLine ifThen
 
-      ifWithSimpleCond indent ifLine head maybeDo = do
+      ifWithSimpleCond indent ifLine head = do
         notFollowedBy (head >> nl)
         indentBlock $ do
           emeta <- meta <$> getPosition
@@ -1193,23 +1194,15 @@ expr  =  embed
           unless (thenLine == ifLine) $
                  fail "Expected 'then' on same line or column as 'if'"
           reserved "then"
-          when (isJust maybeDo) $
-            if fromJust maybeDo
-            then try . lookAhead $ reserved "do"
-            else try . lookAhead $ nl
           inlineIfThen emeta cond <|> nonInlineIfThen indent emeta cond
 
-      ifWithComplexCond indent head maybeDo = do
+      ifWithComplexCond indent head = do
         emeta <- meta <$> getPosition
         head
         nl
         cond <- indented indent expression
         indentBlock $ do
           atLevel indent $ reserved "then"
-          when (isJust maybeDo) $
-            if fromJust maybeDo
-            then try . lookAhead $ reserved "do"
-            else try . lookAhead $ nl
           parseBody indent $ \thn -> IfThen{emeta, cond, thn}
 
       inlineIfThen emeta cond  = do
@@ -1226,48 +1219,37 @@ expr  =  embed
              atLevel indent $ reserved "end"
         return ifThen
 
-      ifThenElse indent ifLine withDo ifThen = do
+      ifThenElse indent ifLine ifThen = do
         elseLine <- sourceLine <$> getPosition
         if ifLine == elseLine -- Single line if
         then do
           reserved "else"
           els <- expression
           return $ extendIfThen ifThen els
-        else finalElse indent withDo ifThen <|>
-             elseIf indent withDo ifThen
+        else finalElse indent ifThen <|>
+             elseIf indent ifThen
 
-
-      elseIf indent withDo ifThen = do
+      elseIf indent ifThen = do
         let head = reserved "else" >> reserved "if"
         ifLine <- sourceLine <$> getPosition
-        (_, nestedIfThen) <-
-          ifWithSimpleCond indent ifLine head (Just withDo) <|>
-          ifWithComplexCond indent head (Just withDo)
+        (withDo, nestedIfThen) <-
+          ifWithSimpleCond indent ifLine head <|>
+          ifWithComplexCond indent head
         nestedIfThenElse <-
           ifThenNoElse indent withDo nestedIfThen <|>
-          finalElse indent withDo nestedIfThen <|>
-          elseIf indent withDo nestedIfThen
+          finalElse indent nestedIfThen <|>
+          elseIf indent nestedIfThen
         return $ extendIfThen ifThen nestedIfThenElse
 
-      finalElse indent withDo ifThen = do
+      finalElse indent ifThen = do
         notFollowedBy (reserved "else" >> reserved "if")
-        if withDo -- if b then do
-        then do
-          ifThenElse <- indentBlock $ do
+        (withDo, result) <-
+          indentBlock $ do
             atLevel indent $ reserved "else"
-            reserved "do"
-            return $ L.IndentSome Nothing
-                   (return . extendIfThen ifThen . makeBody) expression
-          atLevel indent $ reserved "end"
-          return ifThenElse
-        else do -- if b then
-          atLevel indent $ reserved "else"
-          hasDo <- option False $ reserved "do" >> return True
-          when hasDo $
-               fail "'else do' can only be used after 'if do'"
-          nl
-          els <- indented indent expression
-          return $ extendIfThen ifThen els
+            parseBody indent (extendIfThen ifThen)
+        when withDo $
+             atLevel indent $ reserved "end"
+        return result
 
       extendIfThen IfThen{emeta, cond, thn} els =
         IfThenElse{emeta, cond, thn, els}
