@@ -96,6 +96,7 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
         [mcpattern, mchandler, mcguard]
 getChildren Get {val} = [val]
+getChildren Forward {val} = [val]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
 getChildren IsEos {target} = [target]
@@ -176,6 +177,7 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
 putChildren [val] e@(Get {}) = e{val = val}
+putChildren [val] e@(Forward {}) = e{val = val}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
 putChildren [target] e@(IsEos {}) = e{target = target}
@@ -243,6 +245,7 @@ putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
 putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
+putChildren _ e@(Forward {}) = error "'putChildren l Forward' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
 putChildren _ e@(IsEos {}) = error "'putChildren l IsEos' expects l to have 1 element"

@@ -612,6 +612,8 @@ data Expr = Skip {emeta :: Meta Expr}
                    clauses :: [MatchClause]}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
+          | Forward {emeta :: Meta Expr,
+                     val :: Expr}
           | Yield {emeta :: Meta Expr,
                    val :: Expr}
           | Eos {emeta :: Meta Expr}

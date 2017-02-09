@@ -1297,6 +1297,12 @@ expr = notFollowedBy nl >>
         reserved "continue"
         return $ Continue (meta pos)
 
+      forward = do
+        pos <- getPosition
+        reserved "forward"
+        expr <- parens expression
+        return $ Forward (meta pos) expr
+
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
