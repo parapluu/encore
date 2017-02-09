@@ -1,0 +1,11 @@
+class Bar
+  def bar() : int
+    42
+
+class Foo
+  def foo() : int
+    forward (new Bar).bar()
+
+class Main
+  def main() : void
+    print get (new Foo).foo()

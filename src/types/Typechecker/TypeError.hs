@@ -268,6 +268,10 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
+  | ForwardArgumentError String
+  | ForwardInPassiveContext String
+  | ForwardInFunction String
+  | InternalError String
   | SimpleError String
 
 arguments 1 = "argument"
@@ -619,6 +623,10 @@ instance Show Error where
           pointer
             | While{} <- e = ". Consider using a for loop"
             | otherwise = ""
+    show (ForwardArgumentError msg) = msg
+    show (ForwardInPassiveContext msg) = msg
+    show (ForwardInFunction msg) = msg
+    show (InternalError msg) = msg
     show (SimpleError msg) = msg
 
 

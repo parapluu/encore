@@ -378,12 +378,18 @@ instance Checkable ClassDecl where
 
     emethods <- mapM typecheckMethod cmethods
 
+    unless (isActiveClassType cname || isStringClass c ||
+      (null (map methodsContainingForward cmethods)))
+        $ tcError $ ForwardInPassiveContext "Forward can not be used in passive classes"
+
     return c{cmethods = emethods}
     where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
       addThis = extendEnvironmentImmutable [(thisName, cname)]
       typecheckMethod m = local (addTypeVars . addThis) $ typecheck m
+      methodsContainingForward m@Method {mbody} = foo mbody
+      foo mbody = Util.filter isForward mbody
 
 instance Checkable MethodDecl where
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
@@ -1093,13 +1099,26 @@ instance Checkable Expr where
     --  E |- val : Fut t
     -- ------------------
     --  E |- forward val : t
-    doTypecheck forward@(Forward {val}) =
-        do eVal <- typecheck val
-           let ty = AST.getType eVal
-           unless (isFutureType ty || isStreamType ty) $
-                  pushError eVal $ ExpectingOtherTypeError
-                                     "a future or a stream" ty
-           return $ setType (getResultType ty) forward {val = eVal}
+    doTypecheck forward@(Forward {forwardExpr}) =
+        do eExpr <- typecheck forwardExpr
+           let ty = AST.getType eExpr
+           case forwardExpr of
+             MethodCall{}  -> return ()
+             FutureChain{} -> return ()
+             _             -> pushError eExpr $ ForwardArgumentError
+                                  "Forward currently operates on method call and future chaining only"
+           unless (isFutureType ty) $
+                  pushError eExpr $ ExpectingOtherTypeError
+                      "you can only forward expressions of future type" ty
+           result <- asks currentMethod
+           when (isNothing result) $
+                pushError eExpr $ InternalError "Error in getting the method containing forward"
+           let returnType = methodType (fromJust result)
+           typeCmp <- (getResultType ty) `subtypeOf` returnType
+           unless typeCmp $
+                  pushError eExpr $ ExpectingOtherTypeError
+                      ("returned type " ++ show returnType ++ " of forward should match with the result type of the containing method") (getResultType ty)
+           return $ setType (getResultType ty) forward {forwardExpr = eExpr}
 
     --  E |- val : t
     --  isStreaming(currentMethod)

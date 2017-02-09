@@ -213,6 +213,10 @@ isMainClass cdecl =
     let ty = cname cdecl
     in getId ty == "Main" && isActiveClassType ty
 
+isStringClass :: ClassDecl -> Bool
+isStringClass cdecl =
+    let ty = cname cdecl
+    in getId ty == "String"
 
 instance HasMeta ClassDecl where
     getMeta = cmeta
@@ -613,7 +617,7 @@ data Expr = Skip {emeta :: Meta Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Forward {emeta :: Meta Expr,
-                     val :: Expr}
+                     forwardExpr :: Expr}
           | Yield {emeta :: Meta Expr,
                    val :: Expr}
           | Eos {emeta :: Meta Expr}
@@ -715,6 +719,14 @@ isThisAccess _ = False
 isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
+
+isForward :: Expr -> Bool
+isForward Forward {} = True
+isForward _ = False
+
+isTask :: Expr -> Bool
+isTask Async {} = True
+isTask _ = False
 
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True

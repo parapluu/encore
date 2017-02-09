@@ -195,6 +195,7 @@ reservedNames =
     ,"false"
     ,"for"
     ,"fun"
+    ,"forward"
     ,"if"
     ,"import"
     ,"in"
@@ -932,6 +933,7 @@ expr = notFollowedBy nl >>
      <|> ifExpression
      <|> unlessIf
      <|> explicitReturn
+     <|> forward
      <|> yield
      <|> try isEos
      <|> eos

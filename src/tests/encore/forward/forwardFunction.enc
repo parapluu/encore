@@ -1,0 +1,12 @@
+class FixBug
+  def fix() : int
+    42
+
+def ExtremelySlowTrain() : int
+  forward (new FixBug()).fix()
+  -- 42
+
+class Main
+  def main() : void {
+    ()
+  }

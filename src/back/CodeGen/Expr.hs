@@ -984,20 +984,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = error $ "Cannot translate get of " ++ show val
 
   -- ToDo: temporarily keep translating forward exactly as the get.
-  translate forward@(A.Forward{A.val})
-    | Ty.isFutureType $ A.getType val =
-        do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
+  translate forward@(A.Forward{A.forwardExpr})
+    | Ty.isFutureType $ A.getType forwardExpr =
+        do (nval, tval) <- translate forwardExpr
+           let resultType = translate (Ty.getResultType $ A.getType forwardExpr)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
-    | Ty.isStreamType $ A.getType val =
-        do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
+    | Ty.isStreamType $ A.getType forwardExpr =
+        do (nval, tval) <- translate forwardExpr
+           let resultType = translate (Ty.getResultType $ A.getType forwardExpr)
                theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
-    | otherwise = error $ "Cannot translate forward of " ++ show val
+    | otherwise = error $ "Cannot translate forward of " ++ show forwardExpr
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val

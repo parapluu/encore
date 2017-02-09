@@ -16,6 +16,7 @@ module AST.Util(
     , exprTypeMap
     , markStatsInBody
     , isStatement
+    , isForwardMethod
     ) where
 
 import qualified Data.List as List
@@ -96,7 +97,7 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
         [mcpattern, mchandler, mcguard]
 getChildren Get {val} = [val]
-getChildren Forward {val} = [val]
+getChildren Forward {forwardExpr} = [forwardExpr]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
 getChildren IsEos {target} = [target]
@@ -177,7 +178,7 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
 putChildren [val] e@(Get {}) = e{val = val}
-putChildren [val] e@(Forward {}) = e{val = val}
+putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
 putChildren [target] e@(IsEos {}) = e{target = target}
@@ -430,7 +431,6 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
       freeVariables' (qLocal name:bound) =<< getChildren e
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
-
 markStatsInBody ty e
   | isUnitType ty = mark asStat e
   | otherwise     = mark asExpr e
@@ -467,3 +467,6 @@ mark asParent s =
     children' = map markAsExpr children
   in
     asParent $ AST.Util.putChildren children' s
+
+isForwardMethod :: MethodDecl -> Bool
+isForwardMethod mdecl = not . null . (filter isForward) . mbody $ mdecl

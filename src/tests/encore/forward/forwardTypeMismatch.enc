@@ -1,0 +1,14 @@
+class Bar
+  def bar() : int
+    42
+
+class Foo
+  def foo_type() : String {
+    forward (new Bar).bar();
+    ""
+  }
+
+class Main
+  def main() : void {
+    ()
+  }
