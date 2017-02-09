@@ -30,7 +30,7 @@ class Main
     for v in extract(result) {
       print("Results: {}\n", v);
     }
-}
+  }
 
   def values(): void {
     val p = liftv(23) || liftv(1) || liftv(0);

@@ -27,3 +27,7 @@ def distinct<t>(p: Par t, cmp: (t, t) -> int): Par t
   embed (Par t)
     party_distinct(_ctx, #{p}, #{cmp}, _enc__type_t);
   end
+
+
+def union<t>(pl: Par t, pr: Par t, cmp: (t, t) -> int): Par t
+  distinct(pl || pr, cmp)
