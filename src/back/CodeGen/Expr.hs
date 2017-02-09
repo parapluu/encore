@@ -221,6 +221,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                     runtimeT]
     return (nResultPar, Seq [tpar, tseqfunc, tResultPar])
 
+  translate ps@(A.PartyReduce {A.seqfun, A.pinit, A.par, A.runassoc}) = do
+    (nseqfunc, tseqfunc) <- translate seqfun
+    (npinit, tpinit) <- translate pinit
+    (npar, tpar) <- translate par
+    let npinit'  = asEncoreArgT (translate $ A.getType pinit) npinit
+        runtimeT = (runtimeType . Ty.getResultType . A.getType) ps
+        reduceFn = partyReduce runassoc
+    (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
+                                Call reduceFn [AsExpr encoreCtxVar
+                                              ,AsExpr npar
+                                              ,npinit'
+                                              ,AsExpr nseqfunc
+                                              ,runtimeT]
+    return (nResultPar, Seq [tseqfunc, tpinit, tpar, tResultPar])
+
   translate (A.Print {A.args, A.file}) = do
       let string = head args
           rest = tail args

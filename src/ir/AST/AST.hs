@@ -577,6 +577,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | PartyPar {emeta :: Meta Expr,
                       parl :: Expr,
                       parr :: Expr}
+          | PartyReduce {emeta    :: Meta Expr,
+                         seqfun   :: Expr,
+                         pinit    :: Expr,
+                         par      :: Expr,
+                         runassoc :: Bool}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
           | MaybeValue {emeta :: Meta Expr,

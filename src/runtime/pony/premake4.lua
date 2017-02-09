@@ -223,7 +223,8 @@ project "party"
   links { "future", "array" }
 
   files {
-    "../party/party.*",
+    "../party/**.h",
+    "../party/**.c"
   }
 
 project "future"

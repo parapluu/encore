@@ -22,6 +22,8 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value);
 encore_arg_t future_get_actor(pony_ctx_t **ctx, future_t *fut);
 future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c);
+void future_chain_actor_void(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+                             closure_t *c);
 
 // ===============================================================
 // Possibly these functions do not belong in the future library

@@ -12,21 +12,18 @@ def filter<a>(fn: a -> bool, ps: Par a): Par a
 def bind<a, b>(fn: a -> Par b, p: Par a): Par b
   join(p >> fn)
 
-def foreach<t>(p: Par t, fn: t -> void): Par void
+def foreachp<t>(p: Par t, fn: t -> void): Par void
   p >> fn
 
-def aggregate<t, a, r>(p: Par t, init: a, fn1: (t, a) -> a, fn2: a -> r): Par r
+def aggregate<t, a, r>(p: Par t, var init: a, fn1: (a, t) -> a, fn2: a -> r): Par r
   liftf(reduce(fn1, init, p)) >> fn2
 
-def reduce<a, b>(fn: (a, b) -> b, init: b, p: Par a): Fut b
--- This is inefficient but will get us going until we have something better
-  let result = init
-      ls = extract(p)
-  in {
-    repeat i <- |ls| { result = fn(ls[i], result); };
-    embed Fut b
-      future_t *fut = future_mk(_ctx, #{b});
-      future_fulfil(_ctx, fut, #{result});
-      fut;
-    end
-  }
+def intersection<t>(p1 : Par t, p2: Par t, cmp: (t, t) -> int): Par t
+  embed (Par t)
+    party_intersection(_ctx, #{p1}, #{p2}, #{cmp}, _enc__type_t);
+  end
+
+def distinct<t>(p: Par t, cmp: (t, t) -> int): Par t
+  embed (Par t)
+    party_distinct(_ctx, #{p}, #{cmp}, _enc__type_t);
+  end

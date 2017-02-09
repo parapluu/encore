@@ -60,6 +60,8 @@ struct closure_entry
   closure_t    *closure;
 
   closure_entry_t *next;
+
+  bool use_future;
 };
 
 struct message_entry
@@ -222,7 +224,14 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       case DETACHED_CLOSURE:
         {
           encore_arg_t result = run_closure(ctx, current->closure, value);
-          future_fulfil(ctx, current->future, result);
+          if (current->use_future) {
+            // This case happens when futures can be attached on.
+            // As an optimisation to the ParT library, we do know
+            // that certain functions in the ParT do not need to fulfil
+            // any future.
+            future_fulfil(ctx, current->future, result);
+          }
+
           cctx = *ctx; // ctx might have been changed
 
           pony_gc_recv(cctx);
@@ -322,6 +331,7 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
   entry->actor = (cctx)->current;
   entry->future = r;
+  entry->use_future = true;
   entry->closure = c;
   entry->next = fut->children;
   fut->children = entry;
@@ -336,6 +346,41 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 
   return r;
 }
+
+
+// Similar to `future_chain_actor` except that it returns void, avoiding the
+// creation of a new future. This is used in the ParTs library and is an
+// optimisation over the `future_chain_actor`.
+void future_chain_actor_void(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+        closure_t *c)
+{
+  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
+  perr("future_chain_actor");
+  BLOCK;
+
+  if (fut->fulfilled) {
+    acquire_future_value(ctx, fut);
+    run_closure(ctx, c, fut->value);
+    UNBLOCK;
+    return ;
+  }
+
+  pony_ctx_t* cctx = *ctx;
+  closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
+  entry->actor = (cctx)->current;
+  entry->future = NULL;
+  entry->use_future = false;
+  entry->closure = c;
+  entry->next = fut->children;
+  fut->children = entry;
+
+  pony_gc_send(cctx);
+  trace_closure_entry(cctx, entry);
+  pony_send_done(cctx);
+
+  UNBLOCK;
+}
+
 
 static void future_block_actor(pony_ctx_t **ctx, future_t *fut)
 {

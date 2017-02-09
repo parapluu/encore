@@ -1,0 +1,68 @@
+import ParT.ParT
+
+passive class X {
+  s: String
+
+  def init(s: String): void this.s = s
+  def getS(): String this.s
+}
+
+class T {
+  def getValue(x: int): int x
+  def getPar(x: int): Par int liftv(x)
+}
+
+def cmp(x: int, y: int): int
+  if (x > y) then 1
+  else if (x < y) then -1
+  else 0
+
+def cmpX(x: X, y: X): int
+  (x.s).compare(y.s)
+
+class Main
+  def futures(): void {
+    val p1 = (liftf((new T).getValue(12))) || liftv(23);
+
+    val p2_l = liftf((new T).getValue(23));
+    val p2_r = liftf((new T).getPar(42));
+    val p2 = p2_l || liftv(2) || liftv(2)|| liftv(3) || (join(p2_r));
+
+    val result = intersection(p1, p2, cmp);
+    for v in extract(result) {
+      print("Results: {}\n", v);
+    }
+}
+
+  def values(): void {
+    val p1 = liftv(12) || liftv(42) || liftv(1) || liftv(0);
+
+    val p2 = liftv(23) || liftv(1);
+    val p3 = liftv(23) || (join(liftv(liftv(42)))) || p2;
+
+    val result = intersection(p1, p3, cmp);
+    for v in extract(result) {
+      print("Results: {}\n", v);
+    }
+  }
+
+  def objects(): void {
+    val fp1 = liftv(new X("Test")) || liftv(new X("Life"));
+    val fp2 = liftv(new X("Life"));
+    val result = intersection(fp1, fp2, cmpX);
+    for v in extract(result) {
+      print("Results: {}\n", v.s);
+    }
+  }
+
+
+  def main(): void {
+    println("Running intersection on values");
+    this.values();
+
+    println("Running intersection on futures and futures to par");
+    this.futures();
+
+    println("Running intersection on objects");
+    this.objects();
+  }

@@ -510,51 +510,44 @@ instance Checkable Expr where
       unless (isParType pType) $
         pushError ePar $ TypeMismatchError pType (parType pType)
 
-      expectedFunType <- typecheckParametricFun ePar eSeqFunc
+      expectedFunType <- typecheckParametricFun [getResultType pType] eSeqFunc
       let eSeqFunc' = setType expectedFunType eSeqFunc
           funResultType = getResultType expectedFunType
       return $ setType (parType funResultType) pSeq {par=ePar, seqfunc=eSeqFunc'}
-     where
-        isVarAccess VarAccess{} = True
-        isVarAccess _ = False
 
-        isFunctionAsValue FunctionAsValue{} = True
-        isFunctionAsValue _ = False
+    doTypecheck red@(PartyReduce {seqfun, pinit, par}) = do
+      ePar <- typecheck par
+      eFunc <- typecheck seqfun
+      ePinit <- typecheck pinit
+      handleErrors ePar eFunc
+      let pType = AST.getType ePar
+          initType = AST.getType ePinit
+      expectedFunType <- typecheckParametricFun
+                           [initType, getResultType pType] eFunc
+      let eSeqFunc' = setType expectedFunType eFunc
+      parallelRun <- assocTypes initType (getResultType pType)
+      return $ setType (futureType initType) red {seqfun=eSeqFunc'
+                                                 ,pinit=ePinit
+                                                 ,par=ePar
+                                                 ,runassoc=parallelRun}
+      where
+        assocTypes initType pType = do
+          lIsSubtype <- initType `subtypeOf` pType
+          rIsSubtype <- pType `subtypeOf` initType
+          return $ and [lIsSubtype, rIsSubtype]
 
-        typecheckParametricFun ePar eSeqFunc
-          | isVarAccess eSeqFunc || isClosure eSeqFunc = do
-              let seqType = AST.getType eSeqFunc -- (String -> String)
-                  resultType = getResultType seqType -- String
+        handleErrors ePar eFunc = do
+          let numberArgs = length (getArgTypes seqType)
+              seqType = AST.getType eFunc
+              pType = AST.getType ePar
+          unless (isCallable eFunc) $
+            pushError eFunc $ NonFunctionTypeError seqType
+          unless (numberArgs == 2) $ pushError eFunc $
+            WrongNumberOfFunctionArgumentsError (qname seqfun) 1 numberArgs
+          unless (isParType pType) $
+            pushError ePar $ TypeMismatchError pType (parType pType)
 
-                  pType = AST.getType ePar -- Maybe String
 
-                  expectedFunType = arrowType [getResultType pType] resultType
-              seqType `assertSubtypeOf` expectedFunType
-              return expectedFunType
-          | isFunctionAsValue eSeqFunc = do
-              let funname = (qname eSeqFunc)
-                  actualTypeParams = typeArgs eSeqFunc
-                  seqType = AST.getType eSeqFunc
-                  pType = AST.getType ePar
-                  funResultType = getResultType seqType
-              result <- findVar funname
-              ty <- case result of
-                  Just (_, ty) -> return ty
-                  Nothing -> tcError $ UnboundFunctionError funname
-              let formalTypeParams = getTypeParams ty
-
-              unless (length formalTypeParams == length actualTypeParams) $
-                 tcError $ WrongNumberOfFunctionTypeArgumentsError funname
-                           (length formalTypeParams) (length actualTypeParams)
-
-              let bindings = zip formalTypeParams actualTypeParams
-                  expectedFunType = replaceTypeVars bindings $
-                                   arrowType [getResultType pType] funResultType
-              expectedFunType' <- resolveType expectedFunType
-              seqType `assertSubtypeOf` expectedFunType'
-              return expectedFunType
-          | otherwise = error $ "Function that is callable but distinct from" ++
-                         " 'VarAccess' or 'FunctionAsValue' AST node used."
 
     doTypecheck mcall
       | isMethodCall mcall = do
@@ -1648,3 +1641,38 @@ typecheckPrivateModifier target name = do
   unless (isThisAccess target) $
     when (isPrivateMethod header) $
        tcError $ PrivateAccessModifierTargetError name
+
+typecheckParametricFun argTypes eSeqFunc
+  | isVarAccess eSeqFunc || isClosure eSeqFunc = do
+      let seqType = AST.getType eSeqFunc
+          resultType = getResultType seqType
+          expectedFunType = arrowType argTypes resultType
+      seqType `assertSubtypeOf` expectedFunType
+      return expectedFunType
+  | isFunctionAsValue eSeqFunc = do
+      let funname = (qname eSeqFunc)
+          actualTypeParams = typeArgs eSeqFunc
+          seqType = AST.getType eSeqFunc
+          funResultType = getResultType seqType
+      result <- findVar funname
+      ty <- case result of
+          Just (_, ty) -> return ty
+          Nothing -> tcError $ UnboundFunctionError funname
+      let formalTypeParams = getTypeParams ty
+      unless (length formalTypeParams == length actualTypeParams) $
+         tcError $ WrongNumberOfFunctionTypeArgumentsError funname
+                   (length formalTypeParams) (length actualTypeParams)
+      let bindings = zip formalTypeParams actualTypeParams
+          expectedFunType = replaceTypeVars bindings $
+                                   arrowType argTypes funResultType
+      expectedFunType' <- resolveType expectedFunType
+      seqType `assertSubtypeOf` expectedFunType'
+      return expectedFunType
+  | otherwise = error $ "Function that is callable but distinct from" ++
+                        " 'VarAccess' or 'FunctionAsValue' AST node used."
+  where
+    isVarAccess VarAccess{} = True
+    isVarAccess _ = False
+
+    isFunctionAsValue FunctionAsValue{} = True
+    isFunctionAsValue _ = False
