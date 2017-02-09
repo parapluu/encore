@@ -718,7 +718,7 @@ classDecl = do
     reserved "class"
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
-    ccomposition <- optional (do{reservedOp ":"; traitComposition})
+    ccomposition <- optional (do{colon; traitComposition})
     return $ L.IndentMany
                Nothing
                (buildClass cmeta activity name params ccomposition)
@@ -859,7 +859,7 @@ matchClause = do
       mchandler <- expression
       return $ L.IndentNone (False, MatchClause{mcpattern, mcguard, mchandler})
     blockClause mcpattern mcguard = do
-      reservedOp "do"
+      reserved "do"
       return $ L.IndentSome Nothing
                (\body -> return (True, MatchClause{mcpattern
                                                   ,mcguard
