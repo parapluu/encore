@@ -183,9 +183,18 @@ selfTypeField = Nam $ encoreName "self_type" ""
 methodImplName :: Ty.Type -> ID.Name -> CCode Name
 methodImplName clazz mname = Nam $ methodImplNameStr clazz mname
 
+forwardingMethodImplName :: Ty.Type -> ID.Name -> CCode Name
+forwardingMethodImplName clazz mname =
+  Nam $ forwardingMethodImplNameStr clazz mname
+
+-- TODO: Rename these to "callMethodFutureName"
 methodImplFutureName :: Ty.Type -> ID.Name -> CCode Name
 methodImplFutureName clazz mname =
   Nam $ methodImplFutureNameStr clazz mname
+
+methodImplForwardName :: Ty.Type -> ID.Name -> CCode Name
+methodImplForwardName clazz mname =
+  Nam $ methodImplForwardNameStr clazz mname
 
 methodImplOneWayName :: Ty.Type -> ID.Name -> CCode Name
 methodImplOneWayName clazz mname =
@@ -200,9 +209,18 @@ methodImplNameStr :: Ty.Type -> ID.Name -> String
 methodImplNameStr clazz mname =
   encoreName "method" $ qualifyRefType clazz ++ "_" ++ show mname
 
+forwardingMethodImplNameStr :: Ty.Type -> ID.Name -> String
+forwardingMethodImplNameStr clazz mname =
+  encoreName "forwarding_method" $ qualifyRefType clazz ++ "_" ++ show mname
+
+-- TODO: Rename these to "callMethodFutureNameStr"
 methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
 methodImplFutureNameStr clazz mname =
   methodImplNameStr clazz mname ++ "_future"
+
+methodImplForwardNameStr :: Ty.Type -> ID.Name -> String
+methodImplForwardNameStr clazz mname =
+  methodImplNameStr clazz mname ++ "_forward"
 
 methodImplOneWayNameStr :: Ty.Type -> ID.Name -> String
 methodImplOneWayNameStr clazz mname =

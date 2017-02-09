@@ -24,6 +24,7 @@ import CCode.PrettyCCode ()
 import Data.List
 
 import qualified AST.AST as A
+import qualified AST.Util as Util
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -148,7 +149,9 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                    Var "_fut" :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
-                   Statement $
+               Statement $
+               if null $ Util.filter A.isForward (A.mbody mdecl)
+               then
                    Call futureFulfil
                         [AsExpr encoreCtxVar,
                          AsExpr $ Var "_fut",
@@ -157,6 +160,12 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                (encoreCtxVar : thisVar :
                                 pMethodArrName :
                                 map (AsLval . argName . A.pname) mParams))]
+               else
+                 Call (forwardingMethodImplName cname mName)
+                          (encoreCtxVar : thisVar :
+                           pMethodArrName :
+                           map (AsLval . argName . A.pname) mParams ++
+                           [Var "_fut"])
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
              mType   = A.methodType mdecl
@@ -174,9 +183,17 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                  (Comm "Not tracing the future in a oneWay send")
              methodCall =
                  Statement $
+               if null $ Util.filter A.isForward (A.mbody mdecl)
+               then
                    Call (methodImplName cname mName)
                         (encoreCtxVar : thisVar : pMethodArrName :
                            map (AsLval . argName . A.pname) mParams)
+               else
+                 Call (forwardingMethodImplName cname mName)
+                          (encoreCtxVar : thisVar :
+                           pMethodArrName :
+                           map (AsLval . argName . A.pname) mParams ++
+                           [nullVar])
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
 

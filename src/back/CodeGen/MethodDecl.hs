@@ -5,10 +5,10 @@ module CodeGen.MethodDecl(translate) where
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
-import CodeGen.Expr ()
+import CodeGen.Expr()
 import CodeGen.Closure
 import CodeGen.ClassTable
-import CodeGen.Type(runtimeType)
+import CodeGen.Type(runtimeType, asEncoreArgT)
 import CodeGen.Function(returnStatement, translateLocalFunctions)
 import qualified CodeGen.Context as Ctx
 import qualified CodeGen.GC as Gc
@@ -32,21 +32,22 @@ instance Translatable A.MethodDecl (A.ClassDecl -> ProgramTable -> [CCode Toplev
     -- this code uses the chain of responsibility pattern to decouple
     -- methods from processing functions.
     let pipelineFn = arr (translateGeneral mdecl cdecl table) >>>
-                         methodImplWithFuture mdecl cdecl     >>>
-                         methodImplOneWay mdecl cdecl table   >>>
-                         methodImplStream mdecl cdecl table
+                         callMethodWithFuture mdecl cdecl     >>>
+                         callMethodWithForward mdecl cdecl    >>>
+                         callMethodOneWay mdecl cdecl table   >>>
+                         callMethodStream mdecl cdecl table
     in pipelineFn []
 
 encoreRuntimeTypeParam = (Ptr (Ptr ponyTypeT), encoreRuntimeType)
 
-initialiseMethodDecl cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+formalMethodArguments cname = [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                               (Ptr . AsType $ classTypeName cname, thisVar),
                               encoreRuntimeTypeParam]
 
 translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                  cdecl@(A.Class {A.cname}) table code
   | A.isStreamMethod mdecl =
-    let args = initialiseMethodDecl cname ++
+    let args = formalMethodArguments cname ++
                (stream, streamHandle) : zip argTypes argNames
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
@@ -57,19 +58,32 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                        bodys, streamCloseStmt])])
   | otherwise =
     let returnType = translate mType
-        args = initialiseMethodDecl cname ++
+        args = formalMethodArguments cname ++
                if A.isMainMethod cname mName && null argNames
                then [(array, Var "_argv")]
                else zip argTypes argNames
-    in
-      code ++ (return $ Concat $ locals ++ closures ++
-               [Function returnType name args
+        normalMethodImpl =
+            Function returnType name args
                  (Seq [dtraceMethodEntry thisVar mName argNames
                       ,parametricMethodTypeVars
                       ,extractTypeVars
                       ,bodys
                       ,dtraceMethodExit thisVar mName
-                      ,returnStatement mType bodyn])])
+                      ,returnStatement mType bodyn])
+        forwardingMethodImpl =
+            Function void nameForwarding (args ++ [(future, Var "_fut")])
+                 (Seq [dtraceMethodEntry thisVar mName argNames
+                      ,parametricMethodTypeVars
+                      ,extractTypeVars
+                      ,forwardingBody
+                      ,dtraceMethodExit thisVar mName
+                      ,Statement $ returnForForwardingMethod returnType])
+    in
+      code ++ return (Concat $ locals ++ closures ++ tasks ++
+                               [normalMethodImpl] ++
+                               if null $ Util.filter A.isForward mbody
+                               then []
+                               else [forwardingMethodImpl])
   where
       mName = A.methodName mdecl
       localNames = map (ID.qLocal . A.functionName) mlocals
@@ -80,6 +94,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
       locals = translateLocalFunctions newTable localized
       mType = A.methodType mdecl
       name = methodImplName cname (A.methodName mdecl)
+      nameForwarding = forwardingMethodImplName cname (A.methodName mdecl)
       (encArgNames, encArgTypes) =
           unzip . map (A.pname &&& A.ptype) $ A.methodParams mdecl
       argNames = map (AsLval . argName) encArgNames
@@ -88,7 +103,10 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
       ctx = Ctx.setMtdCtx (Ctx.new subst newTable) mdecl
+      forwardingCtx = Ctx.newWithForwarding subst newTable
       ((bodyn,bodys),_) = runState (translate mbody) ctx
+      ((forwardingBodyName,forwardingBody),_) =
+        runState (translate mbody) forwardingCtx
       mTypeVars = A.methodTypeParams mdecl
       typeVars = Ty.getTypeParameters cname
       extractTypeVars = Seq $ assignTypeVar <$> typeVars <*> [Nothing]
@@ -113,12 +131,20 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                                 show oldName
         in A.setFunctionName newName fun
 
-methodImplWithFuture m cdecl@(A.Class {A.cname}) code
+      returnForForwardingMethod returnType =
+          let fulfilArgs = [AsExpr encoreCtxVar
+                           ,AsExpr $ Var "_fut"
+                           ,asEncoreArgT returnType
+                                (Cast returnType forwardingBodyName)]
+          in
+        If (Var "_fut") (Statement $ Call futureFulfil fulfilArgs) Skip
+
+callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
         fName = methodImplFutureName cname mName
-        args = initialiseMethodDecl cname ++ zip argTypes argNames
+        args = formalMethodArguments cname ++ zip argTypes argNames
         fBody = Seq $
            parametricMethodTypeVars :
            map assignTypeVar (Ty.getTypeParameters cname) ++
@@ -156,12 +182,55 @@ methodImplWithFuture m cdecl@(A.Class {A.cname}) code
       in Assign (Decl (Ptr ponyTypeT, AsLval fName))
                 (ArrAcc i encoreRuntimeType)
 
-methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
+-- TODO: Break out common code
+callMethodWithForward m cdecl@(A.Class {A.cname}) code
+  | A.isActive cdecl ||
+    A.isShared cdecl =
+    let retType = future
+        fName = methodImplForwardName cname mName
+        args = formalMethodArguments cname ++ zip argTypes argNames ++
+               [(future, futVar)]
+        fBody = Seq $
+           parametricMethodTypeVars :
+           map assignTypeVar (Ty.getTypeParameters cname) ++
+           Gc.ponyGcSendFuture argPairs ++
+           msg ++ [retStmt]
+    in code ++ [Function retType fName args fBody]
+  | otherwise = code
+  where
+    mName = A.methodName m
+    mParams = A.methodParams m
+    mTypeParams = A.methodTypeParams m
+    mType = A.methodType m
+    assignTypeVar ty =
+        let fName = typeVarRefName ty
+        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+    getVar name =
+        (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
+        `Dot`
+        name
+    argNames = map (AsLval . argName . A.pname) mParams
+    argTypes = map (translate . A.ptype) mParams
+    futVar = Var "_fut"
+    declFut = Decl (future, futVar)
+    futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
+                                      runtimeType mtype]
+    argPairs = zip (map A.ptype mParams) argNames
+    msg = expandMethodArgs (sendFutMsg cname) m
+    retStmt = Return futVar
+    mTypeVars = A.methodTypeParams m
+    parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
+    assignTypeVarMethod ty i =
+      let fName = typeVarRefName ty
+      in Assign (Decl (Ptr ponyTypeT, AsLval fName))
+                (ArrAcc i encoreRuntimeType)
+
+callMethodOneWay m cdecl@(A.Class {A.cname}) _ code
   | A.isActive cdecl ||
     A.isShared cdecl =
       let retType = void
           fName = methodImplOneWayName cname mName
-          args = initialiseMethodDecl cname ++ zip argTypes argNames
+          args = formalMethodArguments cname ++ zip argTypes argNames
           extractedTypeVars = map assignTypeVar (Ty.getTypeParameters cname)
           fBody = Seq $ parametricMethodTypeVars : extractedTypeVars ++
                         Gc.ponyGcSendOneway argPairs ++ msg
@@ -193,11 +262,11 @@ methodImplOneWay m cdecl@(A.Class {A.cname}) _ code
         `Dot`
         name
 
-methodImplStream m cdecl@(A.Class {A.cname}) _ code
+callMethodStream m cdecl@(A.Class {A.cname}) _ code
   | A.isStreamMethod m =
     let retType = stream
         fName = methodImplStreamName cname mName
-        args = initialiseMethodDecl cname ++ zip argTypes argNames
+        args = formalMethodArguments cname ++ zip argTypes argNames
         fBody = Seq $ [assignFut] ++ Gc.ponyGcSendStream argPairs ++
                       msg ++ [retStmt]
     in code ++ [Function retType fName args fBody]
