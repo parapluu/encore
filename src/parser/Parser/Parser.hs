@@ -190,6 +190,8 @@ reservedNames =
     ,"end"
     ,"eos"
     ,"false"
+    ,"repeat"
+    ,"return"
     ,"for"
     ,"fun"
     ,"if"
@@ -955,11 +957,11 @@ expr = notFollowedBy nl >>
      <|> letExpression
      <|> ifExpression
      <|> unlessIf
+     <|> explicitReturn
      <|> yield
      <|> try isEos
      <|> eos
      <|> suspend
-     <|> yield
      <|> new
      <|> sequence
      <|> miniLet
@@ -1383,10 +1385,16 @@ expr = notFollowedBy nl >>
                    return UIntLiteral
                <|> (hspace >> return IntLiteral)
         return $ kind emeta (fromInteger n)
+
       real = do
         emeta <- meta <$> getPosition
         realLit <- float
         return RealLiteral{emeta, realLit}
+
+      explicitReturn = do pos <- getPosition
+                          reserved "return"
+                          expr <- option (Skip (meta pos)) (do {expression})
+                          return $ Return (meta pos) expr
 
       bracketed =
           lineFold $ \sc' ->

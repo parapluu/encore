@@ -978,6 +978,24 @@ instance Checkable Expr where
            eType `assertSubtypeOf` mType
            return $ setType voidType yield {val = eVal}
 
+    --  E |- expr : t
+    --  E |- currentMethod : _ -> t
+    -- -----------------------------
+    --  E |- return expr : t
+    doTypecheck ret@(Return {val}) =
+        do eVal <- typecheck val
+           cm <- asks currentMethod
+           cf <- asks currentFunction
+           ty <- case (cm, cf) of
+                   (Just method, _)   -> return (methodType method)
+                   (_, Just (n, t))   -> return t
+                   (Nothing, Nothing) -> error $ "typechecker.hs: Could not get method or function surrounding a return"
+
+           let eType = AST.getType eVal
+           unlessM (eType `subtypeOf` ty) $
+             pushError ret $ ExpectingOtherTypeError (show ty ++ " (type of the enclosing method or function)") eType
+           return $ setType eType ret {val = eVal}
+
     --  isStreaming(currentMethod)
     -- ----------------------------
     --  E |- eos : void

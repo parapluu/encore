@@ -94,6 +94,7 @@ getChildren Eos {} = []
 getChildren IsEos {target} = [target]
 getChildren StreamNext {target} = [target]
 getChildren Await {val} = [val]
+getChildren Return {val} = [val]
 getChildren Suspend {} = []
 getChildren FutureChain {future, chain} = [future, chain]
 getChildren FieldAccess {target} = [target]
@@ -166,6 +167,7 @@ putChildren [] e@(Eos {}) = e
 putChildren [target] e@(IsEos {}) = e{target = target}
 putChildren [target] e@(StreamNext {}) = e{target = target}
 putChildren [val] e@(Await {}) = e{val = val}
+putChildren [val] e@(Return {}) = e{val = val}
 putChildren [] e@(Suspend {}) = e
 putChildren [future, chain] e@(FutureChain {}) = e{future = future, chain = chain}
 putChildren [target] e@(FieldAccess {}) = e{target = target}
@@ -228,6 +230,7 @@ putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elemen
 putChildren _ e@(IsEos {}) = error "'putChildren l IsEos' expects l to have 1 element"
 putChildren _ e@(StreamNext {}) = error "'putChildren l StreamNext' expects l to have 1 element"
 putChildren _ e@(Await {}) = error "'putChildren l Await' expects l to have 1 element"
+putChildren _ e@(Return {}) = error "'putChildren l Return' expects l to have 1 element"
 putChildren _ e@(Suspend {}) = error "'putChildren l Suspend' expects l to have 0 elements"
 putChildren _ e@(FutureChain {}) = error "'putChildren l FutureChain' expects l to have 2 elements"
 putChildren _ e@(FieldAccess {}) = error "'putChildren l FieldAccess' expects l to have 1 element"

@@ -352,6 +352,7 @@ ppExpr Eos {} = "eos"
 ppExpr Await {val} = "await" <> parens (ppExpr val)
 ppExpr IsEos {target} = "eos" <> parens (ppExpr target)
 ppExpr StreamNext {target} = "getNext" <> parens (ppExpr target)
+ppExpr Return {val} = "return" <> parens (ppExpr val)
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
 ppExpr ArrayAccess {target = target@FieldAccess{}, index} =

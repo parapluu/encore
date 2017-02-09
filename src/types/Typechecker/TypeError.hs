@@ -14,7 +14,8 @@ module Typechecker.TypeError (Backtrace
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,currentMethodFromBacktrace) where
+                             ,currentMethodFromBacktrace
+                             ,currentFunctionFromBacktrace) where
 
 import Text.PrettyPrint
 import Text.Megaparsec(SourcePos)
@@ -76,6 +77,13 @@ currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
 currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
+
+currentFunctionFromBacktrace :: Backtrace -> Maybe (Name, Type)
+currentFunctionFromBacktrace [] = Nothing
+currentFunctionFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
+currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
+currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
+currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.

@@ -1,0 +1,22 @@
+def top_level1<t>(v:t) : t
+  return v
+
+def top_level2(v:Cell) : String {
+  v.f = return "42" ;
+  "4711"
+}
+
+passive class Cell
+  f : String
+  def to_s() : String
+    "".join(["Cell(", this.f, ")"])
+
+class Main
+  def main() : void
+    let c = new Cell in {
+       c.f = "7" ;
+       print c.to_s() ;
+       print top_level1(c).to_s() ;
+       print top_level2(c) ;
+       print c.to_s() ;
+    }

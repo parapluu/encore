@@ -1,0 +1,10 @@
+ *** Error during typechecking *** 
+"returnIllTyped2.enc" (line 3, column 5)
+Expected void (type of the enclosing method or function) but found expression of type 'int'
+In expression: 
+  return 42
+In expression: 
+  return 42
+In method 'main' of type 'void'
+In class 'Main'
+

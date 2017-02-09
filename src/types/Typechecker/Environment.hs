@@ -187,6 +187,9 @@ backtrace = bt
 currentMethod :: Environment -> Maybe MethodDecl
 currentMethod = currentMethodFromBacktrace . bt
 
+currentFunction :: Environment -> Maybe (Name, Type)
+currentFunction = currentFunctionFromBacktrace . bt
+
 formalBindings :: Type -> Type -> [(Type, Type)]
 formalBindings formal actual
     | isRefAtomType formal && isRefAtomType actual =

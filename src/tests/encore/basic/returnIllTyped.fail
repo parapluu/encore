@@ -1,0 +1,10 @@
+ *** Error during typechecking *** 
+"returnIllTyped.enc" (line 3, column 5)
+Expected String.String (type of the enclosing method or function) but found expression of type 'int'
+In expression: 
+  return 42
+In expression: 
+  return 42
+In method 'main' of type 'String.String'
+In class 'Main'
+

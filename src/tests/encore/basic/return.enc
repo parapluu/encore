@@ -1,0 +1,24 @@
+class Main
+  def a() : int
+    return 42
+  def b() : String
+    return "42"
+  def c() : void
+    let x = return in ()
+  def d() : void
+    return
+  def e() : String
+    return this.b()
+  def f() : int {
+    return 42 ;
+    "Dead string" ;
+    42/0 ;
+  }
+  def main() : void {
+    print this.a() ;
+    print this.b() ;
+    print this.c() ;
+    print this.d() ;
+    print this.e() ;
+    print this.f() ;
+  }

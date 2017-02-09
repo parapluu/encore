@@ -585,6 +585,8 @@ data Expr = Skip {emeta :: Meta Expr}
                          runassoc :: Bool}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | Return {emeta :: Meta Expr,
+                    val :: Expr}
           | MaybeValue {emeta :: Meta Expr,
                         mdt :: MaybeContainer }
           | Tuple {emeta :: Meta Expr,
