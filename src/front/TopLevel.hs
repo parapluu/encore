@@ -17,6 +17,7 @@ import System.Process
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
+import qualified Data.List.NonEmpty as NE(head)
 import Data.Maybe
 import Data.String.Utils
 import Control.Monad
@@ -26,6 +27,8 @@ import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
+import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
+import AST.Meta(showSourcePos)
 
 import Makefile
 import Utils
@@ -307,7 +310,10 @@ main =
        verbose options "== Parsing =="
        ast <- case parseEncoreProgram sourceName code of
                 Right ast  -> return ast
-                Left error -> abort $ show error
+                Left error -> do
+                  let pos = NE.head $ errorPos error
+                  abort $ showSourcePos pos ++ ":\n" ++
+                          parseErrorTextPretty error
 
        verbose options "== Importing modules =="
        programTable <- buildProgramTable importDirs preludePaths ast

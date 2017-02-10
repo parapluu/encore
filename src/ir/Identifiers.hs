@@ -10,7 +10,6 @@ module Identifiers where
 
 import Data.List
 import Data.Maybe
-import Text.Parsec.Pos as P
 
 -- | An identifier of a variable, a method, a parameter, etc.
 newtype Name = Name String deriving (Read, Eq, Ord)
@@ -18,7 +17,7 @@ instance Show Name where
   show (Name n) = n
 
 data Namespace = NSExplicit [Name]
-               | NSImplicit SourceName
+               | NSImplicit FilePath
                  deriving(Eq, Ord)
 
 instance Show Namespace where
@@ -41,7 +40,7 @@ isExplicitNamespace _ = False
 
 data QualifiedName =
     QName{qnspace  :: Maybe Namespace
-         ,qnsource :: Maybe SourceName
+         ,qnsource :: Maybe FilePath
          ,qnlocal  :: Name
          } deriving(Eq)
 
@@ -60,7 +59,7 @@ qName = qLocal . Name
 setNamespace :: Namespace -> QualifiedName -> QualifiedName
 setNamespace ns qname = qname{qnspace = Just ns}
 
-setSourceFile :: SourceName -> QualifiedName -> QualifiedName
+setSourceFile :: FilePath -> QualifiedName -> QualifiedName
 setSourceFile source qname = qname{qnsource = Just source}
 
 isLocalQName :: QualifiedName -> Bool

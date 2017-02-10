@@ -1,7 +1,8 @@
 module AST.Meta where
 
-import Text.Parsec(SourcePos, sourceLine, sourceColumn)
+import Text.Megaparsec(unPos, SourcePos(..))
 import Data.Maybe
+import Text.Printf
 
 import Types
 
@@ -21,14 +22,17 @@ meta pos = Meta {sourcePos = pos
                 ,sugared = Nothing
                 ,metaInfo = Unspecified}
 
+showSourcePos pos =
+  let line = unPos (sourceLine pos)
+      col = unPos (sourceColumn pos)
+      file = sourceName pos
+  in printf "%s (line %d, column %d)" (show file) line col
+
+showPos :: Meta a -> String
+showPos = showSourcePos . sourcePos
+
 getPos :: Meta a -> SourcePos
 getPos = sourcePos
-
-getLine :: Meta a -> Int
-getLine = sourceLine . sourcePos
-
-getCol :: Meta a -> Int
-getCol = sourceColumn . sourcePos
 
 setType :: Type -> Meta a -> Meta a
 setType newType m = m {metaType = Just newType}

@@ -8,13 +8,13 @@ grammar found in @doc/encore/@
 module Parser.Parser(parseEncoreProgram) where
 
 -- Library dependencies
-import Text.Parsec
-import Text.Parsec.String
-import qualified Text.Parsec.Token as P
-import Text.Parsec.Language
-import Text.Parsec.Expr
+import Text.Megaparsec
+import Text.Megaparsec.String
+import qualified Text.Megaparsec.Lexer as L
+import Text.Megaparsec.Expr
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe)
+import Control.Monad(void)
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -27,129 +27,139 @@ import AST.Meta hiding(Closure, Async)
 -- | 'parseEncoreProgram' @path@ @code@ assumes @path@ is the path
 -- to the file being parsed and will produce an AST for @code@,
 -- unless a parse error occurs.
-parseEncoreProgram :: FilePath -> String -> Either ParseError Program
 parseEncoreProgram = parse program
 
--- | This creates a tokenizer that reads a language derived from
--- the empty language definition 'emptyDef' extended as shown.
-lexer =
- P.makeTokenParser $
- emptyDef {
-   P.commentStart = "{-",
-   P.commentEnd = "-}",
-   P.commentLine = "--",
-   P.identStart = letter,
-   P.reservedNames = [
-     "shared"
-    ,"passive"
-    ,"class"
-    ,"def"
-    ,"stream"
-    ,"int"
-    ,"uint"
-    ,"string"
-    ,"char"
-    ,"real"
-    ,"bool"
-    ,"void"
-    ,"let"
-    ,"in"
-    ,"if"
-    ,"unless"
-    ,"then"
-    ,"else"
-    ,"repeat"
-    ,"for"
-    ,"while"
-    ,"get"
-    ,"yield"
-    ,"eos"
-    ,"getNext"
-    ,"new"
-    ,"this"
-    ,"await"
-    ,"suspend"
-    ,"and"
-    ,"or"
-    ,"not"
-    ,"true"
-    ,"false"
-    ,"null"
-    ,"embed"
-    ,"body"
-    ,"end"
-    ,"where"
-    ,"Fut"
-    ,"Par"
-    ,"Stream"
-    ,"import"
-    ,"qualified"
-    ,"module"
-    ,"peer"
-    ,"finish"
-    ,"trait"
-    ,"require"
-    ,"val"
-    ,"var"
-    ,"Maybe"
-    ,"Just"
-    ,"Nothing"
-    ,"match"
-    ,"with"
-    ,"when"
-    ,"where"
-    ,"liftf"
-    ,"liftv"
-    ,"extract"
-    ,"each"
-    ,"typedef"
-   ],
-   P.reservedOpNames = [
-     ":"
-    ,"="
-    ,"=="
-    ,"!="
-    ,"<"
-    ,">"
-    ,"<="
-    ,">="
-    ,"+"
-    ,"-"
-    ,"*"
-    ,"/"
-    ,"%"
-    ,"->"
-    ,".."
-    ,"\\"
-    ,"()"
-    ,"~~>"
-    ,"=>"
-    ,"|"
-    ]
-  }
+lineComment = L.skipLineComment "--"
+blockComment = L.skipBlockComment "{-" "-}"
+
+-- | A "space consumer", used for parsing white-space.
+sc :: Parser ()
+sc = L.space (void spaceChar) lineComment blockComment
+
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
+
+symbol :: String -> Parser String
+symbol = L.symbol sc
+
+charLiteral :: Parser Char
+charLiteral = char '\'' *> L.charLiteral <* char '\'' <* sc
+
+-- TODO: What about escape sequences? e.g. \n
+stringLiteral :: Parser String
+stringLiteral = char '"' >> manyTill L.charLiteral (char '"') <* sc
+
+-- TODO: Maybe we want to read negative numbers directly (instead
+-- of going via unary minus)
+natural :: Parser Integer
+natural = lexeme L.integer
+
+float :: Parser Double
+float = lexeme L.float
 
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
-identifier = P.identifier lexer
-symbol     = P.symbol lexer
-reserved   = P.reserved lexer
-reservedOp = P.reservedOp lexer
-operator   = P.operator lexer
-dot        = P.dot lexer
+reservedNames =
+    ["Fut"
+    ,"Just"
+    ,"Maybe"
+    ,"Nothing"
+    ,"Par"
+    ,"Stream"
+    ,"and"
+    ,"await"
+    ,"body"
+    ,"bool"
+    ,"char"
+    ,"class"
+    ,"def"
+    ,"each"
+    ,"else"
+    ,"embed"
+    ,"end"
+    ,"eos"
+    ,"extract"
+    ,"false"
+    ,"finish"
+    ,"for"
+    ,"get"
+    ,"getNext"
+    ,"if"
+    ,"import"
+    ,"in"
+    ,"int"
+    ,"let"
+    ,"liftf"
+    ,"liftv"
+    ,"match"
+    ,"module"
+    ,"new"
+    ,"not"
+    ,"null"
+    ,"or"
+    ,"passive"
+    ,"peer"
+    ,"qualified"
+    ,"real"
+    ,"repeat"
+    ,"require"
+    ,"shared"
+    ,"stream"
+    ,"suspend"
+    ,"then"
+    ,"this"
+    ,"trait"
+    ,"true"
+    ,"typedef"
+    ,"uint"
+    ,"unless"
+    ,"val"
+    ,"var"
+    ,"void"
+    ,"when"
+    ,"where"
+    ,"while"
+    ,"with"
+    ,"yield"
+   ]
+
+validIdentifierChar :: Parser Char
+validIdentifierChar = alphaNumChar <|> char '_' <|> char '\''
+
+validOpChar :: Parser Char
+validOpChar = oneOf ".:=!<>+-*/%\\~|"
+
+reserved :: String -> Parser ()
+reserved w = try $ string w *> notFollowedBy validIdentifierChar *> sc
+
+reservedOp :: String -> Parser ()
+reservedOp op = try $ string op <* notFollowedBy validOpChar *> sc
+
+identifier :: Parser String
+identifier = (lexeme . try) (p >>= check)
+  where
+    p = (:) <$> letterChar <*> many validIdentifierChar
+    check x = if x `elem` reservedNames
+              -- TODO: Change from tutorial default
+              then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+              else return x
+
+dot        = symbol "."
 bang       = symbol "!"
 bar        = symbol "|"
 dotdot     = symbol ".."
-commaSep   = P.commaSep lexer
-commaSep1  = P.commaSep1 lexer
-colon      = P.colon lexer
-semi       = P.semi lexer
-semiSep    = P.semiSep lexer
-comma      = P.comma lexer
-parens     = P.parens lexer
-angles     = P.angles lexer
-brackets   = P.brackets lexer
-braces     = P.braces lexer
+colon      = symbol ":"
+semi       = symbol ";"
+comma      = symbol ","
+commaSep   = (`sepBy` comma)
+commaSep1  = (`sepBy1` comma)
+semiSep    = (`sepBy` semi)
+parens     = between (symbol "(") (symbol ")")
+angles     = between (symbol "<") (symbol ">")
+brackets   = between (symbol "[") (symbol "]")
+braces     = between (symbol "{") (symbol "}")
 maybeBraces p = braces p <|> p
+
 encoreEscapeStart = symbol "#{"
 encoreEscapeEnd = symbol "}"
 encoreEscaped p = do
@@ -158,19 +168,13 @@ encoreEscaped p = do
   encoreEscapeEnd
   return x
 
-stringLiteral = P.stringLiteral lexer
-charLiteral = P.charLiteral lexer
-natural = P.natural lexer
-float = P.float lexer
-whiteSpace = P.whiteSpace lexer
-
 modulePath :: Parser [Name]
 modulePath =
-    (Name <$> (lookAhead upper >> identifier)) `sepBy1`
-    try (dot >> lookAhead upper)
+    (Name <$> (lookAhead upperChar >> identifier)) `sepBy1`
+    try (dot >> lookAhead upperChar)
 
 typ :: Parser Type
-typ = buildExpressionParser opTable singleType
+typ = makeExprParser singleType opTable
     where
       opTable = [
                  [typeOp "*" conjunctiveType],
@@ -183,14 +187,14 @@ typ = buildExpressionParser opTable singleType
                  [arrow]
                 ]
       typeOp op constructor =
-          Infix (do reservedOp op
-                    return constructor) AssocLeft
+          InfixL (do reservedOp op
+                     return constructor)
       typeConstructor op constructor =
           Prefix (do reserved op
                      return constructor)
       arrow =
-          Infix (do reservedOp "->"
-                    return (arrowType . unfoldArgs)) AssocRight
+          InfixR (do reservedOp "->"
+                     return (arrowType . unfoldArgs))
           where
             unfoldArgs ty
                 | isTupleType ty = getArgTypes ty
@@ -215,7 +219,7 @@ typ = buildExpressionParser opTable singleType
         return $ arrayType ty
       embed = do
         reserved "embed"
-        ty <- manyTill anyChar $ try $ do {space; reserved "end"}
+        ty <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
         return $ ctype ty
       range = do
         reserved "Range"
@@ -240,7 +244,7 @@ typ = buildExpressionParser opTable singleType
 
 typeVariable :: Parser Type
 typeVariable = do
-  notFollowedBy upper
+  notFollowedBy upperChar
   id <- identifier
   return $ typeVar id
   <?> "lower case type variable"
@@ -260,7 +264,7 @@ program :: Parser Program
 program = do
   source <- sourceName <$> getPosition
   optional hashbang
-  whiteSpace
+  sc
   moduledecl <- moduleDecl
   imports <- many importdecl
   etls <- embedTL
@@ -277,9 +281,9 @@ moduleDecl :: Parser ModuleDecl
 moduleDecl = option NoModule $ do
   modmeta <- meta <$> getPosition
   reserved "module"
-  lookAhead upper
+  lookAhead upperChar
   modname <- Name <$> identifier
-  modexports <- optionMaybe (parens ((Name <$> identifier) `sepEndBy` comma))
+  modexports <- optional (parens ((Name <$> identifier) `sepEndBy` comma))
   return Module{modmeta
                ,modname
                ,modexports
@@ -291,9 +295,9 @@ importdecl = do
   reserved "import"
   iqualified <- option False $ reserved "qualified" >> return True
   itarget <- explicitNamespace <$> modulePath
-  iselect <- optionMaybe $ parens ((Name <$> identifier) `sepEndBy` comma)
-  ialias <- optionMaybe $ reserved "as" >> (explicitNamespace <$> modulePath)
-  ihiding <- optionMaybe $
+  iselect <- optional $ parens ((Name <$> identifier) `sepEndBy` comma)
+  ialias <- optional $ reserved "as" >> (explicitNamespace <$> modulePath)
+  ihiding <- optional $
              reserved "hiding" >>
              parens ((Name <$> identifier) `sepEndBy` comma)
   return Import{imeta
@@ -309,12 +313,12 @@ embedTL :: Parser EmbedTL
 embedTL = do
   pos <- getPosition
   (try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; string "body"}
-           code <- manyTill anyChar $ try $ do {space; reserved "end"}
+           header <- manyTill anyChar $ try $ do {spaceChar; string "body"}
+           code <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
            return $ EmbedTL (meta pos) header code
        ) <|>
    try (do string "embed"
-           header <- manyTill anyChar $ try $ do {space; reserved "end"}
+           header <- manyTill anyChar $ try $ do {spaceChar; reserved "end"}
            return $ EmbedTL (meta pos) header ""
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
@@ -325,7 +329,7 @@ typedef :: Parser Typedef
 typedef = do
   typedefmeta <- meta <$> getPosition
   reserved "typedef"
-  name <- lookAhead upper >> identifier
+  name <- lookAhead upperChar >> identifier
   params <- optionalTypeParameters
   reservedOp "="
   typedeftype <- typ
@@ -386,7 +390,7 @@ localFunctions :: Parser [Function]
 localFunctions =
     option [] $ do
       reserved "where"
-      locals <- many1 (try regularFunction <|> matchingFunction)
+      locals <- some (try regularFunction <|> matchingFunction)
       reserved "end"
       return locals
 
@@ -430,7 +434,7 @@ traitDecl :: Parser TraitDecl
 traitDecl = do
   tmeta <- meta <$> getPosition
   reserved "trait"
-  ident <- lookAhead upper >> identifier
+  ident <- lookAhead upperChar >> identifier
   params <- optionalTypeParameters
   (treqs, tmethods) <- maybeBraces traitBody
   return Trait{tmeta
@@ -455,22 +459,22 @@ traitDecl = do
       return RequiredMethod{rheader}
 
 traitComposition :: Parser TraitComposition
-traitComposition = buildExpressionParser opTable includedTrait
+traitComposition = makeExprParser includedTrait opTable
     where
       opTable = [
                  [compositionOp "*" Conjunction],
                  [compositionOp "+" Disjunction]
                 ]
       compositionOp op constructor =
-          Infix (do reservedOp op
-                    return constructor) AssocLeft
+          InfixL (do reservedOp op
+                     return constructor)
 
       includedTrait =
             trait
         <|> parens traitComposition
         <?> "trait-inclusion"
       trait = do
-        notFollowedBy lower
+        notFollowedBy lowerChar
         full <- modulePath
         let ns = explicitNamespace $ init full
             refId = show $ last full
@@ -497,9 +501,9 @@ classDecl = do
   cmeta <- meta <$> getPosition
   activity <- parseActivity
   reserved "class"
-  name <- lookAhead upper >> identifier
+  name <- lookAhead upperChar >> identifier
   params <- optionalTypeParameters
-  ccomposition <- optionMaybe (do{reservedOp ":"; traitComposition})
+  ccomposition <- optional (do{reservedOp ":"; traitComposition})
   (cfields, cmethods) <- maybeBraces classBody
   return Class{cmeta
               ,cname = setRefNamespace emptyNamespace $
@@ -596,7 +600,7 @@ methodDecl = do
           return (mheader, mbody)
 
 modifiersDecl :: Parser AccessModifier
-modifiersDecl = (reserved "private" >> return Private)
+modifiersDecl = reserved "private" >> return Private
 
 
 arguments :: Parser Arguments
@@ -613,7 +617,7 @@ matchClause = do
   mcpattern <- expression <|> dontCare
   posGuard <- getPosition
   mcguard <- option (BTrue (meta posGuard)) guard
-  reserved "=>"
+  reservedOp "=>"
   mchandler <- expression
   return MatchClause{mcpattern, mcguard, mchandler}
     where
@@ -622,7 +626,7 @@ matchClause = do
                     return (VarAccess (meta pos) (qName "_"))
 
 expression :: Parser Expr
-expression = buildExpressionParser opTable highOrderExpr
+expression = makeExprParser highOrderExpr opTable
     where
       opTable = [
                  [arrayAccess],
@@ -650,17 +654,17 @@ expression = buildExpressionParser opTable highOrderExpr
                          reserved s
                          return (Unary (meta pos) operator)))
       textualOperator s binop =
-          Infix (try(do pos <- getPosition
-                        reserved s
-                        return (Binop (meta pos) binop))) AssocLeft
+          InfixL (try(do pos <- getPosition
+                         reserved s
+                         return (Binop (meta pos) binop)))
       prefix s operator =
           Prefix (do pos <- getPosition
                      reservedOp s
                      return (Unary (meta pos) operator))
       op s binop =
-          Infix (do pos <- getPosition
-                    reservedOp s
-                    return (Binop (meta pos) binop)) AssocLeft
+          InfixL (do pos <- getPosition
+                     reservedOp s
+                     return (Binop (meta pos) binop))
 
       typedExpression =
           Postfix (do pos <- getPosition
@@ -683,9 +687,9 @@ expression = buildExpressionParser opTable highOrderExpr
                                                        name=(Name name),
                                                        args }))
       chain =
-          Infix (do pos <- getPosition ;
-                    reservedOp "~~>" ;
-                    return (FutureChain (meta pos))) AssocLeft
+          InfixL (do pos <- getPosition ;
+                     reservedOp "~~>" ;
+                     return (FutureChain (meta pos)))
       partyLiftf =
           Prefix (do pos <- getPosition
                      reserved "liftf"
@@ -699,21 +703,21 @@ expression = buildExpressionParser opTable highOrderExpr
                      reserved "each"
                      return $ PartyEach (meta pos))
       partySequence =
-          Infix (do pos <- getPosition ;
-                    reservedOp ">>" ;
-                    return (PartySeq (meta pos))) AssocLeft
+          InfixL (do pos <- getPosition ;
+                     reservedOp ">>" ;
+                     return (PartySeq (meta pos)))
       partyParallel =
-          Infix (do pos <- getPosition ;
-                    reservedOp "||" ;
-                    return (PartyPar (meta pos))) AssocLeft
+          InfixL (do pos <- getPosition ;
+                     reservedOp "||" ;
+                     return (PartyPar (meta pos)))
       partyJoin =
           Prefix (do pos <- getPosition
                      reserved "join"
                      return (PartyJoin (meta pos)))
       assignment =
-          Infix (do pos <- getPosition ;
-                    reservedOp "=" ;
-                    return (Assign (meta pos))) AssocRight
+          InfixR (do pos <- getPosition ;
+                     reservedOp "=" ;
+                     return (Assign (meta pos)))
 
 
 highOrderExpr :: Parser Expr
@@ -794,7 +798,7 @@ expr  =  embed
                   first <- anyChar
                   rest <- manyTill anyChar (try $ lookAhead (end <|> encoreEscapeStart))
                   return (first:rest)
-                end = space >> reserved "end" >> return "end"
+                end = spaceChar >> reserved "end" >> return "end"
 
       path = do pos <- getPosition
                 root <- tupled <|>

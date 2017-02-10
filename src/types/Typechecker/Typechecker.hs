@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, ConstrainedClassMethods #-}
 
 {-|
 
@@ -20,7 +20,6 @@ import Control.Monad.Except
 import Control.Monad.State
 import Control.Arrow((&&&), second)
 import Debug.Trace
-import Text.Parsec.Pos as P
 
 -- Module dependencies
 import Identifiers
@@ -36,7 +35,7 @@ import Text.Printf (printf)
 
 
 -- | The top-level type checking function
-typecheckProgram :: Map SourceName LookupTable -> Program ->
+typecheckProgram :: Map FilePath LookupTable -> Program ->
                     (Either TCError (Environment, Program), [TCWarning])
 typecheckProgram table p = do
   let env = buildEnvironment table p

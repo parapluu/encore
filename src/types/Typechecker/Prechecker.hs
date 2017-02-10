@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
+
 {-|
 
 Typechecks an "AST.AST" and produces the same tree, extended with
@@ -16,7 +18,6 @@ import Data.Maybe
 import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
-import Text.Parsec.Pos as P
 import SystemUtils
 
 import Debug.Trace
@@ -31,7 +32,7 @@ import Typechecker.TypeError
 import Typechecker.Util
 
 -- | The top-level type checking function
-precheckProgram :: Map SourceName LookupTable -> Program ->
+precheckProgram :: Map FilePath LookupTable -> Program ->
                    (Either TCError Program, [TCWarning])
 precheckProgram table p =
   let env = buildEnvironment table p

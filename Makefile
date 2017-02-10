@@ -14,12 +14,12 @@ all: encorec
 typecheck:
 	cabal build --ghc-option=-fno-code
 
-encorec: dirs pony install-deps
+encorec: dirs pony stack-setup
 	export ENCORE_MODULES="$(CURDIR)/modules/" && \
-	stack --install-ghc --system-ghc install --local-bin-path $(RELEASE_DIR)
+	stack install --system-ghc --local-bin-path $(RELEASE_DIR)
 
-install-deps:
-	stack --install-ghc --system-ghc install --dependencies-only
+stack-setup:
+	stack setup --system-ghc
 
 test: encorec
 	make -C $(SRC_DIR) test
@@ -29,7 +29,7 @@ coverage: dirs pony
 	find src -name "*.tix" -print0 | xargs -0 rm -rf;
 	cabal clean;
 	cabal configure --enable-tests --enable-coverage;
-	ENCORE_BUNDLES="$(CURDIR)/bundles/" cabal build;
+	ENCORE_MODULES="$(CURDIR)/modules/" cabal build;
 	cp dist/build/encorec/encorec $(RELEASE_DIR);
 	-make -C $(SRC_DIR) test;
 	mkdir -p coverage;
@@ -42,10 +42,10 @@ coverage: dirs pony
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
-doc: install-deps
-	export ENCORE_BUNDLES="$(CURDIR)/bundles/" && \
+doc: stack-setup
+	export ENCORE_MODULES="$(CURDIR)/modules/" && \
 	make -C doc/encore/ && \
-	stack haddock
+	stack haddock --system-ghc
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -108,7 +108,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:
-	stack clean
+	rm -rf .stack-work/dist
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean

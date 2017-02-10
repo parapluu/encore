@@ -18,7 +18,6 @@ import Control.Arrow(first, second, (***), (&&&))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Text.Printf (printf)
-import Text.Parsec.Pos as P
 
 import Debug.Trace
 
@@ -29,7 +28,7 @@ import Types
 import Typechecker.TypeError
 
 data LookupTable = LookupTable {
-   sourceFile       :: SourceName
+   sourceFile       :: FilePath
   ,isQualified      :: Bool
   ,allNames         :: [Name]
   ,selectiveExports :: Maybe [Name]
@@ -84,7 +83,7 @@ data Environment = Env {
   defaultNamespace :: Namespace,
   lookupTables   :: Map Namespace LookupTable,
   abstractTraitTable :: Map String TraitDecl,
-  namespaceTable :: Map SourceName Namespace,
+  namespaceTable :: Map FilePath Namespace,
   locals         :: VarTable,
   bindings       :: [(Type, Type)],
   typeParameters :: [Type],
@@ -102,7 +101,7 @@ emptyEnv = Env {
   bt = emptyBT
 }
 
-buildEnvironment :: Map SourceName LookupTable -> Program -> Environment
+buildEnvironment :: Map FilePath LookupTable -> Program -> Environment
 buildEnvironment tables Program{source, imports, moduledecl} =
   let defaultNamespace =
         if moduledecl == NoModule
@@ -131,7 +130,7 @@ buildEnvironment tables Program{source, imports, moduledecl} =
     ,bt = emptyBT
   }
   where
-    performImport :: [ImportDecl] -> (SourceName, LookupTable) ->
+    performImport :: [ImportDecl] -> (FilePath, LookupTable) ->
                      [(Namespace, LookupTable)]
     performImport imports (source, table) =
       case filter ((Just source ==) . isource) imports of
