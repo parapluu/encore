@@ -108,7 +108,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
 
 clean:
-	stack clean --system-ghc
+	rm -rf .stack-work/dist
 	rm -rf dist
 	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
