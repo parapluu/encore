@@ -2,33 +2,37 @@
 #define task_h
 
 #include <pony.h>
+#include <closure.h>
 
-typedef struct encore_task_s encore_task_s;
+typedef void promise_s;
 
-#include "encore.h"
-typedef encore_arg_t (*task_fn)(pony_ctx_t**, void*, void*);
+/** Spawns a task to eventually run the task_closure
+ *
+ * Spawns a task to run the closure. The return value is a promise
+ * (similar to a future except task is not attached to an actor).
+ */
+promise_s* spawn_task(pony_ctx_t ** ctx,
+                      pony_type_t ** runtimeType,
+                      closure_t *task_closure);
 
-extern __thread encore_actor_t* this_encore_task;
+/** Extracts the value from the task
+ *
+ * this is a blocking operation and the caller may be blocked if the task is
+ * not yet fulfilled.
+ */
+encore_arg_t task_get_value(pony_ctx_t ** ctx, promise_s *promise);
 
-// ==================================================================
-// setup runtime task type
-// ==================================================================
-void task_setup(pony_type_t const* const type);
-pony_type_t* task_gettype();
+/*
+ * Chains a new callback to the promise
+ */
+promise_s *task_chain_callback(pony_ctx_t **ctx,
+                               promise_s *p,
+                               pony_type_t *type,
+                               closure_t *c);
 
-// ==================================================================
-// create, attach future, schedule and run task
-// ==================================================================
-encore_task_s* task_mk(pony_ctx_t* ctx, task_fn const body, void* const env,
-                       void* const dependencies, pony_trace_fn trace);
-void task_schedule(encore_task_s const* const t);
-void task_attach_fut(encore_task_s* const t, void* const fut);  // optional
-encore_arg_t task_runner(encore_task_s const* const task); // run task
-
-// ==================================================================
-// clean up
-// ==================================================================
-void task_trace(pony_ctx_t *ctx, void* const);
-void task_free(encore_task_s* const task);
+/*
+ * Awaits until the promise has been fulfilled
+ */
+void promise_await(pony_ctx_t **ctx, promise_s *p);
 
 #endif

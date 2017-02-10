@@ -7,7 +7,6 @@ import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.Expr ()
 import CodeGen.Closure
-import CodeGen.Task
 import CodeGen.ClassTable
 import CodeGen.Type(runtimeType)
 import CodeGen.Function(returnStatement, translateLocalFunctions)
@@ -52,7 +51,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         streamCloseStmt = Statement $
           Call streamClose [encoreCtxVar, streamHandle]
     in
-      code ++ (return $ Concat $ locals ++ closures ++ tasks ++
+      code ++ (return $ Concat $ locals ++ closures ++
                [Function void name args
                  (Seq [parametricMethodTypeVars, extractTypeVars,
                        bodys, streamCloseStmt])])
@@ -63,7 +62,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                then [(array, Var "_argv")]
                else zip argTypes argNames
     in
-      code ++ (return $ Concat $ locals ++ closures ++ tasks ++
+      code ++ (return $ Concat $ locals ++ closures ++
                [Function returnType name args
                  (Seq [dtraceMethodEntry thisVar mName argNames
                       ,parametricMethodTypeVars
@@ -106,8 +105,6 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         name
       closures = map (\clos -> translateClosure clos typeVars newTable)
                      (reverse (Util.filter A.isClosure mbody))
-      tasks = map (\tas -> translateTask tas newTable) $
-                  reverse $ Util.filter A.isTask mbody
 
       localize cls prefix fun =
         let oldName = A.functionName fun

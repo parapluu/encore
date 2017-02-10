@@ -671,14 +671,6 @@ instance Checkable Expr where
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
 
-    --  E |- body : t
-    --  ------------------
-    --  E |- async body : t
-    doTypecheck task@(Async {body}) =
-        do eBody <- typecheckNotNull body
-           let returnType = AST.getType eBody
-           return $ setType (futureType returnType) task {body = eBody}
-
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t
     --  x1 != nullType .. xn != nullType

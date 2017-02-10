@@ -74,16 +74,11 @@ ponyMainMsgT = Typ ponyMainMsgName
 encMsgT :: CCode Ty
 encMsgT = Typ "encore_fut_msg_t"
 
-taskMsgT = Typ "encore_task_msg_s"
-
 encOnewayMsgT :: CCode Ty
 encOnewayMsgT = Typ "encore_oneway_msg_t"
 
 closure :: CCode Ty
 closure = Ptr $ Typ "closure_t"
-
-task :: CCode Ty
-task = Ptr $ Typ "encore_task_s"
 
 future :: CCode Ty
 future = Ptr $ Typ "future_t"
@@ -323,22 +318,6 @@ closureTraceName :: String -> CCode Name
 closureTraceName name =
     Nam $ encoreName "trace" name
 
-taskFunctionName :: String -> CCode Name
-taskFunctionName name =
-    Nam $ encoreName "task" name
-
-taskEnvName :: String -> CCode Name
-taskEnvName name =
-    Nam $ encoreName "task_env" name
-
-taskDependencyName :: String -> CCode Name
-taskDependencyName name =
-    Nam $ encoreName "task_dep" name
-
-taskTraceName :: String -> CCode Name
-taskTraceName name =
-    Nam $ encoreName "task_trace" name
-
 streamHandle :: CCode Lval
 streamHandle = Var "_stream"
 
@@ -392,9 +371,6 @@ msgId ref mname =
 futMsgId :: Ty.Type -> ID.Name -> CCode Name
 futMsgId ref mname =
     Nam $ encoreName "FUT_MSG" (qualifyRefType ref ++ "_" ++ show mname)
-
-taskMsgId :: CCode Name
-taskMsgId = Nam $ encoreName "MSG" "TASK"
 
 oneWayMsgId :: Ty.Type -> ID.Name -> CCode Name
 oneWayMsgId cls mname =
@@ -476,9 +452,6 @@ futureMkFn = Nam "future_mk"
 
 rangeMkFn :: CCode Name
 rangeMkFn = Nam "range_mk"
-
-taskMkFn :: CCode Name
-taskMkFn = Nam "task_mk"
 
 arrayMkFn :: CCode Name
 arrayMkFn = Nam "array_mk"
@@ -582,18 +555,6 @@ rangeStep = Nam "range_step"
 rangeAssertStep :: CCode Name
 rangeAssertStep = Nam "range_assert_step"
 
-taskAttachFut :: CCode Name
-taskAttachFut = Nam "task_attach_fut"
-
-taskSchedule :: CCode Name
-taskSchedule = Nam "task_schedule"
-
-taskRunner :: CCode Name
-taskRunner = Nam "task_runner"
-
-taskFree :: CCode Name
-taskFree = Nam "task_free"
-
 optionTypeRecName :: CCode Name
 optionTypeRecName = Nam "option_type"
 
@@ -605,4 +566,3 @@ stdout = Var "stdout"
 
 stderr :: CCode Lval
 stderr = Var "stderr"
-

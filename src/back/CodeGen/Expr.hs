@@ -1012,60 +1012,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                      [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
                      ))])
 
-  translate async@(A.Async{A.body, A.emeta}) =
-      do taskName <- Ctx.genNamedSym "task"
-         futName <- Ctx.genNamedSym "fut"
-         let metaId = Meta.getMetaId emeta
-             funName = taskFunctionName metaId
-             envName = taskEnvName metaId
-             dependencyName = taskDependencyName metaId
-             traceName = taskTraceName metaId
-             freeVars = filter (ID.isLocalQName . fst) $
-                        Util.freeVariables [] body
-             taskMk = Assign (Decl (task, Var taskName))
-                      (Call taskMkFn [encoreCtxName, funName, envName, dependencyName, traceName])
-             -- TODO: (kiko) refactor to use traceVariable from Trace.hs
-             traceFuture = Statement $ Call ponyTraceObject
-                    [Deref encoreCtxVar, Var futName, futureTypeRecName `Dot` Nam "trace"]
-             traceTask = Statement $ Call ponyTraceObject
-                    [Deref encoreCtxVar, Var taskName, AsLval $ Nam "task_trace" ]
-             traceEnv =  Statement $ Call ponyTraceObject
-                    [Deref encoreCtxVar, Var $ show envName, AsLval $ traceName ]
-             traceDependency =  Statement $ Call ponyTraceObject [Deref encoreCtxVar, Var $ show dependencyName, AsLval $ Nam "NULL" ]
-         packedEnv <- mapM (packFreeVars envName) freeVars
-         return $ (Var futName, Seq $ (encoreAlloc envName) : packedEnv ++
-                                      [encoreAlloc dependencyName,
-                                       taskRunner async futName,
-                                       taskMk,
-                                       Statement (Call taskAttachFut [Var taskName, Var futName]),
-                                       Statement (Call taskSchedule [Var taskName]),
-                                       -- TODO: (kiko) Refactor to use GC.hs
-                                       Embed $ "",
-                                       Embed $ "// --- GC on sending ----------------------------------------",
-                                       Statement $ Call ponyGcSendName [Deref encoreCtxVar],
-                                       traceFuture,
-                                       traceTask,
-                                       traceEnv,
-                                       traceDependency,
-                                       Statement $ Call ponySendDoneName [Deref encoreCtxVar],
-                                       Embed $ "// --- GC on sending ----------------------------------------",
-                                       Embed $ ""
-                                       ])
-
-      where
-        encoreAlloc name = Assign (Decl (Ptr $ Struct name, AsLval name))
-                               (Call C.encoreAllocName [AsExpr (Deref encoreCtxVar), Sizeof $ Struct name])
-        taskRunner async futName = Assign (Decl (C.future, Var futName))
-                                             (Call futureMkFn
-                                                [AsExpr encoreCtxVar, getRuntimeType async])
-        packFreeVars envName (qname, _) =
-            do c <- get
-               let tname = case Ctx.substLkp c qname of
-                              Just substName -> substName
-                              Nothing -> AsLval $ globalClosureName qname
-               return $ Assign ((Var $ show envName) `Arrow`
-                               fieldName (ID.qnlocal qname)) tname
-
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
     globalFunctionNames <- gets Ctx.getGlobalFunctionNames
