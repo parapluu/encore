@@ -61,7 +61,6 @@ struct closure_entry
 
   closure_entry_t *next;
 
-  bool use_future;
 };
 
 struct message_entry
@@ -224,11 +223,12 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       case DETACHED_CLOSURE:
         {
           encore_arg_t result = run_closure(ctx, current->closure, value);
-          if (current->use_future) {
+          if (current->future) {
             // This case happens when futures can be attached on.
             // As an optimisation to the ParT library, we do know
             // that certain functions in the ParT do not need to fulfil
-            // any future.
+            // any future, e.g. the ParT optimised version is called
+            // `future_chain_actor_void` and sets `future = NULL`
             future_fulfil(ctx, current->future, result);
           }
 
@@ -331,7 +331,6 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
   entry->actor = (cctx)->current;
   entry->future = r;
-  entry->use_future = true;
   entry->closure = c;
   entry->next = fut->children;
   fut->children = entry;
@@ -369,7 +368,6 @@ void future_chain_actor_void(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
   entry->actor = (cctx)->current;
   entry->future = NULL;
-  entry->use_future = false;
   entry->closure = c;
   entry->next = fut->children;
   fut->children = entry;
