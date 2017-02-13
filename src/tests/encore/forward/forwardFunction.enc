@@ -1,12 +1,15 @@
+-- This file was automatically converted by encorec
+
+fun ExtremelySlowTrain() : int
+  forward(new FixBug()).fix()
+end
 class FixBug
   def fix() : int
     42
-
-def ExtremelySlowTrain() : int
-  forward (new FixBug()).fix()
-  -- 42
-
+  end
+end
 class Main
-  def main() : void {
+  def main() : void
     ()
-  }
+  end
+end

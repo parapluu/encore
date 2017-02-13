@@ -359,7 +359,7 @@ ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
 ppExpr Get {val} = "get" <> parens (ppExpr val)
 ppExpr Yield {val} = "yield" <> parens (ppExpr val)
-ppExpr Forward {val} = "forward" <> parens (ppExpr val)
+ppExpr Forward {forwardExpr} = "forward" <> parens (ppExpr forwardExpr)
 ppExpr Eos {} = "eos"
 ppExpr Await {val} = "await" <> parens (ppExpr val)
 ppExpr IsEos {target} = "eos" <> parens (ppExpr target)

@@ -41,7 +41,6 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-<<<<<<< feab004597b4a63c098a3f26bdf369706cccae27
 data ExecContext =
     FunctionContext{fun :: Function}
   | MethodContext  {mdecl :: MethodDecl}

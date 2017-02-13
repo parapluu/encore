@@ -187,10 +187,9 @@ forwardingMethodImplName :: Ty.Type -> ID.Name -> CCode Name
 forwardingMethodImplName clazz mname =
   Nam $ forwardingMethodImplNameStr clazz mname
 
--- TODO: Rename these to "callMethodFutureName"
-methodImplFutureName :: Ty.Type -> ID.Name -> CCode Name
-methodImplFutureName clazz mname =
-  Nam $ methodImplFutureNameStr clazz mname
+callMethodFutureName :: Ty.Type -> ID.Name -> CCode Name
+callMethodFutureName clazz mname =
+  Nam $ callMethodFutureNameStr clazz mname
 
 methodImplForwardName :: Ty.Type -> ID.Name -> CCode Name
 methodImplForwardName clazz mname =
@@ -213,9 +212,8 @@ forwardingMethodImplNameStr :: Ty.Type -> ID.Name -> String
 forwardingMethodImplNameStr clazz mname =
   encoreName "forwarding_method" $ qualifyRefType clazz ++ "_" ++ show mname
 
--- TODO: Rename these to "callMethodFutureNameStr"
-methodImplFutureNameStr :: Ty.Type -> ID.Name -> String
-methodImplFutureNameStr clazz mname =
+callMethodFutureNameStr :: Ty.Type -> ID.Name -> String
+callMethodFutureNameStr clazz mname =
   methodImplNameStr clazz mname ++ "_future"
 
 methodImplForwardNameStr :: Ty.Type -> ID.Name -> String

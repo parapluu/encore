@@ -216,7 +216,7 @@ isMainClass cdecl =
 isStringClass :: ClassDecl -> Bool
 isStringClass cdecl =
     let ty = cname cdecl
-    in getId ty == "String"
+    in getId ty == "String" && isPassiveClassType ty
 
 instance HasMeta ClassDecl where
     getMeta = cmeta

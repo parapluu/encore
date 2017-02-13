@@ -1210,7 +1210,7 @@ functionCall fcall@A.FunctionCall{A.typeArguments = typeArguments
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
 
-callTheMethodFuture = callTheMethodForName methodImplFutureName
+callTheMethodFuture = callTheMethodForName callMethodFutureName
 
 callTheMethodForward extras =
   callTheMethodForNameWithExtraArguments extras methodImplForwardName

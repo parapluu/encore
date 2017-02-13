@@ -1,8 +1,11 @@
 class Foo
-  def foo_arg(arg: Fut int) : int
+  def foo_arg(arg: Fut[int]) : int
     forward arg
+  end
+end
 
 class Main
-  def main() : void {
+  def main() : void
     ()
-  }
+  end
+end

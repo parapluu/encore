@@ -1,14 +1,18 @@
+-- This file was automatically converted by encorec
+
 class Bar
   def bar() : int
     42
-
+  end
+end
 class Foo
-  def foo_type() : String {
-    forward (new Bar).bar();
+  def foo_type() : String
+    forward((new Bar).bar())
     ""
-  }
-
+  end
+end
 class Main
-  def main() : void {
+  def main() : void
     ()
-  }
+  end
+end

@@ -272,6 +272,9 @@ data Error =
   | ForwardInPassiveContext String
   | ForwardInFunction String
   | InternalError String
+  | ForwardArgumentError
+  | ForwardInPassiveContext
+  | ForwardInFunction
   | SimpleError String
 
 arguments 1 = "argument"
@@ -623,10 +626,10 @@ instance Show Error where
           pointer
             | While{} <- e = ". Consider using a for loop"
             | otherwise = ""
-    show (ForwardArgumentError msg) = msg
-    show (ForwardInPassiveContext msg) = msg
-    show (ForwardInFunction msg) = msg
     show (InternalError msg) = msg
+    show (ForwardArgumentError) = "Forward currently operates on method call and future chaining only"
+    show (ForwardInPassiveContext) = "Forward can not be used in passive classes"
+    show (ForwardInFunction) = "Forward can not be used in functions"
     show (SimpleError msg) = msg
 
 

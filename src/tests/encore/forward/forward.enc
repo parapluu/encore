@@ -1,11 +1,29 @@
-class Bar
-  def bar() : int
+-- This file was automatically converted by encorec
+
+class Worker
+  def work() : int
     42
-
-class Foo
+  end
+end
+class Lazy
+  def work() : int
+    if true then
+      forward((new Worker).work())
+    else
+      100
+    end
+    println("This should never run!")
+    0
+  end
   def foo() : int
-    forward (new Bar).bar()
-
+    this.work()
+  end
+end
 class Main
   def main() : void
-    print get (new Foo).foo()
+    println(get((new Lazy).work()))
+    (new Lazy)!work()
+    (new Lazy)!foo()
+    println(get((new Lazy).foo()))
+  end
+end

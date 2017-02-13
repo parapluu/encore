@@ -262,7 +262,7 @@ generateHeader p =
        if Ty.isPassiveClassType $ cname then
          []
        else
-         map (genericMethod methodImplFutureName future) nonStreamMethods ++
+         map (genericMethod callMethodFutureName future) nonStreamMethods ++
          map (genericMethod methodImplOneWayName void) nonStreamMethods ++
          map (genericMethod methodImplStreamName stream) streamMethods ++
          map forwardingMethod nonStreamMethods

@@ -79,7 +79,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                       ,dtraceMethodExit thisVar mName
                       ,Statement $ returnForForwardingMethod returnType])
     in
-      code ++ return (Concat $ locals ++ closures ++ tasks ++
+      code ++ return (Concat $ locals ++ closures ++
                                [normalMethodImpl] ++
                                if null $ Util.filter A.isForward mbody
                                then []
@@ -143,7 +143,7 @@ callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
-        fName = methodImplFutureName cname mName
+        fName = callMethodFutureName cname mName
         args = formalMethodArguments cname ++ zip argTypes argNames
         fBody = Seq $
            parametricMethodTypeVars :
