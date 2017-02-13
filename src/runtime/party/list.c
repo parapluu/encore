@@ -16,6 +16,24 @@ list_t* list_push(list_t* list, encore_arg_t data)
   return l;
 }
 
+list_t* list_append(list_t *initial, encore_arg_t data)
+{
+  list_t* l = (list_t*)POOL_ALLOC(list_t);
+  l->data = data;
+  l->next = NULL;
+
+  if (initial == NULL){
+    return l;
+  }
+
+  list_t *list = initial;
+  while(list->next){
+    list = list->next;
+  }
+  list->next = l;
+  return initial;
+}
+
 list_t* list_pop(list_t* list, encore_arg_t* data)
 {
   list_t *ln = NULL;

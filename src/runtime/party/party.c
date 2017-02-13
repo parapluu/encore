@@ -91,8 +91,8 @@ static inline void set_par_future_par(future_t * const fut,
   par->data.fp.fut = fut;
 }
 
-static inline void set_par_par(par_t * const rpar,
-                               par_t * const lpar,
+static inline void set_par_par(par_t * const lpar,
+                               par_t * const rpar,
                                par_t * const par){
   switch(par->tag){
   case PAR_PAR: {
@@ -407,11 +407,11 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 static inline list_t* extract_helper(pony_ctx_t **ctx, list_t * const list, par_t * const p){
   switch(p->tag){
   case EMPTY_PAR: return list;
-  case VALUE_PAR: return list_push(list, p->data.v.val);
+  case VALUE_PAR: return list_append(list, p->data.v.val);
   case FUTURE_PAR: {
     future_t *fut = p->data.f.fut;
     value_t val = future_get_actor(ctx, fut);
-    return list_push(list, val);
+    return list_append(list, val);
   }
   case PAR_PAR: {
     par_t *left = p->data.p.left;
@@ -430,7 +430,7 @@ static inline list_t* extract_helper(pony_ctx_t **ctx, list_t * const list, par_
     list_t* new_list = list;
     for(size_t i=0; i<size; i++){
       value_t value = array_get(ar, i);
-      new_list = list_push(new_list, value);
+      new_list = list_append(new_list, value);
     }
     return new_list;
   }
@@ -639,7 +639,10 @@ static array_t* collect_future_from_party(pony_ctx_t **ctx,
       ++counter;
       futures = list_push(futures, (value_t) {.p = party_get_fut(current) });
       l = list_pop(l, (value_t*)&current);
-      // TODO: what about FUTPAR_PAR. It should be added as well
+    } else if(tag == FUTUREPAR_PAR){
+      ++counter;
+      futures = list_push(futures, (value_t) {.p = party_get_futpar(current) });
+      l = list_pop(l, (value_t*)&current);
     } else {
       l = list_pop(l, (value_t*)&current);
     }
