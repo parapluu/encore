@@ -1,5 +1,6 @@
-encorec
-============
+```
+||:encorec:||
+```
 
 The Encore compiler.
 
