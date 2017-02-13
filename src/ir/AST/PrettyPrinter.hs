@@ -278,7 +278,6 @@ ppExpr TypedExpr {body, ty} = ppExpr body <+> ":" <+> ppType ty
 ppExpr Foreach {item, arr, body} =
   "foreach" <+> ppName item <+> "in" <+> ppExpr arr <>
                 braces (ppExpr body)
-ppExpr FinishAsync {body} = "finish" <+> ppExpr body
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = "not"

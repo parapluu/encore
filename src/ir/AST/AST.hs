@@ -592,8 +592,6 @@ data Expr = Skip {emeta :: Meta Expr}
                      item :: Name,
                      arr :: Expr,
                      body :: Expr}
-          | FinishAsync {emeta :: Meta Expr,
-                         body :: Expr}
           | Let {emeta :: Meta Expr,
                  mutability :: Mutability,
                  decls :: [(Name, Expr)],
@@ -723,10 +721,6 @@ isThisAccess _ = False
 isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
-
-isTask :: Expr -> Bool
-isTask Async {} = True
-isTask _ = False
 
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True

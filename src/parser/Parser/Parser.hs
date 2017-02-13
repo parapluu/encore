@@ -80,7 +80,6 @@ reservedNames =
     ,"eos"
     ,"extract"
     ,"false"
-    ,"finish"
     ,"for"
     ,"get"
     ,"getNext"
@@ -745,7 +744,6 @@ expr  =  embed
      <|> reduce
      <|> match
      <|> task
-     <|> finishTask
      <|> for
      <|> foreach
      <|> extract
@@ -987,10 +985,6 @@ expr  =  embed
                    arr <- expression
                    body <- expression
                    return $ Foreach (meta pos) (Name item) arr body
-      finishTask = do pos <- getPosition
-                      reserved "finish"
-                      body <- expression
-                      return $ FinishAsync (meta pos) body
       arraySize = do pos <- getPosition
                      bar
                      arr <- expression

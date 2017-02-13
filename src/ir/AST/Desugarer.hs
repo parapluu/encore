@@ -260,32 +260,6 @@ desugar Repeat{emeta, name, times, body} =
                                         (IntLiteral emeta 1))])
        }
 
---   finish { f1 = async e1; f2 = async e2 }
--- into
---   f1 = async e1
---   f2 = async e2
---   get f1
---   get f2
-
-desugar FinishAsync{emeta, body} =
-    Seq emeta [desugarBody body]
-  where
-    isAsyncTask (Async _ _) = True
-    isAsyncTask _ = False
-
-    desugarBody seq@Seq{eseq, emeta} =
-      let sizeSeq = length eseq
-          bindings = [((Name $ "__seq__" ++ show i , eseq !! i)
-                       ,isAsyncTask $ eseq!!i) | i <- [0..sizeSeq-1]]
-          stmts = map fst $ List.filter snd bindings
-      in
-          Let{emeta
-             ,mutability = Var
-             ,decls = map fst bindings
-             ,body = Seq emeta [Await emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts]
-             }
-    desugarBody a = a
-
 desugar Async{emeta, body} =
   FunctionCall {emeta, typeArguments=[], qname, args}
   where
