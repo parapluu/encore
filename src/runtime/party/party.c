@@ -3,23 +3,21 @@
 #include <stdio.h>
 #include <assert.h>
 #include "closure.h"
-#include "list.c"
 #include <array.h>
 #include <math.h>
 #include <encore.h>
+#include "structure.h"
+#include "list.c"
+#include "set.h"
 
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
-
-// TODO: add JOIN_PAR
-enum PTAG { EMPTY_PAR, VALUE_PAR, FUTURE_PAR, FUTUREPAR_PAR, PAR_PAR, ARRAY_PAR};
 
 typedef struct EMPTY_PARs {} EMPTY_PARs;
 typedef struct VALUE_PARs { value_t val; char padding[8];} VALUE_PARs;
 typedef struct FUTURE_PARs { future_t* fut; } FUTURE_PARs;
 typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
 typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
-typedef struct JOIN_PARs { struct par_t* join; } JOIN_PARs;
 typedef struct ARRAY_PARs { struct array_t* array; } ARRAY_PARs;
 
 struct par_t {
@@ -31,7 +29,6 @@ struct par_t {
       FUTURE_PARs f;
       PAR_PARs p;
       FUTUREPAR_PARs fp;
-      JOIN_PARs j;
       ARRAY_PARs a;
     } data;
 };
@@ -43,15 +40,35 @@ pony_type_t party_type =
   .trace=party_trace
 };
 
-#define get_rtype(x) (x)->rtype
+PTAG party_tag(par_t const * const p){
+  return p->tag;
+}
 
-// MACRO for setting the parallel collection. Needs gcc-4.9
-/* #define set_par(elem1, elem2, par) \ */
-/*   _Generic((elem1),                \ */
-/*   future_t*: set_par_future,       \ */
-/*   par_t*: set_par_par,             \ */
-/*   array_t*: set_par_array,         \ */
-/*   encore_arg_t: set_par_value)(elem1, elem2, par) */
+encore_arg_t party_get_v(par_t const * const p){
+  return p->data.v.val;
+}
+
+future_t* party_get_fut(par_t const * const p){
+  return p->data.f.fut;
+}
+
+par_t* party_get_parleft(par_t const * const p){
+    return p->data.p.left;
+}
+
+par_t* party_get_parright(par_t const * const p){
+    return p->data.p.right;
+}
+
+future_t* party_get_futpar(par_t const * const p){
+  return p->data.fp.fut;
+}
+
+pony_type_t* party_get_type(par_t * const p){
+  return p->rtype;
+}
+
+#define get_rtype(x) (x)->rtype
 
 static inline void set_par_value(encore_arg_t val,
                                  void * __attribute__((unused))null,
@@ -511,4 +528,180 @@ par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
     build_party_tree(ctx, &root, par);
   }
   return root;
+}
+
+
+//----------------------------------------
+// INTERSECTION COMBINATOR
+//----------------------------------------
+
+struct env_collect_from_party {
+  closure_t *call;
+  closure_t *cmp;
+  future_t *promise;
+  par_t *par;
+  int counter;
+};
+
+static void trace_collect_from_party(pony_ctx_t *_ctx, void *p) {
+  pony_ctx_t** ctx = &_ctx;
+  struct env_collect_from_party *this = p;
+  encore_trace_object(*ctx, this->par, party_trace);
+  encore_trace_object(*ctx, this->promise, future_trace);
+  encore_trace_object(*ctx, this->call, closure_trace);
+  encore_trace_object(*ctx, this->cmp, closure_trace);
+}
+
+static value_t grouping_futures_async(pony_ctx_t** ctx,
+                                      pony_type_t** runtimeType,
+                                      value_t _args[],
+                                      void* env) {
+  par_t *par = ((struct env_collect_from_party*) env)->par;
+  closure_t *clos = ((struct env_collect_from_party*) env)->call;
+  closure_t *cmp = ((struct env_collect_from_party*) env)->cmp;
+  future_t *promise = ((struct env_collect_from_party*) env)->promise;
+
+  int prev_counter =
+      __atomic_fetch_sub(&((struct env_collect_from_party*) env)->counter,
+                         1,
+                         __ATOMIC_RELAXED);
+
+  if (prev_counter == 1) {
+    value_t args[] = { [0] = {.p=par}, [1] = {.p = cmp} };
+    value_t result = closure_call(ctx, clos, args);
+    future_fulfil(ctx, promise, result);
+  }
+  return (value_t) {.p = NULL};
+}
+
+
+// OPTIMISATION: it should be done in parallel. Spawn task inside.
+// OPTIMISATION: It would be great to have a SetPar struture and perform
+//               a transformation from ParT to SetParT, HashParT, etc
+static value_t intersection_as_closure(pony_ctx_t** ctx,
+                                       pony_type_t** runtimeType,
+                                       value_t args[],
+                                       void* env)   // env is always NULL;
+{
+  // Initially we got two ParT which were merged into one.
+  // Unmerge the ParT and perform their intersection
+  par_t *p = args[0].p;
+  par_t *left = party_get_parleft(p);
+  par_t *right = party_get_parright(p);
+  closure_t *cmp = args[1].p;
+  pony_type_t *type = runtimeType[0];
+
+  // 1. convert right to Set
+  // 2. convert left to Set
+  // 3. intersection
+  set_s *sl = party_to_set(ctx, left, cmp, type);
+  set_s *sr = party_to_set(ctx, right, cmp, type);
+  set_s *result = party_set_intersection(ctx, sl, sr);
+  return (value_t){.p = party_set_to_party(ctx, result, type) };
+}
+
+static value_t distinct_as_closure(pony_ctx_t** ctx,
+                                   pony_type_t** runtimeType,
+                                   value_t args[],
+                                   void* env)   // env is always NULL;
+{
+  par_t *p = args[0].p; // it's always ParT with all values fulfilled!
+  closure_t *cmp = args[1].p;
+  pony_type_t *type = runtimeType[0];
+  set_s *set = party_to_set(ctx, p, cmp, type);
+  return (value_t){.p = party_set_to_party(ctx, set, type) };
+}
+
+static array_t* collect_future_from_party(pony_ctx_t **ctx,
+                                          par_t *p,
+                                          pony_type_t *type){
+  list_t *l = NULL;
+  list_t *futures = NULL;
+  size_t counter = 0;
+  par_t *current = p;
+
+  while(current){
+    PTAG tag = party_tag(current);
+    if (tag == EMPTY_PAR) {
+      l = list_pop(l, (value_t*)&current);
+    } else if (tag == PAR_PAR) {
+      par_t *pright = party_get_parright(current);
+      par_t *pleft = party_get_parleft(current);
+      current = pleft;
+      l = list_push(l, (value_t){.p = pright } );
+    } else if (tag == FUTURE_PAR) {
+      ++counter;
+      futures = list_push(futures, (value_t) {.p = party_get_fut(current) });
+      l = list_pop(l, (value_t*)&current);
+      // TODO: what about FUTPAR_PAR. It should be added as well
+    } else {
+      l = list_pop(l, (value_t*)&current);
+    }
+  }
+
+  array_t *a = array_mk(ctx, counter, type);
+  future_t *fut = NULL;
+  for (size_t i = 0; i < counter ; ++i){
+    futures = list_pop(futures, (value_t*)&fut);
+    array_set(a, i, (value_t){.p = fut } );
+  }
+  return a;
+}
+
+// This is a helper function for the common pattern of awaiting until all
+// futures have been fulfilled and fulfilling a promise to continue.
+static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
+                                                    par_t *par,
+                                                    closure_t *call,
+                                                    closure_t *cmp,
+                                                    pony_type_t *type){
+  array_t *fut_list = collect_future_from_party(ctx, par, type);
+  size_t size = array_size(fut_list);
+
+  if (!size) {
+    // runs synchronously. it is up to the call closure to divide and conquer
+    value_t args[] = { [0] = { .p = par }, [1] = { .p = cmp }};
+    return (par_t *)closure_call(ctx, call, args).p;
+  }
+
+  future_t *promise = future_mk(ctx, type);
+  struct env_collect_from_party *env = encore_alloc(*ctx, sizeof(struct env_collect_from_party));
+  env->counter = size;
+  env->par = par;
+  env->promise = promise;
+  env->call = call;
+  env->cmp = cmp;
+
+  closure_t *c = closure_mk(ctx, grouping_futures_async,
+                            env, trace_collect_from_party, NULL);
+
+  for(size_t i=0; i < size; ++i){
+    future_t *future = array_get(fut_list, i).p;
+    future_register_callback(ctx, future, type, c);
+  }
+
+  future_await(ctx, promise);
+  return (par_t *) future_get_actor(ctx, promise).p;
+}
+
+par_t* party_intersection(pony_ctx_t **ctx,
+                          par_t *par_left,
+                          par_t *par_right,
+                          closure_t *cmp,
+                          pony_type_t *type){
+  par_t *par = new_par_p(ctx, par_left, par_right, type);
+  closure_t *call = closure_mk(ctx, intersection_as_closure, NULL, NULL, &type);
+  return party_promise_await_on_futures(ctx, par, call, cmp, type);
+}
+
+//----------------------------------------
+// DISTINCT COMBINATOR
+//----------------------------------------
+
+par_t* party_distinct(pony_ctx_t **ctx,
+                      par_t *par,
+                      closure_t *cmp,
+                      pony_type_t *type){
+  closure_t *call = closure_mk(ctx, distinct_as_closure, NULL, NULL, &type);
+  return party_promise_await_on_futures(ctx, par, call, cmp, type);
 }

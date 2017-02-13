@@ -65,11 +65,6 @@ void actor_unlock(encore_actor_t *actor)
   }
 }
 
-encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep){
-  (void) dep;
-  return run_closure(ctx, ((struct default_task_env_s*)env)->fn, ((struct default_task_env_s*)env)->value); // don't know the type returned by the closure
-}
-
 #ifndef LAZY_IMPL
 
 static __pony_thread_local stack_page *stack_pool = NULL;

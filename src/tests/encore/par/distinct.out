@@ -1,0 +1,14 @@
+Running distinct on values
+Results: 0
+Results: 1
+Results: 23
+Results: 42
+Running distinct on futures and futures to par
+Results: 12
+Results: 3
+Results: 2
+Results: 42
+Results: 23
+Running distinct on objects
+Results: Sounds
+Results: Amazing

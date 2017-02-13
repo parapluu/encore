@@ -101,6 +101,7 @@ reservedNames =
     ,"peer"
     ,"qualified"
     ,"real"
+    ,"reduce"
     ,"repeat"
     ,"require"
     ,"shared"
@@ -741,6 +742,7 @@ expr :: Parser Expr
 expr  =  embed
      <|> try print
      <|> closure
+     <|> reduce
      <|> match
      <|> task
      <|> finishTask
@@ -926,6 +928,16 @@ expr  =  embed
                    reserved "extract"
                    expr <- expression
                    return $ PartyExtract (meta pos) expr
+      reduce = do pos <- getPosition
+                  reserved "reduce"
+                  (f, i, p) <- parens (do
+                                       seqfun <- expression
+                                       comma
+                                       pinit <- expression
+                                       comma
+                                       par <- expression
+                                       return (seqfun, pinit, par))
+                  return $ PartyReduce (meta pos) f i p False
       match = do pos <- getPosition
                  reserved "match"
                  arg <- expression

@@ -16,6 +16,20 @@ list_t* list_push(list_t* list, encore_arg_t data)
   return l;
 }
 
+list_t* list_pop(list_t* list, encore_arg_t* data)
+{
+  list_t *ln = NULL;
+  if (list == NULL) {
+    *data = (value_t){ .p = NULL };
+  } else {
+    ln = list->next;
+    *data = list->data;
+  }
+
+  return ln;
+}
+
+
 encore_arg_t list_data(list_t* list)
 {
   return list->data;

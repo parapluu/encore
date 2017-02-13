@@ -1,0 +1,52 @@
+def sum(acc: int, y: int): int
+  acc + y
+
+def millionItems(size: int): Par int {
+  var p = liftv 0;
+  repeat i <- size {
+    p = p || liftv(i);
+  };
+  p
+}
+
+def millionFutures(size: int): Par int {
+  val actors = initActors(size);
+  execute(actors)
+} where
+  def initActors(size: int): [Accountant] {
+    val ar = new [Accountant](size);
+    repeat i <- size {
+      ar[i] = new Accountant(i);
+    };
+    ar
+  }
+  def execute(actors: [Accountant]): Par int {
+    var p = liftv 0;
+    for a in actors {
+      p = p || liftf(a.getNumber());
+    };
+    p
+  }
+end
+
+
+class Accountant
+  number: int
+
+  def init(number: int): void
+    this.number = number
+
+  def getNumber(): int
+    this.number
+
+
+class Main
+  def main(): void
+    let f = reduce(sum, 0, millionItems(1000000))
+        f2 = reduce(sum, 0, millionFutures(1000000))
+        v = get f
+        v2 = get f2
+    in {
+      print("Result million values: {}\n", v);
+      print("Result million futures: {}\n", v2);
+    }

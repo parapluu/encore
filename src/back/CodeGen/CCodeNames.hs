@@ -220,6 +220,10 @@ encoreAllocName = Nam "encore_alloc"
 partySequence :: CCode Name
 partySequence = Nam "party_sequence"
 
+partyReduce :: Bool -> CCode Name
+partyReduce True = Nam "party_reduce_assoc"
+partyReduce False = Nam "party_reduce_sequential"
+
 partyJoin :: CCode Name
 partyJoin = Nam "party_join"
 

@@ -175,6 +175,8 @@ ppExpr PartyExtract {val} = "extract" <+> ppExpr val
 ppExpr PartyEach {val} = "each" <+> ppExpr val
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "||" <+> ppExpr parr
+ppExpr PartyReduce {seqfun, pinit, par} = "reduce" <>
+    parens (commaSep $ ppExpr <$> [seqfun, pinit, par])
 ppExpr FunctionCall {qname, args, typeArguments = []} =
     ppQName qname <> parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {qname, args, typeArguments} =

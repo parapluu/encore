@@ -60,6 +60,7 @@ struct closure_entry
   closure_t    *closure;
 
   closure_entry_t *next;
+
 };
 
 struct message_entry
@@ -168,7 +169,7 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
   return fut;
 }
 
-encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
+static inline encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
 {
   return closure_call(ctx, c, (value_t[1]) { value });
 }
@@ -222,7 +223,15 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       case DETACHED_CLOSURE:
         {
           encore_arg_t result = run_closure(ctx, current->closure, value);
-          future_fulfil(ctx, current->future, result);
+          if (current->future) {
+            // This case happens when futures can be attached on.
+            // As an optimisation to the ParT library, we do know
+            // that certain functions in the ParT do not need to fulfil
+            // any future, e.g. the ParT optimised version is called
+            // `future_chain_actor_void` and sets `future = NULL`
+            future_fulfil(ctx, current->future, result);
+          }
+
           cctx = *ctx; // ctx might have been changed
 
           pony_gc_recv(cctx);
@@ -232,23 +241,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
         }
       case TASK_CLOSURE:
         {
-          default_task_env_s* env = encore_alloc(cctx, sizeof *env);
-          *env = (default_task_env_s){.fn = current->closure, .value = value};
-          encore_task_s* task = task_mk(cctx, default_task_handler, env, NULL, NULL);
-          task_attach_fut(task, current->future);
-          task_schedule(task);
-
-          // Notify that I have received a children
-          pony_gc_recv(cctx);
-          trace_closure_entry(cctx, current);
-          pony_recv_done(cctx);
-
-          // Notify I am going to send the children
-          pony_gc_send(cctx);
-          encore_trace_object(cctx, task, task_trace);
-          encore_trace_object(cctx, current->future, future_type.trace);
-          pony_send_done(cctx);
-          break;
+          assert(false);
         }
       case BLOCKED_MESSAGE:
         {
@@ -336,6 +329,42 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 
   return r;
 }
+
+
+// Similar to `future_chain_actor` except that it returns void, avoiding the
+// creation of a new future. This is used in the ParTs library and is an
+// optimisation over the `future_chain_actor`.
+void future_register_callback(pony_ctx_t **ctx,
+                              future_t *fut,
+                              pony_type_t *type,
+                              closure_t *c)
+{
+  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
+  perr("future_chain_actor");
+  BLOCK;
+
+  if (fut->fulfilled) {
+    acquire_future_value(ctx, fut);
+    run_closure(ctx, c, fut->value);
+    UNBLOCK;
+    return ;
+  }
+
+  pony_ctx_t* cctx = *ctx;
+  closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
+  entry->actor = (cctx)->current;
+  entry->future = NULL;
+  entry->closure = c;
+  entry->next = fut->children;
+  fut->children = entry;
+
+  pony_gc_send(cctx);
+  trace_closure_entry(cctx, entry);
+  pony_send_done(cctx);
+
+  UNBLOCK;
+}
+
 
 static void future_block_actor(pony_ctx_t **ctx, future_t *fut)
 {
