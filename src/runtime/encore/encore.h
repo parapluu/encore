@@ -172,9 +172,6 @@ void actor_await(pony_ctx_t **ctx, ucontext_t *uctx);
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();
 
-// task handler when chaining from an async future
-encore_arg_t default_task_handler(pony_ctx_t **ctx, void* env, void* dep);
-
 pony_ctx_t* encore_ctx();
 void encore_trace_actor(pony_ctx_t *ctx, pony_actor_t *a);
 void encore_trace_object(pony_ctx_t *ctx, void *p, pony_trace_fn f);

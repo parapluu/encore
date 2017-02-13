@@ -77,5 +77,4 @@ void future_register_callback(pony_ctx_t **ctx,
  * puts on hold the processing of this message.
  */
 void future_await(pony_ctx_t **ctx, future_t *fut);
-encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value);
 #endif

@@ -169,7 +169,7 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
   return fut;
 }
 
-encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
+static inline encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
 {
   return closure_call(ctx, c, (value_t[1]) { value });
 }
@@ -241,23 +241,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
         }
       case TASK_CLOSURE:
         {
-          default_task_env_s* env = encore_alloc(cctx, sizeof *env);
-          *env = (default_task_env_s){.fn = current->closure, .value = value};
-          encore_task_s* task = task_mk(cctx, default_task_handler, env, NULL, NULL);
-          task_attach_fut(task, current->future);
-          task_schedule(task);
-
-          // Notify that I have received a children
-          pony_gc_recv(cctx);
-          trace_closure_entry(cctx, current);
-          pony_recv_done(cctx);
-
-          // Notify I am going to send the children
-          pony_gc_send(cctx);
-          encore_trace_object(cctx, task, task_trace);
-          encore_trace_object(cctx, current->future, future_type.trace);
-          pony_send_done(cctx);
-          break;
+          assert(false);
         }
       case BLOCKED_MESSAGE:
         {
