@@ -350,8 +350,10 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 // Similar to `future_chain_actor` except that it returns void, avoiding the
 // creation of a new future. This is used in the ParTs library and is an
 // optimisation over the `future_chain_actor`.
-void future_chain_actor_void(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
-        closure_t *c)
+void future_register_callback(pony_ctx_t **ctx,
+                              future_t *fut,
+                              pony_type_t *type,
+                              closure_t *c)
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
   perr("future_chain_actor");

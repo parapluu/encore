@@ -677,7 +677,7 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
 
   for(size_t i=0; i < size; ++i){
     future_t *future = array_get(fut_list, i).p;
-    future_chain_actor_void(ctx, future, type, c);
+    future_register_callback(ctx, future, type, c);
   }
 
   future_await(ctx, promise);
