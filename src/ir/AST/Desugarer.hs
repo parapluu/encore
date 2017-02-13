@@ -282,7 +282,7 @@ desugar FinishAsync{emeta, body} =
           Let{emeta
              ,mutability = Var
              ,decls = map fst bindings
-             ,body = Seq emeta [Get emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts]
+             ,body = Seq emeta [Await emeta $ VarAccess emeta $ qLocal (fst b) | b <- stmts]
              }
     desugarBody a = a
 
@@ -292,7 +292,7 @@ desugar Async{emeta, body} =
     qname = QName{qnspace = Nothing, qnsource=Nothing, qnlocal = Name "spawn"}
     args = [lifted_body]
     lifted_body = Closure {emeta, eparams=[], body=body}
-    
+
 
 -- foreach item in arr {
 --   stmt using item

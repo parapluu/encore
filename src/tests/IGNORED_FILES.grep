@@ -30,28 +30,11 @@ encore/modules/ModuleOnTheLeft
 encore/modules/ModuleOnTheRight
 
 #
-# Disabled 'concurrency' tests
-#
-# encore/concurrency/async_block
-# encore/concurrency/async_chain
-# encore/concurrency/async
-encore/concurrency/async_finish
-encore/concurrency/async_finish_stmts
-# encore/concurrency/async_force_gc
-# encore/concurrency/async_foreach
-# encore/concurrency/global_async
-
-#
 # Disabled 'basic' tests
 # Note that largestream works, except on CI
 #
 encore/basic/largestream
 encore/basic/foreach_construct
-
-#
-# Disabled 'par' tests
-#
-encore/par/general
 
 #
 # Modules imported by 'literate' tests
