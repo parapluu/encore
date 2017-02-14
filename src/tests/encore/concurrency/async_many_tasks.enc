@@ -1,3 +1,5 @@
+import Task
+
 def foreach_f(max_iterations: int, fn: int -> void): void {
   repeat i <- max_iterations {
     async(fn(42)); -- change to i to get all numbers

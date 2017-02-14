@@ -1,8 +1,0 @@
-class Main
-  def main(): void {
-      finish {
-        async { print "Hello"; };
-        async { print "World"; }
-      };
-      print "Leave finish"
-  }

@@ -15,17 +15,13 @@
 #include <assert.h>
 #include <signal.h>
 #include "encore.h"
-#include "task.h"
 
 #define SCHED_BATCH 100
 
 static DECLARE_THREAD_FN(run_thread);
 
-extern uint32_t remaining_tasks;
 extern void unset_unscheduled(pony_actor_t* a);
 extern bool is_unscheduled(pony_actor_t*);
-__thread encore_actor_t* this_encore_task;
-
 extern bool pony_reschedule(pony_actor_t *actor);
 
 typedef enum
@@ -308,13 +304,6 @@ static void run(scheduler_t* sched)
     sched = this_scheduler;
 #endif
 
-    // TODO: enable task specific code
-    /* uint32_t counter = __atomic_load_n(&remaining_tasks, __ATOMIC_RELAXED); */
-    /* if(counter>0 && is_unscheduled((pony_actor_t*) this_encore_task)){ */
-    /*   unset_unscheduled((pony_actor_t*) this_encore_task); */
-    /*   push(sched, (pony_actor_t*) this_encore_task); */
-    /* } */
-
     pony_actor_t* next = pop_global(sched);
 
     if(reschedule)
@@ -423,14 +412,6 @@ static void *run_thread(void *arg)
   }
 #endif
   /* pony_ctx_t *ctx = &sched->ctx; */
-
-  /* // setup task runner */
-  /* assert(this_encore_task==NULL); */
-  /* (void) ctx; */
-
-  // TODO Re-enable tasks runners
-  // this_encore_task = encore_create(ctx, task_gettype());
-  // scheduler_add(ctx, (pony_actor_t*) this_encore_task);
 
   run(sched);
 

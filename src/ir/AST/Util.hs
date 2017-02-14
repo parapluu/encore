@@ -73,7 +73,6 @@ getChildren (MaybeValue _ (JustData e)) = [e]
 getChildren (MaybeValue _ NothingData) = []
 getChildren Tuple {args} = args
 getChildren Async {body} = [body]
-getChildren FinishAsync {body} = [body]
 getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
 getChildren MiniLet {decl = (_, val)} = [val]
@@ -143,7 +142,6 @@ putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [pinit, par, seqfun] e@(PartyReduce {}) = e{par=par, seqfun=seqfun, pinit=pinit}
 putChildren [body] e@(Closure {}) = e{body = body}
 putChildren [body] e@(Async {}) = e{body = body}
-putChildren [body] e@(FinishAsync {}) = e{body = body}
 putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
 putChildren [] e@(MaybeValue _ NothingData) = e
 putChildren args e@(Tuple {}) = e{args = args}
@@ -219,7 +217,6 @@ putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to hav
 putChildren _ e@(PartyReduce {}) = error "'putChildren l PartyReduce' expects l to have 3 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
-putChildren _ e@(FinishAsync {}) = error "'putChildren l FinishAsync' expects l to have 1 element"
 putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
 putChildren _ e@(MiniLet{decl}) = error "'putChildren l MiniLet' expects l to have 1 element"

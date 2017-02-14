@@ -19,9 +19,6 @@
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
-extern pony_actor_t* task_runner_current();
-
-
 extern void encore_future_gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor);
 extern void encore_future_gc_acquireobject(pony_ctx_t* ctx, void* p,
     pony_type_t *t, int mutability);
@@ -42,8 +39,6 @@ typedef struct message_entry message_entry_t;
 
 typedef enum responsibility_t
 {
-  // A task closure, should be run by any task runner
-  TASK_CLOSURE,
   // A closure that should be run by the producer
   DETACHED_CLOSURE,
   // A message blocked on this future
@@ -209,45 +204,27 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       case DETACHED_CLOSURE:
         assert(0);
         exit(-1);
-      case TASK_CLOSURE:
-        assert(0);
-        exit(-1);
     }
   }
 
   {
     closure_entry_t *current = fut->children;
     while(current) {
-      switch ((cctx->current == task_runner_current()) ? TASK_CLOSURE : DETACHED_CLOSURE)
-      {
-      case DETACHED_CLOSURE:
-        {
-          encore_arg_t result = run_closure(ctx, current->closure, value);
-          if (current->future) {
-            // This case happens when futures can be attached on.
-            // As an optimisation to the ParT library, we do know
-            // that certain functions in the ParT do not need to fulfil
-            // any future, e.g. the ParT optimised version is called
-            // `future_chain_actor_void` and sets `future = NULL`
-            future_fulfil(ctx, current->future, result);
-          }
-
-          cctx = *ctx; // ctx might have been changed
-
-          pony_gc_recv(cctx);
-          trace_closure_entry(cctx, current);
-          pony_recv_done(cctx);
-          break;
-        }
-      case TASK_CLOSURE:
-        {
-          assert(false);
-        }
-      case BLOCKED_MESSAGE:
-        {
-          assert(false);
-        }
+      encore_arg_t result = run_closure(ctx, current->closure, value);
+      if (current->future) {
+        // This case happens when futures can be attached on.
+        // As an optimisation to the ParT library, we do know
+        // that certain functions in the ParT do not need to fulfil
+        // any future, e.g. the ParT optimised version is called
+        // `future_chain_actor_void` and sets `future = NULL`
+        future_fulfil(ctx, current->future, result);
       }
+
+      cctx = *ctx; // ctx might have been changed
+      pony_gc_recv(cctx);
+      trace_closure_entry(cctx, current);
+      pony_recv_done(cctx);
+
       current = current->next;
     }
   }

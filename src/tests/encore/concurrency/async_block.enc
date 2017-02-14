@@ -1,5 +1,8 @@
-def doubles(x: int): int
+import Task
+
+def doubles(x: int): int {
   x * 2
+}
 
 class Main
   def main(): void {

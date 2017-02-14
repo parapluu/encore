@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <ucontext.h>
 #include <stdio.h>
-#include "task.h"
 
 #ifdef LAZY_IMPL
 __attribute__ ((noreturn))
@@ -373,7 +372,6 @@ int encore_start(int argc, char** argv, pony_type_t *type)
 {
   argc = pony_init(argc, argv);
   pony_ctx_t *ctx = pony_ctx();
-  task_setup(type);
   pony_actor_t* actor = (pony_actor_t *)encore_create(ctx, type);
   pony_sendargs(ctx, actor, _ENC__MSG_MAIN, argc, argv);
 

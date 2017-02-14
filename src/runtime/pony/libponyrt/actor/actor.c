@@ -25,9 +25,6 @@ enum
   FLAG_PENDINGDESTROY = 1 << 4,
 };
 
-extern __thread encore_actor_t* this_encore_task;
-extern uint32_t remaining_tasks;
-extern mpmcq_t taskq;
 extern bool gc_disabled(pony_ctx_t *ctx);
 
 static bool actor_noblock = false;
@@ -197,39 +194,22 @@ bool ponyint_actor_run(pony_ctx_t** ctx, pony_actor_t* actor, size_t batch)
     }
   }
 
-  if (actor == (pony_actor_t*)this_encore_task) {
-    assert(this_encore_task != NULL);
-    pony_msg_t* task_msg;
-    while ((task_msg = ponyint_mpmcq_pop(&taskq)) != NULL) {
-      __atomic_fetch_sub(&remaining_tasks, 1, __ATOMIC_RELAXED);
-      assert(task_msg->id == _ENC__MSG_TASK);
-      if (handle_message(ctx, actor, task_msg)) { // TODO: (kiko) Check!
-        return !has_flag(actor, FLAG_UNSCHEDULED);
-      }
-    }
-    pony_unschedule(*ctx, actor);
-  } else {
-    // If we have been scheduled, the head will not be marked as empty.
-    pony_msg_t* head = atomic_load_explicit(&actor->q.head,
-        memory_order_relaxed);
-
-    while((msg = ponyint_messageq_pop(&actor->q)) != NULL)
+  // If we have been scheduled, the head will not be marked as empty.
+  pony_msg_t* head = atomic_load_explicit(&actor->q.head, memory_order_relaxed);
+  while((msg = ponyint_messageq_pop(&actor->q)) != NULL)
+  {
+    if(handle_message(ctx, actor, msg))
     {
-      if(handle_message(ctx, actor, msg))
-      {
-        // If we handle an application message, try to gc.
-        app++;
-        try_gc(*ctx, actor);
-
-        if(app == batch)
-          return !has_flag(actor, FLAG_UNSCHEDULED);
-      }
-
-      // Stop handling a batch if we reach the head we found when we were
-      // scheduled.
-      if(msg == head)
-        break;
+      // If we handle an application message, try to gc.
+      app++;
+      try_gc(*ctx, actor);
+     if(app == batch)
+        return !has_flag(actor, FLAG_UNSCHEDULED);
     }
+   // Stop handling a batch if we reach the head we found when we were
+    // scheduled.
+    if(msg == head)
+      break;
   }
 
   assert((*ctx)->current == actor);
@@ -287,12 +267,6 @@ void ponyint_actor_destroy(pony_actor_t* actor)
 
   // Free variable sized actors correctly.
   ponyint_pool_free_size(actor->type->size, actor);
-}
-
-// TODO: this should be in task.c. Called from future.c
-pony_actor_t* task_runner_current()
-{
-  return (pony_actor_t*)this_encore_task;
 }
 
 bool is_unscheduled(pony_actor_t* a){

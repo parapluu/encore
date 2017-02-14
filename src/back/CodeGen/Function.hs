@@ -8,7 +8,6 @@ import CodeGen.CCodeNames
 import CodeGen.Expr ()
 import CodeGen.Type
 import CodeGen.Closure
-import CodeGen.Task
 import CodeGen.ClassTable
 import qualified CodeGen.Context as Ctx
 import CodeGen.DTrace
@@ -154,17 +153,13 @@ instance Translatable A.Function
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
           closures = map (\clos -> translateClosure clos funTypeParams newTable)
                          (reverse (Util.filter A.isClosure funbody))
-          tasks = map (\tas -> translateTask tas newTable) $
-                      reverse $ Util.filter A.isTask funbody
           bodyResult = (Seq $ dtraceFunctionEntry (A.functionName fun) argNames :
                               runtimeTypeAssignments ++
                               [bodyStat
                               ,dtraceFunctionExit (A.functionName fun)
                               ,returnStatement funType bodyName
                               ])
-      in
-        Concat $ locals ++ closures ++ tasks ++
-                 [create fun bodyResult]
+      in Concat $ locals ++ closures ++ [create fun bodyResult]
       where
         localize prefix fun =
           let oldName = A.functionName fun

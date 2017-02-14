@@ -73,7 +73,6 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
            Seq $ map assignTypeVar classTypeVars,
            (Switch (Var "_m" `Arrow` Nam "id")
             (
-             taskDispatchClause :
              (if (A.isMainClass cdecl)
               then ponyMainClause :
                    methodClauses (filter ((/= ID.Name "main") . A.methodName) cmethods)
@@ -120,30 +119,6 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                        ((Cast (msgTypeName) (Var "_m")) `Arrow` (Nam $ "f"++show n)))
 
        includeCtx xs = Deref encoreCtxVar : xs
-
-       -- TODO: pack in encore_arg_t the task, infering its type
-       taskDispatchClause :: (CCode Name, CCode Stat)
-       taskDispatchClause =
-         let tmp = Var "task_tmp"
-             taskRunnerStmt = Statement $ Call taskRunner [Var "_task"]
-             decl = Assign (Decl (encoreArgT, tmp)) taskRunnerStmt
-             futureFulfilStmt = Statement $ Call futureFulfil
-                              [AsExpr encoreCtxVar,AsExpr $ Var "_fut", AsExpr tmp]
-             taskFreeStmt = Statement $ Call taskFree [AsExpr $ Var "_task"]
-             traceFuture = Statement $ Call ponyTraceObject (includeCtx [Var "_fut", futureTypeRecName `Dot` Nam "trace"])
-             traceTask = Statement $ Call ponyTraceObject (includeCtx [Var "_task", AsLval (Nam "NULL")])
-         in
-         (taskMsgId, Seq $ [unpackFuture, unpackTask, decl] ++
-                             [Embed $ "",
-                              Embed $ "// --- GC on receiving ----------------------------------------",
-                              Statement $ Call (Nam "pony_gc_recv") ([Deref encoreCtxVar]),
-                              traceFuture,
-                              traceTask,
-                              Embed $ "//---You need to trace the task env and task dependencies---",
-                              Statement $ Call (Nam "pony_recv_done") ([Deref encoreCtxVar]),
-                              Embed $ "// --- GC on sending ----------------------------------------",
-                              Embed $ ""]++
-                       [futureFulfilStmt, taskFreeStmt])
 
        mthdDispatchClause mdecl
            | A.isStreamMethod mdecl =
@@ -209,13 +184,6 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
          let
            lval = Decl (future, Var "_fut")
            rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
-         in
-           Assign lval rval
-
-       unpackTask =
-         let
-           lval = Decl (task, Var "_task")
-           rval = (Cast (Ptr taskMsgT) (Var "_m")) `Arrow` (Nam "_task")
          in
            Assign lval rval
 
