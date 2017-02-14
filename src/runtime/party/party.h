@@ -81,7 +81,6 @@ par_t* party_each(pony_ctx_t **ctx, array_t * const array);
  *
  * @param p Par T
  * @param init Initial argument
- * @param pos_init Position of the init argument in the lambda
  * @param closure Transformation reduction function
  * @return Parallel collection
  *
