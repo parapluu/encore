@@ -452,6 +452,8 @@ static inline array_t* list_to_array(pony_ctx_t **ctx, list_t* const list,
   return arr;
 }
 
+// TODO: this combinator cannot handle more than 10_000 futures because
+//       the function `extract_helper` is not tail recursive
 array_t* party_extract(pony_ctx_t **ctx,
                        par_t * const p, pony_type_t const * const type){
   list_t *list = NULL;
@@ -713,4 +715,214 @@ par_t* party_distinct(pony_ctx_t **ctx,
                       pony_type_t *type){
   closure_t *call = closure_mk(ctx, distinct_as_closure, NULL, NULL, &type);
   return party_promise_await_on_futures(ctx, par, call, cmp, type);
+}
+
+
+//----------------------------------------
+// ZIPWITH COMBINATOR
+//----------------------------------------
+
+static list_t* party_leaves_to_list(pony_ctx_t **ctx, par_t * p){
+  list_t *list = NULL;
+  list_t *tmp_list = NULL;
+  while(p){
+    switch(p->tag){
+    case EMPTY_PAR: {
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case VALUE_PAR: {
+      list = list_append(list, (value_t) { .p = p });
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case FUTURE_PAR: {
+      list = list_append(list, (value_t) { .p = p });
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case PAR_PAR: {
+      par_t *right = p->data.p.right;
+      tmp_list = list_push(tmp_list, (value_t) {.p = right });
+      p = p->data.p.left;
+      break;
+    }
+    case FUTUREPAR_PAR: {
+      future_t *fut = p->data.f.fut;
+      future_await(ctx, fut);
+      p = future_get_actor(ctx, fut).p;
+      break;
+    }
+    case ARRAY_PAR: {
+      array_t* ar = p->data.a.array;
+      size_t size = array_size(ar);
+      for(size_t i=0; i<size; i++){
+        list = list_append(list, array_get(ar, i));
+      }
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    default: exit(-1);
+    }
+  }
+  return list;
+}
+
+struct env_zip_future {
+  closure_t *zip_fn;
+  par_t *leaf_left;
+  par_t *leaf_right;
+};
+
+static void trace_zip_future(pony_ctx_t *_ctx, void *p)
+{
+  pony_ctx_t** ctx = &_ctx;
+  struct env_zip_future *this = p;
+  encore_trace_object(*ctx, this->zip_fn, closure_trace);
+  encore_trace_object(*ctx, this->leaf_left, party_trace);
+  encore_trace_object(*ctx, this->leaf_right, party_trace);
+}
+
+static value_t zip_future_with(pony_ctx_t** ctx,
+                               pony_type_t** runtimeType,
+                               value_t args[],
+                               void* _env)   // env is always NULL;
+{
+  value_t v = args[0];
+
+  // Initially right has been set wiht the right ParT.
+  // ParT left was a future and now is the current value `v`
+  struct env_zip_future* env = _env;
+  closure_t *zipWith = env->zip_fn;
+  par_t *right = env->leaf_right;
+  par_t *left = env->leaf_left;
+  pony_type_t *result_type = runtimeType[0];
+
+  if (right && !left) {
+    // guaranteed to not be PAR_PAR nor FUTUREPAR_PAR nor ARRAY_PAR nor EMPTY
+    assert(right->tag != PAR_PAR);
+    assert(right->tag != FUTUREPAR_PAR);
+    assert(right->tag != ARRAY_PAR);
+    assert(right->tag != EMPTY_PAR);
+    assert(left == NULL);
+    pony_type_t *value_type = runtimeType[1];
+
+    if (right->tag == FUTURE_PAR) {
+      // OPTIMISATION: re-use environment
+      struct env_zip_future *env_fut = encore_alloc(*ctx, sizeof(struct env_zip_future));
+      env_fut->zip_fn = zipWith;
+      env_fut->leaf_left = new_par_v(ctx, v, value_type);
+      closure_t *clos = closure_mk(ctx,
+                                   zip_future_with,
+                                   env_fut,
+                                   trace_zip_future,
+                                   runtimeType);
+
+      // this function will return a fut (par t) where the (par t)
+      // is guaranteed to be a value.
+      future_t *fut = future_chain_actor(ctx, right->data.f.fut, &party_type, clos);
+      par_t * futpar = new_par_f(ctx, fut, &party_type);
+      return (value_t) { .p = party_join(ctx, futpar) };
+    } else {
+      assert(right->tag == VALUE_PAR);
+      value_t result = closure_call(ctx,
+                                    zipWith,
+                                    (value_t[]){v, party_get_v(right)});
+      return (value_t) { .p = new_par_v(ctx, result, result_type) };
+    }
+  } else {
+    // We do know that the left Par has already been processed and
+    // should have a value
+    assert(left->tag == VALUE_PAR);
+    value_t result = closure_call(ctx,
+                                  zipWith,
+                                  (value_t[]){party_get_v(left), v});
+    return (value_t) { .p = new_par_v(ctx, result, result_type) };
+  }
+}
+
+static inline par_t* party_zip_list(pony_ctx_t **ctx,
+                                    list_t *ll,
+                                    list_t *lr,
+                                    closure_t *fn,
+                                    pony_type_t *type)
+{
+  par_t *pl = NULL;
+  par_t *pr = NULL;
+  par_t *result = new_par_empty(ctx, type);
+  while(ll){
+    ll = list_pop(ll, (value_t*)&pl);
+    lr = list_pop(lr, (value_t*)&pr);
+    if (pl && pr) {
+      if (pl->tag == FUTURE_PAR){
+        struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
+        env->zip_fn = fn;
+        env->leaf_right = pr;
+
+        // TODO: do not allocate things on the stack when
+        //       they can be executed by any other actor!
+        /* pony_type_t *runtimeTypes[] = { type, future_get_type(pl->data.f.fut) }; */
+        pony_type_t **runtimeTypes = encore_alloc(*ctx, 2 * sizeof(*runtimeTypes));
+        runtimeTypes[0] = type;
+        runtimeTypes[1] = future_get_type(pl->data.f.fut);
+        closure_t *clos = closure_mk(ctx,
+                                     zip_future_with,
+                                     env,
+                                     trace_zip_future,
+                                     runtimeTypes);
+
+        // this future chanining will return a fut (par t)
+        // where the (par t) is guaranteed to be a value.
+        future_t *fut = future_chain_actor(ctx, pl->data.f.fut, &party_type, clos);
+        par_t * futpar = new_par_f(ctx, fut, &party_type);
+        par_t *par = party_join(ctx, futpar);
+        result = new_par_p(ctx, result, par, type);
+      } else if (pr->tag == FUTURE_PAR) {
+        struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
+        env->zip_fn = fn;
+        env->leaf_left = pl;
+
+        /* pony_type_t *runtimeTypes[] = {type, future_get_type(pl->data.f.fut)}; */
+        pony_type_t **runtimeTypes = encore_alloc(*ctx, 2 * sizeof(*runtimeTypes));
+        runtimeTypes[0] = type;
+        runtimeTypes[1] = future_get_type(pl->data.f.fut);
+        closure_t *clos = closure_mk(ctx,
+                                     zip_future_with,
+                                     env,
+                                     trace_zip_future,
+                                     runtimeTypes);
+
+        // this future chanining will return a fut (par t)
+        // where the (par t) is guaranteed to be a value.
+        future_t *fut = future_chain_actor(ctx, pr->data.f.fut, &party_type, clos);
+        par_t * futpar = new_par_f(ctx, fut, &party_type);
+        par_t *par = party_join(ctx, futpar);
+        result = new_par_p(ctx, result, par, type);
+      } else {
+        // None of them is a future
+        assert(pl->tag != FUTURE_PAR);
+        assert(pr->tag != FUTURE_PAR);
+
+        value_t args[] = {party_get_v(pl), party_get_v(pr)};
+        value_t v = closure_call(ctx, fn, args);
+        par_t *par = new_par_v(ctx, v, type);
+        result = new_par_p(ctx, result, par, type);
+      }
+    } else {
+      return result;
+    }
+  }
+  return result;
+}
+
+par_t* party_zip_with(pony_ctx_t **ctx,
+                      par_t *pl,
+                      par_t *pr,
+                      closure_t *fn,
+                      pony_type_t *type)
+{
+  list_t *ll = party_leaves_to_list(ctx, pl);
+  list_t *lr = party_leaves_to_list(ctx, pr);
+  par_t *result = party_zip_list(ctx, ll, lr, fn, type);
+  return result;
 }

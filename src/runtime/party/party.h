@@ -147,5 +147,23 @@ par_t* party_distinct(pony_ctx_t **ctx,
                       closure_t *cmp,
                       pony_type_t *type);
 
+/** Zip two ParTs
+ *
+ *   zip :: Par t -> Par t' -> (t -> t' ->  t'') -> Par t''
+ *
+ * Given two ParT, zip them with the provided function
+ *
+ * @param pl Par T
+ * @param pr Par T
+ * @param fn Function to zip elements together
+ * @return Parallel collection
+ *
+ */
+par_t* party_zip_with(pony_ctx_t **ctx,
+                      par_t *pl,
+                      par_t *pr,
+                      closure_t *fn,
+                      pony_type_t *type);
+
 
 #endif

@@ -54,6 +54,12 @@ fun union[t](pl : Par[t], pr : Par[t], cmp : (t, t) -> int) : Par[t]
   distinct(pl ||| pr, cmp)
 end
 
+fun zipWith[a, b, t](pa: Par[a], pb: Par[b], fn: (a, b) -> t): Par[t]
+  EMBED (Par[t])
+    party_zip_with(_ctx, #{pa}, #{pb}, #{fn}, _enc__type_t);
+  END
+end
+
 fun app[a, b](p : Par[a -> b], item : a) : Par[b]
   p >> (fun (fn : a -> b) => fn(item))
 end
@@ -194,4 +200,3 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k,
                   -- Lift the future to a ParT and flatten the Par[Par[t]] to Par[r]
                   join(liftf(fp))
                 end))
-end

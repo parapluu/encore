@@ -33,7 +33,6 @@ typedef struct context {
 extern __pony_thread_local context *root_context;
 extern __pony_thread_local context *this_context;
 
-__attribute__ ((unused))
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)2;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)1;
 
