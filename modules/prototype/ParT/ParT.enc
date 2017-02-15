@@ -200,3 +200,74 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k,
                   -- Lift the future to a ParT and flatten the Par[Par[t]] to Par[r]
                   join(liftf(fp))
                 end))
+
+--
+-- Declaration of reduce function:
+--
+-- def reduce<acc, t>(redfn: (acc, t) -> acc, p: Par t, init: acc): Fut acc
+--
+
+
+--
+--
+-- Aggregation queries
+--
+--
+fun all[t](p : Par[t], fn : t -> bool) : Fut[bool]
+  val closure = fun (acc : Maybe[bool], elem : t)
+                  match acc with
+                    case Just(true) =>
+                      Just(fn(elem))
+                    end
+                    case Just(false) =>
+                      Just(false)
+                    end
+                    case Nothing =>
+                      Just(fn(elem))
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p) ~~> fun (m : Maybe[bool])
+                                    match m with
+                                      case Just(true) =>
+                                        true
+                                      end
+                                      case Just(false) =>
+                                        false
+                                      end
+                                      case Nothing =>
+                                        false
+                                      end
+                                    end
+                                  end
+end
+
+fun any[t](p : Par[t], fn : t -> bool) : Fut[bool]
+  val closure = fun (acc : Maybe[bool], elem : t)
+                  match acc with
+                    case Just(true) =>
+                      Just(true)
+                    end
+                    case Just(false) =>
+                      Just(fn(elem))
+                    end
+                    case Nothing =>
+                      Just(fn(elem))
+                    end
+
+                  end
+                end
+  reduce(closure, Nothing, p) ~~> fun (m : Maybe[bool])
+                                    match m with
+                                      case Just(true) =>
+                                        true
+                                      end
+                                      case Just(false) =>
+                                        false
+                                      end
+                                      case Nothing =>
+                                        false
+                                      end
+                                    end
+                                  end
+end

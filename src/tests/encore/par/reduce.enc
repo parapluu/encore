@@ -3,6 +3,7 @@
 fun sum(acc : int, y : int) : int
   acc + y
 end
+
 fun millionItems(size : int) : Par[int]
   var p = liftv(0)
   repeat i <- size do
@@ -10,6 +11,7 @@ fun millionItems(size : int) : Par[int]
   end
   p
 end
+
 fun millionFutures(size : int) : Par[int]
   val actors = initActors(size)
   execute(actors)
@@ -21,6 +23,7 @@ where
     end
     ar
   end
+
   fun execute(actors : [Accountant]) : Par[int]
     var p = liftv(0)
     for a <- actors do
@@ -29,15 +32,18 @@ where
     p
   end
 end
+
 class Accountant
   var number : int
   def init(number : int) : unit
     this.number = number
   end
+
   def getNumber() : int
     this.number
   end
 end
+
 class Main
   def main() : unit
     let
