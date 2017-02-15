@@ -33,6 +33,13 @@ struct par_t {
     } data;
 };
 
+// forward declaration
+static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
+                                                    par_t *par,
+                                                    closure_t *call,
+                                                    closure_t *cmp,
+                                                    pony_type_t *type);
+
 pony_type_t party_type =
 {
   .id=ID_PARTY,
@@ -62,6 +69,10 @@ par_t* party_get_parright(par_t const * const p){
 
 future_t* party_get_futpar(par_t const * const p){
   return p->data.fp.fut;
+}
+
+array_t* party_get_array(par_t const * const p){
+  return p->data.a.array;
 }
 
 pony_type_t* party_get_type(par_t * const p){
@@ -404,62 +415,131 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 // EXTRACT COMBINATOR
 //----------------------------------------
 
-static inline list_t* extract_helper(pony_ctx_t **ctx, list_t * const list, par_t * const p){
-  switch(p->tag){
-  case EMPTY_PAR: return list;
-  case VALUE_PAR: return list_append(list, p->data.v.val);
-  case FUTURE_PAR: {
-    future_t *fut = p->data.f.fut;
-    value_t val = future_get_actor(ctx, fut);
-    return list_append(list, val);
-  }
-  case PAR_PAR: {
-    par_t *left = p->data.p.left;
-    par_t *right = p->data.p.right;
-    list_t* tmp_list = extract_helper(ctx, list, left);
-    return extract_helper(ctx, tmp_list, right);
-  }
-  case FUTUREPAR_PAR: {
-    future_t *fut = p->data.f.fut;
-    par_t* par = future_get_actor(ctx, fut).p;
-    return extract_helper(ctx, list, par);
-  }
-  case ARRAY_PAR: {
-    array_t* ar = p->data.a.array;
-    size_t size = array_size(ar);
-    list_t* new_list = list;
-    for(size_t i=0; i<size; i++){
-      value_t value = array_get(ar, i);
-      new_list = list_append(new_list, value);
+// Awaiting operation if the ParT contain futures.
+static inline size_t party_get_size(pony_ctx_t **ctx, par_t const * p)
+{
+  list_t *tmp_lst = NULL;
+  size_t i = 0;
+  while(p){
+    switch(p->tag){
+    case EMPTY_PAR: {
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
     }
-    return new_list;
+    case VALUE_PAR: {
+      ++i;
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    case FUTURE_PAR: {
+      ++i;
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    case PAR_PAR: {
+      par_t *left = party_get_parleft(p);
+      par_t *right = party_get_parright(p);
+      tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+      p = left;
+      break;
+    }
+    case FUTUREPAR_PAR: {
+      future_t *futpar = party_get_futpar(p);
+      future_await(ctx, futpar);
+      p = future_get_actor(ctx, futpar).p;
+      break;
+    }
+    case ARRAY_PAR: {
+      array_t* ar_p = party_get_array(p);
+      size_t size_p = array_size(ar_p);
+      i += size_p;
+      break;
+    }
+    default: exit(-1);
+    }
   }
-  default: exit(-1);
-  }
+  return i;
 }
 
-static inline array_t* list_to_array(pony_ctx_t **ctx, list_t* const list,
-                                     pony_type_t const * const type){
-  size_t size = list_length(list);
-  array_t* arr = array_mk(ctx, size, type);
-  list_t* temp_list = list_index(list, 0);
-
-  // TODO: If the list is too big, distribute work using tasks
-  for(size_t i=0; i<size; i++) {
-    array_set(arr, i, list_data(temp_list));
-    temp_list = list_index(temp_list, 1);
+static inline array_t* party_to_array(pony_ctx_t **ctx,
+                                      par_t const * p,
+                                      size_t ar_size,
+                                      pony_type_t *type)
+{
+  array_t *ar = array_mk(ctx, ar_size, type);
+  list_t *tmp_lst = NULL;
+  size_t i = 0;
+  while(p){
+    assert(i < ar_size);
+    switch(p->tag){
+    case EMPTY_PAR: {
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    case VALUE_PAR: {
+      array_set(ar, i, party_get_v(p));
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      ++i;
+      break;
+    }
+    case FUTURE_PAR: {
+      future_t *fut = party_get_fut(p);
+      future_await(ctx, fut);
+      value_t v = future_get_actor(ctx, fut);
+      array_set(ar, i, v);
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      ++i;
+      break;
+    }
+    case PAR_PAR: {
+      par_t *left = party_get_parleft(p);
+      par_t *right = party_get_parright(p);
+      tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+      p = left;
+      break;
+    }
+    case FUTUREPAR_PAR: {
+      future_t *futpar = party_get_futpar(p);
+      future_await(ctx, futpar);
+      p = future_get_actor(ctx, futpar).p;
+      break;
+    }
+    case ARRAY_PAR: {
+      array_t* p_ar = party_get_array(p);
+      size_t size_p = array_size(p_ar);
+      for(size_t j = 0; j < size_p; ++j){
+        value_t value = array_get(p_ar, j);
+        array_set(ar, i, value);
+        ++i;
+      }
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    default: exit(-1);
+    }
   }
-  return arr;
+  return ar;
 }
 
-// TODO: this combinator cannot handle more than 10_000 futures because
-//       the function `extract_helper` is not tail recursive
+static value_t party_to_array_as_closure(pony_ctx_t** ctx,
+                                         pony_type_t** runtimeType,
+                                         value_t args[],
+                                         __attribute__((unused)) void* env)
+{
+  assert(env == NULL);
+
+  par_t *p = args[0].p;
+  pony_type_t *type = runtimeType[0];
+  size_t size = party_get_size(ctx, p);
+  return (value_t) { .p = party_to_array(ctx, p, size, type) };
+}
+
 array_t* party_extract(pony_ctx_t **ctx,
-                       par_t * const p, pony_type_t const * const type){
-  list_t *list = NULL;
-  list_t * const tmp_list = extract_helper(ctx, list, p);
-
-  return list_to_array(ctx, tmp_list, type);
+                       par_t * const par,
+                       pony_type_t const *type)
+{
+  closure_t *call = closure_mk(ctx, party_to_array_as_closure, NULL, NULL, &type);
+  return (array_t*) party_promise_await_on_futures(ctx, par, call, NULL, type);
 }
 
 //----------------------------------------
@@ -671,8 +751,11 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
 
   if (!size) {
     // runs synchronously. it is up to the call closure to divide and conquer
+    // TODO: if there are tasks spawned within the closure, the args array
+    //       is allocated on the stack and the arguments may be gone by the time
+    //       the tasks start doing any work (no use of task, at the moment)
     value_t args[] = { [0] = { .p = par }, [1] = { .p = cmp }};
-    return (par_t *)closure_call(ctx, call, args).p;
+    return (par_t *) closure_call(ctx, call, args).p;
   }
 
   future_t *promise = future_mk(ctx, type);
