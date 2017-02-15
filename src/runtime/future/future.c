@@ -15,6 +15,7 @@
 #include "../libponyrt/actor/messageq.h"
 #include "../libponyrt/sched/scheduler.h"
 
+pthread_mutexattr_t attr;
 #define BLOCK    pthread_mutex_lock(&fut->lock);
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
@@ -157,7 +158,9 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
           (void *)&future_finalizer);
   *fut = (future_t) { .type = type };
 
-  pthread_mutex_init(&fut->lock, NULL);
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&fut->lock, &attr);
 
   ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
 
