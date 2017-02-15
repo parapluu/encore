@@ -1,0 +1,48 @@
+import ParT.ParT
+
+def liftValues(max: int): Par int {
+  var p = empty<int>();
+  repeat i <- max {
+    p = p || liftv(i);
+  };
+  p
+}
+
+def liftFutureValues(max: int): Par String {
+  var p = empty<String>();
+  repeat i <- max {
+    p = p || liftf((new T).set(string_from_int(i)));
+  };
+  p
+}
+
+class T {
+  def set(x: String): String
+    x
+}
+
+def cmpS(x: String, y: String): int
+  x.compare(y)
+
+def toStr(x: int): String
+  string_from_int(x)
+
+class Main
+  def testValues(): void {
+    println("Testing Values:");
+    val f = max(liftValues(100) >> toStr, cmpS);
+    println("{}", get(f));
+
+    println("{}", get max(empty<String>(), cmpS));
+  }
+
+  def testFutures(): void {
+    println("Testing Futures:");
+    val f = max(liftFutureValues(100) || liftv("999"), cmpS);
+    println("{}", get(f));
+  }
+
+  def main(): void {
+    this.testValues();
+    this.testFutures();
+  }

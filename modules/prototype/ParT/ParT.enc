@@ -242,6 +242,8 @@ fun all[t](p : Par[t], fn : t -> bool) : Fut[bool]
                                   end
 end
 
+-- TODO: this current implementation needs to evaluate all items in the ParT.
+--       a better solution should stop as soon as one solution is found
 fun any[t](p : Par[t], fn : t -> bool) : Fut[bool]
   val closure = fun (acc : Maybe[bool], elem : t)
                   match acc with
@@ -254,7 +256,6 @@ fun any[t](p : Par[t], fn : t -> bool) : Fut[bool]
                     case Nothing =>
                       Just(fn(elem))
                     end
-
                   end
                 end
   reduce(closure, Nothing, p) ~~> fun (m : Maybe[bool])
@@ -270,4 +271,40 @@ fun any[t](p : Par[t], fn : t -> bool) : Fut[bool]
                                       end
                                     end
                                   end
+end
+
+fun max[t](p : Par[t], cmp : (t, t) -> int) : Fut[Maybe[t]]
+  val closure = fun (acc : Maybe[t], elem : t)
+                  match acc with
+                    case Just(x) =>
+                      Just(if cmp(x, elem) >= 0 then
+                             x
+                           else
+                             elem
+                           end)
+                    end
+                    case Nothing =>
+                      Just(elem)
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p)
+end
+
+fun min[t](p : Par[t], cmp : (t, t) -> int) : Fut[Maybe[t]]
+  val closure = fun (acc : Maybe[t], elem : t)
+                  match acc with
+                    case Just(x) =>
+                      Just(if cmp(x, elem) >= 0 then
+                             elem
+                           else
+                             x
+                           end)
+                    end
+                    case Nothing =>
+                      Just(elem)
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p)
 end
