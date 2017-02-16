@@ -20,9 +20,16 @@ typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
 typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct ARRAY_PARs { struct array_t* array; } ARRAY_PARs;
 
+// Auxiliary ds to de-struct the size of a ParT.
+typedef struct psize_s {
+  bool pending;
+  size_t size;
+} psize_s;
+
 struct par_t {
   enum PTAG tag;
   pony_type_t* rtype;
+  uint64_t size;
   union ParU {
     EMPTY_PARs s;
     VALUE_PARs v;
@@ -183,6 +190,16 @@ struct fmap_s{
   pony_type_t const * rtype;
 };
 
+static inline psize_s party_get_size(par_t const * const p)
+{
+  uint64_t size = p->size;
+  // if pending is 0, it means it contains pending FutPar t,
+  // therefore pending = true
+  bool pending = !__builtin_clzl(size);
+  size = (size << 1) >> 1;
+  return (psize_s) {.size = size, .pending = pending};
+}
+
 /*
  * Parallel constructors
  */
@@ -195,18 +212,23 @@ static par_t* init_par(pony_ctx_t **ctx, enum PTAG tag, pony_type_t const * cons
 }
 
 par_t* new_par_empty(pony_ctx_t **ctx, pony_type_t const * const rtype){
-  return init_par(ctx, EMPTY_PAR, rtype);
+  par_t *p = init_par(ctx, EMPTY_PAR, rtype);
+  p->size = 0;
+
+  return p;
 }
 
 par_t* new_par_v(pony_ctx_t **ctx, encore_arg_t val, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, VALUE_PAR, rtype);
   set_par_value(val, NULL, p);
+  p->size = 1;
   return p;
 }
 
 par_t* new_par_f(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, FUTURE_PAR, rtype);
   set_par_future(f, NULL, p);
+  p->size = 1;
   return p;
 }
 
@@ -219,6 +241,15 @@ par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
   } else {
     par_t* p = init_par(ctx, PAR_PAR, rtype);
     set_par_par(p1, p2, p);
+
+    // setting the new size
+    psize_s s1 = party_get_size(p1);
+    psize_s s2 = party_get_size(p2);
+    bool pending = s1.pending || s2.pending;
+    uint64_t size = s1.size + s2.size;
+    uint64_t one = 1;
+    p->size = !pending ? size : ((one << 63) | size);
+
     return p;
   }
 }
@@ -226,12 +257,15 @@ par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
 par_t* new_par_fp(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, FUTUREPAR_PAR, rtype);
   set_par_future_par(f, NULL, p);
+  uint64_t one = 1;
+  p->size = one << 63;
   return p;
 }
 
 par_t* new_par_array(pony_ctx_t **ctx, array_t* arr, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, ARRAY_PAR, rtype);
   set_par_array(arr, NULL, p);
+  p->size = array_size(arr);
   return p;
 }
 
@@ -416,49 +450,54 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 //----------------------------------------
 
 // Awaiting operation if the ParT contain futures.
-static inline size_t party_get_size(pony_ctx_t **ctx, par_t const * p)
+static inline size_t party_get_final_size(pony_ctx_t **ctx, par_t const * p)
 {
-  list_t *tmp_lst = NULL;
-  size_t i = 0;
-  while(p){
-    switch(p->tag){
-    case EMPTY_PAR: {
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      break;
+  psize_s s = party_get_size(p);
+  if (!s.pending) {
+    return s.size;
+  } else {
+    list_t *tmp_lst = NULL;
+    size_t i = 0;
+    while(p){
+      switch(p->tag){
+      case EMPTY_PAR: {
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case VALUE_PAR: {
+        ++i;
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case FUTURE_PAR: {
+        ++i;
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case PAR_PAR: {
+        par_t *left = party_get_parleft(p);
+        par_t *right = party_get_parright(p);
+        tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+        p = left;
+        break;
+      }
+      case FUTUREPAR_PAR: {
+        future_t *futpar = party_get_futpar(p);
+        future_await(ctx, futpar);
+        p = future_get_actor(ctx, futpar).p;
+        break;
+      }
+      case ARRAY_PAR: {
+        array_t* ar_p = party_get_array(p);
+        size_t size_p = array_size(ar_p);
+        i += size_p;
+        break;
+      }
+      default: exit(-1);
+      }
     }
-    case VALUE_PAR: {
-      ++i;
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      break;
-    }
-    case FUTURE_PAR: {
-      ++i;
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      break;
-    }
-    case PAR_PAR: {
-      par_t *left = party_get_parleft(p);
-      par_t *right = party_get_parright(p);
-      tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
-      p = left;
-      break;
-    }
-    case FUTUREPAR_PAR: {
-      future_t *futpar = party_get_futpar(p);
-      future_await(ctx, futpar);
-      p = future_get_actor(ctx, futpar).p;
-      break;
-    }
-    case ARRAY_PAR: {
-      array_t* ar_p = party_get_array(p);
-      size_t size_p = array_size(ar_p);
-      i += size_p;
-      break;
-    }
-    default: exit(-1);
-    }
+    return i;
   }
-  return i;
 }
 
 static inline array_t* party_to_array(pony_ctx_t **ctx,
@@ -530,7 +569,7 @@ static value_t party_to_array_as_closure(pony_ctx_t** ctx,
 
   par_t *p = args[0].p;
   pony_type_t *type = runtimeType[0];
-  size_t size = party_get_size(ctx, p);
+  size_t size = party_get_final_size(ctx, p);
   return (value_t) { .p = party_to_array(ctx, p, size, type) };
 }
 
@@ -548,14 +587,6 @@ array_t* party_extract(pony_ctx_t **ctx,
 
 #define SPLIT_THRESHOLD 1000
 #define MARGIN 1.3
-
-static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
-  if(*root == NULL) {
-    *root = node;
-  } else {
-    *root = new_par_p(ctx, *root, node, get_rtype(*root));
-  }
-}
 
 static inline size_t batch_size_from_array(array_t * const ar){
   size_t size = array_size(ar);
@@ -583,7 +614,7 @@ par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
   for(size_t i=0; i<batch_size; i++){
     array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
-    build_party_tree(ctx, &root, par);
+    root = new_par_p(ctx, root, par, get_rtype(root));
   }
   return root;
 }
