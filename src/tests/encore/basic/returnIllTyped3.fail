@@ -1,10 +1,1 @@
- *** Error during typechecking *** 
-"returnIllTyped3.enc" (line 3, column 5)
-Expected int (type of the enclosing method or function) but found expression of type 'void'
-In expression: 
-  return ()
-In expression: 
-  return ()
-In method 'main' of type 'int'
-In class 'Main'
-
+ Expected int (type of the enclosing method or function) but found expression of type 'void'
