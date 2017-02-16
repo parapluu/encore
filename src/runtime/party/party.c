@@ -21,16 +21,16 @@ typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct ARRAY_PARs { struct array_t* array; } ARRAY_PARs;
 
 struct par_t {
-    enum PTAG tag;
-    pony_type_t* rtype;
-    union ParU {
-      EMPTY_PARs s;
-      VALUE_PARs v;
-      FUTURE_PARs f;
-      PAR_PARs p;
-      FUTUREPAR_PARs fp;
-      ARRAY_PARs a;
-    } data;
+  enum PTAG tag;
+  pony_type_t* rtype;
+  union ParU {
+    EMPTY_PARs s;
+    VALUE_PARs v;
+    FUTURE_PARs f;
+    PAR_PARs p;
+    FUTUREPAR_PARs fp;
+    ARRAY_PARs a;
+  } data;
 };
 
 // forward declaration
@@ -550,10 +550,11 @@ array_t* party_extract(pony_ctx_t **ctx,
 #define MARGIN 1.3
 
 static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
-  if(*root == NULL)
+  if(*root == NULL) {
     *root = node;
-  else
+  } else {
     *root = new_par_p(ctx, *root, node, get_rtype(*root));
+  }
 }
 
 static inline size_t batch_size_from_array(array_t * const ar){
@@ -573,47 +574,19 @@ static inline array_t* chunk_from_array(size_t i,
   return (array_t* const) array_get_chunk(&ctx, start, end, ar);
 }
 
-// TODO: Fix tasks. Tasks were removed from the language
-/* #ifdef PARTY_ARRAY_PARALLEL */
-/* typedef struct env_par { */
-/*   par_t* p; */
-/* } env_par; */
-
-/* static value_t id_as_task(void* env, void* __attribute__((unused)) null){ */
-/*   par_t* par = ((env_par*)env)->p; */
-/*   return (value_t){.p = par}; */
-/* } */
-/* #endif */
-
 par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
-  par_t* root = NULL;
   pony_type_t* type = array_get_type(ar);
+  par_t* root = new_par_empty(ctx, type);
+
   size_t batch_size = batch_size_from_array(ar);
 
   for(size_t i=0; i<batch_size; i++){
     array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
-    // TODO: Fix tasks. Tasks were removed from the language
-/* #ifdef PARTY_ARRAY_PARALLEL */
-/*     future_t* fut = future_mk(ctx, array_get_type(ar)); */
-/*     env_par* env = encore_alloc(ctx, sizeof* env); */
-/*     env->p = par; */
-/*     encore_task_s* task = task_mk(ctx, id_as_task, env, NULL, NULL); */
-/*     task_attach_fut(task, fut); */
-/*     task_schedule(task); */
-
-/*     pony_gc_send(ctx); */
-/*     encore_trace_object(ctx, fut, future_type.trace); */
-/*     encore_trace_object(ctx, task, NULL); */
-/*     pony_send_done(ctx); */
-
-/*     par = new_par_fp(ctx, fut, type); */
-/* #endif */
     build_party_tree(ctx, &root, par);
   }
   return root;
 }
-
 
 //----------------------------------------
 // INTERSECTION COMBINATOR
