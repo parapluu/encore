@@ -974,7 +974,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- FIXME: seems there is no way to get the current method
   translate ret@(A.Return{A.val}) =
       do (nval, tval) <- translate val
-         return (unit, Seq[tval, Return nval])
+         mName <- gets $ Ctx.getMethodName
+         return (unit, Seq[tval, dtraceMethodExit thisVar mName, Return nval])
 
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target

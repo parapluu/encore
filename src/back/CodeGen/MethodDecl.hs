@@ -87,7 +87,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
       subst = [(ID.thisName, thisVar)] ++
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
-      ctx = Ctx.new subst newTable
+      ctx = Ctx.putMethodName (Ctx.new subst newTable) mName
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       mTypeVars = A.methodTypeParams mdecl
       typeVars = Ty.getTypeParameters cname
