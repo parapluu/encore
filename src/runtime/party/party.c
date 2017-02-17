@@ -420,16 +420,18 @@ static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
   return new_par_fp(ctx, chained_fut, get_rtype(p));
 }
 
-static value_t closure_join(pony_ctx_t **ctx,
-                            __attribute__ ((unused))pony_type_t**  rType,
-                            value_t val[],
-                            __attribute__ ((unused)) void* env){
-  return (value_t){.p = party_join(ctx, val[0].p)};
-}
-
 static inline par_t* party_join_array(pony_ctx_t **ctx, par_t* const p){
-  closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace, NULL);
-  return party_sequence(ctx, p, clos, get_rtype(p));
+  pony_type_t *type = get_rtype(p);
+  assert(type == &party_type);
+
+  array_t *ar = party_get_array(p);
+  size_t size = array_size(ar);
+  par_t *new_p = new_par_empty(ctx, get_rtype(p));
+  for (size_t i = 0; i < size ; ++i){
+    par_t *v = array_get(ar, i).p;
+    new_p = new_par_p(ctx, new_p, v, type);
+  }
+  return new_p;
 }
 
 par_t* party_join(pony_ctx_t **ctx, par_t* const p){
@@ -614,7 +616,7 @@ par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
   for(size_t i=0; i<batch_size; i++){
     array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
-    root = new_par_p(ctx, root, par, get_rtype(root));
+    root = new_par_p(ctx, root, par, type);
   }
   return root;
 }
@@ -844,7 +846,10 @@ static list_t* party_leaves_to_list(pony_ctx_t **ctx, par_t * p){
       array_t* ar = p->data.a.array;
       size_t size = array_size(ar);
       for(size_t i=0; i<size; i++){
-        list = list_append(list, array_get(ar, i));
+        list = list_append(list,
+                           (value_t) {.p = new_par_v(ctx,
+                                                     array_get(ar, i),
+                                                     array_get_type(ar))});
       }
       tmp_list = list_pop(tmp_list, (value_t*)&p);
       break;
