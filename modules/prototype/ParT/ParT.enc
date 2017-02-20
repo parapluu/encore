@@ -1,12 +1,26 @@
 -- This file was automatically converted by encorec
 
-module ParT
+module ParT(
+    empty,
+    filter,
+    bind,
+    foreachp,
+    aggregate,
+    intersection,
+    distinct,
+    union,
+    app,
+    pairWith,
+    groupJoin,
+  )
+
 fun empty[a]() : Par[a]
   EMBED (Par[a])
     new_par_empty(_ctx, runtimeType[0]);
 
   END
 end
+
 fun filter[a](fn : a -> bool, ps : Par[a]) : Par[a]
   join(ps >> fun (item : a) => if fn(item) then
                                  liftv(item)
@@ -14,27 +28,109 @@ fun filter[a](fn : a -> bool, ps : Par[a]) : Par[a]
                                  empty[a]()
                                end)
 end
+
 fun bind[a, b](fn : a -> Par[b], p : Par[a]) : Par[b]
   join(p >> fn)
 end
+
 fun foreachp[t](p : Par[t], fn : t -> void) : Par[void]
   p >> fn
 end
+
 fun aggregate[t, a, r](p : Par[t], var init : a, fn1 : (a, t) -> a, fn2 : a -> r) : Par[r]
   liftf(reduce(fn1, init, p)) >> fn2
 end
+
 fun intersection[t](p1 : Par[t], p2 : Par[t], cmp : (t, t) -> int) : Par[t]
   EMBED (Par[t])
     party_intersection(_ctx, #{p1}, #{p2}, #{cmp}, _enc__type_t);
 
   END
 end
+
 fun distinct[t](p : Par[t], cmp : (t, t) -> int) : Par[t]
   EMBED (Par[t])
     party_distinct(_ctx, #{p}, #{cmp}, _enc__type_t);
-
   END
 end
+
 fun union[t](pl : Par[t], pr : Par[t], cmp : (t, t) -> int) : Par[t]
   distinct(pl ||| pr, cmp)
+end
+
+fun app[a, b](p : Par[a -> b], item : a) : Par[b]
+  p >> (fun (fn : a -> b) => fn(item))
+end
+
+fun pairWith[t, k](p : Par[t], fn : t -> k) : Par[(k, t)]
+  p >> (fun (x : t) => (fn(x), x))
+end
+
+fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Par[i]
+  val closure = fun (acc : (k, Par[i]), elem : (k, i))
+                  match (acc, elem) with
+                    case ((accKey, p), (elemKey, elemValue)) =>
+                      val equals = cmp(accKey, elemKey)
+                      if equals == 0 then
+                        (accKey, p ||| liftv(elemValue))
+                      else
+                        acc
+                      end
+                    end
+                  end
+                end
+  val extractParClosure = fun (t : (k, Par[i]))
+                            match t with
+                              case (key, pp) =>
+                                pp
+                              end
+                            end
+                          end
+  join(liftf(reduce(closure, (x, empty[i]()), p) ~~> extractParClosure))
+end
+
+fun findElemInParTuple[k, t](key : k, p : Par[(k, t)], cmp : (k, k) -> int) : Fut[Maybe[t]]
+  val closure = fun (acc : Maybe[t], elem : (k, t))
+                  match elem with
+                    case (keyElem, keyValue) =>
+                      if cmp(key, keyElem) == 0 then
+                        Just(keyValue)
+                      else
+                        acc
+                      end
+                    end
+
+                  end
+                end
+  reduce(closure, Nothing, p)
+end
+
+fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn : (t, Par[i]) -> Par[r], cmp : (k, k) -> int) : Par[r]
+  val pkt = pairWith(pt, tk)
+  val pki = pairWith(pi, ik)
+  val pkid = distinct(pki, fun (v : (k, i), u : (k, i))
+                             match (v, u) with
+                               case ((k1, v1), (k2, v2)) =>
+                                     cmp(k1, k2)
+                               end
+                             end
+                           end)
+
+  join(pkid >> (fun (tt : (k, i))
+                  match tt with
+                    case (key, elem) =>
+                      val nPi = groupParTuples(key, pki, cmp)
+                      val tkElem = get(findElemInParTuple(key, pkt, cmp))
+                      match tkElem with
+                        case Nothing =>
+                          empty[r]()
+                        end
+
+                        case Just(tkResultVal) =>
+                          fn(tkResultVal, nPi)
+                        end
+                      end
+                    end
+                  end
+                end))
 end

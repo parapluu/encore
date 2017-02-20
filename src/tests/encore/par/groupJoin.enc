@@ -1,0 +1,48 @@
+import ParT.ParT
+
+passive class Person {
+  name: String
+
+  def init(name: String): void this.name = name
+}
+
+passive class Pet {
+  name: String
+  owner: Person
+  def init(n: String, o: Person): void {
+    this.name = n;
+    this.owner = o;
+  }
+}
+
+class Main
+  def main(): void {
+    val magnus = new Person("Magnus");
+    val terry = new Person("Terry");
+    val charlotte = new Person("Charlotte");
+
+    val barley = new Pet("Barley", terry);
+    val boots = new Pet("Boots", terry);
+    val whiskers = new Pet("Whiskers", charlotte);
+    val daisy = new Pet("Daisy", magnus);
+
+    val people = liftv(magnus) || liftv(terry) || liftv(charlotte);
+    val pets = liftv(barley) || liftv(boots) || liftv(whiskers) || liftv(daisy);
+    val query = groupJoin(people,
+                          pets,
+                          (\(p: Person) -> p.name),
+                          (\(p: Pet) -> p.owner.name),
+                          (\(per: Person, animals: Par Pet) -> {
+                            liftv(per.name, animals >> (\(p: Pet) -> p.name))
+                          }),
+                          (\(s1: String, s2: String) -> s1.compare(s2)));
+    for elem in extract(query) {
+      match elem with
+        (name, pets) => {
+          println("{}:", name);
+          for pet in extract(pets) {
+            println("{}", pet);
+          }
+        }
+    }
+  }
