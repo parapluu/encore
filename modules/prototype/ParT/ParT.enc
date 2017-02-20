@@ -204,7 +204,7 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k,
 --
 -- Declaration of reduce function:
 --
--- def reduce<acc, t>(redfn: (acc, t) -> acc, p: Par t, init: acc): Fut acc
+-- def reduce<acc, t>(redfn: (acc, t) -> acc, init: acc, p: Par t): Fut acc
 --
 
 
