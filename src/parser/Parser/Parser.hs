@@ -141,38 +141,25 @@ folded :: (EncParser a -> EncParser a) -> EncParser () -> EncParser a -> EncPars
 folded delimiters fold p =
   delimiters (fold >> foldWith fold p)
 
--- | @parseBody ind c@ is inteded for use in the end of an
+-- | @parseBody c@ is inteded for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
--- conditional, which is either a "do", a newline and a list of
--- indented expressions, or a single expression at an indentation
--- level greater than @ind@. In the first case, the returned
--- boolean is @True@ to signal that some terminating token is
--- needed (e.g. "end"). @c@ is a function that takes the loop body
--- as the argument and builds a (possibly partial) expression.
-parseBody :: Pos -> (Expr -> a) -> EncParser (L.IndentOpt EncParser (Bool, a) Expr)
-parseBody indent constructor = blockBody <|> shortBody
-  where
-    blockBody = do
-      reserved "do"
-      return $ L.IndentSome Nothing
-               (return . (True,) . constructor . makeBody) expression
-    shortBody = do
-      nl
-      body <- indented indent expression
-      vspace
-      return $ L.IndentNone (False, constructor body)
+-- conditional, which is a list of indented expressions @c@ is a
+-- function that takes the loop body as the argument and builds a
+-- (possibly partial) expression.
+parseBody :: (Expr -> a) -> EncParser (L.IndentOpt EncParser a Expr)
+parseBody constructor =
+  return $ L.IndentSome Nothing
+           (return . constructor . makeBody) expression
 
 -- | @blockedConstruct p@ parses a construct whose header is
--- parsed by @p@, and whose body is either a single indented
--- expression, or a block between "do"/"end".
+-- parsed by @p@, and whose body is a block ended by "end".
 blockedConstruct header = do
   indent <- L.indentLevel
-  (needsEnd, loop) <- indentBlock $ do
+  block <- indentBlock $ do
     constructor <- header
-    parseBody indent constructor
-  when needsEnd $
-       atLevel indent $ reserved "end"
-  return loop
+    parseBody constructor
+  atLevel indent $ reserved "end"
+  return block
 
 -- | These parsers use the lexer above and are the smallest
 -- building blocks of the whole parser.
@@ -849,17 +836,17 @@ matchClause = do
     mcpattern <- expression <|> dontCare
     guardMeta <- meta <$> getPosition
     mcguard <- option (BTrue guardMeta) guard
+    reservedOp "=>"
     lineClause mcpattern mcguard <|> blockClause mcpattern mcguard
   when needsEnd $
        atLevel indent $ reserved "end"
   return clause
   where
     lineClause mcpattern mcguard = do
-      reservedOp "=>"
+      notFollowedBy nl
       mchandler <- expression
       return $ L.IndentNone (False, MatchClause{mcpattern, mcguard, mchandler})
-    blockClause mcpattern mcguard = do
-      reserved "do"
+    blockClause mcpattern mcguard =
       return $ L.IndentSome Nothing
                (\body -> return (True, MatchClause{mcpattern
                                                   ,mcguard
@@ -1104,7 +1091,7 @@ expr = notFollowedBy nl >>
       letExpression = do
         indent <- L.indentLevel
         letLine <- sourceLine <$> getPosition
-        (withDo, letExpr) <- indentBlock $ do
+        (needsEnd, letExpr) <- indentBlock $ do
           emeta <- meta <$> getPosition
           decls <- indentBlock $ do
             reserved "let"
@@ -1119,7 +1106,7 @@ expr = notFollowedBy nl >>
                   -- in
             atLevel indent $ reserved "in"
             nonInlineLet indent emeta decls
-        when withDo $
+        when needsEnd $
              atLevel indent $ reserved "end"
         return letExpr
         where
@@ -1130,19 +1117,20 @@ expr = notFollowedBy nl >>
           multiLineDecl =
             return $ L.IndentSome Nothing return varDecl
           inlineLet emeta decls = do
-            notFollowedBy (reserved "do" <|> nl)
+            notFollowedBy nl
             body <- expression
+            reserved "end"
             return $ L.IndentNone (False, Let{emeta
                                              ,mutability = Val
                                              ,decls
                                              ,body
                                              })
           nonInlineLet indent emeta decls =
-            parseBody indent $ \body -> Let{emeta
+            parseBody $ \body -> (True, Let{emeta
                                            ,mutability = Val
                                            ,decls
                                            ,body
-                                           }
+                                           })
       varDecl = do
         x <- Name <$> identifier
         reservedOp "="
@@ -1174,10 +1162,10 @@ expr = notFollowedBy nl >>
       ifExpression = do
         indent <- L.indentLevel
         ifLine <- sourceLine <$> getPosition
-        (withDo, ifThen) <-
+        ifThen <-
           ifWithSimpleCond indent ifLine (reserved "if") <|>
           ifWithComplexCond indent (reserved "if")
-        ifThenNoElse indent withDo ifThen
+        ifThenNoElse indent ifLine ifThen
          <|> ifThenElse indent ifLine ifThen
 
       ifWithSimpleCond indent ifLine head = do
@@ -1199,20 +1187,22 @@ expr = notFollowedBy nl >>
         cond <- indented indent expression
         indentBlock $ do
           atLevel indent $ reserved "then"
-          parseBody indent $ \thn -> IfThen{emeta, cond, thn}
+          parseBody $ \thn -> IfThen{emeta, cond, thn}
 
       inlineIfThen emeta cond  = do
-        notFollowedBy (reserved "do" <|> nl)
+        notFollowedBy nl
         thn <- expression
-        return $ L.IndentNone (False, IfThen{emeta, cond, thn})
+        return $ L.IndentNone IfThen{emeta, cond, thn}
 
       nonInlineIfThen indent emeta cond =
-        parseBody indent $ \thn -> IfThen{emeta, cond, thn}
+        parseBody $ \thn -> IfThen{emeta, cond, thn}
 
-      ifThenNoElse indent withDo ifThen = do
+      ifThenNoElse indent ifLine ifThen = do
         notFollowedBy (reserved "else" <|> (nl >> reserved "else"))
-        when withDo $
-             atLevel indent $ reserved "end"
+        endLine <- sourceLine <$> getPosition
+        if endLine == ifLine
+        then reserved "end"
+        else atLevel indent $ reserved "end"
         return ifThen
 
       ifThenElse indent ifLine ifThen = do
@@ -1221,6 +1211,7 @@ expr = notFollowedBy nl >>
         then do
           reserved "else"
           els <- expression
+          reserved "end"
           return $ extendIfThen ifThen els
         else finalElse indent ifThen <|>
              elseIf indent ifThen
@@ -1228,23 +1219,22 @@ expr = notFollowedBy nl >>
       elseIf indent ifThen = do
         let head = reserved "else" >> reserved "if"
         ifLine <- sourceLine <$> getPosition
-        (withDo, nestedIfThen) <-
+        nestedIfThen <-
           ifWithSimpleCond indent ifLine head <|>
           ifWithComplexCond indent head
         nestedIfThenElse <-
-          ifThenNoElse indent withDo nestedIfThen <|>
+          ifThenNoElse indent ifLine nestedIfThen <|>
           finalElse indent nestedIfThen <|>
           elseIf indent nestedIfThen
         return $ extendIfThen ifThen nestedIfThenElse
 
       finalElse indent ifThen = do
         notFollowedBy (reserved "else" >> reserved "if")
-        (withDo, result) <-
+        result <-
           indentBlock $ do
             atLevel indent $ reserved "else"
-            parseBody indent (extendIfThen ifThen)
-        when withDo $
-             atLevel indent $ reserved "end"
+            parseBody (extendIfThen ifThen)
+        atLevel indent $ reserved "end"
         return result
 
       extendIfThen IfThen{emeta, cond, thn} els =
@@ -1261,25 +1251,28 @@ expr = notFollowedBy nl >>
         emeta <- meta <$> getPosition
         reserved "for"
         name <- Name <$> identifier
-        reserved "in"
+        reservedOp "<-"
         src <- expression
         stepMeta <- meta <$> getPosition
         step <- option (IntLiteral stepMeta 1)
                        (do {reserved "by"; expression})
+        reserved "do"
         return $ \body -> For{emeta, name, src, step, body}
 
       while = blockedConstruct $ do
         emeta <- meta <$> getPosition
         reserved "while"
         cond <- expression
+        reserved "do"
         return $ \body -> While{emeta, cond, body}
 
       repeat = blockedConstruct $ do
         emeta <- meta <$> getPosition
         reserved "repeat"
         name <- Name <$> identifier
-        symbol "<-"
+        reservedOp "<-"
         times <- expression
+        reserved "do"
         return $ \body -> Repeat{emeta, name, times, body}
 
       reduce = do
@@ -1421,7 +1414,7 @@ expr = notFollowedBy nl >>
       int = do
         emeta <- meta <$> getPosition
         n <- L.integer
-        kind <- do symbol "u" <|> symbol "U"
+        kind <- do hidden (symbol "u") <|> hidden (symbol "U")
                    return UIntLiteral
                <|> (hspace >> return IntLiteral)
         return $ kind emeta (fromInteger n)

@@ -23,10 +23,11 @@ array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
 }
 END
 fun string_from_char(c : char) : String
- let
-   s = EMBED (EMBED char* END) encore_alloc(*_ctx, 2); END
- in
-   new String(EMBED (EMBED char* END) *#{s} = #{c}; #{s}; END)
+  let
+    s = EMBED (EMBED char* END) encore_alloc(*_ctx, 2); END
+  in
+    new String(EMBED (EMBED char* END) *#{s} = #{c}; #{s}; END)
+  end
 end
 
 fun string_from_array(arr : [char]) : String
@@ -34,9 +35,10 @@ fun string_from_array(arr : [char]) : String
     len = |arr|
     s = EMBED (EMBED char* END) encore_alloc(*_ctx, #{len} + 1); END
     p = s
-  in do
-    for c in arr
+  in
+    for c <- arr do
       EMBED (void) *#{p}++ = #{c}; END
+    end
     new String(s)
   end
 end
@@ -63,7 +65,7 @@ fun string_from_int(n : int) : String
 end
 
 fun string_from_bool(x : bool) : String
-  if x then "true" else "false"
+  if x then "true" else "false" end
 end
 
 -- This is a utility library for working with strings.
@@ -101,6 +103,7 @@ passive class String
                    strncat(str, (char *)#{b_data}, #{b_len});
                    str;
                  END)
+    end
   end
 
   -- Returns a copy of the current string
@@ -114,6 +117,7 @@ passive class String
                    strncpy(str, (char *)#{data}, #{t_len} + 1);
                    str;
                  END)
+    end
   end
   -- Returns true if b is a substring of the current string
   def contains(b:String) : bool
@@ -124,6 +128,7 @@ passive class String
       EMBED (bool)
         strstr((char *)#{data}, (char *)#{b_data}) != NULL;
       END
+    end
   end
 
   -- As contains, but ignores case
@@ -136,11 +141,12 @@ passive class String
     let
       t_len  = this.length
       b_len  = b.length
-      len = if t_len > b_len then t_len else b_len
+      len = if t_len > b_len then t_len else b_len end
       t_data = this.data
       b_data = b.data
     in
       EMBED (int) strncmp((char *)#{t_data}, (char *)#{b_data}, #{len}); END
+    end
   end
 
   -- As compare, but ignores case
@@ -163,6 +169,7 @@ passive class String
                    str[#{t_len}] = '\0';
                    str;
                  END)
+    end
   end
 
   -- Returns a copy of the string in lowercase
@@ -180,6 +187,7 @@ passive class String
                    str[#{t_len}] = '\0';
                    str;
                  END)
+    end
   end
 
   -- Returns the length of a string in O(1) time
@@ -213,6 +221,9 @@ passive class String
                           END))
         else
           Nothing
+        end
+      end
+    end
   end
 
   -- Checks structural equivalence between this and s
@@ -224,7 +235,7 @@ passive class String
   def occurrences(s:String) : int
     if s.length() == 0 then
       this.length()
-    else do
+    else
       var counter = 0
       var i       = this.find(s)
       val s_len   = s.length()
@@ -243,10 +254,11 @@ passive class String
   def join(strings:[String]) : String
     if |strings| == 0 then
       ""
-    else do
+    else
       var result = strings(0)
-      for i in [1..|strings|-1]
+      for i <- [1..|strings|-1] do
         result = result.concatenate(this).concatenate(strings(i))
+      end
       result
     end
   end
@@ -267,6 +279,7 @@ passive class String
       match this.substring(start_index, stop_index + 1) with
         case Just(s) => s
       end
+    end
   end
 
   -- Replaces all occurrences of a by b in the string.
@@ -294,6 +307,7 @@ passive class String
         char *loc = strstr(str + #{b}, pattern);
         loc ? loc - str : -1;
       END
+    end
   end
 
   -- Terrible code
@@ -328,6 +342,7 @@ passive class String
                    strcpy(result, tmp);
                    result;
                  END)
+    end
   end
 
   def format(b:[String]) : String
@@ -343,17 +358,20 @@ passive class String
         Just (EMBED (char) #{s}[#{i}]; END)
       else
         Nothing
+      end
+    end
   end
 
   def to_array() : [char]
     let
       len = this.length()
       arr = new [char](len)
-    in do
-      for i in [0..len-1]
+    in
+      for i <- [0..len-1] do
         arr(i) = match this.char_at(i) with
                    case Just(c) => c
                  end
+      end
       arr
     end
   end
@@ -368,14 +386,15 @@ passive class String
       if occurrences == 0 then
         [this]
       else if (pattern_len == 0) then
-        let s_arr = new [String](this.length()) in do
-          for i in [0..|s_arr|-1]
+        let s_arr = new [String](this.length()) in
+          for i <- [0..|s_arr|-1] do
             s_arr(i) = string_from_char(match this.char_at(i) with
                                           case Just(c) => c
                                         end)
+          end
           s_arr
         end
-      else do
+      else
         val result = new [String](occurrences + 1)
         var start  = 0
         var stop   = 0
@@ -391,6 +410,7 @@ passive class String
                               end
         result
       end
+    end
   end
 
   def to_int() : Maybe[int]
@@ -408,5 +428,6 @@ passive class String
       Just(n)
     else
       Nothing
+    end
   end
 end
