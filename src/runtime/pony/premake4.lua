@@ -66,7 +66,7 @@ solution "ponyrt"
       "-pthread",
       "-std=gnu11",
       "-march=native",
-
+      "-Wunused-parameter",
       "-Wno-error=deprecated-declarations",
       }
 

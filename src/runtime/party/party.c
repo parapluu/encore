@@ -552,10 +552,11 @@ static void trace_collect_from_party(pony_ctx_t *_ctx, void *p) {
   encore_trace_object(*ctx, this->cmp, closure_trace);
 }
 
-static value_t grouping_futures_async(pony_ctx_t** ctx,
-                                      pony_type_t** runtimeType,
-                                      value_t _args[],
-                                      void* env) {
+static value_t
+grouping_futures_async(pony_ctx_t** ctx,
+                       __attribute__ ((unused)) pony_type_t** runtimeType,
+                       __attribute__ ((unused)) value_t _args[],
+                       void* env) {
   par_t *par = ((struct env_collect_from_party*) env)->par;
   closure_t *clos = ((struct env_collect_from_party*) env)->call;
   closure_t *cmp = ((struct env_collect_from_party*) env)->cmp;
@@ -581,8 +582,10 @@ static value_t grouping_futures_async(pony_ctx_t** ctx,
 static value_t intersection_as_closure(pony_ctx_t** ctx,
                                        pony_type_t** runtimeType,
                                        value_t args[],
-                                       void* env)   // env is always NULL;
+                                       __attribute__ ((unused)) void* env)
 {
+  assert(env == NULL);
+
   // Initially we got two ParT which were merged into one.
   // Unmerge the ParT and perform their intersection
   par_t *p = args[0].p;
@@ -603,8 +606,9 @@ static value_t intersection_as_closure(pony_ctx_t** ctx,
 static value_t distinct_as_closure(pony_ctx_t** ctx,
                                    pony_type_t** runtimeType,
                                    value_t args[],
-                                   void* env)   // env is always NULL;
+                                   __attribute__ ((unused)) void* env)
 {
+  assert(env == NULL);
   par_t *p = args[0].p; // it's always ParT with all values fulfilled!
   closure_t *cmp = args[1].p;
   pony_type_t *type = runtimeType[0];
