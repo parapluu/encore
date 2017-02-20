@@ -144,6 +144,12 @@ thisName = Nam this
 thisVar :: CCode Lval
 thisVar = Var this
 
+env :: String
+env = "_env"
+
+envVar :: CCode Lval
+envVar = Var env
+
 encoreName :: String -> String -> String
 encoreName kind name =
   let

@@ -63,12 +63,12 @@ translateClosure closure typeVars table
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
          Concat [buildEnvironment envName freeVars fTypeVars,
-                 tracefunDecl traceName envName freeVars,
+                 tracefunDecl traceName envName freeVars fTypeVars,
                  Function (Static $ Typ "value_t") funName
                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                            (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                            (Typ "value_t", Var "_args[]"),
-                           (Ptr void, Var "_env")]
+                           (Ptr void, envVar)]
                           (Seq $
                             dtraceClosureEntry argNames :
                             extractArguments params ++
@@ -113,16 +113,17 @@ translateClosure closure typeVars table
             in Seq [Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName,
                     encoreAssert (AsExpr $ AsLval fName)]
           getVar name =
-              (Deref $ Cast (Ptr $ Struct envName) (Var "_env")) `Dot` name
+              (Deref $ Cast (Ptr $ Struct envName) envVar) `Dot` name
 
-      tracefunDecl traceName envName members =
+      tracefunDecl traceName envName members fTypeVars =
         Function (Static void) traceName args body
         where
           args = [(Ptr encoreCtxT, ctxArg), (Ptr void, Var "p")]
           ctxArg = Var "_ctx_arg"
           body = Seq $
               Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg) :
-              Assign (Decl (Ptr $ Struct envName, thisVar)) (Var "p") :
+              Assign (Decl (Ptr $ Struct envName, envVar)) (Var "p") :
+              extractEnvironment envName members fTypeVars ++
               map traceMember members
           traceMember (name, ty) = traceVariable ty $ getVar name
-          getVar name = thisVar `Arrow` fieldName name
+          getVar name = envVar `Arrow` fieldName name

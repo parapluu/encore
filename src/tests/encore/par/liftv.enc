@@ -16,6 +16,9 @@ def primitive_const(): String
 def passive_const(): String
   "Passive Test"
 
+def app<a, b>(p: Par (a -> b), item: a): Par b
+  p >> \(fn: a -> b) -> fn(item)
+
 passive class PassiveTest
   elem: String
 
@@ -33,7 +36,12 @@ class Main
     let passive_par = liftv (new PassiveTest()) in
       passive_par >> \(x: PassiveTest) -> show_passive(x, "Liftv", passive_const())
 
+  def test_function_liftv(): void
+    let fnPar = liftv(\(x: String) -> x) in
+    app(fnPar, "Lift Function To ParT") >> \(x: String) -> println("{}: OK\n", x)
+
   def main(): void {
     this.test_primitive_liftv();
     this.test_passive_liftv();
+    this.test_function_liftv();
   }
