@@ -71,27 +71,28 @@ pony_type_t* party_get_type(par_t * const p){
 #define get_rtype(x) (x)->rtype
 
 static inline void set_par_value(encore_arg_t val,
-                                 void * __attribute__((unused))null,
+                                 __attribute__((unused)) void* null,
                                  par_t * const par){
   assert(par->tag == VALUE_PAR);
   par->data.v.val = val;
 }
 
 static inline void set_par_future(future_t * const fut,
-                                  void * __attribute__((unused)) null,
+                                  __attribute__((unused)) void* null,
                                   par_t *par){
   assert(par->tag == FUTURE_PAR);
   par->data.f.fut = fut;
 }
 
 static inline void set_par_future_par(future_t * const fut,
-                                      void * __attribute__((unused)) null,
+                                      __attribute__((unused)) void* null,
                                       par_t *par){
   assert(par->tag == FUTUREPAR_PAR);
   par->data.fp.fut = fut;
 }
 
-static inline void set_par_par(par_t * const rpar, par_t * const lpar,
+static inline void set_par_par(par_t * const rpar,
+                               par_t * const lpar,
                                par_t * const par){
   switch(par->tag){
   case PAR_PAR: {
@@ -104,8 +105,8 @@ static inline void set_par_par(par_t * const rpar, par_t * const lpar,
 }
 
 static inline void set_par_array(array_t* const arr,
-                   void * __attribute__((unused)) null,
-                   par_t* const p){
+                                 __attribute__((unused)) void* null,
+                                 par_t* const p){
   assert(p->tag == ARRAY_PAR);
   p->data.a.array = arr;
 }
@@ -239,8 +240,9 @@ static par_t* fmap(pony_ctx_t **ctx, closure_t * const f, par_t * in,
                    pony_type_t const * const rtype);
 
 static value_t fmap_party_closure(pony_ctx_t **ctx,
-                                  pony_type_t** __attribute__ ((unused)) rType,
-                                  value_t args[], void * const env){
+                                  __attribute__ ((unused)) pony_type_t**  rType,
+                                  value_t args[],
+                                  void * const env){
   par_t *p = (par_t*)args[0].p;
   fmap_s *fm = env;
   return (value_t){.p = fmap(ctx, fm->fn, p, get_rtype(fm))};
@@ -359,9 +361,9 @@ static inline par_t* party_join_p(pony_ctx_t **ctx, par_t* const p){
 }
 
 static value_t party_join_fp_closure(pony_ctx_t **ctx,
-                                     pony_type_t** __attribute__ ((unused)) rType,
+                                     __attribute__ ((unused))pony_type_t**  rType,
                                      value_t args[],
-                                     void* __attribute__ ((unused)) env){
+                                     __attribute__ ((unused)) void* env){
   par_t* const p = (par_t*)args[0].p;
   return (value_t){.p = party_join(ctx, p)};
 }
@@ -374,9 +376,9 @@ static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
 }
 
 static value_t closure_join(pony_ctx_t **ctx,
-                            pony_type_t** __attribute__ ((unused)) rType,
+                            __attribute__ ((unused))pony_type_t**  rType,
                             value_t val[],
-                            void* __attribute__ ((unused)) env){
+                            __attribute__ ((unused)) void* env){
   return (value_t){.p = party_join(ctx, val[0].p)};
 }
 
@@ -552,10 +554,11 @@ static void trace_collect_from_party(pony_ctx_t *_ctx, void *p) {
   encore_trace_object(*ctx, this->cmp, closure_trace);
 }
 
-static value_t grouping_futures_async(pony_ctx_t** ctx,
-                                      pony_type_t** runtimeType,
-                                      value_t _args[],
-                                      void* env) {
+static value_t
+grouping_futures_async(pony_ctx_t** ctx,
+                       __attribute__ ((unused)) pony_type_t** runtimeType,
+                       __attribute__ ((unused)) value_t _args[],
+                       void* env) {
   par_t *par = ((struct env_collect_from_party*) env)->par;
   closure_t *clos = ((struct env_collect_from_party*) env)->call;
   closure_t *cmp = ((struct env_collect_from_party*) env)->cmp;
@@ -581,8 +584,10 @@ static value_t grouping_futures_async(pony_ctx_t** ctx,
 static value_t intersection_as_closure(pony_ctx_t** ctx,
                                        pony_type_t** runtimeType,
                                        value_t args[],
-                                       void* env)   // env is always NULL;
+                                       __attribute__ ((unused)) void* env)
 {
+  assert(env == NULL);
+
   // Initially we got two ParT which were merged into one.
   // Unmerge the ParT and perform their intersection
   par_t *p = args[0].p;
@@ -603,8 +608,9 @@ static value_t intersection_as_closure(pony_ctx_t** ctx,
 static value_t distinct_as_closure(pony_ctx_t** ctx,
                                    pony_type_t** runtimeType,
                                    value_t args[],
-                                   void* env)   // env is always NULL;
+                                   __attribute__ ((unused)) void* env)
 {
+  assert(env == NULL);
   par_t *p = args[0].p; // it's always ParT with all values fulfilled!
   closure_t *cmp = args[1].p;
   pony_type_t *type = runtimeType[0];

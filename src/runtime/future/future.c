@@ -313,7 +313,7 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 // optimisation over the `future_chain_actor`.
 void future_register_callback(pony_ctx_t **ctx,
                               future_t *fut,
-                              pony_type_t *type,
+                              __attribute__ ((unused)) pony_type_t *type,
                               closure_t *c)
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
