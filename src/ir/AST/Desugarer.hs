@@ -317,6 +317,31 @@ desugar f@FunctionCall{emeta
 desugar f@FunctionCall{emeta, qname = QName{qnlocal = Name "getNext"}
                       ,args = [target]} = StreamNext{emeta, target}
 
+-- Operations on ParT
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "extract"}
+                      ,args = [val]} = PartyExtract{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "liftf"}
+                      ,args = [val]} = Liftf{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "liftv"}
+                      ,args = [val]} = Liftv{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "each"}
+                      ,args = [val]} = PartyEach{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "join"}
+                      ,args = [val]} = PartyJoin{emeta, val}
+desugar f@FunctionCall{emeta
+                      ,qname = QName{qnlocal = Name "reduce"}
+                      ,args = [seqfun, pinit, par]} =
+  PartyReduce{emeta
+             ,seqfun
+             ,pinit
+             ,par
+             ,runassoc = False}
+
 -- Maybe values
 desugar x@VarAccess{emeta, qname = QName{qnlocal = Name "Nothing"}} =
   MaybeValue{emeta, mdt = NothingData}

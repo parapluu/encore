@@ -863,12 +863,8 @@ expression = makeExprParser expr opTable
                  [op "&&" Identifiers.AND,
                   op "||" Identifiers.OR],
                  [messageSend],
-                 [partyLiftf, partyLiftv, partyEach],
                  [typedExpression],
                  [chain],
-                 [partySequence],
-                 [partyParallel],
-                 [partyJoin],
                  [assignment]
                 ]
 
@@ -905,19 +901,6 @@ expression = makeExprParser expr opTable
           InfixL (do pos <- getPosition
                      withLinebreaks $ reservedOp "~~>"
                      return (FutureChain (meta pos)))
-      -- TODO: What is the correct syntax here?
-      partyLiftf =
-          Prefix (do pos <- getPosition
-                     reserved "liftf"
-                     return (Liftf (meta pos)))
-      partyLiftv =
-          Prefix (do pos <- getPosition
-                     reserved "liftv"
-                     return (Liftv (meta pos)))
-      partyEach =
-          Prefix (do pos <- getPosition
-                     reserved "each"
-                     return $ PartyEach (meta pos))
       partySequence =
           InfixL (do pos <- getPosition ;
                      reservedOp ">>" ;
@@ -926,10 +909,6 @@ expression = makeExprParser expr opTable
           InfixL (do pos <- getPosition ;
                      reservedOp "||" ;
                      return (PartyPar (meta pos)))
-      partyJoin =
-          Prefix (do pos <- getPosition
-                     reserved "join"
-                     return (PartyJoin (meta pos)))
       assignment =
           InfixR (do pos <- getPosition ;
                      reservedOp "=" ;
@@ -941,13 +920,11 @@ expr :: EncParser Expr
 expr = notFollowedBy nl >>
         (embed
      <|> closure
-     <|> reduce
      <|> match
      <|> task
      <|> for
      <|> while
      <|> repeat
-     <|> extract
      <|> arraySize
      <|> bracketed
      <|> letExpression
@@ -1266,18 +1243,6 @@ expr = notFollowedBy nl >>
         reserved "do"
         return $ \body -> Repeat{emeta, name, times, body}
 
-      reduce = do
-        pos <- getPosition
-        reserved "reduce"
-        (f, i, p) <- parens (do
-                             seqfun <- expression
-                             comma
-                             pinit <- expression
-                             comma
-                             par <- expression
-                             return (seqfun, pinit, par))
-        return $ PartyReduce (meta pos) f i p False
-
       match = do
         indent <- L.indentLevel
         theMatch <- indentBlock $ do
@@ -1288,13 +1253,6 @@ expr = notFollowedBy nl >>
           return $ L.IndentSome Nothing (return . Match emeta arg) matchClause
         atLevel indent $ reserved "end"
         return theMatch
-
-      -- TODO: What is the correct syntax here?
-      extract = do
-        emeta <- meta <$> getPosition
-        reserved "extract"
-        val <- expression
-        return PartyExtract{emeta, val}
 
       yield = do
         emeta <- meta <$> getPosition
