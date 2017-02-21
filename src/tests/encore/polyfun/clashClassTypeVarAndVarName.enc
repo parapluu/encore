@@ -1,0 +1,12 @@
+class Test<t, k>
+  def clashingNameAndTypes(x: t, y: k): void {
+    val nestedClosure = \(t: k) -> {
+                           val idFn = \(xx: t) -> xx;
+                           idFn(x)
+                        };
+    nestedClosure(y)
+  }
+
+class Main
+  def main(): void
+    ()

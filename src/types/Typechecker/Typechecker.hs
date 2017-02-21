@@ -659,17 +659,41 @@ instance Checkable Expr where
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
-
       eEparams <- mapM typecheck eparams
       eBody <- local (addParams eEparams) $ typecheckNotNull body
       let paramNames = map pname eEparams
           capturedVariables = map (qnlocal . fst) $
                               freeVariables (map qLocal paramNames) eBody
+
+      bindings <- (\x -> fst <$> x) <$> asks bindings
+      typeParams <- asks typeParameters
+      let nameTypeClashFn types = and $ map (\x -> clashTypeName x types) paramNames
+      unless (nameTypeClashFn typeParams && nameTypeClashFn bindings) $
+         let clashFn types = concatMap (\x -> getClashTypeVariables x types) paramNames
+             clashes = nub $ clashFn typeParams ++ clashFn bindings
+         in tcError $ TypeVariableAndVariableCommonName clashes
+
       local (addParams eEparams . makeImmutable capturedVariables) $
             typecheck eBody -- Check for mutation of captured variables
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
+      where
+        getClashTypeVariables :: Name -> [Type] -> [Name]
+        getClashTypeVariables name@(Name n) ts
+          | and (map isTypeVar ts) =
+              concatMap (\t -> let typeName = fromJust (maybeGetId t) in
+                         if n == typeName then [name]
+                         else []) ts
+          | otherwise = error $ "Typechecker.hs: types '" ++ show ts ++ "' " ++
+                                "are not type variables"
+
+        clashTypeName :: Name -> [Type] -> Bool
+        clashTypeName (Name n) ts
+          | and (map isTypeVar ts) =
+              and $ map (\t -> n /= fromJust (maybeGetId t)) ts
+          | otherwise = error $ "Typechecker.hs: types '" ++ show ts ++ "' " ++
+                                "are not type variables"
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t
