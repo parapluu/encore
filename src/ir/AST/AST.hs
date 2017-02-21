@@ -401,24 +401,16 @@ traitCompositionFromCapability cap
                     ,tcright = traitCompositionFromCapability right}
   | otherwise = TraitLeaf{tcname = cap, tcext = []}
 
-data Modifier = MVal
-                deriving(Eq)
-
-instance Show Modifier where
-    show MVal = "val"
-
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
-  fmods :: [Modifier],
+  fmut  :: Mutability,
   fname :: Name,
   ftype :: Type
 }
 
 instance Show FieldDecl where
-  show f@Field{fmods,fname,ftype} =
-      smods ++ show fname ++ " : " ++ show ftype
-    where
-      smods = concatMap ((++ " ") . show) fmods
+  show f@Field{fmut, fname, ftype} =
+      show fmut ++ show fname ++ " : " ++ show ftype
 
 instance Eq FieldDecl where
   a == b = fname a == fname b
@@ -430,7 +422,7 @@ instance HasMeta FieldDecl where
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
 isValField :: FieldDecl -> Bool
-isValField = (MVal `elem`) . fmods
+isValField = (== Val) . fmut
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,

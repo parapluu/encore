@@ -722,24 +722,18 @@ classDecl = do
                     ,cmethods
                     }
 
-modifier :: EncParser Modifier
-modifier = val
-           <?>
-           "modifier"
-    where
-      val = do
-        reserved "val"
-        return MVal
+mutModifier :: EncParser Mutability
+mutModifier = (reserved "var" >> return Var)
+          <|> (reserved "val" >> return Val)
 
--- TODO: Require var/val
 fieldDecl :: EncParser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
-               fmods <- many modifier
+               fmut  <- mutModifier
                fname <- Name <$> identifier
                colon
                ftype <- typ
                return Field{fmeta
-                           ,fmods
+                           ,fmut
                            ,fname
                            ,ftype}
 
@@ -1131,8 +1125,7 @@ expr = notFollowedBy nl >>
       miniLet = do
         indent <- L.indentLevel
         emeta <- meta <$> getPosition
-        mutability <- (reserved "var" >> return Var)
-                  <|> (reserved "val" >> return Val)
+        mutability <- mutModifier
         (x, val) <- varDecl
         return MiniLet{emeta, mutability, decl = (x, val)}
 

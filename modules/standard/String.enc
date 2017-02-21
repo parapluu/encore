@@ -76,8 +76,8 @@ end
 -- [ ] Write proper docs
 -- Be aware of issue #204
 passive class String
-  data : EMBED char* END
-  length : int
+  val data : EMBED char* END
+  val length : int
   def init(s:EMBED char* END) : void
     this.data = s
     this.length = EMBED (int); strlen(#{s}); END
