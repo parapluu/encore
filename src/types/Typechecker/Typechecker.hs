@@ -1179,17 +1179,6 @@ instance Checkable Expr where
                     ,args
                     }
 
-   ---  |- ty
-    --  classLookup(ty) = _
-    --  ty != Main
-    -- ----------------------
-    --  E |- peer ty : ty
-    doTypecheck peer@(Peer {ty}) =
-        do ty' <- resolveType ty
-           unless (isActiveClassType ty' && not (isMainType ty')) $
-                  tcError $ ObjectCreationError ty'
-           return $ setType ty' peer{ty = ty'}
-
     --  E |- n : int
     --  E |- m : int
     --  E |- k : int

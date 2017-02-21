@@ -286,56 +286,6 @@ desugar Async{emeta, body} =
     args = [lifted_body]
     lifted_body = Closure {emeta, eparams=[], body=body}
 
-
--- foreach item in arr {
---   stmt using item
--- }
-
--- translates to
-
--- let __it__ = 0
---     __arr_size = |arr|
--- in
---   while (__it__ > __arr_size__) {
---     stmt where item is replaced by arr[__it__]
---     __it__ = __it__ +1
---   }
-desugar Foreach{emeta, item, arr, body} =
-  let it = Name "__it__"
-      arrSize = Name "__arr_size__"
-      isEmpty = Binop emeta Identifiers.EQ
-                      (VarAccess emeta (qLocal arrSize))
-                      (IntLiteral emeta 0)
-  in
-   Let{emeta
-      ,mutability = Val
-      ,decls = [(arrSize, ArraySize emeta arr)]
-      ,body =
-        IfThenElse emeta isEmpty
-                   (Skip (cloneMeta emeta))
-                   Let{emeta
-                       ,mutability = Var
-                       ,decls =
-                         [(it, IntLiteral emeta 0),
-                          (item, ArrayAccess emeta arr (IntLiteral emeta 0))]
-                       ,body =
-          While emeta
-             (Binop emeta
-                   Identifiers.LT
-                   (VarAccess emeta (qLocal it))
-                   (VarAccess emeta (qLocal arrSize)))
-             (Seq emeta
-                  [Assign emeta (VarAccess emeta (qLocal item))
-                                (ArrayAccess emeta arr (VarAccess emeta (qLocal it))),
-                   Async emeta body,
-                   Assign emeta
-                      (VarAccess emeta (qLocal it))
-                      (Binop emeta
-                       PLUS
-                       (VarAccess emeta (qLocal it))
-                       (IntLiteral emeta 1))
-                  ])}}
-
 -- Constructor calls
 desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}
 desugar new@NewWithInit{emeta, ty, args}

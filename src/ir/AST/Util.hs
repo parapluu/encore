@@ -73,7 +73,6 @@ getChildren (MaybeValue _ (JustData e)) = [e]
 getChildren (MaybeValue _ NothingData) = []
 getChildren Tuple {args} = args
 getChildren Async {body} = [body]
-getChildren Foreach {arr, body} = [arr, body]
 getChildren Let {body, decls} = body : map snd decls
 getChildren MiniLet {decl = (_, val)} = [val]
 getChildren Seq {eseq} = eseq
@@ -109,7 +108,6 @@ getChildren BTrue {} = []
 getChildren BFalse {} = []
 getChildren NewWithInit {args} = args
 getChildren New {} = []
-getChildren Peer {} = []
 getChildren Print {args} = args
 getChildren Exit {args} = args
 getChildren StringLiteral {} = []
@@ -145,7 +143,6 @@ putChildren [body] e@(Async {}) = e{body = body}
 putChildren [body] e@(MaybeValue _ (JustData _)) = e{mdt = JustData body}
 putChildren [] e@(MaybeValue _ NothingData) = e
 putChildren args e@(Tuple {}) = e{args = args}
-putChildren [arr, body] e@(Foreach {}) = e{arr = arr, body = body}
 putChildren (body : es) e@(Let{decls}) = e{body = body, decls = zipWith (\(name, _) e -> (name, e)) decls es}
 putChildren [val] e@(MiniLet{decl = (x, _)}) = e{decl = (x, val)}
 putChildren eseq e@(Seq {}) = e{eseq = eseq}
@@ -183,7 +180,6 @@ putChildren [] e@(BTrue {}) = e
 putChildren [] e@(BFalse {}) = e
 putChildren args e@(NewWithInit {}) = e{args = args}
 putChildren [] e@(New {}) = e
-putChildren [] e@(Peer {}) = e
 putChildren args e@(Print {}) = e{args = args}
 putChildren args e@(Exit {}) = e{args = args}
 putChildren [start, stop, step] e@(RangeLiteral {emeta}) = e{start = start, stop = stop, step = step}
@@ -217,7 +213,6 @@ putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to hav
 putChildren _ e@(PartyReduce {}) = error "'putChildren l PartyReduce' expects l to have 3 elements"
 putChildren _ e@(Closure {}) = error "'putChildren l Closure' expects l to have 1 element"
 putChildren _ e@(Async {}) = error "'putChildren l Async' expects l to have 1 element"
-putChildren _ e@(Foreach {}) = error "'putChildren l Foreach' expects l to have 2 elements"
 putChildren _ e@(Let{decls}) = error "'putChildren l Let' expects l to have at least 1 element"
 putChildren _ e@(MiniLet{decl}) = error "'putChildren l MiniLet' expects l to have 1 element"
 putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to have 3 elements"
@@ -245,7 +240,6 @@ putChildren _ e@(Null {}) = error "'putChildren l Null' expects l to have 0 elem
 putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 elements"
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"
 putChildren _ e@(New {}) = error "'putChildren l New' expects l to have 0 elements"
-putChildren _ e@(Peer {}) = error "'putChildren l Peer' expects l to have 0 elements"
 putChildren _ e@(StringLiteral {}) = error "'putChildren l StringLiteral' expects l to have 0 elements"
 putChildren _ e@(CharLiteral {}) = error "'putChildren l CharLiteral' expects l to have 0 elements"
 putChildren _ e@(IntLiteral {}) = error "'putChildren l IntLiteral' expects l to have 0 elements"

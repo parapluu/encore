@@ -588,10 +588,6 @@ data Expr = Skip {emeta :: Meta Expr}
                         mdt :: MaybeContainer }
           | Tuple {emeta :: Meta Expr,
                    args :: [Expr]}
-          | Foreach {emeta :: Meta Expr,
-                     item :: Name,
-                     arr :: Expr,
-                     body :: Expr}
           | Let {emeta :: Meta Expr,
                  mutability :: Mutability,
                  decls :: [(Name, Expr)],
@@ -667,8 +663,6 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | New {emeta :: Meta Expr,
                  ty ::Type}
-          | Peer {emeta :: Meta Expr,
-                  ty ::Type}
           | Print {emeta :: Meta Expr,
                    file :: FileDescriptor,
                    args :: [Expr]}

@@ -255,7 +255,6 @@ ppExpr BFalse {} = "false"
 ppExpr NewWithInit {ty, args} =
   "new" <+> ppType ty <> parens (commaSep (map ppExpr args))
 ppExpr New {ty} = "new" <+> ppType ty
-ppExpr Peer {ty} = "peer" <+> ppType ty
 ppExpr Print {args} = "print" <> parens (commaSep (map ppExpr args))
 ppExpr Exit {args} = "exit" <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text $ show stringLit
@@ -275,9 +274,6 @@ ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
 ppExpr Binop {binop, loper, roper} =
   ppExpr loper <+> ppBinop binop <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ":" <+> ppType ty
-ppExpr Foreach {item, arr, body} =
-  "foreach" <+> ppName item <+> "in" <+> ppExpr arr <>
-                braces (ppExpr body)
 
 ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = "not"

@@ -171,19 +171,15 @@ reservedNames =
     ,"Par"
     ,"Stream"
     ,"and"
-    ,"await"
-    ,"body"
     ,"bool"
     ,"case"
     ,"char"
     ,"class"
     ,"def"
     ,"do"
-    ,"each"
     ,"else"
     ,"end"
     ,"eos"
-    ,"extract"
     ,"false"
     ,"for"
     ,"fun"
@@ -192,8 +188,6 @@ reservedNames =
     ,"in"
     ,"int"
     ,"let"
-    ,"liftf"
-    ,"liftv"
     ,"match"
     ,"module"
     ,"new"
@@ -201,10 +195,8 @@ reservedNames =
     ,"null"
     ,"or"
     ,"passive"
-    ,"peer"
     ,"qualified"
     ,"real"
-    ,"reduce"
     ,"repeat"
     ,"require"
     ,"shared"
@@ -967,7 +959,6 @@ expr = notFollowedBy nl >>
      <|> suspend
      <|> yield
      <|> new
-     <|> peer
      <|> sequence
      <|> miniLet
      <|> path
@@ -1394,12 +1385,6 @@ expr = notFollowedBy nl >>
           newWithInit emeta ty = do
             args <- parens arguments
             return NewWithInit{emeta, ty, args}
-
-      peer = do
-        emeta <- meta <$> getPosition
-        reserved "peer"
-        ty <- typ
-        return Peer{emeta, ty}
 
       stringLit = do
         emeta <- meta <$> getPosition
