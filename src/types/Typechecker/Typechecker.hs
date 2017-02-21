@@ -665,13 +665,9 @@ instance Checkable Expr where
           capturedVariables = map (qnlocal . fst) $
                               freeVariables (map qLocal paramNames) eBody
 
-      bindings <- (\x -> fst <$> x) <$> asks bindings
-      typeParams <- asks typeParameters
-      let nameTypeClashFn types = and $ map (\x -> clashTypeName x types) paramNames
-      unless (nameTypeClashFn typeParams && nameTypeClashFn bindings) $
-         let clashFn types = concatMap (\x -> getClashTypeVariables x types) paramNames
-             clashes = nub $ clashFn typeParams ++ clashFn bindings
-         in tcError $ TypeVariableAndVariableCommonName clashes
+      shadowingParams <- filterM doesShadow paramNames
+      unless (null shadowingParams) $
+         tcError $ TypeVariableAndVariableCommonNameError shadowingParams
 
       local (addParams eEparams . makeImmutable capturedVariables) $
             typecheck eBody -- Check for mutation of captured variables
@@ -679,21 +675,11 @@ instance Checkable Expr where
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
-        getClashTypeVariables :: Name -> [Type] -> [Name]
-        getClashTypeVariables name@(Name n) ts
-          | and (map isTypeVar ts) =
-              concatMap (\t -> let typeName = fromJust (maybeGetId t) in
-                         if n == typeName then [name]
-                         else []) ts
-          | otherwise = error $ "Typechecker.hs: types '" ++ show ts ++ "' " ++
-                                "are not type variables"
-
-        clashTypeName :: Name -> [Type] -> Bool
-        clashTypeName (Name n) ts
-          | and (map isTypeVar ts) =
-              and $ map (\t -> n /= fromJust (maybeGetId t)) ts
-          | otherwise = error $ "Typechecker.hs: types '" ++ show ts ++ "' " ++
-                                "are not type variables"
+        doesShadow paramName = do
+          localVariables <- (fst <$>) <$> asks bindings
+          typeParams <- asks typeParameters
+          return $ (paramName `elem` (map (Name . getId) localVariables)) ||
+                   (paramName `elem` (map (Name . getId) typeParams))
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t
