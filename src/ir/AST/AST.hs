@@ -552,6 +552,7 @@ data Expr = Skip {emeta :: Meta Expr}
                              qname :: QualifiedName}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
+                     mty :: Maybe Type,
                      body :: Expr}
           | Liftf {emeta :: Meta Expr,
                    val :: Expr}

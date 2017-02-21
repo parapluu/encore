@@ -284,7 +284,7 @@ desugar Async{emeta, body} =
   where
     qname = QName{qnspace = Nothing, qnsource=Nothing, qnlocal = Name "spawn"}
     args = [lifted_body]
-    lifted_body = Closure {emeta, eparams=[], body=body}
+    lifted_body = Closure {emeta, eparams=[], mty=Nothing, body=body}
 
 -- Constructor calls
 desugar New{emeta, ty} = NewWithInit{emeta, ty, args = []}

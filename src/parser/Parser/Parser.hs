@@ -1280,26 +1280,26 @@ expr = notFollowedBy nl >>
           emeta <- meta <$> getPosition
           reserved "fun"
           eparams <- parens (commaSep paramDecl)
-          -- TODO: Add optional type annotation
-          singleLineClosure emeta eparams <|>
-            blockClosure emeta eparams
+          mty <- optional (colon >> typ)
+          singleLineClosure emeta eparams mty <|>
+            blockClosure emeta eparams mty
         endLine <- sourceLine <$> getPosition
         unless (endLine == funLine) $
                atLevel indent $ reserved "end"
         return clos
-      singleLineClosure emeta eparams = do
+      singleLineClosure emeta eparams mty = do
         reservedOp "=>"
         body <- expression
-        return $ L.IndentNone Closure{emeta, eparams, body}
-      blockClosure emeta eparams =
-        return $ L.IndentSome Nothing (buildClosure emeta eparams) expression
-      buildClosure emeta eparams block =
+        return $ L.IndentNone Closure{emeta, eparams, mty, body}
+      blockClosure emeta eparams mty =
+        return $ L.IndentSome Nothing (buildClosure emeta eparams mty) expression
+      buildClosure emeta eparams mty block =
         return Closure{emeta
                       ,eparams
+                      ,mty
                       ,body = makeBody block
                       }
 
-      -- TODO: Should we keep these three?
       task = do
         emeta <- meta <$> getPosition
         reserved "async"
