@@ -1061,7 +1061,7 @@ expr = notFollowedBy nl >>
           emeta <- meta <$> getPosition
           decls <- indentBlock $ do
             reserved "let"
-            singleLineDecl <|> multiLineDecl
+            singleLineDecl indent <|> multiLineDecl indent
           inLine <- sourceLine <$> getPosition
           if inLine == letLine
           then do -- let ... in
@@ -1076,12 +1076,12 @@ expr = notFollowedBy nl >>
              atLevel indent $ reserved "end"
         return letExpr
         where
-          singleLineDecl = do
+          singleLineDecl indent = do
             notFollowedBy nl
-            decl <- varDecl
+            decl <- varDecl indent
             return $ L.IndentNone [decl]
-          multiLineDecl =
-            return $ L.IndentSome Nothing return varDecl
+          multiLineDecl indent =
+            return $ L.IndentSome Nothing return (varDecl indent)
           inlineLet emeta decls = do
             notFollowedBy nl
             body <- expression
@@ -1097,10 +1097,10 @@ expr = notFollowedBy nl >>
                                            ,decls
                                            ,body
                                            })
-      varDecl = do
+      varDecl indent = do
         x <- Name <$> identifier
-        reservedOp "="
-        val <- expression
+        withLinebreaks $ reservedOp "="
+        val <- indented indent expression
         return (x, val)
 
       sequence = singleLineBlock <|> multiLineBlock
@@ -1121,7 +1121,7 @@ expr = notFollowedBy nl >>
         indent <- L.indentLevel
         emeta <- meta <$> getPosition
         mutability <- mutModifier
-        (x, val) <- varDecl
+        (x, val) <- varDecl indent
         return MiniLet{emeta, mutability, decl = (x, val)}
 
       ifExpression = do
