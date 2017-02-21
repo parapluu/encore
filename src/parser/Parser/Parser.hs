@@ -615,17 +615,18 @@ traitDecl = do
   return tdecl
   where
     traitAttribute = label "requirement"
-                     (TReqAttribute <$> (try reqField <|>
-                                         reqMethod))
+                     (TReqAttribute <$> requirement)
                  <|> (TMethodAttribute <$> methodDecl)
-    reqField = do
+    requirement = do
       reserved "require"
-      rfield <- fieldDecl
-      return RequiredField{rfield}
+      reqMethod <|> reqField
     reqMethod = do
-      reserved "require"
+      reserved "def"
       rheader <- functionHeader
       return RequiredMethod{rheader}
+    reqField = do
+      rfield <- fieldDecl
+      return RequiredField{rfield}
     buildTrait tmeta ident params attributes =
       let (treqs, tmethods) = partitionTraitAttributes attributes
       in
