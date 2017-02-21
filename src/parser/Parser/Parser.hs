@@ -85,7 +85,6 @@ charLiteral = do
   sc <- currentSpaceConsumer
   char '\'' *> L.charLiteral <* char '\'' <* sc
 
--- TODO: What about escape sequences? e.g. \n
 stringLiteral :: EncParser String
 stringLiteral = do
   sc <- currentSpaceConsumer
@@ -128,18 +127,13 @@ indentBlock = L.indentBlock vspace
 lineFold :: (EncParser () -> EncParser a) -> EncParser a
 lineFold = L.lineFold vspace
 
--- | Intended to be used together with 'lineFold', to parse a
--- piece of code with the folding parser.
--- TODO: Add example
-foldWith :: EncParser () -> EncParser a -> EncParser a
-foldWith p = local (const $ runReaderT p undefined)
-
 -- | @folded delimiters fold p@ parses @delimiters p@ folded with
 -- the space consumer @fold@. Inteded for use inside a @lineFold@.
--- TODO: Add example
 folded :: (EncParser a -> EncParser a) -> EncParser () -> EncParser a -> EncParser a
 folded delimiters fold p =
   delimiters (fold >> foldWith fold p)
+  where
+    foldWith fold = local (const $ runReaderT fold undefined)
 
 -- | @parseBody c@ is inteded for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
@@ -240,8 +234,8 @@ identifier = (lexeme . try) (p >>= check)
   where
     p = (:) <$> letterChar <*> many validIdentifierChar
     check x = if x `elem` reservedNames
-              -- TODO: Change from tutorial default
-              then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+              then fail $ "Reserved keyword " ++ show x ++
+                          " cannot be used as an identifier"
               else return x
 
 dot        = symbol "."
@@ -565,7 +559,7 @@ makeBody es =
   case es of
     [] -> error "Parser.hs: Cannot make body from empty list"
     [e] -> e
-    es@(e:_) -> Seq (meta (getPos e)) es
+    es -> Seq (meta (getPos (last es))) es
 
 matchingFunction = do
   funmeta <- meta <$> getPosition
