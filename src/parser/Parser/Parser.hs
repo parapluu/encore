@@ -115,6 +115,13 @@ indented refIndent p = do
          L.incorrectIndent Prelude.GT refIndent currentIndent
   p
 
+-- | @atLeast ind p@ parses @p@ if the current level is greater or
+-- equal to @ind@, and fails otherwise. Note that only the start
+-- of @p@ is checked; if @p@ can consume newlines, subsequent
+-- lines are not controlled.
+atLeast :: Pos -> EncParser a -> EncParser a
+atLeast refIndent = indented (unsafePos $ unPos refIndent - 1)
+
 -- | Parse a token in column one
 nonIndented :: EncParser a -> EncParser a
 nonIndented = L.nonIndented hspace
@@ -799,9 +806,10 @@ methodDecl = do
 modifiersDecl :: EncParser AccessModifier
 modifiersDecl = reserved "private" >> return Private
 
--- TODO: Allow linebreaks
 arguments :: EncParser Arguments
-arguments = expression `sepBy` comma
+arguments = do
+  indent <- L.indentLevel
+  atLeast indent expression `sepBy` withLinebreaks comma
 
 sepBy2 p sep = do
   first <- p
