@@ -862,6 +862,7 @@ expression = makeExprParser expr opTable
                  [textualPrefix "not" Identifiers.NOT],
                  [op "&&" Identifiers.AND,
                   op "||" Identifiers.OR],
+                 [arrayAccess],
                  [messageSend],
                  [typedExpression],
                  [chain],
@@ -880,6 +881,14 @@ expression = makeExprParser expr opTable
           InfixL (do pos <- getPosition
                      withLinebreaks $ reservedOp s
                      return (Binop (meta pos) binop))
+
+      arrayAccess =
+          Postfix (do pos <- getPosition
+                      index <- parens expr
+                      return (\target -> ArrayAccess{emeta = meta pos
+                                                    ,target
+                                                    ,index
+                                                    }))
 
       typedExpression =
           Postfix (do pos <- getPosition
