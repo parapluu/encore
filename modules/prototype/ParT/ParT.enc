@@ -111,25 +111,26 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn
   val pkid = distinct(pki, fun (v : (k, i), u : (k, i))
                              match (v, u) with
                                case ((k1, v1), (k2, v2)) =>
-                                     cmp(k1, k2)
+                                 cmp(k1, k2)
                                end
                              end
                            end)
-
-  join(pkid >> (fun (tt : (k, i))
-                  match tt with
+  join(pkid >> (fun (tuple : (k, i))
+                  match tuple with
                     case (key, elem) =>
                       val nPi = groupParTuples(key, pki, cmp)
-                      val tkElem = get(findElemInParTuple(key, pkt, cmp))
-                      match tkElem with
-                        case Nothing =>
-                          empty[r]()
-                        end
-
-                        case Just(tkResultVal) =>
-                          fn(tkResultVal, nPi)
-                        end
-                      end
+                      val futtkElem = findElemInParTuple(key, pkt, cmp)
+                      val fp = futtkElem ~~> fun (tkElem : Maybe[t])
+                                               match tkElem with
+                                                 case Nothing =>
+                                                   empty[r]()
+                                                 end
+                                                 case Just(tkResultVal) =>
+                                                   fn(tkResultVal, nPi)
+                                                 end
+                                               end
+                                             end
+                      join(liftf(fp))
                     end
                   end
                 end))
