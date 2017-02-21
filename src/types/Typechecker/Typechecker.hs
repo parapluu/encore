@@ -676,10 +676,8 @@ instance Checkable Expr where
       return $ setType ty closure {body = eBody, eparams = eEparams}
       where
         doesShadow paramName = do
-          localVariables <- (fst <$>) <$> asks bindings
           typeParams <- asks typeParameters
-          return $ (paramName `elem` (map (Name . getId) localVariables)) ||
-                   (paramName `elem` (map (Name . getId) typeParams))
+          return $ paramName `elem` (map (Name . getId) typeParams)
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t
