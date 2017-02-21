@@ -730,6 +730,10 @@ isStringLiteral :: Expr -> Bool
 isStringLiteral StringLiteral {} = True
 isStringLiteral _ = False
 
+isReturn :: Expr -> Bool
+isReturn Return{} = True
+isReturn _ = False
+
 isNullLiteral :: Expr -> Bool
 isNullLiteral Null{} = True
 isNullLiteral TypedExpr{body} = isNullLiteral body

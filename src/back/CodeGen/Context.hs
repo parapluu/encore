@@ -6,6 +6,7 @@ moment. -}
 
 module CodeGen.Context (
   Context,
+  ExecContext(..),
   new,
   substAdd,
   substLkp,
@@ -17,8 +18,8 @@ module CodeGen.Context (
   lookupField,
   lookupMethod,
   lookupCalledType,
-  putMethodName,
-  getMethodName,
+  setExecCtx,
+  getExecCtx,
 ) where
 
 import Identifiers
@@ -34,34 +35,41 @@ type NextSym = Int
 
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
-data Context = Context VarSubTable NextSym Name Tbl.ProgramTable
+data ExecContext =
+    FunctionContext{fname :: Function}
+  | MethodContext  {mname :: MethodDecl}
+  | ClosureContext {cname :: Expr} -- for checking closure in the future.
+  | Empty
+    deriving(Show)
+
+data Context = Context VarSubTable NextSym ExecContext Tbl.ProgramTable
 
 programTable :: Context -> Tbl.ProgramTable
 programTable (Context _ _ _ table) = table
 
 new :: VarSubTable -> Tbl.ProgramTable -> Context
-new subs = Context subs 0 (Name "")
+new subs = Context subs 0 Empty
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
   let (_, name') = fixPrimes name
   c <- get
   case c of
-    Context s n fname t ->
-        do put $ Context s (n+1) fname t
+    Context s n eCtx t ->
+        do put $ Context s (n+1) eCtx t
            return $ "_" ++ name' ++ "_" ++ show n
 
 genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt fname table) na lv = Context ((na,lv):s) nxt fname table
+substAdd c@(Context s nxt eCtx table) na lv = Context ((na,lv):s) nxt eCtx table
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt fname table) na = Context [] nxt fname table
-substRem (Context ((na, lv):s) nxt fname table) na'
-     | na == na'  = Context s nxt fname table
-     | na /= na'  = substAdd (substRem (Context s nxt fname table) na') na lv
+substRem (Context [] nxt eCtx table) na = Context [] nxt eCtx table
+substRem (Context ((na, lv):s) nxt eCtx table) na'
+     | na == na'  = Context s nxt eCtx table
+     | na /= na'  = substAdd (substRem (Context s nxt eCtx table) na') na lv
 
 substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
 substLkp (Context s _ _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
@@ -69,11 +77,11 @@ substLkp (Context s _ _ _) QName{qnspace = Just ns, qnlocal}
      | isEmptyNamespace ns = lookup qnlocal s
      | otherwise = Nothing
 
-putMethodName :: Context -> Name -> Context
-putMethodName c@(Context s next fname table) m = Context s next m table
+setExecCtx :: Context -> ExecContext -> Context
+setExecCtx c@(Context s next eCtx table) eCtx' = Context s next eCtx' table
 
-getMethodName :: Context -> Name
-getMethodName c@(Context s nxt fname table) = fname
+getExecCtx :: Context -> ExecContext
+getExecCtx c@(Context s nxt eCtx table) = eCtx
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable

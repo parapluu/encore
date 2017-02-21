@@ -233,6 +233,7 @@ data Error =
   | ShadowedImportError ImportDecl
   | WrongModuleNameError Name FilePath
   | PrivateAccessModifierTargetError Name
+  | ClosureReturnError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -530,6 +531,8 @@ instance Show Error where
                (show modname) expected
     show PolymorphicConstructorError =
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
+    show ClosureReturnError =
+        printf "Return cannot be used in closure"
     show (SimpleError msg) = msg
 
 

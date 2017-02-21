@@ -58,7 +58,7 @@ translateClosure closure typeVars table
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst table
+           ctx = Ctx.setExecCtx (Ctx.new subst table) Ctx.ClosureContext{Ctx.cname=closure}
 
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
