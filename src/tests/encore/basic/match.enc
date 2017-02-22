@@ -1,177 +1,191 @@
-def fac(0 : int) : int {
-  1
-} | fac(n : int) : int {
-  n * fac(n-1)
-}
+-- def fac(0 : int) : int {
+--   1
+-- } | fac(n : int) : int {
+--   n * fac(n-1)
+-- }
 
-  
 
-def testGuardInFunctionHead(x : String) : void when false {
-  print "error"
-} | testGuardInFunctionHead(x : String) : void when true {
-  print x
-}
 
-def expectEven(Odd(a) : IntContainer) : void {
-  print "error"
-} | expectEven(Even(b) : IntContainer) : void {
-  print "correct"
-}
+-- def testGuardInFunctionHead(x : String) : void when false {
+--   print "error"
+-- } | testGuardInFunctionHead(x : String) : void when true {
+--   print x
+-- }
 
-def printMaybe((Just (x)) : Maybe int) : void {
-  println("Just {}", x)
-} | printMaybe(Nothing : Maybe int) : void {
-  print "Nothing"
-}
+-- def expectEven(Odd(a) : IntContainer) : void {
+--   print "error"
+-- } | expectEven(Even(b) : IntContainer) : void {
+--   print "correct"
+-- }
 
-def testHigherOrderExprInMatchingFunctionHead() : void
-  printMaybe(Just (3))
+-- def printMaybe((Just (x)) : Maybe int) : void {
+--   println("Just {}", x)
+-- } | printMaybe(Nothing : Maybe int) : void {
+--   print "Nothing"
+-- }
+
+-- fun testHigherOrderExprInMatchingFunctionHead() : void
+--   printMaybe(Just (3))
+-- end
 
 passive class IntContainer
-  elem : int
+  val elem : int
 
   def init(x : int) : void
     this.elem = x
+  end
 
-  def Even() : Maybe int{
+  def Even() : Maybe[int]
     if this.elem % 2 == 0 then
-      Just this.elem
+      Just(this.elem)
     else
-      Nothing : Maybe int
-    }
+      Nothing : Maybe[int]
+    end
+  end
 
-  def Odd() : Maybe int{
+  def Odd() : Maybe[int]
     if this.elem % 2 == 1 then
-      Just this.elem
+      Just(this.elem)
     else
-      Nothing : Maybe int
-    }
+      Nothing : Maybe[int]
+    end
+  end
+end
 
-passive class Container<t> {
-  elem : t
+passive class Container[t]
+  val elem : t
 
   def init(elem : t) : void
     this.elem = elem
+  end
 
   -- Defines an object pattern
-  def This() : Maybe Container<t>
-    Just this
-    }
+  def This() : Maybe[Container[t]]
+    Just(this)
+  end
+end
 
 trait Letter
-  require Letter() :  Maybe String
+  require def Letter() :  Maybe[String]
+end
 
-passive class A :  Letter {
-  def init() : void
-    ()
+passive class A : Letter
+  def Letter() :  Maybe[String]
+    Just("A")
+  end
+end
 
-  def Letter() :  Maybe String
-    Just "A"
-}
+passive class B :  Letter
+  def Letter() :  Maybe[String]
+    Just("B")
+  end
+end
 
-passive class B :  Letter {
-  def init() : void
-    ()
-
-  def Letter() :  Maybe String
-    Just "B"
-    }
-
-passive class C {
-  def init() : void
-    ()
-
-  def foo(0 : int, "foo" : String) : void
-    print "yes"
-    | foo(x : int, bar : String) :  void
-    print "no"
-  }
+passive class C
+--  def foo(0 : int, "foo" : String) : void
+--    print "yes"
+--    | foo(x : int, bar : String) :  void
+--    print "no"
+--  }
+end
 
 class NumberStreamer
-  def init() : void
-    ()
-
-  stream multiples(1 : int, limit : int) : int {
-    var i = 0;
-    while i < limit {
-      yield i;
-      i = i + 1;
-    }
-  }
-  | multiples(n : int, limit : int) : int {
-    var i = 0;
-    while i < limit {
-      yield i;
-      i = i + n;
-    }
-  }
+--  stream multiples(1 : int, limit : int) : int {
+--    var i = 0;
+--    while i < limit {
+--      yield i;
+--      i = i + 1;
+--    }
+--  }
+--  | multiples(n : int, limit : int) : int {
+--    var i = 0;
+--    while i < limit {
+--      yield i;
+--      i = i + n;
+--    }
+--  }
+end
 
 passive class Foo
-  def AlwaysMatchingExtractor() : Maybe void
-    Just ()
-	
-class Main {  
+  def AlwaysMatchingExtractor() : Maybe[void]
+    Just(())
+  end
+end
+
+class Main
   def objectPatternTestWithFailingGuard() : void
-    match new Container<String>("foobar") with
-      _ when false => print "baaaad"
-      This(This(This(This(c)))) => print c.elem
+    match new Container[String]("foobar") with
+      case _ when false => println("baaaad")
+      case This(This(This(This(c)))) => println(c.elem)
+    end
+  end
 
   def valueVariableTuplePatternsTestWithFailingGuard() : void
     match (1, 2, "123") with
-      (a, b, "123") when a > b => print "nope"
-      (1, b, "123") => println("{}{}123", 1, b)
+      case (a, b, "123") when a > b => println("nope")
+      case (1, b, "123") => println("{}{}123", 1, b)
+    end
+  end
 
-  def evaluatesToTraitTest() : Letter{
+  def evaluatesToTraitTest() : Letter
     -- Just to test the typechecker
     match 1 with
-      2 => new A() : Letter
-      1 => new B()
-  }
+      case 2 => new A() : Letter
+      case 1 => new B()
+    end
+  end
 
-  def matchingOnMethodHead() : void {
-    (new C()).foo(0, "foo"); -- Matches first clause
-    (new C()).foo(0, "bar")  -- Matches last clause
-  }
+--  def matchingOnMethodHead() : void
+--    (new C()).foo(0, "foo") -- Matches first clause
+--    (new C()).foo(0, "bar")  -- Matches last clause
+--  end
 
-  def matchingOnFunctionHead() : void
-    print fac(5)
+--  def matchingOnFunctionHead() : void
+--    println(fac(5))
+--  end
 
-  def matchingOnStreamHead() : void {
-    val x = new NumberStreamer;
-    var evens = x.multiples(2, 10);
-    while (not eos evens) {
-      print get evens;
-      evens = getNext evens
-    }
-  }
+--  def matchingOnStreamHead() : void
+--    val x = new NumberStreamer
+--    var evens = x.multiples(2, 10)
+--    while (not eos evens) do
+--      println(get(evens))
+--      evens = getNext(evens)
+--    end
+--  end
 
-  def objectPatternsInFunctionHead() : void
-    expectEven(new IntContainer(4))
+--  def objectPatternsInFunctionHead() : void
+--    expectEven(new IntContainer(4))
+--  end
 
   -- Issue #427, this should compile!
   def variablePatternAgainstLambda() : void
-    let f = \(x : int) -> x in
+    let f = fun (x : int) => x in
       match f with
-        x => print "foo"
+        case x => println("foo")
+      end
+    end
+  end
 
   -- Very closely related to issue #521
   def testEmptyExtractors(): void
     match new Foo with
-      AlwaysMatchingExtractor() => print "good"
-      _ => print "bad"
+      case AlwaysMatchingExtractor() => println("good")
+      case _ => println("bad")
+    end
+  end
 
-	
-  def main() : void {
-    this.objectPatternTestWithFailingGuard();
-    this.valueVariableTuplePatternsTestWithFailingGuard();
-    this.evaluatesToTraitTest();
-    this.matchingOnMethodHead();
-    this.matchingOnFunctionHead();
-    this.objectPatternsInFunctionHead();
-    this.matchingOnStreamHead();
-    testGuardInFunctionHead("correct");
-    testHigherOrderExprInMatchingFunctionHead();
-    this.variablePatternAgainstLambda();
+
+  def main() : void
+    this.objectPatternTestWithFailingGuard()
+    this.valueVariableTuplePatternsTestWithFailingGuard()
+    this.evaluatesToTraitTest()
+--    this.matchingOnMethodHead()
+--    this.matchingOnFunctionHead()
+--    this.objectPatternsInFunctionHead()
+--    this.matchingOnStreamHead()
+--    testGuardInFunctionHead("correct")
+--    testHigherOrderExprInMatchingFunctionHead()
+    this.variablePatternAgainstLambda()
     this.testEmptyExtractors()
-  }
-}
+  end
+end

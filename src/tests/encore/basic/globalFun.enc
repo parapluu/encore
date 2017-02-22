@@ -1,6 +1,11 @@
-def bump(x : int) : int
-  x + 1
+-- This file was automatically converted by encorec
 
+fun bump(x : int) : int
+  x + 1
+end
 class Main
   def main() : void
     println("42 + 1 = {}", bump(42))
+  end
+end
+

@@ -1,25 +1,36 @@
-class A
-
-passive class B : C
+-- This file was automatically converted by encorec
 
 trait C
   def read() : String
     "Hello"
-
+  end
+end
+class A
+end
+passive class B : C
+end
 class Foo
   def init(a : A, b : B, c : C) : void
     ()
+  end
   def foo(b : B) : B
     b
+  end
   def bar(b : B) : C
     b : C
-
+  end
+end
 class Main
   def main() : void
-    let a = new A
-        b = new B
-        c = new B : C
-        x = new Foo(a, b, c)
-        b2 = get x.foo(b)
+    let
+      a = new A
+      b = new B
+      c = new B : C
+      x = new Foo(a, b, c)
+      b2 = get(x.foo(b))
     in
-      print ((get x.bar(b2)).read())
+      println((get(x.bar(b2))).read())
+    end
+  end
+end
+

@@ -1,10 +1,15 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
     this.test(2)
-  def test(value : int) : void {
-    var i = value;
-    while i < 11 {
-        print i;
-        i = i + value;
-      }
-    }
+  end
+  def test(value : int) : void
+    var i = value
+    while i < 11 do
+      println(i)
+      i = i + value
+    end
+  end
+end
+

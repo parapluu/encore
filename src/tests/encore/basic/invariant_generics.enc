@@ -1,18 +1,24 @@
+-- This file was automatically converted by encorec
+
 trait Animal
-
+end
 passive class Dog : Animal
-
+end
 passive class Cat : Animal
-
-passive class Container<t>
-  cell : t
-
+end
+passive class Container[t]
+  var cell : t
   def set(x : t) : void
     this.cell = x
-
+  end
+end
 class Main
- def main() : void
-   let dogContainer = new Container<Dog>
-       animalContainer = dogContainer : Container<Animal>
-   in
-     animalContainer.set(new Cat)
+  def main() : void
+    let
+      dogContainer = new Container[Dog]
+      animalContainer = dogContainer : Container[Animal]
+    in
+      animalContainer.set(new Cat)
+    end
+  end
+end

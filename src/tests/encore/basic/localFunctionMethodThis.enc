@@ -1,11 +1,17 @@
+-- This file was automatically converted by encorec
+
 passive class Foo
   def foo() : int
     local()
   where
-    def local() : int
+    fun local() : int
       this.foo()
+    end
   end
-
+end
 class Main
   def main() : void
     ()
+  end
+end
+

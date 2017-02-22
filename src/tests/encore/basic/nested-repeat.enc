@@ -1,8 +1,13 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    repeat i <- 3 
-      repeat j <- 3 {
-        print i;  
-        print j;  
-      }
+    repeat i <- 3 do
+      repeat j <- 3 do
+        println(i)
+        println(j)
+      end
+    end
+  end
+end
 

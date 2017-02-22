@@ -1,6 +1,9 @@
-class Foo {
-  number : int
-  def link(a:Foo) : void {
+-- This file was automatically converted by encorec
+
+class Foo
+  var number : int
+  def link(a : Foo) : void
     a.number
-  }
-}
+  end
+end
+

@@ -1,19 +1,23 @@
-passive class Pair<k,v>
-  key   : k
-  value : v
-  def init(key : k, value : v) : void {
-    this.key  = key;
+-- This file was automatically converted by encorec
+
+passive class Pair[k, v]
+  var key : k
+  var value : v
+  def init(key : k, value : v) : void
+    this.key = key
     this.value = value
-  }
-
-  def compare(other : Pair<k, v>) : void{
+  end
+  def compare(other : Pair[k, v]) : void
     if this.key == other.key then
-      print "I compiled and ran!"
-  }
-
+      println("I compiled and ran!")
+    end
+  end
+end
 class Main
-  def main() : void {
-    val first = new Pair<int,int>(1,1);
-    val second = new Pair<int,int>(1,1);
-    first.compare(second);
-  }
+  def main() : void
+    val first = new Pair[int, int](1, 1)
+    val second = new Pair[int, int](1, 1)
+    first.compare(second)
+  end
+end
+

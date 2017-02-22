@@ -1,18 +1,31 @@
-def strlen(default : int) : void
-  let static = default in
+-- This file was automatically converted by encorec
+
+fun strlen(default : int) : void
+  let
+    static = default
+  in
     default
-
+  end
+end
 class Foo
-  default : int
-  Active_Main_t : int
+  var default : int
+  var Active_Main_t : int
   def strcat(volatile : int) : void
-    let f = \ (default : int) -> volatile + default in
+    let
+      f = fun (default : int) => volatile + default
+    in
       f(volatile)
-
+    end
+  end
+end
 class Main
   def main() : void
-    let default = 42 in{
-      strlen(default);
-      -- async{};
-      print "Hello, Ponyworld!"
-    }
+    let
+      default = 42
+    in
+      strlen(default)
+      println("Hello, Ponyworld!")
+    end
+  end
+end
+

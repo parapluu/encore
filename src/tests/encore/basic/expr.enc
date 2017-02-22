@@ -1,27 +1,28 @@
-class Main {
-  def main () : void {
-    print this.foo();
-    if this.bar(this.foo()) == 2 then {
-      this.baz(0);
+-- This file was automatically converted by encorec
+
+class Main
+  def main() : void
+    println(this.foo())
+    if this.bar(this.foo()) == 2 then
+      this.baz(0)
       this.baz(1)
-    } else {
-      print "oops"
-    }
-  }
-
-  def foo () : String {
+    else
+      println("oops")
+    end
+  end
+  def foo() : String
     "Hello"
-  }
-
-  def bar (f:String) : int {
-    print "Ponyworld!";
+  end
+  def bar(f : String) : int
+    println("Ponyworld!")
     2
-  }
+  end
+  def baz(b : int) : void
+    println(if b == 0 then
+              "Hello"
+            else
+              "Ponyworld!"
+            end)
+  end
+end
 
-  def baz (b:int) : void {
-    print (if b==0 then
-             "Hello"
-           else
-             "Ponyworld!")
-  }
-}

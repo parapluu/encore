@@ -1,22 +1,22 @@
-#!/usr/bin/env encorec -run
+-- This file was automatically converted by encorec
 
--- a Sequence of Integers
 class IntSeq
-
-  stream start(var fr : int, to : int) : int {
-    while fr <= to {
-      yield fr;
-      fr = fr+1
-    };
-  }
-
+  stream start(var fr : int, to : int) : int
+    while fr <= to do
+      yield(fr)
+      fr = fr + 1
+    end
+  end
+end
 class Main
-  def main() : void {
-    var lst = 0;
-    var str = (new IntSeq).start(1,1000000);
-    while not eos str {
-      lst = get str;
-      str = getNext str;
-    };
-    print lst
-  }
+  def main() : void
+    var lst = 0
+    var str = (new IntSeq).start(1, 1000000)
+    while not eos(str) do
+      lst = get(str)
+      str = getNext(str)
+    end
+    println(lst)
+  end
+end
+

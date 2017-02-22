@@ -1,21 +1,25 @@
+-- This file was automatically converted by encorec
+
 typedef T' = Bar'
-
 trait Bar'
-
-passive class Foo'<t'> : T'
-  f' : t'
+end
+passive class Foo'[t'] : T'
+  var f' : t'
   def m'(x' : t') : t'
     x'
-
-class Baz'<t'>
-
+  end
+end
+class Baz'[t']
+end
 class Main
-  def main() : void {
-    val foo = new Foo'<int>;
-    val baz = new Baz'<Foo'<int>>;
-    val x = "This";
-    val x' = "is";
-    val x'' = "prime";
-    val x''' = "stuff!";
+  def main() : void
+    val foo = new Foo'[int]
+    val baz = new Baz'[Foo'[int]]
+    val x = "This"
+    val x' = "is"
+    val x'' = "prime"
+    val x''' = "stuff!"
     println("{} {} {} {}", x, x', x'', x''')
-  }
+  end
+end
+

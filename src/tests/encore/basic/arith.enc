@@ -1,9 +1,17 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    let n = 42
-        f = 42.0
+    let
+      n = 42
+      f = 42.0
     in
       if f - n > 0 then
-        print "You shouldn't be mixing reals and ints anyway..."
+        println("You shouldn't be mixing reals and ints anyway...")
       else
-        print "Success"
+        println("Success")
+      end
+    end
+  end
+end
+

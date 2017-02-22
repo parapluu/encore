@@ -1,13 +1,21 @@
-class Test<t>
-  def private method(x: t): t
-    x
-  def publicMethod(x: t): t
-    this.method(x)
+-- This file was automatically converted by encorec
 
 class Main
-  def main(): void
-    let t = new Test<String>
-    in {
-       t!publicMethod("test");
-       print(get t.publicMethod("Testing access modifiers"));
-    }
+  def main() : void
+    let
+      t = new Test[String]
+    in
+      t!publicMethod("test")
+      println(get(t.publicMethod("Testing access modifiers")))
+    end
+  end
+end
+class Test[t]
+  def method(x : t) : t
+    x
+  end
+  def publicMethod(x : t) : t
+    this.method(x)
+  end
+end
+

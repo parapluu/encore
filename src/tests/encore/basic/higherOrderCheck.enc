@@ -1,10 +1,12 @@
-class Main {
-  def higherOrder(f: () -> int) : void {
-    print f();
-  }
+-- This file was automatically converted by encorec
 
-  def main() : void {
-    val f = \ (x: int) -> 2*x;
-    this.higherOrder(f);
-  }
-}
+class Main
+  def higherOrder(f : () -> int) : void
+    println(f())
+  end
+  def main() : void
+    val f = fun (x : int) => 2 * x
+    this.higherOrder(f)
+  end
+end
+

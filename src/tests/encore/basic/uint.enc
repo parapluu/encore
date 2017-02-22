@@ -1,14 +1,17 @@
-def addUnsigned(x : uint, y : int) : uint {
-  x + y
-}
+-- This file was automatically converted by encorec
 
+fun addUnsigned(x : uint, y : int) : uint
+  x + y
+end
 class Main
-  def main() : void {
-    print addUnsigned(42u, 13u);
-    val large =
-          embed (uint)
-            unsigned long long x = 1ul << 32 << 31;
+  def main() : void
+    println(addUnsigned(42u, 13u))
+    val large = EMBED (uint)
+                  unsigned long long x = 1ul << 32 << 31;
             x;
-          end;
-    print(large);
-  }
+         
+                END
+    println(large)
+  end
+end
+

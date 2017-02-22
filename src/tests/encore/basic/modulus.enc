@@ -1,3 +1,8 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    print 4 % 3
+    println(4 % 3)
+  end
+end
+

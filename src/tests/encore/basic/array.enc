@@ -1,28 +1,38 @@
-class Foo
-  def return() : [int]
-    new [int](10)
-  def foo(m:Main) : void
-    let
-      a = this.return()
-    in {
-      repeat i <- 10
-        a[i] = i;
-      m ! continue(a)
-    }
+-- This file was automatically converted by encorec
 
 class Main
-  def continue(a:[int]) : void
+  def continue(a : [int]) : void
     let
-        b = ["foo", "bar"]
-    in {
-      repeat i <- |a|
-        print a[i];
-      print b[0];
-      print b[1];
-    }
-
+      b = ["foo", "bar"]
+    in
+      repeat i <- |a| do
+        println(a(i))
+      end
+      println(b(0))
+      println(b(1))
+    end
+  end
   def main() : void
     let
       x = new Foo
     in
-      x ! foo(this)
+      x!foo(this)
+    end
+  end
+end
+class Foo
+  def return() : [int]
+    new [int](10)
+  end
+  def foo(m : Main) : void
+    let
+      a = this.return()
+    in
+      repeat i <- 10 do
+        a(i) = i
+      end
+      m!continue(a)
+    end
+  end
+end
+

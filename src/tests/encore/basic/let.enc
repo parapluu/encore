@@ -1,11 +1,20 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
     this.foo(1)
-    
-  def foo(x:int) : void
-    let x = "Hello" in {
-      print x;
-      let x = "Ponyworld!" in
-        print x
-    }
-        
+  end
+  def foo(x : int) : void
+    let
+      x = "Hello"
+    in
+      println(x)
+      let
+        x = "Ponyworld!"
+      in
+        println(x)
+      end
+    end
+  end
+end
+

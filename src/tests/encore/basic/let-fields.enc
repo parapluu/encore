@@ -1,15 +1,21 @@
+-- This file was automatically converted by encorec
+
 class Main
-  value : int
-  def main() : void {
-    this.value = 1024;
-    var x = this.value;
-    x = x + 1;
+  var value : int
+  def main() : void
+    this.value = 1024
+    var x = this.value
+    x = x + 1
     if x == 1024 then
-      print "Failue when reading x -- got 1024, expected something else"
+      println("Failue when reading x -- got 1024, expected something else")
     else
-      print "Test 1 OK";
+      println("Test 1 OK")
+    end
     if x == this.value then
-      print "Failue when comparing x and this.value -- they are the same but should not be"
+      println("Failue when comparing x and this.value -- they are the same but should not be")
     else
-      print "Test 2 OK";
-  }
+      println("Test 2 OK")
+    end
+  end
+end
+

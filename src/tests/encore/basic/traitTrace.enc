@@ -1,14 +1,19 @@
+-- This file was automatically converted by encorec
+
 trait T
-
+end
 passive class Foo
-  g : T
-
+  var g : T
+end
 class Other
   def pass(x : Foo) : void
     ()
-
+  end
+end
 class Main
-  def main() : void {
-    (new Other).pass(new Foo);
-    print "Done!";
-  }
+  def main() : void
+    (new Other).pass(new Foo)
+    println("Done!")
+  end
+end
+

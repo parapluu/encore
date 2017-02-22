@@ -1,11 +1,15 @@
-def fn() : (String, String) {
-  ("Hello", "world")
-}
+-- This file was automatically converted by encorec
 
-class Main {
-  def main() : void {
-    val foo = fn : () -> (String, String);
+fun fn() : (String, String)
+  ("Hello", "world")
+end
+class Main
+  def main() : void
+    val foo = fn : () -> (String, String)
     match foo() with
-      (h, w) => println("{} {}", h, w)
-  }
-}
+      case (h, w) => println("{} {}", h, w)
+    
+    end
+  end
+end
+

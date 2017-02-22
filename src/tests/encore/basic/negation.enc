@@ -1,8 +1,11 @@
-class Main {
-  def main() : void {
-    val x = -(-42);
-    val y = -(-(-x));
-    val z = -y + (-(1+2) + 3);
-    print z;
-  }
-}
+-- This file was automatically converted by encorec
+
+class Main
+  def main() : void
+    val x = -(-(42))
+    val y = -(-(-(x)))
+    val z = -(y) + -(1 + 2) + 3
+    println(z)
+  end
+end
+

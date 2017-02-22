@@ -1,9 +1,15 @@
+-- This file was automatically converted by encorec
+
 passive class Foo
   def foo() : Bar
     new Bar
-
+  end
+end
 passive class Bar
-
+end
 class Main
   def main() : void
-    print "Hello, ponyworld!"
+    println("Hello, ponyworld!")
+  end
+end
+

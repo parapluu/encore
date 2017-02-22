@@ -7,3 +7,5 @@ class Main
       abort();
       fprintf(stdout, "This should not be printed at all\n");
     END
+  end
+end

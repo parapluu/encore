@@ -1,12 +1,18 @@
-def foo() : int
+-- This file was automatically converted by encorec
+
+fun foo() : int
   13 + local1() + local2(15)
 where
-  def local1() : int
+  fun local1() : int
     14
-  def local1(x : int) : int
+  end
+  fun local1(x : int) : int
     x
+  end
 end
-
 class Main
   def main() : void
-    print foo()
+    println(foo())
+  end
+end
+

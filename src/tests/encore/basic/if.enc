@@ -1,12 +1,16 @@
-class Main
-  def main() : void {
-    this.stuff(0);
-    this.stuff(1)
-  }
+-- This file was automatically converted by encorec
 
-  def stuff(i : int) : void {
+class Main
+  def main() : void
+    this.stuff(0)
+    this.stuff(1)
+  end
+  def stuff(i : int) : void
     if i == 0 then
-      print "Hello"
+      println("Hello")
     else
-      print "Ponyworld!"
-  }
+      println("Ponyworld!")
+    end
+  end
+end
+

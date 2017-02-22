@@ -1,11 +1,19 @@
+-- This file was automatically converted by encorec
+
 passive class Foo
-  def private foo() : Maybe int
-    Just 42
+  def private foo() : Maybe[int]
+    Just(42)
+  end
   def bar() : void
     match (this, 42) with
-      (foo(x), y) when x == y => print "Success!"
-      _ => print "Fail :("
+      case (foo(x), y) when x == y => println("Success!")
+      case _ => println("Fail :(")
 
+    end
+  end
+end
 class Main
   def main() : void
     (new Foo).bar()
+  end
+end

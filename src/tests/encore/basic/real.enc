@@ -1,9 +1,13 @@
-def foo(x : real) : real
-  x
+-- This file was automatically converted by encorec
 
+fun foo(x : real) : real
+  x
+end
 class Main
-  def main() : void {
-    val pi = 3.141593;
-    println("Pi is something like {}", pi);
+  def main() : void
+    val pi = 3.141593
+    println("Pi is something like {}", pi)
     println("Ints can be promoted to reals: {}", foo(42))
-  }
+  end
+end
+

@@ -1,15 +1,23 @@
-class Foo
-  f : void
-  def foo(unit : void) : void
-    print "Got unit"
+-- This file was automatically converted by encorec
 
+class Foo
+  var f : void
+  def foo(unit : void) : void
+    println("Got unit")
+  end
+end
 class Main
-  def main() : void {
-    var unit1 = ();
-    val unit2 = ();
-    val x = new Foo;
-    val f = \(x : void) -> {print "Got unit"; x};
-    x.foo(unit1);
-    f(unit2);
-    unit1 = unit2;
-  }
+  def main() : void
+    var unit1 = ()
+    val unit2 = ()
+    val x = new Foo
+    val f = fun (x : void) 
+              println("Got unit")
+              x
+            end
+    x.foo(unit1)
+    f(unit2)
+    unit1 = unit2
+  end
+end
+

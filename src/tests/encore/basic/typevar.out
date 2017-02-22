@@ -1,1 +1,1 @@
-assert(bar.fun(4.13) == 42): 42
+assert(bar.fn(4.13) == 42): 42

@@ -1,8 +1,12 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    var i = 3;
-    while i > 0 {
-      print "Hello Ponyworld!";
-      i = i - 1;
-    }
-  }
+  def main() : void
+    var i = 3
+    while i > 0 do
+      println("Hello Ponyworld!")
+      i = i - 1
+    end
+  end
+end
+

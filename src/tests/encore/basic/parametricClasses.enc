@@ -1,63 +1,72 @@
-def id<a>(x: a): a x
+-- This file was automatically converted by encorec
 
-class Cell<a>
-  value : a
+fun id[a](x : a) : a
+  x
+end
+class Cell[a]
+  var value : a
   def init(value : a) : void
     this.value = value
-
+  end
   def getVal() : a
     this.value
-
+  end
   def getVal2() : void
-    new Cell<a>(this.value)
-
-  def clone(value : a): void
-    new Cell<a>(value)
-
-class Pair<a, b>
-  fst : a
-  snd : b
-  def init(fst : a, snd : b) : void{
-    this.fst = fst;
-    this.snd = snd;
-  }
+    new Cell[a](this.value)
+  end
+  def clone(value : a) : void
+    new Cell[a](value)
+  end
+end
+class Pair[a, b]
+  var fst : a
+  var snd : b
+  def init(fst : a, snd : b) : void
+    this.fst = fst
+    this.snd = snd
+  end
   def getFst() : a
     this.fst
-
+  end
   def getSnd() : b
     this.snd
-
-  def getCustom<d, g>(z: a, x: d, y: g): Maybe d {
-    id(x);
-    -- test that it works with explicit parametric type
-    this.liftJust<d>(x);
-
-    -- test that it can infer the type
-    this.liftJust<int>(34);
-    this.liftJust(34);
-
-    this.liftJust(x);
-  }
-
-  def liftJust<d>(x: d): Maybe d { Just x; }
-
-  def testMethodInference<d, g>(x: g, y: d): void {
-    this.getCustom(this.fst, y, x);
-    this.getCustom(this.fst, x, y);
-  }
-
+  end
+  def getCustom[d, g](z : a, x : d, y : g) : Maybe[d]
+    id(x)
+    this.liftJust(x)
+    this.liftJust(34)
+    this.liftJust(34)
+    this.liftJust(x)
+  end
+  def liftJust[d](x : d) : Maybe[d]
+    Just(x)
+  end
+  def testMethodInference[d, g](x : g, y : d) : void
+    this.getCustom(this.fst, y, x)
+    this.getCustom(this.fst, x, y)
+  end
+end
 class Main
-  def main() : void{
-    let p = new Pair<int, String>(42, "fortytwo")
-        c = new Cell<Pair<int, String>>(p)
-        pp = get c.getVal()
-        d = p.getCustom<int, String>(23, 5, "")
-    in {
-      p!getCustom<int, String>(23, 5, "");
-      print get pp.getFst();
-      print get pp.getSnd();
-      match (get d) with
-        Just x => print x
-        Nothing => print "Error"
-    };
-  }
+  def main() : void
+    let
+      p = new Pair[int, String](42, "fortytwo")
+      c = new Cell[Pair[int, String]](p)
+      pp = get(c.getVal())
+      d = p.getCustom(23, 5, "")
+    in
+      p!getCustom(23, 5, "")
+      println(get(pp.getFst()))
+      println(get(pp.getSnd()))
+      match get(d) with
+        case Just(x) =>
+          println(x)
+        end
+        case Nothing =>
+          println("Error")
+        end
+      
+      end
+    end
+  end
+end
+

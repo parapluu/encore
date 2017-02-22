@@ -1,5 +1,12 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    var x = 42;
-    val f = \ (y : int) -> {x = 3; x};
-  }
+  def main() : void
+    var x = 42
+    val f = fun (y : int) 
+              x = 3
+              x
+            end
+  end
+end
+

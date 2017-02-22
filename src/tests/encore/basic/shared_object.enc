@@ -1,18 +1,18 @@
-shared class A {
-  y : int
+-- This file was automatically converted by encorec
 
-  def init(y:int) : void {
+shared class A
+  var y : int
+  def init(y : int) : void
     this.y = y
-  }
-
-  def f(x:int) : int {
+  end
+  def f(x : int) : int
     1
-  }
-}
+  end
+end
+class Main
+  var x : int
+  def main() : void
+    println(get((new A(0)).f(0)))
+  end
+end
 
-class Main {
-  x : int
-  def main() : void {
-    print get (new A(0)).f(0);
-  }
-}

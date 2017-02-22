@@ -1,41 +1,50 @@
-def id<a>(x: a): a x
+-- This file was automatically converted by encorec
 
-class Cell<a>
-  value : a
+fun id[a](x : a) : a
+  x
+end
+class Cell[a]
+  var value : a
   def init(value : a) : void
     this.value = value
-
+  end
   def getVal() : a
     this.value
-
+  end
   def getVal2() : void
     new Cell(this.value)
-
-  def clone(value : a): void
+  end
+  def clone(value : a) : void
     new Cell(value)
-
-class Pair<a, b>
-  fst : a
-  snd : b
-  def init(fst : a, snd : b) : void{
-    this.fst = fst;
-    this.snd = snd;
-  }
+  end
+end
+class Pair[a, b]
+  var fst : a
+  var snd : b
+  def init(fst : a, snd : b) : void
+    this.fst = fst
+    this.snd = snd
+  end
   def getFst() : a
     this.fst
-
+  end
   def getSnd() : b
     this.snd
-
-  def liftJust<d>(x: d): Maybe d { Just x; }
-
+  end
+  def liftJust[d](x : d) : Maybe[d]
+    Just(x)
+  end
+end
 class Main
-  def main() : void{
-    let p = new Pair(42, "fortytwo")
-        c = new Cell(p)
-        pp = get c.getVal()
-    in {
-      print get pp.getFst();
-      print get pp.getSnd();
-    }
-  }
+  def main() : void
+    let
+      p = new Pair(42, "fortytwo")
+      c = new Cell(p)
+      pp = get(c.getVal())
+    in
+      println(get(pp.getFst()))
+      println(get(pp.getSnd()))
+    end
+  end
+end
+

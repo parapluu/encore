@@ -1,21 +1,28 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    let foo = new Foo(new Bar(2)) in {
-      foo.print();
+    let
+      foo = new Foo(new Bar(2))
+    in
+      foo.print()
       ()
-    }
-
+    end
+  end
+end
 class Foo
-  x : Bar
-
+  var x : Bar
   def init(x_ : Bar) : void
     this.x = x_
-
+  end
   def print() : void
-    print(this.x.i)
-
+    println(this.x.i)
+  end
+end
 passive class Bar
-  i : int
-  
+  var i : int
   def init(i_ : int) : void
     this.i = i_
+  end
+end
+

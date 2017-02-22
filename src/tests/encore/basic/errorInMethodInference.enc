@@ -1,9 +1,13 @@
-class A
-  def f<t>() : void {
-    ()
-  }
+-- This file was automatically converted by encorec
 
+class A
+  def f[t]() : void
+    ()
+  end
+end
 class Main
-  def main() : void {
-    (new A).f();
-  }
+  def main() : void
+    (new A).f()
+  end
+end
+

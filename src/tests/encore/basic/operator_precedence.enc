@@ -1,9 +1,12 @@
-class Main
+-- This file was automatically converted by encorec
 
-  def main() : void {
-    print((123 == 100+23 and 789 <= 888) and ((123 == (100+23)) and (789 <= 888)));
-    print((1+1 == 2 == true or false) and (((1+1 == 2) == true) or false)) ;
-    val a = Just 45;
-    val b = Nothing : Maybe int;
-    print((a != Nothing and b == Nothing) and ((a != Nothing) and (b == Nothing)))
-  }
+class Main
+  def main() : void
+    println(123 == 100 + 23 && 789 <= 888 && 123 == 100 + 23 && 789 <= 888)
+    println(1 + 1 == 2 == true || false && 1 + 1 == 2 == true || false)
+    val a = Just(45)
+    val b = Nothing : Maybe[int]
+    println(a != Nothing && b == Nothing && a != Nothing && b == Nothing)
+  end
+end
+

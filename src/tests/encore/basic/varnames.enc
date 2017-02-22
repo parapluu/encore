@@ -1,18 +1,22 @@
--- testing that _ works in varnames
--- (but not leading)
+-- This file was automatically converted by encorec
+
 class Under_Score
-  under_score:int
+  var under_score : int
   def getty() : int
     this.under_score
-  def under_score(under_score:int) : void
+  end
+  def under_score(under_score : int) : void
     this.under_score = under_score
-
+  end
+end
 class Main
   def main() : void
     let
       under_score = new Under_Score
     in
-      {
-        under_score.under_score(42);
-	print get under_score.getty()
-      }
+      under_score.under_score(42)
+      println(get(under_score.getty()))
+    end
+  end
+end
+

@@ -1,14 +1,20 @@
-def foo() : bool {
-  print "In foo";
+-- This file was automatically converted by encorec
+
+fun foo() : bool
+  println("In foo")
   true
-}
-def bar() : bool {
-  print "In bar";
+end
+fun bar() : bool
+  println("In bar")
   false
-}
+end
 class Main
   def main() : void
-    if foo() or bar() then
-      print "yes"
+    if foo() || bar() then
+      println("yes")
     else
-      print "no"
+      println("no")
+    end
+  end
+end
+
