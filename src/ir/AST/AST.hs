@@ -126,7 +126,11 @@ data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
 
-data AccessModifier = Public | Private deriving (Eq, Ord, Show)
+data AccessModifier = Public | Private deriving (Eq, Ord)
+
+instance Show AccessModifier where
+  show Public = "public"
+  show Private = "private"
 
 data FunctionHeader =
     Header {
@@ -155,7 +159,7 @@ setHeaderModifier :: [AccessModifier] -> FunctionHeader -> FunctionHeader
 setHeaderModifier mod h = h {hmodifier = nub mod}
 
 isPublicMethod :: FunctionHeader -> Bool
-isPublicMethod Header{hmodifier} = elem Public hmodifier
+isPublicMethod Header{hmodifier} = null hmodifier || Public `elem` hmodifier
 
 isPrivateMethod :: FunctionHeader -> Bool
 isPrivateMethod Header{hmodifier} = elem Private hmodifier
@@ -410,7 +414,7 @@ data FieldDecl = Field {
 
 instance Show FieldDecl where
   show f@Field{fmut, fname, ftype} =
-      show fmut ++ show fname ++ " : " ++ show ftype
+      show fmut ++ " " ++ show fname ++ " : " ++ show ftype
 
 instance Eq FieldDecl where
   a == b = fname a == fname b
@@ -527,7 +531,11 @@ data MaybeContainer = JustData { e :: Expr}
                     | NothingData deriving(Eq, Show)
 
 data Mutability = Var
-                | Val deriving(Eq, Show)
+                | Val deriving(Eq)
+
+instance Show Mutability where
+    show Var = "var"
+    show Val = "val"
 
 data Expr = Skip {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,

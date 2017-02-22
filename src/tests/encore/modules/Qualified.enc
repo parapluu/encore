@@ -4,7 +4,9 @@ class Main
   def main() : void
     let
       f = new QFoo
-    in {
-      print (f.name());
+    in
+      print (f.name())
       ()
-    }
+    end
+  end
+end

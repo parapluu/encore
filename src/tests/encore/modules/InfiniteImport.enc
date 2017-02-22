@@ -1,8 +1,8 @@
 module InfiniteImport
 import InfiniteImport
 
-class Main {
-  def main() : void {
-    print(42);
-  }
-}
+class Main
+  def main() : void
+    println(42)
+  end
+end

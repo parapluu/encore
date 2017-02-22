@@ -1,5 +1,9 @@
-module TokenModule
+-- This file was automatically converted by encorec
 
+module TokenModule
 passive class Token
   def foo() : void
-    print "foo"
+    println("foo")
+  end
+end
+

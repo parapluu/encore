@@ -3,16 +3,16 @@ class Main {
 
   def main() : void {
      this.a = new Agent();
-     this.do(1000)
+     this.perform(1000)
    }
 
-   def do(n:int) : void {
+   def perform(n:int) : void {
      if n == 0 then {
        print("done");
      } else {
        this.a.go(this.a);
        new [int](100);
-       this!do(n-1)
+       this!perform(n-1)
      }
    }
 }

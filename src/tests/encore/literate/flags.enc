@@ -4,10 +4,11 @@ rendered etc. This file tests that this works.
 
 #+begin_src encore -n
 class Main
-  def main() : void {
-    new Foo;
-    print "Hello flagged literate world!";
-  }
+  def main() : void
+    new Foo
+    println("Hello flagged literate world!")
+  end
+end
 #+end_src encore
 
 Here is some C code that should be ignored
@@ -23,4 +24,5 @@ Here is an unspecified block that should be included
 #+begin_src -n -i
 class Foo
   -- "another Encore class"
+end
 #+end_src

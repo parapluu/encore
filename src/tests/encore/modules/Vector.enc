@@ -1,16 +1,19 @@
+-- This file was automatically converted by encorec
+
 module Vector
-
-passive class Vector<t> {
-  data : [t]
-
-  def init() : void {
-    let b = new [int](3) in {
-        b[0] = 0;
-        b[1] = 0;
-        b[2] = 42 - 19;
-    }
-  }
-
+passive class Vector[t]
+  var data : [t]
+  def init() : void
+    let
+      b = new [int](3)
+    in
+      b(0) = 0
+      b(1) = 0
+      b(2) = 42 - 19
+    end
+  end
   def there() : void
-    print "vector reporting for duty!"
-}
+    println("vector reporting for duty!")
+  end
+end
+

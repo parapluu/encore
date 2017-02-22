@@ -290,7 +290,7 @@ instance Show Type where
     show (TupleType{argTypes}) = "(" ++ args ++ ")"
       where
         args = intercalate ", " (map show argTypes)
-    show (CType ty) = ty
+    show (CType ty) = "EMBED " ++ ty ++ " END"
     show TypeSynonym{refInfo, resolvesTo} = show refInfo
     show VoidType   = "void"
     show StringType = "string"

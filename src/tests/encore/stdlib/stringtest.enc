@@ -1,13 +1,13 @@
-EMBED
+embed
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
-END
+end
 
 def strcmp(a:String, b:String) : bool
-  EMBED (bool)
+  embed (bool)
     strcmp(#{a}->_enc__field_data, #{b}->_enc__field_data) == 0;
-  END
+  end
 
 def arraycmp(a:[String], b:[String]) : bool
   if |a| == |b|

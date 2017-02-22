@@ -1,11 +1,16 @@
 module SelectiveLib(Foo)
 
 trait T
+end
 
 passive class Foo
   def foo() : Bar
     new Bar()
+  end
+end
 
 passive class Bar : T
   def bar() : void
-    print "bar"
+    println("bar")
+  end
+end

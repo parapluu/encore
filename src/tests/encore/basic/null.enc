@@ -2,8 +2,8 @@ def foo() : Foo{
   var x = 42;
   while x < 0 {
     x = x - 1;
-    null;
-  }
+  };
+  null;
 }
 
 class Foo

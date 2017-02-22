@@ -1,5 +1,6 @@
-module List
+-- This file was automatically converted by encorec
 
-passive class List {
-  -- ..
-}
+module List
+passive class List
+end
+

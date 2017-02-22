@@ -6,9 +6,9 @@ class Main
   def main() : void {
     print addUnsigned(42u, 13u);
     val large =
-          EMBED (uint)
+          embed (uint)
             unsigned long long x = 1ul << 32 << 31;
             x;
-          END;
+          end;
     print(large);
   }

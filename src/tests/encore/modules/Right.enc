@@ -1,6 +1,8 @@
+-- This file was automatically converted by encorec
+
 module Right
-
 import Top
-
-def right() : int
+fun right() : int
   top() + 1
+end
+

@@ -1,6 +1,8 @@
+-- This file was automatically converted by encorec
+
 module ModuleOnTheLeft
-
 import TokenModule
-
-def getToken() : Token
+fun getToken() : Token
   new Token
+end
+

@@ -1,4 +1,4 @@
-def fun(x : Animal) : Dog {
+def fn(x : Animal) : Dog {
   new Dog
 }
 
@@ -15,7 +15,7 @@ passive class Cat : Animal
 
 class Main {
   def main() : void {
-    val f = fun : Cat -> Animal;
+    val f = fn : Cat -> Animal;
     val animal = f(new Cat);
     animal.speak();
   }

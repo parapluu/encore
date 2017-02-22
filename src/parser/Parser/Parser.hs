@@ -479,7 +479,7 @@ functionHeader =
     hparams <- folded parens sc' (commaSep paramDecl)
     colon
     htype <- typ
-    return Header{hmodifier = [Public]
+    return Header{hmodifier = []
                  ,kind = NonStreaming
                  ,htypeparams
                  ,hname
@@ -506,7 +506,7 @@ matchingHeader = do
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
    let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifier = [Public]
+   return MatchingHeader{hmodifier = []
                         ,kind = NonStreaming
                         ,htypeparams
                         ,hname
@@ -771,7 +771,7 @@ methodDecl = do
       indentBlock $ do
         mmeta <- meta <$> getPosition
         mheader <- do reserved "def"
-                      modifiers <- option [Public] $ many modifiersDecl
+                      modifiers <- many accessModifier
                       setHeaderModifier modifiers <$> functionHeader
                <|> do reserved "stream"
                       streamMethodHeader
@@ -785,7 +785,7 @@ methodDecl = do
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    modifiers <- option [Public] $ many modifiersDecl
+                    modifiers <- many accessModifier
                     map (first (setHeaderModifier modifiers)) <$>
                       methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"
@@ -803,8 +803,8 @@ methodDecl = do
           mbody <- expression
           return (mheader, mbody)
 
-modifiersDecl :: EncParser AccessModifier
-modifiersDecl = reserved "private" >> return Private
+accessModifier :: EncParser AccessModifier
+accessModifier = reserved "private" >> return Private
 
 arguments :: EncParser Arguments
 arguments = do
@@ -1286,35 +1286,43 @@ expr = notFollowedBy nl >>
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
-        clos <- indentBlock $ do
+        (withEnd, clos) <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "fun"
           eparams <- parens (commaSep paramDecl)
           mty <- optional (colon >> typ)
           singleLineClosure emeta eparams mty <|>
             blockClosure emeta eparams mty
-        endLine <- sourceLine <$> getPosition
-        unless (endLine == funLine) $
-               atLevel indent $ reserved "end"
+        when withEnd $
+             atLevel indent $ reserved "end"
         return clos
       singleLineClosure emeta eparams mty = do
         reservedOp "=>"
         body <- expression
-        return $ L.IndentNone Closure{emeta, eparams, mty, body}
+        return $ L.IndentNone (False, Closure{emeta, eparams, mty, body})
       blockClosure emeta eparams mty =
-        return $ L.IndentSome Nothing (buildClosure emeta eparams mty) expression
+        return $ L.IndentSome Nothing
+                 (buildClosure emeta eparams mty) expression
       buildClosure emeta eparams mty block =
-        return Closure{emeta
-                      ,eparams
-                      ,mty
-                      ,body = makeBody block
-                      }
+        return (True, Closure{emeta
+                             ,eparams
+                             ,mty
+                             ,body = makeBody block
+                             })
 
-      task = do
+      task = singleLineTask <|> blockedTask
+
+      singleLineTask = do
+        notFollowedBy (reserved "async" >> nl)
         emeta <- meta <$> getPosition
         reserved "async"
-        body <- expression
+        body <- expr
         return Async{emeta, body}
+
+      blockedTask = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "async"
+        return $ \body -> Async{emeta, body}
 
       arraySize = do
         emeta <- meta <$> getPosition

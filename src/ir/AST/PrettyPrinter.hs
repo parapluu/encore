@@ -29,8 +29,8 @@ import AST.AST
 
 indent = nest 2
 
-commaSep l = cat $ punctuate ", " l
-brackets s = cat ["[", s, "]"]
+commaSep l = hcat $ punctuate ", " l
+brackets s = hcat ["[", s, "]"]
 
 ppMut :: Mutability -> Doc
 ppMut Val = "val"
@@ -49,13 +49,15 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{moduledecl, etl, imports, typedefs, functions, classes} =
+ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes} =
     ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppTypedef typedefs) $+$
+    -- TODO: reverse these somewhere else...
     vcat (reverse $ map ppFunction functions) $+$
-    vcat (map ppClassDecl classes) $+$
+    vcat (reverse $ map ppTraitDecl traits) $+$
+    vcat (reverse $ map ppClassDecl classes) $+$
     "" -- new line at end of file
 
 ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
@@ -64,14 +66,40 @@ ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
 ppHeader header code =
   if null header && null code
   then empty
-  else "embed" $+$ text header $+$ "body" $+$ text code $+$ "end\n"
+  else "EMBED" $+$ text header $+$ "BODY" $+$ text code $+$ "END\n"
 
 ppModuleDecl :: ModuleDecl -> Doc
 ppModuleDecl NoModule = empty
-ppModuleDecl Module{modname} = "module" <+> ppName modname
+ppModuleDecl Module{modname, modexports} =
+  "module" <+> ppName modname <>
+               case modexports of
+                 Just names -> parens (commaSep $ map ppName names)
+                 Nothing -> empty
 
 ppImportDecl :: ImportDecl -> Doc
-ppImportDecl Import {itarget} = "import" <+> ppNamespace itarget
+ppImportDecl Import {itarget
+                    ,iqualified
+                    ,ihiding
+                    ,iselect
+                    ,ialias
+                    } =
+  let import' = if iqualified
+                then "import" <+> "qualified"
+                else "import"
+  in import' <+> ppNamespace itarget <> maybeSelect <> maybeHiding <> maybeAlias
+  where
+    maybeSelect =
+      case iselect of
+        Just names -> parens (commaSep $ map ppName names)
+        Nothing -> empty
+    maybeHiding =
+      case ihiding of
+        Just names -> " hiding" <> parens (commaSep $ map ppName names)
+        Nothing -> empty
+    maybeAlias =
+      case ialias of
+        Just alias -> " as" <+> ppNamespace alias
+        Nothing -> empty
 
 ppTypedef :: Typedef -> Doc
 ppTypedef Typedef { typedefdef=t } =
@@ -91,19 +119,37 @@ ppTypeParams :: [Type] -> Doc
 ppTypeParams params =
   if null params
   then empty
-  else P.brackets (commaSep $ map ppType params)
+  else brackets (commaSep $ map ppType params)
 
-ppFunctionHelper :: FunctionHeader -> Expr -> Doc
-ppFunctionHelper funheader funbody =
+ppFunctionHelper :: FunctionHeader -> Expr -> [Function] -> Doc
+ppFunctionHelper funheader funbody [] =
     "fun" <+> ppFunctionHeader funheader $+$
         indent (ppBody funbody) $+$
     "end"
+ppFunctionHelper funheader funbody funlocals =
+    "fun" <+> ppFunctionHeader funheader $+$
+        indent (ppBody funbody) $+$
+    "where" $+$
+        indent (vcat $ map ppFunction funlocals) $+$
+    "end"
 
 ppFunction :: Function -> Doc
-ppFunction Function {funheader, funbody} =
-    ppFunctionHelper funheader funbody
-ppFunction MatchingFunction {matchfunheaders, matchfunbodies} =
-    foldr ($+$) "" (zipWith ppFunctionHelper matchfunheaders matchfunbodies)
+ppFunction Function {funheader, funbody, funlocals} =
+  ppFunctionHelper funheader funbody funlocals
+ppFunction MatchingFunction{} =
+  error "Encore currently does not support matching functions"
+
+ppTraitDecl :: TraitDecl -> Doc
+ppTraitDecl Trait {tname, treqs, tmethods} =
+    "trait" <+> ppType tname $+$
+        indent (vcat (map ppRequirement treqs) $$
+                vcat (map ppMethodDecl tmethods)) $+$
+    "end"
+  where
+    ppRequirement RequiredField{rfield} =
+      "require" <+> ppFieldDecl rfield
+    ppRequirement RequiredMethod{rheader} =
+      "require" <+> "def" <+> ppFunctionHeader rheader
 
 ppTraitExtension :: TraitExtension -> Doc
 ppTraitExtension FieldExtension{extname} = ppName extname
@@ -118,15 +164,20 @@ ppComposition Conjunction{tcleft, tcright} =
 ppComposition Disjunction{tcleft, tcright} =
   ppComposition tcleft <+> "+" <+> ppComposition tcright
 ppComposition TraitLeaf{tcname, tcext} =
-  ppType tcname <> parens (commaSep (map ppTraitExtension tcext))
+  ppType tcname <> if null tcext
+                   then empty
+                   else parens (commaSep (map ppTraitExtension tcext))
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods, ccomposition} =
-    "class" <+> ppType cname <+> compositionDoc $+$
+    clss <+> ppType cname <+> compositionDoc $+$
         indent (vcat (map ppFieldDecl cfields) $$
                 vcat (map ppMethodDecl cmethods)) $+$
     "end"
   where
+    clss | isPassiveClassType cname = "passive class"
+         | isSharedClassType cname = "shared class"
+         | otherwise = "class"
     compositionDoc =
       case ccomposition of
         Just c -> ":" <+> ppComposition c
@@ -144,13 +195,26 @@ ppParamDecl (Param {pmut = Var, pname, ptype}) =
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
     let header = mheader m
+        modifiers = hmodifier header
         body = mbody m
         def | isStreamMethod m = "stream"
             | otherwise = "def"
+        def' = if null modifiers
+               then def
+               else def <+> ppModifiers modifiers
     in
-      def <+> ppFunctionHeader header $+$
+      def' <+> ppFunctionHeader header $+$
           indent (ppBody body) $+$
-      "end"
+      endOrLocals
+    where
+      ppModifiers [] = empty
+      ppModifiers mods = hcat $ map (text . show) mods
+      endOrLocals
+        | null (mlocals m) = "end"
+        | otherwise =
+            "where" $+$
+              indent (vcat $ map ppFunction (mlocals m)) $+$
+            "end"
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
@@ -175,28 +239,36 @@ ppBody e = ppExpr e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
-ppExpr MethodCall {target, name, args} =
+ppExpr MethodCall {target, name, args, typeArguments = []} =
     maybeParens target <> "." <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args} =
+ppExpr MethodCall {target, name, args, typeArguments} =
+    maybeParens target <> "." <> ppName name <>
+      brackets (commaSep (map ppType typeArguments)) <>
+      parens (commaSep (map ppExpr args))
+ppExpr MessageSend {target, name, args, typeArguments = []} =
     maybeParens target <> "!" <> ppName name <>
+      parens (commaSep (map ppExpr args))
+ppExpr MessageSend {target, name, args, typeArguments} =
+    maybeParens target <> "!" <> ppName name <>
+      brackets (commaSep (map ppType typeArguments)) <>
       parens (commaSep (map ppExpr args))
 ppExpr Liftf {val} = "liftf" <> parens (ppExpr val)
 ppExpr Liftv {val} = "liftv" <> parens (ppExpr val)
 ppExpr PartyJoin {val} = "join" <> parens (ppExpr val)
 ppExpr PartyExtract {val} = "extract" <> parens(ppExpr val)
 ppExpr PartyEach {val} = "each" <> parens(ppExpr val)
-ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
+ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> parens (ppExpr seqfunc)
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "|||" <+> ppExpr parr
 ppExpr PartyReduce {seqfun, pinit, par} = "reduce" <>
     parens (commaSep $ ppExpr <$> [seqfun, pinit, par])
 ppExpr FunctionCall {qname, args, typeArguments = []} =
     ppQName qname <> parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {qname, args, typeArguments} =
-    ppQName qname <> P.brackets (commaSep (map ppType typeArguments)) <>
+    ppQName qname <> brackets (commaSep (map ppType typeArguments)) <>
                      parens (commaSep (map ppExpr args))
 ppExpr FunctionAsValue {qname, typeArgs} =
-  ppQName qname <> P.brackets (commaSep (map ppType typeArgs))
+  ppQName qname <> brackets (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, mty, body=b@(Seq {})} =
     "fun" <+> parens (commaSep (map ppParamDecl eparams)) <+> returnType mty $+$
        indent (ppBody b) $+$
@@ -206,9 +278,9 @@ ppExpr Closure {eparams, mty, body=b@(Seq {})} =
     returnType (Just t) = ":" <+> ppType t
 ppExpr Closure {eparams, body} =
     "fun" <+> parens (commaSep (map ppParamDecl eparams)) <+> "=>" <+> ppExpr body
-ppExpr Async {body=b@(Seq {})} =
+ppExpr Async {body=body@(Seq {})} =
   "async" $+$
-    ppExpr b $+$
+    indent (ppBody body) $+$
   "end"
 ppExpr Async {body} = "async" <> parens (ppExpr body)
 ppExpr (MaybeValue _ (JustData a)) = "Just" <> parens (ppExpr a)
@@ -264,26 +336,26 @@ ppExpr Match {arg, clauses} =
     "end"
     where
       ppClause (MatchClause {mcpattern, mchandler, mcguard = BTrue{}}) =
-        indent "case" <+> (ppExpr mcpattern <+> "=>" <+> multipleLines mchandler)
-      ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
-        indent "case" <+> (ppExpr mcpattern <+> "when" <+> ppExpr mcguard <+>
-                       "=>" <+> multipleLines mchandler)
-      ppMatchClauses = foldr (($+$) . ppClause) ""
-      multipleLines s@(Seq {}) = ""
-        $+$
-          indent (ppBody s) $+$
+        "case" <+> ppExpr mcpattern <+> "=>" $+$
+          indent (ppBody mchandler) $+$
         "end"
-      multipleLines e = ppExpr e
+      ppClause (MatchClause {mcpattern, mchandler, mcguard}) =
+        "case" <+> ppExpr mcpattern <+> "when" <+> ppExpr mcguard <+> "=>" $+$
+          indent (ppBody mchandler) $+$
+        "end"
+      ppMatchClauses = foldr (($+$) . indent . ppClause) ""
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
 ppExpr Get {val} = "get" <> parens (ppExpr val)
 ppExpr Yield {val} = "yield" <> parens (ppExpr val)
 ppExpr Eos {} = "eos"
-ppExpr Await {val} = "await" <+> parens (ppExpr val)
-ppExpr IsEos {target} = ppExpr target <> "." <> "eos" <> parens empty
-ppExpr StreamNext {target} = ppExpr target <> "." <> "next" <> parens empty
+ppExpr Await {val} = "await" <> parens (ppExpr val)
+ppExpr IsEos {target} = "eos" <> parens (ppExpr target)
+ppExpr StreamNext {target} = "getNext" <> parens (ppExpr target)
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
+ppExpr ArrayAccess {target = target@FieldAccess{}, index} =
+  parens (ppExpr target) <> parens (ppExpr index)
 ppExpr ArrayAccess {target, index} = ppExpr target <> parens (ppExpr index)
 ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = "new" <+> brackets (ppType ty) <> parens (ppExpr size)
@@ -315,7 +387,7 @@ ppExpr Embed {ty, embedded} =
   where
     ppPair code Skip{} = text code
     ppPair code expr = text code <> "#{" <> ppExpr expr <> "}"
-ppExpr Unary {uop, operand} = ppUnary uop <+> ppExpr operand
+ppExpr Unary {uop, operand} = ppUnary uop <> parens (ppExpr operand)
 ppExpr Binop {binop, loper, roper} =
   ppExpr loper <+> ppBinop binop <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ":" <+> ppType ty

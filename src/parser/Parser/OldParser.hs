@@ -346,7 +346,7 @@ functionHeader = do
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return Header{hmodifier = [Public]
+  return Header{hmodifier = []
                ,kind = NonStreaming
                ,htypeparams
                ,hname
@@ -373,7 +373,7 @@ matchingHeader = do
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
    let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifier = [Public]
+   return MatchingHeader{hmodifier = []
                         ,kind = NonStreaming
                         ,htypeparams
                         ,hname
@@ -529,7 +529,7 @@ mutModifier = (reserved "var" >> return Var)
 
 fieldDecl :: Parser FieldDecl
 fieldDecl = do fmeta <- meta <$> getPosition
-               fmut  <- mutModifier
+               fmut  <- option Var mutModifier
                fname <- Name <$> identifier
                colon
                ftype <- typ
@@ -565,7 +565,7 @@ methodDecl = do
     regularMethod = do
       mmeta <- meta <$> getPosition
       mheader <- do reserved "def"
-                    modifiers <- option [Public] $ many modifiersDecl
+                    modifiers <- option [] $ many modifiersDecl
                     setHeaderModifier modifiers <$> functionHeader
              <|> do reserved "stream"
                     streamMethodHeader
@@ -578,7 +578,7 @@ methodDecl = do
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    modifiers <- option [Public] $ many modifiersDecl
+                    modifiers <- option [] $ many modifiersDecl
                     map (first (setHeaderModifier modifiers)) <$>
                       methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"

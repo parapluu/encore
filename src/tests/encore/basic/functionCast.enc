@@ -1,10 +1,10 @@
-def fun() : (String, String) {
+def fn() : (String, String) {
   ("Hello", "world")
 }
 
 class Main {
   def main() : void {
-    val foo = fun : () -> (String, String);
+    val foo = fn : () -> (String, String);
     match foo() with
       (h, w) => println("{} {}", h, w)
   }

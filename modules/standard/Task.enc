@@ -19,19 +19,23 @@ The `fulfilled` family of functions supports asking a future
 whether it is fulfilled or not. This is a blocking operation.
 
 #+BEGIN_SRC encore
-def fulfilled<t>(f : Fut t) : bool
+fun fulfilled[t](f : Fut[t]) : bool
   EMBED(bool)
     future_fulfilled(#{f});
   END
+end
 
-def fulfilled2<t1, t2>(f1 : Fut t1, f2 : Fut t2) : bool
-  fulfilled(f1) and fulfilled(f2)
+fun fulfilled2[t1, t2](f1 : Fut[t1], f2 : Fut[t2]) : bool
+  fulfilled(f1) && fulfilled(f2)
+end
 
-def fulfilled3<t1, t2, t3>(f1 : Fut t1, f2 : Fut t2, f3 : Fut t3) : bool
-  fulfilled(f1) and fulfilled(f2) and fulfilled(f3)
+fun fulfilled3[t1, t2, t3](f1 : Fut[t1], f2 : Fut[t2], f3 : Fut[t3]) : bool
+  fulfilled(f1) && fulfilled(f2) && fulfilled(f3)
+end
 
-def fulfilled4<t1, t2, t3, t4>(f1 : Fut t1, f2 : Fut t2, f3 : Fut t3, f4 : Fut t4) : bool
-  fulfilled(f1) and fulfilled(f2) and fulfilled(f3) and fulfilled(f4)
+fun fulfilled4[t1, t2, t3, t4](f1 : Fut[t1], f2 : Fut[t2], f3 : Fut[t3], f4 : Fut[t4]) : bool
+  fulfilled(f1) && fulfilled(f2) && fulfilled(f3) && fulfilled(f4)
+end
 #+END_SRC
 
 ** Syncing multiple futures
@@ -49,35 +53,35 @@ Example:
 
 
 #+BEGIN_SRC encore
-def sync2<t1, t2>(f1 : Fut t1, f2: Fut t2) : (t1, t2) {
-  if not fulfilled(f1) then await f1 ;
-  if not fulfilled(f2) then await f2 ;
-  (get f1, get f2) ;
-}
+fun sync2[t1, t2](f1 : Fut[t1], f2: Fut[t2]) : (t1, t2)
+  if not fulfilled(f1) then await(f1) end
+  if not fulfilled(f2) then await(f2) end
+  (get(f1), get(f2))
+end
 
-def sync3<t1, t2, t3>(f1 : Fut t1, f2: Fut t2, f3: Fut t3) : (t1, t2, t3) {
-  if not fulfilled(f1) then await f1 ;
-  if not fulfilled(f2) then await f2 ;
-  if not fulfilled(f3) then await f3 ;
-  (get f1, get f2, get f3) ;
-}
+fun sync3[t1, t2, t3](f1 : Fut[t1], f2: Fut[t2], f3: Fut[t3]) : (t1, t2, t3)
+  if not fulfilled(f1) then await(f1) end
+  if not fulfilled(f2) then await(f2) end
+  if not fulfilled(f3) then await(f3) end
+  (get(f1), get(f2), get(f3))
+end
 
-def sync4<t1, t2, t3, t4>(f1 : Fut t1, f2: Fut t2, f3: Fut t3, f4: Fut t4) : (t1, t2, t3, t4) {
-  if not fulfilled(f1) then await f1 ;
-  if not fulfilled(f2) then await f2 ;
-  if not fulfilled(f3) then await f3 ;
-  if not fulfilled(f4) then await f4 ;
-  (get f1, get f2, get f3, get f4) ;
-}
+fun sync4[t1, t2, t3, t4](f1 : Fut[t1], f2: Fut[t2], f3: Fut[t3], f4: Fut[t4]) : (t1, t2, t3, t4)
+  if not fulfilled(f1) then await(f1) end
+  if not fulfilled(f2) then await(f2) end
+  if not fulfilled(f3) then await(f3) end
+  if not fulfilled(f4) then await(f4) end
+  (get(f1), get(f2), get(f3), get(f4))
+end
 
-def syncN<t>(futures : [Fut t]) : [t] {
-  val result = new [t](|futures|) ;
-  repeat i <- |futures| {
-    if not fulfilled(futures[i]) then await futures[i] ;
-    result[i] = get futures[i] ;
-  } ;
+fun syncN[t](futures : [Fut[t]]) : [t]
+  val result = new [t](|futures|)
+  repeat i <- |futures| do
+    if not fulfilled(futures(i)) then await(futures(i)) end
+    result(i) = get(futures(i))
+  end
   result
-}
+end
 #+END_SRC
 
 * Promises
@@ -85,29 +89,30 @@ An expensive implementation of a promise, built using futures and
 suspend. Multiple fulfilment of a promise is handled dynamically.
 
 #+BEGIN_SRC encore
-class Promise<a>
-  value : Maybe a
-  def fulfil(value:a) : bool
-    if this.fulfilled() then {
-      false ;
-    } else {
-      this.value = Just value ;
-      true ;
-    }
+class Promise[a]
+  var value : Maybe[a]
+  def fulfil(value : a) : bool
+    if this.fulfilled() then
+      false
+    else
+      this.value = Just(value)
+      true
+    end
+  end
   def fulfilled() : bool
     this.value == Nothing
-  -- This is how I would rather write deliver()
-  -- def deliver() : a
-  --   match this.value with
-  --     Just v  => v
-  --     Nothing => forward this.read()
-  -- This should ofc compile to a loop (tail call opt.)
-  def deliver() : a {
-    while this.fulfilled() == false
-      suspend ;
+  end
+  def deliver() : a
+    while this.fulfilled() == false do
+      suspend
+    end
     match this.value with
-      Just v => v
-  }
+      case Just(v) =>
+        v
+      end
+    end
+  end
+end
 #+END_SRC
 
 * Synchroniser
@@ -115,37 +120,39 @@ A synchroniser is an actor that given a list of futures waits on
 these futures until they are all fulfilled.
 
 #+BEGIN_SRC encore
-def Synchroniser<t>(f : Fut t) : Synchroniser<t>
+fun Synchroniser[t](f : Fut[t]) : Synchroniser[t]
   new Synchroniser([f])
+end
 
-class Synchroniser<t> {
-  result : [t]
-  countDown : int
-  callback : t -> void
-
-  def init(ar: [Fut t]): void {
-    this.result = new [t](|ar|);
-    this.countDown = |ar| ;
-    var i = 0;
-    for f in ar {
-      f ~~> \(r:t) -> { this ! fulfil(i, r) };
-      i = i + 1;
-    }
-  }
-
-  def fulfil(pos:int, r:t) : void {
-    this.countDown = this.countDown - 1 ;
-    this.result[pos] = r ;
-  }
-
+class Synchroniser[t]
+  var result : [t]
+  var countDown : int
+  var callback : t -> void
+  def init(ar : [Fut[t]]) : void
+    this.result = new [t](|ar|)
+    this.countDown = |ar|
+    var i = 0
+    for f <- ar do
+      f ~~> fun (r : t)
+              this!fulfil(i, r)
+            end
+      i = i + 1
+    end
+  end
+  def fulfil(pos : int, r : t) : void
+    this.countDown = this.countDown - 1
+    (this.result)(pos) = r
+  end
   def register(closure : t -> void) : void
     this.callback = closure
-
-  def result(): [t] {
-    while this.countDown > 0 suspend ;
+  end
+  def result() : [t]
+    while this.countDown > 0 do
+      suspend
+    end
     this.result
-  }
-}
+  end
+end
 #+END_SRC
 
 * Task Spawning
@@ -154,16 +161,19 @@ passes it on to a task runner actor to perform. Currently, each
 call to spawn creates a new task runner.
 
 #+BEGIN_SRC encore
-def spawn<t>(task : () -> t) : Fut t
+fun spawn[t](task : () -> t) : Fut[t]
   let
     runner = new TaskRunner()
   in
     runner.perform(task)
+  end
+end
 
-class TaskRunner {
-  def perform<t>(task : () -> t) : t
+class TaskRunner
+  def perform[t](task : () -> t) : t
     task()
-}
+  end
+end
 #+END_SRC
 
 

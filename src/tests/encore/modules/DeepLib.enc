@@ -1,5 +1,9 @@
-module DeepLib
+-- This file was automatically converted by encorec
 
+module DeepLib
 passive class Foo
   def name() : String
     "DeepFoo"
+  end
+end
+

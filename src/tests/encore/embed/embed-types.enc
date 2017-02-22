@@ -1,16 +1,21 @@
-passive class Container<t>
-  f : t
+passive class Container[t]
+  var f : t
   def write(f : t) : void
     this.f = f
+  end
 
   def read() : t
     this.f
+  end
+end
 
 class Main
   def main() : void
-    let c = new Container<EMBED char* END>
-    in{
-      c.write(EMBED (EMBED char* END) "Hello"; END);
+    let c = new Container[EMBED char* END] in
+      c.write(EMBED (EMBED char* END) "Hello"; END)
       let s = c.read() in
         EMBED (void) puts(#{s}); END
-    }
+      end
+    end
+  end
+end

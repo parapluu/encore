@@ -3,10 +3,14 @@ module FarLib
 import TraitLib
 
 passive class FarFoo : S
-  f : S
+  var f : S
   def init() : void
     this.f = this
+  end
   def name() : String
     "FarFoo"
+  end
   def foo(x : S) : S
     x
+  end
+end

@@ -1,6 +1,8 @@
+-- This file was automatically converted by encorec
+
 module ModuleOnTheRight
-
 import TokenModule
-
-def receiveToken(x : Token) : void
+fun receiveToken(x : Token) : void
   x.foo()
+end
+

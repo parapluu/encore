@@ -1,10 +1,12 @@
 import SelectiveLib(foo)
 
-def bar() : void
-  print "This is bar"
+fun bar() : void
+  println("This is bar")
+end
 
 class Main
-  def main() : void {
-    foo();
-    bar();
-  }
+  def main() : void
+    foo()
+    bar()
+  end
+end

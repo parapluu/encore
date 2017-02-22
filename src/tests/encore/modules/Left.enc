@@ -1,6 +1,8 @@
+-- This file was automatically converted by encorec
+
 module Left
-
 import Top
-
-def left() : int
+fun left() : int
   top() - 11
+end
+

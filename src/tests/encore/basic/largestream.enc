@@ -3,7 +3,7 @@
 -- a Sequence of Integers
 class IntSeq
 
-  stream start(fr : int, to : int) : int {
+  stream start(var fr : int, to : int) : int {
     while fr <= to {
       yield fr;
       fr = fr+1
@@ -11,14 +11,12 @@ class IntSeq
   }
 
 class Main
-  def main() : void
-    let
-      lst = 0
-      str = (new IntSeq).start(1,1000000)
-    in {
-      while not eos str {
-        lst = get str;
-        str = getNext str;
-      };
-      print lst
-    }
+  def main() : void {
+    var lst = 0;
+    var str = (new IntSeq).start(1,1000000);
+    while not eos str {
+      lst = get str;
+      str = getNext str;
+    };
+    print lst
+  }

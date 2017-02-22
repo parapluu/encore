@@ -1,94 +1,104 @@
+-- This file was automatically converted by encorec
+
 module ParTTest
-
 import ParT
-
-def toUpperAndSmall(s: String): Par String
-  liftv(s.to_upper()) || liftv(s)
-
-def printUpper(s: String): void
-  print s.to_upper()
-
-def generateMillionItems(var p: Par int): (Par int) {
-  for i in [1..10000000] {
-    p = p || liftv(1)
-  };
+fun toUpperAndSmall(s : String) : Par[String]
+  liftv(s.to_upper()) ||| liftv(s)
+end
+fun printUpper(s : String) : void
+  println(s.to_upper())
+end
+fun generateMillionItems(var p : Par[int]) : Par[int]
+  for i <- [1..10000000] do
+    p = p ||| liftv(1)
+  end
   p
-}
-
+end
 class Test
-  def producer(): String
+  def producer() : String
     "producer"
-  def one(): int 0
-
-class T {
-  def getValue(x: int): int x
-}
-
-
+  end
+  def one() : int
+    0
+  end
+end
+class T
+  def getValue(x : int) : int
+    x
+  end
+end
 class Main
-  def testBindAndFilter(): void
-    -- this test filters and creates two versions of the filtered items
-    let fut = (new Test).producer()
-        p = empty<String>() || liftv("Test") || liftv("Quick") ||
-            liftv("Encore") || liftf(fut)
-        filteredP = filter<String>(\(s: String) ->
-                                     s.contains("k") or s.contains("prod"), p)
-        bindP = bind<String, String>(toUpperAndSmall, filteredP)
-    in for s in extract(bindP) print(s)
-
-  def testReduce(): void
-    -- this test concats items in a ParT
-    let fut = (new Test).producer()
-        p = empty<String>() || liftv("Test") ||
-            liftv("Quick") || liftv("Encore") || liftf(fut)
-        concatFn = \(x: String, acc: String) -> x.concatenate(acc)
-        red = reduce(concatFn, "", p)
-        result = get(red)
-    in print(result)
-
-  def testReduceNumbers(): void
-    let f = embed Fut int
-              //(new Test).one()
+  def testBindAndFilter() : void
+    let
+      fut = (new Test).producer()
+      p = empty[String]() ||| liftv("Test") ||| liftv("Quick") ||| liftv("Encore") ||| liftf(fut)
+      filteredP = filter[String](fun (s : String) => s.contains("k") || s.contains("prod"), p)
+      bindP = bind[String, String](toUpperAndSmall, filteredP)
+    in
+      for s <- extract(bindP) do
+        println(s)
+      end
+    end
+  end
+  def testReduce() : void
+    let
+      fut = (new Test).producer()
+      p = empty[String]() ||| liftv("Test") ||| liftv("Quick") ||| liftv("Encore") ||| liftf(fut)
+      concatFn = fun (x : String, acc : String) => x.concatenate(acc)
+      red = reduce(concatFn, "", p)
+      result = get(red)
+    in
+      println(result)
+    end
+  end
+  def testReduceNumbers() : void
+    let
+      f = EMBED (Fut[int])
+            //(new Test).one()
               future_t *f = future_mk(_ctx, ENCORE_PRIMITIVE);
               future_fulfil(_ctx, f, (encore_arg_t){.i = 8});
               f;
-            end
-        p = liftv(0) || liftf(f) || generateMillionItems(empty<int>())
-        sum = (\(x: int, acc: int) -> x + acc)
-        result = get reduce(sum, 0, p)
-    in print("result: {}\n", result)
 
-
-  def testForeach(): void {
-    let p = empty<String>() || liftv("Test") || liftv("Quick") || liftv("Encore")
-    in foreachp<String>(p, printUpper)
-  }
-
-  def testAggregate(): void
-    let m = generateMillionItems(empty<int>())
-        result = aggregate<int, int, int>(m, 0,
-                                             \(s: int, acc: int) -> acc + 1,
-                                             \(x: int) -> x)
-                 >> \(total: int) -> total
-    in print((extract(result))[0])
-
-  def main(): void {
-    print("testBindAndFilter()\n");
-    this.testBindAndFilter();
-
-    print("\ntestReduce()\n");
-    this.testReduceNumbers();
-    this.testReduce();
-
-    print("\ntestForeach()\n");
-    this.testForeach();
-
-    print("\ntestAggregate()\n");
-    this.testAggregate();
-      val fut1 = (new T).getValue(12);
-      val fut2 = (new T).getValue(23);
-      val fp1 = liftf(fut1);
-      val fp2 = liftf(fut2);
-      val result = intersection(fp1, fp2);
-      for v in extract(result) print("Resultsss: {}\n", v);
-  }
+          END
+      p = liftv(0) ||| liftf(f) ||| generateMillionItems(empty[int]())
+      sum = fun (x : int, acc : int) => x + acc
+      result = get(reduce(sum, 0, p))
+    in
+      print("result: {}\n", result)
+    end
+  end
+  def testForeach() : void
+    let
+      p = empty[String]() ||| liftv("Test") ||| liftv("Quick") ||| liftv("Encore")
+    in
+      foreachp[String](p, printUpper)
+    end
+  end
+  def testAggregate() : void
+    let
+      m = generateMillionItems(empty[int]())
+      result = aggregate[int, int, int](m, 0, fun (s : int, acc : int) => acc + 1, fun (x : int) => x) >> (fun (total : int) => total)
+    in
+      println(extract(result)(0))
+    end
+  end
+  def main() : void
+    print("testBindAndFilter()\n")
+    this.testBindAndFilter()
+    print("\ntestReduce()\n")
+    this.testReduceNumbers()
+    this.testReduce()
+    print("\ntestForeach()\n")
+    this.testForeach()
+    print("\ntestAggregate()\n")
+    this.testAggregate()
+    val fut1 = (new T).getValue(12)
+    val fut2 = (new T).getValue(23)
+    val fp1 = liftf(fut1)
+    val fp2 = liftf(fut2)
+    val result = intersection(fp1, fp2)
+    for v <- extract(result) do
+      print("Resultsss: {}\n", v)
+    end
+  end
+end
