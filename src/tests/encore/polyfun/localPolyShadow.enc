@@ -1,11 +1,15 @@
-def id<a>(x : a) : a
+-- This file was automatically converted by encorec
+
+fun id[a](x : a) : a
   myId(x)
 where
-  def myId<a>(x : a) : a
+  fun myId[a](x : a) : a
     x
+  end
+end
+class Main
+  def main() : void
+    println(id(42))
+  end
 end
 
-class Main
-  def main() : void {
-    print id(42)
-  }

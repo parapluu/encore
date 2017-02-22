@@ -1,33 +1,61 @@
-def fCreateParametricOptionType<t>(arg1: t): Maybe t
-  Just arg1
+-- This file was automatically converted by encorec
 
-def fCreateParametricOptionTypeNothing<t>(arg1: t): Maybe t
+fun fCreateParametricOptionType[t](arg1 : t) : Maybe[t]
+  Just(arg1)
+end
+fun fCreateParametricOptionTypeNothing[t](arg1 : t) : Maybe[t]
   Nothing
-
-def extractAndCreateOptionValue<t>(op: Maybe t, v: t): Maybe t
+end
+fun extractAndCreateOptionValue[t](op : Maybe[t], v : t) : Maybe[t]
   match op with
-  Just ignored => Just v
-  Nothing => Nothing
-
+    case Just(ignored) =>
+      Just(v)
+    end
+    case Nothing =>
+      Nothing
+    end
+  
+  end
+end
 class Main
-  def main() : void {
-    let test1 = fCreateParametricOptionType<String>("Test creation of 'Just a' inside parametric function")
-    in {
+  def main() : void
+    let
+      test1 = fCreateParametricOptionType[String]("Test creation of 'Just a' inside parametric function")
+    in
       match test1 with
-        Just s => print s
-        Nothing => print "Error: expected 'Just' value constructor but got 'Nothing'"
-    };
-
-    var testNothing = fCreateParametricOptionTypeNothing<String>("Test the returns parametric Nothing");
-      match testNothing with
-        Just s => print "Error, expected 'Nothing'"
-        Nothing => { testNothing = Just "re-assignment";
-                     print "Test create parametric Nothing and can be re-assigned";};
-
-    let testNewVal = extractAndCreateOptionValue<String>(Just "Remove this text", "Append this text")
-    in {
+        case Just(s) =>
+          println(s)
+        end
+        case Nothing =>
+          println("Error: expected 'Just' value constructor but got 'Nothing'")
+        end
+      
+      end
+    end
+    var testNothing = fCreateParametricOptionTypeNothing[String]("Test the returns parametric Nothing")
+    match testNothing with
+      case Just(s) =>
+        println("Error, expected 'Nothing'")
+      end
+      case Nothing =>
+        testNothing = Just("re-assignment")
+        println("Test create parametric Nothing and can be re-assigned")
+      end
+    
+    end
+    let
+      testNewVal = extractAndCreateOptionValue[String](Just("Remove this text"), "Append this text")
+    in
       match testNewVal with
-        Just v => print v
-        Nothing => print "Error in 'extractAndCreateOptionValue', expected string 'Append this text'"
-    }
-  }
+        case Just(v) =>
+          println(v)
+        end
+        case Nothing =>
+          println("Error in 'extractAndCreateOptionValue', expected string 'Append this text'")
+        end
+      
+      end
+    end
+  end
+end
+
