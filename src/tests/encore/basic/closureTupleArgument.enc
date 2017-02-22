@@ -1,0 +1,10 @@
+def add(tup : (int, int)) : int
+  match tup with
+    (x, y) => x + y
+
+def apply(fn : ((int, int)) -> int) : int
+  fn((2,3))
+
+class Main
+  def main() : void
+    println(apply(add))

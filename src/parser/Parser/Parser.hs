@@ -208,12 +208,16 @@ typ = makeExprParser singleType opTable
         <|> refType
         <|> primitive
         <|> typeVariable
-        <|> parens typ
+        <|> parenthesized
         <?> "type"
       tuple = do
         types <- (reservedOp "()" >> return [])
              <|> parens (typ `sepBy2` comma)
         return $ tupleType types
+      parenthesized = do
+        ty <- parens typ
+        (notFollowedBy (reservedOp "->") >> return ty)
+         <|> return (tupleType [ty]) -- Allows for ((t, t')) -> t''
       array = do
         ty <- brackets typ
         return $ arrayType ty
