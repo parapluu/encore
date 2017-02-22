@@ -1,10 +1,19 @@
-def add(tup : (int, int)) : int
-  match tup with
-    (x, y) => x + y
+-- This file was automatically converted by encorec
 
-def apply(fn : ((int, int)) -> int) : int
-  fn((2,3))
+fun add(tup : (int, int)) : int
+  match tup with
+    case (x, y) =>
+      x + y
+    end
+  end
+end
+
+fun apply(fn : ((int, int)) -> int) : int
+  fn((2, 3))
+end
 
 class Main
   def main() : void
     println(apply(add))
+  end
+end

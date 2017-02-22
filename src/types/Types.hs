@@ -276,7 +276,9 @@ instance Show Type where
     show EmptyCapability = ""
     show TypeVar{ident} = ident
     show ArrowType{argTypes = [ty], resultType} =
-        show ty ++ " -> " ++ show resultType
+        if isTupleType ty
+        then "(" ++ show ty ++ ") -> " ++ show resultType
+        else show ty ++ " -> " ++ show resultType
     show ArrowType{argTypes, resultType} =
         "(" ++ args ++ ") -> " ++ show resultType
         where

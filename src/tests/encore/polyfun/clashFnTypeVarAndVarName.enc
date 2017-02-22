@@ -1,8 +1,12 @@
-def test<t, k>(x: t, y: k): void
-  \(t: int) -> {
-    \(z: t) -> z
-  }
+-- This file was automatically converted by encorec
 
+fun test[t, k](x : t, y : k) : void
+  fun (t : int)
+    fun (z : t) => z
+  end
+end
 class Main
-  def main(): void
+  def main() : void
     ()
+  end
+end

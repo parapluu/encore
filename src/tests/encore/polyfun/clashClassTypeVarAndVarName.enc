@@ -1,12 +1,16 @@
-class Test<t, k>
-  def clashingNameAndTypes(x: t, y: k): void {
-    val nestedClosure = \(t: k) -> {
-                           val idFn = \(xx: t) -> xx;
-                           idFn(x)
-                        };
-    nestedClosure(y)
-  }
+-- This file was automatically converted by encorec
 
+class Test[t, k]
+  def clashingNameAndTypes(x : t, y : k) : void
+    val nestedClosure = fun (t : k)
+                          val idFn = fun (xx : t) => xx
+                          idFn(x)
+                        end
+    nestedClosure(y)
+  end
+end
 class Main
-  def main(): void
+  def main() : void
     ()
+  end
+end
