@@ -85,9 +85,15 @@ ppTypedef Typedef { typedefdef=t } =
 ppFunctionHeader :: FunctionHeader -> Doc
 ppFunctionHeader header =
     ppName (hname header) <>
-    P.brackets (commaSep $ map ppType $ htypeparams header) <>
+    ppTypeParams (htypeparams header) <>
     parens (commaSep $ map ppParamDecl $ hparams header) <+>
     ":" <+> ppType (htype header)
+
+ppTypeParams :: [Type] -> Doc
+ppTypeParams params =
+  if null params
+  then empty
+  else P.brackets (commaSep $ map ppType params)
 
 ppFunctionHelper :: FunctionHeader -> Expr -> Doc
 ppFunctionHelper funheader funbody =
