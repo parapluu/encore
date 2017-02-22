@@ -1,11 +1,14 @@
+-- This file was automatically converted by encorec
 
 import MidImport
-
 class Main
   def main() : void
     let
-      f = new Bar 
-    in {
-      print (f.name());
+      f = new Bar
+    in
+      println(f.name())
       ()
-    }
+    end
+  end
+end
+

@@ -1,11 +1,14 @@
+-- This file was automatically converted by encorec
 
 import Lib
-
 class Main
   def main() : void
     let
-      f = new Foo 
-    in {
-      print (f.name());
+      f = new Foo
+    in
+      println(f.name())
       ()
-    }
+    end
+  end
+end
+

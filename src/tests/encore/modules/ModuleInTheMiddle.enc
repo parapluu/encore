@@ -1,8 +1,11 @@
+-- This file was automatically converted by encorec
+
 import ModuleOnTheLeft
 import ModuleOnTheRight
-
 class Main
-  def main() : void {
-    val x = getToken();
-    receiveToken(x);
-  }
+  def main() : void
+    val x = getToken()
+    receiveToken(x)
+  end
+end
+

@@ -1,8 +1,11 @@
-import Lib.SelectiveLib
+-- This file was automatically converted by encorec
 
+import Lib.SelectiveLib
 class Main
-  def main() : void {
-    val x = new Foo;
-    val y = x.foo();
-    y.f;
-  }
+  def main() : void
+    val x = new Foo
+    val y = x.foo()
+    y.f
+  end
+end
+

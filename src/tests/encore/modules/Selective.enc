@@ -1,12 +1,13 @@
-import SelectiveLib(foo)
+-- This file was automatically converted by encorec
 
+import SelectiveLib(foo)
 fun bar() : void
   println("This is bar")
 end
-
 class Main
   def main() : void
     foo()
     bar()
   end
 end
+

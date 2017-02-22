@@ -1,9 +1,10 @@
-#! /usr/bin/env encorec -run
+-- This file was automatically converted by encorec
 
 import Vector
-
 class Main
-  def main() : void {
-    (new Vector<int>).there();
-    print "hello"
-  }
+  def main() : void
+    (new Vector[int]).there()
+    println("hello")
+  end
+end
+

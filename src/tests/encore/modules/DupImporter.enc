@@ -1,9 +1,13 @@
-import DupLib
+-- This file was automatically converted by encorec
 
+import DupLib
 class Main
   def main() : void
     let
       f = new FarFoo
-    in {
-      print (f.name())
-    }
+    in
+      println(f.name())
+    end
+  end
+end
+

@@ -1,6 +1,10 @@
-import Top
-import Top
+-- This file was automatically converted by encorec
 
+import Top
+import Top
 class Main
   def main() : void
-      print("{}\n", top())
+    print("{}\n", top())
+  end
+end
+

@@ -1,6 +1,9 @@
-module SelectiveExportFail(Foo)
+-- This file was automatically converted by encorec
 
+module SelectiveExportFail(Foo)
 class Main
-  def main() : void {
-    print "I shouldn't compile"
-  }
+  def main() : void
+    println("I shouldn't compile")
+  end
+end
+

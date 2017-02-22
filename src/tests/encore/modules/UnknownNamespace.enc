@@ -1,6 +1,11 @@
-def foo() : void
-  print "foo"
+-- This file was automatically converted by encorec
 
+fun foo() : void
+  println("foo")
+end
 class Main
   def main() : void
     Foo.Bar.foo()
+  end
+end
+

@@ -1,10 +1,13 @@
+-- This file was automatically converted by encorec
+
 import List
-
-def getList() : List
+fun getList() : List
   new List
-
+end
 class Main
-  def main() : void {
-    getList();
+  def main() : void
+    getList()
     print("Done")
-}
+  end
+end
+
