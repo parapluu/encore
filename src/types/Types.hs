@@ -806,3 +806,4 @@ unfoldTypeSynonyms = typeMap unfoldSingleSynonym
 unfoldSingleSynonym :: Type -> Type
 unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
 unfoldSingleSynonym t = t
+

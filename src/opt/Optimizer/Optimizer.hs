@@ -2,7 +2,9 @@ module Optimizer.Optimizer(optimizeProgram) where
 
 import Identifiers
 import AST.AST
+import qualified AST.Meta as Meta
 import AST.Util
+import AST.PrettyPrinter
 import Types
 import Control.Applicative (liftA2)
 
@@ -29,7 +31,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors, sugarPrintedStrings]
+optimizerPasses = [extend typedDesugar, constantFolding, constructors, sugarPrintedStrings]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -71,3 +73,22 @@ sugarPrintedStrings = extend sugarPrintedString
         , Just sugared <- getSugared arg
           = setType stringType sugared
         | otherwise = arg
+
+typedDesugar TryOrDie{emeta, target} =
+  Match emeta target [succ, fail]
+  where
+    succ = buildMatchClause (JustData value) value guard
+    fail = buildMatchClause NothingData (Abort emeta [msg]) guard
+    buildMatchClause matchPattern value guard = MatchClause (setType maybeType $ MaybeValue emeta matchPattern) value guard
+    value = setType (getResultType maybeType) $ VarAccess emeta (qLocal (Name "result"))
+    guard = setType boolType (BTrue emeta) 
+    maybeType = getType target
+    pos = show (Meta.getPos emeta) 
+    msg  = setType stringObjectType $ NewWithInit{emeta
+               ,ty = stringObjectType
+               ,args = [setType stringType $ Embed emeta (ctype "char*")
+                        [(show ("tryOrDie failed at " ++ pos ++ ": died executing " ++ (show (ppExpr target))) ++ ";", Skip emeta)]]
+               }
+
+typedDesugar e = e
+    

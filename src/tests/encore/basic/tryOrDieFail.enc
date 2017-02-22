@@ -1,0 +1,5 @@
+class Main
+  def foo() : Maybe String
+    Nothing
+  def main() : String
+    tryOrDie this.foo()

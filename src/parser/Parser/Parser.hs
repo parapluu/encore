@@ -761,6 +761,7 @@ expr  =  embed
      <|> get
      <|> yield
      <|> try isEos
+     <|> tryOrDie
      <|> eos
      <|> getNext
      <|> await
@@ -780,6 +781,10 @@ expr  =  embed
      <|> int
      <?> "expression"
     where
+      tryOrDie = do emeta <- meta <$> getPosition
+                    reserved "tryOrDie"
+                    target <- expression
+                    return $ TryOrDie{emeta, target}
       embed = do pos <- getPosition
                  reserved "embed"
                  ty <- typ

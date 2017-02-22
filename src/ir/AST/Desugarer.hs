@@ -140,6 +140,10 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
                     ,args} =
     Exit emeta args
 
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "abort"}
+                    ,args} =
+    Abort emeta args
+
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
                     ,args = []} =
     Print emeta Stdout [StringLiteral emeta "\n"]
@@ -338,6 +342,7 @@ desugar s@StringLiteral{emeta, stringLit} =
                }
 
 desugar e = e
+
 
 assertionFailed emeta assert =
   StringLiteral (cloneMeta emeta) $

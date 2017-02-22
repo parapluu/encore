@@ -1,0 +1,1 @@
+tryOrDie failed at "tryOrDieFail.enc" (line 5, column 5): died executing this.foo()

@@ -674,6 +674,8 @@ data Expr = Skip {emeta :: Meta Expr}
                    args :: [Expr]}
           | Exit {emeta :: Meta Expr,
                   args :: [Expr]}
+          | Abort {emeta :: Meta Expr,
+                   args :: [Expr]}
           | StringLiteral {emeta :: Meta Expr,
                            stringLit :: String}
           | CharLiteral {emeta :: Meta Expr,
@@ -691,6 +693,8 @@ data Expr = Skip {emeta :: Meta Expr}
           | Embed {emeta :: Meta Expr,
                    ty    :: Type,
                    embedded :: [(String, Expr)]}
+          | TryOrDie {emeta :: Meta Expr,
+                      target  :: Expr}
           | Unary {emeta :: Meta Expr,
                    uop   :: UnaryOp,
                    operand  :: Expr }

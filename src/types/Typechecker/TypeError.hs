@@ -226,6 +226,7 @@ data Error =
   | WrongModuleNameError Name FilePath
   | PrivateAccessModifierTargetError Name
   | SimpleError String
+  | TryOrDieError String
 
 arguments 1 = "argument"
 arguments _ = "arguments"
