@@ -211,7 +211,6 @@ reservedNames =
     ,"require"
     ,"shared"
     ,"stream"
-    ,"suspend"
     ,"then"
     ,"this"
     ,"trait"
@@ -960,7 +959,6 @@ expr = notFollowedBy nl >>
      <|> yield
      <|> try isEos
      <|> eos
-     <|> suspend
      <|> new
      <|> sequence
      <|> miniLet
