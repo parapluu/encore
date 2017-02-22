@@ -149,7 +149,7 @@ instance Translatable A.Function
           assignRuntimeFn p i = Assign p (ArrAcc i encoreRuntimeType)
           runtimeTypeAssignments = zipWith assignRuntimeFn paramTypesDecl [0..]
           typeParamSubst = map (\t -> (ID.Name $ getId t, AsLval $ typeVarRefName t)) funTypeParams
-          ctx      = Ctx.setExecCtx (Ctx.new (argSubst ++ typeParamSubst) newTable) Ctx.FunctionContext{Ctx.fname=fun}
+          ctx      = Ctx.setFunCtx (Ctx.new (argSubst ++ typeParamSubst) newTable) fun
           ((bodyName, bodyStat), _) = runState (translate funbody) ctx
           closures = map (\clos -> translateClosure clos funTypeParams newTable)
                          (reverse (Util.filter A.isClosure funbody))

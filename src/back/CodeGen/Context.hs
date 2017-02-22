@@ -6,7 +6,7 @@ moment. -}
 
 module CodeGen.Context (
   Context,
-  ExecContext(..),
+  ExecContext,
   new,
   substAdd,
   substLkp,
@@ -15,10 +15,14 @@ module CodeGen.Context (
   genSym,
   getGlobalFunctionNames,
   lookupFunction,
+  lookupFunctionContext,
   lookupField,
   lookupMethod,
+  lookupMethodContext,
   lookupCalledType,
   setExecCtx,
+  setMtdCtx,
+  setFunCtx,
   getExecCtx,
 ) where
 
@@ -36,9 +40,9 @@ type NextSym = Int
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
 data ExecContext =
-    FunctionContext{fname :: Function}
-  | MethodContext  {mname :: MethodDecl}
-  | ClosureContext {cname :: Expr} -- for checking closure in the future.
+    FunctionContext{fcname :: Function}
+  | MethodContext  {mcname :: MethodDecl}
+  | ClosureContext {ccname :: Expr} -- for checking closure in the future.
   | Empty
     deriving(Show)
 
@@ -80,6 +84,12 @@ substLkp (Context s _ _ _) QName{qnspace = Just ns, qnlocal}
 setExecCtx :: Context -> ExecContext -> Context
 setExecCtx c@(Context s next eCtx table) eCtx' = Context s next eCtx' table
 
+setFunCtx :: Context -> Function -> Context
+setFunCtx c@(Context s next eCtx table) eCtx' = Context s next (FunctionContext{fcname = eCtx'}) table
+
+setMtdCtx :: Context -> MethodDecl -> Context
+setMtdCtx c@(Context s next eCtx table) eCtx' = Context s next (MethodContext{mcname = eCtx'}) table
+
 getExecCtx :: Context -> ExecContext
 getExecCtx c@(Context s nxt eCtx table) = eCtx
 
@@ -94,6 +104,14 @@ lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable
 
 lookupFunction :: QualifiedName -> Context -> (C.CCode C.Name, FunctionHeader)
 lookupFunction fname = Tbl.lookupFunction fname . programTable
+
+lookupFunctionContext :: ExecContext -> [Function]
+lookupFunctionContext FunctionContext{fcname} = [fcname]
+lookupFunctionContext _ = []
+
+lookupMethodContext :: ExecContext -> [MethodDecl]
+lookupMethodContext MethodContext{mcname} = [mcname]
+lookupMethodContext _ = []
 
 getGlobalFunctionNames :: Context -> [QualifiedName]
 getGlobalFunctionNames = Tbl.getGlobalFunctionNames . programTable

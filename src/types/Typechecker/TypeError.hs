@@ -532,7 +532,7 @@ instance Show Error where
     show PolymorphicConstructorError =
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show ClosureReturnError =
-        printf "Return cannot be used in closure"
+        printf "Cannot use 'return' in a closure"
     show (SimpleError msg) = msg
 
 

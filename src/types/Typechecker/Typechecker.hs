@@ -682,7 +682,7 @@ instance Checkable Expr where
                          typecheckNotNull body
       let paramNames = map pname eEparams
           capturedVariables = map (qnlocal . fst) $
-                              freeVariables (map qLocal paramNames) eBody
+                              Util.freeVariables (map qLocal paramNames) eBody
 
       shadowingParams <- filterM doesShadow paramNames
       unless (null shadowingParams) $
