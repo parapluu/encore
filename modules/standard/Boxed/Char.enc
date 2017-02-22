@@ -1,15 +1,16 @@
--- A boxed character.
-passive class Char {
-  value : char
-  def init(x: char) : void {
-    this.value = x;
-  }
+-- This file was automatically converted by encorec
 
-  def show() : String {
+module Char
+
+passive class Char
+  var value : char
+  def init(x : char) : void
+    this.value = x
+  end
+  def show() : String
     string_from_char(this.value)
-  }
-  
-  def value() : char {
+  end
+  def value() : char
     this.value
-  }
-}
+  end
+end

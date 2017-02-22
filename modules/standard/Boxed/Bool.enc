@@ -1,15 +1,16 @@
--- A boxed boolean.
-passive class Bool {
-  value : bool
-  def init(x: bool) : void {
-    this.value = x;
-  }
+-- This file was automatically converted by encorec
 
-  def show() : String {
+module Bool
+
+passive class Bool
+  var value : bool
+  def init(x : bool) : void
+    this.value = x
+  end
+  def show() : String
     string_from_bool(this.value)
-  }
-  
-  def value() : bool {
+  end
+  def value() : bool
     this.value
-  }
-}
+  end
+end

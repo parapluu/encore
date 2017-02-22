@@ -8,15 +8,15 @@ class Main
   def main() : void
     val maxReal = EMBED (real) 1.7976931348623157E+308; END
     val minReal = EMBED (real) -1.7976931348623157E+308; END
-    print((new Integer(12)) .show())
-    print((new Integer(-200)) .show())
-    print((new Char('a'))   .show())
-    print((new Real(maxReal)).show())
-    print((new Real(1.234)).show())
-    print((new Real(minReal)).show())
-    print((new Bool(true))   .show())
-    print((new Bool(false))  .show())
-    print((new Unit)         .show())
+    println((new Integer(12)) .show())
+    println((new Integer(-200)) .show())
+    println((new Char('a'))   .show())
+    println((new Real(maxReal)).show())
+    println((new Real(1.234)).show())
+    println((new Real(minReal)).show())
+    println((new Bool(true))   .show())
+    println((new Bool(false))  .show())
+    println((new Unit)         .show())
 
     assertTrue((new Integer(12)).value() == 12)
     assertTrue((new Bool(true)).value())
