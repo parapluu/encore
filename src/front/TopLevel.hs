@@ -34,6 +34,7 @@ import Makefile
 import Utils
 import Literate
 import Parser.Parser
+import qualified Parser.OldParser as Old
 import AST.AST
 import AST.PrettyPrinter
 import AST.Desugarer
@@ -67,6 +68,8 @@ data Option =
             | Source FilePath
             | Imports [FilePath]
             | TypecheckOnly
+            | PrettyPrint
+            | OldCore
             | Verbose
             | Literate
             | NoGC
@@ -102,6 +105,10 @@ optionMappings =
         "Inserts debugging symbols in executable. Use with -c for improved debugging experience."),
        (NoArg TypecheckOnly, "-tc", "--type-check", "",
         "Only type check program, do not produce an executable."),
+       (NoArg PrettyPrint, "-pp", "--pretty-print", "",
+        "Pretty print the AST immediately after parsing."),
+       (NoArg OldCore, "", "--oldcore", "",
+        "Parse encore code using the old syntax."),
        (NoArg Literate, "", "--literate", "",
         "Literate programming mode. Code blocks are delimited by '#+begin_src' and '#+end_src'."),
        (NoArg Verbose, "-v", "--verbose", "",
@@ -308,12 +315,25 @@ main =
                    return raw
 
        verbose options "== Parsing =="
-       ast <- case parseEncoreProgram sourceName code of
-                Right ast  -> return ast
-                Left error -> do
-                  let pos = NE.head $ errorPos error
-                  abort $ showSourcePos pos ++ ":\n" ++
-                          parseErrorTextPretty error
+       ast <- let parse = if OldCore `elem` options
+                          then Old.parseEncoreProgram
+                          else parseEncoreProgram
+              in
+                case parse sourceName code of
+                  Right ast  -> return ast
+                  Left error -> do
+                    let pos = NE.head $ errorPos error
+                    abort $ showSourcePos pos ++ ":\n" ++
+                            parseErrorTextPretty error
+
+       when (PrettyPrint `elem` options) $ do
+            verbose options "== Pretty printing =="
+            let pretty = ppProgram ast
+            if OldCore `elem` options
+            then exit $
+                   "-- This file was automatically converted by encorec\n\n" ++
+                   show pretty
+            else exit $ show pretty
 
        verbose options "== Importing modules =="
        programTable <- buildProgramTable importDirs preludePaths ast
