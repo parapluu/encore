@@ -1,22 +1,28 @@
-trait Iterable<t>
-  require iterator(): Iter<t>
+-- This file was automatically converted by encorec
 
-trait Iter<t>
-  def skip() : Skip<t>
-    new Skip<t>()
-
-passive class Skip<t> : Iter<t>
-
-passive class ArrayIter<t> : Iter<t>
-
-passive class ArrayIterable<t> : Iterable<t>
-  def iterator() : ArrayIter<t>
-    new ArrayIter<t>()
-
+trait Iterable[t]
+  require def iterator() : Iter[t]
+end
+trait Iter[t]
+  def skip() : Skip[t]
+    new Skip[t]()
+  end
+end
+passive class Skip[t] : Iter[t]
+end
+passive class ArrayIter[t] : Iter[t]
+end
+passive class ArrayIterable[t] : Iterable[t]
+  def iterator() : ArrayIter[t]
+    new ArrayIter[t]()
+  end
+end
 class Main
-  def getIter(it : Iter<int>) : void
-    print "In getIter"
+  def getIter(it : Iter[int]) : void
+    println("In getIter")
+  end
+  def main() : void
+    this.getIter(((new ArrayIterable[int]()).iterator()).skip())
+  end
+end
 
-  def main() : void {
-    this.getIter((new ArrayIterable<int>()).iterator().skip());
-  }

@@ -1,10 +1,16 @@
-trait T
-  require f : int
-  require foo() : void
+-- This file was automatically converted by encorec
 
+trait T
+  require var f : int
+  require def foo() : void
+end
 passive class Foo : T(bad())
   val f : int
   def bar() : void
     ()
+  end
   def foo() : void
     this.bar()
+  end
+end
+

@@ -1,22 +1,25 @@
+-- This file was automatically converted by encorec
+
 trait T
   require val f : int
   def foo() : int
     this.f
-
-passive class Foo : T {
-  f : int
-  def init(f : int) : void {
-    this.f = f;
-  }
-
-  def foo() : int {
-    this.f = 0;
-    this.f + 3;
-  }
-}
-
+  end
+end
+passive class Foo : T
+  var f : int
+  def init(f : int) : void
+    this.f = f
+  end
+  def foo() : int
+    this.f = 0
+    this.f + 3
+  end
+end
 class Main
-  def main() : void{
-    val x = new Foo(2) : T;
-    println("Five = {}", x.foo());
-  }
+  def main() : void
+    val x = new Foo(2) : T
+    println("Five = {}", x.foo())
+  end
+end
+

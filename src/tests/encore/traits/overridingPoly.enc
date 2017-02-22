@@ -1,21 +1,30 @@
-trait T<a>
-  require f : a
-  require id(x : T<a>) : T<a>
+-- This file was automatically converted by encorec
+
+trait T[a]
+  require var f : a
+  require def id(x : T[a]) : T[a]
   def foo() : a
     this.f
+  end
   def bar() : a
     this.f
-
-passive class C : T<int>
-  f : int
+  end
+end
+passive class C : T[int]
+  var f : int
   def init(f : int) : void
     this.f = f
-  def id(x : T<int>) : T<int>
+  end
+  def id(x : T[int]) : T[int]
     x
-  def foo() : int {
-    this.id(this).bar();
-  }
-
+  end
+  def foo() : int
+    this.id(this).bar()
+  end
+end
 class Main
   def main() : void
-    print (new C(42)).foo()
+    println((new C(42)).foo())
+  end
+end
+

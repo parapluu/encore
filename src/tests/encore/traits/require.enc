@@ -1,24 +1,31 @@
-trait T
-  require foo(x : int) : int
+-- This file was automatically converted by encorec
 
+trait T
+  require def foo(x : int) : int
   def bar() : int
     this.foo(42)
-
-trait U<t>
-  require fr0b() : t
-
-passive class C : T + U<T>
+  end
+end
+trait U[t]
+  require def fr0b() : t
+end
+passive class C : T + U[T]
   def foo(y : int) : int
     y
-
+  end
   def fr0b() : C
     new C
-
+  end
+end
 class Main
   def main() : void
-    let c = new C
-        u = c : U<T>
-    in{
-      print c.bar();
-      print u.fr0b().bar();
-    }
+    let
+      c = new C
+      u = c : U[T]
+    in
+      println(c.bar())
+      println(u.fr0b().bar())
+    end
+  end
+end
+

@@ -1,16 +1,22 @@
+-- This file was automatically converted by encorec
+
 trait T
   def getClosure() : () -> void
-    \ () -> print "You have finally reached closure!"
-
+    fun () => println("You have finally reached closure!")
+  end
+end
 passive class Foo : T
+end
 passive class Bar : T
-
+end
 class Main
-  def main() : void {
-    val x = new Foo();
-    val y = new Bar();
-    val f1 = x.getClosure();
-    val f2 = y.getClosure();
-    f1();
-    f2();
-  }
+  def main() : void
+    val x = new Foo()
+    val y = new Bar()
+    val f1 = x.getClosure()
+    val f2 = y.getClosure()
+    f1()
+    f2()
+  end
+end
+

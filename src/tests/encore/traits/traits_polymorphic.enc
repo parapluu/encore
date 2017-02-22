@@ -1,37 +1,39 @@
-def id<a>(x : a) : a
-  x
+-- This file was automatically converted by encorec
 
-class Foo<t>
+fun id[a](x : a) : a
+  x
+end
+trait T[t]
+  require var x : t
+  def foo() : void
+    val arr = new [t](10)
+    val x = arr(0) : t
+    new Foo[t](x)
+    val f = id[t]
+    f(x)
+    id(x)
+    EMBED (t)
+      #{x};
+   
+    END
+  end
+end
+class Foo[t]
   def init(x : t) : void
     ()
-
-trait T<t> {
-  require x : t
-  def foo() : void {
-    val arr = new [t](10);
-    val x = arr[0] : t;
-    new Foo<t>(x);
-    val f = id<t>;
-    f(x);
-    id(x);
-    embed (t)
-      #{x};
-    end;
-  }
-}
-
-passive class C : T<int> {
-  x : int
-}
-
-class Main {
-  def main() : void {
-    -- ()
+  end
+end
+passive class C : T[int]
+  var x : int
+end
+class Main
+  def main() : void
     let
       c = new C
-    in {
-      c.x = 1;
-      print c.x;
-    }
-  }
-}
+    in
+      c.x = 1
+      println(c.x)
+    end
+  end
+end
+

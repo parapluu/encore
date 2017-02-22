@@ -1,27 +1,35 @@
+-- This file was automatically converted by encorec
+
 trait Foo
-  require x : int
+  require var x : int
   def foo() : int
     this.x
-
-trait Bar<t, u>
+  end
+end
+trait Bar[t, u]
   def bar(x : Foo) : int
     x.foo()
-
-passive class C<t> : Foo + Bar<int, String>
-  x : int
+  end
+end
+passive class C[t] : Foo + Bar[int, String]
+  var x : int
   def init(x : int) : void
     this.x = x
-
-
+  end
+end
 class Main
   def main() : void
-    let c = new C<int>(42)
-        d = c : Foo
-        x = new C<int>(42) : Foo
-        y = new C<int>(42) : Bar<int, String>
-        z = c : Foo + Bar<int, String>
-    in{
-      print y.bar(x);
-      print z.bar(x);
-      print "Done!";
-    }
+    let
+      c = new C[int](42)
+      d = c : Foo
+      x = new C[int](42) : Foo
+      y = new C[int](42) : Bar[int, String]
+      z = c : Foo + Bar[int, String]
+    in
+      println(y.bar(x))
+      println(z.bar(x))
+      println("Done!")
+    end
+  end
+end
+

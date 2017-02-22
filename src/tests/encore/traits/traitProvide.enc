@@ -1,25 +1,30 @@
+-- This file was automatically converted by encorec
+
 trait Inc
-  require f: int
-  require get_(): int
-
-  def inc(): void
+  require var f : int
+  require def get_() : int
+  def inc() : void
     this.f = this.get_() + 1
-
+  end
+end
 trait Get
-  require val f: int
-
-  def get_(): int
+  require val f : int
+  def get_() : int
     this.f
-
-passive class Counter: Inc + Get
-  f: int
-  def init(f: int): void
+  end
+end
+passive class Counter : Inc + Get
+  var f : int
+  def init(f : int) : void
     this.f = f
-
+  end
+end
 class Main
-  def main(): void {
-    val x = new Counter(42) : Inc;
-    print("The answer is {}\n", x.get_());
-    x.inc();
-    print("The answer is now {}\n", x.get_());
-  }
+  def main() : void
+    val x = new Counter(42) : Inc
+    print("The answer is {}\n", x.get_())
+    x.inc()
+    print("The answer is now {}\n", x.get_())
+  end
+end
+

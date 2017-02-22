@@ -1,66 +1,79 @@
-def push_to(x : Push) : int -> void
-  let y = x in
-    \(n : int) -> y.push(n)
+-- This file was automatically converted by encorec
 
-def foo(x : Pop) : void
-  print x.pop()
-
-passive class Link
-  value : int
-  next  : Link
-  def init(v : int, n : Link) : void{
-    this.value = v;
-    this.next  = n;
-  }
-
+fun push_to(x : Push) : int -> void
+  let
+    y = x
+  in
+    fun (n : int) => y.push(n)
+  end
+end
+fun foo(x : Pop) : void
+  println(x.pop())
+end
 trait Push
-  require top : Link
+  require var top : Link
   def push(x : int) : void
     this.top = new Link(x, this.top)
-
+  end
+end
 trait Pop
-  require top : Link
+  require var top : Link
   def pop() : int
-    let result = this.top.value in{
-      this.top = this.top.next;
+    let
+      result = this.top.value
+    in
+      this.top = this.top.next
       result
-    }
-
+    end
+  end
+end
+passive class Link
+  var value : int
+  var next : Link
+  def init(v : int, n : Link) : void
+    this.value = v
+    this.next = n
+  end
+end
 passive class Stack : Push + Pop
-  top : Link
-  def steal(other : Pop) : void {
-    var x = other;
-    x = other;
+  var top : Link
+  def steal(other : Pop) : void
+    var x = other
+    x = other
     this.push(x.pop())
-  }
-
+  end
+end
 class Driver
-  myPop : Pop
-  myStack : Stack
-  def go(x : Stack, y : Pop) : void{
-    this.myPop = x;
-    this.myStack = x;
-    x.push(42);
-    x.steal(y);
-    }
-
+  var myPop : Pop
+  var myStack : Stack
+  def go(x : Stack, y : Pop) : void
+    this.myPop = x
+    this.myStack = x
+    x.push(42)
+    x.steal(y)
+  end
   def doPop() : int
     this.myPop.pop()
-
- def getStack() : Stack
-   this.myStack
-
+  end
+  def getStack() : Stack
+    this.myStack
+  end
+end
 class Main
   def main() : void
-    let x = new Stack
-        y = new Stack
-        driver = new Driver
-        push_to = \ (p : Push) -> \ (x : int) -> p.push(x)
-        pushY = push_to(y)
-    in{
-      pushY(100);
-      get driver.go(x, y);
-      print get driver.doPop();
-      foo(x);
-      print "Done!"
-    }
+    let
+      x = new Stack
+      y = new Stack
+      driver = new Driver
+      push_to = fun (p : Push) => fun (x : int) => p.push(x)
+      pushY = push_to(y)
+    in
+      pushY(100)
+      get(driver.go(x, y))
+      println(get(driver.doPop()))
+      foo(x)
+      println("Done!")
+    end
+  end
+end
+
