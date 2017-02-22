@@ -1,52 +1,54 @@
-def sum(acc: int, y: int): int
+-- This file was automatically converted by encorec
+
+fun sum(acc : int, y : int) : int
   acc + y
-
-def millionItems(size: int): Par int {
-  var p = liftv 0;
-  repeat i <- size {
-    p = p || liftv(i);
-  };
+end
+fun millionItems(size : int) : Par[int]
+  var p = liftv(0)
+  repeat i <- size do
+    p = p ||| liftv(i)
+  end
   p
-}
-
-def millionFutures(size: int): Par int {
-  val actors = initActors(size);
+end
+fun millionFutures(size : int) : Par[int]
+  val actors = initActors(size)
   execute(actors)
-} where
-  def initActors(size: int): [Accountant] {
-    val ar = new [Accountant](size);
-    repeat i <- size {
-      ar[i] = new Accountant(i);
-    };
+where
+  fun initActors(size : int) : [Accountant]
+    val ar = new [Accountant](size)
+    repeat i <- size do
+      ar(i) = new Accountant(i)
+    end
     ar
-  }
-  def execute(actors: [Accountant]): Par int {
-    var p = liftv 0;
-    for a in actors {
-      p = p || liftf(a.getNumber());
-    };
+  end
+  fun execute(actors : [Accountant]) : Par[int]
+    var p = liftv(0)
+    for a <- actors do
+      p = p ||| liftf(a.getNumber())
+    end
     p
-  }
+  end
+end
+class Accountant
+  var number : int
+  def init(number : int) : void
+    this.number = number
+  end
+  def getNumber() : int
+    this.number
+  end
+end
+class Main
+  def main() : void
+    let
+      f = reduce(sum, 0, millionItems(1000000))
+      f2 = reduce(sum, 0, millionFutures(1000000))
+      v = get(f)
+      v2 = get(f2)
+    in
+      print("Result million values: {}\n", v)
+      print("Result million futures: {}\n", v2)
+    end
+  end
 end
 
-
-class Accountant
-  number: int
-
-  def init(number: int): void
-    this.number = number
-
-  def getNumber(): int
-    this.number
-
-
-class Main
-  def main(): void
-    let f = reduce(sum, 0, millionItems(1000000))
-        f2 = reduce(sum, 0, millionFutures(1000000))
-        v = get f
-        v2 = get f2
-    in {
-      print("Result million values: {}\n", v);
-      print("Result million futures: {}\n", v2);
-    }

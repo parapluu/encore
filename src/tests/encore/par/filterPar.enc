@@ -1,36 +1,42 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
-
-def toUpperAndSmall(s: String): Par String
-  liftv(s.to_upper()) || liftv(s)
-
-def printUpper(s: String): void
-  print s.to_upper()
-
-def generateMillionItems(var p: Par int): (Par int) {
-  for i in [1..10000000] {
-    p = p || liftv(1)
-  };
+fun toUpperAndSmall(s : String) : Par[String]
+  liftv(s.to_upper()) ||| liftv(s)
+end
+fun printUpper(s : String) : void
+  println(s.to_upper())
+end
+fun generateMillionItems(var p : Par[int]) : Par[int]
+  for i <- [1..10000000] do
+    p = p ||| liftv(1)
+  end
   p
-}
-
+end
 class Test
-  def producer(): String
+  def producer() : String
     "producer"
-  def one(): int 0
-
+  end
+  def one() : int
+    0
+  end
+end
 class Main
-  def testBindAndFilter(): void
-    -- this test filters out words containing letter "k" or "prod"
-    -- and creates two versions of the filtered items
-    let fut = (new Test).producer()
-        p = empty<String>() || liftv("Test") || liftv("Quick") ||
-            liftv("Encore") || liftf(fut)
-        filteredP = filter<String>(\(s: String) ->
-                                     s.contains("k") or s.contains("prod"), p)
-        bindP = bind<String, String>(toUpperAndSmall, filteredP)
-    in for s in extract(bindP) print(s)
+  def testBindAndFilter() : void
+    let
+      fut = (new Test).producer()
+      p = empty[String]() ||| liftv("Test") ||| liftv("Quick") ||| liftv("Encore") ||| liftf(fut)
+      filteredP = filter[String](fun (s : String) => s.contains("k") || s.contains("prod"), p)
+      bindP = bind[String, String](toUpperAndSmall, filteredP)
+    in
+      for s <- extract(bindP) do
+        println(s)
+      end
+    end
+  end
+  def main() : void
+    print("testBindAndFilter()\n")
+    this.testBindAndFilter()
+  end
+end
 
-  def main(): void {
-    print("testBindAndFilter()\n");
-    this.testBindAndFilter();
-  }

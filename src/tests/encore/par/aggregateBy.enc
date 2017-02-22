@@ -1,50 +1,51 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
-
-class T {
-  def getString(): String "ab"
-}
-
-def generateMillionItems(var p: Par int): (Par int) {
-  for i in [1..10000000] {
-    p = p || liftv(1)
-  };
+fun generateMillionItems(var p : Par[int]) : Par[int]
+  for i <- [1..10000000] do
+    p = p ||| liftv(1)
+  end
   p
-}
-
-def generateStrings(var p: Par String): Par String {
-  for i in [1..9] {
-    p = p || liftv(string_from_int(i))
-  };
-  liftf((new T).getString()) || p
-}
-
+end
+fun generateStrings(var p : Par[String]) : Par[String]
+  for i <- [1..9] do
+    p = p ||| liftv(string_from_int(i))
+  end
+  liftf((new T).getString()) ||| p
+end
+class T
+  def getString() : String
+    "ab"
+  end
+end
 class Main
-  def testAggregatePrimitive(): void {
-    let m = generateMillionItems(empty<int>())
-        result = aggregate<int, int, int>(m, 0,
-                                             \(s: int, acc: int) -> acc + 1,
-                                             \(x: int) -> x)
-                 >> \(total: int) -> total
-    in print((extract(result))[0])
-  }
+  def testAggregatePrimitive() : void
+    let
+      m = generateMillionItems(empty[int]())
+      result = aggregate[int, int, int](m, 0, fun (s : int, acc : int) => acc + 1, fun (x : int) => x) >> fun (total : int) => total
+    in
+      println(extract(result)(0))
+    end
+  end
+  def testAggregateObject() : void
+    let
+      m = generateStrings(empty[String]())
+      fn = fun (var acc : String, s : String) 
+             if not(acc.contains_ignore_case(s)) then
+               acc = acc.concatenate(s)
+             end
+             acc
+           end
+      result = aggregate[String, String, String](m, "012345678", fn, fun (x : String) => x)
+    in
+      println(extract(result)(0))
+    end
+  end
+  def main() : void
+    println("testAggregate()")
+    this.testAggregatePrimitive()
+    println("testAggregateObject()")
+    this.testAggregateObject()
+  end
+end
 
-  def testAggregateObject(): void {
-    let m = generateStrings(empty<String>())
-        fn = \(var acc: String, s: String) -> {
-                if (not acc.contains_ignore_case(s)) then {
-                  acc = acc.concatenate(s);
-                };
-                acc
-            }
-        result = aggregate<String, String, String>(m, "012345678", fn, \(x: String) -> x)
-    in print((extract(result))[0])
-  }
-
-
-  def main(): void {
-    println("testAggregate()");
-    this.testAggregatePrimitive();
-
-    println("testAggregateObject()");
-    this.testAggregateObject();
-  }
