@@ -1,26 +1,33 @@
+-- This file was automatically converted by encorec
+
 import Task
-
 passive class Node
-  e : int
-  next : Node
-
+  var e : int
+  var next : Node
+end
 class Agent
-  def getNode() : Node {
-    let n = new Node in {n.e = 1; n};
-  }
-
-  def f() : Node {
+  def getNode() : Node
+    let
+      n = new Node
+    in
+      n.e = 1
+      n
+    end
+  end
+  def f() : Node
     let
       a = new Agent
-      n = get a.getNode()
-    in {
-      n.next = new Node;
+      n = get(a.getNode())
+    in
+      n.next = new Node
       n
-    }
-  }
-
+    end
+  end
+end
 class Main
-  def main() : void {
-    get (new Agent).f();
-    print 0;
-  }
+  def main() : void
+    get((new Agent).f())
+    println(0)
+  end
+end
+

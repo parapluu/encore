@@ -1,9 +1,12 @@
+-- This file was automatically converted by encorec
+
 import Task
-
-def inc(x: int): int
-  x+1
-
+fun inc(x : int) : int
+  x + 1
+end
 class Main
-  def main(): void {
-    print get ((async(inc(42))) ~~> \(x: int) -> inc(x))
-  }
+  def main() : void
+    println(get(async(inc(42)) ~~> fun (x : int) => inc(x)))
+  end
+end
+

@@ -1,37 +1,38 @@
-import Task
+-- This file was automatically converted by encorec
 
+import Task
 class Main
   def main() : void
     let
       t = new Test()
     in
-      {
-        t ! run1();
-      }
-
+      t!run1()
+    end
+  end
+end
 class Producer
-  def foo(t : Test) : int {
-    get t.run2();
+  def foo(t : Test) : int
+    get(t.run2())
     17
-  }
-
+  end
+end
 class Test
-  p:Producer
-
+  var p : Producer
   def init() : void
     this.p = new Producer
-
-  def run2() : void {
-    print "While awaiting";
-  }
-
+  end
+  def run2() : void
+    println("While awaiting")
+  end
   def run1() : void
     let
       f = this.p.foo(this)
     in
-      {
-        print "Before await";
-        await f;
-        print "After await";
-        print get f
-      }
+      println("Before await")
+      await(f)
+      println("After await")
+      println(get(f))
+    end
+  end
+end
+

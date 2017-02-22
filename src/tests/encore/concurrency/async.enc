@@ -1,9 +1,14 @@
-import Task
+-- This file was automatically converted by encorec
 
+import Task
 class Main
-  def main(): void {
-    let y = 5
-        sum_five = async(y+5)
+  def main() : void
+    let
+      y = 5
+      sum_five = async(y + 5)
     in
-      print get sum_five
-  }
+      println(get(sum_five))
+    end
+  end
+end
+
