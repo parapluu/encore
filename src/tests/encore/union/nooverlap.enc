@@ -1,15 +1,31 @@
+-- This file was automatically converted by encorec
+
 trait Foo
+end
 trait Bar
+end
 trait Baz
-
+end
 passive class C1 : Foo + Bar
+end
 passive class C2 : Foo + Baz
+end
 passive class C3 : Baz + Bar
-
+end
 class Main
-  def main(): void {
+  def main() : void
     match 1 with
-      0 => new C1
-      1 => new C2
-      _ => new C3
-  }
+      case 0 =>
+        new C1
+      end
+      case 1 =>
+        new C2
+      end
+      case _ =>
+        new C3
+      end
+    
+    end
+  end
+end
+
