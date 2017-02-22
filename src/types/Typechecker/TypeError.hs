@@ -190,6 +190,8 @@ data Error =
   | PatternTypeMismatchError Expr Type
   | NonMaybeExtractorPatternError Expr
   | InvalidPatternError Expr
+  | InvalidTupleTargetError Expr Int Type
+  | InvalidTupleAccessError Expr Int
   | CannotReadFieldError Expr
   | NonAssignableLHSError
   | ValFieldAssignmentError Name Type
@@ -393,6 +395,15 @@ instance Show Error where
     show (InvalidPatternError pattern) =
         printf "'%s' is not a valid pattern"
                (show $ ppSugared pattern)
+    show (InvalidTupleTargetError target compartment ty) =
+        printf "Compartment access %s.%d expects a tuple target, found %s"
+               (show $ ppSugared target)
+               compartment
+               (show $ ty)
+    show (InvalidTupleAccessError target compartment) =
+        printf "No .%d compartment in tuple %s"
+               compartment
+               (show $ ppSugared target)
     show (CannotReadFieldError target) =
         printf "Cannot read field of expression '%s' of %s"
           (show $ ppSugared target) (showWithKind $ getType target)
