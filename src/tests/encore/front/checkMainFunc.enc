@@ -1,5 +1,10 @@
-class Foo{}
+-- This file was automatically converted by encorec
 
+class Foo
+end
 class Main
   def main_disappear() : void
     ()
+  end
+end
+

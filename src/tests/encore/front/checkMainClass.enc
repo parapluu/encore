@@ -1,1 +1,5 @@
-class Foo{}
+-- This file was automatically converted by encorec
+
+class Foo
+end
+
