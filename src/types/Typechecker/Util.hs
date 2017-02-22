@@ -364,14 +364,35 @@ findMethodWithCalledType ty name
         unless (all (==calledType) (map snd results)) $
                tcError $ UnionMethodAmbiguityError ty name
         return result
+    | isFutureType ty = do
+        let maybeTrait = setRefNamespace (explicitNamespace [Name "BuiltinExt"]) $
+                         traitTypeFromRefType $
+                         refTypeWithParams "FutExt" [getResultType ty]
+        ty' <- resolveType maybeTrait
+        (header, _) <- findMethodWithCalledType ty' name
+        return (header, ty)
+    | isMaybeType ty = do
+        let maybeTrait = setRefNamespace (explicitNamespace [Name "BuiltinExt"]) $
+                         traitTypeFromRefType $
+                         refTypeWithParams "MaybeExt" [getResultType ty]
+        ty' <- resolveType maybeTrait
+        (header, _) <- findMethodWithCalledType ty' name
+        return (header, ty)
+    | isArrayType ty = do
+        let arrayTrait = setRefNamespace (explicitNamespace [Name "BuiltinExt"]) $
+                         traitTypeFromRefType $
+                         refTypeWithParams "ArrayExt" [getResultType ty]
+        ty' <- resolveType arrayTrait
+        (header, _) <- findMethodWithCalledType ty' name
+        return (header, ty)
     | otherwise = do
         isKnown <- isKnownRefType ty
         unless isKnown $
                tcError $ UnknownTypeUsageError "call method on" ty
         result <- asks $ methodAndCalledTypeLookup ty name
-        when (isNothing result) $
-          tcError $ MethodNotFoundError name ty
-        return $ fromJust result
+        case result of
+          Just(r) -> return r
+          Nothing -> tcError $ MethodNotFoundError name ty
 
 findCapability :: Type -> TypecheckM Type
 findCapability ty = do

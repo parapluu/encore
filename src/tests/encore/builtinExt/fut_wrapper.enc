@@ -1,0 +1,16 @@
+import BuiltinExt
+
+class Tmp
+  def twelve() : int
+    12
+  end
+end
+
+class Main
+  def main() : void
+    val fx = (new Tmp()).twelve()
+    print("{}\n", get(fx.map(fun (x : int) => 2*x)))
+    val prnt = fun (x : int) => print("{}\n", x)
+    fx.foreach(prnt)
+  end
+end

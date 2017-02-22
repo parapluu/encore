@@ -92,6 +92,8 @@ getChildren While {cond, body} = [cond, body]
 getChildren DoWhile {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren For {name, step, src, body} = [step, src, body]
+getChildren ForComprehension {assignments, body} =
+  (concatMap getChildrenForComprehensionAssignment assignments)++[body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
@@ -133,6 +135,9 @@ getChildren RangeLiteral {start, stop, step} = [start, stop, step]
 getChildren Embed {embedded} = map snd embedded
 getChildren Unary {operand} = [operand]
 getChildren Binop {loper, roper} = [loper, roper]
+
+getChildrenForComprehensionAssignment :: ForComprehensionAssignment -> [Expr]
+getChildrenForComprehensionAssignment (ForComprehensionAssignment _ _ (ForComprehensionAssignmentSource main whenClause)) = [main, whenClause]
 
 -- | @putChildren children e@ returns @e@ with it's children
 -- replaced by the Exprs in @children@. The expected invariant is
@@ -182,6 +187,24 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
                 putClausesChildren rest rClauses
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
+putChildren cs e@(ForComprehension {assignments, body}) =
+  let
+    numAssignments = ((length cs - 1) `div` 2)
+    body = last cs
+    tuples = zip assignments (toTuples (take (numAssignments*2) cs))
+    newAssignments = map (\ (orig, tuple) -> tupleToAssignment orig tuple) tuples
+  in
+    e{assignments=newAssignments, body}
+
+  where
+    toTuples :: [a] -> [(a,a)]
+    toTuples (a:b:rest) = (a,b):toTuples rest
+    toTuples x          = error "toTuples got unevenly sized list"
+    toTuples []         = []
+
+    tupleToAssignment :: ForComprehensionAssignment -> (Expr, Expr) -> ForComprehensionAssignment
+    tupleToAssignment orig (main, filter) = orig{faRhs = ForComprehensionAssignmentSource{mainExpr=main, whenClause=filter}}
+--putChildren _ e = e
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
 putChildren [val] e@(Yield {}) = e{val = val}

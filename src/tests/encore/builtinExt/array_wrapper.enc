@@ -1,0 +1,11 @@
+import BuiltinExt
+
+class Main
+  def main() : void
+    val xs = [1, 2, 3]
+    val prnt = fun (x : int) => print("{}\n", x)
+    xs.foreach(prnt)
+    val xs2 = xs.map(fun (x : int) => 2*x)
+    xs2.foreach(prnt)
+  end
+end

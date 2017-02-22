@@ -152,7 +152,7 @@ alignedExpressions f =
       try $ lookAhead nl
       return e
 
--- | @parseBody c@ is inteded for use in the end of an
+-- | @parseBody c@ is intended for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
 -- conditional, which is a list of indented expressions @c@ is a
 -- function that takes the loop body as the argument and builds a
@@ -194,6 +194,7 @@ reservedNames =
     ,"eos"
     ,"false"
     ,"for"
+    ,"For"
     ,"fun"
     ,"forward"
     ,"if"
@@ -928,6 +929,7 @@ expr = notFollowedBy nl >>
      <|> match
      <|> blockedTask
      <|> for
+     <|> forComp
      <|> while
      <|> repeat
      <|> arraySize
@@ -1270,6 +1272,39 @@ expr = notFollowedBy nl >>
                        (do {reserved "by"; expression})
         reserved "do"
         return $ \body -> For{emeta, name, src, step, body}
+
+      forComp = do
+        indent <- L.indentLevel
+        emeta <- meta <$> getPosition
+        bodyT <- forCompHead
+        nl
+        assignments <- commaSep forCompAssignment
+        nl
+        blockedConstruct (do
+           reserved "do"
+           return (\body -> ForComprehension{emeta, assignments, bodyT, body}))
+         where
+           forCompHead = (do
+             reserved "For"
+             ty <- brackets typ
+             return $ Just ty) <|>
+              (do
+                 reserved "Foreach"
+                 return Nothing)
+
+           forCompAssignment = do
+             name <- identifier
+             _ <- colon
+             ty <- typ
+             reservedOp "<-"
+             mainExpr <- expression
+             pos <- getPosition
+             whenClause <- option BTrue{emeta = meta pos} (do
+                                        reserved "when"
+                                        whenClause <- expression
+                                        return whenClause)
+             return $ ForComprehensionAssignment (Name name) ty (ForComprehensionAssignmentSource mainExpr whenClause)
+
 
       while = blockedConstruct $ do
         emeta <- meta <$> getPosition

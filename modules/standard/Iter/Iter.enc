@@ -1,0 +1,488 @@
+module Iter
+
+import BuiltinExt
+
+-- An iterator requires at least a 'next()' method; the other
+-- methods are optional, but you should aim to override them where
+-- your type can provide better performance.
+trait Iter[t]
+  -- Returns Just(x) if there is another value; Nothing otherwise.
+  require def next() : Maybe[t]
+
+  -- random access: pops N-1 values from the iterator and returns
+  -- the next one, if any.
+  def nth(var i : int) : Maybe[t]
+    var cur = this.next()
+    while i > 0 do
+      cur = this.next()
+      i = i-1
+    end
+    cur
+  end
+
+  -- counts the number of values left, and exhausts the iterator.
+  def count() : int
+    var sum = 0
+    var cur = this.next()
+    while match cur with
+            case Nothing => false
+            case Just(x) => true
+          end do
+      cur = this.next()
+      sum = sum+1
+    end
+    sum
+  end
+
+  -- Reduces all values in the iterator, using the given function.
+  def reduce(f : (t, t) -> t) : Maybe[t]
+    -- FIXME: this could call fold, but there's an issue in
+    -- the type system/code gen that prevents it.
+    val first = this.next()
+    match first with
+      case Just(x_) =>
+        var x = x_
+        var cur = this.next()
+        while (match cur with
+                 case Nothing => false
+                 case _       => true
+               end) do
+          match cur with
+            case Just(n) =>
+              x = f(x, n)
+            end
+          end
+          cur = this.next()
+        end
+        Just(x)
+      end
+      case _ => Nothing
+    end
+  end
+
+  -- Returns a hint about the size of values left in this iterator.
+  -- This does *not* consume any values.
+  -- The first number is the minimal number of values left in this
+  -- iterator. This second number, if it contains a value, is the
+  -- maximal number of values left.
+  -- Library code can use this to guess allocation sizes beforehand.
+  -- EXAMPLE 1: returning (10, Just(12)): the iterator contains
+  -- no less than 10 and no more than 12 values.
+  -- EXAMPLE 2: returning (0, Nothing): the iterator contains any
+  -- number of values.
+  def sizeHint() : (int, Maybe[int])
+    (0, Nothing)
+  end
+
+  -- Combines two iterator into an iterator of tuples. The length
+  -- of the result iterator equals the length of the shorter input
+  -- iterator.
+  def zip[v](other : Iter[v]) : Iter[(t,v)]
+    new Zip[t,v](this, other)
+  end
+
+  -- Iterator map.
+  def map[v](f : t -> v) : Iter[v]
+    new Map[t,v](f, this)
+  end
+
+  -- Execute a side effect for each value. Eager execution.
+  def foreach(f : t -> void) : void
+    var onxt = this.next()
+    while (match onxt with
+             case Just(nxt) => true
+             case Nothing   => false
+           end) do
+      match onxt with
+        case Just(nxt) => f(nxt)
+      end
+      onxt = this.next()
+    end
+  end
+
+  -- Skip the first 'i' values.
+  def skip(i : int) : Iter[t]
+    new Skip[t](i, this)
+  end
+
+  -- Take at most 'i' values.
+  def take(i : int) : Iter[t]
+    new Take[t](i, this)
+  end
+
+  -- Only return values that the predicate accepts.
+  def filter(f : t -> bool) : Iter[t]
+    new Filter[t](f, this)
+  end
+
+  -- Fold the values in the iterator given the argument function.
+  def fold[v](var x: v, f : (v, t) -> v) : v
+    var cur = this.next()
+    while (match cur with
+             case Nothing => false
+             case _       => true
+           end) do
+      match cur with
+        case Just(n) => x = f(x, n)
+      end
+      cur = this.next()
+    end
+    x
+  end
+
+  -- Map each value to an iterator, and flatten the result.
+  def flatmap[v](f : t -> Iter[v]) : Iter[v]
+    new Flat[v](this.map(f))
+  end
+
+end
+
+trait Iterable[t]
+  require def iterator(): Iter[t]
+end
+
+--------------------------------------------------------------------------------
+
+passive class Filter[t] : Iter[t](f, inner)
+  val f : t -> bool
+  val inner : Iter[t]
+
+  def init(f : t -> bool, inner : Iter[t]) : void
+    this.f = f
+    this.inner = inner
+  end
+
+  def next() : Maybe[t]
+    val f = this.f
+    var finished = false
+    var n = this.inner.next()
+    while(not finished) do
+      match n with
+        case Just(x) =>
+          if f(x) then
+            finished = true
+          else
+            n = this.inner.next()
+          end
+        end
+        case Nothing => finished = true
+      end
+    end
+    n
+  end
+
+  def sizeHint() : (int, Maybe[int])
+    this.inner.sizeHint()
+  end
+end
+
+
+--------------------------------------------------------------------------------
+
+passive class Map[t, u] : Iter[u](f, inner)
+  val f : t -> u
+  val inner : Iter[t]
+
+  def init(f : t -> u, inner : Iter[t]) : void
+    this.f = f
+    this.inner = inner
+  end
+
+  def next() : Maybe[u]
+    var nxt = this.inner.next()
+    match nxt with
+      case Just(x) =>
+        val f = this.f
+        Just(f(x))
+      end
+      case _ => Nothing
+    end
+  end
+
+  def count() : int
+    this.inner.count()
+  end
+
+  def nth(i : int) : Maybe[u]
+    val mn = this.inner.nth(i)
+    match mn with
+      case Just(n) =>
+        val f = this.f
+        Just(f(n))
+      end
+      case _ => Nothing
+    end
+  end
+
+  def sizeHint() : (int, Maybe[int])
+    this.inner.sizeHint()
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class Zip[t, u] : Iter[(t,u)](left, right)
+  val left : Iter[t]
+  val right: Iter[u]
+
+  def init(left: Iter[t], right: Iter[u]) : void
+    this.left = left
+    this.right = right
+  end
+
+  def next() : Maybe[(t,u)]
+    For[(t,u)]
+      l : t <- this.left.next(), r : u <- this.right.next()
+    do
+      (l, r)
+    end
+  end
+
+  def sizeHint() : (int, Maybe[int])
+    match (this.left.sizeHint(), this.right.sizeHint()) with
+      case ((mil, mal), (mir, mar)) => (min(mil, mir), omax(mal, mar))
+    end
+  where
+    fun min(x: int, y: int) : int
+      if (x < y) then x else y end
+    end
+    fun max(x: int, y: int) : int
+      if (x > y) then x else y end
+    end
+    fun omax(ox: Maybe[int], oy: Maybe[int]) : Maybe[int]
+      match (ox, oy) with
+        case (Just(x), Just(y))  => Just(max(x,y))
+        case _                 => Nothing
+      end
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class Take[t] : Iter[t](n, inner)
+  var n : int
+  val inner : Iter[t]
+
+  def init(n : int, inner : Iter[t]) : void
+    this.n = n
+    this.inner = inner
+  end
+
+  def count() : int
+    val innerC = this.inner.count()
+    if (innerC < this.n) then 0 else this.n end
+  end
+
+  def next() : Maybe[t]
+    if (this.n > 0) then
+      this.n = this.n - 1
+      this.inner.next()
+    else
+      Nothing
+    end
+  end
+
+  def nth(i : int) : Maybe[t]
+    if (this.n > i) then
+      this.inner.nth(i)
+    else
+      Nothing
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class Skip[t] : Iter[t](n,inner)
+  var n : int
+  val inner : Iter[t]
+
+  def init(n : int, inner : Iter[t]) : void
+    this.n = n
+    this.inner = inner
+  end
+  
+  def next() : Maybe[t]
+    if (this.n > 0) then
+      val ret = this.inner.nth(this.n)
+      this.n = 0
+      ret
+    else
+      this.inner.next()
+    end
+  end
+
+  def count() : int
+    val diff = this.inner.count() - this.n
+    if (diff < 0) then 0 else diff end
+  end
+
+  def nth(i : int) : Maybe[t]
+    this.inner.nth(this.n+i)
+  end
+end
+
+--------------------------------------------------------------------------------
+
+-- Concatenates the inner iterators into one, always popping from the first one until
+-- it runs out. Will run out once the last iterator runs out.
+passive class Flat[t] : Iter[t](queue, cur, popCur(), popFromCur())
+  val queue : Iter[Iter[t]]
+  var cur   : Maybe[Iter[t]]
+
+  def init(queue : Iter[Iter[t]]) : void
+    this.queue = queue
+    this.cur = this.queue.next()
+  end
+
+  def popCur() : bool
+    val qn = this.queue.next()
+    this.cur = qn
+    match qn with
+      case Nothing => false
+      case _       => true
+    end
+  end
+
+  def popFromCur() : Maybe[t]
+    match this.cur with
+      case Just(c) => c.next()
+      case _       => Nothing
+    end
+  end
+
+  def next() : Maybe[t]
+    var ret = Nothing : Maybe[t]
+    var finished = false
+    -- exit condition: cur == Nothing, queue.next == Nothing
+    while (not finished) do
+      ret = this.popFromCur()
+      match ret with
+        case Nothing => finished = not this.popCur()
+        case _       => ()
+      end
+    end
+    ret
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class ArrayIter[t] : Iter[t](array,nxtIdx)
+  val array : [t]
+  var nxtIdx : int
+  def init(array: [t]) : void
+    this.array = array
+    this.nxtIdx = 0
+  end
+
+  def count() : int
+    val ret = |this.array| - this.nxtIdx
+    this.nxtIdx = |this.array|
+    ret
+  end
+
+  def next() : Maybe[t]
+    if (this.nxtIdx < |this.array|) then
+      this.nxtIdx = this.nxtIdx + 1
+      Just((this.array)(this.nxtIdx-1))
+    else
+      Nothing
+    end
+  end
+
+  def nth(i : int) : Maybe[t]
+    if (i >= 0) then
+      if ((this.nxtIdx+i) < |this.array|) then
+        this.nxtIdx = this.nxtIdx + i + 1
+        Just((this.array)(this.nxtIdx - 1))
+      else
+        Nothing
+      end
+    else
+      Nothing
+    end
+  end
+
+  def reduce(f: (t, t) -> t) : Maybe[t]
+    if (|this.array| - this.nxtIdx >= 1) then
+      var x = (this.array)(this.nxtIdx)
+      for i <- [this.nxtIdx+1 .. |this.array|] do
+        val n = (this.array)(i) 
+        x = f(x, n)
+      end
+      Just(x)
+    else
+      Nothing
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class StringIter : Iter[char](str, nxtIdx)
+  val str : String
+  var nxtIdx : int
+
+  def init(str: String) : void
+    this.str = str
+    this.nxtIdx = 0
+  end
+
+  def next() : Maybe[char]
+    this.nxtIdx = this.nxtIdx + 1
+    this.str.char_at(this.nxtIdx-1)
+  end
+
+  def sizeHint() : (int, Maybe[int])
+    val diff = this.str.length() - this.nxtIdx
+    val len = if (diff >= 0) then diff else 0 end
+    (len, Just(len))
+  end
+
+  def count() : int
+    val diff = this.str.length() - this.nxtIdx
+    val len = if (diff >= 0) then diff else 0 end
+    this.nxtIdx = this.str.length()
+    len
+  end
+end
+
+--------------------------------------------------------------------------------
+
+passive class RangeIter : Iter[int](cur, last)
+  var cur: int
+  val last: int
+
+  def init(cur : int, last : int) : void
+    this.cur = cur
+    this.last = last
+  end
+
+  def next() : Maybe[int]
+    if (this.cur <= this.last) then
+      val ret = Just(this.cur)
+      this.cur = this.cur + 1
+      ret
+    else
+      Nothing : Maybe[int]
+    end
+  end
+
+  def nth(n: int) : Maybe[int]
+    assertTrue(n >= 0)
+    this.cur = this.cur + n
+    this.next()
+  end
+
+  def count() : int
+    val diff = this.last - this.cur + 1
+    this.cur = this.last + 1 
+    if (diff < 0) then
+      0
+    else
+      diff
+    end
+  end
+end

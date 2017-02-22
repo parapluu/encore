@@ -151,7 +151,8 @@ refTypeName ty
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No refTypeName for " ++
+    | isArrayType ty = "array of '"++show (Types.getResultType ty)++"'"
+    | otherwise = error $ "TypeError.hs: No refTypeName for " ++
                           showWithKind ty
 
 -- | The data type for a type checking error. Showing it will

@@ -1,0 +1,12 @@
+import BuiltinExt
+
+class Main
+  def main() : void
+    val ox = Just(12)
+    val prnt = fun (x : int) => print("{}\n", x)
+    ox.foreach(prnt)
+    ox.map(fun (x : int) => 2*x).foreach(prnt)
+    ox.filter(fun (x : int) => x == 12).foreach(prnt)
+    ox.filter(fun (x : int) => x != 12).foreach(prnt)
+  end
+end

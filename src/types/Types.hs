@@ -2,6 +2,7 @@
 module Types(
              Type
             ,Activity (..)
+            ,RefInfo
             ,arrowType
             ,arrowWithTypeParam
             ,isArrowType

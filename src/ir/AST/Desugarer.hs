@@ -7,6 +7,7 @@ import AST.PrettyPrinter
 import AST.Util
 import Types
 import Text.Megaparsec
+import AST.PrettyPrinter
 
 import qualified Data.List as List
 
@@ -173,6 +174,64 @@ desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
             newHead = desugar newString
         in Print fmeta Stdout (newHead:rest)
       _ -> Print fmeta Stdout args
+
+-- For comprehensions
+
+-- For
+--   i : int in [1,2,3],
+--   j : int in [1,2,3,4]
+--   k : int in [1,2] do
+--   i+j
+-- end
+
+desugar ForComprehension{emeta, assignments, body, bodyT} =
+  case assignments of
+    [] -> body
+    assignments ->
+      let
+        n = length assignments
+        names = case bodyT of
+          Just _  -> replicate (n-1) (Name "flatmap")++[Name "map"]
+          Nothing -> repeat (Name "foreach")
+        processed  = zipWith (process emeta bodyT) names assignments
+      in
+        foldl1 (\procAcc proc -> procAcc . proc) processed $ body
+  where
+
+    process :: Meta.Meta a -> Maybe Type -> Name -> ForComprehensionAssignment -> Expr -> Expr
+    process met bodyT name (ForComprehensionAssignment{var
+                                                      ,varTyp
+                                                      ,faRhs=ForComprehensionAssignmentSource{mainExpr
+                                                                                             ,whenClause}}) body =
+      MethodCall{emeta = emeta
+                ,typeArguments=typeArgs
+                ,target=case whenClause of
+                    BTrue {} -> mainExpr
+                    _ -> filterCall
+                ,name = name
+                ,args= [
+                    Closure{emeta   = emeta
+                           ,eparams = [Param{pname=var
+                                            ,pmeta=Meta.meta (Meta.sourcePos met)
+                                            ,ptype=varTyp
+                                            ,pmut=Val}]
+                           ,body    = body
+                           ,mty     = Nothing}]
+                }
+       where
+         typeArgs = case bodyT of
+                      Just ty -> [ty]
+                      Nothing -> []
+         filterCall = MethodCall{emeta = emeta
+                                ,typeArguments=typeArgs
+                                ,target=mainExpr
+                                ,name = Name "filter"
+                                ,args=[
+                                    Closure{emeta = emeta
+                                           ,eparams = [Param{pname=var, pmeta=Meta.meta (Meta.sourcePos met), ptype=varTyp, pmut=Val}]
+                                           ,body = whenClause
+                                           ,mty  = Nothing}
+                                      ]}
 
 -- Assertions
 desugar fCall@FunctionCall{emeta, qname = QName{qnlocal = Name "assertTrue"}

@@ -1,0 +1,17 @@
+SINGLE 1: i = 1
+SINGLE 1: i = 2
+SINGLE 2: i = 2
+SINGLE 3: k = aaa
+SINGLE 3: k = bbb
+MULTI 1: i = 1, j = -12, k = aaa
+MULTI 1: i = 1, j = -12, k = bbb
+MULTI 1: i = 2, j = -12, k = aaa
+MULTI 1: i = 2, j = -12, k = bbb
+MULTI 2: i = 2, j = -12, k = aaa
+MULTI 2: i = 2, j = -12, k = bbb
+MULTI 3: i = 12, j = 2
+MULTI 4: 24
+MIXED: i = 1, j = 12
+MIXED: i = 2, j = 12
+FUT: i = 12, j = 13
+done
