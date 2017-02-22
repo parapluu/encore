@@ -1049,6 +1049,8 @@ instance Checkable Expr where
     --  E |- name = rhs : void
     doTypecheck assign@(Assign {lhs = lhs@VarAccess{qname}, rhs}) =
         do eLhs <- typecheck lhs
+           when (isThisAccess lhs) $
+                  pushError eLhs ThisReassignmentError
            varIsMutable <- asks $ isMutableLocal qname
            varIsLocal <- asks $ isLocal qname
            unless varIsMutable $
@@ -1062,6 +1064,8 @@ instance Checkable Expr where
         do eLhs <- typecheck lhs
            unless (isLval eLhs) $
                   pushError eLhs NonAssignableLHSError
+           when (isThisAccess lhs) $
+                  pushError eLhs ThisReassignmentError
            mtd <- asks currentMethod
            unless (isNothing mtd || isConstructor (fromJust mtd)) $
                   assertNotValField eLhs

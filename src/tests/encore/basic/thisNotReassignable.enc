@@ -1,0 +1,7 @@
+class T
+  def init(): void {
+    this = null;
+  }
+
+class Main
+  def main() : void ()
