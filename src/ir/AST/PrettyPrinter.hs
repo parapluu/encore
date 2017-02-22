@@ -54,7 +54,7 @@ ppProgram Program{moduledecl, etl, imports, typedefs, functions, classes} =
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppTypedef typedefs) $+$
-    vcat (map ppFunction functions) $+$
+    vcat (reverse $ map ppFunction functions) $+$
     vcat (map ppClassDecl classes) $+$
     "" -- new line at end of file
 
@@ -181,11 +181,11 @@ ppExpr MethodCall {target, name, args} =
 ppExpr MessageSend {target, name, args} =
     maybeParens target <> "!" <> ppName name <>
       parens (commaSep (map ppExpr args))
-ppExpr Liftf {val} = "liftf" <+> parens (ppExpr val)
-ppExpr Liftv {val} = "liftv" <+> parens (ppExpr val)
-ppExpr PartyJoin {val} = "join" <+> parens (ppExpr val)
-ppExpr PartyExtract {val} = "extract" <+> parens(ppExpr val)
-ppExpr PartyEach {val} = "each" <+> parens(ppExpr val)
+ppExpr Liftf {val} = "liftf" <> parens (ppExpr val)
+ppExpr Liftv {val} = "liftv" <> parens (ppExpr val)
+ppExpr PartyJoin {val} = "join" <> parens (ppExpr val)
+ppExpr PartyExtract {val} = "extract" <> parens(ppExpr val)
+ppExpr PartyEach {val} = "each" <> parens(ppExpr val)
 ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> ppExpr seqfunc
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "|||" <+> ppExpr parr
 ppExpr PartyReduce {seqfun, pinit, par} = "reduce" <>
@@ -199,7 +199,7 @@ ppExpr FunctionAsValue {qname, typeArgs} =
   ppQName qname <> P.brackets (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, mty, body=b@(Seq {})} =
     "fun" <+> parens (commaSep (map ppParamDecl eparams)) <+> returnType mty $+$
-       indent (ppExpr b) $+$
+       indent (ppBody b) $+$
     "end"
   where
     returnType Nothing = ""
@@ -304,11 +304,14 @@ ppExpr UIntLiteral {intLit} = int intLit <> "u"
 ppExpr IntLiteral {intLit} = int intLit
 ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} =
-  "[" <+> ppExpr start <+> "," <+> ppExpr stop <+> "by" <+> ppExpr step <+> "]"
+  "[" <> ppExpr start <> ".." <> ppExpr stop <> ppStep step <> "]"
+  where
+    ppStep IntLiteral {intLit = 1} = ""
+    ppStep intstep = " by" <+> ppExpr intstep
 ppExpr Embed {ty, embedded} =
-  "embed" <+> ppType ty $+$
+  "EMBED" <+> parens (ppType ty) $+$
           indent (hcat (map (uncurry ppPair) embedded)) $+$
-  "end"
+  "END"
   where
     ppPair code Skip{} = text code
     ppPair code expr = text code <> "#{" <> ppExpr expr <> "}"

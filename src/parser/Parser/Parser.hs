@@ -857,6 +857,8 @@ expression = makeExprParser expr opTable
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
                   op "==" Identifiers.EQ, op "!=" NEQ],
                  [textualPrefix "not" Identifiers.NOT],
+                 [partySequence, partyParallel],
+                 -- [partyParallel],
                  [op "&&" Identifiers.AND,
                   op "||" Identifiers.OR],
                  [arrayAccess],
@@ -913,7 +915,7 @@ expression = makeExprParser expr opTable
                      return (PartySeq (meta pos)))
       partyParallel =
           InfixL (do pos <- getPosition ;
-                     reservedOp "||" ;
+                     reservedOp "|||" ;
                      return (PartyPar (meta pos)))
       assignment =
           InfixR (do pos <- getPosition ;
