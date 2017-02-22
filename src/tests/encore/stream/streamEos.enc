@@ -1,16 +1,20 @@
-class Foo
-  stream bar() : int {
-    yield 1;
-    eos;
-    print "Never come here";
-    yield 2;
-  }
+-- This file was automatically converted by encorec
 
+class Foo
+  stream bar() : int
+    yield(1)
+    eos
+    println("Never come here")
+    yield(2)
+  end
+end
 class Main
-  def main() : void {
-    var s = (new Foo).bar();
-    while (not eos s) {
-      print (get s);
-      s = getNext s;
-    }
-  }
+  def main() : void
+    var s = (new Foo).bar()
+    while not(eos(s)) do
+      println(get(s))
+      s = getNext(s)
+    end
+  end
+end
+

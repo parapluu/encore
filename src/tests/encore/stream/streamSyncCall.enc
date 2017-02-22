@@ -1,10 +1,20 @@
-class Foo {
+-- This file was automatically converted by encorec
+
+class Foo
   stream foo1() : int
-    yield 1
+    yield(1)
+  end
   stream foo2() : int
-    let foo3 = this.foo1()
-    in yield 2
-}
+    let
+      foo3 = this.foo1()
+    in
+      yield(2)
+    end
+  end
+end
 class Main
   def main() : void
     ()
+  end
+end
+

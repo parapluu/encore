@@ -5,9 +5,12 @@ class Main
   def main() : void
     let
       sio = new StreamIO
-      f = \(x:int) -> x*10
+      f = fun(x:int) => x*10
       n = 5
       sa1 = sio.produceInt(n)
-      sb1 = chain<int,int>(sa1,f)
+      sb1 = chain[int,int](sa1,f)
     in
       sio.printStreamInt(sb1)
+    end
+  end
+end
