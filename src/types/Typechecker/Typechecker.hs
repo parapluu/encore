@@ -659,17 +659,25 @@ instance Checkable Expr where
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, body}) = do
-
       eEparams <- mapM typecheck eparams
       eBody <- local (addParams eEparams) $ typecheckNotNull body
       let paramNames = map pname eEparams
           capturedVariables = map (qnlocal . fst) $
                               freeVariables (map qLocal paramNames) eBody
+
+      shadowingParams <- filterM doesShadow paramNames
+      unless (null shadowingParams) $
+         tcError $ TypeVariableAndVariableCommonNameError shadowingParams
+
       local (addParams eEparams . makeImmutable capturedVariables) $
             typecheck eBody -- Check for mutation of captured variables
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
       return $ setType ty closure {body = eBody, eparams = eEparams}
+      where
+        doesShadow paramName = do
+          typeParams <- asks typeParameters
+          return $ paramName `elem` (map (Name . getId) typeParams)
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t

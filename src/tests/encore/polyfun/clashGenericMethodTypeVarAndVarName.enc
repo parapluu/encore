@@ -1,0 +1,12 @@
+class Test<t, k>
+  def polymorphicMethod<tt, kk>(x: tt, y: kk): void {
+    val nestedClosure = \(tt: kk) -> {
+                           val idFn = \(xx: tt) -> xx;
+                           idFn(x)
+                        };
+    nestedClosure(y)
+  }
+
+class Main
+  def main(): void
+    ()

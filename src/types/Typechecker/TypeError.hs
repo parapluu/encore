@@ -211,6 +211,7 @@ data Error =
   | TypeWithCapabilityMismatchError Type Type Type
   | TypeVariableAmbiguityError Type Type Type
   | FreeTypeVariableError Type
+  | TypeVariableAndVariableCommonNameError [Name]
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
   | ConcreteTypeParameterError Type
@@ -449,6 +450,17 @@ instance Show Error where
                (show expected) (show ty1) (show ty2)
     show (FreeTypeVariableError ty) =
         printf "Type variable '%s' is unbound" (show ty)
+    show (TypeVariableAndVariableCommonNameError [name]) =
+        printf "Type variable '%s' clashes with existing variable name."
+               (show name)
+    show (TypeVariableAndVariableCommonNameError names) =
+        printf "Type variables %s clash with existing variable names."
+               formattingName
+        where
+          formattingName =
+            let ns = map (\n -> "'" ++ show n ++ "', ") (init names)
+                lastName = "'" ++ (show $ last names) ++ "'"
+            in (show ns) ++ "and " ++ lastName
     show (UnionMethodAmbiguityError ty name) =
         printf "Cannot disambiguate method '%s' in %s"
                (show name) (showWithKind ty)

@@ -1,0 +1,8 @@
+def test<t, k>(x: t, y: k): void
+  \(t: int) -> {
+    \(z: t) -> z
+  }
+
+class Main
+  def main(): void
+    ()
