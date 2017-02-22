@@ -1,13 +1,19 @@
-typedef D = T
+-- This file was automatically converted by encorec
+
 typedef E = D
-
+typedef D = T
 trait T
-
+end
 passive class C : D
-
+end
 class Main
   def main() : void
-    let x = new C : D -- This compiles
-        y = new C : E -- This does not
+    let
+      x = new C : D
+      y = new C : E
     in
       print("ooo")
+    end
+  end
+end
+

@@ -1,3 +1,6 @@
+-- This file was automatically converted by encorec
 
 typedef D = D
 passive class C : D
+end
+

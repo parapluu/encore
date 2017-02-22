@@ -1,6 +1,7 @@
+-- This file was automatically converted by encorec
 
+typedef B = Maybe[A]
 typedef A = B
-typedef B = Maybe A
-
 passive class C : A
+end
 
