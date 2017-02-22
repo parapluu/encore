@@ -36,8 +36,6 @@ ppMut :: Mutability -> Doc
 ppMut Val = "val"
 ppMut Var = "var"
 
-ppEnd = "end"
-
 ppName :: Name -> Doc
 ppName = text . show
 
@@ -98,8 +96,8 @@ ppTypeParams params =
 ppFunctionHelper :: FunctionHeader -> Expr -> Doc
 ppFunctionHelper funheader funbody =
     "fun" <+> ppFunctionHeader funheader $+$
-        indent (ppExpr funbody) $+$
-    ppEnd
+        indent (ppBody funbody) $+$
+    "end"
 
 ppFunction :: Function -> Doc
 ppFunction Function {funheader, funbody} =
@@ -127,7 +125,7 @@ ppClassDecl Class {cname, cfields, cmethods, ccomposition} =
     "class" <+> ppType cname <+> compositionDoc $+$
         indent (vcat (map ppFieldDecl cfields) $$
                 vcat (map ppMethodDecl cmethods)) $+$
-    ppEnd
+    "end"
   where
     compositionDoc =
       case ccomposition of
@@ -151,8 +149,8 @@ ppMethodDecl m =
             | otherwise = "def"
     in
       def <+> ppFunctionHeader header $+$
-          indent (ppExpr body) $+$
-      ppEnd
+          indent (ppBody body) $+$
+      "end"
 
 isSimple :: Expr -> Bool
 isSimple VarAccess {} = True
@@ -171,6 +169,9 @@ ppSugared :: Expr -> Doc
 ppSugared e = case getSugared e of
                 Just e' -> ppExpr e'
                 Nothing -> ppExpr e
+
+ppBody (Seq {eseq}) = vcat $ map ppExpr eseq
+ppBody e = ppExpr e
 
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
@@ -199,7 +200,7 @@ ppExpr FunctionAsValue {qname, typeArgs} =
 ppExpr Closure {eparams, mty, body=b@(Seq {})} =
     "fun" <+> parens (commaSep (map ppParamDecl eparams)) <+> returnType mty $+$
        indent (ppExpr b) $+$
-    ppEnd
+    "end"
   where
     returnType Nothing = ""
     returnType (Just t) = ":" <+> ppType t
@@ -208,56 +209,59 @@ ppExpr Closure {eparams, body} =
 ppExpr Async {body=b@(Seq {})} =
   "async" $+$
     ppExpr b $+$
-  ppEnd
+  "end"
 ppExpr Async {body} = "async" <> parens (ppExpr body)
 ppExpr (MaybeValue _ (JustData a)) = "Just" <> parens (ppExpr a)
 ppExpr (MaybeValue _ NothingData) = "Nothing"
 ppExpr Tuple {args} = parens (commaSep (map ppExpr args))
--- TODO:
 ppExpr Let {decls, body} =
-  "let" <+> vcat (map (\(Name x, e) -> text x <+> "=" <+> ppExpr e) decls) $+$
-  "in" $+$ indent (ppExpr body)
+  "let" $+$
+      indent (vcat (map (\(Name x, e) -> text x <+> "=" <+> ppExpr e) decls)) $+$
+  "in" $+$
+      indent (ppBody body) $+$
+  "end"
 ppExpr MiniLet {mutability, decl = (x, val)} =
     ppMut mutability <+> ppName x <+> "=" <+> ppExpr val
 ppExpr Seq {eseq = [expr]} = ppExpr expr
 ppExpr Seq {eseq} =
     "do" $+$
       indent (vcat (map ppExpr eseq)) $+$
-    ppEnd
+    "end"
 ppExpr IfThenElse {cond, thn, els} =
     "if" <+> ppExpr cond <+> "then" $+$
-         indent (ppExpr thn) $+$
+         indent (ppBody thn) $+$
     "else" $+$
-         indent (ppExpr els) $+$
-    ppEnd
+         indent (ppBody els) $+$
+    "end"
 ppExpr IfThen {cond, thn} =
     "if" <+> ppExpr cond <+> "then" $+$
-         indent (ppExpr thn) $+$
-    ppEnd
+         indent (ppBody thn) $+$
+    "end"
 ppExpr Unless {cond, thn} =
     "unless" <+> ppExpr cond <+> "then" $+$
-         indent (ppExpr thn) $+$
-    ppEnd
+         indent (ppBody thn) $+$
+    "end"
 ppExpr While {cond, body} =
-    "while" <+> ppExpr cond $+$
-         indent (ppExpr body) $+$
-    ppEnd
+    "while" <+> ppExpr cond <+> "do" $+$
+         indent (ppBody body) $+$
+    "end"
 ppExpr Repeat {name, times, body} =
-    "repeat" <+> ppName name <+> "<-" <+> ppExpr times $+$
-         indent (ppExpr body) $+$
-    ppEnd
+    "repeat" <+> ppName name <+> "<-" <+> ppExpr times <+> "do" $+$
+         indent (ppBody body) $+$
+    "end"
 ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
-    "for" <+> ppName name <+> "in" <+> ppExpr src $+$
-         indent (ppExpr body) $+$
-    ppEnd
+    "for" <+> ppName name <+> "<-" <+> ppExpr src <+> "do" $+$
+         indent (ppBody body) $+$
+    "end"
 ppExpr For {name, step, src, body} =
-    "for" <+> ppName name <+> "in" <+> ppExpr src <+> "by" <+> ppExpr step $+$
-         indent (ppExpr body) $+$
-    ppEnd
+    "for" <+> ppName name <+> "<-" <+> ppExpr src <+>
+    "by" <+> ppExpr step <+> "do" $+$
+         indent (ppBody body) $+$
+    "end"
 ppExpr Match {arg, clauses} =
     "match" <+> ppExpr arg <+> "with" $+$
          ppMatchClauses clauses $+$
-    ppEnd
+    "end"
     where
       ppClause (MatchClause {mcpattern, mchandler, mcguard = BTrue{}}) =
         indent "case" <+> (ppExpr mcpattern <+> "=>" <+> multipleLines mchandler)
@@ -267,8 +271,8 @@ ppExpr Match {arg, clauses} =
       ppMatchClauses = foldr (($+$) . ppClause) ""
       multipleLines s@(Seq {}) = ""
         $+$
-          indent (ppExpr s) $+$
-        ppEnd
+          indent (ppBody s) $+$
+        "end"
       multipleLines e = ppExpr e
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
@@ -304,7 +308,7 @@ ppExpr RangeLiteral {start, stop, step} =
 ppExpr Embed {ty, embedded} =
   "embed" <+> ppType ty $+$
           indent (hcat (map (uncurry ppPair) embedded)) $+$
-  ppEnd
+  "end"
   where
     ppPair code Skip{} = text code
     ppPair code expr = text code <> "#{" <> ppExpr expr <> "}"
