@@ -1,0 +1,76 @@
+module Arrow(
+    arr,
+    first,
+    second,
+    composition,
+    branch,
+    combine,
+    runArrow,
+  )
+
+import ParT
+
+def arr<a, b>(fn: a -> b): Par (a -> b)
+  liftv(fn)
+
+-- first :: Arrow a => a b c -> a (b, d) (c, d)
+def first<a, b, c>(p: Par (a -> b)): Par (((a, c)) -> ((b, c))) {
+  val closure = (\(fn: a -> b) -> {
+                    liftv(\(t: (a, c)) -> {
+                            match t with
+                             (x1, x2) => (fn(x1), x2)
+                          })});
+  bind(closure, p)
+}
+
+-- second :: Arrow a => a b c -> A (d, b) (d, c)
+def second<a, b, c>(p: Par (a -> b)): Par (((c, a)) -> ((c, b))) {
+  val closure = (\(fn: a -> b) -> {
+                    liftv(\(t: (c, a)) -> {
+                            match t with
+                             (x1, x2) => (x1, fn(x2))
+                          })});
+  bind(closure, p)
+}
+
+-- private function
+def compose<a, b, c>(f1: a -> b, f2: b -> c): a -> c {
+  \(x:a) -> f2(f1(x))
+}
+
+-- (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
+def composition<a, b, c>(p: Par (a -> b), p2: Par (b -> c)): Par (a -> c) {
+    bind(\(fn: a -> b) -> {
+      bind(\(fn2: b -> c) -> liftv(compose(fn, fn2)), p2)
+    }, p)
+}
+
+-- (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
+def branch<a, b, c>(p: Par (a -> b), p2: Par (a -> c)): Par (a -> (b, c)) {
+  val clos = (\(fn1: (a -> b)) -> {
+    val clos2 = (\(fn2: (a -> c)) -> {
+       liftv(\(x: a) -> { (fn1(x), fn2(x))})
+    });
+    bind(clos2, p2);
+  });
+  bind(clos, p)
+}
+
+-- (***) :: Arrow a => a b c -> a d e -> a (b, d) (c, e)
+def combine<a, b, c, d>(p1: Par (a -> b), p2: Par (c -> d)): Par (((a, c)) -> ((b, d))) {
+ val clos = (\(fn1: (a -> b)) -> {
+    val clos2 = (\(fn2: (c -> d)) -> {
+       liftv(\(t: ((a, c))) -> {
+         match t with
+           (e1, e2) => (fn1(e1), fn2(e2))
+       })
+    });
+    bind(clos2, p2);
+  });
+  bind(clos, p1)
+}
+-- utility function to lift the item into the arrow
+-- and perform function application
+def runArrow<a, b>(item: a, p: Par (a -> b)): Par b {
+  p >> (\(fn: a -> b) -> fn(item))
+}

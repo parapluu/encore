@@ -1,0 +1,37 @@
+import ParT.Arrow
+
+def printResult(t: (int, int)): void {
+    match t with
+      (k, v) => println("{}: {}", k, v);
+}
+
+def pprint(x: int): void println(x)
+
+def printVoidTuple(t: (int, int)): (void, void) { (printResult(t), ()) }
+
+class Main
+  def main(): void {
+    val inc = \(x: int) -> x + 1;
+    val double = \(x: int) -> x * 2;
+
+    val ff = first<int, int, int>(arr(inc));
+    val pr = arr<(int, int), void>(printResult);
+    val ffc = composition(ff, pr);
+    runArrow((4, 5), ffc);
+
+    val fsecond = second<int, int, int>(arr(inc));
+    val ffc = composition(fsecond, pr);
+    runArrow((4, 5), ffc);
+
+    val fn = composition(arr(inc), arr(double));
+    val ffc = composition(fn, arr<int, void>(pprint));
+    runArrow(4, ffc);
+
+    val fn = branch(arr(inc), arr(double));
+    val ffc = composition(fn, arr<(int, int), (void, void)>(printVoidTuple));
+    runArrow(5, ffc);
+
+    val fn = combine(arr(inc), arr(double));
+    val ffc = composition(fn, arr<(int, int), (void, void)>(printVoidTuple));
+    runArrow((5, 6), ffc);
+  }
