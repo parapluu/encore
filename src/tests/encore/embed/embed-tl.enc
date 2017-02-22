@@ -1,12 +1,21 @@
-embed
+-- This file was automatically converted by encorec
+
+EMBED
+
 #include "embed_tl.h"
 int bar();
-body
+BODY
+
 int bar() {
   return 2;
 }
-end
+END
 
 class Main
   def main() : void
-    print embed (int) foo(1)+bar(); end
+    println(EMBED (int)
+              foo(1)+bar();
+            END)
+  end
+end
+
