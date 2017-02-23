@@ -1,24 +1,36 @@
+-- This file was automatically converted by encorec
+
 class Main
   def a() : int
-    return 42
+    return(42)
+  end
   def b() : String
-    return "42"
+    return("42")
+  end
   def c() : void
-    let x = return in ()
+    let
+      x = return(())
+    in
+      ()
+    end
+  end
   def d() : void
-    return
+    return(())
+  end
   def e() : String
-    return this.b()
-  def f() : int {
-    return 42 ;
-    "Dead string" ;
-    42/0 ;
-  }
-  def main() : void {
-    print this.a() ;
-    print this.b() ;
-    print this.c() ;
-    print this.d() ;
-    print this.e() ;
-    print this.f() ;
-  }
+    return(this.b())
+  end
+  def f() : int
+    return(42)
+    "Dead string"
+    42 / 0
+  end
+  def main() : void
+    println(this.a())
+    println(this.b())
+    println(this.c())
+    println(this.d())
+    println(this.e())
+    println(this.f())
+  end
+end

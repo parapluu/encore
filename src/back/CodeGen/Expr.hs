@@ -974,10 +974,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ret@(A.Return{A.val}) =
       do (nval, tval) <- translate val
          eCtx <- gets $ Ctx.getExecCtx
-        --  let dtraceExit = case eCtx of
-        --                       Ctx.FunctionContext{Ctx.fname} -> dtraceFunctionExit (A.functionName fname)
-        --                       Ctx.MethodContext{Ctx.mname}   -> dtraceMethodExit thisVar (A.methodName mname)
-        --                       _ -> error $ "Cannot translate return in " ++ show eCtx
          let dtraceExit = case (Ctx.lookupFunctionContext eCtx, Ctx.lookupMethodContext eCtx) of
                               (fname, [] ) -> dtraceFunctionExit (A.functionName (head fname))
                               ([], mname)  -> dtraceMethodExit thisVar (A.methodName (head mname))

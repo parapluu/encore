@@ -1,22 +1,28 @@
-def top_level1<t>(v:t) : t
-  return v
+-- This file was automatically converted by encorec
 
-def top_level2(v:Cell) : String {
-  v.f = return "42" ;
+fun top_level1[t](v : t) : t
+  return(v)
+end
+fun top_level2(v : Cell) : String
+  v.f = return("42")
   "4711"
-}
-
+end
 passive class Cell
-  f : String
+  var f : String
   def to_s() : String
-    "".join(["Cell(", this.f, ")"])
-
+    ("").join(["Cell(", this.f, ")"])
+  end
+end
 class Main
   def main() : void
-    let c = new Cell in {
-       c.f = "7" ;
-       print c.to_s() ;
-       print top_level1(c).to_s() ;
-       print top_level2(c) ;
-       print c.to_s() ;
-    }
+    let
+      c = new Cell
+    in
+      c.f = "7"
+      println(c.to_s())
+      println(top_level1(c).to_s())
+      println(top_level2(c))
+      println(c.to_s())
+    end
+  end
+end
