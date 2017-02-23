@@ -779,12 +779,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
-        translatePattern (A.FunctionCall {A.qname, A.args}) narg argty assocs usedVars = do
-          let name = ID.qnlocal qname
-              eSelfArg = AsExpr narg
+        translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
+          let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              innerExpr = head args -- args is known to only contain one element
-              innerTy = A.getType innerExpr
+              innerTy = A.getType arg
               tmpTy = Ty.maybeType innerTy
               noArgs = [] :: [A.Expr]
 
@@ -807,7 +805,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
           let derefedCall = Deref nCall
           (nRest, tRest, newUsedVars) <-
-              translateMaybePattern innerExpr derefedCall tmpTy assocs usedVars
+              translateMaybePattern arg derefedCall tmpTy assocs usedVars
 
           nCheck <- Ctx.genNamedSym "extractoCheck"
           let tDecl = Statement $ Decl (translate Ty.intType, nRest)

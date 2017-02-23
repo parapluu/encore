@@ -1,0 +1,19 @@
+passive class C
+  var f : int
+  def init(f : int) : void
+    this.f = f
+  end
+
+  def match Foo() : Maybe[int]
+    Just(this.f)
+  end
+end
+
+class Main
+  def main() : void
+    val x = new C(42)
+    match x with
+      case Foo() => print(y)
+    end
+  end
+end

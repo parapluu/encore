@@ -195,6 +195,7 @@ data Error =
   | MatchInferenceError
   | ThisReassignmentError
   | ImmutableVariableError QualifiedName
+  | PatternArityMismatchError Name Int Int
   | PatternTypeMismatchError Expr Type
   | NonMaybeExtractorPatternError Expr
   | InvalidPatternError Expr
@@ -236,6 +237,9 @@ data Error =
   | WrongModuleNameError Name FilePath
   | PrivateAccessModifierTargetError Name
   | ClosureReturnError
+  | MatchMethodNonMaybeReturnError
+  | MatchMethodNonEmptyParameterListError
+  | ImpureMatchMethodError Expr
   | SimpleError String
 
 arguments 1 = "argument"
@@ -395,6 +399,13 @@ instance Show Error where
     show (ImmutableVariableError qname) =
         printf "Variable '%s' is immutable and cannot be re-assigned"
                (show qname)
+    show (PatternArityMismatchError name expected actual) =
+        printf "Extractor '%s' returns %s. Pattern has %s"
+               (show name)
+               (if expected == 1
+                then "1 value"
+                else show expected ++ " values")
+               (show actual)
     show (PatternTypeMismatchError pattern ty) =
         printf "Pattern '%s' does not match expected type '%s'"
                (show $ ppSugared pattern) (show ty)
@@ -544,6 +555,17 @@ instance Show Error where
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show ClosureReturnError =
         printf "Cannot use 'return' in a closure"
+    show MatchMethodNonMaybeReturnError =
+        "Match methods must return a Maybe type"
+    show MatchMethodNonEmptyParameterListError =
+        "Match methods cannot have parameters"
+    show (ImpureMatchMethodError e) =
+        printf "Match methods must be pure%s"
+               pointer
+        where
+          pointer
+            | While{} <- e = ". Consider using a for loop"
+            | otherwise = ""
     show (SimpleError msg) = msg
 
 

@@ -346,7 +346,7 @@ functionHeader = do
   hparams <- parens (commaSep paramDecl)
   colon
   htype <- typ
-  return Header{hmodifier = []
+  return Header{hmodifiers = []
                ,kind = NonStreaming
                ,htypeparams
                ,hname
@@ -373,7 +373,7 @@ matchingHeader = do
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
    let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifier = []
+   return MatchingHeader{hmodifiers = []
                         ,kind = NonStreaming
                         ,htypeparams
                         ,hname
@@ -596,9 +596,8 @@ methodDecl = do
           mbody <- expression
           return (mheader, mbody)
 
-modifiersDecl :: Parser AccessModifier
-modifiersDecl = reserved "private" >> return Private
-
+modifiersDecl :: Parser Modifier
+modifiersDecl = reserved "private" >> return ModPrivate
 
 arguments :: Parser Arguments
 arguments = expression `sepBy` comma

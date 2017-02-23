@@ -126,15 +126,16 @@ data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
 
-data AccessModifier = Public | Private deriving (Eq, Ord)
+data Modifier = ModPrivate
+              | ModMatch deriving (Eq, Ord)
 
-instance Show AccessModifier where
-  show Public = "public"
-  show Private = "private"
+instance Show Modifier where
+  show ModPrivate = "private"
+  show ModMatch   = "match"
 
 data FunctionHeader =
     Header {
-        hmodifier   :: [AccessModifier],
+        hmodifiers  :: [Modifier],
         kind        :: HeaderKind,
         htypeparams :: [Type],
         hname       :: Name,
@@ -142,7 +143,7 @@ data FunctionHeader =
         hparams     :: [ParamDecl]
     }
     | MatchingHeader {
-        hmodifier   :: [AccessModifier],
+        hmodifiers   :: [Modifier],
         kind        :: HeaderKind,
         htypeparams :: [Type],
         hname       :: Name,
@@ -155,14 +156,17 @@ data FunctionHeader =
 
 setHeaderType ty h = h{htype = ty}
 
-setHeaderModifier :: [AccessModifier] -> FunctionHeader -> FunctionHeader
-setHeaderModifier mod h = h {hmodifier = nub mod}
+setHeaderModifier :: [Modifier] -> FunctionHeader -> FunctionHeader
+setHeaderModifier mod h = h {hmodifiers = nub mod}
 
-isPublicMethod :: FunctionHeader -> Bool
-isPublicMethod Header{hmodifier} = null hmodifier || Public `elem` hmodifier
+isPrivateMethodHeader :: FunctionHeader -> Bool
+isPrivateMethodHeader Header{hmodifiers} = ModPrivate `elem` hmodifiers
 
-isPrivateMethod :: FunctionHeader -> Bool
-isPrivateMethod Header{hmodifier} = elem Private hmodifier
+isMatchMethodHeader :: FunctionHeader -> Bool
+isMatchMethodHeader Header{hmodifiers} = ModMatch `elem` hmodifiers
+
+isMatchMethod :: MethodDecl -> Bool
+isMatchMethod = isMatchMethodHeader . mheader
 
 isStreamMethodHeader h = kind h == Streaming
 
@@ -471,7 +475,7 @@ emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
-             ,mheader = Header{hmodifier = [Public]
+             ,mheader = Header{hmodifiers = []
                               ,kind = NonStreaming
                               ,htypeparams = []
                               ,hname = constructorName
@@ -551,6 +555,10 @@ data Expr = Skip {emeta :: Meta Expr}
                          target :: Expr,
                          name :: Name,
                          args :: Arguments}
+          | ExtractorPattern {emeta :: Meta Expr,
+                              ty :: Type,
+                              name :: Name,
+                              arg :: Expr}
           | FunctionCall {emeta :: Meta Expr,
                           typeArguments :: [Type],
                           qname :: QualifiedName,
@@ -768,6 +776,20 @@ isPattern Null{} = True
 isPattern e
     | isPrimitiveLiteral e = True
     | otherwise = False
+
+isImpure :: Expr -> Bool
+isImpure MethodCall {} = True
+isImpure MessageSend {} = True
+isImpure FunctionCall {} = True
+isImpure While {} = True
+isImpure StreamNext {} = True
+isImpure Get {} = True
+isImpure Await {} = True
+isImpure Suspend {} = True
+isImpure Assign {} = True
+isImpure NewWithInit {} = True
+isImpure New {} = True
+isImpure _ = False
 
 instance HasMeta Expr where
     getMeta = emeta

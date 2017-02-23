@@ -195,7 +195,7 @@ ppParamDecl (Param {pmut = Var, pname, ptype}) =
 ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
     let header = mheader m
-        modifiers = hmodifier header
+        modifiers = hmodifiers header
         body = mbody m
         def | isStreamMethod m = "stream"
             | otherwise = "def"
@@ -208,7 +208,8 @@ ppMethodDecl m =
       endOrLocals
     where
       ppModifiers [] = empty
-      ppModifiers mods = hcat $ map (text . show) mods
+      ppModifiers mods = hcat $ punctuate " " $
+                         map (text . show) mods
       endOrLocals
         | null (mlocals m) = "end"
         | otherwise =
@@ -262,6 +263,12 @@ ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> parens (ppExpr seqfunc)
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "|||" <+> ppExpr parr
 ppExpr PartyReduce {seqfun, pinit, par} = "reduce" <>
     parens (commaSep $ ppExpr <$> [seqfun, pinit, par])
+ppExpr ExtractorPattern {name, arg = arg@Skip{}} =
+    ppName name <> ppExpr arg
+ppExpr ExtractorPattern {name, arg = arg@Tuple{}} =
+    ppName name <> ppExpr arg
+ppExpr ExtractorPattern {name, arg} =
+    ppName name <> parens (ppExpr arg)
 ppExpr FunctionCall {qname, args, typeArguments = []} =
     ppQName qname <> parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {qname, args, typeArguments} =
