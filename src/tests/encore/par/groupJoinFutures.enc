@@ -1,53 +1,67 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
 
-class Person {
-  name: String
+class Person
+  var name : String
 
-  def init(name: String): void this.name = name
-  def getName(): String this.name
-}
+  def init(name : String) : void
+    this.name = name
+  end
 
-passive class Pet {
-  name: String
-  owner: Person
-  def init(n: String, o: Person): void {
-    this.name = n;
-    this.owner = o;
-  }
-}
+  def getName() : String
+    this.name
+  end
+
+end
+
+passive class Pet
+  var name : String
+  var owner : Person
+
+  def init(n : String, o : Person) : void
+    this.name = n
+    this.owner = o
+  end
+
+end
 
 class Main
-  def main(): void {
-    val magnus = new Person("Magnus");
-    val terry = new Person("Terry");
-    val charlotte = new Person("Charlotte");
+  def main() : void
+    val magnus = new Person("Magnus")
+    val terry = new Person("Terry")
+    val charlotte = new Person("Charlotte")
 
-    val barley = new Pet("Barley", terry);
-    val boots = new Pet("Boots", terry);
-    val whiskers = new Pet("Whiskers", charlotte);
-    val daisy = new Pet("Daisy", magnus);
+    val barley = new Pet("Barley", terry)
+    val boots = new Pet("Boots", terry)
+    val whiskers = new Pet("Whiskers", charlotte)
+    val daisy = new Pet("Daisy", magnus)
 
-    val people = each([magnus, terry, charlotte]);
-    val pets = each([barley, boots, whiskers, daisy]);
+    val people = each([magnus, terry, charlotte])
+    val pets = each([barley, boots, whiskers, daisy])
+
     val query = groupJoin(people,
                           pets,
-                          (\(p: Person) -> get(p.getName())),
-                          (\(p: Pet) -> get(p.owner.getName())),
-                          (\(per: Person, animals: Par Pet) -> {
-                            val personName = liftf(per.getName()); -- Par Person
-                            personName >>
-                              \(name: String) -> {
-                                (name, animals >> (\(p: Pet) -> p.name))
-                              }
-                          }),
-                          (\(s1: String, s2: String) -> s1.compare(s2)));
-    for elem in extract(query) {
+                          fun (p : Person) => get(p.getName()),
+                          fun (p : Pet) => get(p.owner.getName()),
+                          fun (per : Person, animals : Par[Pet])
+                            val personName = liftf(per.getName())
+                            personName >> (fun (name : String)
+                                             (name, animals >> (fun (p : Pet) => p.name))
+                                           end)
+                          end,
+                          fun (s1 : String, s2 : String) => s1.compare(s2))
+
+    for elem <- extract(query) do
       match elem with
-        (name, pets) => {
-          println("{}:", name);
-          for pet in extract(pets) {
-            println("{}", pet);
-          }
-        }
-    }
-  }
+        case (name, pets) =>
+          println("{}:", name)
+          for pet <- extract(pets) do
+            println("{}", pet)
+          end
+        end
+      end
+    end
+  end
+
+end
