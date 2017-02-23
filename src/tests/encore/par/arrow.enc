@@ -1,37 +1,52 @@
+-- This file was automatically converted by encorec
+
 import ParT.Arrow
 
-def printResult(t: (int, int)): void {
-    match t with
-      (k, v) => println("{}: {}", k, v);
-}
+fun printResult(t : (int, int)) : void
+  match t with
+    case (k, v) =>
+      println("{}: {}", k, v)
+    end
+  end
+end
 
-def pprint(x: int): void println(x)
+fun pprint(x : int) : void
+  println(x)
+end
 
-def printVoidTuple(t: (int, int)): (void, void) { (printResult(t), ()) }
+fun printVoidTuple(t : (int, int)) : (void, void)
+  (printResult(t), ())
+end
 
 class Main
-  def main(): void {
-    val inc = \(x: int) -> x + 1;
-    val double = \(x: int) -> x * 2;
+  def main() : void
+    val inc = fun (x : int) => x + 1
+    val double = fun (x : int) => x * 2
 
-    val ff = first<int, int, int>(arr(inc));
-    val pr = arr<(int, int), void>(printResult);
-    val ffc = composition(ff, pr);
-    runArrow((4, 5), ffc);
+    -- Test: first :: Arrow a => a b c -> a (b, d) (c, d)
+    val ff = first[int, int, int](arr(inc))
+    val pr = arr[(int, int), void](printResult)
+    val ffc = composition(ff, pr)
+    runArrow((4, 5), ffc)
 
-    val fsecond = second<int, int, int>(arr(inc));
-    val ffc = composition(fsecond, pr);
-    runArrow((4, 5), ffc);
+    -- Test: second :: Arrow a => a b c -> A (d, b) (d, c)
+    val fsecond = second[int, int, int](arr(inc))
+    val ffc = composition(fsecond, pr)
+    runArrow((4, 5), ffc)
 
-    val fn = composition(arr(inc), arr(double));
-    val ffc = composition(fn, arr<int, void>(pprint));
-    runArrow(4, ffc);
+    -- Test: (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
+    val fn = composition(arr(inc), arr(double))
+    val ffc = composition(fn, arr[int, void](pprint))
+    runArrow(4, ffc)
 
-    val fn = branch(arr(inc), arr(double));
-    val ffc = composition(fn, arr<(int, int), (void, void)>(printVoidTuple));
-    runArrow(5, ffc);
+    -- Test: (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
+    val fn = branch(arr(inc), arr(double))
+    val ffc = composition(fn, arr[(int, int), (void, void)](printVoidTuple))
+    runArrow(5, ffc)
 
-    val fn = combine(arr(inc), arr(double));
-    val ffc = composition(fn, arr<(int, int), (void, void)>(printVoidTuple));
-    runArrow((5, 6), ffc);
-  }
+    -- Test: (***) :: Arrow a => a b c -> a d e -> a (b, d) (c, e)
+    val fn = combine(arr(inc), arr(double))
+    val ffc = composition(fn, arr[(int, int), (void, void)](printVoidTuple))
+    runArrow((5, 6), ffc)
+  end
+end
