@@ -85,6 +85,10 @@ data BinaryOp = AND
               | TIMES
               | DIV
               | MOD
+              | PLUS_EQUALS
+              | MINUS_EQUALS
+              | TIMES_EQUALS
+              | DIV_EQUALS
                 deriving(Read, Eq)
 
 instance Show BinaryOp where
@@ -101,6 +105,10 @@ instance Show BinaryOp where
     show TIMES           = "*"
     show DIV             = "/"
     show MOD             = "%"
+    show PLUS_EQUALS     = "+="
+    show MINUS_EQUALS    = "-="
+    show TIMES_EQUALS    = "*="
+    show DIV_EQUALS      = "/="
 
 data UnaryOp = NOT
              | NEG

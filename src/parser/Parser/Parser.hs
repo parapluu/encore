@@ -864,7 +864,12 @@ expression = makeExprParser expr opTable
                  [op "+" PLUS, op "-" MINUS],
                  [op "<" Identifiers.LT, op ">" Identifiers.GT,
                   op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
-                  op "==" Identifiers.EQ, op "!=" NEQ],
+                  op "==" Identifiers.EQ, op "!=" NEQ,
+                  op "+=" PLUS_EQUALS,
+                  op "-=" MINUS_EQUALS,
+                  op "*=" TIMES_EQUALS,
+                  op "/=" DIV_EQUALS
+                 ],
                  [textualPrefix "not" Identifiers.NOT],
                  [partySequence, partyParallel],
                  -- [partyParallel],
