@@ -142,6 +142,15 @@ folded delimiters fold p =
   where
     foldWith fold = local (const $ runReaderT fold undefined)
 
+alignedExpressions :: ([Expr] -> EncParser a) -> EncParser (L.IndentOpt EncParser a Expr)
+alignedExpressions f =
+  return $ L.IndentSome Nothing f exprBreak
+  where
+    exprBreak = do
+      e <- expression
+      try $ lookAhead nl
+      return e
+
 -- | @parseBody c@ is inteded for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
 -- conditional, which is a list of indented expressions @c@ is a
@@ -149,8 +158,7 @@ folded delimiters fold p =
 -- (possibly partial) expression.
 parseBody :: (Expr -> a) -> EncParser (L.IndentOpt EncParser a Expr)
 parseBody constructor =
-  return $ L.IndentSome Nothing
-           (return . constructor . makeBody) expression
+  alignedExpressions (return . constructor . makeBody)
 
 -- | @blockedConstruct p@ parses a construct whose header is
 -- parsed by @p@, and whose body is a block ended by "end".
@@ -551,7 +559,7 @@ funHeaderAndBody =
     funmeta <- meta <$> getPosition
     reserved "fun"
     funheader <- functionHeader
-    return $ L.IndentSome Nothing (buildFun funmeta funheader) expression
+    alignedExpressions (buildFun funmeta funheader)
   where
     buildFun funmeta funheader block =
       return Function{funmeta
@@ -775,7 +783,7 @@ methodDecl = do
                       setHeaderModifier modifiers <$> functionHeader
                <|> do reserved "stream"
                       streamMethodHeader
-        return $ L.IndentSome Nothing (buildMethod mmeta mheader) expression
+        alignedExpressions (buildMethod mmeta mheader)
     buildMethod mmeta mheader block =
       return Method{mmeta
                    ,mheader
@@ -836,11 +844,11 @@ matchClause = do
       mchandler <- expression
       return $ L.IndentNone (False, MatchClause{mcpattern, mcguard, mchandler})
     blockClause mcpattern mcguard =
-      return $ L.IndentSome Nothing
-               (\body -> return (True, MatchClause{mcpattern
-                                                  ,mcguard
-                                                  ,mchandler = makeBody body
-                                                  })) expression
+      alignedExpressions
+        (\body -> return (True, MatchClause{mcpattern
+                                            ,mcguard
+                                            ,mchandler = makeBody body
+                                           }))
     dontCare = do
       emeta <- meta <$> getPosition
       symbol "_"
@@ -1123,7 +1131,7 @@ expr = notFollowedBy nl >>
         block <- indentBlock $ do
           emeta <- meta <$> getPosition
           reserved "do"
-          return $ L.IndentSome Nothing (return . Seq emeta) expression
+          alignedExpressions (return . Seq emeta)
         atLevel indent $ reserved "end"
         return block
 
@@ -1301,8 +1309,7 @@ expr = notFollowedBy nl >>
         body <- expression
         return $ L.IndentNone (False, Closure{emeta, eparams, mty, body})
       blockClosure emeta eparams mty =
-        return $ L.IndentSome Nothing
-                 (buildClosure emeta eparams mty) expression
+        alignedExpressions (buildClosure emeta eparams mty)
       buildClosure emeta eparams mty block =
         return (True, Closure{emeta
                              ,eparams
