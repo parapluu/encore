@@ -1,55 +1,50 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
-
-def liftValues(max: int): Par int {
-  var p = empty<int>();
-  repeat i <- max {
-    p = p || liftv(i);
-  };
+fun liftValues(max : int) : Par[int]
+  var p = empty[int]()
+  repeat i <- max do
+    p = p ||| liftv(i)
+  end
   p
-}
-
-def liftFutureValues(max: int): Par int {
-  var p = empty<int>();
-  repeat i <- max {
-    p = p || liftf((new T).set(i));
-  };
+end
+fun liftFutureValues(max : int) : Par[int]
+  var p = empty[int]()
+  repeat i <- max do
+    p = p ||| liftf((new T).set(i))
+  end
   p
-}
-
-class T {
-  def set(x: int): int
-    x
-}
-
-def lessThanOneHundred(x: int): bool
+end
+fun lessThanOneHundred(x : int) : bool
   x < 100
-
+end
+class T
+  def set(x : int) : int
+    x
+  end
+end
 class Main
-  def testValues(): void {
-    println("Testing Values:");
-    val p = liftValues(100);
-    val f = any(p, lessThanOneHundred);
-    println("{}", get(f));
-
-    val p2 = liftValues(200);
-    val f2 = any(p2, lessThanOneHundred);
-    println("{}", get(f2));
-
-    println("{}", get(any(liftv(203), lessThanOneHundred)));
-  }
-
-  def testFutures(): void {
-    println("Testing Futures:");
-    val p = liftFutureValues(100);
-    val f = any(p, lessThanOneHundred);
-    println("{}", get(f));
-
-    val p2 = liftFutureValues(200);
-    val f2 = any(p2, lessThanOneHundred);
+  def testValues() : void
+    println("Testing Values:")
+    val p = liftValues(100)
+    val f = any(p, lessThanOneHundred)
+    println("{}", get(f))
+    val p2 = liftValues(200)
+    val f2 = any(p2, lessThanOneHundred)
     println("{}", get(f2))
-  }
-
-  def main(): void {
-    this.testValues();
-    this.testFutures();
-  }
+    println("{}", get(any(liftv(203), lessThanOneHundred)))
+  end
+  def testFutures() : void
+    println("Testing Futures:")
+    val p = liftFutureValues(100)
+    val f = any(p, lessThanOneHundred)
+    println("{}", get(f))
+    val p2 = liftFutureValues(200)
+    val f2 = any(p2, lessThanOneHundred)
+    println("{}", get(f2))
+  end
+  def main() : void
+    this.testValues()
+    this.testFutures()
+  end
+end

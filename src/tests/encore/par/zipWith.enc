@@ -1,52 +1,57 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
-
-def inc(x: int, y: int): int
+fun inc(x : int, y : int) : int
   x + y
+end
+fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
+  var p = empty[String]()
+  repeat i <- max do
+    val s = match option with
+              case Just(x) =>
+                x
+              end
+              case Nothing =>
+                string_from_int(i)
+              end
 
-class Generator {
-  def produce(s: String): String
-    s.copy()
-}
-
-def generateParWithFutures(max: int, option: Maybe String): Par String {
-  var p = empty<String>();
-  repeat i <- max {
-    val s = match option with {
-            Just x => x
-            Nothing => string_from_int(i)
-           };
-    p = p || liftf((new Generator).produce(s));
-  };
+            end
+    p = p ||| liftf((new Generator).produce(s))
+  end
   p
-}
-
+end
+class Generator
+  def produce(s : String) : String
+    s.copy()
+  end
+end
 class Main
-
-  def test_values(): void {
-    println("Test on values:");
-    val p1 = liftv(23) || liftv(1) || empty<int>() || liftv(1);
-    val p2 = liftv(42) || liftv(0) || liftv(1);
-    val result = zipWith(p1, p2, inc);
-    for x in extract(result) println("{}", x);
-  }
-
-  def test_futures(): void {
-    println("Test on futures:");
-    val iter = 10;
-    val p1 = generateParWithFutures(iter, Just "test");
-    val p2 = generateParWithFutures(iter, Nothing);
-    val result = zipWith(p1, p2, \(x: String, y: String) -> x.concatenate(y));
-    for x in extract(result) println("{}", x);
-
-    -- test that creating a large number does not crash
-    val iter = 1000;
-    val p1 = generateParWithFutures(iter, Just "test");
-    val p2 = generateParWithFutures(iter, Nothing);
-    val result = zipWith(p1, p2, \(x: String, y: String) -> x.concatenate(y));
-    extract(result);
-  }
-
-  def main(): void {
-    this.test_values();
-    this.test_futures();
-  }
+  def test_values() : void
+    println("Test on values:")
+    val p1 = liftv(23) ||| liftv(1) ||| empty[int]() ||| liftv(1)
+    val p2 = liftv(42) ||| liftv(0) ||| liftv(1)
+    val result = zipWith(p1, p2, inc)
+    for x <- extract(result) do
+      println("{}", x)
+    end
+  end
+  def test_futures() : void
+    println("Test on futures:")
+    val iter = 10
+    val p1 = generateParWithFutures(iter, Just("test"))
+    val p2 = generateParWithFutures(iter, Nothing)
+    val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
+    for x <- extract(result) do
+      println("{}", x)
+    end
+    val iter = 1000
+    val p1 = generateParWithFutures(iter, Just("test"))
+    val p2 = generateParWithFutures(iter, Nothing)
+    val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
+    extract(result)
+  end
+  def main() : void
+    this.test_values()
+    this.test_futures()
+  end
+end
