@@ -872,6 +872,7 @@ expression = makeExprParser expr opTable
                  [arrayAccess],
                  [messageSend],
                  [typedExpression],
+                 [singleLineTask],
                  [chain],
                  [assignment]
                 ]
@@ -913,7 +914,15 @@ expression = makeExprParser expr opTable
                                                        target,
                                                        name=(Name name),
                                                        args }))
+
+      singleLineTask =
+        Prefix (do notFollowedBy (reserved "async" >> nl)
+                   emeta <- meta <$> getPosition
+                   reserved "async"
+                   return (Async emeta))
+
       chain =
+
           InfixL (do pos <- getPosition
                      withLinebreaks $ reservedOp "~~>"
                      return (FutureChain (meta pos)))
@@ -937,7 +946,7 @@ expr = notFollowedBy nl >>
         (embed
      <|> closure
      <|> match
-     <|> task
+     <|> blockedTask
      <|> for
      <|> while
      <|> repeat
@@ -1316,15 +1325,6 @@ expr = notFollowedBy nl >>
                              ,mty
                              ,body = makeBody block
                              })
-
-      task = singleLineTask <|> blockedTask
-
-      singleLineTask = do
-        notFollowedBy (reserved "async" >> nl)
-        emeta <- meta <$> getPosition
-        reserved "async"
-        body <- expression
-        return Async{emeta, body}
 
       blockedTask = blockedConstruct $ do
         emeta <- meta <$> getPosition
