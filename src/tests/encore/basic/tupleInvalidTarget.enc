@@ -1,0 +1,7 @@
+class Main
+  def main(): void
+    val t = ("Hello", ("World", ""))
+    val ar = [1]
+    println("{}, {}", t.0, ar.1)
+  end
+end

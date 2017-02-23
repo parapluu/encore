@@ -104,7 +104,6 @@ getChildren ArrayLiteral {args} = args
 getChildren Assign {lhs, rhs} = [lhs, rhs]
 getChildren VarAccess {} = []
 getChildren TupleAccess {target} = [target]
-getChildren CompartmentAccess {} = []
 getChildren Null {} = []
 getChildren BTrue {} = []
 getChildren BFalse {} = []
@@ -178,7 +177,6 @@ putChildren args e@(ArrayLiteral {}) = e{args = args}
 putChildren [lhs, rhs] e@(Assign {}) = e{lhs = lhs, rhs = rhs}
 putChildren [] e@(VarAccess {}) = e
 putChildren [target] e@(TupleAccess {}) = e{target = target}
-putChildren [] e@(CompartmentAccess {}) = e
 putChildren [] e@(Null {}) = e
 putChildren [] e@(BTrue {}) = e
 putChildren [] e@(BFalse {}) = e
@@ -241,7 +239,6 @@ putChildren _ e@(ArrayNew {}) = error "'putChildren l ArrayNew' expects l to hav
 putChildren _ e@(Assign {}) = error "'putChildren l Assign' expects l to have 2 elements"
 putChildren _ e@(VarAccess {}) = error "'putChildren l VarAccess' expects l to have 0 elements"
 putChildren _ e@(TupleAccess {}) = error "'putChildren l TupleAccess' expects l to have 1 element"
-putChildren _ e@(CompartmentAccess {}) = error "'putChildren l CompartmentAccess' expects l to have 1 element"
 putChildren _ e@(Null {}) = error "'putChildren l Null' expects l to have 0 elements"
 putChildren _ e@(BTrue {}) = error "'putChildren l BTrue' expects l to have 0 elements"
 putChildren _ e@(BFalse {}) = error "'putChildren l BFalse' expects l to have 0 elements"

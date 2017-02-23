@@ -89,6 +89,7 @@ module Types(
             ,isMaybeType
             ,tupleType
             ,isTupleType
+            ,tupleLength
             ,bottomType
             ,isBottomType
             ,hasResultType
@@ -799,3 +800,6 @@ unfoldTypeSynonyms = typeMap unfoldSingleSynonym
 unfoldSingleSynonym :: Type -> Type
 unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
 unfoldSingleSynonym t = t
+
+tupleLength (TupleType {argTypes}) = length argTypes
+tupleLength _ = error $ "Types.hs: Expected a tuple type"

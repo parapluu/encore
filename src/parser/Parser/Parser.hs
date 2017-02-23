@@ -1067,8 +1067,9 @@ expr = notFollowedBy nl >>
           pathComponent = dot >> (compartmentAccess <|> varOrCall)
 
           compartmentAccess = do
+            pos <-  getPosition
             n <- L.integer
-            return $ CompartmentAccess $ fromInteger n
+            return $ IntLiteral (meta pos) (fromInteger n)
 
           varOrCall = do
             x <- varAccess
@@ -1085,8 +1086,8 @@ expr = notFollowedBy nl >>
           buildPath pos target (FunctionCall{qname, args, typeArguments}) =
             MethodCall (meta pos) typeArguments target (qnlocal qname) args
 
-          buildPath pos target (CompartmentAccess{compartment}) =
-            TupleAccess (meta pos) target compartment
+          buildPath pos target (IntLiteral {intLit}) =
+            TupleAccess (meta pos) target intLit
 
       letExpression = do
         indent <- L.indentLevel

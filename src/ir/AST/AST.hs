@@ -659,7 +659,6 @@ data Expr = Skip {emeta :: Meta Expr}
           | TupleAccess {emeta :: Meta Expr,
                          target :: Expr,
                          compartment :: Int}
-          | CompartmentAccess {compartment :: Int}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}

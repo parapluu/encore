@@ -362,7 +362,6 @@ ppExpr ArrayNew {ty, size} = "new" <+> brackets (ppType ty) <> parens (ppExpr si
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {qname} = ppQName qname
 ppExpr TupleAccess {target, compartment} = ppExpr target <> "." <> int compartment
-ppExpr CompartmentAccess {compartment} = int compartment
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> "=" <+> ppExpr rhs
 ppExpr Null {} = "null"
 ppExpr BTrue {} = "true"

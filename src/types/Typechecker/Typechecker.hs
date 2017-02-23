@@ -1056,8 +1056,8 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isTupleType targetType) $
         tcError $ InvalidTupleTargetError eTarget compartment targetType
-      let tt:compartments = typeComponents targetType
-      unless (0 <= compartment && compartment < length compartments) $
+      let _:compartments = typeComponents targetType
+      unless (0 <= compartment && compartment < tupleLength targetType) $
         tcError $ InvalidTupleAccessError eTarget compartment
 
       return $ setType (compartments!!compartment) ta {target = eTarget}
