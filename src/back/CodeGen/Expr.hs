@@ -975,9 +975,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do (nval, tval) <- translate val
          eCtx <- gets $ Ctx.getExecCtx
          let dtraceExit = case (Ctx.lookupFunctionContext eCtx, Ctx.lookupMethodContext eCtx) of
-                              (fname, [] ) -> dtraceFunctionExit (A.functionName (head fname))
-                              ([], mname)  -> dtraceMethodExit thisVar (A.methodName (head mname))
-                              (_, _)     -> error $ "Cannot translate return in " ++ show eCtx
+                              (fun, [] ) -> dtraceFunctionExit (A.functionName (head fun))
+                              ([], mdecl)  -> dtraceMethodExit thisVar (A.methodName (head mdecl))
+                              (_, _)     -> error $ "Expr.hs: Cannot translate return in " ++ show eCtx
          return (unit, Seq[tval, dtraceExit, Return nval])
 
   translate iseos@(A.IsEos{A.target}) =

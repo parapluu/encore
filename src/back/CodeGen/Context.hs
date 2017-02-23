@@ -40,9 +40,9 @@ type NextSym = Int
 type VarSubTable = [(Name, C.CCode C.Lval)] -- variable substitutions (for supporting, for instance, nested var decls)
 
 data ExecContext =
-    FunctionContext{fcname :: Function}
-  | MethodContext  {mcname :: MethodDecl}
-  | ClosureContext {ccname :: Expr} -- for checking closure in the future.
+    FunctionContext{fun :: Function}
+  | MethodContext  {mdecl :: MethodDecl}
+  | ClosureContext {cls :: Expr} -- for checking closure in the future.
   | Empty
     deriving(Show)
 
@@ -85,10 +85,10 @@ setExecCtx :: Context -> ExecContext -> Context
 setExecCtx c@(Context s next eCtx table) eCtx' = Context s next eCtx' table
 
 setFunCtx :: Context -> Function -> Context
-setFunCtx c@(Context s next eCtx table) eCtx' = Context s next (FunctionContext{fcname = eCtx'}) table
+setFunCtx c@(Context s next eCtx table) eCtx' = Context s next (FunctionContext{fun = eCtx'}) table
 
 setMtdCtx :: Context -> MethodDecl -> Context
-setMtdCtx c@(Context s next eCtx table) eCtx' = Context s next (MethodContext{mcname = eCtx'}) table
+setMtdCtx c@(Context s next eCtx table) eCtx' = Context s next (MethodContext{mdecl = eCtx'}) table
 
 getExecCtx :: Context -> ExecContext
 getExecCtx c@(Context s nxt eCtx table) = eCtx
@@ -106,11 +106,11 @@ lookupFunction :: QualifiedName -> Context -> (C.CCode C.Name, FunctionHeader)
 lookupFunction fname = Tbl.lookupFunction fname . programTable
 
 lookupFunctionContext :: ExecContext -> [Function]
-lookupFunctionContext FunctionContext{fcname} = [fcname]
+lookupFunctionContext FunctionContext{fun} = [fun]
 lookupFunctionContext _ = []
 
 lookupMethodContext :: ExecContext -> [MethodDecl]
-lookupMethodContext MethodContext{mcname} = [mcname]
+lookupMethodContext MethodContext{mdecl} = [mdecl]
 lookupMethodContext _ = []
 
 getGlobalFunctionNames :: Context -> [QualifiedName]
