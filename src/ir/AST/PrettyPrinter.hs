@@ -317,6 +317,10 @@ ppExpr While {cond, body} =
     "while" <+> ppExpr cond <+> "do" $+$
          indent (ppBody body) $+$
     "end"
+ppExpr DoWhile {cond, body} =
+    "do" $+$
+         indent (ppBody body) $+$
+    "while" <> parens (ppExpr cond)
 ppExpr Repeat {name, times, body} =
     "repeat" <+> ppName name <+> "<-" <+> ppExpr times <+> "do" $+$
          indent (ppBody body) $+$

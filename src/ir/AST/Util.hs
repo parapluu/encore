@@ -80,6 +80,7 @@ getChildren IfThenElse {cond, thn, els} = [cond, thn, els]
 getChildren IfThen {cond, thn} = [cond, thn]
 getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
+getChildren DoWhile {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
 getChildren For {name, step, src, body} = [step, src, body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
@@ -150,6 +151,7 @@ putChildren [cond, thn, els] e@(IfThenElse {}) = e{cond = cond, thn = thn, els =
 putChildren [cond, thn] e@(IfThen {}) = e{cond = cond, thn = thn}
 putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
+putChildren [cond, body] e@(DoWhile {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
 putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren (arg:clauseList) e@(Match {clauses}) =
@@ -219,6 +221,7 @@ putChildren _ e@(IfThenElse {}) = error "'putChildren l IfThenElse' expects l to
 putChildren _ e@(IfThen {}) = error "'putChildren l IfThen' expects l to have 2 elements"
 putChildren _ e@(Unless {}) = error "'putChildren l Unless' expects l to have 2 elements"
 putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 elements"
+putChildren _ e@(DoWhile {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
 putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"

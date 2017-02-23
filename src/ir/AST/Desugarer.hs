@@ -143,6 +143,13 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
               }]
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
+desugar DoWhile{emeta, cond, body} =
+  Seq{emeta
+     ,eseq = [body
+             ,While{emeta, cond, body}
+             ]
+     }
+
 -- Exit
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
                     ,args} =

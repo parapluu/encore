@@ -1141,8 +1141,15 @@ expr = notFollowedBy nl >>
           emeta <- meta <$> getPosition
           reserved "do"
           alignedExpressions (return . Seq emeta)
+        doBlock indent block <|> doWhile indent block
+      doBlock indent block = do
         atLevel indent $ reserved "end"
         return block
+      doWhile indent body = do
+        emeta <- meta <$> getPosition
+        atLevel indent $ reserved "while"
+        cond <- expression
+        return DoWhile{emeta, cond, body}
 
       miniLet = do
         indent <- L.indentLevel
