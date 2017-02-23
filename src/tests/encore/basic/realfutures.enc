@@ -1,7 +1,13 @@
-class Main
-    def main() : void
-      print (get (new Bob).glenn())
+-- This file was automatically converted by encorec
 
+class Main
+  def main() : void
+    println(get((new Bob).glenn()))
+  end
+end
 class Bob
-    def glenn() : real
-        2.1
+  def glenn() : real
+    2.1
+  end
+end
+

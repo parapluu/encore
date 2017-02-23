@@ -1,11 +1,16 @@
+-- This file was automatically converted by encorec
+
 import Task
-
-def globl(): Fut int
+fun globl() : Fut[int]
   async(3)
-
+end
 class Main
-  def main(): void {
-    let fut = globl()
+  def main() : void
+    let
+      fut = globl()
     in
-      print get fut
-  }
+      println(get(fut))
+    end
+  end
+end
+

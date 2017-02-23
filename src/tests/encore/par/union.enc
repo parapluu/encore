@@ -1,27 +1,36 @@
+-- This file was automatically converted by encorec
+
 import ParT.ParT
-
-class T {
-  def getValue<t>(x: t): t x
-  def getPar(x: int): Par int liftv(x)
-}
-
-def cmpInt(x: int, y: int): int
-  if (x > y) then 1
-  else if (x < y) then -1
-  else 0
-
-
+fun cmpInt(x : int, y : int) : int
+  if x > y then
+    1
+  else
+    if x < y then
+      -(1)
+    else
+      0
+    end
+  end
+end
+class T
+  def getValue[t](x : t) : t
+    x
+  end
+  def getPar(x : int) : Par[int]
+    liftv(x)
+  end
+end
 class Main
+  def testUnion() : void
+    val p1 = liftf((new T).getValue(12)) ||| liftf((new T).getValue(23))
+    val p2 = join(liftf((new T).getPar(42))) ||| liftv(2) ||| liftv(2) ||| liftv(3)
+    val result = union(p1, p2, cmpInt)
+    for v <- extract(result) do
+      print("Results: {}\n", v)
+    end
+  end
+  def main() : void
+    this.testUnion()
+  end
+end
 
-  def testUnion(): void {
-    val p1 = liftf((new T).getValue(12)) || liftf((new T).getValue(23));
-    val p2 = (join(liftf((new T).getPar(42)))) || liftv(2) || liftv(2) || liftv(3);
-    val result = union(p1, p2, cmpInt);
-    for v in extract(result) {
-      print("Results: {}\n", v);
-    }
-  }
-
-  def main(): void {
-    this.testUnion();
-  }

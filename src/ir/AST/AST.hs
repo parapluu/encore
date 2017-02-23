@@ -126,7 +126,11 @@ data HeaderKind = Streaming
                 | NonStreaming
                   deriving(Eq, Show)
 
-data AccessModifier = Public | Private deriving (Eq, Ord, Show)
+data AccessModifier = Public | Private deriving (Eq, Ord)
+
+instance Show AccessModifier where
+  show Public = "public"
+  show Private = "private"
 
 data FunctionHeader =
     Header {
@@ -155,7 +159,7 @@ setHeaderModifier :: [AccessModifier] -> FunctionHeader -> FunctionHeader
 setHeaderModifier mod h = h {hmodifier = nub mod}
 
 isPublicMethod :: FunctionHeader -> Bool
-isPublicMethod Header{hmodifier} = elem Public hmodifier
+isPublicMethod Header{hmodifier} = null hmodifier || Public `elem` hmodifier
 
 isPrivateMethod :: FunctionHeader -> Bool
 isPrivateMethod Header{hmodifier} = elem Private hmodifier
@@ -401,24 +405,16 @@ traitCompositionFromCapability cap
                     ,tcright = traitCompositionFromCapability right}
   | otherwise = TraitLeaf{tcname = cap, tcext = []}
 
-data Modifier = MVal
-                deriving(Eq)
-
-instance Show Modifier where
-    show MVal = "val"
-
 data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
-  fmods :: [Modifier],
+  fmut  :: Mutability,
   fname :: Name,
   ftype :: Type
 }
 
 instance Show FieldDecl where
-  show f@Field{fmods,fname,ftype} =
-      smods ++ show fname ++ " : " ++ show ftype
-    where
-      smods = concatMap ((++ " ") . show) fmods
+  show f@Field{fmut, fname, ftype} =
+      show fmut ++ " " ++ show fname ++ " : " ++ show ftype
 
 instance Eq FieldDecl where
   a == b = fname a == fname b
@@ -430,7 +426,7 @@ instance HasMeta FieldDecl where
     showWithKind Field{fname} = "field '" ++ show fname ++ "'"
 
 isValField :: FieldDecl -> Bool
-isValField = (MVal `elem`) . fmods
+isValField = (== Val) . fmut
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
@@ -535,7 +531,11 @@ data MaybeContainer = JustData { e :: Expr}
                     | NothingData deriving(Eq, Show)
 
 data Mutability = Var
-                | Val deriving(Eq, Show)
+                | Val deriving(Eq)
+
+instance Show Mutability where
+    show Var = "var"
+    show Val = "val"
 
 data Expr = Skip {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
@@ -560,6 +560,7 @@ data Expr = Skip {emeta :: Meta Expr}
                              qname :: QualifiedName}
           | Closure {emeta :: Meta Expr,
                      eparams :: [ParamDecl],
+                     mty :: Maybe Type,
                      body :: Expr}
           | Liftf {emeta :: Meta Expr,
                    val :: Expr}
@@ -588,10 +589,6 @@ data Expr = Skip {emeta :: Meta Expr}
                         mdt :: MaybeContainer }
           | Tuple {emeta :: Meta Expr,
                    args :: [Expr]}
-          | Foreach {emeta :: Meta Expr,
-                     item :: Name,
-                     arr :: Expr,
-                     body :: Expr}
           | Let {emeta :: Meta Expr,
                  mutability :: Mutability,
                  decls :: [(Name, Expr)],
@@ -667,8 +664,6 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | New {emeta :: Meta Expr,
                  ty ::Type}
-          | Peer {emeta :: Meta Expr,
-                  ty ::Type}
           | Print {emeta :: Meta Expr,
                    file :: FileDescriptor,
                    args :: [Expr]}

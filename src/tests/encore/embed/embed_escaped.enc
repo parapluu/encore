@@ -1,28 +1,40 @@
-passive class Foo
-  f : int
+-- This file was automatically converted by encorec
 
+passive class Foo
+  var f : int
+end
 class Main
-  f : int
-  def main(): void {
-    val x = new Foo();
-    val y = embed int
-              #{embed int
-                  #{embed int 21; end};
-                end};
-            end;
-    val z = 0;
-    embed void
-      int x = #{y} + 21;
-      #{x.f} = x;
-      #{z} = #{x.f};
-      #{let z' = x.f in assertTrue(z == z')};
-    end;
-    embed void
-      #{
-      embed void
-        #{this.f = 42};
-      end
-      };
-    end;
-    println("Embedding is cool: {}", this.f);
-  }
+  var f : int
+  def main() : void
+    val x = new Foo()
+    val y = EMBED (int)
+              #{EMBED (int)
+                  #{EMBED (int)
+                      21;
+                    END};
+
+                END};
+
+            END
+    val z = 0
+    EMBED (void)
+      int x = #{y}+ 21;
+      #{x.f}= x;
+      #{z}= #{x.f};
+      #{let
+          z' = x.f
+        in
+          assertTrue(z == z')
+        end};
+
+    END
+    EMBED (void)
+      #{EMBED (void)
+          #{this.f = 42};
+
+        END};
+
+    END
+    println("Embedding is cool: {}", this.f)
+  end
+end

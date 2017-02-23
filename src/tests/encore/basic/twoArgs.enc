@@ -1,11 +1,18 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    let other = new Other in {
-       other!printTwo("Hello", "Ponyworld!");
-    }
-
+    let
+      other = new Other
+    in
+      other!printTwo("Hello", "Ponyworld!")
+    end
+  end
+end
 class Other
-  def printTwo(a : String, b : String) : void {
-    print a;
-    print b
-  }
+  def printTwo(a : String, b : String) : void
+    println(a)
+    println(b)
+  end
+end
+

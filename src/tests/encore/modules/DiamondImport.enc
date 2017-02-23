@@ -1,6 +1,10 @@
+-- This file was automatically converted by encorec
+
 import Left
 import Right
-
 class Main
   def main() : void
-      print("{}\n", left() + right())
+    print("{}\n", left() + right())
+  end
+end
+

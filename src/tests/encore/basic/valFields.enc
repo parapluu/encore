@@ -1,65 +1,79 @@
-trait Mappable<v>
-  require value : v
-  require val next : Mappable<v>
-  def map(f : v -> v) : void{
-    this.value = f(this.value);
-    if this.next != null
-    then this.next.map(f)
-  }
+-- This file was automatically converted by encorec
 
-passive class List<v> : Mappable<v>
-  value : v
-  next : List<v>
-
-  def init(value : v, next : List<v>) : void{
-    this.value = value;
-    this.next = next;
-  }
-
-  def add(value : v) : void
-    if this.next == null
-    then this.next = new List<v>(value, null)
-    else this.next.add(value)
-
-
-passive class Link<v> : Mappable<v>
-  value : v
-  next : Link<v>
-
-  def init(value : v, next : Link<v>) : void{
-    this.value = value;
-    this.next = next;
-  }
-
-trait Push<v>
-  require top : Link<v>
+trait Mappable[v]
+  require var value : v
+  require val next : Mappable[v]
+  def map(f : v -> v) : void
+    this.value = f(this.value)
+    if this.next != null then
+      this.next.map(f)
+    end
+  end
+end
+trait Push[v]
+  require var top : Link[v]
   def push(value : v) : void
-    this.top = new Link<v>(value, this.top)
-
-passive class Stack<v> : Push<v>
-  val top : Link<v>
+    this.top = new Link[v](value, this.top)
+  end
+end
+passive class List[v] : Mappable[v]
+  var value : v
+  var next : List[v]
+  def init(value : v, next : List[v]) : void
+    this.value = value
+    this.next = next
+  end
+  def add(value : v) : void
+    if this.next == null then
+      this.next = new List[v](value, null)
+    else
+      this.next.add(value)
+    end
+  end
+end
+passive class Link[v] : Mappable[v]
+  var value : v
+  var next : Link[v]
+  def init(value : v, next : Link[v]) : void
+    this.value = value
+    this.next = next
+  end
+end
+passive class Stack[v] : Push[v]
+  val top : Link[v]
   def init() : void
     this.top = null
-
+  end
   def map(f : v -> v) : void
     this.top.map(f)
-
+  end
+end
 class Main
   def main() : void
-    let l = new List<int>(1, null)
-        s = new Stack<String>()
-        bump = \ (x : int) -> x + 1
-        showNum = \ (x : int) -> {print x; x}
-        showString = \ (x : String) -> {print x; x}
-    in{
-      l.add(2);
-      l.add(3);
-      l.add(4);
-      l.map(bump);
-      l.map(showNum);
-      s.push("four");
-      s.push("three");
-      s.push("two");
-      s.push("one");
-      s.map(showString);
-    }
+    let
+      l = new List[int](1, null)
+      s = new Stack[String]()
+      bump = fun (x : int) => x + 1
+      showNum = fun (x : int) 
+                  println(x)
+                  x
+                end
+      showString = fun (x : String) 
+                     println(x)
+                     x
+                   end
+    in
+      l.add(2)
+      l.add(3)
+      l.add(4)
+      l.map(bump)
+      l.map(showNum)
+      s.push("four")
+      s.push("three")
+      s.push("two")
+      s.push("one")
+      s.map(showString)
+    end
+  end
+end
+

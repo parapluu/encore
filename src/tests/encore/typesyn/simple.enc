@@ -1,9 +1,13 @@
+-- This file was automatically converted by encorec
 
 typedef T = int
-
 class Main
-   def main(): void {
-     let x = 10 : T
-     in
-       print(x)
-   }
+  def main() : void
+    let
+      x = 10 : T
+    in
+      println(x)
+    end
+  end
+end
+

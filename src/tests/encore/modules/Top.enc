@@ -1,7 +1,10 @@
+-- This file was automatically converted by encorec
+
 module Top
-
-def top() : int
-    10
-
-def id<a>(x : a) : a
+fun top() : int
+  10
+end
+fun id[a](x : a) : a
   x
+end
+

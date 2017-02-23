@@ -1,8 +1,11 @@
-import Lib.FarLib
+-- This file was automatically converted by encorec
 
+import Lib.FarLib
 class Main
-  def main() : void {
-    val x = new FarFoo;
-    x.foo(x.f);
-    x.s();
-  }
+  def main() : void
+    val x = new FarFoo
+    x.foo(x.f)
+    x.s()
+  end
+end
+

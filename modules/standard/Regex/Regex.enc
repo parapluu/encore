@@ -1,105 +1,131 @@
-module Regex
+-- This file was automatically converted by encorec
 
-embed
+module Regex
+EMBED
+
   // Do not forget to link against the C library
   // e.g. encorec RegexTest.enc -F "-I /usr/local/include -L /usr/local/lib/ -lpcre2-posix -lpcre2-8"
   #define PCRE2_CODE_UNIT_WIDTH 8
   #include <pcre2posix.h>
-end
+BODY
 
-typedef RegexT = embed regex_t end
-typedef PMatch = embed regmatch_t* end
+END
 
+typedef PMatch = EMBED regmatch_t* END
+typedef RegexT = EMBED regex_t END
 passive class Regex
-  pattern: String           -- private attribute
-  maxSize: int              -- private attribute
-  flagICase: bool           -- private attribute
-  flagNewLine: bool         -- private attribute
-  pMatch: PMatch            -- private attribute
-  regex: RegexT             -- private attribute
-  executed: embed char* end -- private attribute
-
-  def Regex_trace(): void {
-    embed void
+  var pattern : String
+  var maxSize : int
+  var flagICase : bool
+  var flagNewLine : bool
+  var pMatch : PMatch
+  var regex : RegexT
+  var executed : EMBED char* END
+  def Regex_trace() : void
+    EMBED (void)
       _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
       encore_trace_object((*_ctx), _enc__field_pattern, _enc__trace_String);
 
       regmatch_t* _enc__field_pMatch = _this->_enc__field_pMatch;
       pony_trace((*_ctx), _enc__field_pMatch);
-    end
-  }
 
-
-  def init(pattern: String, maxSize: int): void {
-    this.pattern = pattern;
-    this.maxSize = maxSize;
-    this.pMatch = embed PMatch
-                  regmatch_t *pMatch = encore_alloc(encore_ctx(), sizeof(regmatch_t) * #{maxSize});
+    END
+  end
+  def init(pattern : String, maxSize : int) : void
+    this.pattern = pattern
+    this.maxSize = maxSize
+    this.pMatch = EMBED (PMatch)
+                    regmatch_t *pMatch = encore_alloc(encore_ctx(), sizeof(regmatch_t) * #{maxSize});
                   pMatch;
-                  end;
-  }
 
-  def icase(): void this.flagICase = true
-  def newLine(): void this.flagNewLine = true
-
-  -- compile(): returns `true` if the pattern can be compiled, `false` otherwise.
-  def compile(): bool
-    let fIc = this.flagICase
-        fNl = this.flagNewLine
-        pattern = this.pattern.getData()
-        regex = this.regex
+                  END
+  end
+  def icase() : void
+    this.flagICase = true
+  end
+  def newLine() : void
+    this.flagNewLine = true
+  end
+  def compile() : bool
+    let
+      fIc = this.flagICase
+      fNl = this.flagNewLine
+      pattern = this.pattern.getData()
+      regex = this.regex
     in
-      embed bool
+      EMBED (bool)
         bool result = 0;
-        if (#{fIc} && #{fNl}){
-           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED|REG_ICASE|REG_NEWLINE);
+        if (#{fIc}&& #{fNl}){
+           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTendED|REG_ICASE|REG_NEWLINE);
         } else if (#{fIc}) {
-           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED|REG_ICASE);
+           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTendED|REG_ICASE);
         } else {
-           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTENDED);
+           result = regcomp(&((*_this)._enc__field_regex), #{pattern}, REG_EXTendED);
         }
 
         !result;
+
+      END
+    end
+  end
+  def exec(str : String) : Maybe[bool]
+    let
+      s = str.getData()
+      nmatch = this.maxSize
+      pMatch = this.pMatch
+    in
+      this.executed = s
+      var result = EMBED (int)
+                     regexec(&((*_this)._enc__field_regex), #{s}, #{nmatch}, #{pMatch}, 0);
+
+                   END
+      if
+       EMBED (bool)
+         #{result}== REG_NOMATCH;
+       END
+      then
+        Just(false)
+      else
+        if result == 0 then
+          Just(true)
+        else
+          Nothing
+        end
       end
-
-  -- exec(str: String): returns true if the exec method found a match,
-  --                    otherwise it returns false (indicates error or no match found)
-  def exec(str: String): Maybe bool
-    let s = str.getData()
-        nmatch = this.maxSize
-        pMatch = this.pMatch
-        result = 0
-    in {
-      this.executed = s;
-      result = embed int
-        regexec(&((*_this)._enc__field_regex), #{s}, #{nmatch}, #{pMatch}, 0);
-      end;
-      if (embed bool #{result} == REG_NOMATCH; end) then Just false
-      else if (result == 0) then Just true
-      else Nothing
-    }
-
-  def matches(): int {
-    let regex = this.regex in
-      embed int
+    end
+  end
+  def matches() : int
+    let
+      regex = this.regex
+    in
+      EMBED (int)
         (int) #{regex}.re_nsub;
-      end
-  }
 
-  def getAt(i: int): String {
-    let pmatch = this.pMatch
-        executed = this.executed
-    in new String(embed (embed char* end)
-        regoff_t match = #{pmatch}[#{i}].rm_eo - #{pmatch}[#{i}].rm_so;
+      END
+    end
+  end
+  def getAt(i : int) : String
+    let
+      pmatch = this.pMatch
+      executed = this.executed
+    in
+      new String(EMBED (EMBED char* END)
+                   regoff_t match = #{pmatch}[#{i}].rm_eo - #{pmatch}[#{i}].rm_so;
         char *str = encore_alloc(*_ctx, ((size_t) match) + 1);
         strncpy(str, &#{executed}[#{pmatch}[#{i}].rm_so], (size_t) match);
         str;
-       end)
-  }
 
-  def close(): void {
-    let regex = this.regex in
-    embed void
-      regfree(&#{regex});
+                 END)
     end
-  }
+  end
+  def close() : void
+    let
+      regex = this.regex
+    in
+      EMBED (void)
+        regfree(&#{regex});
+
+      END
+    end
+  end
+end

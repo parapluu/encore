@@ -1,5 +1,9 @@
-import ClosureImp
+-- This file was automatically converted by encorec
 
+import ClosureImp
 class Main
   def main() : void
-    print ((new Foo).bar())
+    println((new Foo).bar())
+  end
+end
+

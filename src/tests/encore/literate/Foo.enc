@@ -7,6 +7,8 @@ using the --literate flag that also works for imported modules.
 
 #+begin_src encore
 module Foo
-  def foo() : void
-    print "In foo"
+
+fun foo() : void
+  println("In foo")
+end
 #+end_src encore

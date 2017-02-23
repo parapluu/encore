@@ -1,22 +1,24 @@
-class Main {
-  a : Agent
+-- This file was automatically converted by encorec
 
-  def main() : void {
-     this.a = new Agent();
-     this.do(1000)
-   }
+class Main
+  var a : Agent
+  def main() : void
+    this.a = new Agent()
+    this.perform(1000)
+  end
+  def perform(n : int) : void
+    if n == 0 then
+      print("done")
+    else
+      this.a.go(this.a)
+      new [int](100)
+      this!perform(n - 1)
+    end
+  end
+end
+class Agent
+  def go(a : Agent) : void
+    ()
+  end
+end
 
-   def do(n:int) : void {
-     if n == 0 then {
-       print("done");
-     } else {
-       this.a.go(this.a);
-       new [int](100);
-       this!do(n-1)
-     }
-   }
-}
-
-class Agent {
-   def go(a:Agent) : void ()
-}

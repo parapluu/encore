@@ -1,5 +1,6 @@
-import Random
+-- This file was automatically converted by encorec
 
+import Random
 class Main
   def main() : void
     let
@@ -8,3 +9,7 @@ class Main
       v2 = random(1)
     in
       print("{}\n{}\n", v1, v2)
+    end
+  end
+end
+

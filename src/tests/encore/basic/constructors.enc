@@ -1,7 +1,13 @@
-class Foo
-  def init(a:int) : void
-    print a
+-- This file was automatically converted by encorec
 
+class Foo
+  def init(a : int) : void
+    println(a)
+  end
+end
 class Main
   def main() : Foo
     new Foo(42)
+  end
+end
+

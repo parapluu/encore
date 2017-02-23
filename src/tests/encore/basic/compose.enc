@@ -1,10 +1,17 @@
-def compose(g : int -> int, f : int -> int) : int -> int
-  \(x : int) -> g(f(x))
+-- This file was automatically converted by encorec
 
+fun compose(g : int -> int, f : int -> int) : int -> int
+  fun (x : int) => g(f(x))
+end
 class Main
   def main() : void
-    let double = \(x : int) -> x*2
-        bump = \(x : int) -> x+1
-        f = compose(double, bump)
+    let
+      double = fun (x : int) => x * 2
+      bump = fun (x : int) => x + 1
+      f = compose(double, bump)
     in
-      print f(3)
+      println(f(3))
+    end
+  end
+end
+

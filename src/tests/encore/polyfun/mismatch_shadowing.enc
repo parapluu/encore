@@ -1,9 +1,14 @@
-def foo<a>(x : a, y : a) : a
+-- This file was automatically converted by encorec
+
+fun foo[a](x : a, y : a) : a
   x
-
-def bar<a>() : a
+end
+fun bar[a]() : a
   foo(42, "foo")
-
+end
 class Main
   def main() : void
     ()
+  end
+end
+

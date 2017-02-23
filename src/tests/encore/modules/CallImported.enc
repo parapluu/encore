@@ -1,7 +1,9 @@
+-- This file was automatically converted by encorec
 
 import Utils
-
-
 class Main
-  def main(): void
-    print(id("Hello"))
+  def main() : void
+    println(id("Hello"))
+  end
+end
+

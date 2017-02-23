@@ -1,23 +1,32 @@
+-- This file was automatically converted by encorec
+
 passive class Foo
   def foo() : int
     13 + local1() + local2(15)
   where
-    def local1() : int {
-      val x = 14;
+    fun local1() : int
+      val x = 14
       x
-    }
-    def local2(x : int) : int
+    end
+    fun local2(x : int) : int
       x
+    end
   end
-
   def bar() : int
     local1()
   where
-    def local1() : int
+    fun local1() : int
       0
+    end
   end
-
+end
 class Main
   def main() : void
-    let x = new Foo()
-    in print (x.foo() + x.bar())
+    let
+      x = new Foo()
+    in
+      println(x.foo() + x.bar())
+    end
+  end
+end
+

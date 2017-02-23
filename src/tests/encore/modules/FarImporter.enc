@@ -1,11 +1,14 @@
+-- This file was automatically converted by encorec
 
 import FarLib
-
 class Main
   def main() : void
     let
-      f = new FarFoo 
-    in {
-      print (f.name());
+      f = new FarFoo
+    in
+      println(f.name())
       ()
-    }
+    end
+  end
+end
+

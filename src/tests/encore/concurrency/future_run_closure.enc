@@ -1,36 +1,32 @@
+-- This file was automatically converted by encorec
+
 import Task
-
--- This test makes a non-deterministic bug completely deterministic:
--- The error is that the Main actor performs the chain on the future.
--- If the future has already been fulfilled, Main runs the closure but
--- Main has no references to the object returned by the future!
--- This causes an error when fulfilling the future, since the fulfilment
--- of the future is a logical gc_send.
---
--- This test makes sure that the case explained above is covered.
-
-
 passive class Money
-  amount: int
-
-  def init(i : int): void
+  var amount : int
+  def init(i : int) : void
     this.amount = i
-
+  end
+end
 class Test
-  def createMoney(): Money
+  def createMoney() : Money
     new Money(4)
-
-  def update(m: Money): Money
+  end
+  def update(m : Money) : Money
     m
-
+  end
+end
 class Main
-  def main(): void {
-    val t = new Test;
-    val t2 = new Test;
-    val f1 = t.createMoney();
-    await f1;
-    val f2 = f1 ~~> \(m: Money) -> { t2.update(m) ~~> \(m: Money) -> m };
-    await f2;
-    val money = get (get f2);
-    print(money.amount)
-  }
+  def main() : void
+    val t = new Test
+    val t2 = new Test
+    val f1 = t.createMoney()
+    await(f1)
+    val f2 = f1 ~~> fun (m : Money) 
+                      t2.update(m) ~~> fun (m : Money) => m
+                    end
+    await(f2)
+    val money = get(get(f2))
+    println(money.amount)
+  end
+end
+

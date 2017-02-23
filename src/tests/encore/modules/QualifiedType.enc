@@ -1,7 +1,13 @@
+-- This file was automatically converted by encorec
 
 import Lib
-
 class Main
   def main() : void
-    let x = new Foo : Lib.Foo
-    in print x.name()
+    let
+      x = new Foo : Lib.Foo
+    in
+      println(x.name())
+    end
+  end
+end
+

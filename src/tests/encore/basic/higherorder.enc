@@ -1,9 +1,24 @@
+-- This file was automatically converted by encorec
+
 class Main
-  myFun : ((String -> void), String) -> void
+  var myFun : (String -> void, String) -> void
   def app(f : String -> void, s : String) : void
-    let myFun = this.myFun in
+    let
+      myFun = this.myFun
+    in
       myFun(f, s)
+    end
+  end
   def main() : void
-    let doTwice = \(f : String -> void, x : String) -> {f(x); f(x)} in
-      {this.myFun = doTwice;
-       this.app(\(s : String) -> print s, "Hello ponyworld")}
+    let
+      doTwice = fun (f : String -> void, x : String) 
+                  f(x)
+                  f(x)
+                end
+    in
+      this.myFun = doTwice
+      this.app(fun (s : String) => println(s), "Hello ponyworld")
+    end
+  end
+end
+

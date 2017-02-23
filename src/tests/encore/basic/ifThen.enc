@@ -1,48 +1,60 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void{
-    (if true then 42) : void;
-
+  def main() : void
     if true then
-      print "Hello Ponyworld 1!";
-
+      42
+    end : void
+    if true then
+      println("Hello Ponyworld 1!")
+    end
     if true then
       if true then
-        print "Hello Ponyworld 2!";
-
+        println("Hello Ponyworld 2!")
+      end
+    end
     if true then
       if false then
-        print "Bad Pony!"
+        println("Bad Pony!")
       else
-        print "Hello Ponyworld 3!";
-
+        println("Hello Ponyworld 3!")
+      end
+    end
     if true then
-      (if false then
-        print "Bad Pony!")
+      if false then
+        println("Bad Pony!")
+      end
     else
-      print "Bad Pony!";
-
+      println("Bad Pony!")
+    end
     if false then
       if false then
-         print "Bad Pony!"
+        println("Bad Pony!")
       else
-        print "Bad Pony!";
-
+        println("Bad Pony!")
+      end
+    end
     if false then
-      (if false then
-         print "Bad Pony!")
+      if false then
+        println("Bad Pony!")
+      end
     else
-      print "Hello Ponyworld 4!";
-
+      println("Hello Ponyworld 4!")
+    end
     if false then
       if true then
-        print "Bad Pony!"
+        println("Bad Pony!")
       else
-        print "Bad Pony!";
-
+        println("Bad Pony!")
+      end
+    end
     if false then
-      (if true then
-         print "Bad Pony!")
+      if true then
+        println("Bad Pony!")
+      end
     else
-      print "Hello Ponyworld 5!";
+      println("Hello Ponyworld 5!")
+    end
+  end
+end
 
-  }

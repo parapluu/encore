@@ -1,10 +1,20 @@
+-- This file was automatically converted by encorec
+
 import Data.Either
 class Main
-  def main() : void {
-    val l = Left<String,int>("error");
-    val r = Right<String,int>(12);
-    l.map(\ (x:int) -> {print "should not print"; x});
-    l.foreach(\ (x:int) -> print "should not print");
-    r.map(\ (x:int) -> {print "should print"; x});
-    r.foreach(\ (x:int) -> print "should print");
-  }
+  def main() : void
+    val l = Left[String, int]("error")
+    val r = Right[String, int](12)
+    l.map(fun (x : int) 
+            println("should not print")
+            x
+          end)
+    l.foreach(fun (x : int) => println("should not print"))
+    r.map(fun (x : int) 
+            println("should print")
+            x
+          end)
+    r.foreach(fun (x : int) => println("should print"))
+  end
+end
+

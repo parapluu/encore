@@ -1,10 +1,15 @@
-typedef T = int
-typedef G = T
+-- This file was automatically converted by encorec
 
+typedef G = T
+typedef T = int
 class Main
-   def main(): void {
-     let x = 10 : T
-         y = x : G
-     in
-       print(y)
-   }
+  def main() : void
+    let
+      x = 10 : T
+      y = x : G
+    in
+      println(y)
+    end
+  end
+end
+

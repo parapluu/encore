@@ -10,11 +10,13 @@ name, its arguments in parenthesis, and a colon followed by its
 return type:
 
 #+begin_src encore
-def main(args : [String]) : void
+  def main(args : [String]) : void
 #+end_src encore
 
 The method body follows directly after the header:
 
 #+begin_src encore
-print "Hello multi-block literate world!"
+    println("Hello multi-block literate world!")
+  end
+end
 #+end_src encore

@@ -1,13 +1,22 @@
-import Task
+-- This file was automatically converted by encorec
 
+import Task
 class Producer
   def produce() : int
     42 + 1
-
+  end
+end
 class Main
   def main() : void
     let
       p = new Producer
-      l = \(x:int) -> { print x; x + 1 }
+      l = fun (x : int) 
+            println(x)
+            x + 1
+          end
     in
-      print get p.produce() ~~> l
+      println(get(p.produce() ~~> l))
+    end
+  end
+end
+

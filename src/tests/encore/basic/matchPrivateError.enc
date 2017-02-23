@@ -1,8 +1,16 @@
-passive class Foo
-  def private foo() : Maybe int
-    Just 42
+-- This file was automatically converted by encorec
 
+passive class Foo
+  def private foo() : Maybe[int]
+    Just(42)
+  end
+end
 class Main
   def main() : void
     match (new Foo, 42) with
-      (foo(x), y) when x == y => print "Shouldn't compile!"
+      case (foo(x), y) when x == y => println("Shouldn't compile!")
+    
+    end
+  end
+end
+

@@ -1,5 +1,9 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    assertFalse(false);
+  def main() : void
+    assertFalse(false)
     assertFalse(true, "Int {} Bool {} String {}", 42, false, "Foo")
-  }
+  end
+end
+

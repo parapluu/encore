@@ -1,14 +1,17 @@
-import Active.Active  -- imports from standard library
+-- This file was automatically converted by encorec
 
-passive class Greeter {
-  def greet() : void {
-    print "Hello";
-  }
-}
+import Active.Active
+passive class Greeter
+  def greet() : void
+    println("Hello")
+  end
+end
+class Main
+  def main() : void
+    val a = new Active[Greeter](fun () => new Greeter)
+    a.apply(fun (g : Greeter) 
+              g.greet()
+            end)
+  end
+end
 
-class Main {
-  def main(): void {
-    val a = new Active<Greeter>(\ () -> new Greeter);
-    a.apply(\ (g:Greeter) -> { g.greet(); })
-  }
-}

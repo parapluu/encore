@@ -1,13 +1,21 @@
-class Main {
-  def main() : void {
-    this.foo(2)
-  }
+-- This file was automatically converted by encorec
 
-  def foo(y: int): void {
-    let x = 1 in {
-      embed void printf("x=%llu\n", #{x}); end;
-      embed void printf("y=%llu\n", #{y}); end;
-      print "(btw: helloponyworld)"
-    }
-  }
-}
+class Main
+  def main() : void
+    this.foo(2)
+  end
+  def foo(y : int) : void
+    let
+      x = 1
+    in
+      EMBED (void)
+        printf("x=%llu\n", #{x});
+      END
+      EMBED (void)
+        printf("y=%llu\n", #{y});
+      END
+      println("(btw: helloponyworld)")
+    end
+  end
+end
+

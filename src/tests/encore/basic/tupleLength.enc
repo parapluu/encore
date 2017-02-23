@@ -1,6 +1,11 @@
-def foo(t: (int, int)) : void
-  ()
+-- This file was automatically converted by encorec
 
+fun foo(t : (int, int)) : void
+  ()
+end
 class Main
   def main() : void
-    foo((1,2,3))
+    foo((1, 2, 3))
+  end
+end
+

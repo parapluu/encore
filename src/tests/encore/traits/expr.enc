@@ -1,106 +1,156 @@
-trait Expr
-  require eval() : Expr
-  def Val() : Maybe int
-    Nothing
-  def Var() : Maybe String
-    Nothing
-  def Neg() : Maybe Expr
-    Nothing
-  def Add() : Maybe (Expr, Expr)
-    Nothing
-  def Sub() : Maybe (Expr, Expr)
-    Nothing
+-- This file was automatically converted by encorec
 
+trait Expr
+  require def eval() : Expr
+  def Val() : Maybe[int]
+    Nothing
+  end
+  def Var() : Maybe[String]
+    Nothing
+  end
+  def Neg() : Maybe[Expr]
+    Nothing
+  end
+  def Add() : Maybe[(Expr, Expr)]
+    Nothing
+  end
+  def Sub() : Maybe[(Expr, Expr)]
+    Nothing
+  end
+end
+trait Unary
+  require var operand : Expr
+end
+trait Binary
+  require var left : Expr
+  require var right : Expr
+end
 passive class Value : Expr(value)
   val value : int
   def init(value : int) : void
     this.value = value
-  def Val() : Maybe int
-    Just this.value
+  end
+  def Val() : Maybe[int]
+    Just(this.value)
+  end
   def eval() : Expr
     new Value(this.value)
-
+  end
+end
 passive class Variable : Expr(id)
   val id : String
   def init(id : String) : void
     this.id = id
-  def Var() : Maybe String
-    Just this.id
+  end
+  def Var() : Maybe[String]
+    Just(this.id)
+  end
   def eval() : Expr
     new Variable(this.id)
-
-trait Unary
-  require operand : Expr
-
+  end
+end
 passive class Negation : Expr(operand) + Unary
   val operand : Expr
   def init(operand : Expr) : void
     this.operand = operand
-  def Neg() : Maybe Expr
-    Just this.operand
-  def eval() : Expr {
-    val this' = new Negation(this.operand.eval());
+  end
+  def Neg() : Maybe[Expr]
+    Just(this.operand)
+  end
+  def eval() : Expr
+    val this' = new Negation(this.operand.eval())
     match this' with
-      Neg(Val(v)) => new Value(-v)
-      Neg(Neg(e)) => e
-      e => e
-    }
-
-trait Binary
-  require left : Expr
-  require right : Expr
-
+      case Neg(Val(v)) =>
+        new Value(-(v))
+      end
+      case Neg(Neg(e)) =>
+        e
+      end
+      case e =>
+        e
+      end
+    
+    end
+  end
+end
 passive class Addition : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
-  def init(left : Expr, right : Expr) : void {
-    this.left = left;
-    this.right = right;
-  }
-  def Add() : Maybe (Expr, Expr)
-    Just (this.left, this.right)
-  def eval() : Expr {
-    val this' = new Addition(this.left.eval(), this.right.eval());
+  def init(left : Expr, right : Expr) : void
+    this.left = left
+    this.right = right
+  end
+  def Add() : Maybe[(Expr, Expr)]
+    Just((this.left, this.right))
+  end
+  def eval() : Expr
+    val this' = new Addition(this.left.eval(), this.right.eval())
     match this' with
-      Add(Val(0), r) => r
-      Add(l, Val(0)) => l
-      Add(l, Neg(e)) => (new Subtraction(l, e)).eval()
-      Add(Val(l), Val(r)) => new Value(l + r)
-      e => e
-    }
-
+      case Add(Val(0), r) =>
+        r
+      end
+      case Add(l, Val(0)) =>
+        l
+      end
+      case Add(l, Neg(e)) =>
+        (new Subtraction(l, e)).eval()
+      end
+      case Add(Val(l), Val(r)) =>
+        new Value(l + r)
+      end
+      case e =>
+        e
+      end
+    
+    end
+  end
+end
 passive class Subtraction : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
-  def init(left : Expr, right : Expr) : void {
-    this.left = left;
-    this.right = right;
-  }
-  def Sub() : Maybe (Expr, Expr)
-    Just (this.left, this.right)
-  def eval() : Expr {
-    val this' = new Subtraction(this.left.eval(), this.right.eval());
+  def init(left : Expr, right : Expr) : void
+    this.left = left
+    this.right = right
+  end
+  def Sub() : Maybe[(Expr, Expr)]
+    Just((this.left, this.right))
+  end
+  def eval() : Expr
+    val this' = new Subtraction(this.left.eval(), this.right.eval())
     match this' with
-      Sub(Val(0), r) => (new Negation(r)).eval()
-      Sub(l, Val(0)) => l
-      Sub(l, Neg(e)) => (new Addition(l, e)).eval()
-      Sub(Val(l), Val(r)) => new Value(l + r)
-      e => e
-    }
-
+      case Sub(Val(0), r) =>
+        (new Negation(r)).eval()
+      end
+      case Sub(l, Val(0)) =>
+        l
+      end
+      case Sub(l, Neg(e)) =>
+        (new Addition(l, e)).eval()
+      end
+      case Sub(Val(l), Val(r)) =>
+        new Value(l + r)
+      end
+      case e =>
+        e
+      end
+    
+    end
+  end
+end
 class Main
-  def main() : void {
-    val zero = new Value(0);
-    val two = new Value(2);
-    val minusTwo = new Negation(new Value(2));
-    val three = new Value(3);
-    val x = new Variable("x");
-    val e =
-      new Subtraction(x,
-                      new Addition(two,
-                                   minusTwo
-                                  )
-                     );
+  def main() : void
+    val zero = new Value(0)
+    val two = new Value(2)
+    val minusTwo = new Negation(new Value(2))
+    val three = new Value(3)
+    val x = new Variable("x")
+    val e = new Subtraction(x, new Addition(two, minusTwo))
     match e.eval() with
-      Var(x) => println("Simplified to '{}'", x)
-  }
+      case Var(x) =>
+        println("Simplified to '{}'", x)
+      end
+    
+    end
+  end
+end
+

@@ -1,8 +1,15 @@
+-- This file was automatically converted by encorec
+
 class Main
   def test() : void
     print("If you can read this, then recvNullCall failed")
+  end
   def main() : void
     let
-      x = null:Main
+      x = null : Main
     in
       x.test()
+    end
+  end
+end
+

@@ -1,19 +1,35 @@
-def pCreateTuple<v, k>(key: k, value: v): (k, v)
+-- This file was automatically converted by encorec
+
+fun pCreateTuple[v, k](key : k, value : v) : (k, v)
   (key, value)
-
-def pFlipInTuple<a, b>(tuple: (a, b)): (b, a)
+end
+fun pFlipInTuple[a, b](tuple : (a, b)) : (b, a)
   match tuple with
-  (x, y) => (y, x)
-
+    case (x, y) =>
+      (y, x)
+    end
+  
+  end
+end
 class Main
-  def main() : void {
-    val test1 = pCreateTuple("k", 12);
-    match test1 with {
-      (k, v) => print("Parametric tuple with key: '{}' and value '{}'\n", k, v)
-        _ => print("error in 'pMultipleParametricArguments'\n")
-    };
-
-    val testFlipTuple = pFlipInTuple(("Update tuple test", 23));
+  def main() : void
+    val test1 = pCreateTuple("k", 12)
+    match test1 with
+      case (k, v) =>
+        print("Parametric tuple with key: '{}' and value '{}'\n", k, v)
+      end
+      case _ =>
+        print("error in 'pMultipleParametricArguments'\n")
+      end
+    
+    end
+    val testFlipTuple = pFlipInTuple(("Update tuple test", 23))
     match testFlipTuple with
-      (v, k) => print("Flipped key {} with value {}", k, v);
-  }
+      case (v, k) =>
+        print("Flipped key {} with value {}", k, v)
+      end
+    
+    end
+  end
+end
+

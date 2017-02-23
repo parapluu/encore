@@ -1,21 +1,33 @@
-trait Result<b>
-  require Success() : Maybe b
-  def Fail() : Maybe int
-    Nothing
+-- This file was automatically converted by encorec
 
-passive class Success<b> : Result<b>(data)
-  data : b
+trait Result[b]
+  require def Success() : Maybe[b]
+  def Fail() : Maybe[int]
+    Nothing
+  end
+end
+passive class Success[b] : Result[b](data)
+  var data : b
   def init(data : b) : void
     this.data = data
-
-  def Success() : Maybe b
-    Just this.data
-
+  end
+  def Success() : Maybe[b]
+    Just(this.data)
+  end
+end
 class Main
-  foo : Result<int>
-  def main() : void {
-    this.foo = new Success<int>(5);
+  var foo : Result[int]
+  def main() : void
+    this.foo = new Success[int](5)
     match this.foo with
-      Fail(n) => print("This shouldn't happen!")
-      Success(x) => println("It's a success! The resulting value is {}", x)
-  }
+      case Fail(n) =>
+        print("This shouldn't happen!")
+      end
+      case Success(x) =>
+        println("It's a success! The resulting value is {}", x)
+      end
+    
+    end
+  end
+end
+

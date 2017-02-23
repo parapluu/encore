@@ -1,21 +1,26 @@
-def id(x:int) : int
-  x
+-- This file was automatically converted by encorec
 
+fun id(x : int) : int
+  x
+end
 class Test
   def f() : int
     1
-
-  def g(f: int -> int) : int
+  end
+  def g(f : int -> int) : int
     f(this.f())
-
+  end
+end
 class Main
-  def main(): void{
-    var v = 0;
-    repeat i <- 1000 {
-      val t = new Test;
-      get t.f();
-      val f = \(x:int) -> id(x);
-      v = v + get t.g(f);
-    };
-    print v;
-  }
+  def main() : void
+    var v = 0
+    repeat i <- 1000 do
+      val t = new Test
+      get(t.f())
+      val f = fun (x : int) => id(x)
+      v = v + get(t.g(f))
+    end
+    println(v)
+  end
+end
+

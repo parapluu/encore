@@ -1,8 +1,12 @@
+-- This file was automatically converted by encorec
+
 module Lib
-
-def bar() : int
+fun bar() : int
   10
-
+end
 passive class Foo
   def name() : String
     "Foo"
+  end
+end
+

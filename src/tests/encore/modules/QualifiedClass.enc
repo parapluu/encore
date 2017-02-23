@@ -1,6 +1,13 @@
-import qualified Lib
+-- This file was automatically converted by encorec
 
+import qualified Lib
 class Main
   def main() : void
-    let x = new Lib.Foo : Lib.Foo
-    in print x.name()
+    let
+      x = new Lib.Foo : Lib.Foo
+    in
+      println(x.name())
+    end
+  end
+end
+

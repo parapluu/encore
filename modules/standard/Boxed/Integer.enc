@@ -1,15 +1,16 @@
--- A boxed integer.
-passive class Integer {
-  value : int
-  def init(x: int) : void {
-    this.value = x;
-  }
+-- This file was automatically converted by encorec
 
-  def show() : String {
+module Integer
+
+passive class Integer
+  var value : int
+  def init(x : int) : void
+    this.value = x
+  end
+  def show() : String
     string_from_int(this.value)
-  }
-
-  def value() : int {
+  end
+  def value() : int
     this.value
-  }
-}
+  end
+end

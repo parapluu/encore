@@ -1,25 +1,30 @@
-def foo() : Foo{
-  var x = 42;
-  while x < 0 {
-    x = x - 1;
-    null;
-  }
-}
+-- This file was automatically converted by encorec
 
+fun foo() : Foo
+  var x = 42
+  while x < 0 do
+    x = x - 1
+  end
+  null
+end
 class Foo
   def foo() : void
     ()
-
+  end
+end
 class Main
-  def main() : void {
-    var x = null : Foo;
-    val y = Just (null : Foo);
-    val f = \ () -> null : Foo;
-    null : Foo;
+  def main() : void
+    var x = null : Foo
+    val y = Just(null : Foo)
+    val f = fun () => null : Foo
+    null : Foo
     (if false then
-      null
-    else
-      new Foo)!foo();
-    x = foo();
-    print "I ain't scared of no null!";
-  }
+       null
+     else
+       new Foo
+     end)!foo()
+    x = foo()
+    println("I ain't scared of no null!")
+  end
+end
+

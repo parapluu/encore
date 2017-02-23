@@ -1,31 +1,44 @@
-def foo(x : T + U) : void
+-- This file was automatically converted by encorec
+
+fun foo(x : T + U) : void
   ()
-
+end
 trait T
-  require f() : Maybe int
-
+  require def f() : Maybe[int]
+end
 trait U
-  require g() : Maybe T + U
-
+  require def g() : Maybe[T + U]
+end
 passive class C : T + U
-  def f() : Maybe int
-    Just 42
-
-  def g() : Maybe T + U
+  def f() : Maybe[int]
+    Just(42)
+  end
+  def g() : Maybe[T + U]
     Nothing
-
-
+  end
+end
 class Main
   def main() : void
-    let c = new C : T + U
-        x = if false then
-              null
-            else
-              c
-        y = foo(null)
-    in {
+    let
+      c = new C : T + U
+      x = if false then
+            null
+          else
+            c
+          end
+      y = foo(null)
+    in
       match c with
-        g(x) => print "This should not happen"
-        f(n) => print n;
-      print "Done!"
-    }
+        case g(x) =>
+          println("This should not happen")
+        end
+        case f(n) =>
+          println(n)
+        end
+      
+      end
+      println("Done!")
+    end
+  end
+end
+

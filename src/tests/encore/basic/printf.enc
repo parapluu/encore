@@ -1,15 +1,19 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    for i in [1..9] {
-      println("The square of {} is {}", i, i*i);
-    };
-    val row = [false, true];
-    for b1 in row {
-      for b2 in row {
-        println("{} | {}", (b1, b2), b1 and b2);
-      }
-    };
-    println("void = {}", ());
-    println("Zero is {}", Nothing : Maybe int);
-    println("The answer is {}", Just 42);
-  }
+  def main() : void
+    for i <- [1..9] do
+      println("The square of {} is {}", i, i * i)
+    end
+    val row = [false, true]
+    for b1 <- row do
+      for b2 <- row do
+        println("{} | {}", (b1, b2), b1 && b2)
+      end
+    end
+    println("void = {}", ())
+    println("Zero is {}", Nothing : Maybe[int])
+    println("The answer is {}", Just(42))
+  end
+end
+

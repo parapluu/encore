@@ -1,4 +1,8 @@
-class Main 
+-- This file was automatically converted by encorec
+
+class Main
   def main() : void
-    print "Hello Ponyworld!"
+    println("Hello Ponyworld!")
+  end
+end
 

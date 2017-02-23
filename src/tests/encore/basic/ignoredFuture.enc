@@ -1,8 +1,15 @@
+-- This file was automatically converted by encorec
+
 class Foo
   def foo() : void
-    print "foo"
-
+    println("foo")
+  end
+end
 class Main
   def main() : void
     if true then
       (new Foo).foo()
+    end
+  end
+end
+

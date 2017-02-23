@@ -1,13 +1,18 @@
+-- This file was automatically converted by encorec
+
 class Main
-    def main() : void
-        let
-            nothing = "blingbling"
-            ping = true
-            anders = true
-        in{
-            print(nothing);
-            print(not(ping));
-            print(not     ping);
-            print(not anders);
-            print(ping and anders);
-         }
+  def main() : void
+    let
+      nothing = "blingbling"
+      ping = true
+      anders = true
+    in
+      println(nothing)
+      println(not(ping))
+      println(not(ping))
+      println(not(anders))
+      println(ping && anders)
+    end
+  end
+end
+

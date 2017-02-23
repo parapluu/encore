@@ -1,9 +1,20 @@
--- See https://github.com/parapluu/mylittlepony/issues/7
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    let result = embed int
-      printf("Hello, world!\n");
+    let
+      result = EMBED (int)
+                 printf("Hello, world!\n");
       27;
-    end in
-      if result == 27 then print "Test OK"
-      else print "Test failed"
+   
+               END
+    in
+      if result == 27 then
+        println("Test OK")
+      else
+        println("Test failed")
+      end
+    end
+  end
+end
+

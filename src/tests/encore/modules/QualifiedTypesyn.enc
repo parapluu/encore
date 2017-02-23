@@ -1,7 +1,14 @@
+-- This file was automatically converted by encorec
+
 import qualified A.B.QLib
 import A.B.QLib
-
 class Main
   def main() : void
-    let x = new A.B.QLib.QFoo() : X
-    in print x.name()
+    let
+      x = new A.B.QLib.QFoo() : X
+    in
+      println(x.name())
+    end
+  end
+end
+

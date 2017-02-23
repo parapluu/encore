@@ -1,6 +1,10 @@
+-- This file was automatically converted by encorec
+
 import Lib
 import Lib as X
-
 class Main
   def main() : void
-    print bar() + Lib.bar() + X.bar()
+    println(bar() + Lib.bar() + X.bar())
+  end
+end
+

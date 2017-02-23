@@ -1,15 +1,16 @@
--- A boxed Real number.
-passive class Real {
-  value : real
-  def init(x: real) : void {
-    this.value = x;
-  }
+-- This file was automatically converted by encorec
 
-  def show() : String {
+module Real
+
+passive class Real
+  var value : real
+  def init(x : real) : void
+    this.value = x
+  end
+  def show() : String
     string_from_real(this.value)
-  }
-
-  def value() : real {
+  end
+  def value() : real
     this.value
-  }
-}
+  end
+end

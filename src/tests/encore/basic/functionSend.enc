@@ -1,6 +1,15 @@
+-- This file was automatically converted by encorec
+
 class Main
   def app(f : String -> void, s : String) : void
     f(s)
+  end
   def main() : void
-    let f = \(s : String) -> print s in
+    let
+      f = fun (s : String) => println(s)
+    in
       this.app(f, "Hello ponyworld")
+    end
+  end
+end
+

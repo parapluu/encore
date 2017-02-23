@@ -1,33 +1,40 @@
+-- This file was automatically converted by encorec
+
 module ParT
-
-def empty<a>(): Par a
-  embed Par a
+fun empty[a]() : Par[a]
+  EMBED (Par[a])
     new_par_empty(_ctx, runtimeType[0]);
-  end
 
-def filter<a>(fn: a -> bool, ps: Par a): Par a
-  join(ps >> \(item: a) -> if fn(item) then liftv(item)
-                           else empty<a>())
-
-def bind<a, b>(fn: a -> Par b, p: Par a): Par b
+  END
+end
+fun filter[a](fn : a -> bool, ps : Par[a]) : Par[a]
+  join(ps >> fun (item : a) => if fn(item) then
+                                 liftv(item)
+                               else
+                                 empty[a]()
+                               end)
+end
+fun bind[a, b](fn : a -> Par[b], p : Par[a]) : Par[b]
   join(p >> fn)
-
-def foreachp<t>(p: Par t, fn: t -> void): Par void
+end
+fun foreachp[t](p : Par[t], fn : t -> void) : Par[void]
   p >> fn
-
-def aggregate<t, a, r>(p: Par t, var init: a, fn1: (a, t) -> a, fn2: a -> r): Par r
+end
+fun aggregate[t, a, r](p : Par[t], var init : a, fn1 : (a, t) -> a, fn2 : a -> r) : Par[r]
   liftf(reduce(fn1, init, p)) >> fn2
-
-def intersection<t>(p1 : Par t, p2: Par t, cmp: (t, t) -> int): Par t
-  embed (Par t)
+end
+fun intersection[t](p1 : Par[t], p2 : Par[t], cmp : (t, t) -> int) : Par[t]
+  EMBED (Par[t])
     party_intersection(_ctx, #{p1}, #{p2}, #{cmp}, _enc__type_t);
-  end
 
-def distinct<t>(p: Par t, cmp: (t, t) -> int): Par t
-  embed (Par t)
+  END
+end
+fun distinct[t](p : Par[t], cmp : (t, t) -> int) : Par[t]
+  EMBED (Par[t])
     party_distinct(_ctx, #{p}, #{cmp}, _enc__type_t);
-  end
 
-
-def union<t>(pl: Par t, pr: Par t, cmp: (t, t) -> int): Par t
-  distinct(pl || pr, cmp)
+  END
+end
+fun union[t](pl : Par[t], pr : Par[t], cmp : (t, t) -> int) : Par[t]
+  distinct(pl ||| pr, cmp)
+end

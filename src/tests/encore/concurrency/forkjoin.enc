@@ -1,31 +1,37 @@
+-- This file was automatically converted by encorec
+
 import Task
-    
-def sum(arr : [int], from:int, to:int) : int {
-  var sum = 0 ;
-  repeat i <- (to - from)
-    sum = sum + arr[from + i] ;
-  sum ;
-}
-
-def sum_async(arr : [int], from : int, to : int) : int 
-  if to - from > (1024) then
+fun sum(arr : [int], from : int, to : int) : int
+  var sum = 0
+  repeat i <- to - from do
+    sum = sum + arr(from + i)
+  end
+  sum
+end
+fun sum_async(arr : [int], from : int, to : int) : int
+  if to - from > 1024 then
     let
-      pivot = from + ((to - from) / 2)
-      left = async sum_async(arr, from, pivot)
-      right = async sum_async(arr, pivot, to)
-    in 
-      (get left) + (get right) 
+      pivot = from + to - from / 2
+      left = async(sum_async(arr, from, pivot))
+      right = async(sum_async(arr, pivot, to))
+    in
+      get(left) + get(right)
+    end
   else
-      sum(arr, from, to) 
-
+    sum(arr, from, to)
+  end
+end
 class Main
   def main() : void
     let
-      size = 16 * 1024*1024
+      size = 16 * 1024 * 1024
       array = new [int](size)
-    in {
-      repeat i <- |array|
-        array[i] = 10; 
+    in
+      repeat i <- |array| do
+        array(i) = 10
+      end
+      print("Sum: {}\n", sum(array, 0, size))
+    end
+  end
+end
 
-      print("Sum: {}\n", sum(array, 0, size));
-    }

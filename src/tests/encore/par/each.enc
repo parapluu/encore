@@ -1,39 +1,54 @@
-def presetArray(size: int): [int]
-  let arr = new [int](size)
-  in {
-    for i in [0..size-1] arr[i] = i;
-    arr;
-  }
+-- This file was automatically converted by encorec
 
-
+fun presetArray(size : int) : [int]
+  let
+    arr = new [int](size)
+  in
+    for i <- [0..size - 1] do
+      arr(i) = i
+    end
+    arr
+  end
+end
 class Main
-  check_arr: [bool]
-  size: int
+  var check_arr : [bool]
+  var size : int
+  def setup() : void
+    this.size = 2000
+    this.check_arr = new [bool](this.size)
+    for v <- [0..this.size] do
+      (this.check_arr)(v) = false
+    end
+  end
+  def test_setting_array() : void
+    let
+      arr = presetArray(this.size)
+    in
+      each(arr) >> fun (i : int) 
+                     (this.check_arr)(i) = true
+                     i
+                   end >> fun (i : int) => assertTrue((this.check_arr)(i))
+    end
+  end
+  def test_split_words_and_print() : void
+    let
+      words = (new String("this is a test")).split(" ")
+    in
+      each(words) >> fun (w : String) => print("Word: {}\n", w)
+    end
+  end
+  def test_array_of_one() : void
+    let
+      arr = presetArray(1)
+    in
+      each(arr) >> fun (x : int) => print("result: {}", x + 1)
+    end
+  end
+  def main() : void
+    this.setup()
+    this.test_setting_array()
+    this.test_split_words_and_print()
+    this.test_array_of_one()
+  end
+end
 
-  def setup(): void {
-    this.size = 2000;
-    this.check_arr = new [bool](this.size);
-    for v in [0..this.size] this.check_arr[v] = false;
-  }
-
-  def test_setting_array(): void
-    let arr = presetArray(this.size) in
-    each(arr) >> (\(i: int) -> { this.check_arr[i] = true; i; } )
-              >> \(i: int) -> assertTrue(this.check_arr[i])
-
-  def test_split_words_and_print(): void {
-    let words = (new String("this is a test")).split(" ")
-    in (each(words)) >> (\(w: String) -> print("Word: {}\n", w))
-  }
-
-  def test_array_of_one(): void{
-    let arr = presetArray(1) in
-      each(arr) >> (\(x: int) -> print("result: {}", x + 1))
-  }
-
-  def main(): void {
-    this.setup();
-    this.test_setting_array();
-    this.test_split_words_and_print();
-    this.test_array_of_one();
-  }

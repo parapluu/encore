@@ -1,25 +1,30 @@
-def foo() : (Maybe int, Maybe int) {
+-- This file was automatically converted by encorec
+
+fun foo() : (Maybe[int], Maybe[int])
   if false then
     Nothing
   else
-    Just (Just 42);
-  if true then{
-    if false then{
-      (Just 42, Nothing : Maybe int)
-    } else{
-      (Nothing, Just 42)
-    }
-  } else {
+    Just(Just(42))
+  end
+  if true then
+    if false then
+      (Just(42), Nothing : Maybe[int])
+    else
+      (Nothing, Just(42))
+    end
+  else
     (Nothing, Nothing)
-  }
-}
-
-
-class Main {
-  def main() : void {
+  end
+end
+class Main
+  def main() : void
     match foo() with
-      (Nothing, Just x) => print x
-    ;
-    print "Done!"
-  }
-}
+      case (Nothing, Just(x)) =>
+        println(x)
+      end
+    
+    end
+    println("Done!")
+  end
+end
+

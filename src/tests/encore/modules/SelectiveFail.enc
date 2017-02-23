@@ -1,8 +1,11 @@
 import SelectiveLib
 
-def foo() : void
-  print "This is foo"
+fun foo() : void
+  println("This is foo")
+end
 
 class Main
   def main() : void
     foo()
+  end
+end

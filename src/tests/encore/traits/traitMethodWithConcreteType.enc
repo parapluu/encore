@@ -1,29 +1,31 @@
-def showBar(b : Bar<String>) : void
-  print b.bar()
+-- This file was automatically converted by encorec
 
-trait Foo<t> {
-  require x:t
-  def getX() : t {
+fun showBar(b : Bar[String]) : void
+  println(b.bar())
+end
+trait Foo[t]
+  require var x : t
+  def getX() : t
     this.x
-  }
-}
-
-trait Bar<t> {
-  require bar() : t
-}
-
-passive class C : Foo<int> + Bar<String> {
-  x:int
+  end
+end
+trait Bar[t]
+  require def bar() : t
+end
+passive class C : Foo[int] + Bar[String]
+  var x : int
   def init() : void
     this.x = 42
+  end
   def bar() : String
     "bar"
-}
+  end
+end
+class Main
+  def main() : void
+    val c = new C()
+    println(c.getX())
+    showBar(c)
+  end
+end
 
-class Main {
-  def main() : void {
-    val c = new C();
-    print c.getX();
-    showBar(c);
-  }
-}

@@ -1,16 +1,23 @@
+-- This file was automatically converted by encorec
+
 typedef D = T
-
 trait T
-
+end
 passive class C : D
-
+end
 class Main
   def foo(x : T) : void
     print("moo")
-
+  end
   def bar(x : D) : void
     ()
+  end
   def main() : void
-    let x = new C
+    let
+      x = new C
     in
       this.foo(x)
+    end
+  end
+end
+

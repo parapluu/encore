@@ -1,23 +1,27 @@
-class Main
-  def foo() : int {
-    0;
-  }
+-- This file was automatically converted by encorec
 
+class Main
+  def foo() : int
+    0
+  end
   def main() : void
     let
       t = new Test
     in
-      {
-        t ! fst(this);
-        t ! snd();
-      }
-
+      t!fst(this)
+      t!snd()
+    end
+  end
+end
 class Test
-  def fst(m:Main) : void {
-    print "Before suspend";
-    get m.foo();
-    suspend;
-    print "After suspend";
-  }
+  def fst(m : Main) : void
+    println("Before suspend")
+    get(m.foo())
+    suspend
+    println("After suspend")
+  end
   def snd() : void
-    print "Interleaving!"
+    println("Interleaving!")
+  end
+end
+

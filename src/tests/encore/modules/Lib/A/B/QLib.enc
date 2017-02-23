@@ -5,7 +5,11 @@ typedef X = QFoo
 trait T
   def zero() : int
     0
+  end
+end
 
 passive class QFoo : T
   def name() : String
     "QFoo"
+  end
+end

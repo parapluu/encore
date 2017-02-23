@@ -1,1 +1,5 @@
-trait T<int>
+-- This file was automatically converted by encorec
+
+trait T[int]
+end
+

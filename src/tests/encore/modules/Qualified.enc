@@ -1,10 +1,14 @@
-import A.B.QLib
+-- This file was automatically converted by encorec
 
+import A.B.QLib
 class Main
   def main() : void
     let
       f = new QFoo
-    in {
-      print (f.name());
+    in
+      println(f.name())
       ()
-    }
+    end
+  end
+end
+

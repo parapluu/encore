@@ -1,42 +1,45 @@
+-- This file was automatically converted by encorec
+
 class Streamer
-  stream even(n : int) : int{
-    var i = 0;
-    while i < n {
-      yield i;
-      i = i + 2;
-    }
-  }
-
-  stream odd(n : int) : int{
-    var i = 1;
-    while i < n{
-      yield i;
-      i = i + 2;
-    }
-  }
-
+  stream even(n : int) : int
+    var i = 0
+    while i < n do
+      yield(i)
+      i = i + 2
+    end
+  end
+  stream odd(n : int) : int
+    var i = 1
+    while i < n do
+      yield(i)
+      i = i + 2
+    end
+  end
+end
 class Combinator
-  stream interleave(s1 : Stream int, s2 : Stream int) : int{
-    var s1 = s1;
-    var s2 = s2;
-    while ((not eos s1) and (not eos s2)) {
-      yield get s1;
-      yield get s2;
-      s1 = getNext s1;
-      s2 = getNext s2;
-    }
-  }
-
+  stream interleave(s1 : Stream[int], s2 : Stream[int]) : int
+    var s1 = s1
+    var s2 = s2
+    while not(eos(s1)) && not(eos(s2)) do
+      yield(get(s1))
+      yield(get(s2))
+      s1 = getNext(s1)
+      s2 = getNext(s2)
+    end
+  end
+end
 class Main
-  def main() : void {
-    val x = new Streamer;
-    val even = x.even(10);
-    val odd  = x.odd(10);
-    val c = new Combinator;
-    var range = c.interleave(even, odd);
-    while (not eos range) {
-      print get range;
-      range = getNext range;
-    };
-    print "Done!"
-  }
+  def main() : void
+    val x = new Streamer
+    val even = x.even(10)
+    val odd = x.odd(10)
+    val c = new Combinator
+    var range = c.interleave(even, odd)
+    while not(eos(range)) do
+      println(get(range))
+      range = getNext(range)
+    end
+    println("Done!")
+  end
+end
+

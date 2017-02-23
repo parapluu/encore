@@ -1,19 +1,23 @@
+-- This file was automatically converted by encorec
+
 class Foo
-  def foo() : String {
-    val s =
-      embed (embed char* end)
-        char *s = encore_alloc(*_ctx, 1000);
+  def foo() : String
+    val s = EMBED (EMBED char* END)
+              char *s = encore_alloc(*_ctx, 1000);
         strcpy(s, "Hello");
         s;
-      end;
-    new String(s);
-  }
-
+     
+            END
+    new String(s)
+  end
+end
 class Main
-  def main() : void {
-    val x = new Foo();
-    for i in [0..20] {
-      val s = get x.foo();
-      println("{} {}", s, i);
-    };
-  }
+  def main() : void
+    val x = new Foo()
+    for i <- [0..20] do
+      val s = get(x.foo())
+      println("{} {}", s, i)
+    end
+  end
+end
+

@@ -1,1 +1,4 @@
-typedef T<int> = int
+-- This file was automatically converted by encorec
+
+typedef T[int] = int
+

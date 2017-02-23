@@ -1,3 +1,7 @@
+-- This file was automatically converted by encorec
+
 module Utils
-def id(x: String): String
+fun id(x : String) : String
   x
+end
+

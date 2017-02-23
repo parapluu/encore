@@ -1,21 +1,28 @@
+-- This file was automatically converted by encorec
+
 class Foo
-  f: (int, int)
-
-  def init(): void
-    this.f = (1,3)
-
-  def p(): void
-    print this.f
-
-  def tryForceGc(): void {
-    "dummy";
-    new [int](100000);
-  }
-
+  var f : (int, int)
+  def init() : void
+    this.f = (1, 3)
+  end
+  def p() : void
+    println(this.f)
+  end
+  def tryForceGc() : void
+    "dummy"
+    new [int](100000)
+  end
+end
 class Main
-  def main(): void
-    let f = new Foo() in {
-      repeat j <- 10
-        f.tryForceGc();
+  def main() : void
+    let
+      f = new Foo()
+    in
+      repeat j <- 10 do
+        f.tryForceGc()
+      end
       f.p()
-    }
+    end
+  end
+end
+

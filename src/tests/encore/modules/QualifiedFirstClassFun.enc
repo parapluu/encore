@@ -1,10 +1,13 @@
+-- This file was automatically converted by encorec
+
 import Top
-
-def apply(f : () -> int) : int
+fun apply(f : () -> int) : int
   f()
-
+end
 class Main
-  def main() : void {
-    print apply(top);
-    print apply(Top.top)
-  }
+  def main() : void
+    println(apply(top))
+    println(apply(Top.top))
+  end
+end
+

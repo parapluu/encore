@@ -1,22 +1,28 @@
-passive class Foo<a>
+-- This file was automatically converted by encorec
+
+passive class Foo[a]
   def foo() : int
     13 + 14 + id(15)
   where
-    def id<t>(x : t) : t
+    fun id[t](x : t) : t
       x
+    end
   end
-
-  def id<t>(x : t) : t
+  def id[t](x : t) : t
     myOtherId(myId(x))
   where
-    def myId<t>(x : t) : t
+    fun myId[t](x : t) : t
       x
-    def myOtherId<b>(x : b) : b
+    end
+    fun myOtherId[b](x : b) : b
       x
+    end
   end
-
+end
 class Main
-  def main() : void {
-    val x = new Foo<int>;
-    print x.id<int>(x.foo())
-  }
+  def main() : void
+    val x = new Foo[int]
+    println(x.id(x.foo()))
+  end
+end
+

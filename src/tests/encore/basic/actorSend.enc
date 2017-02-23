@@ -1,17 +1,30 @@
-class Main
-  def main() : Fut (Fut void)
-    let other = new Other
-        another = new Other
-    in
-      {other.setOther(another);
-       other.work()}
+-- This file was automatically converted by encorec
 
 class Other
-  other : Other
+  var other : Other
   def setOther(va : Other) : void
     this.other = va
-  def work() : Fut void
-    let othertmp = this.other in
+  end
+  def work() : Fut[void]
+    let
+      othertmp = this.other
+    in
       othertmp.printMsg()
+    end
+  end
   def printMsg() : void
-    print "Hello Actorworld!"
+    println("Hello Actorworld!")
+  end
+end
+class Main
+  def main() : Fut[Fut[void]]
+    let
+      other = new Other
+      another = new Other
+    in
+      other.setOther(another)
+      other.work()
+    end
+  end
+end
+

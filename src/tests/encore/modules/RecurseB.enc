@@ -2,9 +2,12 @@ module RecurseB
 
 import RecurseA
 
-def bar() : int
+fun bar() : int
   11
+end
 
 class Main
   def main() : void
-    print "In RecurseB"
+    print("In RecurseB")
+  end
+end

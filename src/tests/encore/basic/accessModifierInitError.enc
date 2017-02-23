@@ -1,7 +1,12 @@
-class Test
-  def private init(): void
-    ()
+-- This file was automatically converted by encorec
 
 class Main
-  def main(): void
+  def main() : void
     new Test
+  end
+end
+class Test
+  def private init() : void
+    ()
+  end
+end

@@ -7,9 +7,10 @@ import Foo
 import Bar
 
 class Main
-  def main() : void {
-    foo();
-    bar();
-    print "Hello mixed literate world!"
-  }
+  def main() : void
+    foo()
+    bar()
+    println("Hello mixed literate world!")
+  end
+end
 #+end_src encore

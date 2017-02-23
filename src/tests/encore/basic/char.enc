@@ -1,10 +1,16 @@
-def id(c : char) : char
-  c
+-- This file was automatically converted by encorec
 
+fun id(c : char) : char
+  c
+end
 class Main
   def main() : void
-    let break = '\n'
-        bang = '!'
-    in{
-      print("Hello char world{}{}", bang, id(break));
-    }
+    let
+      break = '\n'
+      bang = '!'
+    in
+      print("Hello char world{}{}", bang, id(break))
+    end
+  end
+end
+

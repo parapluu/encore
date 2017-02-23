@@ -1,10 +1,16 @@
+-- This file was automatically converted by encorec
+
 typedef A = int
-
-def foo(x:A,f:A->A) : A
+fun foo(x : A, f : A -> A) : A
   f(x)
-
+end
 class Main
-  def main() : void {
-    let f = \(x:A) -> x*100 in
-    print foo(9,f)
-  }
+  def main() : void
+    let
+      f = fun (x : A) => x * 100
+    in
+      println(foo(9, f))
+    end
+  end
+end
+

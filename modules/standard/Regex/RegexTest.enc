@@ -1,23 +1,36 @@
+-- This file was automatically converted by encorec
+
 import Regex
-
 class Main
-  def findRegex(regex: Regex, s: String): void
+  def findRegex(regex : Regex, s : String) : void
     match regex.exec(s) with
-      Just true => {
-                     print("Number matches: {}\n", regex.matches());
-                     for i in [1..regex.matches()]
-                       print("Found: {}\n", regex.getAt(i));
-                     }
-      Just false => print("No pattern found")
-      Nothing => print("Error")
-
-  def main(): void
-    let pattern = "([a-z]+@[a-z]+\\.\\w+)"
-        regex = new Regex(pattern, 200)
-        result = regex.compile()
+      case Just(true) =>
+        print("Number matches: {}\n", regex.matches())
+        for i <- [1..regex.matches()] do
+          print("Found: {}\n", regex.getAt(i))
+        end
+      end
+      case Just(false) =>
+        print("No pattern found")
+      end
+      case Nothing =>
+        print("Error")
+      end
+    
+    end
+  end
+  def main() : void
+    let
+      pattern = "([a-z]+@[a-z]+\\.\\w+)"
+      regex = new Regex(pattern, 200)
+      result = regex.compile()
     in
-      if result then {
-        this.findRegex(regex, "a very sim test@noreply.com sdsd");
-        this.findRegex(regex, "nothing to find");
-        regex.close();
-      }
+      if result then
+        this.findRegex(regex, "a very sim test@noreply.com sdsd")
+        this.findRegex(regex, "nothing to find")
+        regex.close()
+      end
+    end
+  end
+end
+

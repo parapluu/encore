@@ -18,13 +18,17 @@
         "async"
         "await"
         "by"
+        "case"
         "chain"
         "class"
         "def"
+        "do"
         "else"
+        "end"
         "eos"
         "for"
         "foreach"
+        "fun"
         "get"
         "getNext"
         "hiding"
@@ -64,9 +68,9 @@
 
 (setq encore-danger-words
       '(
-        "body"
-        "embed"
-        "end"
+        "BODY"
+        "EMBED"
+        "END"
         ))
 (setq encore-constants
       '(

@@ -1,52 +1,51 @@
+-- This file was automatically converted by encorec
+
 import Active.Active
-
-def getActiveInt() : Active<int> {
-  new Active<int>(\ () -> 1)
-}
-
-def getActiveFoo() : Active<Foo> {
-  new Active<Foo>(\ () -> new Foo())
-}
-
-def testInit() : void {
-  getActiveInt();
-  getActiveFoo();
-}
-
-def testMap() : void {
-  let a = getActiveInt() in {
-    assertTrue(1 == get a.getState());
-    a.map(\ (i:int) -> i+1);
-    assertTrue(2 == get a.getState());
-  }
-}
-
-def testApply() : void {
-  let a = getActiveFoo() in {
-    assertTrue(1 == (get a.getState()).read());
-    a.apply(\ (x:Foo) -> x.foo());
-    assertTrue(2 == (get a.getState()).read());
-  }
-}
-
-passive class Foo {
-  f : int
-
+fun getActiveInt() : Active[int]
+  new Active[int](fun () => 1)
+end
+fun getActiveFoo() : Active[Foo]
+  new Active[Foo](fun () => new Foo())
+end
+fun testInit() : void
+  getActiveInt()
+  getActiveFoo()
+end
+fun testMap() : void
+  let
+    a = getActiveInt()
+  in
+    assertTrue(1 == get(a.getState()))
+    a.map(fun (i : int) => i + 1)
+    assertTrue(2 == get(a.getState()))
+  end
+end
+fun testApply() : void
+  let
+    a = getActiveFoo()
+  in
+    assertTrue(1 == (get(a.getState())).read())
+    a.apply(fun (x : Foo) => x.foo())
+    assertTrue(2 == (get(a.getState())).read())
+  end
+end
+passive class Foo
+  var f : int
   def init() : void
     this.f = 1
-
+  end
   def foo() : void
-    this.f = this.f*2
-
+    this.f = this.f * 2
+  end
   def read() : int
     this.f
-}
-
-class Main {
-  def main() : void {
-    testInit();
-    testMap();
-    testApply();
-    print "All tests passed!"
-  }
-}
+  end
+end
+class Main
+  def main() : void
+    testInit()
+    testMap()
+    testApply()
+    println("All tests passed!")
+  end
+end

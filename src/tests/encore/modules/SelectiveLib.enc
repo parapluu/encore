@@ -1,7 +1,10 @@
+-- This file was automatically converted by encorec
+
 module SelectiveLib
+fun foo() : void
+  println("Foo")
+end
+fun bar() : int
+  10
+end
 
-def foo() : void
-    print "Foo"
-
-def bar() : int
-    10

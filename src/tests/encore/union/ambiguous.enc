@@ -1,22 +1,29 @@
+-- This file was automatically converted by encorec
+
 trait Foo
   def foo() : void
-    print "In Foo"
-
+    println("In Foo")
+  end
+end
 trait Bar
   def foo() : void
-    print "In Bar"
-
+    println("In Bar")
+  end
+end
 trait Baz
-
+end
 passive class C1 : Foo + Baz
-
+end
 passive class C2 : Bar + Baz
-
+end
 class Main
-  def main(): void {
+  def main() : void
     val x = if true then
               new C1
             else
-              new C2;
-    x.foo();
-  }
+              new C2
+            end
+    x.foo()
+  end
+end
+

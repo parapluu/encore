@@ -1,12 +1,14 @@
+-- This file was automatically converted by encorec
+
 import Task
-
-def foreach_f(max_iterations: int, fn: int -> void): void {
-  repeat i <- max_iterations {
-    async(fn(42)); -- change to i to get all numbers
-  };
-}
-
+fun foreach_f(max_iterations : int, fn : int -> void) : void
+  repeat i <- max_iterations do
+    async(fn(42))
+  end
+end
 class Main
-  def main(): void {
-      foreach_f(300, \(x: int) -> print x)
-  }
+  def main() : void
+    foreach_f(300, fun (x : int) => println(x))
+  end
+end
+

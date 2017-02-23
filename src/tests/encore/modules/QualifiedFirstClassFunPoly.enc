@@ -1,10 +1,13 @@
+-- This file was automatically converted by encorec
+
 import Top
-
-def apply<a, b>(f : a -> b, x : a) : b
+fun apply[a, b](f : a -> b, x : a) : b
   f(x)
-
+end
 class Main
-  def main() : void {
-    print apply(id<int>, 10);
-    print apply(Top.id<int>, 10)
-  }
+  def main() : void
+    println(apply(id[int], 10))
+    println(apply(Top.id[int], 10))
+  end
+end
+

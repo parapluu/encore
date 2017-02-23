@@ -1,11 +1,21 @@
-class Main
-  def main() : Fut void
-    let other = new Other("Hello Ponyworld-message") in
-      other.work()
+-- This file was automatically converted by encorec
 
+class Main
+  def main() : Fut[void]
+    let
+      other = new Other("Hello Ponyworld-message")
+    in
+      other.work()
+    end
+  end
+end
 class Other
-  message : String
+  var message : String
   def init(va : String) : void
     this.message = va
+  end
   def work() : void
-    print this.message
+    println(this.message)
+  end
+end
+

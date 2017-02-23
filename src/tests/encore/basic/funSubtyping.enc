@@ -1,22 +1,26 @@
-def fun(x : Animal) : Dog {
+-- This file was automatically converted by encorec
+
+fun fn(x : Animal) : Dog
   new Dog
-}
-
+end
 trait Animal
-  require speak() : void
-
+  require def speak() : void
+end
 passive class Dog : Animal
   def speak() : void
-    print "Woof"
-
+    println("Woof")
+  end
+end
 passive class Cat : Animal
   def speak() : void
-    print "Meow"
+    println("Meow")
+  end
+end
+class Main
+  def main() : void
+    val f = fn : Cat -> Animal
+    val animal = f(new Cat)
+    animal.speak()
+  end
+end
 
-class Main {
-  def main() : void {
-    val f = fun : Cat -> Animal;
-    val animal = f(new Cat);
-    animal.speak();
-  }
-}

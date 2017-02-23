@@ -623,44 +623,61 @@ instance Checkable Expr where
     --  B'(t) = t'
     -- --------------------------------------
     --  E |- f(arg1, .., argn) : t'
-    doTypecheck fcall@(FunctionCall {qname, args, typeArguments}) = do
+    doTypecheck fcall@(FunctionCall {emeta, qname, args, typeArguments}) = do
       result <- findVar qname
       (qname', ty) <- case result of
         Just (qname', ty) -> return (qname', ty)
         Nothing -> tcError $ UnboundFunctionError qname
 
-      let typeParams = getTypeParameters ty
-          argTypes = getArgTypes ty
-          uniquify = uniquifyTypeVars typeParams
-          resultType = getResultType ty
+      if isArrayType ty && length args == 1 then
+          doTypecheck ArrayAccess{emeta
+                                 ,target = VarAccess{emeta, qname}
+                                 ,index = head args}
+      else do
+        let typeParams = getTypeParameters ty
+            argTypes = getArgTypes ty
+            uniquify = uniquifyTypeVars typeParams
+            resultType = getResultType ty
 
-      unless (isArrowType ty) $
-        tcError $ NonFunctionTypeError ty
-      unless (length args == length argTypes) $
-        tcError $ WrongNumberOfFunctionArgumentsError
-                    qname (length argTypes) (length args)
+        unless (isArrowType ty) $
+          tcError $ NonFunctionTypeError ty
+        unless (length args == length argTypes) $
+          tcError $ WrongNumberOfFunctionArgumentsError
+                      qname (length argTypes) (length args)
 
-      uniqueArgTypes <- mapM uniquify argTypes
-      (eArgs, returnType, typeArgs) <-
-        if null typeArguments
-        then inferenceCall fcall typeParams uniqueArgTypes resultType
-        else do
-          unless (length typeArguments == length typeParams) $
-                 tcError $ WrongNumberOfFunctionTypeArgumentsError qname
-                           (length typeParams) (length typeArguments)
-          typecheckCall fcall typeParams uniqueArgTypes resultType
-      return $ setType returnType fcall {args = eArgs,
-                                         qname = qname',
-                                         typeArguments = typeArgs}
+        uniqueArgTypes <- mapM uniquify argTypes
+        (eArgs, returnType, typeArgs) <-
+          if null typeArguments
+          then inferenceCall fcall typeParams uniqueArgTypes resultType
+          else do
+            unless (length typeArguments == length typeParams) $
+                   tcError $ WrongNumberOfFunctionTypeArgumentsError qname
+                             (length typeParams) (length typeArguments)
+            typecheckCall fcall typeParams uniqueArgTypes resultType
+        return $ setType returnType fcall {args = eArgs,
+                                           qname = qname',
+                                           typeArguments = typeArgs}
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
     --  t != nullType
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
-    doTypecheck closure@(Closure {eparams, body}) = do
+
+    doTypecheck closure@(Closure {eparams, mty, body}) = do
       eEparams <- mapM typecheck eparams
-      eBody <- local (addParams eEparams) $ typecheckNotNull body
+      mty' <- mapM resolveType mty
+      eBody <- case mty' of
+                 Just expected ->
+                   if isVoidType expected then
+                     local (addParams eEparams) $
+                           typecheckNotNull body
+                   else
+                     local (addParams eEparams) $
+                           body `hasType` expected
+                 Nothing ->
+                   local (addParams eEparams) $
+                         typecheckNotNull body
       let paramNames = map pname eEparams
           capturedVariables = map (qnlocal . fst) $
                               freeVariables (map qLocal paramNames) eBody
@@ -673,11 +690,11 @@ instance Checkable Expr where
             typecheck eBody -- Check for mutation of captured variables
       let returnType = AST.getType eBody
           ty = arrowType (map ptype eEparams) returnType
-      return $ setType ty closure {body = eBody, eparams = eEparams}
+      return $ setType ty closure {body = eBody, mty = mty', eparams = eEparams}
       where
         doesShadow paramName = do
           typeParams <- asks typeParameters
-          return $ paramName `elem` (map (Name . getId) typeParams)
+          return $ paramName `elem` map (Name . getId) typeParams
 
     --  E |- e1 : t1; E, x1 : t1 |- e2 : t2; ..; E, x1 : t1, .., x(n-1) : t(n-1) |- en : tn
     --  E, x1 : t1, .., xn : tn |- body : t
@@ -931,7 +948,7 @@ instance Checkable Expr where
     doTypecheck while@(While {cond, body}) =
         do eCond <- hasType cond boolType
            eBody <- typecheck body
-           return $ setType (AST.getType eBody) while {cond = eCond, body = eBody}
+           return $ setType voidType while {cond = eCond, body = eBody}
 
     --  E |- val : Fut t
     -- ------------------
@@ -1174,17 +1191,6 @@ instance Checkable Expr where
                     ,args
                     }
 
-   ---  |- ty
-    --  classLookup(ty) = _
-    --  ty != Main
-    -- ----------------------
-    --  E |- peer ty : ty
-    doTypecheck peer@(Peer {ty}) =
-        do ty' <- resolveType ty
-           unless (isActiveClassType ty' && not (isMainType ty')) $
-                  tcError $ ObjectCreationError ty'
-           return $ setType ty' peer{ty = ty'}
-
     --  E |- n : int
     --  E |- m : int
     --  E |- k : int
@@ -1219,9 +1225,9 @@ instance Checkable Expr where
                              then intType
                              else getResultType srcType
            bodyTyped <- typecheckBody elementType body
-           return $ setType (AST.getType bodyTyped) for{step = stepTyped
-                                                       ,src  = srcTyped
-                                                       ,body = bodyTyped}
+           return $ setType voidType for{step = stepTyped
+                                        ,src  = srcTyped
+                                        ,body = bodyTyped}
         where
           addIteratorVariable ty = extendEnvironmentImmutable [(name, ty)]
           typecheckBody ty = local (addIteratorVariable ty) . typecheck

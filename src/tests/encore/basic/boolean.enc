@@ -1,6 +1,10 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    print true and false;
-    print true or false;
-    print not true;
-  }
+  def main() : void
+    println(true && false)
+    println(true || false)
+    println(not true)
+  end
+end
+

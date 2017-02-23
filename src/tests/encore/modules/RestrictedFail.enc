@@ -1,5 +1,9 @@
-import RestrictedExport
+-- This file was automatically converted by encorec
 
+import RestrictedExport
 class Main
   def main() : void
     bar()
+  end
+end
+

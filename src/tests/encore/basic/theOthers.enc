@@ -1,15 +1,25 @@
+-- This file was automatically converted by encorec
+
 class Main
   def main() : void
-    let other = new Other(10) in
+    let
+      other = new Other(10)
+    in
       other!work()
-
+    end
+  end
+end
 class Other
-  count : int
+  var count : int
   def init(va : int) : void
     this.count = va
+  end
   def work() : void
-    {this.count = this.count - 1;
-     this.count = this.count - 1;
-     this.count = this.count - 1;
-     print this.count;
-     print "Hello Ponyworld!"}
+    this.count = this.count - 1
+    this.count = this.count - 1
+    this.count = this.count - 1
+    println(this.count)
+    println("Hello Ponyworld!")
+  end
+end
+

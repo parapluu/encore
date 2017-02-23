@@ -1,39 +1,37 @@
-trait AB<a, b> {
-  require aa : a
-  require bb : b
+-- This file was automatically converted by encorec
 
-  def fun(aa : a) : b {
-    this.aa = aa;
+trait AB[a, b]
+  require var aa : a
+  require var bb : b
+  def fn(aa : a) : b
+    this.aa = aa
     this.bb
-  }
-}
+  end
+end
+passive class Foo[a, b] : AB[a, b]
+  var aa : a
+  var bb : b
+  def init(aa : a, bb : b) : void
+    this.aa = aa
+    this.bb = bb
+  end
+end
+passive class Bar[b, c]
+  var foo : AB[b, c]
+  def init(bb : b, cc : c) : void
+    this.foo = new Foo[b, c](bb, cc)
+  end
+  def fn(bb : b) : c
+    this.foo.fn(bb)
+  end
+end
+class Main
+  def main() : void
+    let
+      bar = new Bar[real, int](3.14, 42)
+    in
+      println("assert(bar.fn(4.13) == 42): {}", bar.fn(4.13))
+    end
+  end
+end
 
-passive class Foo<a, b> : AB<a, b> {
-  aa : a
-  bb : b
-
-  def init(aa : a, bb : b) : void {
-    this.aa = aa;
-    this.bb = bb;
-  }
-}
-
-passive class Bar<b, c> {
-  foo : AB<b, c>
-
-  def init(bb : b, cc : c) : void {
-    this.foo = new Foo<b, c>(bb, cc);
-  }
-
-  def fun(bb : b) : c {
-    this.foo.fun(bb)
-  }
-}
-
-class Main {
-  def main() : void {
-    let bar = new Bar<real, int>(3.14, 42) in {
-      println("assert(bar.fun(4.13) == 42): {}", bar.fun(4.13))
-    }
-  }
-}

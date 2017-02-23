@@ -1,11 +1,14 @@
-typedef D = T
+-- This file was automatically converted by encorec
+
 typedef E = D
-
+typedef D = T
 trait T
-
-passive class C2 : E -- This does not
-
+end
+passive class C2 : E
+end
 class Main
-   def main(): void {
-       print(10)
-   }
+  def main() : void
+    println(10)
+  end
+end
+

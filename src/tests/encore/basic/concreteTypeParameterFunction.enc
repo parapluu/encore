@@ -1,2 +1,6 @@
-def foo<int>() : void
+-- This file was automatically converted by encorec
+
+fun foo[int]() : void
   ()
+end
+

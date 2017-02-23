@@ -1,6 +1,10 @@
+-- This file was automatically converted by encorec
+
 module MidImport
 import DeepLib
-
 passive class Bar
   def name() : String
-     (new Foo).name()
+    (new Foo).name()
+  end
+end
+

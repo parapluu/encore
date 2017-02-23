@@ -1,10 +1,11 @@
+-- This file was automatically converted by encorec
+
 module TraitImportModule
+trait Reagent
+  def react() : void
+    ()
+  end
+end
+passive class Foo2 : Reagent
+end
 
-trait Reagent {
-  def react() : void {
-    ();
-  }
-}
-
-passive class Foo2 : Reagent {
-}

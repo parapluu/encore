@@ -1,7 +1,11 @@
-def foo(x : int) : void
-  x = 42
+-- This file was automatically converted by encorec
 
+fun foo(x : int) : void
+  x = 42
+end
 class Main
-  def main() : void {
+  def main() : void
     ()
-  }
+  end
+end
+

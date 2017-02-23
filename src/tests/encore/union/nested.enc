@@ -1,31 +1,45 @@
-def global(x : Foo) : void
-  print "In global"
+-- This file was automatically converted by encorec
 
+fun global(x : Foo) : void
+  println("In global")
+end
 trait Foo
   def foo() : void
-    print "In Foo"
-
+    println("In Foo")
+  end
+end
 trait Bar
-
+end
 trait Baz
-
+end
 trait Frob
-
+end
 passive class C1 : Foo + Baz
-
+end
 passive class C2 : Foo + Bar
-
+end
 passive class C3 : Foo + Frob
-
+end
 class Main
-  def main(): void {
+  def main() : void
     val x = match 42 with
-              0 => new C1
-              1 => if false then
-                     new C2
-                   else
-                     new C3
-              _ => new C3;
-    x.foo();
-    global(x);
-  }
+              case 0 =>
+                new C1
+              end
+              case 1 =>
+                if false then
+                  new C2
+                else
+                  new C3
+                end
+              end
+              case _ =>
+                new C3
+              end
+            
+            end
+    x.foo()
+    global(x)
+  end
+end
+

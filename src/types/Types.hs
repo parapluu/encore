@@ -135,7 +135,7 @@ data RefInfo = RefInfo{refId         :: String
 instance Show RefInfo where
     show RefInfo{refId, parameters, refNamespace}
         | null parameters = fullName refNamespace refId
-        | otherwise = fullName refNamespace refId ++ "<" ++ params ++ ">"
+        | otherwise = fullName refNamespace refId ++ "[" ++ params ++ "]"
         where
           fullName Nothing refId = refId
           fullName (Just ns) refId =
@@ -276,21 +276,23 @@ instance Show Type where
     show EmptyCapability = ""
     show TypeVar{ident} = ident
     show ArrowType{argTypes = [ty], resultType} =
-        show ty ++ " -> " ++ show resultType
+        if isTupleType ty
+        then "(" ++ show ty ++ ") -> " ++ show resultType
+        else show ty ++ " -> " ++ show resultType
     show ArrowType{argTypes, resultType} =
         "(" ++ args ++ ") -> " ++ show resultType
         where
           args = intercalate ", " (map show argTypes)
-    show FutureType{resultType} = "Fut " ++ maybeParen resultType
-    show ParType{resultType}    = "Par " ++ maybeParen resultType
-    show StreamType{resultType} = "Stream " ++ maybeParen resultType
-    show ArrayType{resultType}  = "[" ++ show resultType ++ "]"
+    show FutureType{resultType} = "Fut" ++ brackets resultType
+    show ParType{resultType}    = "Par" ++ brackets resultType
+    show StreamType{resultType} = "Stream" ++ brackets resultType
+    show ArrayType{resultType}  = brackets resultType
     show RangeType   = "Range"
-    show (MaybeType ty)    = "Maybe " ++ maybeParen ty
+    show (MaybeType ty)    = "Maybe" ++ brackets ty
     show (TupleType{argTypes}) = "(" ++ args ++ ")"
       where
         args = intercalate ", " (map show argTypes)
-    show (CType ty) = ty
+    show (CType ty) = "EMBED " ++ ty ++ " END"
     show TypeSynonym{refInfo, resolvesTo} = show refInfo
     show VoidType   = "void"
     show StringType = "string"
@@ -302,16 +304,7 @@ instance Show Type where
     show NullType   = "null type"
     show BottomType = "Bottom"
 
-maybeParen :: Type -> String
-maybeParen arr@(ArrowType{}) = "(" ++ show arr ++ ")"
-maybeParen fut@(FutureType{})  = "(" ++ show fut ++ ")"
-maybeParen par@(ParType{})     = "(" ++ show par ++ ")"
-maybeParen str@(StreamType{})  = "(" ++ show str ++ ")"
-maybeParen arr@(ArrayType{})   = "(" ++ show arr ++ ")"
-maybeParen opt@(MaybeType{})   = "(" ++ show opt ++ ")"
-maybeParen cap@(CapabilityType{}) = "(" ++ show cap ++ ")"
-maybeParen inter@(UnionType{}) = "(" ++ show inter ++ ")"
-maybeParen ty = show ty
+brackets ty = "[" ++ show ty ++ "]"
 
 showWithKind :: Type -> String
 showWithKind ty = kind ty ++ " " ++ show ty

@@ -1,7 +1,11 @@
+-- This file was automatically converted by encorec
+
 class Main
-  def main() : void {
-    val x = 42;
-    println("x = {}", x);
-    val f = \ (x : int) -> x + 1;
-    println("f(x) = {}", f(x));
-  }
+  def main() : void
+    val x = 42
+    println("x = {}", x)
+    val f = fun (x : int) => x + 1
+    println("f(x) = {}", f(x))
+  end
+end
+

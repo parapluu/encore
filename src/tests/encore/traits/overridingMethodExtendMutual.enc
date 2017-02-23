@@ -1,16 +1,23 @@
-trait T
-  require f : int
-  require foo() : void
+-- This file was automatically converted by encorec
 
+trait T
+  require var f : int
+  require def foo() : void
+end
 trait S
   def bar() : void
-    print "I compile and run!"
-
+    println("I compile and run!")
+  end
+end
 passive class Foo : T(bar()) + S
   val f : int
   def foo() : void
     this.bar()
-
+  end
+end
 class Main
   def main() : void
     (new Foo).foo()
+  end
+end
+

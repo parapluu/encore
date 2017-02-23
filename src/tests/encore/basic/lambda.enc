@@ -1,75 +1,81 @@
+-- This file was automatically converted by encorec
+
 class CreditCard
-
-  def printX(): void
-    print 42
-
-  def printMain(m: Main, x: int): void
+  def printX() : void
+    println(42)
+  end
+  def printMain(m : Main, x : int) : void
     m.pprint(x)
-
+  end
+end
 passive class CreditPass
-  fi: int -> void
-  fii: int -> int
-
-  def init(fi: int -> void, fii: int -> int): void {
-    this.fi = fi;
-    this.fii = fii;
-  }
-
-  def testFi(x: int): void
-    let fi = this.fi in
+  var fi : int -> void
+  var fii : int -> int
+  def init(fi : int -> void, fii : int -> int) : void
+    this.fi = fi
+    this.fii = fii
+  end
+  def testFi(x : int) : void
+    let
+      fi = this.fi
+    in
       fi(x)
-
-  def testFii(x: int): void
-    let fii = this.fii in
-      print fii(x)
-
-  def pass(c: CreditCard): void
-    get c.printX()
-
-  def passMain(m: Main): void
+    end
+  end
+  def testFii(x : int) : void
+    let
+      fii = this.fii
+    in
+      println(fii(x))
+    end
+  end
+  def pass(c : CreditCard) : void
+    get(c.printX())
+  end
+  def passMain(m : Main) : void
     m.pprint(42)
-
--- Including an active class in the environment of the closure used to throw
--- an error. Do not remove x from here, the ff lambda tests that the compilation
--- succeeds and runs
+  end
+end
 class Main
-  creditcard: CreditCard
+  var creditcard : CreditCard
+  var tupleFun : int -> (int, int)
+  var maybeFun : int -> Maybe[int]
+  var funFun : int -> int -> int
+  def free() : void
+    val f = fun () 
+              for i <- [0..5] do
+                println(i)
+              end
+            end
+  end
+  def pprint(x : int) : void
+    println(x)
+  end
+  def main() : void
+    let
+      x = new CreditCard
+      p = new CreditPass(fun (x : int) => (), fun (x : int) => x)
+      p2 = new CreditPass(fun (x : int) 
+                            println(x)
+                          end, 
+                          fun (x : int) => x + 1)
+      show = fun (i : int) => println(i)
+      ff = fun (z : int) 
+             get(x.printX())
+             x.printMain(this, 42)
+             p.pass(x)
+             show(z)
+             p.passMain(this)
+             this.pprint(42)
+             this.creditcard.printX()
+           end
+    in
+      this.creditcard = x
+      ff(42)
+      show(42)
+      p2.testFi(42)
+      p2.testFii(41)
+    end
+  end
+end
 
-  -- These three fields are only for testing the type-checker.
-  -- They do not need to be instantiated.
-  tupleFun : (int -> (int, int))
-  maybeFun : (int -> Maybe int)
-  funFun : (int -> (int -> int))
-
-  def free() : void {
-    val f = \() -> {
-      for i in [0..5] {
-        print i;
-      }
-    };
-  }
-
-  def pprint(x: int): void
-    print x
-
-  def main(): void {
-    let x = new CreditCard
-        p = new CreditPass(\(x:int)->(), \(x:int)->x)
-        p2 = new CreditPass(\(x:int)->{print x}, \(x: int)-> x+1)
-        show = \(i: int) -> print i
-        ff = \(z: int) -> { get x.printX();
-                            x.printMain(this, 42);
-                            p.pass(x);
-                            show(z);
-                            p.passMain(this);
-                            this.pprint(42);
-                            this.creditcard.printX();
-                          }
-     in {
-      this.creditcard = x;
-      ff(42);
-      show(42);
-      p2.testFi(42);
-      p2.testFii(41);
-    }
-  }

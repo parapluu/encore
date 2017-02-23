@@ -1,12 +1,12 @@
--- A boxed unit () value.
-passive class Unit {
+-- This file was automatically converted by encorec
 
-  def show() : String {
+module Unit
+
+passive class Unit
+  def show() : String
     "()"
-  }
-
-  def value() : void {
+  end
+  def value() : void
     ()
-  }
-
-}
+  end
+end

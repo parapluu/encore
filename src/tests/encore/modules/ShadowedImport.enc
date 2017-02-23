@@ -1,6 +1,10 @@
+-- This file was automatically converted by encorec
+
 import Top
 import SelectiveLib as Top
-
 class Main
   def main() : void
-    print "Should not compile"
+    println("Should not compile")
+  end
+end
+

@@ -1,13 +1,18 @@
-def app<a, b>(f : a -> b, x : a) : b
-  f(x)
+-- This file was automatically converted by encorec
 
-def foo(x : int) : int
+fun app[a, b](f : a -> b, x : a) : b
+  f(x)
+end
+fun foo(x : int) : int
   app(local, x)
 where
-  def local(x : int) : int
+  fun local(x : int) : int
     x + 1
+  end
 end
-
 class Main
   def main() : void
-    print foo(41)
+    println(foo(41))
+  end
+end
+
