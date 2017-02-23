@@ -891,7 +891,7 @@ expression = makeExprParser expr opTable
 
       arrayAccess =
           Postfix (do pos <- getPosition
-                      index <- parens expr
+                      index <- parens expression
                       return (\target -> ArrayAccess{emeta = meta pos
                                                     ,target
                                                     ,index
@@ -1323,7 +1323,7 @@ expr = notFollowedBy nl >>
         notFollowedBy (reserved "async" >> nl)
         emeta <- meta <$> getPosition
         reserved "async"
-        body <- expr
+        body <- expression
         return Async{emeta, body}
 
       blockedTask = blockedConstruct $ do
