@@ -656,6 +656,9 @@ data Expr = Skip {emeta :: Meta Expr}
                     rhs :: Expr}
           | VarAccess {emeta :: Meta Expr,
                        qname :: QualifiedName}
+          | TupleAccess {emeta :: Meta Expr,
+                         target :: Expr,
+                         compartment :: Int}
           | Null {emeta :: Meta Expr}
           | BTrue {emeta :: Meta Expr}
           | BFalse {emeta :: Meta Expr}

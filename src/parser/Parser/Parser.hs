@@ -1064,7 +1064,12 @@ expr = notFollowedBy nl >>
             rest <- many $ try pathComponent
             return $ foldl (buildPath pos) root (first:rest)
 
-          pathComponent = dot >> varOrCall
+          pathComponent = dot >> (compartmentAccess <|> varOrCall)
+
+          compartmentAccess = do
+            pos <-  getPosition
+            n <- L.integer
+            return $ IntLiteral (meta pos) (fromInteger n)
 
           varOrCall = do
             x <- varAccess
@@ -1080,6 +1085,9 @@ expr = notFollowedBy nl >>
 
           buildPath pos target (FunctionCall{qname, args, typeArguments}) =
             MethodCall (meta pos) typeArguments target (qnlocal qname) args
+
+          buildPath pos target (IntLiteral {intLit}) =
+            TupleAccess (meta pos) target intLit
 
       letExpression = do
         indent <- L.indentLevel
