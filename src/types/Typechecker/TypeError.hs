@@ -14,7 +14,8 @@ module Typechecker.TypeError (Backtrace
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,currentMethodFromBacktrace) where
+                             ,currentMethodFromBacktrace
+                             ,currentFunctionFromBacktrace) where
 
 import Text.PrettyPrint
 import Text.Megaparsec(SourcePos)
@@ -76,6 +77,13 @@ currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
 currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
+
+currentFunctionFromBacktrace :: Backtrace -> Maybe (Name, Type)
+currentFunctionFromBacktrace [] = Nothing
+currentFunctionFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
+currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
+currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
+currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -227,6 +235,7 @@ data Error =
   | ShadowedImportError ImportDecl
   | WrongModuleNameError Name FilePath
   | PrivateAccessModifierTargetError Name
+  | ClosureReturnError
   | SimpleError String
 
 arguments 1 = "argument"
@@ -533,6 +542,8 @@ instance Show Error where
                (show modname) expected
     show PolymorphicConstructorError =
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
+    show ClosureReturnError =
+        printf "Cannot use 'return' in a closure"
     show (SimpleError msg) = msg
 
 

@@ -23,6 +23,7 @@ import qualified Types as Ty
 
 import Control.Monad.State hiding (void)
 import Data.List
+import Data.List.Utils(split)
 import qualified Data.Set as Set
 import Data.Maybe
 import Debug.Trace
@@ -981,6 +982,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate eos@(A.Eos{}) =
       let eosCall = Call streamClose [encoreCtxVar, streamHandle]
       in return (unit, Seq [Statement eosCall, Return Skip])
+
+  translate ret@(A.Return{A.val}) =
+      do (nval, tval) <- translate val
+         eCtx <- gets $ Ctx.getExecCtx
+         let dtraceExit = case (Ctx.lookupFunctionContext eCtx, Ctx.lookupMethodContext eCtx) of
+                              (fun, [] ) -> dtraceFunctionExit (A.functionName (head fun))
+                              ([], mdecl)  -> dtraceMethodExit thisVar (A.methodName (head mdecl))
+                              (_, _)     -> error $ "Expr.hs: Cannot translate return in " ++ show eCtx
+         return (unit, Seq[tval, dtraceExit, Return nval])
 
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target

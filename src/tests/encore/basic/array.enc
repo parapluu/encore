@@ -21,12 +21,12 @@ class Main
   end
 end
 class Foo
-  def return() : [int]
+  def areturn() : [int]
     new [int](10)
   end
   def foo(m : Main) : void
     let
-      a = this.return()
+      a = this.areturn()
     in
       repeat i <- 10 do
         a(i) = i
@@ -35,4 +35,3 @@ class Foo
     end
   end
 end
-

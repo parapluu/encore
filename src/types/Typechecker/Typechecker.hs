@@ -25,7 +25,7 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import AST.Util(freeVariables)
+import qualified AST.Util as Util
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -663,8 +663,10 @@ instance Checkable Expr where
     --  t != nullType
     -- ------------------------------------------------------
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
-
     doTypecheck closure@(Closure {eparams, mty, body}) = do
+      let returns = Util.filter isReturn body
+      when (not (null returns)) $
+        pushError (head returns) $ ClosureReturnError
       eEparams <- mapM typecheck eparams
       mty' <- mapM resolveType mty
       eBody <- case mty' of
@@ -680,7 +682,7 @@ instance Checkable Expr where
                          typecheckNotNull body
       let paramNames = map pname eEparams
           capturedVariables = map (qnlocal . fst) $
-                              freeVariables (map qLocal paramNames) eBody
+                              Util.freeVariables (map qLocal paramNames) eBody
 
       shadowingParams <- filterM doesShadow paramNames
       unless (null shadowingParams) $
@@ -977,6 +979,26 @@ instance Checkable Expr where
                   tcError $ NonStreamingContextError yield
            eType `assertSubtypeOf` mType
            return $ setType voidType yield {val = eVal}
+
+    --  E |- expr : t
+    --  E |- currentMethod : _ -> t
+    -- -----------------------------
+    --  E |- return expr : t
+    doTypecheck ret@(Return {val}) =
+        do eVal <- typecheck val
+           cm <- asks currentMethod
+           cf <- asks currentFunction
+           ty <- case (cm, cf) of
+                   (Just method, _)   -> return (methodType method)
+                   (_, Just (n, t))   -> return t
+                   (Nothing, Nothing) -> error $
+                      "Typechecker.hs: Could not get method or function surrounding a return"
+
+           let eType = AST.getType eVal
+           unlessM (eType `subtypeOf` ty) $
+             pushError ret $ ExpectingOtherTypeError
+                (show ty ++ " (type of the enclosing method or function)") eType
+           return $ setType eType ret {val = eVal}
 
     --  isStreaming(currentMethod)
     -- ----------------------------

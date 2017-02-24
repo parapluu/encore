@@ -752,13 +752,13 @@ expr  =  embed
      <|> repeat
      <|> while
      <|> get
+     <|> explicitReturn
      <|> yield
      <|> try isEos
      <|> eos
      <|> getNext
      <|> await
      <|> suspend
-     <|> yield
      <|> new
      <|> peer
      <|> sequence
@@ -1035,6 +1035,10 @@ expr  =  embed
                               (do {reserved "by"; expression})
                body <- expression
                return $ For (meta pos) (Name name) step src body
+      explicitReturn = do pos <- getPosition
+                          reserved "return"
+                          expr <- option (Skip (meta pos)) (do {expression})
+                          return $ Return (meta pos) expr
       bracketed = brackets (rangeOrArray <|> empty)
           where
             empty = do

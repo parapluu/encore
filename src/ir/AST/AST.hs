@@ -585,6 +585,8 @@ data Expr = Skip {emeta :: Meta Expr}
                          runassoc :: Bool}
           | Async {emeta :: Meta Expr,
                    body :: Expr}
+          | Return {emeta :: Meta Expr,
+                    val :: Expr}
           | MaybeValue {emeta :: Meta Expr,
                         mdt :: MaybeContainer }
           | Tuple {emeta :: Meta Expr,
@@ -730,6 +732,10 @@ isCallable e = isArrowType (AST.AST.getType e)
 isStringLiteral :: Expr -> Bool
 isStringLiteral StringLiteral {} = True
 isStringLiteral _ = False
+
+isReturn :: Expr -> Bool
+isReturn Return{} = True
+isReturn _ = False
 
 isNullLiteral :: Expr -> Bool
 isNullLiteral Null{} = True
