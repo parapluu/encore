@@ -109,29 +109,22 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn
   val pkt = pairWith(pt, tk)
   val pki = pairWith(pi, ik)
   val pkid = distinct(pki, fun (v : (k, i), u : (k, i))
-                             match (v, u) with
-                               case ((k1, v1), (k2, v2)) =>
-                                 cmp(k1, k2)
-                               end
-                             end
+                             val k1 = v.0
+                             val k2 = u.0
+                             cmp(k1, k2)
                            end)
   join(pkid >> (fun (tuple : (k, i))
-                  match tuple with
-                    case (key, elem) =>
-                      val nPi = groupParTuples(key, pki, cmp)
-                      val futtkElem = findElemInParTuple(key, pkt, cmp)
-                      val fp = futtkElem ~~> fun (tkElem : Maybe[t])
-                                               match tkElem with
-                                                 case Nothing =>
-                                                   empty[r]()
-                                                 end
-                                                 case Just(tkResultVal) =>
+                  val key = tuple.0
+                  val nPi = groupParTuples(key, pki, cmp)
+                  val futtkElem = findElemInParTuple(key, pkt, cmp)
+                  val fp = futtkElem ~~> fun (tkElem : Maybe[t])
+                                           match tkElem with
+                                             case Nothing => empty[r]() end
+                                             case Just(tkResultVal) =>
                                                    fn(tkResultVal, nPi)
-                                                 end
-                                               end
                                              end
-                      join(liftf(fp))
-                    end
-                  end
+                                           end
+                                         end
+                  join(liftf(fp))
                 end))
 end
