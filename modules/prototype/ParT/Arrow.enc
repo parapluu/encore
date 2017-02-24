@@ -14,7 +14,9 @@ module Arrow(
     composition,
     branch,
     combine,
+    liftA2,
     runArrow,
+    runParArrow
   )
 
 import ParT
@@ -155,5 +157,16 @@ fun liftA2[a, b, c, d](fn: (b, c) -> d, p1: Par[a -> b], p2: Par[a -> c]): Par [
   val pb = branch(p1, p2)
   val fnArr = liftv(fun (t: (b, c)) => fn(t.0, t.1))
   composition(pb, fnArr)
+end
+#+END_SRC
+
+** runParArrow
+
+Given a ParT abstraction and a ParT arrow, lift each item in the ParT
+to the arrow function and run.
+
+#+BEGIN_SRC encore
+fun runParArrow[a, b](p: Par[a], arrow: Par[a -> b]): Par[b]
+  join(p >> fun (item: a) => runArrow(item, arrow))
 end
 #+END_SRC

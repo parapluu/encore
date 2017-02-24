@@ -25,7 +25,7 @@ class Main
 
     -- Test: first :: Arrow a => a b c -> a (b, d) (c, d)
     val ff = first[int, int, int](arr(inc))
-    val pr = arr[(int, int), void](printResult)
+    val pr = arr(printResult)
     val ffc = composition(ff, pr)
     runArrow((4, 5), ffc)
 
@@ -36,7 +36,7 @@ class Main
 
     -- Test: (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
     val fn = composition(arr(inc), arr(double))
-    val ffc = composition(fn, arr[int, void](pprint))
+    val ffc = composition(fn, arr(pprint))
     runArrow(4, ffc)
 
     -- Test: (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
@@ -48,5 +48,32 @@ class Main
     val fn = combine(arr(inc), arr(double))
     val ffc = composition(fn, arr[(int, int), (void, void)](printVoidTuple))
     runArrow((5, 6), ffc)
+
+    -- Test: runParArrow
+    --
+    -- The ASCII diagram below depics the operations perform on the ParT
+    -- for numbers from 0..8
+    --
+    --
+    --          .--- double . inc
+    --         /                 \
+    --     .- 1                   + ----.
+    --    /    \                 /       \
+    --   |      .--- double . mod         \
+    -- par                                 +  final result
+    --   |      .--- double . inc         /|
+    --    \    /                 \       / |
+    --     .- 2                   + ----.  |
+    --         \                 /         |
+    --          .--- double . mod         /
+    --                                   /
+    --        3   ...    ...   ---------.
+
+    val incAndDouble = composition(arr(inc), arr(double))
+    val modAndDouble = composition(arr(fun (x: int) => x % 2), arr(double))
+    val aggregation = liftA2(fun (x: int, y: int) => x + y, incAndDouble, modAndDouble)
+    val par = each([1, 2, 3, 4, 5, 6, 7, 8])
+    val pResult = runParArrow(par, aggregation)
+    reduce(fun (acc: int, x: int) => acc + x, 0, pResult) ~~> pprint
   end
 end
