@@ -66,7 +66,7 @@ fun pairWith[t, k](p : Par[t], fn : t -> k) : Par[(k, t)]
   p >> (fun (x : t) => (fn(x), x))
 end
 
-fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Par[i]
+fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Fut[(k, Par[i])]
   val closure = fun (acc : (k, Par[i]), elem : (k, i))
                   val accKey = acc.0
                   val p = acc.1
@@ -79,10 +79,7 @@ fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Par[i]
                     acc
                   end
                 end
-  val extractParClosure = fun (t : (k, Par[i]))
-                            t.1
-                          end
-  join(liftf(reduce(closure, (x, empty[i]()), p) ~~> extractParClosure))
+  reduce(closure, (x, empty[i]()), p)
 end
 
 fun findElemInParTuple[k, t](key : k, p : Par[(k, t)], cmp : (k, k) -> int) : Fut[Maybe[t]]
@@ -99,14 +96,28 @@ fun findElemInParTuple[k, t](key : k, p : Par[(k, t)], cmp : (k, k) -> int) : Fu
 end
 
 fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn : (t, Par[i]) -> Par[r], cmp : (k, k) -> int) : Par[r]
+  -- Pair function with their corresponding ParT
   val pkt = pairWith(pt, tk)
   val pki = pairWith(pi, ik)
+
+  -- Get distinct elements
   val pkid = distinct(pki, fun (v : (k, i), u : (k, i))
                              cmp(v.0, u.0)
                            end)
+
   join(pkid >> (fun (tuple : (k, i))
                   val key = tuple.0
-                  val nPi = groupParTuples(key, pki, cmp)
+                  -- group values from the same key under the same ParT
+                  val groupedPiKeyToPar = groupParTuples(key, pki, cmp)
+
+                  -- fetch only the values from the tuple
+                  val groupedPi = join(liftf(groupedPiKeyToPar ~~> (fun (keyParT: (k, Par[i]))
+                                                                      keyParT.1
+                                                                    end)))
+
+                  -- find if the key from second ParT (from pkdi) exists
+                  -- in the pkt ParT and execute function asynchronously
+                  -- only if it does exist.
                   val futtkElem = findElemInParTuple(key, pkt, cmp)
                   val fp = futtkElem ~~> fun (tkElem : Maybe[t])
                                            match tkElem with
@@ -114,10 +125,13 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn
                                                empty[r]()
                                              end
                                              case Just(tkResultVal) =>
-                                               fn(tkResultVal, nPi)
+                                               fn(tkResultVal, groupedPi)
                                              end
                                            end
                                          end
+
+                  -- the result is an fp, Fut[Par[r]].
+                  -- Lift the future to a ParT and flatten the Par[Par[t]] to Par[r]
                   join(liftf(fp))
                 end))
 end
