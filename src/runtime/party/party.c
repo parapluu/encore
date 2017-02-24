@@ -190,8 +190,7 @@ struct fmap_s{
   pony_type_t const * rtype;
 };
 
-static inline psize_s party_get_size(par_t const * const p)
-{
+static inline psize_s party_get_size(par_t const * const p){
   uint64_t size = p->size;
   // if pending is 0, it means it contains pending FutPar t,
   // therefore pending = true
@@ -866,8 +865,7 @@ struct env_zip_future {
   par_t *leaf_right;
 };
 
-static void trace_zip_future(pony_ctx_t *_ctx, void *p)
-{
+static void trace_zip_future(pony_ctx_t *_ctx, void *p){
   pony_ctx_t** ctx = &_ctx;
   struct env_zip_future *this = p;
   encore_trace_object(*ctx, this->zip_fn, closure_trace);
@@ -878,8 +876,7 @@ static void trace_zip_future(pony_ctx_t *_ctx, void *p)
 static value_t zip_future_with(pony_ctx_t** ctx,
                                pony_type_t** runtimeType,
                                value_t args[],
-                               void* _env)   // env is always NULL;
-{
+                               void* _env){
   value_t v = args[0];
 
   // Initially right has been set wiht the right ParT.
@@ -937,8 +934,7 @@ static inline par_t* party_zip_list(pony_ctx_t **ctx,
                                     list_t *ll,
                                     list_t *lr,
                                     closure_t *fn,
-                                    pony_type_t *type)
-{
+                                    pony_type_t *type){
   par_t *pl = NULL;
   par_t *pr = NULL;
   par_t *result = new_par_empty(ctx, type);
@@ -1011,8 +1007,7 @@ par_t* party_zip_with(pony_ctx_t **ctx,
                       par_t *pl,
                       par_t *pr,
                       closure_t *fn,
-                      pony_type_t *type)
-{
+                      pony_type_t *type){
   list_t *ll = party_leaves_to_list(ctx, pl);
   list_t *lr = party_leaves_to_list(ctx, pr);
   par_t *result = party_zip_list(ctx, ll, lr, fn, type);
