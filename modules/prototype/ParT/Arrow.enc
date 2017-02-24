@@ -1,3 +1,12 @@
+#+literate
+
+* Arrow Module
+
+Version 0.1
+Authors:
+- Kiko Fernandez-Reyes <kiko.fernandez@it.uu.se>
+
+#+BEGIN_SRC encore
 module Arrow(
     arr,
     first,
@@ -9,86 +18,142 @@ module Arrow(
   )
 
 import ParT
+#+END_SRC
 
+** arr :: Arrow a => (b -> c) -> a b c
+
+Lifting a function to a ParT arrow
+
+`arr` lifts a function to the ParT type. The ParT type represents
+an abstraction with possibly many functions. By lifting multiple
+functions these will potentially start performing work in parallel
+as soon as the `runArrow` method is called.
+
+#+BEGIN_SRC encore
 fun arr[a, b](fn : a -> b) : Par[a -> b]
   liftv(fn)
 end
+#+END_SRC
 
--- first :: Arrow a => a b c -> a (b, d) (c, d)
+** first :: Arrow a => a b c -> a (b, b) (c, d)
+
+Given a ParT function that accepts one argument of type `a`
+and returns an argument of type `b`, return a lifted function
+that takes a tuple `(a, c)` and returns a tuple `(b, c)`.
+
+As it can be observed, the second argument in the tuple is not changed.
+
+#+BEGIN_SRC encore
+--
 fun first[a, b, c](p : Par[a -> b]) : Par[((a, c)) -> (b, c)]
   val closure = fun (fn : a -> b)
-                  liftv(fun (t : (a, c))
-                          match t with
-                            case (x1, x2) =>
-                              (fn(x1), x2)
-                            end
-
-                          end
-                        end)
+                  liftv(fun (t : (a, c)) => (fn(t.0), t.1))
                 end
   bind(closure, p)
 end
+#+END_SRC
 
--- second :: Arrow a => a b c -> A (d, b) (d, c)
+** second :: Arrow a => a b c -> A (d, b) (d, c)
+
+Given a ParT function that accepts one argument of type `a`
+and returns an argument of type `b`, return a lifted function
+that takes a tuple `(c, a)` and returns a tuple `(b, c)`.
+
+As it can be observed, the first argument in the tuple is not changed.
+
+#+BEGIN_SRC encore
+
 fun second[a, b, c](p : Par[a -> b]) : Par[((c, a)) -> (c, b)]
   val closure = fun (fn : a -> b)
-                  liftv(fun (t : (c, a))
-                          match t with
-                            case (x1, x2) =>
-                              (x1, fn(x2))
-                            end
-
-                          end
-                        end)
+                  liftv(fun (t : (c, a)) => (t.0, fn(t.1)))
                 end
   bind(closure, p)
 end
+#+END_SRC
 
+
+** (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
+
+Same as function composition except that its ParT (arrow) composition
+
+#+BEGIN_SRC encore
 -- private function
 fun compose[a, b, c](f1 : a -> b, f2 : b -> c) : a -> c
   fun (x : a) => f2(f1(x))
 end
 
---- (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
-fun composition[a, b, c](p : Par[a -> b], p2 : Par[b -> c]) : Par[a -> c]
-  bind(fun (fn : a -> b)
-         bind(fun (fn2 : b -> c) => liftv(compose(fn, fn2)), p2)
+fun composition[a, d, c](p : Par[a -> d], p2 : Par[d -> c]) : Par[a -> c]
+  bind(fun (fn : a -> d)
+         bind(fun (fn2 : d -> c) => liftv(compose(fn, fn2)), p2)
        end, p)
 end
+#+END_SRC
 
--- (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
+
+** (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
+
+Given two ParT with the same first argument type in common,
+return a new ParT that performs the execution of both functions,
+yielding a tuple `(b, c)`
+
+#+BEGIN_SRC encore
 fun branch[a, b, c](p : Par[a -> b], p2 : Par[a -> c]) : Par[a -> (b, c)]
   val clos = fun (fn1 : a -> b)
                val clos2 = fun (fn2 : a -> c)
-                             liftv(fun (x : a)
-                                     (fn1(x), fn2(x))
-                                   end)
+                             liftv(fun (x : a) => (fn1(x), fn2(x)))
                            end
                bind(clos2, p2)
              end
   bind(clos, p)
 end
+#+END_SRC
 
--- (***) :: Arrow a => a b c -> a d e -> a (b, d) (c, e)
+** (***) :: Arrow a => a b c -> a d e -> a (b, d) (c, e)
+
+Given two ParTs, return a lifted ParT that takes a tuple `(a, c)`
+and returns tuples `(b, d)`.
+
+#+BEGIN_SRC encore
 fun combine[a, b, c, d](p1 : Par[a -> b], p2 : Par[c -> d]) : Par[((a, c)) -> (b, d)]
   val clos = fun (fn1 : a -> b)
                val clos2 = fun (fn2 : c -> d)
-                             liftv(fun (t : (a, c))
-                                     match t with
-                                       case (e1, e2) =>
-                                         (fn1(e1), fn2(e2))
-                                       end
-
-                                     end
-                                   end)
+                             liftv(fun (t : (a, c)) => (fn1(t.0), fn2(t.1)))
                            end
                bind(clos2, p2)
              end
   bind(clos, p1)
 end
+#+END_SRC
 
--- utility function to lift the item into the arrow
--- and perform function application
+** runArrow
+
+This function is not needed in Haskell but it is needed in the ParT
+abstraction. This is because a ParT may contain possibly many
+functions. When we pass an initial item we cannot know if the ParT
+contains a single lifted function or many of them inside. For this
+reason and to continue executing functions asynchronously, we return
+a new ParT.
+
+Utility function to lift the item into the arrow and perform function application
+
+#+BEGIN_SRC encore
 fun runArrow[a, b](item : a, p : Par[a -> b]) : Par[b]
   p >> (fun (fn : a -> b) => fn(item))
 end
+#+END_SRC
+
+** liftA2 :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+
+A bit similar in functionality to the `liftA2` from Haskell except that
+we don't have support for typeclasses and the logic has been hard coded
+especifically for the ParT abstraction. It resembles a ForkJoin in the sense
+that two functions may run possibly in parallel and their end result
+will be aggregated using the function `fn`.
+
+#+BEGIN_SRC encore
+fun liftA2[a, b, c, d](fn: (b, c) -> d, p1: Par[a -> b], p2: Par[a -> c]): Par [a -> d]
+  val pb = branch(p1, p2)
+  val fnArr = liftv(fun (t: (b, c)) => fn(t.0, t.1))
+  composition(pb, fnArr)
+end
+#+END_SRC
