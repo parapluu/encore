@@ -1,8 +1,10 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-# name: def
-# key: def
+# name: main
+# key: main
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:main}($2) : ${3:void}
-  $0
+class Main
+  def main(args : [String]) : void
+    $0
+  end
 end

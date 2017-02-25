@@ -1,8 +1,10 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-# name: def
-# key: def
+# name: ife
+# key: ife
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:main}($2) : ${3:void}
+if ${1:false} then
+  $2
+else
   $0
 end

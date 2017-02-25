@@ -1,8 +1,8 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-# name: def
-# key: def
+# name: for
+# key: for
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:main}($2) : ${3:void}
+for ${1:elem} <- ${2:arr} do
   $0
 end

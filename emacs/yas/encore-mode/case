@@ -1,8 +1,8 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-# name: def
-# key: def
+# name: case
+# key: case
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:main}($2) : ${3:void}
+case ${1:pattern} =>
   $0
 end

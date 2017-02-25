@@ -1,6 +1,8 @@
 # -*- mode: snippet; require-final-newline: nil -*-
 # name: let
 # key: let
+# expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-let ${1:x} = ${2} in
-      $0
+let ${1:x} = ${2:e} in
+  $0
+end

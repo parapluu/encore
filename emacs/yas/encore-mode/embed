@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: embed
+# key: embed
+# expand-env: ((yas-also-auto-indent-first-line 't) (yas-indent-line 'fixed))
+# --
+EMBED (${1:int})
+  $0
+END
