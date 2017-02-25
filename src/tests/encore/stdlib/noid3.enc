@@ -1,0 +1,11 @@
+class Main
+  def main() : void
+    (1, 2, 3, 4, Just(new A)) == (1, 2, 3, 4, Just(new B))
+  end
+end
+
+passive class A 
+end
+  
+passive class B : Id
+end

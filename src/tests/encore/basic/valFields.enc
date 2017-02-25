@@ -2,47 +2,45 @@
 
 trait Mappable[v]
   require var value : v
-  require val next : Mappable[v]
+  require def next() : Mappable[v]
   def map(f : v -> v) : void
     this.value = f(this.value)
-    if this.next != null then
-      this.next.map(f)
-    end
+    this.next().map(f)
   end
 end
 trait Push[v]
-  require var top : Link[v]
+  require var top : Mappable[v]
   def push(value : v) : void
     this.top = new Link[v](value, this.top)
   end
 end
-passive class List[v] : Mappable[v]
+passive class Sentinel[v] : Mappable[v]
   var value : v
-  var next : List[v]
-  def init(value : v, next : List[v]) : void
-    this.value = value
-    this.next = next
+  def init() : void
+    ()
   end
-  def add(value : v) : void
-    if this.next == null then
-      this.next = new List[v](value, null)
-    else
-      this.next.add(value)
-    end
+  def next() : Mappable[v]
+    this
+  end
+  def map(f : v -> v) : void
+    ()
   end
 end
-passive class Link[v] : Mappable[v]
+passive class Link[v] : Mappable[v](next)
   var value : v
-  var next : Link[v]
-  def init(value : v, next : Link[v]) : void
+  var next : Mappable[v]
+  def init(value : v, next : Mappable[v]) : void
     this.value = value
     this.next = next
+  end
+  def next() : Mappable[v]
+    this.next
   end
 end
 passive class Stack[v] : Push[v]
-  val top : Link[v]
+  val top : Mappable[v]
   def init() : void
-    this.top = null
+    this.top = new Sentinel[v]()
   end
   def map(f : v -> v) : void
     this.top.map(f)
@@ -51,7 +49,7 @@ end
 class Main
   def main() : void
     let
-      l = new List[int](1, null)
+      l = new Stack[int]()
       s = new Stack[String]()
       bump = fun (x : int) => x + 1
       showNum = fun (x : int) 
@@ -63,9 +61,10 @@ class Main
                      x
                    end
     in
-      l.add(2)
-      l.add(3)
-      l.add(4)
+      l.push(1)
+      l.push(2)
+      l.push(3)
+      l.push(4)
       l.map(bump)
       l.map(showNum)
       s.push("four")

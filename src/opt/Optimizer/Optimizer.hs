@@ -29,7 +29,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors, sugarPrintedStrings]
+optimizerPasses = [constantFolding, constructors, sugarPrintedStrings, tupleMaybeIdComparison]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -59,6 +59,69 @@ constructors = extend constr
                           ,typeArguments = []}
           | otherwise = e
       constr e = e
+
+-- Desugars a == b when a : Just[t] and b : Just[t] into
+-- match (a, b) with
+--   case (Just(_fst), Just(_snd)) when _fst == _snd => true
+--   case _                                          => false
+-- end
+tupleMaybeIdComparison = extend tupleMaybeIdComparison'
+  where
+  tupleMaybeIdComparison' Binop {emeta, binop, loper=MaybeValue{mdt=NothingData}, roper=MaybeValue{mdt=NothingData}} = setType boolType BTrue{emeta}
+
+  tupleMaybeIdComparison' Binop {emeta, binop, loper, roper}
+    | (isMaybeType $ getType loper) &&
+      (isMaybeType $ getType roper) &&
+      (binop == Identifiers.EQ || binop == Identifiers.NEQ) = 
+      tupleMaybeIdComparison $ maybeNeg Match{emeta, arg=setType tt Tuple{emeta, args}, clauses=[trueClause1, trueClause2, falseClause]}
+    where
+      tt = tupleType [lmty, rmty]
+      args = [loper, roper]
+      falseClause = MatchClause{mcpattern=setType tt VarAccess{emeta, qname=qName "_"}
+                               ,mchandler=setType boolType BFalse{emeta}
+                               ,mcguard=setType boolType BTrue{emeta}}
+      trueClause1 = MatchClause{mcpattern=setType tt Tuple{emeta
+                                                          ,args=[setType lmty MaybeValue{emeta, mdt=JustData lid}
+                                                                ,setType rmty MaybeValue{emeta, mdt=JustData rid}]}
+                               ,mchandler
+                               ,mcguard=setType boolType Binop{emeta, binop, loper=lid, roper=rid}}
+      trueClause2 = MatchClause{mcpattern=setType tt Tuple{emeta
+                                                          ,args=[setType lmty MaybeValue{emeta, mdt=NothingData}
+                                                                ,setType rmty MaybeValue{emeta, mdt=NothingData}]}
+                               ,mchandler
+                               ,mcguard=setType boolType BTrue{emeta}}
+      lid = setType lty VarAccess{emeta, qname=qName "_fst"}
+      rid = setType rty VarAccess{emeta, qname=qName "_snd"}
+      leftResult = getResultType $ getType loper
+      rightResult = getResultType $ getType roper
+      -- When one operand is Nothing, replace its inferred bottom type by the type of the other operand
+      lty = if leftResult == bottomType then rightResult else leftResult
+      rty = if rightResult == bottomType then leftResult else rightResult
+      lmty = maybeType lty
+      rmty = maybeType rty
+      -- Negate result when != comparison
+      maybeNeg n = setType boolType $ if binop == Identifiers.EQ then n else Unary{emeta, uop=NOT, operand=n}
+      mchandler = setType boolType BTrue{emeta}
+  tupleMaybeIdComparison' b@Binop {emeta, binop, loper, roper}
+    | (isTupleType $ getType loper) &&
+      (isTupleType $ getType roper) &&
+      (binop == Identifiers.EQ || binop == Identifiers.NEQ) = 
+      tupleMaybeIdComparison $ foldl and (setType boolType BTrue{emeta}) pairwiseCompare
+    where
+      and loper roper = setType boolType Binop{emeta, binop=Identifiers.AND, loper, roper} 
+      pairwiseCompare = map mkComparison [0..(tupleLength $ getType loper)-1]
+      mkComparison idx = setType boolType Binop {emeta
+                                                ,binop
+                                                ,loper=setType (lty!!idx) TupleAccess{emeta
+                                                                                     ,target=loper
+                                                                                     ,compartment=idx}
+                                                ,roper=setType (rty!!idx) TupleAccess{emeta
+                                                                                     ,target=roper
+                                                                                     ,compartment=idx}}
+      lty = getArgTypes $ getType loper
+      rty = getArgTypes $ getType roper
+      
+  tupleMaybeIdComparison' e = e
 
 sugarPrintedStrings = extend sugarPrintedString
     where

@@ -1,0 +1,18 @@
+class Main
+  def main() : void
+    val x = 32 : uint
+    val y = 64 : int
+    assertFalse(x == y)
+    
+    val a = new A
+    val b = new B
+    b == a
+
+  end
+end
+
+passive class A 
+end
+  
+passive class B : Id
+end

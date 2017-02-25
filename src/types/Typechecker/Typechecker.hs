@@ -1122,11 +1122,10 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isTupleType targetType) $
         tcError $ InvalidTupleTargetError eTarget compartment targetType
-      let _:compartments = typeComponents targetType
+      let compartments = getArgTypes targetType
       unless (0 <= compartment && compartment < tupleLength targetType) $
         tcError $ InvalidTupleAccessError eTarget compartment
-
-      return $ setType (compartments!!compartment) ta {target = eTarget}
+      return $ setType (compartments!!(compartment)) ta {target = eTarget}
 
     --  E |- target : t'
     --  fieldLookup(t', name) = t
@@ -1470,8 +1469,27 @@ instance Checkable Expr where
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` eqOps = do
              eLoper <- typecheck loper
+             eRoper <- typecheck roper
              let lType = AST.getType eLoper
-             eRoper <- hasType roper lType
+             let rType = AST.getType eRoper
+             
+             unless (isTypeVar lType) $ checkIdComparisonSupport lType
+             unless (isTypeVar rType) $ checkIdComparisonSupport rType
+
+             when (isTupleType lType && isTupleType rType) $
+                  unless (length (getArgTypes lType) == length (getArgTypes rType)) $
+                         tcError $ IdComparisonBadTuples lType rType
+             when (isRefType lType || isTupleType lType) $
+                  unlessM (lType `subtypeOf` rType) $
+                    unlessM (rType `subtypeOf` lType) $
+                         tcError $ IdComparisonTypeMismatchError lType rType
+             when (isMaybeType lType && isMaybeType rType) $
+                  unlessM (lType `subtypeOf` rType) $
+                    unlessM (rType `subtypeOf` lType) $
+                         tcError $ IdComparisonTypeMismatchError lType rType
+             when (isPrimitive lType) $
+                  unless (lType == rType) $
+                         tcError $ IdComparisonTypeMismatchError lType rType
              when (isStringObjectType lType) $
                   unless (isNullLiteral eRoper || isNullLiteral eLoper) $
                          tcWarning StringIdentityWarning
@@ -1498,7 +1516,20 @@ instance Checkable Expr where
             | isRealType ty2 = realType
             | isUIntType ty1 = uintType
             | otherwise = intType
-
+        checkIdComparisonSupport ty 
+            | isMaybeType ty = 
+          checkIdComparisonSupport $ getResultType ty
+        checkIdComparisonSupport ty 
+            | isTupleType ty = do
+          x <- mapM checkIdComparisonSupport (getArgTypes ty)
+          return ()
+        checkIdComparisonSupport ty 
+            | isMaybeType ty == False = do
+          id <- resolveType (refType "Id")
+          includesId <- ty `subtypeOf` id
+          unless (includesId || isPrimitive ty) $
+            tcError $ IdComparisonNotSupportedError ty
+   
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 
 --  classLookup(ty) = _

@@ -1,0 +1,25 @@
+Cannot compare values across types uint and int
+In expression: 
+  x == y
+In expression: 
+  assertFalse(x == y)
+In expression: 
+  val y = 64 : int
+In expression: 
+  val y = 64 : int
+In expression: 
+  val x = 32 : uint
+In expression: 
+  val x = 32 : uint
+In expression: 
+  do
+    val x = 32 : uint
+    val y = 64 : int
+    assertFalse(x == y)
+    val a = new A
+    val b = new B
+    b == a
+  end
+In method 'main' of type 'void'
+In class 'Main'
+

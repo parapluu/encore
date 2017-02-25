@@ -1,0 +1,66 @@
+import Std
+
+class Main
+  def main() : void
+
+    -- Comparing two reference types that both implement the Id trait
+    val a = new A
+    val b = new B
+    assertFalse((a : Id) == b)
+
+    -- Comparing primitives
+    assertTrue(42 == 42)
+    assertFalse(42 == -42)
+    assertTrue(true == true)
+    assertTrue(false == false)
+    assertFalse(true == false)
+    assertTrue(42.0 == 42.0)
+    assertFalse(42.0 == -42.0)
+    val x = 32 : uint
+    val y = 64 : uint
+    assertFalse(x == y)
+
+    val i1 = Just(12)
+    val j1 = Just(12)
+    assertTrue(i1 == j1)
+
+    val i2 = Just(Just(12))
+    val j2 = Just(Just(12))
+    assertTrue(i2 == j2)
+
+    val i3 = Just(a : Id)
+    val j3 = Just(a)
+    assertTrue(i3 == j3)
+
+    val i4 = Just(a : Id)
+    val j4 = Just(b)
+    assertFalse(i4 == j4)
+
+    -- Comparing primitives across different types modulo cast
+    val i5 = 32 : int
+    val j5 = 64 : uint
+    assertFalse((i5 : uint) == j5)
+
+    val i6 = (1, (a : Id))
+    val j6 = (1, a)
+    assertTrue(i6 == j6)
+
+    val i7 = (1, (b : Id))
+    val j7 = (1, a)
+    assertFalse(i7 == j7)
+
+    val i8 = (1, (1))
+    val j8 = (1, (1))
+    assertTrue(i8 == j8)
+    assertFalse(i8 == (1, (2)))
+
+    assertTrue((a, Just((a, b))) == (a, Just((a, b))))
+    assertFalse((a, Just((37.5, b : Id))) == (a, Just((37.5, a : Id))))
+  end
+end
+
+passive class A : Id
+end
+  
+passive class B : Id
+end

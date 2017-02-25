@@ -473,8 +473,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate acc@(A.TupleAccess {A.target, A.compartment}) = do
     (ntarg,ttarg) <- translate target
     tmp <- Ctx.genNamedSym "tupleacc"
-    let theValue = fromEncoreArgT (translate . A.getType $ acc) $ (Call tupleGet [AsExpr ntarg, Int compartment])
-        ty = translate $ A.getType acc
+    let ty = translate $ (A.getType acc)
+        theValue = fromEncoreArgT ty $ (Call tupleGet [AsExpr ntarg, Int compartment])
         theDecl = Decl (ty, Var tmp)
         theAssign = Assign theDecl theValue
     return (Var tmp, Seq [ttarg

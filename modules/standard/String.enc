@@ -75,7 +75,7 @@ end
 -- [x] change this.length(a) ==> a.length()
 -- [ ] Write proper docs
 -- Be aware of issue #204
-passive class String
+passive class String : Id + Eq[String](compare(),length,data)
   val data : EMBED char* END
   val length : int
   def init(s:EMBED char* END) : void
@@ -226,8 +226,13 @@ passive class String
     end
   end
 
-  -- Checks structural equivalence between this and s
+  -- Deprecated, should be removed
   def equals(s:String) : bool
+    this.eq(s)
+  end
+
+  -- Checks structural equivalence between this and s
+  def eq(s:String) : bool
     this.compare(s) == 0
   end
 
