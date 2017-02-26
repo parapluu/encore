@@ -125,6 +125,17 @@
         )
       )
 
+(defvar encore-mode-syntax-table nil "Syntax table for `encore-mode'.")
+
+(setq encore-mode-syntax-table
+      (let ( (synTable (make-syntax-table)))
+        ;; Block comment "{- ... -}"
+        ;; Inline comment "-- ..."
+        (modify-syntax-entry ?\{ "(}1nb" synTable)
+        (modify-syntax-entry ?\} "){4nb" synTable)
+        (modify-syntax-entry ?- "_ 123" synTable)
+        (modify-syntax-entry ?\n ">" synTable)
+        synTable))
 
 ;;;;;;;;;;;;;;;;;
 ;; Indentation ;;
@@ -253,9 +264,11 @@
       '(indent-for-tab-command yas-expand yas/expand))
 
 (setq encore-block-open-regex
-      (concat "\\<def\\|class\\|passive\\|trait\\|while\\|for\\|repeat\\|do\\>\\|"
-              "\\<fun\\>[^=>]*$\\|\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*$\\|"
-              "\\<if\\>\\|\\<unless\\>\\|\\<for\\>\\|\\<while\\>\\|\\<repeat\\>\\|"
+      (concat "\\<def\\|class\\|passive\\|trait\\>"           "\\|"
+              "\\<while\\|for\\|repeat\\|do\\>"               "\\|"
+              "\\<fun\\>[^=>]*$"                              "\\|"
+              "\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*$" "\\|"
+              "\\<if\\|unless\\>"                             "\\|"
               "\\<match\\>.*\\<with\\> *$\\|\\<case\\>.*=> *$"))
 
 (defun encore-skip-block ()
@@ -276,10 +289,13 @@
      (save-excursion
        (while (and (not (bobp)) (not done))
          (forward-line -1)
-         (if (string-match "\\<end\\>" (current-line))
+         (if (and (not (string-match "^[ \t]*--" (current-line)))
+                  (string-match "\\<end\\>" (current-line)))
              (encore-skip-block)
-           (if (and (string-match encore-block-open-regex (current-line))
-                    (not (string-match "\\<else\\> +\\<if\\>" (current-line))))
+           (if (and (not (string-match "^[ \t]*--" (current-line)))
+                    (not (string-match "\\<require\\>" (current-line)))
+                    (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
+                    (string-match encore-block-open-regex (current-line)))
                (progn (setq indent (match-beginning 0))
                       (setq done 't))))))
      (indent-line-to indent)))
@@ -306,8 +322,10 @@
                       (or (not indent) (and (> indent encore-tab-width)
                                             (>= indent encore-last-indent))))
             (forward-line -1)
-            (setq indent (classify-indent (current-line) first))
-            (setq encore-checked-line (line-number-at-pos))))
+            (if (not (string-match "^[ \t]*--" (current-line)))
+                (progn
+                  (setq indent (classify-indent (current-line) first))
+                  (setq encore-checked-line (line-number-at-pos))))))
         (if (not indent) (setq indent 0))
         (indent-line-to indent)
         (if (<= indent encore-tab-width)
@@ -335,6 +353,8 @@
 
 (add-hook 'encore-mode-hook
           (lambda ()
+            (make-local-variable 'comment-start)
+            (setq comment-start "--")
             (setq imenu-generic-expression (encore-imenu-configure))))
 
 ;;;;;;;;;;;;;;;;;
