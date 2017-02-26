@@ -6,11 +6,10 @@ end
 class Main
   def main() : void
     let
-      break = '\n'
+      lineBreak = '\n'
       bang = '!'
     in
-      print("Hello char world{}{}", bang, id(break))
+      print("Hello char world{}{}", bang, id(lineBreak))
     end
   end
 end
-
