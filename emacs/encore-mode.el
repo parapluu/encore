@@ -286,19 +286,20 @@
   "Find the indent of the nearest block without a matching end"
   (interactive)
   (let ((indent 0) (done nil))
-     (save-excursion
-       (while (and (not (bobp)) (not done))
-         (forward-line -1)
-         (if (and (not (string-match "^[ \t]*--" (current-line)))
-                  (string-match "\\<end\\>" (current-line)))
-             (encore-skip-block)
-           (if (and (not (string-match "^[ \t]*--" (current-line)))
-                    (not (string-match "\\<require\\>" (current-line)))
-                    (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
-                    (string-match encore-block-open-regex (current-line)))
-               (progn (setq indent (match-beginning 0))
-                      (setq done 't))))))
-     (indent-line-to indent)))
+    (save-excursion
+      (forward-line -1)
+      (while (and (not (bobp)) (not done))
+        (if (and (not (string-match "^[ \t]*--" (current-line)))
+                 (string-match "\\<end\\>" (current-line)))
+            (encore-skip-block)
+          (if (and (not (string-match "^[ \t]*--" (current-line)))
+                   (not (string-match "\\<require\\>" (current-line)))
+                   (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
+                   (string-match encore-block-open-regex (current-line)))
+              (progn (setq indent (match-beginning 0))
+                     (setq done 't))))
+        (forward-line -1)))
+    (indent-line-to indent)))
 
 (defun encore-indent-line ()
   "Indent current line as encore code"
