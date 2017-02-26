@@ -1,0 +1,9 @@
+fun phuc() : void
+  break
+end
+
+class Main
+  def main() : void
+    ()
+  end
+end

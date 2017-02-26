@@ -201,6 +201,9 @@ formalBindings formal actual
         error $ "Environment.hs: Tried to get bindings from " ++
                 showWithKind formal ++ " and " ++ showWithKind actual
 
+inLoop :: Environment -> Bool
+inLoop = loopInBacktrace . bt
+
 isKnownName :: Namespace -> Name -> Environment -> Bool
 isKnownName ns name Env{lookupTables} =
   name `elem` allNames (lookupTables Map.! ns)

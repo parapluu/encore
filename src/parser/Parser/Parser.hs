@@ -181,6 +181,7 @@ reservedNames =
     ,"Stream"
     ,"and"
     ,"bool"
+    ,"break"
     ,"case"
     ,"char"
     ,"class"
@@ -950,6 +951,7 @@ expression = makeExprParser expr opTable
 expr :: EncParser Expr
 expr = notFollowedBy nl >>
         (embed
+     <|> break
      <|> closure
      <|> match
      <|> blockedTask

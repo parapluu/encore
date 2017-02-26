@@ -1,0 +1,30 @@
+passive class Phuc
+  def phuc() : void
+    var i = 0
+    while i < 50 do
+      print ("{} ",i)
+      if i>5 then
+        break
+        print ("Never show")
+      end
+      i = i + 1
+    end
+  end
+end
+
+class Main
+  def main() : void
+    var i = 0
+    while i < 50 do
+      print ("{} ",i)
+      if i>5 then
+        break
+        print ("Never show")
+      end
+      i = i + 1
+    end
+    print ("Done!\n")
+    (new Phuc).phuc()
+    print ("Done!\n")
+  end
+end
