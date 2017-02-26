@@ -15,7 +15,9 @@ module Typechecker.TypeError (Backtrace
                              ,TCWarning(TCWarning)
                              ,Warning(..)
                              ,currentMethodFromBacktrace
-                             ,currentFunctionFromBacktrace) where
+                             ,currentFunctionFromBacktrace
+                             ,loopInBacktrace
+                             ) where
 
 import Text.PrettyPrint
 import Text.Megaparsec(SourcePos)
@@ -84,6 +86,14 @@ currentFunctionFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
 currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
+
+loopInBacktrace :: Backtrace -> Bool
+loopInBacktrace = any (isLoopHead . snd)
+    where
+      isLoopHead (BTExpr For{}) = True
+      isLoopHead (BTExpr While{}) = True
+      isLoopHead (BTExpr Repeat{}) = True
+      isLoopHead _ = False
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -179,6 +189,7 @@ data Error =
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
   | TraitsInActiveClassError
+  | NoLoopToBreakError
   | NonCallableTargetError Type
   | NonSendableTargetError Type
   | MainMethodCallError
@@ -383,6 +394,8 @@ instance Show Error where
                   nameWithKind targetType
     show (TraitsInActiveClassError) =
         "Traits can only be used for passive classes"
+    show NoLoopToBreakError =
+        "No loop to break from"
     show (NonCallableTargetError targetType) =
         printf "Cannot call method on expression of type '%s'"
                (show targetType)
