@@ -1255,6 +1255,11 @@ expr = notFollowedBy nl >>
         reserved "eos"
         return Eos{emeta}
 
+      break = do
+        pos <- getPosition
+        reserved "break"
+        return $ Break (meta pos)
+
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
