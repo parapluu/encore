@@ -1302,11 +1302,6 @@ expr = notFollowedBy nl >>
         reserved "eos"
         return Eos{emeta}
 
-      suspend = do
-        emeta <- meta <$> getPosition
-        reserved "suspend"
-        return Suspend{emeta}
-
       closure = do
         indent <- L.indentLevel
         funLine <- sourceLine <$> getPosition
