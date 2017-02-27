@@ -51,6 +51,7 @@ class Main
     extract(result)
   end
   def main() : void
+    assertTrue(false) -- fail to not block the CI
     this.test_values()
     this.test_futures()
   end
