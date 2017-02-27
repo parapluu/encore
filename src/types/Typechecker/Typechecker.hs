@@ -556,22 +556,45 @@ instance Checkable Expr where
               methodName = name mcall
 
           methodResult <- asks $ methodLookup targetType methodName
+
           fieldResult <- if isRefType targetType
                          then asks $ fieldLookup targetType methodName
                          else return Nothing
-          case (methodResult, fieldResult) of
-            (Nothing, Just Field{ftype}) -> do
-              let fieldAccess = FieldAccess{emeta = emeta mcall
-                                           ,target = eTarget
-                                           ,name = methodName
-                                           }
-              if isArrayType ftype && length (args mcall) == 1
-              then doTypecheck ArrayAccess{emeta = emeta mcall
-                                          ,target = fieldAccess
-                                          ,index = head (args mcall)}
-              else handleMethodCall eTarget targetType
-            _ -> handleMethodCall eTarget targetType
+
+          case () of _  -- Might be accessing an array or a closure in a field
+                      | isNothing methodResult -- Methods take precedence
+                      , MethodCall{} <- mcall  -- Only for '.', not '!'
+                      , Just Field{ftype} <- fieldResult ->
+                          handleArrayOrFieldClosure eTarget targetType
+                                                    methodName ftype
+                      | otherwise ->
+                          handleMethodCall eTarget targetType
         where
+          handleArrayOrFieldClosure eTarget targetType name fieldType =
+            let fieldAccess = FieldAccess{emeta = emeta mcall
+                                         ,target = eTarget
+                                         ,name
+                                         }
+            in
+            if isArrayType fieldType && length (args mcall) == 1 then
+              doTypecheck ArrayAccess{emeta = emeta mcall
+                                     ,target = fieldAccess
+                                     ,index = head (args mcall)}
+            else if isArrowType fieldType then
+              let body = FunctionCall{emeta = emeta mcall
+                                     ,typeArguments = typeArguments mcall
+                                     ,qname = qLocal name
+                                     ,args = args mcall
+                                     }
+              in
+                doTypecheck Let{emeta = emeta mcall
+                               ,mutability = Val
+                               ,decls = [(name, fieldAccess)]
+                               ,body
+                               }
+            else
+                handleMethodCall eTarget targetType
+
           handleMethodCall eTarget targetType = do
             handleErrors targetType mcall
             typecheckPrivateModifier eTarget (name mcall)
