@@ -41,8 +41,8 @@ end
 class Main
   def main() : void
     let
-      f = reduce(sum, 0, millionItems(1000000))
-      f2 = reduce(sum, 0, millionFutures(1000000))
+      f = reduce(sum, 0, millionItems(1000))
+      f2 = reduce(sum, 0, millionFutures(1000))
       v = get(f)
       v2 = get(f2)
     in
