@@ -1479,17 +1479,20 @@ instance Checkable Expr where
              when (isTupleType lType && isTupleType rType) $
                   unless (length (getArgTypes lType) == length (getArgTypes rType)) $
                          tcError $ IdComparisonBadTuples lType rType
-             when (isRefType lType || isTupleType lType) $
-                  unlessM (lType `subtypeOf` rType) $
-                    unlessM (rType `subtypeOf` lType) $
-                         tcError $ IdComparisonTypeMismatchError lType rType
-             when (isMaybeType lType && isMaybeType rType) $
-                  unlessM (lType `subtypeOf` rType) $
-                    unlessM (rType `subtypeOf` lType) $
-                         tcError $ IdComparisonTypeMismatchError lType rType
-             when (isPrimitive lType) $
-                  unless (lType == rType) $
-                         tcError $ IdComparisonTypeMismatchError lType rType
+             -- when (isRefType lType || isTupleType lType) $
+             --      unlessM (lType `subtypeOf` rType) $
+             --        unlessM (rType `subtypeOf` lType) $
+             --             tcError $ IdComparisonTypeMismatchError lType rType
+             -- when (isMaybeType lType && isMaybeType rType) $
+             --      unlessM (lType `subtypeOf` rType) $
+             --        unlessM (rType `subtypeOf` lType) $
+             --             tcError $ IdComparisonTypeMismatchError lType rType
+             -- when (isPrimitive lType) $
+             --      unless (lType == rType) $
+             --             tcError $ IdComparisonTypeMismatchError lType rType
+             unlessM (lType `subtypeOf` rType) $
+               unlessM (rType `subtypeOf` lType) $
+                 tcError $ IdComparisonTypeMismatchError lType rType
              when (isStringObjectType lType) $
                   unless (isNullLiteral eRoper || isNullLiteral eLoper) $
                          tcWarning StringIdentityWarning
@@ -1517,18 +1520,16 @@ instance Checkable Expr where
             | isUIntType ty1 = uintType
             | otherwise = intType
         checkIdComparisonSupport ty 
-            | isMaybeType ty = 
-          checkIdComparisonSupport $ getResultType ty
-        checkIdComparisonSupport ty 
+            | isMaybeType ty = checkIdComparisonSupport $ getResultType ty
+            | isArrayType ty = checkIdComparisonSupport $ getResultType ty
             | isTupleType ty = do
-          x <- mapM checkIdComparisonSupport (getArgTypes ty)
-          return ()
-        checkIdComparisonSupport ty 
-            | isMaybeType ty == False = do
-          id <- resolveType (refType "Id")
-          includesId <- ty `subtypeOf` id
-          unless (includesId || isPrimitive ty) $
-            tcError $ IdComparisonNotSupportedError ty
+                x <- mapM checkIdComparisonSupport (getArgTypes ty)
+                return ()
+            | otherwise = do
+                id <- resolveType (refType "Id")
+                includesId <- ty `subtypeOf` id
+                unless (includesId || isPrimitive ty) $
+                  tcError $ IdComparisonNotSupportedError ty
    
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 

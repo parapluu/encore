@@ -1,7 +1,7 @@
 class Main
   def main() : void
-    val x = 32 : uint
-    val y = 64 : int
+    val x = false
+    val y = 64
     assertFalse(x == y)
     
     val a = new A

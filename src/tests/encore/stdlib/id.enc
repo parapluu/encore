@@ -56,6 +56,10 @@ class Main
 
     assertTrue((a, Just((a, b))) == (a, Just((a, b))))
     assertFalse((a, Just((37.5, b : Id))) == (a, Just((37.5, a : Id))))
+
+    val i9 = [1, 2]
+    val j9 = [1, 2]
+    assertTrue(i9 != j9)
   end
 end
 
