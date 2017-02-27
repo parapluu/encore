@@ -1,3 +1,5 @@
+#! /usr/bin/env bash
+
 readonly ROOT_PATH=$(pwd)/../..
 readonly ENCOREC=${ROOT_PATH}/release/encorec
 
