@@ -613,6 +613,9 @@ data Expr = Skip {emeta :: Meta Expr}
           | While {emeta :: Meta Expr,
                    cond :: Expr,
                    body :: Expr}
+          | DoWhile {emeta :: Meta Expr,
+                     cond :: Expr,
+                     body :: Expr}
           | Repeat {emeta :: Meta Expr,
                     name :: Name,
                     times :: Expr,
