@@ -933,7 +933,6 @@ expr = notFollowedBy nl >>
      <|> while
      <|> repeat
      <|> arraySize
-     <|> bracketed
      <|> letExpression
      <|> ifExpression
      <|> unlessIf
@@ -996,6 +995,7 @@ expr = notFollowedBy nl >>
         pos <- getPosition
         root <- tupled <|>
                 stringLit <|>
+                bracketed <|>
                 try qualifiedVarOrFun <|>
                 varOrFun
         longerPath pos root <|> return root
