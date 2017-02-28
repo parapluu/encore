@@ -555,9 +555,12 @@ instance Checkable Expr where
           let targetType = AST.getType eTarget
               methodName = name mcall
 
-          methodResult <- asks $ methodLookup targetType methodName
+          isKnown <- isKnownRefType targetType
+          methodResult <- if isKnown
+                          then asks $ methodLookup targetType methodName
+                          else return Nothing
 
-          fieldResult <- if isRefType targetType
+          fieldResult <- if isKnown && isRefAtomType targetType
                          then asks $ fieldLookup targetType methodName
                          else return Nothing
 

@@ -13,6 +13,7 @@ module Typechecker.Util(TypecheckM
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
                        ,findFormalRefType
+                       ,isKnownRefType
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
