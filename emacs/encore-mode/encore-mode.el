@@ -1,14 +1,49 @@
-;; By Elias Castegren (elias.castegren@it.uu.se)
-;; Feel free to use and modify this file however you see fit.
+;;; encore-mode.el
+
+;; Author: Elias Castegren 2017 (elias.castegren@it.uu.se)
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;;
 ;; Please e-mail me with comments and suggested changes if
 ;; you have any.
 ;;
-;; This mode gives syntax highlighting and Haskell-mode-style
-;; cyclic indentation for Encore.
+;; Commentary:
 ;;
-;; Put this file where Emacs can find it and require it in your
-;; init-file. There is a hook to enable encore-mode for all files
-;; with extension .enc.
+;; This mode gives syntax highlighting and Haskell-mode-style
+;; cyclic indentation for Encore. There is also support for
+;; ruby-mode-style matching of blocks, automatic compilation and
+;; flychecking. If you use expand-region, there is support for
+;; that as well.
+;;
+;; Usage:
+;;
+;; Add this folder to your load-path and require encore-mode:
+;;
+;; (add-to-list 'load-path "~/path/to/encore-mode/")
+;; (require 'encore-mode)
+;;
+;; There is a hook to enable encore-mode for all files with
+;; extension '.enc'. All the bells and whistles mentioned above
+;; should be enabled automatically. See encore-block.el for
+;; configuration.
+;;
+;; If you use yasnippets (and you should!) add the snippets folder
+;; as well:
+;;
+;; (add-to-list 'yas-snippet-dirs "~/path/to/emacs-mode/snippets")
+;;
+;; Code
 
 ;;;;;;;;;;;;;;;;;;
 ;; Highlighting ;;
@@ -264,11 +299,18 @@
       '(indent-for-tab-command yas-expand yas/expand))
 
 (setq encore-block-open-regex
-      (concat "\\<def\\|class\\|passive\\|trait\\>"           "\\|"
-              "\\<while\\|for\\|repeat\\|do\\>"               "\\|"
-              "\\<fun\\>[^=>\n]*\\($\\|--\\)"                 "\\|"
+      (concat "\\<def\\>"    "\\|"
+              "\\<class\\>"  "\\|"
+              "\\<passive"   "\\|"
+              "\\<trait\\>"  "\\|"
+              "\\<while\\>"  "\\|"
+              "\\<for\\>"    "\\|"
+              "\\<repeat\\>" "\\|"
+              "\\<do\\>"     "\\|"
+              "\\<fun\\>[^=>\n]*\\($\\|--\\)" "\\|"
               "\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*\\($\\|--\\)" "\\|"
-              "\\<if\\|unless\\>"                             "\\|"
+              "\\<if\\>" "\\|"
+              "\\<unless\\>" "\\|"
               "\\<match\\>.*\\<with\\> *\\($\\|--\\)\\|\\<case\\>.*=>[ \t]*\\($\\|--\\)"))
 
 (defun encore-skip-block ()
@@ -361,7 +403,10 @@
 (require 'encore-mode-expansions)
 
 (when (require 'expand-region nil :noerror)
-  (add-hook 'encore-mode-hook 'add-encore-mode-expansions))
+  (add-hook 'encore-mode-hook
+            (lambda ()
+              (make-local-variable 'er/try-expand-list)
+              (add-encore-mode-expansions))))
 
 ;;;;;;;;;;;
 ;; imenu ;;
@@ -429,8 +474,11 @@
 ;; encore-block ;;
 ;;;;;;;;;;;;;;;;;;
 
-(when (require 'encore-block nil :noerror)
-  (encore-block-mode t))
+(require 'encore-block)
+
+(add-hook 'encore-mode-hook
+          (lambda ()
+            (encore-block-mode t)))
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; mode definition ;;

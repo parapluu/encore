@@ -25,12 +25,13 @@
 
 ;;; Usage:
 
-;; Add this line to your .emacs
+;; This mode is automatically loaded by encore-mode. If you want
+;; to use it separately, add these lines to your .emacs:
 ;;
 ;; (require 'encore-block)
 ;; (encore-block-mode t)
 ;;
-;; In addition, you can also add this line too.
+;; In addition, you can also add one of these lines too:
 ;;
 ;; ;; do overlay
 ;; (setq encore-block-highlight-toggle 'overlay)
