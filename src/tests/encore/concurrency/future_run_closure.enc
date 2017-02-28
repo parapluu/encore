@@ -1,4 +1,4 @@
--- This file was automatically converted by encorec
+-- This file was partially automatically converted by encorec
 
 import Task
 passive class Money
@@ -7,24 +7,24 @@ passive class Money
     this.amount = i
   end
 end
+
 class Test
   def createMoney() : Money
     new Money(4)
   end
-  def update(m : Money) : Money
+  def update(m: Money): Money
     m
   end
 end
+
 class Main
-  def main() : void
-    val t = new Test
-    val t2 = new Test
+  def main(): void 
+    val t = new Test()
+    val t2 = new Test()
     val f1 = t.createMoney()
-    await(f1)
-    val f2 = f1 ~~> fun (m : Money) 
-                      t2.update(m) ~~> fun (m : Money) => m
-                    end
-    await(f2)
+    this.await(f1)
+    val f2 = f1 ~~> fun (m: Money) => { t2.update(m) ~~> fun (m: Money) => m }
+    this.await(f2)
     val money = get(get(f2))
     println(money.amount)
   end

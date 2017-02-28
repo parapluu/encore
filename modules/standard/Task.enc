@@ -50,8 +50,6 @@ not fulfilled.
 Example:
 
 (a, b) = sync2(actor.msg(), actor'.msg'())
-
-
 #+BEGIN_SRC encore
 fun sync2[t1, t2](f1 : Fut[t1], f2: Fut[t2]) : (t1, t2)
   if not fulfilled(f1) then await(f1) end
@@ -104,7 +102,7 @@ class Promise[a]
   end
   def deliver() : a
     while this.fulfilled() == false do
-      suspend
+      this.suspend()
     end
     match this.value with
       case Just(v) =>
@@ -148,7 +146,7 @@ class Synchroniser[t]
   end
   def result() : [t]
     while this.countDown > 0 do
-      suspend
+      this.suspend()
     end
     this.result
   end
@@ -180,3 +178,16 @@ end
 # Local Variables:
 # mode: org
 # End:
+
+* The await function
+
+Until it becomes possible to do `current_actor().await(fut)`,
+we supply a global await function in the Task library. 
+
+#+BEGIN_SRC encore
+fun await[t](f:Fut[t]) : void
+  EMBED(void)
+    future_await(_ctx, #{f});
+  END
+end
+#+END_SRC

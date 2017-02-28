@@ -101,7 +101,37 @@ desugarProgram p@(Program{traits, classes, functions}) =
                  ,funsource
                  }
 
-    desugarClass c@(Class{cmethods}) = c{cmethods = map desugarMethod cmethods}
+  -- Automatically give await and supend to active classes
+  -- Then the Actor trait is in place, this desugaring step will be changed
+  -- so that the Actor trait is included instead
+    desugarClass c@(Class{cmeta, cmethods})
+      | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
+      where
+        await = Method{mmeta
+                      ,mheader=awaitHeader
+                      ,mlocals=[]
+                      ,mbody=Await emeta $ VarAccess emeta (qName "f")}
+        awaitHeader = Header{hmodifier=[]
+                            ,kind=NonStreaming
+                            ,htypeparams=[typeVar "_t"]
+                            ,hname=Name "await"
+                            ,htype=voidType
+                            ,hparams=[awaitParam]}
+        awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
+        suspend = Method{mmeta, mheader=suspendHeader, mlocals=[], mbody=Suspend emeta}
+        suspendHeader = Header{hmodifier=[]
+                              ,kind=NonStreaming
+                              ,htypeparams=[]
+                              ,hname=Name "suspend"
+                              ,htype=voidType
+                              ,hparams=[]}
+        pmeta = Meta.meta (Meta.sourcePos cmeta)
+        emeta = Meta.meta (Meta.sourcePos cmeta)
+        mmeta = Meta.meta (Meta.sourcePos cmeta)
+
+    desugarClass c@(Class{cmethods})
+      | isPassive c || isShared c = c{cmethods = map desugarMethod cmethods}
+
     desugarMethod m@(Method {mbody, mlocals}) =
       m{mbody = desugarExpr mbody
        ,mlocals = map desugarFunction mlocals}

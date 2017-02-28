@@ -211,7 +211,6 @@ reservedNames =
     ,"require"
     ,"shared"
     ,"stream"
-    ,"suspend"
     ,"then"
     ,"this"
     ,"trait"
@@ -960,7 +959,6 @@ expr = notFollowedBy nl >>
      <|> yield
      <|> try isEos
      <|> eos
-     <|> suspend
      <|> new
      <|> sequence
      <|> miniLet
@@ -1310,11 +1308,6 @@ expr = notFollowedBy nl >>
         emeta <- meta <$> getPosition
         reserved "eos"
         return Eos{emeta}
-
-      suspend = do
-        emeta <- meta <$> getPosition
-        reserved "suspend"
-        return Suspend{emeta}
 
       closure = do
         indent <- L.indentLevel
