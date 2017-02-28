@@ -815,7 +815,8 @@ instance Checkable Expr where
         eArg <- typecheck arg
         let argType = AST.getType eArg
         when (isActiveClassType argType) $
-          tcError ActiveMatchError
+          unless (isThisAccess arg) $
+            tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
         checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
