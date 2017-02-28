@@ -238,7 +238,8 @@ passive class Zip[t, u] : Iter[(t,u)](left, right)
 
   def next() : Maybe[(t,u)]
     For[(t,u)]
-      l : t <- this.left.next(), r : u <- this.right.next()
+      l : t <- this.left.next()
+      r : u <- this.right.next()
     do
       (l, r)
     end
@@ -308,7 +309,7 @@ passive class Skip[t] : Iter[t](n,inner)
     this.n = n
     this.inner = inner
   end
-  
+
   def next() : Maybe[t]
     if (this.n > 0) then
       val ret = this.inner.nth(this.n)
@@ -415,7 +416,7 @@ passive class ArrayIter[t] : Iter[t](array,nxtIdx)
     if (|this.array| - this.nxtIdx >= 1) then
       var x = (this.array)(this.nxtIdx)
       for i <- [this.nxtIdx+1 .. |this.array|] do
-        val n = (this.array)(i) 
+        val n = (this.array)(i)
         x = f(x, n)
       end
       Just(x)
@@ -484,7 +485,7 @@ passive class RangeIter : Iter[int](cur, last)
 
   def count() : int
     val diff = this.last - this.cur + 1
-    this.cur = this.last + 1 
+    this.cur = this.last + 1
     if (diff < 0) then
       0
     else

@@ -1275,25 +1275,46 @@ expr = notFollowedBy nl >>
 
       forComp = do
         indent <- L.indentLevel
-        emeta <- meta <$> getPosition
-        bodyT <- forCompHead
-        nl
-        assignments <- commaSep forCompAssignment
-        nl
-        blockedConstruct (do
-           reserved "do"
-           return (\body -> ForComprehension{emeta, assignments, bodyT, body}))
+        forLine <- sourceLine <$> getPosition
+        comp <- indentBlock $ do
+            emeta <- meta <$> getPosition
+            partialFor <- indentBlock $ do
+              bodyT <- forCompHead
+              singleLineHead emeta bodyT <|> multiLineHead emeta bodyT
+
+            doLine <- sourceLine <$> getPosition
+            if forLine == doLine
+            then reserved "do"
+            else atLevel indent $ reserved "do"
+            parseBody partialFor
+
+        atLevel indent $ reserved "end"
+        return comp
          where
-           forCompHead = (do
+           singleLineHead emeta bodyT = do
+             notFollowedBy nl
+             assignment <- forCompAssignment
+             return $ L.IndentNone (buildPartialFor emeta bodyT [assignment])
+           multiLineHead emeta bodyT =
+             return $ L.IndentMany Nothing
+                  (return . buildPartialFor emeta bodyT)
+                  forCompAssignment
+
+           buildPartialFor emeta bodyT assignments body =
+             ForComprehension{emeta, bodyT, assignments, body}
+
+           forCompHead = forHead <|> foreachHead
+
+           forHead = do
              reserved "For"
-             ty <- brackets typ
-             return $ Just ty) <|>
-              (do
-                 reserved "Foreach"
-                 return Nothing)
+             Just <$> brackets typ
+
+           foreachHead = do
+             reserved "Foreach"
+             return Nothing
 
            forCompAssignment = do
-             name <- identifier
+             name <- Name <$> identifier
              _ <- colon
              ty <- typ
              reservedOp "<-"
@@ -1301,9 +1322,9 @@ expr = notFollowedBy nl >>
              pos <- getPosition
              whenClause <- option BTrue{emeta = meta pos} (do
                                         reserved "when"
-                                        whenClause <- expression
-                                        return whenClause)
-             return $ ForComprehensionAssignment (Name name) ty (ForComprehensionAssignmentSource mainExpr whenClause)
+                                        expression)
+             return $ ForComprehensionAssignment name ty
+                        (ForComprehensionAssignmentSource mainExpr whenClause)
 
 
       while = blockedConstruct $ do
