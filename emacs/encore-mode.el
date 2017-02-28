@@ -266,21 +266,38 @@
 (setq encore-block-open-regex
       (concat "\\<def\\|class\\|passive\\|trait\\>"           "\\|"
               "\\<while\\|for\\|repeat\\|do\\>"               "\\|"
-              "\\<fun\\>[^=>]*$"                              "\\|"
-              "\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*$" "\\|"
+              "\\<fun\\>[^=>\n]*\\($\\|--\\)"                 "\\|"
+              "\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*\\($\\|--\\)" "\\|"
               "\\<if\\|unless\\>"                             "\\|"
-              "\\<match\\>.*\\<with\\> *$\\|\\<case\\>.*=> *$"))
+              "\\<match\\>.*\\<with\\> *\\($\\|--\\)\\|\\<case\\>.*=>[ \t]*\\($\\|--\\)"))
 
 (defun encore-skip-block ()
   "Skip the current block"
   (interactive)
-  (while (and (not (bobp))
-              (or (string-match "\\<else\\> +\\<if\\>" (current-line))
-                  (not (string-match encore-block-open-regex (current-line)))))
-    (forward-line -1)
-    (if (string-match "\\<end\\>" (current-line))
-        (progn (encore-skip-block)
-               (forward-line -1)))))
+  (let ((skipped nil))
+    (while (and (not (eobp))
+                (not (string-match "\\<end\\>" (current-line))))
+      (if (not skipped) (forward-line 1))
+      (setq skipped nil)
+      (if (and (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
+               (string-match encore-block-open-regex (current-line)))
+          (progn (encore-skip-block)
+                 (setq skipped t)
+                 (forward-line 1))))))
+
+(defun encore-skip-block-backward ()
+  "Skip the current block backwards"
+  (interactive)
+  (let ((skipped nil))
+    (while (and (not (bobp))
+                (or (string-match "\\<else\\> +\\<if\\>" (current-line))
+                    (not (string-match encore-block-open-regex (current-line)))))
+      (if (not skipped) (forward-line -1))
+      (setq skipped nil)
+      (if (string-match "\\<end\\>" (current-line))
+          (progn (encore-skip-block-backward)
+                 (forward-line -1)
+                 (setq skipped t))))))
 
 (defun indent-to-nearest-open-block ()
   "Find the indent of the nearest block without a matching end"
@@ -291,7 +308,7 @@
       (while (and (not (bobp)) (not done))
         (if (and (not (string-match "^[ \t]*--" (current-line)))
                  (string-match "\\<end\\>" (current-line)))
-            (encore-skip-block)
+            (encore-skip-block-backward)
           (if (and (not (string-match "^[ \t]*--" (current-line)))
                    (not (string-match "\\<require\\>" (current-line)))
                    (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
@@ -323,6 +340,7 @@
                       (or (not indent) (and (> indent encore-tab-width)
                                             (>= indent encore-last-indent))))
             (forward-line -1)
+            ;; TODO: Skip backwards when finding an 'end'
             (if (not (string-match "^[ \t]*--" (current-line)))
                 (progn
                   (setq indent (classify-indent (current-line) first))
@@ -335,6 +353,15 @@
               (setq encore-last-indent 100))
           (setq encore-last-indent indent))))))
     (if (looking-back "^[ \t]*") (back-to-indentation)))
+
+;;;;;;;;;;;;;;;
+;; selection ;;
+;;;;;;;;;;;;;;;
+
+(require 'encore-mode-expansions)
+
+(when (require 'expand-region nil :noerror)
+  (add-hook 'encore-mode-hook 'add-encore-mode-expansions))
 
 ;;;;;;;;;;;
 ;; imenu ;;
