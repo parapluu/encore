@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: fun
+# key: fun
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+fun ${1:foo}($2) : ${3:void}
+  $0
+end

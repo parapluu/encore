@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: class
+# key: class
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+class ${1:Main}
+  $0
+end

@@ -1,0 +1,6 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: val
+# key: val
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+val ${1:x} = $0

@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: if
+# key: if
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+if ${1:false} then
+  $0
+end

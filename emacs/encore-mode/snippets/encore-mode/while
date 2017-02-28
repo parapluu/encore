@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: while
+# key: while
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+while ${1:false} do
+  $0
+end

@@ -1,0 +1,13 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: matchm
+# key: matchm
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+match ${1:maybe} with
+  case Just(${2:x}) =>
+    ${3:x}
+  end
+  case Nothing =>
+    ${0:()}
+  end
+end

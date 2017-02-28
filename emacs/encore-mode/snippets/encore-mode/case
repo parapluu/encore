@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: case
+# key: case
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+case ${1:pattern} =>
+  $0
+end

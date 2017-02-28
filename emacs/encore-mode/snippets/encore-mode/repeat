@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: repeat
+# key: repeat
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+repeat ${1:i} <- ${2:10} do
+  $0
+end

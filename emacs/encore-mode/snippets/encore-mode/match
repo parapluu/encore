@@ -1,0 +1,10 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: match
+# key: match
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+match ${1:e} with
+  case ${2:x} =>
+    $0
+  end
+end

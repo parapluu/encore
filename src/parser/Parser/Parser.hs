@@ -34,7 +34,7 @@ parseEncoreProgram :: FilePath -> String -> Either (ParseError Char Dec) Program
 parseEncoreProgram = parse (runReaderT program sc)
 
 lineComment = L.skipLineComment "--"
-blockComment = L.skipBlockComment "{-" "-}"
+blockComment = L.skipBlockCommentNested "{-" "-}"
 
 -- | A "space consumer", used for parsing non-linebreaking white-space.
 sc :: Parser ()

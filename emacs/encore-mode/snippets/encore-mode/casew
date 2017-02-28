@@ -1,0 +1,8 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: casew
+# key: casew
+# expand-env: ((yas-also-auto-indent-first-line 't))
+# --
+case ${1:pattern} when ${2:guard} =>
+  $0
+end
