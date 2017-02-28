@@ -5,6 +5,12 @@ import BuiltinExt
 -- An iterator requires at least a 'next()' method; the other
 -- methods are optional, but you should aim to override them where
 -- your type can provide better performance.
+-- All iterator-operations except 'foreach', 'fold', 'reduce' are
+-- *lazy*: 'it.map(f).take(3)' and 'it.take(3).map(f)' should take
+-- approximately the same time. This design allows, for example,
+-- infinitely sized iterators. Foreach is eager, as it is
+-- presumably running for side effect. 'fold'/'reduce' are eager
+-- because they don't return iterators.
 trait Iter[t]
   -- Returns Just(x) if there is another value; Nothing otherwise.
   require def next() : Maybe[t]
