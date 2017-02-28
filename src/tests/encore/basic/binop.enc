@@ -2,6 +2,7 @@ class Main
   def main() : void
     var x = 10
     val y = 20
+    x += y
     assertTrue(x == 30)
     x -= y
     assertTrue(x == 10)
