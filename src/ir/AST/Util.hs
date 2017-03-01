@@ -204,7 +204,6 @@ putChildren cs e@(ForComprehension {assignments, body}) =
 
     tupleToAssignment :: ForComprehensionAssignment -> (Expr, Expr) -> ForComprehensionAssignment
     tupleToAssignment orig (main, filter) = orig{faRhs = ForComprehensionAssignmentSource{mainExpr=main, whenClause=filter}}
---putChildren _ e = e
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
 putChildren [val] e@(Yield {}) = e{val = val}
