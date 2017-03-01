@@ -55,7 +55,7 @@ fun array_filter[t](arr : [t], f : t -> bool) : [t]
   end
 end
 
-fun array_flatmap[t,v](arr : [t], f : t -> [v]) : [v]
+fun array_flatMap[t,v](arr : [t], f : t -> [v]) : [v]
   val tmps = new [[v]](|arr|)
   var totalSize = 0
   val N = |arr|
@@ -92,7 +92,7 @@ trait ArrayExt[t]
   require def filter(f : t -> bool) : [t]
 
   -- map each array element to a new array, and merge the results
-  require def flatmap[v](f : t -> [v]) : [v]
+  require def flatMap[v](f : t -> [v]) : [v]
 
   -- get an array iterator
   require def iterator() : Iter[t]
@@ -112,7 +112,7 @@ trait MaybeExt[t]
   require def filter(f : t -> bool)         : Maybe[t]
 
   -- return f(x) if non empty, Nothing otherwise
-  require def flatmap[v](f : t -> Maybe[v]) : Maybe[v]
+  require def flatMap[v](f : t -> Maybe[v]) : Maybe[v]
 end
 
 fun maybe_foreach[t](ox : Maybe[t], f : t -> void) : void
@@ -136,7 +136,7 @@ fun maybe_filter[t](ox : Maybe[t], f : t -> bool) : Maybe[t]
   end
 end
 
-fun maybe_flatmap[t,v](ox : Maybe[t], f : t -> Maybe[v]) : Maybe[v]
+fun maybe_flatMap[t,v](ox : Maybe[t], f : t -> Maybe[v]) : Maybe[v]
   match ox with
     case Just(x) => f(x)
     case _       => Nothing
@@ -152,7 +152,7 @@ trait FutExt[t]
   require def map[v](f : t -> v)          : Fut[v]
 
   -- return f(x), once 'this' is resolved
-  require def flatmap[v](f : t -> Fut[v]) : Fut[v]
+  require def flatMap[v](f : t -> Fut[v]) : Fut[v]
 end
 
 fun fut_foreach[t](fx : Fut[t], f : t -> void) : void
@@ -163,7 +163,7 @@ fun fut_map[t,v](fx : Fut[t], f : t -> v) : Fut[v]
   fx ~~> f
 end
 
-fun fut_flatmap[t,v](fx : Fut[t], f : t -> Fut[v]) : Fut[v]
+fun fut_flatMap[t,v](fx : Fut[t], f : t -> Fut[v]) : Fut[v]
   -- once forward is working, this should do: ff ~~> (fun (f : t) => forward f)
   get(fx ~~> f)
 end

@@ -137,7 +137,7 @@ trait Iter[t]
   end
 
   -- Map each value to an iterator, and flatten the result.
-  def flatmap[v](f : t -> Iter[v]) : Iter[v]
+  def flatMap[v](f : t -> Iter[v]) : Iter[v]
     new Flat[v](this.map(f))
   end
 

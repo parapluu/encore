@@ -191,7 +191,7 @@ desugar ForComprehension{emeta, assignments, body, buildRet} =
       let
         n = length assignments
         names = if buildRet
-          then replicate (n-1) (Name "flatmap")++[Name "map"]
+          then replicate (n-1) (Name "flatMap")++[Name "map"]
           else repeat (Name "foreach")
         processed  = zipWith (process emeta buildRet) names assignments
       in
