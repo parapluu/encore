@@ -22,9 +22,9 @@
 ;;
 ;; This mode gives syntax highlighting and Haskell-mode-style
 ;; cyclic indentation for Encore. There is also support for
-;; ruby-mode-style matching of blocks, automatic compilation and
-;; flychecking. If you use expand-region, there is support for
-;; that as well.
+;; ruby-mode-style matching of blocks, imenu navigation, automatic
+;; compilation and flychecking. If you use expand-region, there is
+;; support for that as well.
 ;;
 ;; Usage:
 ;;
@@ -413,11 +413,11 @@
 ;;;;;;;;;;;
 
 (defvar encore-imenu-generic-expression
-  '(("passive class" "^\s*passive\s+class\s*\\(.*\\) *\\(\\[.*\\]\\)? *:?.*" 1)
-    ("active class" "^\s*class\s*\\(.*\\)" 1)
-    ("trait" "^\s*trait\s*\\(.*\\)" 1)
-    ("method definition" "^\s*def\s*\\(.*\\)\\(\\[.*\\]\\)?(" 1)
-    ("function definition" "^\s*fun\s*\\(.*\\)\\(\\[.*\\]\\)?(" 1))
+  '(("passive class" "^\s*passive\s+class\s*\\(\\<\\w+\\>\\) *\\(\\[.*\\]\\)? *:?.*" 1)
+    ("active class" "^\s*class\s*\\(\\<\\w+\\>\\)" 1)
+    ("trait" "^\s*trait\s*\\(\\<\\w+\\>\\)" 1)
+    ("method definition" "^\s*def\s*\\(.*\s+\\)*\\(\\<\\w+\\>\\) *\\(\\[.*\\]\\)?(" 2)
+    ("function definition" "^\s*fun\s*\\(\\w+\\) *\\(\\[.*\\]\\)?(" 1))
   "Contains regexes to parse Encore with imenu")
 
 (defun encore-imenu-configure ()
