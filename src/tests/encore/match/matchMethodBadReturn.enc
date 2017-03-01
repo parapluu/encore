@@ -1,0 +1,19 @@
+passive class C
+  val f : int
+  def init(f : int) : void
+    this.f = f
+  end
+
+  def match Pattern() : int
+    this.f
+  end
+end
+
+class Main
+  def main() : void
+    val x = new C(42)
+    match x with
+      case Pattern(y) => print(y)
+    end
+  end
+end

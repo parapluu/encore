@@ -60,12 +60,12 @@ desugarProgram p@(Program{traits, classes, functions}) =
             in
               zipWith typePattern patterns types
 
-        makeHeader (MatchingHeader{hmodifier,
+        makeHeader (MatchingHeader{hmodifiers,
                                    htypeparams,
                                    kind,
                                    hname,
                                    htype}) hparams =
-          Header{hmodifier, kind, htypeparams, hname, htype, hparams}
+          Header{hmodifiers, kind, htypeparams, hname, htype, hparams}
 
         makeParam pos pname ptype =
           Param{pmeta = Meta.meta pos, pmut = Val, pname, ptype}
@@ -111,7 +111,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                       ,mheader=awaitHeader
                       ,mlocals=[]
                       ,mbody=Await emeta $ VarAccess emeta (qName "f")}
-        awaitHeader = Header{hmodifier=[]
+        awaitHeader = Header{hmodifiers=[]
                             ,kind=NonStreaming
                             ,htypeparams=[typeVar "_t"]
                             ,hname=Name "await"
@@ -119,7 +119,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,hparams=[awaitParam]}
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
         suspend = Method{mmeta, mheader=suspendHeader, mlocals=[], mbody=Suspend emeta}
-        suspendHeader = Header{hmodifier=[]
+        suspendHeader = Header{hmodifiers=[]
                               ,kind=NonStreaming
                               ,htypeparams=[]
                               ,hname=Name "suspend"
@@ -154,7 +154,7 @@ cloneMeta m = Meta.meta (Meta.sourcePos m)
 -- | A @MiniLet@ that has not been taken care of by @desugar@ is
 -- dead and can be removed.
 removeDeadMiniLet :: Expr -> Expr
-removeDeadMiniLet MiniLet{emeta, decl = (_, e)} = e{emeta}
+removeDeadMiniLet MiniLet{emeta, decl = (_, e)} = e
 removeDeadMiniLet e = e
 
 desugar :: Expr -> Expr

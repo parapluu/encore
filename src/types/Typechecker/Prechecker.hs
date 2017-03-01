@@ -311,6 +311,13 @@ instance Precheckable MethodDecl where
       mlocals' <- precheckLocalFunctions mlocals typeParams
 
       let mtype = htype mheader'
+
+      when (isMatchMethod m) $ do
+           unless (null $ hparams mheader') $
+                  tcError MatchMethodNonEmptyParameterListError
+           unless (isMaybeType mtype) $
+                  tcError MatchMethodNonMaybeReturnError
+
       return $ setType mtype m{mheader = mheader'
                               ,mlocals = mlocals'}
       where

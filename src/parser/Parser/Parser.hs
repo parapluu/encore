@@ -487,7 +487,7 @@ functionHeader =
     hparams <- folded parens sc' (commaSep paramDecl)
     colon
     htype <- typ
-    return Header{hmodifier = []
+    return Header{hmodifiers = []
                  ,kind = NonStreaming
                  ,htypeparams
                  ,hname
@@ -514,7 +514,7 @@ matchingHeader = do
    posGuard <- getPosition
    hguard <- option (BTrue (meta posGuard)) guard
    let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifier = []
+   return MatchingHeader{hmodifiers = []
                         ,kind = NonStreaming
                         ,htypeparams
                         ,hname
@@ -779,7 +779,7 @@ methodDecl = do
       indentBlock $ do
         mmeta <- meta <$> getPosition
         mheader <- do reserved "def"
-                      modifiers <- many accessModifier
+                      modifiers <- many modifier
                       setHeaderModifier modifiers <$> functionHeader
                <|> do reserved "stream"
                       streamMethodHeader
@@ -793,7 +793,7 @@ methodDecl = do
     matchingMethod = do
       mmeta <- meta <$> getPosition
       clauses <- do reserved "def"
-                    modifiers <- many accessModifier
+                    modifiers <- many modifier
                     map (first (setHeaderModifier modifiers)) <$>
                       methodClause matchingHeader `sepBy1` reservedOp "|"
              <|> do reserved "stream"
@@ -811,8 +811,9 @@ methodDecl = do
           mbody <- expression
           return (mheader, mbody)
 
-accessModifier :: EncParser AccessModifier
-accessModifier = reserved "private" >> return Private
+modifier :: EncParser Modifier
+modifier = (reserved "private" >> return ModPrivate)
+       <|> (reserved "match" >> return ModMatch)
 
 arguments :: EncParser Arguments
 arguments = do

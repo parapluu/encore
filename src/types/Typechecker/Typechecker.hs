@@ -25,7 +25,7 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import qualified AST.Util as Util
+import qualified AST.Util as Util (freeVariables, filter)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
@@ -406,6 +406,9 @@ instance Checkable MethodDecl where
                        if isVoidType mType || isStreamMethod m
                        then typecheckNotNull mbody
                        else hasType mbody mType
+        when (isMatchMethod m) $
+             checkPurity eBody
+
         eLocals <- local (addTypeParameters mtypeparams .
                           addLocalFunctions mlocals .
                           dropLocal thisName) $
@@ -413,6 +416,19 @@ instance Checkable MethodDecl where
 
         return $ m{mbody = eBody
                   ,mlocals = eLocals}
+      where
+        checkPurity e = mapM_ checkImpureExpr (Util.filter isImpure e)
+        checkImpureExpr call@MethodCall{target, name} = do
+          let targetType = AST.getType target
+          header <- findMethod targetType name
+          unless (isMatchMethodHeader header) $
+                 pushError call $ ImpureMatchMethodError call
+        checkImpureExpr ext@ExtractorPattern{name, ty} = do
+          header <- findMethod ty name
+          unless (isMatchMethodHeader header) $
+                 pushError ext $ ImpureMatchMethodError ext
+        checkImpureExpr Assign{lhs = VarAccess{}} = return ()
+        checkImpureExpr e = pushError e $ ImpureMatchMethodError e
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do
@@ -799,7 +815,8 @@ instance Checkable Expr where
         eArg <- typecheck arg
         let argType = AST.getType eArg
         when (isActiveClassType argType) $
-          tcError ActiveMatchError
+          unless (isThisAccess arg) $
+            tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
         checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
@@ -810,10 +827,9 @@ instance Checkable Expr where
       where
         checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
 
-        checkForPrivateExtractor arg FunctionCall{qname, args} = do
-          let mname = qnlocal qname
-          typecheckPrivateModifier arg mname
-          zipWithM_ checkForPrivateExtractor args args
+        checkForPrivateExtractor matchArg p@ExtractorPattern{name, arg} = do
+          local (pushBT p) $ typecheckPrivateModifier matchArg name
+          checkForPrivateExtractor arg arg
         checkForPrivateExtractor Tuple{args}
                                  Tuple{args = patternArgs} =
           zipWithM_ checkForPrivateExtractor args patternArgs
@@ -856,8 +872,18 @@ instance Checkable Expr where
                 in getPatternVars innerType e
             | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
-        doGetPatternVars pt fcall@(FunctionCall {qname, args = []}) =
-          return []
+        doGetPatternVars pt fcall@(FunctionCall {qname, args = []}) = do
+          header <- findMethod pt (qnlocal qname)
+          let hType = htype header
+              extractedType = getResultType hType
+          unless (isVoidType extractedType) $ do
+                 let expectedLength = if isTupleType extractedType
+                                      then length (getArgTypes extractedType)
+                                      else 1
+                 tcError $ PatternArityMismatchError (qnlocal qname)
+                           expectedLength 0
+
+          getPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
 
         doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]}) = do
           unless (isRefType pt) $
@@ -867,6 +893,17 @@ instance Checkable Expr where
           unless (isMaybeType hType) $
             tcError $ NonMaybeExtractorPatternError fcall
           let extractedType = getResultType hType
+              expectedLength
+                | isTupleType extractedType = length (getArgTypes extractedType)
+                | isVoidType extractedType = 0
+                | otherwise = 1
+              actualLength
+                | Tuple{args} <- arg = length args
+                | Skip{} <- arg = 0
+                | otherwise = 1
+          unless (actualLength == expectedLength) $
+                 tcError $ PatternArityMismatchError (qnlocal qname)
+                           expectedLength actualLength
           getPatternVars extractedType arg
 
         doGetPatternVars pt fcall@(FunctionCall {args}) = do
@@ -892,17 +929,24 @@ instance Checkable Expr where
               doCheckPattern pattern argty
 
         doCheckPattern pattern@(FunctionCall {args = []}) argty = do
-          let meta = getMeta $ pattern
+          let meta = getMeta pattern
               voidArg = Skip {emeta = meta}
           checkPattern (pattern {args = [voidArg]}) argty
 
-        doCheckPattern pattern@(FunctionCall {qname, args = [arg]}) argty = do
-          header <- findMethod argty (qnlocal qname)
+        doCheckPattern pattern@(FunctionCall {emeta
+                                             ,qname
+                                             ,args = [arg]}) argty = do
+          let name = qnlocal qname
+          header <- findMethod argty name
           let hType = htype header
               extractedType = getResultType hType
           eArg <- checkPattern arg extractedType
           matchArgumentLength argty header []
-          return $ setType argty pattern {args = [eArg]}
+          return $ setType argty ExtractorPattern {emeta
+                                                  ,ty = argty
+                                                  ,name
+                                                  ,arg = eArg
+                                                  }
 
         doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
@@ -1215,7 +1259,7 @@ instance Checkable Expr where
           unless (isClassType ty && not (isMainType ty)) $
                  tcError $ ObjectCreationError ty
           header <- findMethod ty constructorName
-          when (isPrivateMethod header) $
+          when (isPrivateMethodHeader header) $
                tcError $ PrivateAccessModifierTargetError constructorName
           matchArgumentLength ty header args
           return header
@@ -1682,7 +1726,7 @@ typecheckPrivateModifier target name = do
   let targetType = AST.getType target
   header <- fst <$> findMethodWithCalledType targetType name
   unless (isThisAccess target) $
-    when (isPrivateMethod header) $
+    when (isPrivateMethodHeader header) $
        tcError $ PrivateAccessModifierTargetError name
 
 typecheckParametricFun argTypes eSeqFunc
