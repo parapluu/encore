@@ -1,0 +1,29 @@
+#!/bin/bash
+
+function check_results() {
+  # echo $1
+  cd $1
+
+  local BASE="correct.exp"
+  local PASSED=1
+  echo "vvv CHECKING RESULTS at $1 vvvvvvvvvvvvvvvvvvv"
+
+  for OUT_FILE in *.out *.csv; do
+    if ( cmp -s "${OUT_FILE}" "${BASE}" ); then
+      echo "Test passed - CHECKING: ${BASE} vs ${OUT_FILE}"
+      continue
+    else
+      echo "Test passed - CHECKING: ${BASE} vs ${OUT_FILE}"
+      PASSED=1
+    fi
+  done
+
+  if [ ${PASSED} -eq 0 ]; then
+    echo "vvv DIFF vvvvvvvvvvvvvvvvvvv"
+    echo "${BASE}" | diff ${OUT_FILE} -
+  else
+    echo "vvv All tests passed! vvvvvvvvvvvvvvvvvvv"
+  fi
+}
+
+check_results $1
