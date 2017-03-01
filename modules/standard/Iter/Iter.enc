@@ -237,7 +237,7 @@ passive class Zip[t, u] : Iter[(t,u)](left, right)
   end
 
   def next() : Maybe[(t,u)]
-    For[(t,u)]
+    For
       l : t <- this.left.next()
       r : u <- this.right.next()
     do

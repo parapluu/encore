@@ -627,10 +627,10 @@ data Expr = Skip {emeta :: Meta Expr}
                  step   :: Expr,
                  src    :: Expr,
                  body   :: Expr}
-          | ForComprehension {emeta  :: Meta Expr,
+          | ForComprehension {emeta       :: Meta Expr,
                               assignments :: [ForComprehensionAssignment],
-                              body   :: Expr,
-                              bodyT  :: Maybe Type}
+                              body        :: Expr,
+                              buildRet    :: Bool}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}

@@ -184,27 +184,27 @@ desugar FunctionCall{emeta = fmeta, qname = QName{qnlocal = Name "println"}
 --   i+j
 -- end
 
-desugar ForComprehension{emeta, assignments, body, bodyT} =
+desugar ForComprehension{emeta, assignments, body, buildRet} =
   case assignments of
     [] -> body
     assignments ->
       let
         n = length assignments
-        names = case bodyT of
-          Just _  -> replicate (n-1) (Name "flatmap")++[Name "map"]
-          Nothing -> repeat (Name "foreach")
-        processed  = zipWith (process emeta bodyT) names assignments
+        names = if buildRet
+          then replicate (n-1) (Name "flatmap")++[Name "map"]
+          else repeat (Name "foreach")
+        processed  = zipWith (process emeta buildRet) names assignments
       in
         foldl1 (\procAcc proc -> procAcc . proc) processed $ body
   where
 
-    process :: Meta.Meta a -> Maybe Type -> Name -> ForComprehensionAssignment -> Expr -> Expr
-    process met bodyT name (ForComprehensionAssignment{var
-                                                      ,varTyp
-                                                      ,faRhs=ForComprehensionAssignmentSource{mainExpr
-                                                                                             ,whenClause}}) body =
+    process :: Meta.Meta a -> Bool -> Name -> ForComprehensionAssignment -> Expr -> Expr
+    process met buildRet name (ForComprehensionAssignment{var
+                                                         ,varTyp
+                                                         ,faRhs=ForComprehensionAssignmentSource{mainExpr
+                                                                                                ,whenClause}}) body =
       MethodCall{emeta = emeta
-                ,typeArguments=typeArgs
+                ,typeArguments=[]
                 ,target=case whenClause of
                     BTrue {} -> mainExpr
                     _ -> filterCall
@@ -219,11 +219,8 @@ desugar ForComprehension{emeta, assignments, body, bodyT} =
                            ,mty     = Nothing}]
                 }
        where
-         typeArgs = case bodyT of
-                      Just ty -> [ty]
-                      Nothing -> []
          filterCall = MethodCall{emeta = emeta
-                                ,typeArguments=typeArgs
+                                ,typeArguments=[]
                                 ,target=mainExpr
                                 ,name = Name "filter"
                                 ,args=[

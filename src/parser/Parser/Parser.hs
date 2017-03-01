@@ -1279,8 +1279,8 @@ expr = notFollowedBy nl >>
         comp <- indentBlock $ do
             emeta <- meta <$> getPosition
             partialFor <- indentBlock $ do
-              bodyT <- forCompHead
-              singleLineHead emeta bodyT <|> multiLineHead emeta bodyT
+              buildRet <- forCompHead
+              singleLineHead emeta buildRet <|> multiLineHead emeta buildRet
 
             doLine <- sourceLine <$> getPosition
             if forLine == doLine
@@ -1291,27 +1291,27 @@ expr = notFollowedBy nl >>
         atLevel indent $ reserved "end"
         return comp
          where
-           singleLineHead emeta bodyT = do
+           singleLineHead emeta buildRet = do
              notFollowedBy nl
              assignment <- forCompAssignment
-             return $ L.IndentNone (buildPartialFor emeta bodyT [assignment])
-           multiLineHead emeta bodyT =
+             return $ L.IndentNone (buildPartialFor emeta buildRet [assignment])
+           multiLineHead emeta buildRet =
              return $ L.IndentMany Nothing
-                  (return . buildPartialFor emeta bodyT)
+                  (return . buildPartialFor emeta buildRet)
                   forCompAssignment
 
-           buildPartialFor emeta bodyT assignments body =
-             ForComprehension{emeta, bodyT, assignments, body}
+           buildPartialFor emeta buildRet assignments body =
+             ForComprehension{emeta, buildRet, assignments, body}
 
            forCompHead = forHead <|> foreachHead
 
            forHead = do
              reserved "For"
-             Just <$> brackets typ
+             return True
 
            foreachHead = do
              reserved "Foreach"
-             return Nothing
+             return False
 
            forCompAssignment = do
              name <- Name <$> identifier

@@ -358,10 +358,10 @@ ppExpr For {name, step, src, body} =
     "by" <+> ppExpr step <+> "do" $+$
          indent (ppBody body) $+$
     "end"
-ppExpr ForComprehension{assignments, body, bodyT} =
-    (case bodyT of
-       Just ty -> "For"<>"["<+>ppType ty<+>"]"
-       Nothing -> "Foreach") <+> (vcat $ map ppForAssignment assignments) $+$ indent (ppExpr body)
+ppExpr ForComprehension{assignments, body, buildRet} =
+    (if buildRet
+     then "For"
+     else "Foreach") <+> (vcat $ map ppForAssignment assignments) $+$ indent (ppExpr body)
     where
       ppForAssignment (ForComprehensionAssignment{var, varTyp, faRhs}) =
         ppName var <+> ":" <+> ppType varTyp <+> "<-" <+> ppFaRhs faRhs
