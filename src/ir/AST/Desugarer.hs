@@ -344,6 +344,19 @@ desugar s@StringLiteral{emeta, stringLit} =
                        ]
                }
 
+-- Binary Operators
+desugar b@Binop{emeta, binop=PLUS_EQUALS, loper, roper} = 
+  Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=PLUS, loper, roper}}
+
+desugar b@Binop{emeta, binop=MINUS_EQUALS, loper, roper} = 
+  Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=MINUS, loper, roper}}
+
+desugar b@Binop{emeta, binop=TIMES_EQUALS, loper, roper} = 
+  Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=TIMES, loper, roper}}
+
+desugar b@Binop{emeta, binop=DIV_EQUALS, loper, roper} = 
+  Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=DIV, loper, roper}}
+
 -- Operations on futures
 desugar f@FunctionCall{emeta
                       ,qname = QName{qnlocal = Name "get"}
