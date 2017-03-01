@@ -1,9 +1,9 @@
--- This file was automatically converted by encorec
-
 import ParT.ParT
+
 fun inc(x : int, y : int) : int
   x + y
 end
+
 fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
   var p = empty[String]()
   repeat i <- max do
@@ -20,11 +20,13 @@ fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
   end
   p
 end
+
 class Generator
   def produce(s : String) : String
     s.copy()
   end
 end
+
 class Main
   def test_values() : void
     println("Test on values:")
@@ -35,24 +37,30 @@ class Main
       println("{}", x)
     end
   end
+
   def test_futures() : void
     println("Test on futures:")
     val iter = 10
-    val p1 = generateParWithFutures(iter, Just("test"))
-    val p2 = generateParWithFutures(iter, Nothing)
-    val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
-    for x <- extract(result) do
-      println("{}", x)
+    var counter = 1000
+    while counter > 0 do
+      -- repeated a number of times to see if there is a deadlock.
+      -- print only the last run
+      val p1 = generateParWithFutures(iter, Just("test"))
+      val p2 = generateParWithFutures(iter, Nothing)
+      val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
+      val arr = extract(result)
+      if counter == 1 then
+        for x <- arr do
+          println("{}", x)
+        end
+      end
+      counter -= 1
     end
-    val iter = 1000
-    val p1 = generateParWithFutures(iter, Just("test"))
-    val p2 = generateParWithFutures(iter, Nothing)
-    val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
-    extract(result)
   end
+
   def main() : void
-    assertTrue(false) -- fail to not block the CI
     this.test_values()
     this.test_futures()
   end
+
 end

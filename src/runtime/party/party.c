@@ -177,10 +177,6 @@ void party_trace(pony_ctx_t* ctx, void* p){
       trace_array_par(ctx, obj);
       break;
     }
-    /* case JOIN_PAR: { */
-    /*   party_trace(obj->data.j.join); */
-    /*   break; */
-    /* } */
     }
   }
 }
@@ -268,13 +264,6 @@ par_t* new_par_array(pony_ctx_t **ctx, array_t* arr, pony_type_t const * const r
   return p;
 }
 
-// TODO: enable once we can create J
-/* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype){ */
-/*   par_t* par = init_par(JOIN_PAR, rtype); */
-/*   par->data.join = p; */
-/*   return par; */
-/* } */
-
 //---------------------------------------
 // SEQUENCE COMBINATOR
 //---------------------------------------
@@ -324,23 +313,6 @@ static inline par_t* fmap_run_array(pony_ctx_t **ctx, par_t * in, fmap_s * const
   return new_par_array(ctx, new_array, type);
 }
 
-// WARNING:
-// this function is only used for fmap J, which guarantees
-// that args is of: {.p = par_t* }
-/* static encore_arg_t fmap_fmap_closure(value_t args[], void* const env){ */
-/*   fmap_s* fm = env; */
-/*   encore_arg_t arg = args[0]; */
-/*   return (encore_arg_t) {.p = fmap(fm->fn, (par_t*) arg.p, fm->rtype)}; */
-/* } */
-
-/* static inline par_t* fmap_run_j(par_t* const in, fmap_s* const f){ */
-/*   fmap_s* fm = (fmap_s*)encore_alloc(sizeof* fm); */
-/*   *fm = (fmap_s){.fn=f->fn, .rtype = f->rtype}; */
-/*   closure_t* clos = closure_mk(fmap_fmap_closure, fm, NULL); */
-/*   par_t* p = fmap(clos, in->data.join, get_rtype(fm)); */
-/*   return new_par_join(p, get_rtype(f)); */
-/* } */
-
 /**
  *  fmap: (a -> b) -> Par a -> Par b
  *
@@ -350,7 +322,6 @@ static inline par_t* fmap_run_array(pony_ctx_t **ctx, par_t * in, fmap_s * const
  *  @return a pointer to a new parallel collection of \p rtype runtime type
  */
 
-// TODO: enable JOIN_PAR once it is added to the language
 static par_t* fmap(pony_ctx_t** ctx, closure_t* const f, par_t* in,
                    pony_type_t const * const rtype){
   fmap_s *fm = (fmap_s*) encore_alloc(*ctx, sizeof* fm);
@@ -367,7 +338,6 @@ static par_t* fmap(pony_ctx_t** ctx, closure_t* const f, par_t* in,
   }
   case FUTUREPAR_PAR: return fmap_run_fp(ctx, in, fm);
   case ARRAY_PAR: return fmap_run_array(ctx, in, fm);
-  /* case JOIN_PAR: return fmap_run_j(in, fm); */
   default: exit(-1);
   }
 }
@@ -441,7 +411,6 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
   case PAR_PAR: return party_join_p(ctx, p);
   case FUTUREPAR_PAR: return party_join_fp(ctx, p);
   case ARRAY_PAR: return party_join_array(ctx, p);
-  /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   default: exit(-1);
   }
 }
@@ -450,7 +419,6 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 // EXTRACT COMBINATOR
 //----------------------------------------
 
-// Awaiting operation if the ParT contain futures.
 static inline size_t party_get_final_size(pony_ctx_t **ctx, par_t const * p)
 {
   psize_s s = party_get_size(p);
@@ -524,7 +492,6 @@ static inline array_t* party_to_array(pony_ctx_t **ctx,
     }
     case FUTURE_PAR: {
       future_t *fut = party_get_fut(p);
-      future_await(ctx, fut);
       value_t v = future_get_actor(ctx, fut);
       array_set(ar, i, v);
       tmp_lst = list_pop(tmp_lst, (value_t*)&p);
@@ -540,7 +507,6 @@ static inline array_t* party_to_array(pony_ctx_t **ctx,
     }
     case FUTUREPAR_PAR: {
       future_t *futpar = party_get_futpar(p);
-      future_await(ctx, futpar);
       p = future_get_actor(ctx, futpar).p;
       break;
     }
@@ -561,25 +527,12 @@ static inline array_t* party_to_array(pony_ctx_t **ctx,
   return ar;
 }
 
-static value_t party_to_array_as_closure(pony_ctx_t** ctx,
-                                         pony_type_t** runtimeType,
-                                         value_t args[],
-                                         __attribute__((unused)) void* env)
-{
-  assert(env == NULL);
-
-  par_t *p = args[0].p;
-  pony_type_t *type = runtimeType[0];
-  size_t size = party_get_final_size(ctx, p);
-  return (value_t) { .p = party_to_array(ctx, p, size, type) };
-}
-
 array_t* party_extract(pony_ctx_t **ctx,
                        par_t * const par,
                        pony_type_t const *type)
 {
-  closure_t *call = closure_mk(ctx, party_to_array_as_closure, NULL, NULL, &type);
-  return (array_t*) party_promise_await_on_futures(ctx, par, call, NULL, type);
+  size_t size = party_get_final_size(ctx, par);
+  return party_to_array(ctx, par, size, type);
 }
 
 //----------------------------------------
@@ -707,7 +660,8 @@ static value_t distinct_as_closure(pony_ctx_t** ctx,
 
 static array_t* collect_future_from_party(pony_ctx_t **ctx,
                                           par_t *p,
-                                          pony_type_t *type){
+                                          __attribute__ ((unused)) pony_type_t *type)
+{
   list_t *l = NULL;
   list_t *futures = NULL;
   size_t counter = 0;
@@ -735,7 +689,7 @@ static array_t* collect_future_from_party(pony_ctx_t **ctx,
     }
   }
 
-  array_t *a = array_mk(ctx, counter, type);
+  array_t *a = array_mk(ctx, counter, &future_type);
   future_t *fut = NULL;
   for (size_t i = 0; i < counter ; ++i){
     futures = list_pop(futures, (value_t*)&fut);
@@ -778,7 +732,6 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
     future_t *future = array_get(fut_list, i).p;
     future_register_callback(ctx, future, type, c);
   }
-
   future_await(ctx, promise);
   return (par_t *) future_get_actor(ctx, promise).p;
 }
@@ -860,7 +813,7 @@ static list_t* party_leaves_to_list(pony_ctx_t **ctx, par_t * p){
 }
 
 struct env_zip_future {
-  closure_t *zip_fn;
+  closure_t *cmp_fn;
   par_t *leaf_left;
   par_t *leaf_right;
 };
@@ -868,7 +821,7 @@ struct env_zip_future {
 static void trace_zip_future(pony_ctx_t *_ctx, void *p){
   pony_ctx_t** ctx = &_ctx;
   struct env_zip_future *this = p;
-  encore_trace_object(*ctx, this->zip_fn, closure_trace);
+  encore_trace_object(*ctx, this->cmp_fn, closure_trace);
   encore_trace_object(*ctx, this->leaf_left, party_trace);
   encore_trace_object(*ctx, this->leaf_right, party_trace);
 }
@@ -882,7 +835,7 @@ static value_t zip_future_with(pony_ctx_t** ctx,
   // Initially right has been set wiht the right ParT.
   // ParT left was a future and now is the current value `v`
   struct env_zip_future* env = _env;
-  closure_t *zipWith = env->zip_fn;
+  closure_t *cmpFn = env->cmp_fn;
   par_t *right = env->leaf_right;
   par_t *left = env->leaf_left;
   pony_type_t *result_type = runtimeType[0];
@@ -899,7 +852,7 @@ static value_t zip_future_with(pony_ctx_t** ctx,
     if (right->tag == FUTURE_PAR) {
       // OPTIMISATION: re-use environment
       struct env_zip_future *env_fut = encore_alloc(*ctx, sizeof(struct env_zip_future));
-      env_fut->zip_fn = zipWith;
+      env_fut->cmp_fn = cmpFn;
       env_fut->leaf_left = new_par_v(ctx, v, value_type);
       closure_t *clos = closure_mk(ctx,
                                    zip_future_with,
@@ -915,7 +868,7 @@ static value_t zip_future_with(pony_ctx_t** ctx,
     } else {
       assert(right->tag == VALUE_PAR);
       value_t result = closure_call(ctx,
-                                    zipWith,
+                                    cmpFn,
                                     (value_t[]){v, party_get_v(right)});
       return (value_t) { .p = new_par_v(ctx, result, result_type) };
     }
@@ -924,7 +877,7 @@ static value_t zip_future_with(pony_ctx_t** ctx,
     // should have a value
     assert(left->tag == VALUE_PAR);
     value_t result = closure_call(ctx,
-                                  zipWith,
+                                  cmpFn,
                                   (value_t[]){party_get_v(left), v});
     return (value_t) { .p = new_par_v(ctx, result, result_type) };
   }
@@ -944,7 +897,7 @@ static inline par_t* party_zip_list(pony_ctx_t **ctx,
     if (pl && pr) {
       if (pl->tag == FUTURE_PAR){
         struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
-        env->zip_fn = fn;
+        env->cmp_fn = fn;
         env->leaf_right = pr;
 
         // TODO: do not allocate things on the stack when
@@ -967,7 +920,7 @@ static inline par_t* party_zip_list(pony_ctx_t **ctx,
         result = new_par_p(ctx, result, par, type);
       } else if (pr->tag == FUTURE_PAR) {
         struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
-        env->zip_fn = fn;
+        env->cmp_fn = fn;
         env->leaf_left = pl;
 
         /* pony_type_t *runtimeTypes[] = {type, future_get_type(pl->data.f.fut)}; */

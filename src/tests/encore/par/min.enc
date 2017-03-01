@@ -1,6 +1,5 @@
--- This file was automatically converted by encorec
-
 import ParT.ParT
+
 fun liftValues(max : int) : Par[int]
   var p = empty[int]()
   repeat i <- max do
@@ -8,6 +7,7 @@ fun liftValues(max : int) : Par[int]
   end
   p
 end
+
 fun liftFutureValues(max : int) : Par[String]
   var p = empty[String]()
   repeat i <- max do
@@ -15,17 +15,21 @@ fun liftFutureValues(max : int) : Par[String]
   end
   p
 end
+
 fun cmpS(x : String, y : String) : int
   x.compare(y)
 end
+
 fun toStr(x : int) : String
   string_from_int(x)
 end
+
 class T
   def set(x : String) : String
     x
   end
 end
+
 class Main
   def testValues() : void
     println("Testing Values:")
@@ -33,11 +37,13 @@ class Main
     println("{}", get(f))
     println("{}", get(min(empty[String](), cmpS)))
   end
+
   def testFutures() : void
     println("Testing Futures:")
     val f = min(liftFutureValues(100) ||| liftv("-1"), cmpS)
     println("{}", get(f))
   end
+
   def main() : void
     this.testValues()
     this.testFutures()

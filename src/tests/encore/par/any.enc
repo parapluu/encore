@@ -1,6 +1,5 @@
--- This file was automatically converted by encorec
-
 import ParT.ParT
+
 fun liftValues(max : int) : Par[int]
   var p = empty[int]()
   repeat i <- max do
@@ -8,6 +7,7 @@ fun liftValues(max : int) : Par[int]
   end
   p
 end
+
 fun liftFutureValues(max : int) : Par[int]
   var p = empty[int]()
   repeat i <- max do
@@ -15,14 +15,17 @@ fun liftFutureValues(max : int) : Par[int]
   end
   p
 end
+
 fun lessThanOneHundred(x : int) : bool
   x < 100
 end
+
 class T
   def set(x : int) : int
     x
   end
 end
+
 class Main
   def testValues() : void
     println("Testing Values:")
@@ -34,6 +37,7 @@ class Main
     println("{}", get(f2))
     println("{}", get(any(liftv(203), lessThanOneHundred)))
   end
+
   def testFutures() : void
     println("Testing Futures:")
     val p = liftFutureValues(100)
@@ -43,6 +47,7 @@ class Main
     val f2 = any(p2, lessThanOneHundred)
     println("{}", get(f2))
   end
+
   def main() : void
     this.testValues()
     this.testFutures()

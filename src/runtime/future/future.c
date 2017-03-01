@@ -211,15 +211,16 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
   }
 
   {
-    closure_entry_t *current = fut->children;
-    while(current) {
+    closure_entry_t *current;
+    while(fut->children) {
+      current = fut->children;
       encore_arg_t result = run_closure(ctx, current->closure, value);
       if (current->future) {
-        // This case happens when futures can be attached on.
+        // This case happens when futures can be chained on.
         // As an optimisation to the ParT library, we do know
         // that certain functions in the ParT do not need to fulfil
-        // any future, e.g. the ParT optimised version is called
-        // `future_chain_actor_void` and sets `future = NULL`
+        // a future, e.g. the ParT optimised version is called
+        // `future_register_callback` and sets `entry->future = NULL`
         future_fulfil(ctx, current->future, result);
       }
 
@@ -228,12 +229,18 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       trace_closure_entry(cctx, current);
       pony_recv_done(cctx);
 
-      current = current->next;
+      // re-entrant locks allow the possibility that the same future tries to be
+      // fulfilled more than once. in debug mode this will be catch.
+      // in production mode this is not the case. with this update we make sure
+      // that the children closures are run only once!
+      fut->children = current->next;
     }
   }
   {
-    actor_list *current = fut->awaited_actors;
-    while(current) {
+    actor_list *current;
+    while(fut->awaited_actors) {
+      current  = fut->awaited_actors;
+
       pony_sendp(cctx, (pony_actor_t *)current->actor, _ENC__MSG_RESUME_AWAIT,
           current->uctx);
 
@@ -242,7 +249,10 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       encore_trace_actor(cctx, (pony_actor_t *)current->actor);
       pony_recv_done(cctx);
 
-      current = current->next;
+      // re-entrant locks allos the possibility of entering more than once
+      // in this function (`future_fulfil`). if that happens, do not try
+      // to update the actors more than once.
+      fut->awaited_actors = current->next;
     }
   }
 
@@ -325,6 +335,9 @@ void future_register_callback(pony_ctx_t **ctx,
 
   if (fut->fulfilled) {
     acquire_future_value(ctx, fut);
+
+    // the closure is in charge of fulfilling the promise that it contains.
+    // if this is not the case, a deadlock situation may happen.
     run_closure(ctx, c, fut->value);
     UNBLOCK;
     return ;
