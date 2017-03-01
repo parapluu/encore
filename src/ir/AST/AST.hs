@@ -213,11 +213,6 @@ isMainClass cdecl =
     let ty = cname cdecl
     in getId ty == "Main" && isActiveClassType ty
 
-isStringClass :: ClassDecl -> Bool
-isStringClass cdecl =
-    let ty = cname cdecl
-    in getId ty == "String" && isPassiveClassType ty
-
 instance HasMeta ClassDecl where
     getMeta = cmeta
     setMeta c m = c{cmeta = m}
@@ -723,10 +718,6 @@ isClosure _ = False
 isForward :: Expr -> Bool
 isForward Forward {} = True
 isForward _ = False
-
-isTask :: Expr -> Bool
-isTask Async {} = True
-isTask _ = False
 
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True

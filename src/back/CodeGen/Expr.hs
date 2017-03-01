@@ -337,7 +337,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       return (unit, Seq [Statement targ, Statement exitCall])
 
   translate abort@(A.Abort {A.args = []}) = do
-      let abortCall = Call (Nam "abort") ([]::[CCode Lval]) 
+      let abortCall = Call (Nam "abort") ([]::[CCode Lval])
       return (unit, Statement abortCall)
 
   translate seq@(A.Seq {A.eseq}) = do
@@ -983,44 +983,54 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate get of " ++ show val
 
-  translate A.Forward{A.forwardExpr = expr@A.MethodCall{A.emeta
+  translate A.Forward{A.forwardExpr = expr@A.MessageSend{A.emeta
                                                        ,A.target
                                                        ,A.name
                                                        ,A.typeArguments
                                                        ,A.args}} = do
     withForwarding <- gets Ctx.withForwarding
+    eCtx <- gets $ Ctx.getExecCtx
+    let fun = Ctx.lookupFunctionContext eCtx
+        mtd = Ctx.lookupMethodContext eCtx
+        cls = Ctx.lookupClosureContext eCtx
+        dtraceExit = case (fun, mtd, cls) of
+                          (func, [], [] ) -> [dtraceFunctionExit (A.functionName (head func))]
+                          ([], mdecl, []) -> [dtraceMethodExit thisVar (A.methodName (head mdecl))]
+                          ([], [], expr)  -> [dtraceClosureExit]
+                          (_, _, _)    -> []
     if withForwarding
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
       (initArgs, forwardingCall) <-
-        callTheMethodForward [Var "_fut"]
-          ntarget targetType name args typeArguments Ty.voidType
+        callTheMethodForward [futVar]
+          ntarget targetType name args typeArguments Ty.unitType
 
-      return (unit, Seq [
-                    Statement $
-                    If (Var "_fut")
-                       (Seq $ ttarget :
-                              targetNullCheck ntarget target name emeta "." :
-                              initArgs ++
-                              [Statement forwardingCall]
-                              -- TODO: Add DTrace-call
-                              )
-                       Skip,
-                    Return Skip])
+      return (unit, Seq $
+                      [Statement $
+                      If (futVar)
+                         (Seq $ ttarget :
+                                targetNullCheck ntarget target name emeta "." :
+                                initArgs ++
+                                [Statement forwardingCall]
+                                )
+                         Skip] ++
+                      dtraceExit ++
+                      [Return Skip])
 
     else if Ty.isFutureType $ A.getType expr
     then do
-      (sendn, sendt) <- translate A.MethodCall{A.emeta
-                                              ,A.target
-                                              ,A.name
-                                              ,A.typeArguments
-                                              ,A.args}
+      (sendn, sendt) <- translate A.MessageSend{A.emeta
+                                               ,A.target
+                                               ,A.name
+                                               ,A.typeArguments
+                                               ,A.args}
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
-      return (unit, Seq [sendt, Return theGet])
+      return (unit, Seq $ [sendt] ++ dtraceExit ++ [Return theGet])
     else
-        error $ "Expr.hs: Cannot translate forward of " ++ show expr
+      error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
+
   translate A.Forward{A.forwardExpr = A.FutureChain{}} =
     error "Expr.hs: Forwarding of chaining not implemented"
   translate A.Forward{A.forwardExpr} =

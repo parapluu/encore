@@ -20,10 +20,12 @@ module CodeGen.Context (
   lookupField,
   lookupMethod,
   lookupMethodContext,
+  lookupClosureContext,
   lookupCalledType,
   setExecCtx,
   setMtdCtx,
   setFunCtx,
+  setClsCtx,
   getExecCtx,
   withForwarding
 ) where
@@ -48,57 +50,78 @@ data ExecContext =
   | Empty
     deriving(Show)
 
-data Context = Context VarSubTable NextSym ExecContext Tbl.ProgramTable Bool
+data Context = Context {
+  varSubTable  :: VarSubTable,
+  nextSym      :: NextSym,
+  execContext  :: ExecContext,
+  programTbl   :: Tbl.ProgramTable,
+  withForward  :: Bool
+}
 
 programTable :: Context -> Tbl.ProgramTable
-programTable (Context _ _ _ table _) = table
+programTable Context{programTbl} = programTbl
 
 new :: VarSubTable -> Tbl.ProgramTable -> Context
-new subs table = Context subs 0 Empty table False
+new subs table = Context {
+    varSubTable = subs
+    ,nextSym = 0
+    ,execContext = Empty
+    ,programTbl = table
+    ,withForward = False
+  }
 
-newWithForwarding subs table = Context subs 0 Empty table True
+newWithForwarding subs table = Context {
+    varSubTable = subs
+    ,nextSym = 0
+    ,execContext = Empty
+    ,programTbl = table
+    ,withForward = True
+  }
 
 withForwarding :: Context -> Bool
-withForwarding (Context _ _ _ _ b) = b
+withForwarding Context{withForward} = withForward
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do
   let (_, name') = fixPrimes name
   c <- get
   case c of
-    Context s n eCtx t b ->
-        do put $ Context s (n+1) eCtx t b
-           return $ "_" ++ name' ++ "_" ++ show n
+    ctx@Context{nextSym} ->
+        do put $ ctx{nextSym = nextSym + 1}
+           return $ "_" ++ name' ++ "_" ++ show nextSym
 
 genSym :: State Context String
 genSym = genNamedSym "tmp"
 
 substAdd :: Context -> Name -> C.CCode C.Lval -> Context
-substAdd c@(Context s nxt eCtx table b) na lv = Context ((na,lv):s) nxt eCtx table b
+substAdd ctx@Context{varSubTable} na lv = ctx{varSubTable = ((na,lv):varSubTable)}
 
 substRem :: Context -> Name -> Context
-substRem (Context [] nxt eCtx table b) na = Context [] nxt eCtx table b
-substRem (Context ((na, lv):s) nxt eCtx table b) na'
-     | na == na'  = Context s nxt eCtx table b
-     | na /= na'  = substAdd (substRem (Context s nxt eCtx table b) na') na lv
+substRem ctx@Context{varSubTable = []} na = ctx
+substRem ctx@Context{varSubTable = ((na, lv):s)} na'
+     | na == na'  = ctx{varSubTable = s}
+     | na /= na'  = substAdd (substRem ctx{varSubTable = s} na') na lv
 
 substLkp :: Context -> QualifiedName -> Maybe (C.CCode C.Lval)
-substLkp (Context s _ _ _ _) QName{qnspace = Nothing, qnlocal} = lookup qnlocal s
-substLkp (Context s _ _ _ _) QName{qnspace = Just ns, qnlocal}
-     | isEmptyNamespace ns = lookup qnlocal s
+substLkp ctx@Context{varSubTable} QName{qnspace = Nothing, qnlocal} = lookup qnlocal varSubTable
+substLkp ctx@Context{varSubTable} QName{qnspace = Just ns, qnlocal}
+     | isEmptyNamespace ns = lookup qnlocal varSubTable
      | otherwise = Nothing
 
 setExecCtx :: Context -> ExecContext -> Context
-setExecCtx c@(Context s next eCtx table b) eCtx' = Context s next eCtx' table b
+setExecCtx ctx@Context{execContext} execContext' = ctx{execContext = execContext'}
 
 setFunCtx :: Context -> Function -> Context
-setFunCtx c@(Context s next eCtx table b) eCtx' = Context s next (FunctionContext{fun = eCtx'}) table b
+setFunCtx ctx@Context{execContext} execContext' = ctx{execContext = FunctionContext{fun = execContext'}}
 
 setMtdCtx :: Context -> MethodDecl -> Context
-setMtdCtx c@(Context s next eCtx table b) eCtx' = Context s next (MethodContext{mdecl = eCtx'}) table b
+setMtdCtx ctx@Context{execContext} execContext' = ctx{execContext = MethodContext{mdecl = execContext'}}
+
+setClsCtx :: Context -> Expr -> Context
+setClsCtx ctx@Context{execContext} execContext' = ctx{execContext = ClosureContext{cls = execContext'}}
 
 getExecCtx :: Context -> ExecContext
-getExecCtx c@(Context s nxt eCtx table _) = eCtx
+getExecCtx ctx@Context{execContext} = execContext
 
 lookupField :: Type -> Name -> Context -> FieldDecl
 lookupField ty f = Tbl.lookupField ty f . programTable
@@ -119,6 +142,10 @@ lookupFunctionContext _ = []
 lookupMethodContext :: ExecContext -> [MethodDecl]
 lookupMethodContext MethodContext{mdecl} = [mdecl]
 lookupMethodContext _ = []
+
+lookupClosureContext :: ExecContext -> [Expr]
+lookupClosureContext ClosureContext{cls} = [cls]
+lookupClosureContext _ = []
 
 getGlobalFunctionNames :: Context -> [QualifiedName]
 getGlobalFunctionNames = Tbl.getGlobalFunctionNames . programTable

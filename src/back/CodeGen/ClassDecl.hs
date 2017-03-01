@@ -139,14 +139,14 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                  gcRecv mParams
                  (Statement $ Call ponyTraceObject
                                    (includeCtx
-                                      [Var "_fut",
+                                      [futVar,
                                        futureTypeRecName `Dot` Nam "trace"]))
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
                                   (encoreCtxVar :
                                    thisVar :
                                    nullVar :
-                                   Var "_fut" :
+                                   futVar :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
                Statement $
@@ -154,7 +154,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                then
                    Call futureFulfil
                         [AsExpr encoreCtxVar,
-                         AsExpr $ Var "_fut",
+                         AsExpr $ futVar,
                          asEncoreArgT (translate mType)
                          (Call (methodImplName cname mName)
                                (encoreCtxVar : thisVar :
@@ -165,7 +165,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                           (encoreCtxVar : thisVar :
                            pMethodArrName :
                            map (AsLval . argName . A.pname) mParams ++
-                           [Var "_fut"])
+                           [futVar])
              mName   = A.methodName mdecl
              mParams = A.methodParams mdecl
              mType   = A.methodType mdecl
@@ -199,7 +199,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        unpackFuture =
          let
-           lval = Decl (future, Var "_fut")
+           lval = Decl (future, futVar)
            rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
          in
            Assign lval rval

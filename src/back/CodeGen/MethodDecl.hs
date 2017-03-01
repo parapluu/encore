@@ -17,6 +17,7 @@ import CodeGen.DTrace
 import CCode.Main
 import Data.List (intersect)
 import Data.Either(isLeft, isRight)
+import Data.Maybe
 
 import qualified AST.AST as A
 import qualified AST.Util as Util
@@ -71,7 +72,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                       ,dtraceMethodExit thisVar mName
                       ,returnStatement mType bodyn])
         forwardingMethodImpl =
-            Function void nameForwarding (args ++ [(future, Var "_fut")])
+            Function void nameForwarding (args ++ [(future, futVar)])
                  (Seq [dtraceMethodEntry thisVar mName argNames
                       ,parametricMethodTypeVars
                       ,extractTypeVars
@@ -103,7 +104,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         varSubFromTypeVars typeVars ++
         zip encArgNames argNames
       ctx = Ctx.setMtdCtx (Ctx.new subst newTable) mdecl
-      forwardingCtx = Ctx.newWithForwarding subst newTable
+      forwardingCtx = Ctx.setMtdCtx(Ctx.newWithForwarding subst newTable) mdecl
       ((bodyn,bodys),_) = runState (translate mbody) ctx
       ((forwardingBodyName,forwardingBody),_) =
         runState (translate mbody) forwardingCtx
@@ -133,93 +134,88 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
 
       returnForForwardingMethod returnType =
           let fulfilArgs = [AsExpr encoreCtxVar
-                           ,AsExpr $ Var "_fut"
+                           ,AsExpr $ futVar
                            ,asEncoreArgT returnType
                                 (Cast returnType forwardingBodyName)]
           in
-        If (Var "_fut") (Statement $ Call futureFulfil fulfilArgs) Skip
+            If futVar (Statement $ Call futureFulfil fulfilArgs) Skip
 
 callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
         fName = callMethodFutureName cname mName
-        args = formalMethodArguments cname ++ zip argTypes argNames
+        args = formalMethodArgumentsZip cname m
         fBody = Seq $
-           parametricMethodTypeVars :
-           map assignTypeVar (Ty.getTypeParameters cname) ++
+           (parametricMethodTypeVars m) :
+           map (assignTypeVar cname) (Ty.getTypeParameters cname) ++
            assignFut :
-           Gc.ponyGcSendFuture argPairs ++
+           Gc.ponyGcSendFuture (argPairs m) ++
            msg ++ [retStmt]
     in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
+    mType = A.methodType m
+    mTypeVars = A.methodTypeParams m
+    retStmt = Return futVar
     mName = A.methodName m
     mParams = A.methodParams m
-    mTypeParams = A.methodTypeParams m
-    mType = A.methodType m
-    assignTypeVar ty =
-        let fName = typeVarRefName ty
-        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
-    getVar name =
-        (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
-        `Dot`
-        name
-    argNames = map (AsLval . argName . A.pname) mParams
-    argTypes = map (translate . A.ptype) mParams
-    futVar = Var "_fut"
+    msg = expandMethodArgs (sendFutMsg cname) m
     declFut = Decl (future, futVar)
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
                                       runtimeType mtype]
     assignFut = Assign declFut $ futureMk mType
-    argPairs = zip (map A.ptype mParams) argNames
-    msg = expandMethodArgs (sendFutMsg cname) m
-    retStmt = Return futVar
-    mTypeVars = A.methodTypeParams m
-    parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
-    assignTypeVarMethod ty i =
-      let fName = typeVarRefName ty
-      in Assign (Decl (Ptr ponyTypeT, AsLval fName))
-                (ArrAcc i encoreRuntimeType)
 
--- TODO: Break out common code
 callMethodWithForward m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
     A.isShared cdecl =
     let retType = future
         fName = methodImplForwardName cname mName
-        args = formalMethodArguments cname ++ zip argTypes argNames ++
+        args = formalMethodArgumentsZip cname m ++
                [(future, futVar)]
         fBody = Seq $
-           parametricMethodTypeVars :
-           map assignTypeVar (Ty.getTypeParameters cname) ++
-           Gc.ponyGcSendFuture argPairs ++
+           (parametricMethodTypeVars m) :
+           map (assignTypeVar cname) (Ty.getTypeParameters cname) ++
+           Gc.ponyGcSendFuture (argPairs m) ++
            msg ++ [retStmt]
     in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
+    mType = A.methodType m
+    mTypeVars = A.methodTypeParams m
+    retStmt = Return futVar
     mName = A.methodName m
     mParams = A.methodParams m
-    mTypeParams = A.methodTypeParams m
-    mType = A.methodType m
-    assignTypeVar ty =
-        let fName = typeVarRefName ty
-        in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+    msg = expandMethodArgs (sendFutMsg cname) m
+
+formalMethodArgumentsZip cname m =
+  formalMethodArguments cname ++
+  zip argTypes argNames
+  where
+    retStmt = Return futVar
+    mName = A.methodName m
+    mParams = A.methodParams m
+    msg = expandMethodArgs (sendFutMsg cname) m
+    argTypes = map (translate . A.ptype) mParams
+    argNames = map (AsLval . argName . A.pname) mParams
+
+argPairs m = zip (map A.ptype mParams) argNames
+  where
+    mParams = A.methodParams m
+    argNames = map (AsLval . argName . A.pname) mParams
+
+assignTypeVar cname ty =
+    let fName = typeVarRefName ty
+    in Assign (Decl (Ptr ponyTypeT, AsLval fName)) $ getVar fName
+  where
     getVar name =
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
-    argNames = map (AsLval . argName . A.pname) mParams
-    argTypes = map (translate . A.ptype) mParams
-    futVar = Var "_fut"
-    declFut = Decl (future, futVar)
-    futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
-                                      runtimeType mtype]
-    argPairs = zip (map A.ptype mParams) argNames
-    msg = expandMethodArgs (sendFutMsg cname) m
-    retStmt = Return futVar
+
+parametricMethodTypeVars m = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
+  where
     mTypeVars = A.methodTypeParams m
-    parametricMethodTypeVars = Seq $ zipWith assignTypeVarMethod mTypeVars [0..]
     assignTypeVarMethod ty i =
       let fName = typeVarRefName ty
       in Assign (Decl (Ptr ponyTypeT, AsLval fName))

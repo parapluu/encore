@@ -131,6 +131,9 @@ nothing = Var "NOTHING"
 just :: CCode Lval
 just = Var "JUST"
 
+futVar :: CCode Lval
+futVar = Var "_fut"
+
 encoreAssert :: CCode Expr -> CCode Stat
 encoreAssert p =
   Statement $ Call (Nam "encore_assert") [Cast (Typ "intptr_t") p]

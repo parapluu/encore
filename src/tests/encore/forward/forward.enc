@@ -1,14 +1,13 @@
--- This file was automatically converted by encorec
-
 class Worker
   def work() : int
     42
   end
 end
+
 class Lazy
-  def work() : int
+  def lazyWork() : int
     if true then
-      forward((new Worker).work())
+      forward((new Worker) ! work())
     else
       100
     end
@@ -16,14 +15,15 @@ class Lazy
     0
   end
   def foo() : int
-    this.work()
+    this . lazyWork()
   end
 end
+
 class Main
-  def main() : void
-    println(get((new Lazy).work()))
-    (new Lazy)!work()
-    (new Lazy)!foo()
-    println(get((new Lazy).foo()))
+  def main() : unit
+    println(get((new Lazy) ! lazyWork()))
+    (new Lazy) ! lazyWork()
+    (new Lazy) ! foo()
+    println(get((new Lazy) ! foo()))
   end
 end

@@ -58,8 +58,7 @@ translateClosure closure typeVars table
            subst       = zip encEnvNames envNames ++
                          zip encArgNames argNames ++
                          varSubFromTypeVars fTypeVars
-           ctx = Ctx.new subst table
-
+           ctx = Ctx.setClsCtx (Ctx.new subst table) closure
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
          Concat [buildEnvironment envName freeVars fTypeVars,

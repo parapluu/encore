@@ -362,6 +362,10 @@ instance Checkable ClassDecl where
     unless (isPassiveClassType cname || isNothing ccomposition) $
            tcError TraitsInActiveClassError
 
+    when (isPassiveClassType cname) $
+         unless (null $ filter isForwardMethod cmethods) $
+                tcError $ ForwardInPassiveContext cname
+
     let traits = typesFromTraitComposition ccomposition
         extendedTraits = extendedTraitsFromComposition ccomposition
 
@@ -376,10 +380,6 @@ instance Checkable ClassDecl where
     -- TODO: Add namespace for trait methods
 
     emethods <- mapM typecheckMethod cmethods
-
-    when (isPassiveClassType cname) $
-      unless (null $ filter isForwardMethod cmethods) $
-         tcError $ ForwardInPassiveContext
 
     return c{cmethods = emethods}
     where
@@ -1100,21 +1100,18 @@ instance Checkable Expr where
     doTypecheck forward@(Forward {forwardExpr}) =
         do eExpr <- typecheck forwardExpr
            let ty = AST.getType eExpr
-           case forwardExpr of
-             MethodCall{}  -> return ()
-             FutureChain{} -> return ()
-             _             -> pushError eExpr $ ForwardArgumentError
+           unless (isMessageSend forwardExpr) $
+                  pushError eExpr $ ForwardArgumentError
            unless (isFutureType ty) $
                   pushError eExpr $ ExpectingOtherTypeError
-                      "you can only forward expressions of future type" ty
+                                      "a future" ty
            result <- asks currentMethod
            when (isNothing result) $
                 pushError eExpr $ ForwardInFunction
            let returnType = methodType (fromJust result)
            typeCmp <- (getResultType ty) `subtypeOf` returnType
-           unless (typeCmp) $
-                  pushError eExpr $ ExpectingOtherTypeError
-                      ("returned type " ++ show returnType ++ " of forward should match with the result type of the containing method") ty
+           unless typeCmp $
+                pushError eExpr $ ForwardTypeError returnType ty
            return $ setType (getResultType ty) forward {forwardExpr = eExpr}
 
     --  E |- val : t

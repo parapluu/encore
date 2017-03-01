@@ -20,7 +20,6 @@ import Control.Arrow
 import qualified CCode.Main as C(Name)
 import CCode.Main(CCode)
 import CodeGen.CCodeNames
-
 type FieldTable  = [(Name, FieldDecl)]
 type MethodTable = [(Name, FunctionHeader)]
 type ClassTable  = [(Type, (FieldTable, MethodTable))]
