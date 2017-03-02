@@ -1101,7 +1101,7 @@ expr = notFollowedBy nl >>
           emeta <- meta <$> getPosition
           decls <- indentBlock $ do
             reserved "let"
-            singleLineDecl indent <|> multiLineDecl indent
+            inlineDecls indent <|> indentedDecls indent
           inLine <- sourceLine <$> getPosition
           if inLine == letLine
           then do -- let ... in
@@ -1116,11 +1116,13 @@ expr = notFollowedBy nl >>
              atLevel indent $ reserved "end"
         return letExpr
         where
-          singleLineDecl indent = do
+          inlineDecls letIndent = do
             notFollowedBy nl
-            decl <- varDecl indent
-            return $ L.IndentNone [decl]
-          multiLineDecl indent =
+            varIndent <- L.indentLevel
+            first <- varDecl letIndent
+            return $ L.IndentMany (Just varIndent) (return . (first:))
+                                                   (varDecl letIndent)
+          indentedDecls indent =
             return $ L.IndentSome Nothing return (varDecl indent)
           inlineLet emeta decls = do
             notFollowedBy nl
