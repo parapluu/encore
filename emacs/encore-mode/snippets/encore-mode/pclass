@@ -1,8 +1,8 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-# name: def
-# key: def
+# name: pclass
+# key: pclass
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:init}($2) : ${3:void}
+passive class ${1:Foo}
   $0
 end

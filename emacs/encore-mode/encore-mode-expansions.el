@@ -48,7 +48,7 @@
 (defun encore-mark-if-end ()
   "Select single line 'if b then e1 else e2'"
   (interactive)
-  (let (p1 p2 bound (case-fold-search t))
+  (let (p1 p2 bound (case-fold-search nil))
     (progn
       (move-beginning-of-line nil)
       (setq bound (point))
@@ -63,17 +63,20 @@
 (defun encore-mark-outside-block ()
   "Select block including delimiters"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
+      (if (region-active-p) (forward-line -1))
       (setq p1 (point))
-      (while (and (not (eobp))
-                  (not (string-match "^[ \t]*\\<end\\>" (current-line))))
-        (forward-line 1)
-        (if (and (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
-                 (string-match encore-block-open-regex (current-line)))
-            (progn
-              (encore-skip-block)
-              (forward-line 1))))
+      (if (not (string-match "\\<end\\>" (current-line)))
+          (while (and (not (eobp))
+                      (not (string-match "^[ \t]*\\<end\\>" (current-line))))
+            (forward-line 1)
+            (if (and (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
+                     (string-match encore-block-open-regex (current-line)))
+                (progn
+                  (encore-skip-block)
+                  (forward-line 1)))))
+
       (move-beginning-of-line nil)
       (setq p2 (re-search-forward "\\<end\\>"))
 
@@ -99,7 +102,7 @@
 (defun encore-mark-inside-block ()
   "Select block excluding delimiters"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (if (region-active-p) (forward-line -1))
       (setq p1 (point))
@@ -114,7 +117,7 @@
               (forward-line 1))))
 
       (move-beginning-of-line nil)
-      (setq p2 (re-search-forward "\\<end\\|else\\>"))
+      (setq p2 (re-search-forward "\\<end\\>\\|\\<else\\>"))
       (backward-sexp)
       (skip-chars-backward " \t\n")
       (setq p2 (point))
@@ -122,6 +125,7 @@
       (goto-char p1)
       (while (and (not (bobp))
                   (or (string-match "\\<else\\> +\\<if\\>" (current-line))
+                      (string-match "\\<end\\>" (current-line))
                       (and (not (string-match encore-block-open-regex (current-line)))
                            (not (string-match "\\<else\\>" (current-line)))
                            (not (string-match "\\<then\\>" (current-line))))))
@@ -141,7 +145,7 @@
 (defun encore-mark-let-in ()
   "Mark code between 'let' and 'in'"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<let\\>"))
@@ -154,25 +158,46 @@
       (push-mark p2)
       (setq mark-active t))))
 
-(defun encore-mark-let-in-end ()
-  "Select 'let x = e1 in e2 end'"
+(defun encore-mark-let-in ()
+  "Mark code between 'let' and 'in'"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<let\\>"))
-      (setq p2 (re-search-forward "\\<end\\>"))
-      (goto-char p1)
+      (setq p2 (re-search-forward "\\<in\\>"))
+      (goto-char (- p2 2))
+      (skip-chars-backward " \t\n")
+      (setq p2 (point))
+      (goto-char (+ p1 3))
+      (skip-chars-forward " \t\n")
+      (push-mark p2)
+      (setq mark-active t))))
+
+(defun encore-mark-in-end ()
+  "Select 'let x = e1 in e2 end'"
+  (interactive)
+  (let (p1 p2 bound)
+    (progn
+      (move-end-of-line nil)
+      (setq bound (point))
+      (setq p1 (re-search-backward "\\<in\\>"))
+      (setq p2 (re-search-forward "\\<end\\>" bound))
+      (goto-char (- p2 3))
+      (skip-chars-backward " \t\n")
+      (setq p2 (point))
+      (goto-char (+ p1 2))
+      (skip-chars-forward " \t\n")
       (push-mark p2)
       (setq mark-active t))))
 
 (defun encore-mark-inside-block-closure ()
   "Select the body of a block closure"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
-      (setq p1 (re-search-backward "\\<fun\\>\\W*("))
+      (setq p1 (re-search-backward "\\<fun\\>\\W*(.*)[^=>]*$"))
       (setq p2 (re-search-forward "\\<end\\>"))
       (goto-char (- p2 3))
       (skip-chars-backward " \t\n")
@@ -186,10 +211,10 @@
 (defun encore-mark-outside-block-closure ()
   "Select a block closure including header and end"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
-      (setq p1 (re-search-backward "\\<fun\\>\\W*("))
+      (setq p1 (re-search-backward "\\<fun\\>\\W*(.*)[^=>]*$"))
       (setq p2 (re-search-forward "\\<end\\>"))
       (goto-char p1)
       (push-mark p2)
@@ -198,7 +223,7 @@
 (defun encore-mark-inside-line-closure ()
   "Select the body of an inline closure"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "=>"))
@@ -213,7 +238,7 @@
 (defun encore-mark-outside-line-closure ()
   "Select a whole inline closure"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "fun.*=>.*$"))
@@ -227,7 +252,7 @@
 (defun encore-mark-line-case ()
   "Select a single line case"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "case.*=>.*\\W.*$"))
@@ -241,7 +266,7 @@
 (defun encore-mark-match-with-end ()
   "Select 'match e with ... end'"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<match\\>"))
@@ -260,7 +285,7 @@
 (defun encore-mark-match-with ()
   "Select code between 'match' and 'end'"
   (interactive)
-  (let (p1 p2 bound (case-fold-search t))
+  (let (p1 p2 bound (case-fold-search nil))
     (progn
       (move-beginning-of-line nil)
       (setq bound (point))
@@ -278,7 +303,7 @@
 (defun encore-mark-inside-embed ()
   "Select code between 'EMBED (...)' and 'END'"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<EMBED\\>"))
@@ -295,7 +320,7 @@
 (defun encore-mark-outside-embed ()
   "Select 'EMBED (...) ... END'"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<EMBED\\>"))
@@ -307,7 +332,7 @@
 (defun encore-mark-inside-function ()
   "Select the body of a function or method"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<fun\\|def\\> *\\w+"))
@@ -332,7 +357,7 @@
 (defun encore-mark-outside-function ()
   "Select a function or method including header and end"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<fun\\|def\\> *\\w+"))
@@ -355,7 +380,7 @@
 (defun encore-mark-inside-where-clause ()
   "Select the local functions of a where clause"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (re-search-backward "\\<where\\>")
@@ -379,7 +404,7 @@
 (defun encore-mark-outside-where-clause ()
   "Select a where clause"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (re-search-backward "\\<where\\>")
@@ -403,7 +428,7 @@
 (defun encore-mark-field ()
   "Select a field"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<var\\|val\\>"))
@@ -417,7 +442,7 @@
 (defun encore-mark-require ()
   "Select a requirement"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (setq p1 (re-search-backward "\\<require\\>"))
@@ -431,7 +456,7 @@
 (defun encore-mark-inside-class-or-trait ()
   "Select the contents of a class or trait"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (re-search-backward "\\<class\\|trait\\>")
@@ -455,7 +480,7 @@
 (defun encore-mark-outside-class-or-trait ()
   "Select a whole class or trait"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (re-search-backward "\\<class\\|trait\\>")
@@ -479,7 +504,7 @@
 (defun encore-mark-typedef ()
   "Select a typedef"
   (interactive)
-  (let (p1 p2 (case-fold-search t))
+  (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
       (re-search-backward "\\<typedef\\>")
@@ -507,6 +532,7 @@
            encore-mark-outside-block
            encore-mark-inside-block
            encore-mark-let-in
+           encore-mark-in-end
            encore-mark-let-in-end
            encore-mark-inside-block-closure
            encore-mark-outside-block-closure
