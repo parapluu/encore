@@ -1,5 +1,3 @@
--- This file was automatically converted by encorec
-
 module ParT(
     empty,
     filter,
@@ -17,7 +15,6 @@ module ParT(
 fun empty[a]() : Par[a]
   EMBED (Par[a])
     new_par_empty(_ctx, runtimeType[0]);
-
   END
 end
 
@@ -44,7 +41,6 @@ end
 fun intersection[t](p1 : Par[t], p2 : Par[t], cmp : (t, t) -> int) : Par[t]
   EMBED (Par[t])
     party_intersection(_ctx, #{p1}, #{p2}, #{cmp}, _enc__type_t);
-
   END
 end
 
@@ -66,6 +62,9 @@ fun pairWith[t, k](p : Par[t], fn : t -> k) : Par[(k, t)]
   p >> (fun (x : t) => (fn(x), x))
 end
 
+-- private function.
+-- filter out items in the `p` ParT whose key is different from the given key `x`.
+-- return a future with the elements that match the key
 fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Fut[(k, Par[i])]
   val closure = fun (acc : (k, Par[i]), elem : (k, i))
                   val accKey = acc.0
@@ -82,6 +81,8 @@ fun groupParTuples[k, i](x : k, p : Par[(k, i)], cmp : (k, k) -> int) : Fut[(k, 
   reduce(closure, (x, empty[i]()), p)
 end
 
+-- private function
+-- finds if an element exists in a ParT of tuples
 fun findElemInParTuple[k, t](key : k, p : Par[(k, t)], cmp : (k, k) -> int) : Fut[Maybe[t]]
   val closure = fun (acc : Maybe[t], elem : (k, t))
                   val keyElem = elem.0
@@ -95,7 +96,44 @@ fun findElemInParTuple[k, t](key : k, p : Par[(k, t)], cmp : (k, k) -> int) : Fu
   reduce(closure, Nothing, p)
 end
 
-fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k, fn : (t, Par[i]) -> Par[r], cmp : (k, k) -> int) : Par[r]
+
+
+{-
+Group elements of two ParTs based on their keys and join them according
+to their join function. E.g.
+
+  val magnus = new Person("Magnus")
+  val terry = new Person("Terry")
+  val charlotte = new Person("Charlotte")
+  val barley = new Pet("Barley", terry)
+  val boots = new Pet("Boots", terry)
+  val whiskers = new Pet("Whiskers", charlotte)
+  val daisy = new Pet("Daisy", magnus)
+  val people = liftv(magnus) ||| liftv(terry) ||| liftv(charlotte)
+  val pets = liftv(barley) ||| liftv(boots) ||| liftv(whiskers) ||| liftv(daisy)
+  val query = groupJoin(people,
+                        pets,
+                        fun (p : Person) => p.name,
+                        fun (p : Pet) => p.owner.name,
+                        fun (per : Person, animals : Par[Pet])
+                          liftv((per.name, animals >> (fun (p : Pet) => p.name)))
+                        end,
+                        fun (s1 : String, s2 : String) => s1.compare(s2))
+  for elem <- extract(query) do
+    match elem with
+      case (name, pets) =>
+        println("{}:", name)
+        for pet <- extract(pets) do
+          println("{}", pet)
+        end
+      end
+    end
+  end
+
+-}
+
+fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k,
+                          fn : (t, Par[i]) -> Par[r], cmp : (k, k) -> int) : Par[r]
   -- Pair function with their corresponding ParT
   val pkt = pairWith(pt, tk)
   val pki = pairWith(pi, ik)
