@@ -569,31 +569,76 @@ instance Checkable Expr where
       | isMethodCall mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
+              methodName = name mcall
 
-          handleErrors targetType mcall
-          typecheckPrivateModifier eTarget (name mcall)
+          isKnown <- isKnownRefType targetType
+          methodResult <- if isKnown
+                          then asks $ methodLookup targetType methodName
+                          else return Nothing
 
-          (header, calledType) <- findMethodWithCalledType targetType (name mcall)
+          fieldResult <- if isKnown && isRefAtomType targetType
+                         then asks $ fieldLookup targetType methodName
+                         else return Nothing
 
-          matchArgumentLength targetType header (args mcall)
-          let eTarget' = setType calledType eTarget
-              typeParams = htypeparams header
-              argTypes = map ptype $ hparams header
-              resultType = htype header
-
-          (eArgs, resultType', typeArgs) <-
-             if null (typeArguments mcall) then
-                inferenceCall mcall typeParams argTypes resultType
-             else
-                typecheckCall mcall typeParams argTypes resultType
-          let returnType = retType mcall calledType header resultType'
-              syncAccess = isThisAccess (target mcall)
-              isStream = isStreamMethodHeader header
-          when (isStream && syncAccess) $ tcError SyncStreamCall
-          return $ setType returnType mcall {target = eTarget'
-                                            ,args = eArgs
-                                            ,typeArguments = typeArgs}
+          case () of _  -- Might be accessing an array or a closure in a field
+                      | isNothing methodResult -- Methods take precedence
+                      , MethodCall{} <- mcall  -- Only for '.', not '!'
+                      , Just Field{ftype} <- fieldResult ->
+                          handleArrayOrFieldClosure eTarget targetType
+                                                    methodName ftype
+                      | otherwise ->
+                          handleMethodCall eTarget targetType
         where
+          handleArrayOrFieldClosure eTarget targetType name fieldType =
+            let fieldAccess = FieldAccess{emeta = emeta mcall
+                                         ,target = eTarget
+                                         ,name
+                                         }
+            in
+            if isArrayType fieldType && length (args mcall) == 1 then
+              doTypecheck ArrayAccess{emeta = emeta mcall
+                                     ,target = fieldAccess
+                                     ,index = head (args mcall)}
+            else if isArrowType fieldType then
+              let body = FunctionCall{emeta = emeta mcall
+                                     ,typeArguments = typeArguments mcall
+                                     ,qname = qLocal name
+                                     ,args = args mcall
+                                     }
+              in
+                doTypecheck Let{emeta = emeta mcall
+                               ,mutability = Val
+                               ,decls = [(name, fieldAccess)]
+                               ,body
+                               }
+            else
+                handleMethodCall eTarget targetType
+
+          handleMethodCall eTarget targetType = do
+            handleErrors targetType mcall
+            typecheckPrivateModifier eTarget (name mcall)
+
+            (header, calledType) <- findMethodWithCalledType targetType (name mcall)
+
+            matchArgumentLength targetType header (args mcall)
+            let eTarget' = setType calledType eTarget
+                typeParams = htypeparams header
+                argTypes = map ptype $ hparams header
+                resultType = htype header
+
+            (eArgs, resultType', typeArgs) <-
+               if null (typeArguments mcall) then
+                  inferenceCall mcall typeParams argTypes resultType
+               else
+                  typecheckCall mcall typeParams argTypes resultType
+            let returnType = retType mcall calledType header resultType'
+                syncAccess = isThisAccess (target mcall)
+                isStream = isStreamMethodHeader header
+            when (isStream && syncAccess) $ tcError SyncStreamCall
+            return $ setType returnType mcall {target = eTarget'
+                                              ,args = eArgs
+                                              ,typeArguments = typeArgs}
+
           errorInitMethod targetType name = do
             when (name == constructorName) $ tcError ConstructorCallError
             when (isMainMethod targetType name) $ tcError MainMethodCallError

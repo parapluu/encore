@@ -581,6 +581,7 @@ instance Show TCWarning where
 data Warning = StringDeprecatedWarning
              | StringIdentityWarning
              | PolymorphicIdentityWarning
+             | ShadowedMethodWarning FieldDecl
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
@@ -589,3 +590,9 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
+    show (ShadowedMethodWarning Field{fname, ftype}) =
+        printf ("Field '%s' holds %s and could be confused with " ++
+                "the method of the same name")
+               (show fname) (if isArrayType ftype
+                             then "an array"
+                             else "a function")

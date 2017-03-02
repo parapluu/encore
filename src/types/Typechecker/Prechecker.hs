@@ -270,6 +270,7 @@ instance Precheckable ClassDecl where
 
       cfields' <- mapM (local addTypeParams . precheck) cfields
       cmethods' <- mapM (local (addTypeParams . addThis cname') . precheck) cmethods
+      checkShadowingMethodsAndFields cfields' cmethods'
       return $ setType cname' c{ccomposition = ccomposition'
                                ,cfields = cfields'
                                ,cmethods = if any isConstructor cmethods'
@@ -286,6 +287,15 @@ instance Precheckable ClassDecl where
                                 typesFromTraitComposition ccomposition
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
+
+        checkShadowingMethodsAndFields fields methods = do
+          let shadowedFields = filter (`hasShadowIn` methods) fields
+              shadowedField = head shadowedFields
+          unless (null shadowedFields) $
+                 pushWarning shadowedField $ ShadowedMethodWarning shadowedField
+        hasShadowIn Field{fname, ftype} mdecls =
+          any ((== fname) . methodName) mdecls &&
+          (isArrayType ftype || isArrowType ftype)
 
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do

@@ -10,9 +10,11 @@ module Typechecker.Util(TypecheckM
                        ,tcError
                        ,pushError
                        ,tcWarning
+                       ,pushWarning
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
                        ,findFormalRefType
+                       ,isKnownRefType
                        ,subtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
@@ -98,6 +100,9 @@ pushError expr err = local (pushBT expr) $ tcError err
 tcWarning wrn =
     do bt <- asks backtrace
        modify (TCWarning bt wrn:)
+
+pushWarning expr wrn = local (pushBT expr) $ tcWarning wrn
+
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.

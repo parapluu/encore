@@ -1,0 +1,16 @@
+passive class Foo
+  val arr : [int]
+  def init() : void
+    this.arr = [1,2,3,4,5]
+    this.arr(0) = 100
+  end
+end
+
+class Main
+  def main(args : [String]) : void
+    val x = new Foo()
+    for i <- [0..4] do
+      println(x.arr(i))
+    end
+  end
+end

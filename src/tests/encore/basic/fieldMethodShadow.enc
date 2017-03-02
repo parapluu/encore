@@ -1,0 +1,16 @@
+passive class Foo
+  val fn : int -> int
+  def init(fn : int -> int) : void
+    this.fn = fn
+  end
+  def fn (x : int) : int
+    x + 1
+  end
+end
+
+class Main
+  def main(args : [String]) : void
+    val x = new Foo(fun (x : int) => x * 100)
+    println(x.fn(4))
+  end
+end
