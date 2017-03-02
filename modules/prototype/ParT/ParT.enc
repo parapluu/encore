@@ -99,17 +99,23 @@ end
 
 
 {-
-Group elements of two ParTs based on their keys and join them according
-to their join function. E.g.
+Group elements of two ParTs based on their keys and joins them according
+to their join function. Elements that have no matching key are ignored.
 
+E.g.
+
+```
   val magnus = new Person("Magnus")
   val terry = new Person("Terry")
   val charlotte = new Person("Charlotte")
+  val kiko = new Person("Kiko")
+
   val barley = new Pet("Barley", terry)
   val boots = new Pet("Boots", terry)
   val whiskers = new Pet("Whiskers", charlotte)
   val daisy = new Pet("Daisy", magnus)
-  val people = liftv(magnus) ||| liftv(terry) ||| liftv(charlotte)
+
+  val people = liftv(magnus) ||| liftv(terry) ||| liftv(charlotte) ||| liftv(kiko)
   val pets = liftv(barley) ||| liftv(boots) ||| liftv(whiskers) ||| liftv(daisy)
   val query = groupJoin(people,
                         pets,
@@ -119,6 +125,7 @@ to their join function. E.g.
                           liftv((per.name, animals >> (fun (p : Pet) => p.name)))
                         end,
                         fun (s1 : String, s2 : String) => s1.compare(s2))
+
   for elem <- extract(query) do
     match elem with
       case (name, pets) =>
@@ -129,6 +136,21 @@ to their join function. E.g.
       end
     end
   end
+```
+
+In the example above, the expected output is:
+
+```
+  Terry:
+  Barley
+  Boots
+  Charlotte:
+  Whiskers
+  Magnus:
+  Daisy
+```
+
+where the person `Kiko` doesn't have any pet and is therefore ignored.
 
 -}
 
