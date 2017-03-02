@@ -242,7 +242,6 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
-  | IdComparisonBadTuples Type Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -336,11 +335,19 @@ instance Show Error where
     show MissingMainClass = "Couldn't find active class 'Main'"
     show SyncStreamCall = "A stream method can not be called synchronously since it will invariably deadlock"
     show (IdComparisonNotSupportedError ty) =
-        printf "Type %s does not support identity comparison (must include Id trait)" (show ty)
-    show (IdComparisonTypeMismatchError lty rty) =
-        printf "Cannot compare values across types %s and %s" (show lty) (show rty)
-    show (IdComparisonBadTuples lty rty) =
-        printf "Cannot compare tuples of different sizes: %s and %s" (show lty) (show rty)
+        printf "Type '%s' does not support identity comparison%s" (show ty)
+               (if isRefType ty
+                then " (must include Id trait)"
+                else "")
+    show (IdComparisonTypeMismatchError lty rty)
+      | isTupleType lty && isTupleType rty &&
+        length (getArgTypes lty) /= length (getArgTypes rty) =
+          printf "Cannot compare tuples of different sizes: %s and %s"
+                 (show lty) (show rty)
+      | otherwise =
+          printf "Cannot compare values across types %s and %s"
+                 (show lty) (show rty)
+
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where

@@ -1472,27 +1472,14 @@ instance Checkable Expr where
              eRoper <- typecheck roper
              let lType = AST.getType eLoper
              let rType = AST.getType eRoper
-             
-             unless (isTypeVar lType) $ checkIdComparisonSupport lType
-             unless (isTypeVar rType) $ checkIdComparisonSupport rType
 
-             when (isTupleType lType && isTupleType rType) $
-                  unless (length (getArgTypes lType) == length (getArgTypes rType)) $
-                         tcError $ IdComparisonBadTuples lType rType
-             -- when (isRefType lType || isTupleType lType) $
-             --      unlessM (lType `subtypeOf` rType) $
-             --        unlessM (rType `subtypeOf` lType) $
-             --             tcError $ IdComparisonTypeMismatchError lType rType
-             -- when (isMaybeType lType && isMaybeType rType) $
-             --      unlessM (lType `subtypeOf` rType) $
-             --        unlessM (rType `subtypeOf` lType) $
-             --             tcError $ IdComparisonTypeMismatchError lType rType
-             -- when (isPrimitive lType) $
-             --      unless (lType == rType) $
-             --             tcError $ IdComparisonTypeMismatchError lType rType
              unlessM (lType `subtypeOf` rType) $
                unlessM (rType `subtypeOf` lType) $
                  tcError $ IdComparisonTypeMismatchError lType rType
+
+             unless (isTypeVar lType) $ checkIdComparisonSupport lType
+             unless (isTypeVar rType) $ checkIdComparisonSupport rType
+
              when (isStringObjectType lType) $
                   unless (isNullLiteral eRoper || isNullLiteral eLoper) $
                          tcWarning StringIdentityWarning
@@ -1519,7 +1506,7 @@ instance Checkable Expr where
             | isRealType ty2 = realType
             | isUIntType ty1 = uintType
             | otherwise = intType
-        checkIdComparisonSupport ty 
+        checkIdComparisonSupport ty
             | isMaybeType ty = checkIdComparisonSupport $ getResultType ty
             | isArrayType ty = checkIdComparisonSupport $ getResultType ty
             | isTupleType ty = do
@@ -1530,7 +1517,7 @@ instance Checkable Expr where
                 includesId <- ty `subtypeOf` id
                 unless (includesId || isPrimitive ty) $
                   tcError $ IdComparisonNotSupportedError ty
-   
+
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 
 --  classLookup(ty) = _
