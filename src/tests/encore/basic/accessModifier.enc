@@ -1,10 +1,8 @@
--- This file was automatically converted by encorec
+-- This file was partially converted by encorec
 
 class Main
   def main() : void
-    let
-      t = new Test[String]
-    in
+    let t = new Test[String] in
       t!publicMethod("test")
       println(get(t.publicMethod("Testing access modifiers")))
     end
@@ -18,4 +16,3 @@ class Test[t]
     this.method(x)
   end
 end
-
