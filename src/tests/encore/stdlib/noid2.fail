@@ -1,6 +1,1 @@
-Type A does not support identity comparison (must include Id trait)
-In expression: 
-  (1, 2, 3, 4, new A) == (1, 2, 3, 4, new B)
-In method 'main' of type 'void'
-In class 'Main'
-
+Cannot compare values across types (int, int, int, int, A) and (int, int, int, int, B)
