@@ -505,30 +505,6 @@ guard = do
   reserved "when"
   expression
 
-matchingHeader = do
-   hname <- Name <$> identifier
-   htypeparams <- optionalTypeParameters
-   args <- parens (commaSep patternParamDecl)
-   colon
-   htype <- typ
-   posGuard <- getPosition
-   hguard <- option (BTrue (meta posGuard)) guard
-   let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifiers = []
-                        ,kind = NonStreaming
-                        ,htypeparams
-                        ,hname
-                        ,hpatterns
-                        ,hparamtypes
-                        ,htype
-                        ,hguard
-                        }
-
-matchingStreamHeader :: EncParser FunctionHeader
-matchingStreamHeader = do
-  header <- matchingHeader
-  return header{kind = Streaming}
-
 whereClause :: EncParser [Function]
 whereClause =
   indentBlock $ do
@@ -554,7 +530,6 @@ globalFunction = do
   return fun{funlocals}
 
 funHeaderAndBody =
-  -- TODO: Re-add matching functions
   indentBlock $ do
     funmeta <- meta <$> getPosition
     reserved "fun"
@@ -575,24 +550,6 @@ makeBody es =
     [] -> error "Parser.hs: Cannot make body from empty list"
     [e] -> e
     es -> Seq (meta (getPos (last es))) es
-
-matchingFunction = do
-  funmeta <- meta <$> getPosition
-  reserved "def"
-  clauses <- functionClause `sepBy1` reservedOp "|"
-  let matchfunheaders = map fst clauses
-      matchfunbodies = map snd clauses
-  return MatchingFunction{funmeta
-                         ,matchfunheaders
-                         ,matchfunbodies
-                         ,funlocals = []
-                         ,funsource = ""
-                         }
-  where
-    functionClause = do
-      funheader <- matchingHeader
-      funbody <- expression
-      return (funheader, funbody)
 
 data TraitAttribute = TReqAttribute {treq :: Requirement}
                     | TMethodAttribute {tmdecl :: MethodDecl}
@@ -768,8 +725,7 @@ patternParamDecl = do
 methodDecl :: EncParser MethodDecl
 methodDecl = do
   mIndent <- L.indentLevel
-  -- TODO: Re-add support for matching methods
-  mtd <- methodHeaderAndBody -- <|> matchingMethod
+  mtd <- methodHeaderAndBody
 
   mlocals <- option [] $ atLevel mIndent whereClause
   atLevel mIndent $ reserved "end"
@@ -790,26 +746,6 @@ methodDecl = do
                    ,mbody = makeBody block
                    ,mlocals = []
                    }
-    matchingMethod = do
-      mmeta <- meta <$> getPosition
-      clauses <- do reserved "def"
-                    modifiers <- many modifier
-                    map (first (setHeaderModifier modifiers)) <$>
-                      methodClause matchingHeader `sepBy1` reservedOp "|"
-             <|> do reserved "stream"
-                    methodClause matchingStreamHeader `sepBy1` reservedOp "|"
-      let (mheaders, mbodies) = unzip clauses
-
-      return MatchingMethod{mmeta
-                           ,mheaders
-                           ,mbodies
-                           ,mlocals = []
-                           }
-      where
-        methodClause headerParser= do
-          mheader <- headerParser
-          mbody <- expression
-          return (mheader, mbody)
 
 modifier :: EncParser Modifier
 modifier = (reserved "private" >> return ModPrivate)

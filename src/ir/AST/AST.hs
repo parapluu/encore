@@ -141,17 +141,7 @@ data FunctionHeader =
         hname       :: Name,
         htype       :: Type,
         hparams     :: [ParamDecl]
-    }
-    | MatchingHeader {
-        hmodifiers   :: [Modifier],
-        kind        :: HeaderKind,
-        htypeparams :: [Type],
-        hname       :: Name,
-        htype       :: Type,
-        hparamtypes :: [Type],
-        hpatterns   :: [Expr],
-        hguard      :: Expr
-    }deriving(Eq, Show)
+    } deriving(Eq, Show)
 
 
 setHeaderType ty h = h{htype = ty}
@@ -170,8 +160,6 @@ isMatchMethod = isMatchMethodHeader . mheader
 
 isStreamMethodHeader h = kind h == Streaming
 
--- MatchingFunction instances should be replaced by regular
--- functions after desugaring
 data Function =
     Function {
       funmeta   :: Meta Function,
@@ -179,13 +167,6 @@ data Function =
       funbody   :: Expr,
       funlocals :: [Function],
       funsource :: FilePath
-    }
-  | MatchingFunction {
-      funmeta         :: Meta Function,
-      matchfunheaders :: [FunctionHeader],
-      matchfunbodies  :: [Expr],
-      funlocals       :: [Function],
-      funsource       :: FilePath
     } deriving (Show)
 
 functionName = hname . funheader
@@ -204,12 +185,8 @@ instance HasMeta Function where
   setMeta f m = f{funmeta = m}
   setType ty f@(Function {funmeta}) =
       f{funmeta = AST.Meta.setType ty funmeta}
-  setType ty f@(MatchingFunction {funmeta}) =
-      f{funmeta = AST.Meta.setType ty funmeta}
   showWithKind Function{funheader} =
       "function '" ++ show (hname funheader) ++ "'"
-  showWithKind MatchingFunction{matchfunheaders} =
-      "function '" ++ show (hname $ head matchfunheaders) ++ "'"
 
 data ClassDecl = Class {
   cmeta       :: Meta ClassDecl,
@@ -450,12 +427,7 @@ data MethodDecl =
       mmeta   :: Meta MethodDecl,
       mheader :: FunctionHeader,
       mlocals :: [Function],
-      mbody   :: Expr}
-  | MatchingMethod {
-      mmeta    :: Meta MethodDecl,
-      mheaders :: [FunctionHeader],
-      mlocals  :: [Function],
-      mbodies  :: [Expr]
+      mbody   :: Expr
     } deriving (Show)
 
 methodName = hname . mheader
