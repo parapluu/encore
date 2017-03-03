@@ -1,0 +1,56 @@
+-- This file was automatically converted by encorec
+
+import ParT.ParT
+
+passive class Person
+  var name : String
+
+  def init(name : String) : void
+    this.name = name
+  end
+end
+
+passive class Pet
+  var name : String
+  var owner : Person
+
+  def init(n : String, o : Person) : void
+    this.name = n
+    this.owner = o
+  end
+end
+
+class Main
+  def main() : void
+    val magnus = new Person("Magnus")
+    val terry = new Person("Terry")
+    val charlotte = new Person("Charlotte")
+
+    val barley = new Pet("Barley", terry)
+    val boots = new Pet("Boots", terry)
+    val whiskers = new Pet("Whiskers", charlotte)
+    val daisy = new Pet("Daisy", magnus)
+
+    val people = liftv(magnus) ||| liftv(terry) ||| liftv(charlotte)
+    val pets = liftv(barley) ||| liftv(boots) ||| liftv(whiskers) ||| liftv(daisy)
+
+    val query = groupJoin(people,
+                          pets,
+                          fun (p : Person) => p.name,
+                          fun (p : Pet) => p.owner.name,
+                          fun (per : Person, animals : Par[Pet])
+                            liftv((per.name, animals >> (fun (p : Pet) => p.name)))
+                          end,
+                          fun (s1 : String, s2 : String) => s1.compare(s2))
+    for elem <- extract(query) do
+      match elem with
+        case (name, pets) =>
+          println("{}:", name)
+          for pet <- extract(pets) do
+            println("{}", pet)
+          end
+        end
+      end
+    end
+  end
+end
