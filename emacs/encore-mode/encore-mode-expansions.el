@@ -48,13 +48,14 @@
 (defun encore-mark-if-end ()
   "Select single line 'if b then e1 else e2'"
   (interactive)
-  (let (p1 p2 bound (case-fold-search nil))
+  (let (p1 p2 lbound rbound (case-fold-search nil))
     (progn
       (move-beginning-of-line nil)
-      (setq bound (point))
+      (setq lbound (point))
       (move-end-of-line nil)
-      (setq p1 (re-search-backward "[^e] \\<if\\>" bound))
-      (setq p2 (re-search-forward "\\<end\\>"))
+      (setq rbound (point))
+      (setq p1 (re-search-backward "[^e] \\<if\\>" lbound))
+      (setq p2 (re-search-forward "\\<end\\>" rbound))
       (goto-char p1)
       (skip-chars-forward " \t\n")
       (push-mark p2)
@@ -65,7 +66,6 @@
   (interactive)
   (let (p1 p2 (case-fold-search nil))
     (progn
-      (if (region-active-p) (forward-line -1))
       (setq p1 (point))
       (if (not (string-match "\\<end\\>" (current-line)))
           (while (and (not (eobp))
@@ -102,12 +102,12 @@
 (defun encore-mark-inside-block ()
   "Select block excluding delimiters"
   (interactive)
-  (let (p1 p2 (case-fold-search nil))
+  (let (p1 p2 bound (case-fold-search nil))
     (progn
       (if (region-active-p) (forward-line -1))
       (setq p1 (point))
       (while (and (not (eobp))
-                  (not (string-match "^[ \t]*\\<end\\>" (current-line)))
+                  (not (string-match "^[ \t]*\\(\\<end\\>\\|\\<where\\>\\)" (current-line)))
                   (not (string-match "\\<else\\>" (current-line))))
         (forward-line 1)
         (if (and (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
@@ -117,7 +117,7 @@
               (forward-line 1))))
 
       (move-beginning-of-line nil)
-      (setq p2 (re-search-forward "\\<end\\>\\|\\<else\\>"))
+      (setq p2 (re-search-forward "\\<end\\>\\|\\<where\\>\\|\\<else\\>"))
       (backward-sexp)
       (skip-chars-backward " \t\n")
       (setq p2 (point))
@@ -136,8 +136,11 @@
               (encore-skip-block-backward)
               (forward-line -1))))
 
-      (move-beginning-of-line nil)
-      (re-search-forward "\\<do\\|then\\|else\\|in\\>\\|=>")
+      (if (string-match "\\<do\\|then\\|else\\|in\\>\\|=>" (current-line))
+          (progn
+            (move-beginning-of-line nil)
+            (re-search-forward "\\<do\\|then\\|else\\|in\\>\\|=>"))
+        (move-end-of-line nil))
       (skip-chars-forward " \t\n")
       (push-mark p2)
       (setq mark-active t))))
