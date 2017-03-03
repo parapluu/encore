@@ -1167,11 +1167,10 @@ instance Checkable Expr where
       let targetType = AST.getType eTarget
       unless (isTupleType targetType) $
         tcError $ InvalidTupleTargetError eTarget compartment targetType
-      let _:compartments = typeComponents targetType
+      let compartments = getArgTypes targetType
       unless (0 <= compartment && compartment < tupleLength targetType) $
         tcError $ InvalidTupleAccessError eTarget compartment
-
-      return $ setType (compartments!!compartment) ta {target = eTarget}
+      return $ setType (compartments!!(compartment)) ta {target = eTarget}
 
     --  E |- target : t'
     --  fieldLookup(t', name) = t
@@ -1515,8 +1514,17 @@ instance Checkable Expr where
              return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` eqOps = do
              eLoper <- typecheck loper
+             eRoper <- typecheck roper
              let lType = AST.getType eLoper
-             eRoper <- hasType roper lType
+             let rType = AST.getType eRoper
+
+             unlessM (lType `subtypeOf` rType) $
+               unlessM (rType `subtypeOf` lType) $
+                 tcError $ IdComparisonTypeMismatchError lType rType
+
+             unless (isTypeVar lType) $ checkIdComparisonSupport lType
+             unless (isTypeVar rType) $ checkIdComparisonSupport rType
+
              when (isStringObjectType lType) $
                   unless (isNullLiteral eRoper || isNullLiteral eLoper) $
                          tcWarning StringIdentityWarning
@@ -1543,6 +1551,17 @@ instance Checkable Expr where
             | isRealType ty2 = realType
             | isUIntType ty1 = uintType
             | otherwise = intType
+        checkIdComparisonSupport ty
+            | isMaybeType ty = checkIdComparisonSupport $ getResultType ty
+            | isArrayType ty = checkIdComparisonSupport $ getResultType ty
+            | isTupleType ty = do
+                x <- mapM checkIdComparisonSupport (getArgTypes ty)
+                return ()
+            | otherwise = do
+                id <- resolveType (refType "Id")
+                includesId <- ty `subtypeOf` id
+                unless (includesId || isPrimitive ty) $
+                  tcError $ IdComparisonNotSupportedError ty
 
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 

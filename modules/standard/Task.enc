@@ -98,7 +98,10 @@ class Promise[a]
     end
   end
   def fulfilled() : bool
-    this.value == Nothing
+    match this.value with
+      case Nothing => false
+      case _       => true
+    end
   end
   def deliver() : a
     while this.fulfilled() == false do
