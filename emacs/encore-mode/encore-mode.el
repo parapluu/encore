@@ -140,7 +140,7 @@
 (setq encore-operators-regexp (regexp-opt encore-operators 'symbols))
 
 (setq encore-types-regexp "\\<[A-Z][a-zA-Z]*\\>")
-(setq encore-function-regexp "\\<\\(def\\|stream\\|require\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
+(setq encore-function-regexp "\\<\\(def\\|stream\\|fun\\|require\\)\\> \\([^(]*\\)([^)]*)\\W*:\\W*.*")
 (setq encore-variable-regexp "\\<\\([A-Za-z0-9_]*\\)\\>\\W*:")
 (setq encore-comment-regexp "--.?*")
 (setq encore-char-regexp "'\\(\\\\.\\|.\\)'")
@@ -270,6 +270,10 @@
   (if (string-match "^[ \t]*\\(\\<in\\>\\) *$" line)
       (+ (match-beginning 1) encore-tab-width)
 
+  (if (and (not (string-match "\\<in\\>" line))
+           (string-match "\\<let\\> *\\(.+\\) *= *" line))
+      (match-beginning 1)
+
   ;; TODO: If the current line is "x =", we should not use this rule
   (if (string-match "val *\\w* *= *$" line)
       (+ (match-beginning 0) encore-tab-width)
@@ -287,7 +291,7 @@
   (if (and (not (string-match "\\<end\\>" line)) (string-match encore-block-open-regex line))
       (+ (match-beginning 0) encore-tab-width)
   (if (bobp)
-      0))))))))))))))))))))))
+      0)))))))))))))))))))))))
 
 (setq encore-checked-line nil)
 (make-local-variable 'encore-checked-line)
@@ -308,7 +312,7 @@
               "\\<repeat\\>" "\\|"
               "\\<do\\>"     "\\|"
               "\\<fun\\>[^=>\n]*\\($\\|--\\)" "\\|"
-              "\\<let\\>.*\\<in\\>[ \t]*$\\|\\<let\\>[ \t]*\\($\\|--\\)" "\\|"
+              "\\<let\\>" "\\|"
               "\\<if\\>" "\\|"
               "\\<unless\\>" "\\|"
               "\\<match\\>.*\\<with\\> *\\($\\|--\\)\\|\\<case\\>.*=>[ \t]*\\($\\|--\\)"))
@@ -318,7 +322,7 @@
   (interactive)
   (let ((skipped nil))
     (while (and (not (eobp))
-                (not (string-match "\\<end\\>" (current-line))))
+                (not (string-match "\\<end\\>\\|\\<where\\>" (current-line))))
       (if (not skipped) (forward-line 1))
       (setq skipped nil)
       (if (and (not (string-match "\\<else\\> +\\<if\\>" (current-line)))
