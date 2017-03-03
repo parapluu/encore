@@ -427,66 +427,33 @@ markStatsInBody ty e
   | ty == voidType = markStats toStat e
   | otherwise      = markStats toExpr e
 
-toStat = markStats markAsStatement
-toExpr = markStats id
-markAsStatement e = setMeta e $ makeStat $ getMeta e
+toStat e = setMeta e $ makeStat $ getMeta e
+toExpr e = e
 
 isStatement :: Expr -> Bool
 isStatement e = isStat (getMeta e)
 
-mark :: Bool -> Expr -> Expr
-mark captured e =
-  if captured then setMeta e $ makeStat $ getMeta e else e 
+m = markStats
 
+-- Traverses an AST tree and marks nodes as statements or expressions
+-- Uses the m alias to markStats to save hspace  
 markStats :: (Expr -> Expr) -> Expr -> Expr
-markStats mark s@Seq{eseq} = mark s{eseq=(map toStat $ init eseq) ++ [markStats mark $ last eseq]}
-markStats mark s@IfThenElse{cond, thn, els} = mark s{cond=toExpr cond, thn=markStats mark thn, els=markStats mark els}
-markStats mark s@Unary{operand} = mark s{operand=toExpr operand}
-markStats mark s@Binop{loper, roper} = mark s{loper=toExpr loper, roper=toExpr roper}
-markStats mark s@MethodCall{target, args} = mark s{target=toExpr target, args=map toExpr args}
-markStats mark s@MessageSend{target, args} = mark s{target=toExpr target, args=map toExpr args}
-markStats mark s@FunctionCall{args} = mark s{args=map toExpr args}
-markStats mark s@Async{body} = mark s{body=markStats mark body}
-markStats mark s@Tuple{args} = mark s{args=map toExpr args}
-markStats mark s@Get{val} = mark s{val=toExpr val}
-markStats mark s@Yield{val} = mark s{val=toExpr val}
-markStats mark s@IsEos{target} = mark s{target=toExpr target}
-markStats mark s@StreamNext{target} = mark s{target=toExpr target}
-markStats mark s@Await{val} = mark s{val=toExpr val}
-markStats mark s@Return{val} = mark s{val=toExpr val}
-markStats mark s@FieldAccess{target} = mark s{target=toExpr target}
-markStats mark s@TupleAccess{target} = mark s{target=toExpr target}
-markStats mark s@ArraySize{target} = mark s{target=toExpr target}
-markStats mark s@ArrayAccess{target, index} = mark s{target=toExpr target, index=toExpr index}
-markStats mark s@Liftf{val} = mark s{val=toExpr val}
-markStats mark s@Liftv{val} = mark s{val=toExpr val}
-markStats mark s@PartyJoin{val} = mark s{val=toExpr val}
-markStats mark s@PartyExtract{val} = mark s{val=toExpr val}
-markStats mark s@PartyEach{val} = mark s{val=toExpr val}
-markStats mark s@ArrayNew {size} = mark s{size=toExpr size}
-markStats mark s@ArrayLiteral {args} =mark s{args=map toExpr args}
-markStats mark s@Assign {lhs, rhs} = toStat s{lhs= lhs, rhs=toExpr rhs}
-markStats mark s@NewWithInit {args} =mark s{args=map toExpr args}
-markStats mark s@Print {args} =toStat s{args=map toExpr args}
-markStats mark s@Exit {args} =mark s{args=map toExpr args}
-markStats mark s@MaybeValue{mdt=d@JustData{e}} = mark s{mdt=d{e=markStats mark e}}
-markStats mark s@MaybeValue{mdt=d@NothingData{}} = mark s
-markStats mark s@Let{body, decls} = mark s{body=markStats mark body}
-markStats mark s@While{cond, body} = mark s{cond=toExpr cond, body=toStat body}
-markStats mark s@For{step, src, body} = mark s{step=toExpr step, src=toExpr src, body=toStat body}
--- TODO: add remaining nodes that I don't understand
-markStats mark s@FutureChain{future, chain} = mark s{future=toExpr future, chain=toExpr chain}
-markStats mark s@TypedExpr{body} = mark s{body=toExpr body}
-markStats mark s@Closure{body} = mark s{body=toExpr body}
-markStats mark s@RangeLiteral{start, stop, step} = s{start=toExpr start, stop=toExpr stop, step=toExpr step} 
-markStats mark s@PartySeq{par, seqfunc} = mark s{par=toExpr par, seqfunc=toExpr seqfunc}
-markStats mark s@PartyPar{parl, parr} = mark s{parl=toExpr parl, parr=toExpr parr}
-markStats mark s@PartyReduce{pinit, seqfun, par} = mark s{pinit=toExpr pinit, seqfun=toExpr seqfun, par=toExpr par}
-markStats mark s@Match{arg, clauses} = mark s{arg=toExpr arg, clauses=map (markClause mark) clauses}
+markStats k s@Seq{eseq} = k s{eseq=(map (m toStat) $ init eseq) ++ [markStats k $ last eseq]}
+markStats k s@IfThenElse{cond, thn, els} = k s{cond=(m toExpr) cond, thn=markStats k thn, els=markStats k els}
+markStats k s@Async{body} = k s{body=markStats k body}
+markStats k s@Assign {lhs, rhs} = toStat s{lhs=(m toStat) lhs, rhs=(m toExpr) rhs}
+markStats k s@Print {args} = toStat s{args=map (m toExpr) args}
+markStats k s@MaybeValue{mdt=d@JustData{e}} = k s{mdt=d{e=markStats k e}}
+markStats k s@Let{body, decls} = k s{body=markStats k body, decls=map markDecl decls}
   where
-    markClause mark mc@MatchClause{mcguard, mchandler, mcpattern} =
-      mc{mcguard=toExpr mcguard
-        ,mchandler=markStats mark mchandler
-        ,mcpattern=toExpr mcpattern} 
-markStats mark s = mark s
+    markDecl (n, e) = (n, (m toExpr) e) 
+markStats k s@While{cond, body} = k s{cond=(m toExpr) cond, body=(m toStat) body}
+markStats k s@For{step, src, body} = k s{step=(m toExpr) step, src=(m toExpr) src, body=(m toStat) body}
+markStats k s =
+  let
+    children = AST.Util.getChildren s
+    children' = map (m toExpr) children
+  in
+    k $ AST.Util.putChildren children' s
+
 
