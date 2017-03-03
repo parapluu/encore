@@ -1,4 +1,4 @@
-fun phuc() : void
+fun foo() : void
   break
 end
 
