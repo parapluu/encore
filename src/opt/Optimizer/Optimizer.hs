@@ -29,7 +29,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors, sugarPrintedStrings]
+optimizerPasses = [constantFolding, constructors, sugarPrintedStrings, futureElision]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -59,6 +59,17 @@ constructors = extend constr
                           ,typeArguments = []}
           | otherwise = e
       constr e = e
+
+futureElision :: Expr -> Expr
+futureElision = extend elideFutures
+  where
+    elideFutures e@MethodCall{emeta, name, typeArguments, target, args} 
+      | isStatement e &&
+        not (thisCall target) &&
+        (isActiveClassType $ getType target) =
+          MessageSend{emeta, name, typeArguments, target, args}
+    elideFutures e = e
+    thisCall = AST.AST.isThisAccess 
 
 sugarPrintedStrings = extend sugarPrintedString
     where
