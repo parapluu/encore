@@ -11,7 +11,7 @@ fun generateStrings(var p : Par[String]) : Par[String]
   for i <- [1..9] do
     p = p ||| liftv(string_from_int(i))
   end
-  liftf((new T).getString()) ||| p
+  liftf(new T ! getString()) ||| p
 end
 class T
   def getString() : String

@@ -17,7 +17,7 @@ class Agent
   def f() : Node
     let
       a = new Agent
-      n = get(a.getNode())
+      n = get(a ! getNode())
     in
       n.next = new Node
       n
@@ -26,7 +26,7 @@ class Agent
 end
 class Main
   def main() : void
-    get((new Agent).f())
+    get(new Agent ! f())
     println(0)
   end
 end

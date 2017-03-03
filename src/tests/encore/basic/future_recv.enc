@@ -10,7 +10,7 @@ class Main
     if n == 0 then
       print("done")
     else
-      this.a.go(this.a)
+      this.a ! go(this.a)
       new [int](100)
       this!perform(n - 1)
     end

@@ -34,9 +34,9 @@ class T
 end
 class Main
   def futures() : void
-    val p1 = liftf((new T).getValue(12))
-    val p2 = liftf((new T).getValue(23))
-    val p3 = liftf((new T).getPar(42))
+    val p1 = liftf(new T ! getValue(12))
+    val p2 = liftf(new T ! getValue(23))
+    val p3 = liftf(new T ! getPar(42))
     val presult = p2 ||| liftv(2) ||| liftv(2) ||| liftv(3) ||| join(p3) ||| p1
     val result = distinct(presult, cmpInt)
     for v <- extract(result) do

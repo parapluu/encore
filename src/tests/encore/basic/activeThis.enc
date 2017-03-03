@@ -3,23 +3,27 @@
 fun id[t](x : t) : t
   x
 end
+
 class Main
   def main() : void
-    let k = (new Kiko).xxx(3)
-        x = new Foo
+    let
+      k = new Kiko ! xxx(3)
+      x = new Foo
     in
-      assertTrue(get(get(x.foo())))
-      assertTrue(get(get(x.bar())))
-      assertTrue(get(get(x.baz())))
+      assertTrue(get(get(x ! foo())))
+      assertTrue(get(get(x ! bar())))
+      assertTrue(get(get(x ! baz())))
       println("Done!")
     end
   end
 end
+
 class Kiko
   def xxx(x : int) : int
     x
   end
 end
+
 class Foo
   def fr0b() : bool
     true
@@ -28,19 +32,19 @@ class Foo
     let
       that = this
     in
-      that.fr0b()
+      that ! fr0b()
     end
   end
   def bar() : Fut[bool]
     var that = null : Foo
     that = this
-    that.fr0b()
+    that ! fr0b()
   end
   def baz() : Fut[bool]
     let
       that = id[Foo](this)
     in
-      that.fr0b()
+      that ! fr0b()
     end
   end
 end

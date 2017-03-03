@@ -24,7 +24,7 @@ where
   fun execute(actors : [Accountant]) : Par[int]
     var p = liftv(0)
     for a <- actors do
-      p = p ||| liftf(a.getNumber())
+      p = p ||| liftf(a ! getNumber())
     end
     p
   end

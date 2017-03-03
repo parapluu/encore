@@ -10,7 +10,7 @@ class Foo
 end
 class Main
   def main() : void
-    var s = (new Foo).bar()
+    var s = new Foo ! bar()
     while not(eos(s)) do
       println(get(s))
       s = getNext(s)

@@ -40,10 +40,10 @@ class Main
     let
       p = new Pair(42, "fortytwo")
       c = new Cell(p)
-      pp = get(c.getVal())
+      pp = get(c ! getVal())
     in
-      println(get(pp.getFst()))
-      println(get(pp.getSnd()))
+      println(get(pp ! getFst()))
+      println(get(pp ! getSnd()))
     end
   end
 end

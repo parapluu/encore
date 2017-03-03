@@ -15,7 +15,7 @@ class Main
   def main() : void
     val x = new Foo()
     for i <- [0..20] do
-      val s = get(x.foo())
+      val s = get(x ! foo())
       println("{} {}", s, i)
     end
   end

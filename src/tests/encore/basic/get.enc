@@ -17,13 +17,13 @@ class Test
     let
       p = new Producer
     in
-      println(get(get(p.produce())))
+      println(get(get(p ! produce())))
     end
   end
 end
 class Producer
   def produce() : Fut[int]
-    (new Producer).meta_produce()
+    new Producer ! meta_produce()
   end
   def meta_produce() : int
     17

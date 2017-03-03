@@ -13,9 +13,9 @@ class Main
       s = "Hello, Ponyworld!"
     in
       new [int](100000000)
-      get(x.foo(s))
-      get(x.foo(s))
-      x!foo(s)
+      get(x ! foo(s))
+      get(x ! foo(s))
+      x ! foo(s)
     end
   end
 end

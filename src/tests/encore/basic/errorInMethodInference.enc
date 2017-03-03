@@ -7,7 +7,7 @@ class A
 end
 class Main
   def main() : void
-    (new A).f()
+    new A ! f()
   end
 end
 

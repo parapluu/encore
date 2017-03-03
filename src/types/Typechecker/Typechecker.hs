@@ -132,8 +132,8 @@ instance Checkable Function where
                addParams funparams .
                addLocalFunctions funlocals) $
                   if isVoidType funtype
-                  then typecheckNotNull body
-                  else hasType body funtype
+                  then typecheckNotNull $ Util.markStatsInBody funtype funbody
+                  else hasType funbody funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
                        mapM typecheck funlocals
@@ -405,8 +405,8 @@ instance Checkable MethodDecl where
                    addParams mparams .
                    addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull body
-                       else hasType body mType
+                       then typecheckNotNull $ Util.markStatsInBody mType mbody
+                       else hasType mbody mType
         when (isMatchMethod m) $
              checkPurity eBody
 
@@ -574,10 +574,8 @@ instance Checkable Expr where
           unless (isParType pType) $
             pushError ePar $ TypeMismatchError pType (parType pType)
 
-
-
     doTypecheck mcall
-      | isMethodCall mcall = do
+      | isMethodCallOrMessageSend mcall = do
           eTarget <- typecheck (target mcall)
           let targetType = AST.getType eTarget
               methodName = name mcall
@@ -660,6 +658,9 @@ instance Checkable Expr where
                     isSharedClassType targetType) $
                     tcError $ NonSendableTargetError targetType
           handleErrors targetType mcall@MethodCall {} = do
+            unless (isPassiveType targetType || AST.AST.isThisAccess (target mcall))
+              $ tcError BadSyncCallError
+  
             let name' = name mcall
             unless (isRefType targetType) $
                    tcError $ NonCallableTargetError targetType
@@ -1748,7 +1749,7 @@ assertSubtypeOf sub super =
 
 
 inferenceCall call typeParams argTypes resultType
-  | isMethodCall call || isFunctionCall call = do
+  | isMethodCallOrMessageSend call || isFunctionCall call = do
       let uniquify = uniquifyTypeVars typeParams
       uniqueArgTypes <- mapM uniquify argTypes
       (eArgs, bindings) <- matchArguments (args call) uniqueArgTypes
@@ -1768,7 +1769,7 @@ inferenceCall call typeParams argTypes resultType
   methodCallName = name call
 
 typecheckCall call typeParams argTypes resultType
-  | isMethodCall call || isFunctionCall call = do
+  | isMethodCallOrMessageSend call || isFunctionCall call = do
       typeArgs' <- mapM resolveType (typeArguments call)
       let bindings = zip typeParams typeArgs'
 

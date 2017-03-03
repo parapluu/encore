@@ -60,7 +60,7 @@ class Test
     let
       test = new Test
       expected = 34
-      value = get(test.number(expected))
+      value = get(test ! number(expected))
     in
       assertTrue(value == expected, "ERROR in 'test_number', found {} but expecting {}", value, expected)
     end
@@ -69,7 +69,7 @@ class Test
     let
       test = new Test
       expected = "string"
-      value = get(test.stringf(expected))
+      value = get(test ! stringf(expected))
     in
       assertTrue(value.equals(expected), "ERROR in 'test_stringf', found {} but expecting {}", value, expected)
     end
@@ -107,7 +107,7 @@ class Test
     let
       test = new Test
       pObject = new PassiveObject("pass", 42)
-      pObjectFulfilled = get(test.passive_object(pObject))
+      pObjectFulfilled = get(test ! passive_object(pObject))
     in
       assertTrue(pObjectFulfilled.tag.equals("pass"))
       assertTrue(pObjectFulfilled.life == 42)
@@ -254,8 +254,8 @@ class Test
       test = new Test
       pObject = new PassiveObject("pass", 42)
       expString = "Liftf String"
-      arr_int = extract(liftf(test.number(34)))
-      arr_string = extract(liftf(test.stringf(expString)))
+      arr_int = extract(liftf(test ! number(34)))
+      arr_string = extract(liftf(test ! stringf(expString)))
     in
       for v <- arr_int do
         assertTrue(v == 34, "ERROR in 'test_liftf_primitive'")
@@ -271,9 +271,9 @@ class Test
       pObject = new PassiveObject("pass", 42)
       expIntJoin1 = 42
       expIntJoin2 = 30
-      arr_passive = extract(liftf(test.passive_object(pObject)))
-      arr_int_join = extract(join(liftf(test.par_int_case())))
-      arr_passive_join = extract(join(liftf(test.par_passive_case(pObject))))
+      arr_passive = extract(liftf(test ! passive_object(pObject)))
+      arr_int_join = extract(join(liftf(test ! par_int_case())))
+      arr_passive_join = extract(join(liftf(test ! par_passive_case(pObject))))
     in
       for v <- arr_passive do
         assertTrue(v.tag.equals("pass"), "ERROR in 'test_liftf_passive'")
@@ -297,24 +297,24 @@ class Main
     let
       test = new Test
     in
-      get(test.test_number())
-      get(test.test_stringf())
-      get(test.test_int_and_dec())
-      get(test.test_from_string_to_int())
-      get(test.test_switch_test())
-      get(test.test_passive_object())
-      test.test_liftv_primitive_int()
-      test.test_liftv_primitive_string()
-      test.test_liftv_passive()
-      test.test_liftv_par_primitive()
-      test.test_liftv_par_passive()
-      test.test_par_primitive_int()
-      test.test_par_primitive_string()
-      test.test_par_passive()
-      test.test_seq_primitive()
-      test.test_seq_passive()
-      test.test_liftf_primitive()
-      test.test_liftf_passive()
+      get(test ! test_number())
+      get(test ! test_stringf())
+      get(test ! test_int_and_dec())
+      get(test ! test_from_string_to_int())
+      get(test ! test_switch_test())
+      get(test ! test_passive_object())
+      test ! test_liftv_primitive_int()
+      test ! test_liftv_primitive_string()
+      test ! test_liftv_passive()
+      test ! test_liftv_par_primitive()
+      test ! test_liftv_par_passive()
+      test ! test_par_primitive_int()
+      test ! test_par_primitive_string()
+      test ! test_par_passive()
+      test ! test_seq_primitive()
+      test ! test_seq_passive()
+      test ! test_liftf_primitive()
+      test ! test_liftf_passive()
     end
   end
 end

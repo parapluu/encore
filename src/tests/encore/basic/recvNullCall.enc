@@ -8,7 +8,7 @@ class Main
     let
       x = null : Main
     in
-      x.test()
+      x ! test()
     end
   end
 end

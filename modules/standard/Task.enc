@@ -166,7 +166,7 @@ fun spawn[t](task : () -> t) : Fut[t]
   let
     runner = new TaskRunner()
   in
-    runner.perform(task)
+    runner ! perform(task)
   end
 end
 

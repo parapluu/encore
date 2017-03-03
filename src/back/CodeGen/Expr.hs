@@ -584,8 +584,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                            ])
     | syncAccess = delegateUse callTheMethodSync "sync_method_call"
     | sharedAccess = delegateUse callTheMethodFuture "shared_method_call"
-    | isActive && isStream = delegateUse callTheMethodStream "stream"
-    | isActive && isFuture = delegateUse callTheMethodFuture "fut"
     | otherwise = error $ "Expr.hs: Don't know how to call target of type " ++
                           Ty.showWithKind targetTy ++
                           " at " ++ Meta.showPos (A.getMeta call)
@@ -611,24 +609,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           isStream = Ty.isStreamType retTy
           isFuture = Ty.isFutureType retTy
 
-  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
-    | Ty.isActiveClassType ty = delegateUse callTheMethodOneway
-    | Ty.isSharedClassType ty = delegateUse callTheMethodOneway
-    | otherwise = error
-        "Tried to send a message to something that was not an active reference"
-        where
-          ty = A.getType target
-          delegateUse methodCall = do
-            (ntarget, ttarget) <- translate target
-            (initArgs, resultExpr) <-
-              methodCall ntarget ty name args typeArguments Ty.voidType
-            return (unit,
-              Seq $
-                ttarget :
-                targetNullCheck ntarget target name emeta " ! " :
-                initArgs ++
-                [Statement resultExpr]
-              )
+  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments} 
+    | Util.isStatement call = delegateUseNoReturn callTheMethodOneway
+    | isActive && isStream = delegateUseReturn callTheMethodStream "stream"
+    | isActive && isFuture = delegateUseReturn callTheMethodFuture "fut"
+    | otherwise = delegateUseReturn callTheMethodFuture "fut"
+    where
+      targetTy = A.getType target
+      retTy = A.getType call
+      sharedAccess = Ty.isSharedClassType $ A.getType target
+      isActive = Ty.isActiveClassType targetTy
+      isStream = Ty.isStreamType retTy
+      isFuture = Ty.isFutureType retTy
+      delegateUseNoReturn msgSend = do
+        (ntarget, ttarget) <- translate target
+        (initArgs, resultExpr) <-
+          msgSend ntarget (A.getType target) name args typeArguments Ty.voidType
+        return (unit,
+          Seq $
+            ttarget :
+            targetNullCheck ntarget target name emeta " ! " :
+            initArgs ++ [Statement resultExpr]
+          )
+      delegateUseReturn methodCall sym = do
+        result <- Ctx.genNamedSym sym
+        (ntarget, ttarget) <- translate target
+        (initArgs, resultExpr) <-
+          methodCall ntarget targetTy name args typeArguments retTy
+        return (Var result,
+          Seq $
+            ttarget :
+            targetNullCheck ntarget target name emeta " ! " :
+            initArgs ++
+            [Assign (Decl (translate retTy, Var result)) resultExpr]
+          )
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond

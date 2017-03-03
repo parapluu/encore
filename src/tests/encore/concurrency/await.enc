@@ -7,7 +7,7 @@ end
 
 class Producer
   def foo(t : Test) : int 
-    get(t.run2())
+    get(t ! run2())
     17
   end
 end
@@ -24,7 +24,7 @@ class Test
   end
 
   def run1() : void
-    val f = this.p.foo(this)
+    val f = this.p ! foo(this)
     print("Before await\n")
     this.await(f)
     print("After await\n")

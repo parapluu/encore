@@ -8,10 +8,10 @@ class Main
       sio = new StreamIO
       f = fun (x : real) => x * 10
       n = 5
-      sa1 = sio.produceReal(n)
+      sa1 = sio ! produceReal(n)
       sb1 = chain[real, real](sa1, f)
     in
-      sio.printStreamReal(sb1)
+      sio ! printStreamReal(sb1)
     end
   end
 end

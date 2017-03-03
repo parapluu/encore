@@ -15,7 +15,7 @@ class Main
               println("Got unit")
               x
             end
-    x.foo(unit1)
+    x ! foo(unit1)
     f(unit2)
     unit1 = unit2
   end
