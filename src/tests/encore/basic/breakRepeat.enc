@@ -1,5 +1,5 @@
-passive class Phuc
-  def phuc() : void
+passive class Foo
+  def bar() : void
     repeat i <- 50 do
       print ("{} ",i)
       if i>5 then
@@ -20,7 +20,7 @@ class Main
       end
     end
     print ("Done!\n")
-    (new Phuc).phuc()
+    (new Foo).bar()
     print ("Done!\n")
   end
 end

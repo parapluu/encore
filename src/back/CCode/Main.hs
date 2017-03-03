@@ -92,6 +92,7 @@ data CCode a where
     If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
     Ternary      :: UsableAs e Expr => CCode e -> CCode Expr -> CCode Expr -> CCode Expr
     Return       :: UsableAs e Expr => CCode e -> CCode Stat
+    Break        :: CCode Stat
     UnionInst    :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     Int          :: Int -> CCode Expr
     Char         :: Char -> CCode Expr

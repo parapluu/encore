@@ -1,5 +1,5 @@
-passive class Phuc
-  def phuc() : void
+passive class Foo
+  def bar() : void
     var i = 0
     while i < 50 do
       print ("{} ",i)
@@ -24,7 +24,7 @@ class Main
       i = i + 1
     end
     print ("Done!\n")
-    (new Phuc).phuc()
+    (new Foo).bar()
     print ("Done!\n")
   end
 end

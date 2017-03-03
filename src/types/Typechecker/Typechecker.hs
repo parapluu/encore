@@ -25,14 +25,13 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import qualified AST.Util as Util (freeVariables, filter)
+import qualified AST.Util as Util (freeVariables, filter, markStatsInBody, isStatement)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
-
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->
@@ -132,7 +131,7 @@ instance Checkable Function where
                addParams funparams .
                addLocalFunctions funlocals) $
                   if isVoidType funtype
-                  then typecheckNotNull funbody
+                  then typecheckNotNull $ Util.markStatsInBody funtype funbody
                   else hasType funbody funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
@@ -404,7 +403,7 @@ instance Checkable MethodDecl where
                    addParams mparams .
                    addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull mbody
+                       then typecheckNotNull $ Util.markStatsInBody mType mbody
                        else hasType mbody mType
         when (isMatchMethod m) $
              checkPurity eBody
@@ -457,10 +456,12 @@ instance Checkable Expr where
     --
     -- ----------------
     --  E |- break : void
-    doTypecheck break@(Break {}) =
-        do unlessM (asks inLoop) $
-                   tcError NoLoopToBreakError
-           return $ setType voidType break
+    doTypecheck break@(Break {emeta}) = do
+      unless (Util.isStatement break) $
+        tcError BreakUsedAsExpressionError
+      unlessM (asks $ validUseOfBreak . bt) $
+        tcError BreakOutsideOfLoopError
+      return $ setType voidType break
 
     --    |- t
     --  E |- body : t

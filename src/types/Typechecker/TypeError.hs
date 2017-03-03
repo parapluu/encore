@@ -16,7 +16,7 @@ module Typechecker.TypeError (Backtrace
                              ,Warning(..)
                              ,currentMethodFromBacktrace
                              ,currentFunctionFromBacktrace
-                             ,loopInBacktrace
+                             ,validUseOfBreak
                              ) where
 
 import Text.PrettyPrint
@@ -87,13 +87,13 @@ currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
 currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
 
-loopInBacktrace :: Backtrace -> Bool
-loopInBacktrace = any (isLoopHead . snd)
-    where
-      isLoopHead (BTExpr For{}) = True
-      isLoopHead (BTExpr While{}) = True
-      isLoopHead (BTExpr Repeat{}) = True
-      isLoopHead _ = False
+validUseOfBreak :: Backtrace -> Bool 
+validUseOfBreak [] = False
+validUseOfBreak ((_, BTExpr l@For{}):_) = True
+validUseOfBreak ((_, BTExpr l@While{}):_) = True
+validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
+validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
+validUseOfBreak (_:bt) = validUseOfBreak bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -189,7 +189,8 @@ data Error =
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
   | TraitsInActiveClassError
-  | NoLoopToBreakError
+  | BreakOutsideOfLoopError
+  | BreakUsedAsExpressionError
   | NonCallableTargetError Type
   | NonSendableTargetError Type
   | MainMethodCallError
@@ -394,8 +395,10 @@ instance Show Error where
                   nameWithKind targetType
     show (TraitsInActiveClassError) =
         "Traits can only be used for passive classes"
-    show NoLoopToBreakError =
-        "No loop to break from"
+    show BreakUsedAsExpressionError =
+        "Break is a statement and cannot be used as a value or expression"
+    show BreakOutsideOfLoopError =
+        "Break can only be used inside loops"
     show (NonCallableTargetError targetType) =
         printf "Cannot call method on expression of type '%s'"
                (show targetType)
