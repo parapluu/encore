@@ -301,11 +301,6 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         where
           (acc', funbody') = extendAccum f acc funbody
 
-      extendAccumFunction f acc fun@(MatchingFunction{matchfunbodies}) =
-        (acc', fun{matchfunbodies = funbodies'})
-        where
-          (acc', funbodies') = List.mapAccumL (extendAccum f) acc matchfunbodies
-
       (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
       extendAccumTrait f acc trt@(Trait{tmethods}) =
         (acc', trt{tmethods = tmethods'})
@@ -322,11 +317,6 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         (acc', mtd{mbody = mbody'})
         where
           (acc', mbody') = extendAccum f acc mbody
-
-      extendAccumMethod f acc mtd@(MatchingMethod{mbodies}) =
-        (acc', mtd{mbodies = mbodies'})
-        where
-          (acc', mbodies') = List.mapAccumL (extendAccum f) acc mbodies
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
@@ -348,9 +338,6 @@ extractTypes (Program{functions, traits, classes}) =
       extractFunctionTypes Function{funheader, funbody} =
           extractHeaderTypes funheader ++
           extractExprTypes funbody
-      extractFunctionTypes MatchingFunction{matchfunheaders, matchfunbodies} =
-          List.foldr (\h acc -> (extractHeaderTypes h) ++ acc) [] matchfunheaders ++
-          List.foldr (\b acc -> (extractExprTypes b) ++ acc) [] matchfunbodies
 
       extractTraitTypes :: TraitDecl -> [Type]
       extractTraitTypes Trait {tname, treqs, tmethods} =
@@ -374,9 +361,6 @@ extractTypes (Program{functions, traits, classes}) =
       extractMethodTypes Method{mheader, mbody} =
           extractHeaderTypes mheader ++
           extractExprTypes mbody
-      extractMethodTypes MatchingMethod{mheaders, mbodies} =
-        List.foldr (\h -> (extractHeaderTypes h ++)) [] mheaders ++
-        List.foldr (\b -> (extractExprTypes b ++)) [] mbodies
 
       extractParamTypes :: ParamDecl -> [Type]
       extractParamTypes Param {ptype} = typeComponents ptype

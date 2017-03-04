@@ -18,88 +18,12 @@ desugarProgram p@(Program{traits, classes, functions}) =
     functions = map desugarFunction functions
   }
   where
-    desugarFunctionHeadMatch headers bodies =
-      let oldHeader = head headers
-          pos = Meta.getPos $ getMeta $ head $ hpatterns oldHeader
-          emeta = Meta.meta pos
-          paramTypes = hparamtypes oldHeader
-          maxLen = maximum $ map (length . hpatterns) headers
-          paramNames = case List.find (isCatchAll maxLen) headers of
-                         Just header -> map (qnlocal . qname) (hpatterns header)
-                         Nothing -> map (Name . ("_match" ++) . show) [0..]
-
-          accesses = take (length paramTypes) $
-                          map (VarAccess emeta . qLocal) paramNames
-          arg = Tuple{emeta, args = accesses}
-
-          patterns = map getPattern headers
-          handlers = bodies
-          guards = map hguard headers
-          clauses = zipWith3 makeClause patterns handlers guards
-
-          newParams = zipWith (makeParam pos) paramNames paramTypes
-
-          header = makeHeader oldHeader newParams
-
-          body = Match{emeta, arg, clauses}
-      in
-        (header, desugarExpr body)
-      where
-        isCatchAll len header =
-            let patterns = hpatterns header
-            in length patterns == len && all isVarAccess patterns
-        isVarAccess VarAccess{} = True
-        isVarAccess _ = False
-
-        getPattern header =
-            let patterns = hpatterns header
-                types = hparamtypes header
-                typePattern body ty =
-                    let emeta = Meta.meta . Meta.getPos . getMeta $ body
-                    in TypedExpr{emeta, body, ty}
-            in
-              zipWith typePattern patterns types
-
-        makeHeader (MatchingHeader{hmodifiers,
-                                   htypeparams,
-                                   kind,
-                                   hname,
-                                   htype}) hparams =
-          Header{hmodifiers, kind, htypeparams, hname, htype, hparams}
-
-        makeParam pos pname ptype =
-          Param{pmeta = Meta.meta pos, pmut = Val, pname, ptype}
-
-        makeClause pattern mchandler mcguard =
-          let pos = if null pattern
-                    then Meta.getPos . getMeta $ mcguard
-                    else Meta.getPos . getMeta . head $ pattern
-              emeta = Meta.meta pos
-              actualPattern = Tuple{emeta, args = pattern}
-          in MatchClause{mcpattern = actualPattern,
-                         mchandler,
-                         mcguard}
-
     desugarTrait t@Trait{tmethods}=
       t{tmethods = map desugarMethod tmethods}
     desugarFunction f@(Function{funbody
                                ,funlocals}) =
       f{funbody = desugarExpr funbody
        ,funlocals = map desugarFunction funlocals}
-    desugarFunction f@(MatchingFunction{funmeta
-                                       ,matchfunheaders
-                                       ,matchfunbodies
-                                       ,funlocals
-                                       ,funsource
-                                       }) =
-      let (funheader, funbody) = desugarFunctionHeadMatch
-                                   matchfunheaders matchfunbodies
-      in Function{funmeta
-                 ,funheader
-                 ,funbody
-                 ,funlocals = map desugarFunction funlocals
-                 ,funsource
-                 }
 
   -- Automatically give await and supend to active classes
   -- Then the Actor trait is in place, this desugaring step will be changed
@@ -135,12 +59,6 @@ desugarProgram p@(Program{traits, classes, functions}) =
     desugarMethod m@(Method {mbody, mlocals}) =
       m{mbody = desugarExpr mbody
        ,mlocals = map desugarFunction mlocals}
-    desugarMethod m@(MatchingMethod {mmeta, mheaders, mbodies, mlocals}) =
-      let (mheader, mbody) = desugarFunctionHeadMatch mheaders mbodies
-      in Method{mmeta
-               ,mheader
-               ,mbody
-               ,mlocals = map desugarFunction mlocals}
 
     desugarExpr = extend removeDeadMiniLet . extend desugar . extend selfSugar
 
@@ -345,16 +263,16 @@ desugar s@StringLiteral{emeta, stringLit} =
                }
 
 -- Binary Operators
-desugar b@Binop{emeta, binop=PLUS_EQUALS, loper, roper} = 
+desugar b@Binop{emeta, binop=PLUS_EQUALS, loper, roper} =
   Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=PLUS, loper, roper}}
 
-desugar b@Binop{emeta, binop=MINUS_EQUALS, loper, roper} = 
+desugar b@Binop{emeta, binop=MINUS_EQUALS, loper, roper} =
   Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=MINUS, loper, roper}}
 
-desugar b@Binop{emeta, binop=TIMES_EQUALS, loper, roper} = 
+desugar b@Binop{emeta, binop=TIMES_EQUALS, loper, roper} =
   Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=TIMES, loper, roper}}
 
-desugar b@Binop{emeta, binop=DIV_EQUALS, loper, roper} = 
+desugar b@Binop{emeta, binop=DIV_EQUALS, loper, roper} =
   Assign{emeta, lhs=loper, rhs=Binop{emeta, binop=DIV, loper, roper}}
 
 -- Operations on futures

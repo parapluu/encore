@@ -136,8 +136,6 @@ ppFunctionHelper funheader funbody funlocals =
 ppFunction :: Function -> Doc
 ppFunction Function {funheader, funbody, funlocals} =
   ppFunctionHelper funheader funbody funlocals
-ppFunction MatchingFunction{} =
-  error "Encore currently does not support matching functions"
 
 ppTraitDecl :: TraitDecl -> Doc
 ppTraitDecl Trait {tname, treqs, tmethods} =

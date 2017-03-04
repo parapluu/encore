@@ -1,33 +1,3 @@
--- def fac(0 : int) : int {
---   1
--- } | fac(n : int) : int {
---   n * fac(n-1)
--- }
-
-
-
--- def testGuardInFunctionHead(x : String) : void when false {
---   print "error"
--- } | testGuardInFunctionHead(x : String) : void when true {
---   print x
--- }
-
--- def expectEven(Odd(a) : IntContainer) : void {
---   print "error"
--- } | expectEven(Even(b) : IntContainer) : void {
---   print "correct"
--- }
-
--- def printMaybe((Just (x)) : Maybe int) : void {
---   println("Just {}", x)
--- } | printMaybe(Nothing : Maybe int) : void {
---   print "Nothing"
--- }
-
--- fun testHigherOrderExprInMatchingFunctionHead() : void
---   printMaybe(Just (3))
--- end
-
 passive class IntContainer
   val elem : int
 
@@ -81,31 +51,6 @@ passive class B :  Letter
   end
 end
 
-passive class C
---  def foo(0 : int, "foo" : String) : void
---    print "yes"
---    | foo(x : int, bar : String) :  void
---    print "no"
---  }
-end
-
-class NumberStreamer
---  stream multiples(1 : int, limit : int) : int {
---    var i = 0;
---    while i < limit {
---      yield i;
---      i = i + 1;
---    }
---  }
---  | multiples(n : int, limit : int) : int {
---    var i = 0;
---    while i < limit {
---      yield i;
---      i = i + n;
---    }
---  }
-end
-
 passive class Foo
   def AlwaysMatchingExtractor() : Maybe[void]
     Just(())
@@ -135,28 +80,6 @@ class Main
     end
   end
 
---  def matchingOnMethodHead() : void
---    (new C()).foo(0, "foo") -- Matches first clause
---    (new C()).foo(0, "bar")  -- Matches last clause
---  end
-
---  def matchingOnFunctionHead() : void
---    println(fac(5))
---  end
-
---  def matchingOnStreamHead() : void
---    val x = new NumberStreamer
---    var evens = x.multiples(2, 10)
---    while (not eos evens) do
---      println(get(evens))
---      evens = getNext(evens)
---    end
---  end
-
---  def objectPatternsInFunctionHead() : void
---    expectEven(new IntContainer(4))
---  end
-
   -- Issue #427, this should compile!
   def variablePatternAgainstLambda() : void
     let f = fun (x : int) => x in
@@ -179,12 +102,6 @@ class Main
     this.objectPatternTestWithFailingGuard()
     this.valueVariableTuplePatternsTestWithFailingGuard()
     this.evaluatesToTraitTest()
---    this.matchingOnMethodHead()
---    this.matchingOnFunctionHead()
---    this.objectPatternsInFunctionHead()
---    this.matchingOnStreamHead()
---    testGuardInFunctionHead("correct")
---    testHigherOrderExprInMatchingFunctionHead()
     this.variablePatternAgainstLambda()
     this.testEmptyExtractors()
   end

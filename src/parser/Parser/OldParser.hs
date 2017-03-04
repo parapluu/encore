@@ -364,41 +364,22 @@ guard = do
   reserved "when"
   expression
 
-matchingHeader = do
-   hname <- Name <$> identifier
-   htypeparams <- optionalTypeParameters
-   args <- parens (commaSep patternParamDecl)
-   colon
-   htype <- typ
-   posGuard <- getPosition
-   hguard <- option (BTrue (meta posGuard)) guard
-   let (hpatterns, hparamtypes) = unzip  args
-   return MatchingHeader{hmodifiers = []
-                        ,kind = NonStreaming
-                        ,htypeparams
-                        ,hname
-                        ,hpatterns
-                        ,hparamtypes
-                        ,htype
-                        ,hguard
-                        }
-
+matchingHeader :: Parser FunctionHeader
+matchingHeader = fail "Matching functions and methods are no longer supported"
 matchingStreamHeader :: Parser FunctionHeader
-matchingStreamHeader = do
-  header <- matchingHeader
-  return header{kind = Streaming}
+matchingStreamHeader = fail "Matching functions and methods are no longer supported"
 
 localFunctions :: Parser [Function]
 localFunctions =
     option [] $ do
       reserved "where"
-      locals <- some (try regularFunction <|> matchingFunction)
+      locals <- some (regularFunction <|> matchingFunction)
       reserved "end"
       return locals
 
 function :: Parser Function
 function = do
-  fun <- try regularFunction <|> matchingFunction
+  fun <- regularFunction <|> matchingFunction
   funlocals <- localFunctions
   return fun{funlocals}
 
@@ -414,23 +395,7 @@ regularFunction = do
                  ,funsource = ""
                  }
 
-matchingFunction = do
-  funmeta <- meta <$> getPosition
-  reserved "def"
-  clauses <- functionClause `sepBy1` reservedOp "|"
-  let matchfunheaders = map fst clauses
-      matchfunbodies = map snd clauses
-  return MatchingFunction{funmeta
-                         ,matchfunheaders
-                         ,matchfunbodies
-                         ,funlocals = []
-                         ,funsource = ""
-                         }
-  where
-    functionClause = do
-      funheader <- matchingHeader
-      funbody <- expression
-      return (funheader, funbody)
+matchingFunction = fail "Matching functions and methods are no longer supported"
 
 traitDecl :: Parser TraitDecl
 traitDecl = do
@@ -558,7 +523,7 @@ patternParamDecl = do
 
 methodDecl :: Parser MethodDecl
 methodDecl = do
-  mtd <- try regularMethod <|> matchingMethod
+  mtd <- regularMethod <|> matchingMethod
   mlocals <- localFunctions
   return mtd{mlocals}
   where
@@ -575,26 +540,7 @@ methodDecl = do
                    ,mbody
                    ,mlocals = []
                    }
-    matchingMethod = do
-      mmeta <- meta <$> getPosition
-      clauses <- do reserved "def"
-                    modifiers <- option [] $ many modifiersDecl
-                    map (first (setHeaderModifier modifiers)) <$>
-                      methodClause matchingHeader `sepBy1` reservedOp "|"
-             <|> do reserved "stream"
-                    methodClause matchingStreamHeader `sepBy1` reservedOp "|"
-      let (mheaders, mbodies) = unzip clauses
-
-      return MatchingMethod{mmeta
-                           ,mheaders
-                           ,mbodies
-                           ,mlocals = []
-                           }
-      where
-        methodClause headerParser= do
-          mheader <- headerParser
-          mbody <- expression
-          return (mheader, mbody)
+    matchingMethod = fail "Matching functions and methods are no longer supported"
 
 modifiersDecl :: Parser Modifier
 modifiersDecl = reserved "private" >> return ModPrivate
