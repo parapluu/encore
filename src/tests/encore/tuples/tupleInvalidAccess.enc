@@ -1,5 +1,5 @@
 class Main
-  def main(): void
+  def main(): unit
     val t = ("Hello", ("World", ""))
     println("{}, {}", t.0, t.2)
   end

@@ -30,7 +30,7 @@ fun bind[a, b](fn : a -> Par[b], p : Par[a]) : Par[b]
   join(p >> fn)
 end
 
-fun foreachp[t](p : Par[t], fn : t -> void) : Par[void]
+fun foreachp[t](p : Par[t], fn : t -> unit) : Par[unit]
   p >> fn
 end
 

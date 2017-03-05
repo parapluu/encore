@@ -4,7 +4,7 @@
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
 class Main
-  def main() : void
+  def main() : unit
     println("Hello, World!")$0
   end
 end

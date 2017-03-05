@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     println(get(new Bob ! glenn()))
   end
 end
@@ -10,4 +10,3 @@ class Bob
     2.1
   end
 end
-

@@ -4,10 +4,9 @@ fun foo(x : real) : real
   x
 end
 class Main
-  def main() : void
+  def main() : unit
     val pi = 3.141593
     println("Pi is something like {}", pi)
     println("Ints can be promoted to reals: {}", foo(42))
   end
 end
-

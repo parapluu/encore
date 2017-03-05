@@ -7,11 +7,11 @@ end
 fun getActiveFoo() : Active[Foo]
   new Active[Foo](fun () => new Foo())
 end
-fun testInit() : void
+fun testInit() : unit
   getActiveInt()
   getActiveFoo()
 end
-fun testMap() : void
+fun testMap() : unit
   let
     a = getActiveInt()
   in
@@ -20,7 +20,7 @@ fun testMap() : void
     assertTrue(2 == get(a.getState()))
   end
 end
-fun testApply() : void
+fun testApply() : unit
   let
     a = getActiveFoo()
   in
@@ -31,10 +31,10 @@ fun testApply() : void
 end
 passive class Foo
   var f : int
-  def init() : void
+  def init() : unit
     this.f = 1
   end
-  def foo() : void
+  def foo() : unit
     this.f = this.f * 2
   end
   def read() : int
@@ -42,7 +42,7 @@ passive class Foo
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     testInit()
     testMap()
     testApply()

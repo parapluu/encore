@@ -1,10 +1,10 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def app(f : String -> void, s : String) : void
+  def app(f : String -> unit, s : String) : unit
     f(s)
   end
-  def main() : void
+  def main() : unit
     let
       f = fun (s : String) => println(s)
     in
@@ -12,4 +12,3 @@ class Main
     end
   end
 end
-

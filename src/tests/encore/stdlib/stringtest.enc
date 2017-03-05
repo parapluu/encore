@@ -12,7 +12,7 @@ END
 fun strcmp(a : String, b : String) : bool
   EMBED (bool)
     strcmp(#{a}->_enc__field_data, #{b}->_enc__field_data) == 0;
- 
+
   END
 end
 fun arraycmp(a : [String], b : [String]) : bool
@@ -29,12 +29,12 @@ fun arraycmp(a : [String], b : [String]) : bool
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     new Test()
   end
 end
 passive class Test
-  def init() : void
+  def init() : unit
     this.test_concatenate()
     println("Concatenate passed")
     this.test_copy()
@@ -93,7 +93,7 @@ passive class Test
     println("All tests passed")
     println("================")
   end
-  def test_concatenate() : void
+  def test_concatenate() : unit
     let
       a = "aa"
       b = "bb"
@@ -106,7 +106,7 @@ passive class Test
       assertFalse(a.concatenate(e) == a)
     end
   end
-  def test_copy() : void
+  def test_copy() : unit
     let
       orig = "foobarbaz"
       copy = orig.copy()
@@ -119,47 +119,47 @@ passive class Test
       assertTrue(copy.contains_ignore_case(orig))
     end
   end
-  def test_contains() : void
+  def test_contains() : unit
     assertTrue(("foobarbaz").contains("bar"))
     assertFalse(("foobarbaz").contains("Bar"))
     assertTrue(("").contains(""))
     assertFalse(("").contains("nonempty"))
   end
-  def test_contains_ignore_case() : void
+  def test_contains_ignore_case() : unit
     assertTrue(("foobarbaz").contains_ignore_case("bar"))
     assertTrue(("foobarbaz").contains_ignore_case("Bar"))
     assertTrue(("").contains_ignore_case(""))
     assertFalse(("").contains_ignore_case("nonempty"))
   end
-  def test_compare() : void
+  def test_compare() : unit
     assertTrue(("foobarbaz").compare("foobarbaz") == 0)
     assertTrue(("foobarbaz").compare("Foobarbaz") > 0)
     assertTrue(("").compare("") == 0)
     assertTrue(("foobarbaz").compare("something") < 0)
   end
-  def test_compare_ignore_case() : void
+  def test_compare_ignore_case() : unit
     assertTrue(("foobarbaz").compare_ignore_case("foobarbaz") == 0)
     assertTrue(("foobarbaz").compare_ignore_case("Foobarbaz") == 0)
     assertTrue(("").compare_ignore_case("") == 0)
     assertTrue(("foobarbaz").compare_ignore_case("something") < 0)
   end
-  def test_to_upper() : void
+  def test_to_upper() : unit
     assertTrue(strcmp(("uppercase").to_upper(), "UPPERCASE"))
     assertTrue(strcmp(("UPPERCASE").to_upper(), "UPPERCASE"))
     assertTrue(strcmp(("").to_upper(), ""))
     assertFalse(strcmp(("lowercase").to_upper(), "lowercase"))
   end
-  def test_to_lower() : void
+  def test_to_lower() : unit
     assertTrue(strcmp(("UPPERCASE").to_lower(), "uppercase"))
     assertTrue(strcmp(("uppercase").to_lower(), "uppercase"))
     assertTrue(strcmp(("").to_lower(), ""))
     assertFalse(strcmp(("lowercase").to_lower(), "LOWERCASE"))
   end
-  def test_length() : void
+  def test_length() : unit
     assertTrue(("13 characters").length() == 13)
     assertTrue(("").length() == 0)
   end
-  def test_substring() : void
+  def test_substring() : unit
     assertTrue(match ("abcdefghijklmnop").substring(0, 0) with
                  case Just(s) =>
                    strcmp(s, "")
@@ -167,7 +167,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(0, 10) with
                  case Just(s) =>
@@ -176,7 +176,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(0, 20) with
                  case Just(s) =>
@@ -185,7 +185,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(100, 0) with
                  case Just(s) =>
@@ -194,7 +194,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(10, 12) with
                  case Just(s) =>
@@ -203,7 +203,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(10, 20) with
                  case Just(s) =>
@@ -212,7 +212,7 @@ passive class Test
                  case Nothing =>
                    false
                  end
-               
+
                end)
     assertTrue(match ("abcdefghijklmnop").substring(-(1), 5) with
                  case Nothing =>
@@ -221,14 +221,14 @@ passive class Test
                  case _ =>
                    false
                  end
-               
+
                end)
   end
-  def test_equals() : void
+  def test_equals() : unit
     assertTrue(("foo").equals("foo"))
     assertFalse(("foo").equals("foo1"))
   end
-  def test_occurrences() : void
+  def test_occurrences() : unit
     let
       s = "lorem ipsum dolor lorem"
     in
@@ -239,7 +239,7 @@ passive class Test
       assertTrue(s.occurrences(" ") == 3)
     end
   end
-  def test_split() : void
+  def test_split() : unit
     let
       s = "lorem ipsum dolor lorem"
     in
@@ -249,11 +249,11 @@ passive class Test
       assertTrue(arraycmp(s.split(""), ["l", "o", "r", "e", "m", " ", "i", "p", "s", "u", "m", " ", "d", "o", "l", "o", "r", " ", "l", "o", "r", "e", "m"]))
     end
   end
-  def test_trim() : void
+  def test_trim() : unit
     assertTrue(strcmp((" \n \t foo \n\t\t\t\n     \t").trim(), "foo"))
     assertTrue(strcmp(("foo").trim(), "foo"))
   end
-  def test_replace() : void
+  def test_replace() : unit
     let
       s = "lorem ipsum dolor lorem"
     in
@@ -262,18 +262,18 @@ passive class Test
       ()
     end
   end
-  def test_find() : void
+  def test_find() : unit
     assertTrue(("gggggggggghgggg").find("h") == 10)
     assertTrue(("gggggggggghgggg").find("hg") == 10)
     assertFalse(("gggggggggghgggg").find("hggggggggggggg") == 10)
     assertTrue(("gggggggggghgggg").find("g") == 0)
   end
-  def test_find_from() : void
+  def test_find_from() : unit
     assertTrue(("0123456789").find_from("2", 10) == -(1))
     assertTrue(("0123456789").find_from("2", 1) == 2)
     assertTrue(("gggggggggghgggg").find_from("g", 10) == 11)
   end
-  def test_delete() : void
+  def test_delete() : unit
     let
       s = "foo bar  baz"
     in
@@ -283,7 +283,7 @@ passive class Test
       assertTrue(strcmp(s.delete("baz"), "foo bar  "))
     end
   end
-  def test_join() : void
+  def test_join() : unit
     let
       s = ["A"]
       ss = ["A", "B", "C"]
@@ -295,10 +295,10 @@ passive class Test
       assertTrue(strcmp(comma.join(s), "A"))
     end
   end
-  def test_format() : void
+  def test_format() : unit
     assertTrue(strcmp(("%s-%s").format(["Bar", "Baz"]), "To be implemented"))
   end
-  def test_char_at() : void
+  def test_char_at() : unit
     let
       s = "Hello, world!"
     in
@@ -309,7 +309,7 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
       assertTrue(match s.char_at(4) with
                    case Just(c) =>
@@ -318,7 +318,7 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
       assertTrue(match s.char_at(12) with
                    case Just(c) =>
@@ -327,7 +327,7 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
       assertTrue(match s.char_at(-(1)) with
                    case Just(c) =>
@@ -336,7 +336,7 @@ passive class Test
                    case Nothing =>
                      true
                    end
-                 
+
                  end)
       assertTrue(match s.char_at(13) with
                    case Just(c) =>
@@ -345,11 +345,11 @@ passive class Test
                    case Nothing =>
                      true
                    end
-                 
+
                  end)
     end
   end
-  def test_to_array() : void
+  def test_to_array() : unit
     let
       s = "Hello, world!"
       arr1 = s.to_array()
@@ -362,7 +362,7 @@ passive class Test
       assertTrue(|empty| == 0)
     end
   end
-  def test_from_array() : void
+  def test_from_array() : unit
     let
       s1 = "Hello, world!"
       arr = ['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']
@@ -373,14 +373,14 @@ passive class Test
       assertTrue(empty.equals(""))
     end
   end
-  def test_from_char() : void
+  def test_from_char() : unit
     let
       s = string_from_char('A')
     in
       assertTrue(s.equals("A"))
     end
   end
-  def test_string_from_int() : void
+  def test_string_from_int() : unit
     let
       s1 = string_from_int(123456789)
       s2 = string_from_int(-(42))
@@ -391,7 +391,7 @@ passive class Test
       assertTrue(s3.equals("0"))
     end
   end
-  def test_to_int() : void
+  def test_to_int() : unit
     let
       s1 = "42"
       s2 = "-42"
@@ -405,7 +405,7 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
       assertTrue(match s2.to_int() with
                    case Just(n) =>
@@ -414,7 +414,7 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
       assertTrue(match s3.to_int() with
                    case Just(n) =>
@@ -423,7 +423,7 @@ passive class Test
                    case _ =>
                      true
                    end
-                 
+
                  end)
       assertTrue(match s4.to_int() with
                    case Just(n) =>
@@ -432,9 +432,8 @@ passive class Test
                    case Nothing =>
                      false
                    end
-                 
+
                  end)
     end
   end
 end
-

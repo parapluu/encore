@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Test[t, k]
-  def polymorphicMethod[tt, kk](x : tt, y : kk) : void
+  def polymorphicMethod[tt, kk](x : tt, y : kk) : unit
     val nestedClosure = fun (tt : kk)
                           val idFn = fun (xx : tt) => xx
                           idFn(x)
@@ -10,7 +10,7 @@ class Test[t, k]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     ()
   end
 end

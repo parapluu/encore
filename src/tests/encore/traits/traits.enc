@@ -1,18 +1,18 @@
 -- This file was automatically converted by encorec
 
-fun push_to(x : Push) : int -> void
+fun push_to(x : Push) : int -> unit
   let
     y = x
   in
     fun (n : int) => y.push(n)
   end
 end
-fun foo(x : Pop) : void
+fun foo(x : Pop) : unit
   println(x.pop())
 end
 trait Push
   require var top : Link
-  def push(x : int) : void
+  def push(x : int) : unit
     this.top = new Link(x, this.top)
   end
 end
@@ -30,14 +30,14 @@ end
 passive class Link
   var value : int
   var next : Link
-  def init(v : int, n : Link) : void
+  def init(v : int, n : Link) : unit
     this.value = v
     this.next = n
   end
 end
 passive class Stack : Push + Pop
   var top : Link
-  def steal(other : Pop) : void
+  def steal(other : Pop) : unit
     var x = other
     x = other
     this.push(x.pop())
@@ -46,7 +46,7 @@ end
 class Driver
   var myPop : Pop
   var myStack : Stack
-  def go(x : Stack, y : Pop) : void
+  def go(x : Stack, y : Pop) : unit
     this.myPop = x
     this.myStack = x
     x.push(42)
@@ -60,7 +60,7 @@ class Driver
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       x = new Stack
       y = new Stack
@@ -76,4 +76,3 @@ class Main
     end
   end
 end
-

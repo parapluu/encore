@@ -4,8 +4,7 @@ fun bump(x : int) : int
   x + 1
 end
 class Main
-  def main() : void
+  def main() : unit
     println("42 + 1 = {}", bump(42))
   end
 end
-

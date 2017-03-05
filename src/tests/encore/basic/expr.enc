@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     println(this.foo())
     if this.bar(this.foo()) == 2 then
       this.baz(0)
@@ -17,7 +17,7 @@ class Main
     println("Ponyworld!")
     2
   end
-  def baz(b : int) : void
+  def baz(b : int) : unit
     println(if b == 0 then
               "Hello"
             else
@@ -25,4 +25,3 @@ class Main
             end)
   end
 end
-

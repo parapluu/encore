@@ -1,10 +1,10 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def test() : void
+  def test() : unit
     print("If you can read this, then recvNullCall failed")
   end
-  def main() : void
+  def main() : unit
     let
       x = null : Main
     in
@@ -12,4 +12,3 @@ class Main
     end
   end
 end
-

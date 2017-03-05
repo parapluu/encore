@@ -7,7 +7,7 @@ end
 passive class C1 : D
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       c = new C1
     in
@@ -15,4 +15,3 @@ class Main
     end
   end
 end
-

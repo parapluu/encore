@@ -2,7 +2,7 @@
 
 import Regex
 class Main
-  def findRegex(regex : Regex, s : String) : void
+  def findRegex(regex : Regex, s : String) : unit
     match regex.exec(s) with
       case Just(true) =>
         print("Number matches: {}\n", regex.matches())
@@ -16,10 +16,10 @@ class Main
       case Nothing =>
         print("Error")
       end
-    
+
     end
   end
-  def main() : void
+  def main() : unit
     let
       pattern = "([a-z]+@[a-z]+\\.\\w+)"
       regex = new Regex(pattern, 200)
@@ -33,4 +33,3 @@ class Main
     end
   end
 end
-

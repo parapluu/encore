@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
 trait Foo
-  def foo() : void
+  def foo() : unit
     println("In Foo")
   end
 end
 trait Bar
-  def foo() : void
+  def foo() : unit
     println("In Bar")
   end
 end
@@ -17,7 +17,7 @@ end
 passive class C2 : Bar + Baz
 end
 class Main
-  def main() : void
+  def main() : unit
     val x = if true then
               new C1
             else
@@ -26,4 +26,3 @@ class Main
     x.foo()
   end
 end
-

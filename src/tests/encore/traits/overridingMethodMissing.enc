@@ -2,15 +2,14 @@
 
 trait T
   require var f : int
-  require def foo() : void
+  require def foo() : unit
 end
 passive class Foo : T(bad())
   val f : int
-  def bar() : void
+  def bar() : unit
     ()
   end
-  def foo() : void
+  def foo() : unit
     this.bar()
   end
 end
-

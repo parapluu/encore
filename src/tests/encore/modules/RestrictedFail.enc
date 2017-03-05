@@ -2,8 +2,7 @@
 
 import RestrictedExport
 class Main
-  def main() : void
+  def main() : unit
     bar()
   end
 end
-

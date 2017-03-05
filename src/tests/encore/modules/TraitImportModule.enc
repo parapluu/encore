@@ -2,10 +2,9 @@
 
 module TraitImportModule
 trait Reagent
-  def react() : void
+  def react() : unit
     ()
   end
 end
 passive class Foo2 : Reagent
 end
-

@@ -4,23 +4,22 @@ fun fn(x : Animal) : Dog
   new Dog
 end
 trait Animal
-  require def speak() : void
+  require def speak() : unit
 end
 passive class Dog : Animal
-  def speak() : void
+  def speak() : unit
     println("Woof")
   end
 end
 passive class Cat : Animal
-  def speak() : void
+  def speak() : unit
     println("Meow")
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val f = fn : Cat -> Animal
     val animal = f(new Cat)
     animal.speak()
   end
 end
-

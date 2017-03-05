@@ -7,10 +7,10 @@ class Producer
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       p = new Producer
-      l = fun (x : int) 
+      l = fun (x : int)
             println(x)
             x + 1
           end
@@ -19,4 +19,3 @@ class Main
     end
   end
 end
-

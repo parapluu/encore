@@ -452,7 +452,7 @@ emptyConstructor cdecl =
                               ,htypeparams = []
                               ,hname = constructorName
                               ,hparams = []
-                              ,htype = voidType
+                              ,htype = unitType
                               }
              ,mbody = Skip (meta pos)
              ,mlocals = []}

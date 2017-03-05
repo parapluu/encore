@@ -5,7 +5,7 @@ import ParT.ParT
 class Person
   var name : String
 
-  def init(name : String) : void
+  def init(name : String) : unit
     this.name = name
   end
 
@@ -19,7 +19,7 @@ passive class Pet
   var name : String
   var owner : Person
 
-  def init(n : String, o : Person) : void
+  def init(n : String, o : Person) : unit
     this.name = n
     this.owner = o
   end
@@ -27,7 +27,7 @@ passive class Pet
 end
 
 class Main
-  def main() : void
+  def main() : unit
     val magnus = new Person("Magnus")
     val terry = new Person("Terry")
     val charlotte = new Person("Charlotte")

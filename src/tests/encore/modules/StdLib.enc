@@ -2,14 +2,13 @@
 
 import Active.Active
 passive class Greeter
-  def greet() : void
+  def greet() : unit
     println("Hello")
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val a = new Active[Greeter](fun () => new Greeter)
     a ! apply(fun (g : Greeter) => g.greet())
   end
 end
-

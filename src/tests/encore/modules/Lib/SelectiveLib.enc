@@ -10,7 +10,7 @@ passive class Foo
 end
 
 passive class Bar : T
-  def bar() : void
+  def bar() : unit
     println("bar")
   end
 end

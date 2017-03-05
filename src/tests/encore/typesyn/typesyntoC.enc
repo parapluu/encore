@@ -6,13 +6,13 @@ end
 passive class C : D
 end
 class Main
-  def foo(x : T) : void
+  def foo(x : T) : unit
     print("moo")
   end
-  def bar(x : D) : void
+  def bar(x : D) : unit
     ()
   end
-  def main() : void
+  def main() : unit
     let
       x = new C
     in
@@ -20,4 +20,3 @@ class Main
     end
   end
 end
-

@@ -2,11 +2,11 @@
 
 class Main
   var a : Agent
-  def main() : void
+  def main() : unit
     this.a = new Agent()
     this.perform(1000)
   end
-  def perform(n : int) : void
+  def perform(n : int) : unit
     if n == 0 then
       print("done")
     else
@@ -17,8 +17,7 @@ class Main
   end
 end
 class Agent
-  def go(a : Agent) : void
+  def go(a : Agent) : unit
     ()
   end
 end
-

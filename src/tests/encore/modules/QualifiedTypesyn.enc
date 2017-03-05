@@ -3,7 +3,7 @@
 import qualified A.B.QLib
 import A.B.QLib
 class Main
-  def main() : void
+  def main() : unit
     let
       x = new A.B.QLib.QFoo() : X
     in
@@ -11,4 +11,3 @@ class Main
     end
   end
 end
-

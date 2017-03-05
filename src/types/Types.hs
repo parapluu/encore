@@ -47,8 +47,8 @@ module Types(
             ,replaceTypeVars
             ,ctype
             ,isCType
-            ,voidType
-            ,isVoidType
+            ,unitType
+            ,isUnitType
             ,nullType
             ,isNullType
             ,boolType
@@ -179,7 +179,7 @@ data Type = Unresolved{refInfo :: RefInfo}
           | TupleType {argTypes :: [Type]}
           | CType{ident :: String}
           | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
-          | VoidType
+          | UnitType
           | StringType
           | CharType
           | IntType
@@ -296,7 +296,7 @@ instance Show Type where
         args = intercalate ", " (map show argTypes)
     show (CType ty) = "EMBED " ++ ty ++ " END"
     show TypeSynonym{refInfo, resolvesTo} = show refInfo
-    show VoidType   = "void"
+    show UnitType   = "unit"
     show StringType = "string"
     show CharType   = "char"
     show IntType    = "int"
@@ -311,7 +311,7 @@ brackets ty = "[" ++ show ty ++ "]"
 showWithKind :: Type -> String
 showWithKind ty = kind ty ++ " " ++ show ty
     where
-    kind VoidType                      = "primitive type"
+    kind UnitType                      = "primitive type"
     kind StringType                    = "primitive type"
     kind CharType                      = "primitive type"
     kind IntType                       = "primitive type"
@@ -701,11 +701,11 @@ isCType :: Type -> Bool
 isCType CType{} = True
 isCType _ = False
 
-voidType :: Type
-voidType = VoidType
+unitType :: Type
+unitType = UnitType
 
-isVoidType :: Type -> Bool
-isVoidType = (== voidType)
+isUnitType :: Type -> Bool
+isUnitType = (== unitType)
 
 nullType :: Type
 nullType = NullType
@@ -750,7 +750,7 @@ isCharType :: Type -> Bool
 isCharType = (== charType)
 
 primitives :: [Type]
-primitives = [voidType
+primitives = [unitType
              ,intType
              ,uintType
              ,realType

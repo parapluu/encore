@@ -2,19 +2,18 @@
 
 import Data.Either
 class Main
-  def main() : void
+  def main() : unit
     val l = Left[String, int]("error")
     val r = Right[String, int](12)
-    l.map(fun (x : int) 
+    l.map(fun (x : int)
             println("should not print")
             x
           end)
     l.foreach(fun (x : int) => println("should not print"))
-    r.map(fun (x : int) 
+    r.map(fun (x : int)
             println("should print")
             x
           end)
     r.foreach(fun (x : int) => println("should print"))
   end
 end
-

@@ -18,11 +18,10 @@ passive class ArrayIterable[t] : Iterable[t]
   end
 end
 class Main
-  def getIter(it : Iter[int]) : void
+  def getIter(it : Iter[int]) : unit
     println("In getIter")
   end
-  def main() : void
+  def main() : unit
     this.getIter(((new ArrayIterable[int]()).iterator()).skip())
   end
 end
-

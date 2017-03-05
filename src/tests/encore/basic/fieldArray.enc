@@ -1,13 +1,13 @@
 passive class Foo
   val arr : [int]
-  def init() : void
+  def init() : unit
     this.arr = [1,2,3,4,5]
     this.arr(0) = 100
   end
 end
 
 class Main
-  def main(args : [String]) : void
+  def main(args : [String]) : unit
     val x = new Foo()
     for i <- [0..4] do
       println(x.arr(i))

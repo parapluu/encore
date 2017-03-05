@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     repeat i <- 3 do
       repeat j <- 3 do
         println(i)
@@ -10,4 +10,3 @@ class Main
     end
   end
 end
-

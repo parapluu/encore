@@ -13,7 +13,7 @@ fun apply(fn : ((int, int)) -> int) : int
 end
 
 class Main
-  def main() : void
+  def main() : unit
     println(apply(add))
   end
 end

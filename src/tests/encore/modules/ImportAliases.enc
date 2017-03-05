@@ -3,8 +3,7 @@
 import Lib
 import Lib as X
 class Main
-  def main() : void
+  def main() : unit
     println(bar() + Lib.bar() + X.bar())
   end
 end
-

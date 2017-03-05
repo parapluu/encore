@@ -8,7 +8,7 @@ using the --literate flag that also works for imported modules.
 #+begin_src encore
 module Foo
 
-fun foo() : void
+fun foo() : unit
   println("In foo")
 end
 #+end_src encore

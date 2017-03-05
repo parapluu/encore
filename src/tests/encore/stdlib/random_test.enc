@@ -2,7 +2,7 @@
 
 import Random
 class Main
-  def main() : void
+  def main() : unit
     let
       r = new Random(100)
       v1 = r.random(1)
@@ -12,4 +12,3 @@ class Main
     end
   end
 end
-

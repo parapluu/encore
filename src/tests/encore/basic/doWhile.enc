@@ -1,5 +1,5 @@
 class Main
-  def main() : void
+  def main() : unit
     var i = 1
     do
       println(i)

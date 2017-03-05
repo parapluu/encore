@@ -3,7 +3,7 @@
 import Task
 passive class Money
   var amount : int
-  def init(i : int) : void
+  def init(i : int) : unit
     this.amount = i
   end
 end
@@ -18,7 +18,7 @@ class Test
 end
 
 class Main
-  def main(): void 
+  def main(): unit
     val t = new Test()
     val t2 = new Test()
     val f1 = t ! createMoney()
@@ -29,4 +29,3 @@ class Main
     println(money.amount)
   end
 end
-

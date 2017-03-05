@@ -25,14 +25,14 @@ fun intToString(x : int) : String
   string_from_int(x)
 end
 class Main
-  def testParFunctor() : void
+  def testParFunctor() : unit
     val parFn = liftv(intToString)
     val result = extract(parFunctor(parFn, 42))
     for x <- result do
       println("ParFunctor: {}", x)
     end
   end
-  def testMaybeSomething() : void
+  def testMaybeSomething() : unit
     val m = Just(intToString)
     val fn = maybeSomething(m, 42)
     match fn(41) with
@@ -45,7 +45,7 @@ class Main
 
     end
   end
-  def testWrapperFunction() : void
+  def testWrapperFunction() : unit
     val fn = wrapperFunction(intToString, 20)
     match fn(0) with
       case (result, unused) =>
@@ -54,7 +54,7 @@ class Main
 
     end
   end
-  def main() : void
+  def main() : unit
     this.testParFunctor()
     this.testMaybeSomething()
     this.testWrapperFunction()

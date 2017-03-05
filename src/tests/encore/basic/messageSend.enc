@@ -1,13 +1,13 @@
 -- This file was automatically converted by encorec
 
 class Foo
-  def foo(s : String) : void
+  def foo(s : String) : unit
     new [int](100000000)
     println(s)
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       x = new Foo
       s = "Hello, Ponyworld!"
@@ -19,4 +19,3 @@ class Main
     end
   end
 end
-

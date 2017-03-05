@@ -1,6 +1,6 @@
 passive class Foo
   val fn : int -> int
-  def init(fn : int -> int) : void
+  def init(fn : int -> int) : unit
     this.fn = fn
   end
   def fn (x : int) : int
@@ -9,7 +9,7 @@ passive class Foo
 end
 
 class Main
-  def main(args : [String]) : void
+  def main(args : [String]) : unit
     val x = new Foo(fun (x : int) => x * 100)
     println(x.fn(4))
   end

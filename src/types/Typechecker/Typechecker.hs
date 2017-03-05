@@ -131,9 +131,9 @@ instance Checkable Function where
         local (addTypeParameters funtypeparams .
                addParams funparams .
                addLocalFunctions funlocals) $
-                  if isVoidType funtype
-                  then typecheckNotNull $ Util.markStatsInBody funtype funbody
-                  else hasType funbody funtype
+                  if isUnitType funtype
+                  then typecheckNotNull body
+                  else hasType body funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
                        mapM typecheck funlocals
@@ -404,9 +404,9 @@ instance Checkable MethodDecl where
             local (addTypeParameters mtypeparams .
                    addParams mparams .
                    addLocalFunctions mlocals) $
-                       if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull $ Util.markStatsInBody mType mbody
-                       else hasType mbody mType
+                       if isUnitType mType || isStreamMethod m
+                       then typecheckNotNull body
+                       else hasType body mType
         when (isMatchMethod m) $
              checkPurity eBody
 
@@ -452,8 +452,8 @@ hasType e ty = local (pushBT e) $ checkHasType e ty
 instance Checkable Expr where
     --
     -- ----------------
-    --  E |- () : void
-    doTypecheck skip@(Skip {}) = return $ setType voidType skip
+    --  E |- () : unit
+    doTypecheck skip@(Skip {}) = return $ setType unitType skip
 
     --
     -- ----------------
@@ -463,7 +463,7 @@ instance Checkable Expr where
         tcError BreakUsedAsExpressionError
       unlessM (asks $ checkValidUseOfBreak) $
         tcError BreakOutsideOfLoopError
-      return $ setType voidType break
+      return $ setType unitType break
 
     --    |- t
     --  E |- body : t
@@ -660,7 +660,7 @@ instance Checkable Expr where
           handleErrors targetType mcall@MethodCall {} = do
             unless (isPassiveType targetType || AST.AST.isThisAccess (target mcall))
               $ tcError BadSyncCallError
-  
+
             let name' = name mcall
             unless (isRefType targetType) $
                    tcError $ NonCallableTargetError targetType
@@ -744,7 +744,7 @@ instance Checkable Expr where
       mty' <- mapM resolveType mty
       eBody <- case mty' of
                  Just expected ->
-                   if isVoidType expected then
+                   if isUnitType expected then
                      local (addParams eEparams) $
                            typecheckNotNull body
                    else
@@ -847,9 +847,9 @@ instance Checkable Expr where
                     Nothing -> do
                       ty1Sub <- ty1 `subtypeOf` ty2
                       ty2Sub <- ty2 `subtypeOf` ty1
-                      if ty1Sub || isVoidType ty2 then
+                      if ty1Sub || isUnitType ty2 then
                           return ty2
-                      else if ty2Sub || isVoidType ty1 then
+                      else if ty2Sub || isUnitType ty1 then
                           return ty1
                       else if knownType ty1 || knownType ty2 then
                           tcError $ IfBranchMismatchError ty1 ty2
@@ -933,7 +933,7 @@ instance Checkable Expr where
           header <- findMethod pt (qnlocal qname)
           let hType = htype header
               extractedType = getResultType hType
-          unless (isVoidType extractedType) $ do
+          unless (isUnitType extractedType) $ do
                  let expectedLength = if isTupleType extractedType
                                       then length (getArgTypes extractedType)
                                       else 1
@@ -952,7 +952,7 @@ instance Checkable Expr where
           let extractedType = getResultType hType
               expectedLength
                 | isTupleType extractedType = length (getArgTypes extractedType)
-                | isVoidType extractedType = 0
+                | isUnitType extractedType = 0
                 | otherwise = 1
               actualLength
                 | Tuple{args} <- arg = length args
@@ -987,8 +987,8 @@ instance Checkable Expr where
 
         doCheckPattern pattern@(FunctionCall {args = []}) argty = do
           let meta = getMeta pattern
-              voidArg = Skip {emeta = meta}
-          checkPattern (pattern {args = [voidArg]}) argty
+              unitArg = Skip {emeta = meta}
+          checkPattern (pattern {args = [unitArg]}) argty
 
         doCheckPattern pattern@(FunctionCall {emeta
                                              ,qname
@@ -1051,7 +1051,7 @@ instance Checkable Expr where
     doTypecheck while@(While {cond, body}) =
         do eCond <- hasType cond boolType
            eBody <- typecheck body
-           return $ setType voidType while {cond = eCond, body = eBody}
+           return $ setType unitType while {cond = eCond, body = eBody}
 
     --  E |- val : Fut t
     -- ------------------
@@ -1067,7 +1067,7 @@ instance Checkable Expr where
     --  E |- val : t
     --  isStreaming(currentMethod)
     -- -----------------------------
-    --  E |- yield val : void
+    --  E |- yield val : unit
     doTypecheck yield@(Yield {val}) =
         do eVal <- typecheck val
            result <- asks currentMethod
@@ -1079,7 +1079,7 @@ instance Checkable Expr where
            unless (isStreamMethod mtd) $
                   tcError $ NonStreamingContextError yield
            eType `assertSubtypeOf` mType
-           return $ setType voidType yield {val = eVal}
+           return $ setType unitType yield {val = eVal}
 
     --  E |- expr : t
     --  E |- currentMethod : _ -> t
@@ -1103,7 +1103,7 @@ instance Checkable Expr where
 
     --  isStreaming(currentMethod)
     -- ----------------------------
-    --  E |- eos : void
+    --  E |- eos : unit
     doTypecheck eos@(Eos {}) =
         do result <- asks currentMethod
            when (isNothing result) $
@@ -1111,7 +1111,7 @@ instance Checkable Expr where
            let mtd = fromJust result
            unless (isStreamMethod mtd) $
                   tcError $ NonStreamingContextError eos
-           return $ setType voidType eos
+           return $ setType unitType eos
 
     --  E |- s : Stream t
     -- ---------------------
@@ -1137,19 +1137,19 @@ instance Checkable Expr where
 
     --
     --    ------------------ :: suspend
-    --    suspend : void
+    --    suspend : unit
     doTypecheck suspend@(Suspend {}) =
-        return $ setType voidType suspend
+        return $ setType unitType suspend
 
     --    f : Fut T
     --    ------------------ :: await
-    --    await f : void
+    --    await f : unit
     doTypecheck await@(Await {val}) =
         do eVal <- typecheck val
            let ty = AST.getType eVal
            unless (isFutureType ty) $
                   pushError eVal $ ExpectingOtherTypeError "a future" ty
-           return $ setType voidType await {val = eVal}
+           return $ setType unitType await {val = eVal}
 
     --    f : Fut T
     --    c : T -> T'
@@ -1200,7 +1200,7 @@ instance Checkable Expr where
     --  isLval(lhs)
     --  E |- rhs : t
     -- ------------------------
-    --  E |- name = rhs : void
+    --  E |- name = rhs : unit
     doTypecheck assign@(Assign {lhs = lhs@VarAccess{qname}, rhs}) =
         do eLhs <- typecheck lhs
            varIsMutable <- asks $ isMutableLocal qname
@@ -1210,7 +1210,7 @@ instance Checkable Expr where
                   then tcError $ ImmutableVariableError qname
                   else pushError eLhs NonAssignableLHSError
            eRhs <- hasType rhs (AST.getType eLhs)
-           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+           return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
 
     doTypecheck assign@(Assign {lhs, rhs}) =
         do eLhs <- typecheck lhs
@@ -1220,7 +1220,7 @@ instance Checkable Expr where
            unless (isNothing mtd || isConstructor (fromJust mtd)) $
                   assertNotValField eLhs
            eRhs <- hasType rhs (AST.getType eLhs)
-           return $ setType voidType assign {lhs = eLhs, rhs = eRhs}
+           return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
         where
           assertNotValField f
               | FieldAccess {target, name} <- f = do
@@ -1362,7 +1362,7 @@ instance Checkable Expr where
                              then intType
                              else getResultType srcType
            bodyTyped <- typecheckBody elementType body
-           return $ setType voidType for{step = stepTyped
+           return $ setType unitType for{step = stepTyped
                                         ,src  = srcTyped
                                         ,body = bodyTyped}
         where
@@ -1415,7 +1415,7 @@ instance Checkable Expr where
     --  count("{}", stringLit) = n
     --  E |- arg1 : t1 .. E |- argn : tn
     -- ---------------------------------------------
-    --  E |- print(stringLit, arg1 .. argn) : void
+    --  E |- print(stringLit, arg1 .. argn) : unit
     doTypecheck e@(Print {args}) =
         do eArgs <- mapM typecheck args
            let fst = head eArgs
@@ -1437,11 +1437,11 @@ instance Checkable Expr where
            let eFormatString = setType stringType $
                                StringLiteral (emeta fstString) formatString
                newArgs = eFormatString : rest
-           return $ setType voidType e {args = newArgs}
+           return $ setType unitType e {args = newArgs}
 
     --  E |- arg : int
     -- ------------------------
-    --  E |- exit(arg) : void
+    --  E |- exit(arg) : unit
     doTypecheck exit@(Exit {args}) =
         do eArgs <- mapM typecheck args
            let expectedTypes = [intType]
@@ -1450,7 +1450,7 @@ instance Checkable Expr where
                        (topLevelQName (Name "exit"))
                        (length expectedTypes) (length args)
            matchArguments args expectedTypes
-           return $ setType voidType exit {args = eArgs}
+           return $ setType unitType exit {args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
 

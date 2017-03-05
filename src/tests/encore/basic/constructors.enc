@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Foo
-  def init(a : int) : void
+  def init(a : int) : unit
     println(a)
   end
 end
@@ -10,4 +10,3 @@ class Main
     new Foo(42)
   end
 end
-

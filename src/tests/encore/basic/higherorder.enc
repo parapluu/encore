@@ -1,17 +1,17 @@
 -- This file was automatically converted by encorec
 
 class Main
-  var myFun : (String -> void, String) -> void
-  def app(f : String -> void, s : String) : void
+  var myFun : (String -> unit, String) -> unit
+  def app(f : String -> unit, s : String) : unit
     let
       myFun = this.myFun
     in
       myFun(f, s)
     end
   end
-  def main() : void
+  def main() : unit
     let
-      doTwice = fun (f : String -> void, x : String) 
+      doTwice = fun (f : String -> unit, x : String)
                   f(x)
                   f(x)
                 end
@@ -21,4 +21,3 @@ class Main
     end
   end
 end
-

@@ -2,7 +2,7 @@
 
 typedef T = int
 class Main
-  def main() : void
+  def main() : unit
     let
       x = 10 : T
     in
@@ -10,4 +10,3 @@ class Main
     end
   end
 end
-

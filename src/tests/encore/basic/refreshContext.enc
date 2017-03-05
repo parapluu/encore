@@ -12,7 +12,7 @@ class Test
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     var v = 0
     repeat i <- 1000 do
       val t = new Test
@@ -23,4 +23,3 @@ class Main
     println(v)
   end
 end
-

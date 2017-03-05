@@ -13,7 +13,7 @@ end
 passive class C3 : Baz + Bar
 end
 class Main
-  def main() : void
+  def main() : unit
     match 1 with
       case 0 =>
         new C1
@@ -24,8 +24,7 @@ class Main
       case _ =>
         new C3
       end
-    
+
     end
   end
 end
-

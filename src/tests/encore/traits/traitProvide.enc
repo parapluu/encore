@@ -3,7 +3,7 @@
 trait Inc
   require var f : int
   require def get_() : int
-  def inc() : void
+  def inc() : unit
     this.f = this.get_() + 1
   end
 end
@@ -15,16 +15,15 @@ trait Get
 end
 passive class Counter : Inc + Get
   var f : int
-  def init(f : int) : void
+  def init(f : int) : unit
     this.f = f
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val x = new Counter(42) : Inc
     print("The answer is {}\n", x.get_())
     x.inc()
     print("The answer is now {}\n", x.get_())
   end
 end
-

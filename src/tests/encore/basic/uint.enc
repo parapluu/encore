@@ -4,14 +4,13 @@ fun addUnsigned(x : uint, y : int) : uint
   x + y
 end
 class Main
-  def main() : void
+  def main() : unit
     println(addUnsigned(42u, 13u))
     val large = EMBED (uint)
                   unsigned long long x = 1ul << 32 << 31;
             x;
-         
+
                 END
     println(large)
   end
 end
-

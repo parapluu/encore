@@ -10,7 +10,7 @@ end
 passive class B : C
 end
 class Foo
-  def init(a : A, b : B, c : C) : void
+  def init(a : A, b : B, c : C) : unit
     ()
   end
   def foo(b : B) : B
@@ -21,7 +21,7 @@ class Foo
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       a = new A
       b = new B
@@ -33,4 +33,3 @@ class Main
     end
   end
 end
-

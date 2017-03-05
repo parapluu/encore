@@ -1,17 +1,17 @@
 -- This file was automatically converted by encorec
 
 class Foo
-  var f : void
-  def foo(unit : void) : void
+  var f : unit
+  def foo(u : unit) : unit
     println("Got unit")
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     var unit1 = ()
     val unit2 = ()
     val x = new Foo
-    val f = fun (x : void) 
+    val f = fun (x : unit)
               println("Got unit")
               x
             end
@@ -20,4 +20,3 @@ class Main
     unit1 = unit2
   end
 end
-

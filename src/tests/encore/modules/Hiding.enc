@@ -1,13 +1,12 @@
 -- This file was automatically converted by encorec
 
 import SelectiveLib hiding(bar)
-fun bar() : void
+fun bar() : unit
   println("This is bar")
 end
 class Main
-  def main() : void
+  def main() : unit
     foo()
     bar()
   end
 end
-

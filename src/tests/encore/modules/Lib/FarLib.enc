@@ -4,7 +4,7 @@ import TraitLib
 
 passive class FarFoo : S
   var f : S
-  def init() : void
+  def init() : unit
     this.f = this
   end
   def name() : String

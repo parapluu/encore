@@ -5,7 +5,7 @@ import qualified A.B.QLib as Q
 passive class Z : Q.T + T.S
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       z = new Z
     in
@@ -13,4 +13,3 @@ class Main
     end
   end
 end
-

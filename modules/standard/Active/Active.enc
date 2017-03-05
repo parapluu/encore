@@ -3,13 +3,13 @@
 module Active
 class Active[inner]
   var state : inner
-  def init(factory : () -> inner) : void
+  def init(factory : () -> inner) : unit
     this.state = factory()
   end
-  def apply(f : inner -> void) : void
+  def apply(f : inner -> unit) : unit
     f(this.state)
   end
-  def map(f : inner -> inner) : void
+  def map(f : inner -> inner) : unit
     this.state = f(this.state)
   end
   def getState() : inner

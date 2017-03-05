@@ -1,5 +1,5 @@
 passive class Foo
-  def bar() : void
+  def bar() : unit
     for i <- [0..10] do
       print ("{} ",i)
       if i>5 then
@@ -11,7 +11,7 @@ passive class Foo
 end
 
 class Main
-  def main() : void
+  def main() : unit
     for i <- [0..10] do
       print ("{} ",i)
       if i>5 then

@@ -5,7 +5,7 @@ fun globl() : Fut[int]
   async(3)
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       fut = globl()
     in
@@ -13,4 +13,3 @@ class Main
     end
   end
 end
-

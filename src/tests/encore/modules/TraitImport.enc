@@ -2,10 +2,9 @@
 
 import TraitImportModule
 class Main
-  def main() : void
+  def main() : unit
     println(1)
   end
 end
 passive class Foo : Reagent
 end
-

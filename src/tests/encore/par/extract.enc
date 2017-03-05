@@ -30,7 +30,7 @@ end
 passive class PassiveObject
   var tag : String
   var life : int
-  def init(tag : String, life : int) : void
+  def init(tag : String, life : int) : unit
     this.tag = tag
     this.life = life
   end
@@ -56,7 +56,7 @@ class Test
   def par_passive_case(pObject : PassiveObject) : Par[PassiveObject]
     liftv(pObject) ||| liftv(new PassiveObject("TEST_COVERAGE", 1))
   end
-  def test_number() : void
+  def test_number() : unit
     let
       test = new Test
       expected = 34
@@ -65,7 +65,7 @@ class Test
       assertTrue(value == expected, "ERROR in 'test_number', found {} but expecting {}", value, expected)
     end
   end
-  def test_stringf() : void
+  def test_stringf() : unit
     let
       test = new Test
       expected = "string"
@@ -74,7 +74,7 @@ class Test
       assertTrue(value.equals(expected), "ERROR in 'test_stringf', found {} but expecting {}", value, expected)
     end
   end
-  def test_int_and_dec() : void
+  def test_int_and_dec() : unit
     let
       value = 42
       expected = 43
@@ -82,7 +82,7 @@ class Test
       assertTrue(inc(inc(dec(value))) == expected, "ERROR in 'test_int_and_dec'")
     end
   end
-  def test_from_string_to_int() : void
+  def test_from_string_to_int() : unit
     let
       seven = from_string_to_int("Liftv String")
       one = from_string_to_int("Something else")
@@ -93,7 +93,7 @@ class Test
       assertTrue(one == expected2, "ERROR in 'test_from_string_to_int'")
     end
   end
-  def test_switch_test() : void
+  def test_switch_test() : unit
     let
       switchTest = switch_life(switch_tag(new PassiveObject("pass", 42)))
       expectedTag = "fail"
@@ -103,7 +103,7 @@ class Test
       assertTrue(switchTest.life == expectedLife, "ERROR in 'test_switch_life', wrong life")
     end
   end
-  def test_passive_object() : void
+  def test_passive_object() : unit
     let
       test = new Test
       pObject = new PassiveObject("pass", 42)
@@ -113,7 +113,7 @@ class Test
       assertTrue(pObjectFulfilled.life == 42)
     end
   end
-  def test_liftv_primitive_int() : void
+  def test_liftv_primitive_int() : unit
     let
       expectedInt = 34
       arr_int = extract(liftv(expectedInt))
@@ -123,7 +123,7 @@ class Test
       end
     end
   end
-  def test_liftv_primitive_string() : void
+  def test_liftv_primitive_string() : unit
     let
       expectedString = "Liftv String"
       arr_string = extract(liftv(expectedString))
@@ -133,7 +133,7 @@ class Test
       end
     end
   end
-  def test_liftv_passive() : void
+  def test_liftv_passive() : unit
     let
       expectedLife = 42
       expectedTag = "pass"
@@ -145,7 +145,7 @@ class Test
       end
     end
   end
-  def test_liftv_par_primitive() : void
+  def test_liftv_par_primitive() : unit
     let
       expectedInt = 34
       expectedString = "Liftv String"
@@ -164,7 +164,7 @@ class Test
       end
     end
   end
-  def test_liftv_par_passive() : void
+  def test_liftv_par_passive() : unit
     let
       expectedTag = "pass"
       expectedLife = 42
@@ -178,7 +178,7 @@ class Test
       end
     end
   end
-  def test_par_primitive_int() : void
+  def test_par_primitive_int() : unit
     let
       expected1 = 34
       expected2 = 20
@@ -189,7 +189,7 @@ class Test
       end
     end
   end
-  def test_par_primitive_string() : void
+  def test_par_primitive_string() : unit
     let
       expectedString = "Liftv String"
       expectedAnotherString = "Liftv Another String"
@@ -200,7 +200,7 @@ class Test
       end
     end
   end
-  def test_par_passive() : void
+  def test_par_passive() : unit
     let
       expPass = new PassiveObject("pass", 42)
       expFail = new PassiveObject("fail", 2)
@@ -217,7 +217,7 @@ class Test
       end
     end
   end
-  def test_seq_primitive() : void
+  def test_seq_primitive() : unit
     let
       arr_int = extract(liftv(34) ||| liftv(20) >> inc >> inc >> dec)
       par_string = liftv("Liftv String") ||| liftv("Liftv String2") >> from_string_to_int
@@ -234,7 +234,7 @@ class Test
       end
     end
   end
-  def test_seq_passive() : void
+  def test_seq_passive() : unit
     let
       poPass = new PassiveObject("pass", 42)
       poFail = new PassiveObject("fail", 2)
@@ -249,7 +249,7 @@ class Test
       end
     end
   end
-  def test_liftf_primitive() : void
+  def test_liftf_primitive() : unit
     let
       test = new Test
       pObject = new PassiveObject("pass", 42)
@@ -265,7 +265,7 @@ class Test
       end
     end
   end
-  def test_liftf_passive() : void
+  def test_liftf_passive() : unit
     let
       test = new Test
       pObject = new PassiveObject("pass", 42)
@@ -293,7 +293,7 @@ class Test
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       test = new Test
     in
@@ -318,4 +318,3 @@ class Main
     end
   end
 end
-

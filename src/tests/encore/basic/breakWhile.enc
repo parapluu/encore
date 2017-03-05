@@ -1,5 +1,5 @@
 passive class Foo
-  def bar() : void
+  def bar() : unit
     var i = 0
     while i < 50 do
       print ("{} ",i)
@@ -13,7 +13,7 @@ passive class Foo
 end
 
 class Main
-  def main() : void
+  def main() : unit
     var i = 0
     while i < 50 do
       print ("{} ",i)

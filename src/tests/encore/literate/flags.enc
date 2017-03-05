@@ -4,7 +4,7 @@ rendered etc. This file tests that this works.
 
 #+begin_src encore -n
 class Main
-  def main() : void
+  def main() : unit
     new Foo
     println("Hello flagged literate world!")
   end
@@ -14,7 +14,7 @@ end
 Here is some C code that should be ignored
 
 #+begin_src C -n
-  void foo() {
+  unit foo() {
     2+3;
   }
 #+end_src

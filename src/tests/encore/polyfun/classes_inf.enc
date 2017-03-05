@@ -11,7 +11,7 @@ fun createTest[t](arg : t) : Test[t]
 end
 class Test[a]
   var arg : a
-  def init(arg : a) : void
+  def init(arg : a) : unit
     this.arg = arg
   end
   def appendToArray(arg : a) : [a]
@@ -25,7 +25,7 @@ class Test[a]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val t = createTest("Create Test of type 'String'")
     println(get(t ! getArg()))
     val arr = get(t ! appendToArray("Adding a new string"))
@@ -36,4 +36,3 @@ class Main
     println(tup)
   end
 end
-

@@ -4,27 +4,27 @@ trait Mappable[v]
   require var value : v
   require val covariance : Mappable[v]
   require def next() : Mappable[v]
-  def map(f : v -> v) : void
+  def map(f : v -> v) : unit
     this.value = f(this.value)
     this.next().map(f)
   end
 end
 trait Push[v]
   require var top : Mappable[v]
-  def push(value : v) : void
+  def push(value : v) : unit
     this.top = new Link[v](value, this.top)
   end
 end
 passive class Sentinel[v] : Mappable[v]
   val covariance : Sentinel[v]
   var value : v
-  def init() : void
+  def init() : unit
     ()
   end
   def next() : Mappable[v]
     this
   end
-  def map(f : v -> v) : void
+  def map(f : v -> v) : unit
     ()
   end
 end
@@ -32,7 +32,7 @@ passive class Link[v] : Mappable[v](next)
   val covariance : Link[v]
   var value : v
   var next : Mappable[v]
-  def init(value : v, next : Mappable[v]) : void
+  def init(value : v, next : Mappable[v]) : unit
     this.value = value
     this.next = next
   end
@@ -42,24 +42,24 @@ passive class Link[v] : Mappable[v](next)
 end
 passive class Stack[v] : Push[v]
   val top : Mappable[v]
-  def init() : void
+  def init() : unit
     this.top = new Sentinel[v]()
   end
-  def map(f : v -> v) : void
+  def map(f : v -> v) : unit
     this.top.map(f)
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       l = new Stack[int]()
       s = new Stack[String]()
       bump = fun (x : int) => x + 1
-      showNum = fun (x : int) 
+      showNum = fun (x : int)
                   println(x)
                   x
                 end
-      showString = fun (x : String) 
+      showString = fun (x : String)
                      println(x)
                      x
                    end
@@ -78,4 +78,3 @@ class Main
     end
   end
 end
-

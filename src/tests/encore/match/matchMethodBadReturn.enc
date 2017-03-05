@@ -1,6 +1,6 @@
 passive class C
   val f : int
-  def init(f : int) : void
+  def init(f : int) : unit
     this.f = f
   end
 
@@ -10,7 +10,7 @@ passive class C
 end
 
 class Main
-  def main() : void
+  def main() : unit
     val x = new C(42)
     match x with
       case Pattern(y) => print(y)

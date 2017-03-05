@@ -13,42 +13,41 @@ end
 class Main
   var check_arr : [bool]
   var size : int
-  def setup() : void
+  def setup() : unit
     this.size = 2000
     this.check_arr = new [bool](this.size)
     for v <- [0..this.size] do
       (this.check_arr)(v) = false
     end
   end
-  def test_setting_array() : void
+  def test_setting_array() : unit
     let
       arr = presetArray(this.size)
     in
-      each(arr) >> fun (i : int) 
+      each(arr) >> fun (i : int)
                      (this.check_arr)(i) = true
                      i
                    end >> fun (i : int) => assertTrue((this.check_arr)(i))
     end
   end
-  def test_split_words_and_print() : void
+  def test_split_words_and_print() : unit
     let
       words = (new String("this is a test")).split(" ")
     in
       each(words) >> fun (w : String) => print("Word: {}\n", w)
     end
   end
-  def test_array_of_one() : void
+  def test_array_of_one() : unit
     let
       arr = presetArray(1)
     in
       each(arr) >> fun (x : int) => print("result: {}", x + 1)
     end
   end
-  def main() : void
+  def main() : unit
     this.setup()
     this.test_setting_array()
     this.test_split_words_and_print()
     this.test_array_of_one()
   end
 end
-

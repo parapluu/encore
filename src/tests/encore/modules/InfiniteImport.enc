@@ -2,7 +2,7 @@ module InfiniteImport
 import InfiniteImport
 
 class Main
-  def main() : void
+  def main() : unit
     println(42)
   end
 end

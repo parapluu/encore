@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-fun assertEqualsPassive(p : PObject, tag : String) : void
+fun assertEqualsPassive(p : PObject, tag : String) : unit
   assertTrue(p.tag.equals(tag))
 end
 fun inc(i : int) : int
@@ -39,7 +39,7 @@ end
 passive class PObject
   var tag : String
   var value : int
-  def init() : void
+  def init() : unit
     this.tag = "TAG"
     this.value = 32
   end
@@ -56,7 +56,7 @@ passive class PObject
   end
 end
 class Main
-  def test_value_primitive() : void
+  def test_value_primitive() : unit
     let
       int_value = 32
       par_int = liftv(int_value) >> inc >> inc >> dec >> inc
@@ -67,20 +67,20 @@ class Main
       par_par_int >> fun (p : Par[int]) => p >> testfn
     end
   end
-  def test_value_passive() : void
+  def test_value_passive() : unit
     let
       pass_value1 = new PObject()
       default_tag = "TAG"
       default_value = 42
       par_passive = liftv(pass_value1) >> updatePassivePlusFive >> updatePassivePlusFive
     in
-      par_passive >> fun (v : PObject) 
+      par_passive >> fun (v : PObject)
                        assertEqualsPassive(v, default_tag)
                        assertTrue(pass_value1.value == default_value, "ERROR in function assertEqualsPassive, expected {}", default_value)
                      end
     end
   end
-  def test_value_passive_par_par() : void
+  def test_value_passive_par_par() : unit
     let
       pass_value1 = new PObject()
       pass_value2 = new PObject()
@@ -92,7 +92,7 @@ class Main
       par_par_pass1 = liftv(liftv(pass_value1)) >> updateParPlusFive
       par_par_pass2 = par_par_pass1 ||| liftv(liftv(pass_value2)) >> updateParPlusFive
       par_par_pass3 = par_par_pass2 >> updateParPlusFive ||| liftv(liftv(pass_value3))
-      testfn = fun (v : PObject) 
+      testfn = fun (v : PObject)
                  assertEqualsPassive(v, expected_tag)
                  assertTrue(v.value == expected_val1 || v.value == expected_val2 || v.value == expected_val3, "ERROR in function assertEqualsPassive: {}", v.value)
                end
@@ -101,12 +101,12 @@ class Main
       par_par_pass3 >> testfnPar
     end
   end
-  def test_future_primitive() : void
+  def test_future_primitive() : unit
     let
       o = new AObject
       expected_value1 = 33
       expected_value2 = 21
-      testfn = fun (v : int) 
+      testfn = fun (v : int)
                  assertTrue(v == expected_value1 || v == expected_value2, "ERROR in 'test_future_primitive', found {}, expected {} or {}", v, expected_value1, expected_value2)
                end
       pfut1 = liftf(o ! ints()) >> inc >> inc >> dec >> inc
@@ -118,14 +118,14 @@ class Main
       end
     end
   end
-  def test_future_primitive_par_par() : void
+  def test_future_primitive_par_par() : unit
     let
       o = new AObject
       expected_value1 = 37
       expected_value2 = 29
       ppfut1 = liftv(liftf(o ! ints())) >> incPar >> incPar
       ppfut2 = liftv(liftf(o ! ints()))
-      testfn = fun (v : int) 
+      testfn = fun (v : int)
                  assertTrue(v == expected_value1 || v == expected_value2, "ERROR in 'test_future_primitive_par_par_seq', expected {} or {}, found {}", expected_value1, expected_value2, v)
                end
       testfnPar = fun (p : Par[int]) => p >> testfn
@@ -136,11 +136,11 @@ class Main
       end
     end
   end
-  def test_future_par_primitive() : void
+  def test_future_par_primitive() : unit
     let
       o = new AObject
       expected_value = 33
-      testfn = fun (v : int) 
+      testfn = fun (v : int)
                  assertTrue(v == expected_value, "ERROR in 'test_future_par_primitive', expected {}, found {}", expected_value, v)
                end
       testfnPar = fun (p : Par[int]) => p >> testfn
@@ -151,7 +151,7 @@ class Main
       end
     end
   end
-  def test_combine_primitive_futures_into_par_sequence() : void
+  def test_combine_primitive_futures_into_par_sequence() : unit
     let
       o = new AObject
       expected1 = 25
@@ -162,7 +162,7 @@ class Main
       ppfut2_int = liftv(liftf(o ! ints())) >> incPar >> incPar
       parfut = liftf(o ! intsPar()) >> incPar >> incPar >> incPar
       p1 = liftv(pfut_int) ||| ppfut_int ||| parfut ||| ppfut2_int >> incPar
-      testfn = fun (v : int) 
+      testfn = fun (v : int)
                  assertTrue(v == 21 || v == expected1 || v == expected2 || v == expected3, "ERROR in 'test_combine_primitive_futures_into_par_sequence', found {}", v)
                end
       testfnPar = fun (p : Par[int]) => p >> testfn
@@ -172,7 +172,7 @@ class Main
       end
     end
   end
-  def test_future_passive_par() : void
+  def test_future_passive_par() : unit
     let
       a = new PObject()
       b = new PObject()
@@ -187,7 +187,7 @@ class Main
       end
     end
   end
-  def test_future_passive_par_par() : void
+  def test_future_passive_par_par() : unit
     let
       a = liftf(new AObject ! passivePar())
       b = new PObject()
@@ -195,7 +195,7 @@ class Main
       p1 = a >> updateParPlusFive
       p2 = liftv(liftv(b)) >> updateParPlusFive
       p3 = p1 >> updateParPlusFive
-      testfn = fun (v : PObject) 
+      testfn = fun (v : PObject)
                  assertTrue(expected == v.getValue(), "ERROR in 'test_future_passive_par_par', found {}", v.getValue())
                end
       testfnPar = fun (p : Par[PObject]) => p >> testfn
@@ -205,7 +205,7 @@ class Main
       end
     end
   end
-  def test_par_primitive() : void
+  def test_par_primitive() : unit
     let
       a = new AObject
       fut_par = liftf(a ! ints())
@@ -214,13 +214,13 @@ class Main
       par_mixed_with_fut = ppar_int ||| fut_par >> inc
       expected1 = 42
       expected2 = 46
-      testfn1 = fun (v : int) 
+      testfn1 = fun (v : int)
                   assertTrue(v == expected1, "ERROR in 'test_par_primitive', extracting 'par_int'")
                 end
-      testfn2 = fun (v : int) 
+      testfn2 = fun (v : int)
                   assertTrue(v == expected2, "ERROR in 'test_par_primitive', extracting 'ppar_int'")
                 end
-      testfn3 = fun (v : int) 
+      testfn3 = fun (v : int)
                   assertTrue(v == 50 || v == 25, "ERROR in 'test_par_primitive', extracting 'par_mixed_with_fut'")
                 end
     in
@@ -229,7 +229,7 @@ class Main
       par_mixed_with_fut >> testfn3
     end
   end
-  def test_par_passive() : void
+  def test_par_passive() : unit
     let
       o1 = new PObject()
       o2 = new PObject()
@@ -244,7 +244,7 @@ class Main
       end
     end
   end
-  def test_future_to_par_of_primitive_type() : void
+  def test_future_to_par_of_primitive_type() : unit
     let
       a = new AObject
       futpar = liftf(a ! intsPar())
@@ -256,7 +256,7 @@ class Main
       end
     end
   end
-  def test_join_primitive() : void
+  def test_join_primitive() : unit
     let
       a = new AObject
       expected1 = 29
@@ -273,7 +273,7 @@ class Main
       end
     end
   end
-  def test_join_future_par_primitive() : void
+  def test_join_future_par_primitive() : unit
     let
       a = new AObject
       expected1 = 29
@@ -292,12 +292,12 @@ class Main
       end
     end
   end
-  def test_value() : void
+  def test_value() : unit
     this.test_value_primitive()
     this.test_value_passive()
     this.test_value_passive_par_par()
   end
-  def test_future() : void
+  def test_future() : unit
     for i <- [1..100] do
       this.test_future_primitive()
       this.test_future_primitive_par_par()
@@ -307,20 +307,20 @@ class Main
       this.test_future_passive_par_par()
     end
   end
-  def test_par() : void
+  def test_par() : unit
     for i <- [1..100] do
       this.test_par_primitive()
       this.test_par_passive()
     end
   end
-  def test_future_to_par() : void
+  def test_future_to_par() : unit
     this.test_future_to_par_of_primitive_type()
   end
-  def test_join() : void
+  def test_join() : unit
     this.test_join_primitive()
     this.test_join_future_par_primitive()
   end
-  def main() : void
+  def main() : unit
     for i <- [1..100] do
       this.test_value()
       this.test_future()
@@ -330,4 +330,3 @@ class Main
     end
   end
 end
-

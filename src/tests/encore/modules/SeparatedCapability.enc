@@ -2,10 +2,9 @@
 
 import Lib.FarLib
 class Main
-  def main() : void
+  def main() : unit
     val x = new FarFoo
     x.foo(x.f)
     x.s()
   end
 end
-

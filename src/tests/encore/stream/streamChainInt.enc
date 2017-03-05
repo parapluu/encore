@@ -2,7 +2,7 @@ import StreamLib.StreamChain.StreamChain
 import StreamIO
 
 class Main
-  def main() : void
+  def main() : unit
     let
       sio = new StreamIO
       f = fun(x:int) => x*10

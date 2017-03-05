@@ -1,7 +1,7 @@
 import Std
 
 class Main
-  def main() : void
+  def main() : unit
 
     -- Comparing two reference types that both implement the Id trait
     val a = new A
@@ -65,6 +65,6 @@ end
 
 passive class A : Id
 end
-  
+
 passive class B : Id
 end

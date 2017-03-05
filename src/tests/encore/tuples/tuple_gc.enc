@@ -2,19 +2,19 @@
 
 class Foo
   var f : (int, int)
-  def init() : void
+  def init() : unit
     this.f = (1, 3)
   end
-  def p() : void
+  def p() : unit
     println(this.f)
   end
-  def tryForceGc() : void
+  def tryForceGc() : unit
     "dummy"
     new [int](100000)
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       f = new Foo()
     in
@@ -25,4 +25,3 @@ class Main
     end
   end
 end
-

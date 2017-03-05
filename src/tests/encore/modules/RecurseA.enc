@@ -7,7 +7,7 @@ fun foo() : int
 end
 
 class Main
-  def main() : void
+  def main() : unit
     println("In RecurseA")
   end
 end

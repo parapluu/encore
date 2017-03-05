@@ -9,7 +9,7 @@ class Foo
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     var s = new Foo ! bar()
     while not(eos(s)) do
       println(get(s))
@@ -17,4 +17,3 @@ class Main
     end
   end
 end
-

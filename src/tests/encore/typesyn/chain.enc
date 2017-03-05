@@ -3,7 +3,7 @@
 typedef G = T
 typedef T = int
 class Main
-  def main() : void
+  def main() : unit
     let
       x = 10 : T
       y = x : G
@@ -12,4 +12,3 @@ class Main
     end
   end
 end
-

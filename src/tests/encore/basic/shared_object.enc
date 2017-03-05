@@ -2,7 +2,7 @@
 
 shared class A
   var y : int
-  def init(y : int) : void
+  def init(y : int) : unit
     this.y = y
   end
   def f(x : int) : int
@@ -11,8 +11,7 @@ shared class A
 end
 class Main
   var x : int
-  def main() : void
+  def main() : unit
     println(get((new A(0)).f(0)))
   end
 end
-

@@ -17,7 +17,7 @@ fun cmpX(x : X, y : X) : int
 end
 passive class X
   var s : String
-  def init(s : String) : void
+  def init(s : String) : unit
     this.s = s
   end
   def getS() : String
@@ -33,7 +33,7 @@ class T
   end
 end
 class Main
-  def futures() : void
+  def futures() : unit
     val p1 = liftf(new T ! getValue(12)) ||| liftv(23)
     val p2_l = liftf(new T ! getValue(23))
     val p2_r = liftf(new T ! getPar(42))
@@ -43,7 +43,7 @@ class Main
       print("Results: {}\n", v)
     end
   end
-  def values() : void
+  def values() : unit
     val p1 = liftv(12) ||| liftv(42) ||| liftv(1) ||| liftv(0)
     val p2 = liftv(23) ||| liftv(1)
     val p3 = liftv(23) ||| join(liftv(liftv(42))) ||| p2
@@ -52,7 +52,7 @@ class Main
       print("Results: {}\n", v)
     end
   end
-  def objects() : void
+  def objects() : unit
     val fp1 = liftv(new X("Test")) ||| liftv(new X("Life"))
     val fp2 = liftv(new X("Life"))
     val result = intersection(fp1, fp2, cmpX)
@@ -60,7 +60,7 @@ class Main
       print("Results: {}\n", v.s)
     end
   end
-  def main() : void
+  def main() : unit
     println("Running intersection on values")
     this.values()
     println("Running intersection on futures and futures to par")
@@ -69,4 +69,3 @@ class Main
     this.objects()
   end
 end
-

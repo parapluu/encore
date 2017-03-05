@@ -5,23 +5,23 @@ fun id[a](x : a) : a
 end
 class Cell[a]
   var value : a
-  def init(value : a) : void
+  def init(value : a) : unit
     this.value = value
   end
   def getVal() : a
     this.value
   end
-  def getVal2() : void
+  def getVal2() : unit
     new Cell[a](this.value)
   end
-  def clone(value : a) : void
+  def clone(value : a) : unit
     new Cell[a](value)
   end
 end
 class Pair[a, b]
   var fst : a
   var snd : b
-  def init(fst : a, snd : b) : void
+  def init(fst : a, snd : b) : unit
     this.fst = fst
     this.snd = snd
   end
@@ -41,13 +41,13 @@ class Pair[a, b]
   def liftJust[d](x : d) : Maybe[d]
     Just(x)
   end
-  def testMethodInference[d, g](x : g, y : d) : void
+  def testMethodInference[d, g](x : g, y : d) : unit
     this.getCustom(this.fst, y, x)
     this.getCustom(this.fst, x, y)
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       p = new Pair[int, String](42, "fortytwo")
       c = new Cell[Pair[int, String]](p)
@@ -64,9 +64,8 @@ class Main
         case Nothing =>
           println("Error")
         end
-      
+
       end
     end
   end
 end
-

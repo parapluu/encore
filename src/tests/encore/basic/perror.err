@@ -11,6 +11,6 @@ The square of 9 is 81
 (false, true) | false
 (true, false) | false
 (true, true) | true
-void = ()
+unit = ()
 Zero is Nothing
 The answer is Just 42

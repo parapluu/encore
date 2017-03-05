@@ -5,7 +5,7 @@ fun id[a](x : a) : a
 end
 trait T[t]
   require var x : t
-  def foo() : void
+  def foo() : unit
     val arr = new [t](10)
     val x = arr(0) : t
     new Foo[t](x)
@@ -14,12 +14,12 @@ trait T[t]
     id(x)
     EMBED (t)
       #{x};
-   
+
     END
   end
 end
 class Foo[t]
-  def init(x : t) : void
+  def init(x : t) : unit
     ()
   end
 end
@@ -27,7 +27,7 @@ passive class C : T[int]
   var x : int
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       c = new C
     in
@@ -36,4 +36,3 @@ class Main
     end
   end
 end
-

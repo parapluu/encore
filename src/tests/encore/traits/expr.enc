@@ -27,7 +27,7 @@ trait Binary
 end
 passive class Value : Expr(value)
   val value : int
-  def init(value : int) : void
+  def init(value : int) : unit
     this.value = value
   end
   def Val() : Maybe[int]
@@ -39,7 +39,7 @@ passive class Value : Expr(value)
 end
 passive class Variable : Expr(id)
   val id : String
-  def init(id : String) : void
+  def init(id : String) : unit
     this.id = id
   end
   def Var() : Maybe[String]
@@ -51,7 +51,7 @@ passive class Variable : Expr(id)
 end
 passive class Negation : Expr(operand) + Unary
   val operand : Expr
-  def init(operand : Expr) : void
+  def init(operand : Expr) : unit
     this.operand = operand
   end
   def Neg() : Maybe[Expr]
@@ -69,14 +69,14 @@ passive class Negation : Expr(operand) + Unary
       case e =>
         e
       end
-    
+
     end
   end
 end
 passive class Addition : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
-  def init(left : Expr, right : Expr) : void
+  def init(left : Expr, right : Expr) : unit
     this.left = left
     this.right = right
   end
@@ -101,14 +101,14 @@ passive class Addition : Expr(left, right) + Binary
       case e =>
         e
       end
-    
+
     end
   end
 end
 passive class Subtraction : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
-  def init(left : Expr, right : Expr) : void
+  def init(left : Expr, right : Expr) : unit
     this.left = left
     this.right = right
   end
@@ -133,12 +133,12 @@ passive class Subtraction : Expr(left, right) + Binary
       case e =>
         e
       end
-    
+
     end
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val zero = new Value(0)
     val two = new Value(2)
     val minusTwo = new Negation(new Value(2))
@@ -149,8 +149,7 @@ class Main
       case Var(x) =>
         println("Simplified to '{}'", x)
       end
-    
+
     end
   end
 end
-

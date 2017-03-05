@@ -8,8 +8,7 @@ end
 class Bar
 end
 class Main
-  def main() : void
+  def main() : unit
     println("Hello, ponyworld!")
   end
 end
-

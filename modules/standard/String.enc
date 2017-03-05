@@ -37,7 +37,7 @@ fun string_from_array(arr : [char]) : String
     p = s
   in
     for c <- arr do
-      EMBED (void) *#{p}++ = #{c}; END
+      EMBED (unit) *#{p}++ = #{c}; END
     end
     new String(s)
   end
@@ -78,7 +78,7 @@ end
 passive class String : Id + Eq[String](compare(),length,data)
   val data : EMBED char* END
   val length : int
-  def init(s:EMBED char* END) : void
+  def init(s:EMBED char* END) : unit
     this.data = s
     this.length = EMBED (int); strlen(#{s}); END
   end
@@ -422,7 +422,7 @@ passive class String : Id + Eq[String](compare(),length,data)
     val s = this.data
     val n = 0
     val success = false
-    EMBED (void)
+    EMBED (unit)
       char *s = #{s};
       char *endptr;
       #{n} = strtol(s,&endptr,0);

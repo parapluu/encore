@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     let
       other = new Other(10)
     in
@@ -11,10 +11,10 @@ class Main
 end
 class Other
   var count : int
-  def init(va : int) : void
+  def init(va : int) : unit
     this.count = va
   end
-  def work() : void
+  def work() : unit
     this.count = this.count - 1
     this.count = this.count - 1
     this.count = this.count - 1
@@ -22,4 +22,3 @@ class Other
     println("Hello Ponyworld!")
   end
 end
-

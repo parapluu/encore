@@ -2,7 +2,7 @@
 
 class Main
   var count : int
-  def main() : void
+  def main() : unit
     println("Hello Ponyworld!")
     this.count = this.count - 1
     this.count = this.count - 1
@@ -12,4 +12,3 @@ class Main
     println(this.count)
   end
 end
-

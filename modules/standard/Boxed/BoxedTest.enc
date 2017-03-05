@@ -5,7 +5,7 @@ import Boxed.Bool
 import Boxed.Unit
 
 class Main
-  def main() : void
+  def main() : unit
     val maxReal = EMBED (real) 1.7976931348623157E+308; END
     val minReal = EMBED (real) -1.7976931348623157E+308; END
     println((new Integer(12)) .show())

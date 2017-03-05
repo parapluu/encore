@@ -14,11 +14,11 @@ fun extractAndCreateOptionValue[t](op : Maybe[t], v : t) : Maybe[t]
     case Nothing =>
       Nothing
     end
-  
+
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       test1 = fCreateParametricOptionType("Test creation of 'Just a' inside parametric function")
     in
@@ -29,7 +29,7 @@ class Main
         case Nothing =>
           println("Error: expected 'Just' value constructor but got 'Nothing'")
         end
-      
+
       end
     end
     var testNothing = fCreateParametricOptionTypeNothing("Test the returns parametric Nothing")
@@ -41,7 +41,7 @@ class Main
         testNothing = Just("re-assignment")
         println("Test create parametric Nothing and can be re-assigned")
       end
-    
+
     end
     let
       testNewVal = extractAndCreateOptionValue(Just("Remove this text"), "Append this text")
@@ -53,9 +53,8 @@ class Main
         case Nothing =>
           println("Error in 'extractAndCreateOptionValue', expected string 'Append this text'")
         end
-      
+
       end
     end
   end
 end
-

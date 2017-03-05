@@ -1,10 +1,9 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main(args : [String]) : void
+  def main(args : [String]) : unit
     for arg <- args do
       println(arg)
     end
   end
 end
-

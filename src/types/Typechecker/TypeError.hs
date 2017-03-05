@@ -514,7 +514,9 @@ instance Show Error where
         printf "Type variable '%s' cannot be bound to both '%s' and '%s'"
                (show expected) (show ty1) (show ty2)
     show (FreeTypeVariableError ty) =
-        printf "Type variable '%s' is unbound" (show ty)
+        if getId ty == "void"
+        then printf "Type 'void' is deprecated, Use 'unit' instead"
+        else printf "Type variable '%s' is unbound" (show ty)
     show (TypeVariableAndVariableCommonNameError [name]) =
         printf "Type variable '%s' clashes with existing variable name."
                (show name)

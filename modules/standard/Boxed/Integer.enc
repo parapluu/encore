@@ -4,7 +4,7 @@ module Integer
 
 passive class Integer
   var value : int
-  def init(x : int) : void
+  def init(x : int) : unit
     this.value = x
   end
   def show() : String

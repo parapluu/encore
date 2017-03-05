@@ -5,7 +5,7 @@ passive class Foo
 end
 class Main
   var f : int
-  def main() : void
+  def main() : unit
     val x = new Foo()
     val y = EMBED (int)
               #{EMBED (int)
@@ -17,7 +17,7 @@ class Main
 
             END
     val z = 0
-    EMBED (void)
+    EMBED (unit)
       int x = #{y}+ 21;
       #{x.f}= x;
       #{z}= #{x.f};
@@ -28,8 +28,8 @@ class Main
         end};
 
     END
-    EMBED (void)
-      #{EMBED (void)
+    EMBED (unit)
+      #{EMBED (unit)
           #{this.f = 42};
 
         END};

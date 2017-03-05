@@ -3,6 +3,6 @@
 # key: fun
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-fun ${1:foo}($2) : ${3:void}
+fun ${1:foo}($2) : ${3:unit}
   $0
 end

@@ -6,7 +6,7 @@ passive class Unit
   def show() : String
     "()"
   end
-  def value() : void
+  def value() : unit
     ()
   end
 end
