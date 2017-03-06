@@ -423,7 +423,9 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
 
-markStatsInBody e = mark asStat e
+markStatsInBody ty e 
+  | ty == voidType = mark asStat e
+  | otherwise      = mark asExpr e
 
 asStat e = setMeta e $ makeStat $ getMeta e
 asExpr e = e

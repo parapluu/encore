@@ -126,14 +126,14 @@ instance Checkable Function where
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
-          markBodyStats = Util.markStatsInBody funbody
+          body = Util.markStatsInBody funtype funbody
       eBody <-
         local (addTypeParameters funtypeparams .
                addParams funparams .
                addLocalFunctions funlocals) $
                   if isVoidType funtype
-                  then typecheckNotNull markBodyStats
-                  else hasType funbody funtype
+                  then typecheckNotNull body
+                  else hasType body funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
                        mapM typecheck funlocals
@@ -399,14 +399,14 @@ instance Checkable MethodDecl where
         let mType   = methodType m
             mparams = methodParams m
             mtypeparams = methodTypeParams m
-            markBodyStats = Util.markStatsInBody mbody
+            body = Util.markStatsInBody mType mbody
         eBody <-
             local (addTypeParameters mtypeparams .
                    addParams mparams .
                    addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull markBodyStats
-                       else hasType mbody mType
+                       then typecheckNotNull body
+                       else hasType body mType
         when (isMatchMethod m) $
              checkPurity eBody
 
