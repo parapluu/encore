@@ -126,12 +126,13 @@ instance Checkable Function where
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
+          markBodyStats = Util.markStatsInBody funbody
       eBody <-
         local (addTypeParameters funtypeparams .
                addParams funparams .
                addLocalFunctions funlocals) $
                   if isVoidType funtype
-                  then typecheckNotNull $ Util.markStatsInBody funtype funbody
+                  then typecheckNotNull markBodyStats
                   else hasType funbody funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
@@ -398,12 +399,13 @@ instance Checkable MethodDecl where
         let mType   = methodType m
             mparams = methodParams m
             mtypeparams = methodTypeParams m
+            markBodyStats = Util.markStatsInBody mbody
         eBody <-
             local (addTypeParameters mtypeparams .
                    addParams mparams .
                    addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull $ Util.markStatsInBody mType mbody
+                       then typecheckNotNull markBodyStats
                        else hasType mbody mType
         when (isMatchMethod m) $
              checkPurity eBody
@@ -459,7 +461,7 @@ instance Checkable Expr where
     doTypecheck break@(Break {emeta}) = do
       unless (Util.isStatement break) $
         tcError BreakUsedAsExpressionError
-      unlessM (asks $ validUseOfBreak . bt) $
+      unlessM (asks $ checkValidUseOfBreak) $
         tcError BreakOutsideOfLoopError
       return $ setType voidType break
 

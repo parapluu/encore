@@ -25,7 +25,7 @@ import Prelude hiding (foldr, filter)
 import AST.AST
 import Types
 import Identifiers
-import AST.Meta(isStat,makeStat) 
+import AST.Meta(isStat,makeStat)
 
 -- | @getTypeChildren e@ returns all types that are part of @e@
 -- _syntactically_ (i.e. part of the AST node of @e@)
@@ -423,37 +423,38 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
 
-markStatsInBody ty e 
-  | ty == voidType = markStats toStat e
-  | otherwise      = markStats toExpr e
+markStatsInBody e = mark asStat e
 
-toStat e = setMeta e $ makeStat $ getMeta e
-toExpr e = e
+asStat e = setMeta e $ makeStat $ getMeta e
+asExpr e = e
 
 isStatement :: Expr -> Bool
 isStatement e = isStat (getMeta e)
 
-m = markStats
+markAsStat = mark asStat
+markAsExpr = mark asExpr
 
 -- Traverses an AST tree and marks nodes as statements or expressions
--- Uses the m alias to markStats to save hspace  
-markStats :: (Expr -> Expr) -> Expr -> Expr
-markStats k s@Seq{eseq} = k s{eseq=(map (m toStat) $ init eseq) ++ [markStats k $ last eseq]}
-markStats k s@IfThenElse{cond, thn, els} = k s{cond=(m toExpr) cond, thn=markStats k thn, els=markStats k els}
-markStats k s@Async{body} = k s{body=markStats k body}
-markStats k s@Assign {lhs, rhs} = toStat s{lhs=(m toStat) lhs, rhs=(m toExpr) rhs}
-markStats k s@Print {args} = toStat s{args=map (m toExpr) args}
-markStats k s@MaybeValue{mdt=d@JustData{e}} = k s{mdt=d{e=markStats k e}}
-markStats k s@Let{body, decls} = k s{body=markStats k body, decls=map markDecl decls}
+-- Uses the m alias to mark to save hspace
+mark :: (Expr -> Expr) -> Expr -> Expr
+mark asParent s@Seq{eseq} =
+  asParent s{eseq=(map markAsStat $ init eseq) ++ [mark asParent $ last eseq]}
+mark asParent s@IfThenElse{cond, thn, els} =
+  asParent s{cond=markAsExpr cond, thn=mark asParent thn, els=mark asParent els}
+mark asParent s@Async{body} = asParent s{body=mark asParent body}
+mark asParent s@Assign {lhs, rhs} = asStat s{lhs=markAsStat lhs, rhs=markAsExpr rhs}
+mark asParent s@Print {args} = asStat s{args=map markAsExpr args}
+mark asParent s@MaybeValue{mdt=d@JustData{e}} = asParent s{mdt=d{e=mark asParent e}}
+mark asParent s@Let{body, decls} =
+  asParent s{body=mark asParent body, decls=map markDecl decls}
   where
-    markDecl (n, e) = (n, (m toExpr) e) 
-markStats k s@While{cond, body} = k s{cond=(m toExpr) cond, body=(m toStat) body}
-markStats k s@For{step, src, body} = k s{step=(m toExpr) step, src=(m toExpr) src, body=(m toStat) body}
-markStats k s =
+    markDecl (n, e) = (n, markAsExpr e)
+mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
+mark asParent s@For{step, src, body} =
+  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}
+mark asParent s =
   let
     children = AST.Util.getChildren s
-    children' = map (m toExpr) children
+    children' = map markAsExpr children
   in
-    k $ AST.Util.putChildren children' s
-
-
+    asParent $ AST.Util.putChildren children' s
