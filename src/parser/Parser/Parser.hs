@@ -14,6 +14,7 @@ import Text.Megaparsec
 import Text.Megaparsec.String
 import qualified Text.Megaparsec.Lexer as L
 import Text.Megaparsec.Expr
+import Data.List((\\))
 import Data.Char(isUpper)
 import Data.Maybe(fromMaybe, isJust, fromJust)
 import Control.Monad(void, foldM, unless, when, liftM)
@@ -228,11 +229,39 @@ reservedNames =
     ,"yield"
    ]
 
+reservedOps =
+    ["="
+    ,"=="
+    ,"!="
+    ,"+="
+    ,"-="
+    ,"*="
+    ,"/="
+    ,"<="
+    ,">="
+    ,"<"
+    ,">"
+    ,"=>"
+    ,"~~>"
+    ,"||"
+    ,"&&"
+    ,"|||"
+    ,">>"
+    ,"+"
+    ,"-"
+    ,"*"
+    ,"/"
+    ,"%"
+    ,":"
+    ,"."
+    ,"!"
+    ]
+
 validIdentifierChar :: EncParser Char
 validIdentifierChar = alphaNumChar <|> char '_' <|> char '\''
 
 validOpChar :: EncParser Char
-validOpChar = oneOf ".:=!<>+-*/%\\~|"
+validOpChar = oneOf ".:=!<>+-*/%~|"
 
 reserved :: String -> EncParser ()
 reserved w = do
@@ -242,7 +271,9 @@ reserved w = do
 reservedOp :: String -> EncParser ()
 reservedOp op = do
   sc <- currentSpaceConsumer
-  try $ string op <* notFollowedBy validOpChar *> sc
+  let otherOps = foldr1 (<|>) (map string $ reservedOps \\ [op])
+  notFollowedBy (otherOps >> notFollowedBy validOpChar)
+  try $ string op *> sc
 
 identifier :: EncParser String
 identifier = (lexeme . try) (p >>= check)
@@ -798,13 +829,12 @@ expression = makeExprParser expr opTable
                  [prefix "-" NEG],
                  [op "*" TIMES, op "/" DIV, op "%" MOD],
                  [op "+" PLUS, op "-" MINUS],
-                 [op "<" Identifiers.LT, op ">" Identifiers.GT,
-                  op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
-                  op "==" Identifiers.EQ, op "!=" NEQ
+                 [op "<=" Identifiers.LTE, op ">=" Identifiers.GTE,
+                  op "<" Identifiers.LT, op ">" Identifiers.GT
                  ],
+                 [op "==" Identifiers.EQ, op "!=" NEQ],
                  [textualPrefix "not" Identifiers.NOT],
                  [partySequence, partyParallel],
-                 -- [partyParallel],
                  [op "&&" Identifiers.AND,
                   op "||" Identifiers.OR],
                  [arrayAccess],
