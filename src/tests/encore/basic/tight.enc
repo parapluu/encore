@@ -1,0 +1,9 @@
+class Main
+  def main(args : [String]) : void
+    val a = [1,2,3]
+    val b = [4,5]
+    if |a|+|b|<|a|!=|b|<=|a| then
+      println("You shouldn't be writing code like this...")
+    end
+  end
+end
