@@ -13,8 +13,12 @@ module Arrow(
 import ParT
 
 --
--- use the `arr` combinator to lift a function into a parallel arrow. this does
--- not execute the function but allows you to declarative compose functions.
+-- This module provides functions for creating and operating on a parallel arrows,
+-- a.k.a. PArrow. A PArrow can be seen as a function lifted to a ParT
+-- (parallel computation). Multiple functions can be lifted to PArrow.
+--
+-- Use the `arr` combinator to lift a function into a PArrow. This does not
+-- execute the function but allows you to declarative compose functions.
 --
 -- To run a parallel arrow over a single item, use the `runArrow` function.
 --
@@ -34,8 +38,6 @@ typedef PArrow[a, b] = Par [a -> b]
 
 --
 -- arr :: (b -> c) -> PArrow[b, c]
---
--- Lifting a function to a parallel arrow, a.k.a PArrow
 --
 -- `arr` lifts a function to the parallel arrow. The PArrow type represents
 -- an abstraction with possibly many functions. By lifting multiple
