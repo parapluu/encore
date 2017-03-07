@@ -44,8 +44,7 @@ struct par_t {
 static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
                                                     par_t *par,
                                                     closure_t *call,
-                                                    closure_t *cmp,
-                                                    pony_type_t *type);
+                                                    closure_t *cmp);
 
 pony_type_t party_type =
 {
@@ -614,7 +613,7 @@ grouping_futures_async(pony_ctx_t** ctx,
 
   if (prev_counter == 1) {
     value_t args[] = { [0] = {.p=par}, [1] = {.p = cmp} };
-    value_t result = closure_call(ctx, clos, args); // (V tuple)
+    value_t result = closure_call(ctx, clos, args);
     future_fulfil(ctx, promise, result);
   }
   return (value_t) {.p = NULL};
@@ -661,9 +660,7 @@ static value_t distinct_as_closure(pony_ctx_t** ctx,
   return (value_t){.p = party_set_to_party(ctx, set, type) };
 }
 
-static array_t* collect_future_from_party(pony_ctx_t **ctx,
-                                          par_t *p,
-                                          __attribute__ ((unused)) pony_type_t *type)
+static array_t* collect_future_from_party(pony_ctx_t **ctx, par_t *p)
 {
   list_t *l = NULL;
   list_t *futures = NULL;
@@ -703,12 +700,13 @@ static array_t* collect_future_from_party(pony_ctx_t **ctx,
 
 // This is a helper function for the common pattern of awaiting until all
 // futures have been fulfilled and fulfilling a promise to continue.
+// INFO: the promise needs to be fulfilled with a ParT. if this is not the
+//       case, the tracing of the promise will fail.
 static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
                                                     par_t *par,
                                                     closure_t *call,
-                                                    closure_t *cmp,
-                                                    pony_type_t *type){
-  array_t *fut_list = collect_future_from_party(ctx, par, type);
+                                                    closure_t *cmp){
+  array_t *fut_list = collect_future_from_party(ctx, par);
   size_t size = array_size(fut_list);
 
   if (!size) {
@@ -720,14 +718,9 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
     return (par_t *) closure_call(ctx, call, args).p;
   }
 
-  // for distinct, the type should be par->rtype, because the closure call returns a Par.
-  // if we assign `type`, we are creating a future with rtype = tuple. but the future
-  // is going to be fulfilled with a Par(tuple(...)).
+  // INFO: make sure the promise is fulfilled with a ParT type.
+  future_t *promise = future_mk(ctx, &party_type);
 
-  // There is a dependency between the promise and the return type of the call!
-
-  // in other cases, does it need to be type?
-  future_t *promise = future_mk(ctx, get_rtype(par));
   struct env_collect_from_party *env = encore_alloc(*ctx, sizeof(struct env_collect_from_party));
   env->counter = size;
   env->par = par;
@@ -740,7 +733,7 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
 
   for(size_t i=0; i < size; ++i){
     future_t *future = array_get(fut_list, i).p;
-    future_register_callback(ctx, future, type, c);
+    future_register_callback(ctx, future, c);
   }
   future_await(ctx, promise);
   return (par_t *) future_get_actor(ctx, promise).p;
@@ -753,7 +746,7 @@ par_t* party_intersection(pony_ctx_t **ctx,
                           pony_type_t *type){
   par_t *par = new_par_p(ctx, par_left, par_right, type);
   closure_t *call = closure_mk(ctx, intersection_as_closure, NULL, NULL, &type);
-  return party_promise_await_on_futures(ctx, par, call, cmp, type);
+  return party_promise_await_on_futures(ctx, par, call, cmp);
 }
 
 //----------------------------------------
@@ -765,7 +758,7 @@ par_t* party_distinct(pony_ctx_t **ctx,
                       closure_t *cmp,
                       pony_type_t *type){
   closure_t *call = closure_mk(ctx, distinct_as_closure, NULL, NULL, &type);
-  return party_promise_await_on_futures(ctx, par, call, cmp, type);
+  return party_promise_await_on_futures(ctx, par, call, cmp);
 }
 
 
