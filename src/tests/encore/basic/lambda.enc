@@ -5,9 +5,10 @@ class CreditCard
     println(42)
   end
   def printMain(m : Main, x : int) : void
-    m.pprint(x)
+    m ! pprint(x)
   end
 end
+
 passive class CreditPass
   var fi : int -> void
   var fii : int -> int
@@ -30,12 +31,13 @@ passive class CreditPass
     end
   end
   def pass(c : CreditCard) : void
-    get(c.printX())
+    get(c ! printX())
   end
   def passMain(m : Main) : void
-    m.pprint(42)
+    m ! pprint(42)
   end
 end
+
 class Main
   var creditcard : CreditCard
   var tupleFun : int -> (int, int)
@@ -61,13 +63,13 @@ class Main
                           fun (x : int) => x + 1)
       show = fun (i : int) => println(i)
       ff = fun (z : int) 
-             get(x.printX())
-             x.printMain(this, 42)
+             get(x ! printX())
+             x ! printMain(this, 42)
              p.pass(x)
              show(z)
              p.passMain(this)
              this.pprint(42)
-             this.creditcard.printX()
+             this.creditcard ! printX()
            end
     in
       this.creditcard = x

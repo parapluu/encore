@@ -16,6 +16,7 @@ class Streamer
     end
   end
 end
+
 class Combinator
   stream interleave(s1 : Stream[int], s2 : Stream[int]) : int
     var s1 = s1
@@ -28,13 +29,14 @@ class Combinator
     end
   end
 end
+
 class Main
   def main() : void
     val x = new Streamer
-    val even = x.even(10)
-    val odd = x.odd(10)
+    val even = x ! even(10)
+    val odd = x ! odd(10)
     val c = new Combinator
-    var range = c.interleave(even, odd)
+    var range = c ! interleave(even, odd)
     while not(eos(range)) do
       println(get(range))
       range = getNext(range)

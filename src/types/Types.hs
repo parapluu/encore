@@ -102,6 +102,7 @@ module Types(
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
             ,getTypeParameterBindings
+            ,isPassiveType
             ) where
 
 import Identifiers
@@ -598,6 +599,8 @@ isSharedClassType _ = False
 
 isPassiveClassType ClassType{activity = Passive} = True
 isPassiveClassType _ = False
+
+isPassiveType ty = isRefType ty && not (isActiveClassType ty)
 
 isClassType ClassType{} = True
 isClassType _ = False

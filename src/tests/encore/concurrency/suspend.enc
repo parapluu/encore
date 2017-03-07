@@ -15,7 +15,7 @@ end
 class Test
   def fst(m:Main) : void 
     print("Before suspend\n")
-    get(m.foo())
+    get(m ! foo())
     this.suspend()
     print("After suspend\n")
   end

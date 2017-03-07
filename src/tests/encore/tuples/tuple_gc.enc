@@ -19,9 +19,9 @@ class Main
       f = new Foo()
     in
       repeat j <- 10 do
-        f.tryForceGc()
+        f ! tryForceGc()
       end
-      f.p()
+      f ! p()
     end
   end
 end

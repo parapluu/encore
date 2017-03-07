@@ -880,13 +880,13 @@ expression = makeExprParser expr opTable
           Postfix (do pos <- getPosition
                       withLinebreaks bang
                       name <- identifier
-                      optTypeArgs <- option [] (try . brackets $ commaSep typ)
+                      typeArguments <- option [] (try . brackets $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend { emeta = meta pos,
-                                                       typeArguments=optTypeArgs,
-                                                       target,
-                                                       name=(Name name),
-                                                       args }))
+                      return (\target -> MessageSend {emeta = meta pos
+                                                     ,typeArguments
+                                                     ,target
+                                                     ,name = Name name
+                                                     ,args}))
 
       singleLineTask =
         Prefix (do notFollowedBy (reserved "async" >> nl)

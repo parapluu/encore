@@ -5,24 +5,25 @@ class Main
     let
       foo = new Foo(new Bar(2))
     in
-      foo.print()
-      ()
+      foo ! print()
     end
   end
 end
+
 class Foo
   var x : Bar
-  def init(x_ : Bar) : void
-    this.x = x_
+  def init(x : Bar) : void
+    this.x = x
   end
   def print() : void
     println(this.x.i)
   end
 end
+
 passive class Bar
   var i : int
-  def init(i_ : int) : void
-    this.i = i_
+  def init(i : int) : void
+    this.i = i
   end
 end
 

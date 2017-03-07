@@ -22,8 +22,8 @@ class T
 end
 class Main
   def testUnion() : void
-    val p1 = liftf((new T).getValue(12)) ||| liftf((new T).getValue(23))
-    val p2 = join(liftf((new T).getPar(42))) ||| liftv(2) ||| liftv(2) ||| liftv(3)
+    val p1 = liftf(new T ! getValue(12)) ||| liftf(new T ! getValue(23))
+    val p2 = join(liftf(new T ! getPar(42))) ||| liftv(2) ||| liftv(2) ||| liftv(3)
     val result = union(p1, p2, cmpInt)
     for v <- extract(result) do
       print("Results: {}\n", v)

@@ -29,7 +29,7 @@ class AObject
     let
       that = this
     in
-      that.ints()
+      that ! ints()
     end
   end
   def passivePar() : Par[PObject]
@@ -109,8 +109,8 @@ class Main
       testfn = fun (v : int) 
                  assertTrue(v == expected_value1 || v == expected_value2, "ERROR in 'test_future_primitive', found {}, expected {} or {}", v, expected_value1, expected_value2)
                end
-      pfut1 = liftf(o.ints()) >> inc >> inc >> dec >> inc
-      pfut2 = liftf(o.ints()) >> dec >> dec >> inc
+      pfut1 = liftf(o ! ints()) >> inc >> inc >> dec >> inc
+      pfut2 = liftf(o ! ints()) >> dec >> dec >> inc
       pfut_final = pfut1 ||| pfut2 >> inc >> inc >> dec
     in
       for v <- extract(pfut_final) do
@@ -123,8 +123,8 @@ class Main
       o = new AObject
       expected_value1 = 37
       expected_value2 = 29
-      ppfut1 = liftv(liftf(o.ints())) >> incPar >> incPar
-      ppfut2 = liftv(liftf(o.ints()))
+      ppfut1 = liftv(liftf(o ! ints())) >> incPar >> incPar
+      ppfut2 = liftv(liftf(o ! ints()))
       testfn = fun (v : int) 
                  assertTrue(v == expected_value1 || v == expected_value2, "ERROR in 'test_future_primitive_par_par_seq', expected {} or {}, found {}", expected_value1, expected_value2, v)
                end
@@ -144,7 +144,7 @@ class Main
                  assertTrue(v == expected_value, "ERROR in 'test_future_par_primitive', expected {}, found {}", expected_value, v)
                end
       testfnPar = fun (p : Par[int]) => p >> testfn
-      parfut = liftf(o.intsPar()) >> incPar >> incPar >> incPar
+      parfut = liftf(o ! intsPar()) >> incPar >> incPar >> incPar
     in
       for v <- extract(parfut) do
         testfnPar(v)
@@ -157,10 +157,10 @@ class Main
       expected1 = 25
       expected2 = 33
       expected3 = 37
-      pfut_int = liftf(o.ints()) >> inc >> dec
-      ppfut_int = liftv(liftf(o.ints())) >> incPar >> incPar
-      ppfut2_int = liftv(liftf(o.ints())) >> incPar >> incPar
-      parfut = liftf(o.intsPar()) >> incPar >> incPar >> incPar
+      pfut_int = liftf(o ! ints()) >> inc >> dec
+      ppfut_int = liftv(liftf(o ! ints())) >> incPar >> incPar
+      ppfut2_int = liftv(liftf(o ! ints())) >> incPar >> incPar
+      parfut = liftf(o ! intsPar()) >> incPar >> incPar >> incPar
       p1 = liftv(pfut_int) ||| ppfut_int ||| parfut ||| ppfut2_int >> incPar
       testfn = fun (v : int) 
                  assertTrue(v == 21 || v == expected1 || v == expected2 || v == expected3, "ERROR in 'test_combine_primitive_futures_into_par_sequence', found {}", v)
@@ -189,7 +189,7 @@ class Main
   end
   def test_future_passive_par_par() : void
     let
-      a = liftf((new AObject).passivePar())
+      a = liftf(new AObject ! passivePar())
       b = new PObject()
       expected = 42
       p1 = a >> updateParPlusFive
@@ -208,7 +208,7 @@ class Main
   def test_par_primitive() : void
     let
       a = new AObject
-      fut_par = liftf(a.ints())
+      fut_par = liftf(a ! ints())
       par_int = liftv(42) ||| liftv(42)
       ppar_int = par_int ||| par_int >> inc
       par_mixed_with_fut = ppar_int ||| fut_par >> inc
@@ -247,7 +247,7 @@ class Main
   def test_future_to_par_of_primitive_type() : void
     let
       a = new AObject
-      futpar = liftf(a.intsPar())
+      futpar = liftf(a ! intsPar())
       pfinal = join(futpar) >> inc
       expected = 25
     in
@@ -263,7 +263,7 @@ class Main
       expected2 = 33
       expected3 = 50
       parvv = liftv(liftv(42))
-      futpar = liftf(a.intsPar()) >> incPar
+      futpar = liftf(a ! intsPar()) >> incPar
       pp1 = futpar ||| parvv >> incPar
       pp2 = pp1 ||| futpar >> incPar
       pfinal = join(pp2)
@@ -281,7 +281,7 @@ class Main
       expected3 = 37
       expected4 = 50
       parvv = liftv(liftv(42))
-      futpar = liftf(a.intsPar()) >> incPar
+      futpar = liftf(a ! intsPar()) >> incPar
       fp_join = liftv(join(futpar)) >> incPar
       pp1 = futpar ||| parvv ||| fp_join >> incPar
       pp2 = pp1 ||| futpar >> incPar

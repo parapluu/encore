@@ -24,7 +24,7 @@ end
 class Main
   def testBindAndFilter() : void
     let
-      fut = (new Test).producer()
+      fut = new Test ! producer()
       p = empty[String]() ||| liftv("Test") ||| liftv("Quick") ||| liftv("Encore") ||| liftf(fut)
       filteredP = filter[String](fun (s : String) => s.contains("k") || s.contains("prod"), p)
       bindP = bind[String, String](toUpperAndSmall, filteredP)

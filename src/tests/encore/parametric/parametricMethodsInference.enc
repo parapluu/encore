@@ -29,11 +29,11 @@ class Main
   var a : Test
   var p : TestPassive
   def testIdInference() : void
-    println(get(this.a.id("Hello type inference in active class")))
+    println(get(this.a ! id("Hello type inference in active class")))
     println(this.p.id("Hello type inference in passive class"))
   end
   def testIntegrationBetweenParamFunctionsAndMethods() : void
-    for item <- get(this.a.replicate(4, "Works")) do
+    for item <- get(this.a ! replicate(4, "Works")) do
       println(item)
     end
   end

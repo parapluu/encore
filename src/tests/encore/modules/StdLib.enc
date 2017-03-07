@@ -9,9 +9,7 @@ end
 class Main
   def main() : void
     val a = new Active[Greeter](fun () => new Greeter)
-    a.apply(fun (g : Greeter) 
-              g.greet()
-            end)
+    a ! apply(fun (g : Greeter) => g.greet())
   end
 end
 

@@ -176,6 +176,7 @@ data Error =
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
   | MissingMainClass
+  | BadSyncCallError
   | SyncStreamCall
   | UnknownTraitError Type
   | UnknownRefTypeError Type
@@ -360,6 +361,7 @@ instance Show Error where
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
 
+    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
@@ -539,13 +541,13 @@ instance Show Error where
         where
           mname = name call
           kind | isFunctionCall call = "function"
-               | isMethodCall call =
+               | isMethodCallOrMessageSend call =
                    if mname == constructorName
                    then "class"
                    else "method"
                | otherwise = error msg
           calledName | isFunctionCall call = show $ qname call
-                     | isMethodCall call =
+                     | isMethodCallOrMessageSend call =
                          if mname == constructorName
                          then show $ getType (target call)
                          else show mname

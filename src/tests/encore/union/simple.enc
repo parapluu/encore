@@ -3,19 +3,25 @@
 fun global(x : Foo) : void
   println("In global")
 end
+
 trait Foo
   def foo() : void
     println("In Foo")
   end
 end
+
 trait Bar
 end
+
 trait Baz
 end
+
 passive class C1 : Foo + Baz
 end
+
 passive class C2 : Foo + Bar
 end
+
 class Main
   def main() : void
     val x = if true then

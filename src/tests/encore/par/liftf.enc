@@ -75,19 +75,19 @@ class Main
   def test_primitive_liftf(m : StringChecker) : void
     let
       testContentFuture = new Test("Liftf Primitive Test")
-      primitive_par = liftf(testContentFuture.get_string())
+      primitive_par = liftf(testContentFuture ! get_string())
     in
-      primitive_par >> fun (s : String) => m.deterministicOutput(s)
+      primitive_par >> fun (s : String) => m ! deterministicOutput(s)
     end
   end
   def test_passive_liftf(m : StringChecker) : void
     let
       test = new Test("Liftf Passive Test")
-      passive_par = liftf(test.get_pasive())
+      passive_par = liftf(test ! get_pasive())
     in
       passive_par >> fun (t : PassiveTest) 
                        t.elem
-                     end >> fun (s : String) => m.deterministicOutput(s)
+                     end >> fun (s : String) => m ! deterministicOutput(s)
     end
   end
   def main() : void

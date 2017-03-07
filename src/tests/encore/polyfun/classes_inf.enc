@@ -27,12 +27,12 @@ end
 class Main
   def main() : void
     val t = createTest("Create Test of type 'String'")
-    println(get(t.getArg()))
-    val arr = get(t.appendToArray("Adding a new string"))
+    println(get(t ! getArg()))
+    val arr = get(t ! appendToArray("Adding a new string"))
     repeat i <- |arr| do
       println(arr(i))
     end
-    val tup = get(t.toTuple("Adding to tuple"))
+    val tup = get(t ! toTuple("Adding to tuple"))
     println(tup)
   end
 end

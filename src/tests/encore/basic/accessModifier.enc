@@ -2,12 +2,15 @@
 
 class Main
   def main() : void
-    let t = new Test[String] in
-      t!publicMethod("test")
-      println(get(t.publicMethod("Testing access modifiers")))
+    let
+      t = new Test[String]
+    in
+      t ! publicMethod("test")
+      println(get(t ! publicMethod("Testing access modifiers")))
     end
   end
 end
+
 class Test[t]
   def method(x : t) : t
     x

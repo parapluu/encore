@@ -69,8 +69,8 @@ class Main
       pushY = push_to(y)
     in
       pushY(100)
-      get(driver.go(x, y))
-      println(get(driver.doPop()))
+      get(driver ! go(x, y))
+      println(get(driver ! doPop()))
       foo(x)
       println("Done!")
     end

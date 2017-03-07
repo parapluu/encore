@@ -9,21 +9,22 @@ class Other
     let
       othertmp = this.other
     in
-      othertmp.printMsg()
+      othertmp ! printMsg()
     end
   end
   def printMsg() : void
     println("Hello Actorworld!")
   end
 end
+
 class Main
   def main() : Fut[Fut[void]]
     let
       other = new Other
       another = new Other
     in
-      other.setOther(another)
-      other.work()
+      other ! setOther(another)
+      other ! work()
     end
   end
 end

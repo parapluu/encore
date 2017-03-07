@@ -2,7 +2,7 @@
 
 class Main
   def main() : void
-    println(get((new Bob).glenn()))
+    println(get(new Bob ! glenn()))
   end
 end
 class Bob

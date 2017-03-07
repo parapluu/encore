@@ -54,7 +54,7 @@ fun sequencePipeline[t](par : Par[t]) : Par[String]
                                                                                                         end)
     p2 = liftv(42) >> (fun (s : int) => string_from_int(s)) >> (id[String]) >> (fun (s : String) => s.concatenate(text))
     pClosure = par >> (fun (s : t) => id[t](s))
-    f = (new Test[String]("kiko")).getArg()
+    f = (new Test[String]("kiko")) ! getArg()
     pfut = liftf(f) >> (id[String])
   in
     p1 ||| p2 ||| pfut
@@ -63,7 +63,7 @@ end
 fun joinParTest[p](v : p) : Par[p]
   let
     v1 = liftv(liftv(v))
-    ft = liftf((new Test[p](v)).getArg())
+    ft = liftf((new Test[p](v)) ! getArg())
   in
     joinPar[p](liftv(ft)) ||| joinPar[p](v1)
   end

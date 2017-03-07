@@ -16,9 +16,9 @@ class Main
     var v = 0
     repeat i <- 1000 do
       val t = new Test
-      get(t.f())
+      get(t ! f())
       val f = fun (x : int) => id(x)
-      v = v + get(t.g(f))
+      v = v + get(t ! g(f))
     end
     println(v)
   end

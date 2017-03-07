@@ -2,17 +2,20 @@
 
 trait T
 end
+
 passive class Foo
   var g : T
 end
+
 class Other
   def pass(x : Foo) : void
     ()
   end
 end
+
 class Main
   def main() : void
-    (new Other).pass(new Foo)
+    new Other ! pass(new Foo)
     println("Done!")
   end
 end

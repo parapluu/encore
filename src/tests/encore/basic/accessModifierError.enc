@@ -9,7 +9,8 @@ class Main
     end
   end
 end
-class Test
+
+passive class Test
   def private privateMethod() : void
     ()
   end

@@ -11,7 +11,7 @@ class Main
     let
       x = new Bar[int] : T[int]
     in
-      println(get(x.id(10)))
+      println(get(x ! id(10)))
     end
   end
 end

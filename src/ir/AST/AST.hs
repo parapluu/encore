@@ -689,10 +689,15 @@ isLval FieldAccess {} = True
 isLval ArrayAccess {} = True
 isLval _ = False
 
+isMethodCallOrMessageSend e = isMethodCall e || isMessageSend e
+
 isMethodCall :: Expr -> Bool
 isMethodCall MethodCall {} = True
-isMethodCall MessageSend {} = True
 isMethodCall _ = False
+
+isMessageSend :: Expr -> Bool
+isMessageSend MessageSend {} = True
+isMessageSend _ = False
 
 isFunctionCall :: Expr -> Bool
 isFunctionCall FunctionCall {} = True

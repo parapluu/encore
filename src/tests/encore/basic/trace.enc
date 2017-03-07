@@ -27,9 +27,9 @@ class Main
       b = new B
       c = new B : C
       x = new Foo(a, b, c)
-      b2 = get(x.foo(b))
+      b2 = get(x ! foo(b))
     in
-      println((get(x.bar(b2))).read())
+      println((get(x ! bar(b2))).read())
     end
   end
 end
