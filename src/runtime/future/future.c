@@ -234,9 +234,8 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
   }
 
   {
-    closure_entry_t *current;
-    while(fut->children) {
-      current = fut->children;
+    closure_entry_t *current = fut->children;
+    while(current) {
       encore_arg_t result = run_closure(ctx, current->closure, value);
       if (current->future) {
         // This case happens when futures can be chained on.
@@ -252,14 +251,12 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       trace_closure_entry(cctx, current);
       pony_recv_done(cctx);
 
-      fut->children = current->next;
+      current = current->next;
     }
   }
   {
-    actor_list *current;
-    while(fut->awaited_actors) {
-      current  = fut->awaited_actors;
-
+    actor_list *current = fut->awaited_actors;
+    while(current) {
       pony_sendp(cctx, (pony_actor_t *)current->actor, _ENC__MSG_RESUME_AWAIT,
           current->uctx);
 
@@ -268,7 +265,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       encore_trace_actor(cctx, (pony_actor_t *)current->actor);
       pony_recv_done(cctx);
 
-      fut->awaited_actors = current->next;
+      current = current->next;
     }
   }
 
