@@ -1,18 +1,9 @@
-#+literate
-
-* Arrow Module
-
-Version 0.1
-Authors:
-- Kiko Fernandez-Reyes <kiko.fernandez@it.uu.se>
-
-#+BEGIN_SRC encore
 module Arrow(
     arr,
     first,
     second,
-    composition,
-    branch,
+    compose,
+    fanout,
     combine,
     liftA2,
     runArrow,
@@ -20,86 +11,90 @@ module Arrow(
   )
 
 import ParT
-#+END_SRC
 
-** arr :: Arrow a => (b -> c) -> a b c
+--
+-- use the `arr` combinator to lift a function into a parallel arrow. this does
+-- not execute the function but allows you to declarative compose functions.
+--
+-- To run a parallel arrow over a single item, use the `runArrow` function.
+--
+-- To run a parallel arrow over a collection of parallel items, use `runParArrow`.
+--
+-- Complex combinations are created with the following combinators:
+-- * first
+-- * second
+-- * compose
+-- * fanout
+-- * combine
+-- * liftA2
+--
 
-Lifting a function to a ParT arrow
 
-`arr` lifts a function to the ParT type. The ParT type represents
-an abstraction with possibly many functions. By lifting multiple
-functions these will potentially start performing work in parallel
-as soon as the `runArrow` method is called.
+typedef PArrow[a, b] = Par [a -> b]
 
-#+BEGIN_SRC encore
-fun arr[a, b](fn : a -> b) : Par[a -> b]
+--
+-- arr :: (b -> c) -> PArrow[b, c]
+--
+-- Lifting a function to a parallel arrow, a.k.a PArrow
+--
+-- `arr` lifts a function to the parallel arrow. The PArrow type represents
+-- an abstraction with possibly many functions. By lifting multiple
+-- functions these will potentially start performing work in parallel.
+--
+fun arr[a, b](fn : a -> b) : PArrow[a, b]
   liftv(fn)
 end
-#+END_SRC
 
-** first :: Arrow a => a b c -> a (b, b) (c, d)
-
-Given a ParT function that accepts one argument of type `a`
-and returns an argument of type `b`, return a lifted function
-that takes a tuple `(a, c)` and returns a tuple `(b, c)`.
-
-As it can be observed, the second argument in the tuple is not changed.
-
-#+BEGIN_SRC encore
 --
-fun first[a, b, c](p : Par[a -> b]) : Par[((a, c)) -> (b, c)]
+-- first :: PArrow[a, b] -> PArrow [a, c] [b, c]
+--
+-- Given a PArrow that accepts one argument of type `a`
+-- and returns an argument of type `b`, return a parallel arrow
+-- that takes a tuple `(a, c)` and returns a tuple `(b, c)`.
+-- (the second argument in the tuple is not changed).
+--
+fun first[a, b, c](p : PArrow[a, b]) : PArrow[(a, c), (b, c)]
   val closure = fun (fn : a -> b)
                   liftv(fun (t : (a, c)) => (fn(t.0), t.1))
                 end
   bind(closure, p)
 end
-#+END_SRC
 
-** second :: Arrow a => a b c -> A (d, b) (d, c)
-
-Given a ParT function that accepts one argument of type `a`
-and returns an argument of type `b`, return a lifted function
-that takes a tuple `(c, a)` and returns a tuple `(b, c)`.
-
-As it can be observed, the first argument in the tuple is not changed.
-
-#+BEGIN_SRC encore
-
-fun second[a, b, c](p : Par[a -> b]) : Par[((c, a)) -> (c, b)]
+--
+-- second :: PArrow[a, b] -> PArrow[(c, a), (c, b)]
+--
+-- Given a ParT function that accepts one argument of type `a`
+-- and returns an argument of type `b`, return a lifted function
+-- that takes a tuple `(c, a)` and returns a tuple `(b, c)`.
+-- (the first argument in the tuple is not changed).
+--
+fun second[a, b, c](p : PArrow[a, b]) : PArrow[(c, a), (c, b)]
   val closure = fun (fn : a -> b)
                   liftv(fun (t : (c, a)) => (t.0, fn(t.1)))
                 end
   bind(closure, p)
 end
-#+END_SRC
 
-
-** (>>>) :: Control.Category.Category cat => cat a b -> cat b c -> cat a c
-
-Same as function composition except that its ParT (arrow) composition
-
-#+BEGIN_SRC encore
--- private function
-fun compose[a, b, c](f1 : a -> b, f2 : b -> c) : a -> c
-  fun (x : a) => f2(f1(x))
-end
-
-fun composition[a, d, c](p : Par[a -> d], p2 : Par[d -> c]) : Par[a -> c]
+--
+-- compose :: PArrow[a, d] -> PArrow[d, c]) -> PArrow[a, c]
+--
+-- Parallel arrow composition. The output of the first arrow is given as
+-- input to the second arrow.
+--
+fun compose[a, d, c](p : PArrow[a, d], p2 : PArrow[d, c]) : PArrow[a, c]
   bind(fun (fn : a -> d)
-         bind(fun (fn2 : d -> c) => liftv(compose(fn, fn2)), p2)
+         bind(fun (fn2 : d -> c) => arr(fun (x : a) => fn2(fn(x))), p2)
        end, p)
 end
-#+END_SRC
 
-
-** (&&&) :: Arrow a => a b c -> a b c' -> a b (c, c')
-
-Given two ParT with the same first argument type in common,
-return a new ParT that performs the execution of both functions,
-yielding a tuple `(b, c)`
-
-#+BEGIN_SRC encore
-fun branch[a, b, c](p : Par[a -> b], p2 : Par[a -> c]) : Par[a -> (b, c)]
+--
+-- fanout :: PArrow[a, b] -> PArrow[a, c]) -> PArrow[a, (b, c)]
+--
+-- Given two parallel arrows that take the same first argument,
+-- return a new parallel arrow that executes both functions,
+-- yielding a tuple `(b, c)` as result.
+--
+fun fanout[a, b, c](p : PArrow[a, b], p2 : PArrow[a, c]) : PArrow[a, (b, c)]
   val clos = fun (fn1 : a -> b)
                val clos2 = fun (fn2 : a -> c)
                              liftv(fun (x : a) => (fn1(x), fn2(x)))
@@ -108,15 +103,14 @@ fun branch[a, b, c](p : Par[a -> b], p2 : Par[a -> c]) : Par[a -> (b, c)]
              end
   bind(clos, p)
 end
-#+END_SRC
 
-** (***) :: Arrow a => a b c -> a d e -> a (b, d) (c, e)
-
-Given two ParTs, return a lifted ParT that takes a tuple `(a, c)`
-and returns tuples `(b, d)`.
-
-#+BEGIN_SRC encore
-fun combine[a, b, c, d](p1 : Par[a -> b], p2 : Par[c -> d]) : Par[((a, c)) -> (b, d)]
+--
+-- combine :: PArrow[a, b] -> PArrow[c, d]) -> PArrow[(a, c), (b, d)]
+--
+-- Given two parallel arrows, return a new parallel arrow that takes tuples
+-- `(a, c)` and return tuples `(b, d)`.
+--
+fun combine[a, b, c, d](p1 : PArrow[a, b], p2 : PArrow[c, d]) : PArrow[(a, c), (b, d)]
   val clos = fun (fn1 : a -> b)
                val clos2 = fun (fn2 : c -> d)
                              liftv(fun (t : (a, c)) => (fn1(t.0), fn2(t.1)))
@@ -125,48 +119,37 @@ fun combine[a, b, c, d](p1 : Par[a -> b], p2 : Par[c -> d]) : Par[((a, c)) -> (b
              end
   bind(clos, p1)
 end
-#+END_SRC
 
-** runArrow
+--
+-- liftA2 :: ((b, c) -> d) -> PArrow[a, b] -> PArrow[a, c] -> PArrow [a, d]
+--
+-- Given two parallel arrows that take the same argument, compose them and
+-- aggregate their results with the function given as first argument.
+-- (this resembles a ForkJoin in the sense that two functions may run possibly
+--  in parallel and their end result will be aggregated using the function `fn`).
+--
+fun liftA2[a, b, c, d](fn: (b, c) -> d, p1: PArrow[a, b], p2: PArrow[a, c]): PArrow [a, d]
+  val pb = fanout(p1, p2)
+  val fnArr = arr(fun (t: (b, c)) => fn(t.0, t.1))
+  compose(pb, fnArr)
+end
 
-This function is not needed in Haskell but it is needed in the ParT
-abstraction. This is because a ParT may contain possibly many
-functions. When we pass an initial item we cannot know if the ParT
-contains a single lifted function or many of them inside. For this
-reason and to continue executing functions asynchronously, we return
-a new ParT.
-
-Utility function to lift the item into the arrow and perform function application
-
-#+BEGIN_SRC encore
-fun runArrow[a, b](item : a, p : Par[a -> b]) : Par[b]
+--
+-- runArrow :: a -> PArrow[a, b]) -> Par[b]
+--
+-- Lift the item to the parallel arrow. All functions in the PArrow are applied
+-- to the item. return a ParT collection.
+--
+fun runArrow[a, b](item : a, p : PArrow[a, b]) : Par[b]
   p >> (fun (fn : a -> b) => fn(item))
 end
-#+END_SRC
 
-** liftA2 :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
-
-A bit similar in functionality to the `liftA2` from Haskell except that
-we don't have support for typeclasses and the logic has been hard coded
-especifically for the ParT abstraction. It resembles a ForkJoin in the sense
-that two functions may run possibly in parallel and their end result
-will be aggregated using the function `fn`.
-
-#+BEGIN_SRC encore
-fun liftA2[a, b, c, d](fn: (b, c) -> d, p1: Par[a -> b], p2: Par[a -> c]): Par [a -> d]
-  val pb = branch(p1, p2)
-  val fnArr = liftv(fun (t: (b, c)) => fn(t.0, t.1))
-  composition(pb, fnArr)
-end
-#+END_SRC
-
-** runParArrow
-
-Given a ParT abstraction and a ParT arrow, lift each item in the ParT
-to the arrow function and run.
-
-#+BEGIN_SRC encore
-fun runParArrow[a, b](p: Par[a], arrow: Par[a -> b]): Par[b]
+--
+-- runParrArrow :: Par[a] -> PArrow[a, b] -> Par[b]
+--
+-- Given a ParT collection and a parallel arrow, lift each item in the ParT
+-- to the arrow function. return a ParT collection.
+--
+fun runParArrow[a, b](p: Par[a], arrow: PArrow[a, b]): Par[b]
   join(p >> fun (item: a) => runArrow(item, arrow))
 end
-#+END_SRC
