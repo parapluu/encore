@@ -1,0 +1,26 @@
+passive class Foo
+  def bar() : void
+    for i <- [0..10] do
+      print ("{} ",i)
+      if i>5 then
+        break
+        print ("Never show")
+      end
+    end
+  end
+end
+
+class Main
+  def main() : void
+    for i <- [0..10] do
+      print ("{} ",i)
+      if i>5 then
+        break
+        print ("Never show")
+      end
+    end
+    print ("Done!\n")
+    (new Foo).bar()
+    print ("Done!\n")
+  end
+end

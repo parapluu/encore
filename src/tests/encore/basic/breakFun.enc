@@ -1,0 +1,9 @@
+fun foo() : void
+  break
+end
+
+class Main
+  def main() : void
+    ()
+  end
+end

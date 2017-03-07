@@ -15,7 +15,9 @@ module Typechecker.TypeError (Backtrace
                              ,TCWarning(TCWarning)
                              ,Warning(..)
                              ,currentMethodFromBacktrace
-                             ,currentFunctionFromBacktrace) where
+                             ,currentFunctionFromBacktrace
+                             ,validUseOfBreak
+                             ) where
 
 import Text.PrettyPrint
 import Text.Megaparsec(SourcePos)
@@ -84,6 +86,14 @@ currentFunctionFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
 currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
+
+validUseOfBreak :: Backtrace -> Bool 
+validUseOfBreak [] = False
+validUseOfBreak ((_, BTExpr l@For{}):_) = True
+validUseOfBreak ((_, BTExpr l@While{}):_) = True
+validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
+validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
+validUseOfBreak (_:bt) = validUseOfBreak bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -179,6 +189,8 @@ data Error =
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
   | TraitsInActiveClassError
+  | BreakOutsideOfLoopError
+  | BreakUsedAsExpressionError
   | NonCallableTargetError Type
   | NonSendableTargetError Type
   | MainMethodCallError
@@ -383,6 +395,10 @@ instance Show Error where
                   nameWithKind targetType
     show (TraitsInActiveClassError) =
         "Traits can only be used for passive classes"
+    show BreakUsedAsExpressionError =
+        "Break is a statement and cannot be used as a value or expression"
+    show BreakOutsideOfLoopError =
+        "Break can only be used inside loops"
     show (NonCallableTargetError targetType) =
         printf "Cannot call method on expression of type '%s'"
                (show targetType)

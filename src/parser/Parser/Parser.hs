@@ -182,6 +182,7 @@ reservedNames =
     ,"Stream"
     ,"and"
     ,"bool"
+    ,"break"
     ,"case"
     ,"char"
     ,"class"
@@ -916,6 +917,7 @@ expression = makeExprParser expr opTable
 expr :: EncParser Expr
 expr = notFollowedBy nl >>
         (embed
+     <|> break
      <|> closure
      <|> match
      <|> blockedTask
@@ -1282,6 +1284,11 @@ expr = notFollowedBy nl >>
         emeta <- meta <$> getPosition
         reserved "eos"
         return Eos{emeta}
+
+      break = do
+        pos <- getPosition
+        reserved "break"
+        return $ Break (meta pos)
 
       closure = do
         indent <- L.indentLevel

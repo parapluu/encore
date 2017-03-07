@@ -25,14 +25,13 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import qualified AST.Util as Util (freeVariables, filter)
+import qualified AST.Util as Util (freeVariables, filter, markStatsInBody, isStatement)
 import AST.PrettyPrinter
 import Types
 import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
-
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->
@@ -127,13 +126,14 @@ instance Checkable Function where
       let funtype = functionType f
           funparams = functionParams f
           funtypeparams = functionTypeParams f
+          body = Util.markStatsInBody funtype funbody
       eBody <-
         local (addTypeParameters funtypeparams .
                addParams funparams .
                addLocalFunctions funlocals) $
                   if isVoidType funtype
-                  then typecheckNotNull funbody
-                  else hasType funbody funtype
+                  then typecheckNotNull body
+                  else hasType body funtype
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
                        mapM typecheck funlocals
@@ -399,13 +399,14 @@ instance Checkable MethodDecl where
         let mType   = methodType m
             mparams = methodParams m
             mtypeparams = methodTypeParams m
+            body = Util.markStatsInBody mType mbody
         eBody <-
             local (addTypeParameters mtypeparams .
                    addParams mparams .
                    addLocalFunctions mlocals) $
                        if isVoidType mType || isStreamMethod m
-                       then typecheckNotNull mbody
-                       else hasType mbody mType
+                       then typecheckNotNull body
+                       else hasType body mType
         when (isMatchMethod m) $
              checkPurity eBody
 
@@ -454,7 +455,17 @@ instance Checkable Expr where
     --  E |- () : void
     doTypecheck skip@(Skip {}) = return $ setType voidType skip
 
-   ---  |- t
+    --
+    -- ----------------
+    --  E |- break : void
+    doTypecheck break@(Break {emeta}) = do
+      unless (Util.isStatement break) $
+        tcError BreakUsedAsExpressionError
+      unlessM (asks $ checkValidUseOfBreak) $
+        tcError BreakOutsideOfLoopError
+      return $ setType voidType break
+
+    --    |- t
     --  E |- body : t
     -- ----------------------
     --  E |- (body : t) : t

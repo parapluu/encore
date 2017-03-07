@@ -115,6 +115,7 @@ pp' (If c t e) =
     bracedBlock (pp' e)
 pp' (Ternary c t e) = pp' c <> "?" <+> pp' t <> ":" <+> pp' e
 pp' (Return e) = "return" <+> pp' e <> ";"
+pp' (Break) = "break;"
 pp' (UnionInst name e) = "{." <> tshow name <+> "=" <+> pp' e <> "}"
 pp' (Int n) = tshow n
 pp' (String s) = tshow s

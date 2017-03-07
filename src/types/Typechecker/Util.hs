@@ -27,6 +27,7 @@ module Typechecker.Util(TypecheckM
                        ,propagateResultType
                        ,unifyTypes
                        ,uniquifyTypeVars
+                       ,checkValidUseOfBreak
                        ,abstractTraitFrom
                        ) where
 
@@ -103,6 +104,7 @@ tcWarning wrn =
 
 pushWarning expr wrn = local (pushBT expr) $ tcWarning wrn
 
+checkValidUseOfBreak = Typechecker.TypeError.validUseOfBreak . bt
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.
@@ -513,7 +515,6 @@ uniquifyTypeVar params ty
       then return $ typeVar ("_" ++ getId ty)
       else return ty
   | otherwise = return ty
-
 
 abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
 abstractTraitFrom cname (t, exts) = do

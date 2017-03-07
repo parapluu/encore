@@ -56,6 +56,7 @@
         "and"
         "async"
         "await"
+        "break"
         "by"
         "case"
         "chain"

@@ -14,6 +14,8 @@ module AST.Util(
     , freeTypeVars
     , mapProgramClass
     , exprTypeMap
+    , markStatsInBody
+    , isStatement
     ) where
 
 import qualified Data.List as List
@@ -23,6 +25,7 @@ import Prelude hiding (foldr, filter)
 import AST.AST
 import Types
 import Identifiers
+import AST.Meta(isStat,makeStat)
 
 -- | @getTypeChildren e@ returns all types that are part of @e@
 -- _syntactically_ (i.e. part of the AST node of @e@)
@@ -55,6 +58,7 @@ putTypeChildren l e =
 -- | @getChildren e@ returns all children of @e@ that are Exprs themselves
 getChildren :: Expr -> [Expr]
 getChildren Skip{} = []
+getChildren Break{} = []
 getChildren TypedExpr {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
@@ -129,6 +133,7 @@ getChildren Binop {loper, roper} = [loper, roper]
 -- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
 putChildren :: [Expr] -> Expr -> Expr
 putChildren [] e@Skip{} = e
+putChildren [] e@Break{} = e
 putChildren [] e@(FunctionAsValue {}) = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
@@ -204,6 +209,7 @@ putChildren [loper, roper] e@(Binop {}) = e{loper = loper, roper = roper}
 -- This very explicit error handling is there to make
 -- -fwarn-incomplete-patterns help us find missing patterns
 putChildren _ e@Skip{} = error "'putChildren l Skip' expects l to have 0 elements"
+putChildren _ e@Break{} = error "'putChildren l Break' expects l to have 0 elements"
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
 putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"
@@ -415,3 +421,41 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
     freeVariables' bound e@For{name, step, src, body} =
       freeVariables' (qLocal name:bound) =<< getChildren e
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
+
+
+markStatsInBody ty e 
+  | ty == voidType = mark asStat e
+  | otherwise      = mark asExpr e
+
+asStat e = setMeta e $ makeStat $ getMeta e
+asExpr e = e
+
+isStatement :: Expr -> Bool
+isStatement e = isStat (getMeta e)
+
+markAsStat = mark asStat
+markAsExpr = mark asExpr
+
+-- Traverses an AST tree and marks nodes as statements or expressions
+mark :: (Expr -> Expr) -> Expr -> Expr
+mark asParent s@Seq{eseq} =
+  asParent s{eseq=(map markAsStat $ init eseq) ++ [mark asParent $ last eseq]}
+mark asParent s@IfThenElse{cond, thn, els} =
+  asParent s{cond=markAsExpr cond, thn=mark asParent thn, els=mark asParent els}
+mark asParent s@Async{body} = asParent s{body=mark asParent body}
+mark asParent s@Assign {lhs, rhs} = asStat s{lhs=markAsStat lhs, rhs=markAsExpr rhs}
+mark asParent s@Print {args} = asStat s{args=map markAsExpr args}
+mark asParent s@MaybeValue{mdt=d@JustData{e}} = asParent s{mdt=d{e=mark asParent e}}
+mark asParent s@Let{body, decls} =
+  asParent s{body=mark asParent body, decls=map markDecl decls}
+  where
+    markDecl (n, e) = (n, markAsExpr e)
+mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
+mark asParent s@For{step, src, body} =
+  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}
+mark asParent s =
+  let
+    children = AST.Util.getChildren s
+    children' = map markAsExpr children
+  in
+    asParent $ AST.Util.putChildren children' s

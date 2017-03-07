@@ -14,12 +14,14 @@ data MetaInfo = Unspecified
 data Meta a = Meta {sourcePos   :: SourcePos,
                     metaType    :: Maybe Type,
                     sugared     :: Maybe a,
+                    statement   :: Bool,
                     metaInfo    :: MetaInfo} deriving (Eq, Show)
 
 meta :: SourcePos -> Meta a
 meta pos = Meta {sourcePos = pos
                 ,metaType = Nothing
                 ,sugared = Nothing
+                ,statement = False
                 ,metaInfo = Unspecified}
 
 showSourcePos pos =
@@ -56,3 +58,9 @@ metaTask id m = m {metaInfo = Async id}
 
 getMetaId :: Meta a -> String
 getMetaId = metaId . metaInfo
+
+isStat :: Meta a -> Bool
+isStat Meta{statement} = statement
+
+makeStat :: Meta a -> Meta a
+makeStat m@Meta{statement} = m{statement=True}
