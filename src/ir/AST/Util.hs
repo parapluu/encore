@@ -437,7 +437,6 @@ markAsStat = mark asStat
 markAsExpr = mark asExpr
 
 -- Traverses an AST tree and marks nodes as statements or expressions
--- Uses the m alias to mark to save hspace
 mark :: (Expr -> Expr) -> Expr -> Expr
 mark asParent s@Seq{eseq} =
   asParent s{eseq=(map markAsStat $ init eseq) ++ [mark asParent $ last eseq]}
