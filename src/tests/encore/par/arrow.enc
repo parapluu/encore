@@ -1,0 +1,79 @@
+import ParT.Arrow
+
+fun printResult(t : (int, int)) : void
+  match t with
+    case (k, v) =>
+      println("{}: {}", k, v)
+    end
+  end
+end
+
+fun pprint(x : int) : void
+  println(x)
+end
+
+fun printVoidTuple(t : (int, int)) : (void, void)
+  (printResult(t), ())
+end
+
+class Main
+  def main() : void
+    val inc = fun (x : int) => x + 1
+    val double = fun (x : int) => x * 2
+
+    -- Test: first :: PArrow[a, b] -> PArrow [a, c] [b, c]
+    val ff = first[int, int, int](arr(inc))
+    val pr = arr(printResult)
+    val ffc = compose(ff, pr)
+    runArrow((4, 5), ffc)
+
+    -- Test: second :: PArrow[a, b] -> PArrow[(c, a), (c, b)]
+    val fsecond = second[int, int, int](arr(inc))
+    val ffc = compose(fsecond, pr)
+    runArrow((4, 5), ffc)
+
+    -- Test: compose :: PArrow[a, d] -> PArrow[d, c]) -> PArrow[a, c]
+    val fn = compose(arr(inc), arr(double))
+    val ffc = compose(fn, arr(pprint))
+    runArrow(4, ffc)
+
+    -- Test: fanout :: PArrow[a, b] -> PArrow[a, c]) -> PArrow[a, (b, c)]
+    val fn = fanout(arr(inc), arr(double))
+    val ffc = compose(fn, arr[(int, int), (void, void)](printVoidTuple))
+    runArrow(5, ffc)
+
+    -- Test: combine :: PArrow[a, b] -> PArrow[c, d]) -> PArrow[(a, c), (b, d)]
+    val fn = combine(arr(inc), arr(double))
+    val ffc = compose(fn, arr[(int, int), (void, void)](printVoidTuple))
+    runArrow((5, 6), ffc)
+
+    -- Test: runParArrow
+    --
+    -- The ASCII diagram below depics the operations perform on the ParT
+    -- for numbers from 0..8
+    --
+    --
+    --          .--- double . inc
+    --         /                 \
+    --     .- 1                   + ----.
+    --    /    \                 /       \
+    --   |      .--- double . mod         \
+    -- par                                 +  final result
+    --   |      .--- double . inc         /|
+    --    \    /                 \       / |
+    --     .- 2                   + ----.  |
+    --         \                 /         |
+    --          .--- double . mod         /
+    --                                   /
+    --        3   ...    ...   ---------.
+
+    val incAndDouble = compose(arr(inc), arr(double))
+    val modAndDouble = compose(arr(fun (x: int) => x % 2), arr(double))
+    -- liftA2 :: ((b, c) -> d) -> PArrow[a, b] -> PArrow[a, c] -> PArrow [a, d]
+    val aggregation = liftA2(fun (x: int, y: int) => x + y, incAndDouble, modAndDouble)
+    val par = each([1, 2, 3, 4, 5, 6, 7, 8])
+    -- runParrArrow :: Par[a] -> PArrow[a, b] -> Par[b]
+    val pResult = runParArrow(par, aggregation)
+    reduce(fun (acc: int, x: int) => acc + x, 0, pResult) ~~> pprint
+  end
+end
