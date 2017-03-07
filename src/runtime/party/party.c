@@ -475,53 +475,56 @@ static inline array_t* party_to_array(pony_ctx_t **ctx,
                                       pony_type_t *type)
 {
   array_t *ar = array_mk(ctx, ar_size, type);
-  list_t *tmp_lst = NULL;
-  size_t i = 0;
-  while(p){
-    assert(i < ar_size);
-    switch(p->tag){
-    case EMPTY_PAR: {
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      break;
-    }
-    case VALUE_PAR: {
-      array_set(ar, i, party_get_v(p));
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      ++i;
-      break;
-    }
-    case FUTURE_PAR: {
-      future_t *fut = party_get_fut(p);
-      value_t v = future_get_actor(ctx, fut);
-      array_set(ar, i, v);
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      ++i;
-      break;
-    }
-    case PAR_PAR: {
-      par_t *left = party_get_parleft(p);
-      par_t *right = party_get_parright(p);
-      tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
-      p = left;
-      break;
-    }
-    case FUTUREPAR_PAR: {
-      future_t *futpar = party_get_futpar(p);
-      p = future_get_actor(ctx, futpar).p;
-      break;
-    }
-    case ARRAY_PAR: {
-      array_t* p_ar = party_get_array(p);
-      size_t size_p = array_size(p_ar);
-      for(size_t j = 0; j < size_p; ++j){
-        value_t value = array_get(p_ar, j);
-        array_set(ar, i, value);
-        ++i;
+
+  if (ar_size > 0){
+    list_t *tmp_lst = NULL;
+    size_t i = 0;
+    while(p){
+      assert(i < ar_size);
+      switch(p->tag){
+      case EMPTY_PAR: {
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
       }
-      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
-      break;
-    }
-    default: exit(-1);
+      case VALUE_PAR: {
+        array_set(ar, i, party_get_v(p));
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        ++i;
+        break;
+      }
+      case FUTURE_PAR: {
+        future_t *fut = party_get_fut(p);
+        value_t v = future_get_actor(ctx, fut);
+        array_set(ar, i, v);
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        ++i;
+        break;
+      }
+      case PAR_PAR: {
+        par_t *left = party_get_parleft(p);
+        par_t *right = party_get_parright(p);
+        tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+        p = left;
+        break;
+      }
+      case FUTUREPAR_PAR: {
+        future_t *futpar = party_get_futpar(p);
+        p = future_get_actor(ctx, futpar).p;
+        break;
+      }
+      case ARRAY_PAR: {
+        array_t* p_ar = party_get_array(p);
+        size_t size_p = array_size(p_ar);
+        for(size_t j = 0; j < size_p; ++j){
+          value_t value = array_get(p_ar, j);
+          array_set(ar, i, value);
+          ++i;
+        }
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      default: exit(-1);
+      }
     }
   }
   return ar;
@@ -611,7 +614,7 @@ grouping_futures_async(pony_ctx_t** ctx,
 
   if (prev_counter == 1) {
     value_t args[] = { [0] = {.p=par}, [1] = {.p = cmp} };
-    value_t result = closure_call(ctx, clos, args);
+    value_t result = closure_call(ctx, clos, args); // (V tuple)
     future_fulfil(ctx, promise, result);
   }
   return (value_t) {.p = NULL};
@@ -717,7 +720,14 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
     return (par_t *) closure_call(ctx, call, args).p;
   }
 
-  future_t *promise = future_mk(ctx, type);
+  // for distinct, the type should be par->rtype, because the closure call returns a Par.
+  // if we assign `type`, we are creating a future with rtype = tuple. but the future
+  // is going to be fulfilled with a Par(tuple(...)).
+
+  // There is a dependency between the promise and the return type of the call!
+
+  // in other cases, does it need to be type?
+  future_t *promise = future_mk(ctx, get_rtype(par));
   struct env_collect_from_party *env = encore_alloc(*ctx, sizeof(struct env_collect_from_party));
   env->counter = size;
   env->par = par;
