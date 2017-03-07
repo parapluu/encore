@@ -149,6 +149,29 @@ static inline void future_gc_trace_value(pony_ctx_t *ctx, future_t *fut)
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
+
+//
+// a future has a lock attached to it. actors may acquire the same lock
+// multiple times (re-entrant locks). this does not happen when we work with plain Encore
+// however, re-entrant locks are necessary for the ParT runtime library.
+//
+// Use case:
+// By allowing re-entrant locks, one can create a promise that is fulfilled only
+// when all futures in a ParT (function `party_promise_await_on_futures`) are
+// fulfilled. all futures in a ParT get chained a closure that contains the promise
+// to fulfil and the original ParT. this promise gets called only when all
+// futures in the ParT have been fulfilled. when that happens, the closure
+// fulfils the promise and runs some function on the original ParT.
+// in pseudo-code:
+//
+//  val par = liftf(Fut t) :: Par t
+//  var promise = new Promise
+//  val clos = \(..., env = [par, promise]) -> do something
+//  (forall f in (getFuts par), f ~~> clos)
+//  await(promise)
+//
+//  this same code can be found in `party_promise_await_on_futures`.
+//
 future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
 {
   pony_ctx_t *cctx = *ctx;
@@ -220,7 +243,7 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
         // As an optimisation to the ParT library, we do know
         // that certain functions in the ParT do not need to fulfil
         // a future, e.g. the ParT optimised version is called
-        // `future_register_callback` and sets `entry->future = NULL`
+        // `future_register_callback` and sets `current->future = NULL`
         future_fulfil(ctx, current->future, result);
       }
 
@@ -229,10 +252,6 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       trace_closure_entry(cctx, current);
       pony_recv_done(cctx);
 
-      // re-entrant locks allow the possibility that the same future tries to be
-      // fulfilled more than once. in debug mode this will be catch.
-      // in production mode this is not the case. with this update we make sure
-      // that the children closures are run only once!
       fut->children = current->next;
     }
   }
@@ -249,9 +268,6 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
       encore_trace_actor(cctx, (pony_actor_t *)current->actor);
       pony_recv_done(cctx);
 
-      // re-entrant locks allos the possibility of entering more than once
-      // in this function (`future_fulfil`). if that happens, do not try
-      // to update the actors more than once.
       fut->awaited_actors = current->next;
     }
   }
