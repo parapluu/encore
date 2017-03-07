@@ -11,7 +11,7 @@ end
 fun liftFutureValues(max : int) : Par[int]
   var p = empty[int]()
   repeat i <- max do
-    p = p ||| liftf((new T).set(i))
+    p = p ||| liftf(new T ! set(i))
   end
   p
 end

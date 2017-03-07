@@ -16,7 +16,7 @@ fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
               end
 
             end
-    p = p ||| liftf((new Generator).produce(s))
+    p = p ||| liftf(new Generator!produce(s))
   end
   p
 end
