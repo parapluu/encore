@@ -186,6 +186,7 @@ reservedNames =
     ,"case"
     ,"char"
     ,"class"
+    ,"continue"
     ,"def"
     ,"do"
     ,"else"
@@ -918,6 +919,7 @@ expr :: EncParser Expr
 expr = notFollowedBy nl >>
         (embed
      <|> break
+     <|> continue
      <|> closure
      <|> match
      <|> blockedTask
@@ -1289,6 +1291,11 @@ expr = notFollowedBy nl >>
         pos <- getPosition
         reserved "break"
         return $ Break (meta pos)
+
+      continue = do
+        pos <- getPosition
+        reserved "continue"
+        return $ Continue (meta pos)
 
       closure = do
         indent <- L.indentLevel

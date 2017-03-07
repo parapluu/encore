@@ -465,6 +465,16 @@ instance Checkable Expr where
         tcError BreakOutsideOfLoopError
       return $ setType unitType break
 
+    --
+    -- ----------------
+    --  E |- Continue : void
+    doTypecheck continue@(Continue {emeta}) = do
+      unless (Util.isStatement continue) $
+        tcError ContinueUsedAsExpressionError
+      unlessM (asks $ checkValidUseOfContinue) $
+        tcError ContinueOutsideOfLoopError
+      return $ setType unitType continue
+
     --    |- t
     --  E |- body : t
     -- ----------------------
@@ -1049,6 +1059,15 @@ instance Checkable Expr where
     -- -----------------------
     --  E |- while cond body : t
     doTypecheck while@(While {cond, body}) =
+        do eCond <- hasType cond boolType
+           eBody <- typecheck body
+           return $ setType unitType while {cond = eCond, body = eBody}
+
+    --  E |- cond : bool
+    --  E |- body : t
+    -- -----------------------
+    --  E |- do body while cond : t
+    doTypecheck while@(DoWhile {cond, body}) =
         do eCond <- hasType cond boolType
            eBody <- typecheck body
            return $ setType unitType while {cond = eCond, body = eBody}

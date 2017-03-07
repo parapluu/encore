@@ -515,6 +515,7 @@ instance Show Mutability where
 
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
+          | Continue {emeta :: Meta Expr}
           | TypedExpr {emeta :: Meta Expr,
                        body :: Expr,
                        ty   :: Type}

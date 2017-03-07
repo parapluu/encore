@@ -239,6 +239,7 @@ ppBody e = ppExpr e
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
+ppExpr Continue {} = "Continue"
 ppExpr MethodCall {target, name, args, typeArguments = []} =
     maybeParens target <> "." <> ppName name <>
       parens (commaSep (map ppExpr args))

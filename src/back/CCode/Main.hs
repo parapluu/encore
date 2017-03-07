@@ -88,11 +88,13 @@ data CCode a where
     Sizeof       :: CCode Ty -> CCode Expr
     FunTypeDef   :: CCode Name -> CCode Ty -> [CCode Ty] -> CCode Toplevel
     While        :: CCode Expr -> CCode Stat -> CCode Stat
+    DoWhile      :: CCode Expr -> CCode Stat -> CCode Stat
     StatAsExpr   :: CCode Lval -> CCode Stat -> CCode Expr
     If           :: UsableAs e Expr => CCode e -> CCode Stat -> CCode Stat -> CCode Expr
     Ternary      :: UsableAs e Expr => CCode e -> CCode Expr -> CCode Expr -> CCode Expr
     Return       :: UsableAs e Expr => CCode e -> CCode Stat
     Break        :: CCode Stat
+    Continue     :: CCode Stat
     UnionInst    :: UsableAs e Expr => CCode Name -> CCode e -> CCode Expr
     Int          :: Int -> CCode Expr
     Char         :: Char -> CCode Expr
