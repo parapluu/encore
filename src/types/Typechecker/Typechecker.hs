@@ -680,6 +680,9 @@ instance Checkable Expr where
                     "is not a method or function call"
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
+      when (Util.isStatement maybeData) $
+        tcWarning $ ExpressionResultIgnoredWarning maybeData
+
       eBody <- maybeTypecheck mdt
       let returnType = case eBody of
                          (JustData exp) -> AST.getType exp
@@ -696,9 +699,13 @@ instance Checkable Expr where
     -- ---------------------------------
     -- E |- (arg1, .., argn) : (ty1, .., tyn)
     doTypecheck tuple@(Tuple {args}) = do
+      when (Util.isStatement tuple) $
+        tcWarning $ ExpressionResultIgnoredWarning tuple
       eArgs <- mapM typecheck args
       let argTypes = map AST.getType eArgs
       return $ setType (tupleType argTypes) tuple{args = eArgs}
+
+
 
     --  E |- f : (t1 .. tn) -> t
     --  typeVarBindings() = B
@@ -1273,33 +1280,48 @@ instance Checkable Expr where
     -- ----------------
     --  E |- name : t
     doTypecheck var@(VarAccess {qname}) = do
-           result <- findVar qname
-           case result of
-             Just (qname', ty) ->
-               if isArrowType ty
-               then do
-                 let typeParams = getTypeParameters ty
-                 unless (null typeParams) $
-                    tcError $ WrongNumberOfFunctionTypeArgumentsError qname
-                              (length typeParams) 0
-                 return $ setType ty var{qname = qname'}
-               else return $ setType ty var{qname = qname'}
-             Nothing -> tcError $ UnboundVariableError qname
+      when (Util.isStatement var) $
+        tcWarning $ ExpressionResultIgnoredWarning var
+
+      result <- findVar qname
+      case result of
+        Just (qname', ty) ->
+          if isArrowType ty
+          then do
+            let typeParams = getTypeParameters ty
+            unless (null typeParams) $
+               tcError $ WrongNumberOfFunctionTypeArgumentsError qname
+                         (length typeParams) 0
+            return $ setType ty var{qname = qname'}
+          else return $ setType ty var{qname = qname'}
+        Nothing -> tcError $ UnboundVariableError qname
 
     --
     -- ----------------------
     --  E |- null : nullType
-    doTypecheck e@Null {} = return $ setType nullType e
+    doTypecheck e@Null {} = do
+      when (Util.isStatement e) $
+        tcWarning $ ExpressionResultIgnoredWarning e
+
+      return $ setType nullType e
 
     --
     -- ------------------
     --  E |- true : bool
-    doTypecheck true@BTrue {} = return $ setType boolType true
+    doTypecheck true@BTrue {} = do
+      when (Util.isStatement true) $
+        tcWarning $ ExpressionResultIgnoredWarning true
+
+      return $ setType boolType true
 
     --
     -- ------------------
     --  E |- false : bool
-    doTypecheck false@BFalse {} = return $ setType boolType false
+    doTypecheck false@BFalse {} = do
+      when (Util.isStatement false) $
+        tcWarning $ ExpressionResultIgnoredWarning false
+
+      return $ setType boolType false
 
    ---  |- ty
     --  classLookup(ty) = _
@@ -1352,13 +1374,17 @@ instance Checkable Expr where
     --  E |- k : int
     -- ----------------------------
     --  E |- [n..m by k] : Range
-    doTypecheck range@(RangeLiteral {start, stop, step}) =
-        do eStart <- hasType start intType
-           eStop  <- hasType stop  intType
-           eStep  <- hasType step  intType
-           return $ setType rangeType range{start = eStart
-                                           ,stop = eStop
-                                           ,step = eStep}
+    doTypecheck range@(RangeLiteral {start, stop, step}) = do
+        when (Util.isStatement range) $
+          tcWarning $ ExpressionResultIgnoredWarning range
+
+        eStart <- hasType start intType
+        eStop  <- hasType stop  intType
+        eStep  <- hasType step  intType
+
+        return $ setType rangeType range{start = eStart
+                                        ,stop = eStop
+                                        ,step = eStep}
 
     --  E |- rng : Range
     --  E, x : int |- e : ty
@@ -1400,13 +1426,16 @@ instance Checkable Expr where
     --  E |- arg1 : ty .. E |- argn : ty
     -- ----------------------------------
     --  E |- [arg1, .., argn] : [ty]
-    doTypecheck arr@(ArrayLiteral {args}) =
-        do when (null args) $
-                tcError EmptyArrayLiteralError
-           eArg1 <- doTypecheck (head args)
-           let ty = AST.getType eArg1
-           eArgs <- mapM (`hasType` ty) args
-           return $ setType (arrayType ty) arr{args = eArgs}
+    doTypecheck arr@(ArrayLiteral {args}) = do
+        when (Util.isStatement arr) $
+          tcWarning $ ExpressionResultIgnoredWarning arr
+
+        when (null args) $
+             tcError EmptyArrayLiteralError
+        eArg1 <- doTypecheck (head args)
+        let ty = AST.getType eArg1
+        eArgs <- mapM (`hasType` ty) args
+        return $ setType (arrayType ty) arr{args = eArgs}
 
     --  E |- target : [ty]
     --  E |- index : int
@@ -1484,15 +1513,35 @@ instance Checkable Expr where
       matchArguments args expectedTypes
       return $ setType bottomType abort{args=([]::[Expr])}
 
-    doTypecheck stringLit@(StringLiteral {}) = return $ setType stringType stringLit
+    doTypecheck stringLit@(StringLiteral {}) = do
+      when (Util.isStatement stringLit) $
+        tcWarning $ ExpressionResultIgnoredWarning stringLit
 
-    doTypecheck charLit@(CharLiteral {}) = return $ setType charType charLit
+      return $ setType stringType stringLit
 
-    doTypecheck intLit@(IntLiteral {}) = return $ setType intType intLit
+    doTypecheck charLit@(CharLiteral {}) = do
+      when (Util.isStatement charLit) $
+        tcWarning $ ExpressionResultIgnoredWarning charLit
 
-    doTypecheck uintLit@(UIntLiteral {}) = return $ setType uintType uintLit
+      return $ setType charType charLit
 
-    doTypecheck realLit@(RealLiteral {}) = return $ setType realType realLit
+    doTypecheck intLit@(IntLiteral {}) = do
+      when (Util.isStatement intLit) $
+        tcWarning $ ExpressionResultIgnoredWarning intLit
+
+      return $ setType intType intLit
+
+    doTypecheck uintLit@(UIntLiteral {}) = do
+      when (Util.isStatement uintLit) $
+        tcWarning $ ExpressionResultIgnoredWarning uintLit
+
+      return $ setType uintType uintLit
+
+    doTypecheck realLit@(RealLiteral {}) = do
+      when (Util.isStatement realLit) $
+        tcWarning $ ExpressionResultIgnoredWarning realLit
+
+      return $ setType realType realLit
 
    ---  |- ty
     -- ---------------------
@@ -1539,53 +1588,61 @@ instance Checkable Expr where
     -- etc.
     doTypecheck bin@(Binop {binop, loper, roper})
       | binop `elem` boolOps = do
+          checkThatResultIsUsed
+
           eLoper <- typecheck loper
           eRoper <- typecheck roper
           let lType = AST.getType eLoper
               rType = AST.getType eRoper
           unless (isBoolType lType && isBoolType rType) $
-                  tcError $ BinaryOperandMismatchError binop "boolean"
-                                                       lType rType
+            tcError $ BinaryOperandMismatchError binop "boolean" lType rType
           return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` cmpOps = do
-             eLoper <- typecheck loper
-             eRoper <- typecheck roper
-             let lType = AST.getType eLoper
-                 rType = AST.getType eRoper
-             unless (isNumeric lType && isNumeric rType) $
-                    tcError $ BinaryOperandMismatchError binop "numeric"
-                                                         lType rType
-             return $ setType boolType bin {loper = eLoper, roper = eRoper}
+          checkThatResultIsUsed
+
+          eLoper <- typecheck loper
+          eRoper <- typecheck roper
+          let lType = AST.getType eLoper
+              rType = AST.getType eRoper
+          unless (isNumeric lType && isNumeric rType) $
+            tcError $ BinaryOperandMismatchError binop "numeric" lType rType
+          return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` eqOps = do
-             eLoper <- typecheck loper
-             eRoper <- typecheck roper
-             let lType = AST.getType eLoper
-             let rType = AST.getType eRoper
+          checkThatResultIsUsed
 
-             unlessM (lType `subtypeOf` rType) $
-               unlessM (rType `subtypeOf` lType) $
-                 tcError $ IdComparisonTypeMismatchError lType rType
+          eLoper <- typecheck loper
+          eRoper <- typecheck roper
+          let lType = AST.getType eLoper
+          let rType = AST.getType eRoper
 
-             unless (isTypeVar lType) $ checkIdComparisonSupport lType
-             unless (isTypeVar rType) $ checkIdComparisonSupport rType
+          unlessM (lType `subtypeOf` rType) $
+            unlessM (rType `subtypeOf` lType) $
+              tcError $ IdComparisonTypeMismatchError lType rType
 
-             when (isStringObjectType lType) $
-                  unless (isNullLiteral eRoper || isNullLiteral eLoper) $
+          unless (isTypeVar lType) $ checkIdComparisonSupport lType
+          unless (isTypeVar rType) $ checkIdComparisonSupport rType
+
+          when (isStringObjectType lType) $
+            unless (isNullLiteral eRoper || isNullLiteral eLoper) $
                          tcWarning StringIdentityWarning
-             when (isTypeVar lType) $
-                  tcWarning PolymorphicIdentityWarning
-             return $ setType boolType bin {loper = eLoper, roper = eRoper}
+          when (isTypeVar lType) $
+            tcWarning PolymorphicIdentityWarning
+
+          return $ setType boolType bin {loper = eLoper, roper = eRoper}
       | binop `elem` arithOps = do
-             eLoper <- typecheck loper
-             eRoper <- typecheck roper
-             let lType = AST.getType eLoper
-                 rType = AST.getType eRoper
-             unless (isNumeric lType && isNumeric rType) $
-                    tcError $ BinaryOperandMismatchError binop "numeric"
-                                                         lType rType
-             return $ setType (coerceTypes lType rType) bin {loper = eLoper, roper = eRoper}
+          checkThatResultIsUsed
+
+          eLoper <- typecheck loper
+          eRoper <- typecheck roper
+          let lType = AST.getType eLoper
+              rType = AST.getType eRoper
+          unless (isNumeric lType && isNumeric rType) $
+            tcError $ BinaryOperandMismatchError binop "numeric" lType rType
+          return $ setType (coerceTypes lType rType) bin {loper = eLoper, roper = eRoper}
       | otherwise = tcError $ UndefinedBinaryOperatorError binop
       where
+        checkThatResultIsUsed = when (Util.isStatement bin) $
+                                  tcWarning $ ExpressionResultIgnoredWarning bin
         boolOps  = [Identifiers.AND, Identifiers.OR]
         cmpOps   = [Identifiers.LT, Identifiers.GT, Identifiers.LTE, Identifiers.GTE]
         eqOps    = [Identifiers.EQ, NEQ]

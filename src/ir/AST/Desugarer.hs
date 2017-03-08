@@ -72,24 +72,24 @@ cloneMeta m = Meta.meta (Meta.sourcePos m)
 -- | A @MiniLet@ that has not been taken care of by @desugar@ is
 -- dead and can be removed.
 removeDeadMiniLet :: Expr -> Expr
-removeDeadMiniLet MiniLet{emeta, decl = (_, e)} = e
+removeDeadMiniLet m@MiniLet{} = head $ expandMiniLets [m]
 removeDeadMiniLet e = e
+
+expandMiniLets [] = []
+expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
+    [Let{emeta
+        ,mutability
+        ,decls = [decl]
+        ,body = Seq emeta $ case expandMiniLets seq of
+                             [] -> [Skip emeta]
+                             seq' -> seq'
+        }]
+expandMiniLets (e:seq) = e:expandMiniLets seq
 
 desugar :: Expr -> Expr
 
 -- Unfold sequenced declarations into let-expressions
 desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
-    where
-      expandMiniLets [] = []
-      expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
-          [Let{emeta
-              ,mutability
-              ,decls = [decl]
-              ,body = Seq emeta $ case expandMiniLets seq of
-                                   [] -> [Skip emeta]
-                                   seq' -> seq'
-              }]
-      expandMiniLets (e:seq) = e:expandMiniLets seq
 
 -- Exit
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
