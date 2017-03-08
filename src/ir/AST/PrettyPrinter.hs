@@ -236,23 +236,29 @@ ppSugared e = case getSugared e of
 ppBody (Seq {eseq}) = vcat $ map ppExpr eseq
 ppBody e = ppExpr e
 
+withOptional :: Bool -> Doc -> Doc
+withOptional b s = if b
+                   then "?" <> s
+                   else s
+
+withTypeArguments :: [Type] -> Doc
+withTypeArguments typeArguments =
+  if null typeArguments
+  then empty
+  else brackets (commaSep (map ppType typeArguments))
+
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
 ppExpr Continue {} = "Continue"
-ppExpr MethodCall {target, name, args, typeArguments = []} =
-    maybeParens target <> "." <> ppName name <>
+ppExpr Option {body} = ppExpr body
+ppExpr MethodCall {target, name, opt, args, typeArguments} =
+    maybeParens target <> withOptional opt "." <> ppName name <>
+      withTypeArguments typeArguments <>
       parens (commaSep (map ppExpr args))
-ppExpr MethodCall {target, name, args, typeArguments} =
-    maybeParens target <> "." <> ppName name <>
-      brackets (commaSep (map ppType typeArguments)) <>
-      parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args, typeArguments = []} =
-    maybeParens target <> "!" <> ppName name <>
-      parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args, typeArguments} =
-    maybeParens target <> "!" <> ppName name <>
-      brackets (commaSep (map ppType typeArguments)) <>
+ppExpr MessageSend {target, name, opt, args, typeArguments} =
+    maybeParens target <> withOptional opt "!" <> ppName name <>
+      withTypeArguments typeArguments <>
       parens (commaSep (map ppExpr args))
 ppExpr Liftf {val} = "liftf" <> parens (ppExpr val)
 ppExpr Liftv {val} = "liftv" <> parens (ppExpr val)
@@ -366,7 +372,8 @@ ppExpr IsEos {target} = "eos" <> parens (ppExpr target)
 ppExpr StreamNext {target} = "getNext" <> parens (ppExpr target)
 ppExpr Return {val} = "return" <> parens (ppExpr val)
 ppExpr Suspend {} = "suspend"
-ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
+ppExpr FieldAccess {target, opt, name} =
+  maybeParens target <> withOptional opt "." <> ppName name
 ppExpr ArrayAccess {target = target@FieldAccess{}, index} =
   parens (ppExpr target) <> parens (ppExpr index)
 ppExpr ArrayAccess {target, index} = ppExpr target <> parens (ppExpr index)

@@ -10,6 +10,9 @@ import Text.Megaparsec
 
 import qualified Data.List as List
 
+import Debug.Trace
+import AST.PrettyPrinter
+
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions}) =
   p{
@@ -60,7 +63,129 @@ desugarProgram p@(Program{traits, classes, functions}) =
       m{mbody = desugarExpr mbody
        ,mlocals = map desugarFunction mlocals}
 
-    desugarExpr = extend removeDeadMiniLet . extend desugar . extend selfSugar
+    -- NOTE:
+    -- `selfSugar` should always be the first thing.
+    -- otherwise the unsugared version is printed on typechecking errors
+    desugarExpr e = (extend removeDeadMiniLet . extend desugar . optionalAccess . extend selfSugar) e
+
+-- | Desugars the notation `x?.foo()` and `actor?!bar()` into
+--
+--     match x with
+--       case Just(_x) => Just(_x.foo())
+--       case Nothing  => Just(_x.foo())
+--     end
+--
+-- Currently the support is only for Option types.
+optionalAccess :: Expr -> Expr
+optionalAccess e@(Seq {eseq}) = e { eseq = map optionalAccess eseq}
+
+optionalAccess e@(MiniLet {decl=(n, ex)}) =
+  e {decl = (n, optionalAccess ex)}
+
+optionalAccess e@(Let {decls, body}) =
+  let (names, exprs) =  unzip decls
+      bindings = zipWith (\nam expr -> (nam, optionalAccess expr)) names exprs
+  in e { decls = bindings, body = optionalAccess body}
+
+optionalAccess e@(Assign {lhs, rhs}) = e {lhs = optionalAccess lhs,
+                                          rhs = optionalAccess rhs}
+
+optionalAccess r@Return {val} = r {val = optionalAccess val}
+optionalAccess m@Match {arg, clauses} =
+  m {arg = optionalAccess arg
+    ,clauses = map optClauses clauses}
+  where
+    optClauses clause@MatchClause {mchandler, mcguard} =
+      clause { mchandler = optionalAccess mchandler
+             , mcguard = optionalAccess mcguard }
+
+optionalAccess m@MessageSend {emeta, target, opt=True} =
+  let maybeVal = MaybeValue emeta $ JustData (m {target = handlerName ,opt=False})
+      handlerName = optVarAccessFactory emeta
+                        (Name . optionalVarPrefix . show $ ppExpr target)
+  in Match emeta target
+    [clauseNothing emeta,
+     MatchClause {mcpattern = MaybeValue{emeta ,mdt = JustData handlerName}
+                 ,mchandler = maybeVal
+                 ,mcguard = BTrue emeta}]
+
+optionalAccess FieldAccess{emeta, target, opt=True, name} =
+  let matchFactory arg =
+        let fAccess = FieldAccess emeta (handlerName emeta arg) False name
+            handlerBody = MaybeValue{emeta, mdt = JustData fAccess}
+        in matchBuilder (matcherName emeta arg)
+            (handlerName emeta arg) handlerBody
+  in desugarOptAccess target matchFactory
+  where
+    letExpr decl body = Let {emeta
+                            ,mutability = Val
+                            ,decls = [decl]
+                            ,body}
+    -- Names refer to:
+    --
+    -- val boundName = ...
+    -- match matcherName with
+    --   case Just(handlerName) => ...
+    -- end
+    --
+    matcherName e arg = optVarAccessFactory e arg
+    handlerName e arg = optVarAccessFactory e $ Name . optionalVarPrefix $ show arg
+    boundName arg = Name . (optionalVarPrefix . optionalVarPrefix) $ show arg
+
+    matchBuilder matcherNam handlerNam handler =
+      Match emeta matcherNam
+           [clauseNothing emeta,
+            MatchClause {mcpattern = MaybeValue{emeta ,mdt = JustData handlerNam}
+                        ,mchandler = handler
+                        ,mcguard = BTrue emeta}]
+
+    desugarOptAccess :: Expr -> (Name -> Expr) -> Expr
+    -- Base cases
+    desugarOptAccess VarAccess {qname} fn = fn (qnlocal qname)
+    desugarOptAccess fun@FunctionCall{qname} fn =
+      let boundedName = boundName $ qnlocal qname
+      in letExpr (boundedName, fun) (fn boundedName)
+
+    -- Inductive cases
+    desugarOptAccess MethodCall{emeta=e, typeArguments, target=t, opt, name=n, args} fn =
+      let matchFactory :: Name -> Expr
+          matchFactory arg =
+            let mCall = MethodCall e typeArguments (handlerName e arg) False n args
+                maybeMethodC = MaybeValue e (JustData mCall)
+            in if opt then
+               matchBuilder (matcherName e arg)
+                 (handlerName e arg)
+                 (letExpr (boundName arg, maybeMethodC)
+                     (fn $ boundName arg))
+               else maybeMethodC
+      in desugarOptAccess t matchFactory
+
+    desugarOptAccess FieldAccess {emeta=e, target=t, opt, name=n} fn =
+      let matchFactory :: Name -> Expr
+          matchFactory arg =
+            let f = FieldAccess e (handlerName e arg) False n
+                maybeFieldAccess = MaybeValue {emeta=e, mdt = JustData(f)}
+            in if opt
+               then matchBuilder (matcherName e arg)
+                                 (handlerName e arg)
+                                 (letExpr (boundName arg, maybeFieldAccess)
+                                    (fn $ boundName arg))
+               else maybeFieldAccess
+      in desugarOptAccess t matchFactory
+
+    -- TODO: this should not be a compiler crash but a compiler error.
+    --       update this when we get support to throw errors in the desugaring phase.
+    desugarOptAccess e _ = error $ "There is no current support for '" ++
+                                   (show $ ppExpr e) ++ "'."
+optionalAccess e = e
+
+-- Helper functions for optionalAccess desugaring function
+optionalVarPrefix = ("_" ++)
+optVarAccessFactory emeta arg = VarAccess emeta (QName Nothing Nothing arg)
+clauseNothing emeta = MatchClause {mcpattern = MaybeValue{emeta, mdt = NothingData}
+                                  ,mchandler = MaybeValue{emeta, mdt = NothingData}
+                                  ,mcguard   = BTrue emeta}
+
 
 -- | Let an expression remember its sugared form.
 selfSugar :: Expr -> Expr
@@ -208,10 +333,10 @@ desugar Unless{emeta, cond = originalCond, thn} =
 -- into
 --   do
 --     val start = 0
---     val stop = e1 
+--     val stop = e1
 --     var step = start
 --     while step < stop do
---       val i = step; 
+--       val i = step;
 --       step = step + 1;    -- placed here because of continue
 --       e2;
 --     end
@@ -242,7 +367,7 @@ desugar Repeat{emeta, name, times, body} =
 
 
 desugar Async{emeta, body} =
-  FunctionCall {emeta, typeArguments=[], qname, args}
+  FunctionCall {emeta, async = False, typeArguments=[], qname, args}
   where
     qname = QName{qnspace = Nothing, qnsource=Nothing, qnlocal = Name "spawn"}
     args = [lifted_body]
