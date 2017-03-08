@@ -1,13 +1,12 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     val x = 41
-    val f = fun () 
+    val f = fun ()
               val x = x + 1
               x
             end
     println(f())
   end
 end
-

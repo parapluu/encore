@@ -3,6 +3,6 @@
 # key: def
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-def ${1:init}($2) : ${3:void}
+def ${1:init}($2) : ${3:unit}
   $0
 end

@@ -1,6 +1,6 @@
 import ParT.Arrow
 
-fun printResult(t : (int, int)) : void
+fun printResult(t : (int, int)) : unit
   match t with
     case (k, v) =>
       println("{}: {}", k, v)
@@ -8,16 +8,16 @@ fun printResult(t : (int, int)) : void
   end
 end
 
-fun pprint(x : int) : void
+fun pprint(x : int) : unit
   println(x)
 end
 
-fun printVoidTuple(t : (int, int)) : (void, void)
+fun printUnitTuple(t : (int, int)) : (unit, unit)
   (printResult(t), ())
 end
 
 class Main
-  def main() : void
+  def main() : unit
     val inc = fun (x : int) => x + 1
     val double = fun (x : int) => x * 2
 
@@ -39,12 +39,12 @@ class Main
 
     -- Test: fanout :: PArrow[a, b] -> PArrow[a, c]) -> PArrow[a, (b, c)]
     val fn = fanout(arr(inc), arr(double))
-    val ffc = compose(fn, arr[(int, int), (void, void)](printVoidTuple))
+    val ffc = compose(fn, arr[(int, int), (unit, unit)](printUnitTuple))
     runArrow(5, ffc)
 
     -- Test: combine :: PArrow[a, b] -> PArrow[c, d]) -> PArrow[(a, c), (b, d)]
     val fn = combine(arr(inc), arr(double))
-    val ffc = compose(fn, arr[(int, int), (void, void)](printVoidTuple))
+    val ffc = compose(fn, arr[(int, int), (unit, unit)](printUnitTuple))
     runArrow((5, 6), ffc)
 
     -- Test: runParArrow

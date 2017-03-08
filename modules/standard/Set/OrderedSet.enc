@@ -5,11 +5,11 @@ passive class OrderedSet[t]
   var root : Node[t]
   var size : int
   var cmp : (t, t) -> int
-  def init(cmp : (t, t) -> int) : void
+  def init(cmp : (t, t) -> int) : unit
     this.cmp = cmp
     this.size = 0
   end
-  def add(e : t) : void
+  def add(e : t) : unit
     if this.root == null then
       this.root = new Node[t](e)
       this.size = 1
@@ -26,10 +26,10 @@ passive class OrderedSet[t]
       this.root.lookup(e, this.cmp)
     end
   end
-  def remove(e : t) : void
+  def remove(e : t) : unit
     assertTrue(false)
   end
-  def forEach(f : t -> void) : void
+  def forEach(f : t -> unit) : unit
     this.root.forEach(f)
   end
   def size() : int
@@ -51,14 +51,14 @@ passive class Node[t]
   var left : Node[t]
   var right : Node[t]
   var parent : Node[t]
-  def init(e : t) : void
+  def init(e : t) : unit
     this.elem = e
   end
-  def addAsLeftChild(n : Node[t]) : void
+  def addAsLeftChild(n : Node[t]) : unit
     this.left = n
     n.parent = this
   end
-  def addAsRightChild(n : Node[t]) : void
+  def addAsRightChild(n : Node[t]) : unit
     this.right = n
     n.parent = this
   end
@@ -106,7 +106,7 @@ passive class Node[t]
       end
     end
   end
-  def forEach(f : t -> void) : void
+  def forEach(f : t -> unit) : unit
     if this.left != null then
       this.left.forEach(f)
     end
@@ -152,14 +152,14 @@ passive class Node[t]
 end
 passive class OrderedSetIterator[t]
   var cur : Node[t]
-  def init(n : Node[t]) : void
+  def init(n : Node[t]) : unit
     if n == null then
       this.cur = null
     else
       this.cur = n.getMinNode()
     end
   end
-  def step() : void
+  def step() : unit
     if this.cur != null then
       this.cur = this.cur.getNextNode()
     end
@@ -180,4 +180,3 @@ passive class OrderedSetIterator[t]
     end
   end
 end
-

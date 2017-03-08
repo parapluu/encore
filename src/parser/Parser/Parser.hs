@@ -222,7 +222,7 @@ reservedNames =
     ,"unless"
     ,"val"
     ,"var"
-    ,"void"
+    ,"unit"
     ,"when"
     ,"where"
     ,"while"
@@ -384,7 +384,7 @@ typ = makeExprParser singleType opTable
         do {reserved "string"; return stringType} <|>
         do {reserved "char"; return charType} <|>
         do {reserved "real"; return realType} <|>
-        do {reserved "void"; return voidType}
+        do {reserved "unit"; return unitType}
 
 typeVariable :: EncParser Type
 typeVariable = do

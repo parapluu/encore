@@ -5,9 +5,8 @@ fun apply[a, b](f : a -> b, x : a) : b
   f(x)
 end
 class Main
-  def main() : void
+  def main() : unit
     println(apply(id[int], 10))
     println(apply(Top.id[int], 10))
   end
 end
-

@@ -19,7 +19,7 @@ class T
   end
 end
 class Main
-  def testAggregatePrimitive() : void
+  def testAggregatePrimitive() : unit
     let
       m = generateMillionItems(empty[int]())
       result = aggregate[int, int, int](m, 0, fun (s : int, acc : int) => acc + 1, fun (x : int) => x) >> fun (total : int) => total
@@ -27,10 +27,10 @@ class Main
       println(extract(result)(0))
     end
   end
-  def testAggregateObject() : void
+  def testAggregateObject() : unit
     let
       m = generateStrings(empty[String]())
-      fn = fun (var acc : String, s : String) 
+      fn = fun (var acc : String, s : String)
              if not(acc.contains_ignore_case(s)) then
                acc = acc.concatenate(s)
              end
@@ -41,11 +41,10 @@ class Main
       println(extract(result)(0))
     end
   end
-  def main() : void
+  def main() : unit
     println("testAggregate()")
     this.testAggregatePrimitive()
     println("testAggregateObject()")
     this.testAggregateObject()
   end
 end
-

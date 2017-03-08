@@ -1,5 +1,5 @@
 class Main
-  def main() : void
+  def main() : unit
     (1, 2, 3, 4, Just(new A)) == (1, 2, 3, 4, Just(new A))
   end
 end

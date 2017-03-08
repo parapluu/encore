@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def continue(a : [int]) : void
+  def continue(a : [int]) : unit
     let
       b = ["foo", "bar"]
     in
@@ -12,7 +12,7 @@ class Main
       println(b(1))
     end
   end
-  def main() : void
+  def main() : unit
     let
       x = new Foo
     in
@@ -24,7 +24,7 @@ class Foo
   def areturn() : [int]
     new [int](10)
   end
-  def foo(m : Main) : void
+  def foo(m : Main) : unit
     let
       a = this.areturn()
     in

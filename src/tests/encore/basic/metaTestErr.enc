@@ -1,6 +1,6 @@
 class Main
-  def main() : void
-    EMBED (void)
+  def main() : unit
+    EMBED (unit)
       fprintf(stderr, "This should be printed on stderr\n");
       fflush(stderr);
       fprintf(stdout, "This should be printed on stdout\n");

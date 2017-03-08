@@ -1,5 +1,5 @@
 -- This illiterate program is meant to be imported by mixed.enc
 module Bar
-fun bar() : void
+fun bar() : unit
   println("In bar")
 end

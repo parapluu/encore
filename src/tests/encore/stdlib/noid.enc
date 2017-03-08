@@ -1,9 +1,9 @@
 class Main
-  def main() : void
+  def main() : unit
     val x = false
     val y = 64
     assertFalse(x == y)
-    
+
     val a = new A
     val b = new B
     b == a
@@ -11,8 +11,8 @@ class Main
   end
 end
 
-passive class A 
+passive class A
 end
-  
+
 passive class B : Id
 end

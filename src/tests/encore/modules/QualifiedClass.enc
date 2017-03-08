@@ -2,7 +2,7 @@
 
 import qualified Lib
 class Main
-  def main() : void
+  def main() : unit
     let
       x = new Lib.Foo : Lib.Foo
     in
@@ -10,4 +10,3 @@ class Main
     end
   end
 end
-

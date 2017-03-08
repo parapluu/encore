@@ -9,7 +9,7 @@ fun bar() : bool
   false
 end
 class Main
-  def main() : void
+  def main() : unit
     if foo() || bar() then
       println("yes")
     else
@@ -17,4 +17,3 @@ class Main
     end
   end
 end
-

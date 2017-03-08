@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 trait T
-  def getClosure() : () -> void
+  def getClosure() : () -> unit
     fun () => println("You have finally reached closure!")
   end
 end
@@ -10,7 +10,7 @@ end
 passive class Bar : T
 end
 class Main
-  def main() : void
+  def main() : unit
     val x = new Foo()
     val y = new Bar()
     val f1 = x.getClosure()
@@ -19,4 +19,3 @@ class Main
     f2()
   end
 end
-

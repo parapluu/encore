@@ -28,20 +28,19 @@ end
 class Main
   var a : Test
   var p : TestPassive
-  def testIdInference() : void
+  def testIdInference() : unit
     println(get(this.a ! id("Hello type inference in active class")))
     println(this.p.id("Hello type inference in passive class"))
   end
-  def testIntegrationBetweenParamFunctionsAndMethods() : void
+  def testIntegrationBetweenParamFunctionsAndMethods() : unit
     for item <- get(this.a ! replicate(4, "Works")) do
       println(item)
     end
   end
-  def main() : void
+  def main() : unit
     this.a = new Test
     this.p = new TestPassive
     this.testIdInference()
     this.testIntegrationBetweenParamFunctionsAndMethods()
   end
 end
-

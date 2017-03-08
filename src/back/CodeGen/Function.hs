@@ -182,5 +182,5 @@ translateLocalFunctions table funs =
      localFunctionWrappers
 
 returnStatement ty var
-    | isVoidType ty = Return $ AsExpr unit
+    | isUnitType ty = Return $ AsExpr unit
     | otherwise     = Return $ Cast (translate ty) var

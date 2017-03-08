@@ -6,11 +6,10 @@ passive class Foo
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     match (new Foo, 42) with
       case (foo(x), y) when x == y => println("Shouldn't compile!")
-    
+
     end
   end
 end
-

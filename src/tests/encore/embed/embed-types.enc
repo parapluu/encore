@@ -1,6 +1,6 @@
 passive class Container[t]
   var f : t
-  def write(f : t) : void
+  def write(f : t) : unit
     this.f = f
   end
 
@@ -10,11 +10,11 @@ passive class Container[t]
 end
 
 class Main
-  def main() : void
+  def main() : unit
     let c = new Container[EMBED char* END] in
       c.write(EMBED (EMBED char* END) "Hello"; END)
       let s = c.read() in
-        EMBED (void) puts(#{s}); END
+        EMBED (unit) puts(#{s}); END
       end
     end
   end

@@ -2,7 +2,7 @@
 
 import Task
 class Main
-  def main() : void
+  def main() : unit
     let
       y = 5
       sum_five = async(y + 5)
@@ -11,4 +11,3 @@ class Main
     end
   end
 end
-

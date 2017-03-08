@@ -1,13 +1,12 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
-    EMBED (void)
+  def main() : unit
+    EMBED (unit)
       int x = 42;
       char* s = "The answer is: ";
       printf("%s%d\n", s, x);
-   
+
     END
   end
 end
-

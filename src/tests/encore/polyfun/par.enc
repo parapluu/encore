@@ -23,7 +23,7 @@ fun stringAddSpace(item : Maybe[String]) : Maybe[String]
     case Nothing =>
       Just("stringAddSpace creates 'Maybe String'")
     end
-  
+
   end
 end
 fun stringAddHello(item : Maybe[String]) : String
@@ -34,7 +34,7 @@ fun stringAddHello(item : Maybe[String]) : String
     case Nothing =>
       "ERROR: this should have been a 'Hello World' string"
     end
-  
+
   end
 end
 fun createNewParT[t](v : t) : Par[t]
@@ -49,7 +49,7 @@ end
 fun sequencePipeline[t](par : Par[t]) : Par[String]
   let
     text = ": end of the Party"
-    p1 = par >> (constInt[t]) >> (parametricResult[String]) >> (stringAddSpace) >> (stringAddHello) >> (fun (s : String) 
+    p1 = par >> (constInt[t]) >> (parametricResult[String]) >> (stringAddSpace) >> (stringAddHello) >> (fun (s : String)
                                                                                                           s.to_upper()
                                                                                                         end)
     p2 = liftv(42) >> (fun (s : int) => string_from_int(s)) >> (id[String]) >> (fun (s : String) => s.concatenate(text))
@@ -73,7 +73,7 @@ fun fAppend[t](x : t, y : t) : [t]
 end
 class Test[a]
   var arg : a
-  def init(arg : a) : void
+  def init(arg : a) : unit
     this.arg = arg
   end
   def getArg() : a
@@ -81,7 +81,7 @@ class Test[a]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       testSequence = sequencePipeline[int](liftv(42))
       result = extractPar[String](testSequence)
@@ -96,4 +96,3 @@ class Main
     end
   end
 end
-

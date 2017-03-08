@@ -13,12 +13,12 @@ trait Bar[t, u]
 end
 passive class C[t] : Foo + Bar[int, String]
   var x : int
-  def init(x : int) : void
+  def init(x : int) : unit
     this.x = x
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       c = new C[int](42)
       d = c : Foo
@@ -32,4 +32,3 @@ class Main
     end
   end
 end
-

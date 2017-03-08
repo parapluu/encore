@@ -2,8 +2,7 @@
 
 class Foo
   var number : int
-  def link(a : Foo) : void
+  def link(a : Foo) : unit
     a.number
   end
 end
-

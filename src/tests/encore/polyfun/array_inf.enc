@@ -23,7 +23,7 @@ fun pExtractElementFromArray[t](xs : [t]) : t
   xs(0)
 end
 class Main
-  def main() : void
+  def main() : unit
     val test1 = pArrayLit("Test array literals", 42, 12)
     repeat i <- |test1| do
       println(test1(i))
@@ -40,7 +40,7 @@ class Main
           print("{} - {}\n", fst(i), snd)
         end
       end
-    
+
     end
     val testExtractElement = pExtractElementFromArray([["1", "2", "3"]])
     repeat i <- |testExtractElement| do
@@ -48,4 +48,3 @@ class Main
     end
   end
 end
-

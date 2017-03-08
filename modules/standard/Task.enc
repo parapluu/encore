@@ -128,8 +128,8 @@ end
 class Synchroniser[t]
   var result : [t]
   var countDown : int
-  var callback : t -> void
-  def init(ar : [Fut[t]]) : void
+  var callback : t -> unit
+  def init(ar : [Fut[t]]) : unit
     this.result = new [t](|ar|)
     this.countDown = |ar|
     var i = 0
@@ -140,11 +140,11 @@ class Synchroniser[t]
       i = i + 1
     end
   end
-  def fulfil(pos : int, r : t) : void
+  def fulfil(pos : int, r : t) : unit
     this.countDown = this.countDown - 1
     (this.result)(pos) = r
   end
-  def register(closure : t -> void) : void
+  def register(closure : t -> unit) : unit
     this.callback = closure
   end
   def result() : [t]
@@ -185,11 +185,11 @@ end
 * The await function
 
 Until it becomes possible to do `current_actor().await(fut)`,
-we supply a global await function in the Task library. 
+we supply a global await function in the Task library.
 
 #+BEGIN_SRC encore
-fun await[t](f:Fut[t]) : void
-  EMBED(void)
+fun await[t](f:Fut[t]) : unit
+  EMBED(unit)
     future_await(_ctx, #{f});
   END
 end

@@ -1,5 +1,5 @@
 class Main
-  def main() : void
+  def main() : unit
     break
     ()
   end

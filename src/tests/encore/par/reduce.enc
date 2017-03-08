@@ -31,7 +31,7 @@ where
 end
 class Accountant
   var number : int
-  def init(number : int) : void
+  def init(number : int) : unit
     this.number = number
   end
   def getNumber() : int
@@ -39,7 +39,7 @@ class Accountant
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       f = reduce(sum, 0, millionItems(1000000))
       f2 = reduce(sum, 0, millionFutures(1000000))
@@ -51,4 +51,3 @@ class Main
     end
   end
 end
-

@@ -2,8 +2,7 @@
 
 import Top as Bottom
 class Main
-  def main() : void
+  def main() : unit
     println(Bottom.top())
   end
 end
-

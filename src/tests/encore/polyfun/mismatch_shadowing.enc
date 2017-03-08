@@ -7,8 +7,7 @@ fun bar[a]() : a
   foo(42, "foo")
 end
 class Main
-  def main() : void
+  def main() : unit
     ()
   end
 end
-

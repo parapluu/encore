@@ -2,22 +2,21 @@
 
 trait T
   require var f : int
-  require def foo() : void
+  require def foo() : unit
 end
 trait S
-  def bar() : void
+  def bar() : unit
     println("I compile and run!")
   end
 end
 passive class Foo : T(bar()) + S
   val f : int
-  def foo() : void
+  def foo() : unit
     this.bar()
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     (new Foo).foo()
   end
 end
-

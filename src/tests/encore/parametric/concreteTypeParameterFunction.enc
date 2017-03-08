@@ -1,6 +1,5 @@
 -- This file was automatically converted by encorec
 
-fun foo[int]() : void
+fun foo[int]() : unit
   ()
 end
-

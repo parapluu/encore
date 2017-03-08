@@ -2,8 +2,7 @@
 
 import ClosureImp
 class Main
-  def main() : void
+  def main() : unit
     println((new Foo).bar())
   end
 end
-

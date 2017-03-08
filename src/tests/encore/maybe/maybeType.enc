@@ -8,7 +8,7 @@ fun test_catch_all(z : Maybe[int]) : String
     case Just(32) =>
       "Error, general condition should have been catched first"
     end
-  
+
   end
 end
 fun test_catch_specific_val(x : Maybe[int]) : String
@@ -19,10 +19,10 @@ fun test_catch_specific_val(x : Maybe[int]) : String
     case z =>
       "error, should catch specific value"
     end
-  
+
   end
 end
-fun test_match_decl() : void
+fun test_match_decl() : unit
   match Just(Just(32)) with
     case Nothing =>
       println("nothing")
@@ -42,7 +42,7 @@ fun test_match_decl() : void
     case z =>
       ()
     end
-  
+
   end
 end
 fun test_match_on_object(o : Main) : Maybe[Main]
@@ -53,7 +53,7 @@ fun test_match_on_object(o : Main) : Maybe[Main]
     case z =>
       Nothing : Maybe[Main]
     end
-  
+
   end
 end
 fun test_match_on_string() : Maybe[String]
@@ -64,10 +64,10 @@ fun test_match_on_string() : Maybe[String]
     case z =>
       Nothing
     end
-  
+
   end
 end
-fun test_precedence_of_match() : void
+fun test_precedence_of_match() : unit
   match Just(Just(32)) with
     case Nothing =>
       println("nothing")
@@ -87,10 +87,10 @@ fun test_precedence_of_match() : void
     case z =>
       println("catch all")
     end
-  
+
   end
 end
-fun test_match_nothing_decl() : void
+fun test_match_nothing_decl() : unit
   match Nothing : Maybe[int] with
     case Just(z) =>
       println(12)
@@ -104,7 +104,7 @@ fun test_match_nothing_decl() : void
     case Nothing =>
       println("Nothing")
     end
-  
+
   end
 end
 fun test_pass_args_and_return_of_maybe(x : Maybe[int]) : Maybe[int]
@@ -117,7 +117,7 @@ fun test_pass_args_and_return_of_maybe(x : Maybe[int]) : Maybe[int]
       println("Nothing")
       Nothing : Maybe[int]
     end
-  
+
   end
 end
 fun test_unification_last_expression(x : Maybe[int]) : Maybe[int]
@@ -140,7 +140,7 @@ fun test_multiple_assignments(x : Maybe[int]) : int
     case Nothing =>
       34
     end
-  
+
   end
 end
 passive class Poly[t]
@@ -149,7 +149,7 @@ passive class Poly[t]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       x = Just(32)
       poly = new Poly[int]
@@ -171,9 +171,8 @@ class Main
         case Nothing =>
           println(0)
         end
-      
+
       end
     end
   end
 end
-

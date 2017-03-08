@@ -3,7 +3,7 @@
 module Vector
 passive class Vector[t]
   var data : [t]
-  def init() : void
+  def init() : unit
     let
       b = new [int](3)
     in
@@ -12,8 +12,7 @@ passive class Vector[t]
       b(2) = 42 - 19
     end
   end
-  def there() : void
+  def there() : unit
     println("vector reporting for duty!")
   end
 end
-

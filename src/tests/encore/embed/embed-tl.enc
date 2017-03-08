@@ -12,10 +12,9 @@ int bar() {
 END
 
 class Main
-  def main() : void
+  def main() : unit
     println(EMBED (int)
               foo(1)+bar();
             END)
   end
 end
-

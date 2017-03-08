@@ -1,11 +1,10 @@
 -- This file was automatically converted by encorec
 
-fun foo(x : int) : void
+fun foo(x : int) : unit
   x = 42
 end
 class Main
-  def main() : void
+  def main() : unit
     ()
   end
 end
-

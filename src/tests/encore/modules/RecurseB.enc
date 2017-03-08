@@ -7,7 +7,7 @@ fun bar() : int
 end
 
 class Main
-  def main() : void
+  def main() : unit
     print("In RecurseB")
   end
 end

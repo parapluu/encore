@@ -7,7 +7,7 @@ import Foo
 import Bar
 
 class Main
-  def main() : void
+  def main() : unit
     foo()
     bar()
     println("Hello mixed literate world!")

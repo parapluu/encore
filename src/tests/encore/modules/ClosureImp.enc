@@ -3,7 +3,7 @@
 module ClosureImp
 
 class Foo
-  def bar() : void
+  def bar() : unit
     fun () => println("ClosureImp")
   end
 end

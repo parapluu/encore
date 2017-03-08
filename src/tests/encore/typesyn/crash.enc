@@ -10,8 +10,7 @@ end
 passive class C : D + T3
 end
 class Main
-  def main() : void
+  def main() : unit
     print("crash?")
   end
 end
-

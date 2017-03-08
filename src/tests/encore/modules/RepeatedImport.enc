@@ -3,8 +3,7 @@
 import Top
 import Top
 class Main
-  def main() : void
+  def main() : unit
     print("{}\n", top())
   end
 end
-

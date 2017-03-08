@@ -4,7 +4,7 @@ fun id(c : char) : char
   c
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       lineBreak = '\n'
       bang = '!'

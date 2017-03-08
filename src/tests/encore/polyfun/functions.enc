@@ -26,7 +26,7 @@ fun pNestedFunction[t](x : t) : t
   helperForNestedFunction[t](x)
 end
 class Main
-  def main() : void
+  def main() : unit
     val test1 = pSingleArgument[String]("test single argument", 42, "single")
     println(test1)
     val pNested = pNestedFunction[String]("test passing parametric type between parametric functions")

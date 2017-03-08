@@ -22,7 +22,7 @@ where
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     println(foo() + bar())
   end
 end

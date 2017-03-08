@@ -2,7 +2,6 @@
 
 module ModuleOnTheRight
 import TokenModule
-fun receiveToken(x : Token) : void
+fun receiveToken(x : Token) : unit
   x.foo()
 end
-

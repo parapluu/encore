@@ -2,8 +2,7 @@
 
 import Utils
 class Main
-  def main() : void
+  def main() : unit
     println(id("Hello"))
   end
 end
-

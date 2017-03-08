@@ -16,14 +16,14 @@ class StreamIO
       i = i - 1
     end
   end
-  def printStreamReal(sr : Stream[real]) : void
+  def printStreamReal(sr : Stream[real]) : unit
     var str = sr
     while not(eos(str)) do
       println(get(str))
       str = getNext(str)
     end
   end
-  def printStreamInt(si : Stream[int]) : void
+  def printStreamInt(si : Stream[int]) : unit
     var str = si
     while not(eos(str)) do
       println(get(str))
@@ -31,4 +31,3 @@ class StreamIO
     end
   end
 end
-

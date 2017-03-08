@@ -1,7 +1,7 @@
 passive class IntContainer
   val elem : int
 
-  def init(x : int) : void
+  def init(x : int) : unit
     this.elem = x
   end
 
@@ -25,7 +25,7 @@ end
 passive class Container[t]
   val elem : t
 
-  def init(elem : t) : void
+  def init(elem : t) : unit
     this.elem = elem
   end
 
@@ -52,20 +52,20 @@ passive class B :  Letter
 end
 
 passive class Foo
-  def AlwaysMatchingExtractor() : Maybe[void]
+  def AlwaysMatchingExtractor() : Maybe[unit]
     Just(())
   end
 end
 
 class Main
-  def objectPatternTestWithFailingGuard() : void
+  def objectPatternTestWithFailingGuard() : unit
     match new Container[String]("foobar") with
       case _ when false => println("baaaad")
       case This(This(This(This(c)))) => println(c.elem)
     end
   end
 
-  def valueVariableTuplePatternsTestWithFailingGuard() : void
+  def valueVariableTuplePatternsTestWithFailingGuard() : unit
     match (1, 2, "123") with
       case (a, b, "123") when a > b => println("nope")
       case (1, b, "123") => println("{}{}123", 1, b)
@@ -81,7 +81,7 @@ class Main
   end
 
   -- Issue #427, this should compile!
-  def variablePatternAgainstLambda() : void
+  def variablePatternAgainstLambda() : unit
     let f = fun (x : int) => x in
       match f with
         case x => println("foo")
@@ -90,7 +90,7 @@ class Main
   end
 
   -- Very closely related to issue #521
-  def testEmptyExtractors(): void
+  def testEmptyExtractors(): unit
     match new Foo with
       case AlwaysMatchingExtractor() => println("good")
       case _ => println("bad")
@@ -98,7 +98,7 @@ class Main
   end
 
 
-  def main() : void
+  def main() : unit
     this.objectPatternTestWithFailingGuard()
     this.valueVariableTuplePatternsTestWithFailingGuard()
     this.evaluatesToTraitTest()

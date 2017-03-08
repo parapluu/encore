@@ -81,7 +81,7 @@ translateClosure closure typeVars table
         "Tried to translate a closure from something that was not a closure"
     where
       returnStmnt var ty
-          | isVoidType ty = Return $ asEncoreArgT (translate ty) unit
+          | isUnitType ty = Return $ asEncoreArgT (translate ty) unit
           | otherwise     = Return $ asEncoreArgT (translate ty) var
 
       extractArguments params = extractArguments' params 0

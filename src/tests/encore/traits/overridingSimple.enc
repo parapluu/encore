@@ -8,7 +8,7 @@ trait T
 end
 passive class Foo : T
   var f : int
-  def init(f : int) : void
+  def init(f : int) : unit
     this.f = f
   end
   def foo() : int
@@ -16,9 +16,8 @@ passive class Foo : T
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val x = new Foo(2) : T
     println("Five = {}", x.foo())
   end
 end
-

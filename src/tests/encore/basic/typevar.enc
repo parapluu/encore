@@ -11,14 +11,14 @@ end
 passive class Foo[a, b] : AB[a, b]
   var aa : a
   var bb : b
-  def init(aa : a, bb : b) : void
+  def init(aa : a, bb : b) : unit
     this.aa = aa
     this.bb = bb
   end
 end
 passive class Bar[b, c]
   var foo : AB[b, c]
-  def init(bb : b, cc : c) : void
+  def init(bb : b, cc : c) : unit
     this.foo = new Foo[b, c](bb, cc)
   end
   def fn(bb : b) : c
@@ -26,7 +26,7 @@ passive class Bar[b, c]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       bar = new Bar[real, int](3.14, 42)
     in
@@ -34,4 +34,3 @@ class Main
     end
   end
 end
-

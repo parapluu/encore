@@ -1,13 +1,13 @@
 -- This file was automatically converted by encorec
 
-fun show_string(x : String) : void
+fun show_string(x : String) : unit
   if x.equals(primitive_const()) then
     print("{}: OK\n", x)
   else
     print("{} vs {}: ERROR\n", x, primitive_const())
   end
 end
-fun show_passive(x : String) : void
+fun show_passive(x : String) : unit
   if x.equals(passive_const()) then
     print("{}: OK\n", x)
   else
@@ -22,7 +22,7 @@ fun passive_const() : String
 end
 passive class PassiveTest
   var elem : String
-  def init(s : String) : void
+  def init(s : String) : unit
     this.elem = s
   end
 end
@@ -31,11 +31,11 @@ class StringChecker
   var passiv : bool
   var prim_string : String
   var pass_string : String
-  def init() : void
+  def init() : unit
     this.primitive = false
     this.passiv = false
   end
-  def deterministicOutput(s : String) : void
+  def deterministicOutput(s : String) : unit
     let
       p = primitive_const()
       pa = passive_const()
@@ -61,7 +61,7 @@ end
 class Test
   var passiveTest : PassiveTest
   var output : [String]
-  def init(s : String) : void
+  def init(s : String) : unit
     this.passiveTest = new PassiveTest(s)
   end
   def get_string() : String
@@ -72,7 +72,7 @@ class Test
   end
 end
 class Main
-  def test_primitive_liftf(m : StringChecker) : void
+  def test_primitive_liftf(m : StringChecker) : unit
     let
       testContentFuture = new Test("Liftf Primitive Test")
       primitive_par = liftf(testContentFuture ! get_string())
@@ -80,17 +80,17 @@ class Main
       primitive_par >> fun (s : String) => m ! deterministicOutput(s)
     end
   end
-  def test_passive_liftf(m : StringChecker) : void
+  def test_passive_liftf(m : StringChecker) : unit
     let
       test = new Test("Liftf Passive Test")
       passive_par = liftf(test ! get_pasive())
     in
-      passive_par >> fun (t : PassiveTest) 
+      passive_par >> fun (t : PassiveTest)
                        t.elem
                      end >> fun (s : String) => m ! deterministicOutput(s)
     end
   end
-  def main() : void
+  def main() : unit
     let
       master = new StringChecker
     in
@@ -99,4 +99,3 @@ class Main
     end
   end
 end
-

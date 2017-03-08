@@ -9,7 +9,7 @@ class IntSeq
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     var lst = 0
     var str = (new IntSeq).start(1, 1000000)
     while not eos(str) do
@@ -19,4 +19,3 @@ class Main
     println(lst)
   end
 end
-

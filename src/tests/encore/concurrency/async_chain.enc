@@ -5,8 +5,7 @@ fun inc(x : int) : int
   x + 1
 end
 class Main
-  def main() : void
+  def main() : unit
     println(get(async(inc(42)) ~~> fun (x : int) => inc(x)))
   end
 end
-

@@ -8,12 +8,12 @@ passive class Cat : Animal
 end
 passive class Container[t]
   var cell : t
-  def set(x : t) : void
+  def set(x : t) : unit
     this.cell = x
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       dogContainer = new Container[Dog]
       animalContainer = dogContainer : Container[Animal]

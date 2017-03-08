@@ -1,10 +1,10 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     this.test(2)
   end
-  def test(value : int) : void
+  def test(value : int) : unit
     var i = value
     while i < 11 do
       println(i)
@@ -12,4 +12,3 @@ class Main
     end
   end
 end
-

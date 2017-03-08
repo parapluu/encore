@@ -39,7 +39,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,kind=NonStreaming
                             ,htypeparams=[typeVar "_t"]
                             ,hname=Name "await"
-                            ,htype=voidType
+                            ,htype=unitType
                             ,hparams=[awaitParam]}
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
         suspend = Method{mmeta, mheader=suspendHeader, mlocals=[], mbody=Suspend emeta}
@@ -47,7 +47,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                               ,kind=NonStreaming
                               ,htypeparams=[]
                               ,hname=Name "suspend"
-                              ,htype=voidType
+                              ,htype=unitType
                               ,hparams=[]}
         pmeta = Meta.meta (Meta.sourcePos cmeta)
         emeta = Meta.meta (Meta.sourcePos cmeta)

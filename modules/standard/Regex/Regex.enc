@@ -21,8 +21,8 @@ passive class Regex
   var pMatch : PMatch
   var regex : RegexT
   var executed : EMBED char* END
-  def Regex_trace() : void
-    EMBED (void)
+  def Regex_trace() : unit
+    EMBED (unit)
       _enc__passive_String_t* _enc__field_pattern = _this->_enc__field_pattern;
       encore_trace_object((*_ctx), _enc__field_pattern, _enc__trace_String);
 
@@ -31,7 +31,7 @@ passive class Regex
 
     END
   end
-  def init(pattern : String, maxSize : int) : void
+  def init(pattern : String, maxSize : int) : unit
     this.pattern = pattern
     this.maxSize = maxSize
     this.pMatch = EMBED (PMatch)
@@ -40,10 +40,10 @@ passive class Regex
 
                   END
   end
-  def icase() : void
+  def icase() : unit
     this.flagICase = true
   end
-  def newLine() : void
+  def newLine() : unit
     this.flagNewLine = true
   end
   def compile() : bool
@@ -118,11 +118,11 @@ passive class Regex
                  END)
     end
   end
-  def close() : void
+  def close() : unit
     let
       regex = this.regex
     in
-      EMBED (void)
+      EMBED (unit)
         regfree(&#{regex});
 
       END

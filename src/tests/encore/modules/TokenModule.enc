@@ -2,8 +2,7 @@
 
 module TokenModule
 passive class Token
-  def foo() : void
+  def foo() : unit
     println("foo")
   end
 end
-

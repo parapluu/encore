@@ -3,8 +3,7 @@
 class Foo
 end
 class Main
-  def main_disappear() : void
+  def main_disappear() : unit
     ()
   end
 end
-

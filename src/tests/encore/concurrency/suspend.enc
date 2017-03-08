@@ -3,7 +3,7 @@ class Main
     0
   end
 
-  def main() : void
+  def main() : unit
     let
       t = new Test
     in
@@ -13,13 +13,13 @@ class Main
   end
 end
 class Test
-  def fst(m:Main) : void 
+  def fst(m:Main) : unit
     print("Before suspend\n")
     get(m ! foo())
     this.suspend()
     print("After suspend\n")
   end
-  def snd() : void
+  def snd() : unit
     print("Interleaving!\n")
   end
 end

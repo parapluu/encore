@@ -15,7 +15,7 @@ import qualified Types as Ty
 
 translatePrimitive :: Ty.Type -> CCode Ty
 translatePrimitive ty
-    | Ty.isVoidType ty   = Ptr void
+    | Ty.isUnitType ty   = Ptr void
     | Ty.isIntType ty    = int
     | Ty.isUIntType ty   = uint
     | Ty.isRealType ty   = double

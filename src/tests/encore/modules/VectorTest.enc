@@ -2,9 +2,8 @@
 
 import Vector
 class Main
-  def main() : void
+  def main() : unit
     (new Vector[int]).there()
     println("hello")
   end
 end
-

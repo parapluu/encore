@@ -1,12 +1,11 @@
 -- This file was automatically converted by encorec
 
 import RestrictedExport
-fun bar() : void
+fun bar() : unit
   println("This is bar")
 end
 class Main
-  def main() : void
+  def main() : unit
     foo()
   end
 end
-

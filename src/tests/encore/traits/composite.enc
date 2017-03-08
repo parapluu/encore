@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-fun foo(x : T + U) : void
+fun foo(x : T + U) : unit
   ()
 end
 trait T
@@ -18,7 +18,7 @@ passive class C : T + U
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       c = new C : T + U
       x = if false then
@@ -35,10 +35,9 @@ class Main
         case f(n) =>
           println(n)
         end
-      
+
       end
       println("Done!")
     end
   end
 end
-

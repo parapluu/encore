@@ -4,7 +4,7 @@ fun compose(g : int -> int, f : int -> int) : int -> int
   fun (x : int) => g(f(x))
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       double = fun (x : int) => x * 2
       bump = fun (x : int) => x + 1
@@ -14,4 +14,3 @@ class Main
     end
   end
 end
-

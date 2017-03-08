@@ -18,7 +18,7 @@ passive class C : T + U[T]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       c = new C
       u = c : U[T]
@@ -28,4 +28,3 @@ class Main
     end
   end
 end
-

@@ -3,7 +3,7 @@ When no language is specified for the code block, Encore code is
 assumed:
 
 #+begin_src
-fun foo() : void
+fun foo() : unit
   println("Hello polyglottal literate world!")
 end
 #+end_src
@@ -12,14 +12,14 @@ Code blocks specifying a different language will be ignored by the
 compiler:
 
 #+begin_src C
-void foo() {
+unit foo() {
   puts("This will be ignored");
 }
 #+end_src C
 
 #+begin_src encore
 class Main
-  def main(args : [String]) : void
+  def main(args : [String]) : unit
     foo()
   end
 end

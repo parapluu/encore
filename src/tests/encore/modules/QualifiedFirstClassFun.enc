@@ -5,9 +5,8 @@ fun apply(f : () -> int) : int
   f()
 end
 class Main
-  def main() : void
+  def main() : unit
     println(apply(top))
     println(apply(Top.top))
   end
 end
-

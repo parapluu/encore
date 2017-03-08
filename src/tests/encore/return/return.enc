@@ -7,14 +7,14 @@ class Main
   def b() : String
     return("42")
   end
-  def c() : void
+  def c() : unit
     let
       x = return(())
     in
       ()
     end
   end
-  def d() : void
+  def d() : unit
     return(())
   end
   def e() : String
@@ -25,7 +25,7 @@ class Main
     "Dead string"
     42 / 0
   end
-  def main() : void
+  def main() : unit
     println(this.a())
     println(this.b())
     println(this.c())

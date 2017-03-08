@@ -73,7 +73,7 @@ typeToPrintfFstr ty
             formatString = intercalate ", " argFormats
         in "(" ++ formatString ++ ")"
     | Ty.isMaybeType ty        = "%s" -- A generated string
-    | Ty.isVoidType ty         = "%s" -- Always "()"
+    | Ty.isUnitType ty         = "%s" -- Always "()"
     | otherwise = case translate ty of
                     Ptr _ -> "%p"
                     _ -> error $ "Expr.hs: typeToPrintfFstr not defined for " ++ show ty
@@ -81,7 +81,7 @@ typeToPrintfFstr ty
 -- | If the type is not void, create a variable to store it in. If it is void, return the lval UNIT
 namedTmpVar :: String -> Ty.Type -> CCode Expr -> State Ctx.Context (CCode Lval, CCode Stat)
 namedTmpVar name ty cex
-    | Ty.isVoidType ty = return $ (unit, Seq [cex])
+    | Ty.isUnitType ty = return $ (unit, Seq [cex])
     | otherwise     = do na <- Ctx.genNamedSym name
                          return $ (Var na, Assign (Decl (translate ty, Var na)) cex)
 
@@ -284,7 +284,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               [Ternary (isNothing argName)
                         (String "Nothing") $
                         showJust argName (Ty.getResultType ty)]
-          | Ty.isVoidType ty =
+          | Ty.isUnitType ty =
               [String "()"]
           | Ty.isNullType ty =
               [String "null"]
@@ -609,7 +609,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           isStream = Ty.isStreamType retTy
           isFuture = Ty.isFutureType retTy
 
-  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments} 
+  translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
     | Util.isStatement call = delegateUseNoReturn callTheMethodOneway
     | isActive && isStream = delegateUseReturn callTheMethodStream "stream"
     | isActive && isFuture = delegateUseReturn callTheMethodFuture "fut"
@@ -624,7 +624,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       delegateUseNoReturn msgSend = do
         (ntarget, ttarget) <- translate target
         (initArgs, resultExpr) <-
-          msgSend ntarget (A.getType target) name args typeArguments Ty.voidType
+          msgSend ntarget (A.getType target) name args typeArguments Ty.unitType
         return (unit,
           Seq $
             ttarget :
@@ -946,7 +946,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate e@(A.Embed {A.embedded}) = do
     translated <- liftM concat $ mapM translatePair embedded
-    if Ty.isVoidType (A.getType e) then
+    if Ty.isUnitType (A.getType e) then
         return (unit, Embed $ "({" ++ translated ++ "});")
     else
         namedTmpVar "embed" (A.getType e) (Embed $ "({" ++ translated ++ "})")
@@ -1103,7 +1103,7 @@ closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
     AsExpr $
       fromEncoreArgT (translate typ) $
         Call closureCallName [encoreCtxVar, clos, tmpArgs]
-  return (if Ty.isVoidType typ then unit else calln
+  return (if Ty.isUnitType typ then unit else calln
          ,Seq [tmpArgDecl
               ,dtraceClosureCall qname (extractArgs tmpArgs (length args))
               ,theCall
@@ -1122,7 +1122,7 @@ functionCall fcall@A.FunctionCall{A.typeArguments = typeArguments
                                  ,A.args} = do
   (argNames, initArgs) <- unzip <$> mapM translate args
   (callVar, call) <- buildFunctionCallExpr args argNames
-  let ret = if Ty.isVoidType typ then unit else callVar
+  let ret = if Ty.isUnitType typ then unit else callVar
 
   return (ret, Seq $ initArgs ++ [dtraceFunctionCall qname argNames
                                  ,call

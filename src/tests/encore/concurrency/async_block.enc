@@ -5,7 +5,7 @@ fun doubles(x : int) : int
   x * 2
 end
 class Main
-  def main() : void
+  def main() : unit
     repeat i <- 5 do
       async
         let
@@ -17,4 +17,3 @@ class Main
     end
   end
 end
-

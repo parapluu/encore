@@ -3,7 +3,7 @@ block (shown below), this introduction, and a closing statement.
 
 #+begin_src encore
 class Main
-  def main() : void
+  def main() : unit
     println("Hello literate world!")
   end
 end

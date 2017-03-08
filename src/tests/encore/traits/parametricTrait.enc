@@ -11,7 +11,7 @@ end
 passive class Foo[s] : T
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       f = (new Foo[int] : T).id[int](42)
       f' = (new Foo[int] : T).phantom[int, String](42)
@@ -24,9 +24,8 @@ class Main
         case Just(s) =>
           print("ERROR")
         end
-      
+
       end
     end
   end
 end
-

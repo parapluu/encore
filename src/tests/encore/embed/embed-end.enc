@@ -1,15 +1,14 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     val x = EMBED (int)
               int bend = 12;
         int ender = 14;
         int bender = 16;
         bend + ender + bender;
-     
+
             END
     println(x)
   end
 end
-

@@ -17,7 +17,7 @@ fun cmpString(x : X, y : X) : int
 end
 passive class X
   var s : String
-  def init(s : String) : void
+  def init(s : String) : unit
     this.s = s
   end
   def getS() : String
@@ -33,7 +33,7 @@ class T
   end
 end
 class Main
-  def futures() : void
+  def futures() : unit
     val p1 = liftf(new T ! getValue(12))
     val p2 = liftf(new T ! getValue(23))
     val p3 = liftf(new T ! getPar(42))
@@ -43,7 +43,7 @@ class Main
       print("Results: {}\n", v)
     end
   end
-  def values() : void
+  def values() : unit
     val p = liftv(23) ||| liftv(1) ||| liftv(0)
     val pp = liftv(23) ||| join(liftv(liftv(42))) ||| p ||| liftv(1) ||| liftv(0)
     val result = distinct(pp, cmpInt)
@@ -51,7 +51,7 @@ class Main
       print("Results: {}\n", v)
     end
   end
-  def objects() : void
+  def objects() : unit
     val fp1 = liftv(new X("Amazing"))
     val fp2 = liftv(new X("Amazing")) ||| liftv(new X("Sounds"))
     val p = fp1 ||| fp2
@@ -60,7 +60,7 @@ class Main
       print("Results: {}\n", v.s)
     end
   end
-  def main() : void
+  def main() : unit
     println("Running distinct on values")
     this.values()
     println("Running distinct on futures and futures to par")
@@ -69,4 +69,3 @@ class Main
     this.objects()
   end
 end
-

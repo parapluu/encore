@@ -125,7 +125,7 @@
         "char"
         "int"
         "uint"
-        "void"
+        "unit"
         ))
 
 (setq encore-operators

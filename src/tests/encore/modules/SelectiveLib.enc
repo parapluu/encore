@@ -1,10 +1,9 @@
 -- This file was automatically converted by encorec
 
 module SelectiveLib
-fun foo() : void
+fun foo() : unit
   println("Foo")
 end
 fun bar() : int
   10
 end
-

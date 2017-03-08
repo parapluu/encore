@@ -5,9 +5,8 @@ fun getList() : List
   new List
 end
 class Main
-  def main() : void
+  def main() : unit
     getList()
     print("Done")
   end
 end
-

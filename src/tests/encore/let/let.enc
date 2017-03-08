@@ -1,10 +1,10 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : void
+  def main() : unit
     this.foo(1)
   end
-  def foo(x : int) : void
+  def foo(x : int) : unit
     let
       x = "Hello"
     in
@@ -17,4 +17,3 @@ class Main
     end
   end
 end
-

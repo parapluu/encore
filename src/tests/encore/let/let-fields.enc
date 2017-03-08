@@ -2,7 +2,7 @@
 
 class Main
   var value : int
-  def main() : void
+  def main() : unit
     this.value = 1024
     var x = this.value
     x = x + 1
@@ -18,4 +18,3 @@ class Main
     end
   end
 end
-

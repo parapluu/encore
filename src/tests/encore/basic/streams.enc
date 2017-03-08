@@ -31,7 +31,7 @@ class Combinator
 end
 
 class Main
-  def main() : void
+  def main() : unit
     val x = new Streamer
     val even = x ! even(10)
     val odd = x ! odd(10)
@@ -44,4 +44,3 @@ class Main
     println("Done!")
   end
 end
-

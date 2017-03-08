@@ -4,12 +4,11 @@ fun fn() : (String, String)
   ("Hello", "world")
 end
 class Main
-  def main() : void
+  def main() : unit
     val foo = fn : () -> (String, String)
     match foo() with
       case (h, w) => println("{} {}", h, w)
-    
+
     end
   end
 end
-

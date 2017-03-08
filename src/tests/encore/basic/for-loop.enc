@@ -1,18 +1,18 @@
 -- This file was automatically converted by encorec
 
-fun showRange(r : Range) : void
+fun showRange(r : Range) : unit
   for i <- r do
     println(i)
   end
 end
 class Foo
-  def msg(m : String) : void
+  def msg(m : String) : unit
     println(m)
   end
 end
 class Main
   var foo : int
-  def main() : void
+  def main() : unit
     this.foo = 1
     let
       fs = [new Foo, null, new Foo, null]

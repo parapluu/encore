@@ -5,12 +5,12 @@ class Under_Score
   def getty() : int
     this.under_score
   end
-  def under_score(under_score : int) : void
+  def under_score(under_score : int) : unit
     this.under_score = under_score
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     let
       under_score = new Under_Score
     in
@@ -19,4 +19,3 @@ class Main
     end
   end
 end
-

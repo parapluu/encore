@@ -4,7 +4,7 @@ module Bool
 
 passive class Bool
   var value : bool
-  def init(x : bool) : void
+  def init(x : bool) : unit
     this.value = x
   end
   def show() : String

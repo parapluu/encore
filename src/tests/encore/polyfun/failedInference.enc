@@ -4,8 +4,7 @@ fun foo[a, b](x : a) : a
   x
 end
 class Main
-  def main() : void
+  def main() : unit
     foo(42)
   end
 end
-

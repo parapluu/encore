@@ -2,7 +2,7 @@
 
 import Lib
 class Main
-  def main() : void
+  def main() : unit
     let
       f = new Foo
     in
@@ -11,4 +11,3 @@ class Main
     end
   end
 end
-

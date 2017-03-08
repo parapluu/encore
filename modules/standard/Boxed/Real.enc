@@ -4,7 +4,7 @@ module Real
 
 passive class Real
   var value : real
-  def init(x : real) : void
+  def init(x : real) : unit
     this.value = x
   end
   def show() : String

@@ -3,9 +3,8 @@
 import ModuleOnTheLeft
 import ModuleOnTheRight
 class Main
-  def main() : void
+  def main() : unit
     val x = getToken()
     receiveToken(x)
   end
 end
-

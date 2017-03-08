@@ -8,15 +8,14 @@ passive class Foo
 end
 
 class Other
-  def pass(x : Foo) : void
+  def pass(x : Foo) : unit
     ()
   end
 end
 
 class Main
-  def main() : void
+  def main() : unit
     new Other ! pass(new Foo)
     println("Done!")
   end
 end
-

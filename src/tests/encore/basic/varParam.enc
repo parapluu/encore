@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-fun countdown(var cnt : int) : void
+fun countdown(var cnt : int) : unit
   while cnt > 0 do
     println("{}...", cnt)
     cnt = cnt - 1
@@ -8,8 +8,7 @@ fun countdown(var cnt : int) : void
   println("Boom!")
 end
 class Main
-  def main(args : [String]) : void
+  def main(args : [String]) : unit
     countdown(5)
   end
 end
-

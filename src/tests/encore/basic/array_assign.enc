@@ -12,7 +12,7 @@ class Foo[t]
   var i : [T]
   var j : [S + T]
   var k : [t]
-  var l : [int -> void]
+  var l : [int -> unit]
   var m : [Fut[int]]
   var n : [Par[int]]
   var o : [Stream[int]]
@@ -20,14 +20,14 @@ class Foo[t]
   var q : [(int, Maybe[int])]
   var r : [MyType]
   var s : [int]
-  def init() : void
+  def init() : unit
     this.f = new [EMBED my_c_type END](42)
     this.g = new [Range](42)
     this.h = new [Maybe[int]](42)
     this.i = new [T](42)
     this.j = new [T + S](42)
     this.k = new [t](42)
-    this.l = new [int -> void](42)
+    this.l = new [int -> unit](42)
     this.m = new [Fut[int]](42)
     this.n = new [Par[int]](42)
     this.o = new [Stream[int]](42)
@@ -38,8 +38,7 @@ class Foo[t]
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     println("I compile and run!")
   end
 end
-

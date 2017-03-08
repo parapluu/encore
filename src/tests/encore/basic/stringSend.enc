@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 class Main
-  def main() : Fut[void]
+  def main() : Fut[unit]
     let
       other = new Other("Hello Ponyworld-message")
     in
@@ -11,11 +11,10 @@ class Main
 end
 class Other
   var message : String
-  def init(va : String) : void
+  def init(va : String) : unit
     this.message = va
   end
-  def work() : void
+  def work() : unit
     println(this.message)
   end
 end
-

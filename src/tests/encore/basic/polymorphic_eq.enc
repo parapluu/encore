@@ -3,21 +3,20 @@
 passive class Pair[k, v]
   var key : k
   var value : v
-  def init(key : k, value : v) : void
+  def init(key : k, value : v) : unit
     this.key = key
     this.value = value
   end
-  def compare(other : Pair[k, v]) : void
+  def compare(other : Pair[k, v]) : unit
     if this.key == other.key then
       println("I compiled and ran!")
     end
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     val first = new Pair[int, int](1, 1)
     val second = new Pair[int, int](1, 1)
     first.compare(second)
   end
 end
-

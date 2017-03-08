@@ -1,13 +1,12 @@
 -- This file was automatically converted by encorec
 
 passive class Test
-  def init[a](x : a) : void
+  def init[a](x : a) : unit
     ()
   end
 end
 class Main
-  def main() : void
+  def main() : unit
     ()
   end
 end
-

@@ -8,7 +8,7 @@ trait Result[b]
 end
 passive class Success[b] : Result[b](data)
   var data : b
-  def init(data : b) : void
+  def init(data : b) : unit
     this.data = data
   end
   def Success() : Maybe[b]
@@ -17,7 +17,7 @@ passive class Success[b] : Result[b](data)
 end
 class Main
   var foo : Result[int]
-  def main() : void
+  def main() : unit
     this.foo = new Success[int](5)
     match this.foo with
       case Fail(n) =>
@@ -26,8 +26,7 @@ class Main
       case Success(x) =>
         println("It's a success! The resulting value is {}", x)
       end
-    
+
     end
   end
 end
-
