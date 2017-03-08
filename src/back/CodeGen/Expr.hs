@@ -609,7 +609,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
     | Util.isStatement call = delegateUseM callTheMethodOneway Nothing
     | isActive && isStream = delegateUseM callTheMethodStream (Just "stream")
-    | isActive && isFuture = delegateUseM callTheMethodFuture (Just "fut")
     | otherwise = delegateUseM callTheMethodFuture (Just "fut")
     where
       targetTy = A.getType target
@@ -621,10 +620,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         (ntarget, ttarget) <- translate target
         (initArgs, resultExpr) <-
           msgSend ntarget targetTy name args typeArguments retTy
-        (result, rValue) <- returnValue
-        return (result,
+        (resultVar, handleResult) <- returnValue
+        return (resultVar,
                 Seq $ ttarget : targetNullCheck ntarget target name emeta " ! " :
-                      initArgs ++ [rValue resultExpr])
+                      initArgs ++ [handleResult resultExpr])
         where
           retTy | isNothing sym = Ty.unitType
                 | otherwise = A.getType call
