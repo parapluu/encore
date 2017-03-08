@@ -37,7 +37,7 @@ class Main
                           fun (p : Person) => p.name,
                           fun (p : Pet) => p.owner.name,
                           fun (per : Person, animals : Par[Pet])
-                            liftv((per.name, animals >> (fun (p : Pet) => p.name)))
+                            liftv[(String, Par[String])]((per.name, animals >> (fun (p : Pet) => p.name)))
                           end,
                           fun (s1 : String, s2 : String) => s1.compare(s2))
     for elem <- extract(query) do
