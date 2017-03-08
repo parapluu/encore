@@ -118,6 +118,7 @@ getChildren NewWithInit {args} = args
 getChildren New {} = []
 getChildren Print {args} = args
 getChildren Exit {args} = args
+getChildren Abort {args} = args
 getChildren StringLiteral {} = []
 getChildren CharLiteral {} = []
 getChildren IntLiteral {} = []
@@ -132,6 +133,7 @@ getChildren Binop {loper, roper} = [loper, roper]
 -- replaced by the Exprs in @children@. The expected invariant is
 -- that @putChildren (getChildren e) e == e@ and @getChildren (putChildren l e) == l@
 putChildren :: [Expr] -> Expr -> Expr
+putChildren args e@Abort{} = e{args=args}
 putChildren [] e@Skip{} = e
 putChildren [] e@Break{} = e
 putChildren [] e@(FunctionAsValue {}) = e

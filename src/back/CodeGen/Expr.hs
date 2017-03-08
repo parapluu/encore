@@ -335,6 +335,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let exitCall = Call (Nam "exit") [narg]
       return (unit, Seq [Statement targ, Statement exitCall])
 
+  translate abort@(A.Abort {A.args = []}) = do
+      let abortCall = Call (Nam "abort") ([]::[CCode Lval]) 
+      return (unit, Statement abortCall)
+
   translate seq@(A.Seq {A.eseq}) = do
     ntes <- mapM translate eseq
     let (nes, tes) = unzip ntes

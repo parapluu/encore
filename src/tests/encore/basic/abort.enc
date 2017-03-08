@@ -1,0 +1,11 @@
+class Main
+  def main() : unit
+    val v = Just(40)
+    match v with
+      case Just(42) => println(v)
+      case _  => abort("This is LA8PV transmitting on the shortwave band")
+    end
+    ()
+  end
+end
+  

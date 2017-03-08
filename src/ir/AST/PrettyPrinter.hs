@@ -382,6 +382,7 @@ ppExpr NewWithInit {ty, args} =
 ppExpr New {ty} = "new" <+> ppType ty
 ppExpr Print {args} = "print" <> parens (commaSep (map ppExpr args))
 ppExpr Exit {args} = "exit" <> parens (commaSep (map ppExpr args))
+ppExpr Abort {args} = "abort" <> parens (commaSep (map ppExpr args))
 ppExpr StringLiteral {stringLit} = text $ show stringLit
 ppExpr CharLiteral {charLit} = text $ show charLit
 ppExpr UIntLiteral {intLit} = int intLit <> "u"
