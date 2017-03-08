@@ -20,7 +20,7 @@ fun lessThanOneHundred(x : int) : bool
   x < 100
 end
 
-fun printResult(m : bool) : void
+fun printResult(m : bool) : unit
   println("{}", m)
 end
 
@@ -31,7 +31,7 @@ class T
 end
 
 class Main
-  def testValues() : void
+  def testValues() : unit
     println("Testing Values:")
     val p = liftValues(100)
     val f = all(p, lessThanOneHundred)
@@ -42,7 +42,7 @@ class Main
     printResult(get(all(empty[int](), lessThanOneHundred)))
   end
 
-  def testFutures() : void
+  def testFutures() : unit
     println("Testing Futures:")
     val p = liftFutureValues(100)
     val f = all(p, lessThanOneHundred)
@@ -52,7 +52,7 @@ class Main
     printResult(get(f2))
   end
 
-  def main() : void
+  def main() : unit
     this.testValues()
     this.testFutures()
   end

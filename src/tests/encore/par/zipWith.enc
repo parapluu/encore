@@ -28,7 +28,7 @@ class Generator
 end
 
 class Main
-  def test_values() : void
+  def test_values() : unit
     println("Test on values:")
     val p1 = liftv(23) ||| liftv(1) ||| empty[int]() ||| liftv(1)
     val p2 = liftv(42) ||| liftv(0) ||| liftv(1)
@@ -38,7 +38,7 @@ class Main
     end
   end
 
-  def test_futures() : void
+  def test_futures() : unit
     println("Test on futures:")
     val iter = 10
     var counter = 1000
@@ -58,7 +58,7 @@ class Main
     end
   end
 
-  def main() : void
+  def main() : unit
     this.test_values()
     this.test_futures()
   end

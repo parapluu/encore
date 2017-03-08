@@ -31,20 +31,20 @@ class T
 end
 
 class Main
-  def testValues() : void
+  def testValues() : unit
     println("Testing Values:")
     val f = min(liftValues(100) >> (toStr), cmpS)
     println("{}", get(f))
     println("{}", get(min(empty[String](), cmpS)))
   end
 
-  def testFutures() : void
+  def testFutures() : unit
     println("Testing Futures:")
     val f = min(liftFutureValues(100) ||| liftv("-1"), cmpS)
     println("{}", get(f))
   end
 
-  def main() : void
+  def main() : unit
     this.testValues()
     this.testFutures()
   end

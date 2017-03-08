@@ -31,20 +31,20 @@ class T
 end
 
 class Main
-  def testValues() : void
+  def testValues() : unit
     println("Testing Values:")
     val f = max(liftValues(100) >> (toStr), cmpS)
     println("{}", get(f))
     println("{}", get(max(empty[String](), cmpS)))
   end
 
-  def testFutures() : void
+  def testFutures() : unit
     println("Testing Futures:")
     val f = max(liftFutureValues(100) ||| liftv("999"), cmpS)
     println("{}", get(f))
   end
 
-  def main() : void
+  def main() : unit
     this.testValues()
     this.testFutures()
   end

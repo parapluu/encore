@@ -5,7 +5,7 @@ fun cmp(n1: String, n2: String): int
 end
 
 class Main
-  def main(): void
+  def main(): unit
     val magnusD = ("Magnus", "Daisy")
     val terryBa = ("Terry", "Barley")
     val charlotte = ("Charlotte", "Whiskers")

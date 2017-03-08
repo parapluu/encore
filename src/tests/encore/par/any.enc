@@ -27,7 +27,7 @@ class T
 end
 
 class Main
-  def testValues() : void
+  def testValues() : unit
     println("Testing Values:")
     val p = liftValues(100)
     val f = any(p, lessThanOneHundred)
@@ -38,7 +38,7 @@ class Main
     println("{}", get(any(liftv(203), lessThanOneHundred)))
   end
 
-  def testFutures() : void
+  def testFutures() : unit
     println("Testing Futures:")
     val p = liftFutureValues(100)
     val f = any(p, lessThanOneHundred)
@@ -48,7 +48,7 @@ class Main
     println("{}", get(f2))
   end
 
-  def main() : void
+  def main() : unit
     this.testValues()
     this.testFutures()
   end

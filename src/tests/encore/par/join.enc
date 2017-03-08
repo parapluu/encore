@@ -9,7 +9,7 @@ fun split(item : String) : Par[String]
 end
 
 class Main
-  def main() : void
+  def main() : unit
     var par = empty[String]()
     val ar = getArr()
     val pf = bind(split, each(ar))
