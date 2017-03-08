@@ -22,6 +22,9 @@ import Control.Monad.Reader hiding(guard)
 import Control.Applicative ((<$>), empty)
 import Control.Arrow (first)
 
+import Debug.Trace
+import AST.PrettyPrinter
+
 -- Module dependencies
 import Identifiers hiding(namespace)
 import Types hiding(refType)
@@ -245,6 +248,7 @@ reservedOps =
     ,">"
     ,"=>"
     ,"~~>"
+    ,"?!"
     ,"||"
     ,"&&"
     ,"|||"
@@ -287,6 +291,7 @@ identifier = (lexeme . try) (p >>= check)
               else return x
 
 dot        = symbol "."
+question   = symbol "?"
 bang       = symbol "!"
 bar        = symbol "|"
 dotdot     = symbol ".."
@@ -879,15 +884,20 @@ expression = makeExprParser expr opTable
                       return (\e -> TypedExpr (meta pos) e t))
       messageSend =
           Postfix (do pos <- getPosition
+                      optCall <- option [] (try question)
                       withLinebreaks bang
-                      name <- identifier
+                      name <- Name <$> identifier
                       typeArguments <- option [] (try . brackets $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend {emeta = meta pos
-                                                     ,typeArguments
-                                                     ,target
-                                                     ,name = Name name
-                                                     ,args}))
+                      let msgSend opt target = MessageSend {emeta = meta pos
+                                                           ,typeArguments
+                                                           ,target
+                                                           ,opt
+                                                           ,name
+                                                           ,args}
+                      return (if null optCall
+                              then msgSend False
+                              else msgSend True))
 
       singleLineTask =
         Prefix (do notFollowedBy (reserved "async" >> nl)
@@ -1032,14 +1042,21 @@ expr = notFollowedBy nl >>
 
           call emeta typeArgs name = do
             args <- parens arguments
-            return $ FunctionCall emeta typeArgs name args
+            return $ FunctionCall emeta False typeArgs name args
 
           longerPath pos root = do
             first <- pathComponent
             rest <- many $ try pathComponent
-            return $ foldl (buildPath pos) root (first:rest)
+            return $ foldl (buildPath False pos) root (first:rest)
 
-          pathComponent = dot >> (compartmentAccess <|> varOrCall)
+          pathComponent = do
+            emeta <- meta <$> getPosition
+            optAccess <- option [] $ try question
+            access <- (try (dot >> (compartmentAccess <|> varOrCall)))
+                        <|> (withLinebreaks bang >> methodCall)
+            if null optAccess
+            then return access
+            else return $ Option emeta access
 
           compartmentAccess = do
             pos <-  getPosition
@@ -1053,15 +1070,25 @@ expr = notFollowedBy nl >>
           functionCall VarAccess{emeta, qname} = do
             typeParams <- option [] (try . brackets $ commaSep typ)
             args <- parens arguments
-            return $ FunctionCall emeta typeParams qname args
+            return $ FunctionCall emeta False typeParams qname args
 
-          buildPath pos target (VarAccess{qname}) =
-            FieldAccess (meta pos) target (qnlocal qname)
+          methodCall = do
+            x <- varAccess
+            f <- functionCall x
+            return f {async = True}
 
-          buildPath pos target (FunctionCall{qname, args, typeArguments}) =
-            MethodCall (meta pos) typeArguments target (qnlocal qname) args
+          buildPath _ pos target (Option {body}) =
+            buildPath True pos target body
 
-          buildPath pos target (IntLiteral {intLit}) =
+          buildPath optCall pos target (VarAccess{qname}) =
+            FieldAccess (meta pos) target optCall (qnlocal qname)
+
+          buildPath optCall pos target (FunctionCall{qname, async, args, typeArguments}) =
+            if async
+            then MessageSend (meta pos) typeArguments target optCall (qnlocal qname) args
+            else MethodCall (meta pos) typeArguments target optCall (qnlocal qname) args
+
+          buildPath _ pos target (IntLiteral {intLit}) =
             TupleAccess (meta pos) target intLit
 
       letExpression = do

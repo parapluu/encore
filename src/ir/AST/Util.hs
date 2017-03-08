@@ -61,6 +61,7 @@ getChildren Skip{} = []
 getChildren Break{} = []
 getChildren Continue{} = []
 getChildren TypedExpr {body} = [body]
+getChildren Option {body} = [body]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren ExtractorPattern {arg} = [arg]
@@ -140,6 +141,7 @@ putChildren [] e@Break{} = e
 putChildren [] e@Continue{} = e
 putChildren [] e@(FunctionAsValue {}) = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
+putChildren [body] e@(Option {}) = e{body = body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren [arg] e@(ExtractorPattern {}) = e{arg = arg}
@@ -218,6 +220,7 @@ putChildren _ e@Continue{} = error "'putChildren l Continue' expects l to have 0
 putChildren _ e@(TypedExpr {}) = error "'putChildren l TypedExpr' expects l to have 1 element"
 putChildren _ e@(MaybeValue {}) = error "'putChildren l MaybeValue' expects l to have 1 element"
 putChildren _ e@(Tuple {}) = error "'putChildren l Tuple' expects l to have 1 element"
+putChildren _ e@(Option {}) = error "'putChildren l Option' expects l to have 1 element"
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(ExtractorPattern {}) = error "'putChildren l ExtractorPattern' expects l to have 1 element"

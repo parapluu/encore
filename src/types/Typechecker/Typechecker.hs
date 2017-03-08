@@ -611,6 +611,7 @@ instance Checkable Expr where
           handleArrayOrFieldClosure eTarget targetType name fieldType =
             let fieldAccess = FieldAccess{emeta = emeta mcall
                                          ,target = eTarget
+                                         ,opt = False
                                          ,name
                                          }
             in
@@ -620,6 +621,7 @@ instance Checkable Expr where
                                      ,index = head (args mcall)}
             else if isArrowType fieldType then
               let body = FunctionCall{emeta = emeta mcall
+                                     ,async = False
                                      ,typeArguments = typeArguments mcall
                                      ,qname = qLocal name
                                      ,args = args mcall
@@ -1369,6 +1371,7 @@ instance Checkable Expr where
           MethodCall{emeta = emeta new
                     ,typeArguments = []
                     ,target = setType ty Skip{emeta = emeta new}
+                    ,opt = False
                     ,name = constructorName
                     ,args
                     }

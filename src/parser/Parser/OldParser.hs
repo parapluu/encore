@@ -626,6 +626,7 @@ expression = makeExprParser highOrderExpr opTable
                       return (\target -> MessageSend { emeta = (meta pos),
                                                        typeArguments=optTypeArgs,
                                                        target,
+                                                       opt = False,
                                                        name=(Name name),
                                                        args }))
       chain =
@@ -788,7 +789,7 @@ expr  =  embed
 
                call emeta typeArgs name = do
                  args <- parens arguments
-                 return $ FunctionCall emeta typeArgs name args
+                 return $ FunctionCall emeta False typeArgs name args
 
                longerPath pos root = do
                  first <- pathComponent
@@ -804,13 +805,13 @@ expr  =  embed
                functionCall VarAccess{emeta, qname} = do
                  typeParams <- option [] (try . angles $ commaSep typ)
                  args <- parens arguments
-                 return $ FunctionCall emeta typeParams qname args
+                 return $ FunctionCall emeta False typeParams qname args
 
                buildPath pos target (VarAccess{qname}) =
-                   FieldAccess (meta pos) target (qnlocal qname)
+                   FieldAccess (meta pos) target False (qnlocal qname)
 
                buildPath pos target (FunctionCall{qname, args, typeArguments}) =
-                   MethodCall (meta pos) typeArguments target (qnlocal qname) args
+                   MethodCall (meta pos) typeArguments target False (qnlocal qname) args
 
       letExpression = do pos <- getPosition
                          reserved "let"
@@ -954,7 +955,7 @@ expr  =  embed
                  reserved "print"
                  notFollowedBy (symbol "(" >> symbol "\"")
                  arg <- option [] ((:[]) <$> expression)
-                 return $ FunctionCall (meta pos) []
+                 return $ FunctionCall (meta pos) False []
                                        (qName "println") arg
       stringLit = do pos <- getPosition
                      string <- stringLiteral
