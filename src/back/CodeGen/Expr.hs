@@ -605,44 +605,31 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           syncAccess = A.isThisAccess target ||
                        (Ty.isPassiveClassType . A.getType) target
           sharedAccess = Ty.isSharedClassType $ A.getType target
-          isActive = Ty.isActiveClassType targetTy
-          isStream = Ty.isStreamType retTy
-          isFuture = Ty.isFutureType retTy
 
   translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
-    | Util.isStatement call = delegateUseNoReturn callTheMethodOneway
-    | isActive && isStream = delegateUseReturn callTheMethodStream "stream"
-    | isActive && isFuture = delegateUseReturn callTheMethodFuture "fut"
-    | otherwise = delegateUseReturn callTheMethodFuture "fut"
+    | Util.isStatement call = delegateUseM callTheMethodOneway Nothing
+    | isActive && isStream = delegateUseM callTheMethodStream (Just "stream")
+    | otherwise = delegateUseM callTheMethodFuture (Just "fut")
     where
       targetTy = A.getType target
-      retTy = A.getType call
-      sharedAccess = Ty.isSharedClassType $ A.getType target
       isActive = Ty.isActiveClassType targetTy
-      isStream = Ty.isStreamType retTy
-      isFuture = Ty.isFutureType retTy
-      delegateUseNoReturn msgSend = do
+      isStream = Ty.isStreamType $ A.getType call
+
+      delegateUseM msgSend sym = do
         (ntarget, ttarget) <- translate target
         (initArgs, resultExpr) <-
-          msgSend ntarget (A.getType target) name args typeArguments Ty.unitType
-        return (unit,
-          Seq $
-            ttarget :
-            targetNullCheck ntarget target name emeta " ! " :
-            initArgs ++ [Statement resultExpr]
-          )
-      delegateUseReturn methodCall sym = do
-        result <- Ctx.genNamedSym sym
-        (ntarget, ttarget) <- translate target
-        (initArgs, resultExpr) <-
-          methodCall ntarget targetTy name args typeArguments retTy
-        return (Var result,
-          Seq $
-            ttarget :
-            targetNullCheck ntarget target name emeta " ! " :
-            initArgs ++
-            [Assign (Decl (translate retTy, Var result)) resultExpr]
-          )
+          msgSend ntarget targetTy name args typeArguments retTy
+        (resultVar, handleResult) <- returnValue
+        return (resultVar,
+                Seq $ ttarget : targetNullCheck ntarget target name emeta " ! " :
+                      initArgs ++ [handleResult resultExpr])
+        where
+          retTy | isNothing sym = Ty.unitType
+                | otherwise = A.getType call
+          returnValue | isNothing sym = return (unit, Statement)
+                      | otherwise = do
+                         result <- Ctx.genNamedSym (fromJust sym)
+                         return (Var result, Assign (Decl (translate retTy, Var result)))
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond
