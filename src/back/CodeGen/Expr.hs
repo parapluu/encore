@@ -614,7 +614,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       targetTy = A.getType target
       isActive = Ty.isActiveClassType targetTy
       isStream = Ty.isStreamType $ A.getType call
-      isFuture = Ty.isFutureType $ A.getType call
 
       delegateUseM msgSend sym = do
         (ntarget, ttarget) <- translate target
