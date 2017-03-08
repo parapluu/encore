@@ -87,7 +87,7 @@ currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
 currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
 currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
 
-validUseOfBreak :: Backtrace -> Bool 
+validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
 validUseOfBreak ((_, BTExpr l@For{}):_) = True
 validUseOfBreak ((_, BTExpr l@While{}):_) = True
@@ -515,7 +515,7 @@ instance Show Error where
                (show expected) (show ty1) (show ty2)
     show (FreeTypeVariableError ty) =
         if getId ty == "void"
-        then printf "Type 'void' is deprecated, Use 'unit' instead"
+        then printf "Type 'void' is deprecated. Use 'unit' instead"
         else printf "Type variable '%s' is unbound" (show ty)
     show (TypeVariableAndVariableCommonNameError [name]) =
         printf "Type variable '%s' clashes with existing variable name."

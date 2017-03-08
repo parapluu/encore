@@ -424,8 +424,8 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
 
 
 markStatsInBody ty e
-  | ty == unitType = mark asStat e
-  | otherwise      = mark asExpr e
+  | isUnitType ty = mark asStat e
+  | otherwise     = mark asExpr e
 
 asStat e = setMeta e $ makeStat $ getMeta e
 asExpr e = e

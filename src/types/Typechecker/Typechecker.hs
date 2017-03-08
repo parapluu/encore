@@ -457,11 +457,11 @@ instance Checkable Expr where
 
     --
     -- ----------------
-    --  E |- break : void
+    --  E |- break : unit
     doTypecheck break@(Break {emeta}) = do
       unless (Util.isStatement break) $
         tcError BreakUsedAsExpressionError
-      unlessM (asks $ checkValidUseOfBreak) $
+      unlessM (asks checkValidUseOfBreak) $
         tcError BreakOutsideOfLoopError
       return $ setType unitType break
 
