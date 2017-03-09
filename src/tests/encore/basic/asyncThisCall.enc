@@ -1,0 +1,23 @@
+passive class Cell
+  var value : int
+  def init(v:int) : unit
+    this.value = v
+  end
+end
+
+class Foo
+  def foo(i:int) : Cell
+    new Cell(i)
+  end
+  def bar() : unit
+    val f = new Foo()
+    val g = this ! foo(42)
+    g.value = 42 --- this should not compile
+  end
+end
+  
+class Main
+  def main() : unit
+    new Foo() ! foo(42)
+  end
+end

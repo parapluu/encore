@@ -651,10 +651,16 @@ instance Checkable Expr where
                else
                   typecheckCall mcall typeParams argTypes resultType
             let returnType = retType mcall calledType header resultType'
-                syncAccess = isThisAccess (target mcall)
+                isThisCall = isThisAccess (target mcall)
                 isStream = isStreamMethodHeader header
-            when (isStream && syncAccess) $ tcError SyncStreamCall
-            return $ setType returnType mcall {target = eTarget'
+                isAsync = isMessageSend mcall
+
+            let returnType' = if isAsync && isThisCall
+                              then futureType returnType
+                              else returnType
+
+            when (isStream && isThisCall) $ tcError SyncStreamCall
+            return $ setType returnType' mcall {target = eTarget'
                                               ,args = eArgs
                                               ,typeArguments = typeArgs}
 
