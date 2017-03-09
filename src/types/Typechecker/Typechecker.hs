@@ -707,10 +707,9 @@ instance Checkable Expr where
                                  ,target = VarAccess{emeta, qname}
                                  ,index = head args}
       else do
-        let typeParams = getTypeParameters ty
-            argTypes = getArgTypes ty
-            uniquify = uniquifyTypeVars typeParams
-            resultType = getResultType ty
+        let typeParams  = getTypeParameters ty
+            argTypes    = getArgTypes ty
+            resultType  = getResultType ty
 
         unless (isArrowType ty) $
           tcError $ NonFunctionTypeError ty
@@ -718,15 +717,14 @@ instance Checkable Expr where
           tcError $ WrongNumberOfFunctionArgumentsError
                       qname (length argTypes) (length args)
 
-        uniqueArgTypes <- mapM uniquify argTypes
         (eArgs, returnType, typeArgs) <-
           if null typeArguments
-          then inferenceCall fcall typeParams uniqueArgTypes resultType
+          then inferenceCall fcall typeParams argTypes resultType
           else do
             unless (length typeArguments == length typeParams) $
                    tcError $ WrongNumberOfFunctionTypeArgumentsError qname
                              (length typeParams) (length typeArguments)
-            typecheckCall fcall typeParams uniqueArgTypes resultType
+            typecheckCall fcall typeParams argTypes resultType
         return $ setType returnType fcall {args = eArgs,
                                            qname = qname',
                                            typeArguments = typeArgs}
@@ -1637,8 +1635,10 @@ matchArguments (arg:args) (typ:types) = do
       return eArg
   let actualTyp = AST.getType eArg
   bindings <- matchTypes typ actualTyp
-  (eArgs, bindings') <- local (bindTypes bindings) $ matchArguments args types
-  needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
+  (eArgs, bindings') <- local (bindTypes bindings) $
+                              matchArguments args types
+  needCast <- fmap (&& typ /= actualTyp) $
+                   actualTyp `subtypeOf` typ
   let
     casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
     eArg' = if needCast then casted else eArg
@@ -1693,13 +1693,44 @@ matchTypes expected ty
         let expArgTypes = getArgTypes expected
             argTypes = getArgTypes ty
         matchArgs expArgTypes argTypes
-    | isArrowType expected  && isArrowType ty = do
+    | isArrowType expected && isArrowType ty = do
         let expArgTypes = getArgTypes expected
             argTypes    = getArgTypes ty
             expRes      = getResultType expected
             resTy       = getResultType ty
         argBindings <- matchArgs expArgTypes argTypes
         local (bindTypes argBindings) $ matchTypes expRes resTy
+    | isTraitType expected   && isTraitType ty ||
+      isClassType expected   && isClassType ty ||
+      isTypeSynonym expected && isTypeSynonym ty = do
+        bindings <- matchArgs (getTypeParameters expected) (getTypeParameters ty)
+          `catchError` (\case
+                         TCError (TypeMismatchError _ _) _ ->
+                             tcError $ TypeMismatchError ty expected
+                         TCError err _ -> tcError err
+                       )
+        let expected' = replaceTypeVars bindings expected
+        assertMatch expected' ty
+        return bindings
+    | isTraitType expected && isClassType ty = do
+      cap <- findCapability ty
+      let traits = typesFromCapability cap
+      case find (==expected) traits of
+        Just trait -> do
+          bindings <- matchTypes expected trait
+          let expected' = replaceTypeVars bindings expected
+          assertMatch expected' ty
+          return bindings
+        Nothing -> assertMatch expected ty
+    | isTraitType expected && isCapabilityType ty = do
+      let traits = typesFromCapability ty
+      case find (==expected) traits of
+        Just trait -> do
+          bindings <- matchTypes expected trait
+          let expected' = replaceTypeVars bindings expected
+          assertMatch expected' ty
+          return bindings
+        Nothing -> assertMatch expected ty
     | isTypeVar expected = do
       params <- asks typeParameters
       if expected `elem` params then
@@ -1714,7 +1745,12 @@ matchTypes expected ty
           Nothing -> do
             bindings <- asks bindings
             return $ (expected, ty) : bindings
-    | isTypeVar ty && (not.isTypeVar) expected = return [(ty, expected)]
+    | isTypeVar ty && (not . isTypeVar) expected = do
+        isConcrete <- asks $ isLocalTypeParameter ty
+        if isConcrete then
+          assertMatch expected ty
+        else
+          return [(ty, expected)]
     | otherwise = assertMatch expected ty
     where
       matchArgs tys1 tys2 = do
@@ -1768,21 +1804,26 @@ inferenceCall call typeParams argTypes resultType
   functionCallName = qname call
   methodCallName = name call
 
-typecheckCall call typeParams argTypes resultType
+typecheckCall call formalTypeParameters argTypes resultType
   | isMethodCallOrMessageSend call || isFunctionCall call = do
-      typeArgs' <- mapM resolveType (typeArguments call)
-      let bindings = zip typeParams typeArgs'
+      let uniquify ty = uniquifyTypeVars formalTypeParameters ty
+      uniqueTypeParameters <- mapM uniquify formalTypeParameters
+      uniqueArgTypes <- mapM uniquify argTypes
+      uniqueResultType <- uniquify resultType
 
+      typeArgs' <- mapM resolveType (typeArguments call)
+      let bindings = zip uniqueTypeParameters typeArgs'
   -- NOTE: it seems redundant to use the bindTypes when we are substituting
   --  the argTypes by the bindings. this is necessary because the
   --  method type params get mixed with the function type params in the
   --  doPrecheck functionheader and there is no simple way to disambiguate
   --  these two.
+      let expectedTypes = map (replaceTypeVars bindings) uniqueArgTypes
       (eArgs, _) <-
-        local (bindTypes bindings) $ matchArguments (args call) $
-              map (replaceTypeVars bindings) argTypes
+        local (bindTypes bindings) $
+              matchArguments (args call) expectedTypes
 
-      let returnType = replaceTypeVars bindings resultType
+      let returnType = replaceTypeVars bindings uniqueResultType
       return (eArgs, returnType, typeArgs')
  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"

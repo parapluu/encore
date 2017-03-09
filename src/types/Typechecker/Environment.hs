@@ -572,6 +572,12 @@ makeImmutable names env@Env{locals} =
       | name `elem` names = (name, (Val, ty))
       | otherwise = (name, (mut, ty))
 
+isLocalTypeParameter :: Type -> Environment -> Bool
+isLocalTypeParameter ty Env{typeParameters}
+  | isTypeVar ty = ty `elem` typeParameters
+  | otherwise = error $ "Environment.hs: Asked if " ++ showWithKind ty ++
+                        " is a type parameter"
+
 dropLocal :: Name -> Environment -> Environment
 dropLocal name env@Env{locals} = env{locals = filter ((/=name) .fst) locals}
 

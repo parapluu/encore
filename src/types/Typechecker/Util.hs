@@ -512,9 +512,21 @@ uniquifyTypeVar params ty
   | isTypeVar ty = do
       localTypeVars <- asks typeParameters
       if ty `elem` params && ty `elem` localTypeVars
-      then return $ typeVar ("_" ++ getId ty)
+      then uniquify ty
       else return ty
   | otherwise = return ty
+  where
+    uniquify :: Type -> TypecheckM Type
+    uniquify ty = do
+      localTypeVars <- asks typeParameters
+      boundTypeVars <- map fst <$> asks bindings
+      let candidates = map (appendToTypeVar ty) [0..]
+      return $ fromJust $
+               find (`notElem` localTypeVars ++ boundTypeVars) candidates
+    appendToTypeVar ty i =
+      let id = getId ty
+          id' = id ++ show i
+      in typeVar id'
 
 abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
 abstractTraitFrom cname (t, exts) = do
