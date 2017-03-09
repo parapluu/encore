@@ -5,6 +5,9 @@ all: pony
 test:
 	make -C tests
 
+stress:
+	make -C tests stress
+
 pony:
 	cd $(PONY_DIR); premake4 gmake $(use)
 	make -C $(PONY_DIR) config=debug
@@ -26,4 +29,4 @@ clean_dtrace:
 	rm -f $(PONY_DIR)/../common/dtrace_probes.o
 	rm -f $(PONY_DIR)/../common/encore_probes.o
 
-.PHONY: all test pony clean clean_pony
+.PHONY: all test stress pony clean clean_pony

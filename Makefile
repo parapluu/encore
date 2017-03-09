@@ -24,6 +24,9 @@ stack-setup:
 test: encorec
 	make -C $(SRC_DIR) test
 
+stress: encorec
+	make -C $(SRC_DIR) stress
+
 coverage: dirs pony
 	rm -rf coverage dist/hpc;
 	find src -name "*.tix" -print0 | xargs -0 rm -rf;
@@ -121,4 +124,4 @@ clean:
 vagrant:
 	-@vagrant up
 
-.PHONY: all encorec typecheck fetch-hs-deps test dirs pony clean doc vagrant coverage
+.PHONY: all encorec typecheck fetch-hs-deps test stress dirs pony clean doc vagrant coverage
