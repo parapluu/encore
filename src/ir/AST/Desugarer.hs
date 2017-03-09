@@ -103,6 +103,12 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
                     ,args} =
     Exit emeta args
 
+-- Abort
+desugar FunctionCall{emeta, qname=QName{qnlocal=Name "abort"} , args=[msg]} =
+  Seq{emeta, eseq=[Print emeta Stderr [StringLiteral emeta "{}\n", msg]
+                  ,Print emeta Stderr [StringLiteral emeta $ Meta.showPos emeta ++ "\n"]
+                  ,Abort{emeta, args=[msg]}]}
+
 -- Print functions
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "println"}
                     ,args = []} =
