@@ -107,6 +107,8 @@ pp' (Sizeof ty) = "sizeof" <> parens (pp' ty)
 pp' (While cond body) =
   "while" <+> parens (pp' cond) $+$
               bracedBlock (pp' body)
+pp' (DoWhile cond body) = "do" <+> bracedBlock (pp' body) $+$ "while" <+> parens (pp' cond) 
+
 pp' (StatAsExpr n s) = "({" <> pp' s <+> pp' n <> ";})"
 pp' (If c t e) =
   "if" <+> parens  (pp' c) $+$
@@ -116,6 +118,7 @@ pp' (If c t e) =
 pp' (Ternary c t e) = pp' c <> "?" <+> pp' t <> ":" <+> pp' e
 pp' (Return e) = "return" <+> pp' e <> ";"
 pp' (Break) = "break;"
+pp' (Continue) = "continue;"
 pp' (UnionInst name e) = "{." <> tshow name <+> "=" <+> pp' e <> "}"
 pp' (Int n) = tshow n
 pp' (String s) = tshow s

@@ -91,13 +91,6 @@ desugar seq@Seq{eseq} = seq{eseq = expandMiniLets eseq}
               }]
       expandMiniLets (e:seq) = e:expandMiniLets seq
 
-desugar DoWhile{emeta, cond, body} =
-  Seq{emeta
-     ,eseq = [body
-             ,While{emeta, cond, body}
-             ]
-     }
-
 -- Exit
 desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
                     ,args} =
@@ -213,32 +206,43 @@ desugar Unless{emeta, cond = originalCond, thn} =
 -- Desugars
 --   repeat id <- e1 e2
 -- into
---   let
---     id = 0
---     __ub__ = e1
---   in
---     while id < __ub__
---       {
---         e2;
---         id = id + 1;
---       }
+--   do
+--     val start = -1
+--     val stop = e1 - 1
+--     var step = start
+--     while step < stop do
+--       step = step + 1;    -- placed here because of continue
+--       val i = step; 
+--       e2;
+--     end
+--  end
 desugar Repeat{emeta, name, times, body} =
-    Let{emeta
-       ,mutability = Var
-       ,decls = [(name, IntLiteral emeta 0), (Name "__gub__", times)]
-       ,body = While emeta
-               (Binop emeta
-                      Identifiers.LT
-                      (VarAccess emeta (qLocal name))
-                      (VarAccess emeta (qLocal (Name "__gub__"))))
-               (Seq emeta
-                    [body, Assign emeta
-                                  (VarAccess emeta (qLocal name))
-                                  (Binop emeta
-                                        PLUS
-                                        (VarAccess emeta (qLocal name))
-                                        (IntLiteral emeta 1))])
-       }
+  desugar Seq{emeta ,eseq=[start, stop, step, loop]}
+  where
+    start = MiniLet{emeta, mutability=Val, decl = (Name "__start__", IntLiteral{emeta, intLit=(-1)})}
+    stop = MiniLet{emeta, mutability=Val, decl = (Name "__stop__", Binop{emeta
+                                                                        ,binop=MINUS
+                                                                        ,loper=times
+                                                                        ,roper=IntLiteral{emeta, intLit=1}})}
+    step = MiniLet{emeta, mutability=Var, decl = (Name "__step__", readVar "start")}
+    loop = While{emeta
+                ,cond=Binop{emeta
+                           ,binop=Identifiers.LT
+                           ,loper=readVar "step"
+                           ,roper=readVar "stop"}
+                ,body=Seq{emeta, eseq=[incStep, bindUserLoopVar body]}}
+    readVar name = VarAccess{emeta, qname=qName $ "__" ++ name ++ "__"}
+    incStep = Assign{emeta
+                    ,lhs=readVar "step"
+                    ,rhs=Binop{emeta
+                              ,binop=PLUS
+                              ,loper=readVar "step"
+                              ,roper=IntLiteral{emeta, intLit=1}}}
+    bindUserLoopVar body = Let{emeta
+                              ,mutability=Val
+                              ,decls = [(name, readVar "step")]
+                              ,body=body}
+
 
 desugar Async{emeta, body} =
   FunctionCall {emeta, typeArguments=[], qname, args}

@@ -1,7 +1,5 @@
--- This file was automatically converted by encorec
-
 class Main
-  def continue(a : [int]) : unit
+  def continu(a : [int]) : unit
     let
       b = ["foo", "bar"]
     in
@@ -31,7 +29,7 @@ class Foo
       repeat i <- 10 do
         a(i) = i
       end
-      m!continue(a)
+      m!continu(a)
     end
   end
 end

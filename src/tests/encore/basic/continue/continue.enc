@@ -1,0 +1,6 @@
+class Main
+  def main() : unit
+    continue
+    ()
+  end
+end

@@ -124,7 +124,8 @@ translateDecl (name, expr) = do
 instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   -- | Translate an expression into the corresponding C code
   translate skip@(A.Skip {}) = namedTmpVar "skip" (A.getType skip) (AsExpr unit)
-  translate break@(A.Break {}) = return (unit, Break{})
+  translate A.Break{} = return (unit, Break{})
+  translate A.Continue{} = return (unit, Continue{})
   translate null@(A.Null {}) = namedTmpVar "literal" (A.getType null) Null
   translate true@(A.BTrue {}) = namedTmpVar "literal"  (A.getType true) (Embed "1/*True*/"::CCode Expr)
   translate false@(A.BFalse {}) = namedTmpVar "literal" (A.getType false) (Embed "0/*False*/"::CCode Expr)
@@ -634,6 +635,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                       | otherwise = do
                          result <- Ctx.genNamedSym (fromJust sym)
                          return (Var result, Assign (Decl (translate retTy, Var result)))
+
+  translate w@(A.DoWhile {A.cond, A.body}) =
+      do (ncond,tcond) <- translate cond
+         (nbody,tbody) <- translate body
+         tmp <- Ctx.genNamedSym "while";
+         let exportBody = Seq $ tbody : [Assign (Var tmp) nbody]
+         return (Var tmp,
+                 Seq [Statement $ Decl (translate (A.getType w), Var tmp),
+                      DoWhile (StatAsExpr ncond tcond) (Statement exportBody)])
 
   translate w@(A.While {A.cond, A.body}) =
       do (ncond,tcond) <- translate cond

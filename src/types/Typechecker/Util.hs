@@ -28,6 +28,7 @@ module Typechecker.Util(TypecheckM
                        ,unifyTypes
                        ,uniquifyTypeVars
                        ,checkValidUseOfBreak
+                       ,checkValidUseOfContinue
                        ,abstractTraitFrom
                        ) where
 
@@ -105,6 +106,7 @@ tcWarning wrn =
 pushWarning expr wrn = local (pushBT expr) $ tcWarning wrn
 
 checkValidUseOfBreak = Typechecker.TypeError.validUseOfBreak . bt
+checkValidUseOfContinue = Typechecker.TypeError.validUseOfContinue . bt
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.

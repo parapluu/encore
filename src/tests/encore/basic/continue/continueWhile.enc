@@ -1,0 +1,10 @@
+class Main
+  def main() : unit
+    var i = -1
+    do
+      i += 1
+      if i % 2 == 0 then continue end
+      println(i)
+    while i < 8
+  end
+end
