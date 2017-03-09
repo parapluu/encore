@@ -1,5 +1,3 @@
--- This file was automatically converted by encorec
-
 import ParT.ParT
 
 passive class Person

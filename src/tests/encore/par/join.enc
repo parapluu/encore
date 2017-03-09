@@ -1,0 +1,18 @@
+import ParT.ParT
+
+fun getArr() : [String]
+  ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse a lorem lacus. Maecenas pulvinar posuere augue et bibendum. Praesent vel sodales magna. Morbi tincidunt tincidunt ullamcorper. Pellentesque sit amet nisl tincidunt, mollis nunc ut, commodo ipsum. Mauris vehicula ac nisl non dignissim. Ut aliquet in orci id tristique. Mauris ac pharetra metus, interdum bibendum mi.", "Sed vitae enim non tortor tempor feugiat. Integer arcu turpis, dapibus in accumsan vitae, venenatis quis justo. Fusce interdum erat dolor, id eleifend enim scelerisque ut. Vestibulum pellentesque sodales felis at accumsan. Curabitur vulputate mauris quis nibh suscipit egestas. Nulla facilisi. Sed in pulvinar mi.", "Ut sed mollis elit. Mauris placerat, mauris sed mollis mattis, dui dolor malesuada leo, at malesuada lorem elit id lorem. Nullam eget quam non odio convallis eleifend. Vivamus commodo ante eget velit fringilla, ac ornare ipsum ornare. Quisque id venenatis sapien. Phasellus venenatis, arcu sit amet malesuada viverra, erat augue lobortis risus, tristique ornare enim diam at purus. Nunc odio arcu, malesuada lacinia euismod ac, egestas non nunc. Proin at magna rhoncus, blandit velit in, posuere lacus.", "Nam erat felis, finibus ut neque at, auctor molestie turpis. Donec semper nibh ut massa sodales sagittis. Sed nec nibh feugiat, lacinia neque sed, fermentum mauris. Integer hendrerit at quam vel euismod. Ut semper euismod massa at dignissim. Nam varius, erat sit amet accumsan posuere, sem dui sodales arcu, ut mollis arcu nisl quis felis. Vestibulum volutpat, dolor at sodales imperdiet, nibh urna sagittis elit, vel gravida mauris libero in enim. Morbi at sem velit. Nulla scelerisque quam dolor."]
+end
+
+fun split(item : String) : Par[String]
+  each(item.split(" "))
+end
+
+class Main
+  def main() : unit
+    var par = empty[String]()
+    val ar = getArr()
+    val pf = bind(split, each(ar))
+    reduce(fun (acc : int, word : String) => acc + 1, 0, pf) ~~> fun (counter : int) => println(counter)
+  end
+end

@@ -10,14 +10,22 @@ module ParT(
     app,
     pairWith,
     groupJoin,
+    groupByKey,
+    zipWith,
+    all,
+    any,
+    max,
+    min,
   )
 
+-- create an empty ParT.
 fun empty[a]() : Par[a]
   EMBED (Par[a])
     new_par_empty(_ctx, runtimeType[0]);
   END
 end
 
+-- filter items out the items in the ParT that do not satisfy function `fn`.
 fun filter[a](fn : a -> bool, ps : Par[a]) : Par[a]
   join(ps >> fun (item : a) => if fn(item) then
                                  liftv(item)
@@ -26,38 +34,57 @@ fun filter[a](fn : a -> bool, ps : Par[a]) : Par[a]
                                end)
 end
 
+-- run function `fn` (possibly in parallel) over the items contained
+-- in the ParT `p`, returning a new ParT collection.
 fun bind[a, b](fn : a -> Par[b], p : Par[a]) : Par[b]
   join(p >> fn)
 end
 
+-- run function `fn` over the items in the ParT. Discard results.
 fun foreachp[t](p : Par[t], fn : t -> unit) : Par[unit]
   p >> fn
 end
 
+-- reduce the items in the ParT `p` and initial value `init` with function `fn1`.
+-- finally, run `fn2` over the final result produced from `fn1` and lift it to
+-- the ParT collection.
 fun aggregate[t, a, r](p : Par[t], var init : a, fn1 : (a, t) -> a, fn2 : a -> r) : Par[r]
   liftf(reduce(fn1, init, p)) >> fn2
 end
 
+-- return the items that are in both ParTs given a comparator function.
 fun intersection[t](p1 : Par[t], p2 : Par[t], cmp : (t, t) -> int) : Par[t]
   EMBED (Par[t])
     party_intersection(_ctx, #{p1}, #{p2}, #{cmp}, _enc__type_t);
   END
 end
 
+-- return the distinct items contained in the ParT
 fun distinct[t](p : Par[t], cmp : (t, t) -> int) : Par[t]
   EMBED (Par[t])
     party_distinct(_ctx, #{p}, #{cmp}, _enc__type_t);
   END
 end
 
+-- union set: return items that exist in one ParT but not in the other one.
 fun union[t](pl : Par[t], pr : Par[t], cmp : (t, t) -> int) : Par[t]
   distinct(pl ||| pr, cmp)
 end
 
+-- zips two ParTs, running the function `fn` on the zipped elements.
+fun zipWith[a, b, t](pa: Par[a], pb: Par[b], fn: (a, b) -> t): Par[t]
+  EMBED (Par[t])
+    party_zip_with(_ctx, #{pa}, #{pb}, #{fn}, _enc__type_t);
+  END
+end
+
+-- apply ParT (as an arrow) to a given item.
+-- return a new ParT.
 fun app[a, b](p : Par[a -> b], item : a) : Par[b]
   p >> (fun (fn : a -> b) => fn(item))
 end
 
+-- create ParT of tuples
 fun pairWith[t, k](p : Par[t], fn : t -> k) : Par[(k, t)]
   p >> (fun (x : t) => (fn(x), x))
 end
@@ -100,7 +127,8 @@ end
 
 {-
 Group elements of two ParTs based on their keys and joins them according
-to their join function. Elements that have no matching key are ignored.
+to their join function. There are no guarantees regarding order of elements.
+Elements that have no matching key are ignored.
 
 E.g.
 
@@ -194,4 +222,137 @@ fun groupJoin[t, i, k, r](pt : Par[t], pi : Par[i], tk : t -> k, ik : i -> k,
                   -- Lift the future to a ParT and flatten the Par[Par[t]] to Par[r]
                   join(liftf(fp))
                 end))
+end
+
+--
+-- Declaration of reduce function:
+--
+-- def reduce<acc, t>(redfn: (acc, t) -> acc, init: acc, p: Par t): Fut acc
+--
+
+
+--
+--
+-- Aggregation queries
+--
+--
+
+-- check that all items in the ParT satisfy a boolean condition.
+-- returns a future bool.
+fun all[t](p : Par[t], fn : t -> bool) : Fut[bool]
+  val closure = fun (acc : Maybe[bool], elem : t)
+                  match acc with
+                    case Just(true) =>
+                      Just(fn(elem))
+                    end
+                    case Just(false) =>
+                      Just(false)
+                    end
+                    case Nothing =>
+                      Just(fn(elem))
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p) ~~> fun (m : Maybe[bool])
+                                    match m with
+                                      case Just(true) =>
+                                        true
+                                      end
+                                      case Just(false) =>
+                                        false
+                                      end
+                                      case Nothing =>
+                                        false
+                                      end
+                                    end
+                                  end
+end
+
+-- check that at least one item satisfies a boolean condition.
+-- returns a future bool.
+fun any[t](p : Par[t], fn : t -> bool) : Fut[bool]
+-- TODO: this current implementation needs to evaluate all items in the ParT.
+--       a better solution should stop as soon as one solution is found
+  val closure = fun (acc : Maybe[bool], elem : t)
+                  match acc with
+                    case Just(true) =>
+                      Just(true)
+                    end
+                    case Just(false) =>
+                      Just(fn(elem))
+                    end
+                    case Nothing =>
+                      Just(fn(elem))
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p) ~~> fun (m : Maybe[bool])
+                                    match m with
+                                      case Just(true) =>
+                                        true
+                                      end
+                                      case Just(false) =>
+                                        false
+                                      end
+                                      case Nothing =>
+                                        false
+                                      end
+                                    end
+                                  end
+end
+
+-- returns the maximum element contained in a ParT. Since ParT are monoids,
+-- return a `future(maybe t)` where the future contains `nothing` if the ParT
+-- is completely empty or `just value` where this value is the maximum value
+-- contained in the ParT
+fun max[t](p : Par[t], cmp : (t, t) -> int) : Fut[Maybe[t]]
+  val closure = fun (acc : Maybe[t], elem : t)
+                  match acc with
+                    case Just(x) =>
+                      Just(if cmp(x, elem) >= 0 then
+                             x
+                           else
+                             elem
+                           end)
+                    end
+                    case Nothing =>
+                      Just(elem)
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p)
+end
+
+-- returns the minimum element contained in a ParT. Since ParT are monoids,
+-- return a `future(maybe t)` where the future contains `nothing` if the ParT
+-- is completely empty or `just value` where this value is the minimum value
+-- contained in the ParT
+fun min[t](p : Par[t], cmp : (t, t) -> int) : Fut[Maybe[t]]
+  val closure = fun (acc : Maybe[t], elem : t)
+                  match acc with
+                    case Just(x) =>
+                      Just(if cmp(x, elem) >= 0 then
+                             elem
+                           else
+                             x
+                           end)
+                    end
+                    case Nothing =>
+                      Just(elem)
+                    end
+                  end
+                end
+  reduce(closure, Nothing, p)
+end
+
+-- groups tuples with the same keys (first elements) under the same ParT
+fun groupByKey[k,v](p: Par[(k, v)], cmp: (k, k) -> int): Par[(k, Par[v])]
+  val closure = (fun (tuple: (k, v))
+                   val key = tuple.0
+                   -- group values from the same key under the same ParT
+                   liftf(groupParTuples(key, p, cmp))
+                 end)
+  val removeDistinct = fun (x: (k, Par[v]), y: (k, Par[v])) => cmp(x.0, y.0)
+  val p = bind(closure, p)
+  distinct(p, removeDistinct)
 end

@@ -1,0 +1,66 @@
+import ParT.ParT
+
+fun inc(x : int, y : int) : int
+  x + y
+end
+
+fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
+  var p = empty[String]()
+  repeat i <- max do
+    val s = match option with
+              case Just(x) =>
+                x
+              end
+              case Nothing =>
+                string_from_int(i)
+              end
+
+            end
+    p = p ||| liftf(new Generator!produce(s))
+  end
+  p
+end
+
+class Generator
+  def produce(s : String) : String
+    s.copy()
+  end
+end
+
+class Main
+  def test_values() : unit
+    println("Test on values:")
+    val p1 = liftv(23) ||| liftv(1) ||| empty[int]() ||| liftv(1)
+    val p2 = liftv(42) ||| liftv(0) ||| liftv(1)
+    val result = zipWith(p1, p2, inc)
+    for x <- extract(result) do
+      println("{}", x)
+    end
+  end
+
+  def test_futures() : unit
+    println("Test on futures:")
+    val iter = 10
+    var counter = 1000
+    while counter > 0 do
+      -- repeated a number of times to see if there is a deadlock.
+      -- print only the last run
+      val p1 = generateParWithFutures(iter, Just("test"))
+      val p2 = generateParWithFutures(iter, Nothing)
+      val result = zipWith(p1, p2, fun (x : String, y : String) => x.concatenate(y))
+      val arr = extract(result)
+      if counter == 1 then
+        for x <- arr do
+          println("{}", x)
+        end
+      end
+      counter -= 1
+    end
+  end
+
+  def main() : unit
+    this.test_values()
+    this.test_futures()
+  end
+
+end

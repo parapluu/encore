@@ -15,6 +15,7 @@
 #include "../libponyrt/actor/messageq.h"
 #include "../libponyrt/sched/scheduler.h"
 
+pthread_mutexattr_t attr;
 #define BLOCK    pthread_mutex_lock(&fut->lock);
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
@@ -148,6 +149,29 @@ static inline void future_gc_trace_value(pony_ctx_t *ctx, future_t *fut)
 // ===============================================================
 // Create, inspect and fulfil
 // ===============================================================
+
+//
+// a future has a lock attached to it. actors may acquire the same lock
+// multiple times (re-entrant locks). this does not happen when we work with plain Encore
+// however, re-entrant locks are necessary for the ParT runtime library.
+//
+// Use case:
+// By allowing re-entrant locks, one can create a promise that is fulfilled only
+// when all futures in a ParT (function `party_promise_await_on_futures`) are
+// fulfilled. all futures in a ParT get chained a closure that contains the promise
+// to fulfil and the original ParT. this promise gets called only when all
+// futures in the ParT have been fulfilled. when that happens, the closure
+// fulfils the promise and runs some function on the original ParT.
+// in pseudo-code:
+//
+//  val par = liftf(Fut t) :: Par t
+//  var promise = new Promise
+//  val clos = \(..., env = [par, promise]) -> do something
+//  (forall f in (getFuts par), f ~~> clos)
+//  await(promise)
+//
+//  this same code can be found in `party_promise_await_on_futures`.
+//
 future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
 {
   pony_ctx_t *cctx = *ctx;
@@ -157,7 +181,9 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
           (void *)&future_finalizer);
   *fut = (future_t) { .type = type };
 
-  pthread_mutex_init(&fut->lock, NULL);
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&fut->lock, &attr);
 
   ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
 
@@ -212,11 +238,11 @@ void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
     while(current) {
       encore_arg_t result = run_closure(ctx, current->closure, value);
       if (current->future) {
-        // This case happens when futures can be attached on.
+        // This case happens when futures can be chained on.
         // As an optimisation to the ParT library, we do know
         // that certain functions in the ParT do not need to fulfil
-        // any future, e.g. the ParT optimised version is called
-        // `future_chain_actor_void` and sets `future = NULL`
+        // a future, e.g. the ParT optimised version is called
+        // `future_register_callback` and sets `current->future = NULL`
         future_fulfil(ctx, current->future, result);
       }
 
@@ -313,15 +339,17 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 // optimisation over the `future_chain_actor`.
 void future_register_callback(pony_ctx_t **ctx,
                               future_t *fut,
-                              __attribute__ ((unused)) pony_type_t *type,
                               closure_t *c)
 {
-  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
+  ENC_DTRACE2(FUTURE_REGISTER_CALLBACK, (uintptr_t) *ctx, (uintptr_t) fut);
   perr("future_chain_actor");
   BLOCK;
 
   if (fut->fulfilled) {
     acquire_future_value(ctx, fut);
+
+    // the closure is in charge of fulfilling the promise that it contains.
+    // if this is not the case, a deadlock situation may happen.
     run_closure(ctx, c, fut->value);
     UNBLOCK;
     return ;

@@ -63,7 +63,6 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
  */
 void future_register_callback(pony_ctx_t **ctx,
                               future_t *fut,
-                              pony_type_t *type,
                               closure_t *c);
 
 // ===============================================================

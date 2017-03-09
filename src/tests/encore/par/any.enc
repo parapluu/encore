@@ -1,0 +1,55 @@
+import ParT.ParT
+
+fun liftValues(max : int) : Par[int]
+  var p = empty[int]()
+  repeat i <- max do
+    p = p ||| liftv(i)
+  end
+  p
+end
+
+fun liftFutureValues(max : int) : Par[int]
+  var p = empty[int]()
+  repeat i <- max do
+    p = p ||| liftf(new T!set(i))
+  end
+  p
+end
+
+fun lessThanOneHundred(x : int) : bool
+  x < 100
+end
+
+class T
+  def set(x : int) : int
+    x
+  end
+end
+
+class Main
+  def testValues() : unit
+    println("Testing Values:")
+    val p = liftValues(100)
+    val f = any(p, lessThanOneHundred)
+    println("{}", get(f))
+    val p2 = liftValues(200)
+    val f2 = any(p2, lessThanOneHundred)
+    println("{}", get(f2))
+    println("{}", get(any(liftv(203), lessThanOneHundred)))
+  end
+
+  def testFutures() : unit
+    println("Testing Futures:")
+    val p = liftFutureValues(100)
+    val f = any(p, lessThanOneHundred)
+    println("{}", get(f))
+    val p2 = liftFutureValues(200)
+    val f2 = any(p2, lessThanOneHundred)
+    println("{}", get(f2))
+  end
+
+  def main() : unit
+    this.testValues()
+    this.testFutures()
+  end
+end

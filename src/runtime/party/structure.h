@@ -25,4 +25,6 @@ par_t* party_get_parleft(par_t const * const p);
 
 par_t* party_get_parright(par_t const * const p);
 
+array_t* party_get_array(par_t const * const p);
+
 #endif

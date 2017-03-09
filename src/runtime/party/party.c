@@ -20,18 +20,31 @@ typedef struct FUTUREPAR_PARs { future_t* fut; } FUTUREPAR_PARs;
 typedef struct PAR_PARs { struct par_t* left; struct par_t* right; } PAR_PARs;
 typedef struct ARRAY_PARs { struct array_t* array; } ARRAY_PARs;
 
+// Auxiliary ds to de-struct the size of a ParT.
+typedef struct psize_s {
+  bool pending;
+  size_t size;
+} psize_s;
+
 struct par_t {
-    enum PTAG tag;
-    pony_type_t* rtype;
-    union ParU {
-      EMPTY_PARs s;
-      VALUE_PARs v;
-      FUTURE_PARs f;
-      PAR_PARs p;
-      FUTUREPAR_PARs fp;
-      ARRAY_PARs a;
-    } data;
+  enum PTAG tag;
+  pony_type_t* rtype;
+  uint64_t size;
+  union ParU {
+    EMPTY_PARs s;
+    VALUE_PARs v;
+    FUTURE_PARs f;
+    PAR_PARs p;
+    FUTUREPAR_PARs fp;
+    ARRAY_PARs a;
+  } data;
 };
+
+// forward declaration
+static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
+                                                    par_t *par,
+                                                    closure_t *call,
+                                                    closure_t *cmp);
 
 pony_type_t party_type =
 {
@@ -64,6 +77,10 @@ future_t* party_get_futpar(par_t const * const p){
   return p->data.fp.fut;
 }
 
+array_t* party_get_array(par_t const * const p){
+  return p->data.a.array;
+}
+
 pony_type_t* party_get_type(par_t * const p){
   return p->rtype;
 }
@@ -91,8 +108,8 @@ static inline void set_par_future_par(future_t * const fut,
   par->data.fp.fut = fut;
 }
 
-static inline void set_par_par(par_t * const rpar,
-                               par_t * const lpar,
+static inline void set_par_par(par_t * const lpar,
+                               par_t * const rpar,
                                par_t * const par){
   switch(par->tag){
   case PAR_PAR: {
@@ -159,10 +176,6 @@ void party_trace(pony_ctx_t* ctx, void* p){
       trace_array_par(ctx, obj);
       break;
     }
-    /* case JOIN_PAR: { */
-    /*   party_trace(obj->data.j.join); */
-    /*   break; */
-    /* } */
     }
   }
 }
@@ -171,6 +184,15 @@ struct fmap_s{
   closure_t* fn;
   pony_type_t const * rtype;
 };
+
+static inline psize_s party_get_size(par_t const * const p){
+  uint64_t size = p->size;
+  // if pending is 0, it means it contains pending FutPar t,
+  // therefore pending = true
+  bool pending = !__builtin_clzl(size);
+  size = (size << 1) >> 1;
+  return (psize_s) {.size = size, .pending = pending};
+}
 
 /*
  * Parallel constructors
@@ -184,18 +206,23 @@ static par_t* init_par(pony_ctx_t **ctx, enum PTAG tag, pony_type_t const * cons
 }
 
 par_t* new_par_empty(pony_ctx_t **ctx, pony_type_t const * const rtype){
-  return init_par(ctx, EMPTY_PAR, rtype);
+  par_t *p = init_par(ctx, EMPTY_PAR, rtype);
+  p->size = 0;
+
+  return p;
 }
 
 par_t* new_par_v(pony_ctx_t **ctx, encore_arg_t val, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, VALUE_PAR, rtype);
   set_par_value(val, NULL, p);
+  p->size = 1;
   return p;
 }
 
 par_t* new_par_f(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, FUTURE_PAR, rtype);
   set_par_future(f, NULL, p);
+  p->size = 1;
   return p;
 }
 
@@ -208,6 +235,15 @@ par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
   } else {
     par_t* p = init_par(ctx, PAR_PAR, rtype);
     set_par_par(p1, p2, p);
+
+    // setting the new size
+    psize_s s1 = party_get_size(p1);
+    psize_s s2 = party_get_size(p2);
+    bool pending = s1.pending || s2.pending;
+    uint64_t size = s1.size + s2.size;
+    uint64_t one = 1;
+    p->size = !pending ? size : ((one << 63) | size);
+
     return p;
   }
 }
@@ -215,21 +251,17 @@ par_t* new_par_p(pony_ctx_t **ctx, par_t* p1, par_t* p2,
 par_t* new_par_fp(pony_ctx_t **ctx, future_t* f, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, FUTUREPAR_PAR, rtype);
   set_par_future_par(f, NULL, p);
+  uint64_t one = 1;
+  p->size = one << 63;
   return p;
 }
 
 par_t* new_par_array(pony_ctx_t **ctx, array_t* arr, pony_type_t const * const rtype){
   par_t* p = init_par(ctx, ARRAY_PAR, rtype);
   set_par_array(arr, NULL, p);
+  p->size = array_size(arr);
   return p;
 }
-
-// TODO: enable once we can create J
-/* par_t* new_par_join(par_t* const p, pony_type_t const * const rtype){ */
-/*   par_t* par = init_par(JOIN_PAR, rtype); */
-/*   par->data.join = p; */
-/*   return par; */
-/* } */
 
 //---------------------------------------
 // SEQUENCE COMBINATOR
@@ -280,23 +312,6 @@ static inline par_t* fmap_run_array(pony_ctx_t **ctx, par_t * in, fmap_s * const
   return new_par_array(ctx, new_array, type);
 }
 
-// WARNING:
-// this function is only used for fmap J, which guarantees
-// that args is of: {.p = par_t* }
-/* static encore_arg_t fmap_fmap_closure(value_t args[], void* const env){ */
-/*   fmap_s* fm = env; */
-/*   encore_arg_t arg = args[0]; */
-/*   return (encore_arg_t) {.p = fmap(fm->fn, (par_t*) arg.p, fm->rtype)}; */
-/* } */
-
-/* static inline par_t* fmap_run_j(par_t* const in, fmap_s* const f){ */
-/*   fmap_s* fm = (fmap_s*)encore_alloc(sizeof* fm); */
-/*   *fm = (fmap_s){.fn=f->fn, .rtype = f->rtype}; */
-/*   closure_t* clos = closure_mk(fmap_fmap_closure, fm, NULL); */
-/*   par_t* p = fmap(clos, in->data.join, get_rtype(fm)); */
-/*   return new_par_join(p, get_rtype(f)); */
-/* } */
-
 /**
  *  fmap: (a -> b) -> Par a -> Par b
  *
@@ -306,7 +321,6 @@ static inline par_t* fmap_run_array(pony_ctx_t **ctx, par_t * in, fmap_s * const
  *  @return a pointer to a new parallel collection of \p rtype runtime type
  */
 
-// TODO: enable JOIN_PAR once it is added to the language
 static par_t* fmap(pony_ctx_t** ctx, closure_t* const f, par_t* in,
                    pony_type_t const * const rtype){
   fmap_s *fm = (fmap_s*) encore_alloc(*ctx, sizeof* fm);
@@ -323,7 +337,6 @@ static par_t* fmap(pony_ctx_t** ctx, closure_t* const f, par_t* in,
   }
   case FUTUREPAR_PAR: return fmap_run_fp(ctx, in, fm);
   case ARRAY_PAR: return fmap_run_array(ctx, in, fm);
-  /* case JOIN_PAR: return fmap_run_j(in, fm); */
   default: exit(-1);
   }
 }
@@ -375,16 +388,18 @@ static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
   return new_par_fp(ctx, chained_fut, get_rtype(p));
 }
 
-static value_t closure_join(pony_ctx_t **ctx,
-                            __attribute__ ((unused))pony_type_t**  rType,
-                            value_t val[],
-                            __attribute__ ((unused)) void* env){
-  return (value_t){.p = party_join(ctx, val[0].p)};
-}
-
 static inline par_t* party_join_array(pony_ctx_t **ctx, par_t* const p){
-  closure_t* clos = closure_mk(ctx, closure_join, NULL, party_trace, NULL);
-  return party_sequence(ctx, p, clos, get_rtype(p));
+  pony_type_t *type = get_rtype(p);
+  assert(type == &party_type);
+
+  array_t *ar = party_get_array(p);
+  size_t size = array_size(ar);
+  par_t *new_p = new_par_empty(ctx, get_rtype(p));
+  for (size_t i = 0; i < size ; ++i){
+    par_t *v = array_get(ar, i).p;
+    new_p = new_par_p(ctx, new_p, v, type);
+  }
+  return new_p;
 }
 
 par_t* party_join(pony_ctx_t **ctx, par_t* const p){
@@ -395,7 +410,6 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
   case PAR_PAR: return party_join_p(ctx, p);
   case FUTUREPAR_PAR: return party_join_fp(ctx, p);
   case ARRAY_PAR: return party_join_array(ctx, p);
-  /* case JOIN_PAR: return party_join(party_join(p->data.join)); */
   default: exit(-1);
   }
 }
@@ -404,60 +418,123 @@ par_t* party_join(pony_ctx_t **ctx, par_t* const p){
 // EXTRACT COMBINATOR
 //----------------------------------------
 
-static inline list_t* extract_helper(pony_ctx_t **ctx, list_t * const list, par_t * const p){
-  switch(p->tag){
-  case EMPTY_PAR: return list;
-  case VALUE_PAR: return list_push(list, p->data.v.val);
-  case FUTURE_PAR: {
-    future_t *fut = p->data.f.fut;
-    value_t val = future_get_actor(ctx, fut);
-    return list_push(list, val);
-  }
-  case PAR_PAR: {
-    par_t *left = p->data.p.left;
-    par_t *right = p->data.p.right;
-    list_t* tmp_list = extract_helper(ctx, list, left);
-    return extract_helper(ctx, tmp_list, right);
-  }
-  case FUTUREPAR_PAR: {
-    future_t *fut = p->data.f.fut;
-    par_t* par = future_get_actor(ctx, fut).p;
-    return extract_helper(ctx, list, par);
-  }
-  case ARRAY_PAR: {
-    array_t* ar = p->data.a.array;
-    size_t size = array_size(ar);
-    list_t* new_list = list;
-    for(size_t i=0; i<size; i++){
-      value_t value = array_get(ar, i);
-      new_list = list_push(new_list, value);
+static inline size_t party_get_final_size(pony_ctx_t **ctx, par_t const * p)
+{
+  psize_s s = party_get_size(p);
+  if (!s.pending) {
+    return s.size;
+  } else {
+    list_t *tmp_lst = NULL;
+    size_t i = 0;
+    while(p){
+      switch(p->tag){
+      case EMPTY_PAR: {
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case VALUE_PAR: {
+        ++i;
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case FUTURE_PAR: {
+        ++i;
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case PAR_PAR: {
+        par_t *left = party_get_parleft(p);
+        par_t *right = party_get_parright(p);
+        tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+        p = left;
+        break;
+      }
+      case FUTUREPAR_PAR: {
+        future_t *futpar = party_get_futpar(p);
+        future_await(ctx, futpar);
+        p = future_get_actor(ctx, futpar).p;
+        break;
+      }
+      case ARRAY_PAR: {
+        array_t* ar_p = party_get_array(p);
+        size_t size_p = array_size(ar_p);
+        i += size_p;
+        break;
+      }
+      default: exit(-1);
+      }
     }
-    return new_list;
-  }
-  default: exit(-1);
+    return i;
   }
 }
 
-static inline array_t* list_to_array(pony_ctx_t **ctx, list_t* const list,
-                                     pony_type_t const * const type){
-  size_t size = list_length(list);
-  array_t* arr = array_mk(ctx, size, type);
-  list_t* temp_list = list_index(list, 0);
+static inline array_t* party_to_array(pony_ctx_t **ctx,
+                                      par_t const * p,
+                                      size_t ar_size,
+                                      pony_type_t *type)
+{
+  array_t *ar = array_mk(ctx, ar_size, type);
 
-  // TODO: If the list is too big, distribute work using tasks
-  for(size_t i=0; i<size; i++) {
-    array_set(arr, i, list_data(temp_list));
-    temp_list = list_index(temp_list, 1);
+  if (ar_size > 0){
+    list_t *tmp_lst = NULL;
+    size_t i = 0;
+    while(p){
+      assert(i < ar_size);
+      switch(p->tag){
+      case EMPTY_PAR: {
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      case VALUE_PAR: {
+        array_set(ar, i, party_get_v(p));
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        ++i;
+        break;
+      }
+      case FUTURE_PAR: {
+        future_t *fut = party_get_fut(p);
+        value_t v = future_get_actor(ctx, fut);
+        array_set(ar, i, v);
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        ++i;
+        break;
+      }
+      case PAR_PAR: {
+        par_t *left = party_get_parleft(p);
+        par_t *right = party_get_parright(p);
+        tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+        p = left;
+        break;
+      }
+      case FUTUREPAR_PAR: {
+        future_t *futpar = party_get_futpar(p);
+        p = future_get_actor(ctx, futpar).p;
+        break;
+      }
+      case ARRAY_PAR: {
+        array_t* p_ar = party_get_array(p);
+        size_t size_p = array_size(p_ar);
+        for(size_t j = 0; j < size_p; ++j){
+          value_t value = array_get(p_ar, j);
+          array_set(ar, i, value);
+          ++i;
+        }
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+        break;
+      }
+      default: exit(-1);
+      }
+    }
   }
-  return arr;
+  return ar;
 }
 
 array_t* party_extract(pony_ctx_t **ctx,
-                       par_t * const p, pony_type_t const * const type){
-  list_t *list = NULL;
-  list_t * const tmp_list = extract_helper(ctx, list, p);
-
-  return list_to_array(ctx, tmp_list, type);
+                       par_t * const par,
+                       pony_type_t const *type)
+{
+  size_t size = party_get_final_size(ctx, par);
+  return party_to_array(ctx, par, size, type);
 }
 
 //----------------------------------------
@@ -466,13 +543,6 @@ array_t* party_extract(pony_ctx_t **ctx,
 
 #define SPLIT_THRESHOLD 1000
 #define MARGIN 1.3
-
-static void build_party_tree(pony_ctx_t **ctx, par_t** root, par_t* node){
-  if(*root == NULL)
-    *root = node;
-  else
-    *root = new_par_p(ctx, *root, node, get_rtype(*root));
-}
 
 static inline size_t batch_size_from_array(array_t * const ar){
   size_t size = array_size(ar);
@@ -491,47 +561,19 @@ static inline array_t* chunk_from_array(size_t i,
   return (array_t* const) array_get_chunk(&ctx, start, end, ar);
 }
 
-// TODO: Fix tasks. Tasks were removed from the language
-/* #ifdef PARTY_ARRAY_PARALLEL */
-/* typedef struct env_par { */
-/*   par_t* p; */
-/* } env_par; */
-
-/* static value_t id_as_task(void* env, void* __attribute__((unused)) null){ */
-/*   par_t* par = ((env_par*)env)->p; */
-/*   return (value_t){.p = par}; */
-/* } */
-/* #endif */
-
 par_t* party_each(pony_ctx_t **ctx, array_t* const ar){
-  par_t* root = NULL;
   pony_type_t* type = array_get_type(ar);
+  par_t* root = new_par_empty(ctx, type);
+
   size_t batch_size = batch_size_from_array(ar);
 
   for(size_t i=0; i<batch_size; i++){
     array_t * const chunk = chunk_from_array(i, batch_size, ar);
     par_t* par = new_par_array(ctx, chunk, type);
-    // TODO: Fix tasks. Tasks were removed from the language
-/* #ifdef PARTY_ARRAY_PARALLEL */
-/*     future_t* fut = future_mk(ctx, array_get_type(ar)); */
-/*     env_par* env = encore_alloc(ctx, sizeof* env); */
-/*     env->p = par; */
-/*     encore_task_s* task = task_mk(ctx, id_as_task, env, NULL, NULL); */
-/*     task_attach_fut(task, fut); */
-/*     task_schedule(task); */
-
-/*     pony_gc_send(ctx); */
-/*     encore_trace_object(ctx, fut, future_type.trace); */
-/*     encore_trace_object(ctx, task, NULL); */
-/*     pony_send_done(ctx); */
-
-/*     par = new_par_fp(ctx, fut, type); */
-/* #endif */
-    build_party_tree(ctx, &root, par);
+    root = new_par_p(ctx, root, par, type);
   }
   return root;
 }
-
 
 //----------------------------------------
 // INTERSECTION COMBINATOR
@@ -618,9 +660,8 @@ static value_t distinct_as_closure(pony_ctx_t** ctx,
   return (value_t){.p = party_set_to_party(ctx, set, type) };
 }
 
-static array_t* collect_future_from_party(pony_ctx_t **ctx,
-                                          par_t *p,
-                                          pony_type_t *type){
+static array_t* collect_future_from_party(pony_ctx_t **ctx, par_t *p)
+{
   list_t *l = NULL;
   list_t *futures = NULL;
   size_t counter = 0;
@@ -639,13 +680,16 @@ static array_t* collect_future_from_party(pony_ctx_t **ctx,
       ++counter;
       futures = list_push(futures, (value_t) {.p = party_get_fut(current) });
       l = list_pop(l, (value_t*)&current);
-      // TODO: what about FUTPAR_PAR. It should be added as well
+    } else if(tag == FUTUREPAR_PAR){
+      ++counter;
+      futures = list_push(futures, (value_t) {.p = party_get_futpar(current) });
+      l = list_pop(l, (value_t*)&current);
     } else {
       l = list_pop(l, (value_t*)&current);
     }
   }
 
-  array_t *a = array_mk(ctx, counter, type);
+  array_t *a = array_mk(ctx, counter, &future_type);
   future_t *fut = NULL;
   for (size_t i = 0; i < counter ; ++i){
     futures = list_pop(futures, (value_t*)&fut);
@@ -656,21 +700,27 @@ static array_t* collect_future_from_party(pony_ctx_t **ctx,
 
 // This is a helper function for the common pattern of awaiting until all
 // futures have been fulfilled and fulfilling a promise to continue.
+// INFO: the promise needs to be fulfilled with a ParT. if this is not the
+//       case, the tracing of the promise will fail.
 static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
                                                     par_t *par,
                                                     closure_t *call,
-                                                    closure_t *cmp,
-                                                    pony_type_t *type){
-  array_t *fut_list = collect_future_from_party(ctx, par, type);
+                                                    closure_t *cmp){
+  array_t *fut_list = collect_future_from_party(ctx, par);
   size_t size = array_size(fut_list);
 
   if (!size) {
     // runs synchronously. it is up to the call closure to divide and conquer
+    // TODO: if there are tasks spawned within the closure, the args array
+    //       is allocated on the stack and the arguments may be gone by the time
+    //       the tasks start doing any work (no use of task, at the moment)
     value_t args[] = { [0] = { .p = par }, [1] = { .p = cmp }};
-    return (par_t *)closure_call(ctx, call, args).p;
+    return (par_t *) closure_call(ctx, call, args).p;
   }
 
-  future_t *promise = future_mk(ctx, type);
+  // INFO: make sure the promise is fulfilled with a ParT type.
+  future_t *promise = future_mk(ctx, &party_type);
+
   struct env_collect_from_party *env = encore_alloc(*ctx, sizeof(struct env_collect_from_party));
   env->counter = size;
   env->par = par;
@@ -683,9 +733,8 @@ static inline par_t* party_promise_await_on_futures(pony_ctx_t **ctx,
 
   for(size_t i=0; i < size; ++i){
     future_t *future = array_get(fut_list, i).p;
-    future_register_callback(ctx, future, type, c);
+    future_register_callback(ctx, future, c);
   }
-
   future_await(ctx, promise);
   return (par_t *) future_get_actor(ctx, promise).p;
 }
@@ -697,7 +746,7 @@ par_t* party_intersection(pony_ctx_t **ctx,
                           pony_type_t *type){
   par_t *par = new_par_p(ctx, par_left, par_right, type);
   closure_t *call = closure_mk(ctx, intersection_as_closure, NULL, NULL, &type);
-  return party_promise_await_on_futures(ctx, par, call, cmp, type);
+  return party_promise_await_on_futures(ctx, par, call, cmp);
 }
 
 //----------------------------------------
@@ -709,5 +758,214 @@ par_t* party_distinct(pony_ctx_t **ctx,
                       closure_t *cmp,
                       pony_type_t *type){
   closure_t *call = closure_mk(ctx, distinct_as_closure, NULL, NULL, &type);
-  return party_promise_await_on_futures(ctx, par, call, cmp, type);
+  return party_promise_await_on_futures(ctx, par, call, cmp);
+}
+
+
+//----------------------------------------
+// ZIPWITH COMBINATOR
+//----------------------------------------
+
+static list_t* party_leaves_to_list(pony_ctx_t **ctx, par_t * p){
+  list_t *list = NULL;
+  list_t *tmp_list = NULL;
+  while(p){
+    switch(p->tag){
+    case EMPTY_PAR: {
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case VALUE_PAR: {
+      list = list_append(list, (value_t) { .p = p });
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case FUTURE_PAR: {
+      list = list_append(list, (value_t) { .p = p });
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    case PAR_PAR: {
+      par_t *right = p->data.p.right;
+      tmp_list = list_push(tmp_list, (value_t) {.p = right });
+      p = p->data.p.left;
+      break;
+    }
+    case FUTUREPAR_PAR: {
+      future_t *fut = p->data.f.fut;
+      future_await(ctx, fut);
+      p = future_get_actor(ctx, fut).p;
+      break;
+    }
+    case ARRAY_PAR: {
+      array_t* ar = p->data.a.array;
+      size_t size = array_size(ar);
+      for(size_t i=0; i<size; i++){
+        list = list_append(list,
+                           (value_t) {.p = new_par_v(ctx,
+                                                     array_get(ar, i),
+                                                     array_get_type(ar))});
+      }
+      tmp_list = list_pop(tmp_list, (value_t*)&p);
+      break;
+    }
+    default: exit(-1);
+    }
+  }
+  return list;
+}
+
+struct env_zip_future {
+  closure_t *cmp_fn;
+  par_t *leaf_left;
+  par_t *leaf_right;
+};
+
+static void trace_zip_future(pony_ctx_t *_ctx, void *p){
+  pony_ctx_t** ctx = &_ctx;
+  struct env_zip_future *this = p;
+  encore_trace_object(*ctx, this->cmp_fn, closure_trace);
+  encore_trace_object(*ctx, this->leaf_left, party_trace);
+  encore_trace_object(*ctx, this->leaf_right, party_trace);
+}
+
+static value_t zip_future_with(pony_ctx_t** ctx,
+                               pony_type_t** runtimeType,
+                               value_t args[],
+                               void* _env){
+  value_t v = args[0];
+
+  // Initially right has been set wiht the right ParT.
+  // ParT left was a future and now is the current value `v`
+  struct env_zip_future* env = _env;
+  closure_t *cmpFn = env->cmp_fn;
+  par_t *right = env->leaf_right;
+  par_t *left = env->leaf_left;
+  pony_type_t *result_type = runtimeType[0];
+
+  if (right && !left) {
+    // guaranteed to not be PAR_PAR nor FUTUREPAR_PAR nor ARRAY_PAR nor EMPTY
+    assert(right->tag != PAR_PAR);
+    assert(right->tag != FUTUREPAR_PAR);
+    assert(right->tag != ARRAY_PAR);
+    assert(right->tag != EMPTY_PAR);
+    assert(left == NULL);
+    pony_type_t *value_type = runtimeType[1];
+
+    if (right->tag == FUTURE_PAR) {
+      // OPTIMISATION: re-use environment
+      struct env_zip_future *env_fut = encore_alloc(*ctx, sizeof(struct env_zip_future));
+      env_fut->cmp_fn = cmpFn;
+      env_fut->leaf_left = new_par_v(ctx, v, value_type);
+      closure_t *clos = closure_mk(ctx,
+                                   zip_future_with,
+                                   env_fut,
+                                   trace_zip_future,
+                                   runtimeType);
+
+      // this function will return a fut (par t) where the (par t)
+      // is guaranteed to be a value.
+      future_t *fut = future_chain_actor(ctx, right->data.f.fut, &party_type, clos);
+      par_t * futpar = new_par_f(ctx, fut, &party_type);
+      return (value_t) { .p = party_join(ctx, futpar) };
+    } else {
+      assert(right->tag == VALUE_PAR);
+      value_t result = closure_call(ctx,
+                                    cmpFn,
+                                    (value_t[]){v, party_get_v(right)});
+      return (value_t) { .p = new_par_v(ctx, result, result_type) };
+    }
+  } else {
+    // We do know that the left Par has already been processed and
+    // should have a value
+    assert(left->tag == VALUE_PAR);
+    value_t result = closure_call(ctx,
+                                  cmpFn,
+                                  (value_t[]){party_get_v(left), v});
+    return (value_t) { .p = new_par_v(ctx, result, result_type) };
+  }
+}
+
+static inline par_t* party_zip_list(pony_ctx_t **ctx,
+                                    list_t *ll,
+                                    list_t *lr,
+                                    closure_t *fn,
+                                    pony_type_t *type){
+  par_t *pl = NULL;
+  par_t *pr = NULL;
+  par_t *result = new_par_empty(ctx, type);
+  while(ll){
+    ll = list_pop(ll, (value_t*)&pl);
+    lr = list_pop(lr, (value_t*)&pr);
+    if (pl && pr) {
+      if (pl->tag == FUTURE_PAR){
+        struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
+        env->cmp_fn = fn;
+        env->leaf_right = pr;
+
+        // TODO: do not allocate things on the stack when
+        //       they can be executed by any other actor!
+        /* pony_type_t *runtimeTypes[] = { type, future_get_type(pl->data.f.fut) }; */
+        pony_type_t **runtimeTypes = encore_alloc(*ctx, 2 * sizeof(*runtimeTypes));
+        runtimeTypes[0] = type;
+        runtimeTypes[1] = future_get_type(pl->data.f.fut);
+        closure_t *clos = closure_mk(ctx,
+                                     zip_future_with,
+                                     env,
+                                     trace_zip_future,
+                                     runtimeTypes);
+
+        // this future chanining will return a fut (par t)
+        // where the (par t) is guaranteed to be a value.
+        future_t *fut = future_chain_actor(ctx, pl->data.f.fut, &party_type, clos);
+        par_t * futpar = new_par_f(ctx, fut, &party_type);
+        par_t *par = party_join(ctx, futpar);
+        result = new_par_p(ctx, result, par, type);
+      } else if (pr->tag == FUTURE_PAR) {
+        struct env_zip_future *env = encore_alloc(*ctx, sizeof(struct env_zip_future));
+        env->cmp_fn = fn;
+        env->leaf_left = pl;
+
+        /* pony_type_t *runtimeTypes[] = {type, future_get_type(pl->data.f.fut)}; */
+        pony_type_t **runtimeTypes = encore_alloc(*ctx, 2 * sizeof(*runtimeTypes));
+        runtimeTypes[0] = type;
+        runtimeTypes[1] = future_get_type(pl->data.f.fut);
+        closure_t *clos = closure_mk(ctx,
+                                     zip_future_with,
+                                     env,
+                                     trace_zip_future,
+                                     runtimeTypes);
+
+        // this future chanining will return a fut (par t)
+        // where the (par t) is guaranteed to be a value.
+        future_t *fut = future_chain_actor(ctx, pr->data.f.fut, &party_type, clos);
+        par_t * futpar = new_par_f(ctx, fut, &party_type);
+        par_t *par = party_join(ctx, futpar);
+        result = new_par_p(ctx, result, par, type);
+      } else {
+        // None of them is a future
+        assert(pl->tag != FUTURE_PAR);
+        assert(pr->tag != FUTURE_PAR);
+
+        value_t args[] = {party_get_v(pl), party_get_v(pr)};
+        value_t v = closure_call(ctx, fn, args);
+        par_t *par = new_par_v(ctx, v, type);
+        result = new_par_p(ctx, result, par, type);
+      }
+    } else {
+      return result;
+    }
+  }
+  return result;
+}
+
+par_t* party_zip_with(pony_ctx_t **ctx,
+                      par_t *pl,
+                      par_t *pr,
+                      closure_t *fn,
+                      pony_type_t *type){
+  list_t *ll = party_leaves_to_list(ctx, pl);
+  list_t *lr = party_leaves_to_list(ctx, pr);
+  par_t *result = party_zip_list(ctx, ll, lr, fn, type);
+  return result;
 }

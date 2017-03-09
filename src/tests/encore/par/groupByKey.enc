@@ -1,0 +1,23 @@
+import ParT.ParT
+
+fun cmp(n1: String, n2: String): int
+  n1.compare(n2)
+end
+
+class Main
+  def main(): unit
+    val magnusD = ("Magnus", "Daisy")
+    val terryBa = ("Terry", "Barley")
+    val charlotte = ("Charlotte", "Whiskers")
+    val terryB = ("Terry", "Boots")
+
+    val p = liftv(magnusD) ||| liftv(terryBa) ||| liftv(charlotte) ||| liftv(terryB)
+    val pp = groupByKey(p, cmp)
+    for tuple <- extract(pp) do
+      println("Owner: {}", tuple.0)
+      for pet <- extract(tuple.1) do
+        println("Pet: {}", pet)
+      end
+    end
+  end
+end

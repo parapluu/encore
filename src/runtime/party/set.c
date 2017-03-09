@@ -31,6 +31,7 @@ static inline set_s* party_node_add(pony_ctx_t *ctx, set_s *s, value_t data){
     node = encore_alloc(ctx, sizeof* node);
     node->data = data;
     s->root = node;
+    ++s->size;
     return s;
   }
 
@@ -196,19 +197,22 @@ set_s* party_set_intersection(pony_ctx_t **ctx, set_s* sl, set_s* sr){
   // Take the smallest Set to iterate over and lookup in the bigger set
   node_s *current = sl->size < sr->size ? sl->root : sr->root;
   set_s *lookup_set = sl->size < sr->size ? sr : sl;
-  while(true){
-    if(current != NULL) {
-      data = current->data;
-      if (party_set_lookup(ctx, lookup_set, data)) {
-        new = party_set_add(ctx, new, data);
-      }
+  while(current){
+    data = current->data;
+    if (party_set_lookup(ctx, lookup_set, data)) {
+      new = party_set_add(ctx, new, data);
+    }
+
+    // add to the set only non-empty values
+    if (current->right){
       l = list_push(l, (value_t){ .p = current->right });
+    }
+
+    if (current->left) {
       current = current->left;
     } else {
       l = list_pop(l, (value_t*)(&current));
-      if (!current) {
-        return new;
-      }
     }
   }
+  return new;
 }
