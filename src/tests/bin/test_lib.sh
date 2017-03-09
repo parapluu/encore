@@ -342,6 +342,7 @@ function run_chk_test() {
 ############################################################
 function run_test() {
     local TEST=$1
+    local TIMING=$2
     local PROGRAM=${TEST}.enc
 
     if [ ! -f ${PROGRAM} ]; then
@@ -361,24 +362,40 @@ function run_test() {
 
     if [ -e ${TEST}.fail ]; then
         echo "running fail test..."
+        if [ ! -z "$TIMING" ] ; then
+          echo "only .out tests are valid as benchmarks, ${TEST} is a .fail test"
+          exit 1
+        fi
         run_fail_test ${TEST} ${FLAGS}
         return $?
     fi
 
-    if [ -e ${TEST}.out ]; then
+    if [ -e ${TEST}.out ] ; then
         echo "running out test..."
-        run_out_test ${TEST} ${FLAGS}
+        if [ ! -z "$TIMING" ] ; then
+          time run_out_test ${TEST} ${FLAGS}
+        else
+          run_out_test ${TEST} ${FLAGS} 2>&1
+        fi
         return $?
     fi
 
     if [ -e ${TEST}.err ]; then
         echo "running err test..."
+        if [ ! -z "$TIMING" ] ; then
+            echo "only .out tests are valid as benchmarks, ${TEST} is a .err test}"
+            exit 1
+        fi
         run_err_test ${TEST} ${FLAGS}
         return $?
     fi
 
     if [ -e ${TEST}.chk ]; then
         echo "running chk test..."
+        if [ ! -z "$TIMING" ] ; then
+            echo "only .out tests are valid as benchmarks, ${TEST} is a .chk test}"
+            exit 1
+        fi
         run_chk_test ${TEST} ${FLAGS}
         return $?
     fi
@@ -405,6 +422,7 @@ function run_test() {
 function run_test_suite() {
     local readonly REL_PATH=$1
     local readonly TMP_DIR=$2
+    local readonly DO_TIMING=$4
 
     local SUCC=0
     local TOTL=0
@@ -441,7 +459,10 @@ function run_test_suite() {
       if have_at_least_one_spec_file ${TEST_NAME}; then
         TOTL=$((TOTL+1))
 
-        local TEST_OUT=$(run_test ${TEST_NAME})
+        local TEST_OUT=$(run_test ${TEST_NAME} ${DO_TIMING})
+        if [ ! -z "$DO_TIMING" ] ; then
+          echo -e "${TEST_OUT}" | tail -n 1
+        fi
         if (echo ${TEST_OUT} | grep ERROR > /dev/null); then
             local REPORT_FILE="${TMP_DIR}/${TEST_NAME}.FAILED"
           echo "    ERROR: test failed"

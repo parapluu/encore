@@ -71,3 +71,13 @@ add any blank lines.
 
 You will get nicer output if you have the `tree` tool on your path.
 
+## Stress Tests and Benchmarks
+
+Some tests are intended to run with bigger inputs -- to make sure that nothing
+crashes, or to keep an eye on performance.
+
+The `stress` directory contains stress tests/benchmarks. These are .out test, as
+explained above, that may run for longer times. They will never run parallelised,
+and the benchmarking script will also print run times (using the `time` command)
+for each. You can run them by running `bin/test --stress`, or `make stress`.
+
