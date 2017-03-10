@@ -1,0 +1,13 @@
+fun foo[t](par : [[t]]) : [t]
+  par(0)
+end
+
+fun bar[p](value: p): [p]
+  foo[p](value)
+end
+
+class Main
+  def main() : unit
+    ()
+  end
+end

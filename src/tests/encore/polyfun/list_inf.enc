@@ -1,0 +1,64 @@
+fun Nil[a]() : List[a]
+  new Nil[a]()
+end
+
+fun Cons[a](hd : a, tl : List[a]) : List[a]
+  new Cons(hd, tl)
+end
+
+trait List[a]
+  require def Nil() : Maybe[unit]
+  require def Cons() : Maybe[(a, List[a])]
+end
+
+passive class Nil[a] : List[a]
+  def Nil() : Maybe[unit]
+    Just(())
+  end
+  def Cons() : Maybe[(a, List[a])]
+    Nothing
+  end
+end
+
+passive class Cons[a] : List[a](hd,tl)
+  val hd : a
+  val tl : List[a]
+
+  def init(hd : a, tl : List[a]) : unit
+    this.hd = hd
+    this.tl = tl
+  end
+
+  def Nil() : Maybe[unit]
+    Nothing
+  end
+
+  def Cons() : Maybe[(a,List[a])]
+    Just((this.hd, this.tl))
+  end
+end
+
+fun map[a,b](f : a -> b, l : List[a]) : List[b]
+  match l with
+    case Nil() => Nil[b]()
+    case Cons(hd, tl) => Cons(f(hd), map(f,  tl))
+  end
+end
+
+fun foo[t](l : List[t]) : int
+  42
+end
+
+fun length[a](l : List[a]) : int
+  match l with
+    case Nil() => 0
+    case Cons(hd, tl) => 1 + length(tl)
+  end
+end
+
+class Main
+  def main() : unit
+    val f = fun (x : int) => x + 1
+    println(length(map(f, Cons(1, Cons(2, Nil[int]())))))
+  end
+end
