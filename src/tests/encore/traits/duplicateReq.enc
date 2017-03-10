@@ -1,0 +1,4 @@
+trait T
+  require def show() : unit
+  require def show() : int
+end
