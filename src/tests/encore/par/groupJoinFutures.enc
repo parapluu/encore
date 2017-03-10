@@ -45,7 +45,7 @@ class Main
                           fun (p : Person) => get(p ! getName()),
                           fun (p : Pet) => get(p.owner ! getName()),
                           fun (per : Person, animals : Par[Pet])
-                            val personName = liftf[String](per ! getName())
+                            val personName = liftf(per ! getName())
                             personName >> (fun (name : String)
                                              (name, animals >> (fun (p : Pet) => p.name))
                                            end)
