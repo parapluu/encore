@@ -93,7 +93,7 @@ trait Iter[t]
   end
 
   -- Execute a side effect for each value. Eager execution.
-  def foreach(f : t -> void) : void
+  def foreach(f : t -> unit) : unit
     var onxt = this.next()
     while (match onxt with
              case Just(nxt) => true
@@ -153,7 +153,7 @@ passive class Filter[t] : Iter[t](f, inner)
   val f : t -> bool
   val inner : Iter[t]
 
-  def init(f : t -> bool, inner : Iter[t]) : void
+  def init(f : t -> bool, inner : Iter[t]) : unit
     this.f = f
     this.inner = inner
   end
@@ -189,7 +189,7 @@ passive class Map[t, u] : Iter[u](f, inner)
   val f : t -> u
   val inner : Iter[t]
 
-  def init(f : t -> u, inner : Iter[t]) : void
+  def init(f : t -> u, inner : Iter[t]) : unit
     this.f = f
     this.inner = inner
   end
@@ -231,7 +231,7 @@ passive class Zip[t, u] : Iter[(t,u)](left, right)
   val left : Iter[t]
   val right: Iter[u]
 
-  def init(left: Iter[t], right: Iter[u]) : void
+  def init(left: Iter[t], right: Iter[u]) : unit
     this.left = left
     this.right = right
   end
@@ -271,7 +271,7 @@ passive class Take[t] : Iter[t](n, inner)
   var n : int
   val inner : Iter[t]
 
-  def init(n : int, inner : Iter[t]) : void
+  def init(n : int, inner : Iter[t]) : unit
     this.n = n
     this.inner = inner
   end
@@ -305,7 +305,7 @@ passive class Skip[t] : Iter[t](n,inner)
   var n : int
   val inner : Iter[t]
 
-  def init(n : int, inner : Iter[t]) : void
+  def init(n : int, inner : Iter[t]) : unit
     this.n = n
     this.inner = inner
   end
@@ -338,7 +338,7 @@ passive class Flat[t] : Iter[t](queue, cur, popCur(), popFromCur())
   val queue : Iter[Iter[t]]
   var cur   : Maybe[Iter[t]]
 
-  def init(queue : Iter[Iter[t]]) : void
+  def init(queue : Iter[Iter[t]]) : unit
     this.queue = queue
     this.cur = this.queue.next()
   end
@@ -379,7 +379,7 @@ end
 passive class ArrayIter[t] : Iter[t](array,nxtIdx)
   val array : [t]
   var nxtIdx : int
-  def init(array: [t]) : void
+  def init(array: [t]) : unit
     this.array = array
     this.nxtIdx = 0
   end
@@ -432,7 +432,7 @@ passive class StringIter : Iter[char](str, nxtIdx)
   val str : String
   var nxtIdx : int
 
-  def init(str: String) : void
+  def init(str: String) : unit
     this.str = str
     this.nxtIdx = 0
   end
@@ -462,7 +462,7 @@ passive class RangeIter : Iter[int](cur, last)
   var cur: int
   val last: int
 
-  def init(cur : int, last : int) : void
+  def init(cur : int, last : int) : unit
     this.cur = cur
     this.last = last
   end

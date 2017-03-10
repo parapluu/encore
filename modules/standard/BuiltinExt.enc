@@ -21,7 +21,7 @@ import Iter.Iter
 
 --------------------------------------------------------------------------------
 
-fun array_foreach[t](arr : [t], f : t -> void) : void
+fun array_foreach[t](arr : [t], f : t -> unit) : unit
   for x <- arr do
     f(x)
   end
@@ -83,7 +83,7 @@ end
 trait ArrayExt[t]
 
   -- do something for each array cell
-  require def foreach(f : t -> void) : void
+  require def foreach(f : t -> unit) : unit
 
   -- map over an array
   require def map[v](f : t -> v) : [v]
@@ -103,7 +103,7 @@ end
 trait MaybeExt[t]
 
   -- run on value, if exists
-  require def foreach(f : t -> void)        : void
+  require def foreach(f : t -> unit)        : unit
 
   -- return mapped Maybe, if there is a value
   require def map[v](f : t -> v)            : Maybe[v]
@@ -115,7 +115,7 @@ trait MaybeExt[t]
   require def flatMap[v](f : t -> Maybe[v]) : Maybe[v]
 end
 
-fun maybe_foreach[t](ox : Maybe[t], f : t -> void) : void
+fun maybe_foreach[t](ox : Maybe[t], f : t -> unit) : unit
   match ox with
     case Just(x) => f(x)
     case _       => ()
@@ -146,7 +146,7 @@ end
 
 trait FutExt[t]
   -- chain onto future
-  require def foreach(f : t -> void)      : void
+  require def foreach(f : t -> unit)      : unit
 
   -- chain onto future, return resulting future
   require def map[v](f : t -> v)          : Fut[v]
@@ -155,7 +155,7 @@ trait FutExt[t]
   require def flatMap[v](f : t -> Fut[v]) : Fut[v]
 end
 
-fun fut_foreach[t](fx : Fut[t], f : t -> void) : void
+fun fut_foreach[t](fx : Fut[t], f : t -> unit) : unit
   fx ~~> f
 end
 

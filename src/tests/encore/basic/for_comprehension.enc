@@ -12,7 +12,7 @@ class Tmp
 end
 
 class Main
-  def main() : void
+  def main() : unit
     val arr1 = [1,2]
     val arr2 = [-12]
     val arr3 = ["aaa","bbb"]

@@ -1,7 +1,7 @@
 import BuiltinExt
 
 class Main
-  def main() : void
+  def main() : unit
     val ox = Just(12)
     val prnt = fun (x : int) => print("{}\n", x)
     ox.foreach(prnt)
