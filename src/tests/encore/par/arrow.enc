@@ -1,3 +1,4 @@
+import ParT.ParT
 import ParT.Arrow
 
 fun printResult(t : (int, int)) : unit

@@ -1,20 +1,25 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun pCreateTuple[v, k](key : k, value : v) : (k, v)
   (key, value)
 end
+
 fun id[a](item : a) : a
   item
 end
+
 fun constInt[b](x : b) : int
   30
 end
+
 fun parametricResult[z](x : int) : Maybe[z]
   Nothing
 end
+
 fun aToMaybeB[a, b](item : a) : Maybe[b]
   Nothing
 end
+
 fun stringAddSpace(item : Maybe[String]) : Maybe[String]
   match item with
     case Just(s) =>
@@ -23,9 +28,9 @@ fun stringAddSpace(item : Maybe[String]) : Maybe[String]
     case Nothing =>
       Just("stringAddSpace creates 'Maybe String'")
     end
-
   end
 end
+
 fun stringAddHello(item : Maybe[String]) : String
   match item with
     case Just(s) =>
@@ -37,15 +42,19 @@ fun stringAddHello(item : Maybe[String]) : String
 
   end
 end
+
 fun createNewParT[t](v : t) : Par[t]
   liftv(v)
 end
+
 fun extractPar[t](par : Par[t]) : [t]
   extract(par)
 end
+
 fun joinPar[t](par : Par[Par[t]]) : Par[t]
   join(par)
 end
+
 fun sequencePipeline[t](par : Par[t]) : Par[String]
   let
     text = ": end of the Party"
@@ -60,26 +69,32 @@ fun sequencePipeline[t](par : Par[t]) : Par[String]
     p1 ||| p2 ||| pfut
   end
 end
+
 fun joinParTest[p](v : p) : Par[p]
   let
     v1 = liftv(liftv(v))
     ft = liftf((new Test[p](v)) ! getArg())
   in
-    joinPar[p](liftv(ft)) ||| joinPar[p](v1)
+    joinPar[p](liftv[Par[p]](ft)) ||| joinPar[p](v1)
   end
 end
+
 fun fAppend[t](x : t, y : t) : [t]
   [x, y]
 end
+
 class Test[a]
   var arg : a
+
   def init(arg : a) : unit
     this.arg = arg
   end
+
   def getArg() : a
     this.arg
   end
 end
+
 class Main
   def main() : unit
     let
@@ -90,6 +105,7 @@ class Main
         println(result(i))
       end
     end
+
     val testJoin = extractPar[int](joinParTest[int](20))
     repeat i <- |testJoin| do
       println(testJoin(i))

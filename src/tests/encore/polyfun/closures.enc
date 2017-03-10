@@ -1,8 +1,9 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun parFunctor[a, b](p : Par[a -> b], item : a) : Par[b]
   p >> (fun (fn : a -> b) => fn(item))
 end
+
 fun maybeSomething[a, b](m : Maybe[a -> b], item : a) : a -> (a, Maybe[b])
   fun (x : a)
     match m with
@@ -16,14 +17,17 @@ fun maybeSomething[a, b](m : Maybe[a -> b], item : a) : a -> (a, Maybe[b])
     end
   end
 end
+
 fun wrapperFunction[a, b](clos : a -> b, item : a) : a -> (b, a -> b)
   fun (x : a)
     (clos(item), clos)
   end
 end
+
 fun intToString(x : int) : String
   string_from_int(x)
 end
+
 class Main
   def testParFunctor() : unit
     val parFn = liftv(intToString)
@@ -32,6 +36,7 @@ class Main
       println("ParFunctor: {}", x)
     end
   end
+
   def testMaybeSomething() : unit
     val m = Just(intToString)
     val fn = maybeSomething(m, 42)
@@ -42,18 +47,18 @@ class Main
       case (lastItem, Just(result)) =>
         println("MaybeSomething: {}, {}", lastItem, result)
       end
-
     end
   end
+
   def testWrapperFunction() : unit
     val fn = wrapperFunction(intToString, 20)
     match fn(0) with
       case (result, unused) =>
         println("WrapperFunction: {}", result)
       end
-
     end
   end
+
   def main() : unit
     this.testParFunctor()
     this.testMaybeSomething()

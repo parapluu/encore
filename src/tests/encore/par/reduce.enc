@@ -1,4 +1,4 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun sum(acc : int, y : int) : int
   acc + y

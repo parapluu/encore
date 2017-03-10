@@ -1,4 +1,4 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun show_string(x : String, const : String, type : String) : unit
   if x.equals(const) then
@@ -7,6 +7,7 @@ fun show_string(x : String, const : String, type : String) : unit
     print("{} {}: ERROR\n", const, type)
   end
 end
+
 fun show_passive(x : PassiveTest, const : String, type : String) : unit
   if x.elem.equals(const) then
     print("{} {}: OK\n", x.elem, type)
@@ -14,14 +15,13 @@ fun show_passive(x : PassiveTest, const : String, type : String) : unit
     print("{} {}: ERROR\n", x.elem, type)
   end
 end
+
 fun primitive_const() : String
   "Primitive Test"
 end
+
 fun passive_const() : String
   "Passive Test"
-end
-fun app[a, b](p: Par[a -> b], item: a): Par[b]
-  p >> fun(fn: a -> b) => fn(item)
 end
 
 passive class PassiveTest
@@ -30,6 +30,7 @@ passive class PassiveTest
     this.elem = "Liftv"
   end
 end
+
 class Main
   def test_primitive_liftv() : unit
     let
@@ -38,6 +39,7 @@ class Main
       primitive_par >> fun (x : String) => show_string(x, "Liftv", primitive_const())
     end
   end
+
   def test_passive_liftv() : unit
     let
       passive_par = liftv(new PassiveTest())
@@ -45,11 +47,13 @@ class Main
       passive_par >> fun (x : PassiveTest) => show_passive(x, "Liftv", passive_const())
     end
   end
+
   def test_function_liftv(): unit
     let fnPar = liftv(fun(x: String) => x) in
       app(fnPar, "Lift Function To ParT") >> fun(x: String) => println("{}: OK\n", x)
     end
   end
+
   def main(): unit
     this.test_primitive_liftv()
     this.test_passive_liftv()

@@ -1,30 +1,38 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun assertEqualsPassive(p : PObject, tag : String) : unit
   assertTrue(p.tag.equals(tag))
 end
+
 fun inc(i : int) : int
   i + 4
 end
+
 fun dec(i : int) : int
   i - 4
 end
+
 fun incPar(p : Par[int]) : Par[int]
   p >> inc
 end
+
 fun updatePassivePlusFive(pass : PObject) : PObject
   pass.updateValuePlusFive(pass.value)
 end
+
 fun updateParPlusFive(par : Par[PObject]) : Par[PObject]
   par >> updatePassivePlusFive
 end
+
 class AObject
   def ints() : int
     21
   end
+
   def intsPar() : Par[int]
     liftv(21)
   end
+
   def intsFut() : Fut[int]
     let
       that = this
@@ -32,29 +40,36 @@ class AObject
       that ! ints()
     end
   end
+
   def passivePar() : Par[PObject]
     liftv(new PObject())
   end
 end
+
 passive class PObject
   var tag : String
   var value : int
+
   def init() : unit
     this.tag = "TAG"
     this.value = 32
   end
+
   def getValue() : int
     this.value
   end
+
   def setValue(v : int) : PObject
     this.value = v
     this
   end
+
   def updateValuePlusFive(value : int) : PObject
     this.value = value + 5
     this
   end
 end
+
 class Main
   def test_value_primitive() : unit
     let
@@ -67,6 +82,7 @@ class Main
       par_par_int >> fun (p : Par[int]) => p >> testfn
     end
   end
+
   def test_value_passive() : unit
     let
       pass_value1 = new PObject()
@@ -80,6 +96,7 @@ class Main
                      end
     end
   end
+
   def test_value_passive_par_par() : unit
     let
       pass_value1 = new PObject()
@@ -101,6 +118,7 @@ class Main
       par_par_pass3 >> testfnPar
     end
   end
+
   def test_future_primitive() : unit
     let
       o = new AObject
@@ -118,6 +136,7 @@ class Main
       end
     end
   end
+
   def test_future_primitive_par_par() : unit
     let
       o = new AObject
@@ -136,6 +155,7 @@ class Main
       end
     end
   end
+
   def test_future_par_primitive() : unit
     let
       o = new AObject
@@ -151,6 +171,7 @@ class Main
       end
     end
   end
+
   def test_combine_primitive_futures_into_par_sequence() : unit
     let
       o = new AObject
@@ -172,6 +193,7 @@ class Main
       end
     end
   end
+
   def test_future_passive_par() : unit
     let
       a = new PObject()
@@ -187,6 +209,7 @@ class Main
       end
     end
   end
+
   def test_future_passive_par_par() : unit
     let
       a = liftf(new AObject ! passivePar())
@@ -205,6 +228,7 @@ class Main
       end
     end
   end
+
   def test_par_primitive() : unit
     let
       a = new AObject
@@ -229,6 +253,7 @@ class Main
       par_mixed_with_fut >> testfn3
     end
   end
+
   def test_par_passive() : unit
     let
       o1 = new PObject()
@@ -244,6 +269,7 @@ class Main
       end
     end
   end
+
   def test_future_to_par_of_primitive_type() : unit
     let
       a = new AObject
@@ -256,6 +282,7 @@ class Main
       end
     end
   end
+
   def test_join_primitive() : unit
     let
       a = new AObject
@@ -273,6 +300,7 @@ class Main
       end
     end
   end
+
   def test_join_future_par_primitive() : unit
     let
       a = new AObject
@@ -292,11 +320,13 @@ class Main
       end
     end
   end
+
   def test_value() : unit
     this.test_value_primitive()
     this.test_value_passive()
     this.test_value_passive_par_par()
   end
+
   def test_future() : unit
     for i <- [1..100] do
       this.test_future_primitive()
@@ -307,19 +337,23 @@ class Main
       this.test_future_passive_par_par()
     end
   end
+
   def test_par() : unit
     for i <- [1..100] do
       this.test_par_primitive()
       this.test_par_passive()
     end
   end
+
   def test_future_to_par() : unit
     this.test_future_to_par_of_primitive_type()
   end
+
   def test_join() : unit
     this.test_join_primitive()
     this.test_join_future_par_primitive()
   end
+
   def main() : unit
     for i <- [1..100] do
       this.test_value()

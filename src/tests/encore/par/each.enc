@@ -1,4 +1,4 @@
--- This file was automatically converted by encorec
+import ParT.ParT
 
 fun presetArray(size : int) : [int]
   let
@@ -10,9 +10,11 @@ fun presetArray(size : int) : [int]
     arr
   end
 end
+
 class Main
   var check_arr : [bool]
   var size : int
+
   def setup() : unit
     this.size = 2000
     this.check_arr = new [bool](this.size)
@@ -20,6 +22,7 @@ class Main
       (this.check_arr)(v) = false
     end
   end
+
   def test_setting_array() : unit
     let
       arr = presetArray(this.size)
@@ -30,6 +33,7 @@ class Main
                    end >> fun (i : int) => assertTrue((this.check_arr)(i))
     end
   end
+
   def test_split_words_and_print() : unit
     let
       words = (new String("this is a test")).split(" ")
@@ -37,6 +41,7 @@ class Main
       each(words) >> fun (w : String) => print("Word: {}\n", w)
     end
   end
+
   def test_array_of_one() : unit
     let
       arr = presetArray(1)
@@ -44,6 +49,7 @@ class Main
       each(arr) >> fun (x : int) => print("result: {}", x + 1)
     end
   end
+
   def main() : unit
     this.setup()
     this.test_setting_array()
