@@ -635,6 +635,7 @@ data Warning = StringDeprecatedWarning
              | StringIdentityWarning
              | PolymorphicIdentityWarning
              | ShadowedMethodWarning FieldDecl
+             | ExpressionResultIgnoredWarning Expr
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
@@ -643,6 +644,8 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
+    show (ExpressionResultIgnoredWarning expr) = 
+        "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++
                 "the method of the same name")

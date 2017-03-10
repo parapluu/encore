@@ -1,0 +1,9 @@
+Result of '(23, new String("Hello"))' is discarded
+Result of '[1]' is discarded
+Result of 'Nothing' is discarded
+Result of 'Just(new ThisClassDeliberatelyNotCalledMain())' is discarded
+Result of 'true || false' is discarded
+Result of '1.0 + 2.0' is discarded
+Result of '1' is discarded
+Couldn't find active class 'Main'
+

@@ -450,7 +450,7 @@ mark asParent s@IfThenElse{cond, thn, els} =
 mark asParent s@Async{body} = asParent s{body=mark asParent body}
 mark asParent s@Assign {lhs, rhs} = asStat s{lhs=markAsStat lhs, rhs=markAsExpr rhs}
 mark asParent s@Print {args} = asStat s{args=map markAsExpr args}
-mark asParent s@MaybeValue{mdt=d@JustData{e}} = asParent s{mdt=d{e=mark asParent e}}
+mark asParent s@MaybeValue{mdt=d@JustData{e}} = asParent s{mdt=d{e=mark markAsExpr e}}
 mark asParent s@Let{body, decls} =
   asParent s{body=mark asParent body, decls=map markDecl decls}
   where
