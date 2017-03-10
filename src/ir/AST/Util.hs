@@ -307,10 +307,12 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
   (acc3, p{functions = funs', traits = traits', classes = classes', imports = imports})
     where
       (acc1, funs') = List.mapAccumL (extendAccumFunction f) acc0 functions
-      extendAccumFunction f acc fun@(Function{funbody}) =
-        (acc', fun{funbody = funbody'})
+      extendAccumFunction f acc fun@(Function{funbody, funlocals}) =
+        (acc2, fun{funbody = funbody', funlocals = funlocals'})
         where
-          (acc', funbody') = extendAccum f acc funbody
+          (acc1, funbody') = extendAccum f acc funbody
+          (acc2, funlocals') = List.mapAccumL (extendAccumFunction f)
+                                              acc1 funlocals
 
       (acc2, traits') = List.mapAccumL (extendAccumTrait f) acc1 traits
       extendAccumTrait f acc trt@(Trait{tmethods}) =
@@ -324,10 +326,12 @@ extendAccumProgram f acc0 p@Program{functions, traits, classes, imports} =
         where
           (acc', cmethods') = List.mapAccumL (extendAccumMethod f) acc cmethods
 
-      extendAccumMethod f acc mtd@(Method{mbody}) =
-        (acc', mtd{mbody = mbody'})
+      extendAccumMethod f acc mtd@(Method{mbody, mlocals}) =
+        (acc2, mtd{mbody = mbody', mlocals = mlocals'})
         where
-          (acc', mbody') = extendAccum f acc mbody
+          (acc1, mbody') = extendAccum f acc mbody
+          (acc2, mlocals') = List.mapAccumL (extendAccumFunction f)
+                                            acc1 mlocals
 
 -- | @filter cond e@ returns a list of all sub expressions @e'@ of
 -- @e@ for which @cond e'@ returns @True@
@@ -448,7 +452,7 @@ mark asParent s@Seq{eseq} =
 mark asParent s@IfThenElse{cond, thn, els} =
   asParent s{cond=markAsExpr cond, thn=mark asParent thn, els=mark asParent els}
 mark asParent s@Async{body} = asParent s{body=mark asParent body}
-mark asParent s@Assign {lhs, rhs} = asStat s{lhs=markAsStat lhs, rhs=markAsExpr rhs}
+mark asParent s@Assign {lhs, rhs} = asStat s{lhs=markAsExpr lhs, rhs=markAsExpr rhs}
 mark asParent s@Print {args} = asStat s{args=map markAsExpr args}
 mark asParent s@MaybeValue{mdt=d@JustData{e}} = asParent s{mdt=d{e=mark markAsExpr e}}
 mark asParent s@Let{body, decls} =

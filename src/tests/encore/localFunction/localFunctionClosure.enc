@@ -1,15 +1,14 @@
--- This file was automatically converted by encorec
-
-fun app[a, b](f : a -> b, x : a) : b
-  f(x)
-end
-fun foo(x : int) : int
-  app(local, x)
+fun foo(arg : int) : int
+  val f = bar()
+  f(arg)
 where
-  fun local(x : int) : int
-    x + 1
+  fun bar() :  int -> int
+    fun (x : int) : int
+      x + 1
+    end
   end
 end
+
 class Main
   def main() : unit
     println(foo(41))

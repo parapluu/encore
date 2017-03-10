@@ -216,7 +216,10 @@ instance Precheckable TraitDecl where
         addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
-          assertDistinctThing "declaration" "Requirement" treqs
+          assertDistinctThing "requirement" "field" $
+                              map fname $ requiredFields t
+          assertDistinctThing "requirement" "method" $
+                              map hname $ requiredMethods t
           assertDistinct "definition" tmethods
           let allNames = map hname $ requiredMethods t ++ map mheader tmethods
           assertDistinctThing "declaration" "method" allNames
