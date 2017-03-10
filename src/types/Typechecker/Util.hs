@@ -511,7 +511,8 @@ uniquifyTypeVar :: [Type] -> Type -> TypecheckM Type
 uniquifyTypeVar params ty
   | isTypeVar ty = do
       localTypeVars <- asks typeParameters
-      if ty `elem` params && ty `elem` localTypeVars
+      boundTypeVars <- map fst <$> asks bindings
+      if ty `elem` params && (ty `elem` localTypeVars || ty `elem` boundTypeVars)
       then uniquify ty
       else return ty
   | otherwise = return ty

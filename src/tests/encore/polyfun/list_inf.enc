@@ -59,6 +59,6 @@ end
 class Main
   def main() : unit
     val f = fun (x : int) => x + 1
-    println(length(map(f, Cons(1, Cons(2, Nil())))))
+    println(length(map(f, Cons(1, Cons(2, Nil[int]())))))
   end
 end
