@@ -695,7 +695,7 @@ instance Checkable Expr where
                     isSharedClassType targetType) $
                     tcError $ NonSendableTargetError targetType
           handleErrors targetType mcall@MethodCall {} = do
-            when (isActiveClassType targetType)
+            when (isActiveClassType targetType && not (isThisAccess (target mcall)))
               $ tcError BadSyncCallError
 
             let name' = name mcall

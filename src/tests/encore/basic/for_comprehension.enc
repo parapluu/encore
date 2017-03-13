@@ -89,8 +89,8 @@ class Main
     -- FUTURES
     val tmp = new Tmp()
     get(For
-          i : int <- tmp.twelve()
-          j : int <- tmp.thirteen()
+          i : int <- tmp!twelve()
+          j : int <- tmp!thirteen()
         do
           print("FUT: i = {}, j = {}\n", i, j)
         end)
