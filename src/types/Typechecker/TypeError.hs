@@ -97,7 +97,7 @@ validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
 
-validUseOfContinue :: Backtrace -> Bool 
+validUseOfContinue :: Backtrace -> Bool
 validUseOfContinue [] = False
 validUseOfContinue ((_, BTExpr l@For{}):_) = False
 validUseOfContinue ((_, BTExpr l@While{}):_) = True
@@ -377,7 +377,7 @@ instance Show Error where
       | otherwise =
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
-    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
+    show BadSyncCallError = "Synchronous method calls on actors are not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
@@ -656,7 +656,7 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
-    show (ExpressionResultIgnoredWarning expr) = 
+    show (ExpressionResultIgnoredWarning expr) =
         "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++

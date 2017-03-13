@@ -156,10 +156,8 @@ callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | otherwise = code
   where
     mType = A.methodType m
-    mTypeVars = A.methodTypeParams m
     retStmt = Return futVar
     mName = A.methodName m
-    mParams = A.methodParams m
     msg = expandMethodArgs (sendFutMsg cname) m
     declFut = Decl (future, futVar)
     futureMk mtype = Call futureMkFn [AsExpr encoreCtxVar,
@@ -181,21 +179,15 @@ callMethodWithForward m cdecl@(A.Class {A.cname}) code
     in code ++ [Function retType fName args fBody]
   | otherwise = code
   where
-    mType = A.methodType m
-    mTypeVars = A.methodTypeParams m
     retStmt = Return futVar
     mName = A.methodName m
-    mParams = A.methodParams m
     msg = expandMethodArgs (sendFutMsg cname) m
 
 formalMethodArgumentsZip cname m =
   formalMethodArguments cname ++
   zip argTypes argNames
   where
-    retStmt = Return futVar
-    mName = A.methodName m
     mParams = A.methodParams m
-    msg = expandMethodArgs (sendFutMsg cname) m
     argTypes = map (translate . A.ptype) mParams
     argNames = map (AsLval . argName . A.pname) mParams
 
