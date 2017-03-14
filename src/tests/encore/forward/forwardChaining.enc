@@ -1,0 +1,11 @@
+class SnowyDay
+  def snow() : int
+    42
+  end
+end
+
+class Main
+  def main() : unit
+    forward((new SnowyDay)!snow() ~~> fun (x: int) => ())
+  end
+end

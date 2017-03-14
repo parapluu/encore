@@ -262,9 +262,10 @@ generateHeader p =
        if Ty.isPassiveClassType $ cname then
          []
        else
-         map (genericMethod methodImplFutureName future) nonStreamMethods ++
+         map (genericMethod callMethodFutureName future) nonStreamMethods ++
          map (genericMethod methodImplOneWayName void) nonStreamMethods ++
-         map (genericMethod methodImplStreamName stream) streamMethods
+         map (genericMethod methodImplStreamName stream) streamMethods ++
+         map forwardingMethod nonStreamMethods
        where
          genericMethod genMethodName retType m =
            let
@@ -274,6 +275,15 @@ generateHeader p =
              f = genMethodName cname (A.methodName m)
            in
              FunctionDecl retType f args
+         forwardingMethod m =
+           let
+             thisType = Ptr . AsType $ classTypeName cname
+             rest = map (translate . A.ptype) (A.methodParams m)
+             args = Ptr (Ptr encoreCtxT) : thisType : encoreRuntimeTypeParam :
+                    rest ++ [future]
+             f = methodImplForwardName cname (A.methodName m)
+           in
+             FunctionDecl future f args
 
          (streamMethods, nonStreamMethods) =
            partition A.isStreamMethod cmethods

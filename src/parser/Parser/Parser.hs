@@ -195,6 +195,7 @@ reservedNames =
     ,"false"
     ,"for"
     ,"fun"
+    ,"forward"
     ,"if"
     ,"import"
     ,"in"
@@ -932,6 +933,7 @@ expr = notFollowedBy nl >>
      <|> ifExpression
      <|> unlessIf
      <|> explicitReturn
+     <|> forward
      <|> yield
      <|> try isEos
      <|> eos
@@ -1296,6 +1298,12 @@ expr = notFollowedBy nl >>
         pos <- getPosition
         reserved "continue"
         return $ Continue (meta pos)
+
+      forward = do
+        pos <- getPosition
+        reserved "forward"
+        expr <- parens expression
+        return $ Forward (meta pos) expr
 
       closure = do
         indent <- L.indentLevel

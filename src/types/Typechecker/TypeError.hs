@@ -97,7 +97,7 @@ validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
 
-validUseOfContinue :: Backtrace -> Bool 
+validUseOfContinue :: Backtrace -> Bool
 validUseOfContinue [] = False
 validUseOfContinue ((_, BTExpr l@For{}):_) = False
 validUseOfContinue ((_, BTExpr l@While{}):_) = True
@@ -187,7 +187,6 @@ data Error =
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
   | MissingMainClass
-  | BadSyncCallError
   | SyncStreamCall
   | UnknownTraitError Type
   | UnknownRefTypeError Type
@@ -261,6 +260,7 @@ data Error =
   | UnknownNameError Namespace Name
   | ShadowedImportError ImportDecl
   | WrongModuleNameError Name FilePath
+  | BadSyncCallError
   | PrivateAccessModifierTargetError Name
   | ClosureReturnError
   | MatchMethodNonMaybeReturnError
@@ -268,6 +268,10 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
+  | ForwardArgumentError
+  | ForwardInPassiveContext Type
+  | ForwardInFunction
+  | ForwardTypeError Type Type
   | SimpleError String
 
 arguments 1 = "argument"
@@ -373,8 +377,7 @@ instance Show Error where
       | otherwise =
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
-
-    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
+    show BadSyncCallError = "Synchronous method calls on actors are not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
@@ -619,6 +622,15 @@ instance Show Error where
           pointer
             | While{} <- e = ". Consider using a for loop"
             | otherwise = ""
+    show (ForwardTypeError retType ty) =
+        printf ("Returned type %s of forward should match with " ++
+               "the result type of the containing method %s")
+               (show retType) (show ty)
+    show (ForwardArgumentError) = "Forward currently operates on method call"
+    show (ForwardInPassiveContext cname) =
+        printf "Forward can not be used in passive class '%s'"
+               (show cname)
+    show (ForwardInFunction) = "Forward cannot be used in functions"
     show (SimpleError msg) = msg
 
 
@@ -644,7 +656,7 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
-    show (ExpressionResultIgnoredWarning expr) = 
+    show (ExpressionResultIgnoredWarning expr) =
         "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++

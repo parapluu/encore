@@ -41,7 +41,7 @@ ponyGcSend argPairs futTrace =
 
 ponyGcSendFuture :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendFuture argPairs =
-  ponyGcSend argPairs (traceFuture $ Var "_fut")
+  ponyGcSend argPairs (traceFuture $ futVar)
 
 ponyGcSendStream :: [(Ty.Type, CCode Lval)] -> [CCode Stat]
 ponyGcSendStream argPairs =

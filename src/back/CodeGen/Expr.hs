@@ -337,7 +337,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       return (unit, Seq [Statement targ, Statement exitCall])
 
   translate abort@(A.Abort {A.args = []}) = do
-      let abortCall = Call (Nam "abort") ([]::[CCode Lval]) 
+      let abortCall = Call (Nam "abort") ([]::[CCode Lval])
       return (unit, Statement abortCall)
 
   translate seq@(A.Seq {A.eseq}) = do
@@ -983,6 +983,60 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | otherwise = error $ "Cannot translate get of " ++ show val
 
+  translate A.Forward{A.forwardExpr = expr@A.MessageSend{A.emeta
+                                                       ,A.target
+                                                       ,A.name
+                                                       ,A.typeArguments
+                                                       ,A.args}} = do
+    withForwarding <- gets Ctx.withForwarding
+    eCtx <- gets $ Ctx.getExecCtx
+    let fun = Ctx.lookupFunctionContext eCtx
+        mtd = Ctx.lookupMethodContext eCtx
+        cls = Ctx.lookupClosureContext eCtx
+        dtraceExit = case (fun, mtd, cls) of
+                          (func, [], [] ) -> [dtraceFunctionExit (A.functionName (head func))]
+                          ([], mdecl, []) -> [dtraceMethodExit thisVar (A.methodName (head mdecl))]
+                          ([], [], expr)  -> [dtraceClosureExit]
+                          (_, _, _)    -> []
+    if withForwarding
+    then do
+      (ntarget, ttarget) <- translate target
+      let targetType = A.getType target
+      (initArgs, forwardingCall) <-
+        callTheMethodForward [futVar]
+          ntarget targetType name args typeArguments Ty.unitType
+
+      return (unit, Seq $
+                      [Statement $
+                      If (futVar)
+                         (Seq $ ttarget :
+                                targetNullCheck ntarget target name emeta "." :
+                                initArgs ++
+                                [Statement forwardingCall]
+                                )
+                         Skip] ++
+                      dtraceExit ++
+                      [Return Skip])
+
+    else if Ty.isFutureType $ A.getType expr
+    then do
+      (sendn, sendt) <- translate A.MessageSend{A.emeta
+                                               ,A.target
+                                               ,A.name
+                                               ,A.typeArguments
+                                               ,A.args}
+      let resultType = translate (Ty.getResultType $ A.getType expr)
+          theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
+      return (unit, Seq $ [sendt] ++ dtraceExit ++ [Return theGet])
+    else
+      error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
+
+  translate A.Forward{A.forwardExpr = A.FutureChain{}} =
+    error "Expr.hs: Forwarding of chaining not implemented"
+  translate A.Forward{A.forwardExpr} =
+    error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
+            show forwardExpr ++ "'"
+
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym
@@ -1166,7 +1220,10 @@ functionCall fcall@A.FunctionCall{A.typeArguments = typeArguments
 
 indexArgument msgName i = Arrow msgName (Nam $ "f" ++ show i)
 
-callTheMethodFuture = callTheMethodForName methodImplFutureName
+callTheMethodFuture = callTheMethodForName callMethodFutureName
+
+callTheMethodForward extras =
+  callTheMethodForNameWithExtraArguments extras methodImplForwardName
 
 callTheMethodOneway = callTheMethodForName methodImplOneWayName
 
@@ -1188,8 +1245,23 @@ callTheMethodForName ::
   (Ty.Type -> ID.Name -> CCode Name) ->
   CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> [Ty.Type] -> Ty.Type
   -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
-callTheMethodForName
-  genCMethodName targetName targetType methodName args typeargs resultType = do
+callTheMethodForName = callTheMethodForName' []
+
+callTheMethodForNameWithExtraArguments ::
+  [CCode Lval] ->
+  (Ty.Type -> ID.Name -> CCode Name) ->
+  CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> [Ty.Type] -> Ty.Type
+  -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
+callTheMethodForNameWithExtraArguments = callTheMethodForName'
+
+callTheMethodForName' ::
+  [CCode Lval] ->
+  (Ty.Type -> ID.Name -> CCode Name) ->
+  CCode Lval -> Ty.Type -> ID.Name -> [A.Expr] -> [Ty.Type] -> Ty.Type
+  -> State Ctx.Context ([CCode Stat], CCode CCode.Main.Expr)
+callTheMethodForName'
+  extraArguments
+  genCMethodName targetName targetType methodName args typeargs resulttype = do
   (args', initArgs) <- unzip <$> mapM translate args
   header <- gets $ Ctx.lookupMethod targetType methodName
 
@@ -1200,7 +1272,8 @@ callTheMethodForName
   return (initArgs ++ [tmpTypeDecl],
            Call cMethodName $
              map AsExpr [encoreCtxVar, targetName, runtimeTypeVar] ++
-             doCast (map A.ptype (A.hparams header)) args'
+             doCast (map A.ptype (A.hparams header)) args' ++
+             map AsExpr extraArguments
     )
   where
     cMethodName = genCMethodName targetType methodName

@@ -22,8 +22,10 @@ import CCode.Main
 import CCode.PrettyCCode ()
 
 import Data.List
+import Control.Arrow
 
 import qualified AST.AST as A
+import qualified AST.Util as Util
 import qualified Identifiers as ID
 import qualified Types as Ty
 
@@ -97,10 +99,12 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
        methodClauses = concatMap methodClause
 
-       methodClause m = (mthdDispatchClause m) :
+       methodClause m = (mthdDispatchClause m mArgs) :
                          if not (A.isStreamMethod m)
-                         then [oneWaySendDispatchClause m]
+                         then [oneWaySendDispatchClause m mArgs]
                          else []
+         where
+           mArgs = (A.methodName &&& A.methodParams) m
 
        -- explode _enc__Foo_bar_msg_t struct into variable names
        methodUnpackArguments :: A.MethodDecl -> CCode Ty -> [CCode Stat]
@@ -120,69 +124,70 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
 
        includeCtx xs = Deref encoreCtxVar : xs
 
-       mthdDispatchClause mdecl
+       mthdDispatchClause mdecl (mName, mParams)
            | A.isStreamMethod mdecl =
                (futMsgId cname mName,
-                Seq $ unpackFuture : args ++
+                Seq $ unpackFuture : arguments' ++
                       gcReceive ++ [streamMethodCall])
            | otherwise =
                (futMsgId cname mName,
-                Seq $ unpackFuture : args ++
+                Seq $ unpackFuture : arguments' ++
                       gcReceive ++ [pMethodDecl, methodCall])
            where
              (pMethodArrName, pMethodDecl) = arrMethodTypeVars mdecl
-             args =
-                 methodUnpackArguments mdecl
-                 (Ptr . AsType $ futMsgTypeName cname mName)
+             arguments' = arguments mdecl (futMsgTypeName cname mName)
              gcReceive  =
                  gcRecv mParams
                  (Statement $ Call ponyTraceObject
                                    (includeCtx
-                                      [Var "_fut",
+                                      [futVar,
                                        futureTypeRecName `Dot` Nam "trace"]))
              streamMethodCall =
                  Statement $ Call (methodImplName cname mName)
                                   (encoreCtxVar :
                                    thisVar :
                                    nullVar :
-                                   Var "_fut" :
+                                   futVar :
                                    map (AsLval . argName . A.pname) mParams)
              methodCall =
-                   Statement $
-                   Call futureFulfil
-                        [AsExpr encoreCtxVar,
-                         AsExpr $ Var "_fut",
-                         asEncoreArgT (translate mType)
-                         (Call (methodImplName cname mName)
-                               (encoreCtxVar : thisVar :
+               Statement $
+               if null $ Util.filter A.isForward (A.mbody mdecl)
+               then Call futureFulfil
+                         [AsExpr encoreCtxVar,
+                          AsExpr $ futVar,
+                          asEncoreArgT (translate $ A.methodType mdecl)
+                          (Call (methodImplName cname mName)
+                                (encoreCtxVar : thisVar :
                                 pMethodArrName :
                                 map (AsLval . argName . A.pname) mParams))]
-             mName   = A.methodName mdecl
-             mParams = A.methodParams mdecl
-             mType   = A.methodType mdecl
+               else forwardMethodCall mName pMethodArrName mParams futVar
 
-       oneWaySendDispatchClause mdecl =
-           (oneWayMsgId cname mName,
-            Seq $ args ++ gcReceive ++ [pMethodDecl, methodCall])
+       forwardMethodCall = \mName pMethodArrName mParams lastArg ->
+                             Call (forwardingMethodImplName cname mName)
+                                (encoreCtxVar : thisVar :
+                                pMethodArrName :
+                                map (AsLval . argName . A.pname) mParams ++
+                                [lastArg])
+       arguments mdecl ptr = methodUnpackArguments mdecl (Ptr . AsType $ ptr)
+       oneWaySendDispatchClause mdecl (mName, mParams) =
+           let ptr = oneWayMsgTypeName cname mName
+           in (oneWayMsgId cname mName,
+               Seq $ arguments mdecl ptr ++
+                     gcReceive ++ [pMethodDecl, methodCall])
            where
              (pMethodArrName, pMethodDecl) = arrMethodTypeVars mdecl
-             args =
-                 methodUnpackArguments mdecl
-                 (Ptr . AsType $ oneWayMsgTypeName cname mName)
-             gcReceive =
-                 gcRecv mParams
-                 (Comm "Not tracing the future in a oneWay send")
+             gcReceive = gcRecv mParams
+                         (Comm "Not tracing the future in a oneWay send")
              methodCall =
-                 Statement $
-                   Call (methodImplName cname mName)
-                        (encoreCtxVar : thisVar : pMethodArrName :
+               Statement $
+                 if null $ Util.filter A.isForward (A.mbody mdecl)
+                 then Call (methodImplName cname mName)
+                           (encoreCtxVar : thisVar : pMethodArrName :
                            map (AsLval . argName . A.pname) mParams)
-             mName   = A.methodName mdecl
-             mParams = A.methodParams mdecl
-
+                 else forwardMethodCall mName pMethodArrName mParams nullVar
        unpackFuture =
          let
-           lval = Decl (future, Var "_fut")
+           lval = Decl (future, futVar)
            rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
          in
            Assign lval rval

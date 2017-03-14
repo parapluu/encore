@@ -1,0 +1,13 @@
+fun ExtremelySlowTrain() : int
+  forward((new FixBug())!fix())
+end
+class FixBug
+  def fix() : int
+    42
+  end
+end
+class Main
+  def main() : unit
+    ()
+  end
+end

@@ -137,7 +137,6 @@ instance Checkable Function where
       eLocals <- local (addTypeParameters funtypeparams .
                         addLocalFunctions funlocals) $
                        mapM typecheck funlocals
-
       return f{funbody = eBody
               ,funlocals = eLocals}
 
@@ -363,6 +362,10 @@ instance Checkable ClassDecl where
     unless (isPassiveClassType cname || isNothing ccomposition) $
            tcError TraitsInActiveClassError
 
+    when (isPassiveClassType cname) $
+         unless (null $ filter isForwardMethod cmethods) $
+                tcError $ ForwardInPassiveContext cname
+
     let traits = typesFromTraitComposition ccomposition
         extendedTraits = extendedTraitsFromComposition ccomposition
 
@@ -384,6 +387,7 @@ instance Checkable ClassDecl where
       addTypeVars = addTypeParameters typeParameters
       addThis = extendEnvironmentImmutable [(thisName, cname)]
       typecheckMethod m = local (addTypeVars . addThis) $ typecheck m
+      isForwardMethod m@Method{mbody} = not . null $ Util.filter isForward mbody
 
 instance Checkable MethodDecl where
     --  E, x1 : t1, .., xn : tn |- mbody : mtype
@@ -1093,6 +1097,26 @@ instance Checkable Expr where
                   pushError eVal $ ExpectingOtherTypeError
                                      "a future or a stream" ty
            return $ setType (getResultType ty) get {val = eVal}
+
+    --  E |- val : Fut t
+    -- ------------------
+    --  E |- forward val : t
+    doTypecheck forward@(Forward {forwardExpr}) =
+        do eExpr <- typecheck forwardExpr
+           let ty = AST.getType eExpr
+           unless (isMessageSend forwardExpr) $
+                  pushError eExpr $ ForwardArgumentError
+           unless (isFutureType ty) $
+                  pushError eExpr $ ExpectingOtherTypeError
+                                      "a future" ty
+           result <- asks currentMethod
+           when (isNothing result) $
+                pushError eExpr $ ForwardInFunction
+           let returnType = methodType (fromJust result)
+           typeCmp <- (getResultType ty) `subtypeOf` returnType
+           unless typeCmp $
+                pushError eExpr $ ForwardTypeError returnType ty
+           return $ setType (getResultType ty) forward {forwardExpr = eExpr}
 
     --  E |- val : t
     --  isStreaming(currentMethod)
