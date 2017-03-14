@@ -19,7 +19,6 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Arrow((&&&), second)
-import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -676,7 +675,7 @@ instance Checkable Expr where
                 tcError $ NonSendableTargetError targetType
             | isMethodCall m = do
               when (isRefType targetType) $
-                unless (isPassiveType targetType || AST.AST.isThisAccess (target mcall)) $
+                unless (isPassiveType targetType || isThisAccess (target mcall)) $
                   tcError BadSyncCallError
               let name' = name m
               unless (isRefType targetType) $
