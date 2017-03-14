@@ -1025,6 +1025,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     then do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
+                                               ,A.opt=False
                                                ,A.name
                                                ,A.typeArguments
                                                ,A.args}
