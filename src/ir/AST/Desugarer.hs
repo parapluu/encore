@@ -10,9 +10,6 @@ import Text.Megaparsec
 
 import qualified Data.List as List
 
-import Debug.Trace
-import AST.PrettyPrinter
-
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions}) =
   p{
