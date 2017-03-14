@@ -90,6 +90,29 @@ optionalAccess e@(Let {decls, body}) =
 optionalAccess e@(Assign {lhs, rhs}) = e {lhs = optionalAccess lhs,
                                           rhs = optionalAccess rhs}
 
+optionalAccess t@TypedExpr {body} = t { body = optionalAccess body}
+optionalAccess a@Async {body} = a {body = optionalAccess body}
+optionalAccess t@Tuple {args} = t {args = map optionalAccess args}
+optionalAccess i@IfThenElse {cond, thn, els} = i {cond = optionalAccess cond
+                                                 ,thn = optionalAccess thn
+                                                 ,els = optionalAccess els}
+optionalAccess i@IfThen {cond, thn} = i {cond = optionalAccess cond
+                                        ,thn = optionalAccess thn}
+optionalAccess u@Unless {cond, thn} = u {cond = optionalAccess cond
+                                        ,thn = optionalAccess thn}
+optionalAccess w@While {cond, body} = w {cond = optionalAccess cond
+                                        ,body = optionalAccess body}
+optionalAccess w@DoWhile {cond, body} = w {cond = optionalAccess cond
+                                          ,body = optionalAccess body}
+optionalAccess r@Repeat {body} = r {body = optionalAccess body}
+optionalAccess r@For {src, body} = r {src = optionalAccess src
+                                     ,body = optionalAccess body}
+optionalAccess g@Get {val} = g {val = optionalAccess val}
+optionalAccess a@Await {val} = a {val = optionalAccess val}
+optionalAccess f@FutureChain {future, chain} = f {future = optionalAccess future
+                                                 ,chain = optionalAccess chain}
+optionalAccess a@ArrayAccess {target, index} = a {target = optionalAccess target
+                                                 ,index = optionalAccess index}
 optionalAccess r@Return {val} = r {val = optionalAccess val}
 optionalAccess m@Match {arg, clauses} =
   m {arg = optionalAccess arg
