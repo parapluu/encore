@@ -19,7 +19,6 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Arrow((&&&), second)
-import Debug.Trace
 
 -- Module dependencies
 import Identifiers
@@ -672,21 +671,22 @@ instance Checkable Expr where
             when (name == constructorName) $ tcError ConstructorCallError
             when (isMainMethod targetType name) $ tcError MainMethodCallError
 
-          handleErrors targetType msend@MessageSend {} = do
-            errorInitMethod targetType (name msend)
-            unless (isActiveClassType targetType ||
-                    isSharedClassType targetType) $
-                    tcError $ NonSendableTargetError targetType
-          handleErrors targetType mcall@MethodCall {} = do
-            unless (isPassiveType targetType || AST.AST.isThisAccess (target mcall))
-              $ tcError BadSyncCallError
-
-            let name' = name mcall
-            unless (isRefType targetType) $
-                   tcError $ NonCallableTargetError targetType
-            errorInitMethod targetType name'
-          handleErrors _ mcall =
-            error $ "Typechecker.hs: expression '" ++ show mcall ++ "' " ++
+          handleErrors targetType m
+            | isMessageSend m = do
+              errorInitMethod targetType (name m)
+              unless (isActiveClassType targetType ||
+                      isSharedClassType targetType) $
+                tcError $ NonSendableTargetError targetType
+            | isMethodCall m = do
+              when (isRefType targetType) $
+                unless (isPassiveType targetType || isThisAccess (target mcall)) $
+                  tcError BadSyncCallError
+              let name' = name m
+              unless (isRefType targetType) $
+                     tcError $ NonCallableTargetError targetType
+              errorInitMethod targetType name'
+            | otherwise =
+                error $ "Typechecker.hs: expression '" ++ show m ++ "' " ++
                     "is not a method or function call"
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
