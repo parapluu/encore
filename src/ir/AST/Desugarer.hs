@@ -63,7 +63,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
     -- NOTE:
     -- `selfSugar` should always be the first thing.
     -- otherwise the unsugared version is printed on typechecking errors
-    desugarExpr e = (extend removeDeadMiniLet . extend desugar . optionalAccess . extend selfSugar) e
+    desugarExpr e = (extend removeDeadMiniLet . extend desugar . extend optionalAccess . extend selfSugar) e
 
 -- | Desugars the notation `x?.foo()` and `actor?!bar()` into
 --
@@ -74,51 +74,6 @@ desugarProgram p@(Program{traits, classes, functions}) =
 --
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
-optionalAccess e@(Seq {eseq}) = e { eseq = map optionalAccess eseq}
-
-optionalAccess e@(MiniLet {decl=(n, ex)}) =
-  e {decl = (n, optionalAccess ex)}
-
-optionalAccess e@(Let {decls, body}) =
-  let (names, exprs) =  unzip decls
-      bindings = zipWith (\nam expr -> (nam, optionalAccess expr)) names exprs
-  in e { decls = bindings, body = optionalAccess body}
-
-optionalAccess e@(Assign {lhs, rhs}) = e {lhs = optionalAccess lhs,
-                                          rhs = optionalAccess rhs}
-
-optionalAccess t@TypedExpr {body} = t { body = optionalAccess body}
-optionalAccess a@Async {body} = a {body = optionalAccess body}
-optionalAccess t@Tuple {args} = t {args = map optionalAccess args}
-optionalAccess i@IfThenElse {cond, thn, els} = i {cond = optionalAccess cond
-                                                 ,thn = optionalAccess thn
-                                                 ,els = optionalAccess els}
-optionalAccess i@IfThen {cond, thn} = i {cond = optionalAccess cond
-                                        ,thn = optionalAccess thn}
-optionalAccess u@Unless {cond, thn} = u {cond = optionalAccess cond
-                                        ,thn = optionalAccess thn}
-optionalAccess w@While {cond, body} = w {cond = optionalAccess cond
-                                        ,body = optionalAccess body}
-optionalAccess w@DoWhile {cond, body} = w {cond = optionalAccess cond
-                                          ,body = optionalAccess body}
-optionalAccess r@Repeat {body} = r {body = optionalAccess body}
-optionalAccess r@For {src, body} = r {src = optionalAccess src
-                                     ,body = optionalAccess body}
-optionalAccess g@Get {val} = g {val = optionalAccess val}
-optionalAccess a@Await {val} = a {val = optionalAccess val}
-optionalAccess f@FutureChain {future, chain} = f {future = optionalAccess future
-                                                 ,chain = optionalAccess chain}
-optionalAccess a@ArrayAccess {target, index} = a {target = optionalAccess target
-                                                 ,index = optionalAccess index}
-optionalAccess r@Return {val} = r {val = optionalAccess val}
-optionalAccess m@Match {arg, clauses} =
-  m {arg = optionalAccess arg
-    ,clauses = map optClauses clauses}
-  where
-    optClauses clause@MatchClause {mchandler, mcguard} =
-      clause { mchandler = optionalAccess mchandler
-             , mcguard = optionalAccess mcguard }
-
 optionalAccess m@MessageSend {emeta, target, opt=True} =
   let maybeVal = MaybeValue emeta $ JustData (m {target = handlerName ,opt=False})
       handlerName = optVarAccessFactory emeta
@@ -150,7 +105,7 @@ optionalAccess FieldAccess{emeta, target, opt=True, name} =
     --
     matcherName e arg = optVarAccessFactory e arg
     handlerName e arg = optVarAccessFactory e $ Name . optionalVarPrefix $ show arg
-    boundName arg = Name . (optionalVarPrefix . optionalVarPrefix) $ show arg
+    boundName arg = Name . (optionalVarPrefix . optionalVarPrefix) $ "optNotation"
 
     matchBuilder matcherNam handlerNam handler =
       Match emeta matcherNam
@@ -193,10 +148,9 @@ optionalAccess FieldAccess{emeta, target, opt=True, name} =
                else maybeFieldAccess
       in desugarOptAccess t matchFactory
 
-    -- TODO: this should not be a compiler crash but a compiler error.
-    --       update this when we get support to throw errors in the desugaring phase.
-    desugarOptAccess e _ = error $ "There is no current support for '" ++
-                                   (show $ ppExpr e) ++ "'."
+    desugarOptAccess m@Match {arg} fn =
+      letExpr (boundName arg, m) (fn $ boundName arg)
+
 optionalAccess e = e
 
 -- Helper functions for optionalAccess desugaring function
