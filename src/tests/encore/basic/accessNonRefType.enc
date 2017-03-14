@@ -1,0 +1,11 @@
+passive class T
+  def self(): T
+    this
+  end
+end
+
+class Main
+  def main(): unit
+    (Just(new T)).self()
+  end
+end
