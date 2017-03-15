@@ -254,6 +254,7 @@ reservedOps =
     ,"|||"
     ,">>"
     ,"?!"
+    ,"?."
     ,"+"
     ,"-"
     ,"*"
@@ -1058,7 +1059,7 @@ expr = notFollowedBy nl >>
                 m <- methodCall
                 return $ Option emeta m
               optionalAccessDot emeta = do
-                question >> dot
+                reservedOp "?."
                 var <- varOrCall
                 return $ Option emeta var
               comparmentAcc = dot >> compartmentAccess
