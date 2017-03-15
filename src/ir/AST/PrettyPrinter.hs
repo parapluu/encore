@@ -252,6 +252,7 @@ ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
 ppExpr Continue {} = "Continue"
 ppExpr Option {body} = ppExpr body
+ppExpr Optional {} = "Optional maybe"
 ppExpr MethodCall {target, name, opt, args, typeArguments} =
     maybeParens target <> withOptional opt "." <> ppName name <>
       withTypeArguments typeArguments <>

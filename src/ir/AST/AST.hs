@@ -538,6 +538,8 @@ data Expr = Skip {emeta :: Meta Expr}
                          opt :: Optional,
                          name :: Name,
                          args :: Arguments}
+          | Optional {emeta :: Meta Expr,
+                     continuation :: Expr -> Expr}
           | Option {emeta :: Meta Expr,
                     body :: Expr}
           | ExtractorPattern {emeta :: Meta Expr,

@@ -1052,18 +1052,24 @@ expr = notFollowedBy nl >>
           pathComponent = do
             emeta <- meta <$> getPosition
             try comparmentAcc <|> try varOrCallFunction <|>
-              (try $ optionalAccessBang emeta) <|> optionalAccessDot emeta
+              optionalAccessBang emeta <|> optionalAccessDot emeta
             where
               optionalAccessBang emeta = do
                 reservedOp "?!"
                 m <- methodCall
-                return $ Option emeta m
+                let msgFactory target = MessageSend emeta (typeArguments m) target
+                                                    False (qnlocal (qname m)) (args m)
+                return $ Optional emeta msgFactory
               optionalAccessDot emeta = do
                 reservedOp "?."
                 var <- varOrCall
-                return $ Option emeta var
+                return $ Optional emeta $ continuation var
               comparmentAcc = dot >> compartmentAccess
               varOrCallFunction = dot >> varOrCall
+              continuation VarAccess {emeta, qname} =
+                \target -> FieldAccess emeta target False (qnlocal qname)
+              continuation FunctionCall {emeta, typeArguments, qname, args} =
+                \target -> MethodCall emeta typeArguments target False (qnlocal qname) args
 
           compartmentAccess = do
             pos <-  getPosition
