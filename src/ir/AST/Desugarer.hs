@@ -74,6 +74,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
 --
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
+-- optionalAccess Optional {emeta, continuation} =
 optionalAccess m@MessageSend {emeta, target, opt=True} =
   let maybeVal = MaybeValue emeta $ JustData (m {target = handlerName ,opt=False})
       handlerName = optVarAccessFactory emeta
