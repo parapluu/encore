@@ -18,7 +18,7 @@ class Main
   def setup() : unit
     this.size = 2000
     this.check_arr = new [bool](this.size)
-    for v <- [0..this.size] do
+    for v <- [0..this.size-1] do
       (this.check_arr)(v) = false
     end
   end
