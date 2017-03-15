@@ -322,8 +322,7 @@ functionAsValueWrapperNameOf :: A.Expr -> CCode Name
 functionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
   Nam $ encoreName "fun_wrapper" (qualifiedToString qname)
 functionAsValueWrapperNameOf e =
-    error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
-            show e ++ "'"
+    error $ "CCodeNames.hs: Tried to get function wrapper from something that is not a function"
 
 closureStructName :: CCode Name
 closureStructName = Nam "closure"

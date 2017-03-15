@@ -24,6 +24,7 @@ import Control.Arrow(first)
 import Prelude hiding (foldr, filter)
 
 import AST.AST
+import AST.PrettyPrinter(ppExpr)
 import Types
 import Identifiers
 import AST.Meta(isStat,makeStat)
@@ -54,7 +55,7 @@ putTypeChildren [] e = e
 putTypeChildren l e =
   error $ "Util.hs: Trying to give " ++ show (length l) ++
           " types to expression without syntactic types: " ++
-          show e
+          show (ppExpr e)
 
 -- | @getChildren e@ returns all children of @e@ that are Exprs themselves
 getChildren :: Expr -> [Expr]

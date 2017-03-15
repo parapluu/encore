@@ -48,7 +48,6 @@ data ExecContext =
   | MethodContext  {mdecl :: MethodDecl}
   | ClosureContext {cls :: Expr} -- for checking closure in the future.
   | Empty
-    deriving(Show)
 
 data Context = Context {
   varSubTable  :: VarSubTable,

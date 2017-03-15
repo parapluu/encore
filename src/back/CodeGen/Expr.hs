@@ -391,7 +391,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                    ,dtraceFieldWrite ntarg name
                                    ]
               return (Deref (StatAsExpr ntarg ttargTrace) `Dot` fieldName name)
-        mkLval e = error $ "Cannot translate '" ++ show e ++ "' to a valid lval"
+        mkLval e = error $ "Cannot translate '" ++ show (PP.ppExpr e) ++ "' to a valid lval"
 
   translate mayb@(A.MaybeValue _ (A.JustData e)) = do
     (nE, tE) <- translate e
@@ -981,7 +981,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
-    | otherwise = error $ "Cannot translate get of " ++ show val
+    | otherwise = error $ "Cannot translate get of " ++ show (PP.ppExpr val)
 
   translate A.Forward{A.forwardExpr = expr@A.MessageSend{A.emeta
                                                        ,A.target
@@ -1033,13 +1033,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
       return (unit, Seq $ [sendt] ++ dtraceExit ++ [Return theGet])
     else
-      error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
+      error $ "Expr.hs: Cannot translate forward of ''" ++ show (PP.ppExpr expr) ++ "'"
 
   translate A.Forward{A.forwardExpr = A.FutureChain{}} =
     error "Expr.hs: Forwarding of chaining not implemented"
   translate A.Forward{A.forwardExpr} =
     error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
-            show forwardExpr ++ "'"
+            show (PP.ppExpr forwardExpr) ++ "'"
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
@@ -1061,7 +1061,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          let dtraceExit = case (Ctx.lookupFunctionContext eCtx, Ctx.lookupMethodContext eCtx) of
                               (fun, [] ) -> dtraceFunctionExit (A.functionName (head fun))
                               ([], mdecl)  -> dtraceMethodExit thisVar (A.methodName (head mdecl))
-                              (_, _)     -> error $ "Expr.hs: Cannot translate return in " ++ show eCtx
+                              (_, _)     -> error $ "Expr.hs: Cannot translate return in current context"
          return (unit, Seq[tval, dtraceExit, Return nval])
 
   translate iseos@(A.IsEos{A.target}) =
@@ -1151,7 +1151,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       Just clos -> closureCall clos fcall
       Nothing -> functionCall fcall
 
-  translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+  translate other = error $ "Expr.hs: can't translate: '" ++ show (PP.ppExpr other) ++ "'"
 
 closureCall :: CCode Lval -> A.Expr ->
   State Ctx.Context (CCode Lval, CCode Stat)
