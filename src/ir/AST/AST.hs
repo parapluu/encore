@@ -520,6 +520,8 @@ instance Show Mutability where
     show Var = "var"
     show Val = "val"
 
+data PathComponent = QuestionDot Expr | QuestionBang Expr | Dot Expr
+
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
           | Continue {emeta :: Meta Expr}
@@ -529,25 +531,20 @@ data Expr = Skip {emeta :: Meta Expr}
           | MethodCall {emeta :: Meta Expr,
                         typeArguments :: [Type],
                         target :: Expr,
-                        opt :: Optional,
                         name :: Name,
                         args :: Arguments}
           | MessageSend {emeta :: Meta Expr,
                          typeArguments :: [Type],
                          target :: Expr,
-                         opt :: Optional,
                          name :: Name,
                          args :: Arguments}
           | Optional {emeta :: Meta Expr,
-                     continuation :: Expr -> Expr}
-          | Option {emeta :: Meta Expr,
-                    body :: Expr}
+                      optTag :: PathComponent}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,
                               arg :: Expr}
           | FunctionCall {emeta :: Meta Expr,
-                          async :: Bool,
                           typeArguments :: [Type],
                           qname :: QualifiedName,
                           args :: Arguments}
@@ -646,7 +643,6 @@ data Expr = Skip {emeta :: Meta Expr}
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr,
                          target :: Expr,
-                         opt :: Optional,
                          name :: Name}
           | ArrayAccess {emeta :: Meta Expr,
                          target :: Expr,

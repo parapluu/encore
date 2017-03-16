@@ -893,7 +893,6 @@ expression = makeExprParser expr opTable
                       let msgSend opt target = MessageSend {emeta = meta pos
                                                            ,typeArguments
                                                            ,target
-                                                           ,opt
                                                            ,name
                                                            ,args}
                       return $ msgSend False)
@@ -1042,12 +1041,12 @@ expr = notFollowedBy nl >>
 
           call emeta typeArgs name = do
             args <- parens arguments
-            return $ FunctionCall emeta False typeArgs name args
+            return $ FunctionCall emeta typeArgs name args
 
           longerPath pos root = do
             first <- pathComponent
             rest <- many $ try pathComponent
-            return $ foldl (buildPath False pos) root (first:rest)
+            return $ foldl (buildPath pos) root (first:rest)
 
           pathComponent = do
             emeta <- meta <$> getPosition
@@ -1056,20 +1055,14 @@ expr = notFollowedBy nl >>
             where
               optionalAccessBang emeta = do
                 reservedOp "?!"
-                m <- methodCall
-                let msgFactory target = MessageSend emeta (typeArguments m) target
-                                                    False (qnlocal (qname m)) (args m)
-                return $ Optional emeta msgFactory
+                m <- varAccess >>= functionCall
+                return $ Optional emeta (QuestionBang m)
               optionalAccessDot emeta = do
                 reservedOp "?."
-                var <- varOrCall
-                return $ Optional emeta $ continuation var
+                var <- varAccess >>= (\x -> functionCall x <|> return x)
+                return $ Optional emeta (QuestionDot var)
               comparmentAcc = dot >> compartmentAccess
               varOrCallFunction = dot >> varOrCall
-              continuation VarAccess {emeta, qname} =
-                \target -> FieldAccess emeta target False (qnlocal qname)
-              continuation FunctionCall {emeta, typeArguments, qname, args} =
-                \target -> MethodCall emeta typeArguments target False (qnlocal qname) args
 
           compartmentAccess = do
             pos <-  getPosition
@@ -1083,28 +1076,24 @@ expr = notFollowedBy nl >>
           functionCall VarAccess{emeta, qname} = do
             typeParams <- option [] (try . brackets $ commaSep typ)
             args <- parens arguments
-            return $ FunctionCall emeta False typeParams qname args
+            return $ FunctionCall emeta typeParams qname args
 
-          methodCall = do
-            x <- varAccess
-            f <- functionCall x
-            return f {async = True}
+          buildPath _ target o@Optional {emeta, optTag = QuestionBang f@(FunctionCall {})} =
+            o {optTag = Dot $ MessageSend emeta (typeArguments f) target (qnlocal $ qname f) (args f)}
 
-          buildPath _ pos target (Option {body}) =
-            buildPath True pos target body
+          buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(FunctionCall {})} =
+            o { optTag = Dot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
 
-          buildPath _ pos target (Optional {continuation}) =
-            continuation target
+          buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(VarAccess {qname})} =
+            o { optTag = Dot $ FieldAccess emeta target (qnlocal qname) }
 
-          buildPath optCall pos target (VarAccess{qname}) =
-            FieldAccess (meta pos) target optCall (qnlocal qname)
+          buildPath pos target (VarAccess{qname}) =
+            FieldAccess (meta pos) target (qnlocal qname)
 
-          buildPath optCall pos target (FunctionCall{qname, async, args, typeArguments}) =
-            if async
-            then MessageSend (meta pos) typeArguments target optCall (qnlocal qname) args
-            else MethodCall (meta pos) typeArguments target optCall (qnlocal qname) args
+          buildPath pos target (FunctionCall{qname, args, typeArguments}) =
+            MethodCall (meta pos) typeArguments target (qnlocal qname) args
 
-          buildPath _ pos target (IntLiteral {intLit}) =
+          buildPath pos target (IntLiteral {intLit}) =
             TupleAccess (meta pos) target intLit
 
       letExpression = do

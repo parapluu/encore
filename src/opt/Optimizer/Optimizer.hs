@@ -56,7 +56,6 @@ constructors = extend constr
               MessageSend {name = constructorName
                           ,emeta = emeta
                           ,target = target
-                          ,opt = False
                           ,args = args
                           ,typeArguments = []}
           | otherwise = e
