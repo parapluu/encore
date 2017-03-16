@@ -105,5 +105,6 @@ pony_type_t* array_get_type(array_t *a){
 
 inline void array_set(array_t *a, size_t i, encore_arg_t element)
 {
+  assert(i < ((struct array_t *)a)->size);
   ((struct array_t *)a)->elements[i] = element;
 }
