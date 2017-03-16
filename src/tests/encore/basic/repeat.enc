@@ -2,6 +2,10 @@
 
 class Main
   def main() : unit
+    val x = 3:uint
+    repeat i <- x do
+      println(i)
+    end
     repeat i <- 10 do
       println(i)
     end
