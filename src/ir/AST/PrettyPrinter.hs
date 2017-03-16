@@ -246,7 +246,29 @@ ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
 ppExpr Continue {} = "Continue"
-ppExpr Optional {} = "Optional maybe"
+
+ppExpr Optional {optTag = QuestionBang MessageSend {target, name, args, typeArguments}} =
+    maybeParens target <> "?!" <> ppName name <>
+      withTypeArguments typeArguments <>
+      parens (commaSep (map ppExpr args))
+ppExpr Optional {optTag = QuestionDot MethodCall {target, name, args, typeArguments}} =
+    maybeParens target <> "?." <> ppName name <>
+      withTypeArguments typeArguments <>
+      parens (commaSep (map ppExpr args))
+ppExpr Optional {optTag = QuestionDot FieldAccess {target, name}} =
+  maybeParens target <> "?." <> ppName name
+ppExpr o@Optional {optTag = Dot m@MessageSend {}} = ppExpr $ o{optTag = QuestionBang m}
+ppExpr o@Optional {optTag = Dot m@MethodCall {}} =
+  ppExpr $ o{optTag = QuestionDot m}
+ppExpr o@Optional {optTag = Dot m@FieldAccess {}} =
+  ppExpr o{optTag = QuestionDot m}
+ppExpr o@Optional {optTag} = ppPath optTag
+  where
+    ppPath :: PathComponent -> Doc
+    ppPath (Dot e) = ppExpr e
+    ppPath (QuestionBang e) = ppExpr e
+    ppPath (QuestionDot e) = ppExpr e
+
 ppExpr MethodCall {target, name, args, typeArguments} =
     maybeParens target <> "." <> ppName name <>
       withTypeArguments typeArguments <>

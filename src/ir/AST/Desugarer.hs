@@ -77,15 +77,17 @@ desugarProgram p@(Program{traits, classes, functions}) =
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
 optionalAccess Optional {emeta=em, optTag = Dot m@MessageSend {emeta, target}} =
-  let maybeVal = MaybeValue em $ JustData (m {target = handlerName})
-      handlerName = optVarAccessFactory em
-                        (Name . optionalVarPrefix . show $ ppExpr target)
-      result = Match emeta target
+  let maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
+      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "optMessageSend")
+      targetName = Name . optionalVarPrefix $ "targetMessageSend"
+      targetVar = optVarAccessFactory em targetName
+      result = Match emeta targetVar
         [clauseNothing em,
-         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerName}
+         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerVar}
                      ,mchandler = maybeVal
                      ,mcguard = BTrue em}]
-  in trace (show $ ppExpr result) result
+      letExpr = Let em Val [(targetName, target)] result
+  in letExpr
 
 optionalAccess Optional {optTag = Dot FieldAccess{emeta, target, name}} =
   let matchFactory arg =
@@ -94,7 +96,7 @@ optionalAccess Optional {optTag = Dot FieldAccess{emeta, target, name}} =
         in matchBuilder (matcherName emeta arg)
             (handlerName emeta arg) handlerBody
       result = desugarOptAccess target matchFactory
-  in trace (show $ ppExpr result) result
+  in result
   where
     letExpr decl body = Let {emeta
                             ,mutability = Val
