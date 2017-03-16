@@ -207,30 +207,27 @@ desugar Unless{emeta, cond = originalCond, thn} =
 --   repeat id <- e1 e2
 -- into
 --   do
---     val start = -1
---     val stop = e1 - 1
+--     val start = 0
+--     val stop = e1 
 --     var step = start
 --     while step < stop do
---       step = step + 1;    -- placed here because of continue
 --       val i = step; 
+--       step = step + 1;    -- placed here because of continue
 --       e2;
 --     end
 --  end
 desugar Repeat{emeta, name, times, body} =
   desugar Seq{emeta ,eseq=[start, stop, step, loop]}
   where
-    start = MiniLet{emeta, mutability=Val, decl = (Name "__start__", IntLiteral{emeta, intLit=(-1)})}
-    stop = MiniLet{emeta, mutability=Val, decl = (Name "__stop__", Binop{emeta
-                                                                        ,binop=MINUS
-                                                                        ,loper=times
-                                                                        ,roper=IntLiteral{emeta, intLit=1}})}
+    start = MiniLet{emeta, mutability=Val, decl = (Name "__start__", IntLiteral{emeta, intLit=0})}
+    stop = MiniLet{emeta, mutability=Val, decl = (Name "__stop__", times)}
     step = MiniLet{emeta, mutability=Var, decl = (Name "__step__", readVar "start")}
     loop = While{emeta
                 ,cond=Binop{emeta
                            ,binop=Identifiers.LT
                            ,loper=readVar "step"
                            ,roper=readVar "stop"}
-                ,body=Seq{emeta, eseq=[incStep, bindUserLoopVar body]}}
+                ,body=Seq{emeta, eseq=[bindUserLoopVar Seq{emeta, eseq=[incStep, body]}]}}
     readVar name = VarAccess{emeta, qname=qName $ "__" ++ name ++ "__"}
     incStep = Assign{emeta
                     ,lhs=readVar "step"
