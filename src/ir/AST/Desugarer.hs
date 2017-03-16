@@ -10,6 +10,8 @@ import Text.Megaparsec
 
 import qualified Data.List as List
 
+import Debug.Trace
+
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions}) =
   p{
@@ -78,80 +80,92 @@ optionalAccess Optional {emeta=em, optTag = Dot m@MessageSend {emeta, target}} =
   let maybeVal = MaybeValue em $ JustData (m {target = handlerName})
       handlerName = optVarAccessFactory em
                         (Name . optionalVarPrefix . show $ ppExpr target)
-  in Match emeta target
-    [clauseNothing em,
-     MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerName}
-                 ,mchandler = maybeVal
-                 ,mcguard = BTrue em}]
+      result = Match emeta target
+        [clauseNothing em,
+         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerName}
+                     ,mchandler = maybeVal
+                     ,mcguard = BTrue em}]
+  in trace (show $ ppExpr result) result
 
--- optionalAccess Optional {emeta, optTag}
+optionalAccess Optional {optTag = Dot FieldAccess{emeta, target, name}} =
+  let matchFactory arg =
+        let fAccess = FieldAccess emeta (handlerName emeta arg) name
+            handlerBody = MaybeValue{emeta, mdt = JustData fAccess}
+        in matchBuilder (matcherName emeta arg)
+            (handlerName emeta arg) handlerBody
+      result = desugarOptAccess target matchFactory
+  in trace (show $ ppExpr result) result
+  where
+    letExpr decl body = Let {emeta
+                            ,mutability = Val
+                            ,decls = [decl]
+                            ,body}
+    -- Names refer to:
+    --
+    -- val boundName = ...
+    -- match matcherName with
+    --   case Just(handlerName) => ...
+    -- end
+    --
+    matcherName e arg = optVarAccessFactory e arg
+    handlerName e arg = optVarAccessFactory e $ Name . optionalVarPrefix $ show arg
+    boundName arg = Name . (optionalVarPrefix . optionalVarPrefix) $ "optNotation"
 
--- optionalAccess FieldAccess{emeta, target, opt=True, name} =
---   let matchFactory arg =
---         let fAccess = FieldAccess emeta (handlerName emeta arg) False name
---             handlerBody = MaybeValue{emeta, mdt = JustData fAccess}
---         in matchBuilder (matcherName emeta arg)
---             (handlerName emeta arg) handlerBody
---   in desugarOptAccess target matchFactory
---   where
---     letExpr decl body = Let {emeta
---                             ,mutability = Val
---                             ,decls = [decl]
---                             ,body}
---     -- Names refer to:
---     --
---     -- val boundName = ...
---     -- match matcherName with
---     --   case Just(handlerName) => ...
---     -- end
---     --
---     matcherName e arg = optVarAccessFactory e arg
---     handlerName e arg = optVarAccessFactory e $ Name . optionalVarPrefix $ show arg
---     boundName arg = Name . (optionalVarPrefix . optionalVarPrefix) $ "optNotation"
+    matchBuilder matcherNam handlerNam handler =
+      Match emeta matcherNam
+           [clauseNothing emeta,
+            MatchClause {mcpattern = MaybeValue{emeta ,mdt = JustData handlerNam}
+                        ,mchandler = handler
+                        ,mcguard = BTrue emeta}]
 
---     matchBuilder matcherNam handlerNam handler =
---       Match emeta matcherNam
---            [clauseNothing emeta,
---             MatchClause {mcpattern = MaybeValue{emeta ,mdt = JustData handlerNam}
---                         ,mchandler = handler
---                         ,mcguard = BTrue emeta}]
+    desugarOptAccess :: Expr -> (Name -> Expr) -> Expr
+    -- Base cases
+    desugarOptAccess VarAccess {qname} fn = fn (qnlocal qname)
+    desugarOptAccess fun@FunctionCall{qname} fn =
+      let boundedName = boundName $ qnlocal qname
+      in letExpr (boundedName, fun) (fn boundedName)
 
---     desugarOptAccess :: Expr -> (Name -> Expr) -> Expr
---     -- Base cases
---     desugarOptAccess VarAccess {qname} fn = fn (qnlocal qname)
---     desugarOptAccess fun@FunctionCall{qname} fn =
---       let boundedName = boundName $ qnlocal qname
---       in letExpr (boundedName, fun) (fn boundedName)
+    -- Inductive cases
+    desugarOptAccess Optional {optTag = Dot MethodCall{emeta=e, typeArguments, target=t, name=n, args}} fn =
+      let matchFactory :: Name -> Expr
+          matchFactory arg =
+            let mCall = MethodCall e typeArguments (handlerName e arg) n args
+                maybeMethodC = MaybeValue e (JustData mCall)
+            in matchBuilder (matcherName e arg)
+                 (handlerName e arg)
+                 (letExpr (boundName arg, maybeMethodC)
+                     (fn $ boundName arg))
+      in desugarOptAccess t matchFactory
 
---     -- Inductive cases
---     desugarOptAccess MethodCall{emeta=e, typeArguments, target=t, opt, name=n, args} fn =
---       let matchFactory :: Name -> Expr
---           matchFactory arg =
---             let mCall = MethodCall e typeArguments (handlerName e arg) False n args
---                 maybeMethodC = MaybeValue e (JustData mCall)
---             in if opt then
---                matchBuilder (matcherName e arg)
---                  (handlerName e arg)
---                  (letExpr (boundName arg, maybeMethodC)
---                      (fn $ boundName arg))
---                else maybeMethodC
---       in desugarOptAccess t matchFactory
+    desugarOptAccess MethodCall{emeta=e, typeArguments, target=t, name=n, args} fn =
+      let matchFactory :: Name -> Expr
+          matchFactory arg =
+            let mCall = MethodCall e typeArguments (handlerName e arg) n args
+                maybeMethodC = MaybeValue e (JustData mCall)
+            in maybeMethodC
+      in desugarOptAccess t matchFactory
 
---     desugarOptAccess FieldAccess {emeta=e, target=t, opt, name=n} fn =
---       let matchFactory :: Name -> Expr
---           matchFactory arg =
---             let f = FieldAccess e (handlerName e arg) False n
---                 maybeFieldAccess = MaybeValue {emeta=e, mdt = JustData(f)}
---             in if opt
---                then matchBuilder (matcherName e arg)
---                                  (handlerName e arg)
---                                  (letExpr (boundName arg, maybeFieldAccess)
---                                     (fn $ boundName arg))
---                else maybeFieldAccess
---       in desugarOptAccess t matchFactory
+    desugarOptAccess Optional {optTag = Dot FieldAccess {emeta=e, target=t, name=n}} fn =
+      let matchFactory arg =
+            let f = FieldAccess e (handlerName e arg) n
+                maybeFieldAccess = MaybeValue {emeta=e, mdt = JustData(f)}
+            in matchBuilder (matcherName e arg)
+                                 (handlerName e arg)
+                                 (letExpr (boundName arg, maybeFieldAccess)
+                                    (fn $ boundName arg))
+      in desugarOptAccess t matchFactory
 
---     desugarOptAccess m@Match {arg} fn =
---       letExpr (boundName arg, m) (fn $ boundName arg)
+    desugarOptAccess FieldAccess {emeta=e, target=t, name=n} fn =
+      let matchFactory arg =
+            let f = FieldAccess e (handlerName e arg) n
+                maybeFieldAccess = MaybeValue {emeta=e, mdt = JustData(f)}
+            in maybeFieldAccess
+      in desugarOptAccess t matchFactory
+
+    desugarOptAccess m@Match {arg} fn =
+      letExpr (boundName arg, m) (fn $ boundName arg)
+
+    desugarOptAccess e _ = error $ show $ ppExpr e
 
 optionalAccess e = e
 

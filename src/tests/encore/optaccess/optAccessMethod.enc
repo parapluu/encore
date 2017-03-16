@@ -1,3 +1,11 @@
+passive class ContainerX
+  val x: X
+
+  def init(x: X): unit
+    this.x = x
+  end
+end
+
 class X
   def getInt(): int
     42
@@ -6,11 +14,15 @@ end
 
 class Main
   def main() : unit
-    val x = Just(new X)
-    val mf = x?!getInt()
-    match mf with
-      case Just(f) => println(get(f))
-      case Nothing => println("Error")
-    end
+    -- val x = Just(new X)
+    -- val mf = x?!getInt()
+    -- match mf with
+    --   case Just(f) => println(get(f))
+    --   case Nothing => println("Error")
+    -- end
+
+
+    val cont = Just(new ContainerX(new X))
+    cont?.x?!getInt()
   end
 end
