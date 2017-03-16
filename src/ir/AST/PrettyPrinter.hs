@@ -257,7 +257,7 @@ ppExpr Optional {optTag = QuestionDot MethodCall {target, name, args, typeArgume
       parens (commaSep (map ppExpr args))
 ppExpr Optional {optTag = QuestionDot FieldAccess {target, name}} =
   maybeParens target <> "?." <> ppName name
-ppExpr o@Optional {optTag} = ppPath optTag
+ppExpr Optional {optTag} = ppPath optTag
   where
     ppPath :: PathComponent -> Doc
     ppPath (QuestionBang e) = ppExpr e
