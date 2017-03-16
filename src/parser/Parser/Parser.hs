@@ -1093,6 +1093,9 @@ expr = notFollowedBy nl >>
           buildPath _ pos target (Option {body}) =
             buildPath True pos target body
 
+          buildPath _ pos target (Optional {continuation}) =
+            continuation target
+
           buildPath optCall pos target (VarAccess{qname}) =
             FieldAccess (meta pos) target optCall (qnlocal qname)
 
