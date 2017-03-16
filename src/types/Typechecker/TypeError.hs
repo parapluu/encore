@@ -17,7 +17,6 @@ module Typechecker.TypeError (Backtrace
                              ,currentMethodFromBacktrace
                              ,currentFunctionFromBacktrace
                              ,validUseOfBreak
-                             ,validUseOfContinue
                              ) where
 
 import Text.PrettyPrint
@@ -92,19 +91,9 @@ validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
 validUseOfBreak ((_, BTExpr l@For{}):_) = True
 validUseOfBreak ((_, BTExpr l@While{}):_) = True
-validUseOfBreak ((_, BTExpr l@DoWhile{}):_) = True
 validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
-
-validUseOfContinue :: Backtrace -> Bool
-validUseOfContinue [] = False
-validUseOfContinue ((_, BTExpr l@For{}):_) = False
-validUseOfContinue ((_, BTExpr l@While{}):_) = True
-validUseOfContinue ((_, BTExpr l@DoWhile{}):_) = True
-validUseOfContinue ((_, BTExpr l@Repeat{}):_) = True
-validUseOfContinue ((_, BTExpr c@Closure{}):_) = False
-validUseOfContinue (_:bt) = validUseOfContinue bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -202,8 +191,6 @@ data Error =
   | TraitsInActiveClassError
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
-  | ContinueOutsideOfLoopError
-  | ContinueUsedAsExpressionError
   | NonCallableTargetError Type
   | NonSendableTargetError Type
   | MainMethodCallError
@@ -377,7 +364,7 @@ instance Show Error where
       | otherwise =
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
-    show BadSyncCallError = "Synchronous method calls on actors are not allowed (except on the current this)"
+    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
@@ -417,10 +404,6 @@ instance Show Error where
         "Break is a statement and cannot be used as a value or expression"
     show BreakOutsideOfLoopError =
         "Break can only be used inside loops"
-    show ContinueUsedAsExpressionError =
-        "Continue is a statement and cannot be used as a value or expression"
-    show ContinueOutsideOfLoopError =
-        "Continue can only be used inside while, do/while, and repeat loops"
     show (NonCallableTargetError targetType) =
         printf "Cannot call method on expression of type '%s'"
                (show targetType)
@@ -626,7 +609,7 @@ instance Show Error where
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
                (show retType) (show ty)
-    show (ForwardArgumentError) = "Forward currently operates on method call"
+    show (ForwardArgumentError) = "Forward currently operates on method call and future chain"
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"
                (show cname)
@@ -647,7 +630,6 @@ data Warning = StringDeprecatedWarning
              | StringIdentityWarning
              | PolymorphicIdentityWarning
              | ShadowedMethodWarning FieldDecl
-             | ExpressionResultIgnoredWarning Expr
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
@@ -656,8 +638,6 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
-    show (ExpressionResultIgnoredWarning expr) =
-        "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++
                 "the method of the same name")
