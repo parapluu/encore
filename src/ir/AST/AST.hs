@@ -508,14 +508,6 @@ data MaybeContainer = JustData { e :: Expr}
 data Mutability = Var
                 | Val deriving(Eq)
 
--- this type is used for marking when AST nodes (e.g. method calls)
--- are accessible from Maybe type. Example in Encore code
---
---    val x = ... : Maybe Foo
---    x?.bar()    : Maybe Bar
---
-type Optional = Bool
-
 instance Show Mutability where
     show Var = "var"
     show Val = "val"

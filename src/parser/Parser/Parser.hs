@@ -293,7 +293,6 @@ identifier = (lexeme . try) (p >>= check)
               else return x
 
 dot        = symbol "."
-question   = symbol "?"
 bang       = symbol "!"
 bar        = symbol "|"
 dotdot     = symbol ".."

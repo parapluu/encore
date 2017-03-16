@@ -99,10 +99,6 @@ optionalAccess Optional {emeta=em, optTag} =
                                       ,mcguard   = BTrue emeta}
 optionalAccess e = e
 
--- Helper functions for optionalAccess desugaring function
-
-
-
 -- | Let an expression remember its sugared form.
 selfSugar :: Expr -> Expr
 selfSugar e = setSugared e e
