@@ -10,8 +10,6 @@ import Text.Megaparsec
 
 import qualified Data.List as List
 
-import Debug.Trace
-
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions}) =
   p{
@@ -76,10 +74,11 @@ desugarProgram p@(Program{traits, classes, functions}) =
 --
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
-optionalAccess Optional {emeta=em, optTag = QuestionBang m@MessageSend {emeta, target}} =
-  let maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
-      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "optMessageSend")
-      targetName = Name . optionalVarPrefix $ "targetMessageSend"
+optionalAccess Optional {emeta=em, optTag} =
+  let (emeta, m, target) = getTemplate optTag
+      maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
+      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "_optAccess")
+      targetName = Name . optionalVarPrefix $ "_targetOptAccess"
       targetVar = optVarAccessFactory em targetName
       result = Match emeta targetVar
         [clauseNothing em,
@@ -87,40 +86,21 @@ optionalAccess Optional {emeta=em, optTag = QuestionBang m@MessageSend {emeta, t
                      ,mchandler = maybeVal
                      ,mcguard = BTrue em}]
   in Let em Val [(targetName, target)] result
-
-optionalAccess Optional {emeta=em, optTag = QuestionDot m@MethodCall {emeta, target}} =
-  let maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
-      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "optMethodCall")
-      targetName = Name . optionalVarPrefix $ "targetMethodCall"
-      targetVar = optVarAccessFactory em targetName
-      result = Match emeta targetVar
-        [clauseNothing em,
-         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerVar}
-                     ,mchandler = maybeVal
-                     ,mcguard = BTrue em}]
-  in Let em Val [(targetName, target)] result
-
-
-optionalAccess o@Optional {optTag = QuestionDot f@FieldAccess{emeta, target, name}} =
-  let maybeVal = MaybeValue emeta $ JustData (f {target = handlerVar})
-      handlerVar = optVarAccessFactory emeta (Name . optionalVarPrefix $ "optMethodCall")
-      targetName = Name . optionalVarPrefix $ "targetMethodCall"
-      targetVar = optVarAccessFactory emeta targetName
-      result = Match emeta targetVar
-        [clauseNothing emeta,
-         MatchClause {mcpattern = MaybeValue{emeta, mdt = JustData handlerVar}
-                     ,mchandler = maybeVal
-                     ,mcguard = BTrue emeta}]
-  in Let emeta Val [(targetName, target)] result
-
+  where
+    getTemplate (QuestionBang m@MessageSend{emeta, target}) = (emeta, m, target)
+    getTemplate (QuestionDot m@MethodCall{emeta, target}) = (emeta, m, target)
+    getTemplate (QuestionDot f@FieldAccess{emeta, target}) = (emeta, f, target)
+    getTemplate (QuestionBang e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
+    getTemplate (QuestionDot e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
+    optionalVarPrefix = ("_" ++)
+    optVarAccessFactory emeta arg = VarAccess emeta (QName Nothing Nothing arg)
+    clauseNothing emeta = MatchClause {mcpattern = MaybeValue{emeta, mdt = NothingData}
+                                      ,mchandler = MaybeValue{emeta, mdt = NothingData}
+                                      ,mcguard   = BTrue emeta}
 optionalAccess e = e
 
 -- Helper functions for optionalAccess desugaring function
-optionalVarPrefix = ("_" ++)
-optVarAccessFactory emeta arg = VarAccess emeta (QName Nothing Nothing arg)
-clauseNothing emeta = MatchClause {mcpattern = MaybeValue{emeta, mdt = NothingData}
-                                  ,mchandler = MaybeValue{emeta, mdt = NothingData}
-                                  ,mcguard   = BTrue emeta}
+
 
 
 -- | Let an expression remember its sugared form.
