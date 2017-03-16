@@ -520,7 +520,7 @@ instance Show Mutability where
     show Var = "var"
     show Val = "val"
 
-data PathComponent = QuestionDot Expr | QuestionBang Expr | Dot Expr
+data PathComponent = QuestionDot Expr | QuestionBang Expr
 
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}

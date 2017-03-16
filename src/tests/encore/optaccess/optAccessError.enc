@@ -21,20 +21,6 @@ end
 
 class Main
 
-  def testFieldAccess(t: Maybe[T]): unit
-    val tn = t?.c?.test
-    match tn with
-      case Just(n) => println(n)
-    end
-  end
-
-  def testMethodCall(t: Maybe[T]): unit
-    val tm = t?.self()?.self()?.valueT
-    match tm with
-      case Just(n) => println(n)
-    end
-  end
-
   def main() : unit
     val t = Just(new T(1))
     t?.c?.test
