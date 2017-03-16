@@ -333,6 +333,40 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   return r;
 }
 
+// Ask Albert why *type is being used in ENC_DTRACE3(), but compiled error said unused *type?
+void future_chain_actor_forward(pony_ctx_t **ctx, future_t *fut, //pony_type_t *type,
+        closure_t *c, future_t *r)
+{
+  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
+  perr("future_chain_actor");
+  BLOCK;
+
+  if (fut->fulfilled) {
+    acquire_future_value(ctx, fut);
+    value_t result = run_closure(ctx, c, fut->value);
+    future_fulfil(ctx, r, result);
+    UNBLOCK;
+    return;
+  }
+
+  pony_ctx_t* cctx = *ctx;
+  closure_entry_t *entry = encore_alloc(cctx, sizeof *entry);
+  entry->actor = (cctx)->current;
+  entry->future = r;
+  entry->closure = c;
+  entry->next = fut->children;
+  fut->children = entry;
+
+  pony_gc_send(cctx);
+  trace_closure_entry(cctx, entry);
+  pony_send_done(cctx);
+
+  UNBLOCK;
+
+  r->parent = fut;
+  return;
+}
+
 
 // Similar to `future_chain_actor` except that it returns void, avoiding the
 // creation of a new future. This is used in the ParTs library and is an

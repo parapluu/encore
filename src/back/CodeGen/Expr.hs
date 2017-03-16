@@ -1062,8 +1062,65 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     else
       error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
 
-  translate A.Forward{A.forwardExpr = A.FutureChain{}} =
-    error "Expr.hs: Forwarding of chaining not implemented"
+  translate A.Forward{A.forwardExpr = fchain@A.FutureChain{A.future, A.chain}} = do
+      -- (nfchain, tfchain) <- translate fchain
+      (nfuture,tfuture) <- translate future
+      (nchain, tchain)  <- translate chain
+      result <- Ctx.genSym
+      let ty = getRuntimeType chain
+          nfchain = Var result
+          -- tfchain =
+          --     Seq [tfuture,
+          --          tchain,
+          --          (--Assign (Decl (C.future, Var result))
+          --          (Call futureChainActorForward
+          --            [AsExpr encoreCtxVar, AsExpr nfuture, AsExpr nchain, AsExpr futVar]
+          --            ))]
+
+      withForwarding <- gets Ctx.withForwarding
+      eCtx <- gets $ Ctx.getExecCtx
+      let fun = Ctx.lookupFunctionContext eCtx
+          mtd = Ctx.lookupMethodContext eCtx
+          cls = Ctx.lookupClosureContext eCtx
+          dtraceExit = case (fun, mtd, cls) of
+                            (func, [], [] ) -> [dtraceFunctionExit (A.functionName (head func))]
+                            ([], mdecl, []) -> [dtraceMethodExit thisVar (A.methodName (head mdecl))]
+                            ([], [], expr)  -> [dtraceClosureExit]
+                            (_, _, _)    -> []
+
+      if withForwarding
+      then do
+        return (unit, Seq $
+                        -- [Statement $
+                        -- If (futVar)
+                        --    (Seq $ tfchain :
+                        --           targetNullCheck nfchain fchain name emeta "." :
+                        --           initArgs ++
+                        --           [Statement forwardingCall]
+                        --           )
+                        --    Skip] :
+                        [tfuture,
+                         tchain,
+                         (Statement $ --Assign (Decl (C.future, Var result))
+                         (Call futureChainActorForward
+                           [AsExpr encoreCtxVar, AsExpr nfuture, AsExpr nchain, AsExpr futVar]
+                           ))] ++
+                        dtraceExit ++
+                        [Return Skip])
+      else do
+        -- (nfchain, tfchain) <- translate fchain
+        let resultType = translate (Ty.getResultType $ A.getType fchain)
+            theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nfchain])
+        tmp <- Ctx.genSym
+        return $ (Var tmp,
+          Seq [tfuture,
+               tchain,
+               (Assign (Decl (C.future, Var result))
+                       (Call futureChainActor
+                         [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+                         )),
+               Assign (Decl (resultType, Var tmp)) theGet])
+
   translate A.Forward{A.forwardExpr} =
     error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
             show forwardExpr ++ "'"
