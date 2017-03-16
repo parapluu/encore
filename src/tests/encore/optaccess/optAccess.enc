@@ -1,5 +1,6 @@
 passive class Container
   val test : String
+  val cc: Container
   def init(x: String): unit
     this.test = x.concatenate(" -- Working")
   end
@@ -70,19 +71,19 @@ class Main
     return x?.test
   end
 
-  -- def testString(t: Maybe[T]): unit
-  --   val s = t?.c?.test?.concatenate(" Blah Blah")
-  --   match s with
-  --     case Just(s') => println(s')
-  --     case Nothing  => println("ERROR")
-  --   end
-  -- end
+  def testString(t: Maybe[T]): unit
+    val s = t?.c?.test?.concatenate(" Blah Blah")
+    match s with
+      case Just(s') => println(s')
+      case Nothing  => println("ERROR")
+    end
+  end
 
   def main() : unit
     val t = Just(new T(1))
     this.testFieldAccess(t)
     this.testMethodCall(t)
-    -- this.testString(t)
+    this.testString(t)
     this.testFunctionCalls()
     this.testArrayAccess()
     this.testNothing()

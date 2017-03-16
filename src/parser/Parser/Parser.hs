@@ -1059,7 +1059,8 @@ expr = notFollowedBy nl >>
                 return $ Optional emeta (QuestionBang m)
               optionalAccessDot emeta = do
                 reservedOp "?."
-                var <- varAccess >>= (\x -> functionCall x <|> return x)
+                var <- do v <- varAccess
+                          functionCall v <|> return v
                 return $ Optional emeta (QuestionDot var)
               comparmentAcc = dot >> compartmentAccess
               varOrCallFunction = dot >> varOrCall
@@ -1082,7 +1083,7 @@ expr = notFollowedBy nl >>
             o {optTag = QuestionBang $ MessageSend emeta (typeArguments f) target (qnlocal $ qname f) (args f)}
 
           buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(FunctionCall {})} =
-            o { optTag = QuestionDot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
+            o {optTag = QuestionDot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
 
           buildPath _ target o@Optional {emeta, optTag = QuestionDot (VarAccess {qname})} =
             o { optTag = QuestionDot $ FieldAccess emeta target (qnlocal qname) }

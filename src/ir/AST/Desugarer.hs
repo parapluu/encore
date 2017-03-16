@@ -103,14 +103,25 @@ optionalAccess Optional {emeta=em, optTag = QuestionDot m@MethodCall {emeta, tar
   in letExpr
 
 
-optionalAccess Optional {optTag = QuestionDot FieldAccess{emeta, target, name}} =
-  let matchFactory arg =
-        let fAccess = FieldAccess emeta (handlerName emeta arg) name
-            handlerBody = MaybeValue{emeta, mdt = JustData fAccess}
-        in matchBuilder (matcherName emeta arg)
-            (handlerName emeta arg) handlerBody
-      result = desugarOptAccess target matchFactory
-  in result
+optionalAccess o@Optional {optTag = QuestionDot f@FieldAccess{emeta, target, name}} =
+  let maybeVal = MaybeValue emeta $ JustData (f {target = handlerVar})
+      handlerVar = optVarAccessFactory emeta (Name . optionalVarPrefix $ "optMethodCall")
+      targetName = Name . optionalVarPrefix $ "targetMethodCall"
+      targetVar = optVarAccessFactory emeta targetName
+      result = Match emeta targetVar
+        [clauseNothing emeta,
+         MatchClause {mcpattern = MaybeValue{emeta, mdt = JustData handlerVar}
+                     ,mchandler = maybeVal
+                     ,mcguard = BTrue emeta}]
+      letExpr = Let emeta Val [(targetName, target)] result
+  in letExpr
+  -- let matchFactory arg =
+  --       let fAccess = FieldAccess emeta (handlerName emeta arg) name
+  --           handlerBody = MaybeValue{emeta, mdt = JustData fAccess}
+  --       in matchBuilder (matcherName emeta arg)
+  --           (handlerName emeta arg) handlerBody
+  --     result = desugarOptAccess target matchFactory
+  -- in trace (show $ ppExpr result) result
   where
     letExpr decl body = Let {emeta
                             ,mutability = Val
@@ -153,6 +164,8 @@ optionalAccess Optional {optTag = QuestionDot FieldAccess{emeta, target, name}} 
                      (fn $ boundName arg))
       in desugarOptAccess t matchFactory
 
+    -- TODO: QuestionBang?
+
     desugarOptAccess Optional {optTag = QuestionDot FieldAccess {emeta=e, target=t, name=n}} fn =
       let matchFactory arg =
             let f = FieldAccess e (handlerName e arg) n
@@ -183,6 +196,7 @@ optionalAccess Optional {optTag = QuestionDot FieldAccess{emeta, target, name}} 
 
     desugarOptAccess e _ = error $ show $ ppExpr e
 
+optionalAccess Optional {optTag} = error $ "Not sure how to desugar..."
 optionalAccess e = e
 
 -- Helper functions for optionalAccess desugaring function
