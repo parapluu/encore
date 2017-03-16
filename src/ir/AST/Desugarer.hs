@@ -76,7 +76,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
 --
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
-optionalAccess Optional {emeta=em, optTag = Dot m@MessageSend {emeta, target}} =
+optionalAccess Optional {emeta=em, optTag = QuestionBang m@MessageSend {emeta, target}} =
   let maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
       handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "optMessageSend")
       targetName = Name . optionalVarPrefix $ "targetMessageSend"
@@ -89,7 +89,21 @@ optionalAccess Optional {emeta=em, optTag = Dot m@MessageSend {emeta, target}} =
       letExpr = Let em Val [(targetName, target)] result
   in letExpr
 
-optionalAccess Optional {optTag = Dot FieldAccess{emeta, target, name}} =
+optionalAccess Optional {emeta=em, optTag = QuestionDot m@MethodCall {emeta, target}} =
+  let maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
+      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "optMethodCall")
+      targetName = Name . optionalVarPrefix $ "targetMethodCall"
+      targetVar = optVarAccessFactory em targetName
+      result = Match emeta targetVar
+        [clauseNothing em,
+         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerVar}
+                     ,mchandler = maybeVal
+                     ,mcguard = BTrue em}]
+      letExpr = Let em Val [(targetName, target)] result
+  in trace (show $ ppExpr letExpr) letExpr
+
+
+optionalAccess Optional {optTag = QuestionDot FieldAccess{emeta, target, name}} =
   let matchFactory arg =
         let fAccess = FieldAccess emeta (handlerName emeta arg) name
             handlerBody = MaybeValue{emeta, mdt = JustData fAccess}

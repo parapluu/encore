@@ -63,7 +63,8 @@ getChildren Skip{} = []
 getChildren Break{} = []
 getChildren Continue{} = []
 getChildren TypedExpr {body} = [body]
-getChildren Optional {optTag = Dot e} = [e]
+getChildren Optional {optTag = QuestionDot e} = [e]
+getChildren Optional {optTag = QuestionBang e} = [e]
 getChildren Optional {} = []
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
@@ -145,7 +146,9 @@ putChildren [] e@Break{} = e
 putChildren [] e@Continue{} = e
 putChildren [] e@(FunctionAsValue {}) = e
 putChildren [body] e@(TypedExpr {}) = e{body = body}
-putChildren [body] e@(Optional {}) = e{optTag = Dot body}
+putChildren [body@MessageSend {}] e@(Optional {}) = e{optTag = QuestionBang body}
+putChildren [body@MethodCall {}] e@(Optional {}) = e{optTag = QuestionDot body}
+putChildren [body@FieldAccess {}] e@(Optional {}) = e{optTag = QuestionDot body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren [arg] e@(ExtractorPattern {}) = e{arg = arg}

@@ -1079,13 +1079,13 @@ expr = notFollowedBy nl >>
             return $ FunctionCall emeta typeParams qname args
 
           buildPath _ target o@Optional {emeta, optTag = QuestionBang f@(FunctionCall {})} =
-            o {optTag = Dot $ MessageSend emeta (typeArguments f) target (qnlocal $ qname f) (args f)}
+            o {optTag = QuestionBang $ MessageSend emeta (typeArguments f) target (qnlocal $ qname f) (args f)}
 
           buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(FunctionCall {})} =
-            o { optTag = Dot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
+            o { optTag = QuestionDot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
 
-          buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(VarAccess {qname})} =
-            o { optTag = Dot $ FieldAccess emeta target (qnlocal qname) }
+          buildPath _ target o@Optional {emeta, optTag = QuestionDot (VarAccess {qname})} =
+            o { optTag = QuestionDot $ FieldAccess emeta target (qnlocal qname) }
 
           buildPath pos target (VarAccess{qname}) =
             FieldAccess (meta pos) target (qnlocal qname)
