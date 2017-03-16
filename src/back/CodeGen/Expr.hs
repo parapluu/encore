@@ -1006,15 +1006,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         callTheMethodForward [futVar]
           ntarget targetType name args typeArguments Ty.unitType
 
+      (initArgs1, oneWayMsg) <-
+        callTheMethodOneway 
+          ntarget targetType name args typeArguments Ty.unitType
+
+      let nullCheck = targetNullCheck ntarget target name emeta "."
+
       return (unit, Seq $
+                      ttarget : nullCheck : initArgs ++
                       [Statement $
                       If (futVar)
-                         (Seq $ ttarget :
-                                targetNullCheck ntarget target name emeta "." :
-                                initArgs ++
-                                [Statement forwardingCall]
-                                )
-                         Skip] ++
+                        (Seq [Statement forwardingCall])
+                        (Seq [Statement oneWayMsg])] ++
                       dtraceExit ++
                       [Return Skip])
 
