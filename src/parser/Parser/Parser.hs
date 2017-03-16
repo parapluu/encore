@@ -22,9 +22,6 @@ import Control.Monad.Reader hiding(guard)
 import Control.Applicative ((<$>), empty)
 import Control.Arrow (first)
 
-import Debug.Trace
-import AST.PrettyPrinter
-
 -- Module dependencies
 import Identifiers hiding(namespace)
 import Types hiding(refType)
