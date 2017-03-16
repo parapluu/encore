@@ -1,0 +1,16 @@
+class X
+  def getInt(): int
+    42
+  end
+end
+
+class Main
+  def main() : unit
+    val x = Just(new X)
+    val mf = x?!getInt()
+    match mf with
+      case Just(f) => println(get(f))
+      case Nothing => println("Error")
+    end
+  end
+end

@@ -508,6 +508,14 @@ data MaybeContainer = JustData { e :: Expr}
 data Mutability = Var
                 | Val deriving(Eq)
 
+-- this type is used for marking when AST nodes (e.g. method calls)
+-- are accessible from Maybe type. Example in Encore code
+--
+--    val x = ... : Maybe Foo
+--    x?.bar()    : Maybe Bar
+--
+type Optional = Bool
+
 instance Show Mutability where
     show Var = "var"
     show Val = "val"
@@ -521,18 +529,23 @@ data Expr = Skip {emeta :: Meta Expr}
           | MethodCall {emeta :: Meta Expr,
                         typeArguments :: [Type],
                         target :: Expr,
+                        opt :: Optional,
                         name :: Name,
                         args :: Arguments}
           | MessageSend {emeta :: Meta Expr,
                          typeArguments :: [Type],
                          target :: Expr,
+                         opt :: Optional,
                          name :: Name,
                          args :: Arguments}
+          | Option {emeta :: Meta Expr,
+                    body :: Expr}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,
                               arg :: Expr}
           | FunctionCall {emeta :: Meta Expr,
+                          async :: Bool,
                           typeArguments :: [Type],
                           qname :: QualifiedName,
                           args :: Arguments}
@@ -631,6 +644,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr,
                          target :: Expr,
+                         opt :: Optional,
                          name :: Name}
           | ArrayAccess {emeta :: Meta Expr,
                          target :: Expr,

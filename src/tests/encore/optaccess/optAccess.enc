@@ -1,0 +1,48 @@
+passive class Container
+  val test : String
+  def init(x: String): unit
+    this.test = x.concatenate(" -- Working")
+  end
+end
+
+passive class T
+  val c : Container
+  val valueT: int
+
+  def init(x: int): unit
+    this.valueT = x
+    this.c = new Container(string_from_int(x))
+  end
+
+  def self(): T
+    this
+  end
+end
+
+class Main
+
+  def testFieldAccess(t: Maybe[T]): unit
+    val tn = t?.c?.test
+    match tn with
+      case Just(n) => println(n)
+    end
+  end
+
+  def testMethodCall(t: Maybe[T]): unit
+    val tm = t?.self()?.self()?.valueT
+    match tm with
+      case Just(n) => println(n)
+    end
+  end
+
+  -- def testReturnType(t: Maybe[T]): Maybe[T]
+  --   t?.self()
+  -- end
+
+  def main() : unit
+    val t = Just(new T(1))
+    this.testFieldAccess(t)
+    this.testMethodCall(t)
+    -- this.testReturnType(t)
+  end
+end
