@@ -1,0 +1,50 @@
+class PingActor
+  var pingsLeft : int
+
+  def init(count : int, pong : PongActor) : unit
+    this.pingsLeft = count
+    pong!sendPing(this)
+    this.pingsLeft = this.pingsLeft - 1
+  end
+
+  def sendPong(pong : PongActor) : unit
+    if this.pingsLeft > 0 then
+      pong!sendPing(this)
+      this.pingsLeft = this.pingsLeft - 1
+    end
+  end
+end
+
+class PongActor
+  var pongCount : int
+  def init() : unit
+    this.pongCount = 0
+  end
+  def sendPing(ping : PingActor) : unit
+    print("Got ping {}\n", this.pongCount)
+    ping!sendPong(this)
+    this.pongCount = this.pongCount + 1
+  end
+end
+
+class Main
+  def main(args : [String]) : unit
+    if |args| != 2 then
+      print("input required: number of pings not specified\n")
+    else
+      let
+        N = match (args(1)).to_int() with
+              case Just(result) =>
+                result
+              end
+              case Nothing =>
+                0
+              end
+            end
+      in
+        new PingActor(N, new PongActor())
+        print("done")
+      end
+    end
+  end
+end
