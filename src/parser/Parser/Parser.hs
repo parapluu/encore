@@ -1055,8 +1055,7 @@ expr = notFollowedBy nl >>
                 return $ Optional emeta (QuestionBang m)
               optionalAccessDot emeta = do
                 reservedOp "?."
-                var <- do v <- varAccess
-                          functionCall v <|> return v
+                var <- varOrCall
                 return $ Optional emeta (QuestionDot var)
               comparmentAcc = dot >> compartmentAccess
               varOrCallFunction = dot >> varOrCall

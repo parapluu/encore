@@ -69,20 +69,20 @@ desugarProgram p@(Program{traits, classes, functions}) =
 --
 --     match x with
 --       case Just(_x) => Just(_x.foo())
---       case Nothing  => Just(_x.foo())
+--       case Nothing  => Nothing
 --     end
 --
 -- Currently the support is only for Option types.
 optionalAccess :: Expr -> Expr
 optionalAccess Optional {emeta=em, optTag} =
   let (emeta, m, target) = getTemplate optTag
+      handlerVar = VarAccess em (qName "_optAccess")
       maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
-      handlerVar = optVarAccessFactory em (Name . optionalVarPrefix $ "_optAccess")
-      targetName = Name . optionalVarPrefix $ "_targetOptAccess"
-      targetVar = optVarAccessFactory em targetName
+      targetName = Name "_targetOptAccess"
+      targetVar = VarAccess em (qLocal targetName)
       result = Match emeta targetVar
         [clauseNothing em,
-         MatchClause {mcpattern = MaybeValue{emeta=em ,mdt = JustData handlerVar}
+         MatchClause {mcpattern = MaybeValue{emeta=em, mdt = JustData handlerVar}
                      ,mchandler = maybeVal
                      ,mcguard = BTrue em}]
   in Let em Val [(targetName, target)] result
@@ -92,8 +92,6 @@ optionalAccess Optional {emeta=em, optTag} =
     getTemplate (QuestionDot f@FieldAccess{emeta, target}) = (emeta, f, target)
     getTemplate (QuestionBang e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
     getTemplate (QuestionDot e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
-    optionalVarPrefix = ("_" ++)
-    optVarAccessFactory emeta arg = VarAccess emeta (QName Nothing Nothing arg)
     clauseNothing emeta = MatchClause {mcpattern = MaybeValue{emeta, mdt = NothingData}
                                       ,mchandler = MaybeValue{emeta, mdt = NothingData}
                                       ,mcguard   = BTrue emeta}

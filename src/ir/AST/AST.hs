@@ -512,7 +512,7 @@ instance Show Mutability where
     show Var = "var"
     show Val = "val"
 
-data PathComponent = QuestionDot Expr | QuestionBang Expr deriving (Show, Eq)
+data OptionalPathComponent = QuestionDot Expr | QuestionBang Expr deriving (Show, Eq)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
@@ -531,7 +531,7 @@ data Expr = Skip {emeta :: Meta Expr}
                          name :: Name,
                          args :: Arguments}
           | Optional {emeta :: Meta Expr,
-                      optTag :: PathComponent}
+                      optTag :: OptionalPathComponent}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,

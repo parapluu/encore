@@ -257,9 +257,10 @@ ppExpr Optional {optTag = QuestionDot MethodCall {target, name, args, typeArgume
       parens (commaSep (map ppExpr args))
 ppExpr Optional {optTag = QuestionDot FieldAccess {target, name}} =
   maybeParens target <> "?." <> ppName name
-ppExpr Optional {optTag} = ppPath optTag
+ppExpr Optional {optTag} = error $ "PrettyPrinter.hs: don't know how to " ++
+                                   "print expression '" ++ (render $ ppPath optTag) ++ "'"
   where
-    ppPath :: PathComponent -> Doc
+    ppPath :: OptionalPathComponent -> Doc
     ppPath (QuestionBang e) = ppExpr e
     ppPath (QuestionDot e) = ppExpr e
 
@@ -286,11 +287,10 @@ ppExpr ExtractorPattern {name, arg = arg@Tuple{}} =
     ppName name <> ppExpr arg
 ppExpr ExtractorPattern {name, arg} =
     ppName name <> parens (ppExpr arg)
-ppExpr FunctionCall {qname, args, typeArguments = []} =
-    ppQName qname <> parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {qname, args, typeArguments} =
-    ppQName qname <> brackets (commaSep (map ppType typeArguments)) <>
-                     parens (commaSep (map ppExpr args))
+    ppQName qname <>
+      withTypeArguments typeArguments <>
+      parens (commaSep (map ppExpr args))
 ppExpr FunctionAsValue {qname, typeArgs} =
   ppQName qname <> brackets (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, mty, body=b@(Seq {})} =

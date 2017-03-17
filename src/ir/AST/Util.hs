@@ -64,7 +64,6 @@ getChildren Continue{} = []
 getChildren TypedExpr {body} = [body]
 getChildren Optional {optTag = QuestionDot e} = [e]
 getChildren Optional {optTag = QuestionBang e} = [e]
-getChildren Optional {} = []
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren ExtractorPattern {arg} = [arg]
