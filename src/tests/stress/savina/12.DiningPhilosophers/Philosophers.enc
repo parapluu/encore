@@ -1,0 +1,92 @@
+module Philosophers
+class CounterActor
+  var i : int
+  def init() : unit
+    this.i = 0
+  end
+  def add(j : int) : unit
+    this.i = this.i + j
+  end
+  def incr() : unit
+    this.i = this.i + 1
+  end
+  def get_value() : int
+    this.i
+  end
+end
+class Philosopher
+  var id : int
+  var rounds : int
+  var local_rounds : int
+  var times_hungry : int
+  var arbitrator : Arbitrator
+  var counter : CounterActor
+  def init(id : int, rounds : int, arbitrator : Arbitrator, c : CounterActor) : unit
+    this.id = id
+    this.rounds = rounds
+    this.local_rounds = 0
+    this.times_hungry = 0
+    this.arbitrator = arbitrator
+    this.counter = c
+  end
+  def Start() : unit
+    this.arbitrator!am_hungry(this, this.id)
+  end
+  def Eat() : unit
+    this.local_rounds = this.local_rounds + 1
+    this.counter!add(this.times_hungry)
+    this.arbitrator!have_eaten(this, this.id)
+    if this.local_rounds < this.rounds then
+      this!Start()
+    else
+      this.arbitrator!no_more_food_for_me(this.id)
+    end
+  end
+  def Denied() : unit
+    this.times_hungry = this.times_hungry + 1
+    this.arbitrator!am_hungry(this, this.id)
+  end
+end
+class Arbitrator
+  var nrPhilosophers : int
+  var remainingPhils : int
+  var forkState : [bool]
+  var counter : CounterActor
+  def init(nrPhilosophers : int, c : CounterActor) : unit
+    this.nrPhilosophers = nrPhilosophers
+    this.remainingPhils = nrPhilosophers
+    this.forkState = new [bool](nrPhilosophers)
+    this.counter = c
+  end
+  def am_hungry(p : Philosopher, id : int) : unit
+    println(string_from_int(id).concatenate(" is  hungry"))
+    val hungry = this.forkState(id) || this.forkState(id + 1 % this.nrPhilosophers)
+    if hungry then
+      println(string_from_int(id).concatenate("  has to  wait"))
+      p!Denied()
+    else
+      (this.forkState)(id) = true
+      (this.forkState)(id + 1 % this.nrPhilosophers) = true
+      println(string_from_int(id).concatenate(" will  eat"))
+      p!Eat()
+    end
+  end
+  def have_eaten(p : Philosopher, id : int) : unit
+    (this.forkState)(id) = false
+    (this.forkState)(id + 1 % this.nrPhilosophers) = false
+    println(string_from_int(id).concatenate(" has finished"))
+  end
+  def no_more_food_for_me(id : int) : unit
+    println(string_from_int(id).concatenate(" has eaten enough for today ... ..."))
+    this.remainingPhils = this.remainingPhils - 1
+    if this.remainingPhils == 0 then
+      print("**** **** **** everybody happy now ***** **** ****")
+      let
+        hungry_times = this.counter!get_value()
+        ht = get(hungry_times)
+      in
+        println(("overall hungry times: ").concatenate(string_from_int(ht)))
+      end
+    end
+  end
+end

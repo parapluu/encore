@@ -1,0 +1,38 @@
+import Philosophers
+
+class Main
+  def argToInt(str : String) : int
+    match str.to_int() with
+      case Just(result) =>
+        result
+      end
+      case Nothing =>
+        0
+      end
+    end
+  end
+
+  def main(args : [String]) : unit
+    if not(|args| == 3) then
+      print("input required: <number_philosophers, eating_rounds >\n")
+    else
+      let
+        nrPhils = this.argToInt(args(1))
+        nrEat = this.argToInt(args(2))
+        c = new CounterActor()
+        a = new Arbitrator(nrPhils, c)
+      in
+        var i = 0
+        while i < nrPhils do
+          println(("Creating ").concatenate(string_from_int(i)))
+          let
+            p = new Philosopher(i, nrEat, a, c)
+          in
+            p!Start()
+            i = i + 1
+          end
+        end
+      end
+    end
+  end
+end
