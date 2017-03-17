@@ -66,7 +66,7 @@ class Main
 
     end
   end
-  def main(argv : [String]) : unitn
+  def main(argv : [String]) : unit
     let
       numMessages = 16 * 1024
       numActors = if |argv| > 1 then

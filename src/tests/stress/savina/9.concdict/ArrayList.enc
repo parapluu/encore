@@ -1,5 +1,7 @@
 module ArrayList
 
+import Std
+
 trait Iterable[t]
   require def nth(n:int) : t
   require def size() : int
@@ -40,6 +42,12 @@ trait Iterable[t]
     end
     result
   end
+end
+
+fun areDistinct[a](x: a, y: a): bool
+  EMBED (bool)
+    #{x}.i == #{y}.i;
+  END
 end
 
 passive class ArrayList[t] : Iterable[t](index,elements)
@@ -142,7 +150,8 @@ passive class ArrayList[t] : Iterable[t](index,elements)
       this.elements = new [Maybe[t]](this.index * 2)
     end
 
-    if old != this.elements || offset > 0 then
+    -- TODO: careful with the treatment of distinct.
+    if areDistinct(old, this.elements) || offset > 0 then
       let elems_to_copy = this.index - skip in
         repeat i <- elems_to_copy do
           (this.elements)(((this.index - 1) - i + offset)) = old(this.index - 1 - i)
