@@ -17,6 +17,7 @@ module Typechecker.TypeError (Backtrace
                              ,currentMethodFromBacktrace
                              ,currentFunctionFromBacktrace
                              ,validUseOfBreak
+                             ,validUseOfContinue
                              ) where
 
 import Text.PrettyPrint
@@ -94,6 +95,15 @@ validUseOfBreak ((_, BTExpr l@While{}):_) = True
 validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
+
+validUseOfContinue :: Backtrace -> Bool
+validUseOfContinue [] = False
+validUseOfContinue ((_, BTExpr l@For{}):_) = False
+validUseOfContinue ((_, BTExpr l@While{}):_) = True
+validUseOfContinue ((_, BTExpr l@DoWhile{}):_) = True
+validUseOfContinue ((_, BTExpr l@Repeat{}):_) = True
+validUseOfContinue ((_, BTExpr c@Closure{}):_) = False
+validUseOfContinue (_:bt) = validUseOfContinue bt
 
 -- | A type class for unifying the syntactic elements that can be pushed to the
 -- backtrace stack.
@@ -191,6 +201,8 @@ data Error =
   | TraitsInActiveClassError
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
+  | ContinueOutsideOfLoopError
+  | ContinueUsedAsExpressionError
   | NonCallableTargetError Type
   | NonSendableTargetError Type
   | MainMethodCallError
@@ -404,6 +416,10 @@ instance Show Error where
         "Break is a statement and cannot be used as a value or expression"
     show BreakOutsideOfLoopError =
         "Break can only be used inside loops"
+    show ContinueUsedAsExpressionError =
+        "Continue is a statement and cannot be used as a value or expression"
+    show ContinueOutsideOfLoopError =
+        "Continue can only be used inside while, do/while, and repeat loops"
     show (NonCallableTargetError targetType) =
         printf "Cannot call method on expression of type '%s'"
                (show targetType)
@@ -630,6 +646,7 @@ data Warning = StringDeprecatedWarning
              | StringIdentityWarning
              | PolymorphicIdentityWarning
              | ShadowedMethodWarning FieldDecl
+             | ExpressionResultIgnoredWarning Expr
 instance Show Warning where
     show StringDeprecatedWarning =
         "Type 'string' is deprecated. Use 'String' instead."
@@ -638,6 +655,8 @@ instance Show Warning where
     show PolymorphicIdentityWarning =
         "Comparing polymorphic values is unstable. \n" ++
         "Later versions of Encore will require type constraints for this to work"
+    show (ExpressionResultIgnoredWarning expr) =
+        "Result of '" ++ (show $ ppSugared expr) ++ "' is discarded"
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++
                 "the method of the same name")
