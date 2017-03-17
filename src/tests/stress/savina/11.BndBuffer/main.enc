@@ -1,0 +1,16 @@
+import Manager
+
+class Main
+  def main() : unit
+    let
+      bufferSize          = 50
+      numProducers        = 40
+      numConsumers        = 40
+      numItemsPerProducer = 1000
+      produce_cost        = 25
+      consume_cost        = 25
+    in
+      new Manager(bufferSize, numProducers, numConsumers, numItemsPerProducer, produce_cost, consume_cost)
+    end
+  end
+end

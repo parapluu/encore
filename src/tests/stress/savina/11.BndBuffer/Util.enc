@@ -1,0 +1,28 @@
+module Util
+
+import Random
+
+fun math_log(x:real) : real
+  EMBED (real)
+    log(#{x});
+  END
+end
+
+fun math_abs(a:int) : int
+  if a < 0 then 0-a else a end
+end
+
+fun processItem(curTerm:real, cost:int) : real
+   val max = 4000000000
+   var res = curTerm
+   if cost > 0 then
+     repeat i <- cost do
+       repeat j <- 100 do
+         res = res + math_log(math_abs(random(max)) + 0.01)
+       end
+     end
+   else
+      res = res + math_log(math_abs(random(max)) + 0.01)
+   end
+   res
+end
