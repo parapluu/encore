@@ -24,7 +24,6 @@ import Debug.Trace
 -- Module dependencies
 import Identifiers
 import AST.AST hiding(showWithKind)
-import AST.PrettyPrinter(ppExpr)
 import Types
 import Typechecker.TypeError
 
@@ -218,7 +217,7 @@ fieldLookup ty f env@Env{namespaceTable}
         return fld{ftype = ftype'}
       Just l ->
         error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
-                "Possible targets are: " ++ show (map tname l)
+                "Possible targets are: " ++ show l
       Nothing ->
         error $
           printf "Environment.hs: Tried to lookup field %s in unresolved trait %s"
@@ -233,7 +232,7 @@ fieldLookup ty f env@Env{namespaceTable}
         return fld{ftype = ftype'}
       Just l ->
         error $ "Environment.hs: Ambiguous target of field lookup. \n" ++
-                "Possible targets are: " ++ show (map cname l)
+                "Possible targets are: " ++ show l
       Nothing ->
         error $
           printf "Environment.hs: Tried to lookup field %s in unresolved class %s"
@@ -254,7 +253,7 @@ traitMethodLookup ty m env@Env{namespaceTable} =
                replaceHeaderTypes bindings header
     Just l ->
       error $ "Environment.hs: Ambiguous target of trait method lookup. \n" ++
-              "Possible targets are: " ++ show (map tname l)
+              "Possible targets are: " ++ show l
     Nothing ->
       error $
         printf "Environment.hs: Tried to lookup method %s in unresolved trait %s"
@@ -274,7 +273,7 @@ classMethodLookup ty m env@Env{namespaceTable} =
                replaceHeaderTypes bindings header
     Just l ->
       error $ "Environment.hs: Ambiguous target of class method lookup. \n" ++
-              "Possible targets are: " ++ show (map cname l)
+              "Possible targets are: " ++ show l
     Nothing ->
       error $
         printf "Environment.hs: Tried to lookup method %s in unresolved class %s"

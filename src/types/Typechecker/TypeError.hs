@@ -574,7 +574,7 @@ instance Show Error where
                          then show $ getType (target call)
                          else show mname
                      | otherwise = error msg
-          msg = "TypeError.hs: " ++ show (ppExpr call) ++
+          msg = "TypeError.hs: " ++ show call ++
                 " is not a function or method call"
     show (ProvidingTraitFootprintError provider requirer mname fields) =
         printf ("Trait '%s' cannot provide method '%s' to trait '%s'.\n" ++

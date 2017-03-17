@@ -31,11 +31,11 @@ data Program = Program {
   functions :: [Function],
   traits :: [TraitDecl],
   classes :: [ClassDecl]
-}
+} deriving (Show)
 
 setProgramSource source p = p{source}
 
-class HasMeta a where
+class Show a => HasMeta a where
     getMeta :: a -> Meta a
 
     setMeta :: a -> Meta a -> a
@@ -60,13 +60,13 @@ class HasMeta a where
     getMetaInfo = AST.Meta.metaInfo . getMeta
 
     showWithKind :: a -> String
-    showWithKind _ = "<nothing to show>"
+    showWithKind = show
 
 data EmbedTL = EmbedTL {
       etlmeta   :: Meta EmbedTL,
       etlheader :: String,
       etlbody   :: String
-    }
+    } deriving (Show)
 
 data ModuleDecl = Module {
       modmeta :: Meta ModuleDecl,
@@ -167,7 +167,7 @@ data Function =
       funbody   :: Expr,
       funlocals :: [Function],
       funsource :: FilePath
-    }
+    } deriving (Show)
 
 functionName = hname . funheader
 functionParams = hparams . funheader
@@ -194,7 +194,7 @@ data ClassDecl = Class {
   ccomposition :: Maybe TraitComposition,
   cfields     :: [FieldDecl],
   cmethods    :: [MethodDecl]
-}
+} deriving (Show)
 
 instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
@@ -249,7 +249,7 @@ data TraitDecl = Trait {
   tname :: Type,
   treqs :: [Requirement],
   tmethods :: [MethodDecl]
-}
+} deriving (Show)
 
 requiredFields :: TraitDecl -> [FieldDecl]
 requiredFields Trait{treqs} =
@@ -427,7 +427,7 @@ data MethodDecl =
       mheader :: FunctionHeader,
       mlocals :: [Function],
       mbody   :: Expr
-    }
+    } deriving (Show)
 
 methodName = hname . mheader
 methodParams = hparams . mheader
@@ -498,12 +498,12 @@ data MatchClause =
       mcpattern :: Expr,
       mchandler :: Expr,
       mcguard   :: Expr
-    }
+    } deriving (Show, Eq)
 
 type Arguments = [Expr]
 
 data MaybeContainer = JustData { e :: Expr}
-                    | NothingData
+                    | NothingData deriving(Eq, Show)
 
 data Mutability = Var
                 | Val deriving(Eq)
@@ -512,7 +512,7 @@ instance Show Mutability where
     show Var = "var"
     show Val = "val"
 
-data PathComponent = QuestionDot Expr | QuestionBang Expr
+data PathComponent = QuestionDot Expr | QuestionBang Expr deriving (Show, Eq)
 
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
@@ -692,7 +692,7 @@ data Expr = Skip {emeta :: Meta Expr}
           | Binop {emeta :: Meta Expr,
                    binop :: BinaryOp,
                    loper :: Expr,
-                   roper :: Expr}
+                   roper :: Expr} deriving(Show, Eq)
 
 isLval :: Expr -> Bool
 isLval VarAccess {} = True

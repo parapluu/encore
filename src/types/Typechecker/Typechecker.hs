@@ -686,8 +686,8 @@ instance Checkable Expr where
                      tcError $ NonCallableTargetError targetType
               errorInitMethod targetType name'
             | otherwise =
-                error $ "Typechecker.hs: expression '" ++ show (ppExpr m) ++ "' " ++
-                        "is not a method or function call"
+                error $ "Typechecker.hs: expression '" ++ show m ++ "' " ++
+                    "is not a method or function call"
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
       when (Util.isStatement maybeData) $
@@ -1918,7 +1918,7 @@ inferenceCall call typeParams argTypes resultType
          tcError $ TypeArgumentInferenceError call (head unresolved)
 
       return (eArgs, resultType', typeArgs)
-  | otherwise = error $ "Typechecker.hs: expression '" ++ show (ppExpr call) ++ "' " ++
+  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"
   where
   functionCallName = qname call
@@ -1945,7 +1945,7 @@ typecheckCall call formalTypeParameters argTypes resultType
 
       let returnType = replaceTypeVars bindings uniqueResultType
       return (eArgs, returnType, typeArgs')
- | otherwise = error $ "Typechecker.hs: expression '" ++ show (ppExpr call) ++ "' " ++
+ | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"
 
 -- Helper function for return type of method calls
