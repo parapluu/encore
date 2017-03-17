@@ -1,0 +1,201 @@
+import Random
+import ArrayList
+typedef Position = int
+fun left() : Position
+  -(1)
+end
+fun right() : Position
+  1
+end
+fun initial() : Position
+  0
+end
+fun filterLessThan(data : ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](data.size())
+  var i = 0
+  while i < data.size() do
+    let
+      d = data.at(i)
+    in
+      if d < pivot then
+        result.add(d)
+      end
+      i = i + 1
+    end
+  end
+  result
+end
+fun filterEqualsTo(data : ArrayList[int], pivot : int) : ArrayList[int]
+  let
+    result = new ArrayList[int](data.size())
+  in
+    var i = 0
+    while i < data.size() do
+      let
+        d = data.at(i)
+      in
+        if d == pivot then
+          result.add(d)
+        end
+        i = i + 1
+      end
+    end
+    result
+  end
+end
+fun filterGreaterThan(data : ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](data.size())
+  var i = 0
+  while i < data.size() do
+    let
+      d = data.at(i)
+    in
+      if d > pivot then
+        result.add(d)
+      end
+      i = i + 1
+    end
+  end
+  result
+end
+
+fun quicksortSeq(data : ArrayList[int]) : ArrayList[int]
+  let
+    dataLength = data.size()
+  in
+    if dataLength < 2 then
+      data
+    else
+      let
+        pivot = data.at(data.size() / 2)
+        leftUnsorted = filterLessThan(data, pivot)
+        leftSorted = quicksortSeq(leftUnsorted)
+        equalElements = filterEqualsTo(data, pivot)
+        rightSorted = quicksortSeq(filterGreaterThan(data, pivot))
+        result = new ArrayList[int](dataLength)
+      in
+        result.addAll(leftSorted)
+        result.addAll(equalElements)
+        result.addAll(rightSorted)
+        assertTrue(result.size() == data.size(), "the size of the resulting array is different from the size of the input")
+        result
+      end
+    end
+  end
+end
+fun checkSorted(data : ArrayList[int]) : bool
+  true
+end
+fun randomInitialArray(n : int, s : int, m : int) : ArrayList[int]
+  let
+    result = new ArrayList[int](n)
+    r = new Random(s)
+  in
+    for i <- [0..n - 1] do
+      result.add(r.random(m))
+    end
+    result
+  end
+end
+fun printArray(s : String, a : ArrayList[int]) : unit
+  if a.size() > 0 then
+    var result = string_from_int(a.at(0))
+    var i = 1
+    while i < a.size() do
+      result = result.concatenate(", ")
+      result = result.concatenate(string_from_int(a.at(i)))
+      i = i + 1
+    end
+    print("{}: {} \n", s, result)
+  end
+end
+
+fun isNull[a](q: a): bool
+  EMBED (bool)
+    (#{q}).p == NULL;
+  END
+end
+
+class QuickSortActor
+  var t : int
+  var parent : QuickSortActor
+  var result : ArrayList[int]
+  var numFragments : int
+  var myPosition : Position
+  def init(parent : QuickSortActor, pos : Position, t : int, n : int) : unit
+    this.t = t
+    this.parent = parent
+    this.result = new ArrayList[int](n)
+    this.numFragments = 0
+    this.myPosition = pos
+  end
+  def done(data : ArrayList[int], position : Position) : unit
+    if isNull(data) then
+      if position == left() then
+        data.addAll(this.result)
+        this.result = data
+      else
+        if position == right() then
+          this.result.addAll(data)
+        end
+      end
+      this.numFragments = this.numFragments + 1
+      if this.numFragments == 3 then
+        this.notify()
+      end
+    end
+  end
+  def notify() : unit
+    if isNull(this.parent) then
+      this.parent!done(this.result, this.myPosition)
+    else
+      printArray("result", this.result)
+    end
+  end
+  def sort(data : ArrayList[int]) : unit
+    let
+      dataLength = data.size()
+    in
+      if dataLength < this.t then
+        this.result = quicksortSeq(data)
+        this.notify()
+      else
+        let
+          pivot = data.at(dataLength / 2)
+        in
+          (new QuickSortActor(this, left(), this.t, data.size()))!sort(filterLessThan(data, pivot))
+          (new QuickSortActor(this, right(), this.t, data.size()))!sort(filterGreaterThan(data, pivot))
+          this.result = filterEqualsTo(data, pivot)
+          this.numFragments = this.numFragments + 1
+        end
+      end
+    end
+  end
+end
+class Main
+  def argToInt(str : String) : int
+    match str.to_int() with
+      case Just(result) =>
+        result
+      end
+      case Nothing =>
+        0
+      end
+
+    end
+  end
+  def main(args : [String]) : unit
+    if |args| != 5 then
+      print("input required: <data_size, max_value, seq_threshold, seed>\n")
+    else
+      let
+        n = this.argToInt(args(1))
+        m = this.argToInt(args(2))
+        t = this.argToInt(args(3))
+        s = this.argToInt(args(4))
+      in
+        (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
+      end
+    end
+  end
+end

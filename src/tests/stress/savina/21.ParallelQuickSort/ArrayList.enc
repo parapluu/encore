@@ -1,0 +1,52 @@
+module ArrayList
+
+import Std
+
+-- this is not a proper ArrayList implementation
+-- but it is enough for this case study
+passive class ArrayList[t] : Id
+  var data : [t]
+  var size : int
+  def init(n : int) : unit
+    this.data = new [t](n)
+    this.size = 0
+  end
+  def size() : int
+    this.size
+  end
+  def at(index : int) : t
+    (this.data)(index)
+  end
+
+  -- could be better
+  def addAll(other : ArrayList[t]) : unit
+    var i = 0
+    while i < other.size() do
+      this.add(other.at(i))
+      i = i + 1
+    end
+  end
+
+  def resize() : unit
+    let
+      tmp = new [t](|this.data| * 10)
+    in
+      var i = 0
+      while i < this.size do
+        tmp(i) = (this.data)(i)
+        i = i + 1
+      end
+      this.data = tmp
+    end
+  end
+  def add(value : t) : unit
+    if |this.data| == this.size then
+      this.resize()
+    end
+    (this.data)(this.size) = value
+    this.size = this.size + 1
+  end
+  def data() : [t]
+    this.data
+  end
+end
