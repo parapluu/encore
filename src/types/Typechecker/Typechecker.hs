@@ -1692,7 +1692,6 @@ instance Checkable Expr where
                 unless (includesId || isPrimitive ty) $
                   tcError $ IdComparisonNotSupportedError ty
 
-    doTypecheck (Optional _ e) = error "Error typchecking Optional"
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
 
 --  classLookup(ty) = _
