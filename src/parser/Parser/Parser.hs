@@ -250,6 +250,8 @@ reservedOps =
     ,"&&"
     ,"|||"
     ,">>"
+    ,"?!"
+    ,"?."
     ,"+"
     ,"-"
     ,"*"
@@ -881,14 +883,15 @@ expression = makeExprParser expr opTable
       messageSend =
           Postfix (do pos <- getPosition
                       withLinebreaks bang
-                      name <- identifier
+                      name <- Name <$> identifier
                       typeArguments <- option [] (try . brackets $ commaSep typ)
                       args <- parens arguments
-                      return (\target -> MessageSend {emeta = meta pos
-                                                     ,typeArguments
-                                                     ,target
-                                                     ,name = Name name
-                                                     ,args}))
+                      let msgSend opt target = MessageSend {emeta = meta pos
+                                                           ,typeArguments
+                                                           ,target
+                                                           ,name
+                                                           ,args}
+                      return $ msgSend False)
 
       singleLineTask =
         Prefix (do notFollowedBy (reserved "async" >> nl)
@@ -1041,7 +1044,21 @@ expr = notFollowedBy nl >>
             rest <- many $ try pathComponent
             return $ foldl (buildPath pos) root (first:rest)
 
-          pathComponent = dot >> (compartmentAccess <|> varOrCall)
+          pathComponent = do
+            emeta <- meta <$> getPosition
+            try comparmentAcc <|> try varOrCallFunction <|>
+              optionalAccessBang emeta <|> optionalAccessDot emeta
+            where
+              optionalAccessBang emeta = do
+                reservedOp "?!"
+                m <- varAccess >>= functionCall
+                return $ Optional emeta (QuestionBang m)
+              optionalAccessDot emeta = do
+                reservedOp "?."
+                var <- varOrCall
+                return $ Optional emeta (QuestionDot var)
+              comparmentAcc = dot >> compartmentAccess
+              varOrCallFunction = dot >> varOrCall
 
           compartmentAccess = do
             pos <-  getPosition
@@ -1056,6 +1073,15 @@ expr = notFollowedBy nl >>
             typeParams <- option [] (try . brackets $ commaSep typ)
             args <- parens arguments
             return $ FunctionCall emeta typeParams qname args
+
+          buildPath _ target o@Optional {emeta, optTag = QuestionBang f@(FunctionCall {})} =
+            o {optTag = QuestionBang $ MessageSend emeta (typeArguments f) target (qnlocal $ qname f) (args f)}
+
+          buildPath _ target o@Optional {emeta, optTag = QuestionDot f@(FunctionCall {})} =
+            o {optTag = QuestionDot $ MethodCall emeta (typeArguments f) target (qnlocal $ qname f) (args f) }
+
+          buildPath _ target o@Optional {emeta, optTag = QuestionDot (VarAccess {qname})} =
+            o { optTag = QuestionDot $ FieldAccess emeta target (qnlocal qname) }
 
           buildPath pos target (VarAccess{qname}) =
             FieldAccess (meta pos) target (qnlocal qname)

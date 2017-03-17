@@ -60,7 +60,42 @@ desugarProgram p@(Program{traits, classes, functions}) =
       m{mbody = desugarExpr mbody
        ,mlocals = map desugarFunction mlocals}
 
-    desugarExpr = extend removeDeadMiniLet . extend desugar . extend selfSugar
+    -- NOTE:
+    -- `selfSugar` should always be the first thing.
+    -- otherwise the unsugared version is printed on typechecking errors
+    desugarExpr e = (extend removeDeadMiniLet . extend desugar . extend optionalAccess . extend selfSugar) e
+
+-- | Desugars the notation `x?.foo()` and `actor?!bar()` into
+--
+--     match x with
+--       case Just(_x) => Just(_x.foo())
+--       case Nothing  => Nothing
+--     end
+--
+-- Currently the support is only for Option types.
+optionalAccess :: Expr -> Expr
+optionalAccess Optional {emeta=em, optTag} =
+  let (emeta, m, target) = getTemplate optTag
+      handlerVar = VarAccess em (qName "_optAccess")
+      maybeVal = MaybeValue em $ JustData (m {target = handlerVar})
+      targetName = Name "_targetOptAccess"
+      targetVar = VarAccess em (qLocal targetName)
+      result = Match emeta targetVar
+        [clauseNothing em,
+         MatchClause {mcpattern = MaybeValue{emeta=em, mdt = JustData handlerVar}
+                     ,mchandler = maybeVal
+                     ,mcguard = BTrue em}]
+  in Let em Val [(targetName, target)] result
+  where
+    getTemplate (QuestionBang m@MessageSend{emeta, target}) = (emeta, m, target)
+    getTemplate (QuestionDot m@MethodCall{emeta, target}) = (emeta, m, target)
+    getTemplate (QuestionDot f@FieldAccess{emeta, target}) = (emeta, f, target)
+    getTemplate (QuestionBang e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
+    getTemplate (QuestionDot e) = error $ "Desugarer.hs: error desugaring expression '" ++ (show $ ppExpr e) ++ "'"
+    clauseNothing emeta = MatchClause {mcpattern = MaybeValue{emeta, mdt = NothingData}
+                                      ,mchandler = MaybeValue{emeta, mdt = NothingData}
+                                      ,mcguard   = BTrue emeta}
+optionalAccess e = e
 
 -- | Let an expression remember its sugared form.
 selfSugar :: Expr -> Expr
@@ -208,10 +243,10 @@ desugar Unless{emeta, cond = originalCond, thn} =
 -- into
 --   do
 --     val start = 0
---     val stop = e1 
+--     val stop = e1
 --     var step = start
 --     while step < stop do
---       val i = step; 
+--       val i = step;
 --       step = step + 1;    -- placed here because of continue
 --       e2;
 --     end

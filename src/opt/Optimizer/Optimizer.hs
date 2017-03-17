@@ -29,7 +29,8 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors, sugarPrintedStrings, tupleMaybeIdComparison]
+optimizerPasses = [constantFolding, constructors,
+                   sugarPrintedStrings, tupleMaybeIdComparison]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -72,7 +73,7 @@ tupleMaybeIdComparison = extend tupleMaybeIdComparison'
   tupleMaybeIdComparison' Binop {emeta, binop, loper, roper}
     | (isMaybeType $ getType loper) &&
       (isMaybeType $ getType roper) &&
-      (binop == Identifiers.EQ || binop == Identifiers.NEQ) = 
+      (binop == Identifiers.EQ || binop == Identifiers.NEQ) =
       tupleMaybeIdComparison $ maybeNeg Match{emeta, arg=setType tt Tuple{emeta, args}, clauses=[trueClause1, trueClause2, falseClause]}
     where
       tt = tupleType [lmty, rmty]
@@ -105,10 +106,10 @@ tupleMaybeIdComparison = extend tupleMaybeIdComparison'
   tupleMaybeIdComparison' b@Binop {emeta, binop, loper, roper}
     | (isTupleType $ getType loper) &&
       (isTupleType $ getType roper) &&
-      (binop == Identifiers.EQ || binop == Identifiers.NEQ) = 
+      (binop == Identifiers.EQ || binop == Identifiers.NEQ) =
       tupleMaybeIdComparison $ foldl and (setType boolType BTrue{emeta}) pairwiseCompare
     where
-      and loper roper = setType boolType Binop{emeta, binop=Identifiers.AND, loper, roper} 
+      and loper roper = setType boolType Binop{emeta, binop=Identifiers.AND, loper, roper}
       pairwiseCompare = map mkComparison [0..(tupleLength $ getType loper)-1]
       mkComparison idx = setType boolType Binop {emeta
                                                 ,binop
@@ -120,7 +121,7 @@ tupleMaybeIdComparison = extend tupleMaybeIdComparison'
                                                                                      ,compartment=idx}}
       lty = getArgTypes $ getType loper
       rty = getArgTypes $ getType roper
-      
+
   tupleMaybeIdComparison' e = e
 
 sugarPrintedStrings = extend sugarPrintedString

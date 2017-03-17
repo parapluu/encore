@@ -1,0 +1,92 @@
+passive class Container
+  val test : String
+  val cc: Container
+  def init(x: String): unit
+    this.test = x.concatenate(" -- Working")
+  end
+end
+
+fun testMaybe(): Maybe[Container]
+  Just(new Container("Testing"))
+end
+
+
+passive class T
+  val c : Container
+  val valueT: int
+
+  def init(x: int): unit
+    this.valueT = x
+    this.c = new Container(string_from_int(x))
+  end
+
+  def self(): T
+    this
+  end
+end
+
+class Main
+
+  def testFieldAccess(t: Maybe[T]): unit
+    val tn = t?.c?.test
+    match tn with
+      case Just(n) => println(n)
+    end
+  end
+
+  def testMethodCall(t: Maybe[T]): unit
+    val tm = t?.self()?.self()?.valueT
+    match tm with
+      case Just(n) => println(n)
+    end
+  end
+
+  def testFunctionCalls(): unit
+    val result = testMaybe()?.test
+    match result with
+      case Just(r) => println("The result is: {}", r)
+      case Nothing => ()
+    end
+  end
+
+  def testArrayAccess(): unit
+    val ar = [Just(new Container("Test"))]
+    val maybeResult = ar(0)?.test
+    match maybeResult with
+      case Just(result) => println("Array result tested")
+      case Nothing      => println("Error")
+    end
+  end
+
+  def testNothing(): unit
+    val x = Nothing : Maybe[Container]
+    match x?.test with
+      case Just(result) => println("Error, this should be 'Nothing'")
+      case Nothing      => println("Nothing!")
+    end
+  end
+
+  def testReturnOptAccess(): Maybe[String]
+    val x = Nothing : Maybe[Container]
+    return x?.test
+  end
+
+  def testString(t: Maybe[T]): unit
+    val s = t?.c?.test?.concatenate(" Blah Blah")
+    match s with
+      case Just(s') => println(s')
+      case Nothing  => println("ERROR")
+    end
+  end
+
+  def main() : unit
+    val t = Just(new T(1))
+    this.testFieldAccess(t)
+    this.testMethodCall(t)
+    this.testString(t)
+    this.testFunctionCalls()
+    this.testArrayAccess()
+    this.testNothing()
+    this.testReturnOptAccess()
+  end
+end

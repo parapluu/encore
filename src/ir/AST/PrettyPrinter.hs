@@ -236,23 +236,41 @@ ppSugared e = case getSugared e of
 ppBody (Seq {eseq}) = vcat $ map ppExpr eseq
 ppBody e = ppExpr e
 
+withTypeArguments :: [Type] -> Doc
+withTypeArguments typeArguments =
+  if null typeArguments
+  then empty
+  else brackets (commaSep (map ppType typeArguments))
+
 ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
 ppExpr Continue {} = "Continue"
-ppExpr MethodCall {target, name, args, typeArguments = []} =
-    maybeParens target <> "." <> ppName name <>
+
+ppExpr Optional {optTag = QuestionBang MessageSend {target, name, args, typeArguments}} =
+    maybeParens target <> "?!" <> ppName name <>
+      withTypeArguments typeArguments <>
       parens (commaSep (map ppExpr args))
+ppExpr Optional {optTag = QuestionDot MethodCall {target, name, args, typeArguments}} =
+    maybeParens target <> "?." <> ppName name <>
+      withTypeArguments typeArguments <>
+      parens (commaSep (map ppExpr args))
+ppExpr Optional {optTag = QuestionDot FieldAccess {target, name}} =
+  maybeParens target <> "?." <> ppName name
+ppExpr Optional {optTag} = error $ "PrettyPrinter.hs: don't know how to " ++
+                                   "print expression '" ++ (render $ ppPath optTag) ++ "'"
+  where
+    ppPath :: OptionalPathComponent -> Doc
+    ppPath (QuestionBang e) = ppExpr e
+    ppPath (QuestionDot e) = ppExpr e
+
 ppExpr MethodCall {target, name, args, typeArguments} =
     maybeParens target <> "." <> ppName name <>
-      brackets (commaSep (map ppType typeArguments)) <>
-      parens (commaSep (map ppExpr args))
-ppExpr MessageSend {target, name, args, typeArguments = []} =
-    maybeParens target <> "!" <> ppName name <>
+      withTypeArguments typeArguments <>
       parens (commaSep (map ppExpr args))
 ppExpr MessageSend {target, name, args, typeArguments} =
     maybeParens target <> "!" <> ppName name <>
-      brackets (commaSep (map ppType typeArguments)) <>
+      withTypeArguments typeArguments <>
       parens (commaSep (map ppExpr args))
 ppExpr Liftf {val} = "liftf" <> parens (ppExpr val)
 ppExpr Liftv {val} = "liftv" <> parens (ppExpr val)
@@ -269,11 +287,10 @@ ppExpr ExtractorPattern {name, arg = arg@Tuple{}} =
     ppName name <> ppExpr arg
 ppExpr ExtractorPattern {name, arg} =
     ppName name <> parens (ppExpr arg)
-ppExpr FunctionCall {qname, args, typeArguments = []} =
-    ppQName qname <> parens (commaSep (map ppExpr args))
 ppExpr FunctionCall {qname, args, typeArguments} =
-    ppQName qname <> brackets (commaSep (map ppType typeArguments)) <>
-                     parens (commaSep (map ppExpr args))
+    ppQName qname <>
+      withTypeArguments typeArguments <>
+      parens (commaSep (map ppExpr args))
 ppExpr FunctionAsValue {qname, typeArgs} =
   ppQName qname <> brackets (commaSep (map ppType typeArgs))
 ppExpr Closure {eparams, mty, body=b@(Seq {})} =
@@ -366,7 +383,8 @@ ppExpr IsEos {target} = "eos" <> parens (ppExpr target)
 ppExpr StreamNext {target} = "getNext" <> parens (ppExpr target)
 ppExpr Return {val} = "return" <> parens (ppExpr val)
 ppExpr Suspend {} = "suspend"
-ppExpr FieldAccess {target, name} = maybeParens target <> "." <> ppName name
+ppExpr FieldAccess {target, name} =
+  maybeParens target <> "." <> ppName name
 ppExpr ArrayAccess {target = target@FieldAccess{}, index} =
   parens (ppExpr target) <> parens (ppExpr index)
 ppExpr ArrayAccess {target, index} = ppExpr target <> parens (ppExpr index)

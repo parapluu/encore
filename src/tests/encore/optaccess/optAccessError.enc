@@ -1,0 +1,28 @@
+passive class Container
+  val test : String
+  def init(x: String): unit
+    this.test = x.concatenate(" -- Working")
+  end
+end
+
+passive class T
+  val c : Maybe[Container]
+  val valueT: int
+
+  def init(x: int): unit
+    this.valueT = x
+    this.c = new Container(string_from_int(x))
+  end
+
+  def self(): T
+    this
+  end
+end
+
+class Main
+
+  def main() : unit
+    val t = Just(new T(1))
+    t?.c?.test
+  end
+end
