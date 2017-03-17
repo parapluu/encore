@@ -291,7 +291,10 @@ class Main
     if |argv| == 1 then
       -- This was written because the results are not deterministic and the CI
       -- should at least check that it compiles
-      abort("Please supply arguments. Defaults should be '800000' for first argument")
+      println("Please supply arguments. Defaults should be '800000' for first argument")
+      EMBED (unit)
+        exit(0);
+      END
     end
     let
       colours = [1, 2, 3]
