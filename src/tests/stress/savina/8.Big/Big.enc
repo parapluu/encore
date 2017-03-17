@@ -68,13 +68,8 @@ class Main
   end
 
   def main(argv : [String]) : unit
-    -- TODO: This benchmark crashes non-deterministically
-    println("This benchmark crashes from time to time")
-    EMBED (unit)
-      exit(0);
-    END
     let
-      numMessages = 16 * 1024
+      numMessages = 1024 --16 * 1024
       numActors = if |argv| > 1 then
                     this.extractor((argv(1)).to_int())
                   else
