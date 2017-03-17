@@ -1,20 +1,20 @@
 import Random
 import Std
 
-passive class Int
-  val value : int
-  def init(value:int) : unit
-    this.value = value
-  end
+-- passive class Int
+--   val value : int
+--   def init(value:int) : unit
+--     this.value = value
+--   end
 
-  def value() : int
-    this.value
-  end
-end
+--   def value() : int
+--     this.value
+--   end
+-- end
 
 class ActiveCounter
   var c : int
-  var meta_counter : PassiveCounter[Int]
+  var meta_counter : PassiveCounter
 
   def init(start:int) : unit
     this.c = start
@@ -36,33 +36,32 @@ class ActiveCounter
     assertTrue(this.c == this.meta_counter.read())
   end
 
-  def install(m:PassiveCounter[Int]) : unit
+  def install(m:PassiveCounter) : unit
     this.meta_counter = m
   end
 
 end
 
-trait CounterTrait
-  require var a : ActiveCounter
-  require def install(c:PassiveCounter[Int]) : unit
-  require def inc() : unit
-  require def dec() : unit
-  require def read() : int
-  require def dont_read() : Fut[int]
-end
+-- trait CounterTrait
+--   require var a : ActiveCounter
+--   require def install(c:PassiveCounter[int]) : unit
+--   require def inc() : unit
+--   require def dec() : unit
+--   require def read() : int
+--   require def dont_read() : Fut[int]
+-- end
 
-passive class PassiveCounter[t] : CounterTrait + Id
+passive class PassiveCounter: Id
   var a : ActiveCounter
-  var something : t
+  var something : int
   def init(start:int) : unit
     this.a = new ActiveCounter(start)
   end
 
-  def install(c:PassiveCounter[Int]) : unit
-   -- if ((this : CounterTrait) == (c : CounterTrait)) then
-   --   this.a!install(c)
-   -- end
-    ()
+  def install(c:PassiveCounter) : unit
+   if (this == c) then
+     this.a!install(c : PassiveCounter)
+   end
   end
 
   def inc() : unit
@@ -81,14 +80,14 @@ passive class PassiveCounter[t] : CounterTrait + Id
     this.a!read()
   end
 
-  def get_me_something() : t
+  def get_me_something() : int
     this.something
   end
 end
 
 class GCPressure
   def doit(times:int, main:Main) : unit
-    val p = new PassiveCounter[Int](random(1000))
+    val p = new PassiveCounter(random(1000))
     p.install(p)
     main ! here_you_go(p)
     if times > 0 then
@@ -98,7 +97,7 @@ class GCPressure
 end
 
 class Main
-  def here_you_go(p:PassiveCounter[Int]) : unit
+  def here_you_go(p:PassiveCounter) : unit
     repeat i <- random(10) do
       p.dec()
     end
@@ -107,7 +106,7 @@ class Main
   end
 
   def issue1118() : unit
-    val p = new PassiveCounter[Int](0)
+    val p = new PassiveCounter(0)
     p.install(p)
   end
 
