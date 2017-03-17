@@ -1,0 +1,153 @@
+module ArrayList
+
+trait Iterable[t]
+  require def nth(n:int) : t
+  require def size() : int
+  require def new_collection(size_hint:int) : ArrayList[t]
+
+  def map_do(f:t -> unit) : unit
+    repeat i <- this.size() do
+      f(this.nth(i))
+    end
+  end
+
+  def map(f:t -> t) : ArrayList[t]
+    val result = this.new_collection(0)
+    repeat i <- this.size() do
+      result.append(f(this.nth(i)))
+    end
+    result
+  end
+
+  def filter(f:t -> bool) : ArrayList[t]
+    val result = this.new_collection(0)
+    repeat i <- this.size() do
+      let e = this.nth(i) in
+        if f(e) then
+          result.append(e)
+        end
+      end
+    end
+    result
+  end
+
+  def flat_map(f:t -> Iterable[t]) : ArrayList[t]
+    val result = this.new_collection(0)
+    repeat i <- this.size() do
+      let es = f(this.nth(i)) in
+        es.map_do(fun (x:t) => result.append(x))
+      end
+    end
+    result
+  end
+end
+
+passive class ArrayList[t] : Iterable[t](index,elements)
+  var elements : [Maybe[t]]
+  var index : int
+
+  def nth(n:int) : t
+    match (this.elements)(n) with
+      case Just(v) => v
+      case _      => this.nth(n) -- HACKY!
+    end
+  end
+
+  def new_collection(size_hint:int) : ArrayList[t]
+    new ArrayList[t]()
+  end
+
+  def size() : int
+    this.index
+  -- TODO: optimise
+  end
+
+  def append_all(elements:[t]) : unit
+    repeat i <- |elements| do
+      this.append(elements(i))
+    end
+  end
+
+  -- TODO: optimise
+  def prepend_all(elements:[t]) : unit
+    repeat i <- |elements| do
+      this.prepend(elements(i))
+    end
+  end
+
+  def init() : unit
+    this.index = 0
+    this.elements = new [Maybe[t]](16) -- why 16?
+  end
+
+  def append(element:t) : unit
+    this.private_grow_shift(0, 0)
+    (this.elements)(this.index) = Just(element)
+    this.index = this.index + 1
+  end
+
+  def prepend(element:t) : unit
+    this.private_grow_shift(1, 0)
+    (this.elements)(0) = Just(element)
+    this.index = this.index + 1
+  end
+
+  -- TODO: Fix comparison logic
+  def contains(element:t) : bool
+    repeat i <- this.index do
+      if this.nth(i) == element then
+        EMBED (unit) return 1; END
+      end
+    end
+    false
+  end
+
+  def insert(element:t, index:int) : unit
+    this.private_grow_shift(1, index)
+    (this.elements)(index) = Just(element)
+    this.index = this.index + 1
+  end
+
+  def element_at(index:int) : Maybe[t]
+    (this.elements)(index)
+  end
+
+  def remove_front() : Maybe[t]
+    this.remove(0)
+  end
+
+  def remove_back() : Maybe[t]
+    this.remove(this.index - 1)
+  end
+
+  def remove(index:int) : Maybe[t]
+    this.index = this.index - 1
+    val element = (this.elements)(index)
+    val old = this.elements
+
+    if this.index * 2 < |this.elements| then
+      this.elements = new [Maybe[t]](((this.index / 2) + 1) * 2)
+    end
+
+    repeat i <- (this.index - index) do
+      (this.elements)((index + i)) = old(index + i + 1)
+    end
+    element
+  end
+
+  def private_grow_shift(offset:int, skip:int) : unit
+    val old = this.elements
+
+    if this.index == |this.elements| then
+      this.elements = new [Maybe[t]](this.index * 2)
+    end
+
+    if old != this.elements || offset > 0 then
+      let elems_to_copy = this.index - skip in
+        repeat i <- elems_to_copy do
+          (this.elements)(((this.index - 1) - i + offset)) = old(this.index - 1 - i)
+        end
+      end
+    end
+  end
+end

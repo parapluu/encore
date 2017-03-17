@@ -1,0 +1,237 @@
+module Hashmap
+
+import ArrayList
+
+trait Eq[self]
+  require def equals(other:self) : bool
+end
+
+trait Id[self]
+  require def same_as(other:self) : bool
+end
+
+trait Hash[self]
+  require def hashcode() : uint
+end
+
+typedef Key[k] = Hash[k] + Eq[k]
+typedef BucketList[k,v] = ArrayList[Entry[Key[k],v]]
+
+-- TODO: Hashable[k] below replaced with k <: Hashable
+-- TODO: Comment-back equals test in put/take
+-- TODO: resizing
+passive class Hashmap[k, v]
+  var table : [BucketList[k,v]]
+
+  def init() : unit
+    this.clear()
+  end
+
+  def take_default(key:Key[k], default:v) : v
+    var result = default
+--  for entry <- <- (this.table)((key.hashcode() % |this.table|))
+--  TODO: replace 3 next lines with line above
+    let t = (this.table)((key.hashcode() % |this.table|)) in
+      repeat i <- t.size() do
+        let entry = t.nth(i) in
+          if entry.key() == key then
+            result = entry.value()
+            EMBED (unit) break; END
+          end
+        end
+      end
+    end
+    result
+  end
+
+  def remove(key:Key[k]) : Maybe[v]
+    val bucket_list = (this.table)((key.hashcode() % |this.table|))
+    var result = Nothing : Maybe[v]
+    repeat i <- bucket_list.size() do
+      if bucket_list.nth(i).key() == key then
+        val element = bucket_list.nth(i).value()
+        bucket_list.remove(i)
+        result = Just(element)
+        EMBED (unit) break; END
+      end
+    end
+    result
+  end
+
+  def take(key:Key[k]) : Maybe[v]
+    var result = Nothing : Maybe[v]
+--  for entry <- <- (this.table)((key.hashcode() % |this.table|))
+--  TODO: replace 3 next lines with line above
+    let t = (this.table)((key.hashcode() % |this.table|)) in
+      repeat i <- t.size() do
+        let entry = t.nth(i) in
+          if entry.key().hashcode() == key.hashcode() {- and entry.key().equals(key) -} then
+            result = Just(entry.value())
+            EMBED (unit) break; END
+          end
+        end
+      end
+    end
+    result
+  end
+
+  def put(key:Key[k], value:v) : unit
+    val bucket_list = (this.table)((key.hashcode() % |this.table|))
+--  for entry <- bucket_list
+--  TODO: replace 2 next lines with line above
+    repeat i <- bucket_list.size() do
+      let entry = bucket_list.nth(i) in
+        if entry.key().hashcode() == key.hashcode() {- and entry.key().equals(key) -} then
+          entry.set_value(value)
+          -- TODO: Replace this hack!!!
+          val x = ()
+          EMBED (unit) return #{x}; END
+        end
+      end
+    end
+    bucket_list.append(new Entry[Key[k], v](key, value))
+  end
+
+  def size() : int
+    var sum = 0
+    for bucket_list <- this.table do
+      sum = sum + bucket_list.size()
+    end
+    sum
+  end
+
+  def keys() : ArrayList[Key[k]]
+    let result = new ArrayList[Key[k]]() in
+      for bucket_list <- this.table do
+        bucket_list.map_do(fun (e:Entry[Key[k], v]) => result.append(e.key()))
+      end
+      result
+    end
+  end
+
+  def values() : ArrayList[v]
+    let result = new ArrayList[v]() in
+      for bucket_list <- this.table do
+        bucket_list.map_do(fun (e:Entry[Key[k], v]) => result.append(e.value()))
+      end
+      result
+    end
+  end
+
+  def has_key(key:Key[k]) : bool
+    var result = false
+--  for entry <- <- (this.table)((key.hashcode() % |this.table|))
+--  TODO: replace 3 next lines with line above
+    let t = (this.table)((key.hashcode() % |this.table|)) in
+      repeat i <- t.size() do
+        let entry = t.nth(i) in
+          if entry.key() == key then
+            result = true
+            EMBED (unit) break; END
+          end
+        end
+      end
+    end
+    result
+  end
+
+  -- TODO: optimise
+  def has_value(value:v) : bool
+    this.values().contains(value)
+  end
+
+  def clear() : unit
+    this.table = new [BucketList[k,v]](128)
+    repeat i <- |this.table| do
+      (this.table)(i) = new BucketList[k, v]()
+    end
+  end
+end
+
+passive class Entry[k, v]
+  var key:k
+  var value:v
+
+  def init(key:k, value:v) : unit
+    this.key = key
+    this.value = value
+  end
+
+  def key() : k
+    this.key
+  end
+
+  def value() : v
+    this.value
+  end
+
+  def set_value(value:v) : unit
+    this.value = value
+  end
+end
+
+
+
+passive class Int : Hash[Int](value) + Eq[Int](same_as(),value) + Id[Int](value)
+  var value : int
+
+  def init(value:int) : unit
+    this.value = value
+  end
+
+  def value() : int
+    this.value
+  end
+
+  def hashcode() : uint
+    if this.value < 0 then
+      0 - this.value
+    else
+      this.value
+    end
+  end
+
+  def equals(other:Int) : bool
+    this.same_as(other)
+  end
+
+  def same_as(other:Int) : bool
+    this.value == other.value
+  end
+end
+
+class Main
+  def main() : unit
+    let
+      k1 = new Int(42)
+      k2 = new Int(42)
+      k3 = new Int(43)
+      s1 = "Forty-two"
+      s2 = "Forty-three"
+    in
+      val map = new Hashmap[Int, String]()
+      map.put(k1, s1)
+      print("{} => {}\n", k2, map.take(k2))
+      map.put(k1, s2)
+      print("{} => {}\n", k2, map.take(k2))
+      map.put(k3, "Forty-three")
+      print("{} => {}\n", k3, map.take_default(k3, "43"))
+      map.remove(k3)
+      print("{} => {}\n", k3, map.take_default(k3, "43"))
+
+      print("Keys {} ({})\n", map.keys(), map.keys().size())
+      map.keys().map_do(fun (i:Int) => print("Int({})\n", i.value()))
+      print("Values {} ({})\n", map.values(), map.values().size())
+      map.values().map_do(fun (s:String) => print("Str({})\n", s))
+
+      print("Does 42 exist? {} \n", if map.has_value(s1) then "yes" else "no" end)
+      print("Does 43 exist? {} \n", if map.has_value(s2) then "yes" else "no" end)
+
+      map.clear()
+      print("Keys {} ({})\n", map.keys(), map.keys().size())
+      map.keys().map_do(fun (i:Int) => print("Int({})\n", i.value()))
+      print("Values {} ({})\n", map.values(), map.values().size())
+      map.values().map_do(fun (s:String) => print("Str({})\n", s))
+    end
+  end
+end
