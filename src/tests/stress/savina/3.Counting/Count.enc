@@ -35,21 +35,24 @@ class Producer
 end
 class Main
   def main(args : [String]) : unit
-    let
-      n = match (args(1)).to_int() with
-            case Just(result) =>
-              result
+    if |args| != 2 then
+      print("number of pings not specified\n")
+    else
+      let
+        n = match (args(1)).to_int() with
+              case Just(result) =>
+                result
+              end
+              case Nothing =>
+                print("number of pings not specified\n")
+                0
+              end
             end
-            case Nothing =>
-              print("number of pings not specified\n")
-              0
-            end
-
-          end
-      counter = new Counter()
-      producer = new Producer(counter, n)
-    in
-      producer!increment(n)
+        counter = new Counter()
+        producer = new Producer(counter, n)
+      in
+        producer!increment(n)
+      end
     end
   end
 end
