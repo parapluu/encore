@@ -526,7 +526,6 @@ data ForComprehensionAssignment =
     varTyp :: Type,
     faRhs :: ForComprehensionAssignmentSource
   } deriving (Show, Eq)
->>>>>>> For comprehensions and iterators
 
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}

@@ -671,7 +671,6 @@ instance Checkable Expr where
             when (name == constructorName) $ tcError ConstructorCallError
             when (isMainMethod targetType name) $ tcError MainMethodCallError
 
-<<<<<<< HEAD
           handleErrors targetType m
             | isMessageSend m = do
               errorInitMethod targetType (name m)
@@ -688,23 +687,6 @@ instance Checkable Expr where
               errorInitMethod targetType name'
             | otherwise =
                 error $ "Typechecker.hs: expression '" ++ show m ++ "' " ++
-=======
-          handleErrors targetType msend@MessageSend {} = do
-            errorInitMethod targetType (name msend)
-            unless (isActiveClassType targetType ||
-                    isSharedClassType targetType) $
-                    tcError $ NonSendableTargetError targetType
-          handleErrors targetType mcall@MethodCall {} = do
-            when (isActiveClassType targetType && not (isThisAccess (target mcall)))
-              $ tcError BadSyncCallError
-
-            let name' = name mcall
-            unless (isRefType targetType || isArrayType targetType || isMaybeType targetType || isFutureType targetType) $
-                   tcError $ NonCallableTargetError targetType
-            errorInitMethod targetType name'
-          handleErrors _ mcall =
-            error $ "Typechecker.hs: expression '" ++ show mcall ++ "' " ++
->>>>>>> update to new syntax, fix typechecker bug, fix typo
                     "is not a method or function call"
 
     doTypecheck maybeData@(MaybeValue {mdt}) = do
