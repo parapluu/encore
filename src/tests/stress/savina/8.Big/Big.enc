@@ -68,6 +68,11 @@ class Main
   end
 
   def main(argv : [String]) : unit
+    -- TODO: the original number of messages is 16 * 1024.
+    --       we had to reduce the size of numMessages because
+    --       it uses too much memory, and the process was killed
+    --       by OS before exiting. More information can be found at
+    --       https://github.com/parapluu/encore/issues/743
     let
       numMessages = 1024 --16 * 1024
       numActors = if |argv| > 1 then
