@@ -10,4 +10,7 @@ or because if I enter the wrong input the test breaks.
 
 - Big
 
-  This benchmark crashes non-deterministically.
+  This benchmark crashes non-deterministically. the original number of
+  messages is 16 * 1024. we had to reduce the size of numMessages because
+  it uses too much memory, and the process was killed by OS before exiting.
+  More information can be found at https://github.com/parapluu/encore/issues/743
