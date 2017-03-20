@@ -1975,10 +1975,6 @@ matchArguments (arg:args) (typ:types) = do
   return (eArg':eArgs, bindings')
   (eArgs, bindings') <- local (bindTypes bindings) $
                               matchArguments args types
---  needCast <- fmap (&& typ /= actualTyp) $ actualTyp `subtypeOf` typ
---  let
---    casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
---    eArg' = if needCast then casted else eArg
   return (eArg:eArgs, bindings')
 
 --  Note that the bindings B is implicit in the reader monad

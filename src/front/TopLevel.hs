@@ -338,15 +338,6 @@ main =
        verbose options "== Capturechecking =="
        capturecheckedTable <- capturecheckProgramTable typecheckedTable
 
-       {-          verbose options "== Capturechecking =="
-         capturecheckedAST <-
-           case capturecheckEncoreProgram typecheckedAST newEnv of
-             Right ast  -> return ast
-             Left error -> abort $ show error
-
-         return (newEnv, capturecheckedAST)
-        -}
-
        verbose options "== Optimizing =="
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
