@@ -116,12 +116,12 @@ end
 fun spellAndPrint(n : int) : unit
   val spelledList = spell(n)
   var cursor = spelledList.first
-  while isNull(cursor) do
+  while cursor != null do
     print("{} ", cursor.getData().getValue())
     cursor = cursor.getNextLink()
   end
 end
-class Creature
+active class Creature
   var place : MeetingPlace
   var colour : int
   var id : int
@@ -154,7 +154,7 @@ class Creature
     this.place!meet(this, this.id, this.colour)
   end
 end
-class MeetingPlace
+active class MeetingPlace
   var meetingsLeft : int
   var firstColour : int
   var firstID : int
@@ -217,7 +217,7 @@ class MeetingPlace
     end
   end
 end
-class Main
+active class Main
   var meetings : int
   def runSecondScenario() : unit
     let

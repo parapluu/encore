@@ -4,7 +4,7 @@ import HackyQueue
 import Producer
 import Consumer
 
-class Manager
+active class Manager
   val adjusted_buffer_size : int
   val available_producers : HackyQueue[Producer]
   val available_consumers : HackyQueue[Consumer]

@@ -1,6 +1,6 @@
 import Std
 
-trait Action
+linear trait Action
   require var msg : String
   require var number : int
   def getMsg() : String
@@ -14,7 +14,7 @@ trait Action
   end
 end
 
-class Main
+active class Main
   def main(args : [String]) : unit
     if |args| != 2 then
       print("input required: number-th of fibo not specified\n")
@@ -40,7 +40,7 @@ class Main
   end
 end
 
-passive class Request : Action
+linear class Request : Action
   var msg : String
   var number : int
   def init(n : int) : unit
@@ -52,7 +52,7 @@ passive class Request : Action
   end
 end
 
-passive class Response : Action
+linear class Response : Action
   var msg : String
   var number : int
   def init(value : int) : unit
@@ -70,7 +70,7 @@ fun isNull[a](x: a): bool
   END
 end
 
-class FibonacciActor
+active class FibonacciActor
   var result : int
   var respReceived : int
   var parent : Maybe[FibonacciActor]
@@ -86,18 +86,12 @@ class FibonacciActor
           this.result = 1
           this!processResult(new Response(1))
         else
-          let
-            request = new Request(msg.getNumber() - 1)
-            f1 = new FibonacciActor(Just(this))
-          in
-            f1!process(request)
-          end
-          let
-            request = new Request(msg.getNumber() - 2)
-            f2 = new FibonacciActor(Just(this))
-          in
-            f2!process(request)
-          end
+          var request = new Request(msg.getNumber() - 1)
+          val f1 = new FibonacciActor(Just(this))
+          f1!process(consume request)
+          var request = new Request(msg.getNumber() - 2)
+          val f2 = new FibonacciActor(Just(this))
+          f2!process(consume request)
         end
         ()
       end
@@ -111,9 +105,9 @@ class FibonacciActor
 
     end
   end
-  def processResult(response : Response) : unit
+  def processResult(var response : Response) : unit
     match this.parent with
-      case Just(p) => { p!process(response); (); }
+      case Just(p) => { p!process(consume response); (); }
       case Nothing => print(" Result = {}\n", this.result)
     end
   end

@@ -2,24 +2,21 @@ module List
 
 import Std
 
-fun isNull[a](x: a): bool
-  EMBED (bool)
-    #{x}.p == NULL;
-  END
-end
-
-passive class Data[t] : Id
-  var elem : t
+read class Data[t] : Id
+  val elem : t
+  def init(elem : t) : unit
+    this.elem = elem
+  end
   def getValue() : t
     this.elem
   end
 end
-passive class Link[t] : Id
+local class Link[t] : Id
   var data : Data[t]
   var next : Link[t]
   def init(elem : t, next : Link[t]) : unit
     let
-      data = new Data[t]
+      data = new Data(elem)
     in
       data.elem = elem
       this.data = data
@@ -34,14 +31,14 @@ passive class Link[t] : Id
   end
   def show() : unit
     print("TBI")
-    if isNull(this.next) then
+    if this.next != null then
       this.next.show()
     else
       ()
     end
   end
 end
-passive class List[t]: Id
+local class List[t]: Id
   var first : Link[t]
   var size : int
   def init() : unit

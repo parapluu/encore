@@ -9,7 +9,7 @@ fun min(x : int, y : int) : int
   end
 end
 
-class AtomicInteger
+active class AtomicInteger
   var value : int
   def init(x : int) : unit
     this.value = x
@@ -23,7 +23,7 @@ class AtomicInteger
   end
 end
 
-class Worker
+active class Worker
   var master : Master
   var id : int
   def init(master : Master, id : int) : unit
@@ -40,7 +40,7 @@ class Worker
   end
 end
 
-class Master
+active class Master
   var numWorkers : int
   var scale : int
   var workers : [Worker]
@@ -107,7 +107,7 @@ class Master
     this.result.toString()
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       config = new PiPrecisionConfig()

@@ -2,25 +2,17 @@ module Hashmap
 
 import ArrayList
 
-trait Eq[self]
-  require def equals(other:self) : bool
-end
-
-trait Id[self]
-  require def same_as(other:self) : bool
-end
-
-trait Hash[self]
+read trait Hash[self]
   require def hashcode() : uint
 end
 
-typedef Key[k] = Hash[k] + Eq[k]
+typedef Key[k] = Hash[k] + Eq[k] + Id
 typedef BucketList[k,v] = ArrayList[Entry[Key[k],v]]
 
 -- TODO: Hashable[k] below replaced with k <: Hashable
 -- TODO: Comment-back equals test in put/take
 -- TODO: resizing
-passive class Hashmap[k, v]
+local class Hashmap[k, v]
   var table : [BucketList[k,v]]
 
   def init() : unit
@@ -82,7 +74,10 @@ passive class Hashmap[k, v]
     repeat i <- bucket_list.size() do
       let entry = bucket_list.nth(i) in
         if entry.key().hashcode() == key.hashcode() {- and entry.key().equals(key) -} then
-          entry.set_value(value)
+          -- Elias replaced the line:
+          --   entry.set_value(value)
+          -- with the following:
+          bucket_list.insert(new Entry(entry.key(), value), i)
           -- TODO: Replace this hack!!!
           val x = ()
           EMBED (unit) return #{x}; END
@@ -148,9 +143,9 @@ passive class Hashmap[k, v]
   end
 end
 
-passive class Entry[k, v]
-  var key:k
-  var value:v
+read class Entry[k, v]
+  val key:k
+  val value:v
 
   def init(key:k, value:v) : unit
     this.key = key
@@ -164,16 +159,10 @@ passive class Entry[k, v]
   def value() : v
     this.value
   end
-
-  def set_value(value:v) : unit
-    this.value = value
-  end
 end
 
-
-
-passive class Int : Hash[Int](value) + Eq[Int](same_as(),value) + Id[Int](value)
-  var value : int
+read class Int : Hash[Int](value) + Eq[Int](same_as(),value) + Id
+  val value : int
 
   def init(value:int) : unit
     this.value = value
@@ -191,7 +180,7 @@ passive class Int : Hash[Int](value) + Eq[Int](same_as(),value) + Id[Int](value)
     end
   end
 
-  def equals(other:Int) : bool
+  def eq(other:Int) : bool
     this.same_as(other)
   end
 
@@ -200,7 +189,7 @@ passive class Int : Hash[Int](value) + Eq[Int](same_as(),value) + Id[Int](value)
   end
 end
 
-class Main
+active class Main
   def main() : unit
     let
       k1 = new Int(42)

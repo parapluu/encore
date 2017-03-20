@@ -3,7 +3,7 @@ module Producer
 import Manager
 import Util
 
-class Producer
+active class Producer
   val id : int
   val manager : Manager
   var prodItem : real

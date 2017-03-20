@@ -2,12 +2,12 @@ module ArrayList
 
 import Std
 
-trait Iterable[t]
+read trait Iterable[t]
   require def nth(n:int) : t
   require def size() : int
   require def new_collection(size_hint:int) : ArrayList[t]
 
-  def map_do(f:t -> unit) : unit
+  def map_do(f:local ((t) -> unit)) : unit
     repeat i <- this.size() do
       f(this.nth(i))
     end
@@ -46,11 +46,11 @@ end
 
 fun areDistinct[a](x: a, y: a): bool
   EMBED (bool)
-    #{x}.i == #{y}.i;
+    #{x}.i != #{y}.i;
   END
 end
 
-passive class ArrayList[t] : Iterable[t](index,elements)
+local class ArrayList[t] : Iterable[t](index,elements)
   var elements : [Maybe[t]]
   var index : int
 

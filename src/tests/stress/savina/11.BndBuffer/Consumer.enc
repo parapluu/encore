@@ -31,7 +31,7 @@ fun processItem(curTerm:real, cost:int) : real
   res
 end
 
-class Consumer
+active class Consumer
   val id : int
   val manager : Manager
   val consCost : int
@@ -44,12 +44,12 @@ class Consumer
     -- print("Consumer {} created\n", id)
   end
 
-  def consume(data: real) : unit
+  def doConsume(data: real) : unit
     this.consItem = processItem(this.consItem + data, this.consCost)
   end
 
   def process(data: real) : unit
-    this.consume(data)
+    this.doConsume(data)
     this.manager ! consumerAvailable(this)
   end
 end

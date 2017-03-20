@@ -22,7 +22,7 @@ fun fx(x : real) : real
   val r = c * d
   r
 end
-class Main
+active class Main
   def main() : unit
     this.runIteration()
   end
@@ -37,7 +37,7 @@ class Main
     master!work(L, R, precision)
   end
 end
-class Master
+active class Master
   var numWorkers : int
   var workers : [Worker]
   def init(numWorkers : int) : unit
@@ -71,7 +71,7 @@ class Master
     ()
   end
 end
-class Worker
+active class Worker
   var i : int
   def init(i : int) : unit
     this.i = i

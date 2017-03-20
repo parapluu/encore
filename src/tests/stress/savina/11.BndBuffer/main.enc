@@ -1,6 +1,6 @@
 import Manager
 
-class Main
+active class Main
   def main() : unit
     let
       bufferSize          = 50

@@ -1,6 +1,6 @@
 module PiPrecisionConfig
 import BigDecimal
-passive class PiPrecisionConfig
+local class PiPrecisionConfig
   var one : BigDecimal -- BigDecimal.ONE
   var two : BigDecimal -- BigDecimal(2)
   var four : BigDecimal -- BigDecimal(4)

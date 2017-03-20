@@ -1,6 +1,6 @@
 import Philosophers
 
-class Main
+active class Main
   def argToInt(str : String) : int
     match str.to_int() with
       case Just(result) =>

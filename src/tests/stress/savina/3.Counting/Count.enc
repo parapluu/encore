@@ -1,4 +1,4 @@
-class Counter
+active class Counter
   var count : int
   def init() : unit
     this.count = 0
@@ -10,7 +10,7 @@ class Counter
     p!resultMessage(this.count)
   end
 end
-class Producer
+active class Producer
   var counter : Counter
   var iterations : int
   def init(counter : Counter, iterations : int) : unit
@@ -33,7 +33,7 @@ class Producer
     end
   end
 end
-class Main
+active class Main
   def main(args : [String]) : unit
     if |args| != 2 then
       print("number of pings not specified\n")

@@ -12,7 +12,7 @@ import Std
 --   end
 -- end
 
-class ActiveCounter
+active class ActiveCounter
   var c : int
   var meta_counter : PassiveCounter
 
@@ -51,9 +51,9 @@ end
 --   require def dont_read() : Fut[int]
 -- end
 
-passive class PassiveCounter: Id
-  var a : ActiveCounter
-  var something : int
+read class PassiveCounter: Id
+  val a : ActiveCounter
+  val something : int
   def init(start:int) : unit
     this.a = new ActiveCounter(start)
   end
@@ -85,7 +85,7 @@ passive class PassiveCounter: Id
   end
 end
 
-class GCPressure
+active class GCPressure
   def doit(times:int, main:Main) : unit
     val p = new PassiveCounter(random(1000))
     p.install(p)
@@ -96,7 +96,7 @@ class GCPressure
   end
 end
 
-class Main
+active class Main
   def here_you_go(p:PassiveCounter) : unit
     repeat i <- random(10) do
       p.dec()

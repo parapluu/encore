@@ -2,13 +2,13 @@ module HackyQueue
 
 import Std
 
-fun isNull[a](x: a): bool
+fun isNull[t](x: HackyQueueLink[t]): bool
   EMBED (bool)
-    #{x}.p == NULL;
+    #{x} == NULL;
   END
 end
 
-passive class HackyQueue[t]: Id
+local class HackyQueue[t]: Id
   val head : HackyQueueLink[t]
   var tail : HackyQueueLink[t]
   var size : int
@@ -51,7 +51,7 @@ passive class HackyQueue[t]: Id
   end
 end
 
-passive class HackyQueueLink[t] : Id
+subord class HackyQueueLink[t] : Id
   val element : t
   var next : HackyQueueLink[t]
 

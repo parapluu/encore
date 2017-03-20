@@ -1,37 +1,36 @@
-trait T
+read trait T
   require def using_method(s:String) : unit
 end
 
-passive class C : T(a)
-  var a:A3
+read class C : T(a)
+  val a:A3
   def init(a:A3) : unit
     this.a = a
   end
 
   def using_method(s:String) : unit
-     this.a.using_method(s)
+     this.a!using_method(s)
   end
 end
 
-
-class A3
+active class A3
   def using_method(s:String) : unit
     print("OUTPUT: {}\n", s)
   end
 end
 
-class A1
+active class A1
   def step1(a:A3) : unit
     new A2() ! ok(a)
     new A2() ! not_ok(new C(a))
   end
 end
 
-class A2
+active class A2
   var a : T
 
   def ok(a:A3) : unit
-    a.using_method("Foo")
+    a!using_method("Foo")
   end
 
   def not_ok(a:T) : unit
@@ -39,7 +38,7 @@ class A2
   end
 end
 
-class Main
+active class Main
   def main() : unit
     new A1() ! step1(new A3())
   end

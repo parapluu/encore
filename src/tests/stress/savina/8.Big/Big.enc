@@ -1,6 +1,6 @@
 import Random
 
-class BigActor
+active class BigActor
   var id : int
   var numMessages : int
   var sinkActor : SinkActor
@@ -41,7 +41,7 @@ class BigActor
     end
   end
 end
-class SinkActor
+active class SinkActor
   var numWorkers : int
   var numMessages : int
   def init(numWorkers : int) : unit
@@ -55,7 +55,7 @@ class SinkActor
     end
   end
 end
-class Main
+active class Main
   def extractor(maybe : Maybe[int]) : int
     match maybe with
       case Nothing =>
