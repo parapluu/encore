@@ -1,0 +1,121 @@
+import PiPrecisionConfig
+import BigDecimal
+
+fun min(x : int, y : int) : int
+  if x <= y then
+    x
+  else
+    y
+  end
+end
+
+class AtomicInteger
+  var value : int
+  def init(x : int) : unit
+    this.value = x
+  end
+  def getValue() : int
+    this.value
+  end
+  def incrementAndGet() : int
+    this.value = this.value + 1
+    this.value
+  end
+end
+
+class Worker
+  var master : Master
+  var id : int
+  def init(master : Master, id : int) : unit
+    this.master = master
+    this.id = id
+  end
+  def stopMessage() : unit
+    this.master!stopMessage()
+  end
+  def workMessage(scale : int, term : int) : unit
+    val config = new PiPrecisionConfig()
+    var result = config.calculateBbpTerm(scale, term)
+    this.master!resultMessage(result, this.id)
+  end
+end
+
+class Master
+  var numWorkers : int
+  var scale : int
+  var workers : [Worker]
+  var result : BigDecimal
+  var tolerance : BigDecimal
+  var numWorkersTerminated : AtomicInteger
+  var numTermsRequested : int
+  var numTermsReceived : int
+  var stopRequests : bool
+  def init(numWorkers : int, scale : int) : unit
+    this.numWorkers = numWorkers
+    this.scale = scale
+    this.initWorkers()
+    this.result = new BigDecimal(EMBED (BigDecimalT)
+                                   0;
+                                 END)
+    this.tolerance = (new BigDecimal(EMBED (BigDecimalT)
+                                       1;
+                                     END)).movePointLeft(scale)
+    this.numWorkersTerminated = new AtomicInteger(0)
+    this.numTermsRequested = 0
+    this.numTermsReceived = 0
+    this.stopRequests = false
+  end
+  def initWorkers() : unit
+    this.workers = new [Worker](this.numWorkers)
+    repeat i <- |this.workers| do
+      (this.workers)(i) = new Worker(this, i)
+    end
+  end
+  def generateWork(worker : int, scale : int, numTermsRequested : int) : unit
+    ((this.workers)(worker))!workMessage(scale, numTermsRequested)
+    this.numTermsRequested = this.numTermsRequested + 1
+  end
+  def requestWorkersToExit() : unit
+    for worker <- this.workers do
+      worker!stopMessage()
+    end
+  end
+  def resultMessage(result : BigDecimal, worker : int) : unit
+    this.numTermsReceived = this.numTermsReceived + 1
+    this.result.add(result)
+    if result.compareTo(this.tolerance) <= 0 then
+      this.stopRequests = true
+    end
+    if not(this.stopRequests) then
+      this.generateWork(worker, this.scale, this.numTermsRequested)
+    end
+    if this.numTermsReceived == this.numTermsRequested then
+      this.requestWorkersToExit()
+    end
+  end
+  def stopMessage() : unit
+    this.numWorkersTerminated!incrementAndGet()
+  end
+  def startMessage() : unit
+    var t = 0
+    while t < min(this.scale, 10 * this.numWorkers) do
+      this.generateWork(t % this.numWorkers, this.scale, this.numTermsRequested)
+      t = t + 1
+    end
+  end
+  def getResult() : String
+    this.result.toString()
+  end
+end
+class Main
+  def main() : unit
+    let
+      config = new PiPrecisionConfig()
+      numWorkers = config.NUM_WORKERS
+      precision = config.PRECISION
+      master = new Master(numWorkers, precision)
+    in
+      master!startMessage()
+    end
+  end
+end

@@ -1,0 +1,61 @@
+module HackyQueue
+
+import Std
+
+fun isNull[a](x: a): bool
+  EMBED (bool)
+    #{x}.p == NULL;
+  END
+end
+
+passive class HackyQueue[t]: Id
+  val head : HackyQueueLink[t]
+  var tail : HackyQueueLink[t]
+  var size : int
+
+  def init(null_element : t) : unit
+    this.head = new HackyQueueLink[t](null_element)
+    this.tail = this.head
+  end
+
+  def append(element : t) : unit
+    this.tail.next = new HackyQueueLink[t](element)
+    this.tail = this.tail.next
+    this.size = this.size + 1
+  end
+
+  def take() : t
+    var dummy = this.head
+    if isNull(dummy.next) then
+      dummy.element
+    else
+      this.size = this.size - 1
+
+      val first = dummy.next
+      dummy.next = first.next
+
+      if this.tail == first then
+        this.tail = this.head
+      end
+
+      first.element
+    end
+  end
+
+  def size() : int
+    this.size
+  end
+
+  def is_empty() : bool
+    this.size == 0
+  end
+end
+
+passive class HackyQueueLink[t] : Id
+  val element : t
+  var next : HackyQueueLink[t]
+
+  def init(element : t) : unit
+    this.element = element
+  end
+end

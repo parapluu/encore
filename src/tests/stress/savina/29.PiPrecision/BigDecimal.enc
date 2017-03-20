@@ -1,0 +1,131 @@
+module BigDecimal
+EMBED
+
+#include <math.h>
+BODY
+
+END
+
+typedef BigDecimalT = EMBED long double END
+fun intToBigDecimal(x : int) : BigDecimal
+  let
+    bigT = EMBED (BigDecimalT)
+             #{x};
+           END
+  in
+    new BigDecimal(bigT)
+  end
+end
+trait NumericOperations[self]
+  require def add(num : self) : self
+  require def sub(num : self) : self
+  require def mul(num : self) : self
+  require def div(num : self, scale : int) : self
+end
+passive class BigDecimal : NumericOperations[BigDecimal](value)
+  var value : BigDecimalT
+  var precision : int
+  def BigDecimal_trace() : unit
+    EMBED (unit)
+      (void)_ctx;
+    END
+  end
+  def init(value : BigDecimalT) : unit
+    this.value = value
+    this.precision = 0
+  end
+  def add(num : BigDecimal) : BigDecimal
+    let
+      value = this.value
+      numArg = num.value
+    in
+      new BigDecimal(EMBED (BigDecimalT)
+                       #{value}+ #{numArg};
+                     END)
+    end
+  end
+  def sub(num : BigDecimal) : BigDecimal
+    let
+      value = this.value
+      numArg = num.value
+    in
+      new BigDecimal(EMBED (BigDecimalT)
+                       #{value}- #{numArg};
+                     END)
+    end
+  end
+  def mul(num : BigDecimal) : BigDecimal
+    let
+      value = this.value
+      numArg = num.value
+    in
+      new BigDecimal(EMBED (BigDecimalT)
+                       #{value}* #{numArg};
+                     END)
+    end
+  end
+  def div(num : BigDecimal, scale : int) : BigDecimal
+    let
+      value = this.value
+      numArg = num.value
+    in
+      new BigDecimal(EMBED (BigDecimalT)
+                       #{value}/ #{numArg};
+                     END)
+    end
+  end
+  def pow(power : BigDecimal) : BigDecimal
+    let
+      nvalue = this.value
+      pvalue = power.value
+    in
+      new BigDecimal(EMBED (BigDecimalT)
+                       pow(#{nvalue}, #{pvalue});
+                     END)
+    end
+  end
+  def movePointLeft(x : int) : BigDecimal
+    this.div(intToBigDecimal(10).pow(intToBigDecimal(x)), 0)
+  end
+  def compareTo(number : BigDecimal) : int
+    if this.lessThan(number) then
+      -(1)
+    else
+      if this.greaterThan(number) then
+        1
+      else
+        0
+      end
+    end
+  end
+  def lessThan(number : BigDecimal) : bool
+    let
+      value = this.value
+      n = number.value
+    in
+      EMBED (bool)
+        #{value}< #{n};
+      END
+    end
+  end
+  def greaterThan(number : BigDecimal) : bool
+    let
+      value = this.value
+      n = number.value
+    in
+      EMBED (bool)
+        #{value}> #{n};
+      END
+    end
+  end
+  def toString() : String
+    let
+      value = this.value
+      result = EMBED (real)
+                 #{value};
+               END
+    in
+      string_from_real(result)
+    end
+  end
+end

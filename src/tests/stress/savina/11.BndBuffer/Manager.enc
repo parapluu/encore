@@ -1,0 +1,63 @@
+module Manager
+
+import HackyQueue
+import Producer
+import Consumer
+
+class Manager
+  val adjusted_buffer_size : int
+  val available_producers : HackyQueue[Producer]
+  val available_consumers : HackyQueue[Consumer]
+  val pending_data : HackyQueue[real]
+
+  def init(buffer_size: int, num_producers: int, num_consumers: int, items_per_producer: int, produce_cost:int, consume_cost:int) : unit
+    this.adjusted_buffer_size = buffer_size - num_producers
+    this.available_producers = new HackyQueue[Producer](null)
+    this.available_consumers = new HackyQueue[Consumer](null)
+    this.pending_data = new HackyQueue[real](-1)
+
+    var producers = new [Producer](num_producers)
+    repeat i <- num_producers do
+      let p = new Producer(i, this, items_per_producer, produce_cost) in
+        this.available_producers.append(p)
+        producers(i) = p
+      end
+    end
+
+    repeat i <- num_consumers do
+      this.available_consumers.append(new Consumer(i, this, consume_cost))
+    end
+
+    for p <- producers do
+      p ! produce()
+    end
+    -- print("Hello, I am your new manager\n")
+  end
+
+  def dataItem(data:real, from:Producer) : unit
+    if this.available_consumers.is_empty() then
+      this.pending_data.append(data)
+    else
+      this.available_consumers.take() ! process(data)
+      -- print("Consumed {} litres\n", data)
+    end
+
+    if this.pending_data.size() >= this.adjusted_buffer_size then
+      this.available_producers.append(from)
+    else
+      from ! process()
+    end
+  end
+
+  def consumerAvailable(consumer : Consumer) : unit
+    if this.pending_data.is_empty() then
+      this.available_consumers.append(consumer)
+    else
+      consumer ! process(this.pending_data.take())
+    end
+
+    if not this.available_producers.is_empty() then
+      this.available_producers.take() ! process()
+    end
+  end
+end

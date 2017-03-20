@@ -1,0 +1,94 @@
+module TrapezoidalApproximation
+fun exp(x : real) : real
+  EMBED (real)
+    exp(#{x});
+  END
+end
+fun sqrt(x : real) : real
+  EMBED (real)
+    sqrt(#{x});
+  END
+end
+fun sin(x : real) : real
+  EMBED (real)
+    sin(#{x});
+  END
+end
+fun fx(x : real) : real
+  val a = sin(x * x * x - 1)
+  val b = x + 1
+  val c = a / b
+  val d = sqrt(1 + exp(sqrt(2 * x)))
+  val r = c * d
+  r
+end
+class Main
+  def main() : unit
+    this.runIteration()
+  end
+  def runIteration() : unit
+    println("runIteration")
+    val L = 1.0
+    val R = 5.0
+    val N = 10000000
+    val numWorkers = 100
+    val precision = R - L / N
+    val master = new Master(numWorkers)
+    master!work(L, R, precision)
+  end
+end
+class Master
+  var numWorkers : int
+  var workers : [Worker]
+  def init(numWorkers : int) : unit
+    this.numWorkers = numWorkers
+    print("numWorkers: {}\n", this.numWorkers)
+    this.workers = new [Worker](numWorkers)
+    var i = 0
+    while i < numWorkers do
+      (this.workers)(i) = new Worker(i)
+      i = i + 1
+    end
+  end
+  def work(l : real, r : real, h : real) : unit
+    print("Master working\n")
+    var i = 0
+    val futures = new [Fut[real]](|this.workers|)
+    val workerRange = r - l / |this.workers|
+    while i < |this.workers| do
+      val wl = workerRange * i + l
+      val wr = wl + workerRange
+      futures(i) = ((this.workers)(i))!work(wl, wr, h)
+      i = i + 1
+    end
+    i = 0
+    var resultArea = 0.0
+    while i < |this.workers| do
+      resultArea = resultArea + get(futures(i))
+      i = i + 1
+    end
+    print("Result area is {}\n", resultArea)
+    ()
+  end
+end
+class Worker
+  var i : int
+  def init(i : int) : unit
+    this.i = i
+  end
+  def work(l : real, r : real, h : real) : real
+    val n = r - l / h
+    var accumArea = 0.0
+    var i = 0
+    while i < n do
+      val lx = i * h + l
+      val rx = lx + h
+      val ly = fx(lx)
+      val ry = fx(rx)
+      val area = 0.5 * ly + ry * h
+      accumArea = accumArea + area
+      i = i + 1
+    end
+    accumArea
+  end
+end

@@ -1,0 +1,44 @@
+module PiPrecisionConfig
+import BigDecimal
+passive class PiPrecisionConfig
+  var one : BigDecimal -- BigDecimal.ONE
+  var two : BigDecimal -- BigDecimal(2)
+  var four : BigDecimal -- BigDecimal(4)
+  var sixteen : BigDecimal -- BigDecimal(16)
+  var NUM_WORKERS : int
+  var PRECISION : int
+  def init() : unit
+    this.one = new BigDecimal(EMBED (BigDecimalT)
+                                1.0;
+                              END)
+    this.two = new BigDecimal(EMBED (BigDecimalT)
+                                2.0;
+                              END)
+    this.four = new BigDecimal(EMBED (BigDecimalT)
+                                 4.0;
+                               END)
+    this.sixteen = new BigDecimal(EMBED (BigDecimalT)
+                                    16.0;
+                                  END)
+    this.NUM_WORKERS = 20
+    this.PRECISION = 300
+  end
+  def printArgs() : unit
+    print("Num Workers: {}", this.NUM_WORKERS)
+    print("Precision: {}", this.PRECISION)
+  end
+
+  -- TODO: we do not have BigIntegers with multiple precision so the
+  -- conversions between numbers with different scales are ignored!
+  def calculateBbpTerm(scale : int, k : int) : BigDecimal
+    val eightK = (new BigDecimal(EMBED (BigDecimalT)
+                                 8.0;
+                                 END)).mul(intToBigDecimal(k))
+    var term = this.four.div(eightK.add(intToBigDecimal(1)), scale)
+    term = term.sub(this.two.div(eightK.add(intToBigDecimal(4)), scale))
+    term = term.sub(this.one.div(eightK.add(intToBigDecimal(5)), scale))
+    term = term.sub(this.one.div(eightK.add(intToBigDecimal(6)), scale))
+    term = term.div(this.sixteen.pow(intToBigDecimal(k)), scale)
+    term
+  end
+end

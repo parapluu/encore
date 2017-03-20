@@ -1,0 +1,79 @@
+module List
+
+import Std
+
+fun isNull[a](x: a): bool
+  EMBED (bool)
+    #{x}.p == NULL;
+  END
+end
+
+passive class Data[t] : Id
+  var elem : t
+  def getValue() : t
+    this.elem
+  end
+end
+passive class Link[t] : Id
+  var data : Data[t]
+  var next : Link[t]
+  def init(elem : t, next : Link[t]) : unit
+    let
+      data = new Data[t]
+    in
+      data.elem = elem
+      this.data = data
+      this.next = next
+    end
+  end
+  def getData() : Data[t]
+    this.data
+  end
+  def getNextLink() : Link[t]
+    this.next
+  end
+  def show() : unit
+    print("TBI")
+    if isNull(this.next) then
+      this.next.show()
+    else
+      ()
+    end
+  end
+end
+passive class List[t]: Id
+  var first : Link[t]
+  var size : int
+  def init() : unit
+    this.first = null : Link[t]
+    this.size = 0
+  end
+  def prepend(elem : t) : unit
+    let
+      newFirst = new Link[t](elem, this.first)
+    in
+      this.first = newFirst
+    end
+    this.size = this.size + 1
+  end
+  def nth(var n : int) : Data[t]
+    var cursor = this.first
+    while n > 0 do
+      cursor = cursor.getNextLink()
+      n = n - 1
+    end
+    cursor.getData()
+  end
+  def pop() : Data[t]
+    let
+      head = this.first
+    in
+      this.first = this.first.getNextLink()
+      this.size = this.size - 1
+      head.getData()
+    end
+  end
+  def show() : unit
+    this.first.show()
+  end
+end

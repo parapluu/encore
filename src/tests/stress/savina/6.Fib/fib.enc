@@ -1,0 +1,120 @@
+import Std
+
+trait Action
+  require var msg : String
+  require var number : int
+  def getMsg() : String
+    this.msg
+  end
+  def setNumber(n : int) : unit
+    this.number = n
+  end
+  def getNumber() : int
+    this.number
+  end
+end
+
+class Main
+  def main(args : [String]) : unit
+    if |args| != 2 then
+      print("input required: number-th of fibo not specified\n")
+    else
+      let
+        N = match (args(1)).to_int() with
+              case Just(result) =>
+                result
+              end
+              case Nothing =>
+                0
+              end
+
+            end
+      in
+        let
+          fjRunner = new FibonacciActor(Nothing)
+        in
+          fjRunner!process(new Request(N))
+        end
+      end
+    end
+  end
+end
+
+passive class Request : Action
+  var msg : String
+  var number : int
+  def init(n : int) : unit
+    this.msg = "Request"
+    this.number = n
+  end
+  def request(n : int) : unit
+    this.number = n
+  end
+end
+
+passive class Response : Action
+  var msg : String
+  var number : int
+  def init(value : int) : unit
+    this.msg = "Response"
+    this.number = value
+  end
+  def response_one() : unit
+    this.number = 1
+  end
+end
+
+fun isNull[a](x: a): bool
+  EMBED (bool)
+    #{x}.p == NULL;
+  END
+end
+
+class FibonacciActor
+  var result : int
+  var respReceived : int
+  var parent : Maybe[FibonacciActor]
+  def init(parent : Maybe[FibonacciActor]) : unit
+    this.result = 0
+    this.respReceived = 0
+    this.parent = parent
+  end
+  def process(msg : Action) : unit
+    match msg.getMsg() with
+      case "Request" =>
+        if msg.getNumber() <= 2 then
+          this.result = 1
+          this!processResult(new Response(1))
+        else
+          let
+            request = new Request(msg.getNumber() - 1)
+            f1 = new FibonacciActor(Just(this))
+          in
+            f1!process(request)
+          end
+          let
+            request = new Request(msg.getNumber() - 2)
+            f2 = new FibonacciActor(Just(this))
+          in
+            f2!process(request)
+          end
+        end
+        ()
+      end
+      case "Response" =>
+        this.respReceived = this.respReceived + 1
+        this.result = this.result + msg.getNumber()
+        if this.respReceived == 2 then
+          this!processResult(new Response(this.result))
+        end
+      end
+
+    end
+  end
+  def processResult(response : Response) : unit
+    match this.parent with
+      case Just(p) => { p!process(response); (); }
+      case Nothing => print(" Result = {}\n", this.result)
+    end
+  end
+end

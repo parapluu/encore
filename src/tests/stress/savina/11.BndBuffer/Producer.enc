@@ -1,0 +1,34 @@
+module Producer
+
+import Manager
+import Util
+
+class Producer
+  val id : int
+  val manager : Manager
+  var prodItem : real
+  var itemsProduced : int
+  val prodCost : int
+  val numItemsToProduce : int
+
+  def init(id: int, manager: Manager, numItemsToProduce: int, prodCost:int) : unit
+    this.id = id
+    this.manager = manager
+    this.numItemsToProduce = numItemsToProduce
+    this.prodCost = prodCost
+
+    -- print("Producer {} created\n", id)
+  end
+
+  def produce() : unit
+    this.prodItem = processItem(this.prodItem, this.prodCost)
+    this.manager ! dataItem(this.prodItem, this)
+    this.itemsProduced = this.itemsProduced + 1
+  end
+
+  def process() : unit
+    if this.itemsProduced <= this.numItemsToProduce then
+      this.produce()
+    end
+  end
+end

@@ -1,0 +1,116 @@
+import Random
+import Std
+
+-- passive class Int
+--   val value : int
+--   def init(value:int) : unit
+--     this.value = value
+--   end
+
+--   def value() : int
+--     this.value
+--   end
+-- end
+
+class ActiveCounter
+  var c : int
+  var meta_counter : PassiveCounter
+
+  def init(start:int) : unit
+    this.c = start
+  end
+
+  def inc() : unit
+    this.c = this.c + 1
+  end
+
+  def dec() : unit
+    this.c = this.c - 1
+  end
+
+  def read() : int
+    this.c
+  end
+
+  def sanity_check() : unit
+    assertTrue(this.c == this.meta_counter.read())
+  end
+
+  def install(m:PassiveCounter) : unit
+    this.meta_counter = m
+  end
+
+end
+
+-- trait CounterTrait
+--   require var a : ActiveCounter
+--   require def install(c:PassiveCounter[int]) : unit
+--   require def inc() : unit
+--   require def dec() : unit
+--   require def read() : int
+--   require def dont_read() : Fut[int]
+-- end
+
+passive class PassiveCounter: Id
+  var a : ActiveCounter
+  var something : int
+  def init(start:int) : unit
+    this.a = new ActiveCounter(start)
+  end
+
+  def install(c:PassiveCounter) : unit
+   if (this == c) then
+     this.a!install(c : PassiveCounter)
+   end
+  end
+
+  def inc() : unit
+    this.a ! inc()
+  end
+
+  def dec() : unit
+    this.a ! dec()
+  end
+
+  def read() : int
+    get (this.a!read())
+  end
+
+  def dont_read() : Fut[int]
+    this.a!read()
+  end
+
+  def get_me_something() : int
+    this.something
+  end
+end
+
+class GCPressure
+  def doit(times:int, main:Main) : unit
+    val p = new PassiveCounter(random(1000))
+    p.install(p)
+    main ! here_you_go(p)
+    if times > 0 then
+      this ! doit(times - 1, main)
+    end
+  end
+end
+
+class Main
+  def here_you_go(p:PassiveCounter) : unit
+    repeat i <- random(10) do
+      p.dec()
+    end
+    get (p.dont_read())
+    this.issue1118()
+  end
+
+  def issue1118() : unit
+    val p = new PassiveCounter(0)
+    p.install(p)
+  end
+
+  def main() : unit
+    new GCPressure() ! doit(10000, this)
+  end
+end

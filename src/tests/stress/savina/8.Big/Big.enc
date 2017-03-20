@@ -1,0 +1,119 @@
+import Random
+
+class BigActor
+  var id : int
+  var numMessages : int
+  var sinkActor : SinkActor
+  var numPings : int
+  var expPinger : int
+  var neighbors : [BigActor]
+  def init(id : int, numMessages : int, sinkActor : SinkActor) : unit
+    this.id = id
+    this.numMessages = numMessages
+    this.sinkActor = sinkActor
+    this.numPings = 0
+    this.expPinger = -(1)
+  end
+  def ping(id : int) : unit
+    ((this.neighbors)(id))!pong(this.id)
+  end
+  def pong(id : int) : unit
+    if id != this.expPinger then
+      print("ERROR: Expected: {} but received ping from {}\n", this.expPinger, id)
+    end
+    this.numPings = this.numPings + 1
+    if this.numPings == this.numMessages then
+      this.sinkActor!exit()
+    else
+      this!sendPing()
+    end
+  end
+  def setNeighbors(neighbors : [BigActor]) : unit
+    this.neighbors = neighbors
+  end
+  def sendPing() : unit
+    let
+      target = random(|this.neighbors|)
+      targetActor = (this.neighbors)(target)
+    in
+      this.expPinger = target
+      targetActor!ping(this.id)
+    end
+  end
+end
+class SinkActor
+  var numWorkers : int
+  var numMessages : int
+  def init(numWorkers : int) : unit
+    this.numWorkers = numWorkers
+    this.numMessages = 0
+  end
+  def exit() : unit
+    this.numMessages = this.numMessages + 1
+    if this.numMessages == this.numWorkers then
+      print("Everything should be done now!\n")
+    end
+  end
+end
+class Main
+  def extractor(maybe : Maybe[int]) : int
+    match maybe with
+      case Nothing =>
+        -(1)
+      end
+      case Just(i) =>
+        i
+      end
+    end
+  end
+
+  def main(argv : [String]) : unit
+    -- TODO: the original number of messages is 16 * 1024.
+    --       we had to reduce the size of numMessages because
+    --       it uses too much memory, and the process was killed
+    --       by OS before exiting. More information can be found at
+    --       https://github.com/parapluu/encore/issues/743
+    let
+      numMessages = 1024 --16 * 1024
+      numActors = if |argv| > 1 then
+                    this.extractor((argv(1)).to_int())
+                  else
+                    8 * 1024
+                  end
+      sinkActor = new SinkActor(numActors)
+      chunkSize = 1 * 1024
+      chunks = if numActors >= chunkSize then
+                 numActors / chunkSize
+               else
+                 1
+               end
+    in
+      var counter = 1
+      while counter < chunks + 1 do
+        let
+          arraySize = if chunkSize * counter + 1 > numActors then
+                        if numActors > chunkSize then
+                          chunkSize + numActors % chunkSize
+                        else
+                          numActors
+                        end
+                      else
+                        chunkSize
+                      end
+          bigActors = new [BigActor](arraySize)
+        in
+          repeat i <- |bigActors| do
+            bigActors(i) = new BigActor(i, numMessages, sinkActor)
+          end
+          repeat i <- |bigActors| do
+            (bigActors(i))!setNeighbors(bigActors)
+          end
+          repeat i <- |bigActors| do
+            (bigActors(i))!pong(-(1))
+          end
+        end
+        counter = counter + 1
+      end
+    end
+  end
+end

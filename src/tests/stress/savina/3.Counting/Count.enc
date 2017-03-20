@@ -1,0 +1,58 @@
+class Counter
+  var count : int
+  def init() : unit
+    this.count = 0
+  end
+  def increment() : unit
+    this.count = this.count + 1
+  end
+  def retrieve(p : Producer) : unit
+    p!resultMessage(this.count)
+  end
+end
+class Producer
+  var counter : Counter
+  var iterations : int
+  def init(counter : Counter, iterations : int) : unit
+    this.counter = counter
+    this.iterations = iterations
+  end
+  def increment(max : int) : unit
+    var i = 0
+    while i < max do
+      this.counter!increment()
+      i = i + 1
+    end
+    this.counter!retrieve(this)
+  end
+  def resultMessage(count : int) : unit
+    if this.iterations != count then
+      print("ERROR: expected : {}, found: {}", this.iterations, count)
+    else
+      print("SUCCESS! received: {}", count)
+    end
+  end
+end
+class Main
+  def main(args : [String]) : unit
+    if |args| != 2 then
+      print("number of pings not specified\n")
+    else
+      let
+        n = match (args(1)).to_int() with
+              case Just(result) =>
+                result
+              end
+              case Nothing =>
+                print("number of pings not specified\n")
+                0
+              end
+            end
+        counter = new Counter()
+        producer = new Producer(counter, n)
+      in
+        producer!increment(n)
+      end
+    end
+  end
+end
