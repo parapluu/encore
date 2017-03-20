@@ -64,12 +64,6 @@ linear class Response : Action
   end
 end
 
-fun isNull[a](x: a): bool
-  EMBED (bool)
-    #{x}.p == NULL;
-  END
-end
-
 active class FibonacciActor
   var result : int
   var respReceived : int
