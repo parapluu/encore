@@ -439,3 +439,10 @@ void encore_trace_object(pony_ctx_t *ctx, void *p, pony_trace_fn f)
   if (!p) { return; }
   ctx->trace_object(ctx, p, &(pony_type_t){.trace = f}, PONY_TRACE_MUTABLE);
 }
+
+encore_arg_t encore_forward_id(pony_ctx_t **ctx, pony_type_t **t, encore_arg_t value[], void* v) {
+  (void)ctx;
+  (void)t;
+  (void)v;
+  return value[0];
+}

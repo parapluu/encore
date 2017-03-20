@@ -191,4 +191,7 @@ static inline void encore_trace_capability(
   }
 }
 
+/// Identity function for forward
+encore_arg_t encore_forward_id(pony_ctx_t **ctx, pony_type_t **t, encore_arg_t value[], void* v);
+
 #endif /* end of include guard: ENCORE_H_6Q243YHL */
