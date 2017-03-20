@@ -237,6 +237,9 @@ encoreCreateName = Nam "encore_create"
 encoreAllocName :: CCode Name
 encoreAllocName = Nam "encore_alloc"
 
+encoreForwardId :: CCode Name
+encoreForwardId = Nam "encore_forward_id"
+
 partySequence :: CCode Name
 partySequence = Nam "party_sequence"
 

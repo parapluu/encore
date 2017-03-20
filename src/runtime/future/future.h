@@ -57,6 +57,9 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 void future_chain_actor_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c, future_t *r);
 
+void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+        closure_t *c, future_t *r);
+
 /** Registers a callback and returns void
  *
  *

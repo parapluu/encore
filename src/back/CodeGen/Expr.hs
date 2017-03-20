@@ -1098,9 +1098,37 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       else
         error $ "Expr.hs: Cannot translate forward of ''" ++ show fchain ++ "'"
 
-  translate A.Forward{A.forwardExpr} =
-    error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
-            show forwardExpr ++ "'"
+  translate A.Forward{A.forwardExpr} = do
+    (ntarget, ttarget) <- translate forwardExpr
+    withForwarding <- gets Ctx.withForwarding
+    let argTy = A.getType forwardExpr
+    -- let ty = getRuntimeType chain
+    --     dtraceExit = head (getDtraceExit eCtx)
+    if withForwarding
+    then do
+      tmpChain <- Ctx.genSym
+      tmpIdFun <- Ctx.genSym
+      let idFunCall = Call encoreForwardId [nullVar]
+          chainCall = Call closureMkFn [encoreCtxName, encoreForwardId, nullName, nullName, nullName]
+          ty = Ty.getResultType argTy
+      return (unit,
+        Seq $ [--(Assign (Decl (encoreArgT, Var tmpIdFun))  idFunCall),
+               (Assign (Decl (closure, Var tmpChain))  chainCall),
+               (Statement $
+                  (Call futureChainActorForward
+                        [AsExpr encoreCtxVar, AsExpr nullVar, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
+               Return Skip
+              ])
+    else if Ty.isFutureType $ argTy
+    then do
+      (nval, tval) <- translate forwardExpr
+      let resultType = translate (Ty.getResultType $ A.getType forwardExpr)
+          theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
+      tmp <- Ctx.genSym
+      return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+    else
+      error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
+              show forwardExpr ++ "'"
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
