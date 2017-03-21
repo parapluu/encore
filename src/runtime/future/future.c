@@ -190,6 +190,27 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
   return fut;
 }
 
+future_t *future_mk_fulfilled(pony_ctx_t **ctx, pony_type_t *type, encore_arg_t value)
+{
+  pony_ctx_t *cctx = *ctx;
+  assert(cctx->current);
+
+  future_t *fut = pony_alloc_final(cctx, sizeof(future_t),
+          (void *)&future_finalizer);
+  *fut = (future_t) { .type = type };
+
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&fut->lock, &attr);
+
+  ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
+
+  // TODO: inline, optimise
+  future_fulfil(ctx, fut, value);
+
+  return fut;
+}
+
 static inline encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
 {
   return closure_call(ctx, c, (value_t[1]) { value });

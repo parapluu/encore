@@ -23,6 +23,13 @@ pony_type_t *future_get_type(future_t *fut);
  */
 future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type);
 
+
+/*
+ * Create a new future that is already fulfilled
+ */
+future_t *future_mk_fulfilled(pony_ctx_t **ctx, pony_type_t *type, encore_arg_t value);
+
+
 /** Check if the future is already fulfilled
  *
  * (this operation may be blocking until the future is fulfilled)

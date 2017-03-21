@@ -445,6 +445,9 @@ futureFulfil = Nam "future_fulfil"
 futureAwait :: CCode Name
 futureAwait = Nam "future_await"
 
+futureMkFulfilled :: CCode Name
+futureMkFulfilled = Nam "future_mk_fulfilled"
+
 futureGetActor :: CCode Name
 futureGetActor = Nam "future_get_actor"
 
