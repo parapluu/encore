@@ -270,7 +270,7 @@ void ponyint_cpu_affinity(uint32_t cpu)
   affinity.Mask = (uint64_t)1 << (cpu >> 6);
   affinity.Group = (cpu % 64);
 
-  SetThreadGroupAffinity(pony_thread_self(), &affinity, NULL);
+  SetThreadGroupAffinity(ponyint_thread_self(), &affinity, NULL);
 #endif
 }
 
@@ -305,7 +305,7 @@ void ponyint_cpu_core_pause(uint64_t tsc, uint64_t tsc2, bool yield)
   DTRACE1(CPU_NANOSLEEP, ts.tv_nsec);
   nanosleep(&ts, NULL);
 #else
-  Sleep(0);
+  Sleep(yield ? 1 : 0);
 #endif
 }
 
