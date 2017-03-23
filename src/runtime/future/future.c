@@ -203,10 +203,10 @@ future_t *future_mk_fulfilled(pony_ctx_t **ctx, pony_type_t *type, encore_arg_t 
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
   pthread_mutex_init(&fut->lock, &attr);
 
-  ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
+  fut->value = value;
+  fut->fulfilled = true;
 
-  // TODO: inline, optimise
-  future_fulfil(ctx, fut, value);
+  ENC_DTRACE3(FUTURE_CREATE, (uintptr_t) ctx, (uintptr_t) fut, (uintptr_t) type);
 
   return fut;
 }
