@@ -92,7 +92,6 @@ validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
 validUseOfBreak ((_, BTExpr l@For{}):_) = True
 validUseOfBreak ((_, BTExpr l@While{}):_) = True
-validUseOfBreak ((_, BTExpr l@DoWhile{}):_) = True
 validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
@@ -377,7 +376,7 @@ instance Show Error where
       | otherwise =
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
-    show BadSyncCallError = "Synchronous method calls on actors are not allowed (except on the current this)"
+    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where
@@ -626,7 +625,7 @@ instance Show Error where
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
                (show retType) (show ty)
-    show (ForwardArgumentError) = "Forward currently operates on method call"
+    show (ForwardArgumentError) = "Forward currently operates on method call and future chain"
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"
                (show cname)

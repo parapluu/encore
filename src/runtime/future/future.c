@@ -303,6 +303,23 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
   future_t *r = future_mk(ctx, type);
+  future_chain(ctx, fut, type, c, r);
+  return r;
+}
+
+void future_chain_actor_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+        closure_t *c, future_t *r)
+{
+  ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
+  (void)type;
+  future_chain(ctx, fut, type, c, r);
+  return;
+}
+
+void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+        closure_t *c, future_t *r)
+{
+  (void)type;
   perr("future_chain_actor");
   BLOCK;
 
@@ -311,7 +328,7 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
     value_t result = run_closure(ctx, c, fut->value);
     future_fulfil(ctx, r, result);
     UNBLOCK;
-    return r;
+    return;
   }
 
   pony_ctx_t* cctx = *ctx;
@@ -329,10 +346,7 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   UNBLOCK;
 
   r->parent = fut;
-
-  return r;
 }
-
 
 // Similar to `future_chain_actor` except that it returns void, avoiding the
 // creation of a new future. This is used in the ParTs library and is an

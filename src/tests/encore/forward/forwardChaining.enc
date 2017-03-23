@@ -1,11 +1,18 @@
-class SnowyDay
-  def snow() : int
-    42
+-- TEST FORWARD, FUNCTION and FUTURE CHAINING
+class Foo
+  def two(x : int) : int
+    42*x
+  end
+end
+
+class Base
+  def one(x : int) : int
+    forward((new Foo())!two(x) ~~> fun(x:int) => x * 10)
   end
 end
 
 class Main
   def main() : unit
-    forward((new SnowyDay)!snow() ~~> fun (x: int) => ())
+    print("{}\n",get((new Base)!one(1)))
   end
 end
