@@ -1067,8 +1067,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (ntarget, ttarget) <- translate forwardExpr
     withForwarding <- gets Ctx.withForwarding
     let argTy = A.getType forwardExpr
-    -- let ty = getRuntimeType chain
-    --     dtraceExit = head (getDtraceExit eCtx)
     if withForwarding
     then do
       tmpChain <- Ctx.genSym
@@ -1077,8 +1075,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           chainCall = Call closureMkFn [encoreCtxName, encoreForwardId, nullName, nullName, nullName]
           ty = Ty.getResultType argTy
       return (unit,
-        Seq $ [--(Assign (Decl (encoreArgT, Var tmpIdFun))  idFunCall),
-               (Assign (Decl (closure, Var tmpChain))  chainCall),
+        Seq $ [(Assign (Decl (closure, Var tmpChain))  chainCall),
                (Statement $
                   (Call futureChainActorForward
                         [AsExpr encoreCtxVar, AsExpr nullVar, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
