@@ -1007,7 +1007,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           ntarget targetType name args typeArguments Ty.unitType
 
       (initArgs1, oneWayMsg) <-
-        callTheMethodOneway 
+        callTheMethodOneway
           ntarget targetType name args typeArguments Ty.unitType
 
       let nullCheck = targetNullCheck ntarget target name emeta "."

@@ -2,8 +2,8 @@
 #include "../actor/actor.h"
 #include "../sched/scheduler.h"
 #include "../mem/pagemap.h"
+#include "ponyassert.h"
 #include <string.h>
-#include <assert.h>
 
 #define GC_ACTOR_HEAP_EQUIV 1024
 #define GC_IMMUT_HEAP_EQUIV 1024
@@ -51,7 +51,7 @@ static void recv_local_actor(gc_t* gc)
   if(gc->rc_mark != gc->mark)
   {
     gc->rc_mark = gc->mark;
-    assert(gc->rc > 0);
+    pony_assert(gc->rc > 0);
     gc->rc--;
   }
 }
@@ -63,7 +63,7 @@ static void acquire_local_actor(gc_t* gc)
 
 static void release_local_actor(gc_t* gc)
 {
-  assert(gc->rc > 0);
+  pony_assert(gc->rc > 0);
   gc->rc--;
 }
 
@@ -154,9 +154,10 @@ static void recv_local_object(pony_ctx_t* ctx, void* p, pony_type_t* t,
   int mutability)
 {
   // get the object
+  size_t index = HASHMAP_UNKNOWN;
   gc_t* gc = ponyint_actor_gc(ctx->current);
-  object_t* obj = ponyint_objectmap_getobject(&gc->local, p);
-  assert(obj != NULL);
+  object_t* obj = ponyint_objectmap_getobject(&gc->local, p, &index);
+  pony_assert(obj != NULL);
 
   if(obj->mark == gc->mark)
     return;
@@ -221,9 +222,10 @@ static void acquire_local_object(pony_ctx_t* ctx, void* p, pony_type_t* t,
 static void release_local_object(pony_ctx_t* ctx, void* p, pony_type_t* t,
   int mutability)
 {
+  size_t index = HASHMAP_UNKNOWN;
   gc_t* gc = ponyint_actor_gc(ctx->current);
-  object_t* obj = ponyint_objectmap_getobject(&gc->local, p);
-  assert(obj != NULL);
+  object_t* obj = ponyint_objectmap_getobject(&gc->local, p, &index);
+  pony_assert(obj != NULL);
 
   if(obj->mark == gc->mark)
     return;
@@ -355,6 +357,9 @@ static void mark_remote_object(pony_ctx_t* ctx, pony_actor_t* actor,
     obj->rc += GC_INC_MORE;
     obj->immutable = true;
     acquire_object(ctx, actor, p, true);
+
+    // Set the to PONY_TRACE_MUTABLE to force recursion.
+    mutability = PONY_TRACE_MUTABLE;
   } else if(obj->rc == 0) {
     // If we haven't seen this object, it's an object that is reached from
     // another immutable object we received, or it's a pointer to an embedded
@@ -693,7 +698,7 @@ void ponyint_gc_discardstack(pony_ctx_t* ctx)
 
 void ponyint_gc_sweep(pony_ctx_t* ctx, gc_t* gc)
 {
-  gc->finalisers -= ponyint_objectmap_sweep(&gc->local);
+  ponyint_objectmap_sweep(&gc->local);
   gc->delta = ponyint_actormap_sweep(ctx, &gc->foreign, gc->mark, gc->delta);
 }
 
@@ -726,19 +731,20 @@ bool ponyint_gc_acquire(gc_t* gc, actorref_t* aref)
 bool ponyint_gc_release(gc_t* gc, actorref_t* aref)
 {
   size_t rc = aref->rc;
-  assert(gc->rc >= rc);
+  pony_assert(gc->rc >= rc);
   gc->rc -= rc;
 
   objectmap_t* map = &aref->map;
   size_t i = HASHMAP_BEGIN;
   object_t* obj;
+  size_t index = HASHMAP_UNKNOWN;
 
   while((obj = ponyint_objectmap_next(map, &i)) != NULL)
   {
     void* p = obj->address;
-    object_t* obj_local = ponyint_objectmap_getobject(&gc->local, p);
+    object_t* obj_local = ponyint_objectmap_getobject(&gc->local, p, &index);
 
-    assert(obj_local->rc >= obj->rc);
+    pony_assert(obj_local->rc >= obj->rc);
     obj_local->rc -= obj->rc;
   }
 
@@ -765,12 +771,11 @@ void ponyint_gc_sendacquire(pony_ctx_t* ctx)
 
   while((aref = ponyint_actormap_next(&ctx->acquire, &i)) != NULL)
   {
-    ponyint_actormap_removeindex(&ctx->acquire, i);
+    ponyint_actormap_clearindex(&ctx->acquire, i);
     pony_sendp(ctx, aref->actor, ACTORMSG_ACQUIRE, aref);
   }
 
-  ponyint_actormap_destroy(&ctx->acquire);
-  memset(&ctx->acquire, 0, sizeof(actormap_t));
+  pony_assert(ponyint_actormap_size(&ctx->acquire) == 0);
 }
 
 void ponyint_gc_sendrelease(pony_ctx_t* ctx, gc_t* gc)
@@ -785,51 +790,11 @@ void ponyint_gc_sendrelease_manual(pony_ctx_t* ctx)
 
   while((aref = ponyint_actormap_next(&ctx->acquire, &i)) != NULL)
   {
-    ponyint_actormap_removeindex(&ctx->acquire, i);
+    ponyint_actormap_clearindex(&ctx->acquire, i);
     pony_sendp(ctx, aref->actor, ACTORMSG_RELEASE, aref);
   }
 
-  ponyint_actormap_destroy(&ctx->acquire);
-  memset(&ctx->acquire, 0, sizeof(actormap_t));
-}
-
-void ponyint_gc_register_final(pony_ctx_t* ctx, void* p, pony_final_fn final)
-{
-  if(!ctx->finalising)
-  {
-    // If we aren't finalising an actor, register the finaliser.
-    gc_t* gc = ponyint_actor_gc(ctx->current);
-    ponyint_objectmap_register_final(&gc->local, p, final, gc->mark);
-    gc->finalisers++;
-  } else {
-    // Otherwise, put the finaliser on the gc stack.
-    recurse(ctx, p, final);
-  }
-}
-
-void ponyint_gc_final(pony_ctx_t* ctx, gc_t* gc)
-{
-  if(gc->finalisers == 0)
-    return;
-
-  // Set the finalising flag.
-  ctx->finalising = true;
-
-  // Run all finalisers in the object map.
-  ponyint_objectmap_final(&gc->local);
-
-  // Finalise any objects that were created during finalisation.
-  pony_final_fn f;
-  void *p;
-
-  while(ctx->stack != NULL)
-  {
-    ctx->stack = ponyint_gcstack_pop(ctx->stack, (void**)&f);
-    ctx->stack = ponyint_gcstack_pop(ctx->stack, &p);
-    f(p);
-  }
-
-  ctx->finalising = false;
+  pony_assert(ponyint_actormap_size(&ctx->acquire) == 0);
 }
 
 void ponyint_gc_done(gc_t* gc)
