@@ -1,0 +1,19 @@
+-- TEST FORWARD, PREEXISTING FUTURE CHAINING
+class Foo
+  def two(x : int) : int
+    x
+  end
+end
+
+class Base
+  def one(arg : Fut[int]) : int
+    forward(arg ~~> fun (x:int) => x)
+  end
+end
+
+class Main
+  def main() : unit
+    val arg = (new Foo)!two(42)
+    print("{}\n",get((new Base)!one(arg)))
+  end
+end
