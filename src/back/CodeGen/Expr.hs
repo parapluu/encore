@@ -1078,7 +1078,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         Seq $ [(Assign (Decl (closure, Var tmpChain))  chainCall),
                (Statement $
                   (Call futureChainActorForward
-                        [AsExpr encoreCtxVar, AsExpr nullVar, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
+                        [AsExpr encoreCtxVar, AsExpr ntarget, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
                Return Skip
               ])
     else if Ty.isFutureType $ argTy
