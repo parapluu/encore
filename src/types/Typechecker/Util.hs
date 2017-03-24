@@ -245,6 +245,9 @@ resolveMode actual formal
   | isModeless actual && not (isModeless formal) =
       resolveMode (actual `withModeOf` formal) formal
   | isClassType actual = do
+      when (isModeless formal) $
+           unless (isModeless actual) $
+                  tcError $ ClassModeError actual
       unless (actual `modeSubtypeOf` formal) $
              tcError $ ModeOverrideError formal
       return actual

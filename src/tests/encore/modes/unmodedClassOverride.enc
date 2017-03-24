@@ -1,0 +1,12 @@
+read trait T
+  require val element : read Node
+end
+
+class Node : read T
+end
+
+active class Main
+  def main() : unit
+    ()
+  end
+end
