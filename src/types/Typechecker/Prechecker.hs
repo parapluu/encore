@@ -344,8 +344,8 @@ instance Precheckable FieldDecl where
       when (isReadRefType thisType) $ do
            unless (isValField f) $
                   tcError $ NonValInReadContextError thisType
-           isSafe <- isSafeType ftype'
-           unless (isSafe && not (isArrayType ftype')) $
+           isSharable <- isSharableType ftype'
+           unless (isSharable && not (isArrayType ftype')) $
                   tcError $ NonSafeInReadContextError thisType ftype'
       isLocalField <- isLocalType ftype'
       isLocalThis <- isLocalType thisType

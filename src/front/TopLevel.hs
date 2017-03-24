@@ -38,10 +38,10 @@ import AST.AST
 import AST.PrettyPrinter
 import AST.Desugarer
 import ModuleExpander
-import Typechecker.Environment
-import Typechecker.Prechecker
-import Typechecker.Typechecker
-import Typechecker.Capturechecker
+import Typechecker.Environment(buildLookupTable)
+import Typechecker.Prechecker(precheckProgram)
+import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
+import Typechecker.Capturechecker(capturecheckEncoreProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl

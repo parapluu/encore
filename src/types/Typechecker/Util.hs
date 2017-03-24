@@ -41,7 +41,7 @@ module Typechecker.Util(TypecheckM
                        ,isActiveType
                        ,isSharedType
                        ,isAliasableType
-                       ,isSafeType
+                       ,isSharableType
                        ,checkConjunction
                        ,includesMarkerTrait
                        ) where
@@ -262,7 +262,7 @@ resolveMode actual formal
 
 assertSafeTypeArguments :: [Type] -> TypecheckM ()
 assertSafeTypeArguments args = do
-  unsafeTypeArgs <- filterM (liftM not . isSafeType) args
+  unsafeTypeArgs <- filterM (liftM not . isSharableType) args
   let unsafeTypeArg = head unsafeTypeArgs
   unless (null unsafeTypeArgs) $
          tcError $ UnsafeTypeArgumentError unsafeTypeArg
@@ -624,7 +624,7 @@ uniquifyTypeVar params ty
 
 isSafeValField :: FieldDecl -> TypecheckM Bool
 isSafeValField f@Field{ftype} = do
-  isSafe <- isSafeType ftype
+  isSafe <- isSharableType ftype
   return $ isValField f && isSafe
 
 abstractTraitFrom :: Type -> (Type, [TraitExtension]) -> TypecheckM TraitDecl
@@ -657,7 +657,7 @@ abstractTraitFrom cname (t, exts) = do
 
     checkReadFields t fields
       | isReadRefType t = do
-          unsafeFields <- filterM (liftM not . isSafeType . ftype) fields
+          unsafeFields <- filterM (liftM not . isSharableType . ftype) fields
           let unsafeField = head unsafeFields
           unless (null unsafeFields) $
                  tcError $ NonSafeInExtendedReadTraitError
@@ -768,22 +768,22 @@ isSharedType ty
       = allM isSharedType tys
     | otherwise = return False
 
-isSafeType :: Type -> TypecheckM Bool
-isSafeType ty
+isSharableType :: Type -> TypecheckM Bool
+isSharableType ty
     | isArrowType ty = return $ isModeless ty
-    | hasResultType ty = isSafeType $ getResultType ty
-    | isTupleType ty = allM isSafeType $ getArgTypes ty
+    | hasResultType ty = isSharableType $ getResultType ty
+    | isTupleType ty = allM isSharableType $ getArgTypes ty
     | isCompositeType ty
-    , traits <- typesFromCapability ty = allM isSafeType traits
+    , traits <- typesFromCapability ty = allM isSharableType traits
     | isClassType ty && isModeless ty = do
         capability <- findCapability ty
-        isSafeType capability
+        isSharableType capability
     | isModeless ty =
         return $ isPrimitive ty
               || isRangeType ty
               || isCType ty
               || isTypeVar ty
-    | otherwise = return $ hasSafeMode ty
+    | otherwise = return $ hasSharableMode ty
 
 isUnsafeType :: Type -> TypecheckM Bool
 isUnsafeType ty
@@ -797,7 +797,7 @@ isUnsafeType ty
 isAliasableType :: Type -> TypecheckM Bool
 isAliasableType ty =
     anyM (\f -> f ty)
-         [isSafeType
+         [isSharableType
          ,isLocalType
          ,isSubordinateType
          ,isUnsafeType

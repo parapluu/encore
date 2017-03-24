@@ -384,14 +384,14 @@ typ = makeExprParser singleType opTable
           par    = builtin' parType "Par"
           stream = builtin' streamType "Stream"
       refType = do
-        mode <- option id mode
+        setMode <- option id mode
         full <- modulePath
         let ns = explicitNamespace $ init full
             refId = show $ last full
         parameters <- option [] $ brackets (commaSep1 typ)
         if isEmptyNamespace ns
-        then return $ mode $ refTypeWithParams refId parameters
-        else return $ mode $ setRefNamespace ns $
+        then return $ setMode $ refTypeWithParams refId parameters
+        else return $ setMode $ setRefNamespace ns $
                       refTypeWithParams refId parameters
       modedArrow = do
         modes <- some mode
@@ -642,13 +642,13 @@ traitDecl = do
   tIndent <- L.indentLevel
   tdecl <- indentBlock $ do
     tmeta <- meta <$> getPosition
-    mode <- option id mode
+    setMode <- option id mode
     reserved "trait"
     ident <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     return $ L.IndentMany
                Nothing
-               (buildTrait tmeta mode ident params)
+               (buildTrait tmeta setMode ident params)
                traitAttribute
   -- TODO: tlocals <- option [] $ atLevel tIndent whereClause
   atLevel tIndent $ reserved "end"
@@ -667,11 +667,11 @@ traitDecl = do
     reqField = do
       rfield <- fieldDecl
       return RequiredField{rfield}
-    buildTrait tmeta mode ident params attributes =
+    buildTrait tmeta setMode ident params attributes =
       let (treqs, tmethods) = partitionTraitAttributes attributes
       in
         return Trait{tmeta
-                    ,tname = mode $
+                    ,tname = setMode $
                              setRefNamespace emptyNamespace $
                              traitType ident params
                     ,treqs
@@ -694,7 +694,7 @@ traitComposition = makeExprParser includedTrait opTable
         <|> parens traitComposition
         <?> "trait-inclusion"
       trait = do
-        mode <- option id mode
+        setMode <- option id mode
         notFollowedBy lowerChar
         full <- modulePath
         let ns = explicitNamespace $ init full
@@ -702,8 +702,8 @@ traitComposition = makeExprParser includedTrait opTable
         parameters <- option [] $ brackets (commaSep1 typ)
         tcext <- option [] $ parens (commaSep1 extension)
         let tcname = if isEmptyNamespace ns
-                     then mode $ traitType refId parameters
-                     else mode $ setRefNamespace ns $
+                     then setMode $ traitType refId parameters
+                     else setMode $ setRefNamespace ns $
                           traitType refId parameters
         return TraitLeaf{tcname, tcext}
         where
@@ -733,15 +733,16 @@ classDecl = do
   cIndent <- L.indentLevel
   cdecl <- indentBlock $ do
     cmeta <- meta <$> getPosition
-    mode <- try $ do m <- option id mode
-                     reserved "class"
-                     return m
+    setMode <-
+      try $ do m <- option id mode
+               reserved "class"
+               return m
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     ccomposition <- optional (do{colon; traitComposition})
     return $ L.IndentMany
                Nothing
-               (buildClass cmeta mode name params ccomposition)
+               (buildClass cmeta setMode name params ccomposition)
                classAttribute
   -- TODO: clocals <- option [] $ atLevel cIndent whereClause
   atLevel cIndent $ reserved "end"
@@ -749,11 +750,11 @@ classDecl = do
   where
     classAttribute = (FieldAttribute <$> fieldDecl)
                  <|> (MethodAttribute <$> methodDecl)
-    buildClass cmeta mode name params ccomposition attributes =
+    buildClass cmeta setMode name params ccomposition attributes =
       let (cfields, cmethods) = partitionClassAttributes attributes
       in
         return Class{cmeta
-                    ,cname = mode $
+                    ,cname = setMode $
                              setRefNamespace emptyNamespace $
                              classType name params
                     ,ccomposition

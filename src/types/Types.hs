@@ -108,7 +108,7 @@ module Types(
             ,isModeless
             ,hasMinorMode
             ,modeSubtypeOf
-            ,hasSafeMode
+            ,hasSharableMode
             ,safeToComposeWith
             ,makeUnsafe
             ,makeLinear
@@ -185,13 +185,13 @@ modeSubtypeOf ty1 ty2
         all (`elem` modes2) modes1
   | otherwise = getMode ty1 == getMode ty2
 
-modeIsSafe Read   = True
-modeIsSafe Active = True
-modeIsSafe Shared = True
-modeIsSafe _      = False
+modeIsSharable Read   = True
+modeIsSharable Active = True
+modeIsSharable Shared = True
+modeIsSharable _      = False
 
-hasSafeMode ty
-  | Just mode <- getMode ty = modeIsSafe mode
+hasSharableMode ty
+  | Just mode <- getMode ty = modeIsSharable mode
   | otherwise = False
 
 -- | Is @class cls : trait@ a valid composition?
@@ -250,6 +250,19 @@ instance Show Type where
     show Type{inner, box = Nothing} = show inner
     show Type{inner, box = Just s} =
         show s ++ " " ++ maybeParen (typ inner)
+      where
+        maybeParen :: Type -> String
+        maybeParen ty
+            | isArrowType ty  ||
+              isCapabilityType ty ||
+              isUnionType ty  ||
+              isFutureType ty ||
+              isParType ty    ||
+              isMaybeType ty  ||
+              isStreamType ty = "(" ++ show ty ++ ")"
+            | otherwise = show ty
+
+
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
@@ -295,10 +308,15 @@ data InnerType =
         | BottomType
           deriving(Eq)
 
+applyInner f ty@Type{inner} = ty{inner = f inner}
+applyInnerRefInfo f ty@Type{inner}
+  | isRefAtomType ty || isTypeSynonym ty
+  , info <- refInfo inner = ty{inner = inner{refInfo = f info}}
+  | otherwise = ty
+
 getArgTypes = argTypes . inner
-setArgTypes ty argTypes = ty{inner = iType{argTypes}}
-    where
-      iType = inner ty
+setArgTypes ty argTypes = applyInner (\i -> i{argTypes}) ty
+
 getResultType ty
     | hasResultType ty = resultType . inner $ ty
     | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
@@ -307,19 +325,17 @@ getId ty =
       (error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty)
       (maybeGetId ty)
 
-maybeGetId Type{inner = Unresolved{refInfo}} = Just $ refId refInfo
-maybeGetId Type{inner = TraitType{refInfo}} = Just $ refId refInfo
-maybeGetId Type{inner = AbstractTraitType{refInfo}} = Just $ refId refInfo
-maybeGetId Type{inner = ClassType{refInfo}} = Just $ refId refInfo
-maybeGetId Type{inner = TypeSynonym{refInfo}} = Just $ refId refInfo
-maybeGetId Type{inner = TypeVar{ident}} = Just ident
-maybeGetId Type{inner = CType{ident}} = Just ident
-maybeGetId _ = Nothing
+maybeGetId ty@Type{inner}
+  |  isRefAtomType ty
+  || isTypeSynonym ty
+  , info <- refInfo inner = Just $ refId info
+  | id   <- ident inner = Just id
+  | otherwise = Nothing
 
 getMode ty
-    |  isRefAtomType ty
-    || isTypeSynonym ty = mode . refInfo . inner $ ty
-    | otherwise = Nothing
+  |  isRefAtomType ty
+  || isTypeSynonym ty = mode . refInfo . inner $ ty
+  | otherwise = Nothing
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
@@ -331,10 +347,8 @@ getRefNamespace ty
     | otherwise = error $ "Types.hs: tried to get the namespace of " ++ show ty
 
 setRefNamespace ns ty
-    | isRefAtomType ty || isTypeSynonym ty
-    , iType <- inner ty
-    , info <- refInfo iType =
-        ty{inner = iType{refInfo = info{refNamespace = Just ns}}}
+    | isRefAtomType ty || isTypeSynonym ty =
+        applyInnerRefInfo (\info -> info{refNamespace = Just ns}) ty
     | otherwise = error $ "Types.hs: tried to set the namespace of " ++ show ty
 
 getRefSourceFile ty
@@ -344,10 +358,8 @@ getRefSourceFile ty
     where err = error "Types.hs: type without sourceFile: " ++ showWithKind ty
 
 setRefSourceFile file ty
-    | isRefAtomType ty || isTypeSynonym ty
-    , iType <- inner ty
-    , info <- refInfo iType =
-        ty{inner = iType{refInfo = info{refSourceFile = Just file}}}
+    | isRefAtomType ty || isTypeSynonym ty =
+        applyInnerRefInfo (\info -> info{refSourceFile = Just file}) ty
     | otherwise = error $ "Types.hs: tried to set the source of " ++ show ty
 
 hasRefSourceFile ty
@@ -369,10 +381,8 @@ translateTypeNamespace table = typeMap translate
         | otherwise = ty
 
 setResultType ty res
-  | hasResultType ty = ty{inner = iType{resultType = res}}
+  | hasResultType ty = applyInner (\i -> i{resultType = res}) ty
   | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
-  where
-    iType = inner ty
 
 instance Show InnerType where
     show Unresolved{refInfo} = show refInfo
@@ -425,17 +435,6 @@ instance Show InnerType where
     show BottomType = "Bottom"
 
 brackets ty = "[" ++ show ty ++ "]"
-
-maybeParen :: Type -> String
-maybeParen ty
-    | isArrowType ty  ||
-      isCapabilityType ty ||
-      isUnionType ty  ||
-      isFutureType ty ||
-      isParType ty    ||
-      isMaybeType ty  ||
-      isStreamType ty = "(" ++ show ty ++ ")"
-    | otherwise = show ty
 
 showWithKind :: Type -> String
 showWithKind ty = kind (inner ty) ++ " " ++ show ty
@@ -529,26 +528,21 @@ typeComponents ty
 typeMap :: (Type -> Type) -> Type -> Type
 typeMap f ty
     | isRefAtomType ty =
-        f ty{inner = refTypeMap f iType}
+        f $ applyInner (refTypeMap f) ty
     | isCompositeType ty || isUnionType ty =
-        f ty{inner = iType{ltype = typeMap f (ltype iType)
-                          ,rtype = typeMap f (rtype iType)}}
+        f $ applyInner (\i -> i{ltype = typeMap f (ltype i)
+                               ,rtype = typeMap f (rtype i)}) ty
     | isArrowType ty =
-        f ty{inner = resultTypeMap f .
-                     argTypesMap f .
-                     typeParamMap f $ iType}
+        f $ applyInner (resultTypeMap f . argTypesMap f . typeParamMap f) ty
     | hasResultType ty =
-        f ty{inner = resultTypeMap f iType}
+        f $ applyInner (resultTypeMap f) ty
     | isTupleType ty =
-        f ty{inner = argTypesMap f iType}
+        f $ applyInner (argTypesMap f) ty
     | isTypeSynonym ty =
-        f ty{inner = refTypeMap f
-                     iType{resolvesTo = typeMap f (resolvesTo iType)}
-            }
+        f $ applyInner
+              (\i -> refTypeMap f i{resolvesTo = typeMap f (resolvesTo i)}) ty
     | otherwise = f ty
     where
-      iType = inner ty
-
       refTypeMap f ity =
           ity{refInfo = refInfoTypeMap f (refInfo ity)}
 
@@ -564,35 +558,30 @@ typeMap f ty
       refInfoTypeMap f info@RefInfo{parameters} =
           info{parameters = map (typeMap f) parameters}
 
+applyInnerM f ty@Type{inner} = do
+  inner' <- f inner
+  return ty{inner = inner'}
+
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
 typeMapM f ty
-    | isRefAtomType ty = do
-        iType' <- refTypeMapM f iType
-        f ty{inner = iType'}
-    | isCompositeType ty || isUnionType ty = do
-        ltype' <- typeMapM f (ltype iType)
-        rtype' <- typeMapM f (rtype iType)
-        let iType' = iType{ltype = ltype', rtype = rtype'}
-        f ty{inner = iType'}
-    | isArrowType ty = do
-        iType' <- argTypesMapM f iType >>=
-                  typeParamMapM f >>=
-                  resultTypeMapM f
-        f ty{inner = iType'}
-    | hasResultType ty = do
-        iType' <- resultTypeMapM f iType
-        f ty{inner = iType'}
-    | isTupleType ty = do
-        iType' <- argTypesMapM f iType
-        f ty{inner = iType'}
-    | isTypeSynonym ty = do
-        resolvesTo' <- typeMapM f (resolvesTo iType)
-        iType' <- refTypeMapM f iType{resolvesTo = resolvesTo'}
-        f ty{inner = iType'}
+    | isRefAtomType ty = applyInnerM (refTypeMapM f) ty >>= f
+    | isCompositeType ty || isUnionType ty =
+        applyInnerM (\i -> do
+                       ltype' <- typeMapM f (ltype i)
+                       rtype' <- typeMapM f (rtype i)
+                       return i{ltype = ltype', rtype = rtype'}) ty >>= f
+    | isArrowType ty =
+        applyInnerM (\i -> argTypesMapM f i >>=
+                           typeParamMapM f >>=
+                           resultTypeMapM f) ty >>= f
+    | hasResultType ty = applyInnerM (resultTypeMapM f) ty >>= f
+    | isTupleType ty = applyInnerM (argTypesMapM f) ty >>= f
+    | isTypeSynonym ty =
+        applyInnerM (\i -> do
+                       resolvesTo' <- typeMapM f (resolvesTo i)
+                       refTypeMapM f i{resolvesTo = resolvesTo'}) ty >>= f
     | otherwise = f ty
     where
-      iType = inner ty
-
       refTypeMapM f ity = do
         refInfo' <- refInfoTypeMapM f (refInfo ity)
         return ity{refInfo = refInfo'}
@@ -624,20 +613,14 @@ getTypeParameters ty
 
 setTypeParameters :: Type -> [Type] -> Type
 setTypeParameters ty params
-    | isRefAtomType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-      = ty{inner = iType{refInfo = info{parameters = params}}}
-    | isTypeSynonym ty
-    , iType <- inner ty
-    , info <- refInfo iType
-      = let subst = zip (parameters info) params
-            resolvesTo' = replaceTypeVars subst (resolvesTo iType)
-        in ty{inner = iType{refInfo = info{parameters = params}
-                           ,resolvesTo = resolvesTo'}}
-    | isArrowType ty
-    , iType <- inner ty
-      = ty{inner = iType{paramTypes = params}}
+    | isRefAtomType ty =
+        applyInnerRefInfo (\info -> info{parameters = params}) ty
+    | isTypeSynonym ty =
+      let subst = zip (getTypeParameters ty) params
+          rhs' = replaceTypeVars subst (typeSynonymRHS ty)
+      in applyInnerRefInfo (\info -> info{parameters = params}) .
+         applyInner (\i -> i{resolvesTo = rhs'}) $ ty
+    | isArrowType ty = applyInner (\i -> i{paramTypes = params}) ty
     | otherwise =
         error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
@@ -769,14 +752,8 @@ conjunctiveType ltype rtype =
     typ CapabilityType{typeop = Product, ltype, rtype}
 
 setMode ty m
-    | isRefAtomType ty
-    , iType <- inner ty
-    , info <- refInfo iType
-      = ty{inner = iType{refInfo = info{mode = Just m}}}
-    | isArrowType ty
-    , iType <- inner ty
-    , modes <- modes iType
-      = ty{inner = iType{modes = nub $ m:modes}}
+    | isRefAtomType ty = applyInnerRefInfo (\info -> info{mode = Just m}) ty
+    | isArrowType ty = applyInner (\i -> i{modes = nub $ m : modes i}) ty
     | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
 
 makeUnsafe ty = setMode ty Unsafe
@@ -842,8 +819,6 @@ isDisjunctiveType _ = False
 
 isConjunctiveType Type{inner = CapabilityType{typeop = Product}} = True
 isConjunctiveType _ = False
-
-isComposite ty = isDisjunctiveType ty || isConjunctiveType ty
 
 getTypeOperands Type{inner = CapabilityType{ltype, rtype}} = (ltype, rtype)
 getTypeOperands ty =
@@ -1016,9 +991,7 @@ typeSynonymRHS ty
 
 typeSynonymSetRHS :: Type -> Type -> Type
 typeSynonymSetRHS ty rhs
-  | isTypeSynonym ty
-  , iType <- inner ty
-    = ty{inner = iType{resolvesTo = rhs}}
+  | isTypeSynonym ty = applyInner (\i -> i{resolvesTo = rhs}) ty
   | otherwise = error "Types.hs: Expected type synonymm"
 
 isTypeSynonym Type{inner = TypeSynonym{}} = True
