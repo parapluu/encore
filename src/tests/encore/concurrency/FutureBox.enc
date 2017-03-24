@@ -1,0 +1,6 @@
+
+class Main
+  def main() : unit
+    println(get(future(10)))
+  end
+end
