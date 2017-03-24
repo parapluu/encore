@@ -141,16 +141,44 @@ instance Checkable Function where
               ,funlocals = eLocals}
 
 instance Checkable TraitDecl where
-  doTypecheck t@Trait{tname, tmethods} = do
-    emethods <- mapM typecheckMethod tmethods
-    return t{tmethods = emethods}
+  doTypecheck t@Trait{tname, tmethods, treqs} = do
+    ereqs <- local (addTypeParams . addThis) $
+             mapM doTypecheck treqs
+    emethods <- local (addTypeParams . addMinorThis) $
+                mapM typecheck tmethods
+    return t{tmethods = emethods, treqs = ereqs}
     where
       addTypeParams = addTypeParameters $ getTypeParameters tname
-      addThis = extendEnvironmentImmutable $
-                  if hasMinorMode tname
-                  then [(thisName, makeSubordinate tname)]
-                  else [(thisName, tname)]
-      typecheckMethod = local (addTypeParams . addThis) . typecheck
+      addMinorThis =
+        extendEnvironmentImmutable $
+          if hasMinorMode tname
+          then [(thisName, makeSubordinate tname)]
+          else [(thisName, tname)]
+      addThis = extendEnvironmentImmutable [(thisName, tname)]
+
+instance Checkable Requirement where
+  doTypecheck r@RequiredField{rfield} = do
+    rfield' <- typecheck rfield
+    return r{rfield = rfield'}
+  doTypecheck r@RequiredMethod{rheader} = return r
+
+instance Checkable FieldDecl where
+  doTypecheck f@Field{ftype} = do
+    Just (_, thisType)  <- findVar (qLocal thisName)
+    when (isReadRefType thisType) $ do
+         unless (isValField f) $
+                tcError $ NonValInReadContextError thisType
+         isSharable <- isSharableType ftype
+         unless (isSharable && not (isArrayType ftype)) $
+                tcError $ NonSafeInReadContextError thisType ftype
+    isLocalField <- isLocalType ftype
+    isLocalThis <- isLocalType thisType
+    when isLocalField $
+      unless (isModeless thisType || isLocalThis ||
+              isActiveRefType thisType) $
+      tcError $ ThreadLocalFieldError thisType
+    return f
+
 
 matchArgumentLength :: Type -> FunctionHeader -> Arguments -> TypecheckM ()
 matchArgumentLength targetType header args =
@@ -406,14 +434,16 @@ instance Checkable ClassDecl where
 
     -- TODO: Add namespace for trait methods
 
-    emethods <- mapM typecheckMethod cmethods
+    efields <- local (addTypeVars . addThis) $
+               mapM typecheck cfields
+    emethods <- local (addTypeVars . addThis) $
+                mapM typecheck cmethods
 
-    return c{cmethods = emethods}
+    return c{cmethods = emethods, cfields = efields}
     where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
       addThis = extendEnvironmentImmutable [(thisName, cname)]
-      typecheckMethod m = local (addTypeVars . addThis) $ typecheck m
       isForwardMethod m@Method{mbody} = not . null $ Util.filter isForward mbody
 
       checkMethodExtensionAllowed

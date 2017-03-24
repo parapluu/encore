@@ -207,7 +207,7 @@ instance Precheckable TraitDecl where
       assertDistinctness
       let typeParams = getTypeParameters tname
       assertTypeParams typeParams
-      treqs'    <- mapM (local (addTypeParams . addThis tname) . doPrecheck)
+      treqs'    <- mapM (local addTypeParams . doPrecheck)
                         treqs
       tmethods' <- mapM (local (addTypeParams . addMinorThis tname) . precheck)
                         tmethods
@@ -220,7 +220,6 @@ instance Precheckable TraitDecl where
               if hasMinorMode tname
               then [(thisName, makeSubordinate self)]
               else [(thisName, self)]
-        addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" typeParameters
           assertDistinctThing "requirement" "field" $
@@ -340,19 +339,6 @@ instance Precheckable ClassDecl where
 instance Precheckable FieldDecl where
     doPrecheck f@Field{ftype} = do
       ftype' <- resolveType ftype
-      Just (_, thisType)  <- findVar (qLocal thisName)
-      when (isReadRefType thisType) $ do
-           unless (isValField f) $
-                  tcError $ NonValInReadContextError thisType
-           isSharable <- isSharableType ftype'
-           unless (isSharable && not (isArrayType ftype')) $
-                  tcError $ NonSafeInReadContextError thisType ftype'
-      isLocalField <- isLocalType ftype'
-      isLocalThis <- isLocalType thisType
-      when isLocalField $
-        unless (isModeless thisType || isLocalThis ||
-                isActiveRefType thisType) $
-          tcError $ ThreadLocalFieldError thisType
       return $ setType ftype' f
 
 instance Precheckable MethodDecl where

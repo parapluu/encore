@@ -1,0 +1,16 @@
+read trait T
+  require val element : Maybe[Node]
+end
+
+class Node : T
+  var element: Maybe[Node]
+  def init(): unit
+    ()
+  end
+end
+
+active class Main
+  def main() : unit
+    println("I compile and run")
+  end
+end
