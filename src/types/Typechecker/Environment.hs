@@ -184,11 +184,8 @@ pushBT x env@Env{bt} = env{bt = push x bt}
 
 backtrace = bt
 
-currentMethod :: Environment -> Maybe MethodDecl
-currentMethod = currentMethodFromBacktrace . bt
-
-currentFunction :: Environment -> Maybe (Name, Type)
-currentFunction = currentFunctionFromBacktrace . bt
+currentExecutionContext :: Environment -> ExecutionContext
+currentExecutionContext = currentContextFromBacktrace . bt
 
 formalBindings :: Type -> Type -> [(Type, Type)]
 formalBindings formal actual

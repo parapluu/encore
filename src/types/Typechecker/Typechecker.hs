@@ -763,8 +763,6 @@ instance Checkable Expr where
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, mty, body}) = do
       let returns = Util.filter isReturn body
-      when (not (null returns)) $
-        pushError (head returns) $ ClosureReturnError
       eEparams <- mapM typecheck eparams
       mty' <- mapM resolveType mty
       eBody <- case mty' of
@@ -1109,14 +1107,14 @@ instance Checkable Expr where
            unless (isFutureType ty) $
                   pushError eExpr $ ExpectingOtherTypeError
                                       "a future" ty
-           result <- asks currentMethod
-           when (isNothing result) $
-                pushError eExpr $ ForwardInFunction
-           let returnType = methodType (fromJust result)
-           typeCmp <- (getResultType ty) `subtypeOf` returnType
-           unless typeCmp $
-                pushError eExpr $ ForwardTypeError returnType ty
-           return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+           context <- asks currentExecutionContext
+           case context of
+             MethodContext mdecl -> do
+               let returnType = methodType mdecl
+               unlessM (getResultType ty `subtypeOf` returnType) $
+                       pushError eExpr $ ForwardTypeError returnType ty
+               return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+             _ -> pushError eExpr ForwardInFunction
 
     --  E |- val : t
     --  isStreaming(currentMethod)
@@ -1124,16 +1122,17 @@ instance Checkable Expr where
     --  E |- yield val : unit
     doTypecheck yield@(Yield {val}) =
         do eVal <- typecheck val
-           result <- asks currentMethod
-           when (isNothing result) $
-                tcError $ NonStreamingContextError yield
-           let mtd = fromJust result
-               mType = methodType mtd
-               eType = AST.getType eVal
-           unless (isStreamMethod mtd) $
-                  tcError $ NonStreamingContextError yield
-           eType `assertSubtypeOf` mType
-           return $ setType unitType yield {val = eVal}
+           context <- asks currentExecutionContext
+           case context of
+             MethodContext mtd -> do
+               let mType = methodType mtd
+                   eType = AST.getType eVal
+               unless (isStreamMethod mtd) $
+                      tcError $ NonStreamingContextError yield
+               eType `assertSubtypeOf` mType
+               return $ setType unitType yield {val = eVal}
+             _ -> tcError $ NonStreamingContextError yield
+
 
     --  E |- expr : t
     --  E |- currentMethod : _ -> t
@@ -1141,13 +1140,12 @@ instance Checkable Expr where
     --  E |- return expr : t
     doTypecheck ret@(Return {val}) =
         do eVal <- typecheck val
-           cm <- asks currentMethod
-           cf <- asks currentFunction
-           ty <- case (cm, cf) of
-                   (Just method, _)   -> return (methodType method)
-                   (_, Just (n, t))   -> return t
-                   (Nothing, Nothing) -> error $
-                      "Typechecker.hs: Could not get method or function surrounding a return"
+           context <- asks currentExecutionContext
+           ty <- case context of
+                   MethodContext mtd -> return $ methodType mtd
+                   FunctionContext _ ty -> return ty
+                   ClosureContext (Just ty) -> return ty
+                   ClosureContext Nothing -> tcError ClosureReturnError
 
            let eType = AST.getType eVal
            unlessM (eType `subtypeOf` ty) $
@@ -1159,13 +1157,13 @@ instance Checkable Expr where
     -- ----------------------------
     --  E |- eos : unit
     doTypecheck eos@(Eos {}) =
-        do result <- asks currentMethod
-           when (isNothing result) $
-                tcError $ NonStreamingContextError eos
-           let mtd = fromJust result
-           unless (isStreamMethod mtd) $
-                  tcError $ NonStreamingContextError eos
-           return $ setType unitType eos
+        do context <- asks currentExecutionContext
+           case context of
+             MethodContext mtd -> do
+               unless (isStreamMethod mtd) $
+                      tcError $ NonStreamingContextError eos
+               return $ setType unitType eos
+             _ -> tcError $ NonStreamingContextError eos
 
     --  E |- s : Stream t
     -- ---------------------
@@ -1270,9 +1268,12 @@ instance Checkable Expr where
         do eLhs <- typecheck lhs
            unless (isLval eLhs) $
                   pushError eLhs NonAssignableLHSError
-           mtd <- asks currentMethod
-           unless (isNothing mtd || isConstructor (fromJust mtd)) $
-                  assertNotValField eLhs
+           context <- asks currentExecutionContext
+           case context of
+             MethodContext mtd ->
+               unless (isConstructor mtd) $
+                 assertNotValField eLhs
+             _ -> assertNotValField eLhs
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
         where

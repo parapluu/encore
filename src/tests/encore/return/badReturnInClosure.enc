@@ -1,0 +1,11 @@
+class Main
+  def main(): unit
+    val fn =
+      fun (x: int)
+        return(x+1)
+        print(100)
+      end
+    print(fn(1))
+    print(42)
+  end
+end

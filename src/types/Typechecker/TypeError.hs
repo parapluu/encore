@@ -14,8 +14,8 @@ module Typechecker.TypeError (Backtrace
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,currentMethodFromBacktrace
-                             ,currentFunctionFromBacktrace
+                             ,ExecutionContext(..)
+                             ,currentContextFromBacktrace
                              ,validUseOfBreak
                              ,validUseOfContinue
                              ) where
@@ -74,19 +74,16 @@ type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
 
-currentMethodFromBacktrace :: Backtrace -> Maybe MethodDecl
-currentMethodFromBacktrace [] = Nothing
-currentMethodFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
-currentMethodFromBacktrace ((_, BTExpr Async{}):_) = Nothing
-currentMethodFromBacktrace ((_, BTMethod m):_) = Just m
-currentMethodFromBacktrace (_:bt) = currentMethodFromBacktrace bt
+data ExecutionContext = MethodContext MethodDecl
+                      | ClosureContext (Maybe Type)
+                      | FunctionContext Name Type
 
-currentFunctionFromBacktrace :: Backtrace -> Maybe (Name, Type)
-currentFunctionFromBacktrace [] = Nothing
-currentFunctionFromBacktrace ((_, BTExpr Closure{}):_) = Nothing
-currentFunctionFromBacktrace ((_, BTExpr Async{}):_) = Nothing
-currentFunctionFromBacktrace ((_, BTFunction n t):_) = Just (n, t)
-currentFunctionFromBacktrace (_:bt) = currentFunctionFromBacktrace bt
+currentContextFromBacktrace :: Backtrace -> ExecutionContext
+currentContextFromBacktrace [] = error "TypeError.hs: No execution context"
+currentContextFromBacktrace ((_, BTExpr Closure{mty}):_) = ClosureContext mty
+currentContextFromBacktrace ((_, BTMethod m):_) =  MethodContext m
+currentContextFromBacktrace ((_, BTFunction f t):_) =  FunctionContext f t
+currentContextFromBacktrace (_:bt) = currentContextFromBacktrace bt
 
 validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
@@ -610,7 +607,7 @@ instance Show Error where
     show PolymorphicConstructorError =
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show ClosureReturnError =
-        printf "Cannot use 'return' in a closure"
+        "Closures must declare their type to use return"
     show MatchMethodNonMaybeReturnError =
         "Match methods must return a Maybe type"
     show MatchMethodNonEmptyParameterListError =

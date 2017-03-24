@@ -6,7 +6,7 @@ moment. -}
 
 module CodeGen.Context (
   Context,
-  ExecContext,
+  ExecContext(..),
   new,
   newWithForwarding,
   substAdd,
@@ -16,13 +16,9 @@ module CodeGen.Context (
   genSym,
   getGlobalFunctionNames,
   lookupFunction,
-  lookupFunctionContext,
   lookupField,
   lookupMethod,
-  lookupMethodContext,
-  lookupClosureContext,
   lookupCalledType,
-  setExecCtx,
   setMtdCtx,
   setFunCtx,
   setClsCtx,
@@ -109,16 +105,16 @@ substLkp ctx@Context{varSubTable} QName{qnspace = Just ns, qnlocal}
      | otherwise = Nothing
 
 setExecCtx :: Context -> ExecContext -> Context
-setExecCtx ctx@Context{execContext} execContext' = ctx{execContext = execContext'}
+setExecCtx ctx execContext = ctx{execContext}
 
 setFunCtx :: Context -> Function -> Context
-setFunCtx ctx@Context{execContext} execContext' = ctx{execContext = FunctionContext{fun = execContext'}}
+setFunCtx ctx fun = ctx{execContext = FunctionContext{fun}}
 
 setMtdCtx :: Context -> MethodDecl -> Context
-setMtdCtx ctx@Context{execContext} execContext' = ctx{execContext = MethodContext{mdecl = execContext'}}
+setMtdCtx ctx mdecl = ctx{execContext = MethodContext{mdecl}}
 
 setClsCtx :: Context -> Expr -> Context
-setClsCtx ctx@Context{execContext} execContext' = ctx{execContext = ClosureContext{cls = execContext'}}
+setClsCtx ctx cls = ctx{execContext = ClosureContext{cls}}
 
 getExecCtx :: Context -> ExecContext
 getExecCtx ctx@Context{execContext} = execContext
@@ -134,18 +130,6 @@ lookupCalledType ty m = Tbl.lookupCalledType ty m . programTable
 
 lookupFunction :: QualifiedName -> Context -> (C.CCode C.Name, FunctionHeader)
 lookupFunction fname = Tbl.lookupFunction fname . programTable
-
-lookupFunctionContext :: ExecContext -> [Function]
-lookupFunctionContext FunctionContext{fun} = [fun]
-lookupFunctionContext _ = []
-
-lookupMethodContext :: ExecContext -> [MethodDecl]
-lookupMethodContext MethodContext{mdecl} = [mdecl]
-lookupMethodContext _ = []
-
-lookupClosureContext :: ExecContext -> [Expr]
-lookupClosureContext ClosureContext{cls} = [cls]
-lookupClosureContext _ = []
 
 getGlobalFunctionNames :: Context -> [QualifiedName]
 getGlobalFunctionNames = Tbl.getGlobalFunctionNames . programTable
