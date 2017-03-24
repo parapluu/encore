@@ -745,7 +745,7 @@ instance Checkable Expr where
                               else returnType
 
             when (isStream && isThisCall) $ tcError SyncStreamCall
-            return $ setArrowType (arrowType argTypes returnType') $
+            return $ setArrowType (arrowType argTypes resultType) $
                      setType returnType' mcall {target = eTarget'
                                               ,args = eArgs
                                               ,typeArguments = typeArgs}
