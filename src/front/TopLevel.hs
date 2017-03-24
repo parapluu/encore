@@ -41,7 +41,7 @@ import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
-import Typechecker.Capturechecker(capturecheckEncoreProgram)
+import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -394,13 +394,17 @@ main =
       capturecheckProgramTable :: ProgramTable -> IO ProgramTable
       capturecheckProgramTable table = do
         let lookupTableTable = fmap buildLookupTable table
-        mapM (capturecheckProgram lookupTableTable) table
+        mapM (capturecheckAndShowWarnings lookupTableTable) table
         where
-          capturecheckProgram table p =
-              case capturecheckEncoreProgram table p of
-                Right ast -> return ast
-                Left error -> abort $ show error
-
+          capturecheckAndShowWarnings table p = do
+            (capturecheckedAST, capturecheckingWarnings) <-
+              case capturecheckProgram table p of
+                (Right (newEnv, ast), warnings) -> return (ast, warnings)
+                (Left error, warnings) -> do
+                    showWarnings warnings
+                    abort $ show error
+            showWarnings capturecheckingWarnings
+            return capturecheckedAST
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)

@@ -7,12 +7,13 @@ exception with a meaningful error message if it fails.
 
 -}
 
-module Typechecker.Capturechecker(capturecheckEncoreProgram) where
+module Typechecker.Capturechecker(capturecheckProgram) where
 
 import Data.List as List
 import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.State
 import Control.Monad
 import Debug.Trace
 
@@ -24,20 +25,16 @@ import Types as Ty
 import Identifiers
 import Typechecker.Environment
 import Typechecker.TypeError
-import Typechecker.Util hiding (pushError)
+import Typechecker.Util
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 
-capturecheckEncoreProgram ::
-    Map FilePath LookupTable -> Program -> Either CCError Program
-capturecheckEncoreProgram table p = do
+capturecheckProgram :: Map FilePath LookupTable -> Program ->
+                       (Either TCError (Environment, Program), [TCWarning])
+capturecheckProgram table p = do
   let env = buildEnvironment table p
-  runReader (runExceptT (doCapturecheck p)) env
-
-ccError msg = do bt <- asks backtrace
-                 throwError $ CCError (msg, bt)
-
-pushError x msg = local (pushBT x) $ ccError msg
+  let reader = (\p -> (env, p)) <$> runReaderT (doCapturecheck p) env
+  runState (runExceptT reader) []
 
 class CaptureCheckable a where
     -- | 'capturecheck' checks that linear references are actually
@@ -46,11 +43,9 @@ class CaptureCheckable a where
     -- otherwise it is called free. For each node, 'capturecheck'
     -- conservatively decides if that node is captured or free,
     -- and which of its children (if any) it captures.
-    capturecheck ::
-        Pushable a => a -> CapturecheckM a
+    capturecheck :: Pushable a => a -> TypecheckM a
     capturecheck x = local (pushBT x) $ doCapturecheck x
-    doCapturecheck ::
-        a -> CapturecheckM a
+    doCapturecheck :: a -> TypecheckM a
 
 instance CaptureCheckable Program where
     doCapturecheck p@Program{classes, traits, functions} =
@@ -68,8 +63,7 @@ instance CaptureCheckable Function where
     doCapturecheck fun@Function{funbody} =
         do let funtype = functionType fun
            when (any isStackboundType (typeComponents funtype)) $
-                ccError $ "Reverse borrowing (returning borrowed values) " ++
-                          "is currently not supported"
+                tcError ReverseBorrowingError
            funbody' <- local (pushBT funbody) $
                        extendM capturecheck funbody
            unless (isUnitType funtype) $
@@ -81,8 +75,7 @@ instance CaptureCheckable Function where
 instance CaptureCheckable FieldDecl where
     doCapturecheck f@Field{ftype} = do
         when (isStackboundType ftype) $
-             ccError $ "Cannot have field of borrowed type '" ++
-                       show ftype ++ "'"
+             tcError $ BorrowedFieldError ftype
         return f
 
 instance CaptureCheckable ClassDecl where
@@ -122,8 +115,7 @@ instance CaptureCheckable MethodDecl where
     doCapturecheck m@Method{mbody} =
         do let mtype = methodType m
            when (any isStackboundType (typeComponents mtype)) $
-                ccError $ "Reverse borrowing (returning borrowed values) " ++
-                          "is currently not supported"
+                tcError ReverseBorrowingError
            mbody' <- local (pushBT mbody) $
                      extendM capturecheck mbody
            unless (isUnitType mtype) $
@@ -199,13 +191,10 @@ instance CaptureCheckable Expr where
            let nonBorrowed = List.filter (not . isStackboundType . snd) freeLins
                firstLin = head nonBorrowed
            unless (null nonBorrowed) $
-             ccError $ "Cannot capture variable '" ++ show (fst firstLin) ++
-                       "' of linear type '" ++ show (snd firstLin) ++
-                       "' in a closure"
+             tcError $ uncurry LinearClosureError firstLin
            capture body
            when (any isStackboundType (typeComponents (getType body))) $
-                ccError $ "Reverse borrowing (returning borrowed values) " ++
-                          "is currently not supported"
+                tcError ReverseBorrowingError
            free e
 
     doCapturecheck e@Seq{eseq} =
@@ -279,53 +268,46 @@ instance CaptureCheckable Expr where
 -- also free (see 'capturecheck') or stackbound. A non-linear
 -- expression is trivially captured. Successful capturing has no
 -- effect.
-capture :: Expr -> CapturecheckM ()
+capture :: Expr -> TypecheckM ()
 capture e = do
     let ty = getType e
     whenM (isLinearType ty) $
       unless (isFree e || isStackboundType ty) $
-        pushError e $
-          "Cannot capture expression '" ++ show (ppExpr e) ++
-          "' of linear type '" ++ show ty ++ "'"
+        pushError e $ LinearCaptureError e ty
 --    when (isStackboundType ty && not (isNull e)) $
 --      pushError e $
 --        "Cannot alias borrowed expression '" ++ show (ppExpr e) ++ "'"
 
 -- | An expression of linear type can be marked 'free' to signal
 -- that it is safe to 'capture' its result
-free :: Expr -> CapturecheckM Expr
+free :: Expr -> TypecheckM Expr
 free e = do
     isLin <- isLinearType (getType e)
     return $ if isLin
              then makeFree e
              else makeCaptured e
 
-captureOrBorrow :: Expr -> Type -> CapturecheckM ()
+captureOrBorrow :: Expr -> Type -> TypecheckM ()
 captureOrBorrow e ty
     | isStackboundType ty = unless (isFree e) (assertBorrowable e)
     | otherwise =
         do when (isStackboundType (getType e)) $
-             ccError $ "Cannot pass borrowed expression '" ++
-                       show (ppExpr e) ++ "' as non-borrowed parameter"
+             tcError $ BorrowedLeakError e
            capture e
     where
       assertBorrowable VarAccess{} = return ()
       assertBorrowable e@FieldAccess{target, name} =
           whenM (isLinearType (getType e)) $
             unlessM (linearAllTheWay target) $
-              ccError $ "Cannot borrow linear field '" ++ show name ++
-                        "' from non-linear path '" ++
-                        show (ppExpr target) ++ "'"
+              tcError $ NonBorrowableError e
       assertBorrowable e@ArrayAccess{target} =
           whenM (isLinearType (getType e)) $
             unlessM (linearAllTheWay target) $
-              ccError $ "Cannot borrow linear array value from " ++
-                        "non-linear path '" ++ show (ppExpr target) ++ "'"
+              tcError $ NonBorrowableError e
       assertBorrowable e@TypedExpr{body} =
           assertBorrowable body
       assertBorrowable e =
-          ccError $ "Expression '" ++ show (ppExpr e) ++
-                    "' cannot be borrowed. Go ask Elias why."
+          tcError $ NonBorrowableError e
 
       linearAllTheWay e@FieldAccess{} = linearPath e
       linearAllTheWay e@MethodCall{}  = linearPath e
@@ -340,26 +322,21 @@ captureOrBorrow e ty
                  (linearAllTheWay (target e))
 
 
-sendArgument :: Expr -> Expr -> Type -> CapturecheckM ()
+sendArgument :: Expr -> Expr -> Type -> TypecheckM ()
 sendArgument target arg paramType = do
   argIsLinear <- isLinearType (getType arg)
-  when (isStackboundType paramType && not isSyncCall) $ do
+  targetIsActive <- isActiveType targetType
+  when (isStackboundType paramType &&
+        targetIsActive && not (isThisAccess target)) $ do
        when (argIsLinear && not (isFree arg)) $
-           ccError $ "Expression '" ++ show (ppExpr arg) ++
-                     "' cannot be borrowed by active object " ++
-                     "of type '" ++ show targetType ++ "'"
+           tcError $ ActiveBorrowError arg targetType
        when (isStackboundType (getType arg)) $
-           ccError $ "Cannot send borrowed expression '" ++
-                     show (ppExpr arg) ++ "' to active object " ++
-                     "of type '" ++ show targetType ++ "'"
+           tcError $ ActiveBorrowSendError arg targetType
   captureOrBorrow arg paramType
     where
       targetType = getType target
-      isSyncCall = isThisAccess target ||
-                   isPassiveRefType targetType ||
-                   isTraitType targetType
 
-assertNoDuplicateBorrow :: [Expr] -> [Type] -> CapturecheckM ()
+assertNoDuplicateBorrow :: [Expr] -> [Type] -> TypecheckM ()
 assertNoDuplicateBorrow args paramTypes = do
   let posts = zip3 [0..(length args)] args paramTypes
       borrowedPosts = List.filter isBorrowed posts
@@ -367,8 +344,7 @@ assertNoDuplicateBorrow args paramTypes = do
     where
       noDuplicateBorrow posts (i, arg, _) =
         when (any (isDuplicateBorrow i arg) posts) $
-             ccError $ "Borrowed variable '" ++ show (ppExpr $ rootOf arg) ++
-                       "' cannot be used more than once in an argument list"
+             tcError $ DuplicateBorrowError (rootOf arg)
 
       isDuplicateBorrow i borrowed (j, arg, ty)
           | i == j = False
@@ -407,27 +383,19 @@ assertNoDuplicateBorrow args paramTypes = do
           isStackboundType ty
       isBorrowed _ = False
 
-matchStackBoundedness :: Type -> Type -> CapturecheckM ()
+matchStackBoundedness :: Type -> Type -> TypecheckM ()
 matchStackBoundedness ty expected
     |  isStackboundType expected &&
        not (isStackboundType ty)
     || not (isStackboundType expected) &&
        isStackboundType ty =
-          ccError $ kindOf ty ++ " does not match " ++ kindOf' expected
+          tcError $ StackboundednessMismatchError ty expected
     | otherwise = return ()
-    where
-      kindOf ty
-          | isStackboundType ty = "Borrowed type '" ++ show ty ++ "'"
-          | otherwise = "Non-borrowed type '" ++ show ty ++ "'"
-      kindOf' ty
-          | isStackboundType ty = "borrowed type '" ++ show ty ++ "'"
-          | otherwise = "non-borrowed type '" ++ show ty ++ "'"
-
 
 -- | Convenience function for when a node inherits the same
 -- captivitiy status as its child. For example @let x = e in e'@
 -- is free iff @e'@ is free.
-returns :: Expr -> Expr -> CapturecheckM Expr
+returns :: Expr -> Expr -> TypecheckM Expr
 returns parent child =
     return $ if isFree child
              then makeFree parent

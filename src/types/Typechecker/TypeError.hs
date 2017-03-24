@@ -13,7 +13,6 @@ module Typechecker.TypeError (Backtrace
                              ,TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
-                             ,CCError(CCError)
                              ,Warning(..)
                              ,ExecutionContext(..)
                              ,currentContextFromBacktrace
@@ -25,6 +24,7 @@ import Text.PrettyPrint
 import Text.Megaparsec(SourcePos)
 import Data.Maybe
 import Data.List
+import Data.Char
 import Text.Printf (printf)
 
 import Identifiers
@@ -299,6 +299,19 @@ data Error =
   | NewWithModeError
   | UnsafeTypeArgumentError Type
   | SimpleError String
+  ----------------------------
+  -- Capturechecking errors --
+  ----------------------------
+  | ReverseBorrowingError
+  | BorrowedFieldError Type
+  | LinearClosureError QualifiedName Type
+  | BorrowedLeakError Expr
+  | NonBorrowableError Expr
+  | ActiveBorrowError Expr Type
+  | ActiveBorrowSendError Expr Type
+  | DuplicateBorrowError Expr
+  | StackboundednessMismatchError Type Type
+  | LinearCaptureError Expr Type
 
 arguments 1 = "argument"
 arguments _ = "arguments"
@@ -784,7 +797,54 @@ instance Show Error where
         printf "Cannot use non-safe type '%s' as type argument"
                (show ty)
     show (SimpleError msg) = msg
-
+    ----------------------------
+    -- Capturechecking errors --
+    ----------------------------
+    show ReverseBorrowingError =
+        "Reverse borrowing (returning borrowed values) " ++
+        "is currently not supported"
+    show (BorrowedFieldError ftype) =
+        printf "Cannot have field of borrowed type '%s'"
+               (show ftype)
+    show (LinearClosureError name ty) =
+        printf "Cannot capture variable '%s' of linear type '%s' in a closure"
+               (show name) (show ty)
+    show (BorrowedLeakError e) =
+        printf "Cannot pass borrowed expression '%s' as non-borrowed parameter"
+               (show (ppSugared e))
+    show (NonBorrowableError FieldAccess{target, name}) =
+        printf "Cannot borrow linear field '%s' from non-linear path '%s'"
+               (show name) (show (ppSugared target))
+    show (NonBorrowableError ArrayAccess{target}) =
+        printf "Cannot borrow linear array value from non-linear path '%s'"
+               (show (ppSugared target))
+    show (NonBorrowableError e) =
+        printf "Expression '%s' cannot be borrowed. Go ask Elias why"
+               (show (ppSugared e))
+    show (ActiveBorrowError arg targetType) =
+        printf ("Expression '%s' cannot be borrowed " ++
+                "by active object of type '%s'")
+               (show (ppSugared arg)) (show targetType)
+    show (ActiveBorrowSendError arg targetType) =
+        printf ("Cannot send borrowed expression '%s' to active object " ++
+                "of type '%s'")
+               (show (ppSugared arg)) (show targetType)
+    show (DuplicateBorrowError root) =
+        printf ("Borrowed variable '%s' cannot be used more than once " ++
+                "in an argument list")
+               (show (ppSugared root))
+    show (StackboundednessMismatchError ty expected) =
+         printf "%s does not match %s" (kindOf ty) (kindOf' expected)
+         where
+           kindOf ty
+               | isStackboundType ty = "Borrowed type '" ++ show ty ++ "'"
+               | otherwise = "Non-borrowed type '" ++ show ty ++ "'"
+           kindOf' ty =
+             let c:s = kindOf ty
+             in toLower c:s
+    show (LinearCaptureError e ty) =
+        printf "Cannot capture expression '%s' of linear type '%s'"
+               (show (ppSugared e)) (show ty)
 
 data TCWarning = TCWarning Backtrace Warning
 instance Show TCWarning where
@@ -829,21 +889,3 @@ instance Show Warning where
     show CapabilitySplitWarning =
         "Unpacking linear capabilities is not fully supported and may be unsafe. " ++
         "This will be fixed in a later version of Encore."
-
-
--- TODO: Refactor into hard errors (reuse TCError?)
-newtype CCError = CCError (String, Backtrace)
-instance Show CCError where
-    show (CCError (msg, [])) =
-        " *** Error during capturechecking *** \n" ++
-        msg ++ "\n"
-    show (CCError (msg, bt@((pos, _):_))) =
-        " *** Error during capturechecking *** \n" ++
-        showSourcePos pos ++ "\n" ++
-        msg ++ "\n" ++
-        concatMap showBT bt
-        where
-          showBT (pos, node) =
-              case show node of
-                "" -> ""
-                s  -> s ++ "\n"

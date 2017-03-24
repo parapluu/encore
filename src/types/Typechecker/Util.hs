@@ -3,7 +3,6 @@
 -}
 
 module Typechecker.Util(TypecheckM
-                       ,CapturecheckM
                        ,whenM
                        ,anyM
                        ,allM
@@ -102,10 +101,6 @@ concatMapM op = foldr f (return [])
 type TypecheckM a =
     forall m . (MonadState [TCWarning] m,
                 MonadError TCError m,
-                MonadReader Environment m) => m a
-
-type CapturecheckM a =
-    forall m . (MonadError CCError m,
                 MonadReader Environment m) => m a
 
 -- | Convenience function for throwing an exception with the
