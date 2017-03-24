@@ -247,7 +247,7 @@ resolveMode actual formal
   | isClassType actual = do
       when (isModeless formal) $
            unless (isModeless actual) $
-                  tcError $ ClassModeError actual
+                  tcError $ CannotHaveModeError actual
       unless (actual `modeSubtypeOf` formal) $
              tcError $ ModeOverrideError formal
       return actual

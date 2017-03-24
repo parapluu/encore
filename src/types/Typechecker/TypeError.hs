@@ -270,7 +270,6 @@ data Error =
   | ForwardInFunction
   | ForwardTypeError Type Type
   | CannotHaveModeError Type
-  | ClassModeError Type
   | ModelessError Type
   | ModeOverrideError Type
   | CannotConsumeError Expr
@@ -674,9 +673,9 @@ instance Show Error where
                (show cname)
     show (ForwardInFunction) = "Forward cannot be used in functions"
     show (CannotHaveModeError ty) =
-        printf "Cannot give mode to %s" (Types.showWithKind ty)
-    show (ClassModeError ty) =
-        printf "Cannot give mode to unmoded %s" (refTypeName ty)
+        if isClassType ty
+        then printf "Cannot give mode to unmoded %s" (refTypeName ty)
+        else printf "Cannot give mode to %s" (Types.showWithKind ty)
     show (ModelessError ty) =
         printf "No mode given to %s" (refTypeName ty)
     show (ModeOverrideError ty) =
