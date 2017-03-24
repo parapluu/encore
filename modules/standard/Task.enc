@@ -126,11 +126,11 @@ fun Synchroniser[t](f : Fut[t]) : Synchroniser[t]
 end
 
 class Synchroniser[t]
-  var result : [t]
+  var value : [t]
   var countDown : int
   var callback : t -> unit
   def init(ar : [Fut[t]]) : unit
-    this.result = new [t](|ar|)
+    this.value = new [t](|ar|)
     this.countDown = |ar|
     var i = 0
     for f <- ar do
@@ -142,7 +142,7 @@ class Synchroniser[t]
   end
   def fulfil(pos : int, r : t) : unit
     this.countDown = this.countDown - 1
-    (this.result)(pos) = r
+    (this.value)(pos) = r
   end
   def register(closure : t -> unit) : unit
     this.callback = closure
@@ -151,7 +151,7 @@ class Synchroniser[t]
     while this.countDown > 0 do
       this.suspend()
     end
-    this.result
+    this.value
   end
 end
 #+END_SRC
