@@ -105,16 +105,16 @@ substLkp ctx@Context{varSubTable} QName{qnspace = Just ns, qnlocal}
      | otherwise = Nothing
 
 setExecCtx :: Context -> ExecContext -> Context
-setExecCtx ctx@Context{} execContext = ctx{execContext}
+setExecCtx ctx execContext = ctx{execContext}
 
 setFunCtx :: Context -> Function -> Context
-setFunCtx ctx@Context{} fun = ctx{execContext = FunctionContext{fun}}
+setFunCtx ctx fun = ctx{execContext = FunctionContext{fun}}
 
 setMtdCtx :: Context -> MethodDecl -> Context
-setMtdCtx ctx@Context{} mdecl = ctx{execContext = MethodContext{mdecl}}
+setMtdCtx ctx mdecl = ctx{execContext = MethodContext{mdecl}}
 
 setClsCtx :: Context -> Expr -> Context
-setClsCtx ctx@Context{} cls = ctx{execContext = ClosureContext{cls}}
+setClsCtx ctx cls = ctx{execContext = ClosureContext{cls}}
 
 getExecCtx :: Context -> ExecContext
 getExecCtx ctx@Context{execContext} = execContext
