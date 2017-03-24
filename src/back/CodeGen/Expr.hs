@@ -989,15 +989,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.typeArguments
                                                        ,A.args}} = do
     withForwarding <- gets Ctx.withForwarding
-    eCtx <- gets $ Ctx.getExecCtx
-    let fun = Ctx.lookupFunctionContext eCtx
-        mtd = Ctx.lookupMethodContext eCtx
-        cls = Ctx.lookupClosureContext eCtx
-        dtraceExit = case (fun, mtd, cls) of
-                          (func, [], [] ) -> [dtraceFunctionExit (A.functionName (head func))]
-                          ([], mdecl, []) -> [dtraceMethodExit thisVar (A.methodName (head mdecl))]
-                          ([], [], expr)  -> [dtraceClosureExit]
-                          (_, _, _)    -> []
+    eCtx <- gets Ctx.getExecCtx
+    let dtraceExit =
+          case eCtx of
+            Ctx.FunctionContext fun ->
+              dtraceFunctionExit (A.functionName fun)
+            Ctx.MethodContext mdecl ->
+              dtraceMethodExit thisVar (A.methodName mdecl)
+            Ctx.ClosureContext clos ->
+              dtraceClosureExit
+            _ -> error "Expr.hs: No context to forward from"
     if withForwarding
     then do
       (ntarget, ttarget) <- translate target
@@ -1007,7 +1008,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           ntarget targetType name args typeArguments Ty.unitType
 
       (initArgs1, oneWayMsg) <-
-        callTheMethodOneway 
+        callTheMethodOneway
           ntarget targetType name args typeArguments Ty.unitType
 
       let nullCheck = targetNullCheck ntarget target name emeta "."
@@ -1015,11 +1016,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       return (unit, Seq $
                       ttarget : nullCheck : initArgs ++
                       [Statement $
-                      If (futVar)
-                        (Seq [Statement forwardingCall])
-                        (Seq [Statement oneWayMsg])] ++
-                      dtraceExit ++
-                      [Return Skip])
+                       If futVar
+                         (Seq [Statement forwardingCall])
+                         (Seq [Statement oneWayMsg]),
+                       dtraceExit,
+                       Return Skip])
 
     else if Ty.isFutureType $ A.getType expr
     then do
@@ -1030,7 +1031,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                ,A.args}
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
-      return (unit, Seq $ [sendt] ++ dtraceExit ++ [Return theGet])
+      return (unit, Seq [sendt, dtraceExit, Return theGet])
     else
       error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
 
@@ -1056,12 +1057,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate ret@(A.Return{A.val}) =
       do (nval, tval) <- translate val
-         eCtx <- gets $ Ctx.getExecCtx
-         let dtraceExit = case (Ctx.lookupFunctionContext eCtx, Ctx.lookupMethodContext eCtx) of
-                              (fun, [] ) -> dtraceFunctionExit (A.functionName (head fun))
-                              ([], mdecl)  -> dtraceMethodExit thisVar (A.methodName (head mdecl))
-                              (_, _)     -> error $ "Expr.hs: Cannot translate return in " ++ show eCtx
-         return (unit, Seq[tval, dtraceExit, Return nval])
+         eCtx <- gets Ctx.getExecCtx
+         let theReturn =
+               case eCtx of
+                 Ctx.FunctionContext fun ->
+                   [dtraceFunctionExit (A.functionName fun), Return nval]
+                 Ctx.MethodContext mdecl ->
+                   [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
+                 Ctx.ClosureContext clos ->
+                   let ty = (Ty.getResultType $ A.getType clos)
+                   in [dtraceClosureExit,
+                       Return $ asEncoreArgT (translate ty) nval]
+                 _ -> error "Expr.hs: No context to return from"
+         return (unit, Seq $ tval:theReturn)
 
   translate iseos@(A.IsEos{A.target}) =
       do (ntarg, ttarg) <- translate target

@@ -1,0 +1,10 @@
+passive class C
+  val f : int
+end
+
+class Main
+  def main() : unit
+    val x = new C
+    fun () => x.f = 42
+  end
+end
