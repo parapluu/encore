@@ -130,7 +130,7 @@ class QuickSortActor
     this.myPosition = pos
   end
   def done(data : ArrayList[int], position : Position) : unit
-    if isNull(data) then
+    if not isNull(data) then
       if position == left() then
         data.addAll(this.result)
         this.result = data
@@ -146,10 +146,8 @@ class QuickSortActor
     end
   end
   def notify() : unit
-    if isNull(this.parent) then
+    if not isNull(this.parent) then
       this.parent!done(this.result, this.myPosition)
-    else
-      printArray("result", this.result)
     end
   end
   def sort(data : ArrayList[int]) : unit
@@ -185,17 +183,13 @@ class Main
     end
   end
   def main(args : [String]) : unit
-    if |args| != 5 then
-      print("input required: <data_size, max_value, seq_threshold, seed>\n")
-    else
-      let
-        n = this.argToInt(args(1))
-        m = this.argToInt(args(2))
-        t = this.argToInt(args(3))
-        s = this.argToInt(args(4))
-      in
-        (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
-      end
+    let
+      n = 1000000
+      m = 1152921504606846976 -- 2^60
+      t = 2048
+      s = 1024
+    in
+      (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
     end
   end
 end
