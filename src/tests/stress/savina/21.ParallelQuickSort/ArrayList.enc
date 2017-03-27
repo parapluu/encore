@@ -5,17 +5,17 @@ import Std
 -- this is not a proper ArrayList implementation
 -- but it is enough for this case study
 passive class ArrayList[t] : Id
-  var data : [t]
+  var dat  : [t]
   var size : int
   def init(n : int) : unit
-    this.data = new [t](n)
+    this.dat  = new [t](n)
     this.size = 0
   end
   def size() : int
     this.size
   end
   def at(index : int) : t
-    (this.data)(index)
+    this.dat(index)
   end
 
   -- could be better
@@ -29,24 +29,24 @@ passive class ArrayList[t] : Id
 
   def resize() : unit
     let
-      tmp = new [t](|this.data| * 10)
+      tmp = new [t](|this.dat| * 10)
     in
       var i = 0
       while i < this.size do
-        tmp(i) = (this.data)(i)
+        tmp(i) = this.dat(i)
         i = i + 1
       end
-      this.data = tmp
+      this.dat = tmp
     end
   end
   def add(value : t) : unit
-    if |this.data| == this.size then
+    if |this.dat| == this.size then
       this.resize()
     end
-    (this.data)(this.size) = value
+    this.dat(this.size) = value
     this.size = this.size + 1
   end
   def data() : [t]
-    this.data
+    this.dat
   end
 end
