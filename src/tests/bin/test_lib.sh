@@ -69,9 +69,14 @@ function compile() {
     readonly local CWD=$( pwd)
     readonly local FLAGS=${@:2}
 
+    local OPT_FLAGS=""
+    if [ ${TEST:0:6} = "stress" ]; then
+      OPT_FLAGS="-O3"
+    fi
+
     # cd to the directory and compile there as a workaround to #439
     cd ${DIR}
-    ${ENCOREC} ${NAME}.enc ${FLAGS}
+    ${ENCOREC} ${OPT_FLAGS} ${NAME}.enc ${FLAGS}
     cd ${CWD}
 }
 
