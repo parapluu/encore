@@ -1,0 +1,21 @@
+class Foo
+  def foo() : int
+    42
+  end
+end
+
+class Bar
+  def bar() : int
+    10
+  end
+end
+
+class Main
+  def main() : unit
+    var g = (new Foo)!foo()
+    println(get(g ~~> fun (x: int) =>
+              forward((new Bar)!bar())
+              x*10
+            end))
+  end
+end
