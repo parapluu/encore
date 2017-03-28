@@ -1,0 +1,21 @@
+module ForkJoinConfig
+
+read class ForkJoinConfig
+  val N: int
+  val C: int
+
+  def init(N: int, C: int): unit
+    this.N = N
+    this.C = C
+  end
+
+  def performComputation(theta: real): unit
+    val sint = EMBED (real)
+                 sin(#{theta});
+               END
+    val res = sint * sint
+    if (res <= 0) then
+      abort("IllegalStateException: Benchmark exited with unrealistic res value")
+    end
+  end
+end
