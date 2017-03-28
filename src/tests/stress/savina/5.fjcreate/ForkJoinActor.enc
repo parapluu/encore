@@ -1,0 +1,9 @@
+module ForkJoinActor
+
+import ForkJoinConfig
+
+active class ForkJoinActor
+  def process(config: ForkJoinConfig): unit
+    config.performComputation(37.2)
+  end
+end
