@@ -187,7 +187,7 @@ static inline void encore_trace_capability(
     void *p)
 {
   if (p) {
-    ((capability_t*) p)->_enc__self_type->trace(ctx, p);
+    encore_trace_object(ctx, p, ((capability_t*) p)->_enc__self_type->trace);
   }
 }
 
