@@ -1,0 +1,25 @@
+module ThroughputConfig
+
+read class ThroughputConfig
+  val N: int
+  val A: int
+  val C: int
+  val usePriorities: bool
+
+  def init(N: int, A: int, C: int, priority: bool): unit
+    this.N = N
+    this.A = A
+    this.C = C
+    this.usePriorities = priority
+  end
+
+  def performComputation(theta: real): unit
+    val sint = EMBED (real)
+                 sin(#{theta});
+               END
+    val res = sint * sint
+    if (res <= 0) then
+      abort("IllegalStateException: Benchmark exited with unrealistic res value")
+    end
+  end
+end
