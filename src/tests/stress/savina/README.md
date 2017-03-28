@@ -19,8 +19,8 @@ completion.
 9. [Concurrent Dictionary](9.ConcDict) - UU
 10. Concurrent Sorted Linked List - UU
 11. [Producer Consumer Bounded Buffer](11.BndBuffer) - UiO
-12. [Dining Philosophers](12.DiningPhilosophers) - Done
-13. Sleeping Barber - IC
+12. [Dining Philosophers](12.DiningPhilosophers) - Done, IC
+13. [Sleeping Barber] (13. Sleeping Barber)  -  Done, IC
 14. Cigarette Smokers - IC
 15. Logistic Map - IC
 16. Bank Transaction - UU
