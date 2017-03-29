@@ -37,4 +37,9 @@ read class Random
 
     END
   end
+  def randomReal(max : real) : real
+    EMBED (real)
+      fmod(rand_r((unsigned *) &(_this->_enc__field_seed)), #{max});
+    END
+  end
 end

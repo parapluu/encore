@@ -1,0 +1,111 @@
+module BankTransaction
+
+import Random
+
+fun tabulate[t](size : uint, tab : int -> t) : [t]
+  val array = new [t](size)
+  for i <- [0..size - 1] do
+    array(i) = tab(i)
+  end
+  array
+end
+
+fun abs(n : real) : real
+  if n < 0.0 then
+    -n
+  else
+    n
+  end
+end
+
+fun INITIAL_BALANCE() : int
+  100
+end
+
+active class Teller
+  val numAccounts : int
+  val numBankings : int
+  val accounts : [Account]
+  var numCompletedBankings : int
+  val randomGen : Random
+  val aAccount : Account
+  val bAccount : Account
+
+  def init(numAccounts : int, numBankings: int) : unit
+    this.numAccounts = numAccounts
+    this.numBankings = numBankings
+    this.accounts = tabulate(numAccounts,
+                             fun (i : int) => new Account(i, INITIAL_BALANCE()))
+    this.numCompletedBankings = 0
+    this.randomGen = new Random(random(100))
+
+    this ! start()
+  end
+
+  def start() : unit
+    for m <- [0..this.numBankings - 1] do
+      this.generateWork()
+    end
+  end
+
+  def reply() : unit
+    this.numCompletedBankings += 1
+    if this.numCompletedBankings == this.numBankings then
+      println("Done!")
+    end
+  end
+
+  def generateWork() : unit
+    val srcAccountId = this.randomGen.random((|this.accounts| / 10) * 8)
+    var loopId = this.randomGen.random(|this.accounts| - srcAccountId)
+    if (loopId == 0) then
+      loopId += 1
+    end
+    val destAccountId = srcAccountId + loopId
+
+    val srcAccount = this.accounts(srcAccountId)
+    val destAccount = this.accounts(destAccountId)
+    val amount = abs(this.randomGen.randomReal(100))
+    get(srcAccount ! credit(this, amount, destAccount))
+  end
+end
+
+active class Account
+  val id : int
+  var balance : real
+
+  def init(id : int, balance : real) : unit
+    this.id = id
+    this.balance = balance
+  end
+
+  def debit(amount : real) : unit
+    this.balance += amount
+  end
+
+  def credit(teller : Teller, amount : real, destAccount : Account) : unit
+    this.balance -= amount
+    get(destAccount ! debit(amount))
+    teller ! reply()
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    if |args| == 3 then
+      match (args(1).to_int(), args(2).to_int()) with
+        case (Just(a), Just(n)) =>
+          new Teller(a, n)
+          ()
+        end
+        case _ => usage(args(0))
+      end
+    else
+      new Teller(1000, 5000)
+    end
+  where
+    fun usage(prog : String) : unit
+      println("Usage: {} [number of accounts] [number of bankings]", prog)
+    end
+  end
+end
