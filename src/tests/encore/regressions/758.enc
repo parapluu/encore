@@ -1,0 +1,31 @@
+class Pong
+  def pong(x : int, other : Ping) : unit
+    if x == 0 then
+      println("Done!")
+    else
+      other ! ping(x - 1, this)
+    end
+  end
+end
+
+class Ping
+  def ping(x : int, other : Pong) : unit
+    if x == 0 then
+      println("Done!")
+    else
+      get(other ! pong(x - 1, this))
+    end
+  end
+end
+
+class Main
+  var ping : Ping
+  var pong : Pong
+  def main() : unit
+    val ping = new Ping
+    val pong = new Pong
+    this.ping = ping
+    this.pong = pong
+    ping ! ping(100000, pong)
+  end
+end

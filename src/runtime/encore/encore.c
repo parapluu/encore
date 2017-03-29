@@ -137,6 +137,10 @@ static context *pop_context(encore_actor_t *actor)
     context_pool->uctx.uc_stack.ss_flags = 0;
   } else {
     available_context--;
+#if defined(PLATFORM_IS_MACOSX)
+    context_pool->uctx.uc_stack.ss_size = Stack_Size;
+    context_pool->uctx.uc_stack.ss_flags = 0;
+#endif
   }
   makecontext(&context_pool->uctx, (void(*)(void))public_run, 1, actor);
   c = context_pool;
