@@ -190,6 +190,7 @@ class Main
       s = 1024
     in
       (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
+      println("Done!")
     end
   end
 end
