@@ -514,6 +514,19 @@ instance Show Mutability where
 
 data OptionalPathComponent = QuestionDot Expr | QuestionBang Expr deriving (Show, Eq)
 
+data ForComprehensionAssignmentSource =
+  ForComprehensionAssignmentSource {
+    mainExpr   :: Expr,
+    whenClause :: Expr
+  } deriving (Show, Eq)
+
+data ForComprehensionAssignment =
+  ForComprehensionAssignment {
+    var :: Name,
+    varTyp :: Type,
+    faRhs :: ForComprehensionAssignmentSource
+  } deriving (Show, Eq)
+
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
           | Continue {emeta :: Meta Expr}
@@ -613,6 +626,10 @@ data Expr = Skip {emeta :: Meta Expr}
                  step   :: Expr,
                  src    :: Expr,
                  body   :: Expr}
+          | ForComprehension {emeta       :: Meta Expr,
+                              assignments :: [ForComprehensionAssignment],
+                              body        :: Expr,
+                              buildRet    :: Bool}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}

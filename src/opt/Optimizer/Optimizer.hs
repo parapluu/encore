@@ -4,6 +4,9 @@ import Identifiers
 import AST.AST
 import AST.Util
 import Types
+import AST.PrettyPrinter
+import Debug.Trace
+import Data.Maybe
 import Control.Applicative (liftA2)
 
 optimizeProgram :: Program -> Program
@@ -29,8 +32,10 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, constructors,
-                   sugarPrintedStrings, tupleMaybeIdComparison]
+optimizerPasses = [constantFolding
+                  ,constructors
+                  ,sugarPrintedStrings
+                  ,tupleMaybeIdComparison]++builtinExts
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -44,6 +49,32 @@ constantFolding = extend foldConst
                         roper = IntLiteral{intLit = n}}) =
           IntLiteral{emeta = meta, intLit = m + n}
       foldConst e = e
+
+-- Some builtin types (like arrays and maybes) should behave like objects with
+-- methods. These methods are defined as functions in the module `BuiltinExt`.
+-- This pass substitutes function calls to these implementations for method
+-- calls to arrays.
+builtinExts = [builtinExt isArrayType  "array_"
+              ,builtinExt isMaybeType  "maybe_"
+              ,builtinExt isFutureType "fut_"]
+  where
+    builtinExt :: (Type -> Bool) -> String -> Expr -> Expr
+    builtinExt targetTypePred functionPrefix = extend fe
+        where
+          fe e@(MethodCall {emeta
+                           ,target
+                           ,name=Name nam
+                           ,args
+                           ,typeArguments})
+            | targetTypePred (getType target) = ret
+             where
+               ret = FunctionCall {emeta
+                                  ,typeArguments=(getResultType $ getType target):typeArguments
+                                  ,qname = QName{qnspace  = Just $ NSExplicit []
+                                                ,qnsource = Just "BuiltinExt.enc"
+                                                ,qnlocal  = Name $ functionPrefix++nam}
+                                  ,args  = target:args}
+          fe e = e
 
 -- Calls to init are necessarily constructor calls and should
 -- therefore be future-less message sends.

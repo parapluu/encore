@@ -152,7 +152,7 @@ alignedExpressions f =
       try $ lookAhead nl
       return e
 
--- | @parseBody c@ is inteded for use in the end of an
+-- | @parseBody c@ is intended for use in the end of an
 -- `indentBlock` construct. It parses the body of a loop or
 -- conditional, which is a list of indented expressions @c@ is a
 -- function that takes the loop body as the argument and builds a
@@ -194,6 +194,7 @@ reservedNames =
     ,"eos"
     ,"false"
     ,"for"
+    ,"For"
     ,"fun"
     ,"forward"
     ,"if"
@@ -928,10 +929,10 @@ expr = notFollowedBy nl >>
      <|> match
      <|> blockedTask
      <|> for
+     <|> forComp
      <|> while
      <|> repeat
      <|> arraySize
-     <|> bracketed
      <|> letExpression
      <|> ifExpression
      <|> unlessIf
@@ -994,6 +995,7 @@ expr = notFollowedBy nl >>
         pos <- getPosition
         root <- tupled <|>
                 stringLit <|>
+                bracketed <|>
                 try qualifiedVarOrFun <|>
                 varOrFun
         longerPath pos root <|> return root
@@ -1270,6 +1272,60 @@ expr = notFollowedBy nl >>
                        (do {reserved "by"; expression})
         reserved "do"
         return $ \body -> For{emeta, name, src, step, body}
+
+      forComp = do
+        indent <- L.indentLevel
+        forLine <- sourceLine <$> getPosition
+        comp <- indentBlock $ do
+            emeta <- meta <$> getPosition
+            partialFor <- indentBlock $ do
+              buildRet <- forCompHead
+              singleLineHead emeta buildRet <|> multiLineHead emeta buildRet
+
+            doLine <- sourceLine <$> getPosition
+            if forLine == doLine
+            then reserved "do"
+            else atLevel indent $ reserved "do"
+            parseBody partialFor
+
+        atLevel indent $ reserved "end"
+        return comp
+         where
+           singleLineHead emeta buildRet = do
+             notFollowedBy nl
+             assignment <- forCompAssignment
+             return $ L.IndentNone (buildPartialFor emeta buildRet [assignment])
+           multiLineHead emeta buildRet =
+             return $ L.IndentMany Nothing
+                  (return . buildPartialFor emeta buildRet)
+                  forCompAssignment
+
+           buildPartialFor emeta buildRet assignments body =
+             ForComprehension{emeta, buildRet, assignments, body}
+
+           forCompHead = forHead <|> foreachHead
+
+           forHead = do
+             reserved "For"
+             return True
+
+           foreachHead = do
+             reserved "Foreach"
+             return False
+
+           forCompAssignment = do
+             name <- Name <$> identifier
+             _ <- colon
+             ty <- typ
+             reservedOp "<-"
+             mainExpr <- expression
+             pos <- getPosition
+             whenClause <- option BTrue{emeta = meta pos} (do
+                                        reserved "when"
+                                        expression)
+             return $ ForComprehensionAssignment name ty
+                        (ForComprehensionAssignmentSource mainExpr whenClause)
+
 
       while = blockedConstruct $ do
         emeta <- meta <$> getPosition

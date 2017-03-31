@@ -1,0 +1,100 @@
+import BuiltinExt
+import Iter.Iter
+
+class Tmp
+  def twelve() : int
+    12
+  end
+
+  def thirteen() : int
+    13
+  end
+end
+
+class Main
+  def main() : unit
+    val arr1 = [1,2]
+    val arr2 = [-12]
+    val arr3 = ["aaa","bbb"]
+
+    -- SINGLE VARIABLE ITERATION
+    Foreach i : int <- arr1 do
+      print("SINGLE 1: i = {}\n", i)
+    end
+
+    Foreach i : int <- arr1.iterator() when i > 1 do
+      print("SINGLE 2: i = {}\n", i)
+    end
+
+    Foreach k : String <- arr3 do
+      print("SINGLE 3: k = {}\n", k)
+    end
+
+    -- MULTIPLE VARIABLE ITERATION
+
+    Foreach
+      i : int <- arr1.iterator()
+      j : int <- arr2.iterator()
+      k : String <- arr3.iterator()
+    do
+      print("MULTI 1: i = {}, j = {}, k = {}\n", i, j, k)
+    end
+
+    Foreach
+      i : int <- arr1
+      j : int <- arr2
+      k : String <- arr3 when i+j != -11
+    do
+      print("MULTI 2: i = {}, j = {}, k = {}\n", i, j, k)
+    end
+
+    val o1 = Just(12)
+    var o2 = Just(2)
+    val o3 = Nothing : Maybe[int]
+
+    Foreach
+      i : int <- o1
+      j : int <- o2
+    do
+      print("MULTI 3: i = {}, j = {}\n", i,j)
+    end
+
+    Foreach
+      i : int <- o1
+      j : int <- o3
+    do
+      print("ERROR: i = {}, y = {}\n", i,j)
+    end
+
+    match (For
+             i : int <- o1
+             j : int <- o2
+           do
+             i*j
+           end) with
+      case Just(x) => if x == 24 then print("MULTI 4: 24\n") else print("ERROR: expected 24\n") end
+      case Nothing => print("ERROR: expected a value\n")
+    end
+
+    -- MIXED CONTAINERS
+
+    Foreach
+      i : int <- arr1
+      j : int <- o1
+    do
+      print("MIXED: i = {}, j = {}\n", i, j)
+    end
+
+
+    -- FUTURES
+    val tmp = new Tmp()
+    get(For
+          i : int <- tmp!twelve()
+          j : int <- tmp!thirteen()
+        do
+          print("FUT: i = {}, j = {}\n", i, j)
+        end)
+
+    print("done\n")
+  end
+end

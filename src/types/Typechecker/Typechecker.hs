@@ -682,7 +682,7 @@ instance Checkable Expr where
                 unless (isPassiveType targetType || isThisAccess (target mcall)) $
                   tcError BadSyncCallError
               let name' = name m
-              unless (isRefType targetType) $
+              unless (isRefType targetType || isArrayType targetType || isMaybeType targetType || isFutureType targetType) $
                      tcError $ NonCallableTargetError targetType
               errorInitMethod targetType name'
             | otherwise =
@@ -1952,7 +1952,12 @@ typecheckCall call formalTypeParameters argTypes resultType
 retType mcall targetType header t
   | isSyncCall targetType = t
   | isStreamMethodHeader header = streamType t
-  | otherwise = futureType t
+  | isArrayType targetType = t
+  | isMaybeType targetType = t
+  | isFutureType targetType = t
+  | isActiveClassType targetType = futureType t
+  | isSharedClassType targetType = futureType t
+  | otherwise = error "Typechecker.hs: can't compute retType"
   where
     isSyncCall targetType =
       isThisAccess (target mcall) ||

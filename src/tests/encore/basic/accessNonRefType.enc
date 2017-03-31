@@ -6,6 +6,6 @@ end
 
 class Main
   def main(): unit
-    (Just(new T)).self()
+    (12).self()
   end
 end

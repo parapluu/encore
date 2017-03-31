@@ -1,0 +1,112 @@
+import Iter.Iter
+import BuiltinExt
+
+fun contains(x : Maybe[int], i : int) : bool
+  match x with
+    case Just(x) => x == i
+    case _       => false
+  end
+end
+
+fun empty(x : Maybe[int]) : bool
+  match x with
+    case Nothing => true
+    case _       => false
+  end
+end
+
+class Main
+
+  def testReduce(it : () -> Iter[int]) : unit
+    assertTrue(it().fold(0, fun (x:int,y:int) => x+y) == 15)
+    val sum = fun (x : int, y : int) => x+y
+    assertTrue(contains(it().reduce(sum), 15))
+    ()
+  end
+
+  def testFilter(it : () -> Iter[int]) : unit
+    val f1 = fun (i: int) => i > 2
+    assertTrue(contains(it().filter(f1).next(), 3))
+    assertTrue(it().filter(f1).count() == 3)
+    assertTrue(contains(it().filter(f1).nth(1), 4))
+
+    val iter = it().filter(f1)
+    assertTrue(contains(iter.next(), 3))
+    assertTrue(contains(iter.next(), 4))
+    assertTrue(contains(iter.next(), 5))
+    assertTrue(empty(iter.next()))
+  end
+
+  def testNext(it : () -> Iter[int]) : unit
+    val iter = it()
+    assertTrue(contains(iter.next(), 1))
+    assertTrue(contains(iter.next(), 2))
+    assertTrue(contains(iter.next(), 3))
+    assertTrue(contains(iter.next(), 4))
+    assertTrue(contains(iter.next(), 5))
+    assertTrue(empty(iter.next()))
+    ()
+  end
+
+  def testTake(it : () -> Iter[int]) : unit
+    assertTrue(it().take(2).count() == 2)
+    assertTrue(it().take(15).count() == 0)
+    val it1 = it().take(2)
+    assertTrue(contains(it1.next(), 1))
+    assertTrue(contains(it1.next(), 2))
+    ()
+  end
+
+  def testSkip(it : () -> Iter[int]) : unit
+    assertTrue(it().skip(12).count() == 0)
+    assertTrue(it().skip(2).count() == 3)
+
+    assertTrue(contains(it().skip(2).nth(0), 3))
+    ()
+  end
+
+  def testCount(it : () -> Iter[int]) : unit
+    val iter = it()
+    assertTrue(iter.count() == 5)
+    assertTrue(iter.count() == 0)
+    ()
+  end
+
+  def testNth() : unit
+    val tst1 = [1,2,3,4,5,6,7,8,9,10]
+    assertTrue(contains(tst1.iterator().nth(0), 1))
+    assertTrue(empty(tst1.iterator().nth(-1)))
+    ()
+  end
+
+  def testZip(it : () -> Iter[int]) : unit
+    val i = it()
+    val rev = [5, 4, 3, 2, 1]
+    val zpd = i.zip[int](rev.iterator())
+    zpd.foreach(fun (tpl : (int, int)) => match tpl with
+                                            case (i,j) => assertTrue(i+j == 6)
+                                          end)
+  end
+
+  def runTestSuite(it : () -> Iter[int]) : unit
+    val iter = it()
+    --print("{} {} {} {} {} {}\n", iter.next(), iter.next(), iter.next(), iter.next(), iter.next(), iter.next())
+    this.testNext(it)
+    this.testNth()
+    this.testCount(it)
+    this.testTake(it)
+    this.testSkip(it)
+    this.testReduce(it)
+    this.testFilter(it)
+    this.testZip(it)
+  end
+
+  def main() : unit
+    this.runTestSuite(fun () => ([1,2,3,4,5]).iterator() : Iter[int])
+    this.runTestSuite(fun () => ([-2, -1, 1,2,3,4,5]).iterator().skip(2) : Iter[int])
+    this.runTestSuite(fun () => ([-2, -1, 1,2,3,4,5]).iterator().filter(fun (i: int) => i>0) : Iter[int])
+    this.runTestSuite(fun () => ([1,2,3,4,5,6,7]).iterator().take(5))
+    this.runTestSuite(fun () => new RangeIter(1,5))
+    this.runTestSuite(fun () => (new StringIter("abcde")).map(fun (c:char) => EMBED (int) #{c}-'a' + 1; END))
+  end
+end

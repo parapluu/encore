@@ -576,7 +576,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                               (Call arraySize [ntarg])
          return (Var tmp, Seq [ttarg, theSize])
 
-  translate call@(A.MethodCall { A.emeta, A.target, A.name, A.typeArguments, A.args})
+  translate call@(A.MethodCall {A.emeta, A.target, A.name, A.typeArguments, A.args})
     | (Ty.isTraitType . A.getType) target ||
       (Ty.isUnionType . A.getType) target = do
         (ntarget, ttarget) <- translate target
