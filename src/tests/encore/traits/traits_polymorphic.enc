@@ -15,7 +15,7 @@ local trait T[t]
     END
   end
 end
-active class Foo[t]
+local class Foo[t]
   def init(x : t) : unit
     ()
   end

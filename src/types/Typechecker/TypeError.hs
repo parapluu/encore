@@ -284,8 +284,8 @@ data Error =
   | SubordinateFieldError Name
   | ThreadLocalFieldError Type
   | ThreadLocalFieldExtensionError Type FieldDecl
-  | ThreadLocalReturnError Name
   | ThreadLocalArgumentError Expr
+  | ThreadLocalReturnError Name
   | MalformedConjunctionError Type Type Type
   | CannotUnpackError Type
   | CannotInferUnpackingError Type
@@ -860,7 +860,10 @@ data Warning = StringDeprecatedWarning
              | PolymorphicIdentityWarning
              | ShadowedMethodWarning FieldDecl
              | ExpressionResultIgnoredWarning Expr
+             | PolymorphicArgumentSendWarning Expr
+             | PolymorphicReturnWarning Name
              | ArrayTypeArgumentWarning
+             | ArrayInReadContextWarning
              | SharedArrayWarning
              | CapabilitySplitWarning
 
@@ -874,6 +877,16 @@ instance Show Warning where
         "Later versions of Encore will require type constraints for this to work"
     show (ExpressionResultIgnoredWarning expr) =
         "Result of '" ++ show (ppSugared expr) ++ "' is discarded"
+    show (PolymorphicArgumentSendWarning arg) =
+        printf ("Passing polymorphic expression '%s' between " ++
+                "active objects may be unsafe. \n" ++
+                "This will be fixed in a later version of Encore." )
+               (show (ppSugared arg))
+    show (PolymorphicReturnWarning name) =
+        printf ("Method '%s' returns a polymorphic value, and calling " ++
+                "it from a different active object may be unsafe. \n" ++
+                "This will be fixed in a later version of Encore.")
+               (show name)
     show (ShadowedMethodWarning Field{fname, ftype}) =
         printf ("Field '%s' holds %s and could be confused with " ++
                 "the method of the same name")
@@ -883,6 +896,9 @@ instance Show Warning where
     show ArrayTypeArgumentWarning =
         "Using arrays as type arguments is pontentially unsafe. " ++
         "This will be fixed in a later version of Encore."
+    show ArrayInReadContextWarning =
+        "Using arrays in fields of a read trait or class is potentially unsafe. " ++
+        "In later versions of Encore, this array must be made immutable."
     show SharedArrayWarning =
         "Passing arrays between actors is potentially unsafe. " ++
         "This will be fixed in a later version of Encore."

@@ -168,9 +168,11 @@ instance Checkable FieldDecl where
     when (isReadRefType thisType) $ do
          unless (isValField f) $
                 tcError $ NonValInReadContextError thisType
-         isSharable <- isSharableType ftype
-         unless (isSharable && not (isArrayType ftype)) $
+         isAliasable <- isAliasableType ftype
+         unless isAliasable $
                 tcError $ NonSafeInReadContextError thisType ftype
+         when (isArrayType ftype) $
+              tcWarning ArrayInReadContextWarning
     isLocalField <- isLocalType ftype
     isLocalThis <- isLocalType thisType
     when isLocalField $
@@ -1925,6 +1927,12 @@ checkLocalArgs args targetType =
     unless (null localArgs) $
       tcError $ ThreadLocalArgumentError localArg
 
+    let polymorphicArgs =
+          filter (any isTypeVar . typeComponents . AST.getType) args
+        polymorphicArg = head polymorphicArgs
+    unless (null polymorphicArgs) $
+      tcWarning $ PolymorphicArgumentSendWarning polymorphicArg
+
     let sharedArrays = filter (\arg -> isArrayType (AST.getType arg) &&
                                        not (isArrayLiteral arg)) args
     unless (null sharedArrays) $
@@ -1936,6 +1944,9 @@ checkLocalReturn name returnType targetType =
     localReturn <- isLocalType returnType
     when localReturn $
        tcError $ ThreadLocalReturnError name
+    let polymorphicReturn = any isTypeVar $ typeComponents returnType
+    when polymorphicReturn $
+       tcWarning $ PolymorphicReturnWarning name
     when (isArrayType returnType) $
        tcWarning SharedArrayWarning
 

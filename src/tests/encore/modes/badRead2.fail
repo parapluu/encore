@@ -1,1 +1,1 @@
-Read trait can not have field of non-safe type
+Using arrays in fields of a read trait or class is potentially unsafe. In later versions of Encore, this array must be made immutable.

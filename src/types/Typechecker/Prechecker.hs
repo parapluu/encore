@@ -242,7 +242,7 @@ instance Precheckable TraitExtension where
 
 instance Precheckable TraitComposition where
     doPrecheck leaf@TraitLeaf{tcname, tcext} = do
-      Just (_, thisType)  <- findVar (qLocal thisName)
+      Just (_, thisType) <- findVar (qLocal thisName)
 
       formal <- findFormalRefType tcname
       tcname' <- if isModeless thisType || not (isTraitType formal) ||

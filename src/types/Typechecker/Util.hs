@@ -260,7 +260,7 @@ resolveMode actual formal
 
 assertSafeTypeArguments :: [Type] -> TypecheckM ()
 assertSafeTypeArguments args = do
-  unsafeTypeArgs <- filterM (liftM not . isSharableType) args
+  unsafeTypeArgs <- filterM (liftM not . isAliasableType) args
   let unsafeTypeArg = head unsafeTypeArgs
   unless (null unsafeTypeArgs) $
          tcError $ UnsafeTypeArgumentError unsafeTypeArg
@@ -462,7 +462,7 @@ findMethodWithCalledType ty name
           tcError $ MethodNotFoundError name ty
         return $ fromJust result
 
-findCapability :: (MonadReader Environment m) => Type -> m Type
+findCapability :: Type -> TypecheckM Type
 findCapability ty = do
   result <- asks $ capabilityLookup ty
   return $ fromMaybe err result
@@ -655,7 +655,7 @@ abstractTraitFrom cname (t, exts) = do
 
     checkReadFields t fields
       | isReadRefType t = do
-          unsafeFields <- filterM (liftM not . isSharableType . ftype) fields
+          unsafeFields <- filterM (liftM not . isAliasableType . ftype) fields
           let unsafeField = head unsafeFields
           unless (null unsafeFields) $
                  tcError $ NonSafeInExtendedReadTraitError
@@ -669,7 +669,7 @@ abstractTraitFrom cname (t, exts) = do
                tcError $ ThreadLocalFieldExtensionError
                          t (head localFields)
 
-partly :: (MonadReader Environment m) => (Type -> Bool) -> Type -> m Bool
+partly :: (Type -> TypecheckM Bool) -> Type -> TypecheckM Bool
 partly isKind ty
     | isCompositeType ty
     , traits <- typesFromCapability ty
@@ -679,15 +679,17 @@ partly isKind ty
       = anyM (partly isKind) tys
     | isClassType ty = do
         capability <- findCapability ty
-        liftM (isKind ty ||) (partly isKind capability)
+        capIsPartly <- partly isKind capability
+        tyIsKind <- isKind ty
+        return $ tyIsKind || capIsPartly
     | hasResultType ty &&
       not (isArrowType ty) =
         partly isKind (getResultType ty)
     | isTupleType ty =
         anyM (partly isKind) (getArgTypes ty)
-    | otherwise = return $ isKind ty
+    | otherwise = isKind ty
 
-fully :: (MonadReader Environment m) => (Type -> Bool) -> Type -> m Bool
+fully :: (Type -> Bool) -> Type -> TypecheckM Bool
 fully isKind ty
     | isCompositeType ty
     , traits <- typesFromCapability ty
@@ -705,13 +707,14 @@ fully isKind ty
         allM (fully isKind) (getArgTypes ty)
     | otherwise = return $ isKind ty
 
-isLinearType :: (MonadReader Environment m) => Type -> m Bool
+isLinearType :: Type -> TypecheckM Bool
 isLinearType =
-    partly (\ty -> isLinearRefType ty || isLinearArrowType ty)
+    partly (\ty -> return $ isLinearRefType ty || isLinearArrowType ty)
 
 isSubordinateType :: Type -> TypecheckM Bool
 isSubordinateType =
-    partly (\ty -> isSubordinateRefType ty ||
+    partly (\ty -> return $
+                   isSubordinateRefType ty ||
                    isSubordinateArrowType ty)
 
 isEncapsulatedType :: Type -> TypecheckM Bool
@@ -720,9 +723,22 @@ isEncapsulatedType =
                   isSubordinateArrowType ty)
 
 isLocalType :: Type -> TypecheckM Bool
-isLocalType =
-    partly (\ty -> isLocalRefType ty ||
-                   isLocalArrowType ty)
+isLocalType = partly (isLocalType' [])
+  where
+    isLocalType' :: [Type] -> Type -> TypecheckM Bool
+    isLocalType' checked ty
+      | ty `elem` checked = return False
+      | otherwise = do
+          holdsLocal <- holdsLocalData checked ty
+          return $ isLocalRefType ty ||
+                   isLocalArrowType ty ||
+                   holdsLocal
+    holdsLocalData :: [Type] -> Type -> TypecheckM Bool
+    holdsLocalData checked ty
+      | isPassiveRefType ty && isRefAtomType ty &&
+        ty `notElem` checked =
+          anyM (isLocalType' (ty:checked)) $ getTypeParameters ty
+      | otherwise = return False
 
 isPassiveType :: Type -> TypecheckM Bool
 isPassiveType ty
@@ -780,7 +796,6 @@ isSharableType ty
         return $ isPrimitive ty
               || isRangeType ty
               || isCType ty
-              || isTypeVar ty
     | otherwise = return $ hasSharableMode ty
 
 isUnsafeType :: Type -> TypecheckM Bool
@@ -793,12 +808,15 @@ isUnsafeType ty
                   any isUnsafeRefType $ typeComponents ty
 
 isAliasableType :: Type -> TypecheckM Bool
-isAliasableType ty =
+isAliasableType ty
+  | isArrowType ty = return . not $ isLinearArrowType ty
+  | hasResultType ty = isAliasableType $ getResultType ty
+  | isTupleType ty = allM isAliasableType $ getArgTypes ty
+  | otherwise =
     anyM (\f -> f ty)
          [isSharableType
          ,isLocalType
-         ,isSubordinateType
-         ,isUnsafeType
+         ,return . isTypeVar
          ]
 
 checkConjunction :: Type -> [Type] -> TypecheckM ()
