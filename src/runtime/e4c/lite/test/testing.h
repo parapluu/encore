@@ -5,7 +5,7 @@
 
 # include <stdlib.h>
 # include <stdio.h>
-# include <e4c_lite.h>
+# include "../src/e4c_lite.h"
 
 
 /* Test Results */

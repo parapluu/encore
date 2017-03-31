@@ -1,9 +1,9 @@
 
 #include "testing.h"
 
-
-E4C_DEFINE_EXCEPTION(ColorException, "Color exception.", RuntimeException);
-E4C_DEFINE_EXCEPTION(RedException, "Red exception.", ColorException);
+struct e4c_context * ctx = &E4C_NEW_CTX;
+E4C_DEFINE_EXCEPTION(ColorException, RuntimeException);
+E4C_DEFINE_EXCEPTION(RedException, ColorException);
 
 
 /**
@@ -11,17 +11,17 @@ E4C_DEFINE_EXCEPTION(RedException, "Red exception.", ColorException);
  */
 TEST_CASE{
 
-    E4C_TRY{
+    E4C_TRY(ctx){
 
-        E4C_THROW(RedException, "This is a red exception");
+      E4C_THROW(ctx,RedException, "This is a red exception");
 
         TEST_FAIL; /* this should not happen */
 
-    }E4C_CATCH(ColorException){
+    }E4C_CATCH(ctx,ColorException){
 
-        printf("The color exception was caught: %s\n", E4C_EXCEPTION.type->name);
+        printf("The color exception was caught: %s\n", E4C_EXCEPTION(ctx).type->name);
 
-        TEST_ASSERT( E4C_IS_INSTANCE_OF(RedException) );
-        TEST_ASSERT( E4C_IS_INSTANCE_OF(RuntimeException) );
-    }
+        TEST_ASSERT( E4C_IS_INSTANCE_OF(ctx,RedException) );
+        TEST_ASSERT( E4C_IS_INSTANCE_OF(ctx,RuntimeException) );
+    }E4C_TRY_END;
 }

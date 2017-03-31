@@ -9,71 +9,53 @@
 #include <stdio.h>
 #include "e4c_lite.h"
 
-E4C_DEFINE_EXCEPTION(RuntimeException, "Runtime exception.", RuntimeException);
-E4C_DEFINE_EXCEPTION(NullPointerException, "Null pointer.", RuntimeException);
+E4C_DEFINE_EXCEPTION(RuntimeException, RuntimeException);
+E4C_DEFINE_EXCEPTION(NullPointerException, RuntimeException);
 
-struct e4c_context e4c = {0};
 static const char * err_msg[] = {"\n\nError: %s (%s)\n\n", "\n\nUncaught %s: %s\n\n    thrown at %s:%d\n\n"};
 
-static void e4c_propagate(void){
-
-    e4c.frame[e4c.frames].uncaught = 1;
-
-    if(e4c.frames > 0){
-        longjmp(e4c.jump[e4c.frames - 1], 1);
-    }
-
-    if(fprintf(stderr, e4c.err.file ? err_msg[1] : err_msg[0], e4c.err.type->name, e4c.err.message, e4c.err.file, e4c.err.line) > 0){
+void e4c_fail(e4c_context_t * ctx){
+    if(fprintf(stderr, ctx->err.file ? err_msg[1] : err_msg[0], ctx->err.type->name, ctx->err.message, ctx->err.file, ctx->err.line) > 0){
         (void)fflush(stderr);
     }
-
     exit(EXIT_FAILURE);
 }
 
-int e4c_try(const char * file, int line){
-
-    if(e4c.frames >= E4C_MAX_FRAMES){
-        e4c_throw(&RuntimeException, file, line, "Too many `try` blocks nested.");
+static void e4c_propagate(e4c_context_t * ctx){
+    if(ctx->frame != NULL) {
+        ctx->frame->uncaught = 1;
+        ctx->unpropagated = 0;
+        longjmp(ctx->frame->jump, 1);
     }
-
-    e4c.frames++;
-
-    e4c.frame[e4c.frames].stage = e4c_beginning;
-    e4c.frame[e4c.frames].uncaught = 0;
-
-    return 1;
+    ctx->unpropagated = 1;
 }
 
-int e4c_hook(int is_catch){
-
-    int uncaught;
-
+int e4c_hook(e4c_context_t * ctx, int is_catch){
     if(is_catch){
-        e4c.frame[e4c.frames].uncaught = 0;
+        ctx->frame->uncaught = 0;
         return 1;
     }
 
-    uncaught = e4c.frame[e4c.frames].uncaught;
-
-    e4c.frame[e4c.frames].stage++;
-    if(e4c.frame[e4c.frames].stage == e4c_catching && !uncaught){
-        e4c.frame[e4c.frames].stage++;
+    ctx->frame->stage++;
+    if(ctx->frame->stage == e4c_catching && !ctx->frame->uncaught){
+        ctx->frame->stage++;
     }
 
-    if(e4c.frame[e4c.frames].stage < e4c_done){
+    if(ctx->frame->stage < e4c_done){
         return 1;
     }
 
-    e4c.frames--;
-
-    if(uncaught){
-        e4c_propagate();
+    if(ctx->frame->uncaught){
+        ctx->frame = ctx->frame->prev;
+        e4c_propagate(ctx);
+    } else {
+        ctx->frame = ctx->frame->prev;
     }
 
     return 0;
 }
 
-int e4c_extends(const struct e4c_exception_type * child, const struct e4c_exception_type * parent){
+int e4c_extends(const e4c_exception_type_t * child, const e4c_exception_type_t * parent){
 
     for(; child && child->supertype != child; child = child->supertype){
         if(child->supertype == parent){
@@ -84,13 +66,14 @@ int e4c_extends(const struct e4c_exception_type * child, const struct e4c_except
     return 0;
 }
 
-void e4c_throw(const struct e4c_exception_type * exception_type, const char * file, int line, const char * message){
+void e4c_throw(e4c_context_t * ctx, const e4c_exception_type_t * exception_type, char * file, int line, char * message, void * exception_obj){
+    ctx->err.type = (exception_type ? exception_type : &NullPointerException);
+    ctx->err.file = file;
+    ctx->err.line = line;
+    ctx->err_obj  = exception_obj;
 
-    e4c.err.type = (exception_type ? exception_type : &NullPointerException);
-    e4c.err.file = file;
-    e4c.err.line = line;
+    (void)sprintf(ctx->err.message, "%.*s", (int)E4C_MESSAGE_SIZE - 1, (message ? message : NULL));
 
-    (void)sprintf(e4c.err.message, "%.*s", (int)E4C_MESSAGE_SIZE - 1, (message ? message : e4c.err.type->default_message));
-
-    e4c_propagate();
+    e4c_propagate(ctx);
 }
+
