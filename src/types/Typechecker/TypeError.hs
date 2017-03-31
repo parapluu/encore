@@ -319,6 +319,9 @@ arguments _ = "arguments"
 typeParameters 1 = "type parameter"
 typeParameters _ = "type parameters"
 
+enumerateSafeTypes =
+  "Safe types are primitives and types with read, active or local mode."
+
 instance Show Error where
     show (DistinctTypeParametersError ty) =
         printf "Type parameters of '%s' must be distinct" (show ty)
@@ -692,7 +695,7 @@ instance Show Error where
     show (ModelessError ty) =
         printf "No mode given to %s" (refTypeName ty)
     show (ModeOverrideError ty) =
-        printf "Cannot override manifest mode '%s' of %s"
+        printf "Cannot override declared mode '%s' of %s"
               (showModeOf ty) (refTypeName ty)
     show (CannotConsumeError expr) =
         printf "Cannot consume '%s'" (show (ppSugared expr))
@@ -708,17 +711,19 @@ instance Show Error where
                   (show (ppSugared expr))
     show (CannotGiveReadModeError trait) =
         printf ("Cannot give read mode to trait '%s'. " ++
-                "It must be manifestly declared as read")
+                "It must be declared as read at its declaration site")
                (getId trait)
     show (NonValInReadContextError ctx) =
         printf "Read %s can only have val fields"
                (if isTraitType ctx then "traits" else "classes")
     show (NonSafeInReadContextError ctx ty) =
-        printf "Read %s can not have field of non-safe type '%s'"
+        printf "Read %s can not have field of non-safe type '%s'. \n%s"
                (if isTraitType ctx then "trait" else "class") (show ty)
+               enumerateSafeTypes
     show (NonSafeInExtendedReadTraitError t f ty) =
-        printf "Read trait '%s' cannot be extended with field '%s' of non-safe type '%s'"
+        printf "Read trait '%s' cannot be extended with field '%s' of non-safe type '%s'. \n%s"
                (getId t) (show f) (show ty)
+               enumerateSafeTypes
     show (ProvidingToReadTraitError provider requirer mname) =
         printf "Non-read trait '%s' cannot provide method '%s' to read trait '%s'"
                (getId provider) (show mname) (getId requirer)
@@ -739,7 +744,7 @@ instance Show Error where
                 "from outside of its aggregate")
                (show name)
     show (ThreadLocalFieldError ty) =
-        printf "%s must have manifest 'local' or 'active' mode to have actor local fields"
+        printf "%s must have declared 'local' or 'active' mode to have actor local fields"
                (if isTraitType ty then "Traits" else "Classes")
     show (ThreadLocalFieldExtensionError trait field) =
         printf ("Trait '%s' must have local mode to be extended " ++
@@ -778,23 +783,24 @@ instance Show Error where
         printf "Arrays cannot store borrowed values of type '%s'"
                (show ty)
     show (ManifestConflictError formal conflicting) =
-        printf ("Trait '%s' with manifest mode '%s' can only be " ++
+        printf ("Trait '%s' with declared mode '%s' can only be " ++
                 "composed with traits of the same mode. Found '%s'")
                (showWithoutMode formal) (showModeOf formal) (show conflicting)
     show (ManifestClassConflictError cls conflicting) =
-        printf "Trait '%s' cannot be included by class '%s' of manifest mode '%s'"
+        printf "Trait '%s' cannot be included by class '%s' of declared mode '%s'"
                (show conflicting) (showWithoutMode cls) (showModeOf cls)
     show (UnmodedMethodExtensionError cls name) =
         printf ("Unmoded class '%s' cannot declare new method '%s'. " ++
                 "Possible fixes: \n" ++
-                "  - Add a mode to the class\n" ++
+                "  - Add a mode to the class (e.g. %s)\n" ++
                 "  - Assign the method to an included trait: T(%s())")
-               (show cls) (show name) (show name)
+               (show cls) (show name)
+               "active, local, read, linear or subord" (show name)
     show (ActiveTraitError trait) =
         printf "Trait '%s' can only be included by active classes"
                (show trait)
     show (UnsafeTypeArgumentError ty) =
-        printf "Cannot use non-safe type '%s' as type argument"
+        printf "Cannot use non-aliasable type '%s' as type argument."
                (show ty)
     show (SimpleError msg) = msg
     ----------------------------

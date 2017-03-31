@@ -1,1 +1,1 @@
-Cannot use non-safe type 'Token' as type argument
+Cannot use non-aliasable type 'Token' as type argument

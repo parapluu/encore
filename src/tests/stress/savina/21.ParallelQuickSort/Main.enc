@@ -136,7 +136,7 @@ active class QuickSortActor : Id
       this.parent!done(consume this.result, this.myPosition)
     else
       var res = consume this.result
-      printArray("result", res)
+--      printArray("result", res)
       this.result = consume res
     end
   end
@@ -174,7 +174,7 @@ active class Main
   end
   def main(args : [String]) : unit
     let
-      n = 1000000
+      n = 100 --1000000
       m = 1152921504606846976 -- 2^60
       t = 2048
       s = 1024
