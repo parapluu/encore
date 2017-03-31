@@ -11,6 +11,7 @@ read class Data[t] : Id
     this.elem
   end
 end
+
 local class Link[t] : Id
   var data : Data[t]
   var next : Link[t]
@@ -38,6 +39,7 @@ local class Link[t] : Id
     end
   end
 end
+
 local class List[t]: Id
   var first : Link[t]
   var size : int

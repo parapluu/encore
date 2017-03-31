@@ -2,109 +2,66 @@
 -- Blue   = 1
 -- Red    = 2
 -- Yellow = 3
+
 import List
-fun listToString(list : List[String]) : String
-  let
-    tempStr = ""
-    cursor = list.first
-  in
-    "TODO"
-  end
-end
+
 fun doCompliment(c1 : int, c2 : int) : int
   if c1 == 1 && c2 == 1 then
     1
+  else if c1 == 1 && c2 == 2 then
+    3
+  else if c1 == 1 && c2 == 3 then
+    2 
+  else if c1 == 2 && c2 == 1 then
+    3
+  else if c1 == 2 && c2 == 2 then
+    2
+  else if c1 == 2 && c2 == 3 then
+    1
+  else if c1 == 3 && c2 == 1 then
+    2
+  else if c1 == 3 && c2 == 2 then
+    1
+  else if c1 == 3 && c2 == 3 then
+    3
   else
-    if c1 == 1 && c2 == 2 then
-      3
-    else
-      if c1 == 1 && c2 == 3 then
-        2
-      else
-        if c1 == 2 && c2 == 1 then
-          3
-        else
-          if c1 == 2 && c2 == 2 then
-            2
-          else
-            if c1 == 2 && c2 == 3 then
-              1
-            else
-              if c1 == 3 && c2 == 1 then
-                2
-              else
-                if c1 == 3 && c2 == 2 then
-                  1
-                else
-                  if c1 == 3 && c2 == 3 then
-                    3
-                  else
-                    print("This should never happen!\n")
-                    1
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-    end
+    abort("This should never happen!")
   end
 end
+
 fun lookup(n : int) : String
   if n == 0 then
     "zero"
+  else if n == 1 then
+    "one"
+  else if n == 2 then
+    "two"
+  else if n == 3 then
+   "three"
+  else if n == 4 then
+    "four"
+  else if n == 5 then
+    "five"
+  else if n == 6 then
+    "six"
+  else if n == 7 then
+    "seven"
+  else if n == 8 then
+    "eight"
+  else if n == 9 then
+    "nine"
   else
-    if n == 1 then
-      "one"
-    else
-      if n == 2 then
-        "two"
-      else
-        if n == 3 then
-          "three"
-        else
-          if n == 4 then
-            "four"
-          else
-            if n == 5 then
-              "five"
-            else
-              if n == 6 then
-                "six"
-              else
-                if n == 7 then
-                  "seven"
-                else
-                  if n == 8 then
-                    "eight"
-                  else
-                    if n == 9 then
-                      "nine"
-                    else
-                      "this should not happen!"
-                    end
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-    end
+    abort("this should not happen!")
   end
 end
+
 fun spell(n : int) : List[String]
+  val spelledList = new List[String]()
   if n == 0 then
-    let
-      spelledList = new List[String]()
-    in
-      spelledList.prepend(lookup(n))
-      spelledList
-    end
+    spelledList.prepend(lookup(n))
+    spelledList
   else
     var remaining = n
-    val spelledList = new List[String]()
     while remaining > 0 do
       spelledList.prepend(lookup(remaining % 10))
       remaining = remaining / 10
@@ -121,6 +78,7 @@ fun spellAndPrint(n : int) : unit
     cursor = cursor.getNextLink()
   end
 end
+
 active class Creature
   var place : MeetingPlace
   var colour : int
@@ -128,6 +86,7 @@ active class Creature
   var sameCount : int
   var count : int
   var silent : bool
+  
   def init(place : MeetingPlace, colour : int, id : int, silent : bool) : unit
     this.place = place
     this.colour = colour
@@ -136,6 +95,7 @@ active class Creature
     this.count = 0
     this.silent = silent
   end
+  
   def meet(id : int, colour : int) : unit
     this.count = this.count + 1
     this.colour = colour
@@ -144,16 +104,19 @@ active class Creature
     end
     this.place!meet(this, this.id, this.colour)
   end
+  
   def stop() : unit
     unless this.silent then
       print("{} {}\n", this.count, this.sameCount)
     end
     this.place!sumMeetings(this.count)
   end
+  
   def run() : unit
     this.place!meet(this, this.id, this.colour)
   end
 end
+
 active class MeetingPlace
   var meetingsLeft : int
   var firstColour : int
@@ -165,12 +128,14 @@ active class MeetingPlace
   var main : Main
   var firstRun : bool
   var started : bool
+  
   def start() : unit
     this.started = true
   end
+  
   def init(meetingsLeft : int, main : Main, numberOfCreatures : int, firstRun : bool) : unit
     this.meetingsLeft = meetingsLeft
-    this.firstColour = -(1)
+    this.firstColour = -1
     this.firstID = 0
     this.firstChameneos = Nothing
     this.amountOfCreaturesDone = 0
@@ -179,6 +144,7 @@ active class MeetingPlace
     this.firstRun = firstRun
     this.started = false
   end
+  
   def sumMeetings(meetings : int) : unit
     this.meetings = this.meetings + meetings
     this.amountOfCreaturesDone = this.amountOfCreaturesDone + 1
@@ -189,81 +155,66 @@ active class MeetingPlace
       end
     end
   end
+  
   def meet(chameneos : Creature, id : int, c : int) : unit
     if not(this.started) then
       this!meet(chameneos, id, c)
+    else if this.meetingsLeft == 0 then
+      chameneos!stop()
+    else if this.firstColour == -1 then
+      this.firstChameneos = Just(chameneos)
+      this.firstColour = c
+      this.firstID = id
     else
-      if this.meetingsLeft == 0 then
-        chameneos!stop()
-      else
-        if this.firstColour == -(1) then
-          this.firstChameneos = Just(chameneos)
-          this.firstColour = c
-          this.firstID = id
-        else
-          let
-            newColour = doCompliment(c, this.firstColour)
-          in
-            this.firstColour = -(1)
-            this.meetingsLeft = this.meetingsLeft - 1
-            chameneos!meet(this.firstID, newColour)
-            match this.firstChameneos with
-              case Just(cham) => cham!meet(id, newColour)
-              case Nothing    => abort("ERR. There is not initial chameneos")
-            end
-          end
-        end
+      val newColour = doCompliment(c, this.firstColour)
+      this.firstColour = -(1)
+      this.meetingsLeft = this.meetingsLeft - 1
+      chameneos!meet(this.firstID, newColour)
+      match this.firstChameneos with
+        case Just(cham) => cham!meet(id, newColour)
+        case Nothing    => abort("ERR. There is not initial chameneos")
       end
     end
   end
 end
+
 active class Main
   var meetings : int
+  
   def runSecondScenario() : unit
-    let
-      colours = [1, 2, 3, 2, 3, 1, 2, 3, 2, 1]
-    in
-      this!runDefault(this.meetings, colours, false)
-    end
+    val colours = [1, 2, 3, 2, 3, 1, 2, 3, 2, 1]
+    this!runDefault(this.meetings, colours, false)
   end
+  
   def runDefault(n : int, colours : [int], firstRun : bool) : unit
-    let
-      place = new MeetingPlace(n, this, |colours|, firstRun)
-    in
-      repeat i <- |colours| do
-        print("{} ", colours(i))
-      end
-      print("\n")
-      repeat i <- |colours| do
-        let
-          colour = colours(i)
-          creature = new Creature(place, colour, i, false)
-        in
-          creature!run()
-        end
-      end
-      place!start()
+    val  place = new MeetingPlace(n, this, |colours|, firstRun)
+    repeat i <- |colours| do
+      print("{} ", colours(i))
     end
+    println("")
+    repeat i <- |colours| do
+      val colour = colours(i)
+      val creature = new Creature(place, colour, i, false)
+      creature!run()
+    end
+    place!start()
   end
+  
   def run(meetings : int, creatureAmount : int) : unit
-    let
-      place = new MeetingPlace(meetings, this, creatureAmount, false)
-      i = 0
-    in
-      repeat i <- creatureAmount do
-        let
-          colour = i % 3 + 1
-          creature = new Creature(place, colour, i, true)
-        in
-          creature!run()
-        end
-      end
-      place!start()
+    val place = new MeetingPlace(meetings, this, creatureAmount, false)
+    val i = 0
+    repeat i <- creatureAmount do
+      val colour = i % 3 + 1
+      val creature = new Creature(place, colour, i, true)
+      creature!run()
     end
+    place!start()
   end
+  
   def printColoursAux(c1 : int, c2 : int) : unit
     print("{} + {} -> {}\n", c1, c2, doCompliment(c1, c2))
   end
+  
   def printColours() : unit
     this.printColoursAux(1, 1)
     this.printColoursAux(1, 2)
@@ -276,46 +227,38 @@ active class Main
     this.printColoursAux(3, 3)
     print("\n")
   end
+  
   def extractor(maybe : Maybe[int]) : int
     match maybe with
-      case Nothing =>
-        -(1)
-      end
-      case Just(i) =>
-        i
-      end
-
+      case Nothing => -1
+      case Just(i) => i
     end
   end
+  
   def main(argv : [String]) : unit
     if |argv| == 1 then
       -- This was written because the results are not deterministic and the CI
       -- should at least check that it compiles
       println("Please supply arguments. Defaults should be '800000' for first argument")
-      EMBED (unit)
-        exit(0);
-      END
+      exit(0)
     end
-    let
-      colours = [1, 2, 3]
-      numberOfMeetings = if |argv| > 1 then
-                           this.extractor((argv(1)).to_int())
-                         else
-                           800000
-                         end
-      numberOfCreatures = if |argv| > 2 then
-                            this.extractor((argv(2)).to_int())
-                          else
-                            -(1)
-                          end
-    in
-      this!printColours()
-      this.meetings = numberOfMeetings
-      if numberOfCreatures != -(1) then
-        this!run(numberOfMeetings, numberOfCreatures)
-      else
-        this!runDefault(numberOfMeetings, colours, true)
-      end
+    val colours = [1, 2, 3]
+    val  numberOfMeetings = if |argv| > 1 then
+                              this.extractor((argv(1)).to_int())
+                            else
+                              800000
+                            end
+    val numberOfCreatures = if |argv| > 2 then
+                              this.extractor((argv(2)).to_int())
+                            else
+                              -1
+                            end
+    this!printColours()
+    this.meetings = numberOfMeetings
+    if numberOfCreatures != -1 then
+      this!run(numberOfMeetings, numberOfCreatures)
+    else
+      this!runDefault(numberOfMeetings, colours, true)
     end
   end
 end
