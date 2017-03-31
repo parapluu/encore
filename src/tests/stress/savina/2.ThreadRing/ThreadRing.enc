@@ -1,3 +1,9 @@
+fun create_ring(ring_size : int) : Actor
+  val a = new Actor(1)
+  a!create_ring(2, ring_size, a)
+  a
+end
+
 class Actor
   var id : int
   var next : Actor
@@ -16,17 +22,18 @@ class Actor
     if hops > 0 then
       this.next!send(hops - 1)
     else
-      println(this.id)
+      println("Done at actor #{}",this.id)
     end
   end
 end
+
 class Main
   def main() : unit
     let
-      a = new Actor(1)
+      ring_size = 100
+      num_pings = 100000
     in
-      a!create_ring(2, 503, a)
-      a!send(50 * 1000 * 1000)
+      create_ring(ring_size)!send(num_pings)
     end
   end
 end
