@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <dtrace.h>
 #include "encore.h"
+#include <e4c_lite.h>
 
 #ifdef USE_VALGRIND
 #include <valgrind/helgrind.h>
@@ -124,6 +125,10 @@ static bool handle_message(pony_ctx_t** ctx, pony_actor_t* actor,
         assert(ret == 0);
         return !has_flag(actor, FLAG_UNSCHEDULED);
 #else
+        // Store an exception ctx on behaviour stack, and save
+        // a ptr in pony_ctx to make it accessible within behaviour.
+        e4c_context_t e4c_ctx = E4C_NEW_CTX;
+        e4c_ctx_set(&e4c_ctx);
         actor->type->dispatch(ctx, actor, msg);
 #endif
       } else {

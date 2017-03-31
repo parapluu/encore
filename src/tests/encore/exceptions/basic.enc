@@ -1,0 +1,396 @@
+import Exceptional
+import Data.Either
+
+fun test_tryCatch(c : int) : unit
+  try
+    println(c)
+  catch
+    println(-c)
+  end
+end
+
+fun test_tryCatch_explicit(c : int) : unit
+  try
+    println(c)
+  catch RuntimeException
+    println(-c)
+  end
+end
+
+fun test_tryCatch_throw(c : int) : unit
+  try
+    throw RuntimeException("")
+    println(-c)
+  catch
+    println(c)
+  end
+end
+
+fun test_tryCatch_throw_explicit(c : int) : unit
+  try
+    throw RuntimeException("")
+    println(-c)
+  catch RuntimeException
+    println(c)
+  end
+end
+
+
+fun test_throw_without_msg(c : int) : unit
+  try
+    throw RuntimeException
+    println(-c)
+  catch
+    println(c)
+  end
+end
+
+fun test_tryFin(c : int) : unit
+  var x = 0
+  try
+    x = x+c
+  finally
+    x *= 100
+  end
+  println(x)
+end
+
+fun test_tryCatchFin(c : int) : unit
+  var x = 0
+  try
+    x = x+c
+  catch
+    x = x-c
+  finally
+    x = x*100
+  end
+  println(x)
+end
+
+fun test_tryCatchFin_throw(c : int) : unit
+  var x = 0
+  try
+    throw RuntimeException
+    x = x-c
+  catch
+    x = x+c
+  finally
+    x = x*100
+  end
+  println(x)
+end
+
+fun test_tryCatchFin_nested(c : int) : unit
+  -- Should result in c*100
+  var x = 0
+  try
+    try
+      x = x+c
+    catch
+      x = x-c
+    end
+  catch
+    x = 0
+  finally
+    x = x*100
+  end
+  println(x)
+end
+
+fun test_tryCatchFin_nested_throw(c : int) : unit
+  -- Should result in c*100
+  var x = 0
+  try
+    try
+      throw RuntimeException
+      x = x-c
+    catch
+      x = x+c
+    end
+  catch
+    x = 0
+  finally
+    x = x*100
+  end
+  println(x)
+end
+
+fun deep_nesting_aux(current : int, accumulator : int) : int
+  try
+    if current > 0 then
+      deep_nesting_aux(current-1, accumulator+current)
+    else
+      accumulator
+    end
+  catch e : RuntimeException
+    -10
+  finally
+    ()
+  end
+end
+
+fun test_deep_nesting() : unit
+  println(deep_nesting_aux(100, 0))
+end
+
+fun test_tryFin_throw(c : int) : unit
+  -- The nested tryFin won't catch the exception,
+  -- but it should be caught in the outer scope.
+  -- Should result in c*100
+  var x = 0
+  try
+    try
+      throw RuntimeException
+      x = x-c
+    finally
+      x = x+100
+    end
+  catch
+    x = c*x
+  end
+  println(x)
+end
+
+fun test_exception_var(c : int) : unit
+  try
+    throw RuntimeException
+    println(-c)
+  catch e : RuntimeException
+    println(c)
+  end
+end
+
+fun test_exception_msg() : unit
+  var message = "informative_msg"
+  try
+    throw RuntimeException("informative_msg")
+  catch e : RuntimeException
+    println(e.message)
+  end
+end
+
+fun test_exception_info() : unit
+  try
+    throw RuntimeException("informative_msg")
+  catch e : RuntimeException
+    println("type:{}, message:{}, line:{}, file:{}", e.type, e.message, "NOT_TESTING", "NOT_TESTING")
+  end
+end
+
+exception FunException(RuntimeException)
+fun test_catch_custom_throw(c : int) : unit
+  try
+    throw FunException("haha")
+    println(-c)
+  catch FunException
+    println(c)
+  end
+end
+
+fun test_catch_supertype(c : int) : unit
+  -- If an exception type isn't specified in a catch branch,
+  -- instances of that type should be caught in branches for supertypes.
+  try
+    throw FunException("haha")
+    println(-c)
+  catch RuntimeException
+    println(c)
+  end
+end
+
+exception CoolException(RuntimeException)
+fun test_multiple_catch_branches() : unit
+  try
+    throw CoolException
+  catch CoolException
+    println("passed_multiple_catch_branches")
+  catch
+    println("failed_multiple_catch_branches")
+  end
+end
+
+fun test_multiple_catch_branches2() : unit
+  try
+    throw RuntimeException
+  catch CoolException
+    println("failed_multiple_catch_branches2")
+  catch
+    println("passed_multiple_catch_branches2")
+  end
+end
+
+exception LocalException(RuntimeException)
+exception ReadException(RuntimeException)
+exception LinearException(RuntimeException)
+local class LocalClass
+  def throw_exc() : unit
+    throw LocalException
+  end
+end
+read class ReadClass
+  def throw_exc() : unit
+    throw ReadException
+  end
+end
+linear class LinearClass
+  def throw_exc() : unit
+    throw LinearException
+  end
+end
+fun test_passive_classes_throw() : unit
+  try
+    try
+      (new LocalClass).throw_exc()
+    catch LocalException
+      print("caught LocalException, ")
+    end
+    try
+      (new ReadClass).throw_exc()
+    catch ReadException
+      print("ReadException, ")
+    end
+    try
+      (new LinearClass).throw_exc()
+    catch LinearException
+      println("LinearException")
+    end
+  catch
+    println("test failed")
+  end    
+end
+
+fun test_rethrow() : unit
+  var res = "fail"
+  try
+    throw RuntimeException("wahaa!")
+    res = "fail1"
+  catch e : RuntimeException
+    try
+      e.rethrow()
+      res = "fail2"
+    catch e2 : RuntimeException
+      res = "pass"
+    end
+  end
+  println("test_rethrow: {}", res)
+end
+
+fun test_nested_rethrow() : unit
+  var res = 1
+  var e = new Exception(EMBED(EMBED const e4c_exception_type_t* END) &RuntimeException; END, "fail", 0, "")
+  var check = true
+  try
+    res = res+2
+    try
+      res = res+4
+      throw RuntimeException("4")
+    catch e_ : RuntimeException
+      res = res+8
+      e = e_
+      e_.rethrow()
+      ()
+    end
+  catch e_ : RuntimeException
+    check = check && e_ == e
+    res = res+16
+  end
+  println("{} {} {}", res, check, e.message)
+end
+
+linear class Acc
+  var res : int
+  var e : Exception
+  var check : bool
+  def init() : unit
+    this.res = 0
+    this.e = new Exception(EMBED(EMBED const e4c_exception_type_t* END) &RuntimeException; END, "fail", 0, "")
+    this.check = false
+  end
+end
+fun deep_nested_rethrow_aux(current : int, a : borrowed Acc) : unit
+  try
+    if current > 0 then
+      deep_nested_rethrow_aux(current-1,a)
+    else
+      try
+        throw RuntimeException("deepest")
+      catch e : RuntimeException
+        a.e = e
+        a.check = true
+        e.rethrow()
+      end
+      ()
+    end
+  catch e : RuntimeException
+    a.res = a.res + 1
+    a.check = a.check && a.e == e
+    e.rethrow()
+    ()
+  end
+end
+fun test_deep_nested_rethrow() : unit
+  var a = new Acc()
+  try
+    deep_nested_rethrow_aux(4,a)
+  catch e : RuntimeException
+    ()
+  end
+  println("{} {} {}", a.res, a.check, a.e.message)
+end
+
+fun test_gete_right(x : int) : unit
+  var either = Right[Exception, int](x)
+  try
+    println(gete[int](either))
+  catch
+    println(-x)
+  end
+end
+
+fun test_gete_left(x : int) : unit
+  -- Produce Either with result on right or Exception on left.
+  var either =
+    try
+      throw RuntimeException
+      Right[Exception, int](-x)
+    catch exc : RuntimeException
+      Left[Exception, int](exc)
+    end
+  try
+    gete[int](either)
+    println(-x)
+  catch
+    println(x)
+  end
+end
+
+active class Main
+  def main() : unit
+    test_tryCatch(1)
+    test_tryCatch_throw(2)
+    test_tryCatch_explicit(3)
+    test_tryCatch_throw_explicit(4)
+    test_throw_without_msg(5)
+    test_tryFin(6)
+    test_tryCatchFin(7)
+    test_tryCatchFin_throw(8)
+    test_tryCatchFin_nested(9)
+    test_tryCatchFin_nested_throw(10)
+    test_tryFin_throw(11)
+    test_exception_var(12)
+    test_exception_msg()
+    test_exception_info()
+    test_catch_custom_throw(15)
+    test_catch_supertype(16)
+    test_multiple_catch_branches()
+    test_multiple_catch_branches2()
+    test_passive_classes_throw()
+    test_rethrow()
+    test_gete_right(21)
+    test_gete_left(22)
+    test_deep_nesting()
+    test_nested_rethrow()
+    test_deep_nested_rethrow()
+  end
+end
+

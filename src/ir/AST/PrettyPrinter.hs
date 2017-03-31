@@ -13,6 +13,7 @@ module AST.PrettyPrinter (ppExpr
                          ,ppProgram
                          ,ppParamDecl
                          ,ppFieldDecl
+                         ,ppException
                          ,indent
                          ,ppSugared
                          ,ppFunctionHeader
@@ -49,12 +50,13 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes} =
+ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes, exceptions} =
     ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
     vcat (map ppTypedef typedefs) $+$
     -- TODO: reverse these somewhere else...
+    vcat (reverse $ map ppException exceptions) $+$
     vcat (reverse $ map ppFunction functions) $+$
     vcat (reverse $ map ppTraitDecl traits) $+$
     vcat (reverse $ map ppClassDecl classes) $+$
@@ -107,6 +109,10 @@ ppTypedef Typedef { typedefdef=t } =
     ppType t <+>
     "=" <+>
     ppType (typeSynonymRHS t)
+
+ppException ExceptionDef {excname, excsupername} =
+  "exception" <+> ppName excname <>
+   parens (ppName excsupername)
 
 ppFunctionHeader :: FunctionHeader -> Doc
 ppFunctionHeader header =
@@ -386,6 +392,30 @@ ppExpr Await {val} = "await" <> parens (ppExpr val)
 ppExpr IsEos {target} = "eos" <> parens (ppExpr target)
 ppExpr StreamNext {target} = "getNext" <> parens (ppExpr target)
 ppExpr Return {val} = "return" <> parens (ppExpr val)
+ppExpr Throw {name, message} = "throw" <+> ppName name <>
+  ppOptMsg
+  where
+    ppOptMsg = case message of
+                 Just m  -> parens (ppExpr m)
+                 Nothing -> empty
+ppExpr Try {tryBody, catchClauses, finally} =
+  "try" $+$
+  indent (ppBody tryBody) $+$
+  ppCatchClauses catchClauses $+$
+  ppOptFinally finally $+$
+  "end"
+  where
+    ppCatchClause CatchClause{ccexceptionType, ccbody, ccexceptionVar} =
+      "catch" <+> ppOptExcVar ccexceptionVar <+> ppName ccexceptionType $+$
+      indent (ppBody ccbody)
+    ppOptExcVar var = case var of
+                        Just v  -> ppName v <+> ":"
+                        Nothing -> empty
+    ppCatchClauses = (vcat . map ppCatchClause)
+    
+    ppOptFinally Skip{} = empty
+    ppOptFinally f      = "finally" $+$
+                          indent (ppBody f)
 ppExpr Suspend {} = "suspend"
 ppExpr FieldAccess {target, name} =
   maybeParens target <> "." <> ppName name

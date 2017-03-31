@@ -222,7 +222,9 @@ void actor_save_context(pony_ctx_t **ctx, encore_actor_t *actor,
   context *old_root_context = root_context;
   encore_actor_t *old_actor = actor;
   this_context = pop_context(actor);
+  e4c_context_t * old_e4c_ctx = e4c_ctx(); // Store current exception context.
   assert_swap(uctx, &this_context->uctx);
+  e4c_ctx_set(old_e4c_ctx);                // Restore stored exception context.
 #if defined(PLATFORM_IS_MACOSX)
   force_thread_local_variable_access(old_this_context, old_root_context);
 #else

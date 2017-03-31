@@ -101,6 +101,10 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
 getChildren Borrow {target, body} = [target, body]
 getChildren Get {val} = [val]
 getChildren Forward {forwardExpr} = [forwardExpr]
+getChildren Throw {message = Just m } = [m]
+getChildren Throw {message = Nothing} = []
+getChildren Try {tryBody, catchClauses, finally} = tryBody : finally : catchBodies
+  where catchBodies = map ccbody catchClauses
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
 getChildren IsEos {target} = [target]
@@ -182,6 +186,12 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
 putChildren [target, body] e@(Borrow {}) = e{target, body}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
+putChildren [m] e@(Throw {message = Just _ }) = e{message = Just m}
+putChildren []  e@(Throw {message = Nothing}) = e{message = Nothing}
+putChildren (tryBody : finally : catchBodies) e@(Try {catchClauses}) =
+      e{tryBody = tryBody, catchClauses = newCatchClauses, finally = finally}
+      where
+        newCatchClauses = zipWith (\cc ccbody -> cc{ccbody}) catchClauses catchBodies
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
 putChildren [target] e@(IsEos {}) = e{target = target}
@@ -248,6 +258,8 @@ putChildren _ e@(Match {}) = error "'putChildren l Match' expects l to have at l
 putChildren _ e@(Borrow {}) = error "'putChildren l Borrow' expects l to have 2 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Forward {}) = error "'putChildren l Forward' expects l to have 1 element"
+putChildren _ e@(Throw {}) = error "'putChildren l Throw' expects l to have 1 element"
+putChildren _ e@(Try {}) = error "'putChildren l Try' expects l to have 3 elements"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
 putChildren _ e@(IsEos {}) = error "'putChildren l IsEos' expects l to have 1 element"

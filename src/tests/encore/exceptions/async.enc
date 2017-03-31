@@ -1,0 +1,277 @@
+exception BadtimeException(RuntimeException)
+exception CoolException(RuntimeException)
+
+active class ActiveClass
+  -- A class to be used in the tests 
+  var x : int
+  def init(x : int) : unit
+    this.x = x
+  end
+  def setx(x : int) : int
+    this.x = x
+    this.x
+  end
+  def fail_setx(x : int) : int
+    throw RuntimeException("fail_setx")
+    this.x = x
+    this.x
+  end
+  def getx() : int
+    -- Can be used to check if `setx()` or `fail_setx()`
+    -- led to expected change to x (without `get`ing a future).
+    this.x
+  end
+end
+
+active class Thrower
+  def throw_BadtimeException(s:String) : unit
+    EMBED (unit) E4C_THROW(e4c_ctx(),BadtimeException, #{s.getData()}); END
+  end
+  def throw_CoolException(s:String) : unit
+    EMBED (unit) E4C_THROW(e4c_ctx(),CoolException, #{s.getData()}); END
+  end
+  def rethrow_() : unit
+    var e = new Exception(EMBED (E4C_TYPE) &CoolException; END, "rethrown", 0, "")
+    e.rethrow()
+    -- Should never reach this point
+    throw RuntimeException
+  end
+end
+
+fun test_oneway_msg() : (bool, String)
+  -- Test whether one way messages work as expected
+  -- when the task does not result in an exception.
+  var a = new ActiveClass(-4)
+  a ! setx(7)
+  (get(a ! getx()) == 7, "") -- Check if task led to expected result.
+end
+
+fun test_oneway_msg_exception() : (bool, String)
+  -- Test whether one way messages work as expected
+  -- when the task results in an exception.
+  var a = new ActiveClass(12)
+  a ! fail_setx(-34)
+  (get(a ! getx()) == 12, "") -- Check if task led to expected result.
+end
+
+fun test_fut_msg_get() : (bool, String)
+  -- Future messages: Test `get` on non-exceptional future.
+  var a = new ActiveClass(-12)
+  var fut = a ! setx(3)
+  (get(fut) == 3, "")
+end
+
+fun test_fut_msg_leave_exception() : (bool, String)
+  -- Test producing an exceptional future without using `get` on it.
+  -- This simply tests whether exceptional future whose value
+  -- is not retrived crashing the program (it shouldn't).
+  var a = new ActiveClass(5)
+  var fut = a ! fail_setx(-28)
+  (get(a ! getx()) == 5, "") -- Check if task led to expected result.
+end
+
+fun test_fut_msg_get_exception() : (bool, String)
+  -- Test `get` on an exceptional future, and whether or not
+  -- the exception is rethrown.
+  var a = new ActiveClass(1)
+  var fut = a ! fail_setx(-1)
+  try
+    get(fut)
+    (false, "")
+  catch
+    (true, "")
+  end
+end
+
+fun test_await() : (bool, String)
+  -- Tests simple use of the `await` operation.
+  var a = new ActiveClass(1)
+  var fut_exc = a ! fail_setx(-1)
+  await(fut_exc)
+  (true,"")
+end
+
+fun test_await_trycatch() : (bool, String)
+  -- Tests simple use of the `trycatch` after an `await` operation.
+  var a = new ActiveClass(1)
+  var fut_exc = a ! fail_setx(-1)
+  await(fut_exc)
+  try
+    get(fut_exc)
+    (false,"")
+  catch e : RuntimeException
+    (true,"")
+  end
+end
+
+active class SuspendActor
+  def test_suspend() : (bool, String)
+    -- Tests simple use of the `suspend` operation.
+    -- Suspend this actor, then immediately run it this actor (if single thread).
+    -- Things related to exception handling will only happen in the runtime.
+    this.suspend()
+    (true,"")
+  end
+
+  def test_suspend_trycatch() : (bool, String)
+    -- Tests suspending an actor before getting a future that the actor is producing.
+    var a = new ActiveClass(1)
+    var fut_exc = a ! fail_setx(-1)
+    a ! suspend()
+    try
+      get(fut_exc)
+      (false,"")
+    catch e : RuntimeException
+      (true,"")
+    end
+  end
+
+  def test_suspend_trycatch2() : (bool, String)
+    -- Tests suspending this before getting a future that another actor is producing.
+    var a = new ActiveClass(1)
+    var fut_exc = a ! fail_setx(-1)
+    this.suspend()
+    try
+      get(fut_exc)
+      (false,"")
+    catch e : RuntimeException
+      (true,"")
+    end
+  end
+
+  def test_suspend_trycatch3() : (bool, String)
+    -- Tests suspending this before getting a future that another actor is producing.
+    -- 1. Create another actor, have it suspend itself
+    -- 2. Suspend this actor
+    -- 3. Either this actor is run immediately, or the other one is run.
+    -- 4. Do some exception handling
+    var a = new ActiveClass(1)
+    a ! suspend()
+    var fut_exc = a ! fail_setx(-1)
+    this.suspend()
+    try
+      get(fut_exc)
+      (false,"")
+    catch e : RuntimeException
+      (true,"")
+    end
+  end
+
+end
+
+fun test_suspend() : (bool, String)
+  get(new SuspendActor() ! test_suspend())
+end
+fun test_suspend_trycatch() : (bool, String)
+  get(new SuspendActor() ! test_suspend())
+end
+fun test_suspend_trycatch2() : (bool, String)
+  get(new SuspendActor() ! test_suspend())
+end
+
+fun test_one_actor_many_futures() : (bool, String)
+  -- Creates an actor which is sent multiple exceptional future messages.
+  -- Tests whether data of exceptions instances point to distinct addresses,
+  -- and whether futures were fulfilled with the expected exception instances.
+  var success = true
+  var comment = "Got expected exceptions and futures from single actor."
+  var t = new Thrower()
+
+  -- testcases :: [(future, expected_exception, expected_message)]
+  var testcases =
+    [(t ! throw_BadtimeException("one bad 1"), "BadtimeException", "one bad 1"),
+     (t ! throw_CoolException("two cool 2"), "CoolException", "two cool 2"),
+     (t ! throw_BadtimeException("three bad 3"), "BadtimeException", "three bad 3"),
+     (t ! throw_CoolException("four empty 4"), "CoolException", "four empty 4")]
+     
+  var failures = 0
+
+  for tc <- testcases do
+    var fut = tc.0
+    var expected_exc = tc.1
+    var expected_msg = tc.2
+    var caught_exc  = "" -- Should be equal to expected_exc
+    var exc_exc = "" -- Should be equal to expected_exc
+    var exc_msg = "" -- Should be equal to expected_msg
+
+    try
+      var x = get(fut)
+    catch e : BadtimeException
+      caught_exc = "BadtimeException"
+      exc_exc = e.type
+      exc_msg = e.message
+    catch e : CoolException
+      caught_exc = "CoolException"
+      exc_exc = e.type
+      exc_msg = e.message
+    end
+
+    -- checking results
+    var ce = caught_exc.eq(expected_exc)
+    var we = exc_exc.eq(expected_exc)
+    var wm = exc_msg.eq(expected_msg)
+    if not (ce && we && wm) then
+      success = false
+      var parts = ["Expected: ", expected_exc, ", '", expected_msg,
+                   "'. Caught: ", caught_exc,
+                   ". Exc: ", exc_exc, ", '",exc_msg,"'."]
+      comment = "".join(parts)
+      break
+    end
+
+  end
+  (success, comment)
+end
+
+fun test_multiple_actors() : (bool, String)
+  -- Tests getting exceptional futures from two different actors.
+  -- Checks if exception data as expected.
+  var fut_a = new Thrower ! throw_BadtimeException("Argh")
+  var fut_b = new Thrower ! throw_CoolException("Yummy")
+  try
+    get(fut_a)
+    (false,"")
+  catch exc_a : BadtimeException
+    try
+      get(fut_b)
+      (false,"")
+    catch exc_b : CoolException
+      if exc_a.type.eq(exc_b.type) then
+        (false, "Expected different types.")
+      else
+        (true, "The expected exception types were caught through futures.")
+      end
+    catch
+      (false, "Caugh unexpected type (2).")
+    end
+  catch
+    (false, "Caught unexpected type.")
+  end
+end
+
+
+fun printaux(t:(bool,String), test_name:String) : unit
+  -- Helper for printing test results.
+  var success = t.0
+  var comment = t.1
+  var success_str = if success then "PASS" else "FAIL" end
+  var comment_sep = if comment.length() == 0 then "" else " -- " end
+  println("{}: {}{}{}", success_str, test_name, comment_sep, comment)
+end
+
+active class Main
+  def main() : unit
+    printaux(test_oneway_msg(),              "test_oneway_msg")
+    printaux(test_oneway_msg_exception(),    "test_oneway_msg_exception")
+    printaux(test_fut_msg_get(),             "test_fut_msg_get")
+    printaux(test_fut_msg_leave_exception(), "test_fut_msg_leave_exception")
+    printaux(test_await(),                   "test_await")
+    printaux(test_await_trycatch(),          "test_await_trycatch")
+    printaux(test_suspend(),                 "test_suspend")
+    printaux(test_suspend_trycatch(),        "test_suspend_trycatch")
+    printaux(test_suspend_trycatch2(),       "test_suspend_trycatch2")
+    printaux(test_fut_msg_get_exception(),   "test_fut_msg_get_exception")
+    printaux(test_one_actor_many_futures(),  "test_one_actor_many_futures")
+    printaux(test_multiple_actors(),         "test_multiple_actors")
+  end
+end

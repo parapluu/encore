@@ -1,0 +1,7 @@
+active class Main
+  def main() : unit
+    -- Should print C file and line no. of below line
+    throw RuntimeException("iWreck")
+    println("iSurvive")
+  end
+end

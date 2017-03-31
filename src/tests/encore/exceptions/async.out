@@ -1,0 +1,12 @@
+PASS: test_oneway_msg
+PASS: test_oneway_msg_exception
+PASS: test_fut_msg_get
+PASS: test_fut_msg_leave_exception
+PASS: test_await
+PASS: test_await_trycatch
+PASS: test_suspend
+PASS: test_suspend_trycatch
+PASS: test_suspend_trycatch2
+PASS: test_fut_msg_get_exception
+PASS: test_one_actor_many_futures -- Got expected exceptions and futures from single actor.
+PASS: test_multiple_actors -- The expected exception types were caught through futures.

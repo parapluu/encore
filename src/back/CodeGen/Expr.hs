@@ -1077,6 +1077,37 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                )),
                        Assign (Decl (resultType, Var tmp)) theGet])
 
+  translate A.Throw{A.name, A.message} = do
+      let exportName = Nam $ show name
+          exportMsg  = case message of
+                         Just m  -> Just (A.stringLit m)
+                         Nothing -> Nothing
+      return (unit, Statement $ Throw exportName exportMsg)
+
+  translate tryExpr@(A.Try{A.tryBody, A.catchClauses, A.finally}) = do
+      resName <- Ctx.genNamedSym "tryResult"
+      let resDecl     = Decl (translate (A.getType tryExpr), Var resName)
+          resZeroInit = Cast (translate (A.getType tryExpr)) (Int 0)
+          resDef      = Assign resDecl resZeroInit
+
+      (nTry, tTry) <- translate tryBody
+      let exportTry = Seq $ tTry : [Assign (Var resName) nTry]
+
+      trCatchBodies <- mapM (translate . A.ccbody) catchClauses
+      let translateVar var = case var of
+                               Just v  -> Just $ Nam (show v)
+                               Nothing -> Nothing
+          exportExceptionTypes = map (Nam . show   . A.ccexceptionType) catchClauses
+          exportCatchBodies    = map (\(n,t) -> Seq $ t : [Assign (Var resName) n]) trCatchBodies
+          exportExceptionVars  = map (translateVar . A.ccexceptionVar ) catchClauses
+          exportCatches = zip3 exportExceptionTypes exportCatchBodies exportExceptionVars
+
+      (_, exportFin) <- translate finally
+
+      return (Var  resName,
+              Seq [Statement $ resDef,
+                   Try (Statement exportTry) exportCatches exportFin])
+
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym

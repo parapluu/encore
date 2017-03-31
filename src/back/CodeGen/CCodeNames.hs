@@ -46,6 +46,9 @@ void = Typ "void"
 encoreActorT :: CCode Ty
 encoreActorT = Typ "encore_actor_t"
 
+exception :: CCode Ty
+exception = Typ "exception"
+
 ponyTypeT :: CCode Ty
 ponyTypeT = Typ "pony_type_t"
 

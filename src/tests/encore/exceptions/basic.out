@@ -1,0 +1,25 @@
+1
+2
+3
+4
+5
+600
+700
+800
+900
+1000
+1100
+12
+informative_msg
+type:RuntimeException, message:informative_msg, line:NOT_TESTING, file:NOT_TESTING
+15
+16
+passed_multiple_catch_branches
+passed_multiple_catch_branches2
+caught LocalException, ReadException, LinearException
+test_rethrow: pass
+21
+22
+5050
+31 true 4
+5 true deepest

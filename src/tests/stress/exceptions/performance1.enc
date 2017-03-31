@@ -1,0 +1,40 @@
+-- For measuring raw running time overhead of exception handling.
+active class A
+  def foo() : int
+    1
+  end
+end
+
+active class Main
+
+  def main(args : [String]) : unit
+    var n = 2000000
+    var nactors = 8
+    if |args| > 1 then
+      match args(1).to_int() with
+        case Just(x) =>
+          n = x
+        end
+      end
+    end
+    if |args| > 2 then
+      match args(2).to_int() with
+        case Just(x) =>
+          nactors = x
+        end
+      end
+    end
+    -- Creating actors
+    var a = new [A](nactors)
+    repeat i <- nactors do
+      a(i) = new A()
+    end
+    
+    -- The test: One way message sends
+    repeat i <- n do
+      a(i % nactors) ! foo()
+    end
+    println("Done")
+  end
+
+end

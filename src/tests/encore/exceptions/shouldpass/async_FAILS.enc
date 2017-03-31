@@ -1,0 +1,27 @@
+exception CoolException(RuntimeException)
+active class Thrower
+  def rethrow_() : unit
+    var e = new Exception(EMBED (E4C_TYPE) &CoolException; END, "rethrown", 0, "")
+    e.rethrow()
+    -- Should never reach this point
+    throw RuntimeException
+  end
+end
+
+active class Main
+  def main() : unit
+    -- Tests whether an async method which rethrows leads to 
+    -- the future being fulfilled with the exception.
+    -- TODO: This currently does not work due to `rethrow()`
+    var a = new Thrower()
+    var fut = a ! rethrow_()
+    try
+      get(fut)
+      println("FAIL0")
+    catch CoolException
+      println("PASS")
+    catch RuntimeException
+      println("FAIL1")
+    end
+  end
+end

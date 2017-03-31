@@ -52,6 +52,7 @@ typedef struct pony_main_msg_t
     void* p;					\
     intptr_t i;         			\
     double d;					\
+    void* e; \
 
 typedef union { encore_arg_t_content; } encore_arg_t;
 

@@ -192,6 +192,7 @@ reservedNames =
     ,"borrow"
     ,"borrowed"
     ,"case"
+    ,"catch"
     ,"char"
     ,"class"
     ,"consume"
@@ -201,7 +202,9 @@ reservedNames =
     ,"else"
     ,"end"
     ,"eos"
+    ,"exception"
     ,"false"
+    ,"finally"
     ,"for"
     ,"fun"
     ,"forward"
@@ -226,8 +229,10 @@ reservedNames =
     ,"stream"
     ,"then"
     ,"this"
+    ,"throw"
     ,"trait"
     ,"true"
+    ,"try"
     ,"typedef"
     ,"uint"
     ,"unless"
@@ -424,16 +429,17 @@ typeVariable = do
   typeVar <$> identifier
   <?> "lower case type variable"
 
-data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function}
+data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function} | EDef{edef :: ExceptionDef}
 
-partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function])
-partitionDecls = partitionDecls' [] [] [] []
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [ExceptionDef])
+partitionDecls = partitionDecls' [] [] [] [] []
   where
-    partitionDecls' cs ts tds fds [] = (cs, ts, tds, fds)
-    partitionDecls' cs ts tds fds (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds ds
-    partitionDecls' cs ts tds fds (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds ds
-    partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
-    partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
+    partitionDecls' cs ts tds fds eds [] = (cs, ts, tds, fds, eds)
+    partitionDecls' cs ts tds fds eds (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds eds ds
+    partitionDecls' cs ts tds fds eds (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds eds ds
+    partitionDecls' cs ts tds fds eds (TDef{tdef}:ds)   = partitionDecls' cs ts (tdef:tds) fds eds ds
+    partitionDecls' cs ts tds fds eds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) eds ds
+    partitionDecls' cs ts tds fds eds (EDef{edef}:ds)   = partitionDecls' cs ts tds fds (edef:eds) ds
 
 program :: EncParser Program
 program = do
@@ -455,8 +461,9 @@ program = do
                    ,TDecl <$> traitDecl
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
+                   ,EDef <$> exceptionDef
                    ]
-  let (classes, traits, typedefs, functions) = partitionDecls decls
+  let (classes, traits, typedefs, functions, exceptions) = partitionDecls decls
   eof
   return Program{source
                 ,moduledecl
@@ -466,6 +473,7 @@ program = do
                 ,functions
                 ,traits
                 ,classes
+                ,exceptions
                 }
     where
       hashbang = do string "#!"
@@ -632,6 +640,17 @@ makeBody es =
 
 data TraitAttribute = TReqAttribute {treq :: Requirement}
                     | TMethodAttribute {tmdecl :: MethodDecl}
+
+exceptionDef :: EncParser ExceptionDef
+exceptionDef = do
+  excmeta <- buildMeta
+  reserved "exception"
+  lookAhead upperChar
+  excname <- Name <$> identifier
+  symbol "("
+  excsupername  <- (Name <$> (lookAhead upperChar >> identifier))
+  symbol ")"
+  return $ ExceptionDef{excmeta, excname, excsupername}
 
 partitionTraitAttributes :: [TraitAttribute] -> ([Requirement], [MethodDecl])
 partitionTraitAttributes = partitionTraitAttributes' [] []
@@ -1010,6 +1029,8 @@ expr = notFollowedBy nl >>
      <|> explicitReturn
      <|> forward
      <|> yield
+     <|> throw
+     <|> tryExpression
      <|> try isEos
      <|> eos
      <|> new
@@ -1422,6 +1443,72 @@ expr = notFollowedBy nl >>
         reserved "forward"
         forwardExpr <- parens expression
         returnWithEnd Forward{emeta, forwardExpr}
+
+      throw = do
+        emeta <- buildMeta
+        reserved "throw"
+        lookAhead upperChar
+        name <- Name <$> identifier
+        let throwExpr = Throw emeta name Nothing
+        throwWithMsg throwExpr <|> return throwExpr
+        where
+          throwWithMsg throwExpr = do
+            notFollowedBy nl
+            message <- Just <$> parens expression
+            return $ throwExpr{message}
+
+      tryExpression = do
+        indent <- L.indentLevel
+        emeta <- buildMeta
+        tryBlock <- indentBlock $ do
+          reserved "try"
+          parseBody $ \tryBody -> Try{emeta=emeta
+                                          ,tryBody=tryBody
+                                          ,catchClauses=[]
+                                          ,finally=Skip{emeta}}
+        newTryBlock@Try{catchClauses} <-
+          catch tryBlock
+            <|> catchAll tryBlock
+            <|> finallyClause tryBlock
+        atLevel indent $ reserved "end"
+        return newTryBlock{catchClauses=reverse catchClauses}
+
+      catch tryBlock@Try{catchClauses} = do
+        notFollowedBy (reserved "catch" >> nl)
+        newCatchClauses <- indentBlock $ do
+          reserved "catch"
+          (ccexceptionType, ccexceptionVar) <- withoutExcVar <|> withExcVar
+          parseBody $ \ccbody -> (CatchClause{ccexceptionType, ccbody, ccexceptionVar}:catchClauses)
+        let newTryBlock = tryBlock{catchClauses=newCatchClauses}
+        catch newTryBlock
+          <|> catchAll newTryBlock
+          <|> finallyClause newTryBlock
+          <|> return newTryBlock
+        where
+          withoutExcVar = do
+            ccexceptionType <- Name <$> (lookAhead upperChar >> identifier)
+            notFollowedBy colon
+            return (ccexceptionType, Nothing)
+          withExcVar = do
+            ccexceptionVar  <- Name <$> identifier
+            colon
+            ccexceptionType <- Name <$> (lookAhead upperChar >> identifier)
+            return (ccexceptionType, Just ccexceptionVar)
+
+      catchAll tryBlock@Try{catchClauses} = do
+        -- TODO: should accept `catch`, `catch RuntimeException` or `catch e : RuntimeException`
+        newCatchClause <- indentBlock $ do
+          reserved "catch"
+          let ccexceptionType = Name "RuntimeException"
+              ccexceptionVar  = Nothing
+          parseBody $ \ccbody -> CatchClause{ccexceptionType, ccbody, ccexceptionVar}
+        let newTryBlock = tryBlock{catchClauses=newCatchClause:catchClauses}
+        finallyClause newTryBlock <|> return newTryBlock
+      finallyClause tryBlock = do
+        finally <- indentBlock $ do
+          reserved "finally"
+          parseBody $ \body -> body
+        return tryBlock{finally=finally}
 
       closure = do
         indent <- L.indentLevel

@@ -66,6 +66,7 @@ encoreArgTTag (Typ "uint64_t") = Nam "i"
 encoreArgTTag (Typ "double")  = Nam "d"
 encoreArgTTag (Embed _)       = Nam "p"
 encoreArgTTag (Typ "char")    = Nam "i"
+encoreArgTTag (Typ "exception") = Nam "e"
 encoreArgTTag other           =
     error $ "Type.hs: no encoreArgTTag for " ++ show other
 

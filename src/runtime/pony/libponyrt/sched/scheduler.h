@@ -6,6 +6,7 @@
 #endif
 #include <pony.h>
 #include <platform.h>
+#include <e4c_lite.h>
 #include "actor/messageq.h"
 #include "gc/gc.h"
 #include "gc/serialise.h"
@@ -28,6 +29,7 @@ typedef struct pony_ctx_t
   trace_actor_fn trace_actor;
   gcstack_t* stack;
   actormap_t acquire;
+  e4c_context_t * e4c_ctx;
 
   void* serialise_buffer;
   size_t serialise_size;

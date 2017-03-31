@@ -6,6 +6,7 @@ import CodeGen.CCodeNames
 import CodeGen.Typeclasses
 import CodeGen.Function
 import CodeGen.ClassTable
+import CodeGen.ExceptionDef
 import qualified AST.AST as A
 
 import Data.Maybe
@@ -14,7 +15,7 @@ import Data.List
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generateShared :: A.Program -> ProgramTable -> CCode FIN
-generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) table =
+generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports, A.exceptions}) table =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -23,11 +24,18 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
 
       -- [commentSection "Shared messages"] ++
       -- sharedMessages ++
+      
+      [commentSection "Global exceptions"] ++
+      globalExceptions ++
+      
       [commentSection "Global functions"] ++
       globalFunctions ++
 
       [mainFunction]
     where
+      globalExceptions =
+        [translate e | e <- exceptions]
+        
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++
         [globalFunctionWrapper f | f <- functions] ++

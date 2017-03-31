@@ -1,0 +1,57 @@
+active class Messenger
+  def throw_() : bool
+    throw RuntimeException
+    false
+  end
+  def throw_other(m : Messenger) : bool
+    try
+      var fut = m ! throw_()
+      await(fut)
+      get(fut)
+      false
+    catch e : RuntimeException
+      true
+    end
+  end
+  def succeed() : unit
+    ()
+  end
+
+  def interaction1(n : int, method : String) : bool
+    var m = create_n_messengers(n)
+
+    repeat i <- |m| do
+      repeat j <- |m| do
+        if i != j then
+          if method.eq("throw_other") then
+            var f = m(i) ! throw_other(m(j))
+            await(f)
+          else
+            var f = m(i) ! succeed()
+            await(f)
+          end
+        end
+      end
+    end
+    true
+  end
+
+end
+
+fun create_n_messengers(n : int) : [Messenger]
+  var m = new [Messenger](n)
+  repeat i <- |m| do
+    m(i) = new Messenger()
+  end
+  m
+end
+
+active class Main
+  def main(args : [String]) : unit
+    -- A test that fails for some reason (program crashes)
+    var m = new Messenger()
+    var n = 200
+    var b2 = m ! interaction1(n,"throw_other")
+    var b3 = m ! interaction1(n,"succeed")
+  end
+end

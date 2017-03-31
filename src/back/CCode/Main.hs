@@ -105,3 +105,7 @@ data CCode a where
     FunPtrDecl   :: CCode Ty -> CCode Name -> [CCode Ty] -> CCode Stat
     CompoundLiteral :: CCode Ty -> [(CCode Lval, CCode Expr)] -> CCode Expr
     DesignatedInitializer :: [(CCode Name, CCode Expr)] -> CCode Expr
+    ExceptionDecl :: CCode Name -> CCode Toplevel
+    Exception    :: CCode Name -> CCode Name -> CCode Toplevel
+    Throw        :: CCode Name -> Maybe String -> CCode Expr
+    Try          :: CCode Stat -> [(CCode Name, CCode Stat, Maybe (CCode Name))] -> CCode Stat -> CCode Stat

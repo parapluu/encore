@@ -1,0 +1,66 @@
+module Exception
+
+typedef E4C_TYPE = EMBED const e4c_exception_type_t* END
+
+-- E4C exception instances.
+typedef E4C_EXCEPTION = EMBED e4c_exception_t* END
+
+read class Exception : Id
+  val type : String
+  val e4c_type : E4C_TYPE
+  val message : String
+  val cline : int
+  val cfile : String
+
+  def init(e4c_type : E4C_TYPE, message : String, cline : int, cfile : String) : unit
+    -- Casting `const char*` to `char*` to suppress warnings
+    this.e4c_type = e4c_type
+    this.type = new String(EMBED (EMBED char* END) (char*)#{this.e4c_type}->name; END)
+    this.message = message
+    this.cline = cline
+    this.cfile = cfile
+  end
+
+  def rethrow() : unit
+    -- TODO: Won't work outside outside of a try catch (doesn't have to be a local one).
+    -- One possible solution is to make `throw` operate on Exceptions, on top of manual input of arguments, and remove this method.
+    EMBED(unit)
+      E4C_RETHROW(e4c_ctx(),
+                #{this.e4c_type},
+                #{this.cfile.getData()},
+                #{this.cline},
+                #{this.message.getData()},
+                #{this});
+    END
+  end
+end
+
+fun string_from_cstring(s:EMBED char* END) : String
+  -- Copies a `char*` and returns a String based on the copy.
+  -- TODO: Move to String.enc?
+  let
+    len = EMBED (int) strlen(#{s}); END
+    str = EMBED (EMBED char* END) encore_alloc(*_ctx, #{len} + 1); END
+  in
+    EMBED (EMBED char* END) strncpy(#{str}, (char *)#{s}, #{len} + 1); END
+    new String(str)
+  end
+end
+
+fun e4c_to_exception_object(p : (EMBED void* END)) : (EMBED void* END)
+  let
+    e = EMBED (E4C_EXCEPTION) (e4c_exception_t*) #{p}; END
+    e4c_type = EMBED (E4C_TYPE) (e4c_exception_type_t*) #{e}->type; END
+    message = string_from_cstring(EMBED (EMBED char* END) (char*)#{e}->message; END)
+    cline = EMBED (int) #{e}->line; END
+    cfile = string_from_cstring(EMBED (EMBED char* END) (char*)#{e}->file; END)
+    exc = new Exception(e4c_type, message, cline, cfile)
+  in
+    EMBED (EMBED void* END) (void*) #{exc}; END
+  end
+end
+
+fun rethrow(ew : Exception) : unit
+  ew.rethrow()
+end
+

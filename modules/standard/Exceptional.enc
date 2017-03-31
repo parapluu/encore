@@ -1,0 +1,20 @@
+module Exceptional
+
+import Data.Either
+
+typedef Exceptional[t] = Either[Exception, t]
+
+fun gete[t](e : Exceptional[t]) : t
+  -- Returns the value from an Exceptional or throws an exception.
+  -- If a value is stored on the right it is returned,
+  -- otherwise the stored exception on the left is rethrown.
+  match e with
+    case Left(ew) =>
+      ew.rethrow()
+      gete[t](e) -- Typechecker workaround, makes clause type `t`. TODO: Rethrow should have "any type".
+    end
+    case Right(x) =>
+      x
+    end
+  end
+end

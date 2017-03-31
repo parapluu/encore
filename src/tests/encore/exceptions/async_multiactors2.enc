@@ -1,0 +1,123 @@
+active class A
+
+  def test1_task1(suspend_task1:bool, suspend_task2:bool) : int
+    var f = new A() ! test1_task2(1, suspend_task2)
+    if suspend_task1 then this.suspend() else () end
+    -- Context switch should occur with await,
+    -- testing switching of exception context as well.
+    await(f)
+    -- Context should now have been switched back
+    get(f)
+  end
+
+  def test1_task2(x:int, suspend_task2:bool) : int
+    if suspend_task2 then this.suspend() else () end    
+    x
+  end
+
+  def test2_task1(suspend_task1:bool, suspend_task2:bool) : int
+    -- Like test1, but with Try statement (exception stack frames)
+    try
+      var f = new A() ! test2_task2(2, suspend_task2)
+      if suspend_task1 then this.suspend() else () end
+      await(f)
+      get(f)
+    catch
+      -2
+    end
+  end
+  
+  def test2_task2(x:int, suspend_task2:bool) : int
+    try
+      if suspend_task2 then this.suspend() else () end
+      x
+    catch
+      -x*10
+    end
+  end
+
+  def test3_task1(suspend_task1:bool, suspend_task2:bool) : int
+    -- Have one task await a one way message that results in an exception.
+    await(new A() ! test3_task2(-3, suspend_task2))
+    if suspend_task1 then this.suspend() else () end
+    3
+  end
+
+  def test3_task2(x:int, suspend_task2:bool) : int
+    if suspend_task2 then this.suspend() else () end
+    throw RuntimeException
+    x
+  end
+
+  def test4_task1(suspend_task1:bool, suspend_task2:bool) : int
+    -- Have one task `get` an exceptional future produced by another actor.
+    -- This requires that switching of exception contexts works.
+    var exceptional_fut = new A() ! test4_task2(-4, suspend_task2)
+    await(exceptional_fut)
+    try
+      if suspend_task1 then this.suspend() else () end
+      var res = get(exceptional_fut)
+      res -- This line should not be reached
+    catch
+      4   -- This line should be reached
+    end
+  end
+
+  def test4_task2(x:int, suspend_task2:bool) : int
+    if suspend_task2 then this.suspend() else () end
+    throw RuntimeException
+    x
+  end
+end
+
+fun test1() : [int]
+  var ff = get(new A() ! test1_task1(false,false))
+  var ft = get(new A() ! test1_task1(false,true))
+  var tf = get(new A() ! test1_task1(true,false))
+  var tt = get(new A() ! test1_task1(true,true))
+  [ff,ft,tf,tt]
+end
+fun test2() : [int]
+  var ff = get(new A() ! test2_task1(false,false))
+  var ft = get(new A() ! test2_task1(false,true))
+  var tf = get(new A() ! test2_task1(true,false))
+  var tt = get(new A() ! test2_task1(true,true))
+  [ff,ft,tf,tt]
+end
+fun test3() : [int]
+  var ff = get(new A() ! test3_task1(false,false))
+  var ft = get(new A() ! test3_task1(false,true))
+  var tf = get(new A() ! test3_task1(true,false))
+  var tt = get(new A() ! test3_task1(true,true))
+  [ff,ft,tf,tt]
+end
+fun test4() : [int]
+  var ff = get(new A() ! test4_task1(false,false))
+  var ft = get(new A() ! test4_task1(false,true))
+  var tf = get(new A() ! test4_task1(true,false))
+  var tt = get(new A() ! test4_task1(true,true))
+  [ff,ft,tf,tt]
+end
+
+fun printaux(xs:[int], test_name:String) : unit
+  -- Helper for printing test results.
+  var success = true
+  for x <- xs do
+    success = success && x > 0
+  end
+  print("{}: {} -- ", if success then "PASS" else "FAIL" end, test_name)
+  for x <- xs do
+    print(string_from_int(x))
+  end
+  println()
+end
+
+active class Main
+  def main() : unit
+    printaux(test1(), "test1")
+    printaux(test2(), "test2")
+    printaux(test3(), "test3")
+    printaux(test4(), "test4")
+  end
+end
+    

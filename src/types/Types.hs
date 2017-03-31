@@ -4,6 +4,8 @@ module Types(
             ,arrowType
             ,arrowWithTypeParam
             ,isArrowType
+            ,exceptionType
+            ,isExceptionType
             ,futureType
             ,isFutureType
             ,parType
@@ -907,6 +909,10 @@ arrowWithTypeParam params args ty = typ $ ArrowType params args ty []
 
 isArrowType Type{inner = ArrowType {}} = True
 isArrowType _ = False
+
+exceptionType = classType "Exception" []
+isExceptionType ty = isClassType ty &&
+                     getId ty == "Exception"
 
 futureType = typ . FutureType
 isFutureType Type{inner = FutureType {}} = True

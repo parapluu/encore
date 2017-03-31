@@ -75,15 +75,17 @@ instance Checkable Program where
     --  E |- class1 .. E |- classm
     -- ----------------------------
     --  E |- funs classes
-  doTypecheck p@Program{typedefs, functions, traits, classes} = do
+  doTypecheck p@Program{typedefs, functions, traits, classes, exceptions} = do
     etypedefs <- mapM typecheck typedefs
     etraits  <- mapM typecheck traits
     eclasses <- mapM typecheck classes
     efuns    <- mapM typecheck functions
+    eexcs    <- mapM typecheck exceptions
     return p{functions = efuns
             ,typedefs = etypedefs
             ,traits = etraits
             ,classes = eclasses
+            ,exceptions = eexcs
             }
 
 instance Checkable Typedef where
@@ -555,6 +557,12 @@ instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do
       ptype' <- checkType ptype
       return $ setType ptype' p
+
+-- ------------------
+--  E |- exception(name, stringLit, name) : unit
+instance Checkable ExceptionDef where
+  doTypecheck e@ExceptionDef{excname, excsupername} =
+    return $ e {excname, excsupername}
 
 -- | 'hasType e ty' typechecks 'e' (with backtrace) and returns
 -- the result if 'e' is a subtype of 'ty'
@@ -1298,6 +1306,53 @@ instance Checkable Expr where
                        pushError eExpr $ ForwardTypeError returnType ty
                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              _ -> pushError eExpr ForwardInFunction
+
+    -- ------------------
+    --  E |- throw(stringLit) : bottomType
+    doTypecheck throw@(Throw {message = Just msg}) = do
+        eMsg <- typecheck msg
+        let newMsg = if isStringObjectType $ AST.getType eMsg
+                     then fromJust $ getSugared eMsg
+                     else eMsg
+        unless (isStringLiteral newMsg || isNullType (AST.getType eMsg)) $
+               pushError eMsg FormatStringLiteralError
+        return $ setType bottomType throw {message = Just newMsg}
+    doTypecheck throw@(Throw {}) = do return $ setType bottomType throw
+
+    -- ------------------
+    --  E |- try(stringLit) : unit
+    doTypecheck try_@(Try {tryBody,catchClauses,finally}) =
+        do eTryBody <- typecheck tryBody
+           let catchBodies = map ccbody catchClauses
+           eCatchBodies  <- mapM typecheck catchBodies
+           eFinally      <- typecheck finally
+
+           let eResultBodies = eTryBody : eCatchBodies
+           resultType <- checkAllSameType eResultBodies
+           let chkCatchBodies = map (setType resultType) eCatchBodies
+
+           return $ setType resultType
+             try_ {tryBody      = setType resultType eTryBody
+                  ,catchClauses = zipWith (\cc ccbody -> cc{ccbody}) catchClauses chkCatchBodies
+                  ,finally      = setType unitType eFinally}
+        where
+          checkAllSameType clauses = do
+            let types = map AST.getType clauses
+            result <- unifyTypes types
+            case result of
+              Just ty -> return ty
+              Nothing ->
+                case find hasKnownType clauses of
+                  Just e -> do
+                    let ty = AST.getType e
+                    mapM_ (`assertSubtypeOf` ty) types
+                    return ty
+                  Nothing ->
+                    tcError TryInferenceError  
+          hasKnownType e =
+              let ty = AST.getType e
+              in all (not . isBottomType) (typeComponents ty) &&
+                 not (isNullType ty)
 
     --  E |- val : t
     --  isStreaming(currentMethod)

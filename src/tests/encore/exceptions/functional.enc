@@ -1,0 +1,62 @@
+fun test_tryCatch(c : int) : int
+  try
+    c
+  catch
+    -c
+  end
+end
+
+fun test_tryCatch_throw(c : int) : int
+  try
+    throw RuntimeException("")
+    -c
+  catch
+    c
+  end
+end
+
+fun test_tryFin(c : int) : unit
+  var x = 0
+  x = try
+        c
+      finally
+        x = x*1000
+      end
+  println(x)
+end
+
+fun test_tryCatchFin(c : int) : unit
+  var x = 0
+  x = try
+        c
+      catch
+        -c
+      finally
+        x = x*1000
+      end
+  println(x)
+end
+
+fun test_tryCatchFin_throw(c : int) : unit
+  var x = 0
+  x = try
+        throw RuntimeException("")
+        -c
+      catch
+        c
+      finally
+        x = x*1000
+      end
+  println(x)
+end
+
+active class Main
+  def main() : unit
+    println(test_tryCatch(1))
+    println(test_tryCatch_throw(2))
+    test_tryFin(3)
+    test_tryCatchFin(4)
+    test_tryCatchFin_throw(5)
+  end
+end
+

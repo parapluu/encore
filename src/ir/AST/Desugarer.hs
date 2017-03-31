@@ -451,6 +451,35 @@ desugar f@FunctionCall{emeta
              ,par
              ,runassoc = False}
 
+-- Exception handling
+desugar t@Try{emeta, catchClauses} =
+  t{catchClauses = map desugarCatchClause catchClauses}
+  where
+    embed ty e = Embed emeta ty [(e, Skip emeta)]
+    embedToString e = NewWithInit{emeta, ty = stringObjectType, args = [embed (ctype "char*") e]}
+
+    desugarCatchClause cc@CatchClause{ccexceptionVar = Nothing} = cc
+    desugarCatchClause cc@CatchClause{ccbody, ccexceptionVar = Just varName} =
+      let
+        message = embedToString "E4C_EXCEPTION(e4c_ctx()).message;"
+        e4c_typedef = ctype "const e4c_exception_type_t*"
+        e4c_type = Embed emeta e4c_typedef [("E4C_EXCEPTION(e4c_ctx()).type;", Skip emeta)]
+        cfile    = embedToString "E4C_EXCEPTION(e4c_ctx()).file ? E4C_EXCEPTION(e4c_ctx()).file : \"UNKNOWN\";"
+        cline    = Embed emeta intType [("E4C_EXCEPTION(e4c_ctx()).line ? E4C_EXCEPTION(e4c_ctx()).line : 0;", Skip emeta)]
+        args = [e4c_type, message, cline, cfile]
+        theVar = VarType varName exceptionType
+        newException = NewWithInit emeta exceptionType args
+        theException =
+          IfThenElse{emeta
+                    ,cond = Embed emeta Types.boolType [("E4C_EXCEPTION_OBJ(e4c_ctx()) == 0;", Skip emeta)]
+                    ,thn = newException
+                    ,els = Embed emeta exceptionType [("E4C_EXCEPTION_OBJ(e4c_ctx());", Skip emeta)]
+                    }
+        decls = [ ([theVar], theException) ]
+        newccbody = Let{emeta, mutability = Val, decls, body = ccbody}
+      in
+        cc{ccbody = newccbody}
+
 -- Maybe values
 desugar x@VarAccess{emeta, qname = QName{qnlocal = Name "Nothing"}} =
   MaybeValue{emeta, mdt = NothingData}

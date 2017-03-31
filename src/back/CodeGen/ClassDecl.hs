@@ -96,7 +96,10 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
                                      Call (Nam "_init_argv")
                                           [AsExpr encoreCtxVar,
                                            AsExpr $ (Var "msg") `Arrow` (Nam "argc"),
-                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]]])
+                                           AsExpr $ (Var "msg") `Arrow` (Nam "argv")]],
+                   -- Exit program if unpropagated exception exists in main
+                   Statement $ If (Embed "E4C_UNPROPAGATED(e4c_ctx())" :: CCode Expr)
+                                  (Embed "E4C_FAIL(e4c_ctx());" :: CCode Stat) Skip])
        methodClauses = concatMap methodClause
 
        methodClause m = (mthdDispatchClause m mArgs) :

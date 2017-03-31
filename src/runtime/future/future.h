@@ -3,6 +3,7 @@
 
 #include <pony.h>
 #include "closure.h"
+#include "e4c_lite.h"
 
 typedef struct future future_t;
 
@@ -28,6 +29,12 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type);
  * (this operation may be blocking until the future is fulfilled)
  */
 bool future_fulfilled  (future_t *fut);
+
+/** Check if the future is exceptional
+ *
+ * (this operation may be blocking until the future is set to exceptional)
+ */
+bool future_exceptional(future_t *fut);
 
 /*
  * Fulfil the future with the given value

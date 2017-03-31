@@ -108,6 +108,35 @@ pp' (While cond body) =
   "while" <+> parens (pp' cond) $+$
               bracedBlock (pp' body)
 pp' (DoWhile cond body) = "do" <+> bracedBlock (pp' body) $+$ "while" <+> parens (pp' cond) 
+pp' (ExceptionDecl name) =
+  addSemi $ "E4C_DECLARE_EXCEPTION" <>
+  parens (tshow name)
+pp' (Exception name supername) =
+  addSemi $ "E4C_DEFINE_EXCEPTION" <>
+  parens (commaSep [tshow name,
+                    tshow supername])
+pp' (Throw name message) =
+  addSemi $ "E4C_THROW" <>
+  parens (commaSep ["e4c_ctx()", tshow name, ppOptMsg])
+  where
+    ppOptMsg = case message of
+                 Just m  -> doubleQuotes (text m)
+                 Nothing -> pp' Null
+pp' (Try tryBody catchClauses finally) =
+  "E4C_TRY" <> parens ppE4c_ctx $+$
+    bracedBlock (pp' tryBody) $+$
+  ppCatchClauses catchClauses $+$
+  ppFinallyClause finally <>
+  "E4C_TRY_END"
+  where
+    ppCatchClause (exceptionType, body, exceptionVar) =
+      "E4C_CATCH" <> parens (commaSep [ppE4c_ctx, tshow exceptionType]) $+$
+        bracedBlock (pp' body)
+    ppCatchClauses = (vcat . map ppCatchClause)
+    ppFinallyClause Skip = empty
+    ppFinallyClause body = "E4C_FINALLY" <> parens ppE4c_ctx $+$
+                            bracedBlock (pp' body)
+    ppE4c_ctx = "e4c_ctx()"
 
 pp' (StatAsExpr n s) = "({" <> pp' s <+> pp' n <> ";})"
 pp' (If c t e) =

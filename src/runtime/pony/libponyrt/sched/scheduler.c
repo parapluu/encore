@@ -566,3 +566,13 @@ PONY_API pony_ctx_t* pony_ctx()
 {
   return &this_scheduler->ctx;
 }
+
+e4c_context_t* e4c_ctx()
+{
+  return this_scheduler->ctx.e4c_ctx;
+}
+
+void e4c_ctx_set(e4c_context_t * e4c_ctx)
+{
+  this_scheduler->ctx.e4c_ctx = e4c_ctx;
+}

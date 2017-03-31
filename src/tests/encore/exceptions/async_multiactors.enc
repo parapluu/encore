@@ -1,0 +1,140 @@
+exception Exception1(RuntimeException)
+exception Exception2(RuntimeException)
+
+active class Messenger
+  def throw_(s:String) : unit
+    EMBED (unit) E4C_THROW(e4c_ctx(),RuntimeException, #{s.getData()}); END
+  end
+  def throw_Exception1(s:String) : unit
+    EMBED (unit) E4C_THROW(e4c_ctx(),Exception1, #{s.getData()}); END
+  end
+  def throw_otherfut(m : Messenger) : Fut[unit]
+    m ! throw_("")
+  end
+  def trycatch_Exception2(s:String) : unit
+    try
+      EMBED (unit) E4C_THROW(e4c_ctx(),Exception2, #{s.getData()}); END
+    catch
+      ()
+    end
+  end
+  def trycatch_other_Exception2(m : Messenger) : unit
+    get(m ! trycatch_Exception2("Message error"))
+  end
+  def succeed(x:int) : int
+    x
+  end
+  def succeed_other(m : Messenger, x:int) : Fut[int]
+    m ! succeed(x)
+  end
+end
+
+fun test_multiactors() : (bool,String)
+  -- 1. Create two new actors m1, m2
+  -- 2. Have m2 send m1 a message, so m1 does a trycatch (and uses an exception contex)
+  -- 3. Have m1 throw an exception, store result to fut.
+  -- 4. get(fut), blocking the main actor (`this`), m1 is run
+  -- 5. `this` resumes, then m2 runs its task (of having m1 doing a trycatch)
+
+  var success = true
+  var comment = ""
+  var m1 = new Messenger()
+  var m2 = new Messenger()
+  m2 ! trycatch_other_Exception2(m1)
+  var fut = m1 ! throw_("runnyErr 1")
+
+  try
+    var x = get(fut)
+  catch e : RuntimeException
+    success = if e.type.eq("RuntimeException") && e.message.eq("runnyErr 1") then
+                true
+              else
+                false
+              end
+    comment = if success then
+                ""
+              else
+                "".join([e.type, e.message])
+              end
+  end
+  (success,comment)
+end
+
+fun test_multiactors2() : (bool,String)
+  var success = true
+  var comment = ""
+  var m1 = new Messenger()
+  var m2 = new Messenger()
+  m2 ! trycatch_other_Exception2(m1)
+
+  -- testcases :: [(future, expected_exception, expected_msg)]
+  var testcases =
+    [(m1 ! throw_("runnyErr 1"), "RuntimeException", "runnyErr 1"),
+     (m1 ! throw_Exception1("badErr 2")  , "Exception1", "badErr 2")]
+
+  for tc <- testcases do
+    var fut = tc.0
+    var expected_exc = tc.1
+    var expected_msg = tc.2
+    var caught_exc  = "" -- Should be equal to expected_exc
+    var wrapper_exc = "" -- Should be equal to expected_exc
+    var wrapper_msg = "" -- Should be equal to expected_msg
+
+    try
+      var x = get(fut)
+    catch e : Exception1
+      caught_exc = "Exception1"
+      wrapper_exc = e.type
+      wrapper_msg = e.message
+    catch e : RuntimeException
+      caught_exc = "RuntimeException"
+      wrapper_exc = e.type
+      wrapper_msg = e.message
+    end
+
+    -- checking results
+    var ce = caught_exc.eq(expected_exc)
+    var we = wrapper_exc.eq(expected_exc)
+    var wm = wrapper_msg.eq(expected_msg)
+    if not (ce && we && wm) then
+      success = false
+      var parts = ["Expected: ", expected_exc, ", '", expected_msg,
+                   "'. Caught: ", caught_exc,
+                   ". Wrapper: ", wrapper_exc, ", '",wrapper_msg,"'.\n"]
+      comment = "".join(parts)
+      break
+    end
+
+  end
+  (success,comment)
+end
+
+fun test_multiactors3() : (bool,String)
+  var m1 = new Messenger
+  var m2 = new Messenger
+  var f = m1 ! throw_otherfut(m2)
+  try
+    println(get(get(f)))
+    (false, "")
+  catch
+    (true, "")
+  end
+end
+
+fun printaux(t:(bool,String), test_name:String) : unit
+  -- Helper for printing test results.
+  var success = t.0
+  var comment = t.1
+  var success_str = if success then "PASS" else "FAIL" end
+  var comment_sep = if comment.length() == 0 then "" else " -- " end
+  println("{}: {}{}{}", success_str, test_name, comment_sep, comment)
+end
+
+active class Main
+  def main() : unit
+    printaux(test_multiactors(),  "test_multiactors")
+    printaux(test_multiactors2(), "test_multiactors2")
+    printaux(test_multiactors3(), "test_multiactors3")
+  end
+end
+    

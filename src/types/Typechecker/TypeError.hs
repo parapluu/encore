@@ -38,6 +38,7 @@ data BacktraceNode = BTFunction Name Type
                    | BTParam ParamDecl
                    | BTField FieldDecl
                    | BTMethod MethodDecl
+                   | BTExceptionDef ExceptionDef
                    | BTExpr Expr
                    | BTTypedef Type
                    | BTModule Name
@@ -55,6 +56,7 @@ instance Show BacktraceNode where
   show (BTTrait ty) = concat ["In trait '", show ty, "'"]
   show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
   show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
+  show (BTExceptionDef e) =  concat ["In exception '", show (ppException e), "'"]
   show (BTMethod m) =
       let name = hname $ mheader m
           ty   = htype $ mheader m
@@ -155,6 +157,9 @@ instance Pushable ParamDecl where
 instance Pushable MethodDecl where
     push m = pushMeta m (BTMethod m)
 
+instance Pushable ExceptionDef where
+    push m = pushMeta m (BTExceptionDef m)
+
 instance Pushable Expr where
     push expr = pushMeta expr (BTExpr expr)
 
@@ -244,6 +249,7 @@ data Error =
   | EmptyMatchClauseError
   | ActiveMatchError
   | MatchInferenceError
+  | TryInferenceError
   | ThisReassignmentError
   | ImmutableVariableError QualifiedName
   | PatternArityMismatchError Name Int Int
@@ -528,6 +534,7 @@ instance Show Error where
     show EmptyMatchClauseError = "Match statement must have at least one clause"
     show ActiveMatchError = "Cannot match on an active object"
     show MatchInferenceError = "Cannot infer result type of match expression"
+    show TryInferenceError = "Cannot infer result type of try expression"
     show ThisReassignmentError = "Cannot rebind variable 'this'"
     show (ImmutableVariableError qname) =
         printf "Variable '%s' is immutable and cannot be re-assigned"

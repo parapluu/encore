@@ -20,6 +20,8 @@ pthread_mutexattr_t attr;
 #define UNBLOCK  pthread_mutex_unlock(&fut->lock);
 #define perr(m)  // fprintf(stderr, "%s\n", m);
 
+extern void* _enc__global_fun_Exceptionrethrow(pony_ctx_t** ctx, pony_type_t** type, void* ew); // TODO: Don't use hard coded function
+extern void* _enc__global_fun_Exceptione4c_to_exception_object(pony_ctx_t** _ctx, pony_type_t** runtimeType, void* _enc__arg_p);
 extern void encore_future_gc_acquireactor(pony_ctx_t* ctx, pony_actor_t* actor);
 extern void encore_future_gc_acquireobject(pony_ctx_t* ctx, void* p,
     pony_type_t *t, int mutability);
@@ -88,6 +90,7 @@ struct future
   encore_arg_t      value;
   pony_type_t    *type;
   bool            fulfilled;
+  bool            exceptional;
   // Stupid limitation for now
   actor_entry_t   responsibilities[16];
   int             no_responsibilities;
@@ -208,15 +211,35 @@ bool future_fulfilled(future_t *fut)
   return r;
 }
 
+bool future_exceptional(future_t *fut)
+{
+  perr("future_exceptional");
+  bool r;
+  BLOCK;
+  r = fut->exceptional;
+  UNBLOCK;
+  return r;
+}
+
 void future_fulfil(pony_ctx_t **ctx, future_t *fut, encore_arg_t value)
 {
   assert(fut->fulfilled == false);
+  int64_t exceptional = E4C_UNPROPAGATED(e4c_ctx());
+  if ((bool)exceptional) {
+    if (E4C_EXCEPTION_OBJ(e4c_ctx()) == 0) {
+      value = (encore_arg_t) {.e = _enc__global_fun_Exceptione4c_to_exception_object(ctx, (pony_type_t**) NULL, (void*) &E4C_EXCEPTION(e4c_ctx()))};
+    } else {
+      value = (encore_arg_t) {.e = E4C_EXCEPTION_OBJ(e4c_ctx())};
+    }
+  }
+
   ENC_DTRACE2(FUTURE_FULFIL_START, (uintptr_t) *ctx, (uintptr_t) fut);
 
   BLOCK;
   // Update the modifiable context
   fut->value = value;
   fut->fulfilled = true;
+  fut->exceptional = (bool)exceptional;
 
   // Create pointer to a `pony_ctx_t * const` (in practice, PonyRT omits the `const`)
   pony_ctx_t *cctx = *ctx;
@@ -297,6 +320,10 @@ encore_arg_t future_get_actor(pony_ctx_t **ctx, future_t *fut)
 
   acquire_future_value(ctx, fut);
   ENC_DTRACE2(FUTURE_GET, (uintptr_t) *ctx, (uintptr_t) fut);
+
+  if (fut->exceptional) {
+    _enc__global_fun_Exceptionrethrow(ctx, (pony_type_t**) NULL, fut->value.e);
+  }
 
   return fut->value;
 }

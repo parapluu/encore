@@ -54,6 +54,9 @@ generateHeader p =
     [commentSection "Embedded code"] ++
     map Embed embedded ++
 
+    [commentSection "Exception type decls"] ++
+    exceptionTypeDecls ++
+  
     [commentSection "Class type decls"] ++
     classTypeDecls ++
 
@@ -110,6 +113,7 @@ generateHeader p =
           ]
 
      traits = A.traits p
+     exceptions = A.exceptions p
      classes = A.classes p
      functions = A.functions p
      embedded = A.allEmbedded p
@@ -187,6 +191,11 @@ generateHeader p =
          where
            runtimeTypeFnDecl A.Class{A.cname} =
                FunctionDecl void (runtimeTypeInitFnName cname) [Ptr . AsType $ classTypeName cname, Embed "..."]
+
+     exceptionTypeDecls = map exceptionTypeDecl exceptions
+         where
+           exceptionTypeDecl A.ExceptionDef{A.excname} =
+             ExceptionDecl (Nam $ show excname)
 
      classTypeDecls = map classTypeDecl classes
                  where

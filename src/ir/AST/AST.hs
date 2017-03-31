@@ -30,7 +30,8 @@ data Program = Program {
   typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
-  classes :: [ClassDecl]
+  classes :: [ClassDecl],
+  exceptions :: [ExceptionDef]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -540,11 +541,34 @@ instance HasMeta MethodDecl where
       | isStreamMethod m = "streaming method '" ++ show (methodName m) ++ "'"
       | otherwise = "method '" ++ show (methodName m) ++ "'"
 
+data ExceptionDef =
+  ExceptionDef {
+    excmeta       :: Meta ExceptionDef,
+    excname       :: Name,
+    excsupername  :: Name
+  } deriving (Show)
+
+instance Eq ExceptionDef where
+  a == b = (excname $ a) == (excname $ b)
+
+instance HasMeta ExceptionDef where
+    getMeta = excmeta
+    setMeta exc m = exc{excmeta = m}
+    setType ty i =
+      error "AST.hs: Cannot set the type of an Exception"
+
 data MatchClause =
     MatchClause {
       mcpattern :: Expr,
       mchandler :: Expr,
       mcguard   :: Expr
+    } deriving (Show, Eq)
+
+data CatchClause =
+    CatchClause {
+      ccexceptionType :: Name,
+      ccbody          :: Expr,
+      ccexceptionVar  :: Maybe Name
     } deriving (Show, Eq)
 
 type Arguments = [Expr]
@@ -736,6 +760,13 @@ data Expr = Skip {emeta :: Meta Expr}
           | Unary {emeta :: Meta Expr,
                    uop   :: UnaryOp,
                    operand  :: Expr }
+          | Throw {emeta :: Meta Expr,
+                   name :: Name,
+                   message :: Maybe Expr}
+          | Try {emeta :: Meta Expr,
+                 tryBody :: Expr,
+                 catchClauses :: [CatchClause],
+                 finally :: Expr}
           | Binop {emeta :: Meta Expr,
                    binop :: BinaryOp,
                    loper :: Expr,
