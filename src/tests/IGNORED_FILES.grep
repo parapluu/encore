@@ -31,9 +31,7 @@ encore/modules/ModuleOnTheRight
 
 #
 # Disabled 'basic' tests
-# Note that largestream works, except on CI
 #
-encore/basic/largestream
 encore/basic/foreach_construct
 
 #
