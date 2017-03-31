@@ -43,7 +43,8 @@ generateHeader p =
       "stdio.h",
       "stdarg.h",
       "dtrace_enabled.h",
-      "dtrace_encore.h"
+      "dtrace_encore.h",
+      "e4c_lite.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
 

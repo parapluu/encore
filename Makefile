@@ -78,6 +78,8 @@ TUPLE_INC=$(RUNTIME_DIR)/tuple/tuple.h
 TUPLE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libtuple.a
 RANGE_INC=$(RUNTIME_DIR)/range/range.h
 RANGE_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/librange.a
+E4C_INC=$(RUNTIME_DIR)/e4c/lite/src/e4c_lite.h
+E4C_LIB=$(RUNTIME_DIR)/pony/bin/$(CONFIG)/libe4c.a
 
 pony: dirs $(PONY_INC)
 	make -C $(SRC_DIR) pony use=$(use)
@@ -94,6 +96,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(ARRAY_INC) $(INC_DIR)
 	cp -r $(TUPLE_INC) $(INC_DIR)
 	cp -r $(RANGE_INC) $(INC_DIR)
+	cp -r $(E4C_INC) $(INC_DIR)
 	cp -r $(PONY_LIB) $(LIB_DIR)
 	cp -r $(FUTURE_LIB) $(LIB_DIR)
 	cp -r $(CLOSURE_LIB) $(LIB_DIR)
@@ -105,6 +108,7 @@ pony: dirs $(PONY_INC)
 	cp -r $(ARRAY_LIB) $(LIB_DIR)
 	cp -r $(TUPLE_LIB) $(LIB_DIR)
 	cp -r $(RANGE_LIB) $(LIB_DIR)
+	cp -r $(E4C_LIB) $(LIB_DIR)
 
 clean:
 	rm -rf .stack-work/dist

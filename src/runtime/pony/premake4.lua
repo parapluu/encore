@@ -85,6 +85,7 @@ solution "ponyrt"
     "../task",
     "../adt",
     "../party",
+    "../e4c/lite/src",
     "libponyrt",
     "../common",
     "../dtrace",
@@ -240,6 +241,13 @@ project "stream"
   files {
     "../stream/stream.h",
     "../stream/stream.c"
+  }
+
+project "e4c"
+  c_lib()
+  files {
+    "../e4c/lite/src/e4c_lite.h",
+    "../e4c/lite/src/e4c_lite.c"
   }
 
 -- -- project "set"
