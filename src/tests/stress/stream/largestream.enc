@@ -8,10 +8,11 @@ class IntSeq
     end
   end
 end
+
 class Main
   def main() : unit
     var lst = 0
-    var str = (new IntSeq).start(1, 1000000)
+    var str = (new IntSeq)!start(1, 1000000)
     while not eos(str) do
       lst = get(str)
       str = getNext(str)
