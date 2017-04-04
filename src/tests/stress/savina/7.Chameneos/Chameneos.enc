@@ -202,7 +202,6 @@ active class Main
   
   def run(meetings : int, creatureAmount : int) : unit
     val place = new MeetingPlace(meetings, this, creatureAmount, false)
-    val i = 0
     repeat i <- creatureAmount do
       val colour = i % 3 + 1
       val creature = new Creature(place, colour, i, true)
