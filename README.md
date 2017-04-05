@@ -153,7 +153,7 @@ Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env en
 
 This will compile the file -- and run it.
 
-You can find some example programs in the [programs](https://github.com/parapluu/encore/tree/development/src/tests/encore/basic) directory.
+You can find some example programs in the [test directory](https://github.com/parapluu/encore/tree/development/src/tests/encore/basic).
 
 Have fun!
 
