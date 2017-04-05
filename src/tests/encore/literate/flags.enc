@@ -3,7 +3,7 @@ flags to the code blocks in order to control how they should be
 rendered etc. This file tests that this works.
 
 #+begin_src encore -n
-class Main
+active class Main
   def main() : unit
     new Foo
     println("Hello flagged literate world!")
@@ -22,7 +22,7 @@ Here is some C code that should be ignored
 Here is an unspecified block that should be included
 
 #+begin_src -n -i
-class Foo
+active class Foo
   -- "another Encore class"
 end
 #+end_src

@@ -2,7 +2,7 @@
 
 import Left
 import Right
-class Main
+active class Main
   def main() : unit
     print("{}\n", left() + right())
   end

@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Under_Score
+active class Under_Score
   var under_score : int
   def getty() : int
     this.under_score
@@ -9,7 +9,7 @@ class Under_Score
     this.under_score = under_score
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       under_score = new Under_Score

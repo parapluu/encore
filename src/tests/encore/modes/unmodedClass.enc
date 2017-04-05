@@ -1,0 +1,8 @@
+class C
+  def init() : unit
+    ()
+  end
+  def foo() : unit
+    ()
+  end
+end

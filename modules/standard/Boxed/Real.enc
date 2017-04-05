@@ -2,8 +2,8 @@
 
 module Real
 
-passive class Real
-  var value : real
+read class Real
+  val value : real
   def init(x : real) : unit
     this.value = x
   end

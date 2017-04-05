@@ -1,4 +1,4 @@
-class Main
+active class Main
   def foo() : int
     0
   end
@@ -12,7 +12,7 @@ class Main
     end
   end
 end
-class Test
+active class Test
   def fst(m:Main) : unit
     print("Before suspend\n")
     get(m ! foo())

@@ -4,7 +4,7 @@ import List
 fun getList() : List
   new List
 end
-class Main
+active class Main
   def main() : unit
     getList()
     print("Done")

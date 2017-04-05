@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Active
-class Active[inner]
+active class Active[inner]
   var state : inner
   def init(factory : () -> inner) : unit
     this.state = factory()

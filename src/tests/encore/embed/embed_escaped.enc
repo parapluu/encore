@@ -1,9 +1,9 @@
 -- This file was automatically converted by encorec
 
-passive class Foo
+local class Foo
   var f : int
 end
-class Main
+active class Main
   var f : int
   def main() : unit
     val x = new Foo()

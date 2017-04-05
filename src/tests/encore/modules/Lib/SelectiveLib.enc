@@ -1,15 +1,15 @@
 module SelectiveLib(Foo)
 
-trait T
+read trait T
 end
 
-passive class Foo
+read class Foo
   def foo() : Bar
     new Bar()
   end
 end
 
-passive class Bar : T
+read class Bar : T
   def bar() : unit
     println("bar")
   end

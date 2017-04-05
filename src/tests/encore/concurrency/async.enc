@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Task
-class Main
+active class Main
   def main() : unit
     let
       y = 5

@@ -34,14 +34,14 @@ import Makefile
 import Utils
 import Literate
 import Parser.Parser
-import qualified Parser.OldParser as Old
 import AST.AST
 import AST.PrettyPrinter
 import AST.Desugarer
 import ModuleExpander
-import Typechecker.Environment
-import Typechecker.Prechecker
-import Typechecker.Typechecker
+import Typechecker.Environment(buildLookupTable)
+import Typechecker.Prechecker(precheckProgram)
+import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
+import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -69,7 +69,6 @@ data Option =
             | Imports [FilePath]
             | TypecheckOnly
             | PrettyPrint
-            | OldCore
             | Verbose
             | Literate
             | NoGC
@@ -107,8 +106,6 @@ optionMappings =
         "Only type check program, do not produce an executable."),
        (NoArg PrettyPrint, "-pp", "--pretty-print", "",
         "Pretty print the AST immediately after parsing."),
-       (NoArg OldCore, "", "--oldcore", "",
-        "Parse encore code using the old syntax."),
        (NoArg Literate, "", "--literate", "",
         "Literate programming mode. Code blocks are delimited by '#+begin_src' and '#+end_src'."),
        (NoArg Verbose, "-v", "--verbose", "",
@@ -315,25 +312,16 @@ main =
                    return raw
 
        verbose options "== Parsing =="
-       ast <- let parse = if OldCore `elem` options
-                          then Old.parseEncoreProgram
-                          else parseEncoreProgram
-              in
-                case parse sourceName code of
-                  Right ast  -> return ast
-                  Left error -> do
-                    let pos = NE.head $ errorPos error
-                    abort $ showSourcePos pos ++ ":\n" ++
-                            parseErrorTextPretty error
+       ast <- case parseEncoreProgram sourceName code of
+                Right ast  -> return ast
+                Left error -> do
+                  let pos = NE.head $ errorPos error
+                  abort $ showSourcePos pos ++ ":\n" ++
+                          parseErrorTextPretty error
 
        when (PrettyPrint `elem` options) $ do
             verbose options "== Pretty printing =="
-            let pretty = ppProgram ast
-            if OldCore `elem` options
-            then exit $
-                   "-- This file was automatically converted by encorec\n\n" ++
-                   show pretty
-            else exit $ show pretty
+            exit $ show (ppProgram ast)
 
        verbose options "== Importing modules =="
        programTable <- buildProgramTable importDirs preludePaths ast
@@ -347,8 +335,11 @@ main =
        verbose options "== Typechecking =="
        typecheckedTable <- typecheckProgramTable precheckedTable
 
+       verbose options "== Capturechecking =="
+       capturecheckedTable <- capturecheckProgramTable typecheckedTable
+
        verbose options "== Optimizing =="
-       let optimizedTable = fmap optimizeProgram typecheckedTable
+       let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        verbose options "== Generating code =="
        let (mainDir, mainName) = dirAndName sourceName
@@ -400,6 +391,20 @@ main =
             showWarnings typecheckingWarnings
             return typecheckedAST
 
+      capturecheckProgramTable :: ProgramTable -> IO ProgramTable
+      capturecheckProgramTable table = do
+        let lookupTableTable = fmap buildLookupTable table
+        mapM (capturecheckAndShowWarnings lookupTableTable) table
+        where
+          capturecheckAndShowWarnings table p = do
+            (capturecheckedAST, capturecheckingWarnings) <-
+              case capturecheckProgram table p of
+                (Right (newEnv, ast), warnings) -> return (ast, warnings)
+                (Left error, warnings) -> do
+                    showWarnings warnings
+                    abort $ show error
+            showWarnings capturecheckingWarnings
+            return capturecheckedAST
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)

@@ -2,7 +2,7 @@ fun foo() : unit
   continue
 end
 
-class Main
+active class Main
   def main() : unit
     ()
   end

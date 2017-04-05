@@ -1,11 +1,9 @@
--- This file was automatically converted by encorec
-
 typedef D = T
-trait T
+read trait T
 end
-passive class C : D
+class C : D
 end
-class Main
+active class Main
   def foo(x : T) : unit
     print("moo")
   end

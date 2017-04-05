@@ -2,7 +2,7 @@ This file contains multiple code blocks. A class starts with the
 declaration of the class name:
 
 #+begin_src encore
-class Main
+active class Main
 #+end_src encore
 
 A method is defined using the "def" keyword followed by the method

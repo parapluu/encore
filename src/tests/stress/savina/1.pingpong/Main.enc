@@ -1,4 +1,4 @@
-class PingActor
+active class PingActor
   var pingsLeft : int
 
   def init(count : int, pong : PongActor) : unit
@@ -15,7 +15,7 @@ class PingActor
   end
 end
 
-class PongActor
+active class PongActor
   var pongCount : int
   def init() : unit
     this.pongCount = 0
@@ -27,7 +27,7 @@ class PongActor
   end
 end
 
-class Main
+active class Main
   def main(args : [String]) : unit
     if |args| != 2 then
       print("input required: number of pings not specified\n")

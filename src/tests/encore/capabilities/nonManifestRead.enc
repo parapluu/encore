@@ -1,0 +1,5 @@
+trait T
+end
+
+class C : read T
+end

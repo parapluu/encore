@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
 typedef T[x] = Bar[x]
-class Bar[t]
+active class Bar[t]
   def id(a : t) : t
     a
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       x = new Bar[int] : T[int]

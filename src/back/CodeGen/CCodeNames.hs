@@ -403,10 +403,10 @@ oneWayMsgId cls mname =
 
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
-  | Ty.isActiveClassType ref = encoreName "active" qname
-  | Ty.isSharedClassType ref = encoreName "shared" qname
-  | Ty.isPassiveClassType ref = encoreName "passive" qname
   | Ty.isTraitType ref = encoreName "trait" qname
+  | Ty.isRefAtomType ref = if Ty.isModeless ref
+                           then encoreName "passive" qname
+                           else encoreName (showModeOf ref) qname
   | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                         "' isnt reference type!"
   where

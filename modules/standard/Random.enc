@@ -18,8 +18,8 @@ fun random(max : int) : int
 
   END
 end
-passive class Random
-  var seed : EMBED unsigned int END
+read class Random
+  val seed : EMBED unsigned int END
   def Random_trace() : unit
     ()
   end

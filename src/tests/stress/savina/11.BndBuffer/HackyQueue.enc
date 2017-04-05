@@ -2,13 +2,7 @@ module HackyQueue
 
 import Std
 
-fun isNull[a](x: a): bool
-  EMBED (bool)
-    #{x}.p == NULL;
-  END
-end
-
-passive class HackyQueue[t]: Id
+local class HackyQueue[t]: Id
   val head : HackyQueueLink[t]
   var tail : HackyQueueLink[t]
   var size : int
@@ -26,7 +20,7 @@ passive class HackyQueue[t]: Id
 
   def take() : t
     var dummy = this.head
-    if isNull(dummy.next) then
+    if dummy.next == null then
       dummy.element
     else
       this.size = this.size - 1
@@ -51,7 +45,7 @@ passive class HackyQueue[t]: Id
   end
 end
 
-passive class HackyQueueLink[t] : Id
+subord class HackyQueueLink[t] : Id
   val element : t
   var next : HackyQueueLink[t]
 

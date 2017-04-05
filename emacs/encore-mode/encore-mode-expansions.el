@@ -462,14 +462,15 @@
   (let (p1 p2 (case-fold-search nil))
     (progn
       (move-end-of-line nil)
-      (re-search-backward "\\<class\\|trait\\>")
+      (re-search-backward "\\<class\\>\\|\\<\.+\>? *\\<trait\\>")
       (move-end-of-line nil)
       (skip-chars-forward " \t\n")
       (setq p1 (point))
 
       (while (and (not (eobp))
                   (not (string-match "^[ \t]*\\<end\\>" (current-line))))
-        (if (string-match encore-block-open-regex (current-line))
+        (if (and (not (string-match "\\<require\\>" (current-line)))
+                 (string-match encore-block-open-regex (current-line)))
             (encore-skip-block))
         (forward-line 1))
       (skip-chars-backward " \t\n")
@@ -493,7 +494,8 @@
       (forward-line 1)
       (while (and (not (eobp))
                   (not (string-match "^[ \t]*\\<end\\>" (current-line))))
-        (if (string-match encore-block-open-regex (current-line))
+        (if (and (not (string-match "\\<require\\>" (current-line)))
+                 (string-match encore-block-open-regex (current-line)))
             (encore-skip-block))
         (forward-line 1))
 

@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module StreamIO
-class StreamIO
+active class StreamIO
   stream produceInt(n : int) : int
     var i = n
     while i > 0 do

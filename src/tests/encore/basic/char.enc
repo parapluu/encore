@@ -3,7 +3,7 @@
 fun id(c : char) : char
   c
 end
-class Main
+active class Main
   def main() : unit
     let
       lineBreak = '\n'

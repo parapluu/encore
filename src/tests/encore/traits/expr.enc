@@ -1,6 +1,4 @@
--- This file was automatically converted by encorec
-
-trait Expr
+read trait Expr
   require def eval() : Expr
   def Val() : Maybe[int]
     Nothing
@@ -18,14 +16,14 @@ trait Expr
     Nothing
   end
 end
-trait Unary
-  require var operand : Expr
+read trait Unary
+  require val operand : Expr
 end
-trait Binary
-  require var left : Expr
-  require var right : Expr
+read trait Binary
+  require val left : Expr
+  require val right : Expr
 end
-passive class Value : Expr(value)
+class Value : Expr(value)
   val value : int
   def init(value : int) : unit
     this.value = value
@@ -37,7 +35,7 @@ passive class Value : Expr(value)
     new Value(this.value)
   end
 end
-passive class Variable : Expr(id)
+class Variable : Expr(id)
   val id : String
   def init(id : String) : unit
     this.id = id
@@ -49,7 +47,8 @@ passive class Variable : Expr(id)
     new Variable(this.id)
   end
 end
-passive class Negation : Expr(operand) + Unary
+
+class Negation : Expr(operand) + Unary
   val operand : Expr
   def init(operand : Expr) : unit
     this.operand = operand
@@ -73,7 +72,7 @@ passive class Negation : Expr(operand) + Unary
     end
   end
 end
-passive class Addition : Expr(left, right) + Binary
+class Addition : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
   def init(left : Expr, right : Expr) : unit
@@ -105,7 +104,7 @@ passive class Addition : Expr(left, right) + Binary
     end
   end
 end
-passive class Subtraction : Expr(left, right) + Binary
+class Subtraction : Expr(left, right) + Binary
   val left : Expr
   val right : Expr
   def init(left : Expr, right : Expr) : unit
@@ -137,7 +136,7 @@ passive class Subtraction : Expr(left, right) + Binary
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     val zero = new Value(0)
     val two = new Value(2)

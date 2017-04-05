@@ -20,7 +20,7 @@ import Data.Maybe(fromMaybe, isJust, fromJust)
 import Control.Monad(void, foldM, unless, when, liftM)
 import Control.Monad.Reader hiding(guard)
 import Control.Applicative ((<$>), empty)
-import Control.Arrow (first)
+import Control.Arrow (first, (&&&))
 
 -- Module dependencies
 import Identifiers hiding(namespace)
@@ -180,12 +180,15 @@ reservedNames =
     ,"Maybe"
     ,"Par"
     ,"Stream"
+    ,"active"
     ,"and"
     ,"bool"
     ,"break"
+    ,"borrowed"
     ,"case"
     ,"char"
     ,"class"
+    ,"consume"
     ,"continue"
     ,"def"
     ,"do"
@@ -201,13 +204,13 @@ reservedNames =
     ,"in"
     ,"int"
     ,"let"
+    ,"linear"
     ,"match"
     ,"module"
     ,"new"
     ,"not"
     ,"null"
     ,"or"
-    ,"passive"
     ,"qualified"
     ,"real"
     ,"repeat"
@@ -222,6 +225,7 @@ reservedNames =
     ,"typedef"
     ,"uint"
     ,"unless"
+    ,"unsafe"
     ,"val"
     ,"var"
     ,"unit"
@@ -323,11 +327,17 @@ typ = makeExprParser singleType opTable
       opTable = [
                  [typeOp "*" conjunctiveType],
                  [typeOp "+" disjunctiveType],
+                 [typeConstructor "borrowed" makeStackbound],
                  [arrow]
                 ]
       typeOp op constructor =
           InfixL (do withLinebreaks $ reservedOp op
                      return constructor)
+
+      typeConstructor name constructor =
+          Prefix (do reserved name
+                     return constructor)
+
       arrow =
           InfixR (do withLinebreaks $ reservedOp "->"
                      return (arrowType . unfoldArgs))
@@ -342,6 +352,7 @@ typ = makeExprParser singleType opTable
         <|> embed
         <|> range
         <|> builtin
+        <|> try modedArrow
         <|> refType
         <|> primitive
         <|> typeVariable
@@ -373,14 +384,25 @@ typ = makeExprParser singleType opTable
           par    = builtin' parType "Par"
           stream = builtin' streamType "Stream"
       refType = do
+        setMode <- option id mode
         full <- modulePath
         let ns = explicitNamespace $ init full
             refId = show $ last full
         parameters <- option [] $ brackets (commaSep1 typ)
         if isEmptyNamespace ns
-        then return $ refTypeWithParams refId parameters
-        else return $ setRefNamespace ns $
+        then return $ setMode $ refTypeWithParams refId parameters
+        else return $ setMode $ setRefNamespace ns $
                       refTypeWithParams refId parameters
+      modedArrow = do
+        modes <- some mode
+        ty <- parens arrow
+        return $ foldr ($) ty modes
+        where
+          arrow = do
+            args <- parens (commaSep typ) <|> liftM (:[]) typ
+            reservedOp "->"
+            result <- typ
+            return $ arrowType args result
       primitive =
         do {reserved "int"; return intType} <|>
         do {reserved "uint"; return uintType} <|>
@@ -599,18 +621,34 @@ partitionTraitAttributes = partitionTraitAttributes' [] []
     partitionTraitAttributes' rs ms (TMethodAttribute{tmdecl}:as) =
       partitionTraitAttributes' rs (tmdecl:ms) as
 
+mode :: EncParser (Type -> Type)
+mode = (reserved "linear" >> return makeLinear)
+       <|>
+       (reserved "local" >> return makeLocal)
+       <|>
+       (reserved "active" >> return makeActive)
+       <|>
+       (reserved "shared" >> return makeActive)
+       <|>
+       (reserved "unsafe" >> return makeUnsafe)
+       <|>
+       (reserved "read" >> return makeRead)
+       <|>
+       (reserved "subord" >> return makeSubordinate)
+       <?> "mode"
 
 traitDecl :: EncParser TraitDecl
 traitDecl = do
   tIndent <- L.indentLevel
   tdecl <- indentBlock $ do
     tmeta <- meta <$> getPosition
+    setMode <- option id mode
     reserved "trait"
     ident <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     return $ L.IndentMany
                Nothing
-               (buildTrait tmeta ident params)
+               (buildTrait tmeta setMode ident params)
                traitAttribute
   -- TODO: tlocals <- option [] $ atLevel tIndent whereClause
   atLevel tIndent $ reserved "end"
@@ -629,13 +667,13 @@ traitDecl = do
     reqField = do
       rfield <- fieldDecl
       return RequiredField{rfield}
-    buildTrait tmeta ident params attributes =
+    buildTrait tmeta setMode ident params attributes =
       let (treqs, tmethods) = partitionTraitAttributes attributes
       in
         return Trait{tmeta
-                    ,tname = setRefNamespace emptyNamespace $
-                             traitTypeFromRefType $
-                             refTypeWithParams ident params
+                    ,tname = setMode $
+                             setRefNamespace emptyNamespace $
+                             traitType ident params
                     ,treqs
                     ,tmethods
                     }
@@ -656,6 +694,7 @@ traitComposition = makeExprParser includedTrait opTable
         <|> parens traitComposition
         <?> "trait-inclusion"
       trait = do
+        setMode <- option id mode
         notFollowedBy lowerChar
         full <- modulePath
         let ns = explicitNamespace $ init full
@@ -663,11 +702,9 @@ traitComposition = makeExprParser includedTrait opTable
         parameters <- option [] $ brackets (commaSep1 typ)
         tcext <- option [] $ parens (commaSep1 extension)
         let tcname = if isEmptyNamespace ns
-                     then traitTypeFromRefType $
-                          refTypeWithParams refId parameters
-                     else setRefNamespace ns $
-                          traitTypeFromRefType $
-                          refTypeWithParams refId parameters
+                     then setMode $ traitType refId parameters
+                     else setMode $ setRefNamespace ns $
+                          traitType refId parameters
         return TraitLeaf{tcname, tcext}
         where
           extension = do
@@ -696,30 +733,30 @@ classDecl = do
   cIndent <- L.indentLevel
   cdecl <- indentBlock $ do
     cmeta <- meta <$> getPosition
-    activity <- parseActivity
-    reserved "class"
+    setMode <-
+      try $ do m <- option id mode
+               reserved "class"
+               return m
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     ccomposition <- optional (do{colon; traitComposition})
     return $ L.IndentMany
                Nothing
-               (buildClass cmeta activity name params ccomposition)
+               (buildClass cmeta setMode name params ccomposition)
                classAttribute
   -- TODO: clocals <- option [] $ atLevel cIndent whereClause
   atLevel cIndent $ reserved "end"
   return cdecl
   where
-    parseActivity = (reserved "shared" >> return Shared)
-      <|> (reserved "passive" >> return Passive)
-      <|> return Active
     classAttribute = (FieldAttribute <$> fieldDecl)
                  <|> (MethodAttribute <$> methodDecl)
-    buildClass cmeta activity name params ccomposition attributes =
+    buildClass cmeta setMode name params ccomposition attributes =
       let (cfields, cmethods) = partitionClassAttributes attributes
       in
         return Class{cmeta
-                    ,cname = setRefNamespace emptyNamespace $
-                             classType activity name params
+                    ,cname = setMode $
+                             setRefNamespace emptyNamespace $
+                             classType name params
                     ,ccomposition
                     ,cfields
                     ,cmethods
@@ -844,6 +881,7 @@ expression = makeExprParser expr opTable
                   op "||" Identifiers.OR],
                  [arrayAccess],
                  [messageSend],
+                 [consume],
                  [typedExpression],
                  [singleLineTask],
                  [chain],
@@ -874,6 +912,11 @@ expression = makeExprParser expr opTable
                                                     ,target
                                                     ,index
                                                     }))
+
+      consume =
+          Prefix (do pos <- getPosition
+                     reserved "consume"
+                     return (Consume (meta pos)))
 
       typedExpression =
           Postfix (do pos <- getPosition
@@ -1137,11 +1180,19 @@ expr = notFollowedBy nl >>
                                            ,decls
                                            ,body
                                            })
+
       varDecl indent = do
-        x <- Name <$> identifier
+        vars <- commaSep1 var
         withLinebreaks $ reservedOp "="
         val <- indented indent expression
-        return (x, val)
+        return (vars, val)
+        where
+          var = do
+            x <- Name <$> identifier
+            t <- option Nothing (colon >> Just <$> typ)
+            case t of
+              Just ty -> return $ VarType x ty
+              Nothing -> return $ VarNoType x
 
       sequence = singleLineBlock <|> multiLineBlock
       singleLineBlock = do
@@ -1387,6 +1438,7 @@ expr = notFollowedBy nl >>
       new = do
         emeta <- meta <$> getPosition
         reserved "new"
+        notFollowedBy mode
         ty <- typ
         newWithoutInit emeta ty <|> newWithInit emeta ty
         where

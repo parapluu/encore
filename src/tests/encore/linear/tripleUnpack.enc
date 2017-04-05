@@ -1,0 +1,36 @@
+linear trait Left[t]
+  require var left : Tree[t]
+  def getLeft() : Tree[t]
+    consume this.left
+  end
+end
+linear trait Right[t]
+  require var right : Tree[t]
+  def getRight() : Tree[t]
+    consume this.right
+  end
+end
+linear trait Element[t]
+  require var element: t
+  def apply(f: t -> t) : unit
+    this.element = f(this.element)
+  end
+  def read() : t
+    this.element
+  end
+end
+
+class Tree[t] : Left[t] * Right[t] * Element[t]
+  var left : Tree[t]
+  var right : Tree[t]
+  var element : t
+end
+
+active class Main
+  def main(args : [String]) : unit
+    var t = new Tree[int]
+    var l: Left[int], r: Right[int], e: Element[int] = consume t
+    e.apply(fun (x : int) => 42)
+    println(e.read())
+  end
+end

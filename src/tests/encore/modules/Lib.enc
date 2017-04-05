@@ -4,9 +4,8 @@ module Lib
 fun bar() : int
   10
 end
-passive class Foo
+local class Foo
   def name() : String
     "Foo"
   end
 end
-

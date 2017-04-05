@@ -1,0 +1,1 @@
+Non-read trait 'T' cannot provide method 'foo' to read trait 'R'

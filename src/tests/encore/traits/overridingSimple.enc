@@ -1,12 +1,10 @@
--- This file was automatically converted by encorec
-
-trait T
-  require var f : int
+read trait T
+  require val f : int
   def foo() : int
     this.f
   end
 end
-passive class Foo : T
+class Foo : T
   var f : int
   def init(f : int) : unit
     this.f = f
@@ -15,7 +13,7 @@ passive class Foo : T
     this.f + 3
   end
 end
-class Main
+active class Main
   def main() : unit
     val x = new Foo(2) : T
     println("Five = {}", x.foo())

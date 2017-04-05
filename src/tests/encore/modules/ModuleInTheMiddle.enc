@@ -2,9 +2,9 @@
 
 import ModuleOnTheLeft
 import ModuleOnTheRight
-class Main
+active class Main
   def main() : unit
-    val x = getToken()
-    receiveToken(x)
+    var x = getToken()
+    receiveToken(consume x)
   end
 end

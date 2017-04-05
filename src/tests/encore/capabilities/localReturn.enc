@@ -1,0 +1,15 @@
+local class Token
+end
+
+active class Other
+  def get() : Token
+    new Token
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val other = new Other
+    other!get()
+  end
+end

@@ -13,7 +13,7 @@ fun generateMillionItems(var p : Par[int]) : Par[int]
   end
   p
 end
-class Test
+active class Test
   def producer() : String
     "producer"
   end
@@ -21,7 +21,7 @@ class Test
     0
   end
 end
-class Main
+active class Main
   def testBindAndFilter() : unit
     let
       fut = new Test ! producer()

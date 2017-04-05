@@ -21,13 +21,13 @@ fun generateParWithFutures(max : int, option : Maybe[String]) : Par[String]
   p
 end
 
-class Generator
+active class Generator
   def produce(s : String) : String
     s.copy()
   end
 end
 
-class Main
+active class Main
   def test_values() : unit
     println("Test on values:")
     val p1 = liftv(23) ||| liftv(1) ||| empty[int]() ||| liftv(1)

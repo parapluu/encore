@@ -1,0 +1,23 @@
+fun evilId[t](x : t) : t
+  val leaker = new Leaker[t]
+  val y = get(leaker ! leak())
+  y
+end
+
+active class Leaker[t]
+  val f : t
+  def leak() : t
+    this.f
+  end
+end
+
+local class Token
+end
+
+{- Omitted to make the test fail
+active class Main
+  def main() : unit
+    evilId(new Token)
+  end
+end
+-}

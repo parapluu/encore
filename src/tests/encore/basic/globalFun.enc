@@ -3,7 +3,7 @@
 fun bump(x : int) : int
   x + 1
 end
-class Main
+active class Main
   def main() : unit
     println("42 + 1 = {}", bump(42))
   end

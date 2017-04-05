@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def app(f : String -> unit, s : String) : unit
     f(s)
   end

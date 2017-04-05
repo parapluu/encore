@@ -1,0 +1,15 @@
+fun duplicate[t](x : t) : (t, t)
+  (x, x)
+end
+
+linear class Token
+end
+
+active class Main
+  def main(args : [String]) : unit
+    var x = new Token
+    match duplicate(x) with
+      case (y, y') => println("all your linear are belong to us")
+    end
+  end
+end

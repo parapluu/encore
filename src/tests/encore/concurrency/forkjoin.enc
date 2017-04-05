@@ -21,7 +21,7 @@ fun sum_async(arr : [int], from : int, to : int) : int
     sum(arr, from, to)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       size = 16 * 1024 * 1024

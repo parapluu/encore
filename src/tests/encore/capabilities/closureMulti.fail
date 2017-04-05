@@ -1,0 +1,1 @@
+Closure 'f' captures subordinate state and cannot be passed outside of its aggregate

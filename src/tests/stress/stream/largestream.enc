@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class IntSeq
+active class IntSeq
   stream start(var fr : int, to : int) : int
     while fr <= to do
       yield(fr)
@@ -9,7 +9,7 @@ class IntSeq
   end
 end
 
-class Main
+active class Main
   def main() : unit
     var lst = 0
     var str = (new IntSeq)!start(1, 1000000)

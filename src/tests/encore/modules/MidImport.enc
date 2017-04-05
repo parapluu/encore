@@ -2,9 +2,8 @@
 
 module MidImport
 import DeepLib
-passive class Bar
+local class Bar
   def name() : String
     (new Foo).name()
   end
 end
-

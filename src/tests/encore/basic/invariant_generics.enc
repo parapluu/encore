@@ -1,18 +1,16 @@
--- This file was automatically converted by encorec
-
-trait Animal
+read trait Animal
 end
-passive class Dog : Animal
+class Dog : Animal
 end
-passive class Cat : Animal
+class Cat : Animal
 end
-passive class Container[t]
+local class Container[t]
   var cell : t
   def set(x : t) : unit
     this.cell = x
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       dogContainer = new Container[Dog]

@@ -1,4 +1,4 @@
-passive class Foo
+read class Foo
   def bar() : unit
     repeat i <- 50 do
       print ("{} ",i)
@@ -10,7 +10,7 @@ passive class Foo
   end
 end
 
-class Main
+active class Main
   def main() : unit
     repeat i <- 50 do
       print ("{} ",i)

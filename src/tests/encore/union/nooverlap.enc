@@ -1,18 +1,16 @@
--- This file was automatically converted by encorec
-
-trait Foo
+read trait Foo
 end
-trait Bar
+read trait Bar
 end
-trait Baz
+read trait Baz
 end
-passive class C1 : Foo + Bar
+class C1 : Foo + Bar
 end
-passive class C2 : Foo + Baz
+class C2 : Foo + Baz
 end
-passive class C3 : Baz + Bar
+class C3 : Baz + Bar
 end
-class Main
+active class Main
   def main() : unit
     match 1 with
       case 0 =>

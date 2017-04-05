@@ -1,0 +1,21 @@
+trait T
+  def foo() : int
+    42
+  end
+end
+
+trait S
+  def bar(x : int) : unit
+    println(x)
+  end
+end
+
+active class C : T + S
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new C : active T + active S
+    x!bar(get(x!foo()))
+  end
+end

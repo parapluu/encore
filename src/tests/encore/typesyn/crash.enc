@@ -1,15 +1,13 @@
--- This file was automatically converted by encorec
-
 typedef D = T1 + T2
-trait T1
+local trait T1
 end
-trait T2
+local trait T2
 end
-trait T3
+local trait T3
 end
-passive class C : D + T3
+class C : D + T3
 end
-class Main
+active class Main
   def main() : unit
     print("crash?")
   end

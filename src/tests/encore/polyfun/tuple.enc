@@ -11,7 +11,7 @@ fun pFlipInTuple[a, b](tuple : (a, b)) : (b, a)
 
   end
 end
-class Main
+active class Main
   def main() : unit
     val test1 = pCreateTuple[int, String]("k", 12)
     match test1 with

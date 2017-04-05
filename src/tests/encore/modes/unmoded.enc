@@ -1,0 +1,8 @@
+trait T
+end
+
+trait T'
+end
+
+class C : T + linear T'
+end

@@ -6,7 +6,7 @@ fun foo() : int
   11
 end
 
-class Main
+active class Main
   def main() : unit
     println("In RecurseA")
   end

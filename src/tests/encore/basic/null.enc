@@ -7,12 +7,12 @@ fun foo() : Foo
   end
   null
 end
-class Foo
+active class Foo
   def foo() : unit
     ()
   end
 end
-class Main
+active class Main
   def main() : unit
     var x = null : Foo
     val y = Just(null : Foo)

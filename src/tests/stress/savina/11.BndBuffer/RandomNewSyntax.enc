@@ -18,7 +18,7 @@ fun random(max:int) : int
 end
 
 -- Simple random number generator encapsulating a seed of its own
-passive class Random
+read class Random
   val seed:EMBED unsigned int END
   -- Trace function required because of the embed type of seed
   def Random_trace() : unit

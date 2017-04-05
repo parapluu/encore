@@ -3,7 +3,7 @@
 fun id[a](x : a) : a
   x
 end
-class Cell[a]
+active class Cell[a]
   var value : a
   def init(value : a) : unit
     this.value = value
@@ -18,7 +18,7 @@ class Cell[a]
     new Cell(value)
   end
 end
-class Pair[a, b]
+active class Pair[a, b]
   var fst : a
   var snd : b
   def init(fst : a, snd : b) : unit
@@ -35,7 +35,7 @@ class Pair[a, b]
     Just(x)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       p = new Pair(42, "fortytwo")

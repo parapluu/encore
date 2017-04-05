@@ -3,7 +3,7 @@
 fun foo() : unit
   println("foo")
 end
-class Main
+active class Main
   def main() : unit
     Foo.Bar.foo()
   end

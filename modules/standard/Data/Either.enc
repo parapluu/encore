@@ -7,7 +7,7 @@ end
 fun Right[a, b](x : b) : Either[a, b]
   new Right[a, b](x) : Either[a, b]
 end
-trait Either[a, b]
+read trait Either[a, b]
   require def Left() : Maybe[a]
   require def Right() : Maybe[b]
   def map(f : b -> b) : Either[a, b]
@@ -44,8 +44,8 @@ trait Either[a, b]
     end
   end
 end
-passive class Left[a, b] : Either[a, b](x)
-  var x : a
+class Left[a, b] : Either[a, b](x)
+  val x : a
   def init(x : a) : unit
     this.x = x
   end
@@ -56,8 +56,8 @@ passive class Left[a, b] : Either[a, b](x)
     Nothing
   end
 end
-passive class Right[a, b] : Either[a, b](x)
-  var x : b
+class Right[a, b] : Either[a, b](x)
+  val x : b
   def init(x : b) : unit
     this.x = x
   end

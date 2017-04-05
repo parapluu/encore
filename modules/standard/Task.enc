@@ -87,7 +87,7 @@ An expensive implementation of a promise, built using futures and
 suspend. Multiple fulfilment of a promise is handled dynamically.
 
 #+BEGIN_SRC encore
-class Promise[a]
+active class Promise[a]
   var value : Maybe[a]
   def fulfil(value : a) : bool
     if this.fulfilled() then
@@ -125,7 +125,7 @@ fun Synchroniser[t](f : Fut[t]) : Synchroniser[t]
   new Synchroniser([f])
 end
 
-class Synchroniser[t]
+active class Synchroniser[t]
   var result : [t]
   var countDown : int
   var callback : t -> unit
@@ -170,7 +170,7 @@ fun spawn[t](task : () -> t) : Fut[t]
   end
 end
 
-class TaskRunner
+active class TaskRunner
   def perform[t](task : () -> t) : t
     task()
   end

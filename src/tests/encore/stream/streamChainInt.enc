@@ -1,7 +1,7 @@
 import StreamLib.StreamChain.StreamChain
 import StreamIO
 
-class Main
+active class Main
   def main() : unit
     let
       sio = new StreamIO

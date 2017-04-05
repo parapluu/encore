@@ -1,6 +1,4 @@
--- This file was automatically converted by encorec
-
-trait AB[a, b]
+local trait AB[a, b]
   require var aa : a
   require var bb : b
   def fn(aa : a) : b
@@ -8,7 +6,7 @@ trait AB[a, b]
     this.bb
   end
 end
-passive class Foo[a, b] : AB[a, b]
+class Foo[a, b] : AB[a, b]
   var aa : a
   var bb : b
   def init(aa : a, bb : b) : unit
@@ -16,7 +14,7 @@ passive class Foo[a, b] : AB[a, b]
     this.bb = bb
   end
 end
-passive class Bar[b, c]
+local class Bar[b, c]
   var foo : AB[b, c]
   def init(bb : b, cc : c) : unit
     this.foo = new Foo[b, c](bb, cc)
@@ -25,7 +23,7 @@ passive class Bar[b, c]
     this.foo.fn(bb)
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       bar = new Bar[real, int](3.14, 42)

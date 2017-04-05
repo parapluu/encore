@@ -1,17 +1,17 @@
 -- This file was automatically converted by encorec
 
 typedef T' = Bar'
-trait Bar'
+read trait Bar'
 end
-passive class Foo'[t'] : T'
+class Foo'[t'] : T'(m'())
   var f' : t'
   def m'(x' : t') : t'
     x'
   end
 end
-class Baz'[t']
+active class Baz'[t']
 end
-class Main
+active class Main
   def main() : unit
     val foo = new Foo'[int]
     val baz = new Baz'[Foo'[int]]

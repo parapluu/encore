@@ -2,8 +2,8 @@ module FarLib
 
 import TraitLib
 
-passive class FarFoo : S
-  var f : S
+read class FarFoo : S
+  val f : S
   def init() : unit
     this.f = this
   end

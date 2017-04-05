@@ -18,9 +18,9 @@ traceStream var = traceObject var streamTraceFn
 
 traceVariable :: Ty.Type -> CCode Lval -> CCode Stat
 traceVariable t var
-  | Ty.isActiveClassType t  = traceActor var
-  | Ty.isSharedClassType t  = traceActor var
-  | Ty.isPassiveClassType t = traceObject var $ classTraceFnName t
+  | Ty.isActiveRefType t    = traceActor var
+  | Ty.isSharedRefType t    = traceActor var
+  | Ty.isClassType t        = traceObject var $ classTraceFnName t
   | Ty.isCapabilityType t   = traceCapability var
   | Ty.isFutureType t       = traceObject var futureTraceFn
   | Ty.isArrowType t        = traceObject var closureTraceFn

@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-passive class Pair[k, v]
+local class Pair[k, v]
   var key : k
   var value : v
   def init(key : k, value : v) : unit
@@ -13,7 +13,7 @@ passive class Pair[k, v]
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     val first = new Pair[int, int](1, 1)
     val second = new Pair[int, int](1, 1)

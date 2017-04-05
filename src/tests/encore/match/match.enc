@@ -1,4 +1,4 @@
-passive class IntContainer
+read class IntContainer
   val elem : int
 
   def init(x : int) : unit
@@ -22,7 +22,7 @@ passive class IntContainer
   end
 end
 
-passive class Container[t]
+local class Container[t]
   val elem : t
 
   def init(elem : t) : unit
@@ -35,29 +35,29 @@ passive class Container[t]
   end
 end
 
-trait Letter
+read trait Letter
   require def Letter() :  Maybe[String]
 end
 
-passive class A : Letter
+read class A : Letter
   def Letter() :  Maybe[String]
     Just("A")
   end
 end
 
-passive class B :  Letter
+read class B :  Letter
   def Letter() :  Maybe[String]
     Just("B")
   end
 end
 
-passive class Foo
+read class Foo
   def AlwaysMatchingExtractor() : Maybe[unit]
     Just(())
   end
 end
 
-class Main
+active class Main
   def objectPatternTestWithFailingGuard() : unit
     match new Container[String]("foobar") with
       case _ when false => println("baaaad")

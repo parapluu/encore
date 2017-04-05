@@ -9,7 +9,7 @@ where
   end
 end
 
-class Main
+active class Main
   def main() : unit
     println(foo(41))
   end

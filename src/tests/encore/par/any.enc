@@ -20,13 +20,13 @@ fun lessThanOneHundred(x : int) : bool
   x < 100
 end
 
-class T
+active class T
   def set(x : int) : int
     x
   end
 end
 
-class Main
+active class Main
   def testValues() : unit
     println("Testing Values:")
     val p = liftValues(100)

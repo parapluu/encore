@@ -1,14 +1,14 @@
 -- This file was partially automatically converted by encorec
 
 import Task
-passive class Money
-  var amount : int
+read class Money
+  val amount : int
   def init(i : int) : unit
     this.amount = i
   end
 end
 
-class Test
+active class Test
   def createMoney() : Money
     new Money(4)
   end
@@ -17,7 +17,7 @@ class Test
   end
 end
 
-class Main
+active class Main
   def main(): unit
     val t = new Test()
     val t2 = new Test()

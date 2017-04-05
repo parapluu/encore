@@ -1,0 +1,1 @@
+Arrays cannot store borrowed values of type 'borrowed Token'

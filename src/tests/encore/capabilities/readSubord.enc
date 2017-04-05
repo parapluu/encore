@@ -1,0 +1,29 @@
+local class Thief
+  var stash : T
+  def getStash() : T
+    this.stash
+  end
+end
+
+read trait T
+  def leak(t : Thief) : unit
+    t.stash = this
+  end
+end
+
+trait L
+end
+
+class Victim : T + linear L
+end
+
+class Main
+  def main() : unit
+    val x = new Victim
+    val t = new Thief
+    x.leak(t)
+    if(t.getStash() == x) then
+      println("Linearity violation")
+    end
+  end
+end

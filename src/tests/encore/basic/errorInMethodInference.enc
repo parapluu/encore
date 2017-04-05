@@ -1,11 +1,11 @@
 -- This file was automatically converted by encorec
 
-class A
+active class A
   def f[t]() : unit
     ()
   end
 end
-class Main
+active class Main
   def main() : unit
     new A ! f()
   end

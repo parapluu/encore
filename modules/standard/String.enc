@@ -11,11 +11,11 @@ BODY
 // This function is called in the very beginning of the program to
 // build an array containing the arguments of the program.
 array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
- array_t *arr = array_mk(ctx, argc, &_enc__passive_String_String_type);
+ array_t *arr = array_mk(ctx, argc, &_enc__read_String_String_type);
  for(int i = 0; i < argc; i++) {
-   _enc__passive_String_String_t* s =
-     encore_alloc(*ctx, sizeof(_enc__passive_String_String_t));
-   s->_enc__self_type = &_enc__passive_String_String_type;
+   _enc__read_String_String_t* s =
+     encore_alloc(*ctx, sizeof(_enc__read_String_String_t));
+   s->_enc__self_type = &_enc__read_String_String_type;
    _enc__method_String_String_init(ctx, s, NULL, argv[i]);
    array_set(arr, i, (encore_arg_t){.p = s});
  }
@@ -75,7 +75,7 @@ end
 -- [x] change this.length(a) ==> a.length()
 -- [ ] Write proper docs
 -- Be aware of issue #204
-passive class String : Id + Eq[String](compare(),length,data)
+read class String : Id + Eq[String](compare(),length,data)
   val data : EMBED char* END
   val length : int
   def init(s:EMBED char* END) : unit

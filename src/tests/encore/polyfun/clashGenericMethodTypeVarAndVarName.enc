@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Test[t, k]
+active class Test[t, k]
   def polymorphicMethod[tt, kk](x : tt, y : kk) : unit
     val nestedClosure = fun (tt : kk)
                           val idFn = fun (xx : tt) => xx
@@ -9,7 +9,7 @@ class Test[t, k]
     nestedClosure(y)
   end
 end
-class Main
+active class Main
   def main() : unit
     ()
   end

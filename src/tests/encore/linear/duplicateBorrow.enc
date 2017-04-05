@@ -1,0 +1,17 @@
+linear class Token
+  var f : Token
+end
+
+local class Borrower
+  def lend(x : borrowed Token, y : borrowed Token) : unit
+    ()
+  end
+end
+
+active class Main
+  def main() : unit
+    val x = new Token
+    val friend = new Borrower()
+    friend.lend(x, x.f)
+  end
+end

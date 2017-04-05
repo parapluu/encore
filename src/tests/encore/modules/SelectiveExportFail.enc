@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module SelectiveExportFail(Foo)
-class Main
+active class Main
   def main() : unit
     println("I shouldn't compile")
   end

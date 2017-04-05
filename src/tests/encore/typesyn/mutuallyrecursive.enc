@@ -2,6 +2,5 @@
 
 typedef B = Maybe[A]
 typedef A = B
-passive class C : A
+class C : A
 end
-

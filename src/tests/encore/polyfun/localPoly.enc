@@ -17,7 +17,7 @@ where
     x
   end
 end
-class Main
+active class Main
   def main() : unit
     println(id(foo()))
   end

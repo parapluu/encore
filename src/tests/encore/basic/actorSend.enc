@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Other
+active class Other
   var other : Other
   def setOther(va : Other) : unit
     this.other = va
@@ -17,7 +17,7 @@ class Other
   end
 end
 
-class Main
+active class Main
   def main() : Fut[Fut[unit]]
     let
       other = new Other

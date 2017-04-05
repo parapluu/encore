@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   var a : Agent
   def main() : unit
     this.a = new Agent()
@@ -16,7 +16,7 @@ class Main
     end
   end
 end
-class Agent
+active class Agent
   def go(a : Agent) : unit
     ()
   end

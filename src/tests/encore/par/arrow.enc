@@ -17,7 +17,7 @@ fun printUnitTuple(t : (int, int)) : (unit, unit)
   (printResult(t), ())
 end
 
-class Main
+active class Main
   def main() : unit
     val inc = fun (x : int) => x + 1
     val double = fun (x : int) => x * 2

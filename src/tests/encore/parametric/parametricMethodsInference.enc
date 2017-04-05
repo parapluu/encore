@@ -8,7 +8,7 @@ fun replicate[t](counter : int, item : t, acc : [t]) : [t]
     replicate(counter - 1, item, acc)
   end
 end
-class Test
+active class Test
   def id[t](x : t) : t
     x
   end
@@ -20,12 +20,12 @@ class Test
     end
   end
 end
-passive class TestPassive
+read class TestPassive
   def id[t](x : t) : t
     x
   end
 end
-class Main
+active class Main
   var a : Test
   var p : TestPassive
   def testIdInference() : unit

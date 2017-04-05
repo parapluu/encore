@@ -1,21 +1,19 @@
--- This file was automatically converted by encorec
-
-trait T
-  require var f : int
+read trait T
+  require val f : int
   require def foo() : unit
 end
-trait S
+read trait S
   def bar() : unit
     println("I compile and run!")
   end
 end
-passive class Foo : T(bar()) + S
+class Foo : T(bar()) + S
   val f : int
   def foo() : unit
     this.bar()
   end
 end
-class Main
+active class Main
   def main() : unit
     (new Foo).foo()
   end

@@ -1,11 +1,11 @@
-passive class Cell
+linear class Cell
   var value : int
   def init(v:int) : unit
     this.value = v
   end
 end
 
-class Foo
+active class Foo
   def foo(i:int) : Cell
     new Cell(i)
   end
@@ -15,8 +15,8 @@ class Foo
     g.value = 42 --- this should not compile
   end
 end
-  
-class Main
+
+active class Main
   def main() : unit
     new Foo() ! foo(42)
   end

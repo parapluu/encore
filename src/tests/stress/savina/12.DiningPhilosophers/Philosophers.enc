@@ -1,5 +1,5 @@
 module Philosophers
-class CounterActor
+active class CounterActor
   var i : int
   def init() : unit
     this.i = 0
@@ -14,7 +14,7 @@ class CounterActor
     this.i
   end
 end
-class Philosopher
+active class Philosopher
   var id : int
   var rounds : int
   var local_rounds : int
@@ -47,7 +47,7 @@ class Philosopher
     this.arbitrator!am_hungry(this, this.id)
   end
 end
-class Arbitrator
+active class Arbitrator
   var nrPhilosophers : int
   var remainingPhils : int
   var forkState : [bool]

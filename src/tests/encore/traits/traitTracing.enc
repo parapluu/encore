@@ -3,11 +3,11 @@
 
 import Random
 
-trait Ord
+read trait Ord
   require def compare(o:Ord) : int
 end
 
-passive class Integer : Ord(i)
+read class Integer : Ord(i)
   val i:int
 
   def init(i:int) : unit
@@ -20,7 +20,7 @@ passive class Integer : Ord(i)
   end
 end
 
-passive class Node : Id
+subord class Node : Id
   val elem : Ord
   var next : Node
 
@@ -29,7 +29,7 @@ passive class Node : Id
   end
 end
 
-passive class SortedList
+local class SortedList
   var head : Node
 
   def add(i:int) : unit
@@ -69,7 +69,7 @@ passive class SortedList
   end
 end
 
-class ConcurrentSortedList
+active class ConcurrentSortedList
   var list:SortedList
 
   def init() : unit
@@ -85,7 +85,7 @@ class ConcurrentSortedList
   end
 end
 
-class Worker
+active class Worker
   var db:ConcurrentSortedList
   var write_percent:int
   var size_percent:int
@@ -116,7 +116,7 @@ class Worker
   end
 end
 
-class Main
+active class Main
   def main(args: [String]) : unit
     var n_workers = 1
     var msg_per_worker = 10000

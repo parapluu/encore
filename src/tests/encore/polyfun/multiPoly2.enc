@@ -6,7 +6,7 @@ fun bar[p](value: p): [p]
   foo[p]([value])
 end
 
-class Main
+active class Main
   def main() : unit
     ()
   end

@@ -1,10 +1,10 @@
-class Worker
+active class Worker
   def work() : int
     42
   end
 end
 
-class Lazy
+active class Lazy
   def lazyWork() : int
     if true then
       forward((new Worker) ! work())
@@ -19,7 +19,7 @@ class Lazy
   end
 end
 
-class Main
+active class Main
   def main() : unit
     println(get((new Lazy) ! lazyWork()))
     (new Lazy) ! lazyWork()

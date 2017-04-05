@@ -25,7 +25,7 @@ end
 fun pNestedFunction[t](x : t) : t
   helperForNestedFunction(x)
 end
-class Main
+active class Main
   def main() : unit
     val test1 = pSingleArgument("test single argument", 42, "single")
     println(test1)

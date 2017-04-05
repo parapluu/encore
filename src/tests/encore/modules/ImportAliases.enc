@@ -2,7 +2,7 @@
 
 import Lib
 import Lib as X
-class Main
+active class Main
   def main() : unit
     println(bar() + Lib.bar() + X.bar())
   end

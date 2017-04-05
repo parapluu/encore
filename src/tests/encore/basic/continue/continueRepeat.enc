@@ -1,4 +1,4 @@
-class Main
+active class Main
   def main() : unit
     repeat i <- 7 do
       if i % 2 == 0 then continue end

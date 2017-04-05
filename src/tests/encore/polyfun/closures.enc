@@ -28,7 +28,7 @@ fun intToString(x : int) : String
   string_from_int(x)
 end
 
-class Main
+active class Main
   def testParFunctor() : unit
     val parFn = liftv(intToString)
     val result = extract(parFunctor(parFn, 42))

@@ -2,7 +2,7 @@
 
 class Foo
 end
-class Main
+active class Main
   def main_disappear() : unit
     ()
   end

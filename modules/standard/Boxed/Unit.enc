@@ -2,7 +2,7 @@
 
 module Unit
 
-passive class Unit
+read class Unit
   def show() : String
     "()"
   end

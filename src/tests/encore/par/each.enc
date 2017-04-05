@@ -11,7 +11,7 @@ fun presetArray(size : int) : [int]
   end
 end
 
-class Main
+active class Main
   var check_arr : [bool]
   var size : int
 

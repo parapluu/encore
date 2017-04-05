@@ -1,15 +1,15 @@
 -- This file was automatically converted by encorec
 
-trait C
+read trait C
   def read() : String
     "Hello"
   end
 end
-class A
+active class A
 end
-passive class B : C
+class B : C
 end
-class Foo
+active class Foo
   def init(a : A, b : B, c : C) : unit
     ()
   end
@@ -20,7 +20,7 @@ class Foo
     b : C
   end
 end
-class Main
+active class Main
   def main() : unit
     let
       a = new A

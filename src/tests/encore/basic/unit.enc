@@ -1,12 +1,12 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   var f : unit
   def foo(u : unit) : unit
     println("Got unit")
   end
 end
-class Main
+active class Main
   def main() : unit
     var unit1 = ()
     val unit2 = ()

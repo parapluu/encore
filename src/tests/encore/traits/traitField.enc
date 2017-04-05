@@ -1,0 +1,14 @@
+trait T
+  require var f : int
+end
+
+class C : local T
+  var f : int
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new C : local T
+    println(x.f)
+  end
+end

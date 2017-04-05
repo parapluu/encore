@@ -4,6 +4,9 @@ import Active.Active
 fun getActiveInt() : Active[int]
   new Active[int](fun () => 1)
 end
+
+-- TODO: This won't compile until parametric types can be
+-- instantiated with local or linear types
 fun getActiveFoo() : Active[Foo]
   new Active[Foo](fun () => new Foo())
 end
@@ -29,7 +32,7 @@ fun testApply() : unit
     assertTrue(2 == (get(a.getState())).read())
   end
 end
-passive class Foo
+local class Foo
   var f : int
   def init() : unit
     this.f = 1
@@ -41,7 +44,7 @@ passive class Foo
     this.f
   end
 end
-class Main
+active class Main
   def main() : unit
     testInit()
     testMap()

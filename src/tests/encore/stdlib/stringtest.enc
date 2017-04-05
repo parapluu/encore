@@ -28,12 +28,12 @@ fun arraycmp(a : [String], b : [String]) : bool
     false
   end
 end
-class Main
+active class Main
   def main() : unit
     new Test()
   end
 end
-passive class Test
+read class Test
   def init() : unit
     this.test_concatenate()
     println("Concatenate passed")

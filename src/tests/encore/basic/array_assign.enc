@@ -1,11 +1,11 @@
 -- This file was automatically converted by encorec
 
 typedef MyType = EMBED my_c_type END
-trait S
+read trait S
 end
-trait T
+read trait T
 end
-class Foo[t]
+active class Foo[t]
   var f : [EMBED my_c_type END]
   var g : [Range]
   var h : [Maybe[int]]
@@ -37,7 +37,7 @@ class Foo[t]
     this.s = new [int](42)
   end
 end
-class Main
+active class Main
   def main() : unit
     println("I compile and run!")
   end

@@ -1,12 +1,10 @@
--- This file was automatically converted by encorec
-
-trait Result[b]
+local trait Result[b]
   require def Success() : Maybe[b]
   def Fail() : Maybe[int]
     Nothing
   end
 end
-passive class Success[b] : Result[b](data)
+class Success[b] : Result[b](data)
   var data : b
   def init(data : b) : unit
     this.data = data
@@ -15,7 +13,7 @@ passive class Success[b] : Result[b](data)
     Just(this.data)
   end
 end
-class Main
+active class Main
   var foo : Result[int]
   def main() : unit
     this.foo = new Success[int](5)

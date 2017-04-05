@@ -6,7 +6,7 @@ end
 fun bar[a]() : a
   foo(42, "foo")
 end
-class Main
+active class Main
   def main() : unit
     ()
   end

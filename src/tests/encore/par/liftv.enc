@@ -24,14 +24,14 @@ fun passive_const() : String
   "Passive Test"
 end
 
-passive class PassiveTest
-  var elem : String
+read class PassiveTest
+  val elem : String
   def init() : unit
     this.elem = "Liftv"
   end
 end
 
-class Main
+active class Main
   def test_primitive_liftv() : unit
     let
       primitive_par = liftv("Liftv")

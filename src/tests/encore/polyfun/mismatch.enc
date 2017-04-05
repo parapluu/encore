@@ -3,7 +3,7 @@
 fun foo[a](x : a, y : a) : a
   x
 end
-class Main
+active class Main
   def main() : unit
     foo(42, "foo")
   end

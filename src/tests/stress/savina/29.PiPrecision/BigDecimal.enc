@@ -16,15 +16,15 @@ fun intToBigDecimal(x : int) : BigDecimal
     new BigDecimal(bigT)
   end
 end
-trait NumericOperations[self]
+read trait NumericOperations[self]
   require def add(num : self) : self
   require def sub(num : self) : self
   require def mul(num : self) : self
   require def div(num : self, scale : int) : self
 end
-passive class BigDecimal : NumericOperations[BigDecimal](value)
-  var value : BigDecimalT
-  var precision : int
+read class BigDecimal : NumericOperations[BigDecimal](value)
+  val value : BigDecimalT
+  val precision : int
   def BigDecimal_trace() : unit
     EMBED (unit)
       (void)_ctx;

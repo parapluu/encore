@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import Data.Either
-class Main
+active class Main
   def main() : unit
     val l = Left[String, int]("error")
     val r = Right[String, int](12)

@@ -1,6 +1,6 @@
 import Std
 
-class Main
+active class Main
   def main() : unit
 
     -- Comparing two reference types that both implement the Id trait
@@ -63,8 +63,8 @@ class Main
   end
 end
 
-passive class A : Id
+class A : Id
 end
 
-passive class B : Id
+class B : Id
 end

@@ -1,18 +1,18 @@
-class Main
+active class Main
   def main() : unit
     val t = new Test()
     t ! run1()
   end
 end
 
-class Producer
+active class Producer
   def foo(t : Test) : int
     get(t ! run2())
     17
   end
 end
 
-class Test
+active class Test
   val p : Producer
 
   def init() : unit

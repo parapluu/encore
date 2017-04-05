@@ -2,7 +2,7 @@
 
 import Top
 import SelectiveLib as Top
-class Main
+active class Main
   def main() : unit
     println("Should not compile")
   end

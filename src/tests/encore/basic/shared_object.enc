@@ -9,9 +9,9 @@ shared class A
     1
   end
 end
-class Main
+active class Main
   var x : int
   def main() : unit
-    println(get((new A(0)).f(0)))
+    println(get((new A(0))!f(0)))
   end
 end

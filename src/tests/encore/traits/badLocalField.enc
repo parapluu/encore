@@ -1,0 +1,5 @@
+local trait Loc
+end
+linear trait T
+  require var f : Loc
+end

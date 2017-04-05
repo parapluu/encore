@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   def foo() : String
     val s = EMBED (EMBED char* END)
               char *s = encore_alloc(*_ctx, 1000);
@@ -11,7 +11,7 @@ class Foo
     new String(s)
   end
 end
-class Main
+active class Main
   def main() : unit
     val x = new Foo()
     for i <- [0..20] do

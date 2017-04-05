@@ -1,4 +1,4 @@
-passive class C
+read class C
   val f : int
 end
 

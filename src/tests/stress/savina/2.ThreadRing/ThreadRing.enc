@@ -4,7 +4,7 @@ fun create_ring(ring_size : int) : Actor
   a
 end
 
-class Actor
+active class Actor
   var id : int
   var next : Actor
   def init(id : int) : unit
@@ -26,8 +26,7 @@ class Actor
     end
   end
 end
-
-class Main
+active class Main
   def main() : unit
     let
       ring_size = 100

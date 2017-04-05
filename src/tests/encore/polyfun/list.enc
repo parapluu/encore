@@ -6,12 +6,12 @@ fun Cons[a](hd : a, tl : List[a]) : List[a]
   new Cons[a](hd, tl)
 end
 
-trait List[a]
+local trait List[a]
   require def Nil() : Maybe[unit]
   require def Cons() : Maybe[(a, List[a])]
 end
 
-passive class Nil[a] : List[a]
+class Nil[a] : List[a]
   def Nil() : Maybe[unit]
     Just(())
   end
@@ -20,7 +20,7 @@ passive class Nil[a] : List[a]
   end
 end
 
-passive class Cons[a] : List[a](hd,tl)
+class Cons[a] : List[a](hd,tl)
   val hd : a
   val tl : List[a]
 
@@ -52,7 +52,7 @@ fun length[a](l : List[a]) : int
   end
 end
 
-class Main
+active class Main
   def main() : unit
     val f = fun (x : int) => x + 1
     println(length(map(f, Cons(1, Cons(2, Nil[int]())))))

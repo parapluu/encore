@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : unit
     let
       foo = new Foo(new Bar(2))
@@ -10,17 +10,17 @@ class Main
   end
 end
 
-class Foo
+active class Foo
   var x : Bar
-  def init(x : Bar) : unit
-    this.x = x
+  def init(var x : Bar) : unit
+    this.x = consume x
   end
   def print() : unit
     println(this.x.i)
   end
 end
 
-passive class Bar
+linear class Bar
   var i : int
   def init(i : int) : unit
     this.i = i

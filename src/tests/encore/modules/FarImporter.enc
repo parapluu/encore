@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 import FarLib
-class Main
+active class Main
   def main() : unit
     let
       f = new FarFoo

@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Types(
              Type
-            ,Activity (..)
             ,arrowType
             ,arrowWithTypeParam
             ,isArrowType
@@ -17,17 +16,15 @@ module Types(
             ,isRangeType
             ,refTypeWithParams
             ,refType
-            ,traitTypeFromRefType
             ,abstractTraitFromTraitType
             ,classType
             ,isRefAtomType
+            ,traitType
             ,isRefType
             ,isTraitType
             ,isAbstractTraitType
-            ,isActiveClassType
-            ,isSharedClassType
-            ,isPassiveClassType
             ,isClassType
+            ,isPassiveClassType
             ,isMainType
             ,stringObjectType
             ,isStringObjectType
@@ -37,6 +34,7 @@ module Types(
             ,getTypeOperands
             ,disjunctiveType
             ,isCapabilityType
+            ,isCompositeType
             ,incapability
             ,isIncapability
             ,unionType
@@ -65,7 +63,6 @@ module Types(
             ,isStringType
             ,isPrimitive
             ,isNumeric
-            ,getTypeParams
             ,getArgTypes
             ,setArgTypes
             ,getResultType
@@ -80,6 +77,9 @@ module Types(
             ,setTypeParameters
             ,conjunctiveTypesFromCapability
             ,typesFromCapability
+            ,withModeOf
+            ,withBoxOf
+            ,unbox
             ,typeComponents
             ,typeMap
             ,typeMapM
@@ -102,7 +102,32 @@ module Types(
             ,typeSynonymSetRHS
             ,unfoldTypeSynonyms
             ,getTypeParameterBindings
-            ,isPassiveType
+            ,isPassiveRefType
+            ,showModeOf
+            ,showWithoutMode
+            ,isModeless
+            ,hasMinorMode
+            ,modeSubtypeOf
+            ,hasSharableMode
+            ,safeToComposeWith
+            ,makeUnsafe
+            ,makeLinear
+            ,makeLocal
+            ,makeActive
+            ,makeRead
+            ,makeSubordinate
+            ,isLinearRefType
+            ,isLinearArrowType
+            ,isLocalRefType
+            ,isLocalArrowType
+            ,isActiveRefType
+            ,isSharedRefType
+            ,isReadRefType
+            ,isSubordinateRefType
+            ,isSubordinateArrowType
+            ,isUnsafeRefType
+            ,makeStackbound
+            ,isStackboundType
             ) where
 
 import Identifiers
@@ -113,13 +138,9 @@ import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Foldable (toList)
 import Data.Traversable
+import Control.Monad
 
 import Debug.Trace
-
-data Activity = Active
-              | Shared
-              | Passive
-                deriving(Eq, Show)
 
 data TypeOp = Product | Addition
   deriving (Eq)
@@ -128,26 +149,124 @@ instance Show TypeOp where
   show Product = "*"
   show Addition = "+"
 
+data Mode = Linear
+          | Local
+          | Active
+          | Shared
+          | Unsafe
+          | Read
+          | Subordinate
+            deriving(Eq)
+
+instance Show Mode where
+    show Linear = "linear"
+    show Local  = "local"
+    show Active = "active"
+    show Shared = "shared"
+    show Unsafe = "unsafe"
+    show Read   = "read"
+    show Subordinate = "subord"
+
+isMinorMode :: Mode -> Bool
+isMinorMode Read = True
+isMinorMode Subordinate = True
+isMinorMode _ = False
+
+hasMinorMode :: Type -> Bool
+hasMinorMode ty
+  | isModeless ty = True
+  | otherwise = isMinorMode . fromJust $ getMode ty
+
+modeSubtypeOf ty1 ty2
+  | isArrowType ty1 && isArrowType ty2 =
+      let modes1 = modes $ inner ty1
+          modes2 = modes $ inner ty2
+      in
+        all (`elem` modes2) modes1
+  | otherwise = getMode ty1 == getMode ty2
+
+modeIsSharable Read   = True
+modeIsSharable Active = True
+modeIsSharable Shared = True
+modeIsSharable _      = False
+
+hasSharableMode ty
+  | Just mode <- getMode ty = modeIsSharable mode
+  | otherwise = False
+
+-- | Is @class cls : trait@ a valid composition?
+safeToComposeWith :: Type -> Type -> Bool
+safeToComposeWith cls trait
+  | isModeless cls     = True
+  | isModeless trait   = True
+  | otherwise = trait `modeSubtypeOf` cls
+
 data RefInfo = RefInfo{refId         :: String
                       ,parameters    :: [Type]
+                      ,mode          :: Maybe Mode
                       ,refNamespace  :: Maybe Namespace
                       ,refSourceFile :: Maybe FilePath
-                      } deriving(Eq)
+                      }
+
+-- The current modes are irrelevant for equality checks
+instance Eq RefInfo where
+    ref1 == ref2 = refId ref1 == refId ref2 &&
+                   parameters ref1 == parameters ref2 &&
+                   refSourceFile ref1 == refSourceFile ref2
 
 instance Show RefInfo where
-    show RefInfo{refId, parameters, refNamespace}
-        | null parameters = fullName refNamespace refId
-        | otherwise = fullName refNamespace refId ++ "[" ++ params ++ "]"
+    show RefInfo{mode, refId, parameters, refNamespace}
+        | null parameters = smode ++ fullName refNamespace refId
+        | otherwise =
+            smode ++ fullName refNamespace refId ++ "[" ++ params ++ "]"
         where
+          smode
+              | isNothing mode = ""
+              | otherwise = show (fromJust mode) ++ " "
+          params = intercalate ", " (map show parameters)
           fullName Nothing refId = refId
           fullName (Just ns) refId =
               if isEmptyNamespace ns
               then refId
               else show ns ++ "." ++ refId
-          params = intercalate ", " (map show parameters)
 
-data Type = Unresolved{refInfo :: RefInfo}
-          | TraitType{refInfo :: RefInfo}
+
+showRefInfoWithoutMode info = show info{mode = Nothing}
+
+data Box = Stackbound deriving(Eq)
+
+instance Show Box where
+    show Stackbound = "borrowed"
+
+data Type = Type {inner :: InnerType
+                 ,box   :: Maybe Box}
+
+typ ity = Type{inner = ity, box = Nothing}
+
+instance Eq Type where
+    ty1 == ty2 = inner ty1 == inner ty2
+
+instance Show Type where
+    show Type{inner, box = Nothing} = show inner
+    show Type{inner, box = Just s} =
+        show s ++ " " ++ maybeParen (typ inner)
+      where
+        maybeParen :: Type -> String
+        maybeParen ty
+            | isArrowType ty  ||
+              isCapabilityType ty ||
+              isUnionType ty  ||
+              isFutureType ty ||
+              isParType ty    ||
+              isMaybeType ty  ||
+              isStreamType ty = "(" ++ show ty ++ ")"
+            | otherwise = show ty
+
+
+
+data InnerType =
+          Unresolved{refInfo :: RefInfo}
+        | TraitType{refInfo :: RefInfo}
           -- | The @AbstractTraitType@ is used to type @this@ when
           -- overriding methods. A class that implements a trait
           -- @T@ and overrides one of its methods @m@ will
@@ -156,85 +275,96 @@ data Type = Unresolved{refInfo :: RefInfo}
           -- parameters that have the type @T@ from the included
           -- trait @T@, which might have been extended with
           -- additional attributes.
-          | AbstractTraitType{refInfo :: RefInfo}
-          | ClassType{refInfo :: RefInfo
-                     ,activity   :: Activity
-                     }
-          | CapabilityType{typeop :: TypeOp
-                          ,ltype  :: Type
-                          ,rtype  :: Type}
-          | UnionType{ltype :: Type, rtype :: Type}
-          | EmptyCapability{}
-          | TypeVar{ident :: String}
-          | ArrowType{paramTypes :: [Type]
-                     ,argTypes   :: [Type]
-                     ,resultType :: Type
-                     }
-          | FutureType{resultType :: Type}
-          | ParType{resultType :: Type}
-          | StreamType{resultType :: Type}
-          | ArrayType{resultType :: Type}
-          | RangeType
-          | MaybeType {resultType :: Type}
-          | TupleType {argTypes :: [Type]}
-          | CType{ident :: String}
-          | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
-          | UnitType
-          | StringType
-          | CharType
-          | IntType
-          | UIntType
-          | BoolType
-          | RealType
-          | NullType
-          | BottomType
-            deriving(Eq)
+        | AbstractTraitType{refInfo :: RefInfo}
+        | ClassType{refInfo :: RefInfo}
+        | CapabilityType{typeop :: TypeOp
+                        ,ltype  :: Type
+                        ,rtype  :: Type}
+        | UnionType{ltype :: Type, rtype :: Type}
+        | EmptyCapability{}
+        | TypeVar{ident :: String}
+        | ArrowType{paramTypes :: [Type]
+                   ,argTypes   :: [Type]
+                   ,resultType :: Type
+                   ,modes :: [Mode]
+                   }
+        | FutureType{resultType :: Type}
+        | ParType{resultType :: Type}
+        | StreamType{resultType :: Type}
+        | ArrayType{resultType :: Type}
+        | RangeType
+        | MaybeType {resultType :: Type}
+        | TupleType {argTypes :: [Type]}
+        | CType{ident :: String}
+        | TypeSynonym{refInfo :: RefInfo, resolvesTo :: Type}
+        | UnitType
+        | StringType
+        | CharType
+        | IntType
+        | UIntType
+        | BoolType
+        | RealType
+        | NullType
+        | BottomType
+          deriving(Eq)
+
+applyInner f ty@Type{inner} = ty{inner = f inner}
+applyInnerRefInfo f ty@Type{inner}
+  | isRefAtomType ty || isTypeSynonym ty
+  , info <- refInfo inner = ty{inner = inner{refInfo = f info}}
+  | otherwise = ty
+
+getArgTypes = argTypes . inner
+setArgTypes ty argTypes = applyInner (\i -> i{argTypes}) ty
+
+getResultType ty
+    | hasResultType ty = resultType . inner $ ty
+    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
+getId ty =
+    fromMaybe
+      (error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty)
+      (maybeGetId ty)
+
+maybeGetId ty@Type{inner}
+  |  isRefAtomType ty
+  || isTypeSynonym ty
+  , info <- refInfo inner = Just $ refId info
+  | id   <- ident inner = Just id
+  | otherwise = Nothing
+
+getMode ty
+  |  isRefAtomType ty
+  || isTypeSynonym ty = mode . refInfo . inner $ ty
+  | otherwise = Nothing
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
     isStreamType x || isArrayType x || isMaybeType x = True
   | otherwise = False
 
-setResultType ty res
-  | hasResultType ty = ty { resultType = res}
-  | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
-
-getTypeParams = paramTypes
-
-getArgTypes = argTypes
-setArgTypes ty argTypes = ty{argTypes}
-
-getResultType ty
-    | hasResultType ty = resultType ty
-    | otherwise = error $ "Types.hs: tried to get the resultType of " ++ show ty
-
-getId ty = case maybeGetId ty of
-     Nothing -> error $ "Types.hs: Tried to get the ID of " ++ showWithKind ty
-     Just t -> t
-
 getRefNamespace ty
-    | isRefAtomType ty || isTypeSynonym ty = refNamespace (refInfo ty)
+    | isRefAtomType ty || isTypeSynonym ty = refNamespace (refInfo $ inner ty)
     | otherwise = error $ "Types.hs: tried to get the namespace of " ++ show ty
 
 setRefNamespace ns ty
-    | isRefAtomType ty || isTypeSynonym ty
-    , info <- refInfo ty = ty{refInfo = info{refNamespace = Just ns}}
+    | isRefAtomType ty || isTypeSynonym ty =
+        applyInnerRefInfo (\info -> info{refNamespace = Just ns}) ty
     | otherwise = error $ "Types.hs: tried to set the namespace of " ++ show ty
 
 getRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty =
-        fromMaybe err $ refSourceFile (refInfo ty)
+        fromMaybe err $ refSourceFile (refInfo $ inner ty)
     | otherwise = error $ "Types.hs: tried to get the sourcefile of " ++ showWithKind ty
     where err = error "Types.hs: type without sourceFile: " ++ showWithKind ty
 
 setRefSourceFile file ty
-    | isRefAtomType ty || isTypeSynonym ty
-    , info <- refInfo ty = ty{refInfo = info{refSourceFile = Just file}}
+    | isRefAtomType ty || isTypeSynonym ty =
+        applyInnerRefInfo (\info -> info{refSourceFile = Just file}) ty
     | otherwise = error $ "Types.hs: tried to set the source of " ++ show ty
 
 hasRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty
-    , info <- refInfo ty = isJust $ refSourceFile info
+    , info <- refInfo $ inner ty = isJust $ refSourceFile info
     | otherwise = False
 
 translateTypeNamespace :: Map FilePath Namespace -> Type -> Type
@@ -250,20 +380,15 @@ translateTypeNamespace table = typeMap translate
                            "' has unknown source '" ++ show source ++ "'"
         | otherwise = ty
 
-maybeGetId Unresolved{refInfo} = Just $ refId refInfo
-maybeGetId TraitType{refInfo} = Just $ refId refInfo
-maybeGetId AbstractTraitType{refInfo} = Just $ refId refInfo
-maybeGetId ClassType{refInfo} = Just $ refId refInfo
-maybeGetId TypeSynonym{refInfo} = Just $ refId refInfo
-maybeGetId TypeVar{ident} = Just $ ident
-maybeGetId CType{ident} = Just $ ident
-maybeGetId _ = Nothing
+setResultType ty res
+  | hasResultType ty = applyInner (\i -> i{resultType = res}) ty
+  | otherwise = error $ "Types.hs: tried to set the resultType of " ++ show ty
 
-instance Show Type where
+instance Show InnerType where
     show Unresolved{refInfo} = show refInfo
     show TraitType{refInfo} = show refInfo
     show AbstractTraitType{refInfo} = show refInfo
-    show ClassType{refInfo} = show refInfo
+    show ClassType{refInfo} = showRefInfoWithoutMode refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
         let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
@@ -277,14 +402,17 @@ instance Show Type where
     show UnionType{ltype, rtype} = show ltype ++ " | " ++ show rtype
     show EmptyCapability = ""
     show TypeVar{ident} = ident
-    show ArrowType{argTypes = [ty], resultType} =
+    show ArrowType{argTypes = [ty], resultType, modes = []} =
         if isTupleType ty
         then "(" ++ show ty ++ ") -> " ++ show resultType
         else show ty ++ " -> " ++ show resultType
-    show ArrowType{argTypes, resultType} =
+    show ArrowType{argTypes, resultType, modes = []} =
         "(" ++ args ++ ") -> " ++ show resultType
         where
           args = intercalate ", " (map show argTypes)
+    show arrow@ArrowType{modes} =
+        unwords (map show modes) ++
+        " (" ++ show arrow{modes = []} ++ ")"
     show FutureType{resultType} = "Fut" ++ brackets resultType
     show ParType{resultType}    = "Par" ++ brackets resultType
     show StreamType{resultType} = "Stream" ++ brackets resultType
@@ -309,7 +437,7 @@ instance Show Type where
 brackets ty = "[" ++ show ty ++ "]"
 
 showWithKind :: Type -> String
-showWithKind ty = kind ty ++ " " ++ show ty
+showWithKind ty = kind (inner ty) ++ " " ++ show ty
     where
     kind UnitType                      = "primitive type"
     kind StringType                    = "primitive type"
@@ -321,8 +449,11 @@ showWithKind ty = kind ty ++ " " ++ show ty
     kind Unresolved{}                  = "unresolved type"
     kind TraitType{}                   = "trait type"
     kind AbstractTraitType{}           = "abstract trait type"
-    kind ClassType{activity = Active}  = "active class type"
-    kind ClassType{activity = Passive} = "passive class type"
+    kind ty@ClassType{}                = if isActiveRefType (typ ty)
+                                         then "active class type"
+                                         else if isSharedRefType (typ ty)
+                                         then "shared class type"
+                                         else "class type"
     kind CapabilityType{}              = "capability type"
     kind EmptyCapability{}             = "the empty capability type"
     kind UnionType{}                   = "union type"
@@ -362,150 +493,136 @@ hasSameKind ty1 ty2
     isBottomTy2 = isBottomType ty2
     areBoth typeFun = typeFun ty1 && typeFun ty2
 
-typeComponents :: Type -> [Type]
-typeComponents arrow@(ArrowType typeParams argTys ty) =
-    arrow : (concatMap typeComponents typeParams ++
-             concatMap typeComponents argTys ++
-             typeComponents ty)
-typeComponents fut@(FutureType ty) =
-    fut : typeComponents ty
-typeComponents par@(ParType ty) =
-    par : typeComponents ty
-typeComponents ref@(Unresolved{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(TraitType{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(AbstractTraitType{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents ref@(ClassType{refInfo}) =
-    ref : refInfoTypeComponents refInfo
-typeComponents cap@(CapabilityType{ltype, rtype}) =
-    cap : typeComponents ltype ++ typeComponents rtype
-typeComponents ty@(UnionType{ltype, rtype}) =
-    ty : typeComponents ltype ++ typeComponents rtype
-typeComponents str@(StreamType ty) =
-    str : typeComponents ty
-typeComponents arr@(ArrayType ty)  =
-    arr : typeComponents ty
-typeComponents maybe@(MaybeType ty) =
-    maybe : typeComponents ty
-typeComponents tuple@(TupleType{argTypes}) =
-    tuple : concatMap typeComponents argTypes
-typeComponents ty = [ty]
+showModeOf :: Type -> String
+showModeOf ty
+  | isModeless ty =
+      error $ "Types.hs: Cannot show mode of " ++ showWithKind ty
+  | otherwise = show . fromJust $ getMode ty
 
-refInfoTypeComponents = concatMap typeComponents . parameters
+showWithoutMode :: Type -> String
+showWithoutMode ty
+  | isRefAtomType ty = showRefInfoWithoutMode $ refInfo (inner ty)
+  | otherwise = show ty
+
+typeComponents :: Type -> [Type]
+typeComponents ty
+    | isArrowType ty =
+        ty : concatMap typeComponents (getTypeParameters ty) ++
+             concatMap typeComponents (getArgTypes ty) ++
+             typeComponents (getResultType ty)
+    | hasResultType ty =
+        ty : typeComponents (getResultType ty)
+    | isTupleType ty =
+        ty : concatMap typeComponents (getArgTypes ty)
+    |  isRefAtomType ty
+    || isTypeSynonym ty =
+        ty : refInfoTypeComponents (refInfo iType)
+    | isCompositeType ty || isUnionType ty =
+        ty : typeComponents (ltype iType) ++ typeComponents (rtype iType)
+    | otherwise = [ty]
+    where
+      iType = inner ty
+
+      refInfoTypeComponents = concatMap typeComponents . parameters
 
 typeMap :: (Type -> Type) -> Type -> Type
-typeMap f ty@Unresolved{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@TraitType{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@AbstractTraitType{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@ClassType{refInfo} =
-    f ty{refInfo = refInfoTypeMap f refInfo}
-typeMap f ty@CapabilityType{ltype, rtype} =
-    f ty{ltype = typeMap f ltype
-        ,rtype = typeMap f rtype}
-typeMap f ty@UnionType{ltype, rtype} =
-    f ty{ltype = typeMap f ltype
-        ,rtype = typeMap f rtype}
-typeMap f ty@ArrowType{argTypes, resultType} =
-    f ty{argTypes = map (typeMap f) argTypes
-        ,resultType = typeMap f resultType}
-typeMap f ty@FutureType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@ParType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@StreamType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@ArrayType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@MaybeType{resultType} =
-    f ty{resultType = typeMap f resultType}
-typeMap f ty@TupleType{argTypes} =
-    f ty{argTypes = map (typeMap f) argTypes}
-typeMap f ty@TypeSynonym{refInfo, resolvesTo} =
- f ty{refInfo = refInfoTypeMap f refInfo, resolvesTo = typeMap f resolvesTo}
-typeMap f ty = f ty
+typeMap f ty
+    | isRefAtomType ty =
+        f $ applyInner (refTypeMap f) ty
+    | isCompositeType ty || isUnionType ty =
+        f $ applyInner (\i -> i{ltype = typeMap f (ltype i)
+                               ,rtype = typeMap f (rtype i)}) ty
+    | isArrowType ty =
+        f $ applyInner (resultTypeMap f . argTypesMap f . typeParamMap f) ty
+    | hasResultType ty =
+        f $ applyInner (resultTypeMap f) ty
+    | isTupleType ty =
+        f $ applyInner (argTypesMap f) ty
+    | isTypeSynonym ty =
+        f $ applyInner
+              (\i -> refTypeMap f i{resolvesTo = typeMap f (resolvesTo i)}) ty
+    | otherwise = f ty
+    where
+      refTypeMap f ity =
+          ity{refInfo = refInfoTypeMap f (refInfo ity)}
 
-refInfoTypeMap :: (Type -> Type) -> RefInfo -> RefInfo
-refInfoTypeMap f info@RefInfo{parameters} =
-    info{parameters = map (typeMap f) parameters}
+      resultTypeMap f ity =
+          ity{resultType = typeMap f (resultType ity)}
+
+      argTypesMap f ity =
+          ity{argTypes = map (typeMap f) (argTypes ity)}
+
+      typeParamMap f ity =
+          ity{paramTypes = map (typeMap f) (paramTypes ity)}
+
+      refInfoTypeMap f info@RefInfo{parameters} =
+          info{parameters = map (typeMap f) parameters}
+
+applyInnerM f ty@Type{inner} = do
+  inner' <- f inner
+  return ty{inner = inner'}
 
 typeMapM :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapM f ty@Unresolved{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@TraitType{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@AbstractTraitType{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@ClassType{refInfo} = do
-  refInfo' <- refInfoTypeMapM f refInfo
-  f ty{refInfo = refInfo'}
-typeMapM f ty@CapabilityType{ltype, rtype} = do
-  ltype' <- typeMapM f ltype
-  rtype' <- typeMapM f rtype
-  f ty{ltype = ltype', rtype = rtype'}
-typeMapM f ty@UnionType{ltype, rtype} = do
-  ltype' <- typeMapM f ltype
-  rtype' <- typeMapM f rtype
-  f ty{ltype = ltype', rtype = rtype'}
-typeMapM f ty@ArrowType{argTypes, resultType} = do
-  argTypes' <- mapM (typeMapM f) argTypes
-  resultType' <- typeMapM f resultType
-  f ty{argTypes = argTypes'
-      ,resultType = resultType'}
-typeMapM f ty@TupleType{argTypes} = do
-  argTypes' <- mapM (typeMapM f) argTypes
-  f ty{argTypes = argTypes'}
-typeMapM f ty@TypeSynonym{refInfo, resolvesTo} = do
- refInfo' <- refInfoTypeMapM f refInfo
- resolvesTo' <- typeMapM f resolvesTo
- f ty{refInfo = refInfo', resolvesTo = resolvesTo'}
 typeMapM f ty
-  | isFutureType ty || isParType ty || isStreamType ty ||
-    isArrayType ty || isMaybeType ty = typeMapMResultType f ty
-  | otherwise = f ty
+    | isRefAtomType ty = applyInnerM (refTypeMapM f) ty >>= f
+    | isCompositeType ty || isUnionType ty =
+        applyInnerM (\i -> do
+                       ltype' <- typeMapM f (ltype i)
+                       rtype' <- typeMapM f (rtype i)
+                       return i{ltype = ltype', rtype = rtype'}) ty >>= f
+    | isArrowType ty =
+        applyInnerM (\i -> argTypesMapM f i >>=
+                           typeParamMapM f >>=
+                           resultTypeMapM f) ty >>= f
+    | hasResultType ty = applyInnerM (resultTypeMapM f) ty >>= f
+    | isTupleType ty = applyInnerM (argTypesMapM f) ty >>= f
+    | isTypeSynonym ty =
+        applyInnerM (\i -> do
+                       resolvesTo' <- typeMapM f (resolvesTo i)
+                       refTypeMapM f i{resolvesTo = resolvesTo'}) ty >>= f
+    | otherwise = f ty
+    where
+      refTypeMapM f ity = do
+        refInfo' <- refInfoTypeMapM f (refInfo ity)
+        return ity{refInfo = refInfo'}
 
-typeMapMResultType :: Monad m => (Type -> m Type) -> Type -> m Type
-typeMapMResultType f ty = do
-  resultType' <- typeMapM f $ resultType ty
-  f ty{resultType = resultType'}
+      refInfoTypeMapM f info@RefInfo{parameters} = do
+        parameters' <- mapM (typeMapM f) parameters
+        return info{parameters = parameters'}
 
-refInfoTypeMapM :: Monad m => (Type -> m Type) -> RefInfo -> m RefInfo
-refInfoTypeMapM f info@RefInfo{parameters} = do
-  parameters' <- mapM (typeMapM f) parameters
-  return info{parameters = parameters'}
+      argTypesMapM f ity = do
+        argTypes' <- mapM (typeMapM f) (argTypes ity)
+        return ity{argTypes = argTypes'}
+
+      typeParamMapM f ity = do
+        paramTypes' <- mapM (typeMapM f) (paramTypes ity)
+        return ity{paramTypes = paramTypes'}
+
+      resultTypeMapM f ity = do
+        resultType' <- typeMapM f $ resultType ity
+        return ity{resultType = resultType'}
 
 getTypeParameters :: Type -> [Type]
-getTypeParameters Unresolved{refInfo} = parameters refInfo
-getTypeParameters TraitType{refInfo} = parameters refInfo
-getTypeParameters AbstractTraitType{refInfo} = parameters refInfo
-getTypeParameters ClassType{refInfo} = parameters refInfo
-getTypeParameters TypeSynonym{refInfo} = parameters refInfo
-getTypeParameters ArrowType{paramTypes} = paramTypes
-getTypeParameters ty =
-    error $ "Types.hs: Can't get type parameters from type " ++ show ty
+getTypeParameters ty
+    |  isRefAtomType ty
+    || isTypeSynonym ty = parameters $ refInfo (inner ty)
+    | isArrowType ty =
+        paramTypes (inner ty)
+    | otherwise =
+        error $ "Types.hs: Can't get type parameters from type " ++ show ty
 
-setTypeParameters ty@Unresolved{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@TraitType{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@AbstractTraitType{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@ClassType{refInfo} parameters =
-    ty{refInfo = refInfo{parameters}}
-setTypeParameters ty@TypeSynonym{refInfo, resolvesTo} params =
-    let subst = zip (parameters refInfo) params
-    in ty{refInfo = refInfo{parameters = params}, resolvesTo=replaceTypeVars subst resolvesTo}
-setTypeParameters ty@ArrowType{} paramTypes =
-    ty{paramTypes}
-setTypeParameters ty _ =
-    error $ "Types.hs: Can't set type parameters of type " ++ show ty
+setTypeParameters :: Type -> [Type] -> Type
+setTypeParameters ty params
+    | isRefAtomType ty =
+        applyInnerRefInfo (\info -> info{parameters = params}) ty
+    | isTypeSynonym ty =
+      let subst = zip (getTypeParameters ty) params
+          rhs' = replaceTypeVars subst (typeSynonymRHS ty)
+      in applyInnerRefInfo (\info -> info{parameters = params}) .
+         applyInner (\i -> i{resolvesTo = rhs'}) $ ty
+    | isArrowType ty = applyInner (\i -> i{paramTypes = params}) ty
+    | otherwise =
+        error $ "Types.hs: Can't set type parameters of type " ++ show ty
 
 getTypeParameterBindings :: [(Type, Type)] -> [(Type, Type)]
 getTypeParameterBindings [] = []
@@ -520,61 +637,88 @@ getTypeParameterBindings (binding:ps) = findRootType binding ++
 conjunctiveTypesFromCapability :: Type -> [([Type], [Type])]
 conjunctiveTypesFromCapability ty
     | isConjunctiveType ty
-    , ltype <- ltype ty
-    , rtype <- rtype ty =
+    , ltype <- ltype . inner $ ty
+    , rtype <- rtype . inner $ ty =
         (typesFromCapability ltype, typesFromCapability rtype) :
         conjunctiveTypesFromCapability ltype ++
         conjunctiveTypesFromCapability rtype
     | isDisjunctiveType ty
-    , ltype <- ltype ty
-    , rtype <- rtype ty =
+    , ltype <- ltype . inner $ ty
+    , rtype <- rtype . inner $ ty =
         conjunctiveTypesFromCapability ltype ++
         conjunctiveTypesFromCapability rtype
     | otherwise = []
 
 typesFromCapability :: Type -> [Type]
-typesFromCapability CapabilityType{ltype, rtype} =
+typesFromCapability Type{inner = CapabilityType{ltype, rtype}} =
     typesFromCapability ltype ++ typesFromCapability rtype
-typesFromCapability EmptyCapability{} = []
+typesFromCapability Type{inner = EmptyCapability{}} = []
 typesFromCapability ty = [ty]
 
-refTypeWithParams refId parameters =
-    Unresolved{refInfo = RefInfo{refId
-                                ,parameters
-                                ,refNamespace = Nothing
-                                ,refSourceFile = Nothing
-                                }
-              }
+withModeOf sink source
+    | isRefAtomType sink || isTypeSynonym sink
+    , isRefAtomType source
+    , iType <- inner sink
+    , info <- refInfo iType
+    , mode <- mode $ refInfo (inner source)
+      = sink{inner = iType{refInfo = info{mode}}}
+    | otherwise =
+        error $ "Types.hs: Can't transfer modes from " ++
+                showWithKind source ++ " to " ++ showWithKind sink
 
-refType :: String -> Type
+withBoxOf sink source = sink{box = box source}
+
+unbox ty = ty{box = Nothing}
+
+refTypeWithParams refId parameters =
+    typ Unresolved{refInfo}
+    where
+      refInfo = RefInfo{refId
+                       ,parameters
+                       ,mode = Nothing
+                       ,refNamespace = Nothing
+                       ,refSourceFile = Nothing
+                       }
+
 refType id = refTypeWithParams id []
 
-classType :: Activity -> String -> [Type] -> Type
-classType activity name parameters =
-  ClassType{refInfo = RefInfo{refId = name
-                             ,parameters
-                             ,refNamespace = Nothing
-                             ,refSourceFile = Nothing
-                             }
-           ,activity}
+classType :: String -> [Type] -> Type
+classType name parameters =
+  Type{inner = ClassType{refInfo = RefInfo{refId = name
+                                          ,parameters
+                                          ,mode = Nothing
+                                          ,refNamespace = Nothing
+                                          ,refSourceFile = Nothing
+                                          }
+                        }
+      ,box = Nothing
+      }
 
-traitTypeFromRefType Unresolved{refInfo} =
-    TraitType{refInfo}
-traitTypeFromRefType ty =
-    error $ "Types.hs: Can't make trait type from type: " ++ show ty
+traitType :: String -> [Type] -> Type
+traitType name parameters =
+    Type{inner = TraitType{refInfo = RefInfo{refId = name
+                                            ,parameters
+                                            ,mode = Nothing
+                                            ,refNamespace = Nothing
+                                            ,refSourceFile = Nothing
+                                            }
+                          }
+        ,box = Nothing
+        }
 
--- | Callsing @abstractTraitFromTraitType ty@ returns the *trait
+-- | Calling @abstractTraitFromTraitType ty@ returns the *trait
 -- type* @ty@ as an *abstract* trait type. See the definition of
 -- @AbstractTraitType@ for more details.
-abstractTraitFromTraitType TraitType{refInfo} = AbstractTraitType{refInfo}
-abstractTraitFromTraitType ty@AbstractTraitType{} = ty
+abstractTraitFromTraitType ty@Type{inner = TraitType{refInfo}} =
+  ty{inner = AbstractTraitType{refInfo}}
+abstractTraitFromTraitType ty@Type{inner = AbstractTraitType{}} = ty
 abstractTraitFromTraitType ty =
   error $ "Types.hs: Can't form abstract trait from " ++ showWithKind ty
 
-isRefAtomType Unresolved {} = True
-isRefAtomType TraitType {} = True
-isRefAtomType AbstractTraitType {} = True
-isRefAtomType ClassType {} = True
+isRefAtomType Type{inner = Unresolved {}} = True
+isRefAtomType Type{inner = TraitType {}} = True
+isRefAtomType Type{inner = AbstractTraitType {}} = True
+isRefAtomType Type{inner = ClassType {}} = True
 isRefAtomType _ = False
 
 isRefType ty
@@ -584,167 +728,217 @@ isRefType ty
         isRefAtomType ty ||
         isCapabilityType ty
 
-isTraitType TraitType{} = True
-isTraitType AbstractTraitType{} = True
+isUnresolved Type{inner = Unresolved{}} = True
+isUnresolved _ = False
+
+isTraitType Type{inner = TraitType{}} = True
+isTraitType Type{inner = AbstractTraitType{}} = True
 isTraitType _ = False
 
-isAbstractTraitType AbstractTraitType{} = True
+isAbstractTraitType Type{inner = AbstractTraitType{}} = True
 isAbstractTraitType _ = False
 
-isActiveClassType ClassType{activity = Active} = True
-isActiveClassType _ = False
+isPassiveRefType ty = isRefType ty && not (isActiveRefType ty) &&
+                                      not (isSharedRefType ty)
 
-isSharedClassType ClassType{activity = Shared} = True
-isSharedClassType _ = False
-
-isPassiveClassType ClassType{activity = Passive} = True
-isPassiveClassType _ = False
-
-isPassiveType ty = isRefType ty && not (isActiveClassType ty)
-
-isClassType ClassType{} = True
+isClassType Type{inner = ClassType{}} = True
 isClassType _ = False
 
-disjunctiveType ltype rtype = CapabilityType{typeop = Addition, ltype, rtype}
-conjunctiveType ltype rtype = CapabilityType{typeop = Product, ltype, rtype}
+isPassiveClassType ty = isPassiveRefType ty && isClassType ty
 
-isCapabilityType CapabilityType{} = True
-isCapabilityType TraitType{} = True
-isCapabilityType AbstractTraitType{} = True
-isCapabilityType EmptyCapability{} = True
+disjunctiveType ltype rtype =
+    typ CapabilityType{typeop = Addition, ltype, rtype}
+conjunctiveType ltype rtype =
+    typ CapabilityType{typeop = Product, ltype, rtype}
+
+setMode ty m
+    | isRefAtomType ty = applyInnerRefInfo (\info -> info{mode = Just m}) ty
+    | isArrowType ty = applyInner (\i -> i{modes = nub $ m : modes i}) ty
+    | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
+
+makeUnsafe ty = setMode ty Unsafe
+makeLinear ty = setMode ty Linear
+makeLocal ty = setMode ty Local
+makeActive ty = setMode ty Active
+makeShared ty = setMode ty Shared
+makeRead ty = setMode ty Read
+makeSubordinate ty = setMode ty Subordinate
+
+isModeless ty
+    | Just m <- getMode ty = False
+    | otherwise = True
+
+isLinearRefType ty
+    | Just Linear <- getMode ty = True
+    | otherwise = False
+
+isLinearArrowType ty
+    | isArrowType ty = Linear `elem` modes (inner ty)
+    | otherwise = False
+
+isLocalRefType ty
+    | Just Local <- getMode ty = True
+    | otherwise = False
+
+isLocalArrowType ty
+    | isArrowType ty = Local `elem` modes (inner ty)
+    | otherwise = False
+
+isActiveRefType ty
+    | Just Active <- getMode ty = True
+    | otherwise = False
+
+isSharedRefType ty
+    | Just Shared <- getMode ty = True
+    | otherwise = False
+
+isReadRefType ty
+    | Just Read <- getMode ty = True
+    | otherwise = False
+
+isSubordinateRefType ty
+    | Just Subordinate <- getMode ty = True
+    | otherwise = False
+
+isSubordinateArrowType ty
+    | isArrowType ty = Subordinate `elem` modes (inner ty)
+    | otherwise = False
+
+isUnsafeRefType ty
+    | Just Unsafe <- getMode ty = True
+    | otherwise = False
+
+isCapabilityType Type{inner = CapabilityType{}} = True
+isCapabilityType Type{inner = TraitType{}} = True
+isCapabilityType Type{inner = AbstractTraitType{}} = True
+isCapabilityType Type{inner = EmptyCapability{}} = True
 isCapabilityType _ = False
 
-isDisjunctiveType CapabilityType{typeop = Addition} = True
+isDisjunctiveType Type{inner = CapabilityType{typeop = Addition}} = True
 isDisjunctiveType _ = False
 
-isConjunctiveType CapabilityType{typeop = Product} = True
+isConjunctiveType Type{inner = CapabilityType{typeop = Product}} = True
 isConjunctiveType _ = False
 
-getTypeOperands CapabilityType{ltype, rtype} = (ltype, rtype)
+getTypeOperands Type{inner = CapabilityType{ltype, rtype}} = (ltype, rtype)
 getTypeOperands ty =
   error $ "Types.hs: Cannot get type operands of " ++ showWithKind ty
 
-incapability :: Type
-incapability = EmptyCapability
+isCompositeType ty = isDisjunctiveType ty || isConjunctiveType ty
 
-isIncapability EmptyCapability = True
+incapability :: Type
+incapability = typ EmptyCapability
+
+isIncapability Type{inner = EmptyCapability} = True
 isIncapability _ = False
 
-unionType = UnionType
-isUnionType UnionType{} = True
+isStackboundType ty = box ty == Just Stackbound
+makeStackbound ty = ty{box = Just Stackbound}
+
+unionType ltype rtype = typ UnionType{ltype, rtype}
+isUnionType Type{inner = UnionType{}} = True
 isUnionType _ = False
 
-unionMembers UnionType{ltype, rtype} =
+unionMembers Type{inner = UnionType{ltype, rtype}} =
     unionMembers ltype ++ unionMembers rtype
 unionMembers ty = [ty]
 
 arrowType :: [Type] -> Type -> Type
-arrowType = ArrowType []
-arrowWithTypeParam = ArrowType
+arrowType args ty = typ (ArrowType [] args ty [])
+arrowWithTypeParam params args ty = typ $ ArrowType params args ty []
 
-isArrowType (ArrowType {}) = True
+isArrowType Type{inner = ArrowType {}} = True
 isArrowType _ = False
 
-futureType = FutureType
-isFutureType FutureType {} = True
+futureType = typ . FutureType
+isFutureType Type{inner = FutureType {}} = True
 isFutureType _ = False
 
-maybeType = MaybeType
-isMaybeType MaybeType {} = True
+maybeType = typ . MaybeType
+isMaybeType Type{inner = MaybeType {}} = True
 isMaybeType _ = False
 
-tupleType = TupleType
-isTupleType TupleType {} = True
+tupleType = typ . TupleType
+isTupleType Type{inner = TupleType {}} = True
 isTupleType _ = False
 
-bottomType = BottomType
-isBottomType BottomType {} = True
+bottomType = typ BottomType
+isBottomType Type{inner = BottomType {}} = True
 isBottomType _ = False
 
-parType = ParType
-isParType ParType {} = True
+parType = typ . ParType
+isParType Type{inner = ParType {}} = True
 isParType _ = False
 
-streamType = StreamType
-isStreamType StreamType {} = True
+streamType = typ . StreamType
+isStreamType Type{inner = StreamType {}} = True
 isStreamType _ = False
 
-rangeType = RangeType
-isRangeType RangeType = True
-isRangeType _         = False
+rangeType = typ RangeType
+isRangeType Type{inner = RangeType {}} = True
+isRangeType _ = False
 
-arrayType = ArrayType
-isArrayType ArrayType {} = True
+arrayType = typ . ArrayType
+isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = TypeVar
-isTypeVar (TypeVar _) = True
+typeVar = typ . TypeVar
+isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
-isMainType ClassType{refInfo = RefInfo{refId = "Main"}} = True
+isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
 isMainType _ = False
 
 stringObjectType = setRefSourceFile "String.enc" $
-                    classType Passive "String" []
+                    makeRead $ classType "String" []
 
-isStringObjectType ty = isPassiveClassType ty &&
+isStringObjectType ty = isClassType ty &&
                         getId ty == "String"
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-    where replace ty = fromMaybe ty (lookup ty bindings)
+    where replace ty =
+              fromMaybe ty (lookup ty bindings)
+              `withBoxOf` ty
 
 ctype :: String -> Type
-ctype = CType
+ctype = typ . CType
 
-isCType :: Type -> Bool
-isCType CType{} = True
+isCType Type{inner = CType{}} = True
 isCType _ = False
 
 unitType :: Type
-unitType = UnitType
+unitType = typ UnitType
 
 isUnitType :: Type -> Bool
 isUnitType = (== unitType)
 
-nullType :: Type
-nullType = NullType
-
-isNullType :: Type -> Bool
+nullType = typ NullType
 isNullType = (== nullType)
 
-boolType :: Type
-boolType = BoolType
-
-isBoolType :: Type -> Bool
+boolType = typ BoolType
 isBoolType = (== boolType)
 
-intType :: Type
-intType = IntType
-
-isIntType :: Type -> Bool
+intType = typ IntType
 isIntType = (== intType)
 
 uintType :: Type
-uintType = UIntType
+uintType = typ UIntType
 
 isUIntType :: Type -> Bool
 isUIntType = (== uintType)
 
 realType :: Type
-realType = RealType
+realType = typ RealType
 
 isRealType :: Type -> Bool
 isRealType = (== realType)
 
-stringType :: Type
-stringType = StringType
-
-isStringType :: Type -> Bool
+stringType = typ StringType
 isStringType = (== stringType)
 
 charType :: Type
-charType = CharType
+charType = typ CharType
 
 isCharType :: Type -> Bool
 isCharType = (== charType)
@@ -774,35 +968,41 @@ isPrintable ty
 
 typeSynonym :: String -> [Type] -> Type -> Type
 typeSynonym name parameters resolution =
-  TypeSynonym{refInfo = RefInfo{refId = name
-                               ,parameters
-                               ,refNamespace = Nothing
-                               ,refSourceFile = Nothing
-                               }
-             ,resolvesTo = resolution}
+  typ TypeSynonym{refInfo = RefInfo{refId = name
+                                   ,parameters
+                                   ,mode = Nothing
+                                   ,refNamespace = Nothing
+                                   ,refSourceFile = Nothing
+                                   }
+                 ,resolvesTo = resolution
+                 }
 
 typeSynonymLHS :: Type -> (String, [Type])
-typeSynonymLHS TypeSynonym{refInfo = RefInfo{refId = name, parameters}} =
-                   (name, parameters)
-typeSynonymLHS ty = error "Types.hs: Expected type synonym"
+typeSynonymLHS ty
+  | isTypeSynonym ty
+  , RefInfo{refId, parameters} <- refInfo . inner $ ty
+    = (refId, parameters)
+  | otherwise = error "Types.hs: Expected type synonym"
 
 typeSynonymRHS :: Type -> Type
-typeSynonymRHS TypeSynonym{resolvesTo} = resolvesTo
-typeSynonymRHS ty = error "Types.hs: Expected type synonym"
+typeSynonymRHS ty
+  | isTypeSynonym ty = resolvesTo . inner $ ty
+  | otherwise = error "Types.hs: Expected type synonymm"
 
 typeSynonymSetRHS :: Type -> Type -> Type
-typeSynonymSetRHS t@TypeSynonym{} rhs = t{resolvesTo = rhs}
-typeSynonymSetRHS ty _ = error "Types.hs: Expected type synonym"
+typeSynonymSetRHS ty rhs
+  | isTypeSynonym ty = applyInner (\i -> i{resolvesTo = rhs}) ty
+  | otherwise = error "Types.hs: Expected type synonymm"
 
-isTypeSynonym TypeSynonym{} = True
+isTypeSynonym Type{inner = TypeSynonym{}} = True
 isTypeSynonym _ = False
 
 unfoldTypeSynonyms :: Type -> Type
 unfoldTypeSynonyms = typeMap unfoldSingleSynonym
 
 unfoldSingleSynonym :: Type -> Type
-unfoldSingleSynonym TypeSynonym{resolvesTo = t} = t
+unfoldSingleSynonym Type{inner = TypeSynonym{resolvesTo = t}} = t
 unfoldSingleSynonym t = t
 
-tupleLength (TupleType {argTypes}) = length argTypes
-tupleLength _ = error $ "Types.hs: Expected a tuple type"
+tupleLength Type{inner = TupleType {argTypes}} = length argTypes
+tupleLength _ = error "Types.hs: Expected a tuple type"

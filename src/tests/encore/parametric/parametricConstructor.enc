@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-passive class Test
+class Test
   def init[a](x : a) : unit
     ()
   end

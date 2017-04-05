@@ -10,7 +10,7 @@ end
 fun initial() : Position
   0
 end
-fun filterLessThan(data : ArrayList[int], pivot : int) : ArrayList[int]
+fun filterLessThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   var result = new ArrayList[int](data.size())
   var i = 0
   while i < data.size() do
@@ -23,27 +23,24 @@ fun filterLessThan(data : ArrayList[int], pivot : int) : ArrayList[int]
       i = i + 1
     end
   end
-  result
+  consume result
 end
-fun filterEqualsTo(data : ArrayList[int], pivot : int) : ArrayList[int]
-  let
-    result = new ArrayList[int](data.size())
-  in
-    var i = 0
-    while i < data.size() do
-      let
-        d = data.at(i)
-      in
-        if d == pivot then
-          result.add(d)
-        end
-        i = i + 1
+fun filterEqualsTo(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](data.size())
+  var i = 0
+  while i < data.size() do
+    let
+      d = data.at(i)
+    in
+      if d == pivot then
+        result.add(d)
       end
+      i = i + 1
     end
-    result
   end
+  consume result
 end
-fun filterGreaterThan(data : ArrayList[int], pivot : int) : ArrayList[int]
+fun filterGreaterThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   var result = new ArrayList[int](data.size())
   var i = 0
   while i < data.size() do
@@ -56,30 +53,28 @@ fun filterGreaterThan(data : ArrayList[int], pivot : int) : ArrayList[int]
       i = i + 1
     end
   end
-  result
+  consume result
 end
 
-fun quicksortSeq(data : ArrayList[int]) : ArrayList[int]
+fun quicksortSeq(data : borrowed ArrayList[int]) : ArrayList[int]
   let
     dataLength = data.size()
   in
+    var result = new ArrayList[int](dataLength)
     if dataLength < 2 then
-      data
+      result.addAll(data)
+      consume result
     else
-      let
-        pivot = data.at(data.size() / 2)
-        leftUnsorted = filterLessThan(data, pivot)
-        leftSorted = quicksortSeq(leftUnsorted)
-        equalElements = filterEqualsTo(data, pivot)
-        rightSorted = quicksortSeq(filterGreaterThan(data, pivot))
-        result = new ArrayList[int](dataLength)
-      in
-        result.addAll(leftSorted)
-        result.addAll(equalElements)
-        result.addAll(rightSorted)
-        assertTrue(result.size() == data.size(), "the size of the resulting array is different from the size of the input")
-        result
-      end
+      val pivot = data.at(data.size() / 2)
+      var leftUnsorted = filterLessThan(data, pivot)
+      var leftSorted = quicksortSeq(leftUnsorted)
+      var equalElements = filterEqualsTo(data, pivot)
+      var rightSorted = quicksortSeq(filterGreaterThan(data, pivot))
+      result.addAll(leftSorted)
+      result.addAll(equalElements)
+      result.addAll(rightSorted)
+      assertTrue(result.size() == data.size(), "the size of the resulting array is different from the size of the input")
+      consume result
     end
   end
 end
@@ -87,17 +82,14 @@ fun checkSorted(data : ArrayList[int]) : bool
   true
 end
 fun randomInitialArray(n : int, s : int, m : int) : ArrayList[int]
-  let
-    result = new ArrayList[int](n)
-    r = new Random(s)
-  in
-    for i <- [0..n - 1] do
-      result.add(r.random(m))
-    end
-    result
+  var result = new ArrayList[int](n)
+  val r = new Random(s)
+  for i <- [0..n - 1] do
+    result.add(r.random(m))
   end
+  consume result
 end
-fun printArray(s : String, a : ArrayList[int]) : unit
+fun printArray(s : String, a : borrowed ArrayList[int]) : unit
   if a.size() > 0 then
     var result = string_from_int(a.at(0))
     var i = 1
@@ -110,13 +102,7 @@ fun printArray(s : String, a : ArrayList[int]) : unit
   end
 end
 
-fun isNull[a](q: a): bool
-  EMBED (bool)
-    (#{q}).p == NULL;
-  END
-end
-
-class QuickSortActor
+active class QuickSortActor : Id
   var t : int
   var parent : QuickSortActor
   var result : ArrayList[int]
@@ -129,11 +115,11 @@ class QuickSortActor
     this.numFragments = 0
     this.myPosition = pos
   end
-  def done(data : ArrayList[int], position : Position) : unit
-    if not isNull(data) then
+  def done(var data : ArrayList[int], position : Position) : unit
+    if data != null then
       if position == left() then
-        data.addAll(this.result)
-        this.result = data
+        data.addAll(consume this.result)
+        this.result = consume data
       else
         if position == right() then
           this.result.addAll(data)
@@ -146,8 +132,12 @@ class QuickSortActor
     end
   end
   def notify() : unit
-    if not isNull(this.parent) then
-      this.parent!done(this.result, this.myPosition)
+    if this.parent != null then
+      this.parent!done(consume this.result, this.myPosition)
+    else
+      var res = consume this.result
+--      printArray("result", res)
+      this.result = consume res
     end
   end
   def sort(data : ArrayList[int]) : unit
@@ -170,7 +160,7 @@ class QuickSortActor
     end
   end
 end
-class Main
+active class Main
   def argToInt(str : String) : int
     match str.to_int() with
       case Just(result) =>
@@ -184,7 +174,7 @@ class Main
   end
   def main(args : [String]) : unit
     let
-      n = 1000000
+      n = 100 --1000000
       m = 1152921504606846976 -- 2^60
       t = 2048
       s = 1024

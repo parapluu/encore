@@ -3,7 +3,7 @@
 # key: main
 # expand-env: ((yas-also-auto-indent-first-line 't))
 # --
-class Main
+active class Main
   def main(args : [String]) : unit
     $0
   end

@@ -5,7 +5,7 @@ fun test[t, k](x : t, y : k) : unit
     fun (z : t) => z
   end
 end
-class Main
+active class Main
   def main() : unit
     ()
   end

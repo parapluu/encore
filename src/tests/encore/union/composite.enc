@@ -1,22 +1,20 @@
--- This file was automatically converted by encorec
-
 fun global(x : Foo) : unit
   println("In global")
 end
-trait Foo
+read trait Foo
   def foo() : unit
     println("In Foo")
   end
 end
-trait Bar
+read trait Bar
 end
-trait Baz
+read trait Baz
 end
-passive class C1 : Foo + Baz
+class C1 : Foo + Baz
 end
-passive class C2 : Foo + Bar
+class C2 : Foo + Bar
 end
-class Main
+active class Main
   def main() : unit
     val x = if true then
               Just([new C1])

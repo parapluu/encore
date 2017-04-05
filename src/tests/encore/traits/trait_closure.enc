@@ -1,15 +1,13 @@
--- This file was automatically converted by encorec
-
-trait T
+local trait T
   def getClosure() : () -> unit
     fun () => println("You have finally reached closure!")
   end
 end
-passive class Foo : T
+class Foo : T
 end
-passive class Bar : T
+class Bar : T
 end
-class Main
+active class Main
   def main() : unit
     val x = new Foo()
     val y = new Bar()

@@ -1,0 +1,25 @@
+active class Theif
+  def steal(f : subord(() -> unit)) : unit
+    f()
+  end
+end
+
+subord class Token
+  def foo() : unit
+    println("foo")
+  end
+end
+
+active class Main
+  def local(f : subord (() -> unit)) : unit
+    f()
+  end
+
+  def main() : unit
+    val x = new Token()
+    val f = fun () => x.foo()
+    val theif = new Theif()
+    this.local(f)
+    theif!steal(f)
+  end
+end

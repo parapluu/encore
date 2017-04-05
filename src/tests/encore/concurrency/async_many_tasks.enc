@@ -6,7 +6,7 @@ fun foreach_f(max_iterations : int, fn : int -> unit) : unit
     async(fn(42))
   end
 end
-class Main
+active class Main
   def main() : unit
     foreach_f(300, fun (x : int) => println(x))
   end

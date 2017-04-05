@@ -1,4 +1,4 @@
-passive class Foo
+local class Foo
   val fn : int -> int
   def init(fn : int -> int) : unit
     this.fn = fn
@@ -8,7 +8,7 @@ passive class Foo
   end
 end
 
-class Main
+active class Main
   def main(args : [String]) : unit
     val x = new Foo(fun (x : int) => x * 100)
     println(x.fn(4))

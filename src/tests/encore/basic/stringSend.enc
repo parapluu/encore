@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Main
+active class Main
   def main() : Fut[unit]
     let
       other = new Other("Hello Ponyworld-message")
@@ -9,7 +9,7 @@ class Main
     end
   end
 end
-class Other
+active class Other
   var message : String
   def init(va : String) : unit
     this.message = va

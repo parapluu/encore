@@ -1,12 +1,11 @@
-class ThisClassDeliberatelyNotCalledMain
+active class ThisClassDeliberatelyNotCalledMain
   def main() : unit
     1
     1.0 + 2.0
-    true || false 
+    true || false
     Just(new ThisClassDeliberatelyNotCalledMain())
     Nothing
     [1]
     (23, new String("Hello"))
   end
 end
-  

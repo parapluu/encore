@@ -1,6 +1,6 @@
 -- This file was automatically converted by encorec
 
-class Foo
+active class Foo
   stream foo1() : int
     yield(1)
   end
@@ -12,7 +12,7 @@ class Foo
     end
   end
 end
-class Main
+active class Main
   def main() : unit
     ()
   end

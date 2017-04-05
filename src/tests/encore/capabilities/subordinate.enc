@@ -1,0 +1,29 @@
+subord class Node[t]
+  var elem : t
+  var other : Node[t]
+  def init(elem : t) : unit
+    this.elem = elem
+  end
+end
+
+linear class SillyList[t]
+  var first : Node[t]
+  var second : Node[t]
+  def init(x : t, y : t) : unit
+    this.first = new Node(x)
+    this.second = new Node(y)
+    this.first.other = this.second
+    this.second.other = this.first
+  end
+
+  def leak() : Node[t]
+    this.first
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    var l = new SillyList(42, 13)
+    val node = l.leak()
+  end
+end

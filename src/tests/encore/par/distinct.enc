@@ -15,8 +15,8 @@ end
 fun cmpString(x : X, y : X) : int
   x.s.compare(y.s)
 end
-passive class X
-  var s : String
+read class X
+  val s : String
   def init(s : String) : unit
     this.s = s
   end
@@ -24,7 +24,7 @@ passive class X
     this.s
   end
 end
-class T
+active class T
   def getValue[t](x : t) : t
     x
   end
@@ -32,7 +32,7 @@ class T
     liftv(x)
   end
 end
-class Main
+active class Main
   def futures() : unit
     val p1 = liftf(new T ! getValue(12))
     val p2 = liftf(new T ! getValue(23))
