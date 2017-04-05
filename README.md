@@ -176,3 +176,7 @@ Running `encorec foo.enc` will typecheck the source and produce the executable
   --no-gc           |           DEBUG: disable GC and use C-malloc for allocation.
   --help            |           Display this information.
 ```
+
+## Documentation
+
+You can find the documentation in different formats [here](https://stw.gitbooks.io/the-encore-programming-language/content/)
