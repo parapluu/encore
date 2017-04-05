@@ -9,10 +9,10 @@ fun replicate[t](counter : int, item : t, acc : [t]) : [t]
   end
 end
 active class Test
-  def id[t](x : t) : t
+  def id[sharable t](x : t) : t
     x
   end
-  def replicate[t](counter : int, item : t) : [t]
+  def replicate[sharable t](counter : int, item : t) : [t]
     let
       ar = new [t](counter)
     in

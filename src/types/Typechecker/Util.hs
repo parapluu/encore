@@ -141,9 +141,9 @@ resolveSingleType :: Type -> TypecheckM Type
 resolveSingleType ty
   | isTypeVar ty = do
       params <- asks typeParameters
-      unless (ty `elem` params) $
-             tcError $ FreeTypeVariableError ty
-      return ty
+      case find ((getId ty ==) . getId) params of
+        Just ty' -> return $ ty' `withBoxOf` ty
+        Nothing -> tcError $ FreeTypeVariableError ty
   | isRefAtomType ty = do
       res <- resolveRefAtomType ty
       formal <- findFormalRefType ty
@@ -204,7 +204,9 @@ resolveRefAtomType :: Type -> TypecheckM Type
 resolveRefAtomType ty = do
   formal <- findFormalRefType ty
   matchTypeParameterLength formal ty
-  assertSafeTypeArguments $ getTypeParameters ty
+  let formalTypeParams = getTypeParameters formal
+      actualTypeParams = getTypeParameters ty
+  assertSafeTypeArguments formalTypeParams actualTypeParams
   let res = formal `setTypeParameters` getTypeParameters ty
                    `withModeOf` ty
                    `withBoxOf` ty
@@ -245,27 +247,38 @@ resolveMode actual formal
                   tcError $ CannotHaveModeError actual
       unless (actual `modeSubtypeOf` formal) $
              tcError $ ModeOverrideError formal
+      when (isSharableSingleType actual) $
+           tcError $ CannotGiveSharableModeError actual
       return actual
   | isTraitType actual = do
       when (isModeless actual) $
            tcError $ ModelessError actual
       unless (hasMinorMode formal || actual `modeSubtypeOf` formal) $
            tcError $ ModeOverrideError formal
-      when (isReadRefType actual) $
-           unless (isReadRefType formal) $
+      when (isReadSingleType actual) $
+           unless (isReadSingleType formal) $
                   tcError $ CannotGiveReadModeError actual
+      when (isSharableSingleType actual) $
+           tcError $ CannotGiveSharableModeError actual
       return actual
   | otherwise =
       error $ "Util.hs: Cannot resolve unknown reftype: " ++ show formal
 
-assertSafeTypeArguments :: [Type] -> TypecheckM ()
-assertSafeTypeArguments args = do
-  unsafeTypeArgs <- filterM (liftM not . isAliasableType) args
-  let unsafeTypeArg = head unsafeTypeArgs
-  unless (null unsafeTypeArgs) $
-         tcError $ UnsafeTypeArgumentError unsafeTypeArg
-  when (any isArrayType args) $
-       tcWarning ArrayTypeArgumentWarning
+assertSafeTypeArguments :: [Type] -> [Type] -> TypecheckM ()
+assertSafeTypeArguments = zipWithM_ assertSafeTypeArgument
+  where
+    assertSafeTypeArgument formal arg
+      | isModeless formal = do
+          unlessM (isAliasableType arg) $
+                  tcError $ UnsafeTypeArgumentError formal arg
+          when (isArrayType arg) $
+               tcWarning ArrayTypeArgumentWarning
+      | otherwise = do
+          unlessM (isSharableType arg) $
+            unless (arg `modeSubtypeOf` formal) $
+              tcError $ UnsafeTypeArgumentError formal arg
+          when (isArrayType arg) $
+           tcWarning ArrayTypeArgumentWarning
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
@@ -330,7 +343,7 @@ subtypeOf ty1 ty2
             traits2 = typesFromCapability cap2
             preservesConjunctions = cap1 `preservesConjunctionsOf` cap2
             preservesModes =
-              all (\t1 -> isReadRefType t1 || isLinearRefType t1 ||
+              all (\t1 -> isReadSingleType t1 || isLinearSingleType t1 ||
                           any (`modeSubtypeOf` t1) traits2) traits1
         isSubsumed <- allM (\t2 -> anyM (`subtypeOf` t2) traits1) traits2
         return (preservesConjunctions && preservesModes && isSubsumed)
@@ -654,7 +667,7 @@ abstractTraitFrom cname (t, exts) = do
       in m{mheader = mheader'}
 
     checkReadFields t fields
-      | isReadRefType t = do
+      | isReadSingleType t = do
           unsafeFields <- filterM (liftM not . isAliasableType . ftype) fields
           let unsafeField = head unsafeFields
           unless (null unsafeFields) $
@@ -663,7 +676,7 @@ abstractTraitFrom cname (t, exts) = do
           return $ map (\f -> f{fmut = Val}) fields
       | otherwise = return fields
     checkLocalFields t fields =
-      unless (isLocalRefType t || isActiveRefType t) $ do
+      unless (isLocalSingleType t || isActiveSingleType t) $ do
         localFields <- filterM (isLocalType . ftype) fields
         unless (null localFields) $
                tcError $ ThreadLocalFieldExtensionError
@@ -708,19 +721,13 @@ fully isKind ty
     | otherwise = return $ isKind ty
 
 isLinearType :: Type -> TypecheckM Bool
-isLinearType =
-    partly (\ty -> return $ isLinearRefType ty || isLinearArrowType ty)
+isLinearType = partly (return . isLinearSingleType)
 
 isSubordinateType :: Type -> TypecheckM Bool
-isSubordinateType =
-    partly (\ty -> return $
-                   isSubordinateRefType ty ||
-                   isSubordinateArrowType ty)
+isSubordinateType = partly (return . isSubordinateSingleType)
 
 isEncapsulatedType :: Type -> TypecheckM Bool
-isEncapsulatedType =
-    fully (\ty -> isSubordinateRefType ty ||
-                  isSubordinateArrowType ty)
+isEncapsulatedType = fully isSubordinateSingleType
 
 isLocalType :: Type -> TypecheckM Bool
 isLocalType = partly (isLocalType' [])
@@ -730,9 +737,7 @@ isLocalType = partly (isLocalType' [])
       | ty `elem` checked = return False
       | otherwise = do
           holdsLocal <- holdsLocalData checked ty
-          return $ isLocalRefType ty ||
-                   isLocalArrowType ty ||
-                   holdsLocal
+          return $ isLocalSingleType ty || holdsLocal
     holdsLocalData :: [Type] -> Type -> TypecheckM Bool
     holdsLocalData checked ty
       | isPassiveRefType ty && isRefAtomType ty &&
@@ -760,9 +765,9 @@ isActiveType ty
         capability <- findCapability ty
         isActiveType capability
     | isClassType ty =
-        return $ isActiveRefType ty
+        return $ isActiveSingleType ty
     | isCapabilityType ty =
-        fully isActiveRefType ty
+        fully isActiveSingleType ty
     | isUnionType ty
     , tys <- unionMembers ty
       = allM isActiveType tys
@@ -774,9 +779,9 @@ isSharedType ty
         capability <- findCapability ty
         isSharedType capability
     | isClassType ty =
-        return $ isSharedRefType ty
+        return $ isSharedSingleType ty
     | isCapabilityType ty =
-        fully isSharedRefType ty
+        fully isSharedSingleType ty
     | isUnionType ty
     , tys <- unionMembers ty
       = allM isSharedType tys
@@ -803,20 +808,21 @@ isUnsafeType ty
     | isClassType ty = do
         capability <- findCapability ty
         capIsUnsafe <- isUnsafeType capability
-        return $ isUnsafeRefType ty || capIsUnsafe
+        return $ isUnsafeSingleType ty || capIsUnsafe
     | otherwise = return $
-                  any isUnsafeRefType $ typeComponents ty
+                  any isUnsafeSingleType $ typeComponents ty
 
 isAliasableType :: Type -> TypecheckM Bool
 isAliasableType ty
-  | isArrowType ty = return . not $ isLinearArrowType ty
+  | isArrowType ty = return . not $ isLinearSingleType ty
   | hasResultType ty = isAliasableType $ getResultType ty
   | isTupleType ty = allM isAliasableType $ getArgTypes ty
   | otherwise =
     anyM (\f -> f ty)
          [isSharableType
          ,isLocalType
-         ,return . isTypeVar
+         ,\t -> return $
+                isTypeVar t && (isModeless t || hasSharableMode t)
          ]
 
 checkConjunction :: Type -> [Type] -> TypecheckM ()

@@ -121,7 +121,7 @@ A synchroniser is an actor that given a list of futures waits on
 these futures until they are all fulfilled.
 
 #+BEGIN_SRC encore
-fun Synchroniser[t](f : Fut[t]) : Synchroniser[t]
+fun Synchroniser[sharable t](f : Fut[t]) : Synchroniser[t]
   new Synchroniser([f])
 end
 
@@ -162,7 +162,7 @@ passes it on to a task runner actor to perform. Currently, each
 call to spawn creates a new task runner.
 
 #+BEGIN_SRC encore
-fun spawn[t](task : () -> t) : Fut[t]
+fun spawn[sharable t](task : () -> t) : Fut[t]
   let
     runner = new TaskRunner()
   in
@@ -171,7 +171,7 @@ fun spawn[t](task : () -> t) : Fut[t]
 end
 
 active class TaskRunner
-  def perform[t](task : () -> t) : t
+  def perform[sharable t](task : () -> t) : t
     task()
   end
 end

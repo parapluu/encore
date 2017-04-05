@@ -1,0 +1,15 @@
+fun apply[linear t](f : borrowed t -> unit, x : t) : unit
+  f(x)
+end
+
+linear class C
+  def foo() : unit
+    println("foo")
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    apply(fun (x : borrowed C) => x.foo(), new C)
+  end
+end

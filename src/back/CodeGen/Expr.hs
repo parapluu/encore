@@ -510,8 +510,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     return (nbody, Seq $ concat tdecls ++ [tbody])
 
   translate new@(A.NewWithInit {A.ty, A.args})
-    | Ty.isActiveRefType ty = delegateUse callTheMethodOneway
-    | Ty.isSharedRefType ty = delegateUse callTheMethodOneway
+    | Ty.isActiveSingleType ty = delegateUse callTheMethodOneway
+    | Ty.isSharedSingleType ty = delegateUse callTheMethodOneway
     | otherwise = delegateUse callTheMethodSync
     where
       delegateUse methodCall =
@@ -530,7 +530,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               Seq $
                 [constructorCall] ++
                 initArgs ++
-                [ Statement $ callTypeParamsInit $ (AsExpr nnew):typeArgs
+                [ Statement $ callTypeParamsInit $ AsExpr nnew:typeArgs
                 , Statement result]
               )
 
@@ -623,7 +623,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               )
           syncAccess = A.isThisAccess target ||
                        (Ty.isPassiveRefType . A.getType) target
-          sharedAccess = Ty.isSharedRefType $ A.getType target
+          sharedAccess = Ty.isSharedSingleType $ A.getType target
 
   translate call@A.MessageSend{A.emeta, A.target, A.name, A.args, A.typeArguments}
     | (Ty.isTraitType . A.getType) target ||
@@ -644,7 +644,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     | otherwise = delegateUseM callTheMethodFuture (Just "fut")
     where
       targetTy = A.getType target
-      isActive = Ty.isActiveRefType targetTy
+      isActive = Ty.isActiveSingleType targetTy
       isStream = Ty.isStreamType $ A.getType call
 
       delegateUseM msgSend sym = do

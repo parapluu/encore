@@ -18,8 +18,10 @@ traceStream var = traceObject var streamTraceFn
 
 traceVariable :: Ty.Type -> CCode Lval -> CCode Stat
 traceVariable t var
-  | Ty.isActiveRefType t    = traceActor var
-  | Ty.isSharedRefType t    = traceActor var
+  | Ty.isRefAtomType t &&
+    Ty.isActiveSingleType t = traceActor var
+  | Ty.isRefAtomType t &&
+    Ty.isSharedSingleType t = traceActor var
   | Ty.isClassType t        = traceObject var $ classTraceFnName t
   | Ty.isCapabilityType t   = traceCapability var
   | Ty.isFutureType t       = traceObject var futureTraceFn

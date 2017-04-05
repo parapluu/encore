@@ -1,1 +1,1 @@
-Cannot use non-aliasable type 'Token' as type argument
+Cannot use linear type 'Token' as type argument. Type parameter 't' requires the type to have an aliasable mode

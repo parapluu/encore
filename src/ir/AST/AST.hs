@@ -218,13 +218,13 @@ instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
 
 isActive :: ClassDecl -> Bool
-isActive = isActiveRefType . cname
+isActive = isActiveSingleType . cname
 
 isPassive :: ClassDecl -> Bool
 isPassive cls = not (isActive cls) && not (isShared cls)
 
 isShared :: ClassDecl -> Bool
-isShared = isSharedRefType . cname
+isShared = isSharedSingleType . cname
 
 isMainClass :: ClassDecl -> Bool
 isMainClass cdecl =

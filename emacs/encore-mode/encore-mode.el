@@ -95,6 +95,7 @@
         "repeat"
         "require"
         "shared"
+        "sharable"
         "stream"
         "subord"
         "suspend"

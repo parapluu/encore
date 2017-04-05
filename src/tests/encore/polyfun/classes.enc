@@ -6,7 +6,7 @@ end
 fun fAppend[t](x : t, y : t) : [t]
   [x, y]
 end
-fun createTest[t](arg : t) : Test[t]
+fun createTest[sharable t](arg : t) : Test[t]
   new Test[t](arg)
 end
 active class Test[a]

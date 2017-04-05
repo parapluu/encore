@@ -207,6 +207,8 @@ instance Precheckable TraitDecl where
       assertDistinctness
       let typeParams = getTypeParameters tname
       assertTypeParams typeParams
+      when (isSharableSingleType tname) $
+           tcError $ CannotGiveSharableModeError tname
       treqs'    <- mapM (local addTypeParams . doPrecheck)
                         treqs
       tmethods' <- mapM (local (addTypeParams . addMinorThis tname) . precheck)
@@ -264,8 +266,8 @@ instance Precheckable TraitComposition where
         unless (safeToComposeWith thisType tcname') $
                tcError $ ManifestClassConflictError
                          thisType tcname'
-        when (isActiveRefType tcname') $
-             unless (isActiveRefType thisType) $
+        when (isActiveSingleType tcname') $
+             unless (isActiveSingleType thisType) $
                     tcError $ ActiveTraitError tcname'
         mapM_ doPrecheck tcext
         return leaf{tcname = tcname'}
@@ -348,7 +350,7 @@ instance Precheckable MethodDecl where
       when (isMainMethod thisType (methodName m))
            (checkMainParams $ hparams mheader')
       when (isStreamMethod m) $ do
-           unless (isActiveRefType thisType) $
+           unless (isActiveSingleType thisType) $
                   tcError PassiveStreamingMethodError
            when (isConstructor m) $
                 tcError StreamingConstructorError

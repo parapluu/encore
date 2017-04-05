@@ -114,18 +114,18 @@ module Types(
             ,makeLinear
             ,makeLocal
             ,makeActive
+            ,makeShared
+            ,makeSharable
             ,makeRead
             ,makeSubordinate
-            ,isLinearRefType
-            ,isLinearArrowType
-            ,isLocalRefType
-            ,isLocalArrowType
-            ,isActiveRefType
-            ,isSharedRefType
-            ,isReadRefType
-            ,isSubordinateRefType
-            ,isSubordinateArrowType
-            ,isUnsafeRefType
+            ,isLinearSingleType
+            ,isLocalSingleType
+            ,isActiveSingleType
+            ,isSharedSingleType
+            ,isSharableSingleType
+            ,isReadSingleType
+            ,isSubordinateSingleType
+            ,isUnsafeSingleType
             ,makeStackbound
             ,isStackboundType
             ) where
@@ -153,6 +153,7 @@ data Mode = Linear
           | Local
           | Active
           | Shared
+          | Sharable
           | Unsafe
           | Read
           | Subordinate
@@ -163,6 +164,7 @@ instance Show Mode where
     show Local  = "local"
     show Active = "active"
     show Shared = "shared"
+    show Sharable = "sharable"
     show Unsafe = "unsafe"
     show Read   = "read"
     show Subordinate = "subord"
@@ -175,24 +177,27 @@ isMinorMode _ = False
 hasMinorMode :: Type -> Bool
 hasMinorMode ty
   | isModeless ty = True
-  | otherwise = isMinorMode . fromJust $ getMode ty
+  | otherwise = all isMinorMode $ getModes ty
 
-modeSubtypeOf ty1 ty2
-  | isArrowType ty1 && isArrowType ty2 =
-      let modes1 = modes $ inner ty1
-          modes2 = modes $ inner ty2
-      in
-        all (`elem` modes2) modes1
-  | otherwise = getMode ty1 == getMode ty2
+modeSubtypeOf ty1 ty2 =
+  let modes1 = getModes ty1
+      modes2 = getModes ty2
+  in all (hasMatchingMode modes2) modes1
+  where
+    hasMatchingMode modes mode
+      | modeIsSharable mode = mode `elem` modes || Sharable `elem` modes
+      | otherwise = mode `elem` modes
 
 modeIsSharable Read   = True
 modeIsSharable Active = True
 modeIsSharable Shared = True
+modeIsSharable Sharable = True
 modeIsSharable _      = False
 
-hasSharableMode ty
-  | Just mode <- getMode ty = modeIsSharable mode
-  | otherwise = False
+hasSharableMode ty =
+  let modes = getModes ty
+  in not (null modes) &&
+     all modeIsSharable modes
 
 -- | Is @class cls : trait@ a valid composition?
 safeToComposeWith :: Type -> Type -> Bool
@@ -282,7 +287,8 @@ data InnerType =
                         ,rtype  :: Type}
         | UnionType{ltype :: Type, rtype :: Type}
         | EmptyCapability{}
-        | TypeVar{ident :: String}
+        | TypeVar{tmode :: Maybe Mode
+                 ,ident :: String}
         | ArrowType{paramTypes :: [Type]
                    ,argTypes   :: [Type]
                    ,resultType :: Type
@@ -332,10 +338,13 @@ maybeGetId ty@Type{inner}
   | id   <- ident inner = Just id
   | otherwise = Nothing
 
-getMode ty
+getModes :: Type -> [Mode]
+getModes ty
   |  isRefAtomType ty
-  || isTypeSynonym ty = mode . refInfo . inner $ ty
-  | otherwise = Nothing
+  || isTypeSynonym ty = maybeToList . mode . refInfo . inner $ ty
+  | isArrowType ty = modes . inner $ ty
+  | isTypeVar ty = maybeToList . tmode . inner $ ty
+  | otherwise = []
 
 hasResultType x
   | isArrowType x || isFutureType x || isParType x ||
@@ -401,7 +410,8 @@ instance Show InnerType where
         show ltype ++ " " ++ show Addition ++ " " ++ show rtype
     show UnionType{ltype, rtype} = show ltype ++ " | " ++ show rtype
     show EmptyCapability = ""
-    show TypeVar{ident} = ident
+    show TypeVar{tmode = Nothing, ident} = ident
+    show TypeVar{tmode = Just m, ident} = show m ++ " " ++ ident
     show ArrowType{argTypes = [ty], resultType, modes = []} =
         if isTupleType ty
         then "(" ++ show ty ++ ") -> " ++ show resultType
@@ -449,9 +459,9 @@ showWithKind ty = kind (inner ty) ++ " " ++ show ty
     kind Unresolved{}                  = "unresolved type"
     kind TraitType{}                   = "trait type"
     kind AbstractTraitType{}           = "abstract trait type"
-    kind ty@ClassType{}                = if isActiveRefType (typ ty)
+    kind ty@ClassType{}                = if isActiveSingleType (typ ty)
                                          then "active class type"
-                                         else if isSharedRefType (typ ty)
+                                         else if isSharedSingleType (typ ty)
                                          then "shared class type"
                                          else "class type"
     kind CapabilityType{}              = "capability type"
@@ -497,11 +507,14 @@ showModeOf :: Type -> String
 showModeOf ty
   | isModeless ty =
       error $ "Types.hs: Cannot show mode of " ++ showWithKind ty
-  | otherwise = show . fromJust $ getMode ty
+  | otherwise = unwords $ map show (getModes ty)
 
 showWithoutMode :: Type -> String
 showWithoutMode ty
   | isRefAtomType ty = showRefInfoWithoutMode $ refInfo (inner ty)
+  | isArrowType ty
+  , iType <- inner ty = show ty{inner = iType{modes = []}}
+  | isTypeVar ty = ident (inner ty)
   | otherwise = show ty
 
 typeComponents :: Type -> [Type]
@@ -738,8 +751,10 @@ isTraitType _ = False
 isAbstractTraitType Type{inner = AbstractTraitType{}} = True
 isAbstractTraitType _ = False
 
-isPassiveRefType ty = isRefType ty && not (isActiveRefType ty) &&
-                                      not (isSharedRefType ty)
+isPassiveRefType ty =
+  isRefType ty &&
+  not (isActiveSingleType ty) &&
+  not (isSharedSingleType ty)
 
 isClassType Type{inner = ClassType{}} = True
 isClassType _ = False
@@ -754,6 +769,7 @@ conjunctiveType ltype rtype =
 setMode ty m
     | isRefAtomType ty = applyInnerRefInfo (\info -> info{mode = Just m}) ty
     | isArrowType ty = applyInner (\i -> i{modes = nub $ m : modes i}) ty
+    | isTypeVar ty = applyInner (\i -> i{tmode = Just m}) ty
     | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
 
 makeUnsafe ty = setMode ty Unsafe
@@ -761,52 +777,27 @@ makeLinear ty = setMode ty Linear
 makeLocal ty = setMode ty Local
 makeActive ty = setMode ty Active
 makeShared ty = setMode ty Shared
+makeSharable ty = setMode ty Sharable
 makeRead ty = setMode ty Read
 makeSubordinate ty = setMode ty Subordinate
 
-isModeless ty
-    | Just m <- getMode ty = False
-    | otherwise = True
+isModeless = null . getModes
 
-isLinearRefType ty
-    | Just Linear <- getMode ty = True
-    | otherwise = False
+isLinearSingleType = (Linear `elem`) . getModes
 
-isLinearArrowType ty
-    | isArrowType ty = Linear `elem` modes (inner ty)
-    | otherwise = False
+isLocalSingleType = (Local `elem`) . getModes
 
-isLocalRefType ty
-    | Just Local <- getMode ty = True
-    | otherwise = False
+isActiveSingleType = (Active `elem`) . getModes
 
-isLocalArrowType ty
-    | isArrowType ty = Local `elem` modes (inner ty)
-    | otherwise = False
+isSharedSingleType = (Shared `elem`) . getModes
 
-isActiveRefType ty
-    | Just Active <- getMode ty = True
-    | otherwise = False
+isSharableSingleType = (Sharable `elem`) . getModes
 
-isSharedRefType ty
-    | Just Shared <- getMode ty = True
-    | otherwise = False
+isReadSingleType = (Read `elem`) . getModes
 
-isReadRefType ty
-    | Just Read <- getMode ty = True
-    | otherwise = False
+isSubordinateSingleType = (Subordinate `elem`) . getModes
 
-isSubordinateRefType ty
-    | Just Subordinate <- getMode ty = True
-    | otherwise = False
-
-isSubordinateArrowType ty
-    | isArrowType ty = Subordinate `elem` modes (inner ty)
-    | otherwise = False
-
-isUnsafeRefType ty
-    | Just Unsafe <- getMode ty = True
-    | otherwise = False
+isUnsafeSingleType = (Unsafe `elem`) . getModes
 
 isCapabilityType Type{inner = CapabilityType{}} = True
 isCapabilityType Type{inner = TraitType{}} = True
@@ -882,7 +873,7 @@ arrayType = typ . ArrayType
 isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = typ . TypeVar
+typeVar = typ . TypeVar Nothing
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
