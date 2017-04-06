@@ -45,10 +45,6 @@ coverage: dirs pony
 SET_DIR=$(RUNTIME_DIR)/set
 FUTURE_DIR=$(RUNTIME_DIR)/future
 ENCORE_DIR=$(RUNTIME_DIR)/encore
-doc: stack-setup
-	export ENCORE_MODULES="$(CURDIR)/modules/" && \
-	make -C doc/encore/ && \
-	stack haddock --system-ghc
 
 dirs: $(INC_DIR) $(LIB_DIR)
 
@@ -113,15 +109,13 @@ pony: dirs $(PONY_INC)
 clean:
 	rm -rf .stack-work/dist
 	rm -rf dist
-	make -C doc/encore clean
 	make -C $(SRC_DIR) clean
 	rm -rf $(RELEASE_DIR)
 	rm -rf $(INC_DIR)
 	rm -rf $(LIB_DIR)
-	rm -rf doc/html
 	rm -rf coverage
 
 vagrant:
 	-@vagrant up
 
-.PHONY: all encorec typecheck fetch-hs-deps test stress dirs pony clean doc vagrant coverage
+.PHONY: all encorec typecheck fetch-hs-deps test stress dirs pony clean vagrant coverage

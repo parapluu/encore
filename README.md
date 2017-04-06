@@ -68,25 +68,22 @@ setup the correct Haskell version and build and install Encore.
 If you do not want the script to alter your `$PATH` variable or change the Haskell version use the
 `-h` flag to see available options.
 
-### Step 1: Preliminaries
+### Installing on OS X
+
+#### Step 1: Preliminaries
 
 We're using:
 
  - doxygen v1.8.6
  - clang:
-    Apple LLVM version 7.0.0 (clang-700.0.72)
-    Target: x86_64-apple-darwin14.5.0
+    Apple LLVM version 7.0.2 (clang-700.1.81)
+    Target: x86_64-apple-darwin15.6.0
     Thread model: posix
- - g++ 4.8
  - pcre2-10.21 (for Regex library)
  - stack (the haskell build tool)
  - premake4 (Premake Build Script Generator) 4.3
- - `scribble` -- only for building the documentation
 
-
-In the below you find instructions for installing the preliminaries  on OS X and on linux.
-
-#### Installing the preliminaries on OS X
+Below you find instructions for installing the preliminaries on OS X.
 
 ##### Installing homebrew
 
@@ -95,12 +92,6 @@ Go to http://brew.sh/, the instructions there work nicely. Make sure that your n
 ##### Installing `doxygen`
 
 Run: `brew update; brew install doxygen`
-
-##### Installing `scribble`
-
-Go to the [Racket Download page](http://racket-lang.org/download/),
-download and install racket. The `scribble` tool comes with the racket
-distribution.
 
 ##### Installing `clang`:
 
@@ -140,9 +131,11 @@ in any directory. To do this, add this line to your `~/.bashrc` file, inserting 
 
     export PATH="<SOME_DIR>/encore/release:${PATH}"
 
-### Step 4: Compiling and Running Encore Programs
+### Compiling and Running Encore Programs
 
-Now you can compile a program by using
+This instructions are the same for any Linux distribution and OS X.
+
+You can compile a program by using
 
     $ encorec my_file.enc
 
@@ -160,7 +153,7 @@ Alternatively, you can use a .enc-file as a script by adding `#! /usr/bin/env en
 
 This will compile the file -- and run it.
 
-You can find some example programs in the [programs](https://github.com/parapluu/encore/tree/master/programs) directory.
+You can find some example programs in the [test directory](https://github.com/parapluu/encore/tree/development/src/tests/encore/basic).
 
 Have fun!
 
@@ -184,52 +177,6 @@ Running `encorec foo.enc` will typecheck the source and produce the executable
   --help            |           Display this information.
 ```
 
-## Language Specification
+## Documentation
 
-Update the language specification whenever you change the Encore compiler.
-
-There is a prebuilt version of the documentation in
-`doc/encore/prebuilt/` [direct link](https://github.com/parapluu/encore/raw/development/doc/encore/prebuilt/encore.pdf) for the people who do not have Scribble
-installed. Please also update these PDFs after updating the
-specification.
-
-#### Generate documentation
-
-Generate the documentation and check your changes by typing:
-
-  - `make doc`
-
-After this, you should have a folder under `encore/doc/encore` named `build` that contains the documentation in pdf and html.
-
-#### Update the language specification
-
-The language specification has the following directory structure:
-
-```
-├── Makefile
-├── README.md
-├── index.scrbl
-├── lang
-│    ├── client-side
-│    │   └── index.scrbl (todo)
-│    ├── getting-started
-│    │   └── index.scrbl
-│    ├── module-system
-│    │   └── index.scrbl (todo)
-│    ├── semantics
-│    │   └── index.scrbl (todo)
-│    └── syntax
-│        ├── index.scrbl
-│        └── grammar.scrbl (ongoing work)
-└── extras
-     ├── README.md
-     └── math
-         └── ...
-```
-
-Update the files relevant to your changes. For instance, if you decide to
-introduce a new keyword in the language, such as `repeat`, you would need to
-update the file `grammar.scbl` in `upscale/doc/encore/lang/syntax/`.
-
-The easiest way (for now) to know what to modify is by generating the html,
-reading the section relevant to you and updating it.
+You can find the documentation in different formats [here](https://stw.gitbooks.io/the-encore-programming-language/content/)

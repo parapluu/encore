@@ -40,7 +40,6 @@ sudo apt-get install -y $quiet\
   zlib1g-dev \
   ghc-7.10.3\
   cabal-install-1.22\
-  racket\
   doxygen
 
 wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre2-10.21.tar.bz2
