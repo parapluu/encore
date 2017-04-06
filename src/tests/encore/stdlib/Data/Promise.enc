@@ -1,0 +1,35 @@
+module Promise
+
+import Data.Promise
+
+active class Worker
+  val p: Promise[int]
+  var cnt: int
+  def init(var p: Promise[int]) : unit
+    this.p = p
+    this.cnt = 0
+  end
+
+  def work() : unit
+    this.cnt = this.cnt+1
+    if this.cnt == 3 then
+      this.p.fulfil(123)
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val tpl = mkPromise[int]()
+    match mkPromise[int]() with
+      case (f, p) =>
+        val w = new Worker(p)
+        for i <- [1..100] do
+          w!work()
+        end
+        val x = get(f)
+        println("gotten {}", x)
+      end
+    end
+  end
+end
