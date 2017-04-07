@@ -1,0 +1,21 @@
+linear class Token : Id
+  val foo : int
+  def foo(h : Holder) : unit
+    if h.f == Just(this) then
+      println("Linearity violation")
+    end
+  end
+end
+
+local class Holder
+  var f : Maybe[Token]
+end
+
+active class Main
+  def main() : unit
+    val h = new Holder
+    h.f = Just(new Token)
+    val h' = h
+    h.f?.foo(h')
+  end
+end

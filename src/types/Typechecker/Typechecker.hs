@@ -1162,6 +1162,34 @@ instance Checkable Expr where
                           ,mchandler = eHandler
                           ,mcguard = eGuard}
 
+    doTypecheck borrow@(Borrow{target, name, body}) = do
+      eTarget <- typecheck target
+      let targetType   = AST.getType eTarget
+          borrowedType = makeStackbound targetType
+          eTarget'     = setType borrowedType eTarget
+      targetIsLinear <- isLinearType targetType
+      let root         = findRoot target
+          borrowEnv    =
+            (case root of
+               VarAccess{qname} ->
+                 if targetIsLinear
+                 then dropLocal (qnlocal qname)
+                 else id
+               _ -> id) . extendEnvironmentImmutable [(name, borrowedType)]
+      eBody <- local borrowEnv $ typecheck body
+               `catchError` handleBurying root
+      let bodyTy = AST.getType eBody
+      return $ setType bodyTy borrow{target = eTarget', body = eBody}
+      where
+        handleBurying :: Expr -> TCError -> TypecheckM Expr
+        handleBurying VarAccess{qname}
+                      (TCError err@(UnboundVariableError unbound) bt) =
+          if unbound == qname
+          then throwError $ TCError (BuriedVariableError qname) bt
+          else throwError $ TCError err bt
+        handleBurying _ (TCError err bt) =
+          throwError $ TCError err bt
+
     --  E |- cond : bool
     --  E |- body : t
     -- -----------------------

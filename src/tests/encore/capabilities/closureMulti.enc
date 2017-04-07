@@ -17,7 +17,7 @@ end
 class PrivateToken : subord T
 end
 active class Main
-  def borrow(x : local T, y : PrivateToken) : unit
+  def doBorrow(x : local T, y : PrivateToken) : unit
     val f = fun () => { x.foo(); y.foo() }
     val theif = new Theif()
     this.local(f)
@@ -31,6 +31,6 @@ active class Main
   def main() : unit
     val x = new LocalToken()
     val y = new PrivateToken()
-    this.borrow(x, y)
+    this.doBorrow(x, y)
   end
 end

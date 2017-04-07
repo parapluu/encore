@@ -96,6 +96,7 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
 
     getChildrenClause MatchClause {mcpattern, mchandler, mcguard} =
         [mcpattern, mchandler, mcguard]
+getChildren Borrow {target, body} = [target, body]
 getChildren Get {val} = [val]
 getChildren Forward {forwardExpr} = [forwardExpr]
 getChildren Yield {val} = [val]
@@ -176,6 +177,7 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
                 putClausesChildren rest rClauses
           putClausesChildren _ _ =
               error "Util.hs: Wrong number of children of of match clause"
+putChildren [target, body] e@(Borrow {}) = e{target, body}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
 putChildren [val] e@(Yield {}) = e{val = val}
@@ -240,7 +242,8 @@ putChildren _ e@(While {}) = error "'putChildren l While' expects l to have 2 el
 putChildren _ e@(DoWhile {}) = error "'putChildren l While' expects l to have 2 elements"
 putChildren _ e@(Repeat {}) = error "'putChildren l Repeat' expects l to have 2 elements"
 putChildren _ e@(For {}) = error "'putChildren l For' expects l to have 3 elements"
-putChildren _ e@(Match {}) = error "'putChildren l Case' expects l to have 1 element"
+putChildren _ e@(Match {}) = error "'putChildren l Match' expects l to have at least 1 element"
+putChildren _ e@(Borrow {}) = error "'putChildren l Borrow' expects l to have 2 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Forward {}) = error "'putChildren l Forward' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"

@@ -1,4 +1,4 @@
-fun borrow(x : borrowed Token) : unit
+fun doBorrow(x : borrowed Token) : unit
   x.foo()
 end
 
@@ -18,8 +18,8 @@ read class Borrower
 end
 
 active class Main
-  def borrow(x : borrowed Token) : unit
-    borrow(x)
+  def doBorrow(x : borrowed Token) : unit
+    doBorrow(x)
   end
   def main() : unit
     let
@@ -27,7 +27,7 @@ active class Main
       friend = new Borrower(x)
     in
       friend.lend(x)
-      this.borrow(x)
+      this.doBorrow(x)
     end
   end
 end

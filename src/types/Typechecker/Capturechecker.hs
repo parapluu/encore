@@ -218,6 +218,10 @@ instance CaptureCheckable Expr where
         then return $ makeFree e
         else return $ makeCaptured e
 
+    doCapturecheck e@Borrow{target, body} = do
+        captureOrBorrow target (getType target)
+        e `returns` body
+
     doCapturecheck e@IfThenElse{thn, els} = do
         isLin <- isLinearType (getType e)
         if isLin && isFree thn && isFree els
@@ -306,14 +310,14 @@ captureOrBorrow e ty
               tcError $ NonBorrowableError e
       assertBorrowable e@TypedExpr{body} =
           assertBorrowable body
-      assertBorrowable e =
-          tcError $ NonBorrowableError e
+      assertBorrowable e = return ()
 
       linearAllTheWay e@FieldAccess{} = linearPath e
       linearAllTheWay e@MethodCall{}  = linearPath e
       linearAllTheWay e@MessageSend{} = linearPath e
       linearAllTheWay e@ArrayAccess{} = linearPath e
       linearAllTheWay e@Consume{}     = linearPath e
+      linearAllTheWay e@TupleAccess{} = linearPath e
       linearAllTheWay e = isLinearType (getType e)
 
       linearPath e =

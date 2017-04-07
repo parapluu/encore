@@ -253,6 +253,7 @@ data Error =
   | NonAssignableLHSError
   | ValFieldAssignmentError Name Type
   | UnboundVariableError QualifiedName
+  | BuriedVariableError QualifiedName
   | ObjectCreationError Type
   | NonIterableError Type
   | EmptyArrayLiteralError
@@ -561,6 +562,8 @@ instance Show Error where
                (show name) (refTypeName targetType)
     show (UnboundVariableError name) =
         printf "Unbound variable '%s'" (show name)
+    show (BuriedVariableError name) =
+        printf "Variable '%s' cannot be accessed during borrowing" (show name)
     show (ObjectCreationError ty)
         | isMainType ty = "Cannot create additional Main objects"
         | isCapabilityType ty =
@@ -878,7 +881,7 @@ instance Show Error where
         printf "Cannot borrow linear array value from non-linear path '%s'"
                (show (ppSugared target))
     show (NonBorrowableError e) =
-        printf "Expression '%s' cannot be borrowed. Go ask Elias why"
+        printf "Expression '%s' cannot be borrowed."
                (show (ppSugared e))
     show (ActiveBorrowError arg targetType) =
         printf ("Expression '%s' cannot be borrowed " ++

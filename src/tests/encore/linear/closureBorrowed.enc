@@ -11,7 +11,7 @@ linear class Token
 end
 
 active class Main
-  def borrow(x : borrowed Token) : unit
+  def doBorrow(x : borrowed Token) : unit
     val f = fun () => x.foo()
     val theif = new Theif()
     theif!steal(f)
@@ -19,6 +19,6 @@ active class Main
 
   def main() : unit
     val x = new Token()
-    this.borrow(x)
+    this.doBorrow(x)
   end
 end

@@ -1,0 +1,26 @@
+linear class Token : Id
+  val foo : int
+  def foo() : unit
+    println("Foo")
+  end
+end
+
+local class C
+  var f : Token
+  def bad() : unit
+    this.f = new Token
+    val that = this
+    borrow this.f as f in
+      var f' = consume that.f
+      if f == f' then
+        println("Linearity violation")
+      end
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    (new C).bad()
+  end
+end

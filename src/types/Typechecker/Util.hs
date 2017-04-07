@@ -741,7 +741,7 @@ isLocalType = partly (isLocalType' [])
     holdsLocalData :: [Type] -> Type -> TypecheckM Bool
     holdsLocalData checked ty
       | isPassiveRefType ty && isRefAtomType ty &&
-        ty `notElem` checked =
+        not (isUnsafeSingleType ty) && ty `notElem` checked =
           anyM (isLocalType' (ty:checked)) $ getTypeParameters ty
       | otherwise = return False
 
