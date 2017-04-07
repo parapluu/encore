@@ -72,11 +72,6 @@ getChildren MessageSend {target, args} = target : args
 getChildren ExtractorPattern {arg} = [arg]
 getChildren FunctionCall {args} = args
 getChildren FunctionAsValue {} = []
-getChildren Liftf {val} = [val]
-getChildren Liftv {val} = [val]
-getChildren PartyJoin {val} = [val]
-getChildren PartyExtract {val} = [val]
-getChildren PartyEach {val} = [val]
 getChildren PartySeq {par, seqfunc} = [par, seqfunc]
 getChildren PartyPar {parl, parr} = [parl, parr]
 getChildren PartyReduce {seqfun, pinit, par} = [pinit, par, seqfun]
@@ -155,11 +150,6 @@ putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren [arg] e@(ExtractorPattern {}) = e{arg = arg}
 putChildren args e@(FunctionCall {}) = e{args = args}
-putChildren [val] e@(Liftf {}) = e{val}
-putChildren [val] e@(Liftv {}) = e{val}
-putChildren [val] e@(PartyJoin {}) = e{val}
-putChildren [val] e@(PartyExtract {}) = e{val}
-putChildren [val] e@(PartyEach {}) = e{val}
 putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
 putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
 putChildren [pinit, par, seqfun] e@(PartyReduce {}) = e{par=par, seqfun=seqfun, pinit=pinit}
@@ -236,11 +226,6 @@ putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(ExtractorPattern {}) = error "'putChildren l ExtractorPattern' expects l to have 1 element"
 putChildren _ e@(FunctionAsValue {}) = error "'putChildren l FunctionAsValue' expects l to have 0 elements"
-putChildren _ e@(Liftf {}) = error "'putChildren l Liftf' expects l to have 1 element"
-putChildren _ e@(Liftv {}) = error "'putChildren l Liftv' expects l to have 1 element"
-putChildren _ e@(PartyJoin {}) = error "'putChildren l PartyJoin' expects l to have 1 element"
-putChildren _ e@(PartyExtract {}) = error "'putChildren l PartyExtract' expects l to have 1 element"
-putChildren _ e@(PartyEach {}) = error "'putChildren l PartyEach' expects l to have 1 element"
 putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
 putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"
 putChildren _ e@(PartyReduce {}) = error "'putChildren l PartyReduce' expects l to have 3 elements"

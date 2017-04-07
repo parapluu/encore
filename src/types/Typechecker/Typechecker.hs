@@ -568,39 +568,6 @@ instance Checkable Expr where
            let eBody' = setType bodyType eBody
            return $ setType ty' $ te{body = eBody', ty = ty'}
 
-    doTypecheck l@(Liftf {val}) = do
-      e <- typecheck val
-      let typ = AST.getType e
-      unless (isFutureType typ) $
-             pushError e $ ExpectingOtherTypeError "a future" typ
-      return $ setType (parType $ getResultType typ) l {val = e}
-
-    doTypecheck l@(Liftv {val}) = do
-      e <- typecheck val
-      let typ = AST.getType e
-      return $ setType (parType typ) l {val = e}
-
-    doTypecheck p@(PartyJoin {val}) = do
-      e <- typecheck val
-      let typ = AST.getType e
-      unless (isParType typ && isParType (getResultType typ)) $
-             pushError e $ ExpectingOtherTypeError "a nested Par" typ
-      return $ setType (getResultType typ) p {val = e}
-
-    doTypecheck p@(PartyEach {val}) = do
-      e <- typecheck val
-      let typ = AST.getType e
-      unless (isArrayType typ) $
-             pushError e $ ExpectingOtherTypeError "an array" typ
-      return $ setType ((parType.getResultType) typ) p {val = e}
-
-    doTypecheck p@(PartyExtract {val}) = do
-      e <- typecheck val
-      let typ = AST.getType e
-      unless (isParType typ) $
-             pushError e $ ExpectingOtherTypeError "a Par" typ
-      return $ setType ((arrayType.getResultType) typ) p {val = e}
-
     doTypecheck p@(PartyPar {parl, parr}) = do
       pl <- typecheck parl
       pr <- hasType parr (AST.getType pl)
