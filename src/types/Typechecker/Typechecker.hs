@@ -1909,10 +1909,6 @@ checkLocalArgs args targetType =
                                        not (isArrayLiteral arg)) args
     unless (null sharedArrays) $
       tcWarning SharedArrayWarning
-  where
-    nonSharableTypeVar ty =
-      isTypeVar ty &&
-      not (hasSharableMode ty || isLinearSingleType ty)
 
 checkLocalReturn :: Name -> Type -> Type -> TypecheckM ()
 checkLocalReturn name returnType targetType =
@@ -1926,10 +1922,6 @@ checkLocalReturn name returnType targetType =
        tcError $ PolymorphicReturnError name (fromJust nonSharable)
     when (isArrayType returnType) $
        tcWarning SharedArrayWarning
-  where
-    nonSharableTypeVar ty =
-      isTypeVar ty &&
-      not (hasSharableMode ty || isLinearSingleType ty)
 
 --  classLookup(ty) = _
 -- ---------------------

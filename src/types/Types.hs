@@ -109,6 +109,7 @@ module Types(
             ,hasMinorMode
             ,modeSubtypeOf
             ,hasSharableMode
+            ,nonSharableTypeVar
             ,safeToComposeWith
             ,makeUnsafe
             ,makeLinear
@@ -198,6 +199,10 @@ hasSharableMode ty =
   let modes = getModes ty
   in not (null modes) &&
      all modeIsSharable modes
+
+nonSharableTypeVar ty =
+  isTypeVar ty &&
+  not (hasSharableMode ty || isLinearSingleType ty)
 
 -- | Is @class cls : trait@ a valid composition?
 safeToComposeWith :: Type -> Type -> Bool
