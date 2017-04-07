@@ -1,0 +1,16 @@
+active class Main
+  def main() : unit
+     new Pupil(25)
+     new Pupil()
+  end
+end
+
+active class Pupil
+  def init(age : int) : unit
+    println(age)
+  end
+
+  def init() : unit
+    println("no age")
+  end
+end

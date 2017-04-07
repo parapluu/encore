@@ -424,7 +424,8 @@ data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
   fmut  :: Mutability,
   fname :: Name,
-  ftype :: Type
+  ftype :: Type,
+  fexpr :: Maybe Expr
 }
 
 instance Show FieldDecl where

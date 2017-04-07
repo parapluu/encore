@@ -1,0 +1,15 @@
+active class Main
+  def main() : unit
+    new Tester()
+  end
+end
+
+active class Tester
+  def init() : unit
+    println("init")
+  end
+
+  def finalize() : unit
+    println("finalize")
+  end
+end

@@ -1,0 +1,14 @@
+active class Main
+  def main() : unit
+    new Tester()
+  end
+end
+active class Tester
+  val foo : String = "foo"  
+  val bar : String = "bar"
+
+  def init() : unit
+    println(this.foo)
+    println(this.bar)
+  end
+end
