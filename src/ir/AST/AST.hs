@@ -572,19 +572,6 @@ data Expr = Skip {emeta :: Meta Expr}
                      eparams :: [ParamDecl],
                      mty :: Maybe Type,
                      body :: Expr}
-          -- TODO: the AST nodes below can be removed as soon as
-          -- OldParser.hs gets removed
-          | Liftf {emeta :: Meta Expr,
-                   val :: Expr}
-          | Liftv {emeta :: Meta Expr,
-                   val :: Expr}
-          | PartyJoin {emeta :: Meta Expr,
-                       val :: Expr}
-          | PartyExtract {emeta :: Meta Expr,
-                          val :: Expr}
-          | PartyEach {emeta :: Meta Expr,
-                       val :: Expr}
-          -- END TODO
           | PartySeq {emeta :: Meta Expr,
                       par :: Expr,
                       seqfunc :: Expr}
