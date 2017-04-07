@@ -43,7 +43,11 @@ data BacktraceNode = BTFunction Name Type
                    | BTTypedef Type
                    | BTModule Name
                    | BTImport Namespace
+                     deriving(Eq)
 
+isBTExpr :: BacktraceNode -> Bool
+isBTExpr (BTExpr _) = True
+isBTExpr _ = False
 
 instance Show BacktraceNode where
   show (BTFunction n ty) =
@@ -74,6 +78,28 @@ instance Show BacktraceNode where
 type Backtrace = [(SourcePos, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
+
+reduceBT :: Backtrace -> Backtrace
+reduceBT = truncateExprs . dropMiniLets . mergeBlocks . nub
+  where
+    mergeBlocks ((pos1, BTExpr seq@Seq{}):(pos2, BTExpr e2):bt) =
+      if hasBody e2
+      then mergeBlocks $ (pos2, BTExpr e2):bt
+      else (pos1, BTExpr seq) : mergeBlocks ((pos2, BTExpr e2) : bt)
+    mergeBlocks (node:bt) = node:mergeBlocks bt
+    mergeBlocks [] = []
+
+    dropMiniLets :: Backtrace -> Backtrace
+    dropMiniLets = filter (not . isMiniLetNode . snd)
+    isMiniLetNode node
+      | BTExpr e <- node
+      , Just MiniLet{} <- getSugared e = True
+      | otherwise = False
+
+    truncateExprs ((pos1, BTExpr e1):(pos2, BTExpr e2):bt) =
+      (pos1, BTExpr e1):(pos2, BTExpr e2):
+      filter (not . isBTExpr . snd) bt
+    truncateExprs bt = bt
 
 data ExecutionContext = MethodContext MethodDecl
                       | ClosureContext (Maybe Type)
@@ -163,7 +189,7 @@ instance Show TCError where
         " *** Error during typechecking *** \n" ++
         showSourcePos pos ++ "\n" ++
         show err ++ "\n" ++
-        concatMap showBT bt
+        concatMap showBT (reduceBT bt)
         where
           showBT (_, node) =
               case show node of
