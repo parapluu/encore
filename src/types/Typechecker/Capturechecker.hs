@@ -318,13 +318,15 @@ captureOrBorrow e ty
       linearAllTheWay e@ArrayAccess{} = linearPath e
       linearAllTheWay e@Consume{}     = linearPath e
       linearAllTheWay e@TupleAccess{} = linearPath e
-      linearAllTheWay e = isLinearType (getType e)
+      linearAllTheWay e = linearAndNonBorrowed (getType e)
 
       linearPath e =
           liftM2 (&&)
-                 (isLinearType (getType e))
+                 (linearAndNonBorrowed (getType e))
                  (linearAllTheWay (target e))
 
+      linearAndNonBorrowed ty =
+          liftM (&& not (isStackboundType ty)) (isLinearType ty)
 
 sendArgument :: Expr -> Expr -> Type -> TypecheckM ()
 sendArgument target arg paramType = do
