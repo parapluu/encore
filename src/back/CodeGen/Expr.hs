@@ -1017,15 +1017,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.args}} = do
     withForwarding <- gets Ctx.withForwarding
     eCtx <- gets Ctx.getExecCtx
-    let dtraceExit =
-          case eCtx of
-            Ctx.FunctionContext fun ->
-              dtraceFunctionExit (A.functionName fun)
-            Ctx.MethodContext mdecl ->
-              dtraceMethodExit thisVar (A.methodName mdecl)
-            Ctx.ClosureContext clos ->
-              dtraceClosureExit
-            _ -> error "Expr.hs: No context to forward from"
+    let dtraceExit = head (getDtraceExit eCtx)
     if withForwarding
     then do
       (ntarget, ttarget) <- translate target
@@ -1078,8 +1070,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                             Call futureChainActorForward
                              [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
                          )] ++
-                        dtraceExit ++
-                        [Return Skip])
+                        [dtraceExit,
+                        Return Skip])
       else if Ty.isFutureType $ A.getType fchain
       then do
         result <- Ctx.genSym
@@ -1098,52 +1090,52 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       else
         error $ "Expr.hs: Cannot translate forward of ''" ++ show fchain ++ "'"
 
-  translate A.Forward{A.emeta, A.forwardExpr} = do
-    translate A.Forward{A.emeta, A.forwardExpr = newExpr}
-    where
-       newExpr = A.FutureChain{A.emeta = fcmeta, A.future = forwardExpr, A.chain = idfun}
-       fcmeta = emeta
-       idfun = A.Closure {A.emeta = cmeta,
-                          A.eparams = [pdecl],
-                          A.mty = Just closureType,
-                          A.body = A.VarAccess {A.emeta = A.setType (Meta.meta (Meta.getPos emeta)) paramType,
-                                                A.qname = ID.QName (Just $ ID.Name "x")}
-                         }
-       cmeta = A.setType (Meta.meta (Meta.getPos emeta)) closureType
-       closureType = paramType -- > paramType
-       paramType = Ty.getResultType . A.getType $ forwardExpr --dropFuture
-       pdecl = A.Param {A.pmeta = Meta.meta (Meta.getPos emeta), -- change?
-                        A.pmut  = A.Val,
-                        A.pname = ID.Name "x",
-                        A.ptype = paramType}
-  -- translate A.Forward{A.forwardExpr} = do
-  --   (ntarget, ttarget) <- translate forwardExpr
-  --   withForwarding <- gets Ctx.withForwarding
-  --   let argTy = A.getType forwardExpr
-  --   if withForwarding
-  --   then do
-  --     tmpCh1ain <- Ctx.genSym
-  --     tmpIdFun <- Ctx.genSym
-  --     let idFunCall = Call encoreForwardId [nullVar]
-  --         chainCall = Call closureMkFn [encoreCtxName, encoreForwardId, nullName, nullName, nullName]
-  --         ty = Ty.getResultType argTy
-  --     return (unit,
-  --       Seq $ [(Assign (Decl (closure, Var tmpChain))  chainCall),
-  --              (Statement $
-  --                 (Call futureChainActorForward
-  --                       [AsExpr encoreCtxVar, AsExpr ntarget, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
-  --              Return Skip
-  --             ])
-  --   else if Ty.isFutureType $ argTy
-  --   then do
-  --     (nval, tval) <- translate forwardExpr
-  --     let resultType = translate (Ty.getResultType $ A.getType forwardExpr)
-  --         theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
-  --     tmp <- Ctx.genSym
-  --     return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
-  --   else
-  --     error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
-  --             show forwardExpr ++ "'"
+  -- translate A.Forward{A.emeta, A.forwardExpr} = do
+  --   translate A.Forward{A.emeta, A.forwardExpr = newExpr}
+  --   where
+  --      newExpr = A.FutureChain{A.emeta = fcmeta, A.future = forwardExpr, A.chain = idfun}
+  --      fcmeta = emeta
+  --      idfun = A.Closure {A.emeta = cmeta,
+  --                         A.eparams = [pdecl],
+  --                         A.mty = Just closureType,
+  --                         A.body = A.VarAccess {A.emeta = A.setType (Meta.meta (Meta.getPos emeta)) paramType,
+  --                                               A.qname = ID.QName (Just $ ID.Name "x")}
+  --                        }
+  --      cmeta = A.setType (Meta.meta (Meta.getPos emeta)) closureType
+  --      closureType = paramType -- > paramType
+  --      paramType = Ty.getResultType . A.getType $ forwardExpr --dropFuture
+  --      pdecl = A.Param {A.pmeta = Meta.meta (Meta.getPos emeta), -- change?
+  --                       A.pmut  = A.Val,
+  --                       A.pname = ID.Name "x",
+  --                       A.ptype = paramType}
+  translate A.Forward{A.forwardExpr} = do
+    (ntarget, ttarget) <- translate forwardExpr
+    withForwarding <- gets Ctx.withForwarding
+    let argTy = A.getType forwardExpr
+    if withForwarding
+    then do
+      tmpChain <- Ctx.genSym
+      tmpIdFun <- Ctx.genSym
+      let idFunCall = Call encoreForwardId [nullVar]
+          chainCall = Call closureMkFn [encoreCtxName, encoreForwardId, nullName, nullName, nullName]
+          ty = Ty.getResultType argTy
+      return (unit,
+        Seq $ [(Assign (Decl (closure, Var tmpChain))  chainCall),
+               (Statement $
+                  (Call futureChainActorForward
+                        [AsExpr encoreCtxVar, AsExpr ntarget, AsExpr nullVar, AsExpr $ Var tmpChain, AsExpr futVar])),
+               Return Skip
+              ])
+    else if Ty.isFutureType $ argTy
+    then do
+      (nval, tval) <- translate forwardExpr
+      let resultType = translate (Ty.getResultType $ A.getType forwardExpr)
+          theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
+      tmp <- Ctx.genSym
+      return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+    else
+      error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
+              show forwardExpr ++ "'"
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
@@ -1265,14 +1257,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
 getDtraceExit eCtx = do
-  let fun = Ctx.lookupFunctionContext eCtx
-      mtd = Ctx.lookupMethodContext eCtx
-      cls = Ctx.lookupClosureContext eCtx
-      dtraceExit = case (fun, mtd, cls) of
-                        (func, [], [] ) -> [dtraceFunctionExit (A.functionName (head func))]
-                        ([], mdecl, []) -> [dtraceMethodExit thisVar (A.methodName (head mdecl))]
-                        ([], [], expr)  -> [dtraceClosureExit]
-                        (_, _, _)    -> []
+  let dtraceExit =
+        case eCtx of
+          Ctx.FunctionContext fun ->
+            dtraceFunctionExit (A.functionName fun)
+          Ctx.MethodContext mdecl ->
+            dtraceMethodExit thisVar (A.methodName mdecl)
+          Ctx.ClosureContext clos ->
+            dtraceClosureExit
+          _ -> error "Expr.hs: No context to forward from"
   return dtraceExit
 
 closureCall :: CCode Lval -> A.Expr ->
