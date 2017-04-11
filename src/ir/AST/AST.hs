@@ -810,6 +810,20 @@ isImpure NewWithInit {} = True
 isImpure New {} = True
 isImpure _ = False
 
+hasBody :: Expr -> Bool
+hasBody Closure {} = True
+hasBody Async {} = True
+hasBody Let {} = True
+hasBody IfThenElse {} = True
+hasBody IfThen {} = True
+hasBody Unless {} = True
+hasBody While {} = True
+hasBody DoWhile {} = True
+hasBody Repeat {} = True
+hasBody For {} = True
+hasBody Match {} = True
+hasBody _ = False
+
 instance HasMeta Expr where
     getMeta = emeta
     setMeta e m = e{emeta = m}
