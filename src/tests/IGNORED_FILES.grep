@@ -46,3 +46,10 @@ encore/literate/Bar
 # Should not be considered as a test
 #
 encore/stream/StreamIO
+
+#
+# Module used by 'stress' tests
+# Should not be considered as a test
+#
+stress/savina/7.Chameneos/List.enc
+
