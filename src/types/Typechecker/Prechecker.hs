@@ -123,22 +123,9 @@ instance Precheckable ImportDecl where
              tcError $ UnknownNameError itarget (head unknowns)
       return i
 
--- | 'assertTypeParams ts' asserts that the types passed in are
--- all type variables and are not concrete types, and otherwise
--- throws an error.
-assertTypeParams :: (MonadReader Environment f, MonadError TCError f) =>
-                    [Type] -> f ()
-assertTypeParams ts =
-  unless (all isTypeVar ts) $
-    let concreteTypes = filter (not . isTypeVar) ts
-        concreteType = head concreteTypes
-    in tcError $ ConcreteTypeParameterError concreteType
-
-
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
      let typeParams = getTypeParameters typedefdef
-     assertTypeParams typeParams
      let resolvesTo = typeSynonymRHS typedefdef
          addTypeParams = addTypeParameters typeParams
      resolvesTo' <- local addTypeParams $ resolveTypeAndCheckForLoops resolvesTo
@@ -147,7 +134,6 @@ instance Precheckable Typedef where
 instance Precheckable FunctionHeader where
     doPrecheck header = do
       let typeParams = htypeparams header
-      assertTypeParams typeParams
       htype' <- local (addTypeParameters typeParams) $
                       resolveType (htype header)
       hparams' <- local (addTypeParameters typeParams) $
@@ -177,7 +163,6 @@ instance Precheckable Function where
     doPrecheck f@Function{funheader, funlocals} = do
       funheader' <- doPrecheck funheader
       let typeParams = htypeparams funheader'
-      assertTypeParams typeParams
       funlocals' <- precheckLocalFunctions funlocals typeParams
       let funtype = htype funheader'
       return $ setType funtype f{funheader = funheader'
@@ -206,7 +191,6 @@ instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
       let typeParams = getTypeParameters tname
-      assertTypeParams typeParams
       when (isSharableSingleType tname) $
            tcError $ CannotGiveSharableModeError tname
       treqs'    <- mapM (local addTypeParams . doPrecheck)
@@ -281,7 +265,6 @@ instance Precheckable ClassDecl where
     doPrecheck c@Class{cname, ccomposition, cfields, cmethods} = do
       assertDistinctness
       let typeParams = getTypeParameters cname
-      assertTypeParams typeParams
       cname' <- local addTypeParams $ resolveType cname
 
       ccomposition' <- checkComposition cname'
@@ -358,7 +341,6 @@ instance Precheckable MethodDecl where
             unless((null . methodTypeParams) m) $
               tcError PolymorphicConstructorError
       let typeParams = htypeparams mheader'
-      assertTypeParams typeParams
       mlocals' <- precheckLocalFunctions mlocals typeParams
 
       let mtype = htype mheader'

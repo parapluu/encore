@@ -247,7 +247,6 @@ data Error =
   | TypeVariableAndVariableCommonNameError [Name]
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
-  | ConcreteTypeParameterError Type
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
   | TypeArgumentInferenceError Expr Type
   | AmbiguousTypeError Type [Type]
@@ -615,9 +614,6 @@ instance Show Error where
     show (MalformedUnionTypeError ty union) =
         printf "Type '%s' is not compatible with %s"
                (show ty) (showWithKind union)
-    show (ConcreteTypeParameterError ty) =
-        printf "Concrete type '%s' cannot be used as a type parameter"
-               (show ty)
     show (TypeArgumentInferenceError call param) =
         printf "Cannot infer the type of parameter '%s' of %s '%s'"
                (show param) kind calledName
