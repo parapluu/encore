@@ -776,13 +776,13 @@ instance Show Error where
                 "be called by a different active object")
                (show name)
     show (PolymorphicArgumentSendError arg ty) =
-        printf ("Cannot pass polymorphic expression '%s' between active " ++
-                "objects (it may not be safe to share).\n" ++
+        printf ("Cannot pass value of '%s' between active objects. " ++
+                "Its type is polymorphic so it may not be safe to share.\n" ++
                 "Consider marking the type variable '%s' as 'sharable'")
                (show (ppSugared arg)) (getId ty)
     show (PolymorphicReturnError name ty) =
-        printf ("Method '%s' returns a polymorphic value, and calling " ++
-                "it from a different active object may be unsafe. \n" ++
+        printf ("Method '%s' returns a value of polymorphic type, and sharing " ++
+                "it between active objects may not be safe. \n" ++
                 "Consider marking the type variable '%s' as 'sharable'.")
                (show name) (getId ty)
     show (MalformedConjunctionError ty nonDisjoint source) =
@@ -823,7 +823,8 @@ instance Show Error where
                (show trait)
     show (UnsafeTypeArgumentError formal ty) =
         if isModeless ty then
-          printf "Cannot use non-aliasable type '%s' as type argument" --TODO: This seems imprecise...
+          -- TODO: Could be more precise (e.g. distinguish between linear/subord)
+          printf "Cannot use non-aliasable type '%s' as type argument"
                  (show ty)
         else
           printf ("Cannot use %s type '%s' as type argument. " ++

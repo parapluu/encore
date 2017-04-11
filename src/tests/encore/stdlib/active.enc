@@ -1,0 +1,55 @@
+import Active.Active
+
+fun id[t](x : t) : t
+  x
+end
+
+fun getActiveInt() : Active[int]
+  new Active[int](fun () => 1)
+end
+
+fun getActiveFoo() : Active[Foo]
+  new Active[Foo](fun () => new Foo())
+end
+fun testInit() : unit
+  getActiveInt()
+  getActiveFoo()
+end
+fun testMap() : unit
+  let
+    a = getActiveInt()
+  in
+    assertTrue(1 == get(a!getState(id[int])))
+    a!map(fun (i : int) => i + 1)
+    assertTrue(2 == get(a!getState(id[int])))
+  end
+end
+fun testApply() : unit
+  let
+    a = getActiveFoo()
+  in
+    assertTrue(1 == get(a!getState(fun (x : Foo) => x.read())))
+    a!apply(fun (x : Foo) => x.foo())
+    assertTrue(2 == get(a!getState(fun (x : Foo) => x.read())))
+  end
+end
+local class Foo
+  var f : int
+  def init() : unit
+    this.f = 1
+  end
+  def foo() : unit
+    this.f = this.f * 2
+  end
+  def read() : int
+    this.f
+  end
+end
+active class Main
+  def main() : unit
+    testInit()
+    testMap()
+    testApply()
+    println("All tests passed!")
+  end
+end

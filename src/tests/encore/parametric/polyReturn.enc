@@ -14,10 +14,8 @@ end
 local class Token
 end
 
-{- Omitted to make the test fail
 active class Main
   def main() : unit
     evilId(new Token)
   end
 end
--}

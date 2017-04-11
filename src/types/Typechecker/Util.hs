@@ -801,6 +801,7 @@ isSharableType ty
         return $ isPrimitive ty
               || isRangeType ty
               || isCType ty
+              || isIncapability ty
     | otherwise = return $ hasSharableMode ty
 
 isUnsafeType :: Type -> TypecheckM Bool
