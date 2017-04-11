@@ -3,7 +3,7 @@
 fun id[a](x : a) : a
   x
 end
-active class Cell[a]
+active class Cell[sharable a]
   var value : a
   def init(value : a) : unit
     this.value = value

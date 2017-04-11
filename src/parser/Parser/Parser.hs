@@ -352,9 +352,9 @@ typ = makeExprParser singleType opTable
         <|> embed
         <|> range
         <|> builtin
+        <|> primitive
         <|> try modedArrow
         <|> refType
-        <|> primitive
         <|> typeVariable
         <|> parenthesized
         <?> "type"
@@ -415,8 +415,7 @@ typ = makeExprParser singleType opTable
 typeVariable :: EncParser Type
 typeVariable = do
   notFollowedBy upperChar
-  id <- identifier
-  return $ typeVar id
+  typeVar <$> identifier
   <?> "lower case type variable"
 
 data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function}
@@ -522,7 +521,12 @@ embedTL = do
        ) <|>
    (return $ EmbedTL (meta pos) "" ""))
 
-optionalTypeParameters = option [] (brackets $ commaSep1 typ)
+optionalTypeParameters = option [] (brackets $ commaSep1 modedTypeVar)
+  where
+    modedTypeVar = do
+      setMode <- option id mode
+      typeVar <- typeVariable
+      return $ setMode typeVar
 
 typedef :: EncParser Typedef
 typedef = do
@@ -628,7 +632,9 @@ mode = (reserved "linear" >> return makeLinear)
        <|>
        (reserved "active" >> return makeActive)
        <|>
-       (reserved "shared" >> return makeActive)
+       (reserved "shared" >> return makeShared)
+       <|>
+       (reserved "sharable" >> return makeSharable)
        <|>
        (reserved "unsafe" >> return makeUnsafe)
        <|>

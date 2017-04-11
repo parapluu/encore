@@ -1,12 +1,12 @@
-fun evilId[t](x : t) : t
+fun leak[sharable t](x : t) : t
   val theif = new Theif[t]
-  theif ! send([x])
+  theif ! send(x)
   x
 end
 
 active class Theif[t]
-  def send(x : [t]) : unit
-    ()
+  def send(x : t) : unit
+    println("Received")
   end
 end
 
@@ -15,6 +15,6 @@ end
 
 active class Main
   def main() : unit
-    evilId(new Token)
+    leak(new Token)
   end
 end

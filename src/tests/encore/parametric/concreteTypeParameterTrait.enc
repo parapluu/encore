@@ -2,4 +2,3 @@
 
 trait T[int]
 end
-

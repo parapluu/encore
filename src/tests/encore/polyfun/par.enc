@@ -70,7 +70,7 @@ fun sequencePipeline[t](par : Par[t]) : Par[String]
   end
 end
 
-fun joinParTest[p](v : p) : Par[p]
+fun joinParTest[sharable p](v : p) : Par[p]
   let
     v1 = liftv(liftv(v))
     ft = liftf((new Test[p](v)) ! getArg())

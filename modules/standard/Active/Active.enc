@@ -1,5 +1,3 @@
--- This file was automatically converted by encorec
-
 module Active
 active class Active[inner]
   var state : inner
@@ -12,7 +10,7 @@ active class Active[inner]
   def map(f : inner -> inner) : unit
     this.state = f(this.state)
   end
-  def getState() : inner
-    this.state
+  def getState[sharable v](extractor : inner -> v) : v
+    extractor(this.state)
   end
 end

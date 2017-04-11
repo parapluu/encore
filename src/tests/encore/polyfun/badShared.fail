@@ -1,0 +1,1 @@
+Cannot use local type 'Token' as type argument. Type parameter 't' requires the type to have sharable mode

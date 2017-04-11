@@ -165,7 +165,7 @@ instance Checkable Requirement where
 instance Checkable FieldDecl where
   doTypecheck f@Field{ftype} = do
     Just (_, thisType)  <- findVar (qLocal thisName)
-    when (isReadRefType thisType) $ do
+    when (isReadSingleType thisType) $ do
          unless (isValField f) $
                 tcError $ NonValInReadContextError thisType
          isAliasable <- isAliasableType ftype
@@ -177,7 +177,7 @@ instance Checkable FieldDecl where
     isLocalThis <- isLocalType thisType
     when isLocalField $
       unless (isModeless thisType || isLocalThis ||
-              isActiveRefType thisType) $
+              isActiveSingleType thisType) $
       tcError $ ThreadLocalFieldError thisType
     return f
 
@@ -295,8 +295,8 @@ ensureMatchingTraitFootprint cname extTraits extTrait = do
           tcError $ ProvidingTraitFootprintError
                       (tname provider) (tname requirer)
                       (methodName $ head providedMethods) mutatedValFields
-        when (isReadRefType $ tname requirer) $
-          unless (isReadRefType $ tname provider) $
+        when (isReadSingleType $ tname requirer) $
+          unless (isReadSingleType $ tname provider) $
             tcError $ ProvidingToReadTraitError
                         (tname provider) (tname requirer)
                         (methodName $ head providedMethods)
@@ -987,7 +987,7 @@ instance Checkable Expr where
           tcError EmptyMatchClauseError
         eArg <- typecheck arg
         let argType = AST.getType eArg
-        when (isActiveRefType argType) $
+        when (isActiveSingleType argType) $
           unless (isThisAccess arg) $
             tcError ActiveMatchError
         eClauses <- mapM (checkClause argType) clauses
@@ -1437,6 +1437,8 @@ instance Checkable Expr where
            unlessM (isMutableTarget eTarget) $
                  tcError $ ImmutableConsumeError eTarget
            let ty = AST.getType eTarget
+           unless (canBeNull ty || isMaybeType ty) $
+                  tcError $ CannotConsumeTypeError eTarget
            return $ setType ty cons {target = eTarget}
         where
           isGlobalVar VarAccess{qname} =
@@ -1888,17 +1890,20 @@ checkFieldEncapsulation name target fieldType = do
 
 checkLocalArgs :: [Expr] -> Type -> TypecheckM ()
 checkLocalArgs args targetType =
-  when (isActiveRefType targetType) $ do
+  when (isActiveSingleType targetType) $ do
     localArgs <- filterM (isLocalType . AST.getType) args
     let localArg = head localArgs
     unless (null localArgs) $
       tcError $ ThreadLocalArgumentError localArg
 
-    let polymorphicArgs =
-          filter (any isTypeVar . typeComponents . AST.getType) args
-        polymorphicArg = head polymorphicArgs
-    unless (null polymorphicArgs) $
-      tcWarning $ PolymorphicArgumentSendWarning polymorphicArg
+    let nonSharablePolymorphicArgs =
+          filter (any nonSharableTypeVar . typeComponents . AST.getType) args
+        nonSharableArg = head nonSharablePolymorphicArgs
+        nonSharableType =
+          head $ filter nonSharableTypeVar . typeComponents . AST.getType $
+                  nonSharableArg
+    unless (null nonSharablePolymorphicArgs) $
+      tcError $ PolymorphicArgumentSendError nonSharableArg nonSharableType
 
     let sharedArrays = filter (\arg -> isArrayType (AST.getType arg) &&
                                        not (isArrayLiteral arg)) args
@@ -1907,13 +1912,14 @@ checkLocalArgs args targetType =
 
 checkLocalReturn :: Name -> Type -> Type -> TypecheckM ()
 checkLocalReturn name returnType targetType =
-  when (isActiveRefType targetType) $ do
+  when (isActiveSingleType targetType) $ do
     localReturn <- isLocalType returnType
     when localReturn $
        tcError $ ThreadLocalReturnError name
-    let polymorphicReturn = any isTypeVar $ typeComponents returnType
-    when polymorphicReturn $
-       tcWarning $ PolymorphicReturnWarning name
+    let nonSharable =
+          find nonSharableTypeVar $ typeComponents returnType
+    when (isJust nonSharable) $
+       tcError $ PolymorphicReturnError name (fromJust nonSharable)
     when (isArrayType returnType) $
        tcWarning SharedArrayWarning
 
@@ -2042,7 +2048,10 @@ matchTypes expected ty
         unless (ty `modeSubtypeOf` expected) $
                tcError $ TypeMismatchError ty expected
         argBindings <- matchArgs expArgTypes argTypes
-        local (bindTypes argBindings) $ matchTypes expRes resTy
+        bindings <- local (bindTypes argBindings) $ matchTypes expRes resTy
+        let expected' = replaceTypeVars bindings expected
+        assertMatch expected' ty
+        return bindings
     | isTraitType expected   && isTraitType ty ||
       isClassType expected   && isClassType ty ||
       isTypeSynonym expected && isTypeSynonym ty = do
@@ -2082,7 +2091,7 @@ matchTypes expected ty
         result <- asks $ typeVarLookup expected
         case result of
           Just boundType -> do
-            unlessM (ty `subtypeOf` boundType) $
+            unlessM (unbox ty `subtypeOf` boundType) $
               tcError $ TypeVariableAmbiguityError expected ty boundType
             asks bindings
           Nothing -> do
@@ -2139,7 +2148,7 @@ inferenceCall call typeParams argTypes resultType
       unless (null unresolved) $
          tcError $ TypeArgumentInferenceError call (head unresolved)
 
-      assertSafeTypeArguments typeArgs
+      assertSafeTypeArguments typeParams' typeArgs
       return (eArgs, resultType', typeArgs)
   | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"
@@ -2167,7 +2176,7 @@ typecheckCall call formalTypeParameters argTypes resultType
               matchArguments (args call) expectedTypes
 
       let returnType = replaceTypeVars bindings uniqueResultType
-      assertSafeTypeArguments typeArgs'
+      assertSafeTypeArguments uniqueTypeParameters typeArgs'
       return (eArgs, returnType, typeArgs')
  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"

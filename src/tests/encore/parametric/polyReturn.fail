@@ -1,1 +1,1 @@
-Method 'leak' returns a polymorphic value, and calling it from a different active object may be unsafe.
+Method 'leak' returns a value of polymorphic type, and sharing it between active objects may not be safe.

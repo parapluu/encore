@@ -25,7 +25,7 @@ read class X
   end
 end
 active class T
-  def getValue[t](x : t) : t
+  def getValue[sharable t](x : t) : t
     x
   end
   def getPar(x : int) : Par[int]

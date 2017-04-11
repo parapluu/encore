@@ -3,7 +3,7 @@
 fun id[a](x : a) : a
   x
 end
-active class Cell[a]
+active class Cell[sharable a]
   var value : a
   def init(value : a) : unit
     this.value = value
@@ -31,7 +31,7 @@ active class Pair[a, b]
   def getSnd() : b
     this.snd
   end
-  def getCustom[d, g](z : a, x : d, y : g) : Maybe[d]
+  def getCustom[sharable d, g](z : a, x : d, y : g) : Maybe[d]
     id(x)
     this.liftJust(x)
     this.liftJust(34)
