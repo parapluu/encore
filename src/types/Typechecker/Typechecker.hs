@@ -460,6 +460,7 @@ instance Checkable ClassDecl where
       extensionAllowed cap extensions method
         | isMainMethod cname (methodName method) = return ()
         | isConstructor method = return ()
+        | isImplicitMethod method = return ()
         | otherwise = do
             let name = methodName method
             lookupResult <- asks $ methodLookup cap name

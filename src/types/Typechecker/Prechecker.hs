@@ -250,9 +250,6 @@ instance Precheckable TraitComposition where
         unless (safeToComposeWith thisType tcname') $
                tcError $ ManifestClassConflictError
                          thisType tcname'
-        when (isActiveSingleType tcname') $
-             unless (isActiveSingleType thisType) $
-                    tcError $ ActiveTraitError tcname'
         mapM_ doPrecheck tcext
         return leaf{tcname = tcname'}
 
@@ -274,6 +271,12 @@ instance Precheckable ClassDecl where
                         cmethods
 
       checkShadowingMethodsAndFields cfields' cmethods'
+
+      let traits = typesFromTraitComposition ccomposition'
+          (activeTraits, nonActiveTraits) = partition isActiveSingleType traits
+      unless (null activeTraits) $
+        unless (null nonActiveTraits) $
+          tcError $ ActiveTraitError (head activeTraits) (head nonActiveTraits)
 
       return $ setType cname' c{ccomposition = ccomposition'
                                ,cfields = cfields'
