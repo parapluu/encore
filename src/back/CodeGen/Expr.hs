@@ -1095,19 +1095,25 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   --   where
   --      newExpr = A.FutureChain{A.emeta = fcmeta, A.future = forwardExpr, A.chain = idfun}
   --      fcmeta = emeta
-  --      idfun = A.Closure {A.emeta = cmeta,
+  --      idfun = A.Closure {A.emeta = fcmeta,
   --                         A.eparams = [pdecl],
   --                         A.mty = Just closureType,
-  --                         A.body = A.VarAccess {A.emeta = A.setType (Meta.meta (Meta.getPos emeta)) paramType,
-  --                                               A.qname = ID.QName (Just $ ID.Name "x")}
+  --                         A.body = A.VarAccess {
+  --                                     A.emeta = Meta.setType paramType (Meta.meta (Meta.getPos emeta)),
+  --                                     A.qname = ID.QName {
+  --                                                 ID.qnsource = Just "x",
+  --                                                 ID.qnspace = Nothing,
+  --                                                 ID.qnlocal = ID.Name "x"}
+  --                                   }
   --                        }
-  --      cmeta = A.setType (Meta.meta (Meta.getPos emeta)) closureType
-  --      closureType = paramType -- > paramType
-  --      paramType = Ty.getResultType . A.getType $ forwardExpr --dropFuture
-  --      pdecl = A.Param {A.pmeta = Meta.meta (Meta.getPos emeta), -- change?
+  --      cmeta = Meta.setType closureType (Meta.meta (Meta.getPos emeta))
+  --      closureType = paramType
+  --      paramType = Ty.getResultType . A.getType $ forwardExpr
+  --      pdecl = A.Param {A.pmeta = Meta.meta (Meta.getPos emeta),
   --                       A.pmut  = A.Val,
-  --                       A.pname = ID.Name "x",
+  --                       A.pname = ID.Name $ "x",
   --                       A.ptype = paramType}
+
   translate A.Forward{A.forwardExpr} = do
     (ntarget, ttarget) <- translate forwardExpr
     withForwarding <- gets Ctx.withForwarding
