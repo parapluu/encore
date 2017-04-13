@@ -368,6 +368,10 @@ ppExpr Match {arg, clauses} =
           indent (ppBody mchandler) $+$
         "end"
       ppMatchClauses = foldr (($+$) . indent . ppClause) ""
+ppExpr Borrow {target, name, body} =
+    "borrow" <+> ppExpr target <+> "as" <+> ppName name <+> "in" $+$
+      indent (ppBody body) $+$
+    "end"
 ppExpr FutureChain {future, chain} =
     ppExpr future <+> "~~>" <+> ppExpr chain
 ppExpr Get {val} = "get" <> parens (ppExpr val)

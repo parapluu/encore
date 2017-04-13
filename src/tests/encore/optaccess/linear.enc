@@ -1,0 +1,18 @@
+linear class Token : Id
+  val foo : int
+  def foo() : unit
+    println("Foo")
+  end
+end
+
+linear class Holder
+  var f : Maybe[Token]
+end
+
+active class Main
+  def main() : unit
+    val h = new Holder
+    h.f = Just(new Token)
+    h.f?.foo()
+  end
+end

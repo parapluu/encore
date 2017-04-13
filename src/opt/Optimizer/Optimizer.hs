@@ -29,7 +29,8 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
-optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison]
+optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
+                   dropBorrowBlocks]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -118,3 +119,12 @@ sugarPrintedStrings = extend sugarPrintedString
         , Just sugared <- getSugared arg
           = setType stringType sugared
         | otherwise = arg
+
+dropBorrowBlocks = extend dropBorrowBlock
+    where
+      dropBorrowBlock e@Borrow{emeta, target, name, body} =
+        Let{emeta
+           ,mutability = Val
+           ,decls = [([VarNoType name], target)]
+           ,body}
+      dropBorrowBlock e = e

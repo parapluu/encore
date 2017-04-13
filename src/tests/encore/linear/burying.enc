@@ -1,0 +1,20 @@
+linear class Token : Id
+  val foo : int
+  def foo() : unit
+    println("Foo")
+  end
+end
+
+linear class Holder
+  var f : Token
+end
+
+active class Main
+  def main() : unit
+    val h = new Holder
+    h.f = new Token
+    borrow h.f as f in
+      f.foo()
+    end
+  end
+end

@@ -1,0 +1,25 @@
+linear class Token : Id
+  val foo : int
+  def foo() : unit
+    println("Foo")
+  end
+end
+
+linear class Holder
+  var f : Token
+end
+
+active class Main
+  def main() : unit
+    var h = new Holder
+    h.f = new Token
+    borrow h as x in
+      val y = x
+      borrow x.f as f in
+        if y.f == f then
+          println("Linearity violation")
+        end
+      end
+    end
+  end
+end

@@ -628,6 +628,10 @@ data Expr = Skip {emeta :: Meta Expr}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}
+          | Borrow {emeta  :: Meta Expr,
+                    target :: Expr,
+                    name   :: Name,
+                    body   :: Expr}
           | Get {emeta :: Meta Expr,
                  val :: Expr}
           | Forward {emeta :: Meta Expr,
@@ -823,6 +827,13 @@ hasBody Repeat {} = True
 hasBody For {} = True
 hasBody Match {} = True
 hasBody _ = False
+
+findRoot :: Expr -> Expr
+findRoot FieldAccess{target} = findRoot target
+findRoot MethodCall{target} = findRoot target
+findRoot MessageSend{target} = findRoot target
+findRoot TupleAccess{target} = findRoot target
+findRoot e = e
 
 instance HasMeta Expr where
     getMeta = emeta

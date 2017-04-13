@@ -184,6 +184,7 @@ reservedNames =
     ,"and"
     ,"bool"
     ,"break"
+    ,"borrow"
     ,"borrowed"
     ,"case"
     ,"char"
@@ -975,6 +976,7 @@ expr = notFollowedBy nl >>
      <|> continue
      <|> closure
      <|> match
+     <|> borrow
      <|> blockedTask
      <|> for
      <|> while
@@ -1110,8 +1112,8 @@ expr = notFollowedBy nl >>
               varOrCallFunction = dot >> varOrCall
 
           compartmentAccess = do
-            pos <-  getPosition
-            n <- L.integer
+            pos <- getPosition
+            n <- lexeme L.integer
             return $ IntLiteral (meta pos) (fromInteger n)
 
           varOrCall = do
@@ -1355,6 +1357,15 @@ expr = notFollowedBy nl >>
         atLevel indent $ reserved "end"
         return theMatch
 
+      borrow = blockedConstruct $ do
+        emeta <- meta <$> getPosition
+        reserved "borrow"
+        target <- expression
+        reserved "as"
+        name <- Name <$> identifier
+        reserved "in"
+        return $ \body -> Borrow{emeta, target, name, body}
+
       yield = do
         emeta <- meta <$> getPosition
         reserved "yield"
@@ -1480,7 +1491,7 @@ expr = notFollowedBy nl >>
 
       explicitReturn = do pos <- getPosition
                           reserved "return"
-                          expr <- option (Skip (meta pos)) (do {expression})
+                          expr <- option (Skip (meta pos)) expression
                           return $ Return (meta pos) expr
 
       bracketed =
