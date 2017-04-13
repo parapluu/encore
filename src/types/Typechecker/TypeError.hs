@@ -325,7 +325,7 @@ data Error =
   | ManifestConflictError Type Type
   | ManifestClassConflictError Type Type
   | UnmodedMethodExtensionError Type Name
-  | ActiveTraitError Type
+  | ActiveTraitError Type Type
   | NewWithModeError
   | UnsafeTypeArgumentError Type Type
   | SimpleError String
@@ -843,9 +843,10 @@ instance Show Error where
                 "  - Assign the method to an included trait: T(%s())")
                (show cls) (show name)
                "active, local, read, linear or subord" (show name)
-    show (ActiveTraitError trait) =
-        printf "Trait '%s' can only be included by active classes"
-               (show trait)
+    show (ActiveTraitError active nonActive) =
+        printf ("Active trait '%s' can only be included together with " ++
+                "other active traits. Found '%s'")
+               (showWithoutMode active) (show nonActive)
     show (UnsafeTypeArgumentError formal ty) =
         if isModeless ty then
           -- TODO: Could be more precise (e.g. distinguish between linear/subord)

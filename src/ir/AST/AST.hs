@@ -218,7 +218,10 @@ instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
 
 isActive :: ClassDecl -> Bool
-isActive = isActiveSingleType . cname
+isActive Class{cname, ccomposition} =
+  isActiveSingleType cname ||
+  isModeless cname &&
+  all isActiveSingleType (typesFromTraitComposition ccomposition)
 
 isPassive :: ClassDecl -> Bool
 isPassive cls = not (isActive cls) && not (isShared cls)
@@ -442,6 +445,7 @@ instance HasMeta ParamDecl where
 data MethodDecl =
     Method {
       mmeta   :: Meta MethodDecl,
+      mimplicit :: Bool,
       mheader :: FunctionHeader,
       mlocals :: [Function],
       mbody   :: Expr
@@ -460,10 +464,13 @@ isMainMethod ty name = isMainType ty && (name == Name "main")
 isConstructor :: MethodDecl -> Bool
 isConstructor m = methodName m == constructorName
 
+isImplicitMethod = mimplicit
+
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
+             ,mimplicit = True
              ,mheader = Header{hmodifiers = []
                               ,kind = NonStreaming
                               ,htypeparams = []

@@ -32,6 +32,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
       | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
       where
         await = Method{mmeta
+                      ,mimplicit = True
                       ,mheader=awaitHeader
                       ,mlocals=[]
                       ,mbody=Await emeta $ VarAccess emeta (qName "f")}
@@ -42,7 +43,11 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,htype=unitType
                             ,hparams=[awaitParam]}
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
-        suspend = Method{mmeta, mheader=suspendHeader, mlocals=[], mbody=Suspend emeta}
+        suspend = Method{mmeta
+                        ,mimplicit = True
+                        ,mheader = suspendHeader
+                        ,mlocals = []
+                        ,mbody = Suspend emeta}
         suspendHeader = Header{hmodifiers=[]
                               ,kind=NonStreaming
                               ,htypeparams=[]

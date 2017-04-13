@@ -263,8 +263,8 @@ generateHeader p =
                  mparams = A.methodParams m
                  mtype = A.methodType m
 
-     wrapperMethods A.Class{A.cname, A.cmethods} =
-       if Ty.isPassiveRefType cname then
+     wrapperMethods c@A.Class{A.cname, A.cmethods} =
+       if A.isPassive c then
          []
        else
          map (genericMethod callMethodFutureName future) nonStreamMethods ++

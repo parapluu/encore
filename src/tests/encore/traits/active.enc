@@ -10,7 +10,7 @@ trait S
   end
 end
 
-active class C : T + S
+class C : active T + active S
 end
 
 active class Main

@@ -822,6 +822,7 @@ methodDecl = do
         alignedExpressions (buildMethod mmeta mheader)
     buildMethod mmeta mheader block =
       return Method{mmeta
+                   ,mimplicit = False
                    ,mheader
                    ,mbody = makeBody block
                    ,mlocals = []
