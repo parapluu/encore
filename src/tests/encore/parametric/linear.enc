@@ -1,0 +1,18 @@
+read class Duplicator[t]
+  def duplicate(x : t) : (t, t)
+    (x, x)
+  end
+end
+
+linear class Token
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val duplicator = new Duplicator[Token]
+    var x = new Token
+    match duplicator.duplicate(x) with
+      case (y, y') => println("all your linear are belong to us")
+    end
+  end
+end
