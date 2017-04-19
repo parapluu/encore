@@ -1,0 +1,54 @@
+import Lock
+
+unsafe class Counter
+  var cnt : int
+  def init() : unit
+    this.cnt = 0
+  end
+  def inc() : unit
+    this.cnt += 1
+  end
+end
+
+fun inc(c : Counter) : unit
+  c.inc()
+end
+
+fun show(c : Counter) : unit
+  println(c.cnt)
+end
+
+active class Worker
+  val lock : Lock[Counter]
+  def init(l : Lock[Counter]) : unit
+    this.lock = l
+  end
+  def work(i : int, caller : Main) : unit
+    if i == 0 then
+      caller!done()
+      return
+    end
+    this.lock.app(inc)
+    this!work(i-1, caller)
+  end
+end
+
+active class Main
+  var lock : Lock[Counter]
+  var done : int
+
+  def done() : unit
+    this.done += 1
+    if this.done == 2 then
+      this.lock.app(show)
+    end
+  end
+
+  def main() : unit
+    this.lock = new Lock(new Counter)
+    val w1 = new Worker(this.lock)
+    val w2 = new Worker(this.lock)
+    w1!work(100, this)
+    w2!work(100, this)
+  end
+end

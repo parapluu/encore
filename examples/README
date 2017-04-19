@@ -1,0 +1,5 @@
+This directory contains the examples from the main paper (see
+main) as well as some additional examples (see extra).
+
+The Makefile can build all the examples (make all) as well as run
+them (make run).

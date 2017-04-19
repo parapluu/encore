@@ -1,0 +1,52 @@
+module Stack
+
+linear class Elem : Id
+  val elem : int
+  def init(elem : int) : unit
+    this.elem = elem
+  end
+end
+
+spine class Node
+  var elem : Elem
+  val next : Node
+
+  def init(var e : Elem) : unit
+    this.elem = consume e
+  end
+end
+
+lockfree trait Push
+  require spec top : Node
+
+  def push(var e : Elem) : unit
+    var n = new Node(consume e)
+    var t = speculate this.top
+    n.next = t
+    while true do
+      if (CAT(this.top, n.next, n)) then
+        break
+      else
+        n.next = speculate this.top
+      end
+    end
+  end
+end
+
+lockfree trait Pop
+  require spec top : Node
+
+  def pop() : Elem
+    while true do
+      val t = speculate this.top
+      if (CAT(this.top, t, t.next)) then
+        return consume t.elem
+      end
+    end
+    null -- Should never happen
+  end
+end
+
+class Stack : Pop * Push
+  spec top : Node
+end

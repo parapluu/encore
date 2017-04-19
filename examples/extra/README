@@ -1,0 +1,6 @@
+This directory contains additional examples:
+
+* An Encore version of the spinlock from Figure 19 of the appendix (Lock.enc)
+
+* A (correctly) non-compiling version of the "subtle bug" example
+  from the appendix (bug.enc)

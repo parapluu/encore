@@ -1,0 +1,135 @@
+module List
+
+linear class Elem : Id
+  val elem : int
+  def init(elem : int) : unit
+    this.elem = elem
+  end
+end
+
+spine class Node : Id
+  val key : int
+  var elem : Elem
+  spec next : Node
+
+  def init(key : int, var elem : Elem) : unit
+    this.key = key
+    this.elem = consume elem
+  end
+end
+
+lockfree class List
+  val head : Node | elem
+  val tail : Node | elem
+
+  def init() : unit
+    var dummyHead = new Node(0, null)
+    var dummyTail = new Node(-1, null)
+    dummyHead.next = consume dummyTail
+    this.tail = speculate dummyHead.next
+    this.head = consume dummyHead
+  end
+end
+
+fun insert(list : List, key : int, var elem : Elem) : Elem
+  var newNode = new Node(key, consume elem)
+  while true do
+    match search(list, key) with
+      case (l, r) =>
+        if ((r != list.tail) && (r.key == key)) then
+          -- The element was already in the list, fail
+          return consume newNode.elem
+        else
+          newNode.next = r
+          -- Try to insert the element
+          if(CAT(l.next, newNode.next, newNode)) then
+            return (null : Elem)
+          end
+        end
+      end
+    end
+  end
+  null -- This should never happen
+end
+
+fun delete(list : List, key : int) : Elem
+  while true do
+    match search(list, key) with
+      case (l, r) =>
+        if ((r == list.tail) || (r.key != key)) then
+          return (null : Elem)
+        end
+        if (not isStable(r.next)) then
+          if(fix(r.next)) then
+            if (CAT(l.next, r, r.next)) then
+              return consume r.elem
+              () -- Only to satisfy typechecker
+            else
+              search(list, r.key)
+            end
+          end
+        end
+      end
+    end
+  end
+  null -- This should never happen
+end
+
+fun find(list : List, key : int) : bool
+  match search(list, key) with
+    case (l, r) =>
+      if(r == list.tail || r.key != key) then
+        return false
+      else
+        return true
+      end
+    end
+  end
+end
+
+fun search(list : List, key : int) : (Node | elem, Node | elem)
+  var leftNode = null : Node | elem
+  var rightNode = null : Node | elem
+
+  while true do
+    var t = list.head
+
+    -- 1. Find left and right nodes
+    while true do
+      if(not isStable(t.next)) then
+        leftNode = t
+      end
+      t = speculate t.next
+      if (t == list.tail) then
+        break
+      end
+      unless(isStable(t.next) || t.key < key) then
+        break
+      end
+    end
+    rightNode = t
+
+      -- 2. Check that nodes are adjacent
+    if (rightNode == leftNode.next) then
+      unless (rightNode != list.tail && isStable(rightNode.next)) then
+        return (leftNode, rightNode)
+      end
+    else
+      -- Nodes are not adjacent
+      val oldNext = speculate leftNode.next
+      if (isStable(oldNext.next)) then
+        -- leftNode.next has been removed
+        -- Try to move it forward
+        if (CAT(leftNode.next, oldNext, oldNext.next)) then
+          unless (rightNode != list.tail && isStable(rightNode.next)) then
+            return (leftNode, rightNode)
+          end
+        end
+      else
+        -- A new node has been inserted after leftNode, restart
+        ()
+      end
+    end
+  end
+  return (null : Node | elem, null : Node | elem) -- Should never happen
+end

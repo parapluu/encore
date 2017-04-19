@@ -1,0 +1,15 @@
+This directory contains all the examples from the main paper.
+Since Encore is an object oriented language while LOLCAT is
+presented in a procedural language, we provide both "procedural"
+versions that resemble the language from the paper (see proc), as
+well as "object oriented" versions that are written in a style
+more suitable for Encore (see oo). The examples are:
+
+* Treiber Stack (Stack.enc)
+
+* Michael-Scott Queue (Queue.enc)
+
+* Tim Harris' List (List.enc)
+
+The Makefile can build all the examples (make all) as well as run
+them (make run).

@@ -1,0 +1,27 @@
+linear class Elem
+end
+
+spine class Node
+  var elem : Elem
+  spec next : Node
+end
+
+lockfree class List
+  spec first : Node
+end
+
+fun remove(l : List, var i : int) : Elem
+  var cursor = speculate l.first
+  var prev = null : Node | elem
+  while i >= 0 do
+    prev = cursor
+    cursor = speculate cursor.next
+    i -= 1
+  end
+  -- The following line should not compile. cursor.next needs to be stable
+  if(CAT(prev.next, cursor, cursor.next)) then
+    return consume cursor.elem
+  else
+    return null
+  end
+end

@@ -1,0 +1,52 @@
+import Stack
+
+active class Pusher
+  val s : Stack
+  def init(s:Stack, count:int) : unit
+    this.s = s
+    this!pushLoop(count)
+  end
+
+  def pushLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      push(this.s, new Elem(count))
+      this!pushLoop(count-1)
+    end
+  end
+end
+
+active class Popper
+  val s : Stack
+  def init(s:Stack, count:int) : unit
+    this.s = s
+    this!popLoop(count)
+  end
+
+  def popLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      val ret = pop(this.s)
+      if ret != null then
+        println("Popped {}", ret.elem)
+      end
+      this!popLoop(count-1)
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val s = new Stack
+    val nPushers = 2
+    val nPoppers = 2
+    repeat i <- nPushers do
+      new Pusher(s, 20)
+    end
+    repeat i <- nPoppers do
+      new Popper(s, 20)
+    end
+  end
+end

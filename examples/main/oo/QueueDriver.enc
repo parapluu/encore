@@ -1,0 +1,54 @@
+import Queue
+
+active class Enqueuer
+  val q : Queue
+  def init(q:Queue, count:int) : unit
+    this.q = q
+    this!enqueueLoop(count)
+  end
+
+  def enqueueLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      this.q.enqueue(new Elem(count))
+      this!enqueueLoop(count-1)
+    end
+  end
+end
+
+active class Dequeuer
+  val q : Queue
+  def init(q:Queue, count:int) : unit
+    this.q = q
+    this!dequeueLoop(count)
+  end
+
+  def dequeueLoop(count:int) : unit
+    if count <= 0 then
+      ()
+    else
+      var ret = this.q.dequeue()
+      if ret != null then
+        println("Dequeued {}", ret.elem)
+      else
+        println("Queue was empty")
+      end
+      this!dequeueLoop(count-1)
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val q = new Queue
+    val nEnqueuers = 2
+    val nDequeuers = 2
+    repeat i <- nEnqueuers do
+      new Enqueuer(q, 20)
+    end
+    repeat i <- nDequeuers do
+      new Dequeuer(q, 20)
+    end
+  end
+end

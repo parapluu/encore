@@ -1,0 +1,45 @@
+module Stack
+
+linear class Elem : Id
+  val elem : int
+
+  def init(elem : int) : unit
+    this.elem = elem
+  end
+end
+
+spine class Node
+  var elem : Elem
+  val next : Node
+
+  def init(var e : Elem) : unit
+    this.elem = consume e
+  end
+end
+
+lockfree class Stack
+  spec top : Node
+end
+
+fun push(s : Stack, var e : Elem) : unit
+  var n = new Node(consume e)
+  var t = speculate s.top
+  n.next = t
+  while true do
+    if (CAT(s.top, n.next, n)) then
+      break
+    else
+      n.next = speculate s.top
+    end
+  end
+end
+
+fun pop(s : Stack) : Elem
+  while true do
+    val t = speculate s.top
+    if (CAT(s.top, t, t.next)) then
+      return consume t.elem
+    end
+  end
+  null -- Should never happen
+end

@@ -1,0 +1,41 @@
+module Lock
+
+spine class Cell[unsafe t] : Id
+  var elem : t
+  def init(var elem : t) : unit
+    this.elem = elem
+  end
+end
+
+lockfree class Lock[unsafe t]
+  spec cell : Cell[t]
+  def init(x : t) : unit
+    this.cell = new Cell(x)
+  end
+
+  def acquire() : Cell[t]
+    while true do
+      var c = speculate this.cell
+      if c != null then
+        val nll = null : Cell[t]
+        if CAT(this.cell, c, nll) then
+          return consume c
+        end
+      end
+    end
+    null -- Should never happen
+  end
+
+  def release(c : Cell[t]) : unit
+    assertTrue(this.cell == null)
+    val nll = null : Cell[t]
+    CAT(this.cell, nll, c)
+  end
+
+  -- Apply a function to the guarded object
+  def app(f : t -> unit) : unit
+    var c = this.acquire()
+    f(c.elem)
+    this.release(consume c)
+  end
+end

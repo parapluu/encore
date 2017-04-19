@@ -1,0 +1,52 @@
+module Queue
+
+linear class Elem : Id
+  val elem : int
+
+  def init(elem : int) : unit
+    this.elem = elem
+  end
+end
+
+spine class Node
+  var elem : Elem
+  once next : Node
+
+  def init(var e : Elem) : unit
+    this.elem = consume e
+  end
+end
+
+lockfree class Queue
+  spec first : Node || elem
+  spec last  : Node | elem
+
+  def init() : unit
+    var dummy = new Node(null)
+    this.first = consume dummy
+    this.last = speculate this.first
+  end
+end
+
+fun enqueue(q : Queue, var x : Elem) : unit
+  val n = new Node(consume x)
+  var done = false
+  while not done do
+    val oldLast = speculate q.last
+    done = try(oldLast.next = n)
+    CAT(q.last, oldLast, oldLast.next)
+  end
+end
+
+fun dequeue(q : Queue) : Elem
+  while true do
+    val oldFirst = speculate q.first
+    if(not isStable(oldFirst.next)) then
+      return (null : Elem)
+    end
+    if (CAT(q.first, oldFirst, oldFirst.next) => elem) then
+      return consume elem
+    end
+  end
+  null -- Should never happen
+end

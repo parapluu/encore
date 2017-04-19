@@ -1,3 +1,5 @@
+module List
+
 linear class Elem : Id
   val elem : int
   def init(elem : int) : unit
@@ -144,79 +146,5 @@ class List : Insert(head) * Delete(head) * Find(head)
       end
     end
     return (null : Node | elem, null : Node | elem) -- Should never happen
-  end
-end
-
-active class Inserter
-  var l : List
-  def init(l : List, count : int) : unit
-    this.l = l
-    this!insertLoop(count)
-  end
-
-  def insertLoop(count : int) : unit
-    if count <= 0 then
-      return
-    else
-      this.l.insert(count, new Elem(count * 100))
-      this!insertLoop(count - 1)
-    end
-  end
-end
-
-active class Finder
-  val l : List
-  def init(l : List, count : int) : unit
-    this.l = l
-    this!findLoop(count)
-  end
-
-  def findLoop(count : int) : unit
-    if count <= 0 then
-      return
-    else
-      this.l.find(count)
-      this!findLoop(count - 1)
-    end
-  end
-end
-
-active class Deleter
-  val l : List
-  def init(l : List, count : int) : unit
-    this.l = l
-    this!deleteLoop(count)
-  end
-
-  def deleteLoop(count : int) : unit
-    if count <= 0 then
-      return
-    else
-      val ret = this.l.delete(count)
-      if ret != null then
-        println("Deleted ({}, {})\n", count, ret.elem)
-      else
-        println("Key {} was not in the list", count)
-      end
-      this!deleteLoop(count - 1)
-    end
-  end
-end
-
-active class Main
-  def main() : unit
-    val l = new List()
-    val nInserters = 2
-    val nFinders = 2
-    val nDeleters = 2
-    repeat i <- nInserters do
-      new Inserter(l, 20)
-    end
-    repeat i <- nFinders do
-      new Finder(l, 20)
-    end
-    repeat i <- nDeleters do
-      new Deleter(l, 20)
-    end
   end
 end
