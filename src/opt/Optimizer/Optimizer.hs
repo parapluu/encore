@@ -3,6 +3,7 @@ module Optimizer.Optimizer(optimizeProgram) where
 import Identifiers
 import AST.AST
 import AST.Util
+import qualified AST.Meta as Meta
 import Types
 import Control.Applicative (liftA2)
 
@@ -30,7 +31,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks]
+                   dropBorrowBlocks, forwardExistingFuture]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -128,3 +129,28 @@ dropBorrowBlocks = extend dropBorrowBlock
            ,decls = [([VarNoType name], target)]
            ,body}
       dropBorrowBlock e = e
+
+forwardExistingFuture = extend forwardExistingFuture'
+  where
+    forwardExistingFuture' e@(Forward{emeta, forwardExpr=arg@VarAccess{}})=Forward{emeta=emeta', forwardExpr=newExpr}
+      where
+         forwardExpr = arg
+         emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
+         newExpr = FutureChain{emeta=fcmeta, future=forwardExpr', chain=idfun}
+         fcmeta = Meta.setType (getType $ forwardExpr) (Meta.meta (Meta.getPos emeta'))
+         forwardExpr' = futureEmeta arg
+         idfun = Closure {emeta=mclosure
+                          ,eparams=[pdecl]
+                          ,mty=Just closureType
+                          ,body=VarAccess {emeta=Meta.setType paramType mclosure
+                                            ,qname=qName "_id_fun_tmp"}}
+         closureType = arrowType [paramType] paramType
+         mclosure = Meta.metaClosure "" (Meta.setType closureType emeta)
+         paramType = getResultType . getType $ forwardExpr
+         pdecl = Param {pmeta=Meta.setType paramType (Meta.meta (Meta.getPos emeta))
+                        ,pmut =Val
+                        ,pname=Name "_id_fun_tmp"
+                        ,ptype=paramType}
+         futureEmeta VarAccess{emeta, qname} = VarAccess {emeta=emeta,qname=qname}
+
+    forwardExistingFuture' e = e
