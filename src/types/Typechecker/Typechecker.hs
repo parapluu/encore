@@ -188,7 +188,10 @@ instance Checkable FieldDecl where
     when (isRefType ftype) $
       unless (null $ transferRestrictedFields ftype) $
            tcError $ SimpleError "Fields cannot have transfer restrictions"
-
+    when (isVarField f) $
+      unless (isModeless thisType) $
+        when (isLockfreeSingleType thisType) $
+             tcError $ SimpleError "Lock-free traits and classes cannot have var-fields. Consider using 'spec'."
     return f
 
 
