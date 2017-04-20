@@ -1,6 +1,7 @@
-read class Duplicator[t]
-  def duplicate(x : t) : (t, t)
-    (x, x)
+unsafe class Duplicator[unsafe t]
+  var f : t
+  def duplicate() : (t, t)
+    (this.f, this.f)
   end
 end
 
@@ -10,9 +11,9 @@ end
 active class Main
   def main(args : [String]) : unit
     val duplicator = new Duplicator[Token]
-    var x = new Token
-    match duplicator.duplicate(x) with
-      case (y, y') => println("all your linear are belong to us")
+    duplicator.f = new Token
+    match duplicator.duplicate() with
+      case (y, y') => println("All your linear are belong to us")
     end
   end
 end

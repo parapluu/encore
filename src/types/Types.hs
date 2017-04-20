@@ -187,7 +187,7 @@ modeSubtypeOf ty1 ty2 =
   where
     hasMatchingMode modes mode
       | modeIsSharable mode = mode `elem` modes || Sharable `elem` modes
-      | otherwise = mode `elem` modes
+      | otherwise = mode `elem` modes || Unsafe `elem` modes
 
 modeIsSharable Read   = True
 modeIsSharable Active = True
