@@ -1015,10 +1015,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.name
                                                        ,A.typeArguments
                                                        ,A.args}} = do
-    withForwarding <- gets Ctx.withForwarding
+    async <- gets Ctx.isAsyncForward
     eCtx <- gets Ctx.getExecCtx
     let dtraceExit = head (getDtraceExit eCtx)
-    if withForwarding
+    if async
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
@@ -1041,8 +1041,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        dtraceExit,
                        Return Skip])
 
-    else if Ty.isFutureType $ A.getType expr
-    then do
+    else do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
                                                ,A.name
@@ -1051,17 +1050,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
       return (unit, Seq [sendt, dtraceExit, Return theGet])
-    else
-      error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
 
   translate A.Forward{A.emeta, A.forwardExpr = fchain@A.FutureChain{A.future, A.chain}} = do
     (nfuture,tfuture) <- translate future
     (nchain, tchain)  <- translate chain
     eCtx <- gets $ Ctx.getExecCtx
-    withForwarding <- gets Ctx.withForwarding
+    async <- gets Ctx.isAsyncForward
     let ty = getRuntimeType chain
         dtraceExit = head (getDtraceExit eCtx)
-    if withForwarding
+    if async
     then do
       return (unit, Seq $
                       [tfuture,
@@ -1072,8 +1069,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        )] ++
                       [dtraceExit,
                       Return Skip])
-    else if Ty.isFutureType $ A.getType fchain
-    then do
+    else do
       tmp <- Ctx.genSym
       result <- Ctx.genSym
       let nfchain = Var result
@@ -1087,8 +1083,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                  [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
                                )),
                        Assign (Decl (resultType, Var tmp)) theGet])
-    else
-      error $ "Expr.hs: Cannot translate forward of ''" ++ show fchain ++ "'"
+
+  translate A.Forward{A.forwardExpr = A.FunctionCall{}} = do
+    error $ "Expr.hs: cannot translate forward on function call"
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val

@@ -213,7 +213,7 @@ methodImplNameStr clazz mname =
 
 forwardingMethodImplNameStr :: Ty.Type -> ID.Name -> String
 forwardingMethodImplNameStr clazz mname =
-  encoreName "forwarding_method" $ qualifyRefType clazz ++ "_" ++ show mname
+  encoreName "method" $ qualifyRefType clazz ++ "_" ++ show mname ++ "_async"
 
 callMethodFutureNameStr :: Ty.Type -> ID.Name -> String
 callMethodFutureNameStr clazz mname =
@@ -236,9 +236,6 @@ encoreCreateName = Nam "encore_create"
 
 encoreAllocName :: CCode Name
 encoreAllocName = Nam "encore_alloc"
-
-encoreForwardId :: CCode Name
-encoreForwardId = Nam "encore_forward_id"
 
 partySequence :: CCode Name
 partySequence = Nam "party_sequence"

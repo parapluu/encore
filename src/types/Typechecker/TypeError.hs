@@ -447,7 +447,7 @@ instance Show Error where
       | otherwise =
           printf "Cannot compare values across types %s and %s"
                  (show lty) (show rty)
-    show BadSyncCallError = "Synchronous method calls on actors is not allowed (except on the current this)"
+    show BadSyncCallError = "Synchronous method calls on actors are not allowed (except on the current this)"
     show (PrivateAccessModifierTargetError name) =
         printf "Cannot call private %s" kind
      where

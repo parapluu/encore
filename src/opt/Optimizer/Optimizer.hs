@@ -132,12 +132,35 @@ dropBorrowBlocks = extend dropBorrowBlock
 
 forwardExistingFuture = extend forwardExistingFuture'
   where
-    forwardExistingFuture' e@(Forward{emeta, forwardExpr=arg@VarAccess{}})=Forward{emeta=emeta', forwardExpr=newExpr}
+    forwardExistingFuture' e@(Forward{forwardExpr=MessageSend{}}) = e
+
+    forwardExistingFuture' e@(Forward{forwardExpr=FutureChain{}}) = e
+
+    forwardExistingFuture' e@(Forward{emeta, forwardExpr=fc@FunctionCall{typeArguments, qname, args=[arg]}}) =
+      Forward{emeta=emeta', forwardExpr=newExpr}
       where
-         forwardExpr = arg
+         emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
+         newExpr = FutureChain{emeta=fcmeta, future=fc, chain=idfun}
+         fcmeta = Meta.setType (getType $ arg) (Meta.meta (Meta.getPos emeta'))
+         idfun = Closure {emeta=mclosure
+                          ,eparams=[pdecl]
+                          ,mty=Just closureType
+                          ,body=VarAccess {emeta=Meta.setType paramType mclosure
+                                            ,qname=qName "_id_fun_tmp"}}
+         closureType = arrowType [paramType] paramType
+         mclosure = Meta.metaClosure "" (Meta.setType closureType emeta)
+         paramType = getResultType . getType $ arg
+         pdecl = Param {pmeta=Meta.setType paramType (Meta.meta (Meta.getPos emeta))
+                        ,pmut =Val
+                        ,pname=Name "_id_fun_tmp"
+                        ,ptype=paramType}
+
+    forwardExistingFuture' e@(Forward{emeta, forwardExpr=arg@VarAccess{}}) =
+      Forward{emeta=emeta', forwardExpr=newExpr}
+      where
          emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
          newExpr = FutureChain{emeta=fcmeta, future=forwardExpr', chain=idfun}
-         fcmeta = Meta.setType (getType $ forwardExpr) (Meta.meta (Meta.getPos emeta'))
+         fcmeta = Meta.setType (getType $ arg) (Meta.meta (Meta.getPos emeta'))
          forwardExpr' = futureEmeta arg
          idfun = Closure {emeta=mclosure
                           ,eparams=[pdecl]
@@ -146,7 +169,7 @@ forwardExistingFuture = extend forwardExistingFuture'
                                             ,qname=qName "_id_fun_tmp"}}
          closureType = arrowType [paramType] paramType
          mclosure = Meta.metaClosure "" (Meta.setType closureType emeta)
-         paramType = getResultType . getType $ forwardExpr
+         paramType = getResultType . getType $ arg
          pdecl = Param {pmeta=Meta.setType paramType (Meta.meta (Meta.getPos emeta))
                         ,pmut =Val
                         ,pname=Name "_id_fun_tmp"
