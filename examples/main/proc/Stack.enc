@@ -8,7 +8,7 @@ linear class Elem : Id
   end
 end
 
-spine class Node
+spine class Node : Id
   var elem : Elem
   val next : Node
 
@@ -37,6 +37,9 @@ end
 fun pop(s : Stack) : Elem
   while true do
     val t = speculate s.top
+    if(t == null) then
+      return (null : Elem)
+    end
     if (CAT(s.top, t, t.next)) then
       return consume t.elem
     end

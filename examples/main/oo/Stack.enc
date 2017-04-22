@@ -7,7 +7,7 @@ linear class Elem : Id
   end
 end
 
-spine class Node
+spine class Node : Id
   var elem : Elem
   val next : Node
 
@@ -39,6 +39,9 @@ lockfree trait Pop
   def pop() : Elem
     while true do
       val t = speculate this.top
+      if(t == null) then
+        return (null : Elem)
+      end
       if (CAT(this.top, t, t.next)) then
         return consume t.elem
       end
