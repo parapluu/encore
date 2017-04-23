@@ -1,0 +1,28 @@
+local class Filter
+  def cancel(i : int) : unit
+    println(i)
+  end
+  
+  def forall(f : int -> unit) : unit
+    f(10)
+  end
+end
+
+active class Pif
+  val filter : Filter
+
+  def init() : unit
+    this.filter = new Filter
+  end
+
+  def foo() : unit
+    val action = fun (i : int) : unit => this.filter.cancel(i)
+    this.filter.forall(action)
+  end
+end
+
+active class Main
+  def main() : unit
+    (new Pif)!foo()
+  end
+end
