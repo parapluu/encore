@@ -17,7 +17,7 @@ import Types(setRefSourceFile, setRefNamespace)
 import SystemUtils
 import Control.Monad
 import Control.Arrow((&&&))
-import System.Directory(doesFileExist)
+import System.Directory(doesFileExist, makeAbsolute)
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.List
@@ -121,9 +121,14 @@ buildModulePath (NSExplicit ns) =
 findSource :: [FilePath] -> FilePath -> ImportDecl -> IO FilePath
 findSource importDirs sourceDir Import{itarget} = do
   let modulePath = buildModulePath itarget
-      sources = nub $
-                sourceDir </> modulePath :
-                map (</> modulePath) importDirs
+      imports = map (</> modulePath) importDirs
+      sourceModulePath = sourceDir </> modulePath 
+  expandedSourceModulePath <- makeAbsolute $ sourceModulePath
+  let sources = if expandedSourceModulePath `elem` imports then
+                -- if directory of target is in imports, remove it to avoid ambiguous import error
+                  nub $ imports
+                else 
+                  nub $ sourceModulePath : imports                
   candidates <- filterM doesFileExist sources
   case candidates of
     [] -> abort $ "Module " ++ show itarget ++
