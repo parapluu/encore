@@ -140,9 +140,8 @@ forwardExistingFuture = extend forwardExistingFuture'
       Forward{emeta=emeta', forwardExpr=newExpr}
       where
          emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
-         newExpr = FutureChain{emeta=fcmeta, future=forwardExpr', chain=idfun}
+         newExpr = FutureChain{emeta=fcmeta, future=forwardExpr, chain=idfun}
          fcmeta = Meta.setType (getType $ forwardExpr) (Meta.meta (Meta.getPos emeta'))
-         forwardExpr' = forwardExpr
          idfun = Closure {emeta=mclosure
                           ,eparams=[pdecl]
                           ,mty=Just closureType
