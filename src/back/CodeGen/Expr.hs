@@ -1084,9 +1084,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                )),
                        Assign (Decl (resultType, Var tmp)) theGet])
 
-  translate A.Forward{A.forwardExpr = A.FunctionCall{}} = do
-    error $ "Expr.hs: cannot translate forward on function call"
-
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym
