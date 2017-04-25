@@ -717,6 +717,12 @@ instance Checkable Expr where
                 argTypes = map ptype $ hparams header
                 resultType = htype header
 
+            Just flds <- asks . fields $ unrestricted calledType
+            let varFields = filter isVarField flds
+                restricted = barredFields calledType
+            unless (null $ intersect (map fname varFields) restricted) $
+                   tcError $ RestrictedMethodCallError (name mcall) calledType
+
             (eArgs, resultType', typeArgs) <-
                if null (typeArguments mcall) then
                   inferenceCall mcall typeParams argTypes resultType

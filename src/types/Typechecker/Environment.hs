@@ -305,7 +305,7 @@ methodAndCalledTypeLookup ty m env
         let traits = typesFromCapability ty
             results = map (\t -> (traitMethodLookup t m env, t)) traits
         (ret, ty') <- find (isJust . fst) results
-        return (fromJust ret, ty')
+        return (fromJust ret, ty' `withRestrictionsOf` ty)
     | isUnionType ty = do
         let members = unionMembers ty
         mapM_ (\t -> methodLookup t m env) members
