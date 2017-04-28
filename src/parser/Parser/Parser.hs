@@ -424,16 +424,17 @@ typeVariable = do
   typeVar <$> identifier
   <?> "lower case type variable"
 
-data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function}
+data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function} | FmlDecl{adecl :: AdtDecl}
 
-partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function])
-partitionDecls = partitionDecls' [] [] [] []
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl])
+partitionDecls = partitionDecls' [] [] [] [] []
   where
-    partitionDecls' cs ts tds fds [] = (cs, ts, tds, fds)
-    partitionDecls' cs ts tds fds (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds ds
-    partitionDecls' cs ts tds fds (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds ds
-    partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
-    partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
+    partitionDecls' cs ts tds fds adts [] = (cs, ts, tds, fds, adts)
+    partitionDecls' cs ts tds fds adts (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds adts ds
+    partitionDecls' cs ts tds fds adts (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds adts ds
+    partitionDecls' cs ts tds fds adts (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds adts ds
+    partitionDecls' cs ts tds fds adts (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) adts ds
+    partitionDecls' cs ts tds fds adts (FmlDecl{adecl}:ds) = partitionDecls' cs ts tds fds (adecl:adts) ds
 
 program :: EncParser Program
 program = do
@@ -455,8 +456,9 @@ program = do
                    ,TDecl <$> traitDecl
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
+                   ,FmlDecl <$> adtDecl
                    ]
-  let (classes, traits, typedefs, functions) = partitionDecls decls
+  let (classes, traits, typedefs, functions, adts) = partitionDecls decls
   eof
   return Program{source
                 ,moduledecl
@@ -466,6 +468,7 @@ program = do
                 ,functions
                 ,traits
                 ,classes
+                ,adts
                 }
     where
       hashbang = do string "#!"
@@ -749,6 +752,37 @@ partitionClassAttributes = partitionClassAttributes' [] []
       partitionClassAttributes' (flddecl:fs) ms as
     partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
       partitionClassAttributes' fs (mdecl:ms) as
+
+adtDecl :: EncParser AdtDecl
+adtDecl = do
+  aIndent <- L.indentLevel
+  adecl <- indentBlock $ do
+    ameta <- meta <$> getPosition
+    reserved "data"
+    name <- lookAhead upperChar >> identifier
+    params <- optionalTypeParameters
+    return $ L.IndentSome
+      Nothing
+      (buildAdt ameta name params)
+      constructor
+  atLevel aIndent $ reserved "end"
+  return adecl
+  where
+    constructor = do
+      acmeta <- meta <$> getPosition
+      reserved "case"
+      acname <- lookAhead upperChar >> identifier
+      acfields <- parens (commaSep paramDecl)
+      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
+                        adtConsType acname
+                     ,acfields
+                     }
+    buildAdt ameta name params constructors=
+      return ADT{ameta
+         ,aname = setRefNamespace emptyNamespace $
+                 adtType name params
+         ,aconstructor = constructors
+         }
 
 -- TODO: Allow linebreak (with indent) for trait inclusion
 classDecl :: EncParser ClassDecl
