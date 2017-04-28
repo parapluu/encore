@@ -18,6 +18,8 @@ module Types(
             ,refType
             ,abstractTraitFromTraitType
             ,classType
+            ,adtType
+            ,adtConsType
             ,isRefAtomType
             ,traitType
             ,isRefType
@@ -303,6 +305,8 @@ data InnerType =
           -- additional attributes.
         | AbstractTraitType{refInfo :: RefInfo}
         | ClassType{refInfo :: RefInfo}
+        | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
+        | AdtConsType{refInfo :: RefInfo}--TODO: Add more stuff
         | CapabilityType{typeop :: TypeOp
                         ,ltype  :: Type
                         ,rtype  :: Type}
@@ -429,6 +433,8 @@ instance Show InnerType where
     show TraitType{refInfo} = show refInfo
     show AbstractTraitType{refInfo} = show refInfo
     show ClassType{refInfo} = showRefInfoWithoutMode refInfo
+    show AdtType{refInfo} = show refInfo
+    show AdtConsType{refInfo} = show refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
         let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
@@ -502,6 +508,8 @@ showWithKind ty = kind (inner ty) ++ " " ++ show ty
                                          else if isSharedSingleType (typ ty)
                                          then "shared class type"
                                          else "class type"
+    kind AdtType{}                     = "ADT type"
+    kind AdtConsType{}                 = "AdtCons type"
     kind CapabilityType{}              = "capability type"
     kind EmptyCapability{}             = "the empty capability type"
     kind UnionType{}                   = "union type"
@@ -766,6 +774,31 @@ classType name parameters =
                                           ,refSourceFile = Nothing
                                           }
                         }
+      ,box = Nothing
+      }
+
+
+adtType :: String -> [Type] -> Type
+adtType name parameters =
+  Type{inner = AdtType{refInfo = RefInfo{refId = name
+                                        ,parameters
+                                        ,mode = Nothing
+                                        ,refNamespace = Nothing
+                                        ,refSourceFile = Nothing
+                                        }
+                      }
+         ,box = Nothing
+         }
+
+adtConsType :: String -> Type
+adtConsType name =
+  Type{inner = AdtConsType{refInfo = RefInfo{refId = name
+                                            ,parameters = []
+                                            ,mode = Nothing
+                                            ,refNamespace = Nothing
+                                            ,refSourceFile = Nothing
+                                            }
+                          }
       ,box = Nothing
       }
 
