@@ -30,7 +30,8 @@ data Program = Program {
   typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
-  classes :: [ClassDecl]
+  classes :: [ClassDecl],
+  adts :: [AdtDecl]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -226,6 +227,18 @@ data ClassDecl = Class {
   ccomposition :: Maybe TraitComposition,
   cfields     :: [FieldDecl],
   cmethods    :: [MethodDecl]
+} deriving (Show)
+
+data AdtDecl = ADT {
+  ameta       :: Meta AdtDecl,
+  aname       :: Type,
+  aconstructor :: [AdtConstructor]
+} deriving (Show)
+
+data AdtConstructor = ADTcons {
+  acmeta      :: Meta AdtConstructor,
+  acname      :: Type,
+  acfields    :: [ParamDecl]
 } deriving (Show)
 
 instance Eq ClassDecl where
