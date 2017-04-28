@@ -274,6 +274,7 @@ data Error =
   | TypeVariableAndVariableCommonNameError [Name]
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
+  | RequiredFieldMutabilityError Type FieldDecl
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
   | TypeArgumentInferenceError Expr Type
   | AmbiguousTypeError Type [Type]
@@ -307,7 +308,7 @@ data Error =
   | NonSafeInReadContextError Type Type
   | NonSafeInExtendedReadTraitError Type Name Type
   | ProvidingToReadTraitError Type Type Name
-  | SubordinateReturnError Name
+  | SubordinateReturnError Name Type
   | SubordinateArgumentError Expr
   | SubordinateFieldError Name
   | ThreadLocalFieldError Type
@@ -315,7 +316,7 @@ data Error =
   | ThreadLocalArgumentError Expr
   | PolymorphicArgumentSendError Expr Type
   | PolymorphicReturnError Name Type
-  | ThreadLocalReturnError Name
+  | ThreadLocalReturnError Name Type
   | MalformedConjunctionError Type Type Type
   | CannotUnpackError Type
   | CannotInferUnpackingError Type
@@ -601,8 +602,13 @@ instance Show Error where
         printf ("Null valued expression cannot have type '%s' " ++
                 "(must have reference type)") (show ty)
     show (TypeMismatchError actual expected) =
-        printf "Type '%s' does not match expected type '%s'"
-               (show actual) (show expected)
+        if isArrowType actual && isArrowType expected &&
+           actual `withModeOf` expected == expected
+        then printf ("Closure of type '%s' captures %s state and cannot " ++
+                     "be used as type '%s'")
+                     (show actual) (showModeOf actual) (show expected)
+        else printf "Type '%s' does not match expected type '%s'"
+                    (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
                (show actual) (show cap) (show expected) pointer
@@ -662,6 +668,9 @@ instance Show Error where
                      | otherwise = error msg
           msg = "TypeError.hs: " ++ show call ++
                 " is not a function or method call"
+    show (RequiredFieldMutabilityError requirer field) =
+        printf "Trait '%s' requires field '%s' to be mutable"
+               (getId requirer) (show field)
     show (ProvidingTraitFootprintError provider requirer mname fields) =
         printf ("Trait '%s' cannot provide method '%s' to %s.\n" ++
                 "'%s' can mutate fields that are marked immutable in '%s':\n%s")
@@ -764,10 +773,12 @@ instance Show Error where
     show (ProvidingToReadTraitError provider requirer mname) =
         printf "Non-read trait '%s' cannot provide method '%s' to read trait '%s'"
                (getId provider) (show mname) (getId requirer)
-    show (SubordinateReturnError name) =
-        printf ("Method '%s' returns a subordinate capability and cannot " ++
+    show (SubordinateReturnError name ty) =
+        printf ("Method '%s' returns a %s and cannot " ++
                 "be called from outside of its aggregate")
-               (show name)
+               (show name) (if isArrowType ty
+                            then "closure that captures subordinate state"
+                            else "subordinate capability")
     show (SubordinateArgumentError arg) =
         if isArrowType (getType arg)
         then printf ("Closure '%s' captures subordinate state " ++
@@ -796,10 +807,12 @@ instance Show Error where
         else printf ("Cannot pass actor local argument '%s' " ++
                      "to another active object")
                      (show (ppSugared arg))
-    show (ThreadLocalReturnError name) =
-        printf ("Method '%s' returns a local capability and cannot " ++
+    show (ThreadLocalReturnError name ty) =
+        printf ("Method '%s' returns a %s and cannot " ++
                 "be called by a different active object")
-               (show name)
+               (show name) (if isArrowType ty
+                            then "closure that captures local state"
+                            else "local capability")
     show (PolymorphicArgumentSendError arg ty) =
         printf ("Cannot pass value of '%s' between active objects. " ++
                 "Its type is polymorphic so it may not be safe to share.\n" ++

@@ -429,6 +429,9 @@ instance HasMeta FieldDecl where
 isValField :: FieldDecl -> Bool
 isValField = (== Val) . fmut
 
+isVarField :: FieldDecl -> Bool
+isVarField = (== Var) . fmut
+
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
   pmut  :: Mutability,
