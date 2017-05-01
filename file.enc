@@ -1,0 +1,9 @@
+active class Main 
+    def main() : unit
+        greet("Karolina")
+    end
+end
+
+fun greet(name: String = "Karolin") : unit 
+    print(name)
+end
