@@ -130,13 +130,13 @@ dropBorrowBlocks = extend dropBorrowBlock
            ,body}
       dropBorrowBlock e = e
 
-forwardExistingFuture = extend forwardExistingFuture'
+forwardExistingFuture = extend forwardGeneral
   where
-    forwardExistingFuture' e@(Forward{forwardExpr=MessageSend{}}) = e
+    forwardGeneral e@(Forward{forwardExpr=MessageSend{}}) = e
 
-    forwardExistingFuture' e@(Forward{forwardExpr=FutureChain{}}) = e
+    forwardGeneral e@(Forward{forwardExpr=FutureChain{}}) = e
 
-    forwardExistingFuture' e@(Forward{emeta, forwardExpr}) =
+    forwardGeneral e@(Forward{emeta, forwardExpr}) =
       Forward{emeta=emeta', forwardExpr=newExpr}
       where
          emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
@@ -155,4 +155,4 @@ forwardExistingFuture = extend forwardExistingFuture'
                         ,pname=Name "_id_fun_tmp"
                         ,ptype=paramType}
 
-    forwardExistingFuture' e = e
+    forwardGeneral e = e

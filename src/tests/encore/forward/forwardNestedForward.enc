@@ -1,0 +1,29 @@
+active class Base
+  def base() : int
+    42
+  end
+end
+
+active class Ground
+  def ground() : int
+    forward((new Base) ! base())
+  end
+end
+
+active class Bar
+  def bar() : int
+    forward((new Ground) ! ground())
+  end
+end
+
+active class Foo
+  def foo() : int
+    forward((new Bar) ! bar())
+  end
+end
+
+active class Main
+  def main() : unit
+    println("{}", get((new Foo) ! foo()))
+  end
+end

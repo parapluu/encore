@@ -1015,10 +1015,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.name
                                                        ,A.typeArguments
                                                        ,A.args}} = do
-    async <- gets Ctx.isAsyncForward
+    isAsyncForward <- gets Ctx.isAsyncForward
     eCtx <- gets Ctx.getExecCtx
     let dtraceExit = head (getDtraceExit eCtx)
-    if async
+    if isAsyncForward
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
@@ -1055,10 +1055,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (nfuture,tfuture) <- translate future
     (nchain, tchain)  <- translate chain
     eCtx <- gets $ Ctx.getExecCtx
-    async <- gets Ctx.isAsyncForward
+    isAsyncForward <- gets Ctx.isAsyncForward
     let ty = getRuntimeType chain
         dtraceExit = head (getDtraceExit eCtx)
-    if async
+    if isAsyncForward
     then do
       return (unit, Seq $
                       [tfuture,
