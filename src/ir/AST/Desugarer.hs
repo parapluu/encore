@@ -8,24 +8,136 @@ import AST.Util
 import Types
 import Text.Megaparsec
 import Data.Maybe
-
+import Debug.Trace
 import qualified Data.List as List
+
+
+
+findFunction :: QualifiedName -> [Function] ->  Maybe Function
+findFunction qname functions = List.find (\e -> ((show (functionName e)) == (show qname))) functions
+
+nameForArg :: Int -> String
+nameForArg 0 = ""
+nameForArg x = show x
+
+desugarDefaultParamatersCallWithFunction :: Expr -> Function -> Expr
+desugarDefaultParamatersCallWithFunction fc@(FunctionCall{qname, args}) fun@(Function{}) =
+    if isDefaultValid then fc{qname = qName ((show qname) ++ (traceId (nameForArg numOfDefaultParamsUsed)) ) } else fc
+  where
+    numOfDefaultParamsUsed = (length (functionParams fun)) - (length args)
+    isDefaultValid = (numOfDefaultParamsUsed <= (length (List.filter (isJust . pdefault) (functionParams fun)))) && ((length args) <= (length (functionParams fun)))
+
+
+desugarDefaultParamatersCall ::  Program -> Expr -> Expr
+desugarDefaultParamatersCall p@(Program{functions}) fc@(FunctionCall{qname, args}) =
+    case (findFunction qname functions) of Just function -> desugarDefaultParamatersCallWithFunction fc function
+                                           _ -> fc
+desugarDefaultParamatersCall _ expr = expr
+
+createFunction :: Function -> [Expr] -> Function
+createFunction func@(Function{funheader}) defaultParams =
+  func{funheader=Header{
+        hmodifiers= hmodifiers funheader,
+        kind= kind funheader,
+        htypeparams= take usedParams (htypeparams funheader),
+        hname=Name (show (hname funheader) ++ show (length defaultParams)),
+        htype= htype funheader,
+        hparams= params
+    },
+    funbody=Return {emeta= Meta.meta $ Meta.sourcePos $ funmeta func,
+                    val= FunctionCall{
+      emeta=Meta.meta $ Meta.sourcePos $ funmeta func,
+      typeArguments=htypeparams funheader,
+      qname= qName $ show $ hname funheader,
+      args= map (\e -> VarAccess{emeta =  Meta.meta $ Meta.sourcePos $ pmeta e, qname = qName $ show $ pname e}) params ++ defaultParams
+    }}
+
+  }
+  where
+    usedParams = ((length (hparams funheader)) - (length defaultParams))
+    params = take ((length (hparams funheader)) - (length defaultParams)) (hparams funheader)
+
+desugarFunctionHeader :: Function -> [Expr] -> [Function]
+desugarFunctionHeader f [] = []
+desugarFunctionHeader f params@(_:xs) = desugarFunctionHeader f xs ++ [createFunction f params]
+
+
+
+
+
+
+desugarDefaultParamaters :: Function -> [Function]
+desugarDefaultParamaters func = desugarFunctionHeader func defaultParams
+  where
+    defaultParams = map (fromJust . pdefault) (List.filter (\p@(Param{pdefault}) -> isJust pdefault) (hparams (funheader func)))
+
+
+-- create a method with default headers filled in
+createMethod :: AST.AST.MethodDecl -> [Expr] -> AST.AST.MethodDecl
+createMethod meth@(Method{mheader, mmeta}) defaultParams =
+  meth{mheader=Header{
+        hmodifiers= hmodifiers mheader,
+        kind= kind mheader,
+        htypeparams= take usedParams (htypeparams mheader),
+        hname=Name (show (hname mheader) ++ show (length defaultParams)),
+        htype= htype mheader,
+        hparams= params
+    },
+    mbody=Return {emeta= Meta.meta $ Meta.sourcePos $ mmeta,
+                    val= MethodCall{
+      emeta=Meta.meta $ Meta.sourcePos $ mmeta,
+      target=VarAccess {emeta=Meta.meta $ Meta.sourcePos $ mmeta, qname=qName "this"},
+      typeArguments=htypeparams mheader,
+      name= hname mheader,
+      args= map (\e -> VarAccess{emeta =  Meta.meta $ Meta.sourcePos $ pmeta e, qname = qName $ show $ pname e}) params ++ defaultParams
+    }}
+
+  }
+  where
+    usedParams = ((length (hparams mheader)) - (length defaultParams))
+    params = take ((length (hparams mheader)) - (length defaultParams)) (hparams mheader)
+
+
+
+
+
+desugarDefaultParamatersMethod :: MethodDecl -> [Expr] -> [MethodDecl]
+desugarDefaultParamatersMethod f [] = []
+desugarDefaultParamatersMethod f params@(_:xs) = desugarDefaultParamatersMethod f xs ++ [createMethod f params]
+
+
+desugarDefaultParamatersM :: MethodDecl -> [MethodDecl]
+desugarDefaultParamatersM m = desugarDefaultParamatersMethod m defaultParams
+  where
+    defaultParams = map (fromJust . pdefault) (List.filter (\p@(Param{pdefault}) -> isJust pdefault) (hparams (mheader m)))
+
+
+desugarDefaultParamatersClass :: Program -> ClassDecl -> ClassDecl
+desugarDefaultParamatersClass p c@(Class{cmethods}) = c{cmethods = cmethods ++ concat (map desugarDefaultParamatersM cmethods) }
+
+
+
+-- desugarDefaultParamatersMethod :: Program -> Method -> [Method]
+-- desugarDefaultParamatersMethod p @m(MethodDecl{mheader})
 
 desugarProgram :: Program -> Program
 desugarProgram p@(Program{traits, classes, functions}) =
   p{
     traits = map desugarTrait traits,
-    classes = map (desugarClass . desugarClassParams) classes,
-    functions = map desugarFunction functions
+    classes = map (desugarClass . desugarClassParams . (desugarDefaultParamatersClass p)) classes,
+    functions = (map desugarFunction functions) ++ concat (map desugarDefaultParamaters functions)
   }
   where
-    desugarTrait t@Trait{tmethods}=
-      t{tmethods = map desugarMethod tmethods}
-    desugarFunction f@(Function{funbody
-                               ,funlocals}) =
-      f{funbody = desugarExpr funbody
+
+    desugarTrait t@Trait{tmethods} = t{tmethods = map desugarMethod tmethods}
+
+    desugarFunction f@(Function{funbody,funlocals}) =
+      f{
+        funbody = desugarExpr funbody
        ,funlocals = map desugarFunction funlocals}
 
+    desugarFunctionHeader fh@(Header{hname, hparams}) =
+        fh{hname = Name (show hname ++ show (length hparams))}
   -- Automatically give await and supend to active classes
   -- Then the Actor trait is in place, this desugaring step will be changed
   -- so that the Actor trait is included instead
@@ -90,6 +202,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
     desugarExpr = extend removeDeadMiniLet .
                   extend desugar .
                   extend optionalAccess .
+                  extend (desugarDefaultParamatersCall p).
                   extend selfSugar
 
 -- | Desugars the notation `x?.foo()` and `actor?!bar()` into
@@ -257,6 +370,7 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "assertFalse"}
                  Exit (cloneMeta emeta) [IntLiteral (cloneMeta emeta) 1]])
            (Skip (cloneMeta emeta))
 
+
 -- If-expressions without else
 desugar IfThen{emeta, cond, thn} =
     IfThenElse{emeta
@@ -377,9 +491,13 @@ desugar f@FunctionCall{emeta, qname = QName{qnlocal = Name "Just"}
                       ,args = [arg]} =
   MaybeValue{emeta, mdt = JustData arg}
 
+
+
 desugar e = e
 
 assertionFailed emeta assert =
   StringLiteral (cloneMeta emeta) $
                 "Assertion failed at " ++
                 Meta.showPos emeta ++ ":\n" ++ assert
+
+
