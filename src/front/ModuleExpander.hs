@@ -47,7 +47,7 @@ shortenPrelude preludePaths source =
 
 stdLib source = [lib "String", lib "Std"]
     where
-      lib s = Import{imeta = meta $ initialPos source
+      lib s = Import{imeta = meta $ newPos (initialPos source)
                     ,itarget = explicitNamespace [Name s]
                     ,isource = Nothing
                     ,iqualified = False
@@ -122,13 +122,13 @@ findSource :: [FilePath] -> FilePath -> ImportDecl -> IO FilePath
 findSource importDirs sourceDir Import{itarget} = do
   let modulePath = buildModulePath itarget
       imports = map (</> modulePath) importDirs
-      sourceModulePath = sourceDir </> modulePath 
+      sourceModulePath = sourceDir </> modulePath
   expandedSourceModulePath <- makeAbsolute $ sourceModulePath
   let sources = if expandedSourceModulePath `elem` imports then
                 -- if directory of target is in imports, remove it to avoid ambiguous import error
                   nub $ imports
-                else 
-                  nub $ sourceModulePath : imports                
+                else
+                  nub $ sourceModulePath : imports
   candidates <- filterM doesFileExist sources
   case candidates of
     [] -> abort $ "Module " ++ show itarget ++

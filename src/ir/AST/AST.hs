@@ -40,8 +40,14 @@ class Show a => HasMeta a where
 
     setMeta :: a -> Meta a -> a
 
-    getPos :: a -> SourcePos
+    getPos :: a -> Position
     getPos = Meta.getPos . getMeta
+
+    setEndPos :: SourcePos -> a -> a
+    setEndPos end x =
+      let oldMeta = getMeta x
+          newMeta = Meta.setEndPos end oldMeta
+      in setMeta x newMeta
 
     getType :: a -> Type
     getType = Meta.getType . getMeta
