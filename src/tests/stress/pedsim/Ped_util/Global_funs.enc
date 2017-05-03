@@ -206,7 +206,7 @@ fun parse_file(fname : String) : [Agent]
               end
               j = j + 1
             end
-            for unused <- [0..max] do
+            for unused <- [0..max-1] do
               if dx > x + dx_max then
                 print("out of space\n")
                 abort("parsing error")
