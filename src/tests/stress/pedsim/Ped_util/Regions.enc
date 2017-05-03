@@ -327,8 +327,7 @@ active class Box
       this.last = Nothing
     end
   end
-  --private method
-  def is_something(a:Maybe[Item]) : bool
+  def private is_something(a:Maybe[Item]) : bool
      match a with
         case Nothing => false
         case unused  => true
