@@ -6,7 +6,7 @@ import Ped_util.Quad_tree
 class Main
   def main(args : [String]) : unit
     let
-      agents = parse_file("4000_scenario.xml")
+      agents = parse_file("400_scenario.xml")
       boxes = 9
     in
      regions(agents,boxes)
