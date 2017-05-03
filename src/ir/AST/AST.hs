@@ -91,6 +91,14 @@ data EmbedTL = EmbedTL {
       etlbody   :: String
     } deriving (Show)
 
+instance HasMeta EmbedTL where
+    getMeta = etlmeta
+
+    setMeta etl etlmeta = etl{etlmeta}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of a EmbedTL"
+
 data ModuleDecl = Module {
       modmeta :: Meta ModuleDecl,
       modname :: Name,
