@@ -12,7 +12,7 @@ fun link(a : Box, b : Box) : bool
   val bb = b!link(a)
   val aaa = get(aa)
   val bbb = get(bb)
-  aaa
+  (aaa && bbb)
 end
 active class Tiling_box
   var boxes : [Box]
@@ -88,28 +88,25 @@ active class Tiling_box
   end
 
   def move(i : int) : unit --,sdl : SDL_Main
-    --print("move\n")
     for id <- [0..|this.boxes| - 1] do
       (this.futures)(id) = ((this.boxes)(id)) ! move()
     end
-    --print("waiting\n")
     for f <- this.futures do
       get(f)
     end
     if i > 1 then
       this!move(i - 1)
     else
-      print("DONE")--printtime(clock() - start_time)
+      print("DONE")
     end
   end
+  -- used by ui, if endabled
   def agents() : [(int, int)]
     val temp = new [[(int, int)]](|this.boxes|)
     for i <- [0..|this.boxes| - 1] do
       temp(i) = get((this.boxes(i)) ! agents())
     end
-    --print("FLATTENING!\n")
-    var a= flatten(temp)
-    --print("FLAT\n")
+    var a=flatten(temp)
     a
   end
 end
@@ -190,9 +187,7 @@ active class Box
                 match cur with
                     case Just(thing) =>
                      cur=thing.next
-                     ret(i) = match thing.a?.pos() with
-                                case Just(something) => something
-                              end
+                     ret(i) = thing.a.pos()
                     end
                 end
                 i = i + 1
@@ -206,23 +201,23 @@ active class Box
     if a.x > this.xmax || a.x < this.xmin || a.y > this.ymax || a.y < this.ymin then
       false
     else
-      this.add_internal(Just(a),a.x,a.y)
+      this.add_internal(a,a.x,a.y)
     end
   end
-  def external_move(var a : Maybe[Agent], x : int, y : int) : Maybe[Agent]
+  def external_move(var a : Agent, x : int, y : int) : Maybe[Agent]
     if x > this.xmax || x < this.xmin || y > this.ymax || y < this.ymin then
-      a--consume(a)
+      Just(a)
     else
       if this.matrix.get_val(x, y) == true then
-        a --consume(a)
+        Just(a)
       else
-        a?.move_int(x, y)
+        a.move_int(x, y)
         this.add_internal(a,x,y)
         Nothing
       end
     end
   end
-  def add_internal(a : Maybe[Agent], x : int, y : int) : bool
+  def add_internal(a : Agent, x : int, y : int) : bool
     if this.matrix.get_val(x,y) == true then
       print("AGENTS IN TOP OF eachother\n")
       while true do
@@ -341,7 +336,6 @@ active class Box
         case unused  => true
      end
   end
-    -- ?. operator call fun on maybe type
   def move() : bool
     --print("{}\n",this.ttl)
     this.ttl = this.ttl - 1
@@ -353,12 +347,9 @@ active class Box
       var a = match wrapped_a with
                 case Just(value) => value
               end
-      var attl = match a.a?.ttl with
-                    case Just(temp) => temp
-                 end
-      if attl == this.ttl then
-        a.a?.ttldec() --= a.a.ttl - 1
-        a.a?.next(desired)
+      if a.a.ttl == this.ttl then
+        a.a.ttl=a.a.ttl - 1
+        a.a.next(desired)
         var i = 0
         var moved = false
         var x2 = 0
@@ -405,18 +396,14 @@ active class Box
                        end
                      end
           in
-              var ax = match a.a?.x with
-                        case Just(temp) => temp
-                       end
-              var ay = match a.a?.y with
-                        case Just(temp) => temp
-                       end
+              var ax = a.a.x
+              var ay = a.a.y
               match border with
                 case Nothing =>
                   if not(y > this.ymax || y < this.ymin || x > this.xmax || x < this.xmin) && this.matrix.get_val(x, y) == false then
                     this.matrix.remove(ax, ay)
                     this.matrix.set(x, y)
-                    a.a?.move_int(x, y)
+                    a.a.move_int(x, y)
                     moved = true
                   end
                 end
@@ -428,7 +415,7 @@ active class Box
                     await(nejbor)
                     val futurefilled = get(nejbor)
                     match futurefilled with
-                        case Just(useless) => a.a=futurefilled
+                        case Just(returned_agent) => a.a=returned_agent
                         case Nothing =>
                               this.size = this.size - 1
                               this.matrix.remove(x2, y2)
@@ -451,10 +438,10 @@ active class Box
   end
 end
 local class Item : Id
-  var a : Maybe[Agent]
+  var a : Agent
   var next : Maybe[Item]
   var prev : Maybe[Item]
-  def init(var a : Maybe[Agent]) : unit
+  def init(var a : Agent) : unit
     this.a = a --consume(a)
     this.next=Nothing
     this.prev=Nothing

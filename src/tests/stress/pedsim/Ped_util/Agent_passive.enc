@@ -1,5 +1,3 @@
--- This file was automatically converted by encorec
-
 module Agent_passive
 import Global_funs
 unsafe class Agent
@@ -46,7 +44,7 @@ unsafe class Agent
       var xdiff = x1 - x2
       var ydiff = y1 - y2
       var lenSquare = xdiff * xdiff + ydiff * ydiff
-      var invlen = invSqrt(lenSquare)
+      var invlen = inv_sqrt(lenSquare)
       if lenSquare < (this.targets_size(this.i) * this.targets_size(this.i)) then
         this.i = this.i + 1
       end
@@ -58,7 +56,7 @@ unsafe class Agent
       xdiff = x1 - x2
       ydiff = y1 - y2
       lenSquare = xdiff * xdiff + ydiff * ydiff
-      invlen = invSqrt(lenSquare)
+      invlen = inv_sqrt(lenSquare)
       let
         xoff = xdiff * invlen
         yoff = ydiff * invlen
@@ -70,9 +68,6 @@ unsafe class Agent
         ret(0) = desired_x
         ret(1) = desired_y
         if dx == 0 || dy == 0 then
-          if dx == 0 && dy == 0 then
-            print("dx and dy == 0, invariant VIOLATED {} {}\n", (x2 + xdiff, y2 + ydiff), (xoff, yoff))
-          end
           ret(2) = desired_x + dy
           ret(3) = desired_y + dx
           ret(4) = desired_x - dy
@@ -87,15 +82,6 @@ unsafe class Agent
       ()
     end
   end
-  def move(in_pos : (int, int)) : unit
-    match in_pos with
-      case (x, y) =>
-        this.x = x
-        this.y = y
-      end
-
-    end
-  end
   def move_int(x : int, y : int) : unit
     this.x = x
     this.y = y
@@ -103,21 +89,4 @@ unsafe class Agent
   def pos() : (int, int)
     (this.x, this.y)
   end
-  def ttldec() : unit
-    this.ttl=this.ttl-1
-  end
-{--
-  def copy() : Agent
-    val q = (this.x, this.y)
-    val qq = new [(int, int)](|this.targets_size|)
-    val qqq = new [int](|this.targets_size|)
-    for i <- [0..|qq| - 1] do
-      qq(i) = ((this.targets_x)(i), (this.targets_y)(i))
-      qqq(i) = (this.targets_size)(i)
-    end
-    var w = new Agent(q, qq, copy_ar(this.targets_size), this.hash_code, this.ttl)
-    w.i = this.i
-    w
-  end
---}
 end

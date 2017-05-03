@@ -1,9 +1,7 @@
--- This file was automatically converted by encorec
-
 module Global_funs
 import Agent_passive
 import XML
-fun invSqrt(input : int) : real
+fun inv_sqrt(input : int) : real
   var ret = 0.0
   EMBED (unit)
     {
@@ -18,7 +16,7 @@ fun invSqrt(input : int) : real
   ret
 end
 fun find_extreme(agents : [Agent]) : (int, int, int, int)
-  var extreme = (-(10000), -(10000), 10000, 10000)
+  var extreme = (agents(0).x,agents(0).y,agents(0).x,agents(0).y)
   var i = 0
   for a <- agents do
     i = i + 1
@@ -29,9 +27,8 @@ fun find_extreme(agents : [Agent]) : (int, int, int, int)
   end
   match extreme with
     case (xmax, ymax, xmin, ymin) =>
-      (xmax + 10, ymax + 10, xmin - 10, ymin - 10)
+      (xmax, ymax, xmin, ymin)
     end
-
   end
 end
 fun extreme_check(a : (int, int), b : (int, int, int, int)) : (int, int, int, int)
@@ -39,40 +36,9 @@ fun extreme_check(a : (int, int), b : (int, int, int, int)) : (int, int, int, in
     case ((x, y), (xmax, ymax, xmin, ymin)) =>
       (max(x, xmax), max(y, ymax), min(x, xmin), min(y, ymin))
     end
-
   end
 end
-fun clock() : int
-  var x = 0
-  EMBED (unit)
-    { #{x}=time(NULL); }
-  END
-  x
-end
-fun printtime(x : int) : unit
-  EMBED (unit)
-    { printf("TIME:%i\n", #{x}); }
-  END
-end
-fun mk_Future(n : bool) : Fut[bool]
-  EMBED (Fut[bool])
-    future_t *fut = future_mk(_ctx, ENCORE_PRIMITIVE);
-   future_fulfil(_ctx, fut, (encore_arg_t) {.i = #{n}});
-   fut;
 
-  END
-end
-fun inside(pos : (int, int), space : (int, int, int, int)) : bool
-  match (pos, space) with
-    case ((x, y), (xmax, ymax, xmin, ymin)) when x > xmax || x < xmin || y > ymax || y < ymin =>
-      false
-    end
-    case _ =>
-      true
-    end
-
-  end
-end
 fun copy_ar(arr : [int]) : [int]
   var a2 = new [int](|arr|)
   var i = 0
@@ -103,9 +69,6 @@ fun flatten(listlist : [[(int, int)]]) : [(int, int)]
       list(i) = b
       i = i + 1
     end
-  end
-  unless i == len then
-    print("BAD MERGE\n")
   end
   list
 end
@@ -144,10 +107,8 @@ fun string_or_empty(i : Maybe[String]) : String
       print("orEmpty\n")
       ""
     end
-
   end
 end
-
 fun rot(nr : real) : real
   EMBED (unit)
     { #{nr}=sqrt(#{nr}); }
@@ -161,21 +122,7 @@ fun abs(a : int) : int
     a * -(1)
   end
 end
-fun man_distance(a : (int, int), b : (int, int)) : int
-  match (a, b) with
-    case ((x1, y1), (x2, y2)) =>
-      abs(x1 - x2) + abs(y1 - y2)
-    end
-    case _ =>
-      print("THIS WILL NEVER HAPPEN!")
-      1 / 0
-    end
 
-  end
-end
-fun man_distance_int(x1 : int, y1 : int, x2 : int, y2 : int) : int
-  abs(x1 - x2) + abs(y1 - y2)
-end
 fun round(x : real) : int
   val i = 0
   EMBED (unit)
@@ -183,46 +130,11 @@ fun round(x : real) : int
   END
   i
 end
-fun ceil(x : real) : int
-  val i = 0
-  EMBED (unit)
-    { #{i}=ceil(#{x}); }
-  END
-  i
-end
-fun floor(x : real) : int
-  val i = 0
-  EMBED (unit)
-    { #{i}=floor(#{x}); }
-  END
-  i
-end
-fun distance(a : (int, int), b : (int, int)) : real
-  match (a, b) with
-    case ((x1, y1), (x2, y2)) =>
-      rot(x1 - x2 * x1 - x2 + y1 - y2 * y1 - y2)
-    end
-    case _ =>
-      print("THIS WILL NEVER HAPPEN!")
-      1 / 0
-    end
 
-  end
-end
 fun distance_int(x1 : int, y1 : int, x2 : int, y2 : int) : real
   rot(x1 - x2 * x1 - x2 + y1 - y2 * y1 - y2)
 end
-fun equal(a : (int, int), b : (int, int)) : bool
-  match (a, b) with
-    case ((a1, a2), (b1, b2)) when a1 == b1 && a2 == b2 =>
-      true
-    end
-    case _ =>
-      false
-    end
 
-  end
-end
 fun parse_file(fname : String) : [Agent]
   var sen = new XML_lib()
   var file = new XML_node()
