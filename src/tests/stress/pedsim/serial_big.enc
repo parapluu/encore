@@ -8,8 +8,9 @@ class Main
     let
       agents = parse_file("16000_scenario.xml")
       boxes = 1
+      steps = 10000
     in
-     regions(agents,boxes)
+     regions(agents,boxes,steps)
     end
   end
 end

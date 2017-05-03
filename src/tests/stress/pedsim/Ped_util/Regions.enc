@@ -3,9 +3,9 @@ import Agent_passive
 import Global_funs
 import Quad_tree
 
-fun regions(var agents : [Agent], boxes : int) : unit
+fun regions(var agents : [Agent], boxes : int, steps : int) : unit
   var box = new Tiling_box(agents, boxes)
-  box!move(10000)
+  box!move(steps)
 end
 fun link(a : Box, b : Box) : bool
   val aa = a!link(b)
