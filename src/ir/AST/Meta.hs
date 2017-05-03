@@ -15,23 +15,41 @@ data MetaInfo = Closure {metaId :: String}
               | MetaArrow {metaArrow :: Type}
                 deriving (Eq, Show)
 
-data Meta a = Meta {sourcePos :: SourcePos,
+data Position = SingletonPos {startPos :: SourcePos}
+              | RangePos {startPos :: SourcePos,
+                          endPos :: SourcePos}
+                deriving (Eq)
+
+instance Show Position where
+  -- TODO: If we ever want to print ranges, this should be updated
+  show = showSourcePos . startPos
+
+newPos :: SourcePos -> Position
+newPos = SingletonPos
+
+data Meta a = Meta {position  :: Position,
                     metaType  :: Maybe Type,
                     sugared   :: Maybe a,
                     captureStatus :: Maybe CaptureStatus,
                     isPattern :: Bool,
-                    statement   :: Bool,
+                    statement :: Bool,
                     metaInfo  :: Maybe MetaInfo} deriving (Eq, Show)
 
-meta :: SourcePos -> Meta a
-meta pos = Meta {sourcePos = pos
-                ,metaType = Nothing
-                ,sugared = Nothing
-                ,statement = False
-                ,captureStatus = Nothing
-                ,isPattern = False
-                ,metaInfo = Nothing}
+meta :: Position -> Meta a
+meta position =
+    Meta {position
+         ,metaType = Nothing
+         ,sugared = Nothing
+         ,statement = False
+         ,captureStatus = Nothing
+         ,isPattern = False
+         ,metaInfo = Nothing}
 
+setEndPos :: SourcePos -> Meta a -> Meta a
+setEndPos endPos m@Meta{position} =
+  m{position = RangePos{startPos = startPos position, endPos}}
+
+showSourcePos :: SourcePos -> String
 showSourcePos pos =
   let line = unPos (sourceLine pos)
       col = unPos (sourceColumn pos)
@@ -39,10 +57,10 @@ showSourcePos pos =
   in printf "%s (line %d, column %d)" (show file) line col
 
 showPos :: Meta a -> String
-showPos = showSourcePos . sourcePos
+showPos = showSourcePos . startPos . position
 
-getPos :: Meta a -> SourcePos
-getPos = sourcePos
+getPos :: Meta a -> Position
+getPos = position
 
 setType :: Type -> Meta a -> Meta a
 setType newType m = m {metaType = Just newType}

@@ -54,9 +54,9 @@ desugarProgram p@(Program{traits, classes, functions}) =
                               ,hname=Name "suspend"
                               ,htype=unitType
                               ,hparams=[]}
-        pmeta = Meta.meta (Meta.sourcePos cmeta)
-        emeta = Meta.meta (Meta.sourcePos cmeta)
-        mmeta = Meta.meta (Meta.sourcePos cmeta)
+        pmeta = Meta.meta (Meta.getPos cmeta)
+        emeta = Meta.meta (Meta.getPos cmeta)
+        mmeta = Meta.meta (Meta.getPos cmeta)
 
     desugarClass c@(Class{cmethods})
       | isPassive c || isShared c = c{cmethods = map desugarMethod cmethods}
@@ -117,7 +117,7 @@ selfSugar :: Expr -> Expr
 selfSugar e = setSugared e e
 
 cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
-cloneMeta m = Meta.meta (Meta.sourcePos m)
+cloneMeta m = Meta.meta (Meta.getPos m)
 
 -- | A @MiniLet@ that has not been taken care of by @desugar@ is
 -- dead and can be removed.
@@ -243,7 +243,7 @@ desugar IfThen{emeta, cond, thn} =
     IfThenElse{emeta
               ,cond
               ,thn
-              ,els = Skip (Meta.meta (Meta.sourcePos (cloneMeta emeta)))
+              ,els = Skip (Meta.meta (Meta.getPos (cloneMeta emeta)))
               }
 
 desugar Unless{emeta, cond = originalCond, thn} =
