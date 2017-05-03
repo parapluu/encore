@@ -1,0 +1,18 @@
+active class C
+  var f : int
+  def foo() : (() -> int)
+    fun () => this.f()
+  end
+  def f() : int
+    this.f = 0
+    42
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val c = new C
+    val f = get(c!foo())
+    f()
+  end
+end

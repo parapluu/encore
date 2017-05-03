@@ -2,8 +2,8 @@ local class Filter
   def cancel(i : int) : unit
     println(i)
   end
-  
-  def forall(f : int -> unit) : unit
+
+  def forall(f : local((int) -> unit)) : unit
     f(10)
   end
 end

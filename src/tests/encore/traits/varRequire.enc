@@ -1,0 +1,7 @@
+trait T
+  require var f : int
+end
+
+class C : local T
+  val f : int
+end
