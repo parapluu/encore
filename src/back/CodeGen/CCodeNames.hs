@@ -450,7 +450,7 @@ futureChainActor :: CCode Name
 futureChainActor = Nam "future_chain_actor"
 
 futureChainActorForward :: CCode Name
-futureChainActorForward = Nam "future_chain_actor_forward"
+futureChainActorForward = Nam "future_chain_forward"
 
 actorSuspend :: CCode Name
 actorSuspend = Nam "actor_suspend"

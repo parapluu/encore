@@ -101,6 +101,8 @@ static void future_block_actor(pony_ctx_t **ctx, future_t *fut);
 static void future_finalizer(future_t *fut);
 static inline void future_gc_send_value(pony_ctx_t *ctx, future_t *fut);
 static inline void future_gc_recv_value(pony_ctx_t *ctx, future_t *fut);
+static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+    closure_t *c, future_t *r);
 
 pony_type_t future_type = {
   .id = ID_FUTURE,
@@ -307,7 +309,7 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
   return r;
 }
 
-void future_chain_actor_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+void future_chain_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c, future_t *r)
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
@@ -316,7 +318,7 @@ void future_chain_actor_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *ty
   return;
 }
 
-void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
+static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c, future_t *r)
 {
   (void)type;
