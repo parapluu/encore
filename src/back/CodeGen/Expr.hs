@@ -1017,7 +1017,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.args}} = do
     isAsyncForward <- gets Ctx.isAsyncForward
     eCtx <- gets Ctx.getExecCtx
-    let dtraceExit = head (getDtraceExit eCtx)
+    let dtraceExit = getDtraceExit eCtx
     if isAsyncForward
     then do
       (ntarget, ttarget) <- translate target
@@ -1057,7 +1057,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     eCtx <- gets $ Ctx.getExecCtx
     isAsyncForward <- gets Ctx.isAsyncForward
     let ty = getRuntimeType chain
-        dtraceExit = head (getDtraceExit eCtx)
+        dtraceExit = getDtraceExit eCtx
     if isAsyncForward
     then do
       return (unit, Seq $
@@ -1203,17 +1203,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
 
-getDtraceExit eCtx = do
-  let dtraceExit =
-        case eCtx of
-          Ctx.FunctionContext fun ->
-            dtraceFunctionExit (A.functionName fun)
-          Ctx.MethodContext mdecl ->
-            dtraceMethodExit thisVar (A.methodName mdecl)
-          Ctx.ClosureContext clos ->
-            dtraceClosureExit
-          _ -> error "Expr.hs: No context to forward from"
-  return dtraceExit
+getDtraceExit eCtx =
+  case eCtx of
+    Ctx.FunctionContext fun ->
+      dtraceFunctionExit (A.functionName fun)
+    Ctx.MethodContext mdecl ->
+      dtraceMethodExit thisVar (A.methodName mdecl)
+    Ctx.ClosureContext clos ->
+      dtraceClosureExit
+    _ -> error "Expr.hs: No context to forward from"
 
 closureCall :: CCode Lval -> A.Expr ->
   State Ctx.Context (CCode Lval, CCode Stat)
