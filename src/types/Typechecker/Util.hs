@@ -631,7 +631,7 @@ uniquifyTypeVar params ty
     appendToTypeVar ty i =
       let id = getId ty
           id' = id ++ show i
-      in typeVar id'
+      in typeVar id' `withModeOf` ty `withBoxOf` ty
 
 isSafeValField :: FieldDecl -> TypecheckM Bool
 isSafeValField f@Field{ftype} = do

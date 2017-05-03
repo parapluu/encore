@@ -682,6 +682,8 @@ withModeOf sink source
       = sink{inner = iType{refInfo = info{mode}}}
     | isArrowType sink && isArrowType source
     , modes <- getModes source = applyInner (\i -> i{modes}) sink
+    | isTypeVar sink && isTypeVar source
+    , tmode <- tmode (inner source) = applyInner (\i -> i{tmode}) sink
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink

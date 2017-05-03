@@ -41,8 +41,30 @@ flattenTrait cdecl traitType template =
     traitMethods = A.tmethods template
     classMethods = map A.methodName $ A.cmethods cdecl
     nonOverridden = filter ((`notElem` classMethods) . A.methodName) traitMethods
+    nonOverridden' = map (uniquifyTypeArgs cdecl) nonOverridden
   in
-    map (convertMethod bindings cdecl) nonOverridden
+    map (convertMethod bindings cdecl) nonOverridden'
+
+uniquifyTypeArgs :: A.ClassDecl -> A.MethodDecl -> A.MethodDecl
+uniquifyTypeArgs A.Class{A.cname} method =
+  let
+    mheader = A.mheader method
+    typeParams = A.htypeparams mheader
+    bindings = uniqueBindings (A.methodTypeParams method)
+    htypeparams = map (Ty.replaceTypeVars bindings) typeParams
+    mheader' = A.replaceHeaderTypes bindings mheader{A.htypeparams}
+    mbody' = Util.extend (Util.exprTypeMap (Ty.replaceTypeVars bindings))
+                         (A.mbody method)
+  in method{A.mheader = mheader', A.mbody = mbody'}
+  where
+    uniqueBindings = concatMap uniqueBinding
+    uniqueBinding ty
+      | ty `elem` Ty.getTypeParameters cname = [(ty, uniquify ty)]
+      | otherwise = []
+    uniquify ty =
+      let id = Ty.getId ty
+          id' = id ++ "_"
+      in Ty.typeVar id'
 
 -- | @convertMethod bindings cdecl m@ converts all types
 -- appearing in @m@ using @bindings@ as a convertion table. It

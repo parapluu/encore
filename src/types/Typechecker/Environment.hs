@@ -266,8 +266,9 @@ classMethodLookup ty m env@Env{namespaceTable} =
           classResults = find (matchHeader m) headers
           traitResults = msum (map (\ty -> traitMethodLookup ty m env) tys)
       header <- classResults <|> traitResults
+      let header' = uniquifyTypeParams bindings header
       return $ translateHeaderNamespace namespaceTable $
-               replaceHeaderTypes bindings header
+               replaceHeaderTypes bindings header'
     Just l ->
       error $ "Environment.hs: Ambiguous target of class method lookup. \n" ++
               "Possible targets are: " ++ show l
@@ -275,6 +276,15 @@ classMethodLookup ty m env@Env{namespaceTable} =
       error $
         printf "Environment.hs: Tried to lookup method %s in unresolved class %s"
                (show m) (show ty)
+  where
+    uniquifyTypeParams bindings header@Header{htypeparams} =
+      let htypeparams' = map (uniquifyTypeParam bindings) htypeparams
+          bindings' = zip htypeparams htypeparams'
+      in replaceHeaderTypes bindings' header{htypeparams = htypeparams'}
+    uniquifyTypeParam bindings ty =
+      case lookup ty bindings of
+        Just _ -> typeVar ("_" ++ getId ty) `withModeOf` ty `withBoxOf` ty
+        Nothing -> ty
 
 methodAndCalledTypeLookup ::
     Type -> Name -> Environment -> Maybe (FunctionHeader, Type)
