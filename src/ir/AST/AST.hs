@@ -748,10 +748,6 @@ isFunctionCall :: Expr -> Bool
 isFunctionCall FunctionCall {} = True
 isFunctionCall _ = False
 
-isFutureChain :: Expr -> Bool
-isFutureChain FutureChain {} = True
-isFutureChain _ = False
-
 isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"
 isThisAccess _ = False
