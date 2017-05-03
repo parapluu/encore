@@ -1,0 +1,123 @@
+-- This file was automatically converted by encorec
+
+module Agent_passive
+import Global_funs
+unsafe class Agent
+  var hash_code : uint
+  var x : int
+  var y : int
+  var targets_x : [int]
+  var targets_y : [int]
+  var targets_size : [int]
+  var i : int
+  var ttl : int
+  def init(in_pos : (int, int), list : [(int, int)], targets_size : [int], in_id : int, ttl : int) : unit
+    match in_pos with
+      case (x, y) =>
+        this.x = x
+        this.y = y
+      end
+
+    end
+    this.i = 0
+    this.targets_x = new [int](|targets_size|)
+    this.targets_y = new [int](|targets_size|)
+    this.targets_size = targets_size
+    for index <- [0..|list| - 1] do
+      match list(index) with
+        case (x, y) =>
+          (this.targets_x)(index) = x
+          (this.targets_y)(index) = y
+        end
+
+      end
+    end
+    this.hash_code = in_id
+    this.ttl = ttl
+    ()
+  end
+  def next(ret : [int]) : unit
+    let
+      x1 = this.x
+      y1 = this.y
+    in
+      var x2 = (this.targets_x)(this.i)
+      var y2 = (this.targets_y)(this.i)
+      var xdiff = x1 - x2
+      var ydiff = y1 - y2
+      var lenSquare = xdiff * xdiff + ydiff * ydiff
+      var invlen = invSqrt(lenSquare)
+      if lenSquare < (this.targets_size(this.i) * this.targets_size(this.i)) then
+        this.i = this.i + 1
+      end
+      if |this.targets_size| == this.i then
+        this.i = 0
+      end
+      x2 = (this.targets_x)(this.i)
+      y2 = (this.targets_y)(this.i)
+      xdiff = x1 - x2
+      ydiff = y1 - y2
+      lenSquare = xdiff * xdiff + ydiff * ydiff
+      invlen = invSqrt(lenSquare)
+      let
+        xoff = xdiff * invlen
+        yoff = ydiff * invlen
+        desired_x = x1 + round(xoff * -(1))
+        desired_y = y1 + round(yoff * -(1))
+      in
+        val dx = desired_x - x1
+        val dy = desired_y - y1
+        ret(0) = desired_x
+        ret(1) = desired_y
+        if dx == 0 || dy == 0 then
+          if dx == 0 && dy == 0 then
+            print("dx and dy == 0, invariant VIOLATED {} {}\n", (x2 + xdiff, y2 + ydiff), (xoff, yoff))
+          end
+          ret(2) = desired_x + dy
+          ret(3) = desired_y + dx
+          ret(4) = desired_x - dy
+          ret(5) = desired_y - dx
+        else
+          ret(2) = desired_x
+          ret(3) = y1
+          ret(4) = x1
+          ret(5) = desired_y
+        end
+      end
+      ()
+    end
+  end
+  def move(in_pos : (int, int)) : unit
+    match in_pos with
+      case (x, y) =>
+        this.x = x
+        this.y = y
+      end
+
+    end
+  end
+  def move_int(x : int, y : int) : unit
+    this.x = x
+    this.y = y
+  end
+  def pos() : (int, int)
+    (this.x, this.y)
+  end
+  def ttldec() : unit
+    this.ttl=this.ttl-1
+  end
+{--
+  def copy() : Agent
+    val q = (this.x, this.y)
+    val qq = new [(int, int)](|this.targets_size|)
+    val qqq = new [int](|this.targets_size|)
+    for i <- [0..|qq| - 1] do
+      qq(i) = ((this.targets_x)(i), (this.targets_y)(i))
+      qqq(i) = (this.targets_size)(i)
+    end
+    var w = new Agent(q, qq, copy_ar(this.targets_size), this.hash_code, this.ttl)
+    w.i = this.i
+    w
+  end
+--}
+end

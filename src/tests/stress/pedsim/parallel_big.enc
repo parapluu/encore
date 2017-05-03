@@ -1,0 +1,30 @@
+import Ped_util.Global_funs
+import Ped_util.Regions
+import Ped_util.Quad_tree
+
+
+class Main
+  def main(args : [String]) : unit
+    let
+      agents = parse_file("16000_scenario.xml") --args(1)
+      boxes = 9
+    in
+     regions(agents,boxes)
+    end
+  end
+end
+{--
+class Main
+  def main(args : [String]) : unit
+    let
+      tree = new Quad_tree((10,10),(0,0))
+    in
+      for i <- [0..10] do
+        for j <- [0..10] do
+          tree.set(i,j)
+        end
+      end
+    end
+  end
+end
+--}
