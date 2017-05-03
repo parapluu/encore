@@ -16,9 +16,8 @@ active class Foo
     val arg2 = (new Base) ! base()
     forward(if b then
               forward(arg1)
-              arg1
+              arg1 -- required to make typecheck
             else
-              forward(arg2)
               arg2
             end)
   end

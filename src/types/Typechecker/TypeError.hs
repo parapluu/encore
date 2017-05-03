@@ -290,7 +290,6 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
-  | ForwardArgumentError
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
@@ -719,7 +718,6 @@ instance Show Error where
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
                (show retType) (show ty)
-    show (ForwardArgumentError) = "Forward currently operates on method call and future chain"
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"
                (show cname)

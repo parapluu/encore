@@ -31,7 +31,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks, forwardExistingFuture]
+                   dropBorrowBlocks, forwardGeneral]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -130,13 +130,13 @@ dropBorrowBlocks = extend dropBorrowBlock
            ,body}
       dropBorrowBlock e = e
 
-forwardExistingFuture = extend forwardGeneral
+forwardGeneral = extend forwardGeneral'
   where
-    forwardGeneral e@(Forward{forwardExpr=MessageSend{}}) = e
+    forwardGeneral' e@(Forward{forwardExpr=MessageSend{}}) = e
 
-    forwardGeneral e@(Forward{forwardExpr=FutureChain{}}) = e
+    forwardGeneral' e@(Forward{forwardExpr=FutureChain{}}) = e
 
-    forwardGeneral e@(Forward{emeta, forwardExpr}) =
+    forwardGeneral' e@(Forward{emeta, forwardExpr}) =
       Forward{emeta=emeta', forwardExpr=newExpr}
       where
          emeta' = Meta.setType (Meta.getType emeta) (Meta.meta $ Meta.getPos emeta)
@@ -155,4 +155,4 @@ forwardExistingFuture = extend forwardGeneral
                         ,pname=Name "_id_fun_tmp"
                         ,ptype=paramType}
 
-    forwardGeneral e = e
+    forwardGeneral' e = e
