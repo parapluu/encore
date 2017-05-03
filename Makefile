@@ -119,3 +119,4 @@ vagrant:
 	-@vagrant up
 
 .PHONY: all encorec typecheck fetch-hs-deps test stress dirs pony clean vagrant coverage
+

@@ -22,7 +22,7 @@ active class Tiling_box
     match find_extreme(agents) with
       case (xmax, ymax, xmin, ymin) =>
         val dx = (xmax - xmin) / n
-        this.boxes = new [Box](n * n)
+        this.boxes = new [Box]( n * n )
         this.futures = new [Fut[bool]](|this.boxes|)
         if(n>1) then
             var x = xmin
@@ -30,9 +30,9 @@ active class Tiling_box
             var i = 0
             var win = true
             val dy = (ymax - ymin) / n
-            for xindex <- [0..n - 1] do
+            for xindex <- [0..n - 2] do
               for yindex <- [0..n - 2] do
-                (this.boxes)(i) = new Box((x + dx - 1, y + dy - 1), (x, y))
+                this.boxes(i) = new Box((x + dx - 1, y + dy - 1), (x, y))
                 if yindex != 0 then
                   win = win && link((this.boxes)(i), (this.boxes)(i - 1))
                 end
@@ -47,7 +47,7 @@ active class Tiling_box
                 i = i + 1
                 y = y + dy
               end
-              (this.boxes)(i) = new Box((x + dx - 1, ymax), (x, y))
+              this.boxes(i) = new Box((x + dx - 1, ymax), (x, y))
               if xindex != 0 then
                 win = win && link((this.boxes)(i), (this.boxes)(i - n))
                 win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
@@ -83,7 +83,6 @@ active class Tiling_box
           end
         end
       end
-
     end
   end
 
