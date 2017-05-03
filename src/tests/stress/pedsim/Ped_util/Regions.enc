@@ -87,7 +87,7 @@ active class Tiling_box
     end
   end
 
-  def move(i : int) : unit --,sdl : SDL_Main
+  def move(i : int) : unit
     for id <- [0..|this.boxes| - 1] do
       (this.futures)(id) = ((this.boxes)(id)) ! move()
     end
@@ -100,7 +100,7 @@ active class Tiling_box
       print("DONE")
     end
   end
-  -- used by ui, if endabled
+  -- used by ui, if a ui is used
   def agents() : [(int, int)]
     val temp = new [[(int, int)]](|this.boxes|)
     for i <- [0..|this.boxes| - 1] do
@@ -173,7 +173,6 @@ active class Box
         case thing =>
               var cur=thing
               var i = 0
-              --print("asd\n")
               while cur != Nothing do
                 i = i + 1
                 match cur with
@@ -192,7 +191,6 @@ active class Box
                 end
                 i = i + 1
               end
-              --print("bas\n")
               ret
         end
     end
@@ -329,7 +327,7 @@ active class Box
       this.last = Nothing
     end
   end
-  --private
+  --private method
   def is_something(a:Maybe[Item]) : bool
      match a with
         case Nothing => false
@@ -337,7 +335,6 @@ active class Box
      end
   end
   def move() : bool
-    --print("{}\n",this.ttl)
     this.ttl = this.ttl - 1
     this.merge()
     var parent = this.agents
@@ -411,7 +408,7 @@ active class Box
                     x2 = ax
                     y2 = ay
                     val first= (wrapped_a == this.agents)
-                    var nejbor = real_thing ! external_move( a.a, x, y) --consume(
+                    var nejbor = real_thing ! external_move( a.a, x, y) --consume
                     await(nejbor)
                     val futurefilled = get(nejbor)
                     match futurefilled with

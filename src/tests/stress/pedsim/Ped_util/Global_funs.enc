@@ -86,30 +86,32 @@ fun min(a : int, b : int) : int
     b
   end
 end
-fun int_or_0(i : Maybe[int]) : int
+fun yolo_int(i : Maybe[int]) : int
   match i with
     case Just(nr) =>
       nr
     end
     case _ =>
       print("or0\n")
+      abort("parsing error")
       0
     end
 
   end
 end
-fun string_or_empty(i : Maybe[String]) : String
+fun yolo_string(i : Maybe[String]) : String
   match i with
     case Just(nr) =>
       nr
     end
     case _ =>
       print("orEmpty\n")
+      abort("parsing error")
       ""
     end
   end
 end
-fun rot(nr : real) : real
+fun sqrt(nr : real) : real
   EMBED (unit)
     { #{nr}=sqrt(#{nr}); }
   END
@@ -132,7 +134,7 @@ fun round(x : real) : int
 end
 
 fun distance_int(x1 : int, y1 : int, x2 : int, y2 : int) : real
-  rot(x1 - x2 * x1 - x2 + y1 - y2 * y1 - y2)
+  sqrt(x1 - x2 * x1 - x2 + y1 - y2 * y1 - y2)
 end
 
 fun parse_file(fname : String) : [Agent]
@@ -160,11 +162,12 @@ fun parse_file(fname : String) : [Agent]
                          end
                          case _ =>
                            print("BADINT!\n")
-                           (0, 0)
+                           abort("parsing error")
+                           (0,0)
                          end
 
                        end
-        waypoints_distance(i) = int_or_0(a.attribute_value("r").to_int())
+        waypoints_distance(i) = yolo_int(a.attribute_value("r").to_int())
         i = i + 1
       end
       var nr_agents = 0
@@ -175,6 +178,7 @@ fun parse_file(fname : String) : [Agent]
                                   end
                                   case _ =>
                                     print("BADINT2!\n")
+                                    abort("parsing error")
                                     0
                                   end
 
@@ -184,28 +188,28 @@ fun parse_file(fname : String) : [Agent]
       var i = 0
       do
         for a <- file.children_named("agent") do
-          var max = int_or_0(a.attribute_value("n").to_int())
-          var x = int_or_0(a.attribute_value("xs").to_int())
-          var y = int_or_0(a.attribute_value("ys").to_int())
-          var dx_max = int_or_0(a.attribute_value("dx").to_int()) / 2
-          var dy_max = int_or_0(a.attribute_value("dy").to_int()) / 2
+          var max = yolo_int(a.attribute_value("n").to_int())
+          var x = yolo_int(a.attribute_value("xs").to_int())
+          var y = yolo_int(a.attribute_value("ys").to_int())
+          var dx_max = yolo_int(a.attribute_value("dx").to_int()) / 2
+          var dy_max = yolo_int(a.attribute_value("dy").to_int()) / 2
           var agent_waypoints = new [(int, int)](|a.children_named("addway")|)
           var dx = x - dx_max
           var dy = y - dy_max
           var j = 0
           do
             for b <- a.children_named("addway") do
-              agent_waypoints(j) = waypoints(int_or_0(string_or_empty(b.attribute_value("id").substring(1, 2)).to_int()) - 1)
+              agent_waypoints(j) = waypoints(yolo_int(yolo_string(b.attribute_value("id").substring(1, 2)).to_int()) - 1)
               unless |agent_waypoints| > 1 then
                 print("THIS SHOULD NEVER HAPPEN |new_agent.waypoint|={}\n", |agent_waypoints|)
-                max = 1 / 0
+                abort("parsing error")
               end
               j = j + 1
             end
             for unused <- [0..max] do
               if dx > x + dx_max then
                 print("out of space\n")
-                dx = x - dx_max
+                abort("parsing error")
               else
                 if dy > y + dy_max then
                   dy = y - dy_max
@@ -219,8 +223,7 @@ fun parse_file(fname : String) : [Agent]
             end
           end
         end
-        --consume
-        agents
+        agents --consume
       end
     end
   end
