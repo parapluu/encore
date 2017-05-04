@@ -1,0 +1,34 @@
+fun id[t](x: t) : t
+  x
+end
+
+active class Foo
+
+  def multiChainWithExistingFuture(arg: Fut[int]) : int
+    val f = fun (x: int) => x + 1
+    forward(arg ~~> f ~~> f ~~> f ~~> f ~~> f)
+  end
+
+  def multiChainWithId(arg: Fut[int]) : int
+    val f = fun (x: int) => x + 1
+    forward(id(arg ~~> f) ~~> f ~~> f ~~> f ~~> f)
+  end
+
+  def multiChainWithMethodCall() : int
+    val f = fun (x: int) => x + 1
+    forward(((new Foo) ! foo()) ~~> f ~~> f ~~> f ~~> f ~~> f)
+  end
+
+  def foo() : int
+    42
+  end
+end
+
+active class Main
+  def main() : unit
+    val foo = (new Foo) ! foo()
+    println("{}", get((new Foo) ! multiChainWithExistingFuture(foo)))
+    println("{}", get((new Foo) ! multiChainWithId(foo)))
+    println("{}", get((new Foo) ! multiChainWithMethodCall()))
+  end
+end

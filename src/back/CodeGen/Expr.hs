@@ -1015,18 +1015,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                        ,A.name
                                                        ,A.typeArguments
                                                        ,A.args}} = do
-    withForwarding <- gets Ctx.withForwarding
+    isAsyncForward <- gets Ctx.isAsyncForward
     eCtx <- gets Ctx.getExecCtx
-    let dtraceExit =
-          case eCtx of
-            Ctx.FunctionContext fun ->
-              dtraceFunctionExit (A.functionName fun)
-            Ctx.MethodContext mdecl ->
-              dtraceMethodExit thisVar (A.methodName mdecl)
-            Ctx.ClosureContext clos ->
-              dtraceClosureExit
-            _ -> error "Expr.hs: No context to forward from"
-    if withForwarding
+    let dtraceExit = getDtraceExit eCtx
+    if isAsyncForward
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
@@ -1049,8 +1041,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                        dtraceExit,
                        Return Skip])
 
-    else if Ty.isFutureType $ A.getType expr
-    then do
+    else do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
                                                ,A.name
@@ -1059,14 +1050,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
       return (unit, Seq [sendt, dtraceExit, Return theGet])
-    else
-      error $ "Expr.hs: Cannot translate forward of ''" ++ show expr ++ "'"
 
-  translate A.Forward{A.forwardExpr = A.FutureChain{}} =
-    error "Expr.hs: Forwarding of chaining not implemented"
-  translate A.Forward{A.forwardExpr} =
-    error $ "Expr.hs: Target of forward is not method call or future chain: '" ++
-            show forwardExpr ++ "'"
+  translate A.Forward{A.emeta, A.forwardExpr = fchain@A.FutureChain{A.future, A.chain}} = do
+    (nfuture,tfuture) <- translate future
+    (nchain, tchain)  <- translate chain
+    eCtx <- gets $ Ctx.getExecCtx
+    isAsyncForward <- gets Ctx.isAsyncForward
+    let ty = getRuntimeType chain
+        dtraceExit = getDtraceExit eCtx
+    if isAsyncForward
+    then do
+      return (unit, Seq $
+                      [tfuture,
+                       tchain,
+                       (Statement $
+                          Call futureChainActorForward
+                           [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
+                       )] ++
+                      [dtraceExit,
+                      Return Skip])
+    else do
+      tmp <- Ctx.genSym
+      result <- Ctx.genSym
+      let nfchain = Var result
+          resultType = translate (Ty.getResultType $ A.getType fchain)
+          theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nfchain])
+      return $ (Var tmp, Seq $
+                      [tfuture,
+                       tchain,
+                       (Assign (Decl (C.future, Var result))
+                               (Call futureChainActor
+                                 [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+                               )),
+                       Assign (Decl (resultType, Var tmp)) theGet])
 
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
@@ -1186,6 +1202,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       Nothing -> functionCall fcall
 
   translate other = error $ "Expr.hs: can't translate: '" ++ show other ++ "'"
+
+getDtraceExit eCtx =
+  case eCtx of
+    Ctx.FunctionContext fun ->
+      dtraceFunctionExit (A.functionName fun)
+    Ctx.MethodContext mdecl ->
+      dtraceMethodExit thisVar (A.methodName mdecl)
+    Ctx.ClosureContext clos ->
+      dtraceClosureExit
+    _ -> error "Expr.hs: No context to forward from"
 
 closureCall :: CCode Lval -> A.Expr ->
   State Ctx.Context (CCode Lval, CCode Stat)

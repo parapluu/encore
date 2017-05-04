@@ -213,7 +213,7 @@ methodImplNameStr clazz mname =
 
 forwardingMethodImplNameStr :: Ty.Type -> ID.Name -> String
 forwardingMethodImplNameStr clazz mname =
-  encoreName "forwarding_method" $ qualifyRefType clazz ++ "_" ++ show mname
+  encoreName "method" $ qualifyRefType clazz ++ "_" ++ show mname ++ "_async"
 
 callMethodFutureNameStr :: Ty.Type -> ID.Name -> String
 callMethodFutureNameStr clazz mname =
@@ -448,6 +448,9 @@ futureGetActor = Nam "future_get_actor"
 
 futureChainActor :: CCode Name
 futureChainActor = Nam "future_chain_actor"
+
+futureChainActorForward :: CCode Name
+futureChainActorForward = Nam "future_chain_forward"
 
 actorSuspend :: CCode Name
 actorSuspend = Nam "actor_suspend"

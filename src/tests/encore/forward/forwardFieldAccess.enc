@@ -1,0 +1,26 @@
+active class Bar
+  def bar() : int
+    42
+  end
+end
+
+active class Foo
+  var result : Fut[int]
+
+  def init(arg : Fut[int]) : unit
+    this.result = arg
+  end
+
+  def foo_arg() : int
+    forward(this.result)
+  end
+
+end
+
+active class Main
+  def main() : unit
+    val bar = (new Bar) ! bar()
+    val foo = new Foo(bar)
+    println("{}", get(foo ! foo_arg()))
+  end
+end

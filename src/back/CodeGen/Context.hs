@@ -23,7 +23,7 @@ module CodeGen.Context (
   setFunCtx,
   setClsCtx,
   getExecCtx,
-  withForwarding
+  isAsyncForward
 ) where
 
 import Identifiers
@@ -74,8 +74,8 @@ newWithForwarding subs table = Context {
     ,withForward = True
   }
 
-withForwarding :: Context -> Bool
-withForwarding Context{withForward} = withForward
+isAsyncForward :: Context -> Bool
+isAsyncForward Context{withForward} = withForward
 
 genNamedSym :: String -> State Context String
 genNamedSym name = do

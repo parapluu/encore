@@ -1,6 +1,10 @@
+fun id[t](x: t) : t
+  x
+end
+
 active class Foo
   def foo_arg(arg: Fut[int]) : int
-    forward(arg)
+    forward(id(arg))
   end
   def foo() : int
     42

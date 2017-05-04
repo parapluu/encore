@@ -1234,8 +1234,6 @@ instance Checkable Expr where
     doTypecheck forward@(Forward {forwardExpr}) =
         do eExpr <- typecheck forwardExpr
            let ty = AST.getType eExpr
-           unless (isMessageSend forwardExpr) $
-                  pushError eExpr $ ForwardArgumentError
            unless (isFutureType ty) $
                   pushError eExpr $ ExpectingOtherTypeError
                                       "a future" ty

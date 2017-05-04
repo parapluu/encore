@@ -115,7 +115,6 @@ validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
 validUseOfBreak ((_, BTExpr l@For{}):_) = True
 validUseOfBreak ((_, BTExpr l@While{}):_) = True
-validUseOfBreak ((_, BTExpr l@DoWhile{}):_) = True
 validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
@@ -291,7 +290,6 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
-  | ForwardArgumentError
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
@@ -720,7 +718,6 @@ instance Show Error where
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
                (show retType) (show ty)
-    show (ForwardArgumentError) = "Forward currently operates on method call"
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"
                (show cname)
