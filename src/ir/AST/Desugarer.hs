@@ -301,11 +301,13 @@ headerFromCons ADTcons{acname, acfields} =
     kind = NonStreaming,
     htypeparams = [],
     hname = Name (showWithoutMode acname),
-    htype = maybeType $tupleType returnTypes,
+    htype = returnType acfields, --maybeType $tupleType returnTypes,
     hparams = []
   }
   where
-    returnTypes = map (\p@Param{ptype} -> ptype) acfields
+    {-returnTypes = map (\p@Param{ptype} -> ptype) acfields-}
+    returnType (x@Param{ptype}:[]) = maybeType ptype
+    returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
 
 method header body mmeta=
   Method{mmeta
@@ -321,8 +323,10 @@ extractorMethods con@ADTcons{acmeta} cons =
   ) cons
   where
     header c@ADTcons{acmeta, acfields} = (headerFromCons c){
-      htype = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) acfields
+      htype = (returnType acfields)
     }
+    returnType (x@Param{ptype}:[]) = maybeType ptype
+    returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
     body c@ADTcons{acfields} =
       if (show c == show con)
       then justBody acfields
@@ -333,11 +337,18 @@ extractorMethods con@ADTcons{acmeta} cons =
     justBody fields = MaybeValue{
       emeta,
       mdt =
-        JustData{e = Tuple{emeta, args = map (\p@Param{pname} ->
-            FieldAccess{emeta
-                       ,target = VarAccess{emeta, qname = qLocal thisName}
-                       ,name = Name $ show pname
-                       }) fields}
+        JustData{e = if (length fields) > 1
+                     then
+                     Tuple{emeta, args = map (\p@Param{pname} ->
+                       FieldAccess{emeta
+                                  ,target = VarAccess{emeta, qname = qLocal thisName}
+                                  ,name = Name $ show pname
+                                  }) fields}
+                     else
+                       FieldAccess{emeta
+                                  ,target = VarAccess{emeta, qname = qLocal thisName}
+                                  ,name = Name $ show $ pname $ head fields
+                                  }
                 }
     }
     emeta = Meta.meta (Meta.sourcePos acmeta)
