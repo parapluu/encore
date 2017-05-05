@@ -771,10 +771,10 @@ adtDecl = do
     constructor = do
       acmeta <- meta <$> getPosition
       reserved "case"
-      acname <- lookAhead upperChar >> identifier
+      name <- lookAhead upperChar >> identifier
       acfields <- parens (commaSep paramDecl)
       return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
-                        adtConsType acname
+                        adtConsType name
                      ,acfields
                      }
     buildAdt ameta name params constructors=
