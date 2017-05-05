@@ -433,8 +433,8 @@ instance Show InnerType where
     show TraitType{refInfo} = show refInfo
     show AbstractTraitType{refInfo} = show refInfo
     show ClassType{refInfo} = showRefInfoWithoutMode refInfo
-    show AdtType{refInfo} = show refInfo
-    show AdtConsType{refInfo} = show refInfo
+    show AdtType{refInfo} = showRefInfoWithoutMode refInfo
+    show AdtConsType{refInfo} = showRefInfoWithoutMode refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
         let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
@@ -827,6 +827,8 @@ isRefAtomType Type{inner = Unresolved {}} = True
 isRefAtomType Type{inner = TraitType {}} = True
 isRefAtomType Type{inner = AbstractTraitType {}} = True
 isRefAtomType Type{inner = ClassType {}} = True
+isRefAtomType Type{inner = AdtType {}} = True -- TODO: Ask someone about this
+isRefAtomType Type{inner = AdtConsType {}} = True -- TODO: Ask someone about this
 isRefAtomType _ = False
 
 isRefType ty
