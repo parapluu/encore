@@ -68,6 +68,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                      table p@Program{moduledecl
                                     ,imports
                                     ,classes
+                                    ,adts
                                     ,traits
                                     ,typedefs
                                     ,functions} = do
@@ -77,12 +78,14 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
   sources <- mapM (findSource importDirs sourceDir) withStdlib
   let imports'   = zipWith setImportSource sources withStdlib
       classes'   = map (setClassSource shortSource) classes
+      adts'      = map (setADTSource shortSource) adts
       traits'    = map (setTraitSource shortSource) traits
       typedefs'  = map (setTypedefSource shortSource) typedefs
       functions' = map (setFunctionSource shortSource) functions
       p' = p{source    = shortSource
             ,imports   = imports'
             ,classes   = classes'
+            ,adts      = adts'
             ,traits    = traits'
             ,typedefs  = typedefs'
             ,functions = functions'
@@ -96,6 +99,14 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     setImportSource source i =
         let shortPath = shortenPrelude preludePaths source
         in i{isource = Just shortPath}
+    setADTSource source adt@ADT{aname, aconstructor} =
+      adt{aname = setRefNamespace moduleNamespace $
+                  setRefSourceFile source aname
+         ,aconstructor = map (setADTConsSource source) aconstructor}
+    setADTConsSource source cons@ADTcons{acname} =
+      cons{acname = setRefNamespace moduleNamespace $
+                  setRefSourceFile source acname}
+
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $
                 setRefSourceFile source cname}
