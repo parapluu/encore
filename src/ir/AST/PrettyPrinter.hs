@@ -49,7 +49,7 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes} =
+ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes, adts} =
     ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
@@ -58,6 +58,7 @@ ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes
     vcat (reverse $ map ppFunction functions) $+$
     vcat (reverse $ map ppTraitDecl traits) $+$
     vcat (reverse $ map ppClassDecl classes) $+$
+    vcat (reverse $ map ppAdtDecl adts) $+$
     "" -- new line at end of file
 
 ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
@@ -171,6 +172,15 @@ ppComposition TraitLeaf{tcname, tcext} =
   ppType tcname <> if null tcext
                    then empty
                    else parens (commaSep (map ppTraitExtension tcext))
+
+ppAdtDecl :: AdtDecl -> Doc
+ppAdtDecl ADT {ameta, aname, aconstructor} =
+  "data" <+> text (showWithoutMode aname) $+$
+    indent (vcat (map ppAdtCons aconstructor)) $+$
+    "end"
+  where
+    ppAdtCons ADTcons{acmeta, acname, acfields} =
+      "case" <+> text (showWithoutMode acname) <> parens (commaSep $ map ppParamDecl acfields)
 
 ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods, ccomposition} =
