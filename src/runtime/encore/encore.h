@@ -36,7 +36,8 @@ extern __pony_thread_local context *this_context;
 static pony_type_t *ENCORE_ACTIVE    = (pony_type_t *)2;
 static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)1;
 
-__pony_spec_align__(typedef struct encore_actor encore_actor_t, 64);
+
+typedef struct encore_actor_t encore_actor_t;
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
 
@@ -92,7 +93,7 @@ typedef struct stack_page {
 } stack_page;
 
 void *get_local_page_stack();
-struct encore_actor
+struct encore_actor_t
 {
   pony_actor_pad_t pad;
   // Everything else that goes into an encore_actor that's not part of PonyRT
