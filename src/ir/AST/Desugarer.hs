@@ -88,13 +88,15 @@ desugarDefaultParametersClass p c@(Class{cmethods}) = c{cmethods = cmethods ++ c
 
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions}) =
+desugarProgram p@(Program{traits, classes, functions, adts}) =
   p{
-    traits = map desugarTrait traits,
-    classes = map (desugarClass . desugarClassParams . (desugarDefaultParametersClass p)) classes,
-    functions = (map desugarFunction functions) ++ concat (map desugarDefaultParameters functions)
+    traits = map desugarTrait $ traits ++ adtTraits,
+    classes = map (desugarClass . desugarClassParams . (desugarDefaultParametersClass p)) $ classes ++ adtClasses,
+    functions = (map desugarFunction $ functions ++ adtFunctions) ++ concat (map desugarDefaultParameters functions)
   }
   where
+
+    (adtTraits, adtClasses, adtFunctions) = partitionAdts [] [] [] adts
 
     desugarTrait t@Trait{tmethods} = t{tmethods = map desugarMethod tmethods}
 
@@ -234,6 +236,127 @@ expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
                              seq' -> seq'
         }]
 expandMiniLets (e:seq) = e:expandMiniLets seq
+
+partitionAdts :: [TraitDecl] -> [ClassDecl] -> [Function] -> [AdtDecl] -> ([TraitDecl], [ClassDecl], [Function])
+partitionAdts ts cs ms [] = (ts, cs, ms)
+partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
+    partitionAdts (t:ts) (c ++ cs) (m ++ ms) rest
+    where
+      setRef name ty =
+        let
+          sourceFile = getRefSourceFile name
+          namespace  = case getRefNamespace name of
+                       Just(ns) -> ns
+                       Nothing -> emptyNamespace
+        in
+          setRefSourceFile sourceFile $
+                           setRefNamespace namespace ty
+      traitName = makeRead $ setRef aname $ traitType (showWithoutMode aname) []
+      t = Trait{tmeta = Meta.meta (Meta.sourcePos ameta)
+               ,tname = traitName
+               ,treqs = map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor
+               ,tmethods = []
+               }
+      c = map (\a@ADTcons{acmeta, acname, acfields} ->
+          let
+            fields = map (\p@Param{pmut, pname, ptype} ->
+                         Field{fmeta = Meta.meta (Meta.sourcePos acmeta), fmut = pmut, fname = pname, ftype = ptype})
+                         acfields
+            traitExtensions = map (\p@Param{pname} -> FieldExtension{extname = pname}) acfields
+            emeta = Meta.meta (Meta.sourcePos acmeta)
+            cmeta = Meta.meta (Meta.sourcePos acmeta)
+            mmeta = Meta.meta (Meta.sourcePos acmeta)
+          in
+            Class{cmeta
+                 ,cname = makeRead $ setRef acname $
+                          classType (showWithoutMode acname) []--TODO: add type parameters
+                 ,ccomposition = Just(TraitLeaf{tcname = aname, tcext = traitExtensions})
+                 ,cfields = fields
+                 ,cmethods = (initMethod a):(extractorMethods a aconstructor)
+                 }
+            ) aconstructor
+      m = map (\x@ADTcons{acmeta, acname, acfields} ->
+              Function{funmeta = Meta.meta (Meta.sourcePos acmeta)
+                      ,funheader = Header{hmodifiers = []
+                                         ,kind = NonStreaming
+                                         ,htypeparams = []
+                                         ,hname = Name (showWithoutMode acname)
+                                         ,htype = traitName
+                                         ,hparams = acfields
+                                         }
+                      ,funbody = NewWithInit{emeta = Meta.meta (Meta.sourcePos acmeta)
+                                    ,ty = makeRead $ setRef acname $ classType (showWithoutMode acname) []
+                                    ,args = map (\x@Param{pname} ->
+                                                  VarAccess{emeta = Meta.meta(Meta.sourcePos acmeta)
+                                                           ,qname = qName $ show pname
+                                                           }) acfields
+                                    }
+                      ,funlocals = []
+                      ,funsource = getRefSourceFile acname}) aconstructor
+
+headerFromCons :: AdtConstructor -> FunctionHeader
+headerFromCons ADTcons{acname, acfields} =
+  Header{
+    hmodifiers = [],
+    kind = NonStreaming,
+    htypeparams = [],
+    hname = Name (showWithoutMode acname),
+    htype = maybeType $tupleType returnTypes,
+    hparams = []
+  }
+  where
+    returnTypes = map (\p@Param{ptype} -> ptype) acfields
+
+method header body mmeta=
+  Method{mmeta
+        ,mimplicit = True
+        ,mheader = header
+        ,mlocals = []
+        ,mbody = body
+        }
+
+extractorMethods con@ADTcons{acmeta} cons =
+  map (\c@ADTcons{acmeta, acname, acfields} ->
+    method (header c) (body c) (Meta.meta $ Meta.sourcePos acmeta)
+  ) cons
+  where
+    header c@ADTcons{acmeta, acfields} = (headerFromCons c){
+      htype = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) acfields
+    }
+    body c@ADTcons{acfields} =
+      if (show c == show con)
+      then justBody acfields
+      else nothingBody
+
+    nothingBody = MaybeValue{emeta, mdt = NothingData}
+
+    justBody fields = MaybeValue{
+      emeta,
+      mdt =
+        JustData{e = Tuple{emeta, args = map (\p@Param{pname} ->
+            FieldAccess{emeta
+                       ,target = VarAccess{emeta, qname = qLocal thisName}
+                       ,name = Name $ show pname
+                       }) fields}
+                }
+    }
+    emeta = Meta.meta (Meta.sourcePos acmeta)
+
+
+initMethod cons@ADTcons{acmeta, acname, acfields} =
+  method header body mmeta
+  where
+    header = (headerFromCons cons){htype = unitType
+                                  ,hparams = map (\p@Param{pname, ptype} -> p) acfields
+                                  ,hname = Name "init"
+                                  }
+    body = Seq{emeta, eseq = map (\p@Param{pname} -> assignment pname) acfields}
+    assignment name = Assign{emeta
+                            ,lhs = FieldAccess{emeta ,target = VarAccess{emeta ,qname = qLocal thisName} ,name = name}
+                            ,rhs = VarAccess{emeta, qname = qName $ show name}
+                            }
+    emeta = Meta.meta (Meta.sourcePos acmeta)
+    mmeta = Meta.meta (Meta.sourcePos acmeta)
 
 desugar :: Expr -> Expr
 
