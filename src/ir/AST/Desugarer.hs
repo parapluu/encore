@@ -242,6 +242,10 @@ partitionAdts ts cs ms [] = (ts, cs, ms)
 partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
     partitionAdts (t:ts) (c ++ cs) (m ++ ms) rest
     where
+      stripName (c:str) res = if c == '['
+                              then res
+                              else stripName str (c:res)
+      stripName [] res = res
       setRef name ty =
         let
           sourceFile = getRefSourceFile name
@@ -251,9 +255,10 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
         in
           setRefSourceFile sourceFile $
                            setRefNamespace namespace ty
-      traitName = makeRead $ setRef aname $ traitType (showWithoutMode aname) []
+      typeParams = getTypeParameters aname
+      traitName = setRef aname $ traitType (reverse (stripName (showWithoutMode aname) [])) typeParams
       t = Trait{tmeta = Meta.meta (Meta.sourcePos ameta)
-               ,tname = traitName
+               ,tname = makeRead traitName
                ,treqs = map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor
                ,tmethods = []
                }
@@ -269,7 +274,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
           in
             Class{cmeta
                  ,cname = makeRead $ setRef acname $
-                          classType (showWithoutMode acname) []--TODO: add type parameters
+                          classType (reverse (stripName (showWithoutMode acname) [])) typeParams
                  ,ccomposition = Just(TraitLeaf{tcname = aname, tcext = traitExtensions})
                  ,cfields = fields
                  ,cmethods = (initMethod a):(extractorMethods a aconstructor)
@@ -279,13 +284,13 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
               Function{funmeta = Meta.meta (Meta.sourcePos acmeta)
                       ,funheader = Header{hmodifiers = []
                                          ,kind = NonStreaming
-                                         ,htypeparams = []
+                                         ,htypeparams = typeParams
                                          ,hname = Name (showWithoutMode acname)
                                          ,htype = traitName
                                          ,hparams = acfields
                                          }
                       ,funbody = NewWithInit{emeta = Meta.meta (Meta.sourcePos acmeta)
-                                    ,ty = makeRead $ setRef acname $ classType (showWithoutMode acname) []
+                                    ,ty = makeRead $ setRef acname $ classType (showWithoutMode acname) typeParams
                                     ,args = map (\x@Param{pname} ->
                                                   VarAccess{emeta = Meta.meta(Meta.sourcePos acmeta)
                                                            ,qname = qName $ show pname
@@ -301,11 +306,10 @@ headerFromCons ADTcons{acname, acfields} =
     kind = NonStreaming,
     htypeparams = [],
     hname = Name (showWithoutMode acname),
-    htype = returnType acfields, --maybeType $tupleType returnTypes,
+    htype = returnType acfields,
     hparams = []
   }
   where
-    {-returnTypes = map (\p@Param{ptype} -> ptype) acfields-}
     returnType (x@Param{ptype}:[]) = maybeType ptype
     returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
 
