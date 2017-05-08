@@ -232,7 +232,8 @@ data ClassDecl = Class {
 data AdtDecl = ADT {
   ameta       :: Meta AdtDecl,
   aname       :: Type,
-  aconstructor :: [AdtConstructor]
+  aconstructor :: [AdtConstructor],
+  amethods     :: [MethodDecl]
 } deriving (Show)
 
 data AdtConstructor = ADTcons {

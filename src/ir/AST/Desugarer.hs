@@ -239,7 +239,7 @@ expandMiniLets (e:seq) = e:expandMiniLets seq
 
 partitionAdts :: [TraitDecl] -> [ClassDecl] -> [Function] -> [AdtDecl] -> ([TraitDecl], [ClassDecl], [Function])
 partitionAdts ts cs ms [] = (ts, cs, ms)
-partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
+partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
     partitionAdts (t:ts) (c ++ cs) (m ++ ms) rest
     where
       stripName (c:str) res = if c == '['
@@ -260,7 +260,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
       t = Trait{tmeta = Meta.meta (Meta.sourcePos ameta)
                ,tname = makeRead traitName
                ,treqs = map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor
-               ,tmethods = []
+               ,tmethods = amethods
                }
       c = map (\a@ADTcons{acmeta, acname, acfields} ->
           let
@@ -277,7 +277,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor}:rest) =
                           classType (reverse (stripName (showWithoutMode acname) [])) typeParams
                  ,ccomposition = Just(TraitLeaf{tcname = aname, tcext = traitExtensions})
                  ,cfields = fields
-                 ,cmethods = (initMethod a):(extractorMethods a aconstructor)
+                 ,cmethods = (initMethod a):(extractorMethods a aconstructor)++amethods
                  }
             ) aconstructor
       m = map (\x@ADTcons{acmeta, acname, acfields} ->
