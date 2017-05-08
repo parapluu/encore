@@ -41,29 +41,27 @@ flattenTrait cdecl traitType template =
     traitMethods = A.tmethods template
     classMethods = map A.methodName $ A.cmethods cdecl
     nonOverridden = filter ((`notElem` classMethods) . A.methodName) traitMethods
-    nonOverridden' = map (uniquifyTypeArgs cdecl) nonOverridden
+    nonOverridden' = map alphaConvertTypeArgs nonOverridden
   in
     map (convertMethod bindings cdecl) nonOverridden'
 
-uniquifyTypeArgs :: A.ClassDecl -> A.MethodDecl -> A.MethodDecl
-uniquifyTypeArgs A.Class{A.cname} method =
+-- | Make type parameters of a method unique to avoid name clashes
+-- when flattening traits
+alphaConvertTypeArgs :: A.MethodDecl -> A.MethodDecl
+alphaConvertTypeArgs method =
   let
-    mheader = A.mheader method
-    typeParams = A.htypeparams mheader
-    bindings = uniqueBindings (A.methodTypeParams method)
-    htypeparams = map (Ty.replaceTypeVars bindings) typeParams
-    mheader' = A.replaceHeaderTypes bindings mheader{A.htypeparams}
-    mbody' = Util.extend (Util.exprTypeMap (Ty.replaceTypeVars bindings))
-                         (A.mbody method)
+    mheader     = A.mheader method
+    typeParams  = A.htypeparams mheader
+    htypeparams = map alphaConvert typeParams
+    bindings    = zip typeParams htypeparams
+    mheader'    = A.replaceHeaderTypes bindings mheader{A.htypeparams}
+    mbody'      = Util.extend (Util.exprTypeMap (Ty.replaceTypeVars bindings))
+                              (A.mbody method)
   in method{A.mheader = mheader', A.mbody = mbody'}
   where
-    uniqueBindings = concatMap uniqueBinding
-    uniqueBinding ty
-      | ty `elem` Ty.getTypeParameters cname = [(ty, uniquify ty)]
-      | otherwise = []
-    uniquify ty =
+    alphaConvert ty =
       let id = Ty.getId ty
-          id' = id ++ "_"
+          id' = "_" ++ id
       in Ty.typeVar id'
 
 -- | @convertMethod bindings cdecl m@ converts all types
