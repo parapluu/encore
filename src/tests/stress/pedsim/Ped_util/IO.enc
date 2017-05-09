@@ -1,4 +1,8 @@
 module IO
+{-
+WARRNING this is a minimal untested file IO "library"
+This should be replaced with standard library functionallity when that is available
+-}
 local class File
   var file : EMBED FILE* END
   var fname : String

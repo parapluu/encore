@@ -1,5 +1,7 @@
--- This file was automatically converted by encorec
-
+{-
+WARRNING this is a minimal untested file XML "library"
+This should be replaced with standard library functionallity when that is available 
+-}
 module XML
 import IO
 local class XML_node
@@ -51,7 +53,7 @@ local class XML_lib
   end
   def new_XML_node(s : String) : Maybe[XML_node]
     var node = new XML_node()
-    var bad = false
+    var error = false
     s.trim()
     node.s_rep = s
     var cont = new [String](s.occurrences("<"))
@@ -72,10 +74,10 @@ local class XML_lib
       END
     end
     var start = s.find("<")
-    var finnish = 0
+    var finish = 0
     for i <- [0..|cont| - 1] do
-      finnish = s.find_from(">", start)
-      cont(i) = match s.substring(start, finnish + 1) with
+      finish = s.find_from(">", start)
+      cont(i) = match s.substring(start, finish + 1) with
                   case Just(sub) =>
                     sub
                   end
@@ -84,7 +86,7 @@ local class XML_lib
                   end
 
                 end
-      start = s.find_from("<", finnish)
+      start = s.find_from("<", finish)
     end
     node.name = cont(0)
     this.ext_atribs(node, node.name)
@@ -128,7 +130,6 @@ local class XML_lib
             temp = temp.concatenate(cont(i))
             ()
           end
-
         end
       end
       node.children = new [XML_node](j)
@@ -139,13 +140,12 @@ local class XML_lib
             ()
           end
           case Nothing =>
-            bad = true
+            error = true
             ()
           end
-
         end
       end
-      if bad == false then
+      if error == false then
         Just(node)
       else
         Nothing

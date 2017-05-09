@@ -3,7 +3,7 @@ import Agent_passive
 import Global_funs
 import Quad_tree
 
-fun regions(var agents : [Agent], boxes : int, steps : int) : unit
+fun regions(var agents : [Agent], boxes : uint, steps : uint) : unit
   var box = new Tiling_box(agents, boxes)
   box!move(steps)
 end
@@ -16,14 +16,14 @@ fun link(a : Box, b : Box) : bool
 end
 active class Tiling_box
   var boxes : [Box]
-  var futures : [Fut[bool]]
+  var futures : [Fut[unit]]
   var futs_left : int
   def init(agents : [Agent], n : int) : unit
     match find_extreme(agents) with
       case (xmax, ymax, xmin, ymin) =>
         val dx = (xmax - xmin) / n
         this.boxes = new [Box]( n * n )
-        this.futures = new [Fut[bool]](|this.boxes|)
+        this.futures = new [Fut[unit]](|this.boxes|)
         if(n>1) then
             var x = xmin
             var y = ymin
@@ -32,7 +32,7 @@ active class Tiling_box
             val dy = (ymax - ymin) / n
             for xindex <- [0..n - 2] do
               for yindex <- [0..n - 2] do
-                this.boxes(i) = new Box((x + dx - 1, y + dy - 1), (x, y))
+                this.boxes(i) = new Box((x + dx - 1, y + dy - 1), (x, y),n)
                 if yindex != 0 then
                   win = win && link((this.boxes)(i), (this.boxes)(i - 1))
                 end
@@ -47,7 +47,7 @@ active class Tiling_box
                 i = i + 1
                 y = y + dy
               end
-              this.boxes(i) = new Box((x + dx - 1, ymax), (x, y))
+              this.boxes(i) = new Box((x + dx - 1, ymax), (x, y), n)
               if xindex != 0 then
                 win = win && link((this.boxes)(i), (this.boxes)(i - n))
                 win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
@@ -58,7 +58,7 @@ active class Tiling_box
               y = ymin
             end
             for yindex <- [0..n - 2] do
-              (this.boxes)(i) = new Box((xmax, y + dy - 1), (x, y))
+              (this.boxes)(i) = new Box((xmax, y + dy - 1), (x, y),n)
               if yindex != 0 then
                 win = win && link((this.boxes)(i), (this.boxes)(i - 1))
                 win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
@@ -68,12 +68,12 @@ active class Tiling_box
               i = i + 1
               y = y + dy
             end
-            (this.boxes)(i) = new Box((xmax, ymax), (x, y))
+            (this.boxes)(i) = new Box((xmax, ymax), (x, y),n)
             win = win && link((this.boxes)(i), (this.boxes)(i - n))
             win = win && link((this.boxes)(i), (this.boxes)(i - 1))
             win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
         else
-            this.boxes(0) = new Box((xmax,ymax), (xmin,ymin))
+            this.boxes(0) = new Box((xmax,ymax), (xmin,ymin),n)
         end
         for a <- agents do
           for b <- this.boxes do
@@ -85,7 +85,7 @@ active class Tiling_box
       end
     end
   end
-
+  --move i time steps
   def move(i : int) : unit
     for id <- [0..|this.boxes| - 1] do
       (this.futures)(id) = ((this.boxes)(id)) ! move()
@@ -105,8 +105,7 @@ active class Tiling_box
     for i <- [0..|this.boxes| - 1] do
       temp(i) = get((this.boxes(i)) ! agents())
     end
-    var a=flatten(temp)
-    a
+    flatten(temp)
   end
 end
 active class Box
@@ -129,7 +128,7 @@ active class Box
   var ttl : int
   var size : int
   var moving : bool
-  def init(in_max : (int, int), in_min : (int, int)) : unit
+  def init(in_max : (int, int), in_min : (int, int), ttl : int) : unit
     this.agents=Nothing
     this.last=Nothing
     this.newcommers=Nothing
@@ -154,7 +153,7 @@ active class Box
         this.ymin = y
       end
     end
-    this.ttl = 10001
+    this.ttl = ttl+1
     this.size = 0
     this.moving = false
   end
@@ -199,6 +198,7 @@ active class Box
       false
     else
       this.add_internal(a,a.x,a.y)
+      true
     end
   end
   def external_move(var a : Agent, x : int, y : int) : Maybe[Agent]
@@ -214,13 +214,9 @@ active class Box
       end
     end
   end
-  def add_internal(a : Agent, x : int, y : int) : bool
+  def private add_internal(a : Agent, x : int, y : int) : unit
     if this.matrix.get_val(x,y) == true then
-      print("AGENTS IN TOP OF eachother\n")
-      while true do
-        ()
-      end
-      true
+      abort("AGENTS IN TOP OF eachother\n")
     else
       this.matrix.set(x,y)
       if this.newcommers == Nothing then
@@ -228,19 +224,14 @@ active class Box
       else
         if this.last == Nothing then
           this.last = Just(new Item(a))
-          match this.newcommers with
-              case Just(thing) => thing.append(this.last)
-          end
+          this.yolo_item(this.newcommers).append(this.last)
         else
           var new_wraper = Just(new Item(a))
-          match this.last with
-            case Just(thing) => thing.append(new_wraper)
-          end
+          this.yolo_item(this.last).append(new_wraper)
           this.last = new_wraper
         end
       end
       this.size = this.size + 1
-      true
     end
   end
   def link(a : Box) : bool
@@ -311,7 +302,7 @@ active class Box
       end
     end
   end
-  def merge() : unit
+  def private merge() : unit
     if this.newcommers != Nothing then
       if this.agents != Nothing then
         match (this.newcommers,this.last) with
@@ -332,19 +323,22 @@ active class Box
         case unused  => true
      end
   end
-  def move() : bool
+  def private yolo_item(a:Maybe[Item]) : Item
+     match a with
+        case Just(thing)  => thing
+     end
+  end
+  def move() : unit
     this.ttl = this.ttl - 1
     this.merge()
     var parent = this.agents
     var wrapped_a = this.agents
     var desired = new [int](6)
     while this.is_something(wrapped_a) do
-      var a = match wrapped_a with
-                case Just(value) => value
-              end
+      var a = this.yolo_item(wrapped_a)
       if a.a.ttl == this.ttl then
         a.a.ttl=a.a.ttl - 1
-        a.a.next(desired)
+        a.a.next(desired) --get the desired cordnates in format [x1,y1,x2,y2,x3,y3]
         var i = 0
         var moved = false
         var x2 = 0
@@ -422,16 +416,16 @@ active class Box
                     end
                 end
               end
-              i = i + 2
+              i = i + 2 --iterate to next pair of cordnates
           end
         end
       end
       wrapped_a = a.next
     end
     this.moving = false
-    true
   end
 end
+
 local class Item : Id
   var a : Agent
   var next : Maybe[Item]

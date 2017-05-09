@@ -24,7 +24,6 @@ local class Quad
     this.agent = new [int](0)
   end
   def add(x : int, y : int) : unit
-    --if x <= this.max_x && x >= this.min_x && y <= this.max_y && y >= this.min_y then
       match this.top_right with
           case Nothing =>
             if |this.agent|==0 then
@@ -40,7 +39,6 @@ local class Quad
               this.bottom_right = Just(new Quad(this.max_x, this.min_y + dy, this.min_x + dx + 1, this.min_y))
               this.bottom_left = Just(new Quad(this.min_x + dx, this.min_y + dy, this.min_x, this.min_y))
               this.size = 2
-              --print("deeper {} {} {} {} {} {}\n", this.max_x, this.max_y, x, y,this.agent(0),this.agent(1))
               this.recur(this.agent(0), this.agent(1)).add(this.agent(0), this.agent(1))
               this.recur(x, y).add(x, y)
               this.agent = new [int](0)
@@ -91,6 +89,7 @@ local class Quad
       false
     end
   end
+  --traverse down the tree, only call if not leaf
   def recur(x : int, y : int) : Quad
     val top = y > (((this.max_y - this.min_y) / 2) + this.min_y)
     val right = x > (((this.max_x - this.min_x) / 2) + this.min_x)
@@ -139,7 +138,7 @@ local class Quad_tree
   end
   def set(x : int, y : int) : unit
     if x > this.xmax || y > this.ymax || y < this.ymin || x < this.xmin then
-      print("TRYING TO STORE VALUE OUTSIDE OF THIS TREE\n")
+      abort("TRYING TO STORE VALUE OUTSIDE OF THIS TREE\n")
     else
       this.tree.add(x, y)
     end

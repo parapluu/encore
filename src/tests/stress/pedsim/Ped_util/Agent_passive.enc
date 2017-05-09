@@ -1,5 +1,8 @@
 module Agent_passive
 import Global_funs
+{-
+Representation of one Agent in the simulation
+-}
 unsafe class Agent
   var hash_code : uint
   var x : int
@@ -15,7 +18,6 @@ unsafe class Agent
         this.x = x
         this.y = y
       end
-
     end
     this.i = 0
     this.targets_x = new [int](|targets_size|)
@@ -27,44 +29,44 @@ unsafe class Agent
           (this.targets_x)(index) = x
           (this.targets_y)(index) = y
         end
-
       end
     end
     this.hash_code = in_id
     this.ttl = ttl
     ()
   end
+--requires ret to be a size 6 [int]
+--fills ret with desired positions in the format
+--[this.x,this.y,x2,y2,x3,y3]
   def next(ret : [int]) : unit
-    let
-      x1 = this.x
-      y1 = this.y
-    in
       var x2 = (this.targets_x)(this.i)
       var y2 = (this.targets_y)(this.i)
-      var xdiff = x1 - x2
-      var ydiff = y1 - y2
-      var lenSquare = xdiff * xdiff + ydiff * ydiff
-      var invlen = inv_sqrt(lenSquare)
-      if lenSquare < (this.targets_size(this.i) * this.targets_size(this.i)) then
+      var xdiff = this.x - x2
+      var ydiff = this.y - y2
+      var len_square = xdiff * xdiff + ydiff * ydiff
+      var invlen = inv_sqrt(len_square)
+      --if inside the target waypoint, move towards the next waypoint
+      if len_square < (this.targets_size(this.i) * this.targets_size(this.i)) then
         this.i = this.i + 1
       end
+      -- if after the last waypoint, use the firs waypoint
       if |this.targets_size| == this.i then
         this.i = 0
       end
       x2 = (this.targets_x)(this.i)
       y2 = (this.targets_y)(this.i)
-      xdiff = x1 - x2
-      ydiff = y1 - y2
-      lenSquare = xdiff * xdiff + ydiff * ydiff
-      invlen = inv_sqrt(lenSquare)
+      xdiff = this.x - x2
+      ydiff = this.y - y2
+      len_square = xdiff * xdiff + ydiff * ydiff
+      invlen = inv_sqrt(len_square)
       let
         xoff = xdiff * invlen
         yoff = ydiff * invlen
-        desired_x = x1 + round(xoff * -(1))
-        desired_y = y1 + round(yoff * -(1))
+        desired_x = this.x + round(xoff * -(1))
+        desired_y = this.y + round(yoff * -(1))
       in
-        val dx = desired_x - x1
-        val dy = desired_y - y1
+        val dx = desired_x - this.x
+        val dy = desired_y - this.y
         ret(0) = desired_x
         ret(1) = desired_y
         if dx == 0 || dy == 0 then
@@ -74,13 +76,12 @@ unsafe class Agent
           ret(5) = desired_y - dx
         else
           ret(2) = desired_x
-          ret(3) = y1
-          ret(4) = x1
+          ret(3) = this.y
+          ret(4) = this.x
           ret(5) = desired_y
         end
       end
       ()
-    end
   end
   def move_int(x : int, y : int) : unit
     this.x = x

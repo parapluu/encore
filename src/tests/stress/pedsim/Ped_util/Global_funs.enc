@@ -25,11 +25,7 @@ fun find_extreme(agents : [Agent]) : (int, int, int, int)
       extreme = extreme_check(((a.targets_x)(index), (a.targets_y)(index)), extreme)
     end
   end
-  match extreme with
-    case (xmax, ymax, xmin, ymin) =>
-      (xmax, ymax, xmin, ymin)
-    end
-  end
+  extreme
 end
 fun extreme_check(a : (int, int), b : (int, int, int, int)) : (int, int, int, int)
   match (a, b) with
@@ -92,8 +88,7 @@ fun yolo_int(i : Maybe[int]) : int
       nr
     end
     case _ =>
-      print("or0\n")
-      abort("parsing error")
+      abort("or0\nparsing error")
       0
     end
 
@@ -105,8 +100,7 @@ fun yolo_string(i : Maybe[String]) : String
       nr
     end
     case _ =>
-      print("orEmpty\n")
-      abort("parsing error")
+      abort("orEmpty\nparsing error")
       ""
     end
   end
@@ -146,7 +140,7 @@ fun parse_file(fname : String) : [Agent]
         file = xml
       end
       case Nothing =>
-        print("\n\nBADXML!\n")
+        abort("XMLPARSEING ERROR\n")
       end
 
     end
@@ -172,17 +166,7 @@ fun parse_file(fname : String) : [Agent]
       end
       var nr_agents = 0
       for a <- file.children_named("agent") do
-        nr_agents = nr_agents + match a.attribute_value("n").to_int() with
-                                  case Just(nr) =>
-                                    nr
-                                  end
-                                  case _ =>
-                                    print("BADINT2!\n")
-                                    abort("parsing error")
-                                    0
-                                  end
-
-                                end
+        nr_agents = nr_agents + yolo_int(a.attribute_value("n").to_int())
       end
       var agents = new [Agent](nr_agents)
       var i = 0
@@ -202,14 +186,13 @@ fun parse_file(fname : String) : [Agent]
               agent_waypoints(j) = waypoints(yolo_int(yolo_string(b.attribute_value("id").substring(1, 2)).to_int()) - 1)
               unless |agent_waypoints| > 1 then
                 print("THIS SHOULD NEVER HAPPEN |new_agent.waypoint|={}\n", |agent_waypoints|)
-                abort("parsing error")
+                abort("agent_waypoint size error")
               end
               j = j + 1
             end
             for unused <- [0..max-1] do
               if dx > x + dx_max then
-                print("out of space\n")
-                abort("parsing error")
+                abort("out of space")
               else
                 if dy > y + dy_max then
                   dy = y - dy_max
