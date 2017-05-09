@@ -1,0 +1,19 @@
+active class Main
+  def main() : unit
+    new Tester()
+  end
+end
+
+active class Tester
+  def init() : unit
+    this.foo(1)
+    this.foo(2, "hello")
+    this.foo(3, "world", 4)
+  end
+
+  def foo(a: int, b:String = "b", c:int = 0) : unit
+    println(a)
+    println(b)
+    println(c)
+  end
+end

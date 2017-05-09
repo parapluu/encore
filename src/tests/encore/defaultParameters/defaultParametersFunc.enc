@@ -1,0 +1,13 @@
+active class Main
+  def main() : unit
+    test(1)
+    test(2, "hello")
+    test(3, "world", 4)
+  end
+end
+
+fun test(a: int, b:String = "b", c: int = 0) : unit
+  println(a)
+  println(b)
+  println(c)
+end

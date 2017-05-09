@@ -1,0 +1,30 @@
+active class Main
+  def main() : unit
+    new Tester()
+  end
+end
+
+active class Tester
+  def init() : unit
+    this.foo(1)
+    this.foo(2, new Tester2("hello"))
+    this.foo(3, new Tester2("world"), 4)
+  end
+
+  def foo(a: int, b:Tester2 = new Tester2("b"), c:int = 0) : unit
+    println(a)
+    println(b.bar())
+    println(c)
+  end
+end
+
+local class Tester2
+  var b : String
+  def init(b: String) : unit
+    this.b = b
+  end
+
+  def bar() : String
+    this.b
+  end
+end

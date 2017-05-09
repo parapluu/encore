@@ -1,0 +1,16 @@
+active class Main
+  def main() : unit
+    var t = new Tester()
+    t!printSelf()
+  end
+end
+
+active class Tester
+  val foo : String = "foo"
+  val bar : String = "bar"
+
+  def printSelf() : unit
+    println(this.foo)
+    println(this.bar)
+  end
+end

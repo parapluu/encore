@@ -153,6 +153,7 @@ forwardGeneral = extend forwardGeneral'
          pdecl = Param {pmeta=Meta.setType paramType (Meta.meta (Meta.getPos emeta))
                         ,pmut =Val
                         ,pname=Name "_id_fun_tmp"
-                        ,ptype=paramType}
+                        ,ptype=paramType
+                        ,pdefault= Nothing}
 
     forwardGeneral' e = e

@@ -485,6 +485,9 @@ isConstructor m = methodName m == constructorName
 
 isImplicitMethod = mimplicit
 
+hasConstructor :: ClassDecl -> Bool
+hasConstructor Class{cmethods} = filter isConstructor cmethods /= []
+
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl

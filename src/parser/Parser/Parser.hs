@@ -801,7 +801,7 @@ fieldDecl = do fmeta <- buildMeta
                ftype <- typ
                optional $ withLinebreaks $ reservedOp "="
                fexpr <- optional expression
-               returnwithEnd Field{fmeta
+               returnWithEnd Field{fmeta
                            ,fmut
                            ,fname
                            ,ftype
