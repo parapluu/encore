@@ -140,7 +140,7 @@ fun parse_file(fname : String) : [Agent]
         file = xml
       end
       case Nothing =>
-        abort("XMLPARSEING ERROR\n")
+        abort("XML parsing\n")
       end
 
     end
