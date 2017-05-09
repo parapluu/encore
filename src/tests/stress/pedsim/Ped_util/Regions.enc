@@ -323,10 +323,10 @@ active class Box
         case unused  => true
      end
   end
-  def private yolo_item(a:Maybe[Item]) : Item
-     match a with
-        case Just(thing)  => thing
-     end
+  def private yolo_item(i : Maybe[Item]) : Item
+   match i with
+    case Just(item) => item
+   end
   end
   def move() : unit
     this.ttl = this.ttl - 1
