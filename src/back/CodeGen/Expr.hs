@@ -774,7 +774,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
          (narg, targ) <- translate arg
          let argty = A.getType arg
              mType = translate (A.getType m)
-         tIfChain <- ifChain clauses narg argty retTmp mType
+         tIfChain <- ifChain clauses narg argty retTmp mType (A.getPos m)
          let lRetDecl = Decl (mType, Var retTmp)
              eZeroInit = Cast mType (Int 0)
              tRetDecl = Assign lRetDecl eZeroInit
@@ -941,18 +941,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               tAssign = Assign (Var handlerReturnVar) eCast
           return tAssign
 
-        ifChain [] _ _ _ _ = do
+        ifChain [] _ _ _ _ pos = do
           let errorCode = Int 1
               exitCall = Statement $ Call (Nam "exit") [errorCode]
-              errorMsg = String "*** Runtime error: No matching clause was found ***\n"
+              errorMsg = String $ "*** Runtime error: No matching clause was found at " ++ show pos ++ " ***\n"
               errorPrint = Statement $ Call (Nam "fprintf") [AsExpr C.stderr, errorMsg]
           return $ Seq [errorPrint, exitCall]
 
-        ifChain (clause:rest) narg argty retTmp retTy = do
+        ifChain (clause:rest) narg argty retTmp retTy pos = do
           let freeVars = Util.foldrExp (\e a -> getExprVars e ++ a) [] (A.mcpattern clause)
           assocs <- mapM createAssoc freeVars
           thenExpr <- translateHandler clause retTmp assocs retTy
-          elseExpr <- ifChain rest narg argty retTmp retTy
+          elseExpr <- ifChain rest narg argty retTmp retTy pos
           eCond <- translateIfCond clause narg argty assocs
           let tIf = Statement $ If eCond thenExpr elseExpr
               tDecls = Seq $ map (fwdDecl assocs) freeVars

@@ -1,0 +1,9 @@
+active class Main
+  def main(args : [String]) : unit
+    match 1 with
+      case 2 =>
+        println("This should not happen!")
+      end
+    end
+  end
+end
