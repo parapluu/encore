@@ -44,6 +44,7 @@ translateClosure closure typeVars table
            body        = A.body closure
            id          = Meta.getMetaId . A.getMeta $ closure
            funName     = closureFunName id
+           nameForwarding = forwardingClosureImplName $ (ID.Name . show) funName
            envName     = closureEnvName id
            traceName   = closureTraceName id
            boundVars   = map (ID.qName . show . A.pname) params
@@ -61,20 +62,21 @@ translateClosure closure typeVars table
            ctx = Ctx.setClsCtx (Ctx.new subst table) closure
            ((bodyName, bodyStat), _) = runState (translate body) ctx
        in
-         Concat [buildEnvironment envName freeVars fTypeVars,
-                 tracefunDecl traceName envName freeVars fTypeVars,
-                 Function (Static $ Typ "value_t") funName
-                          [(Ptr (Ptr encoreCtxT), encoreCtxVar),
-                           (Ptr (Ptr ponyTypeT), encoreRuntimeType),
-                           (Typ "value_t", Var "_args[]"),
-                           (Ptr void, envVar)]
-                          (Seq $
-                            dtraceClosureEntry argNames :
-                            extractArguments params ++
-                            extractEnvironment envName freeVars fTypeVars ++
-                            [bodyStat
-                            ,dtraceClosureExit
-                            ,returnStmnt bodyName resultType])]
+         Concat $ [buildEnvironment envName freeVars fTypeVars,
+                   tracefunDecl traceName envName freeVars fTypeVars,
+                   Function (Static $ Typ "value_t") funName
+                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                            (Ptr (Ptr ponyTypeT), encoreRuntimeType),
+                            (Typ "value_t", Var "_args[]"),
+                            (Ptr void, envVar)]
+                           (Seq $
+                             dtraceClosureEntry argNames :
+                             extractArguments params ++
+                             extractEnvironment envName freeVars fTypeVars ++
+                             [bodyStat
+                             ,dtraceClosureExit
+                             ,returnStmnt bodyName resultType])
+                  ]
   | otherwise =
         error
         "Tried to translate a closure from something that was not a closure"

@@ -1015,6 +1015,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
+
       (initArgs, forwardingCall) <-
         callTheMethodForward [futVar]
           ntarget targetType name args typeArguments Ty.unitType
@@ -1033,16 +1034,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                          (Seq $ initArgs1 ++ [Statement oneWayMsg]),
                        dtraceExit,
                        Return Skip])
-
     else do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
                                                ,A.name
                                                ,A.typeArguments
                                                ,A.args}
+      tmp <- Ctx.genSym
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
-      return (unit, Seq [sendt, dtraceExit, Return theGet])
+          result =
+            case eCtx of
+              Ctx.MethodContext mdecl ->
+                (unit, Seq [sendt, dtraceExit, Return theGet])
+              Ctx.ClosureContext clos ->
+                let ty = (Ty.getResultType $ A.getType clos)
+                in (Var tmp, Seq [sendt, Assign (Decl (resultType, Var tmp)) theGet])
+              _ -> error "Expr.hs: No context to forward"
+      return result
 
   translate A.Forward{A.emeta, A.forwardExpr = fchain@A.FutureChain{A.future, A.chain}} = do
     (nfuture,tfuture) <- translate future
@@ -1057,7 +1066,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                       [tfuture,
                        tchain,
                        (Statement $
-                          Call futureChainActorForward
+                          Call futureChainForward
                            [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
                        )] ++
                       [dtraceExit,

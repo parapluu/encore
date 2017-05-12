@@ -1,0 +1,18 @@
+active class Base
+  def base() : int
+    42
+  end
+end
+
+active class Foo
+  def foo(arg : Fut[int]) : int
+    forward(arg ~~> fun(x : int) : int => forward((new Base) ! base()))
+  end
+end
+
+active class Main
+  def main() : unit
+    val arg = (new Base) ! base()
+    println("{}", get((new Foo) ! foo(arg)))
+  end
+end

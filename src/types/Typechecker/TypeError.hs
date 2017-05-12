@@ -290,6 +290,7 @@ data Error =
   | BadSyncCallError
   | PrivateAccessModifierTargetError Name
   | ClosureReturnError
+  | ClosureForwardError
   | MatchMethodNonMaybeReturnError
   | MatchMethodNonEmptyParameterListError
   | ImpureMatchMethodError Expr
@@ -719,6 +720,8 @@ instance Show Error where
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show ClosureReturnError =
         "Closures must declare their type to use return"
+    show ClosureForwardError =
+        "Closures must declare their type to use forward"
     show MatchMethodNonMaybeReturnError =
         "Match methods must return a Maybe type"
     show MatchMethodNonEmptyParameterListError =

@@ -77,8 +77,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                       ,parametricMethodTypeVars
                       ,extractTypeVars
                       ,forwardingBody
-                      ,dtraceMethodExit thisVar mName
-                      ,Statement $ returnForForwardingMethod returnType])
+                      ])
     in
       code ++ return (Concat $ locals ++ closures ++
                                [normalMethodImpl] ++
@@ -131,14 +130,6 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                                 show prefix ++ "_" ++
                                 show oldName
         in A.setFunctionName newName fun
-
-      returnForForwardingMethod returnType =
-          let fulfilArgs = [AsExpr encoreCtxVar
-                           ,AsExpr $ futVar
-                           ,asEncoreArgT returnType
-                                (Cast returnType forwardingBodyName)]
-          in
-            If futVar (Statement $ Call futureFulfil fulfilArgs) Skip
 
 callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
