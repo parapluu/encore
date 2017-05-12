@@ -663,26 +663,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                          result <- Ctx.genNamedSym (fromJust sym)
                          return (Var result, Assign (Decl (translate retTy, Var result)))
 
-  translate w@(A.DoWhile {A.cond, A.body}) =
-      do (ncond,tcond) <- translate cond
-         (nbody,tbody) <- translate body
-         tmp <- Ctx.genNamedSym "while";
-         let exportBody = Seq $ tbody : [Assign (Var tmp) nbody]
-         return (Var tmp,
-                 Seq [Statement $ Decl (translate (A.getType w), Var tmp),
-                      DoWhile (StatAsExpr ncond tcond) (Statement exportBody)])
+  translate w@(A.DoWhile {A.cond, A.body}) = do
+    (ncond,tcond) <- translate cond
+    (_,tbody) <- translate body
+    return (unit, DoWhile (StatAsExpr ncond tcond) (Statement tbody))
 
-  translate w@(A.While {A.cond, A.body}) =
-      do (ncond,tcond) <- translate cond
-         (nbody,tbody) <- translate body
-         tmp <- Ctx.genNamedSym "while";
-         let exportBody = Seq $ tbody : [Assign (Var tmp) nbody]
-         return (Var tmp,
-                 Seq [Statement $ Decl (translate (A.getType w), Var tmp),
-                      While (StatAsExpr ncond tcond) (Statement exportBody)])
+  translate w@(A.While {A.cond, A.body}) = do
+    (ncond,tcond) <- translate cond
+    (_,tbody) <- translate body
+    return (unit, While (StatAsExpr ncond tcond) (Statement tbody))
 
   translate for@(A.For {A.name, A.step, A.src, A.body}) = do
-    tmpVar   <- Var <$> Ctx.genNamedSym "for";
     indexVar <- Var <$> Ctx.genNamedSym "index"
     eltVar   <- Var <$> Ctx.genNamedSym (show name)
     startVar <- Var <$> Ctx.genNamedSym "start"
@@ -736,12 +727,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                    then AsExpr indexVar
                    else AsExpr $ fromEncoreArgT eltType (Call arrayGet [srcN, indexVar]))
         inc = Assign indexVar (BinOp (translate ID.PLUS) indexVar stepVar)
-        theBody = Seq [eltDecl, Statement bodyT, Assign tmpVar bodyN, inc]
+        theBody = Seq [eltDecl, Statement bodyT, inc]
         theLoop = While cond theBody
-        tmpDecl  = Statement $ Decl (translate (A.getType for), tmpVar)
 
-    return (tmpVar, Seq [tmpDecl
-                        ,srcT
+    return (unit, Seq [srcT
                         ,srcStartT
                         ,srcStopT
                         ,srcStepT
