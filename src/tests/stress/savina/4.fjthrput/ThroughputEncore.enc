@@ -1,0 +1,58 @@
+import ThroughputConfig
+import ThroughputActor
+
+fun getFromMaybe(x: Maybe[int]): int
+  match x with
+    case Just(i) => i
+    case Nothing => abort("Error: no value in maybe type")
+  end
+end
+
+fun bool_from_int(x: int): bool
+  if x == 0 then
+    return false
+  else
+    return true
+  end
+end
+
+active class Main
+  def parseArgs(args: [String]): ThroughputConfig
+    if |args| > 1 then
+      return new ThroughputConfig(getFromMaybe(args(1).to_int()),
+                                  getFromMaybe(args(2).to_int()),
+                                  getFromMaybe(args(3).to_int()),
+                                  bool_from_int(getFromMaybe(args(4).to_int())))
+    else
+      return new ThroughputConfig(10000, 60, 1, true)
+    end
+  end
+
+  def runIteration(config: ThroughputConfig): unit
+    val actors = tabulate(config)
+    var m = 0
+    while m < config.N do
+      forallActor(actors, config)
+      m += 1
+    end
+    println("Success") -- Encore specific
+  where
+    fun forallActor(actors: [ThroughputActor], config: ThroughputConfig): unit
+      for i <- [0 .. |actors|-1] do
+        (actors(i))!process(config)
+      end
+    end
+    fun tabulate(config: ThroughputConfig): [ThroughputActor]
+      val arr = new [ThroughputActor](config.A)
+      for i <- [ 0 .. |arr|-1 ] do
+         arr(i) = new ThroughputActor(config.N)
+      end
+      arr
+    end
+  end
+
+  def main(args: [String]): unit
+    val config = this.parseArgs(args)
+    this.runIteration(config)
+  end
+end
