@@ -1080,10 +1080,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       return (unit, Seq $
                       [tfuture,
                        tchain,
-                       (Statement futureChain
-                          -- Call futureChainWithFut
-                          --  [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
-                       )] ++
+                       Statement futureChain] ++
                        result)
     else do
       tmp <- Ctx.genSym
