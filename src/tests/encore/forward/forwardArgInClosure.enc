@@ -5,16 +5,18 @@ active class Base
 end
 
 active class Foo
-  def foo(arg : Fut[int]) : int
-    -- val tmp = (new Base) ! base()
-    -- forward(arg ~~> fun(x : int) : int => forward(tmp))
-    forward(arg ~~> fun(x : int) : int => forward((new Base) ! base()))
+  def join(ff : Fut[Fut[int]]) : int
+    forward(ff ~~> (fun (f : Fut[int]) : int => forward(f)))
+  end
+
+  def duplicate() : Fut[int]
+    (new Base) ! base()
   end
 end
 
 active class Main
   def main() : unit
-    val arg = (new Base) ! base()
-    println("{}", get((new Foo) ! foo(arg)))
+    val arg = (new Foo) ! duplicate()
+    println("{}", get((new Foo) ! join(arg)))
   end
 end

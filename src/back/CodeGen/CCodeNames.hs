@@ -62,6 +62,10 @@ isEncoreArgT :: CCode Ty -> Bool
 isEncoreArgT (Typ "encore_arg_t") = True
 isEncoreArgT _ = False
 
+isIdFun :: ID.Name -> Bool
+isIdFun (ID.Name "_id_fun_tmp") = True
+isIdFun _ = False
+
 ponyMsgT :: CCode Ty
 ponyMsgT = Typ "pony_msg_t"
 
@@ -106,6 +110,9 @@ option = Ptr $ Typ "option_t"
 
 par :: CCode Ty
 par = Ptr $ Typ "par_t"
+
+futNam :: CCode Name
+futNam = Nam "_fut"
 
 capability :: CCode Ty
 capability = Ptr $ Typ "capability_t"
@@ -458,8 +465,8 @@ futureGetActor = Nam "future_get_actor"
 futureChainActor :: CCode Name
 futureChainActor = Nam "future_chain_actor"
 
-futureChainForward :: CCode Name
-futureChainForward = Nam "future_chain_forward"
+futureChainWithFut :: CCode Name
+futureChainWithFut = Nam "future_chain_with_fut"
 
 actorSuspend :: CCode Name
 actorSuspend = Nam "actor_suspend"

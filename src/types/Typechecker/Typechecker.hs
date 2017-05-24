@@ -1298,9 +1298,9 @@ instance Checkable Expr where
                        pushError eExpr $ ForwardTypeError returnType ty
                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext (Just mty) -> do
-               unlessM (getResultType ty `subtypeOf` mty) $
-                       pushError eExpr $ ForwardTypeError mty ty
-               return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+                unlessM (getResultType ty `subtypeOf` mty) $
+                    pushError eExpr $ ForwardTypeError mty ty
+                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext Nothing -> tcError ClosureForwardError
              _ -> pushError eExpr ForwardInFunction
 

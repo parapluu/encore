@@ -51,6 +51,8 @@ translateClosure closure typeVars table
            freeVars    = map (first ID.qnlocal) $
                          filter (ID.isLocalQName . fst) $
                          Util.freeVariables boundVars body
+          --  freeVarsForwarding = freeVars ++ [(ID.Name "_enc__field_fut", future)]
+          --  freeVarsForwarding = if freeVars then True else False--freeVars ++ [(future, Var "_enc__field_fut")]
            fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
@@ -61,22 +63,50 @@ translateClosure closure typeVars table
                          varSubFromTypeVars fTypeVars
            ctx = Ctx.setClsCtx (Ctx.new subst table) closure
            ((bodyName, bodyStat), _) = runState (translate body) ctx
+           forwardingCtx = Ctx.setClsCtx(Ctx.newWithForwarding subst table) closure
+           ((forwardingBodyName,forwardingBody),_) =
+             runState (translate body) forwardingCtx
+           normalClosureImpl =
+             Function (Static $ Typ "value_t") funName
+                      [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                       (Ptr (Ptr ponyTypeT), encoreRuntimeType),
+                       (Typ "value_t", Var "_args[]"),
+                       (Ptr void, envVar)]
+                      (Seq $
+                        dtraceClosureEntry argNames :
+                        extractArguments params ++
+                        extractEnvironment envName freeVars fTypeVars ++
+                        [bodyStat
+                        ,dtraceClosureExit
+                        ,returnStmnt bodyName resultType]
+                      )
+           forwardingClosureImpl =
+             Function (Static $ Typ "value_t") funName
+                      [(Ptr (Ptr encoreCtxT), encoreCtxVar),
+                       (Ptr (Ptr ponyTypeT), encoreRuntimeType),
+                       (Typ "value_t", Var "_args[]"),
+                       (Ptr void, envVar)
+                       ]
+                      --  ,(future, futVar)]
+                      (Seq $
+                        dtraceClosureEntry argNames :
+                        extractArguments params ++
+                        extractEnvironmentForward envName freeVars fTypeVars ++
+                        [forwardingBody
+                        ,dtraceClosureExit
+                        ,returnStmnt forwardingBodyName unitType])
        in
-         Concat $ [buildEnvironment envName freeVars fTypeVars,
-                   tracefunDecl traceName envName freeVars fTypeVars,
-                   Function (Static $ Typ "value_t") funName
-                           [(Ptr (Ptr encoreCtxT), encoreCtxVar),
-                            (Ptr (Ptr ponyTypeT), encoreRuntimeType),
-                            (Typ "value_t", Var "_args[]"),
-                            (Ptr void, envVar)]
-                           (Seq $
-                             dtraceClosureEntry argNames :
-                             extractArguments params ++
-                             extractEnvironment envName freeVars fTypeVars ++
-                             [bodyStat
-                             ,dtraceClosureExit
-                             ,returnStmnt bodyName resultType])
-                  ]
+        --  Concat $ [buildEnvironment envName freeVars fTypeVars,
+        --            tracefunDecl traceName envName freeVars fTypeVars] ++
+                  --  [normalClosureImpl]
+                  --  ++
+         Concat $  if null $ Util.filter A.isForward body
+                   then [buildEnvironmentForward envName freeVars fTypeVars,
+                         tracefunDecl traceName envName freeVars fTypeVars extractEnvironment,
+                         normalClosureImpl]
+                   else [buildEnvironmentForward envName freeVars fTypeVars,
+                         tracefunDecl traceName envName freeVars fTypeVars extractEnvironmentForward,
+                         forwardingClosureImpl]
   | otherwise =
         error
         "Tried to translate a closure from something that was not a closure"
@@ -94,6 +124,15 @@ translateClosure closure typeVars table
             arg = AsLval $ argName pname
             getArgument i = fromEncoreArgT ty $ AsExpr $ ArrAcc i (Var "_args")
 
+      buildEnvironmentForward name vars typeVars =
+        StructDecl (Typ $ show name) $
+          (map translateBinding vars) ++ (map translateTypeVar typeVars) ++ [(future, futVar)]
+          where
+            translateBinding (name, ty) =
+              (translate ty, AsLval $ fieldName name)
+            translateTypeVar ty =
+              (Ptr ponyTypeT, AsLval $ typeVarRefName ty)
+
       buildEnvironment name vars typeVars =
         StructDecl (Typ $ show name) $
           (map translateBinding vars) ++ (map translateTypeVar typeVars)
@@ -102,6 +141,15 @@ translateClosure closure typeVars table
               (translate ty, AsLval $ fieldName name)
             translateTypeVar ty =
               (Ptr ponyTypeT, AsLval $ typeVarRefName ty)
+
+      extractEnvironmentForward envName vars typeVars =
+        (extractEnvironment envName vars typeVars) ++ [(assignFut $ ID.Name "_fut")]
+        where
+          assignFut name =
+            let fName = Nam $ show name
+            in Assign (Decl (future, AsLval fName)) $ getVar fName
+          getVar name =
+              (Deref $ Cast (Ptr $ Struct envName) envVar) `Dot` name
 
       extractEnvironment envName vars typeVars =
         map assignVar vars ++ map assignTypeVar typeVars
@@ -116,7 +164,7 @@ translateClosure closure typeVars table
           getVar name =
               (Deref $ Cast (Ptr $ Struct envName) envVar) `Dot` name
 
-      tracefunDecl traceName envName members fTypeVars =
+      tracefunDecl traceName envName members fTypeVars extractEnv =
         Function (Static void) traceName args body
         where
           args = [(Ptr encoreCtxT, ctxArg), (Ptr void, Var "p")]
@@ -124,7 +172,7 @@ translateClosure closure typeVars table
           body = Seq $
               Assign (Decl (Ptr (Ptr encoreCtxT), encoreCtxVar)) (Amp ctxArg) :
               Assign (Decl (Ptr $ Struct envName, envVar)) (Var "p") :
-              extractEnvironment envName members fTypeVars ++
+              extractEnv envName members fTypeVars ++
               map traceMember members
           traceMember (name, ty) = traceVariable ty $ getVar name
           getVar name = envVar `Arrow` fieldName name

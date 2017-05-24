@@ -1,0 +1,19 @@
+active class Main
+  def main() : unit
+    val fres = (this!foo() ~~>  fun (x : int) : int
+                                    val tem = this ! inc(x)
+                                    await(tem)
+                                    forward(tem)
+                                end)
+    await(fres)
+    println("{}", get(fres))
+  end
+
+  def foo() : int
+    42
+  end
+
+  def inc(x : int) : int
+    x + 1
+  end
+end

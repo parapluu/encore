@@ -188,7 +188,7 @@ dispatchFunDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
        unpackFuture =
          let
            lval = Decl (future, futVar)
-           rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` (Nam "_fut")
+           rval = (Cast (Ptr $ encMsgT) (Var "_m")) `Arrow` futNam
          in
            Assign lval rval
 

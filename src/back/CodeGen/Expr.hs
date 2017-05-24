@@ -1025,15 +1025,18 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           ntarget targetType name args typeArguments Ty.unitType
 
       let nullCheck = targetNullCheck (AsExpr ntarget) target name emeta "."
+          result =
+            case eCtx of
+              Ctx.ClosureContext clos -> []
+              _ -> [dtraceExit, Return Skip]
 
       return (unit, Seq $
                       ttarget : nullCheck :
                       [Statement $
                        If futVar
                          (Seq $ initArgs ++ [Statement forwardingCall])
-                         (Seq $ initArgs1 ++ [Statement oneWayMsg]),
-                       dtraceExit,
-                       Return Skip])
+                         (Seq $ initArgs1 ++ [Statement oneWayMsg])] ++
+                       result)
     else do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
@@ -1060,17 +1063,28 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     isAsyncForward <- gets Ctx.isAsyncForward
     let ty = getRuntimeType chain
         dtraceExit = getDtraceExit eCtx
+        result =
+          case eCtx of
+            Ctx.ClosureContext clos -> []
+            _ -> [dtraceExit, Return Skip]
+        futureChain =
+          if Util.isForwardInClos chain
+          then
+            Call futureChainActor
+              [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+          else
+            Call futureChainWithFut
+             [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
     if isAsyncForward
     then do
       return (unit, Seq $
                       [tfuture,
                        tchain,
-                       (Statement $
-                          Call futureChainForward
-                           [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
+                       (Statement futureChain
+                          -- Call futureChainWithFut
+                          --  [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
                        )] ++
-                      [dtraceExit,
-                      Return Skip])
+                       result)
     else do
       tmp <- Ctx.genSym
       result <- Ctx.genSym
@@ -1138,27 +1152,47 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate futureChain@(A.FutureChain{A.future, A.chain}) = do
     (nfuture,tfuture) <- translate future
     (nchain, tchain)  <- translate chain
-    let ty = getRuntimeType chain
     result <- Ctx.genSym
+    let ty = getRuntimeType chain
     return $ (Var result,
-      Seq [tfuture,
-           tchain,
-           (Assign (Decl (C.future, Var result))
-                   (Call futureChainActor
-                     [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
-                     ))])
+      Seq $ [tfuture,
+             tchain,
+             (Assign (Decl (C.future, Var result))
+                     (Call futureChainActor
+                       [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+                       ))] ++
+            if (Util.isForwardInClos chain) then [assignVar futNam (Nam result)]
+            else [])
+    where
+      metaId    = Meta.getMetaId . A.getMeta $ chain
+      envName   = closureEnvName metaId
+      assignVar lhs rhs = Assign rhs ((Deref envName) `Dot` lhs)
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
+    fut <- Ctx.genNamedSym "fut"
     globalFunctionNames <- gets Ctx.getGlobalFunctionNames
+    isAsyncForward <- gets Ctx.isAsyncForward
     let bound = map (ID.qLocal . A.pname) eparams
         freeVars = filter (ID.isLocalQName . fst) $
                    Util.freeVariables bound body
+        isIdClosure = not . null $ filter (isIdFun . A.pname) eparams
+        ty = runtimeType . A.getType $ body
+        futArg = if isAsyncForward
+                 then futVar
+                 else (Var fut)
     fillEnv <- insertAllVars freeVars fTypeVars
     return
       (Var tmp,
       Seq $
         mkEnv envName : fillEnv ++
+        (if isIdClosure || isAsyncForward || (not $ Util.isForwardInClos body)
+         then []
+         else [Assign (Decl (future, Var fut))
+                (Call futureMkFn [AsExpr encoreCtxVar, ty])]) ++
+        (if (not isIdClosure) && (Util.isForwardInClos body)
+         then [assignVar futNam futArg]
+         else []) ++
         [Assign (Decl (closure, Var tmp))
           (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
