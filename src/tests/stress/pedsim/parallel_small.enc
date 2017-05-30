@@ -1,0 +1,16 @@
+import Ped_util.Global_funs
+import Ped_util.Regions
+import Ped_util.Quad_tree
+
+
+class Main
+  def main(args : [String]) : unit
+    let
+      agents = parse_file("400_scenario.xml")
+      boxes = 9
+      steps = 10000
+    in
+     regions(agents,boxes,steps)
+    end
+  end
+end

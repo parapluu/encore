@@ -1,6 +1,13 @@
 # This file support line comments.
 # Note that the # must appear first on the line
 
+#Pedsim util modules should not be considered tests
+stress/pedsim/Ped_util/Agent_passive
+stress/pedsim/Ped_util/Global_funs
+stress/pedsim/Ped_util/IO
+stress/pedsim/Ped_util/Quad_tree
+stress/pedsim/Ped_util/Regions
+stress/pedsim/Ped_util/XML
 #
 # Modules used by 'modules' tests
 # Should not be considered as tests
@@ -52,4 +59,3 @@ encore/stream/StreamIO
 # Should not be considered as a test
 #
 stress/savina/7.Chameneos/List.enc
-

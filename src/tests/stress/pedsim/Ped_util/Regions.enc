@@ -1,0 +1,456 @@
+module Regions
+import Agent_passive
+import Global_funs
+import Quad_tree
+
+fun regions(var agents : [Agent], boxes : uint, steps : uint) : unit
+  var box = new Tiling_box(agents, boxes)
+  box!move(steps)
+end
+fun link(a : Box, b : Box) : bool
+  val aa = a!link(b)
+  val bb = b!link(a)
+  val aaa = get(aa)
+  val bbb = get(bb)
+  (aaa && bbb)
+end
+active class Tiling_box
+  var boxes : [Box]
+  var futures : [Fut[unit]]
+  var futs_left : int
+  def init(agents : [Agent], n : int) : unit
+    match find_extreme(agents) with
+      case (xmax, ymax, xmin, ymin) =>
+        val dx = (xmax - xmin) / n
+        this.boxes = new [Box]( n * n )
+        this.futures = new [Fut[unit]](|this.boxes|)
+        if(n>1) then
+            var x = xmin
+            var y = ymin
+            var i = 0
+            var win = true
+            val dy = (ymax - ymin) / n
+            for xindex <- [0..n - 2] do
+              for yindex <- [0..n - 2] do
+                this.boxes(i) = new Box((x + dx - 1, y + dy - 1), (x, y),n)
+                if yindex != 0 then
+                  win = win && link((this.boxes)(i), (this.boxes)(i - 1))
+                end
+                if xindex != 0 then
+                  win = win && link((this.boxes)(i), (this.boxes)(i - n))
+                end
+                if xindex != 0 && yindex != 0 then
+                  win = win && link((this.boxes)(i), (this.boxes)(i - n + 1))
+                  win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
+                  ()
+                end
+                i = i + 1
+                y = y + dy
+              end
+              this.boxes(i) = new Box((x + dx - 1, ymax), (x, y), n)
+              if xindex != 0 then
+                win = win && link((this.boxes)(i), (this.boxes)(i - n))
+                win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
+              end
+              win = win && link((this.boxes)(i), (this.boxes)(i - 1))
+              i = i + 1
+              x = x + dx
+              y = ymin
+            end
+            for yindex <- [0..n - 2] do
+              (this.boxes)(i) = new Box((xmax, y + dy - 1), (x, y),n)
+              if yindex != 0 then
+                win = win && link((this.boxes)(i), (this.boxes)(i - 1))
+                win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
+              end
+              win = win && link((this.boxes)(i), (this.boxes)(i - n + 1))
+              win = win && link((this.boxes)(i), (this.boxes)(i - n))
+              i = i + 1
+              y = y + dy
+            end
+            (this.boxes)(i) = new Box((xmax, ymax), (x, y),n)
+            win = win && link((this.boxes)(i), (this.boxes)(i - n))
+            win = win && link((this.boxes)(i), (this.boxes)(i - 1))
+            win = win && link((this.boxes)(i), (this.boxes)(i - n - 1))
+        else
+            this.boxes(0) = new Box((xmax,ymax), (xmin,ymin),n)
+        end
+        for a <- agents do
+          for b <- this.boxes do
+            if get(b!add(a)) then
+                break
+            end
+          end
+        end
+      end
+    end
+  end
+  --move i time steps
+  def move(i : int) : unit
+    for id <- [0..|this.boxes| - 1] do
+      (this.futures)(id) = ((this.boxes)(id)) ! move()
+    end
+    for f <- this.futures do
+      get(f)
+    end
+    if i > 1 then
+      this!move(i - 1)
+    else
+      print("DONE")
+    end
+  end
+  -- used by ui, if a ui is used
+  def agents() : [(int, int)]
+    val temp = new [[(int, int)]](|this.boxes|)
+    for i <- [0..|this.boxes| - 1] do
+      temp(i) = get((this.boxes(i)) ! agents())
+    end
+    flatten(temp)
+  end
+end
+active class Box
+  var xmax : int
+  var ymax : int
+  var xmin : int
+  var ymin : int
+  var up : Maybe[Box]
+  var down : Maybe[Box]
+  var left : Maybe[Box]
+  var right : Maybe[Box]
+  var top_right : Maybe[Box]
+  var top_left : Maybe[Box]
+  var bottom_left : Maybe[Box]
+  var bottom_right : Maybe[Box]
+  var matrix : Quad_tree
+  var agents : Maybe[Item]
+  var last : Maybe[Item]
+  var newcommers : Maybe[Item]
+  var ttl : int
+  var size : int
+  var moving : bool
+  def init(in_max : (int, int), in_min : (int, int), ttl : int) : unit
+    this.agents=Nothing
+    this.last=Nothing
+    this.newcommers=Nothing
+    this.up=Nothing
+    this.down=Nothing
+    this.left=Nothing
+    this.right=Nothing
+    this.top_left=Nothing
+    this.bottom_right=Nothing
+    this.bottom_left=Nothing
+    this.matrix = new Quad_tree(in_max, in_min)
+    this.top_right=Nothing
+    match in_max with
+      case (x, y) =>
+        this.xmax = x
+        this.ymax = y
+      end
+    end
+    match in_min with
+      case (x, y) =>
+        this.xmin = x
+        this.ymin = y
+      end
+    end
+    this.ttl = ttl+1
+    this.size = 0
+    this.moving = false
+  end
+  def min() : (int, int)
+    (this.xmin, this.ymin)
+  end
+  def max() : (int, int)
+    (this.xmax, this.ymax)
+  end
+
+  def agents() : [(int, int)]
+    this.merge()
+    match this.agents with
+        case Nothing => new [(int, int)](0)
+        case thing =>
+              var cur=thing
+              var i = 0
+              while cur != Nothing do
+                i = i + 1
+                match cur with
+                    case Just(thing) => cur=thing.next
+                end
+              end
+              var ret = new [(int, int)](i)
+              cur = this.agents
+              i = 0
+              while cur != Nothing do
+                match cur with
+                    case Just(thing) =>
+                     cur=thing.next
+                     ret(i) = thing.a.pos()
+                    end
+                end
+                i = i + 1
+              end
+              ret
+        end
+    end
+  end
+  def add(a : Agent) : bool
+    if a.x > this.xmax || a.x < this.xmin || a.y > this.ymax || a.y < this.ymin then
+      false
+    else
+      this.add_internal(a,a.x,a.y)
+      true
+    end
+  end
+  def external_move(var a : Agent, x : int, y : int) : Maybe[Agent]
+    if x > this.xmax || x < this.xmin || y > this.ymax || y < this.ymin then
+      Just(a)
+    else
+      if this.matrix.get_val(x, y) == true then
+        Just(a)
+      else
+        a.move_int(x, y)
+        this.add_internal(a,x,y)
+        Nothing
+      end
+    end
+  end
+  def private add_internal(a : Agent, x : int, y : int) : unit
+    if this.matrix.get_val(x,y) == true then
+      abort("AGENTS IN TOP OF eachother\n")
+    else
+      this.matrix.set(x,y)
+      if this.newcommers == Nothing then
+        this.newcommers = Just(new Item(a))
+      else
+        if this.last == Nothing then
+          this.last = Just(new Item(a))
+          this.yolo_item(this.newcommers).append(this.last)
+        else
+          var new_wraper = Just(new Item(a))
+          this.yolo_item(this.last).append(new_wraper)
+          this.last = new_wraper
+        end
+      end
+      this.size = this.size + 1
+    end
+  end
+  def link(a : Box) : bool
+    var c = a ! max()
+    var d = a ! min()
+    await(c)
+    await(d)
+    match (this.xmax, this.ymax, this.xmin, this.ymin, get(c), get(d)) with
+      case (x_max_1, y_max_1, x_min_1, y_min_1, (x_max_2, y_max_2), (x_min_2, y_min_2)) =>
+        var top = y_max_1 + 1 == y_min_2
+        var bottom = y_min_1 - 1 == y_max_2
+        var right = x_max_1 + 1 == x_min_2
+        var left = x_min_1 - 1 == x_max_2
+        var isnull = fun(input : Maybe[Box]) => match input with
+                                                    case Nothing => true
+                                                    case unused => false
+                                                end
+        if not(left || right || top || bottom) then
+          false
+        else
+          if top then
+            if right then
+                if isnull(this.top_right) then
+                 this.top_right = Just(a)
+                end
+            else
+              if left then
+                if isnull(this.top_left) then
+                  this.top_left = Just(a)
+                end
+              else
+                  if isnull(this.up) then
+                    this.up = Just(a)
+                  end
+              end
+            end
+          else
+            if bottom then
+              if right then
+                if isnull(this.bottom_right) then
+                  this.bottom_right = Just(a)
+                end
+              else
+                if left then
+                  if isnull(this.bottom_left) then
+                    this.bottom_left = Just(a)
+                  end
+                else
+                  if isnull(this.down) then
+                    this.down = Just(a)
+                  end
+                end
+              end
+            else
+              if right then
+                  if isnull(this.right) then
+                    this.right = Just(a)
+                  end
+              else
+                  if isnull(this.left) then
+                    this.left = Just(a)
+                  end
+              end
+            end
+          end
+          true
+        end
+      end
+    end
+  end
+  def private merge() : unit
+    if this.newcommers != Nothing then
+      if this.agents != Nothing then
+        match (this.newcommers,this.last) with
+            case (unused,Just(last)) => last.append(this.agents)
+            case (Just(newc),unused) => newc.append(this.agents)
+        end
+        this.agents = this.newcommers
+      else
+        this.agents = this.newcommers
+      end
+      this.newcommers = Nothing
+      this.last = Nothing
+    end
+  end
+  def private is_something(a:Maybe[Item]) : bool
+     match a with
+        case Nothing => false
+        case unused  => true
+     end
+  end
+  def private yolo_item(i : Maybe[Item]) : Item
+   match i with
+    case Just(item) => item
+   end
+  end
+  def move() : unit
+    this.ttl = this.ttl - 1
+    this.merge()
+    var parent = this.agents
+    var wrapped_a = this.agents
+    var desired = new [int](6)
+    while this.is_something(wrapped_a) do
+      var a = this.yolo_item(wrapped_a)
+      if a.a.ttl == this.ttl then
+        a.a.ttl=a.a.ttl - 1
+        a.a.next(desired) --get the desired cordnates in format [x1,y1,x2,y2,x3,y3]
+        var i = 0
+        var moved = false
+        var x2 = 0
+        var y2 = 0
+        while i < |desired| && moved == false do
+          val x = desired(i)
+          val y = desired(i + 1)
+          let
+            up = y > this.ymax
+            down = y < this.ymin
+            right = x > this.xmax
+            left = x < this.xmin
+            border = if up then
+                       if right then
+                         this.top_right
+                       else
+                         if left then
+                           this.top_left
+                         else
+                           this.up
+                         end
+                       end
+                     else
+                       if down then
+                         if right then
+                           this.bottom_right
+                         else
+                           if left then
+                             this.bottom_left
+                           else
+                             this.down
+                           end
+                         end
+                       else
+                         if left then
+                           this.left
+                         else
+                           if right then
+                             this.right
+                           else
+                             Nothing
+                           end
+                         end
+                       end
+                     end
+          in
+              var ax = a.a.x
+              var ay = a.a.y
+              match border with
+                case Nothing =>
+                  if not(y > this.ymax || y < this.ymin || x > this.xmax || x < this.xmin) && this.matrix.get_val(x, y) == false then
+                    this.matrix.remove(ax, ay)
+                    this.matrix.set(x, y)
+                    a.a.move_int(x, y)
+                    moved = true
+                  end
+                end
+                case Just(real_thing) =>
+                    x2 = ax
+                    y2 = ay
+                    val first= (wrapped_a == this.agents)
+                    var nejbor = real_thing ! external_move( a.a, x, y) --consume
+                    await(nejbor)
+                    val futurefilled = get(nejbor)
+                    match futurefilled with
+                        case Just(returned_agent) => a.a=returned_agent
+                        case Nothing =>
+                              this.size = this.size - 1
+                              this.matrix.remove(x2, y2)
+                              moved = true
+                              if first then
+                                 this.agents = a.next
+                              end
+                        end
+                    end
+                end
+              end
+              i = i + 2 --iterate to next pair of cordnates
+          end
+        end
+      end
+      wrapped_a = a.next
+    end
+    this.moving = false
+  end
+end
+
+local class Item : Id
+  var a : Agent
+  var next : Maybe[Item]
+  var prev : Maybe[Item]
+  def init(var a : Agent) : unit
+    this.a = a --consume(a)
+    this.next=Nothing
+    this.prev=Nothing
+  end
+  def delete() : unit
+    match (this.next,this.prev) with
+        case (Nothing,Nothing) => ()
+        case (Just(next),Just(prev)) =>
+            prev.next=this.next
+            next.prev=this.prev
+        end
+        case (Nothing,Just(prev)) => prev.next=Nothing
+        case (Just(next),Nothing) => next.prev=Nothing
+    end
+  end
+  def append(next : Maybe[Item]) : unit
+    this.next = next
+    match next with
+      case Nothing => ()
+      case Just(thing) => thing.prev=Just(this)
+    end
+  end
+end

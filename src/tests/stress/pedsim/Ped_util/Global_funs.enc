@@ -1,0 +1,213 @@
+module Global_funs
+import Agent_passive
+import XML
+fun inv_sqrt(input : int) : real
+  var ret = 0.0
+  EMBED (unit)
+    {
+  float x = #{input};
+  float xhalf = 0.5f * x;
+  int i = *(int*)&x;
+  i = 0x5f3759df - (i >> 1);
+  x = *(float*)&i;
+  #{ret}= x*(1.5f - xhalf*x*x);
+  }
+  END
+  ret
+end
+fun find_extreme(agents : [Agent]) : (int, int, int, int)
+  var extreme = (agents(0).x,agents(0).y,agents(0).x,agents(0).y)
+  var i = 0
+  for a <- agents do
+    i = i + 1
+    extreme = extreme_check(a.pos(), extreme)
+    for index <- [0..|a.targets_x| - 1] do
+      extreme = extreme_check(((a.targets_x)(index), (a.targets_y)(index)), extreme)
+    end
+  end
+  extreme
+end
+fun extreme_check(a : (int, int), b : (int, int, int, int)) : (int, int, int, int)
+  match (a, b) with
+    case ((x, y), (xmax, ymax, xmin, ymin)) =>
+      (max(x, xmax), max(y, ymax), min(x, xmin), min(y, ymin))
+    end
+  end
+end
+
+fun copy_ar(arr : [int]) : [int]
+  var a2 = new [int](|arr|)
+  var i = 0
+  for a <- arr do
+    a2(i) = a
+    i = i + 1
+  end
+  a2
+end
+fun copy_tr(arr : [(int, int)]) : [(int, int)]
+  var a2 = new [(int, int)](|arr|)
+  var i = 0
+  for a <- arr do
+    a2(i) = a
+    i = i + 1
+  end
+  a2
+end
+fun flatten(listlist : [[(int, int)]]) : [(int, int)]
+  var len = 0
+  for a <- listlist do
+    len = len + |a|
+  end
+  var list = new [(int, int)](len)
+  var i = 0
+  for a <- listlist do
+    for b <- a do
+      list(i) = b
+      i = i + 1
+    end
+  end
+  list
+end
+fun max(a : int, b : int) : int
+  if a > b then
+    a
+  else
+    b
+  end
+end
+fun min(a : int, b : int) : int
+  if a < b then
+    a
+  else
+    b
+  end
+end
+fun yolo_int(i : Maybe[int]) : int
+  match i with
+    case Just(nr) =>
+      nr
+    end
+    case _ =>
+      abort("or0\nparsing error")
+      0
+    end
+
+  end
+end
+fun yolo_string(i : Maybe[String]) : String
+  match i with
+    case Just(nr) =>
+      nr
+    end
+    case _ =>
+      abort("orEmpty\nparsing error")
+      ""
+    end
+  end
+end
+fun sqrt(nr : real) : real
+  EMBED (unit)
+    { #{nr}=sqrt(#{nr}); }
+  END
+  nr
+end
+fun abs(a : int) : int
+  if a > 0 then
+    a
+  else
+    a * -(1)
+  end
+end
+
+fun round(x : real) : int
+  val i = 0
+  EMBED (unit)
+    { #{i}=round(#{x}); }
+  END
+  i
+end
+
+fun distance_int(x1 : int, y1 : int, x2 : int, y2 : int) : real
+  sqrt(x1 - x2 * x1 - x2 + y1 - y2 * y1 - y2)
+end
+
+fun parse_file(fname : String) : [Agent]
+  var sen = new XML_lib()
+  var file = new XML_node()
+  do
+    match sen.file_to_xml(fname) with
+      case Just(xml) =>
+        file = xml
+      end
+      case Nothing =>
+        abort("XML parsing\n")
+      end
+
+    end
+    var xml_way = file.children_named("waypoint")
+    var waypoints = new [(int, int)](|xml_way|)
+    var waypoints_distance = new [int](|xml_way|)
+    var i = 0
+    do
+      for a <- xml_way do
+        waypoints(i) = match (a.attribute_value("x").to_int(), a.attribute_value("y").to_int()) with
+                         case (Just(x), Just(y)) =>
+                           (x, y)
+                         end
+                         case _ =>
+                           print("BADINT!\n")
+                           abort("parsing error")
+                           (0,0)
+                         end
+
+                       end
+        waypoints_distance(i) = yolo_int(a.attribute_value("r").to_int())
+        i = i + 1
+      end
+      var nr_agents = 0
+      for a <- file.children_named("agent") do
+        nr_agents = nr_agents + yolo_int(a.attribute_value("n").to_int())
+      end
+      var agents = new [Agent](nr_agents)
+      var i = 0
+      do
+        for a <- file.children_named("agent") do
+          var max = yolo_int(a.attribute_value("n").to_int())
+          var x = yolo_int(a.attribute_value("xs").to_int())
+          var y = yolo_int(a.attribute_value("ys").to_int())
+          var dx_max = yolo_int(a.attribute_value("dx").to_int()) / 2
+          var dy_max = yolo_int(a.attribute_value("dy").to_int()) / 2
+          var agent_waypoints = new [(int, int)](|a.children_named("addway")|)
+          var dx = x - dx_max
+          var dy = y - dy_max
+          var j = 0
+          do
+            for b <- a.children_named("addway") do
+              agent_waypoints(j) = waypoints(yolo_int(yolo_string(b.attribute_value("id").substring(1, 2)).to_int()) - 1)
+              unless |agent_waypoints| > 1 then
+                print("THIS SHOULD NEVER HAPPEN |new_agent.waypoint|={}\n", |agent_waypoints|)
+                abort("agent_waypoint size error")
+              end
+              j = j + 1
+            end
+            for unused <- [0..max-1] do
+              if dx > x + dx_max then
+                abort("out of space")
+              else
+                if dy > y + dy_max then
+                  dy = y - dy_max
+                  dx = dx + 1
+                else
+                  dy = dy + 1
+                end
+              end
+              agents(i) = new Agent((dx, dy), copy_tr(agent_waypoints), copy_ar(waypoints_distance), i, 10000)
+              i = i + 1
+            end
+          end
+        end
+        agents --consume
+      end
+    end
+  end
+end

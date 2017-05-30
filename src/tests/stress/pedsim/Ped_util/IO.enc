@@ -1,0 +1,78 @@
+module IO
+{-
+WARRNING this is a minimal untested file IO "library"
+This should be replaced with standard library functionallity when that is available
+-}
+local class File
+  var file : EMBED FILE* END
+  var fname : String
+  var mode : String
+  def init(fname : String, mode : String) : unit
+    this.fname = fname
+    this.mode = mode
+  end
+  def open(fin : String, mode : String) : unit
+    this.mode = if mode.equals("") then
+                  "w+r+a"
+                else
+                  mode
+                end
+    this.fname = fin
+    var fin = fin.data
+    var mChar = this.mode.data
+    this.file = EMBED (EMBED FILE* END)
+                  FILE *file = fopen(#{fin}, #{mChar});
+                  if (!file) {
+                    printf("Cannot open file, exiting.\n");
+                    exit(1);
+                  };
+                  file;
+
+                END
+  end
+  def close() : unit
+    var f = this.file
+    this.file = EMBED (EMBED FILE* END)
+                  if (!#{f}) {
+        printf("Cannot close file, exiting.\n");
+        exit(1);
+      };
+      fclose(#{f});
+      (FILE*)NULL;
+
+                END
+  end
+  def write(content : String) : unit
+    this.writeChar(content.data)
+  end
+  def writeChar(content : EMBED char* END) : unit
+    var file = this.file
+    EMBED (unit)
+      FILE *fout = #{file};
+      if (!fout) {
+        printf("Cannot open file, exiting.\n");
+        exit(1);
+      }
+      fprintf(fout, #{content});
+
+    END
+  end
+  def readline() : String
+    new String(this.readlineChar())
+  end
+  def readlineChar() : EMBED char* END
+    var f = this.file
+    EMBED (EMBED char* END)
+      char* line = encore_alloc(*_ctx,255);
+      fgets(line, 255, #{f});
+      line;
+
+    END
+  end
+  def eof() : bool
+    var f = this.file
+    EMBED (bool)
+      feof(#{f});
+    END
+  end
+end

@@ -1,0 +1,93 @@
+module Agent_passive
+import Global_funs
+{-
+Representation of one Agent in the simulation
+-}
+unsafe class Agent
+  var hash_code : uint
+  var x : int
+  var y : int
+  var targets_x : [int]
+  var targets_y : [int]
+  var targets_size : [int]
+  var i : int
+  var ttl : int
+  def init(in_pos : (int, int), list : [(int, int)], targets_size : [int], in_id : int, ttl : int) : unit
+    match in_pos with
+      case (x, y) =>
+        this.x = x
+        this.y = y
+      end
+    end
+    this.i = 0
+    this.targets_x = new [int](|targets_size|)
+    this.targets_y = new [int](|targets_size|)
+    this.targets_size = targets_size
+    for index <- [0..|list| - 1] do
+      match list(index) with
+        case (x, y) =>
+          (this.targets_x)(index) = x
+          (this.targets_y)(index) = y
+        end
+      end
+    end
+    this.hash_code = in_id
+    this.ttl = ttl
+    ()
+  end
+--requires ret to be a size 6 [int]
+--fills ret with desired positions in the format
+--[this.x,this.y,x2,y2,x3,y3]
+  def next(ret : [int]) : unit
+      var x2 = (this.targets_x)(this.i)
+      var y2 = (this.targets_y)(this.i)
+      var xdiff = this.x - x2
+      var ydiff = this.y - y2
+      var len_square = xdiff * xdiff + ydiff * ydiff
+      var invlen = inv_sqrt(len_square)
+      --if inside the target waypoint, move towards the next waypoint
+      if len_square < (this.targets_size(this.i) * this.targets_size(this.i)) then
+        this.i = this.i + 1
+      end
+      -- if after the last waypoint, use the firs waypoint
+      if |this.targets_size| == this.i then
+        this.i = 0
+      end
+      x2 = (this.targets_x)(this.i)
+      y2 = (this.targets_y)(this.i)
+      xdiff = this.x - x2
+      ydiff = this.y - y2
+      len_square = xdiff * xdiff + ydiff * ydiff
+      invlen = inv_sqrt(len_square)
+      let
+        xoff = xdiff * invlen
+        yoff = ydiff * invlen
+        desired_x = this.x + round(xoff * -(1))
+        desired_y = this.y + round(yoff * -(1))
+      in
+        val dx = desired_x - this.x
+        val dy = desired_y - this.y
+        ret(0) = desired_x
+        ret(1) = desired_y
+        if dx == 0 || dy == 0 then
+          ret(2) = desired_x + dy
+          ret(3) = desired_y + dx
+          ret(4) = desired_x - dy
+          ret(5) = desired_y - dx
+        else
+          ret(2) = desired_x
+          ret(3) = this.y
+          ret(4) = this.x
+          ret(5) = desired_y
+        end
+      end
+      ()
+  end
+  def move_int(x : int, y : int) : unit
+    this.x = x
+    this.y = y
+  end
+  def pos() : (int, int)
+    (this.x, this.y)
+  end
+end

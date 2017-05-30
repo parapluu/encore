@@ -1,0 +1,230 @@
+{-
+WARRNING this is a minimal untested file XML "library"
+This should be replaced with standard library functionallity when that is available 
+-}
+module XML
+import IO
+local class XML_node
+  var s_rep : String
+  var children : [XML_node]
+  var comments : [String]
+  var name : String
+  var atribs : [(String, String)]
+  def init() : unit
+    ()
+  end
+  def children_named(name : String) : [XML_node]
+    var cn = new [XML_node](|this.children|)
+    var i = 0
+    for a <- this.children do
+      if a.name.contains(name) then
+        cn(i) = a
+        i = i + 1
+      end
+    end
+    var cn2 = new [XML_node](i)
+    i = 0
+    for a <- cn2 do
+      cn2(i) = cn(i)
+      i = i + 1
+    end
+    cn2
+  end
+  def attribute_value(name : String) : String
+    var ret = ""
+    for a <- this.atribs do
+      match a with
+        case (key, value) when key.contains(name) =>
+          ret = value
+          ()
+        end
+        case _ =>
+          ()
+        end
+
+      end
+    end
+    ret
+  end
+end
+local class XML_lib
+  def init() : unit
+    ()
+  end
+  def new_XML_node(s : String) : Maybe[XML_node]
+    var node = new XML_node()
+    var error = false
+    s.trim()
+    node.s_rep = s
+    var cont = new [String](s.occurrences("<"))
+    if |cont| == 1 then
+      var r = match (s.char_at(0), s.char_at(s.size() - 2), s.char_at(s.size() - 1)) with
+                case (Just('<'), Just('/'), Just('>')) =>
+                  node.name = s
+                  this.ext_atribs(node, node.name)
+                  Just(node)
+                end
+                case _ =>
+                  Nothing
+                end
+
+              end
+      EMBED (unit)
+        return #{r};
+      END
+    end
+    var start = s.find("<")
+    var finish = 0
+    for i <- [0..|cont| - 1] do
+      finish = s.find_from(">", start)
+      cont(i) = match s.substring(start, finish + 1) with
+                  case Just(sub) =>
+                    sub
+                  end
+                  case Nothing =>
+                    ""
+                  end
+
+                end
+      start = s.find_from("<", finish)
+    end
+    node.name = cont(0)
+    this.ext_atribs(node, node.name)
+    if this.pair(node.name, cont(|cont| - 1)) then
+      node.comments = new [String](|cont|)
+      var ci = 0
+      var babies = new [String](|cont|)
+      var j = 0
+      var temp = ""
+      var level = 0
+      for i <- [1..|cont| - 2] do
+        match (level, this.tag_type(cont(i))) with
+          case (0, 'c') =>
+            (node.comments)(ci) = cont(i)
+            ci = ci + 1
+            ()
+          end
+          case (0, 't') =>
+            babies(j) = cont(i)
+            j = j + 1
+            ()
+          end
+          case (1, 'e') =>
+            babies(j) = temp.concatenate(cont(i))
+            temp = ""
+            j = j + 1
+            level = 0
+            ()
+          end
+          case (X, 'e') =>
+            temp = temp.concatenate(cont(i))
+            level = X - 1
+            ()
+          end
+          case (X, 's') =>
+            temp = temp.concatenate(cont(i))
+            level = X + 1
+            ()
+          end
+          case _ =>
+            temp = temp.concatenate(cont(i))
+            ()
+          end
+        end
+      end
+      node.children = new [XML_node](j)
+      for i <- [0..j - 1] do
+        match this.new_XML_node(babies(i)) with
+          case Just(xml) =>
+            (node.children)(i) = xml
+            ()
+          end
+          case Nothing =>
+            error = true
+            ()
+          end
+        end
+      end
+      if error == false then
+        Just(node)
+      else
+        Nothing
+      end
+    else
+      Nothing
+    end
+  end
+  def tag_type(s : String) : char
+    match s.char_at(1) with
+      case Just('!') =>
+        'c'
+      end
+      case Just('/') =>
+        'e'
+      end
+      case _ =>
+        match s.char_at(s.size() - 2) with
+          case Just('/') =>
+            't'
+          end
+          case _ =>
+            's'
+          end
+
+        end
+      end
+
+    end
+  end
+  def ext_atribs(node : XML_node, s : String) : unit
+    node.atribs = new [(String, String)](s.occurrences("="))
+    var eqsign = 0
+    var space = 0
+    var value = ""
+    var key = ""
+    for i <- [0..|node.atribs| - 1] do
+      space = s.find_from(" ", eqsign)
+      eqsign = s.find_from("=", eqsign + 1)
+      value = match s.substring(eqsign + 2, this.or_find_from(" ", ">", eqsign, s) - 1) with
+                case Just(derp) =>
+                  derp
+                end
+                case Nothing =>
+                  "MISSFORMEDVALUE"
+                end
+
+              end
+      key = match s.substring(space, eqsign) with
+              case Just(derp) =>
+                derp
+              end
+              case Nothing =>
+                "MISSFORMEDKEY"
+              end
+
+            end
+      (node.atribs)(i) = (key, value)
+    end
+  end
+  def or_find_from(a : String, b : String, i : int, s : String) : int
+    var w = s.find_from(a, i)
+    var q = s.find_from(b, i)
+    if w < q && w > -(1) then
+      w
+    else
+      q
+    end
+  end
+  def pair(head : String, tail : String) : bool
+    true
+  end
+  def file_to_xml(fname : String) : Maybe[XML_node]
+    var f = new File("", "")
+    var s = ""
+    f.open(fname, "r")
+    while f.eof() != true do
+      s = s.concatenate(f.readline())
+    end
+    this.new_XML_node(s)
+  end
+end
