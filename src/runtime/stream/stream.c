@@ -55,7 +55,7 @@ __attribute__ ((unused))
 static void scons_print(struct scons *scons){
   printf("struct scons@%p{\n", scons);
   printf("  eos     = %s\n", scons->eos? "true": "false");
-  printf("  element = %ld\n", scons->element.i);
+  printf("  element = %ld\n", (long int) scons->element.i);
   printf("  type    = %p\n", scons->type);
   printf("  next    = %p\n", scons->next);
   printf("}\n");
