@@ -19,8 +19,26 @@ optimizeProgram p@(Program{classes, traits, functions}) =
       optimizeTrait t@(Trait{tmethods}) =
           t{tmethods = map optimizeMethod tmethods}
 
-      optimizeClass c@(Class{cmethods}) =
-          c{cmethods = map optimizeMethod cmethods}
+      optimizeClass c@(Class{cname, cmethods})
+        | isMainClass c =
+            c{cmethods = map (optimizeMethod . addMainInitCall) cmethods}
+        | otherwise =
+            c{cmethods = map optimizeMethod cmethods}
+        where
+          addMainInitCall m@Method{mbody}
+            | isMainMethod cname (methodName m) =
+                let em = emeta mbody
+                    this = setType cname
+                           VarAccess{emeta = em, qname = qLocal thisName}
+                    initCall = setType unitType
+                               MethodCall{emeta = em
+                                         ,target = this
+                                         ,name = constructorName
+                                         ,typeArguments = []
+                                         ,args = []
+                                         }
+                in m{mbody = Seq{emeta = emeta mbody, eseq = [initCall, mbody]}}
+            | otherwise = m
 
       optimizeMethod m =
           m{mbody = optimizeExpr (mbody m)}

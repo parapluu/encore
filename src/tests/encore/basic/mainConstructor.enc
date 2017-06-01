@@ -1,0 +1,8 @@
+active class Main
+  def init() : unit
+    ()
+  end
+  def main(args : [String]) : unit
+    ()
+  end
+end
