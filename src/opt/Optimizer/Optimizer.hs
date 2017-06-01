@@ -117,7 +117,7 @@ sugarPrintedStrings = extend sugarPrintedString
       simplifyStringLit arg
         | NewWithInit{ty} <- arg
         , isStringObjectType ty
-        , Just sugared <- getSugared arg
+        , Just sugared@StringLiteral{} <- getSugared arg
           = setType stringType sugared
         | otherwise = arg
 

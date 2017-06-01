@@ -1,0 +1,6 @@
+active class Main
+  def main() : unit
+    print(new String(EMBED (EMBED char* END) "The answer is: "; END))
+    println(new String(EMBED (EMBED char* END) "42"; END))
+  end
+end
