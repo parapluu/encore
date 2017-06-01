@@ -122,7 +122,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
-      closures = map (\clos -> translateClosure clos typeVars newTable)
+      closures = map (\clos -> translateClosure clos (typeVars ++ mTypeVars) newTable)
                      (reverse (Util.filter A.isClosure mbody))
 
       localize cls prefix fun =
