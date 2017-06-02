@@ -68,7 +68,7 @@ setType newType m = m {metaType = Just newType}
 getType :: Meta a -> Type
 getType m = fromMaybe err (metaType m)
     where
-      err = error "Meta.hs: No type given to node"
+      err = error $ "Meta.hs: No type given to node at " ++ showPos m
 
 setSugared :: a -> Meta a -> Meta a
 setSugared s m = m {sugared = Just s}
