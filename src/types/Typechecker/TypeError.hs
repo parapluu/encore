@@ -219,6 +219,7 @@ data Error =
   | PolymorphicConstructorError
   | StreamingConstructorError
   | MainMethodArgumentsError
+  | MainConstructorError
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
   | BreakOutsideOfLoopError
@@ -468,6 +469,8 @@ instance Show Error where
         "Constructor cannot be streaming"
     show MainMethodArgumentsError =
         "Main method must have argument type () or ([String])"
+    show MainConstructorError =
+        "Main class cannot have a constructor"
     show (FieldNotFoundError name ty) =
         printf "No field '%s' in %s"
                (show name) (refTypeName ty)

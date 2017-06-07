@@ -1,0 +1,19 @@
+active class Main
+  def main() : unit
+    new Pupil()
+  end
+end
+
+
+fun calcAge() : int
+  25 * 2
+end
+    
+
+active class Pupil
+  var age : int = calcAge()
+
+  def init() : unit
+    println(this.age)
+  end
+end

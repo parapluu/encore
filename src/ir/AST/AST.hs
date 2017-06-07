@@ -424,7 +424,8 @@ data FieldDecl = Field {
   fmeta :: Meta FieldDecl,
   fmut  :: Mutability,
   fname :: Name,
-  ftype :: Type
+  ftype :: Type,
+  fexpr :: Maybe Expr
 }
 
 instance Show FieldDecl where
@@ -450,7 +451,8 @@ data ParamDecl = Param {
   pmeta :: Meta ParamDecl,
   pmut  :: Mutability,
   pname :: Name,
-  ptype :: Type
+  ptype :: Type,
+  pdefault :: Maybe Expr
 } deriving (Show, Eq)
 
 instance HasMeta ParamDecl where
@@ -482,6 +484,9 @@ isConstructor :: MethodDecl -> Bool
 isConstructor m = methodName m == constructorName
 
 isImplicitMethod = mimplicit
+
+hasConstructor :: ClassDecl -> Bool
+hasConstructor Class{cmethods} = filter isConstructor cmethods /= []
 
 emptyConstructor :: ClassDecl -> MethodDecl
 emptyConstructor cdecl =

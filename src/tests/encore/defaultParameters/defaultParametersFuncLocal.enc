@@ -1,0 +1,13 @@
+active class Main
+  def main() : unit
+    bar(1)
+    bar(2, "hello")
+    bar(3, "world", 4)
+  where
+    fun bar(a: int, b:String = "b", c:int = 0) : unit
+      println(a)
+      println(b)
+      println(c)
+    end
+  end
+end

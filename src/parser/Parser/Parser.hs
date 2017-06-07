@@ -792,14 +792,22 @@ mutModifier :: EncParser Mutability
 mutModifier = (reserved "var" >> return Var)
           <|> (reserved "val" >> return Val)
 
+
 fieldDecl :: EncParser FieldDecl
-fieldDecl = do
-  fmeta <- buildMeta
-  fmut  <- mutModifier
-  fname <- Name <$> identifier
-  colon
-  ftype <- typ
-  returnWithEnd Field{fmeta, fmut, fname, ftype}
+fieldDecl = do fmeta <- buildMeta
+               fmut  <- mutModifier
+               fname <- Name <$> identifier
+               colon
+               ftype <- typ
+               optional $ withLinebreaks $ reservedOp "="
+               fexpr <- optional expression
+               returnWithEnd Field{fmeta
+                           ,fmut
+                           ,fname
+                           ,ftype
+                           ,fexpr
+                         }
+
 
 paramDecl :: EncParser ParamDecl
 paramDecl = do
@@ -810,7 +818,9 @@ paramDecl = do
   pname <- Name <$> identifier
   colon
   ptype <- typ
-  returnWithEnd Param{pmeta, pmut, pname, ptype}
+  optional $ reservedOp "="
+  pdefault <- optional expression
+  returnWithEnd Param{pmeta, pmut, pname, ptype, pdefault}
 
 patternParamDecl :: EncParser (Expr, Type)
 patternParamDecl = do

@@ -1,0 +1,8 @@
+active class Main
+  var foo : String = "foo"
+  var bar : String = "bar"
+  def main() : unit
+    println(this.foo)
+    println(this.bar)
+  end
+end
