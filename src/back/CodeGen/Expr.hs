@@ -987,10 +987,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
+           eCtx <- gets Ctx.getExecCtx
            let resultType = translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
+               closureAwait =
+                  case eCtx of
+                    Ctx.ClosureContext clos -> [Statement $ Call futureAwait [encoreCtxVar, nval]]
+                    _ -> []
            tmp <- Ctx.genSym
-           return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
+           return (Var tmp, Seq $ [tval] ++
+                                  closureAwait ++
+                                  [Assign (Decl (resultType, Var tmp)) theGet])
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
            let resultType = translate (Ty.getResultType $ A.getType val)
@@ -1212,12 +1219,15 @@ closureCall clos fcall@A.FunctionCall{A.qname, A.args} = do
       fromEncoreArgT (translate typ) $
         Call closureCallName [encoreCtxVar, clos, tmpArgs]
   return (if Ty.isUnitType typ then unit else calln
-         ,Seq [tmpArgDecl
-              ,dtraceClosureCall qname (extractArgs tmpArgs (length args))
-              ,theCall
-              ])
+         ,Seq $ [tmpArgDecl
+                ,dtraceClosureCall qname (extractArgs tmpArgs (length args))
+                ,theCall] ++
+                if Ty.isFutureType typ then [Statement $ Call futureAwait [encoreCtxVar, calln]]
+                else [])
     where
       typ = A.getType fcall
+      -- closureCall = Call closureCallName [encoreCtxVar, clos, tmpArgs]
+      -- callAwait =
       translateArgument arg = do
         (ntother, tother) <- translate arg
         return $ asEncoreArgT (translate $ A.getType arg)

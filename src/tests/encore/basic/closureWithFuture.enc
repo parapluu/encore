@@ -1,0 +1,10 @@
+active class Main
+  def main() : unit
+    val fres = fun (x : int) : int => get(this ! inc(x))
+    println("{}", fres(42))
+  end
+
+  def inc(x : int) : int
+    x + 1
+  end
+end
