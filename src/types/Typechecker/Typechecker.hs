@@ -25,7 +25,8 @@ import Control.Arrow((&&&), second)
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import qualified AST.Util as Util (freeVariables, filter, markStatsInBody, isStatement)
+import qualified AST.Util as Util (freeVariables, filter, markStatsInBody,
+                                  isStatement, isForwardInExpr)
 import AST.PrettyPrinter
 import AST.Util(extend)
 import Types as Ty
@@ -478,7 +479,7 @@ instance Checkable ClassDecl where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
       addThis = extendEnvironmentImmutable [(thisName, cname)]
-      isForwardMethod m@Method{mbody} = not . null $ Util.filter isForward mbody
+      isForwardMethod m@Method{mbody} = Util.isForwardInExpr mbody
 
       checkMethodExtensionAllowed
         | isModeless cname = do
@@ -1293,13 +1294,14 @@ instance Checkable Expr where
            context <- asks currentExecutionContext
            case context of
              MethodContext mdecl -> do
-               let returnType = methodType mdecl
-               unlessM (getResultType ty `subtypeOf` returnType) $
-                       pushError eExpr $ ForwardTypeError returnType ty
-               return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+                let returnType = methodType mdecl
+                unlessM (getResultType ty `subtypeOf` returnType) $
+                      pushError eExpr $ ForwardTypeError returnType ty
+                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext (Just mty) -> do
-                unlessM (getResultType ty `subtypeOf` mty) $
-                    pushError eExpr $ ForwardTypeError mty ty
+                mty' <- resolveType mty
+                unlessM (getResultType ty `subtypeOf` mty') $
+                      pushError eExpr $ ForwardTypeClosError mty' ty
                 return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext Nothing -> tcError ClosureForwardError
              _ -> pushError eExpr ForwardInFunction

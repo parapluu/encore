@@ -1068,7 +1068,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             Ctx.ClosureContext clos -> []
             _ -> [dtraceExit, Return Skip]
         futureChain =
-          if Util.isForwardInClos chain
+          if Util.isForwardInExpr chain
           then
             Call futureChainActor
               [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
@@ -1158,7 +1158,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                      (Call futureChainActor
                        [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
                        ))] ++
-            if (Util.isForwardInClos chain) then [assignVar futNam (Nam result)]
+            if (Util.isForwardInExpr chain) then [assignVar futNam (Nam result)]
             else [])
     where
       metaId    = Meta.getMetaId . A.getMeta $ chain
@@ -1173,7 +1173,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     let bound = map (ID.qLocal . A.pname) eparams
         freeVars = filter (ID.isLocalQName . fst) $
                    Util.freeVariables bound body
-        isIdClosure = not . null $ filter (isIdFun . A.pname) eparams
         ty = runtimeType . A.getType $ body
         futArg = if isAsyncForward
                  then futVar
@@ -1183,11 +1182,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       (Var tmp,
       Seq $
         mkEnv envName : fillEnv ++
-        (if isIdClosure || isAsyncForward || (not $ Util.isForwardInClos body)
+        (if isAsyncForward || (not $ Util.isForwardInExpr body)
          then []
          else [Assign (Decl (future, Var fut))
                 (Call futureMkFn [AsExpr encoreCtxVar, ty])]) ++
-        (if (not isIdClosure) && (Util.isForwardInClos body)
+        (if Util.isForwardInExpr body
          then [assignVar futNam futArg]
          else []) ++
         [Assign (Decl (closure, Var tmp))

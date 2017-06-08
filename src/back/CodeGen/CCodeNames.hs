@@ -62,10 +62,6 @@ isEncoreArgT :: CCode Ty -> Bool
 isEncoreArgT (Typ "encore_arg_t") = True
 isEncoreArgT _ = False
 
-isIdFun :: ID.Name -> Bool
-isIdFun (ID.Name "_id_fun_tmp") = True
-isIdFun _ = False
-
 ponyMsgT :: CCode Ty
 ponyMsgT = Typ "pony_msg_t"
 

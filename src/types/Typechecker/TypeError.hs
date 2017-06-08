@@ -299,6 +299,7 @@ data Error =
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
+  | ForwardTypeClosError Type Type
   | CannotHaveModeError Type
   | ModelessError Type
   | ModeOverrideError Type
@@ -736,6 +737,10 @@ instance Show Error where
     show (ForwardTypeError retType ty) =
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
+               (show retType) (show ty)
+    show (ForwardTypeClosError retType ty) =
+        printf ("Returned type %s of forward should match with " ++
+               "the result type of the closure %s")
                (show retType) (show ty)
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"

@@ -1,0 +1,39 @@
+local class Rock[sharable t]
+  def roll(b : bool, v : t, r : t) : Fut[t]
+    ((new Lazy[t]) ! lazyWork(b, v, r))
+  end
+end
+
+active class Worker[t]
+  val v : t
+  def init(v : t) : unit
+    this.v = v
+  end
+  def work() : t
+    this.v
+  end
+end
+
+active class Lazy[sharable t]
+  def lazyWork(b : bool, v : t, r : t) : t
+    if b then
+      forward((new Worker[t](v)) ! work())
+    else
+      r
+    end
+    println("This should never run!")
+    r
+  end
+end
+
+active class Main
+  def main() : unit
+    println(get((new Lazy[String]) ! lazyWork(true, "42.0", "100.0")))
+    println(get((new Lazy[real]) ! lazyWork(true, 42.0, 100.0)))
+    println(get((new Lazy[int]) ! lazyWork(true, 42, 100)))
+    println(get((new Lazy[bool]) ! lazyWork(true, true, false)))
+    println(get((new Lazy[Maybe[int]]) ! lazyWork(true, Just(42), Just(100))))
+    -- Tested with passive class
+    println(get((new Rock[int]).roll(true, 42, 100)))
+  end
+end

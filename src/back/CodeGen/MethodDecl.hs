@@ -77,7 +77,8 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                       ,parametricMethodTypeVars
                       ,extractTypeVars
                       ,forwardingBody
-                      ])
+                      ,dtraceMethodExit thisVar mName
+                      ,Return Skip])
     in
       code ++ return (Concat $ locals ++ closures ++
                                [normalMethodImpl] ++

@@ -1,0 +1,22 @@
+-- Test with polymorphic type
+active class Base[t]
+  var v  : t
+  def init(v : t) : unit
+    this.v = v
+  end
+  def base() : t
+    this.v
+  end
+end
+active class Foo[sharable ty]
+  def foo(arg : Fut[ty]) : ty
+    get(arg ~~> fun(x : ty) : ty => forward((new Base[ty](x)) ! base()))
+  end
+end
+
+active class Main
+  def main() : unit
+    val arg = (new Base[int](42)) ! base()
+    println("{}", get((new Foo[int]) ! foo(arg)))
+  end
+end

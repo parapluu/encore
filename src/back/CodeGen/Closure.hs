@@ -51,8 +51,6 @@ translateClosure closure typeVars table
            freeVars    = map (first ID.qnlocal) $
                          filter (ID.isLocalQName . fst) $
                          Util.freeVariables boundVars body
-          --  freeVarsForwarding = freeVars ++ [(ID.Name "_enc__field_fut", future)]
-          --  freeVarsForwarding = if freeVars then True else False--freeVars ++ [(future, Var "_enc__field_fut")]
            fTypeVars   = typeVars `intersect` Util.freeTypeVars body
            encEnvNames = map fst freeVars
            envNames    = map (AsLval . fieldName) encEnvNames
@@ -85,9 +83,7 @@ translateClosure closure typeVars table
                       [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                        (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                        (Typ "value_t", Var "_args[]"),
-                       (Ptr void, envVar)
-                       ]
-                      --  ,(future, futVar)]
+                       (Ptr void, envVar)]
                       (Seq $
                         dtraceClosureEntry argNames :
                         extractArguments params ++
@@ -96,16 +92,11 @@ translateClosure closure typeVars table
                         ,dtraceClosureExit
                         ,returnStmnt forwardingBodyName unitType])
        in
-        --  Concat $ [buildEnvironment envName freeVars fTypeVars,
-        --            tracefunDecl traceName envName freeVars fTypeVars] ++
-                  --  [normalClosureImpl]
-                  --  ++
-         Concat $  if null $ Util.filter A.isForward body
-                   then [buildEnvironmentForward envName freeVars fTypeVars,
-                         tracefunDecl traceName envName freeVars fTypeVars extractEnvironment,
+         Concat $  [buildEnvironmentForward envName freeVars fTypeVars] ++
+                   if null $ Util.filter A.isForward body
+                   then [tracefunDecl traceName envName freeVars fTypeVars extractEnvironment,
                          normalClosureImpl]
-                   else [buildEnvironmentForward envName freeVars fTypeVars,
-                         tracefunDecl traceName envName freeVars fTypeVars extractEnvironmentForward,
+                   else [tracefunDecl traceName envName freeVars fTypeVars extractEnvironmentForward,
                          forwardingClosureImpl]
   | otherwise =
         error
