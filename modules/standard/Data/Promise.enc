@@ -1,0 +1,32 @@
+-- Promises are futures that you can fulfil by explictly calling a method that you pass a value.
+module Promise
+
+-- Create a promise, together with a future that can be
+-- fulfilled using the promise:
+-- Once you call fulfil(..) on the promise object, the
+-- future returned by this call will be fulfilled.
+fun mkPromise[t]() : (Fut[t], Promise[t])
+  val f = EMBED (Fut[t]) future_mk(_ctx, _enc__type_t); END
+  (f, new Promise(f))
+end
+
+-- This should be linear, but we're hitting issue #770 then
+-- in the mean time, do not alias promises!
+unsafe class Promise[t]
+  var f : Maybe[Fut[t]]
+
+  def init(f : Fut[t]): unit
+    this.f = Just(f)
+  end
+
+  def fulfil(v : t): unit
+    match this.f with
+      case Just(f) =>
+          EMBED (unit) future_fulfil(_ctx, #{f}, #{v}); END
+          this.f = Nothing
+      end
+      case Nothing => assertTrue(false, "Promise is already fulfilled!")
+    end
+  end
+end
+
