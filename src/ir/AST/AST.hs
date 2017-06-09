@@ -603,6 +603,10 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | Optional {emeta :: Meta Expr,
                       optTag :: OptionalPathComponent}
+          | AdtExtractorPattern {emeta :: Meta Expr,
+                                 ty :: Type,
+                                 name :: Name,
+                                 arg :: Expr}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,
