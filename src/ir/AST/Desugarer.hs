@@ -256,16 +256,18 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           setRefSourceFile sourceFile $
                            setRefNamespace namespace ty
       typeParams = getTypeParameters aname
-      traitName = setRef aname $ traitType (reverse (stripName (showWithoutMode aname) [])) typeParams
+      traitName = setRef aname $ adtTraitType (reverse (stripName (showWithoutMode aname) [])) typeParams
       t = Trait{tmeta = Meta.meta (Meta.sourcePos ameta)
                ,tname = makeRead traitName
-               ,treqs = map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor
+               ,treqs = RequiredField{rfield = Field{fmeta = Meta.meta (Meta.sourcePos ameta), fmut = Val, fname = Name "_ADT_tag", ftype = intType}}:
+                        (map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor)
                ,tmethods = amethods
                }
       c = map (\a@ADTcons{acmeta, acname, acfields} ->
           let
-            fields = map (\p@Param{pmut, pname, ptype} ->
-                         Field{fmeta = Meta.meta (Meta.sourcePos acmeta), fmut = pmut, fname = pname, ftype = ptype})
+            fields = Field{fmeta = Meta.meta (Meta.sourcePos acmeta), fmut = Val, fname = Name "_ADT_tag", ftype = intType}:
+              (map (\p@Param{pmut, pname, ptype} ->
+                         Field{fmeta = Meta.meta (Meta.sourcePos acmeta), fmut = pmut, fname = pname, ftype = ptype}))
                          acfields
             traitExtensions = map (\p@Param{pname} -> FieldExtension{extname = pname}) acfields
             emeta = Meta.meta (Meta.sourcePos acmeta)
@@ -274,7 +276,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           in
             Class{cmeta
                  ,cname = makeRead $ setRef acname $
-                          classType (reverse (stripName (showWithoutMode acname) [])) typeParams
+                          adtClassType (reverse (stripName (showWithoutMode acname) [])) typeParams
                  ,ccomposition = Just(TraitLeaf{tcname = aname, tcext = traitExtensions})
                  ,cfields = fields
                  ,cmethods = (initMethod a):(extractorMethods a aconstructor)++amethods
@@ -306,7 +308,7 @@ headerFromCons ADTcons{acname, acfields} =
     kind = NonStreaming,
     htypeparams = [],
     hname = Name (showWithoutMode acname),
-    htype = returnType acfields,
+    htype = intType,
     hparams = []
   }
   where
@@ -327,18 +329,18 @@ extractorMethods con@ADTcons{acmeta} cons =
   ) cons
   where
     header c@ADTcons{acmeta, acfields} = (headerFromCons c){
-      htype = (returnType acfields)
+      htype = intType
     }
     returnType (x@Param{ptype}:[]) = maybeType ptype
     returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
     body c@ADTcons{acfields} =
       if (show c == show con)
       then justBody acfields
-      else nothingBody
+      else IntLiteral{emeta, intLit = 0}
 
     justBody fields = FieldAccess{emeta
                                   ,target = VarAccess{emeta, qname = qLocal thisName}
-                                  ,name = Name $ show $ pname $ head fields
+                                  ,name = Name "_ADT_tag" -- $ show $ pname $ head fields
                                   }
     emeta = Meta.meta (Meta.sourcePos acmeta)
 
