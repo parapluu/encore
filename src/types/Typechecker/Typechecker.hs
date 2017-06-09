@@ -1100,6 +1100,75 @@ instance Checkable Expr where
             local (pushBT pattern) $
               doGetPatternVars pt pattern
 
+
+        getAdtPatternVars pt pattern =
+            local (pushBT pattern) $
+              doGetAdtPatternVars pt pattern
+
+        doGetAdtPatternVars pt va@(VarAccess {qname}) = do
+          when (isThisAccess va) $
+            tcError ThisReassignmentError
+          return [(qnlocal qname, pt)]
+
+        doGetAdtPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
+            | isMaybeType pt =
+                let innerType = getResultType pt
+                in getAdtPatternVars innerType e
+            | otherwise = tcError $ PatternTypeMismatchError mcp pt
+
+        doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = []}) = do
+          header <- findMethod pt (qnlocal qname)
+          let hType = htype header
+              extractedType = getResultType hType
+          unless (isUnitType extractedType) $ do
+                 let expectedLength = if isTupleType extractedType
+                                      then length (getArgTypes extractedType)
+                                      else 1
+                 tcError $ PatternArityMismatchError (qnlocal qname)
+                           expectedLength 0
+
+          getAdtPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
+
+        doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = [arg]}) = do
+          unless (isRefType pt) $
+            tcError $ NonCallableTargetError pt
+          c <- findClass (classType  (show $ qnlocal qname) [])
+          let fields = drop 1 $ fieldsFromClass c
+          let fieldTypes = map (\f@Field{ftype} -> ftype) fields
+              expectedLength = length fields
+              actualLength
+                | Tuple{args} <- arg = length args
+                | Skip{} <- arg = 0
+                | otherwise = 1
+          unless (actualLength == expectedLength) $
+                 tcError $ PatternArityMismatchError (qnlocal qname)
+                           expectedLength actualLength
+          setVarTypes fieldTypes arg
+          where
+          setVarTypes types Tuple{args} = do
+            vars <- zipWithM getAdtPatternVars types args
+            return $ concat $ reverse vars
+          setVarTypes types Skip{} = return []
+          setVarTypes [ty] arg = doGetAdtPatternVars ty arg
+
+        doGetAdtPatternVars pt fcall@(FunctionCall {args}) = do
+          let tupMeta = getMeta $ head args
+              tupArg = Tuple {emeta = tupMeta, args}
+          getAdtPatternVars pt (fcall {args = [tupArg]})
+
+        doGetAdtPatternVars pt tuple@(Tuple {args}) = do
+          unless (isTupleType pt) $
+            tcError $ PatternTypeMismatchError tuple pt
+          let elemTypes = getArgTypes pt
+
+          varLists <- zipWithM getAdtPatternVars elemTypes args
+          return $ concat $ reverse varLists
+
+        doGetAdtPatternVars pt typed@(TypedExpr {body}) =
+          getPatternVars pt body
+
+        doGetAdtPatternVars pt pattern = return []
+
         doGetPatternVars pt va@(VarAccess {qname}) = do
           when (isThisAccess va) $
             tcError ThisReassignmentError
