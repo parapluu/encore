@@ -1045,9 +1045,15 @@ instance Checkable Expr where
         eArg <- typecheck arg
         checkMatchArgument eArg
         let argType = AST.getType eArg
-
-        eClauses <- mapM (checkClause argType) clauses
-        checkForPrivateExtractors eArg (map mcpattern eClauses)
+        when (isActiveSingleType argType) $
+          unless (isThisAccess arg) $
+            tcError ActiveMatchError
+        eClauses <- if (isFromADT(argType))
+                    then mapM (checkAdtClause argType) clauses
+                    else mapM (checkClause argType) clauses
+        if (isFromADT(argType))
+        then checkForAdtExtractors eArg (map mcpattern eClauses)
+        else checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
         let updateClauseType m@MatchClause{mchandler} =
                 m{mchandler = setType resultType mchandler}
@@ -1064,8 +1070,16 @@ instance Checkable Expr where
           when (any isNullType (typeComponents argType)) $
                pushError arg NullTypeInferenceError
 
-        checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
+        checkForAdtExtractors arg = mapM (checkForAdtExtractor arg)
+        checkForAdtExtractor matchArg p@ExtractorPattern{name, arg} = do
+          local (pushBT p) $ typecheckPrivateModifier matchArg name
+          checkForAdtExtractor arg arg
+        checkForAdtExtractor TypedExpr{body}
+                             TypedExpr{body = bodyE} =
+          checkForAdtExtractor body bodyE
+        checkForAdtExtractor _ _ = return ()
 
+        checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
         checkForPrivateExtractor matchArg p@ExtractorPattern{name, arg} = do
           local (pushBT p) $ typecheckPrivateModifier matchArg name
           checkForPrivateExtractor arg arg
