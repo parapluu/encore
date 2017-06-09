@@ -242,6 +242,9 @@ data AdtConstructor = ADTcons {
   acfields    :: [ParamDecl]
 } deriving (Show)
 
+fieldsFromClass :: ClassDecl -> [FieldDecl]
+fieldsFromClass c@Class{cfields} = cfields
+
 instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
 
