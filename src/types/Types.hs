@@ -879,6 +879,10 @@ isRefType ty
 isUnresolved Type{inner = Unresolved{}} = True
 isUnresolved _ = False
 
+isFromADT Type{inner = TraitType{fromADT}} = fromADT
+isFromADT Type{inner = ClassType{fromADT}} = fromADT
+isFromADT _ = False
+
 isTraitType Type{inner = TraitType{}} = True
 isTraitType Type{inner = AbstractTraitType{}} = True
 isTraitType _ = False
