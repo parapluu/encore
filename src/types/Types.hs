@@ -23,6 +23,7 @@ module Types(
             ,isRefAtomType
             ,traitType
             ,isRefType
+            ,isFromADT
             ,isTraitType
             ,isAbstractTraitType
             ,isClassType
@@ -294,7 +295,8 @@ instance Show Type where
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
-        | TraitType{refInfo :: RefInfo}
+        | TraitType{refInfo :: RefInfo
+                   ,fromADT :: Bool}
           -- | The @AbstractTraitType@ is used to type @this@ when
           -- overriding methods. A class that implements a trait
           -- @T@ and overrides one of its methods @m@ will
@@ -304,7 +306,8 @@ data InnerType =
           -- trait @T@, which might have been extended with
           -- additional attributes.
         | AbstractTraitType{refInfo :: RefInfo}
-        | ClassType{refInfo :: RefInfo}
+        | ClassType{refInfo :: RefInfo
+                   ,fromADT :: Bool}
         | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
         | AdtConsType{refInfo :: RefInfo}--TODO: Add more stuff
         | CapabilityType{typeop :: TypeOp
