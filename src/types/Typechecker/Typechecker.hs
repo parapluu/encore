@@ -1287,6 +1287,58 @@ instance Checkable Expr where
             | isValidPattern pattern = hasType pattern argty
             | otherwise = tcError $ InvalidPatternError pattern
 
+        checkAdtPattern pattern argty =
+            local (pushBT pattern) $
+              doCheckAdtPattern pattern argty
+
+        doCheckAdtPattern pattern@(FunctionCall {args = []}) argty = do
+          let meta = getMeta pattern
+              unitArg = Skip {emeta = meta}
+          checkAdtPattern (pattern {args = [unitArg]}) argty
+
+        doCheckAdtPattern pattern@(FunctionCall {emeta
+                                                ,qname
+                                                ,args = [arg@Tuple{}]}) argty = do
+          let name = qnlocal qname
+          header <- findMethod argty name
+          c <- findClass (classType  (show $ qnlocal qname) [])
+          let fields = drop 1 $ fieldsFromClass c
+          let fieldTypes = map (\f@Field{ftype} -> ftype) fields
+          eArg <- checkAdtPattern arg $ tupleType fieldTypes
+          return $ setArrowType (arrowType [] intType) $
+                   setType argty AdtExtractorPattern {emeta
+                                                  ,ty = argty
+                                                  ,name
+                                                  ,arg = eArg
+                                                  }
+
+        doCheckAdtPattern pattern@(FunctionCall {args}) argty = do
+          let tupMeta = getMeta $ head args
+              tupArg = Tuple {emeta = tupMeta, args = args}
+          checkAdtPattern (pattern {args = [tupArg]}) argty
+
+        doCheckAdtPattern pattern@(Tuple{args}) tupty = do
+          let argTypes = Ty.getArgTypes tupty
+          unless (length argTypes == length args) $
+            tcError $ PatternTypeMismatchError pattern tupty
+          eArgs <- zipWithM checkAdtPattern args argTypes
+          return $ setType tupty (pattern {args=eArgs})
+
+        doCheckAdtPattern pattern argty
+            | isValidPattern pattern = hasType pattern argty
+            | otherwise = tcError $ InvalidPatternError pattern
+
+        checkAdtClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
+          vars <- getAdtPatternVars pt mcpattern
+          let withLocalEnv = local (extendEnvironmentImmutable vars) --
+          ePattern <- withLocalEnv $ checkAdtPattern mcpattern pt --
+          eHandler <- withLocalEnv $ typecheck mchandler --
+          eGuard <- withLocalEnv $ hasType mcguard boolType --
+          return $ clause {mcpattern = extend makePattern ePattern
+                          ,mchandler = eHandler
+                          ,mcguard = eGuard}
+
+
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
           vars <- getPatternVars pt mcpattern
           let withLocalEnv = local (extendEnvironmentImmutable vars)
