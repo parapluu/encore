@@ -291,6 +291,12 @@ ppExpr PartySeq {par, seqfunc} = ppExpr par <+> ">>" <+> parens (ppExpr seqfunc)
 ppExpr PartyPar {parl, parr} = ppExpr parl <+> "|||" <+> ppExpr parr
 ppExpr PartyReduce {seqfun, pinit, par} = "reduce" <>
     parens (commaSep $ ppExpr <$> [seqfun, pinit, par])
+ppExpr AdtExtractorPattern {name, arg = arg@Skip{}} =
+    ppName name <> ppExpr arg
+ppExpr AdtExtractorPattern {name, arg = arg@Tuple{}} =
+    ppName name <> ppExpr arg
+ppExpr AdtExtractorPattern {name, arg} =
+    ppName name <> parens (ppExpr arg)
 ppExpr ExtractorPattern {name, arg = arg@Skip{}} =
     ppName name <> ppExpr arg
 ppExpr ExtractorPattern {name, arg = arg@Tuple{}} =
