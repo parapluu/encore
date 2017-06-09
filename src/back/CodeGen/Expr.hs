@@ -815,6 +815,60 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
+        translateAdtPattern e nCall argty assocs usedVars self = do
+          optionVar <- Ctx.genNamedSym "optionVal"
+          nCheck <- Ctx.genNamedSym "tagCheck"
+          let result = Ctx.genNamedSym "result"
+              valType = Ty.intType
+              {-eMaybeField = fromEncoreArgT (translate valType) eMaybeVal-}
+              tVal = Assign (Decl (translate valType, Var optionVar)) nCall
+
+          (nRest, tRest, newUsedVars) <- translatePattern e (Var optionVar) valType assocs usedVars
+
+          let expectedTag = AsExpr $ (Deref self) `Dot` (Nam "_enc__field__ADT_tag") -- AsLval $ Nam $ "JUST"
+              actualTag = AsExpr $ nCall
+              eTagsCheck = BinOp (translate ID.EQ) expectedTag actualTag
+              intTy = translate Ty.intType
+              tDecl = Statement $ Decl (intTy, nRest)
+              tRestWithDecl = Seq [tDecl, tVal, tRest]
+              eRest = StatAsExpr nRest tRestWithDecl
+              eCheck = BinOp (translate ID.AND) eTagsCheck eRest
+              tCheck = Assign (Var nCheck) eCheck
+
+          return (Var nCheck, tCheck, newUsedVars)
+
+        translatePattern (A.AdtExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
+          let eSelfArg = AsExpr narg
+              eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
+              innerTy = A.getType arg
+              tmpTy = Ty.intType
+              noArgs = [] :: [A.Expr]
+
+          (nCall, tCall) <-
+              if Ty.isCapabilityType argty ||
+                 Ty.isUnionType argty
+              then do
+                calledType <- gets $ Ctx.lookupCalledType argty name
+                traitMethod msgId narg calledType name [] noArgs (translate tmpTy)
+              else do
+                tmp <- Ctx.genNamedSym "expectedTag"
+                (argDecls, theCall) <-
+                    passiveMethodCall narg argty name noArgs tmpTy
+                let theAssign = Assign (Decl (translate Ty.intType, Var tmp)) theCall
+                return (Var tmp, Seq $ argDecls ++ [theAssign])
+
+          {-let derefedCall = Deref nCall-}
+          (nRest, tRest, newUsedVars) <-
+              translateAdtPattern arg nCall tmpTy assocs usedVars narg
+
+          nCheck <- Ctx.genNamedSym "topLevelCheck"
+          let tDecl = Statement $ Decl (translate Ty.intType, nRest)
+              tRestWithDecl = Seq [tDecl, tCall, tRest]
+              eCheck = BinOp (translate ID.AND) eNullCheck $ StatAsExpr nRest tRestWithDecl
+              tAssign = Assign (Var nCheck) eCheck
+
+          return (Var nCheck, tAssign, newUsedVars)
+
         translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
