@@ -336,25 +336,10 @@ extractorMethods con@ADTcons{acmeta} cons =
       then justBody acfields
       else nothingBody
 
-    nothingBody = MaybeValue{emeta, mdt = NothingData}
-
-    justBody fields = MaybeValue{
-      emeta,
-      mdt =
-        JustData{e = if (length fields) > 1
-                     then
-                     Tuple{emeta, args = map (\p@Param{pname} ->
-                       FieldAccess{emeta
-                                  ,target = VarAccess{emeta, qname = qLocal thisName}
-                                  ,name = Name $ show pname
-                                  }) fields}
-                     else
-                       FieldAccess{emeta
+    justBody fields = FieldAccess{emeta
                                   ,target = VarAccess{emeta, qname = qLocal thisName}
                                   ,name = Name $ show $ pname $ head fields
                                   }
-                }
-    }
     emeta = Meta.meta (Meta.sourcePos acmeta)
 
 
