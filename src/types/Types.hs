@@ -17,10 +17,12 @@ module Types(
             ,refTypeWithParams
             ,refType
             ,abstractTraitFromTraitType
+            ,adtClassType
             ,classType
             ,adtType
             ,adtConsType
             ,isRefAtomType
+            ,adtTraitType
             ,traitType
             ,isRefType
             ,isFromADT
@@ -768,6 +770,20 @@ refTypeWithParams refId parameters =
 
 refType id = refTypeWithParams id []
 
+--TODO: Remove me and stop cheating!
+adtClassType :: String -> [Type] -> Type
+adtClassType name parameters =
+  Type{inner = ClassType{refInfo = RefInfo{refId = name
+                                          ,parameters
+                                          ,mode = Nothing
+                                          ,refNamespace = Nothing
+                                          ,refSourceFile = Nothing
+                                          },
+                                   fromADT = True
+                        }
+      ,box = Nothing
+      }
+
 classType :: String -> [Type] -> Type
 classType name parameters =
   Type{inner = ClassType{refInfo = RefInfo{refId = name
@@ -775,7 +791,8 @@ classType name parameters =
                                           ,mode = Nothing
                                           ,refNamespace = Nothing
                                           ,refSourceFile = Nothing
-                                          }
+                                          },
+                                   fromADT = False
                         }
       ,box = Nothing
       }
@@ -805,6 +822,20 @@ adtConsType name =
       ,box = Nothing
       }
 
+--TODO: Remove me and stop cheating!
+adtTraitType :: String -> [Type] -> Type
+adtTraitType name parameters =
+    Type{inner = TraitType{refInfo = RefInfo{refId = name
+                                            ,parameters
+                                            ,mode = Nothing
+                                            ,refNamespace = Nothing
+                                            ,refSourceFile = Nothing
+                                            },
+                           fromADT = True
+                          }
+        ,box = Nothing
+        }
+
 traitType :: String -> [Type] -> Type
 traitType name parameters =
     Type{inner = TraitType{refInfo = RefInfo{refId = name
@@ -812,7 +843,8 @@ traitType name parameters =
                                             ,mode = Nothing
                                             ,refNamespace = Nothing
                                             ,refSourceFile = Nothing
-                                            }
+                                            },
+                           fromADT = False
                           }
         ,box = Nothing
         }
