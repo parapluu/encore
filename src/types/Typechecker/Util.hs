@@ -24,6 +24,7 @@ module Typechecker.Util(TypecheckM
                        ,assertDistinctThing
                        ,assertDistinct
                        ,findTrait
+                       ,findClass
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
@@ -474,6 +475,19 @@ assertDistinct something l =
   in
     unless (null duplicates) $
       tcError $ DuplicateThingError something (AST.showWithKind first)
+
+findClass :: Type -> TypecheckM ClassDecl
+findClass t = do
+  result <- asks $ classLookup t
+  case result of
+    Just [] ->
+      tcError $ UnknownTraitError t
+    Just [cdecl] ->
+      return cdecl
+    Just _ ->
+      tcError $ UnknownTraitError t
+    Nothing ->
+      tcError $ UnknownNamespaceError (getRefNamespace t)
 
 findTrait :: Type -> TypecheckM TraitDecl
 findTrait t = do
