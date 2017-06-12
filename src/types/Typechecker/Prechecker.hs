@@ -26,6 +26,7 @@ import Debug.Trace
 -- Module dependencies
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST
+import AST.Util(exprTypeMap, extend)
 import Identifiers
 import Types
 import Typechecker.Environment
@@ -197,7 +198,8 @@ instance Precheckable TraitDecl where
                         treqs
       tmethods' <- mapM (local (addTypeParams . addMinorThis tname) . precheck)
                         tmethods
-      return $ setType tname t{treqs = treqs', tmethods = tmethods'}
+      let tmethods'' = map alphaConvertMethod tmethods'
+      return $ setType tname t{treqs = treqs', tmethods = tmethods''}
       where
         typeParameters = getTypeParameters tname
         addTypeParams = addTypeParameters typeParameters
@@ -364,3 +366,25 @@ instance Precheckable MethodDecl where
         allowedMainArguments [ty] = isArrayType ty &&
                                     isStringObjectType (getResultType ty)
         allowedMainArguments _ = False
+
+alphaConvertMethod m@Method{mheader, mbody, mlocals} =
+  let typeParams    = htypeparams mheader
+      bindings      = map buildBinding typeParams
+      htypeparams'  = map (replaceTypeVars bindings) typeParams
+      mheader'      = replaceHeaderTypes bindings
+                      mheader{htypeparams = htypeparams'}
+      mbody'        = convertExpr bindings mbody
+      mlocals'      = map (convertLocal bindings) mlocals
+  in m{mheader = mheader', mbody = mbody', mlocals = mlocals'}
+  where
+    buildBinding ty =
+      let id = getId ty
+          id' = "_" ++ id
+      in (ty, alphaConvert id' ty)
+
+    convertExpr bindings = extend (exprTypeMap (replaceTypeVars bindings))
+
+    convertLocal bindings f@Function{funheader, funbody} =
+      let funheader' = replaceHeaderTypes bindings funheader
+          funbody'   = convertExpr bindings funbody
+      in f{funheader = funheader', funbody = funbody'}

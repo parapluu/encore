@@ -41,28 +41,8 @@ flattenTrait cdecl traitType template =
     traitMethods = A.tmethods template
     classMethods = map A.methodName $ A.cmethods cdecl
     nonOverridden = filter ((`notElem` classMethods) . A.methodName) traitMethods
-    nonOverridden' = map alphaConvertTypeArgs nonOverridden
   in
-    map (convertMethod bindings cdecl) nonOverridden'
-
--- | Make type parameters of a method unique to avoid name clashes
--- when flattening traits
-alphaConvertTypeArgs :: A.MethodDecl -> A.MethodDecl
-alphaConvertTypeArgs method =
-  let
-    mheader     = A.mheader method
-    typeParams  = A.htypeparams mheader
-    htypeparams = map alphaConvert typeParams
-    bindings    = zip typeParams htypeparams
-    mheader'    = A.replaceHeaderTypes bindings mheader{A.htypeparams}
-    mbody'      = Util.extend (Util.exprTypeMap (Ty.replaceTypeVars bindings))
-                              (A.mbody method)
-  in method{A.mheader = mheader', A.mbody = mbody'}
-  where
-    alphaConvert ty =
-      let id = Ty.getId ty
-          id' = "_" ++ id
-      in Ty.typeVar id'
+    map (convertMethod bindings cdecl) nonOverridden
 
 -- | @convertMethod bindings cdecl m@ converts all types
 -- appearing in @m@ using @bindings@ as a convertion table. It
