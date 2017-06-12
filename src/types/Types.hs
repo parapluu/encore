@@ -68,6 +68,7 @@ module Types(
             ,getResultType
             ,getId
             ,maybeGetId
+            ,alphaConvert
             ,getRefNamespace
             ,setRefNamespace
             ,getRefSourceFile
@@ -343,6 +344,10 @@ maybeGetId ty@Type{inner}
   | id   <- ident inner = Just id
   | otherwise = Nothing
 
+alphaConvert ident ty@Type{inner}
+  | isTypeVar ty = applyInner (\i -> i{ident}) ty
+  | otherwise = ty
+
 getModes :: Type -> [Mode]
 getModes ty
   |  isRefAtomType ty
@@ -415,8 +420,9 @@ instance Show InnerType where
         show ltype ++ " " ++ show Addition ++ " " ++ show rtype
     show UnionType{ltype, rtype} = show ltype ++ " | " ++ show rtype
     show EmptyCapability = ""
-    show TypeVar{tmode = Nothing, ident} = ident
-    show TypeVar{tmode = Just m, ident} = show m ++ " " ++ ident
+    show t@TypeVar{tmode = Nothing, ident = ('_':ident')} = show t{ident = ident'}
+    show t@TypeVar{tmode = Nothing, ident} = ident
+    show t@TypeVar{tmode = Just m} = show m ++ " " ++ show t{tmode = Nothing}
     show ArrowType{argTypes = [ty], resultType, modes = []} =
         if isTupleType ty
         then "(" ++ show ty ++ ") -> " ++ show resultType
@@ -682,6 +688,8 @@ withModeOf sink source
       = sink{inner = iType{refInfo = info{mode}}}
     | isArrowType sink && isArrowType source
     , modes <- getModes source = applyInner (\i -> i{modes}) sink
+    | isTypeVar sink && isTypeVar source
+    , tmode <- tmode (inner source) = applyInner (\i -> i{tmode}) sink
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink

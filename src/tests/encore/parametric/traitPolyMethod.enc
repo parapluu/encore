@@ -1,0 +1,16 @@
+trait Wrapper
+  def wrap[t](id : t) : [t]
+    [id]
+  end
+end
+
+local class Foo[t] : Wrapper
+end
+
+active class Main
+  def main() : unit
+    val x = new Foo[int]
+    val arr = x.wrap[String]("Foo")
+    println(arr(0))
+  end
+end

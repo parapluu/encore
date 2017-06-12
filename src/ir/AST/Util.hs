@@ -39,6 +39,7 @@ getTypeChildren ArrayNew{ty} = [ty]
 getTypeChildren TypedExpr{ty} = [ty]
 getTypeChildren Embed{ty} = [ty]
 getTypeChildren FunctionCall{typeArguments} = typeArguments
+getTypeChildren MethodCall{typeArguments} = typeArguments
 getTypeChildren FunctionAsValue{typeArgs} = typeArgs
 getTypeChildren e = []
 
@@ -51,7 +52,8 @@ putTypeChildren [ty] e@NewWithInit{} = e{ty}
 putTypeChildren [ty] e@ArrayNew{} = e{ty}
 putTypeChildren [ty] e@TypedExpr{} = e{ty}
 putTypeChildren [ty] e@Embed{} = e{ty}
-putTypeChildren args e@FunctionCall{typeArguments} = e{typeArguments = args}
+putTypeChildren typeArguments e@FunctionCall{} = e{typeArguments}
+putTypeChildren typeArguments e@MethodCall{} = e{typeArguments}
 putTypeChildren typeArgs e@FunctionAsValue{} = e{typeArgs}
 putTypeChildren [] e = e
 putTypeChildren l e =
