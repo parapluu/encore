@@ -1,0 +1,24 @@
+-- unjust --
+10
+-- unjustWithDefault --
+10
+12
+-- Maybe --
+11
+12
+-- map --
+Just 11
+Nothing
+-- isJust --
+false true
+-- isNothing --
+true false
+-- arrayToMaybe --
+Nothing Just 1 Just 1
+-- maybeToArray --
+[]
+[10]
+-- catMaybes --
+[10, 11]
+-- mapMaybe --
+[1, 2]

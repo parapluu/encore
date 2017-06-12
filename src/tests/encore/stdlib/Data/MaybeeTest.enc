@@ -1,0 +1,96 @@
+import Data.Maybee
+import qualified Data.Mutable.Array as A
+
+fun inc(x : int) : int
+  x + 1
+end
+
+fun testUnjust() : unit
+  val ma = Just(10)
+  println("-- unjust --")
+  println(unjust(ma))
+end
+
+fun testUnjustWithDefault() : unit
+  val ma = Just(10)
+  println("-- unjustWithDefault --")
+  println(unjustWithDefault(12, ma))
+  println(unjustWithDefault(12, Nothing))
+end
+
+fun testMaybe() : unit
+  val ma = Just(10)
+  println("-- Maybe --")
+  println(maybe(12, inc, ma))
+  println(maybe(12, inc, Nothing))
+end
+
+fun testMap() : unit
+  val ma = Just(10)
+  println("-- map --")
+  println(map(inc, ma))
+  println(map(inc, Nothing))
+end
+
+fun testIsJust() : unit
+  println("-- isJust --")
+  println("{} {}", isJust[int](Nothing), isJust(Just(10)))
+end
+
+fun testIsNothing() : unit
+  println("-- isNothing --")
+  println("{} {}", isNothing[int](Nothing), isNothing(Just(10)))
+end
+
+fun testArrayToMaybe() : unit
+  println("-- arrayToMaybe --")
+  println("{} {} {}", arrayToMaybe(new [int](0)), arrayToMaybe([1]), arrayToMaybe([1,2,3]))
+end
+
+fun testMaybeToArray() : unit
+  println("-- maybeToArray --")
+  A.show(printInt, maybeToArray[int](Nothing))
+  A.show(printInt, maybeToArray(Just(10)))
+end
+
+fun testCatMaybes() : unit
+  println("-- catMaybes --")
+  A.show(printInt, catMaybes([Just(10), Nothing, Just(11)]))
+end
+
+fun testMapMaybe() : unit
+  println("-- mapMaybe --")
+  A.show(printInt, mapMaybe(f,[1,2,3,4]))
+where
+  fun f(i : int) : Maybe[int]
+    if i < 3 then
+      Just(i)
+    else
+      Nothing
+    end
+  end
+end
+
+-- some helper functions due to limitations in print
+fun printInt(i : int) : unit
+  print("{}", i)
+end
+
+fun printMaybeInt(m : Maybe[int]) : unit
+  print("{}", m)
+end
+
+active class Main
+  def main() : unit
+    testUnjust()
+    testUnjustWithDefault()
+    testMaybe()
+    testMap()
+    testIsJust()
+    testIsNothing()
+    testArrayToMaybe()
+    testMaybeToArray()
+    testCatMaybes()
+    testMapMaybe()
+  end
+end

@@ -1,0 +1,11 @@
+module Map
+
+import HashCode
+
+local trait Map[t]
+  require def clone() : Map[t]
+  require def set(key: HashCode, value: t) : unit
+  require def get_value(key: HashCode) : Maybe[t]
+  require def remove(key: HashCode) : bool
+  require def size() : int
+end

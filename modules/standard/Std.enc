@@ -11,3 +11,9 @@ end
 read trait Eq[t]
   require def eq(other:t) : bool
 end
+
+
+-- the identity function
+fun id[a](x : a) : a
+  x
+end

@@ -1,0 +1,40 @@
+module Math
+
+EMBED
+  #include <math.h>
+END
+
+fun sqrt(x: real): real
+  EMBED (real) 
+    sqrt(#{x}); 
+  END
+end
+
+fun abs(x: real): real
+  if x < 0 then 
+    0 - x
+  else 
+    x
+  end
+end
+
+fun cos(x: real): real
+  EMBED (real) 
+    cos(#{x}); 
+  END
+end
+
+fun sin(x: real): real
+  EMBED (real) 
+    sin(#{x}); 
+  END
+end
+
+
+fun modulo(value : uint, mod : uint) : uint
+  EMBED (uint)
+    uint64_t value = (uint64_t) #{value};
+          uint64_t mod   = (uint64_t) #{mod};
+          (value % mod);
+  END
+end
