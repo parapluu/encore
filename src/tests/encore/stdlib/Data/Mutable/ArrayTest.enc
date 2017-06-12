@@ -1,0 +1,92 @@
+import Data.Mutable.Array
+import qualified Data.Maybee as M
+
+-- helpful functions
+fun inc(i : int) : int
+  i + 1
+end
+
+fun gtTwo(i : int) : bool
+  i > 2
+end
+
+fun showInt(i : int) : unit
+  print("{}", i)
+end
+
+fun showString(s : String) : unit
+  print(s)   
+end
+
+-- the tests
+fun testNewWithDefault() : unit
+  println("-- newWithDefault --")
+  val arr = newWithDefault(10,"x")
+  show(showString, arr)
+end
+
+fun testNewWithGenerator() : unit
+  println("-- newWithGenerator --")
+  val arr = newWithGenerator(10,gen)
+  show(showInt, arr)
+where
+  fun gen(i : int) : int
+    i * 12
+  end
+end
+
+
+fun testFilter() : unit
+  println("-- filter --")
+  show(showInt, filter(gtTwo, [0,1,2,3,4]))
+end
+
+
+fun testCount() : unit
+  println("-- count --")
+  println("{}", count(gtTwo, [0,1,2,3,4]))
+end
+
+fun testMap() : unit
+  println("-- map --")
+  show(showInt, map(inc, [0,1,2,3,4]))
+end
+
+fun testContains() : unit
+  println("-- contains --")
+  println("{}", contains([1,2,3,4], 3))
+  println("{}", contains([1,2,3,4], 10))
+end
+
+
+fun testContainsStr() : unit
+  println("-- contains_str --")
+  println("{}", contains_str(["foo","bar","hound","dog"], "dog"))
+  println("{}", contains_str(["foo","bar","hound","dog"], "cat"))
+end
+
+fun testClone() : unit
+  println("-- clone --")
+  show(showInt, clone([0,1,2,3,4]))
+end
+
+fun testNClone() : unit
+  println("-- nclone --")
+  var arr = [0,1,2,3,4]
+  println("{}", M.isNothing(nclone(arr,10)))
+  show(showInt, M.unjust(nclone(arr,3)))
+end
+
+class Main
+  def main() : unit
+    testNewWithDefault()
+    testNewWithGenerator() 
+    testFilter()
+    testCount()
+    testMap()
+    testContains()
+    testContainsStr()
+    testClone()
+    testNClone()
+  end
+end

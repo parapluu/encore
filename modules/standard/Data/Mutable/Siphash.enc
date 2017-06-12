@@ -1,0 +1,145 @@
+module Siphash
+
+import Hasher
+
+EMBED
+    #include <stdint.h>
+    #include <stdio.h>
+    #include <string.h>
+
+    /* default: SipHash-2-4 */
+    #define cROUNDS 2
+    #define dROUNDS 4
+
+    #define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
+
+    // Little Endian (_LE) typecasting
+    #define U32TO8_LE(p, v)                                          \
+      (p)[0] = (uint8_t)((v));                                       \
+      (p)[1] = (uint8_t)((v) >> 8);                                  \
+      (p)[2] = (uint8_t)((v) >> 16);                                 \
+      (p)[3] = (uint8_t)((v) >> 24);
+
+    #define U64TO8_LE(p, v)                                          \
+      U32TO8_LE((p), (uint32_t)((v)));                               \
+      U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
+
+    #define U8TO64_LE(p)                                             \
+      (((uint64_t)((p)[0])) | ((uint64_t)((p)[1]) << 8) |            \
+       ((uint64_t)((p)[2]) << 16) | ((uint64_t)((p)[3]) << 24) |     \
+       ((uint64_t)((p)[4]) << 32) | ((uint64_t)((p)[5]) << 40) |     \
+       ((uint64_t)((p)[6]) << 48) | ((uint64_t)((p)[7]) << 56))
+
+    #define SIPROUND         \
+      do {                   \
+        v0 += v1;            \
+        v1 = ROTL(v1, 13);   \
+        v1 ^= v0;            \
+        v0 = ROTL(v0, 32);   \
+        v2 += v3;            \
+        v3 = ROTL(v3, 16);   \
+        v3 ^= v2;            \
+        v0 += v3;            \
+        v3 = ROTL(v3, 21);   \
+        v3 ^= v0;            \
+        v2 += v1;            \
+        v1 = ROTL(v1, 17);   \
+        v1 ^= v2;            \
+        v2 = ROTL(v2, 32);   \
+      } while (0)
+BODY
+
+    int siphash(uint8_t *out, const uint8_t *input, uint64_t inlen, const uint8_t *k) {
+      // "somepseudorandomlygeneratedbytes"
+      uint64_t v0 = 0x736f6d6570736575ULL;
+      uint64_t v1 = 0x646f72616e646f6dULL;
+      uint64_t v2 = 0x6c7967656e657261ULL;
+      uint64_t v3 = 0x7465646279746573ULL;
+      uint64_t b;
+      uint64_t k0 = U8TO64_LE(k);
+      uint64_t k1 = U8TO64_LE(k + 8);
+      uint64_t m;
+      int i;
+      const uint8_t *_end = input + inlen - (inlen % sizeof(uint64_t));
+      const int left = inlen & 7;
+      b = ((uint64_t)inlen) << 56;
+      v3 ^= k1;
+      v2 ^= k0;
+      v1 ^= k1;
+      v0 ^= k0;
+
+      for (; input != _end; input += 8) {
+        m = U8TO64_LE(input);
+        v3 ^= m;
+
+        for (i = 0; i < cROUNDS; ++i)
+          SIPROUND;
+
+        v0 ^= m;
+      }
+
+      switch (left) {
+        case 7:
+          b |= ((uint64_t)input[6]) << 48;
+        case 6:
+          b |= ((uint64_t)input[5]) << 40;
+        case 5:
+          b |= ((uint64_t)input[4]) << 32;
+        case 4:
+          b |= ((uint64_t)input[3]) << 24;
+        case 3:
+          b |= ((uint64_t)input[2]) << 16;
+        case 2:
+          b |= ((uint64_t)input[1]) << 8;
+        case 1:
+          b |= ((uint64_t)input[0]);
+          break;
+        case 0:
+          break;
+      }
+
+      v3 ^= b;
+
+      for (i = 0; i < cROUNDS; ++i)
+        SIPROUND;
+
+      v0 ^= b;
+
+      v2 ^= 0xff;
+
+      for (i = 0; i < dROUNDS; ++i)
+        SIPROUND;
+
+      b = v0 ^ v1 ^ v2 ^ v3;
+      U64TO8_LE(out, b);
+
+      return 0;
+    }
+END
+
+local class Siphash : Hasher
+  def hash(id : uint) : uint
+    EMBED (uint)
+      // Hashing-key, can be any random bytes
+      uint8_t k[16] = {
+          0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, // k0
+          0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f  // k1
+      };
+
+      // Allocate 8 bytes on the stack for the hashcode
+      uint8_t hash[8];
+
+      // Get the argument
+      uint64_t id = #{id};
+      uint8_t id_arr[8];
+      U64TO8_LE(id_arr, id);
+
+      // Compute the hash value
+      siphash(hash, id_arr, (uint64_t) 8, k);
+
+      // Return the value to the caller
+      U8TO64_LE(hash);
+    END
+  end
+end
+

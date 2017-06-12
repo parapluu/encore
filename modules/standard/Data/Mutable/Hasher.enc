@@ -1,0 +1,7 @@
+module Hasher
+
+-- trait for classes implementing a has function
+trait Hasher
+  require def hash(id : uint) : uint
+end
+
