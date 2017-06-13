@@ -1,5 +1,5 @@
 
-EUnit testsuite "LinkedList" running 25 test(s)...
+EUnit testsuite "LinkedList" running 24 test(s)...
 Running test "init":
 	Success!
 Running test "prepend one int":
@@ -42,8 +42,6 @@ Running test "insert #2":
 	Success!
 Running test "clone #1":
 	Success!
-Running test "drop #1":
-	Success!
 Running test "remove front #1":
 	Success!
 Running test "remove back #1":
@@ -52,4 +50,4 @@ Running test "iter #1":
 	Success!
 
 EUnit testsuite "LinkedList" completed.
-25/25 tests completed successfully!
+24/24 tests completed successfully!

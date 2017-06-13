@@ -3,6 +3,7 @@ module LinkedListTest
 
 import Unit.Unit
 import Data.Mutable.LinkedList
+import Data.Maybee
 
 fun list_contains[t](list: LinkedList[t], array: [t]) : bool
   var counter = 0
@@ -203,54 +204,22 @@ fun prepend_three_and_remove_middle() : bool
   list.prepend(42)
   list.prepend(1337)
   list.prepend(420)
+
+  list.remove(1)
+  
+
   match list.first with
     case Just(first) =>
+      first.value == 420 &&
       match first.next with
-        case Just(second) =>
-          middle = Just(second)
-        end
-        case _ =>
-          success = false
-        end
-
-      end
+        case Just(second) => isNothing(second.next) && second.value == 42
+        case _ => false
+      end 
     end
     case _ =>
-      success = false
+      false
     end
-
   end
-  if middle != Nothing then
-    list.drop(match middle with
-                case Just(m) => m
-              end)
-  end
-  success = success && match list.first with
-                         case Just(first) =>
-                           match first.next with
-                             case Just(second) =>
-                               match second.next with
-                                 case Nothing =>
-                                   true
-                                 end
-                                 case _ =>
-                                   false
-                                 end
-
-                               end && second.value == 42
-                             end
-                             case _ =>
-                               false
-                             end
-
-                           end && first.value == 420
-                         end
-                         case _ =>
-                           false
-                         end
-
-                       end
-  success
 end
 
 fun length_1() : bool
@@ -273,18 +242,10 @@ fun length_2() : bool
     list.prepend(12)
     list.prepend(11)
     list.prepend(10)
-    match list.first with
-      case Just(n) =>
-        list.drop(n)
-      end
 
-    end
-    match list.first with
-      case Just(n) =>
-        list.drop(n)
-      end
+    list.remove(0)
+    list.remove(0)
 
-    end
     list.size == 2
   end
 end
@@ -807,76 +768,6 @@ fun list_clone_one() : bool
 end
 
 
-fun list_drop_one() : bool
-  val list = new LinkedList[int]()
-  list.append_all([0,1,2,3,4,5])
-
-  -- Ensure the base case holds.
-  if not list_contains[int](list, [0,1,2,3,4,5]) || list.size() != 6 then
-    println("\tList is not correct after append_all!")
-    return false
-  end
-
-  -- Remove first node.
-  match list.first with
-    case Just(f) =>
-      list.drop(f)
-      if not list_contains[int](list, [1,2,3,4,5]) || list.size() != 5 then
-        println("\tdrop didn't correctly remove the first node!")
-        false
-      else
-        true
-      end
-    end
-    case Nothing =>
-      println("\tlist.first == Nothing!")
-      false
-    end
-  end &&
-
-  -- Remove last node.
-  match list.last with
-    case Just(l) =>
-      list.drop(l)
-      if not list_contains[int](list, [1,2,3,4]) || list.size() != 4 then
-        println("\tdrop didn't correctly remove the last node!")
-        false
-      else
-        true
-      end
-    end
-    case Nothing =>
-      println("\tlist.last == Nothing!")
-      false
-    end
-  end &&
-
-  -- Remove middle node.
-  match list.first with
-    case Just(f) =>
-      match f.next with
-        case Just(s) =>
-          list.drop(s)
-          if not list_contains[int](list, [1,3,4]) || list.size() != 3 then
-            println("\tdidn't remove middle node correctly!")
-            false
-          else
-            true
-          end
-        end
-        case Nothing =>
-          println("\tf.next == Nothing!")
-          false
-        end
-      end
-    end
-    case Nothing =>
-      println("\tlist.first == Nothing!")
-      false
-    end
-  end
-end
-
 fun list_remove_front_one() : bool
   val list = new LinkedList[int]()
   list.append_all([0,1,2,3])
@@ -969,7 +860,6 @@ active class Main
     tests.assert_true("insert #1", list_insert_one)
     tests.assert_true("insert #2", list_insert_two)
     tests.assert_true("clone #1", list_clone_one)
-    tests.assert_true("drop #1", list_drop_one)
     tests.assert_true("remove front #1", list_remove_front_one)
     tests.assert_true("remove back #1", list_remove_back_one)
     tests.assert_true("iter #1", list_iter_one)

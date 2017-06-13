@@ -1,6 +1,7 @@
 module LinkedList
 
 import Data.Either
+import Data.Maybee
 import Data.Mutable.Collection
 import Data.Mutable.Iterable
 
@@ -229,9 +230,7 @@ local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id
     var counter = 0
     var cursor = this.first
     while cursor != Nothing do
-      val current = match cursor with
-                      case Just(c) => c
-                    end
+      val current = unjust(cursor)
 
       if counter == index then
         this.drop(current)
@@ -239,6 +238,7 @@ local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id
       end
 
       cursor = current.next
+      counter += 1
     end
 
     Nothing
