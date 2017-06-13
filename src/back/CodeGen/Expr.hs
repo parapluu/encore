@@ -832,17 +832,17 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let theAssign = Assign (Decl (int, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
-          (nCall, tCall) <-
+          (nActualTagCall, tActualTagCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name
-                traitMethod msgId narg calledType name [] noArgs (translate tmpTy)
+                traitMethod msgId argName calledType name [] noArgs int
               else do
-                tmp <- Ctx.genNamedSym "expectedTag"
+                tmp <- Ctx.genNamedSym "actualTag"
                 (argDecls, theCall) <-
-                    passiveMethodCall narg argty name noArgs tmpTy
-                let theAssign = Assign (Decl (translate Ty.intType, Var tmp)) theCall
+                    passiveMethodCall argName argty name noArgs Ty.intType
+                let theAssign = Assign (Decl (int, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
 
@@ -855,7 +855,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
               tAssign = Assign (Var "_tmp") eCheck
 
-          return (Var nCheck, tAssign, newUsedVars)
+          return (Var "_tmp", tAssign, usedVars)
 
         translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
