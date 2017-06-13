@@ -1,6 +1,6 @@
 module Hasher
 
--- trait for classes implementing a has function
+-- trait for classes implementing a hash function
 trait Hasher
   require def hash(id : uint) : uint
 end

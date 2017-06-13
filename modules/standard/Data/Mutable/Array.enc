@@ -1,0 +1,144 @@
+module Array
+
+-- This module implements common functions for operating on arrays
+
+-- newWithDefault :: (int, a) -> [a]
+-- newWithDefault (size, default) creates an array of size default
+-- with each element 
+fun newWithDefault[a](size : int, default : a) : [a]
+  val arr = new [a](size)
+  for i <- [0 .. size - 1] do
+    arr(i) = default
+  end
+  arr
+end
+
+
+-- newWithGenerator :: (int, int -> a) -> [a]
+-- newWithGenerator (size, gen) creates an array of the given size, where
+-- element i is given by gen(i)
+fun newWithGenerator[a](size : int, gen : int -> a) : [a]
+  val arr = new [a](size)
+  for i <- [0 .. size - 1] do
+    arr(i) = gen(i)
+  end
+  arr
+end
+
+
+-- filter :: (a -> bool, [a]) -> [a]
+-- filter (pred, arr) produces a new array with elements not satisfying pred removed
+fun filter[a](f : a -> bool, arr : [a]) : [a]
+  val tmp = new [a](|arr|)
+  var N = 0
+  for el <- arr do
+    if f(el) then
+      tmp(N) = el
+      N = N + 1
+    end
+  end
+  if N < |arr| then
+    val ret = new [a](N)
+    for i <- [0 .. N-1] do
+      ret(i) = tmp(i)
+    end
+    ret
+  else
+    tmp
+  end
+end
+
+-- count :: (a -> bool, [a]) -> [a]
+-- count(pred, arr) counts the number of elements of arr satisfying predicate pred
+fun count[a](pred : a -> bool, arr : [a]) : int
+  var count = 0
+  for a <- arr do
+    if pred(a) then
+      count += 1
+    end
+  end
+  count
+end
+
+-- map :: (a -> b, [a]) -> [b]
+-- map(f, arr) produces a new array containing the results of applying f to the
+-- elements of arr
+fun map[a,b](f : a -> b, arr : [a]) : [b]
+  val ret = new [b](|arr|)
+  for i <- [0 .. |arr|-1] do
+    ret(i) = f((arr)(i))
+  end
+  ret
+end
+
+-- show :: (a -> unit, [a]) -> unit
+-- show(showEl, arr) prints out array arr using function showEl to print the elements
+-- of the array
+fun show[a](showElement : a -> unit, arr : [a]) : unit
+  var first = true
+  print("[")
+  for el <- arr do
+    if not first then
+      print(", ")
+    else
+      first = false
+    end
+    showElement(el)
+  end
+  println("]")
+end
+
+-- contains :: ([t], t) -> bool
+-- contains(arr, elem) is true if and only if elem appears in arr
+-- tested using identity comparison
+fun contains[t](arr : [t], to_find : t) : bool
+  var retval = false
+  for x <- arr do
+    if x == to_find then
+      retval = true
+      break
+    end
+  end
+  retval
+end
+
+-- contains_str :: ([String], String) -> bool
+-- contains(arr, elem) is true if and only if elem appears in arr 
+-- tested using String.compare
+fun contains_str(arr : [String], to_find : String) : bool
+  var retval = false
+  for x <- arr do
+    if x.compare(to_find) == 0 then
+      retval = true
+      break
+    end
+  end
+  retval
+end
+
+-- clone :: [t] -> [t]
+-- clone(arr) results in a new array containing the same contents as arr
+fun clone[t](src : [t]) : [t]
+  var new_arr = new [t](|src|)
+  repeat i <- |src| do
+    new_arr(i) = src(i)
+  end
+  new_arr
+end
+
+-- nclone :: ([t], int) -> Maybe[[t]]
+-- nclone(arr,n) results in Just(arr') where arr' is a new array containing 
+-- the first n elements of arr, in the case where n < |arr|, otherwise Nothing
+-- a new array containing the same contents as arr
+fun nclone[t](src : [t], n : uint) : Maybe[[t]]
+  if n > |src| then
+    Nothing
+  else
+    var new_arr = new [t](n)
+    repeat i <- n do
+      new_arr(i) = src(i)
+    end
+    Just(new_arr)
+  end
+end
+

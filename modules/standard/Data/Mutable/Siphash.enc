@@ -7,6 +7,8 @@ EMBED
     #include <stdio.h>
     #include <string.h>
 
+    int siphash(uint8_t *out, const uint8_t *input, uint64_t inlen, const uint8_t *k);
+
     /* default: SipHash-2-4 */
     #define cROUNDS 2
     #define dROUNDS 4

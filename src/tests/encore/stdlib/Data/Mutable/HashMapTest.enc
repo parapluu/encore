@@ -1,0 +1,776 @@
+{-
+  I am fully aware of how truly awful the code quality is inside this file.
+  It actually used to look a bit better initially. However after converting the
+  old syntax to the new syntax by using the Pretty Printer inside the
+  compiler it turned to the worse.
+
+  But, considering this code works as intended, and its only here to ensure that
+  I don't mess anything up. I won't attempt to clean it up.
+-}
+
+module HashMapTest
+
+
+import Unit.Unit
+import Data.Mutable.HashMap
+import Data.Mutable.HashCode
+import Data.Maybee
+-- import Wrappers
+
+local class Foo : HashCode + Id
+  var hash_code : uint
+  def init() : unit
+    this.hash_code = this.hash_address()
+  end
+end
+
+local class Accumulator
+  var acc : int
+  def init(start: int) : unit
+    this.acc = start
+  end
+  def add(value: int) : unit
+    this.acc = this.acc + value
+  end
+  def sub(value: int) : unit
+    this.acc = this.acc - value
+  end
+end
+
+fun set_and_get() : bool
+  val map = new HashMap[int]
+  val foo = new Foo()
+
+  map.set(foo, 12)
+
+  match map.get_value(foo) with
+    case Just(12) => true
+    case _ => false
+  end
+end
+
+fun items_and_size_1() : bool
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    bar = new Foo()
+  in
+    map.set(foo, 12)
+    map.set(bar, 12)
+    map.items == 2 && map.size == 32
+  end
+end
+
+fun items_and_size_2() : bool
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    bar = new Foo()
+  in
+    map.set(foo, 12)
+    map.set(bar, 12)
+    map.set(foo, 23)
+    map.items == 2 && map.size == 32
+  end
+end
+
+fun remove_1() : bool
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+  in
+    map.set(foo, 12)
+    map.remove(foo)
+    match map.get_value(foo) with
+      case Nothing =>
+        true
+      end
+      case _ =>
+        false
+      end
+
+    end
+  end
+end
+
+fun remove_2() : bool
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    bar = new Foo()
+  in
+    map.set(foo, 12)
+    map.set(bar, 42)
+    map.remove(foo)
+    var ret = true
+    match map.get_value(foo) with
+      case Nothing =>
+        ret = ret && true
+      end
+      case _ =>
+        ret = false
+      end
+
+    end
+    match map.get_value(bar) with
+      case Just(42) =>
+        ret = ret && true
+      end
+      case _ =>
+        ret = false
+      end
+
+    end
+    match map.items with
+      case 1 =>
+        ret = ret && true
+      end
+      case _ =>
+        ret = false
+      end
+
+    end
+    match map.size with
+      case 32 =>
+        ret = ret && true
+      end
+      case _ =>
+        ret = false
+      end
+
+    end
+    ret
+  end
+end
+
+fun dual_remove() : bool
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    ret = true
+  in
+    map.set(foo, 12)
+    map.remove(foo)
+    map.remove(foo)
+  end
+end
+
+fun items_1() : int
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+  in
+    map.set(foo, 12)
+    map.items
+  end
+end
+
+fun items_2() : int
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    bar = new Foo()
+  in
+    map.set(foo, 12)
+    map.set(bar, 42)
+    map.items
+  end
+end
+
+fun items_3() : int
+  let
+    map = new HashMap[int]
+    foo = new Foo()
+    bar = new Foo()
+  in
+    map.set(foo, 12)
+    map.set(bar, 42)
+    map.set(bar, 1337)
+    map.items
+  end
+end
+
+fun items_4() : int
+  let
+    map = new HashMap[int]
+    f1 = new Foo()
+    f2 = new Foo()
+    f3 = new Foo()
+    f4 = new Foo()
+    f5 = new Foo()
+    f6 = new Foo()
+    f7 = new Foo()
+    f8 = new Foo()
+    f9 = new Foo()
+  in
+    map.set(f1, 1)
+    map.set(f2, 2)
+    map.set(f3, 3)
+    map.set(f4, 4)
+    map.set(f5, 5)
+    map.set(f6, 6)
+    map.set(f7, 7)
+    map.set(f8, 8)
+    map.set(f9, 9)
+    map.items
+  end
+end
+
+fun size_1() : int
+  let
+    map = new HashMap[int]
+    f1 = new Foo()
+    f2 = new Foo()
+    f3 = new Foo()
+    f4 = new Foo()
+    f5 = new Foo()
+    f6 = new Foo()
+    f7 = new Foo()
+    f8 = new Foo()
+    f9 = new Foo()
+  in
+    map.set(f1, 1)
+    map.set(f2, 2)
+    map.set(f3, 3)
+    map.set(f4, 4)
+    map.set(f5, 5)
+    map.set(f6, 6)
+    map.set(f7, 7)
+    map.set(f8, 8)
+    map.set(f9, 9)
+    map.size
+  end
+end
+
+fun iterator_test_1() : bool
+  let
+    map = new HashMap[int]()
+    foo = new Foo()
+  in
+    map.set(foo, 12)
+    val iter = new HashMapIterator[int](map)
+    var ret = match iter.has_next() with
+                case true =>
+                  true
+                end
+                case false =>
+                  println("\tCheck #1: iter.has_next() returned false!")
+                  false
+                end
+
+              end && match iter.next() with
+                       case Just(entry) =>
+                         entry.key.equals(foo) && entry.value == 12
+                       end
+                       case Nothing =>
+                         println("\tCheck #2: iter.next() returned \"Nothing\".")
+                         false
+                       end
+
+                     end && match iter.has_next() with
+                              case false =>
+                                true
+                              end
+                              case true =>
+                                println("\tCheck #3: iter.has_next() returned true!")
+                                false
+                              end
+
+                            end && match iter.next() with
+                                     case Nothing =>
+                                       true
+                                     end
+                                     case Just(e) =>
+                                       println("\tCheck #4: iter.next() returned \"Just ...\".")
+                                       false
+                                     end
+
+                                   end && match iter.has_next() with
+                                            case false =>
+                                              true
+                                            end
+                                            case true =>
+                                              println("\tCheck #5: iter.has_next() returned true!")
+                                              false
+                                            end
+
+                                          end && match iter.next() with
+                                                   case Nothing =>
+                                                     true
+                                                   end
+                                                   case Just(e) =>
+                                                     println("\tCheck #6: iter.next() returned \"Just ...\".")
+                                                     false
+                                                   end
+
+                                                 end
+    ret
+  end
+end
+
+fun iterator_test_2() : bool
+  val map = new HashMap[int]()
+  val foo = new Foo()
+  val bar = new Foo()
+
+  map.set(foo, 12)
+  map.set(bar, 24)
+
+  var found_foo  = false
+  var found_bar  = false
+  var iterations = 0
+
+  val iter = map.iterator()
+
+  while iter.has_next() do
+    val current = match iter.next() with
+                    case Just(e) => e
+                  end
+
+    if not found_foo && current.key.equals(foo) && current.value == 12 then
+      found_foo = true
+    else if not found_bar && current.key.equals(bar) && current.value == 24 then
+      found_bar = true
+    else
+      println("\tUnexpected key!")
+      return false
+    end
+
+    iterations = iterations + 1
+  end
+
+  return found_foo && found_bar && iterations == 2
+end
+
+fun resize_1() : bool
+  let
+    map = new HashMap[int]()
+    old_internal_map = map.internal_map
+    f0 = new Foo()
+    f1 = new Foo()
+    f2 = new Foo()
+    f3 = new Foo()
+    f4 = new Foo()
+    f5 = new Foo()
+    f6 = new Foo()
+    f7 = new Foo()
+    f8 = new Foo()
+    f9 = new Foo()
+    f10 = new Foo()
+    f11 = new Foo()
+    f12 = new Foo()
+    f13 = new Foo()
+    f14 = new Foo()
+    f15 = new Foo()
+    f16 = new Foo()
+    f17 = new Foo()
+    f18 = new Foo()
+    f19 = new Foo()
+    f20 = new Foo()
+    f21 = new Foo()
+    f22 = new Foo()
+    f23 = new Foo()
+    f24 = new Foo()
+    f25 = new Foo()
+  in
+    map.set(f0, 0)
+    map.set(f1, 1)
+    map.set(f2, 2)
+    map.set(f3, 3)
+    map.set(f4, 4)
+    map.set(f5, 5)
+    map.set(f6, 6)
+    map.set(f7, 7)
+    map.set(f8, 8)
+    map.set(f9, 9)
+    map.set(f10, 10)
+    map.set(f11, 11)
+    map.set(f12, 12)
+    map.set(f13, 13)
+    map.set(f14, 14)
+    map.set(f15, 15)
+    map.set(f16, 16)
+    map.set(f17, 17)
+    map.set(f18, 18)
+    map.set(f19, 19)
+    map.set(f20, 20)
+    map.set(f21, 21)
+    map.set(f22, 22)
+    map.set(f23, 23)
+
+    var retval = false
+
+    -- The hashmap should not have resized itself.
+    retval = match map.items with
+               case 24 => true
+               case v =>
+                 println("\tCheck #1: Expected 24 got {}!", v)
+                 false
+               end
+             end &&
+             match map.size with
+               case 32 => true
+               case v =>
+                 println("\tCheck #2: Expected 32 got {}!", v)
+                 false
+               end
+             end && old_internal_map == map.internal_map
+
+    -- Adding these two should cause the map to resize itself.
+    map.set(f24, 24)
+    map.set(f25, 25)
+
+    retval = retval && match map.items with
+                         case 26 => true
+                         case v =>
+                           println("\tCheck #3: Expected 26 got {}!", v)
+                           false
+                         end
+                       end &&
+                       match map.size with
+                         case 64 => true
+                         case v =>
+                           println("\tCheck #4: Expected 64 got {}!", v)
+                           false
+                         end
+                       end && old_internal_map != map.internal_map
+
+    retval && match map.get_value(f0) with
+                case Just(v) => v == 0
+                case Nothing =>
+                  println("\tGet value check #0 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f1) with
+                case Just(v) =>
+                  v == 1
+                end
+                case Nothing =>
+                  println("\tGet value check #1 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f2) with
+                case Just(v) => v == 2
+                case Nothing =>
+                  println("\tGet value check #2 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f3) with
+                case Just(v) => v == 3
+                case Nothing =>
+                  println("\tGet value check #3 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f4) with
+                case Just(v) => v == 4
+                case Nothing =>
+                  println("\tGet value check #4 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f5) with
+                case Just(v) => v == 5
+                case Nothing =>
+                  println("\tGet value check #5 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f6) with
+                case Just(v) => v == 6
+                case Nothing =>
+                  println("\tGet value check #6 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f7) with
+                case Just(v) => v == 7
+                case Nothing =>
+                  println("\tGet value check #7 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f8) with
+                case Just(v) => v == 8
+                case Nothing =>
+                  println("\tGet value check #8 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f9) with
+                case Just(v) => v == 9
+                case Nothing =>
+                  println("\tGet value check #9 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f10) with
+                case Just(v) => v == 10
+                case Nothing =>
+                  println("\tGet value check #10 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f11) with
+                case Just(v) => v == 11
+                case Nothing =>
+                  println("\tGet value check #11 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f12) with
+                case Just(v) => v == 12
+                case Nothing =>
+                  println("\tGet value check #12 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f13) with
+                case Just(v) => v == 13
+                case Nothing =>
+                  println("\tGet value check #13 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f14) with
+                case Just(v) => v == 14
+                case Nothing =>
+                  println("\tGet value check #14 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f15) with
+                case Just(v) => v == 15
+                case Nothing =>
+                  println("\tGet value check #15 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f16) with
+                case Just(v) => v == 16
+                case Nothing =>
+                  println("\tGet value check #16 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f17) with
+                case Just(v) => v == 17
+                case Nothing =>
+                  println("\tGet value check #17 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f18) with
+                case Just(v) => v == 18
+                case Nothing =>
+                  println("\tGet value check #18 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f19) with
+                case Just(v) => v == 19
+                case Nothing =>
+                  println("\tGet value check #19 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f20) with
+                case Just(v) => v == 20
+                case Nothing =>
+                  println("\tGet value check #20 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f21) with
+                case Just(v) => v == 21
+                case Nothing =>
+                  println("\tGet value check #21 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f22) with
+                case Just(v) => v == 22
+                case Nothing =>
+                  println("\tGet value check #22 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f23) with
+                case Just(v) => v == 23
+                case Nothing =>
+                  println("\tGet value check #23 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f24) with
+                case Just(v) => v == 24
+                case Nothing =>
+                  println("\tGet value check #24 failed!")
+                  false
+                end
+              end &&
+              match map.get_value(f25) with
+                case Just(v) => v == 25
+                case Nothing =>
+                  println("\tGet value check #25 failed!")
+                  false
+                end
+              end
+  end
+end
+
+fun foreach_one() : bool
+  val map = new HashMap[int]
+  val foo = new Foo()
+  val bar = new Foo()
+
+  map.set(foo,12)
+  map.set(bar,24)
+
+  val acc = new Accumulator(0)
+
+  val iter = map.iterator()
+  while iter.has_next() do
+    val n = unjust(iter.next())
+    acc.add(n.value)
+  end
+
+  acc.acc == 36
+end
+
+fun map_one() : bool
+  val map = new HashMap[int]()
+  val foo = new Foo()
+  val bar = new Foo()
+
+  map.set(foo, 12)
+  map.set(bar, 24)
+
+  val double = fun (x : int) => x + x
+--  val new_map = map.map(fun (x : int) => x + x)
+  val new_map = map.map(double)
+
+  val acc1 = new Accumulator(0)
+  val acc2 = new Accumulator(0)
+  
+  val iter1 = map.iterator()
+  while iter1.has_next() do
+    val n = unjust(iter1.next())
+    acc1.add(n.value)
+  end
+  
+  val iter2 = new_map.iterator()
+  while iter2.has_next() do
+    val n = unjust(iter2.next())
+    acc2.add(n.value)
+  end
+
+  acc1.acc == 36 && acc2.acc == 72
+end
+
+fun clone_one() : bool
+  val map = new HashMap[int]()
+  val foo = new Foo()
+  val bar = new Foo()
+
+  map.set(foo,12)
+  map.set(bar,24)
+
+  val clone = map.clone()
+
+  -- Overwrite foo value
+  clone.set(foo, 13)
+
+  -- Original map should not have changed.
+  match map.get_value(foo) with
+    case Just(n) =>
+      if n != 12 then
+        println("\tmap->foo != 12!")
+        false
+      else
+        true
+      end
+    end
+    case Nothing =>
+      println("\tmap->foo doesn't exist!")
+      false
+    end
+  end &&
+
+  match map.get_value(bar) with
+    case Just(n) =>
+      if n != 24 then
+        println("\tmap->bar != 24")
+        false
+      else
+        true
+      end
+    end
+    case Nothing =>
+      println("\tmap->bar doesn't exist!")
+      false
+    end
+  end &&
+
+  -- The cloned map should have changed.
+  match clone.get_value(foo) with
+    case Just(n) =>
+      if n != 13 then
+        println("\tclone->foo != 13")
+        false
+      else
+        true
+      end
+    end
+    case Nothing =>
+      println("\tclone->foo doesn't exist!")
+      false
+    end
+  end &&
+
+  match clone.get_value(bar) with
+    case Just(n) =>
+      if n != 24 then
+        println("\tclone->bar != 24")
+        false
+      else
+        true
+      end
+    end
+    case Nothing =>
+      println("\tclone->bar doesn't exist!")
+      false
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val tests = new TestSuite("HashMap", 100)
+    tests.assert_true("set and get", set_and_get)
+    tests.assert_true("items and size #1", items_and_size_1)
+    tests.assert_true("items and size #2", items_and_size_2)
+    tests.assert_true("remove #1", remove_1)
+    tests.assert_true("remove #2", remove_2)
+    tests.assert_false("dual remove", dual_remove)
+    tests.assert_int("items #1", items_1, 1)
+    tests.assert_int("items #2", items_2, 2)
+    tests.assert_int("items #3", items_3, 2)
+    tests.assert_int("items #4", items_4, 9)
+    tests.assert_int("size #1", size_1, 32)
+    tests.assert_true("iterator #1", iterator_test_1)
+    tests.assert_true("iterator #2", iterator_test_2)
+    tests.assert_true("resize #1", resize_1)
+    tests.assert_true("foreach #1", foreach_one)
+    tests.assert_true("map #1", map_one)
+    tests.assert_true("clone #1", clone_one)
+
+
+    tests.run()
+  end
+end
+
+

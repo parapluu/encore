@@ -1,0 +1,286 @@
+module HashMap
+
+import Data.Mutable.LinkedList
+import Data.Mutable.Siphash
+import Data.Mutable.Hasher
+import Data.Mutable.HashCode
+import Data.Mutable.Collection
+import Data.Mutable.Map
+import qualified Data.Mutable.Array as Array
+import Data.Maybee
+
+local class Entry[v]
+  var key : HashCode
+  var value : v
+  def init(key : HashCode, value : v) : unit
+    this.key = key
+    this.value = value
+  end
+end
+
+local class HashMapIterator[v]
+  var map : HashMap[v]
+  var current_index : uint
+  var current_node : Maybe[LinkedNode[Entry[v]]]
+
+  def init(map : HashMap[v]) : unit
+    this.map = map.clone()
+    this.current_index = -(1)
+    this.current_node = Nothing
+    this.current_node = this.get_next_node()
+  end
+
+  {-
+    This method is a helper function for get_next_node().
+    It should be marked private whenever possible.
+
+    It locates the next index in the map-array that
+    contains a non-empty LinkedList.
+
+    If found, it returns a reference to the list
+    in a maybe type.
+  -}
+  def private get_next_list() : Maybe[LinkedNode[Entry[v]]]
+    this.current_index = this.current_index + 1
+
+    while this.current_index < this.map.size do
+      val l = (this.map.internal_map)(this.current_index) 
+      if l.size > 0 then
+        return l.first
+      end
+     
+      this.current_index = this.current_index + 1
+    end
+
+    return Nothing
+  end
+
+  {-
+    This is a helper function for next().
+
+    Locates the next node in the LinkedList
+    retrieved from get_next_list().
+  -}
+  def private get_next_node() : Maybe[LinkedNode[Entry[v]]]
+    match this.current_node with
+      case Just(current) =>
+        match current.next with
+          case Just(n) => return current.next
+          case Nothing => return this.get_next_list()
+        end
+      end
+      case Nothing => return this.get_next_list()
+    end
+  end
+
+  {-
+    Retrieve the next value in the iterator.
+    Returns Nothing if the end of the HashMap
+    has been reached.
+  -}
+  def next() : Maybe[Entry[v]]
+    val current = this.current_node
+
+    if this.has_next() then
+      this.current_node = this.get_next_node()
+    end
+
+    match current with
+      case Just(n) => Just(n.value)
+      case Nothing => Nothing
+    end
+  end
+
+  def has_next() : bool
+    match this.current_node with
+      case Just(n) => true
+      case Nothing => false
+    end
+  end
+end
+
+local class HashMap[v] : Map[v](size, internal_map, items, resize())
+  var size         : uint
+  var items        : uint
+  var internal_map : [LinkedList[Entry[v]]]
+
+  def init() : unit
+    this.items = 0
+    this.size = 32
+    this.internal_map = Array.newWithGenerator(this.size, 
+                                               fun (x: int) => new LinkedList[Entry[v]]())
+  end
+
+  {-
+    Makes a shallow clone of the HashMap.
+
+    TODO: Optimize
+  -}
+  def clone() : HashMap[v]
+    val new_map = new HashMap[v]()
+
+    for i <- this.internal_map do
+      val iter = i.iterator()
+      while iter.has_next() do
+        val e = unjust(iter.next())
+        new_map.set(e.key, e.value)
+      end
+    end
+
+    return new_map
+  end
+
+  def remove(key : HashCode) : bool
+    val hash = key.get_hash()
+    val k = hash % this.size
+
+    var removed = false
+
+    val l = (this.internal_map)(k)
+
+    val iter = l.iterator()
+    var i = 0
+    while iter.has_next() && not removed do
+      val entry = unjust(iter.next())
+      if entry.key.equals(key) then
+        l.remove(i)  -- TODO: make more efficient
+        this.items = this.items - 1
+        removed = true
+      end
+      i += 1
+    end
+
+    return removed
+  end
+
+  def set(key : HashCode, value : v) : unit
+    val hash = key.get_hash()
+    val entry = new Entry[v](key, value)
+
+    if this.items >= this.size * 0.75 then
+      this.resize(this.size * 2)
+    end
+
+    -- Remove any previous occurance of this key.
+    -- This should be replaced with a better solution!
+    this.remove(key)
+
+    -- Store the key-value pair.
+    val k = hash % this.size
+    val list = (this.internal_map)(k)
+
+    list.prepend(entry)
+
+    this.items = this.items + 1
+  end
+
+  {-
+    Creates a new map with the given size and copies
+    all entries of this map into the new one.
+    The new map then takes the old ones place inside
+    the HashMap.
+  -}
+  def resize(new_size : uint) : unit
+    val new_map = new [LinkedList[Entry[v]]](new_size)
+
+    -- Initialize new_map
+    repeat i <- new_size do
+      new_map(i) = new LinkedList[Entry[v]]()
+    end
+
+    for l <- this.internal_map do
+      val iter = l.iterator() : LinkedListIterator[Entry[v]]
+      while iter.has_next() do
+        val e = unjust(iter.next()) : Entry[v]
+        -- Add current entry to new map.
+        val hash = e.key.get_hash()
+        val k = hash % new_size
+        new_map(k).prepend(e)
+      end
+    end
+
+    this.internal_map = new_map
+    this.size = new_size
+  end
+
+  def get_value(key : HashCode) : Maybe[v]
+    val hash = key.get_hash()
+    val k = hash % this.size
+    val i = this.internal_map(k).iterator()
+    while i.has_next() do
+      val entry = i.next()
+      if entry?.key?.equals(key) == Just(true) then
+        return entry?.value
+      end
+    end
+    return Nothing : Maybe[v]
+  end
+
+  def size() : int
+    this.size
+  end
+
+  def iterator() : HashMapIterator[v]
+    new HashMapIterator[v](this)
+  end
+
+  def foreach(f : v -> unit) : unit
+    for i <- this.internal_map do
+      val iter = i.iterator()
+      while iter.has_next() do
+        val x = unjust(iter.next())
+        f(x.value)
+      end
+    end
+  end
+
+  def map[u](f : v -> u) : HashMap[u]
+    val new_map = new HashMap[u]()
+
+    for i <- this.internal_map do
+      val iter = i.iterator()
+      while iter.has_next() do
+        val x = unjust(iter.next())
+        new_map.set(x.key, f(x.value))
+      end
+    end
+
+    return new_map
+  end
+
+  def filter(f : v -> bool) : HashMap[v]
+    val new_map = new HashMap[v]()
+
+    for i <- this.internal_map do
+      val iter = i.iterator()
+      while iter.has_next() do
+        val x = unjust(iter.next())
+        if f(x.value) then
+          new_map.set(x.key, x.value)
+        end
+      end
+    end
+
+    return new_map
+  end
+
+  def flatMap[u](f : v -> HashMap[u]) : HashMap[u]
+    val new_map = new HashMap[u]()
+
+    for i <- this.internal_map do
+      val iter = i.iterator()
+      while iter.has_next()  do
+        val m = f(unjust(iter.next()).value)
+        ()
+        --x.key should not map to the new values in m.
+        -- The keys of m should map to values of m.
+
+        --Foreach y: u <- m do
+        --  m.set(x.key, y)
+        --end
+      end
+    end
+
+    return new_map
+  end
+end
