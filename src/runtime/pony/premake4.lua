@@ -231,7 +231,7 @@ project "future"
   c_lib()
   links { "closure", "array" }
   files {
-    "../future/future.c",
+    "../future/**.c",
   }
 
 project "stream"

@@ -379,13 +379,13 @@ static void __attribute__ ((noreturn)) jump_origin()
 }
 
 __attribute__ ((noreturn))
-void public_run(pony_actor_t *actor)
+void public_run(pony_actor_t *actor, void * info_node)
 {
   assert(this_scheduler);
   if (pony_reschedule(actor)) {
     push(this_scheduler, actor);
   }
-  actor_unlock((encore_actor_t *)actor);
+  handle_future((encore_actor_t *)actor, &(this_scheduler->ctx), info_node);
   run(this_scheduler);
 
   __atomic_fetch_add(&context_waiting, 1, __ATOMIC_RELAXED);

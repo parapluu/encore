@@ -2,7 +2,48 @@
 #define __future_using_actors_h
 
 #include <pony.h>
-#include "closure.h"
+#include <closure.h>
+
+typedef enum future_class {
+  FUTURE,
+  VANILLA_FUTURE,
+  POLY_VANILLA_FUTURE,
+} future_class_t ;
+
+typedef struct future_tnode {
+  pony_actor_t * actor;
+  ucontext_t *awaited_uctx;
+  struct future_tnode * next;
+  bool isget;
+} future_tnode_t;
+
+typedef struct future_tnode_info {
+  void * fut;
+  ucontext_t * awaited_uctx;
+  future_class_t fclass;
+  bool isget;
+} future_tnode_info_t;
+
+typedef struct closure_entry closure_entry_t;
+
+/* TREIBER STACK API */
+
+void treiber_stack_push(future_tnode_t **head, pony_actor_t* a, ucontext_t *awaited_uctx, int futop);
+future_tnode_t * treiber_stack_pop(future_tnode_t **head);
+
+/* STANDARD FUTURE API  */
+
+typedef struct future {
+  future_tnode_t *blocking_stack;
+  closure_entry_t *chain_stack;
+  const pony_type_t *type;
+  encore_arg_t value;
+  bool fulfilled;
+} future_t;
+
+void handle_future(encore_actor_t *actor, pony_ctx_t * futctx, void * pony_node);
+
+void future_trace(pony_ctx_t *ctx, void* p);
 
 typedef struct future future_t;
 
@@ -55,7 +96,8 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
         closure_t *c);
 
 void future_chain_forward(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
-        closure_t *c, future_t *r);
+closure_t *c, future_t *r);
+
 
 /** Registers a callback and returns void
  *
@@ -79,4 +121,37 @@ void future_register_callback(pony_ctx_t **ctx,
  * puts on hold the processing of this message.
  */
 void future_await(pony_ctx_t **ctx, future_t *fut);
+
+extern pony_type_t future_type;
+
+void future_discharge(pony_ctx_t **ctx, future_t *fut);
+
+/* VANILLA FUTURE API */
+
+typedef struct vanilla_future {
+  const pony_type_t *type;
+  pony_actor_t *actor;
+  encore_arg_t value;
+  bool fulfilled;
+  bool blocking;
+} vanilla_future_t;
+
+encore_arg_t vanilla_future_get_actor(pony_ctx_t **ctx, vanilla_future_t *fut);
+void vanilla_future_fulfil(pony_ctx_t **ctx, vanilla_future_t *fut, encore_arg_t value);
+vanilla_future_t *vanilla_future_mk(pony_ctx_t **ctx, pony_type_t *type); 
+
+/* POLY VANILLA FUTURE API */
+
+typedef struct poly_vanilla_future {
+  future_tnode_t *blocking_stack;
+  const pony_type_t *type;
+  encore_arg_t value;
+  bool fulfilled;
+} poly_vanilla_future_t;
+
+void poly_vanilla_future_discharge(pony_ctx_t **ctx, poly_vanilla_future_t *fut);
+encore_arg_t poly_vanilla_future_get_actor(pony_ctx_t **ctx, poly_vanilla_future_t *fut);
+void poly_vanilla_future_fulfil(pony_ctx_t **ctx, poly_vanilla_future_t *fut, encore_arg_t value);
+poly_vanilla_future_t *poly_vanilla_future_mk(pony_ctx_t **ctx, pony_type_t *type); 
+
 #endif
