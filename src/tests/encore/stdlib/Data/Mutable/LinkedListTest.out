@@ -1,0 +1,55 @@
+
+EUnit testsuite "LinkedList" running 25 test(s)...
+Running test "init":
+	Success!
+Running test "prepend one int":
+	Success!
+Running test "prepend two ints":
+	Success!
+Running test "prepend three ints":
+	Success!
+Running test "prepend three ints and remove middle":
+	Success!
+Running test "length #1":
+	Success!
+Running test "length #2":
+	Success!
+Running test "remove_all #1":
+	Success!
+Running test "append one int":
+	Success!
+Running test "append two ints":
+	Success!
+Running test "append three ints":
+	Success!
+Running test "append all":
+	Success!
+Running test "element_at #1":
+	Success!
+Running test "element_at #2":
+	Success!
+Running test "contains #1":
+	Success!
+Running test "contains #2":
+	Success!
+Running test "contains #3":
+	Success!
+Running test "prepend_all #1":
+	Success!
+Running test "insert #1":
+	Success!
+Running test "insert #2":
+	Success!
+Running test "clone #1":
+	Success!
+Running test "drop #1":
+	Success!
+Running test "remove front #1":
+	Success!
+Running test "remove back #1":
+	Success!
+Running test "iter #1":
+	Success!
+
+EUnit testsuite "LinkedList" completed.
+25/25 tests completed successfully!

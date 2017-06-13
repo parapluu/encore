@@ -7,7 +7,7 @@ EMBED
 BODY
 END
 
-read trait HashCode
+local trait HashCode
   require val hash_code : uint
   def hash_address() : uint
     EMBED (int)
@@ -23,17 +23,17 @@ read trait HashCode
       // Retrieve address of this object
       uintptr_t address = (uintptr_t) _this;
 
-      // Convert the adress to an uint8_t-array
+      // Convert the address to an uint8_t-array
       // WARNING: Assumes little endian!
       size_t ptr_size = sizeof(uintptr_t);
-      uint8_t adress_arr[ptr_size];
+      uint8_t address_arr[ptr_size];
       for(int i = 0; i < ptr_size; ++i) {
-          adress_arr[i] = (uint8_t)((adress) >> i*8);
+          address_arr[i] = (uint8_t)((address) >> i*8);
       }
 
       // Compute the hash value
       // WARNING: size_t may be larger than uint64_t !!!
-      siphash(hash, adress_arr, (uint64_t) ptr_size, k);
+      siphash(hash, address_arr, (uint64_t) ptr_size, k);
 
       // Return the value to the caller
       U8TO64_LE(hash);
