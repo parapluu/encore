@@ -739,8 +739,8 @@ instance Show Error where
                "the result type of the containing method %s")
                (show retType) (show ty)
     show (ForwardTypeClosError retType ty) =
-        printf ("Returned type %s of forward should match with " ++
-               "the result type of the closure %s")
+        printf ("Result type %s of the closure should match with " ++
+               "the return type %s of the forward")
                (show retType) (show ty)
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"

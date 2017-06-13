@@ -6,7 +6,8 @@ end
 
 active class Foo
   def join(ff : Fut[Fut[int]]) : int
-    forward(ff ~~> (fun (f : Fut[int]) : int => forward(f)))
+    (ff ~~> (fun (f : Fut[int]) : unit => forward(f)))
+    0 -- Will be disregarded since it is used to bypass the typechecker.
   end
 
   def duplicate() : Fut[int]

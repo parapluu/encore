@@ -9,14 +9,15 @@ active class Base[t]
   end
 end
 active class Foo[sharable ty]
-  def foo(arg : Fut[ty]) : ty
-    get(arg ~~> fun(x : ty) : ty => forward((new Base[ty](x)) ! base()))
+  def foo(arg : Fut[ty], arg2 : Fut[ty]) : ty
+    (arg ~~> fun(x : ty) : unit => forward((new Base[ty](x)) ! base()))
+    get(arg2) -- Will be disregarded since it is used to bypass the typechecker.
   end
 end
-
 active class Main
   def main() : unit
     val arg = (new Base[int](42)) ! base()
-    println("{}", get((new Foo[int]) ! foo(arg)))
+    val arg2 = (new Base[int](123456)) ! base()
+    println("{}", get((new Foo[int]) ! foo(arg, arg2)))
   end
 end

@@ -1,0 +1,24 @@
+typedef Tuple = (int, real)
+
+active class Crop
+  var v : Tuple
+  def init(v : Tuple) : unit
+    this.v = v
+  end
+  def collect() : Tuple
+    this.v
+  end
+end
+active class Pepper
+  def green(arg : Fut[Tuple]) : Tuple
+    (arg ~~> fun(x : Tuple) : unit => forward((new Crop(x)) ! collect()))
+    (0, 0.0) -- Will be disregarded since it is used to bypass the typechecker.
+  end
+end
+active class Main
+  def main() : unit
+    val arg = (new Crop((42, 42.0))) ! collect()
+    val tem = (new Pepper) ! green(arg)
+    println("{}", get(tem))
+  end
+end

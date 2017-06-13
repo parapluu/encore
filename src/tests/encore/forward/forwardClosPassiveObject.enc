@@ -1,0 +1,31 @@
+read class Mellon
+  val v : int
+  def init(v : int) : unit
+    this. v = v
+  end
+  def grow() : int
+    this.v
+  end
+end
+active class Crop
+  var v : Mellon
+  def init(v : Mellon) : unit
+    this.v = v
+  end
+  def collect() : Mellon
+    this.v
+  end
+end
+active class Pepper
+  def green(arg : Fut[Mellon]) : Mellon
+    (arg ~~> fun(x : Mellon) : unit => forward((new Crop(x)) ! collect()))
+    new Mellon(42000000) -- Will be disregarded since it is used to bypass the typechecker.
+  end
+end
+active class Main
+  def main() : unit
+    val mellon = new Mellon(42)
+    val arg = (new Crop(mellon)) ! collect()
+    println("{}", (get(arg)).grow())
+  end
+end

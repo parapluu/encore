@@ -1,18 +1,22 @@
 active class Main
   def main() : unit
-    val fres = (this!foo() ~~>  fun (x : int) : int
-                                    val tem = this ! inc(x)
-                                    await(tem)
-                                    forward(tem)
-                                end)
-    await(fres)
-    println("{}", get(fres))
+    val foo = this ! foo()
+    await(foo)
+    val bar = this ! bar(foo)
+    await(bar)
+    println("{}", get(bar))
   end
-
+  def bar(foo : Fut[int]) : int
+    (foo ~~> fun (x : int) : unit
+                val inc = this ! inc(x)
+                await(inc)
+                forward(inc)
+             end)
+    0 -- Will be disregarded since it is used to bypass the typechecker.
+  end
   def foo() : int
     42
   end
-
   def inc(x : int) : int
     x + 1
   end
