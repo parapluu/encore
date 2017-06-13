@@ -1,9 +1,5 @@
 import Active.Active
 
-fun id[t](x : t) : t
-  x
-end
-
 fun getActiveInt() : Active[int]
   new Active[int](fun () => 1)
 end

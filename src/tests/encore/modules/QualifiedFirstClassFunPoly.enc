@@ -1,12 +1,12 @@
--- This file was automatically converted by encorec
-
 import Top
+
 fun apply[a, b](f : a -> b, x : a) : b
   f(x)
 end
+
 active class Main
   def main() : unit
     println(apply(id[int], 10))
-    println(apply(Top.id[int], 10))
+    println(apply(Top.sid[int], 10))
   end
 end

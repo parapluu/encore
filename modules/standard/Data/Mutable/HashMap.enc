@@ -143,7 +143,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     while iter.has_next() && not removed do
       val entry = unjust(iter.next())
       if entry.key.equals(key) then
-        l.remove(i)  -- TODO: make more efficient
+        l.remove(i)  -- TODO: make more efficient (it will search through again)
         this.items = this.items - 1
         removed = true
       end
