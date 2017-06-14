@@ -1,11 +1,8 @@
 
 module Either
 
-<<<<<<< HEAD
 import qualified Data.Array as A
 
-=======
->>>>>>> Made Either more polymorphic, added functions to string
 fun Left[a, b](x : a) : Either[a, b]
   new Left[a, b](x) : Either[a, b]
 end
