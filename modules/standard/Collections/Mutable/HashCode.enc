@@ -1,6 +1,6 @@
 module HashCode
 
-import Siphash
+import Collections.Mutable.Siphash
 
 EMBED
   #include <stdint.h> // uintptr_t

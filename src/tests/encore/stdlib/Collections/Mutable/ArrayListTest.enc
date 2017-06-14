@@ -148,7 +148,7 @@ fun insert_four_failure() : bool
   match output with
 
     case Left[String,uint](s) =>
-      if not s.eq("OutOfBounds") then
+      if not s.equals("OutOfBounds") then
         println("\tReceived incorrect error message! Received: {}", s)
         false
       else
