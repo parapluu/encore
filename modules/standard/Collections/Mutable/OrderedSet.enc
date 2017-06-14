@@ -1,6 +1,6 @@
--- This file was automatically converted by encorec
-
 module OrderedSet
+
+
 local class OrderedSet[t]
   var root : Node[t]
   var size : int
@@ -46,6 +46,7 @@ local class OrderedSet[t]
     end
   end
 end
+
 local class Node[t] : Id
   var elem : t
   var left : Node[t]
@@ -150,6 +151,7 @@ local class Node[t] : Id
     end
   end
 end
+
 local class OrderedSetIterator[t]
   var cur : Node[t]
   def init(n : Node[t]) : unit

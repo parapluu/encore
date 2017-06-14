@@ -1,12 +1,12 @@
 module HashMap
 
-import Data.Mutable.LinkedList
-import Data.Mutable.Siphash
-import Data.Mutable.Hasher
-import Data.Mutable.HashCode
-import Data.Mutable.Collection
-import Data.Mutable.Map
-import qualified Data.Mutable.Array as Array
+import Collections.Mutable.LinkedList
+import Collections.Mutable.Siphash
+import Collections.Mutable.Hasher
+import Collections.Mutable.HashCode
+import Collections.Mutable.Collection
+import Collections.Mutable.Map
+import qualified Collections.Mutable.Array as Array
 import Data.Maybee
 
 local class Entry[v]

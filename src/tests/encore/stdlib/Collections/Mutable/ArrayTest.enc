@@ -1,4 +1,4 @@
-import Data.Mutable.Array
+import Collections.Mutable.Array
 import qualified Data.Maybee as M
 
 -- helpful functions
@@ -73,7 +73,7 @@ end
 fun testNClone() : unit
   println("-- nclone --")
   var arr = [0,1,2,3,4]
-  println("{}", M.isNothing(nclone(arr,10)))
+  println("{}", M.is_nothing(nclone(arr,10)))
   show(showInt, M.unjust(nclone(arr,3)))
 end
 

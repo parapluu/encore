@@ -1,6 +1,6 @@
--- This file was automatically converted by encorec
 
-import Set.OrderedSet
+import Collections.Mutable.OrderedSet
+
 fun getEmpty() : OrderedSet[int]
   let
     cmp = fun (x : int, y : int) => if x == y then

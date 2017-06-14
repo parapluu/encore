@@ -1,6 +1,6 @@
 module Iterable
 
-import Collection
+import Collections.Mutable.Collection
 
 -- TODO: Change types to self-types when possible
 

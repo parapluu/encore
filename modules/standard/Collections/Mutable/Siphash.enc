@@ -1,6 +1,6 @@
 module Siphash
 
-import Hasher
+import Collections.Mutable.Hasher
 
 EMBED
     #include <stdint.h>

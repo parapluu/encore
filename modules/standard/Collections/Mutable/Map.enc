@@ -1,6 +1,6 @@
 module Map
 
-import HashCode
+import Collections.Mutable.HashCode
 
 local trait Map[t]
   require def clone() : Map[t]

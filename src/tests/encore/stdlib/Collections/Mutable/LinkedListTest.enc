@@ -2,7 +2,7 @@
 module LinkedListTest
 
 import Unit.Unit
-import Data.Mutable.LinkedList
+import Collections.Mutable.LinkedList
 import Data.Maybee
 
 fun list_contains[t](list: LinkedList[t], array: [t]) : bool
@@ -212,7 +212,7 @@ fun prepend_three_and_remove_middle() : bool
     case Just(first) =>
       first.value == 420 &&
       match first.next with
-        case Just(second) => isNothing(second.next) && second.value == 42
+        case Just(second) => is_nothing(second.next) && second.value == 42
         case _ => false
       end 
     end

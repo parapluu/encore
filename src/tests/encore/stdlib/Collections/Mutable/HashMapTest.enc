@@ -1,21 +1,14 @@
 {-
-  I am fully aware of how truly awful the code quality is inside this file.
-  It actually used to look a bit better initially. However after converting the
-  old syntax to the new syntax by using the Pretty Printer inside the
-  compiler it turned to the worse.
-
-  But, considering this code works as intended, and its only here to ensure that
-  I don't mess anything up. I won't attempt to clean it up.
+  Code quality is low in part due to automatic conversion to new syntax
 -}
 
 module HashMapTest
 
 
 import Unit.Unit
-import Data.Mutable.HashMap
-import Data.Mutable.HashCode
+import Collections.Mutable.HashMap
+import Collections.Mutable.HashCode
 import Data.Maybee
--- import Wrappers
 
 local class Foo : HashCode + Id
   var hash_code : uint

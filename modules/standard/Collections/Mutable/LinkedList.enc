@@ -2,8 +2,8 @@ module LinkedList
 
 import Data.Either
 import Data.Maybee
-import Data.Mutable.Collection
-import Data.Mutable.Iterable
+import Collections.Mutable.Collection
+import Collections.Mutable.Iterable
 
 local class LinkedNode[t] : Id
   var value : t

@@ -1,24 +1,24 @@
 -- unjust --
 10
--- unjustWithDefault --
+-- unjust_with_default --
 10
 12
--- Maybe --
+-- maybe --
 11
 12
 -- map --
 Just 11
 Nothing
--- isJust --
+-- is_just --
 false true
--- isNothing --
+-- is_nothing --
 true false
--- arrayToMaybe --
+-- array_to_maybe --
 Nothing Just 1 Just 1
--- maybeToArray --
+-- maybe_to_array --
 []
 [10]
--- catMaybes --
+-- cat_maybes --
 [10, 11]
--- mapMaybe --
+-- map_maybe --
 [1, 2]

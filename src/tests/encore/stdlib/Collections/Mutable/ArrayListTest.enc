@@ -1,7 +1,7 @@
 module ArrayListTest
 
 import Unit.Unit
-import Data.Mutable.ArrayList
+import Collections.Mutable.ArrayList
 import Data.Either
 
 fun compare_optional(a: Maybe[int], b: Maybe[int]) : bool

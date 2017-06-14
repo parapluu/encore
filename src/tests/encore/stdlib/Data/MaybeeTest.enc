@@ -1,66 +1,66 @@
 import Data.Maybee
-import qualified Data.Mutable.Array as A
+import qualified Collections.Mutable.Array as A
 
 fun inc(x : int) : int
   x + 1
 end
 
-fun testUnjust() : unit
+fun test_unjust() : unit
   val ma = Just(10)
   println("-- unjust --")
   println(unjust(ma))
 end
 
-fun testUnjustWithDefault() : unit
+fun test_unjust_with_default() : unit
   val ma = Just(10)
-  println("-- unjustWithDefault --")
-  println(unjustWithDefault(12, ma))
-  println(unjustWithDefault(12, Nothing))
+  println("-- unjust_with_default --")
+  println(unjust_with_default(12, ma))
+  println(unjust_with_default(12, Nothing))
 end
 
-fun testMaybe() : unit
+fun test_maybe() : unit
   val ma = Just(10)
-  println("-- Maybe --")
+  println("-- maybe --")
   println(maybe(12, inc, ma))
   println(maybe(12, inc, Nothing))
 end
 
-fun testMap() : unit
+fun test_map() : unit
   val ma = Just(10)
   println("-- map --")
   println(map(inc, ma))
   println(map(inc, Nothing))
 end
 
-fun testIsJust() : unit
-  println("-- isJust --")
-  println("{} {}", isJust[int](Nothing), isJust(Just(10)))
+fun test_is_just() : unit
+  println("-- is_just --")
+  println("{} {}", is_just[int](Nothing), is_just(Just(10)))
 end
 
-fun testIsNothing() : unit
-  println("-- isNothing --")
-  println("{} {}", isNothing[int](Nothing), isNothing(Just(10)))
+fun test_is_nothing() : unit
+  println("-- is_nothing --")
+  println("{} {}", is_nothing[int](Nothing), is_nothing(Just(10)))
 end
 
-fun testArrayToMaybe() : unit
-  println("-- arrayToMaybe --")
-  println("{} {} {}", arrayToMaybe(new [int](0)), arrayToMaybe([1]), arrayToMaybe([1,2,3]))
+fun test_array_to_maybe() : unit
+  println("-- array_to_maybe --")
+  println("{} {} {}", array_to_maybe(new [int](0)), array_to_maybe([1]), array_to_maybe([1,2,3]))
 end
 
-fun testMaybeToArray() : unit
-  println("-- maybeToArray --")
-  A.show(printInt, maybeToArray[int](Nothing))
-  A.show(printInt, maybeToArray(Just(10)))
+fun test_maybe_to_array() : unit
+  println("-- maybe_to_array --")
+  A.show(print_int, maybe_to_array[int](Nothing))
+  A.show(print_int, maybe_to_array(Just(10)))
 end
 
-fun testCatMaybes() : unit
-  println("-- catMaybes --")
-  A.show(printInt, catMaybes([Just(10), Nothing, Just(11)]))
+fun test_cat_maybes() : unit
+  println("-- cat_maybes --")
+  A.show(print_int, cat_maybes([Just(10), Nothing, Just(11)]))
 end
 
-fun testMapMaybe() : unit
-  println("-- mapMaybe --")
-  A.show(printInt, mapMaybe(f,[1,2,3,4]))
+fun test_map_maybe() : unit
+  println("-- map_maybe --")
+  A.show(print_int, map_maybe(f,[1,2,3,4]))
 where
   fun f(i : int) : Maybe[int]
     if i < 3 then
@@ -72,25 +72,25 @@ where
 end
 
 -- some helper functions due to limitations in print
-fun printInt(i : int) : unit
+fun print_int(i : int) : unit
   print("{}", i)
 end
 
-fun printMaybeInt(m : Maybe[int]) : unit
+fun print_maybe_int(m : Maybe[int]) : unit
   print("{}", m)
 end
 
 active class Main
   def main() : unit
-    testUnjust()
-    testUnjustWithDefault()
-    testMaybe()
-    testMap()
-    testIsJust()
-    testIsNothing()
-    testArrayToMaybe()
-    testMaybeToArray()
-    testCatMaybes()
-    testMapMaybe()
+    test_unjust()
+    test_unjust_with_default()
+    test_maybe()
+    test_map()
+    test_is_just()
+    test_is_nothing()
+    test_array_to_maybe()
+    test_maybe_to_array()
+    test_cat_maybes()
+    test_map_maybe()
   end
 end

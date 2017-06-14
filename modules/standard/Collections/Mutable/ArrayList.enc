@@ -1,9 +1,9 @@
 module ArrayList
 
-import Data.Maybee(catMaybes)
+import Data.Maybee(cat_maybes)
 import Data.Either
-import Data.Mutable.Collection
-import Data.Mutable.Array
+import Collections.Mutable.Collection
+import Collections.Mutable.Array
 
 local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_right(), shift_left(), ensure_can_accomodate(), resize())
   var int_arr    : [Maybe[t]]
@@ -306,6 +306,6 @@ local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_r
   end
   
   def underlying() : [t]
-    catMaybes(this.int_arr)
+    cat_maybes(this.int_arr)
   end
 end
