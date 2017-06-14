@@ -48,6 +48,26 @@ fun filter[a](f : a -> bool, arr : [a]) : [a]
   end
 end
 
+
+-- filter_map :: (a -> bool, a -> b, [a]) -> [b]
+-- filter (pred, fun, arr) produces a new array with elements not satisfying pred removed,
+-- after applying fun
+fun filter_map[a,b](p : a -> bool, f : a -> b, arr : [a]) : [b]
+  val tmp = new [a](|arr|)
+  var N = 0
+  for el <- arr do
+    if p(el) then
+      tmp(N) = el
+      N = N + 1
+    end
+  end
+  val ret = new [b](N)
+  for i <- [0 .. N-1] do
+    ret(i) = f(tmp(i))
+  end
+  ret
+end
+
 -- count :: (a -> bool, [a]) -> [a]
 -- count(pred, arr) counts the number of elements of arr satisfying predicate pred
 fun count[a](pred : a -> bool, arr : [a]) : int
