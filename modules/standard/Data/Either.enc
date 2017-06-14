@@ -40,7 +40,7 @@ read trait Either[a, b]
   def flatMap[c](f : b -> Either[a, c]) : Either[a, c]
     match this with
       case Left(x) =>
-        new Left[a, b](x)
+        new Left[a, c](x)
       end
       case Right(x) =>
         f(x)
