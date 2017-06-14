@@ -1,6 +1,7 @@
--- This file was automatically converted by encorec
 
 import Data.Either
+
+
 active class Main
   def main() : unit
     val l = Left[String, int]("error")
@@ -15,5 +16,9 @@ active class Main
             x
           end)
     r.foreach(fun (x : int) => println("should print"))
+    
+    match r with 
+      case Right(x) => println("should print")
+    end
   end
 end
