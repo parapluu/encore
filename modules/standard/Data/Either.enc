@@ -1,6 +1,8 @@
 
 module Either
 
+import qualified Collections.Mutable.Array as A
+
 fun Left[a, b](x : a) : Either[a, b]
   new Left[a, b](x) : Either[a, b]
 end
@@ -81,3 +83,54 @@ class Right[a, b] : Either[a, b](x)
     Just(this.x)
   end
 end
+
+-- TODO: maybe should be in module dealing with exceptions
+fun or_else[a,b,c](f1 : a -> Either[b,c], f2 : a -> Either[b,c], x: a) : Either[b,c]
+  match f1(x) with
+    case Right(nice) => Right[b,c](nice)
+    case Left(err) => f2(x)
+  end
+end
+
+fun either[a,b,c](f1 : a -> c, f2 : b -> c, e : Either[a,b]) : c
+  match e with
+    case Left(a) => f1(a)
+    case Right(a) => f2(a)
+  end
+end
+
+fun unright[a,b](e : Either[a,b]) : b
+  match e with
+    case Right(a) => a
+  end
+end
+
+fun unleft[a,b](e : Either[a,b]) : a
+  match e with
+    case Left(a) => a
+  end
+end
+
+fun lefts[a,b](e : [Either[a,b]]) : [a]
+  A.filter_map(is_left[a,b], unleft[a,b], e)
+end
+
+fun rights[a,b](e : [Either[a,b]]) : [b]
+  A.filter_map(is_right[a,b], unright[a,b], e)
+end
+
+fun is_left[a,b](e : Either[a,b]) : bool
+  match e with
+    case Left(a) => true
+    case _ => false
+  end
+end
+
+fun is_right[a,b](e : Either[a,b]) : bool
+  match e with
+    case Right(a) => true
+    case _ => false
+  end
+end
+
+-- TODO: partitionEithers :: [Either a b] -> ([a], [b])

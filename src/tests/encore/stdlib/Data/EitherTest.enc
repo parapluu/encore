@@ -20,5 +20,8 @@ active class Main
     match r with 
       case Right(x) => println("should print")
     end
+    
+    -- TODO: test orElse
+    -- TODO: test other functions
   end
 end
