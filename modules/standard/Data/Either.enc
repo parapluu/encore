@@ -1,26 +1,30 @@
--- This file was automatically converted by encorec
 
 module Either
+
 fun Left[a, b](x : a) : Either[a, b]
   new Left[a, b](x) : Either[a, b]
 end
+
 fun Right[a, b](x : b) : Either[a, b]
   new Right[a, b](x) : Either[a, b]
 end
+
 read trait Either[a, b]
   require def Left() : Maybe[a]
   require def Right() : Maybe[b]
-  def map(f : b -> b) : Either[a, b]
+
+  def map[c](f : b -> c) : Either[a, c]
     match this with
       case Left(x) =>
-        new Left[a, b](x)
+        new Left[a, c](x)
       end
       case Right(x) =>
-        new Right[a, b](f(x))
+        new Right[a, c](f(x))
       end
 
     end
   end
+
   def foreach(f : b -> unit) : unit
     match this with
       case Left(x) =>
@@ -32,7 +36,8 @@ read trait Either[a, b]
 
     end
   end
-  def flatMap(f : b -> Either[a, b]) : Either[a, b]
+
+  def flatMap[c](f : b -> Either[a, c]) : Either[a, c]
     match this with
       case Left(x) =>
         new Left[a, b](x)
@@ -44,26 +49,34 @@ read trait Either[a, b]
     end
   end
 end
+
 class Left[a, b] : Either[a, b](x)
   val x : a
+
   def init(x : a) : unit
     this.x = x
   end
+
   def Left() : Maybe[a]
     Just(this.x)
   end
+
   def Right() : Maybe[b]
     Nothing
   end
 end
+
 class Right[a, b] : Either[a, b](x)
   val x : b
+
   def init(x : b) : unit
     this.x = x
   end
+
   def Left() : Maybe[a]
     Nothing
   end
+
   def Right() : Maybe[b]
     Just(this.x)
   end

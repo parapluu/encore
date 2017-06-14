@@ -6,8 +6,12 @@ EMBED
 #include <alloca.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdlib.h>     /* strtod */
+
 array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv);
+
 BODY
+
 // This function is called in the very beginning of the program to
 // build an array containing the arguments of the program.
 array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
@@ -22,6 +26,7 @@ array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
  return arr;
 }
 END
+
 fun string_from_char(c : char) : String
   let
     s = EMBED (EMBED char* END) encore_alloc(*_ctx, 2); END
@@ -42,6 +47,7 @@ fun string_from_array(arr : [char]) : String
     new String(s)
   end
 end
+
 fun string_from_real(n : real) : String
   new String(EMBED (EMBED char* END)
                double n = #{n};
@@ -367,6 +373,15 @@ read class String : Id + Eq[String](compare(),length,data)
     end
   end
 
+  def at(i : int) : char
+    val s = this.data
+    if (i >= 0) && (i < this.length()) then
+      EMBED (char) #{s}[#{i}]; END
+    else
+      abort("String access out of bounds.")
+    end
+  end
+
   def to_array() : [char]
     let
       len = this.length()
@@ -420,12 +435,45 @@ read class String : Id + Eq[String](compare(),length,data)
 
   def to_int() : Maybe[int]
     val s = this.data
-    val n = 0
-    val success = false
+    var n = 0
+    var success = false
     EMBED (unit)
       char *s = #{s};
       char *endptr;
       #{n} = strtol(s,&endptr,0);
+      if (s != endptr)
+         #{success} = true;
+    END
+    if success then
+      Just(n)
+    else
+      Nothing
+    end
+  end
+
+
+  def to_bool() : Maybe[bool]
+    -- TODO: tests
+    if this.eq("true") then
+      Just(true)
+    else if this.eq("false") then
+      Just(false)
+    else
+      Nothing
+    end
+  end
+
+
+  def to_real() : Maybe[real]
+    -- TODO: Proper error checking!!
+    -- TODO: Tests
+    val s = this.data
+    var n : real = 0.0
+    var success = false
+    EMBED (unit)
+      char *s = #{s};
+      char *endptr;
+      #{n} = strtod(s,&endptr);
       if (s != endptr)
          #{success} = true;
     END
