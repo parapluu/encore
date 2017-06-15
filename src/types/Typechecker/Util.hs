@@ -12,12 +12,15 @@ module Typechecker.Util(TypecheckM
                        ,pushError
                        ,tcWarning
                        ,pushWarning
+                       ,checkType
                        ,resolveType
                        ,resolveTypeAndCheckForLoops
                        ,findFormalRefType
                        ,isKnownRefType
                        ,assertSafeTypeArguments
+                       ,checkTypeArgumentBounds
                        ,subtypeOf
+                       ,assertSubtypeOf
                        ,assertDistinctThing
                        ,assertDistinct
                        ,findTrait
@@ -131,6 +134,23 @@ matchTypeParameterLength ty1 ty2 = do
     tcError $ WrongNumberOfTypeParametersError
               ty1 (length params1) ty2 (length params2)
 
+checkType :: Type -> TypecheckM Type
+checkType = typeMapM checkSingleType
+  where
+    checkSingleType ty
+      | isRefAtomType ty = do
+          ty' <- resolveType ty
+
+          -- ty' could be an unfolded type synonym
+          when (isRefAtomType ty') $ do
+            formal <- findFormalRefType ty'
+            let formalTypeParams = getTypeParameters formal
+                actualTypeParams = getTypeParameters ty'
+            assertSafeTypeArguments formalTypeParams actualTypeParams
+            checkTypeArgumentBounds formalTypeParams actualTypeParams
+          return ty'
+      | otherwise = resolveType ty
+
 -- | @resolveType ty@ checks all the components of @ty@, resolving
 -- reference types to traits or classes and making sure that any
 -- type variables are in the current environment.
@@ -143,7 +163,7 @@ resolveSingleType ty
       params <- asks typeParameters
       case find ((getId ty ==) . getId) params of
         Just ty' -> return $ ty' `withBoxOf` ty
-        Nothing -> tcError $ FreeTypeVariableError ty
+        Nothing  -> tcError $ FreeTypeVariableError ty
   | isRefAtomType ty = do
       res <- resolveRefAtomType ty
       formal <- findFormalRefType ty
@@ -204,9 +224,6 @@ resolveRefAtomType :: Type -> TypecheckM Type
 resolveRefAtomType ty = do
   formal <- findFormalRefType ty
   matchTypeParameterLength formal ty
-  let formalTypeParams = getTypeParameters formal
-      actualTypeParams = getTypeParameters ty
-  assertSafeTypeArguments formalTypeParams actualTypeParams
   let res = formal `setTypeParameters` getTypeParameters ty
                    `withModeOf` ty
                    `withBoxOf` ty
@@ -280,6 +297,16 @@ assertSafeTypeArguments = zipWithM_ assertSafeTypeArgument
           when (isArrayType arg) $
            tcWarning ArrayTypeArgumentWarning
 
+checkTypeArgumentBounds :: [Type] -> [Type] -> TypecheckM ()
+checkTypeArgumentBounds = zipWithM_ checkBound
+  where
+    checkBound param arg
+      | Just bound <- getBound param = do
+          unless (isCapabilityType bound) $
+                 tcError $ MalformedCapabilityError bound
+          arg `assertSubtypeOf` bound
+      | otherwise = return ()
+
 subtypeOf :: Type -> Type -> TypecheckM Bool
 subtypeOf ty1 ty2
     | isStackboundType ty1 =
@@ -342,6 +369,9 @@ subtypeOf ty1 ty2
     | isBottomType ty1 && (not . isBottomType $ ty2) = return True
     | isNumeric ty1 && isNumeric ty2 =
         return $ ty1 `numericSubtypeOf` ty2
+    | isTypeVar ty1 && not (isTypeVar ty2)
+    , Just bound <- getBound ty1
+      = bound `subtypeOf` ty2
     | otherwise = return (ty1 == ty2)
     where
       capabilitySubtypeOf cap1 cap2 = do
@@ -369,6 +399,22 @@ subtypeOf ty1 ty2
           | isIntType ty1 && isUIntType ty2 = True
           | isUIntType ty1 && isIntType ty2 = True
           | otherwise = ty1 == ty2
+
+assertSubtypeOf :: Type -> Type -> TypecheckM ()
+assertSubtypeOf sub super =
+    unlessM (sub `subtypeOf` super) $ do
+      capability <- if isClassType sub
+                    then do
+                      cap <- findCapability sub
+                      if isIncapability cap
+                      then return Nothing
+                      else return $ Just cap
+                    else return Nothing
+      case capability of
+        Just cap ->
+            tcError $ TypeWithCapabilityMismatchError sub cap super
+        Nothing ->
+            tcError $ TypeMismatchError sub super
 
 equivalentTo :: Type -> Type -> TypecheckM Bool
 equivalentTo ty1 ty2 = do
@@ -472,6 +518,10 @@ findMethodWithCalledType ty name
         unless (all (==calledType) (map snd results)) $
                tcError $ UnionMethodAmbiguityError ty name
         return result
+    | isTypeVar ty
+    , Just bound <- getBound ty = do
+        (header, bound') <- findMethodWithCalledType bound name
+        return (header, setBound (Just bound') ty)
     | otherwise = do
         isKnown <- isKnownRefType ty
         unless isKnown $
@@ -764,6 +814,9 @@ isPassiveType ty
     | isUnionType ty
     , tys <- unionMembers ty
       = allM isPassiveType tys
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = isPassiveType bound
     | otherwise = return False
 
 isActiveType :: Type -> TypecheckM Bool
@@ -778,6 +831,9 @@ isActiveType ty
     | isUnionType ty
     , tys <- unionMembers ty
       = allM isActiveType tys
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = isActiveType bound
     | otherwise = return False
 
 isSharedType :: Type -> TypecheckM Bool
@@ -792,6 +848,9 @@ isSharedType ty
     | isUnionType ty
     , tys <- unionMembers ty
       = allM isSharedType tys
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = isSharedType bound
     | otherwise = return False
 
 isSharableType :: Type -> TypecheckM Bool

@@ -592,11 +592,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
   translate call@(A.MethodCall { A.emeta, A.target, A.name, A.typeArguments, A.args})
     | (Ty.isTraitType . A.getType) target ||
-      (Ty.isUnionType . A.getType) target = do
+      (Ty.isUnionType . A.getType) target ||
+      (Ty.isTypeVar   . A.getType) target = do
         (ntarget, ttarget) <- translate target
-        (nCall, tCall) <- traitMethod msgId ntarget (A.getType target) name
+        let ntarget' = if Ty.isTypeVar $ A.getType target
+                       then Cast capability (ntarget `Dot` Nam "p")
+                       else AsExpr ntarget
+        (nCall, tCall) <- traitMethod msgId ntarget' (A.getType target) name
                               typeArguments args (translate (A.getType call))
-        let recvNullCheck = targetNullCheck ntarget target name emeta "."
+        let recvNullCheck = targetNullCheck ntarget' target name emeta "."
         return (nCall, Seq [ttarget
                            ,recvNullCheck
                            ,tCall
@@ -617,7 +621,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             return (Var result,
               Seq $
                 ttarget :
-                targetNullCheck ntarget target name emeta "." :
+                targetNullCheck (AsExpr ntarget) target name emeta "." :
                 initArgs ++
                 [Assign (Decl (translate retTy, Var result)) resultExpr]
               )
@@ -634,7 +638,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     else futMsgId
         (nCall, tCall) <- traitMethod idFun ntarget (A.getType target) name
                               typeArguments args (translate (A.getType call))
-        let recvNullCheck = targetNullCheck ntarget target name emeta "."
+        let recvNullCheck = targetNullCheck (AsExpr ntarget) target name emeta "."
         return (nCall, Seq [ttarget
                            ,recvNullCheck
                            ,tCall
@@ -653,7 +657,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           msgSend ntarget targetTy name args typeArguments retTy
         (resultVar, handleResult) <- returnValue
         return (resultVar,
-                Seq $ ttarget : targetNullCheck ntarget target name emeta " ! " :
+                Seq $ ttarget : targetNullCheck (AsExpr ntarget) target name emeta " ! " :
                       initArgs ++ [handleResult resultExpr])
         where
           retTy | isNothing sym = Ty.unitType
@@ -1019,7 +1023,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         callTheMethodOneway
           ntarget targetType name args typeArguments Ty.unitType
 
-      let nullCheck = targetNullCheck ntarget target name emeta "."
+      let nullCheck = targetNullCheck (AsExpr ntarget) target name emeta "."
 
       return (unit, Seq $
                       ttarget : nullCheck : initArgs ++
@@ -1387,22 +1391,21 @@ traitMethod idFun this targetType name typeargs args resultType =
           ]
         )
   where
-    thisType = translate targetType
     argTypes = map (translate . A.getType) args
     declF f = FunPtrDecl resultType (Nam f) $
-                Ptr (Ptr encoreCtxT):thisType: Ptr (Ptr ponyTypeT): argTypes
+                Ptr (Ptr encoreCtxT):capability: Ptr (Ptr ponyTypeT): argTypes
     declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Typ "int"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
     initF f vtable id = Assign (Var f) $ Call (Nam vtable) [id]
-    callF f this args typeArgs = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this :
+    callF f this args typeArgs = Call (Nam f) $ AsExpr encoreCtxVar : Cast capability this :
                                        AsExpr typeArgs : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
 
 targetNullCheck ntarget target name meta op =
   Statement $
     Call (Nam "check_receiver")
-      [AsExpr ntarget,
+      [ntarget,
        String op,
        String (show (PP.ppExpr target)),
        String (show name),

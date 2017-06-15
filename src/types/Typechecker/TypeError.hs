@@ -173,7 +173,10 @@ refTypeName ty
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No refTypeName for " ++
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = refTypeName bound
+    | otherwise = error $ "TypeError.hs: No refTypeName for " ++
                           showWithKind ty
 
 -- | The data type for a type checking error. Showing it will
@@ -213,6 +216,7 @@ data Error =
   | UnknownTraitError Type
   | UnknownRefTypeError Type
   | MalformedCapabilityError Type
+  | MalformedBoundError Type
   | RecursiveTypesynonymError Type
   | DuplicateThingError String String
   | PassiveStreamingMethodError
@@ -460,6 +464,8 @@ instance Show Error where
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =
         printf "Cannot form capability with %s" (showWithKind ty)
+    show (MalformedBoundError bound) =
+        printf "Cannot use %s as bound (must have trait)" (showWithKind bound)
     show (RecursiveTypesynonymError ty) =
         printf "Type synonyms cannot be recursive. One of the culprits is %s"
                (getId ty)

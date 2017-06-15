@@ -42,6 +42,8 @@ module Types(
             ,unionMembers
             ,typeVar
             ,isTypeVar
+            ,setBound
+            ,getBound
             ,replaceTypeVars
             ,ctype
             ,isCType
@@ -294,7 +296,9 @@ data InnerType =
         | UnionType{ltype :: Type, rtype :: Type}
         | EmptyCapability{}
         | TypeVar{tmode :: Maybe Mode
-                 ,ident :: String}
+                 ,bound :: Maybe Type
+                 ,ident :: String
+                 }
         | ArrowType{paramTypes :: [Type]
                    ,argTypes   :: [Type]
                    ,resultType :: Type
@@ -374,7 +378,7 @@ getRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty =
         fromMaybe err $ refSourceFile (refInfo $ inner ty)
     | otherwise = error $ "Types.hs: tried to get the sourcefile of " ++ showWithKind ty
-    where err = error "Types.hs: type without sourceFile: " ++ showWithKind ty
+    where err = error $ "Types.hs: type without sourceFile: " ++ showWithKind ty
 
 setRefSourceFile file ty
     | isRefAtomType ty || isTypeSynonym ty =
@@ -694,6 +698,10 @@ withModeOf sink source
     , modes <- getModes source = applyInner (\i -> i{modes}) sink
     | isTypeVar sink && isTypeVar source
     , tmode <- tmode (inner source) = applyInner (\i -> i{tmode}) sink
+    | isRefAtomType sink && isTypeVar source
+    , iType <- inner sink
+    , info <- refInfo iType
+    , mode <- tmode (inner source) = sink{inner = iType{refInfo = info{mode}}}
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink
@@ -756,6 +764,9 @@ isRefAtomType _ = False
 isRefType ty
     | isUnionType ty =
         all isRefType (unionMembers ty)
+    | isTypeVar ty
+    , Just bound <- getBound ty =
+        isRefType bound
     | otherwise =
         isRefAtomType ty ||
         isCapabilityType ty
@@ -892,9 +903,15 @@ arrayType = typ . ArrayType
 isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = typ . TypeVar Nothing
+typeVar = typ . TypeVar Nothing Nothing
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
+
+setBound bound ty@Type{inner = t@TypeVar{}} = ty{inner = t{bound}}
+setBound _ ty = error $ "Types.hs: Cannot set bound of " ++ showWithKind ty
+
+getBound Type{inner = TypeVar{bound}} = bound
+getBound _ = Nothing
 
 isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
 isMainType _ = False
@@ -907,9 +924,12 @@ isStringObjectType ty = isClassType ty &&
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-    where replace ty =
-              fromMaybe ty (lookup ty bindings)
-              `withBoxOf` ty
+  where replace ty
+          | isTypeVar ty =
+            snd (fromMaybe (ty, ty)
+                           (find ((getId ty ==) . getId . fst) bindings))
+            `withBoxOf` ty
+          | otherwise = ty
 
 ctype :: String -> Type
 ctype = typ . CType
