@@ -1,12 +1,12 @@
 module HashMap
 
 import Collections.Mutable.LinkedList
-import Collections.Mutable.Siphash
-import Collections.Mutable.Hasher
-import Collections.Mutable.HashCode
+import Hash.Siphash
+import Hash.Hasher
+import Hash.HashCode
 import Collections.Mutable.Collection
 import Collections.Mutable.Map
-import qualified Collections.Mutable.Array as Array
+import qualified Data.Array as Array
 import Data.Maybee
 
 local class Entry[v]
@@ -107,8 +107,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
   def init() : unit
     this.items = 0
     this.size = 32
-    this.internal_map = Array.newWithGenerator(this.size, 
-                                               fun (x: int) => new LinkedList[Entry[v]]())
+    this.internal_map = Array.new_with_generator(this.size, 
+                                                 fun (x: int) => new LinkedList[Entry[v]]())
   end
 
   {-
@@ -142,7 +142,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     var i = 0
     while iter.has_next() && not removed do
       val entry = unjust(iter.next())
-      if entry.key.equals(key) then
+      if entry.key.hash_equals(key) then
         l.remove(i)  -- TODO: make more efficient (it will search through again)
         this.items = this.items - 1
         removed = true
@@ -209,7 +209,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     val i = this.internal_map(k).iterator()
     while i.has_next() do
       val entry = i.next()
-      if entry?.key?.equals(key) == Just(true) then
+      if entry?.key?.hash_equals(key) == Just(true) then
         return entry?.value
       end
     end
