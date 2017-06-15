@@ -1,7 +1,7 @@
 
 module Either
 
-import qualified Collections.Mutable.Array as A
+import qualified Data.Array as A
 
 fun Left[a, b](x : a) : Either[a, b]
   new Left[a, b](x) : Either[a, b]

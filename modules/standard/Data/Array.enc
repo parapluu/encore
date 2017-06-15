@@ -2,10 +2,10 @@ module Array
 
 -- This module implements common functions for operating on arrays
 
--- newWithDefault :: (int, a) -> [a]
--- newWithDefault (size, default) creates an array of size default
+-- new_with_default :: (int, a) -> [a]
+-- new_with_default(size, default) creates an array of size default
 -- with each element 
-fun newWithDefault[a](size : int, default : a) : [a]
+fun new_with_default[a](size : int, default : a) : [a]
   val arr = new [a](size)
   for i <- [0 .. size - 1] do
     arr(i) = default
@@ -14,10 +14,10 @@ fun newWithDefault[a](size : int, default : a) : [a]
 end
 
 
--- newWithGenerator :: (int, int -> a) -> [a]
--- newWithGenerator (size, gen) creates an array of the given size, where
+-- new_with_generator :: (int, int -> a) -> [a]
+-- new_with_generator(size, gen) creates an array of the given size, where
 -- element i is given by gen(i)
-fun newWithGenerator[a](size : int, gen : int -> a) : [a]
+fun new_with_generator[a](size : int, gen : int -> a) : [a]
   val arr = new [a](size)
   for i <- [0 .. size - 1] do
     arr(i) = gen(i)
@@ -50,7 +50,7 @@ end
 
 
 -- filter_map :: (a -> bool, a -> b, [a]) -> [b]
--- filter (pred, fun, arr) produces a new array with elements not satisfying pred removed,
+-- filter_map(pred, fun, arr) produces a new array with elements not satisfying pred removed,
 -- after applying fun
 fun filter_map[a,b](p : a -> bool, f : a -> b, arr : [a]) : [b]
   val tmp = new [a](|arr|)
@@ -94,7 +94,7 @@ end
 -- show :: (a -> unit, [a]) -> unit
 -- show(showEl, arr) prints out array arr using function showEl to print the elements
 -- of the array
-fun show[a](showElement : a -> unit, arr : [a]) : unit
+fun show[a](showEl : a -> unit, arr : [a]) : unit
   var first = true
   print("[")
   for el <- arr do
@@ -103,7 +103,7 @@ fun show[a](showElement : a -> unit, arr : [a]) : unit
     else
       first = false
     end
-    showElement(el)
+    showEl(el)
   end
   println("]")
 end
@@ -123,7 +123,7 @@ fun contains[t](arr : [t], to_find : t) : bool
 end
 
 -- contains_str :: ([String], String) -> bool
--- contains(arr, elem) is true if and only if elem appears in arr 
+-- contains_str(arr, elem) is true if and only if elem appears in arr 
 -- tested using String.compare
 fun contains_str(arr : [String], to_find : String) : bool
   var retval = false

@@ -1,5 +1,5 @@
 import Data.Maybee
-import qualified Collections.Mutable.Array as A
+import qualified Data.Array as A
 
 fun inc(x : int) : int
   x + 1

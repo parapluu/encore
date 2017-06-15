@@ -1,6 +1,6 @@
--- newWithDefault --
+-- new_with_default --
 [x, x, x, x, x, x, x, x, x, x]
--- newWithGenerator --
+-- new_with_generator --
 [0, 12, 24, 36, 48, 60, 72, 84, 96, 108]
 -- filter --
 [3, 4]

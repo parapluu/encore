@@ -1,5 +1,7 @@
 module String
 
+import Hash.HashCode
+
 EMBED
 #include <string.h>
 #include <strings.h>
@@ -9,6 +11,7 @@ EMBED
 #include <stdlib.h>     /* strtod */
 
 array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv);
+uint64_t hash_string(char* input);
 
 BODY
 
@@ -24,6 +27,16 @@ array_t *_init_argv(pony_ctx_t** ctx, size_t argc, char **argv) {
    array_set(arr, i, (encore_arg_t){.p = s});
  }
  return arr;
+}
+
+// djb2 from http://www.cse.yorku.ca/~oz/hash.html
+uint64_t hash_string(char* input) {
+    uint64_t hash = 5381;
+    char *str = input;
+    int c;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c;
+    return hash;
 }
 END
 
@@ -81,14 +94,21 @@ end
 -- [x] change this.length(a) ==> a.length()
 -- [ ] Write proper docs
 -- Be aware of issue #204
-read class String : Id + Eq[String](compare(),length,data)
+read class String : Id + HashCode + Eq[String](compare(),length,data)
   val data : EMBED char* END
   val length : int
+  val hash_code : uint
+  
   def init(s:EMBED char* END) : unit
     this.data = s
     this.length = EMBED (int); strlen(#{s}); END
+    this.hash_code = this.hash_string()
   end
 
+  def private hash_string() : uint
+    var ans = EMBED (uint) (uint64_t) hash_string(#{this.data}); END
+    ans
+  end
 
   def is_empty() : bool
     this.length == 0
@@ -232,10 +252,6 @@ read class String : Id + Eq[String](compare(),length,data)
     end
   end
 
-  -- Deprecated, should be removed
-  def equals(s:String) : bool
-    this.eq(s)
-  end
 
   -- Checks structural equivalence between this and s
   def eq(s:String) : bool

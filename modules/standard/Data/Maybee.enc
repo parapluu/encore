@@ -1,6 +1,6 @@
 module Maybee  -- why is Maybe a keyword?
 
-import qualified Collections.Mutable.Array as A
+import qualified Data.Array as A
 
 -- This package implements common functions for operating on 
 -- Maybe types. It is inspired heavily by Data.Maybe in Haskell.

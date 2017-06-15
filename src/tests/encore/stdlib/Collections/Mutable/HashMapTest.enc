@@ -7,11 +7,11 @@ module HashMapTest
 
 import Unit.Unit
 import Collections.Mutable.HashMap
-import Collections.Mutable.HashCode
+import Hash.HashCode
 import Data.Maybee
 
-local class Foo : HashCode + Id
-  var hash_code : uint
+read class Foo : HashCode + Id
+  val hash_code : uint
   def init() : unit
     this.hash_code = this.hash_address()
   end
@@ -253,7 +253,7 @@ fun iterator_test_1() : bool
 
               end && match iter.next() with
                        case Just(entry) =>
-                         entry.key.equals(foo) && entry.value == 12
+                         entry.key.hash_equals(foo) && entry.value == 12
                        end
                        case Nothing =>
                          println("\tCheck #2: iter.next() returned \"Nothing\".")
@@ -320,9 +320,9 @@ fun iterator_test_2() : bool
                     case Just(e) => e
                   end
 
-    if not found_foo && current.key.equals(foo) && current.value == 12 then
+    if not found_foo && current.key.hash_equals(foo) && current.value == 12 then
       found_foo = true
-    else if not found_bar && current.key.equals(bar) && current.value == 24 then
+    else if not found_bar && current.key.hash_equals(bar) && current.value == 24 then
       found_bar = true
     else
       println("\tUnexpected key!")

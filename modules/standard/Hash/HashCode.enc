@@ -1,13 +1,13 @@
 module HashCode
 
-import Collections.Mutable.Siphash
+import Hash.Siphash
 
 EMBED
   #include <stdint.h> // uintptr_t
 BODY
 END
 
-local trait HashCode
+read trait HashCode
   require val hash_code : uint
   def hash_address() : uint
     EMBED (int)
@@ -44,7 +44,7 @@ local trait HashCode
     this.hash_code
   end
 
-  def equals(other : HashCode) : bool
+  def hash_equals(other : HashCode) : bool
     this.hash_code == other.get_hash()
   end
 end
