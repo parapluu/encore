@@ -12,6 +12,11 @@ read trait Eq[t]
   require def eq(other:t) : bool
 end
 
+-- A trait for comparable objects.
+-- Result: 0 is equal, 1 is this is greater, -1 other is greater
+read trait Ord
+  require def compare(other:Ord) : int
+end
 
 -- the identity function
 fun id[a](x : a) : a
