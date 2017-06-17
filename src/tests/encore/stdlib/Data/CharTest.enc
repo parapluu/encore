@@ -1,0 +1,17 @@
+import Data.Char
+
+active class Main
+  def main() : unit
+    val res = islower('a') && 
+       isupper('A') &&
+       isdigit('2') &&
+       isalphanum('3') &&
+       ispunct(';') &&
+       isspace(' ') &&
+       tolower('A') == 'a' &&
+       toupper('b') == 'B'
+    if res then
+       println("Done")
+    end
+  end
+end

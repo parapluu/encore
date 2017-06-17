@@ -1,0 +1,49 @@
+module Char
+
+EMBED
+#include <ctype.h>
+END
+
+fun islower(ch : char) : bool
+  EMBED (bool) islower(#{ch}); END
+end
+
+
+fun isupper(ch : char) : bool
+  EMBED (bool) isupper(#{ch}); END
+end
+
+
+fun isalpha(ch : char) : bool
+  EMBED (bool) isalpha(#{ch}); END
+end
+
+
+fun isdigit(ch : char) : bool
+  EMBED (bool) isdigit(#{ch}); END
+end
+
+
+fun isalphanum(ch : char) : bool
+  EMBED (bool) isalnum(#{ch}); END
+end
+
+
+fun ispunct(ch : char) : bool
+  EMBED (bool) ispunct(#{ch}); END
+end
+
+
+fun isspace(ch : char) : bool
+  EMBED (bool) isspace(#{ch}); END
+end
+
+
+fun tolower(ch : char) : char
+  EMBED (char) tolower(#{ch}); END
+end
+
+fun toupper(ch : char) : char
+  EMBED (char) toupper(#{ch}); END
+end
+
