@@ -8,10 +8,6 @@ fun getFromMaybe(x: Maybe[int]): int
   end
 end
 
-fun bool_from_int(x: int): bool
-  not (x == 0)
-end
-
 active class Main
   def parseArgs(args: [String]): ForkJoinConfig
     if |args| > 1 then
