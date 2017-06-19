@@ -13,11 +13,12 @@ local class StringBuffer
   end
   
   def build() : String
-    val res = new String(EMBED (EMBED char* END)
-                           char *str = encore_alloc(*_ctx, #{this.length} + 1);
-                           str[#{this.length}] = '\0';
-                           str;
-                         END)
+    val str : (EMBED char* END) = 
+      EMBED (EMBED char* END)
+        char *str = encore_alloc(*_ctx, #{this.length} + 1);
+        str[#{this.length}] = '\0';
+        str;
+      END
     var index = 0
     val iter = this.strings.iterator()
     while iter.has_next() do
@@ -25,12 +26,12 @@ local class StringBuffer
       EMBED (unit)
         for (int i = 0; i < #{s.length}; ++i)
           {
-            #{res.data}[#{index} + i] = #{s.data}[i];
+            #{str}[#{index} + i] = #{s.data}[i];
           }
       END
       index += s.length
     end  
-    res
+    new String(str)
   end
 end
 
