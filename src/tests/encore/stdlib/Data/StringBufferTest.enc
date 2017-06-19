@@ -1,4 +1,4 @@
-
+import Data.StringBuffer
 
 active class Main
   def main() : unit
