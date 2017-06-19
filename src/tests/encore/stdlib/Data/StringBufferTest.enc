@@ -1,0 +1,20 @@
+
+
+active class Main
+  def main() : unit
+    val sb = new StringBuffer()
+    sb.add("This")
+    sb.add(" ")
+    sb.add("is")
+    sb.add(" ")
+    sb.add("not")
+    sb.add(" ")
+    sb.add("my")
+    sb.add(" ")
+    sb.add("idea")
+    sb.add("")
+    sb.add(".")
+    
+    println("{}", sb.build())
+  end
+end

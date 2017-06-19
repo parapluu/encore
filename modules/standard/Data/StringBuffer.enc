@@ -1,0 +1,38 @@
+module StringBuffer
+
+import Collections.Mutable.LinkedList
+import Data.Maybee(unjust)
+
+local class StringBuffer
+  val strings : LinkedList[String] = new LinkedList[String]()
+  var length : int = 0
+  
+  def add(s : String) : unit
+    this.strings.append(s)
+    this.length += s.length()
+  end
+  
+  def build() : String
+    val res = new String(EMBED (EMBED char* END)
+                           char *str = encore_alloc(*_ctx, #{this.length} + 1);
+                           str[#{this.length}] = '\0';
+                           str;
+                         END)
+    var index = 0
+    val iter = this.strings.iterator()
+    while iter.has_next() do
+      val s = unjust(iter.next())
+      EMBED (unit)
+        for (int i = 0; i < #{s.length}; ++i)
+          {
+            #{res.data}[#{index} + i] = #{s.data}[i];
+          }
+      END
+      index += s.length
+    end  
+    res
+  end
+end
+
+  
+  
