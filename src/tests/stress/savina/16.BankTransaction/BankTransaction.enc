@@ -65,7 +65,7 @@ active class Teller
 
     val srcAccount = this.accounts(srcAccountId)
     val destAccount = this.accounts(destAccountId)
-    val amount = abs(this.randomGen.randomReal(100))
+    val amount = abs(this.randomGen.random_real(100))
     get(srcAccount ! credit(this, amount, destAccount))
   end
 end
