@@ -818,13 +818,19 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         translatePattern (e@A.AdtExtractorPattern{A.name, A.arg}) argName argty assocs usedVars = do
           let eSelfArg = AsExpr argName
               noArgs = [] :: [A.Expr]
-              forwardDeclarations = map (\(realname, genname) -> genname) assocs
+              innerTy = A.getType arg
+              namesNtypes = namesAndTypes arg
+
+          tagPointer <- Ctx.genNamedSym "tagPointer"
+
           (nSelfTagCall, tSelfTagCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name
-                traitMethod msgId argName calledType (ID.Name "_getTag") [] noArgs int
+                (argDecls, theCall) <- traitMethod msgId argName calledType (ID.Name "_getTag") [] noArgs (Ptr int)
+                let tagAssignment = Assign (Var tagPointer) argDecls
+                return (argDecls, Seq $ theCall:[tagAssignment])
               else do
                 tmp <- Ctx.genNamedSym "selfTag"
                 (argDecls, theCall) <-
@@ -846,16 +852,39 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
 
-          {-(nRest, tRest, newUsedVars) <- translatePattern e (Var optionVar) valType assocs usedVars-}
-
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               selfTag = StatAsExpr nSelfTagCall tSelfTagCall
               actualTag = StatAsExpr nActualTagCall tActualTagCall
               tagCheck = BinOp (translate ID.EQ) selfTag actualTag
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
-              tAssign = Assign (Var "_tmp") eCheck
+              tagDecl = Assign (Decl (Ptr int, Var tagPointer)) (Null)
+              tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
+              padding = Assign (Decl (int, Var "padding")) (Int 0)
+              target = Assign (Decl (Typ "uintptr_t", Var "target"))
+                        (BinOp (translate ID.PLUS) (Cast (Typ "uintptr_t") (Var tagPointer)) (Sizeof (int))) --TODO should be uintptr_t
+              assocAssign = assignAssocs test target []
 
-          return (Var "_tmp", tAssign, usedVars)
+          return (Var "_tmp", Seq [tAssign, target, padding, assocAssign], usedVars)
+          where
+            assignAssocs [] _  acc = Seq (reverse acc)
+            assignAssocs ((name, ty):rest) target acc =
+              let
+                align = Sizeof $ translate ty
+                innerMod = BinOp (translate ID.MOD) (AsExpr (Var "target")) align
+                subtraction = BinOp (translate ID.MINUS) align innerMod
+                outerMod = BinOp (translate ID.MOD) subtraction align
+                assignPadding = Assign (Var "padding") outerMod
+                addPadding = Assign (Var "target") (BinOp (translate ID.PLUS) (Var "target") (Var "padding"))
+                assignment = Assign name (Deref (Cast (Ptr (translate ty)) (Var "target")))
+                movePastElement = Assign (Var "target") (BinOp (translate ID.PLUS) (AsExpr (Var "target")) (Sizeof (translate ty)))
+              in
+                assignAssocs rest target ([movePastElement, assignment, addPadding, assignPadding] ++ acc)
+            namesAndTypes tuple@A.Tuple{A.args} =
+              let
+                elemTypes = Ty.getArgTypes $ A.getType tuple
+                elemNames = map (\(_, name) -> name) assocs
+              in
+                zip elemNames elemTypes
 
         translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
