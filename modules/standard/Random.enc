@@ -1,10 +1,8 @@
--- This file was automatically converted by encorec
 
 module Random
 EMBED
 
 BODY
-
 __thread unsigned seed;
 END
 
@@ -18,11 +16,14 @@ fun random(max : int) : int
 
   END
 end
+
 read class Random
   val seed : EMBED unsigned int END
+
   def Random_trace() : unit
     ()
   end
+  
   def init(seed : int) : unit
     assertFalse(seed < 0)
     assertFalse(seed > 4294967295)
@@ -31,10 +32,17 @@ read class Random
 
     END
   end
+
   def random(max : int) : int
     EMBED (int)
       rand_r((unsigned *) &(_this->_enc__field_seed)) % #{max};
 
+    END
+  end
+
+  def random_real(max : real) : real
+    EMBED (real)
+      fmod(rand_r((unsigned *) &(_this->_enc__field_seed)), #{max});
     END
   end
 end
