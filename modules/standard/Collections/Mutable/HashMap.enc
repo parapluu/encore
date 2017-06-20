@@ -277,4 +277,10 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     end
     result
   end
+  
+  def populate(pairs : [(HashCode, v)]) : unit
+    for kv <- pairs do
+      this.set(kv.0, kv.1)
+    end
+  end
 end

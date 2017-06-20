@@ -752,6 +752,15 @@ fun key_value_pairs_1() : bool
   (res(0).1 == 12 || res(1).1 == 12) && (res(1).1 == 24 || res(0).1 == 24)
 end
 
+fun populate() : bool
+  val map = new HashMap[int]()
+  val foo = new Foo()
+  val bar = new Foo()
+  map.populate([(foo,12),(bar,24)])
+
+  (unjust(map.get_value(foo)) == 12 && unjust(map.get_value(bar)) == 24)
+end
+
 active class Main
   def main() : unit
     val tests = new TestSuite("HashMap", 100)
@@ -773,6 +782,7 @@ active class Main
     tests.assert_true("map #1", map_one)
     tests.assert_true("clone #1", clone_one)
     tests.assert_true("key value pairs", key_value_pairs_1)
+    tests.assert_true("populate", populate)
 
     tests.run()
   end
