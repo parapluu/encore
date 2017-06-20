@@ -1,5 +1,5 @@
 
-EUnit testsuite "HashMap" running 17 test(s)...
+EUnit testsuite "HashMap" running 18 test(s)...
 Running test "set and get":
 	Success!
 Running test "items and size #1":
@@ -34,6 +34,8 @@ Running test "map #1":
 	Success!
 Running test "clone #1":
 	Success!
+Running test "key value pairs":
+	Success!
 
 EUnit testsuite "HashMap" completed.
-17/17 tests completed successfully!
+18/18 tests completed successfully!

@@ -740,6 +740,18 @@ fun clone_one() : bool
   end
 end
 
+fun key_value_pairs_1() : bool
+  val map = new HashMap[int]()
+  val foo = new Foo()
+  val bar = new Foo()
+
+  map.set(foo,12)
+  map.set(bar,24)
+  
+  val res = map.key_value_pairs()
+  (res(0).1 == 12 || res(1).1 == 12) && (res(1).1 == 24 || res(0).1 == 24)
+end
+
 active class Main
   def main() : unit
     val tests = new TestSuite("HashMap", 100)
@@ -760,7 +772,7 @@ active class Main
     tests.assert_true("foreach #1", foreach_one)
     tests.assert_true("map #1", map_one)
     tests.assert_true("clone #1", clone_one)
-
+    tests.assert_true("key value pairs", key_value_pairs_1)
 
     tests.run()
   end

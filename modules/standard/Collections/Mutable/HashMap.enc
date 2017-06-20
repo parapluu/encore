@@ -264,23 +264,17 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     return new_map
   end
 
-  def flatMap[u](f : v -> HashMap[u]) : HashMap[u]
-    val new_map = new HashMap[u]()
-
+  def key_value_pairs() : [(HashCode, v)]
+    val result = new [(HashCode, v)](this.items)
+    var index = 0
     for i <- this.internal_map do
       val iter = i.iterator()
-      while iter.has_next()  do
-        val m = f(unjust(iter.next()).value)
-        ()
-        --x.key should not map to the new values in m.
-        -- The keys of m should map to values of m.
-
-        --Foreach y: u <- m do
-        --  m.set(x.key, y)
-        --end
+      while iter.has_next() do
+        val x = unjust(iter.next())
+        result(index) = (x.key, x.value)
+        index += 1
       end
     end
-
-    return new_map
+    result
   end
 end
