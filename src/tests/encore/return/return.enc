@@ -9,7 +9,7 @@ active class Main
   end
   def c() : unit
     let
-      x = return(())
+      x : unit = return(())
     in
       ()
     end

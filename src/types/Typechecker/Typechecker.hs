@@ -1288,7 +1288,7 @@ instance Checkable Expr where
     --  E |- expr : t
     --  E |- currentMethod : _ -> t
     -- -----------------------------
-    --  E |- return expr : t
+    --  E |- return expr : _|_
     doTypecheck ret@(Return {val}) =
         do eVal <- typecheck val
            context <- asks currentExecutionContext
@@ -1302,7 +1302,7 @@ instance Checkable Expr where
            unlessM (eType `subtypeOf` ty) $
              pushError ret $ ExpectingOtherTypeError
                 (show ty ++ " (type of the enclosing method or function)") eType
-           return $ setType eType ret {val = eVal}
+           return $ setType bottomType ret {val = eVal}
 
     --  isStreaming(currentMethod)
     -- ----------------------------
