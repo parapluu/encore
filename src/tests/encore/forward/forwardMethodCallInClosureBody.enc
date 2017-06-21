@@ -5,8 +5,7 @@ active class Base
 end
 active class Foo
   def foo(arg : Fut[int]) : int
-    (arg ~~> fun(x : int) : unit => forward((new Base) ! base()))
-    0
+    get(arg ~~> fun(x : int) : int => forward((new Base) ! base()))
   end
 end
 active class Main

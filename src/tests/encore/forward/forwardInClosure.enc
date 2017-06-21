@@ -7,12 +7,11 @@ active class Main
     println("{}", get(bar))
   end
   def bar(foo : Fut[int]) : int
-    (foo ~~> fun (x : int) : unit
-                val inc = this ! inc(x)
-                await(inc)
-                forward(inc)
-             end)
-    0 -- Will be disregarded since it is used to bypass the typechecker.
+    get(foo ~~>  fun (x : int) : int
+                    val inc = this ! inc(x)
+                    await(inc)
+                    forward(inc)
+                 end)
   end
   def foo() : int
     42

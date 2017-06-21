@@ -1300,9 +1300,9 @@ instance Checkable Expr where
                 return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext (Just mty) -> do
                 mty' <- resolveType mty
-                unless (isUnitType mty') $
-                    pushError eExpr $ ForwardTypeClosError mty' unitType
-                return $ setType (unitType) forward {forwardExpr = eExpr}
+                unlessM (getResultType ty `subtypeOf` mty') $
+                    pushError eExpr $ ForwardTypeClosError mty' ty
+                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
              ClosureContext Nothing -> tcError ClosureForwardError
              _ -> pushError eExpr ForwardInFunction
 
@@ -2322,8 +2322,5 @@ typecheckParametricFun argTypes eSeqFunc
   | otherwise = error $ "Function that is callable but distinct from" ++
                         " 'VarAccess' or 'FunctionAsValue' AST node used."
   where
-    isVarAccess VarAccess{} = True
-    isVarAccess _ = False
-
     isFunctionAsValue FunctionAsValue{} = True
     isFunctionAsValue _ = False

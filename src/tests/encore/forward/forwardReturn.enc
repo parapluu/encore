@@ -1,0 +1,12 @@
+active class Main
+  def foo(b : bool) : int
+    if b then
+      forward (this ! foo(b))
+    else
+      return this.foo(b)
+    end
+  end
+  def main() : unit
+    this.foo(false)
+  end
+end

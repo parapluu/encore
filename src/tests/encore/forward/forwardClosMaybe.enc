@@ -9,8 +9,7 @@ active class Crop
 end
 active class Pepper
   def green(arg : Fut[Maybe[int]]) : Maybe[int]
-    get(arg ~~> fun(x : Maybe[int]) : unit => forward((new Crop(x)) ! collect()))
-    Nothing : Maybe[int]
+    get(arg ~~> fun(x : Maybe[int]) : Maybe[int] => forward((new Crop(x)) ! collect()))
   end
 end
 active class Main

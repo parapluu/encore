@@ -43,10 +43,13 @@ translateClosure closure typeVars table
            params      = A.eparams closure
            body        = A.body closure
            id          = Meta.getMetaId . A.getMeta $ closure
+           idAsync     = id ++ "_async"
            funName     = closureFunName id
+           funNameAsync = closureFunName idAsync
            nameForwarding = forwardingClosureImplName $ (ID.Name . show) funName
            envName     = closureEnvName id
            traceName   = closureTraceName id
+           traceNameAsync = closureTraceName idAsync
            boundVars   = map (ID.qName . show . A.pname) params
            freeVars    = map (first ID.qnlocal) $
                          filter (ID.isLocalQName . fst) $
@@ -79,7 +82,7 @@ translateClosure closure typeVars table
                         ,returnStmnt bodyName resultType]
                       )
            forwardingClosureImpl =
-             Function (Static $ Typ "value_t") funName
+             Function (Static $ Typ "value_t") funNameAsync
                       [(Ptr (Ptr encoreCtxT), encoreCtxVar),
                        (Ptr (Ptr ponyTypeT), encoreRuntimeType),
                        (Typ "value_t", Var "_args[]"),
@@ -92,12 +95,13 @@ translateClosure closure typeVars table
                         ,dtraceClosureExit
                         ,returnStmnt forwardingBodyName unitType])
        in
-         Concat $  [buildEnvironmentForward envName freeVars fTypeVars] ++
+         Concat $ [buildEnvironmentForward envName freeVars fTypeVars] ++
+                  [tracefunDecl traceName envName freeVars fTypeVars extractEnvironment,
+                          normalClosureImpl] ++
                    if null $ Util.filter A.isForward body
-                   then [tracefunDecl traceName envName freeVars fTypeVars extractEnvironment,
-                         normalClosureImpl]
-                   else [tracefunDecl traceName envName freeVars fTypeVars extractEnvironmentForward,
-                         forwardingClosureImpl]
+                   then []
+                   else [tracefunDecl traceNameAsync envName freeVars fTypeVars extractEnvironmentForward,
+                          forwardingClosureImpl]
   | otherwise =
         error
         "Tried to translate a closure from something that was not a closure"

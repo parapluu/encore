@@ -103,7 +103,7 @@ static void future_finalizer(future_t *fut);
 static inline void future_gc_send_value(pony_ctx_t *ctx, future_t *fut);
 static inline void future_gc_recv_value(pony_ctx_t *ctx, future_t *fut);
 static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
-    closure_t *c, future_t *r);
+    closure_t *c, future_t *r, bool withForward);
 
 pony_type_t future_type = {
   .id = ID_FUTURE,
@@ -196,6 +196,12 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
 static inline encore_arg_t run_closure(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
 {
   return closure_call(ctx, c, (value_t[1]) { value });
+}
+
+static inline void run_closure_fwd(pony_ctx_t **ctx, closure_t *c, encore_arg_t value)
+{
+  closure_call(ctx, c, (value_t[1]) { value });
+  return;
 }
 
 bool future_fulfilled(future_t *fut)
@@ -306,21 +312,21 @@ future_t *future_chain_actor(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
   future_t *r = future_mk(ctx, type);
-  future_chain(ctx, fut, type, c, r);
+  future_chain(ctx, fut, type, c, r, false);
   return r;
 }
 
 void future_chain_with_fut(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
-        closure_t *c, future_t *r)
+        closure_t *c, future_t *r, bool keepFwd)
 {
   ENC_DTRACE3(FUTURE_CHAINING, (uintptr_t) *ctx, (uintptr_t) fut, (uintptr_t) type);
   (void)type;
-  future_chain(ctx, fut, type, c, r);
+  future_chain(ctx, fut, type, c, r, keepFwd);
   return;
 }
 
 static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
-        closure_t *c, future_t *r)
+        closure_t *c, future_t *r, bool withForward)
 {
   (void)type;
   perr("future_chain_actor");
@@ -328,8 +334,13 @@ static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 
   if (fut->fulfilled) {
     acquire_future_value(ctx, fut);
-    value_t result = run_closure(ctx, c, fut->value);
-    future_fulfil(ctx, r, result);
+    if (withForward) {
+      run_closure_fwd(ctx, c, fut->value);
+    }
+    else {
+      value_t result = run_closure(ctx, c, fut->value);
+      future_fulfil(ctx, r, result);
+    }
     UNBLOCK;
     return;
   }

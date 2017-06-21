@@ -18,8 +18,7 @@ active class Crop
 end
 active class Pepper
   def green(arg : Fut[Mellon]) : Mellon
-    (arg ~~> fun(x : Mellon) : unit => forward((new Crop(x)) ! collect()))
-    new Mellon(42000000) -- Will be disregarded since it is used to bypass the typechecker.
+    get(arg ~~> fun(x : Mellon) : Mellon => forward((new Crop(x)) ! collect()))
   end
 end
 active class Main
