@@ -832,7 +832,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let tagAssignment = Assign (Var tagPointer) argDecls
                 return (argDecls, Seq $ theCall:[tagAssignment])
               else do
-                tmp <- Ctx.genNamedSym "selfTag"
+                tmp <- Ctx.genNamedSym "expectedTag"
                 (argDecls, theCall) <-
                     passiveMethodCall argName argty (ID.Name "_getTag") noArgs Ty.intType
                 let theAssign = Assign (Decl (int, Var tmp)) theCall
@@ -853,7 +853,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              selfTag = StatAsExpr nSelfTagCall tSelfTagCall
+              selfTag = StatAsExpr (Deref nSelfTagCall) tSelfTagCall
               actualTag = StatAsExpr nActualTagCall tActualTagCall
               tagCheck = BinOp (translate ID.EQ) selfTag actualTag
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
@@ -862,7 +862,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               padding = Assign (Decl (int, Var "padding")) (Int 0)
               target = Assign (Decl (Typ "uintptr_t", Var "target"))
                         (BinOp (translate ID.PLUS) (Cast (Typ "uintptr_t") (Var tagPointer)) (Sizeof (int))) --TODO should be uintptr_t
-              assocAssign = assignAssocs test target []
+              assocAssign = assignAssocs namesNtypes target []
 
           return (Var "_tmp", Seq [tAssign, target, padding, assocAssign], usedVars)
           where
