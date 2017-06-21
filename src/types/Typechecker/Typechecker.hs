@@ -1317,7 +1317,9 @@ instance Checkable Expr where
           header <- findMethod argty name
           c <- findClass (classType  (show $ qnlocal qname) [])
           let fields = drop 1 $ fieldsFromClass c
-          let fieldTypes = map (\f@Field{ftype} -> ftype) fields
+          let fieldTypes = if (length fields > 0)
+                           then map (\f@Field{ftype} -> ftype) fields
+                           else [unitType]
           eArg <- checkAdtPattern arg $ tupleType fieldTypes
           return $ setArrowType (arrowType [] intType) $
                    setType argty AdtExtractorPattern {emeta
