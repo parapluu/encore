@@ -1,8 +1,10 @@
 
 main:
-	encorec -O3 main.enc -I ../../modules/standard
+	../../../../../release/encorec -O3 main.enc
 
 all: main
 
 run: main
 	/usr/bin/time ./main
+
+clean:
