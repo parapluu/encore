@@ -1,0 +1,32 @@
+
+active class Main
+  def skip() : unit
+    println("skip")
+  end
+
+  def baz() : int
+    if false then
+      return 10
+    else
+      this.skip()
+    end
+    10
+  end
+  
+  def main() : unit
+    println("{}", this.baz())
+  end
+  
+  def bar() : String
+    "bar"
+  end
+
+  def foo() : Maybe[int]
+    if true then
+      return Nothing : Maybe[int]
+    else
+      this.bar()
+    end
+    Just(11)
+  end
+end
