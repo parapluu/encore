@@ -34,6 +34,7 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
+import Debug.Trace
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->
@@ -1048,7 +1049,7 @@ instance Checkable Expr where
         when (isActiveSingleType argType) $
           unless (isThisAccess arg) $
             tcError ActiveMatchError
-        eClauses <- if (isFromADT(argType))
+        eClauses <- if (isFromADT argType)
                     then mapM (checkAdtClause argType) clauses
                     else mapM (checkClause argType) clauses
         if (isFromADT(argType))
@@ -1124,22 +1125,22 @@ instance Checkable Expr where
             tcError ThisReassignmentError
           return [(qnlocal qname, pt)]
 
-        doGetAdtPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
-            | isMaybeType pt =
-                let innerType = getResultType pt
-                in getAdtPatternVars innerType e
-            | otherwise = tcError $ PatternTypeMismatchError mcp pt
+        {-doGetAdtPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})-}
+            {-| isMaybeType pt =-}
+                {-let innerType = getResultType pt-}
+                {-in getAdtPatternVars innerType e-}
+            {-| otherwise = tcError $ PatternTypeMismatchError mcp pt-}
 
         doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = []}) = do
-          header <- findMethod pt (qnlocal qname)
-          let hType = htype header
-              extractedType = getResultType hType
-          unless (isUnitType extractedType) $ do
-                 let expectedLength = if isTupleType extractedType
-                                      then length (getArgTypes extractedType)
-                                      else 1
-                 tcError $ PatternArityMismatchError (qnlocal qname)
-                           expectedLength 0
+          {-header <- findMethod pt (qnlocal qname)-}
+          {-let hType = htype header-}
+              {-extractedType = getResultType hType-}
+          {-unless (isUnitType extractedType) $ do-}
+                 {-let expectedLength = if isTupleType extractedType-}
+                                      {-then length (getArgTypes extractedType)-}
+                                      {-else 1-}
+                 {-tcError $ PatternArityMismatchError (qnlocal qname)-}
+                           {-expectedLength 0-}
 
           getAdtPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
 
