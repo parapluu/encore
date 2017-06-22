@@ -510,7 +510,8 @@ instance Show Error where
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
-    show BottomTypeInferenceError = "Cannot infer type of 'Nothing'"
+    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++ 
+        "Try adding more type information."
     show IfInferenceError = "Cannot infer result type of if-statement"
     show (IfBranchMismatchError ty1 ty2) =
         "Type mismatch in different branches of if-statement:\n" ++

@@ -2009,10 +2009,7 @@ coercedInto actual expected
       unless (canBeNull expected) $
         tcError $ CannotBeNullError expected
       return expected
-  | isBottomType actual = do
-      when (any isBottomType $ typeComponents expected) $
-        tcError BottomTypeInferenceError
-      return expected
+  | isBottomType actual = return expected
   | isBottomType expected =
       tcError BottomTypeInferenceError
   | otherwise = do

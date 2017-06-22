@@ -554,7 +554,7 @@ isUnifiableWith ty types
         tyUniable <- typeIsUnifiable ty
         tysUniable <- allM typeIsUnifiable types
         return $ tyUniable && tysUniable &&
-                 not (isNullType ty) && not (isBottomType ty)
+                 not (isNullType ty)
 
 unifyTypes :: [Type] -> TypecheckM (Maybe Type)
 unifyTypes tys = do
@@ -611,6 +611,7 @@ doUnifyTypes inter args@(ty:tys)
 
 uniquifyTypeVars :: [Type] -> Type -> TypecheckM Type
 uniquifyTypeVars params = typeMapM (uniquifyTypeVar params)
+
 uniquifyTypeVar :: [Type] -> Type -> TypecheckM Type
 uniquifyTypeVar params ty
   | isTypeVar ty = do
