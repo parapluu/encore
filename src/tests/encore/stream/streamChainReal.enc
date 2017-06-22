@@ -1,6 +1,4 @@
--- This file was automatically converted by encorec
-
-import StreamLib.StreamChain.StreamChain
+import Stream.Chain
 import StreamIO
 active class Main
   def main() : unit

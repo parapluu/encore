@@ -1,0 +1,2 @@
+Types Maybe, Fut, Stream, and Par are built-in and cannot be redefined.
+
