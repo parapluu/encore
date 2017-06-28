@@ -8,7 +8,7 @@ module HashMapTest
 import Unit.Unit
 import Collections.Mutable.HashMap
 import Hash.HashCode
-import Data.Maybee
+import Data.Maybe
 
 read class Foo : HashCode + Id
   val hash_code : uint
