@@ -462,8 +462,6 @@ instance Checkable ClassDecl where
     mapM_ (ensureMatchingTraitFootprint cname extendedTraits) extendedTraits
     noOverlapFields cname ccomposition
 
-    checkOverriding cname typeParameters cmethods extendedTraits
-
     checkMethodExtensionAllowed
 
     -- TODO: Add namespace for trait methods
@@ -472,6 +470,8 @@ instance Checkable ClassDecl where
                mapM typecheck cfields
     emethods <- local (addTypeVars . addThis) $
                 mapM typecheck cmethods
+
+    checkOverriding cname typeParameters cmethods extendedTraits
 
     return c{cmethods = emethods, cfields = efields}
     where

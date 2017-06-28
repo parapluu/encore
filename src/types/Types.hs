@@ -246,6 +246,19 @@ instance Show RefInfo where
 
 showRefInfoWithoutMode info = show info{mode = Nothing}
 
+data VarInfo = VarInfo{tmode :: Maybe Mode
+                      ,tbound :: Maybe Type
+                      ,tident :: String}
+
+instance Eq VarInfo where
+  t1 == t2 = tident t1 == tident t2
+
+instance Show VarInfo where
+  show t@VarInfo{tmode = Nothing, tident = ('_':tident')} = show t{tident = tident'}
+  show t@VarInfo{tmode = Nothing, tident} = tident
+  show t@VarInfo{tmode = Just m} = show m ++ " " ++ show t{tmode = Nothing}
+
+
 data Box = Stackbound deriving(Eq)
 
 instance Show Box where
@@ -295,10 +308,7 @@ data InnerType =
                         ,rtype  :: Type}
         | UnionType{ltype :: Type, rtype :: Type}
         | EmptyCapability{}
-        | TypeVar{tmode :: Maybe Mode
-                 ,bound :: Maybe Type
-                 ,ident :: String
-                 }
+        | TypeVar{varinfo :: VarInfo}
         | ArrowType{paramTypes :: [Type]
                    ,argTypes   :: [Type]
                    ,resultType :: Type
@@ -345,12 +355,15 @@ maybeGetId ty@Type{inner}
   |  isRefAtomType ty
   || isTypeSynonym ty
   , info <- refInfo inner = Just $ refId info
-  | isTypeVar ty || isCType ty
+  | isCType ty
   , id <- ident inner = Just id
+  | isTypeVar ty
+  , id <- tident (varinfo inner) = Just id
   | otherwise = Nothing
 
-alphaConvert ident ty@Type{inner}
-  | isTypeVar ty = applyInner (\i -> i{ident}) ty
+alphaConvert tident ty@Type{inner}
+  | isTypeVar ty
+  , info <- varinfo inner = applyInner (\i -> i{varinfo = info{tident}}) ty
   | otherwise = ty
 
 getModes :: Type -> [Mode]
@@ -361,7 +374,7 @@ getModes ty
       let traits = typesFromCapability ty
       in concatMap getModes traits
   | isArrowType ty = modes . inner $ ty
-  | isTypeVar ty = maybeToList . tmode . inner $ ty
+  | isTypeVar ty = maybeToList . tmode . varinfo . inner $ ty
   | otherwise = []
 
 hasResultType x
@@ -428,9 +441,7 @@ instance Show InnerType where
         show ltype ++ " " ++ show Addition ++ " " ++ show rtype
     show UnionType{ltype, rtype} = show ltype ++ " | " ++ show rtype
     show EmptyCapability = ""
-    show t@TypeVar{tmode = Nothing, ident = ('_':ident')} = show t{ident = ident'}
-    show t@TypeVar{tmode = Nothing, ident} = ident
-    show t@TypeVar{tmode = Just m} = show m ++ " " ++ show t{tmode = Nothing}
+    show TypeVar{varinfo} = show varinfo
     show ArrowType{argTypes = [ty], resultType, modes = [], paramTypes = []} =
         if isTupleType ty
         then "(" ++ show ty ++ ") -> " ++ show resultType
@@ -445,7 +456,11 @@ instance Show InnerType where
     show arrow@ArrowType{paramTypes} =
         "[" ++ params ++ "](" ++ show arrow{paramTypes = []} ++ ")"
         where
-          params = intercalate ", " (map show paramTypes)
+          params = intercalate ", " (map showParam paramTypes)
+          showParam ty
+            | isTypeVar ty
+            , Just bound <- getBound ty = show ty ++ " : " ++ show bound
+            | otherwise = show ty
     show FutureType{resultType} = "Fut" ++ brackets resultType
     show ParType{resultType}    = "Par" ++ brackets resultType
     show StreamType{resultType} = "Stream" ++ brackets resultType
@@ -537,7 +552,7 @@ showWithoutMode ty
   | isRefAtomType ty = showRefInfoWithoutMode $ refInfo (inner ty)
   | isArrowType ty
   , iType <- inner ty = show ty{inner = iType{modes = []}}
-  | isTypeVar ty = ident (inner ty)
+  | isTypeVar ty = tident $ varinfo (inner ty)
   | otherwise = show ty
 
 typeComponents :: Type -> [Type]
@@ -577,6 +592,8 @@ typeMap f ty
     | isTypeSynonym ty =
         f $ applyInner
               (\i -> refTypeMap f i{resolvesTo = typeMap f (resolvesTo i)}) ty
+    | isTypeVar ty =
+        f $ applyInner (\i -> i{varinfo = varInfoTypeMap f (varinfo i)}) ty
     | otherwise = f ty
     where
       refTypeMap f ity =
@@ -593,6 +610,9 @@ typeMap f ty
 
       refInfoTypeMap f info@RefInfo{parameters} =
           info{parameters = map (typeMap f) parameters}
+
+      varInfoTypeMap f info@VarInfo{tbound} =
+          info{tbound = fmap (typeMap f) tbound}
 
 applyInnerM f ty@Type{inner} = do
   inner' <- f inner
@@ -616,6 +636,10 @@ typeMapM f ty
         applyInnerM (\i -> do
                        resolvesTo' <- typeMapM f (resolvesTo i)
                        refTypeMapM f i{resolvesTo = resolvesTo'}) ty >>= f
+    | isTypeVar ty =
+        applyInnerM (\i -> do
+                       varinfo' <- varInfoTypeMapM f (varinfo i)
+                       return i{varinfo = varinfo'}) ty >>= f
     | otherwise = f ty
     where
       refTypeMapM f ity = do
@@ -637,6 +661,10 @@ typeMapM f ty
       resultTypeMapM f ity = do
         resultType' <- typeMapM f $ resultType ity
         return ity{resultType = resultType'}
+
+      varInfoTypeMapM f info@VarInfo{tbound} = do
+        tbound' <- mapM (typeMapM f) tbound
+        return info{tbound = tbound'}
 
 getTypeParameters :: Type -> [Type]
 getTypeParameters ty
@@ -701,11 +729,14 @@ withModeOf sink source
     | isArrowType sink && isArrowType source
     , modes <- getModes source = applyInner (\i -> i{modes}) sink
     | isTypeVar sink && isTypeVar source
-    , tmode <- tmode (inner source) = applyInner (\i -> i{tmode}) sink
+    , info <- varinfo (inner sink)
+    , tmode <- tmode $ varinfo (inner source) =
+        applyInner (\i -> i{varinfo = info{tmode}}) sink
     | isRefAtomType sink && isTypeVar source
     , iType <- inner sink
     , info <- refInfo iType
-    , mode <- tmode (inner source) = sink{inner = iType{refInfo = info{mode}}}
+    , mode <- tmode $ varinfo (inner source) =
+        sink{inner = iType{refInfo = info{mode}}}
     | otherwise =
         error $ "Types.hs: Can't transfer modes from " ++
                 showWithKind source ++ " to " ++ showWithKind sink
@@ -803,7 +834,9 @@ conjunctiveType ltype rtype =
 setMode ty m
     | isRefAtomType ty = applyInnerRefInfo (\info -> info{mode = Just m}) ty
     | isArrowType ty = applyInner (\i -> i{modes = nub $ m : modes i}) ty
-    | isTypeVar ty = applyInner (\i -> i{tmode = Just m}) ty
+    | isTypeVar ty
+    , info <- varinfo (inner ty) =
+        applyInner (\i -> i{varinfo = info{tmode = Just m}}) ty
     | otherwise = error $ "Types.hs: Cannot set mode of " ++ showWithKind ty
 
 makeUnsafe ty = setMode ty Unsafe
@@ -907,14 +940,15 @@ arrayType = typ . ArrayType
 isArrayType Type{inner = ArrayType {}} = True
 isArrayType _ = False
 
-typeVar = typ . TypeVar Nothing Nothing
+typeVar = typ . TypeVar . VarInfo Nothing Nothing
 isTypeVar Type{inner = TypeVar {}} = True
 isTypeVar _ = False
 
-setBound bound ty@Type{inner = t@TypeVar{}} = ty{inner = t{bound}}
+setBound tbound ty@Type{inner = t@TypeVar{varinfo}} =
+  ty{inner = t{varinfo = varinfo{tbound}}}
 setBound _ ty = error $ "Types.hs: Cannot set bound of " ++ showWithKind ty
 
-getBound Type{inner = TypeVar{bound}} = bound
+getBound Type{inner = TypeVar{varinfo = VarInfo{tbound}}} = tbound
 getBound _ = Nothing
 
 isMainType Type{inner = ClassType{refInfo = RefInfo{refId = "Main"}}} = True
@@ -928,14 +962,9 @@ isStringObjectType ty = isClassType ty &&
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-  where replace ty
-          | isTypeVar ty =
-            case find ((getId ty ==) . getId . fst) $
-                 filter (isTypeVar . fst) bindings of
-              Just (_, res) -> res `withBoxOf` ty
-              _ -> ty
-          | otherwise = ty
-
+  where replace ty =
+          fromMaybe ty (lookup ty bindings)
+          `withBoxOf` ty
 ctype :: String -> Type
 ctype = typ . CType
 

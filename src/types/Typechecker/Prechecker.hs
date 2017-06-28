@@ -129,18 +129,19 @@ instance Precheckable ImportDecl where
 
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
-     let typeParams = getTypeParameters typedefdef
-     typeParams' <- mapM resolveTypeParameter typeParams
+     typeParams <- local (addTypeParameters (getTypeParameters typedefdef)) $
+                         mapM resolveTypeParameter (getTypeParameters typedefdef)
      let resolvesTo = typeSynonymRHS typedefdef
-         addTypeParams = addTypeParameters typeParams'
+         addTypeParams = addTypeParameters typeParams
      resolvesTo' <- local addTypeParams $ resolveTypeAndCheckForLoops resolvesTo
      let typedefdef' = typeSynonymSetRHS typedefdef resolvesTo'
-                       `setTypeParameters` typeParams'
+                       `setTypeParameters` typeParams
      return $ t{typedefdef = typedefdef'}
 
 instance Precheckable FunctionHeader where
     doPrecheck header = do
-      htypeparams' <- mapM resolveTypeParameter (htypeparams header)
+      htypeparams' <- local (addTypeParameters (htypeparams header)) $
+                            mapM resolveTypeParameter (htypeparams header)
       htype' <- local (addTypeParameters htypeparams') $
                       resolveType (htype header)
       hparams' <- local (addTypeParameters htypeparams') $
@@ -157,7 +158,6 @@ instance Precheckable FunctionHeader where
 
 resolveTypeParameter ty
   | Just bound <- getBound ty = do
-      -- TODO: Check modes
       bound' <- resolveType bound
       unless (isCapabilityType bound') $
              tcError $ MalformedBoundError bound'
@@ -203,7 +203,8 @@ instance Precheckable Requirement where
 instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
-      typeParams <- mapM resolveTypeParameter (getTypeParameters tname)
+      typeParams <- local (addTypeParameters (getTypeParameters tname)) $
+                          mapM resolveTypeParameter (getTypeParameters tname)
       when (isSharableSingleType tname) $
            tcError $ CannotGiveSharableModeError tname
       treqs'    <- mapM (local (addTypeParameters typeParams) . doPrecheck)
@@ -276,7 +277,8 @@ instance Precheckable TraitComposition where
 instance Precheckable ClassDecl where
     doPrecheck c@Class{cname, ccomposition, cfields, cmethods} = do
       assertDistinctness
-      typeParams <- mapM resolveTypeParameter (getTypeParameters cname)
+      typeParams <- local (addTypeParameters (getTypeParameters cname)) $
+                          mapM resolveTypeParameter (getTypeParameters cname)
       cname' <- local (addTypeParameters typeParams) $
                       resolveType (setTypeParameters cname typeParams)
 

@@ -610,14 +610,18 @@ instance Show Error where
     show (CannotBeNullError ty) =
         printf ("Null valued expression cannot have type '%s' " ++
                 "(must have reference type)") (show ty)
-    show (TypeMismatchError actual expected) =
-        if isArrowType actual && isArrowType expected &&
-           actual `withModeOf` expected == expected
-        then printf ("Closure of type '%s' captures %s state and cannot " ++
-                     "be used as type '%s'")
-                     (show actual) (showModeOf actual) (show expected)
-        else printf "Type '%s' does not match expected type '%s'"
-                    (show actual) (show expected)
+    show (TypeMismatchError actual expected)
+      | isTypeVar actual && isJust (getBound actual) =
+          printf "Type '%s' with bound '%s' does not match expected type '%s'"
+                  (show actual) (show . fromJust $ getBound actual) (show expected)
+      | isArrowType actual
+      , isArrowType expected
+      , actual `withModeOf` expected == expected =
+          printf ("Closure of type '%s' captures %s state and cannot " ++
+                  "be used as type '%s'")
+                 (show actual) (showModeOf actual) (show expected)
+      | otherwise =  printf "Type '%s' does not match expected type '%s'"
+                            (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
                (show actual) (show cap) (show expected) pointer

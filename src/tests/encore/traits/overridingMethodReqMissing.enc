@@ -4,7 +4,7 @@ local trait T
     this.f
   end
 end
-class Foo : T(g)
+local class Foo : T(g)
   var f : int
   var g : int
   def init(f : int, g : int) : unit

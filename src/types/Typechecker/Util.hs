@@ -306,13 +306,15 @@ assertSafeTypeArguments = zipWithM_ assertSafeTypeArgument
            tcWarning ArrayTypeArgumentWarning
 
 checkTypeArgumentBounds :: [Type] -> [Type] -> TypecheckM ()
-checkTypeArgumentBounds = zipWithM_ checkBound
+checkTypeArgumentBounds params args =
+  let bindings = zip params args
+  in zipWithM_ (checkBound bindings) params args
   where
-    checkBound param arg
+    checkBound bindings param arg
       | Just bound <- getBound param = do
           unless (isCapabilityType bound) $
                  tcError $ MalformedCapabilityError bound
-          arg `assertSubtypeOf` bound
+          arg `assertSubtypeOf` replaceTypeVars bindings bound
       | otherwise = return ()
 
 subtypeOf :: Type -> Type -> TypecheckM Bool
@@ -327,10 +329,13 @@ subtypeOf ty1 ty2
             resultTy2 = replaceTypeVars bindings $ getResultType ty2
             argTys1 = getArgTypes ty1
             argTys2 = map (replaceTypeVars bindings) $ getArgTypes ty2
+            bounds1 = map getBound typeParams1
+            bounds2 = map (fmap (replaceTypeVars bindings) . getBound) typeParams2
         contravariance <- liftM and $ zipWithM subtypeOf argTys2 argTys1
         covariance <- resultTy1 `subtypeOf` resultTy2
         return $ length argTys1 == length argTys2 &&
                  length typeParams1 == length typeParams2 &&
+                 bounds1 == bounds2 &&
                  ty1 `modeSubtypeOf` ty2 &&
                  contravariance && covariance
     | isArrayType ty1 && isArrayType ty2 =
@@ -696,7 +701,9 @@ uniquifyTypeVar params ty
     appendToTypeVar ty i =
       let id = getId ty
           id' = id ++ show i
-      in typeVar id' `withModeOf` ty `withBoxOf` ty
+          bound = getBound ty
+      in setBound bound $
+         typeVar id' `withModeOf` ty `withBoxOf` ty
 
 isSafeValField :: FieldDecl -> TypecheckM Bool
 isSafeValField f@Field{ftype} = do

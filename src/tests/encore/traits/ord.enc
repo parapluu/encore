@@ -1,0 +1,40 @@
+read trait Ord[t]
+  require def compare(other : t) : int
+end
+
+read class Int : Ord[Int](n)
+  val n : int
+  def init(n : int) : unit
+    this.n = n
+  end
+  def compare(other : Int) : int
+    this.n - other.n
+  end
+end
+
+read class Cell[u : Ord[u]] : Ord[Cell[u]](f)
+  val f : u
+  def init(f : u) : unit
+    this.f = f
+  end
+  def compare(other : Cell[u]) : int
+    this.f.compare(other.f)
+  end
+end
+
+fun foo[t : Ord[t]](x : t) : unit
+  ()
+end
+
+active class Main
+  def main(args : [String]) : unit
+    foo(new Int(1))
+    val n1 = new Int(3)
+    val n2 = new Int(2)
+    val c1 = new Cell(n1)
+    val c2 = new Cell(n2)
+    if c1.compare(c2) > 0 then
+      println("Hello comparable world!")
+    end
+  end
+end
