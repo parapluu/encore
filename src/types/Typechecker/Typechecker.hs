@@ -807,39 +807,40 @@ instance Checkable Expr where
           doTypecheck ArrayAccess{emeta
                                  ,target = VarAccess{emeta, qname}
                                  ,index = head args}
-      else do
-        let typeParams  = getTypeParameters ty
-            argTypes    = getArgTypes ty
-            resultType  = getResultType ty
-            actualLength = length args
-            expectedLength = length argTypes
-            defName = qname'{qnlocal = Name $ "_" ++ show qname ++ show (expectedLength - actualLength)}
-
-        calledName <-
-          if (actualLength == expectedLength)
-            then return qname'
+      else
+        if (isArrowType ty) then do
+          let typeParams  = getTypeParameters ty
+              argTypes    = getArgTypes ty
+              resultType  = getResultType ty
+              actualLength = length args
+              expectedLength = length argTypes
+              defName = qname'{qnlocal = Name $ "_" ++ show qname ++ show (expectedLength - actualLength)}
+          calledName <-
+            if (actualLength == expectedLength)
+              then return qname'
+              else do
+                result2 <- findVar defName
+                case result2 of
+                  Just (qname2, ty2) -> return defName
+                  Nothing -> tcError $ WrongNumberOfFunctionArgumentsError
+                              qname (length argTypes) (length args)
+          unless (isArrowType ty) $
+            tcError $ NonFunctionTypeError ty
+          (eArgs, returnType, typeArgs) <-
+            if null typeArguments
+            then inferenceCall fcall typeParams (take actualLength argTypes) resultType
             else do
-              result2 <- findVar defName
-              case result2 of
-                Just (qname2, ty2) -> return defName
-                Nothing -> tcError $ WrongNumberOfFunctionArgumentsError
-                            qname (length argTypes) (length args)
-
-        unless (isArrowType ty) $
-          tcError $ NonFunctionTypeError ty
-
-        (eArgs, returnType, typeArgs) <-
-          if null typeArguments
-          then inferenceCall fcall typeParams (take actualLength argTypes) resultType
-          else do
-            unless (length typeArguments == length typeParams) $
-                   tcError $ WrongNumberOfFunctionTypeArgumentsError qname
-                             (length typeParams) (length typeArguments)
-            typecheckCall fcall typeParams (take actualLength argTypes) resultType
-        return $ setArrowType ty $
-                 setType returnType fcall {args = eArgs,
-                                           qname = calledName,
-                                           typeArguments = typeArgs}
+              unless (length typeArguments == length typeParams) $
+                     tcError $ WrongNumberOfFunctionTypeArgumentsError qname
+                               (length typeParams) (length typeArguments)
+              typecheckCall fcall typeParams (take actualLength argTypes) resultType
+          return $ setArrowType ty $
+                   setType returnType fcall {args = eArgs,
+                                             qname = calledName,
+                                             typeArguments = typeArgs}
+        else do
+          tcError $
+             ExpectingOtherTypeError "an array access or a function call" ty
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t

@@ -1,0 +1,6 @@
+active class Main
+  def main(): unit
+    val i = 4
+    i(0) = 3
+  end
+end
