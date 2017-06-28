@@ -1,0 +1,89 @@
+module CigaretteSmokers
+
+  -- Cigarette Smoker
+  -- corresponds to https://github.com/shamsimam/savina/blob/master/src/main/scala/edu/rice/habanero/benchmarks/cigsmok/CigaretteSmokerScalaActorBenchmark.scala
+  -- written by SD on  n 27-29 March 2017
+
+
+
+import Random
+
+
+class Arbitrator
+  val numberRounds : int -- max number of rounds
+  var roundsSoFar: int   -- number of rounds so far
+  val numberSmokers : int
+  val smokerActors: [SmokerActor]
+  val random: Random
+
+  def init(nrRounds:int,nrSmokers:int) : unit
+    this.numberRounds = nrRounds
+    this.roundsSoFar = 0
+    this.numberSmokers = nrSmokers
+    this.smokerActors= new [SmokerActor](nrSmokers)
+    this.random = new Random(nrRounds*nrSmokers)
+    var i = 0
+    while (i < nrSmokers) do
+               println ( ( "Creating smoker with number: ").concatenate(string_from_int(i)) )
+               val s = new SmokerActor(i,this)
+               this.smokerActors(i) = s
+               i = i+1
+               s!start()
+    end
+  end
+
+  def start() : unit
+      this.notifyRandomSmoker()
+  end
+
+  def notifyRandomSmoker(): unit
+      val newSmokerIndex = this.random.random(this.numberSmokers)
+      val busyWaitPeriod = this.random.random(1000) + 10
+      this.smokerActors(newSmokerIndex)!startSmoking(busyWaitPeriod)
+  end
+
+  def startedSmoking() : unit
+     this.roundsSoFar = this.roundsSoFar + 1
+     if (this.roundsSoFar <  this.numberRounds)  then
+            -- choose a random smoker to start smoking
+            this.notifyRandomSmoker()
+     else
+        println("--- simulatation ended ---")
+     end
+  end
+
+end
+
+class SmokerActor
+  val id: int
+  val arbitrator: Arbitrator
+
+  def start() : unit
+    ()
+  end
+
+  def init(id:int,arbitrator: Arbitrator) : unit
+    this.id = id
+    this.arbitrator = arbitrator
+  end
+
+  def startSmoking(waitPeriod:int): unit
+    println ( ( ( "Smoker with id ").concatenate(string_from_int(this.id))  ).concatenate(" started smoking for duration: ").concatenate(string_from_int(waitPeriod)) )
+    this.arbitrator!startedSmoking()
+    this.busyWait(waitPeriod)
+    println ( ( ( "Smoker with id ").concatenate(string_from_int(this.id))  ).concatenate(" finished smoking for duration: ").concatenate(string_from_int(waitPeriod)) )
+  end
+
+  def busyWait(limit: int): int
+--    println("....doing work....")
+    var i  = 0
+    var k = 0
+    while (i<limit) do
+      k=random(limit)
+      i=i+1
+    end
+--    println("....done work....")
+    k
+  end
+
+end

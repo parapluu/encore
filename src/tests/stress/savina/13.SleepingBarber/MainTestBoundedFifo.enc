@@ -1,0 +1,96 @@
+import FiFoBoundedList
+-- developed by SD on 21.01.2017
+-- anf then also on 27-30 March 2017
+
+class Main
+
+  def getInt(mi: Maybe[int]): int
+    match mi with
+        case Just(i) => i
+        case Nothing  => 0
+    end
+  end
+
+  def main(): unit
+     println("Test FiFoBoundedList started")
+     println("\nPushing, and popping ")
+     val fifo = new FiFoBoundedList[int](4)
+     fifo.pushLast(10)
+     println( ("push 10 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     var firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+
+     println("\nPushing 6 elements into a list of 4 ")
+     fifo.pushLast(10)
+     println( ("push 10 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     fifo.pushLast(11)
+     println( ("push 11 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     fifo.pushLast(12)
+     println( ("push 12 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     fifo.pushLast(13)
+     println( ("push 13 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     fifo.pushLast(14)
+     println( ("push 14 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     fifo.pushLast(15)
+     println( ("push 15 -- fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+
+     println("\nNow printing the contents of the list ")
+     println("Expecting 10, 11, 12, 13, 0")
+     var firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+
+     println("\nNow will be trying to revove from the list several times ")
+     println("Expecting 0,0, 0, 0")
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     println( ("fifo's length is' ").concatenate(string_from_int(fifo.length) )  )
+
+     println("\nPushing 3 elements (ie 20,21,22), then popping 2 elements, then pushing 5 elements (ie 30,31,32,33, 34), then printing")
+     println("Expecting 22,30,31,32,0")
+     -- pushing 3 elements, (ie 20,21,22)
+     fifo.pushLast(20)
+     fifo.pushLast(21)
+     fifo.pushLast(22)
+     -- popping tw elements
+     firstValue = this.getInt( fifo.getFirst() )
+     firstValue = this.getInt( fifo.getFirst() )
+     -- pushing 5 elements (), (ie 30,31,32,33)
+     fifo.pushLast(30)
+     fifo.pushLast(31)
+     fifo.pushLast(32)
+     fifo.pushLast(33)
+     fifo.pushLast(34)
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+     firstValue = this.getInt( fifo.getFirst() )
+     println( ("fifo.getFirst: ").concatenate(string_from_int(firstValue) )  )
+
+  end
+
+end
