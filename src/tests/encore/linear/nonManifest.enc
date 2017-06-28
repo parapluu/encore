@@ -1,0 +1,28 @@
+fun foo[local t](x : t) : unit
+  ()
+end
+
+trait Set
+  require var f : int
+  def set(x : int) : unit
+    this.f = x
+  end
+end
+
+read trait Get
+  require val f : int
+  def get() : int
+    this.f
+  end
+end
+
+class Cell : linear Set + Get
+  var f : int
+end
+
+active class Main
+  def main() : unit
+    var c = new Cell
+    foo(c)
+  end
+end

@@ -357,6 +357,9 @@ getModes :: Type -> [Mode]
 getModes ty
   |  isRefAtomType ty
   || isTypeSynonym ty = maybeToList . mode . refInfo . inner $ ty
+  | isCapabilityType ty =
+      let traits = typesFromCapability ty
+      in concatMap getModes traits
   | isArrowType ty = modes . inner $ ty
   | isTypeVar ty = maybeToList . tmode . inner $ ty
   | otherwise = []

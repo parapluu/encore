@@ -290,9 +290,17 @@ assertSafeTypeArguments = zipWithM_ assertSafeTypeArgument
                   tcError $ UnsafeTypeArgumentError formal arg
           when (isArrayType arg) $
                tcWarning ArrayTypeArgumentWarning
+      | isClassType arg
+      , isModeless arg = do
+          cap <- findCapability arg
+          let traits = typesFromCapability cap
+          mapM_ (assertSafeTypeArgument formal) traits
+          `catchError` \(TCError _ bt) ->
+                           throwError $
+                             TCError (UnsafeTypeArgumentError formal arg) bt
       | otherwise = do
           unlessM (isSharableType arg) $
-            unless (arg `modeSubtypeOf` formal) $
+            unless (arg `modeSubtypeOf` formal || hasMinorMode arg) $
               tcError $ UnsafeTypeArgumentError formal arg
           when (isArrayType arg) $
            tcWarning ArrayTypeArgumentWarning

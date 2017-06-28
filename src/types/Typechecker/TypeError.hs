@@ -871,8 +871,11 @@ instance Show Error where
     show (UnsafeTypeArgumentError formal ty) =
         if isModeless ty then
           -- TODO: Could be more precise (e.g. distinguish between linear/subord)
-          printf "Cannot use non-aliasable type '%s' as type argument"
-                 (show ty)
+          printf ("Cannot use non-aliasable type '%s' as type argument. " ++
+                  "Type parameter '%s' requires the type to have %s mode")
+                 (show ty) (getId formal) (if isModeless formal
+                                           then "an aliasable"
+                                           else showModeOf formal)
         else
           printf ("Cannot use %s type '%s' as type argument. " ++
                   "Type parameter '%s' requires the type to have %s mode")
