@@ -1,0 +1,231 @@
+module Barber
+  -- Sleeping barber
+  -- corresponds to https://github.com/shamsmahmood/savina/blob/master/src/main/java/edu/rice/habanero/benchmarks/barber/SleepingBarberConfig.java
+  -- and
+  -- https://github.com/shamsimam/savina/blob/master/src/main/scala/edu/rice/habanero/benchmarks/barber/SleepingBarberScalaActorBenchmark.scala
+  -- written by SD on 19.01.2017, zsnd then again 27-29 March 2017
+
+-- here a possible call
+-- ./MainBarbers 300 10 25 200 > out
+
+
+import Random
+import CounterActor
+import FiFoBoundedList
+
+active class Barber
+     val arbitrator :  Arbitrator  -- do we need this?
+     var random: Random -- a random number
+     val AHR: int
+
+     def init(AHR:int) : unit
+       this.arbitrator = new Arbitrator(AHR)
+       this.AHR = AHR
+       this.random = new Random(this.AHR) -- Random() in savina
+       this.start()
+       {-- In Akka there are two calls, eg
+         val barber = new BarberActor()
+         ...
+         barber.start()
+      but this is far too unnatural in Encore
+       --}
+     end
+
+     def enter(client:Customer,room:WaitingRoom) : unit
+         println( "------- customer entered a room")
+         client!start()
+         println( "------- customer started")
+         this.arbitrator.busyWait(this.AHR+10)
+         println( "------- customer is done")
+         client!done()
+         room!next()
+     end
+
+     def wait( ) : unit
+         println("barber has no customers, and can sleep")
+     end
+
+     def start() : unit
+       () -- empty
+     end
+
+end
+
+active class WaitingRoom
+   val capacity : int
+   var barberAsleep : bool --??? bizarre to keep   state of another actor here!
+   val waitingCustomers : FiFoBoundedList[Customer] -- listof Customer
+   val barber: Barber
+
+   def init(cap: int,barber:Barber) : unit
+     println("-----Room created")
+     this.capacity = cap
+     -- no progress if we initialized as follows, but also,
+     --      it segfaults (currently) if done so
+     -- this.barberAsleep = false
+     this.barberAsleep = true
+     this.barber = barber
+     this.waitingCustomers = new FiFoBoundedList[Customer](cap) -- what should be the value?
+   end
+
+
+   def enter(c: Customer) : unit
+     if (this.waitingCustomers.isFull() ) then
+        println("...room is full")
+        c!roomFull()
+     else
+        this.waitingCustomers.pushLast(c)
+        if (this.barberAsleep) then
+           println("...barber was sleeping")
+           this.barberAsleep = false
+           this!next()
+        else
+           c!wait()
+           println("...wait-barber busy")
+        end
+     end
+   end
+
+   def next( ) : unit
+     val custOrNone = this.waitingCustomers.getFirst()
+     match custOrNone with
+         case Just(customer) =>
+           println("...going to barber")
+           this.barber!enter(customer,this)
+         end
+         case Nothing  =>
+           -- how can this ever happen?
+           println("...nobody there")
+           this.barberAsleep = true
+           this.barber!wait()
+         end
+     end
+   end
+
+end
+
+active class Customer
+  val room : WaitingRoom
+  val generator : CustomerGenerator
+  val id: int
+
+  def init(room: WaitingRoom, generator : CustomerGenerator, id:int): unit
+     this.room = room
+     this.generator = generator
+     this.id = id
+     println( ("...Customer created with id:").concatenate(string_from_int(this.id)) )
+  end
+
+  def roomFull( ) : unit
+    this.printState(" was sent back to the room")
+    this.generator!amBack(this)
+  end
+
+  def wait(): unit
+    this.printState(" waiting")
+  end
+
+  def start(): unit
+    this.printState(" being served")
+  end
+
+  def done(): unit
+    this.printState(" finished")
+    this.generator!done(this)
+  end
+
+  def printState(state:String): unit
+    println( (  (".... customer ").concatenate(string_from_int(this.id) )).concatenate(state) )
+  end
+
+end
+
+active class CustomerGenerator
+  val maxNrHairCuts : int
+  val APR: int
+  val room : WaitingRoom
+  val counter: CounterActor
+  var nrHaircutsSoFar: int
+
+  def init(maxNrHairCuts: int, APR:int, room: WaitingRoom): unit
+     this.maxNrHairCuts = maxNrHairCuts
+     this.APR = APR
+     this.room = room
+     this.counter = new CounterActor
+     this.nrHaircutsSoFar = 0
+     val arbitrator = new Arbitrator(APR)
+     var counter = 0
+     val r = new Random(this.APR)
+     while(counter<this.maxNrHairCuts) do
+           this.makeCustomer()
+           counter = counter+1
+           arbitrator.busyWait(r.random(this.APR+10))
+           ()
+     end
+  end
+
+  def makeCustomer(): unit
+    --  in savina it is called sendCustomerToRoom,
+    -- but the Akka mesthod is overloaded
+    -- avoiding futures:
+    -- so, replaced
+    --   val id =   get(this.counter!incr_and_get())
+    --   val customer  = new Customer(this.room,this,id)
+    -- this.sendCustomerToRoom(customer)
+    -- by
+    val customer = this.counter!makeCustomer(this.room,this)
+    -- customer!start() -- Why had I put it there? Does it cause the crash?
+  end
+
+
+  def sendCustomerToRoom(customer:Customer): unit
+      -- savina says:
+      -- val enterMessage = new Enter(customer, room)
+      -- room.send(enterMessage)
+      -- ie. in savina there seems to be some superfluous info in the message
+      this.room!enter(customer)
+  end
+
+  def amBack(customer:Customer): unit
+        -- get(this.counter!incr()) -- should we block?
+        this.counter!incr()
+        this.sendCustomerToRoom(customer)
+  end
+
+  def done(who:Customer): unit
+    this.nrHaircutsSoFar = this.nrHaircutsSoFar+1
+    if (this.nrHaircutsSoFar==this.maxNrHairCuts) then
+      println("simulation finished")
+      -- in oder to avoid futures, we replaced
+      --      val nrAttempts = get(this.counter!get_value())
+      --      println( ("total attempts ").concatenate(string_from_int(nrAttempts)) )
+      -- by
+      this.counter!printNumberOfAttempts()
+    end
+  end
+
+end
+
+local class Arbitrator
+-- random was called without arguent in Akka
+-- but we cannot csall it without argument
+-- heence I added the APR field. Does it matter?
+  val rate : int -- for the random numbers
+
+  def init(rate:int) : unit
+    this.rate = rate
+  end
+
+  def busyWait(limit: int): int
+--    println("....doing work....")
+    var i  = 0
+    var k = 0
+    while (i<limit) do
+      k=random(this.rate)
+      i=i+1
+    end
+--    println("....done work....")
+    k
+  end
+
+end

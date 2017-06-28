@@ -1,0 +1,82 @@
+module FiFoList
+-- developed by SD on 21.01.2017
+-- A first-in-firt-out list
+-- removing at the head of the list,
+-- and inserting at the tail of the list
+
+subord class Node[t]
+    val value : t
+    var next  : Maybe[Node[t]]
+
+    def init(value : t,   next : Maybe[Node[t]]) : unit
+        this.value = value
+        this.next = next
+        {- starting a long comment
+          ggg
+        -}
+        this.next = next
+    end
+
+end
+
+local trait FiFoPush[t]
+    require var first : Maybe[Node[t]]
+    require var last : Maybe[Node[t]]
+    require var length : int
+
+    def pushLast(value : t) : unit
+       this.length = this.length + 1
+       match this.last with
+           case Nothing =>
+                   this.first = Just(new Node[t](value, Nothing))
+                   this.last = this.first
+           end
+           case Just(node) =>
+                   this.last = Just(new Node[t](value, Nothing))
+                   node.next = this.last
+           end
+       end
+    end
+
+end
+
+local trait FiFoFirst[t]
+    require var first : Maybe[Node[t]]
+    require var last : Maybe[Node[t]]
+    require var length : int
+
+    def getFirst( ) : Maybe[t]
+        -- println ("...FiFoFirst.getFirst")
+        match this.first with
+            case Just(node) =>
+                      this.length = this.length - 1
+                      -- println ( (".....length is: ").concatenate(string_from_int(this.length) ) )
+                      this.first = node.next
+                      match node.next with
+                           case Nothing =>
+                           -- there was only one element in the list
+                              this.last = Nothing
+                           end
+                           case Just(node1) =>
+                              ()
+                           end
+                      end
+                      Just(node.value)
+            end
+            case Nothing => Nothing
+        end
+    end
+end
+
+
+class FiFoList[t] : FiFoPush[t] + FiFoFirst[t]
+    var first : Maybe[Node[t]]
+    var last : Maybe[Node[t]]
+    var length : int
+
+    def init() : unit
+        this.first = Nothing : Maybe[Node[t]]
+        this.last = Nothing : Maybe[Node[t]]
+        this.length = 0
+    end
+end

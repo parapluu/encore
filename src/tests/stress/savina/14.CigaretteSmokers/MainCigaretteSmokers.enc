@@ -1,0 +1,59 @@
+import CigaretteSmokers
+
+-- Sleeping barber
+-- correpsonds to savina/src/main/java/edu/rice/habanero/benchmarks/cigsmok/CigaretteSmokerConfig.java
+-- written by SD on 29.03.2017
+class Main
+
+  def argToInt(str: String): int
+    match str.to_int() with
+       case Just(result) => result
+       case Nothing     =>   0
+    end
+  end
+
+  def argToBool(str: String): bool
+  --  match str.to_bool() with
+  --    Just result => result
+  --    Nothing     => { false };
+      match str.to_int() with
+         case Just(result) => if ( result == 0 ) then false else true end
+         case Nothing     =>   false
+      end
+  end
+
+  def boolToString(b: bool) : String
+        match b with
+           case true => "true"
+           case false => "false"
+        end
+  end
+
+  def get_ith_argument(args: [String],nrArgs:int,i:int,default:int): int
+    if  (nrArgs<i) then
+      default
+    else
+      this.argToInt(args(i))
+    end
+  end
+
+  def main(args: [String]) : unit
+--    println ("start init");
+    val nrArgs = |args|-1
+    -- args consists of the name of the program called, and the remaining actual parameters
+    -- println ( ("nrArgs: ").concatenate(string_from_int(nrArgs) ))
+    val R =  -- number of rounds
+          this.get_ith_argument(args,nrArgs,1,1000)
+    val S =  -- number of smokers
+         this.get_ith_argument(args,nrArgs,2,200)
+    -- not dealing with debug
+
+    -- print the arguments as read or from default values
+    println ( ("R, number of rounds: ").concatenate(string_from_int(R) ))
+    println ( ("S, number of smokers: ").concatenate(string_from_int(S) ))
+
+    -- from now on corresponds to runIteration
+    val arbitrator = new Arbitrator(R,S)
+    arbitrator!start()
+  end
+end
