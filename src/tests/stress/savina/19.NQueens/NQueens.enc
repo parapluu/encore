@@ -1,0 +1,153 @@
+-- This file was automatically converted by encorec
+
+class Master
+  val solutionsLimit : int
+  val workers : [Worker] 
+  var messageCounter: int
+  var numWorkersTerminated: int
+  var numWorkSent: int 
+  var numWorkCompleted: int
+  val numWorkers : int
+  val priorities : int
+  var inArray : [int]
+  var resultCounter: int
+  val solutions : [int]
+  
+  def init(numWorkers: int, priorities: int, solutionsLimit: int, threshold: int, size:int) : unit
+    -- println("Creating Master")
+    this.numWorkers = numWorkers
+    this.priorities = priorities
+    this.solutionsLimit = solutionsLimit
+    this.messageCounter = 0
+    this.numWorkersTerminated = 0
+    this.numWorkSent = 0
+    this.numWorkCompleted = 0
+    this.resultCounter = 0
+    println("Boardsize = {}, number of solutions should be {}", size, solutionsLimit)
+    this.workers = new [Worker](numWorkers)
+    repeat i <- this.numWorkers  do
+      this.workers(i) = new Worker(this,threshold,size)
+    end
+    -- println("All workers created!")
+    this.inArray = new [int](0)
+    this.sendWork(this.inArray, 0, this.priorities) -- triggers computation
+  end
+
+  def success() : unit
+    this.resultCounter = this.resultCounter+1
+    -- println("***** Number of solution: {} *****", this.resultCounter)
+    if (this.resultCounter == this.solutionsLimit) then
+      -- this.requestWorkersToTerminate()
+      println("Found {} solutions", this.resultCounter)
+      println("Program succesfully completed!")
+    end
+  end
+  
+  def sendWork(data: [int], depth: int, priorities: int) : unit
+    -- println("Master sends work to worker")
+    val f = this.workers(this.messageCounter)!nqueensKernelPar(data,depth,priorities)
+    this.messageCounter = (this.messageCounter + 1) % this.numWorkers
+    -- println("Master: sending work to worker {}", this.messageCounter)
+    await(f)
+    this.numWorkCompleted = this.numWorkCompleted + 1
+    -- f ~~> fun (u: unit)=>this.numWorkCompleted = this.numWorkCompleted + 1
+    -- println("Forward chaining has succeeded, numWorkCompleted is {}", this.numWorkCompleted)
+  end
+end
+
+class Worker
+  val threshold: int
+  val size: int
+  val master : Master
+
+  def init(master: Master,threshold: int, size:int) : unit
+    -- println("Creating Worker")
+    this.master = master
+    this.threshold = threshold
+    this.size = size
+  end
+
+  def arraycopy(array1: [int], pos1: int, array2: [int], pos2: int, depth: int) : unit
+    repeat i <- depth do
+      array2(i+pos2)=array1(i+pos1)
+    end
+  end
+
+  def boardValid(n: int, board : [int]) : bool 
+    var p = 0
+    var q = 0
+    var result = true
+    repeat i <- n do
+      p = board(i)
+      for j <- [i+1..n-1] do
+	q = board(j)
+        -- print("i variable has value {}, j variable has value {}\n", i, j)
+        if (q==p || q == p - (j - i) || q == p + (j - i)) then result = false end
+      end
+    end
+    -- println("Board is valid: {}",result)
+    result
+  end
+
+  def nqueensKernelPar(data : [int], depth : int, priority : int) : unit
+    -- println("Worker running nqueensKernelPar")
+    -- println("size has value {}, depth has value {}", this.size, depth)
+    if this.size != depth then 
+      if depth >= this.threshold then
+	-- println("Worker reaches cut-off for nqueensKernelSeq")
+	this.nqueensKernelSeq(data, depth)
+      else 
+	-- println("Worker continues with nqueensKernelPar")
+	-- var newPriority = priority - 1
+        -- var newDepth = depth+1
+	repeat i <- this.size do
+          var b = new [int](depth+1)
+          this.arraycopy(data,0,b,0,depth)
+	  b(depth) = i
+          -- println("Checking position at depth {}", depth+1)
+          if this.boardValid(depth+1, b) then
+            -- println("Worker sends more work to master")
+            this.master!sendWork(b,depth+1,priority-1) -- send new job to Master
+          end
+        end
+      end
+    else
+      -- println("Worker reports PAR success!")
+      this.master!success()
+    end
+  end -- nqueensKernelPar
+
+  def nqueensKernelSeq(data: [int], depth: int) : unit
+    -- println("size has value {}, depth has value {}", this.size, depth)
+    if this.size != depth then
+      -- println("SEQ: size != depth")
+      var b = new [int](depth+1)
+      repeat i <- this.size do
+        this.arraycopy(data, 0, b, 0, depth+1)
+        b(depth) = i
+	-- println("Checking position at depth {}", depth)
+        if this.boardValid(depth+1, b) then
+	  -- println("New job with depth {}", depth+1)
+	  this.nqueensKernelSeq(b, depth+1)
+	end
+      end
+    else
+      -- println("Worker reports SEQ success!")
+      this.master!success()
+    end
+  end -- nqueensKernelSeq
+
+
+end
+
+class Main
+  def main() : unit
+    val numWorkers = 20 -- NQueensConfig.NUM_WORKERS
+    val priorities = 10 -- NQueensConfig.PRIORITIES
+    val size = 16 -- for the Workers
+    val threshold = 4 -- for the Workers
+    val solutions = [ 1, 0, 0, 2, 10 {-- 5 --}, 4, 40, 92, 352, 724 {-- 10 --}, 2680, 14200, 73712, 365596, 2279184 {-- 15 --}, 14772512, 95815104, 666090624, 4968057848, 39029188884 {-- 20 --} ]
+    val solutionsLimit = solutions(size-1)
+    var master = new Master(numWorkers, priorities, solutionsLimit, threshold, size)
+  end
+end
