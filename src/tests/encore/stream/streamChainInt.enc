@@ -1,4 +1,4 @@
-import StreamLib.StreamChain.StreamChain
+import Stream.Chain
 import StreamIO
 
 active class Main

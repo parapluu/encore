@@ -1,0 +1,12 @@
+
+
+read class Maybe
+end
+
+active class Main
+  def main() : unit
+    val x = Just(10)
+    val y = new Maybe[int]()
+    10
+  end
+end

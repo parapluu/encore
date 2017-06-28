@@ -185,10 +185,6 @@ buildMeta = meta . newPos <$> getPosition
 reservedNames =
     ["EMBED"
     ,"END"
-    ,"Fut"
-    ,"Maybe"
-    ,"Par"
-    ,"Stream"
     ,"active"
     ,"and"
     ,"bool"

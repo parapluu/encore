@@ -60,6 +60,7 @@ instance Precheckable Program where
       precheck moduledecl
       assertCorrectModuleName source moduledecl
       assertNoShadowedImports
+      assertNonOverlapWithPredefineds
       mapM_ precheck imports
       typedefs'  <- mapM precheck typedefs
       functions' <- mapM precheck functions
@@ -75,10 +76,7 @@ instance Precheckable Program where
         assertDistinct "definition" functions
         assertDistinct "definition" traits
         assertDistinct "definition" classes
-        assertDistinctThing "declaration" "typedef, class or trait name" $
-                            map (getId . tname) traits ++
-                            map (getId . cname) classes ++
-                            map (getId . typedefdef) typedefs
+        assertDistinctThing "declaration" "typedef, class or trait name" $ newTypeNames
       assertCorrectModuleName _ NoModule = return ()
       assertCorrectModuleName source m@Module{modname} = do
         let sourceName = basename source
@@ -98,7 +96,12 @@ instance Precheckable Program where
                 fromJust $
                   find ((== Just (itarget shadowedImport)) . ialias) imports
           pushError illegalAlias $ ShadowedImportError shadowedImport
-
+      assertNonOverlapWithPredefineds = 
+        when (or (map (`elem` ["Maybe", "Fut", "Stream", "Par"]) newTypeNames)) $
+                tcError OverlapWithBuiltins 
+      newTypeNames = map (getId . tname) traits ++
+                     map (getId . cname) classes ++
+                     map (getId . typedefdef) typedefs
 
 instance Precheckable ModuleDecl where
     doPrecheck m@NoModule = return m

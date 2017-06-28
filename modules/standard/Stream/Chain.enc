@@ -1,7 +1,7 @@
--- This file was automatically converted by encorec
+module Chain
 
-module StreamChain
 typedef Scons = EMBED struct scons* END
+
 fun chain[a, b](sa : Stream[a], f : a -> b) : Stream[b]
   let
     futa = EMBED (Fut[Scons])

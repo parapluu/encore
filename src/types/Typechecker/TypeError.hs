@@ -327,6 +327,7 @@ data Error =
   | ActiveTraitError Type Type
   | NewWithModeError
   | UnsafeTypeArgumentError Type Type
+  | OverlapWithBuiltins
   | SimpleError String
   ----------------------------
   -- Capturechecking errors --
@@ -871,6 +872,8 @@ instance Show Error where
                  (getId formal) (if isModeless formal
                                  then "an aliasable"
                                  else showModeOf formal)
+    show OverlapWithBuiltins =
+      printf ("Types Maybe, Fut, Stream, and Par are built-in and cannot be redefined.") 
     show (SimpleError msg) = msg
     ----------------------------
     -- Capturechecking errors --
