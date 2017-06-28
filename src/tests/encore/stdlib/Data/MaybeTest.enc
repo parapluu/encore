@@ -1,4 +1,4 @@
-import Data.Maybee
+import Data.Maybe
 
 import qualified Data.Array as A
 

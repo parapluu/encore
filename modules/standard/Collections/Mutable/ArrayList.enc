@@ -1,6 +1,6 @@
 module ArrayList
 
-import Data.Maybee(cat_maybes)
+import Data.Maybe(cat_maybes)
 import Data.Either
 import Data.Array
 import Collections.Mutable.Collection

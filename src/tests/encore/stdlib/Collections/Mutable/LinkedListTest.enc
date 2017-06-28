@@ -3,7 +3,7 @@ module LinkedListTest
 
 import Unit.Unit
 import Collections.Mutable.LinkedList
-import Data.Maybee
+import Data.Maybe
 
 fun list_contains[t](list: LinkedList[t], array: [t]) : bool
   var counter = 0

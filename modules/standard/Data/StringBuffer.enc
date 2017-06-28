@@ -1,7 +1,7 @@
 module StringBuffer
 
 import Collections.Mutable.LinkedList
-import Data.Maybee(unjust)
+import Data.Maybe(unjust)
 
 local class StringBuffer
   val strings : LinkedList[String] = new LinkedList[String]()

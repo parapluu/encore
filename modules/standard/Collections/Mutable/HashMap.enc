@@ -7,7 +7,7 @@ import Hash.HashCode
 import Collections.Mutable.Collection
 import Collections.Mutable.Map
 import qualified Data.Array as Array
-import Data.Maybee
+import Data.Maybe
 
 local class Entry[v]
   var key : HashCode

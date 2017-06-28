@@ -1,5 +1,5 @@
 import Data.Array
-import qualified Data.Maybee as M
+import qualified Data.Maybe as M
 
 -- helpful functions
 fun inc(i : int) : int

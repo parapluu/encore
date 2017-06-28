@@ -1,4 +1,4 @@
-module Maybee  -- why is Maybe a keyword?
+module Maybe
 
 import qualified Data.Array as A
 

@@ -1,7 +1,7 @@
 module LinkedList
 
 import Data.Either
-import Data.Maybee
+import Data.Maybe
 import Collections.Mutable.Collection
 import Collections.Mutable.Iterable
 
