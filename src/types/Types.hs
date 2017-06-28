@@ -345,7 +345,8 @@ maybeGetId ty@Type{inner}
   |  isRefAtomType ty
   || isTypeSynonym ty
   , info <- refInfo inner = Just $ refId info
-  | id   <- ident inner = Just id
+  | isTypeVar ty || isCType ty
+  , id <- ident inner = Just id
   | otherwise = Nothing
 
 alphaConvert ident ty@Type{inner}
@@ -926,9 +927,10 @@ replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
   where replace ty
           | isTypeVar ty =
-            snd (fromMaybe (ty, ty)
-                           (find ((getId ty ==) . getId . fst) bindings))
-            `withBoxOf` ty
+            case find ((getId ty ==) . getId . fst) $
+                 filter (isTypeVar . fst) bindings of
+              Just (_, res) -> res `withBoxOf` ty
+              _ -> ty
           | otherwise = ty
 
 ctype :: String -> Type

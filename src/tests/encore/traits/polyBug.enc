@@ -1,0 +1,21 @@
+read trait Decoder[t]
+  require def decode(raw: String) : [t]
+end
+
+class Nullable[t] : Decoder[Maybe[t]](dec)
+  val dec : Decoder[Maybe[t]]
+
+  def init(sub : Decoder[Maybe[t]]) : unit
+    this.dec = sub
+  end
+
+  def decode(raw: String) : [Maybe[t]]
+    this.dec.decode(raw)
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    println("I compile and run!")
+  end
+end
