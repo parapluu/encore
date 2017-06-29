@@ -1938,14 +1938,13 @@ instance Checkable Expr where
         checkIdComparisonSupport ty
             | isMaybeType ty = checkIdComparisonSupport $ getResultType ty
             | isArrayType ty = checkIdComparisonSupport $ getResultType ty
-            | isTupleType ty = do
-                x <- mapM checkIdComparisonSupport (getArgTypes ty)
-                return ()
+            | isTupleType ty = mapM_ checkIdComparisonSupport $ getArgTypes ty
             | otherwise = do
                 id <- checkType (refType "Id")
                 includesId <- ty `includesMarkerTrait` id
                 unless (includesId || isPrimitive ty ||
-                        isNullType ty || isBottomType ty) $
+                        isNullType ty || isBottomType ty ||
+                        isAbstractTraitType ty) $
                   tcError $ IdComparisonNotSupportedError ty
 
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
