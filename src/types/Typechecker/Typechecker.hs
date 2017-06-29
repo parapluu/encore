@@ -1016,10 +1016,9 @@ instance Checkable Expr where
         when (null clauses) $
           tcError EmptyMatchClauseError
         eArg <- typecheck arg
+        checkMatchArgument eArg
         let argType = AST.getType eArg
-        when (isActiveSingleType argType) $
-          unless (isThisAccess arg) $
-            tcError ActiveMatchError
+
         eClauses <- mapM (checkClause argType) clauses
         checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
@@ -1028,6 +1027,16 @@ instance Checkable Expr where
             eClauses' = map updateClauseType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
+        checkMatchArgument arg = do
+          let argType = AST.getType arg
+          when (isActiveSingleType argType) $
+            unless (isThisAccess arg) $
+              tcError ActiveMatchError
+          when (any isBottomType (typeComponents argType)) $
+               pushError arg BottomTypeInferenceError
+          when (any isNullType (typeComponents argType)) $
+               pushError arg NullTypeInferenceError
+
         checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
 
         checkForPrivateExtractor matchArg p@ExtractorPattern{name, arg} = do
