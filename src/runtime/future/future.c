@@ -84,6 +84,7 @@ typedef struct actor_list {
 
 struct future
 {
+  pony_type_t *future_type;
   encore_arg_t      value;
   pony_type_t    *type;
   bool            fulfilled;
@@ -107,7 +108,8 @@ static void future_chain(pony_ctx_t **ctx, future_t *fut, pony_type_t *type,
 pony_type_t future_type = {
   .id = ID_FUTURE,
   .size = sizeof(struct future),
-  .trace = &future_trace
+  .trace = &future_trace,
+  .final = (void*)&future_finalizer,
 };
 
 pony_type_t *future_get_type(future_t *fut){
@@ -179,9 +181,8 @@ future_t *future_mk(pony_ctx_t **ctx, pony_type_t *type)
   pony_ctx_t *cctx = *ctx;
   assert(cctx->current);
 
-  future_t *fut = pony_alloc_final(cctx, sizeof(future_t),
-          (void *)&future_finalizer);
-  *fut = (future_t) { .type = type };
+  future_t *fut = pony_alloc_final(cctx, sizeof(future_t));
+  *fut = (future_t) { .future_type = &future_type, .type = type };
 
   pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);

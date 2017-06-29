@@ -4,7 +4,7 @@
 #include "../ds/fun.h"
 #include "../mem/pool.h"
 #include "../mem/pagemap.h"
-#include <assert.h>
+#include "ponyassert.h"
 
 static size_t object_hash(object_t* obj)
 {
@@ -20,7 +20,6 @@ static object_t* object_alloc(void* address, uint32_t mark)
 {
   object_t* obj = (object_t*)POOL_ALLOC(object_t);
   obj->address = address;
-  obj->final = NULL;
   obj->rc = 0;
   obj->immutable = false;
 
@@ -37,52 +36,33 @@ static void object_free(object_t* obj)
 DEFINE_HASHMAP(ponyint_objectmap, objectmap_t, object_t, object_hash,
   object_cmp, ponyint_pool_alloc_size, ponyint_pool_free_size, object_free);
 
-object_t* ponyint_objectmap_getobject(objectmap_t* map, void* address)
+object_t* ponyint_objectmap_getobject(objectmap_t* map, void* address, size_t* index)
 {
   object_t obj;
   obj.address = address;
 
-  return ponyint_objectmap_get(map, &obj);
+  return ponyint_objectmap_get(map, &obj, index);
 }
 
 object_t* ponyint_objectmap_getorput(objectmap_t* map, void* address,
   uint32_t mark)
 {
-  object_t* obj = ponyint_objectmap_getobject(map, address);
+  size_t index = HASHMAP_UNKNOWN;
+  object_t* obj = ponyint_objectmap_getobject(map, address, &index);
 
   if(obj != NULL)
     return obj;
 
   obj = object_alloc(address, mark);
-  ponyint_objectmap_put(map, obj);
+  ponyint_objectmap_putindex(map, obj, index);
   return obj;
 }
 
-object_t* ponyint_objectmap_register_final(objectmap_t* map, void* address,
-  pony_final_fn final, uint32_t mark)
-{
-  object_t* obj = ponyint_objectmap_getorput(map, address, mark);
-  obj->final = final;
-  return obj;
-}
-
-void ponyint_objectmap_final(objectmap_t* map)
+void ponyint_objectmap_sweep(objectmap_t* map)
 {
   size_t i = HASHMAP_BEGIN;
   object_t* obj;
-
-  while((obj = ponyint_objectmap_next(map, &i)) != NULL)
-  {
-    if(obj->final != NULL)
-      obj->final(obj->address);
-  }
-}
-
-size_t ponyint_objectmap_sweep(objectmap_t* map)
-{
-  size_t count = 0;
-  size_t i = HASHMAP_BEGIN;
-  object_t* obj;
+  bool needs_optimize = false;
 
   while((obj = ponyint_objectmap_next(map, &i)) != NULL)
   {
@@ -93,23 +73,13 @@ size_t ponyint_objectmap_sweep(objectmap_t* map)
       chunk_t* chunk = (chunk_t*)ponyint_pagemap_get(p);
       ponyint_heap_mark_shallow(chunk, p);
     } else {
-      if(obj->final != NULL)
-      {
-        // If we are not free in the heap, don't run the finaliser and don't
-        // remove this entry from the object map.
-        chunk_t* chunk = (chunk_t*)ponyint_pagemap_get(p);
+      ponyint_objectmap_clearindex(map, i);
+      needs_optimize = true;
 
-        if(ponyint_heap_ismarked(chunk, p))
-          continue;
-
-        obj->final(p);
-        count++;
-      }
-
-      ponyint_objectmap_removeindex(map, i);
       object_free(obj);
     }
   }
 
-  return count;
+  if(needs_optimize)
+    ponyint_objectmap_optimize(map);
 }
