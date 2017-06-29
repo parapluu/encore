@@ -1,1 +1,1 @@
-Expected an array access or a function call but found expression of type 'int'
+Expected an array or a function call but found expression of type 'int'
