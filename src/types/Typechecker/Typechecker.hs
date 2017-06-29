@@ -807,8 +807,7 @@ instance Checkable Expr where
           doTypecheck ArrayAccess{emeta
                                  ,target = VarAccess{emeta, qname}
                                  ,index = head args}
-      else
-        if (isArrowType ty) then do
+      else if (isArrowType ty) then do
           let typeParams  = getTypeParameters ty
               argTypes    = getArgTypes ty
               resultType  = getResultType ty
