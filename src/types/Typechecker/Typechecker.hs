@@ -840,7 +840,7 @@ instance Checkable Expr where
                                              typeArguments = typeArgs}
         else do
           tcError $
-             ExpectingOtherTypeError "an array access or a function call" ty
+             ExpectingOtherTypeError "an array or a function call" ty
 
    ---  |- t1 .. |- tn
     --  E, x1 : t1, .., xn : tn |- body : t
