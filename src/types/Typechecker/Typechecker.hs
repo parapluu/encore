@@ -1016,10 +1016,9 @@ instance Checkable Expr where
         when (null clauses) $
           tcError EmptyMatchClauseError
         eArg <- typecheck arg
+        checkMatchArgument eArg
         let argType = AST.getType eArg
-        when (isActiveSingleType argType) $
-          unless (isThisAccess arg) $
-            tcError ActiveMatchError
+
         eClauses <- mapM (checkClause argType) clauses
         checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
@@ -1028,6 +1027,16 @@ instance Checkable Expr where
             eClauses' = map updateClauseType eClauses
         return $ setType resultType match {arg = eArg, clauses = eClauses'}
       where
+        checkMatchArgument arg = do
+          let argType = AST.getType arg
+          when (isActiveSingleType argType) $
+            unless (isThisAccess arg) $
+              tcError ActiveMatchError
+          when (any isBottomType (typeComponents argType)) $
+               pushError arg BottomTypeInferenceError
+          when (any isNullType (typeComponents argType)) $
+               pushError arg NullTypeInferenceError
+
         checkForPrivateExtractors arg = mapM (checkForPrivateExtractor arg)
 
         checkForPrivateExtractor matchArg p@ExtractorPattern{name, arg} = do
@@ -1288,7 +1297,7 @@ instance Checkable Expr where
     --  E |- expr : t
     --  E |- currentMethod : _ -> t
     -- -----------------------------
-    --  E |- return expr : t
+    --  E |- return expr : _|_
     doTypecheck ret@(Return {val}) =
         do eVal <- typecheck val
            context <- asks currentExecutionContext
@@ -1302,7 +1311,7 @@ instance Checkable Expr where
            unlessM (eType `subtypeOf` ty) $
              pushError ret $ ExpectingOtherTypeError
                 (show ty ++ " (type of the enclosing method or function)") eType
-           return $ setType eType ret {val = eVal}
+           return $ setType bottomType ret {val = eVal}
 
     --  isStreaming(currentMethod)
     -- ----------------------------
@@ -2009,10 +2018,7 @@ coercedInto actual expected
       unless (canBeNull expected) $
         tcError $ CannotBeNullError expected
       return expected
-  | isBottomType actual = do
-      when (any isBottomType $ typeComponents expected) $
-        tcError BottomTypeInferenceError
-      return expected
+  | isBottomType actual = return expected
   | isBottomType expected =
       tcError BottomTypeInferenceError
   | otherwise = do
