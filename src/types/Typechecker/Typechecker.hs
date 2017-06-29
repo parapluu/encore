@@ -824,8 +824,6 @@ instance Checkable Expr where
                   Just (qname2, ty2) -> return defName
                   Nothing -> tcError $ WrongNumberOfFunctionArgumentsError
                               qname (length argTypes) (length args)
-          unless (isArrowType ty) $
-            tcError $ NonFunctionTypeError ty
           (eArgs, returnType, typeArgs) <-
             if null typeArguments
             then inferenceCall fcall typeParams (take actualLength argTypes) resultType
