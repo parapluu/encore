@@ -8,7 +8,7 @@ module Barber
 -- here a possible call
 -- ./MainBarbers 300 10 25 200 > out
 
-
+import Print
 import Random
 import CounterActor
 import FiFoBoundedList
@@ -32,17 +32,17 @@ active class Barber
      end
 
      def enter(client:Customer,room:WaitingRoom) : unit
-         println( "------- customer entered a room")
+         pprintln( "------- customer entered a room")
          client!start()
-         println( "------- customer started")
+         pprintln( "------- customer started")
          this.arbitrator.busyWait(this.AHR+10)
-         println( "------- customer is done")
+         pprintln( "------- customer is done")
          client!done()
          room!next()
      end
 
      def wait( ) : unit
-         println("barber has no customers, and can sleep")
+         pprintln("barber has no customers, and can sleep")
      end
 
      def start() : unit
@@ -58,7 +58,7 @@ active class WaitingRoom
    val barber: Barber
 
    def init(cap: int,barber:Barber) : unit
-     println("-----Room created")
+     pprintln("-----Room created")
      this.capacity = cap
      -- no progress if we initialized as follows, but also,
      --      it segfaults (currently) if done so
@@ -71,17 +71,17 @@ active class WaitingRoom
 
    def enter(c: Customer) : unit
      if (this.waitingCustomers.isFull() ) then
-        println("...room is full")
+        pprintln("...room is full")
         c!roomFull()
      else
         this.waitingCustomers.pushLast(c)
         if (this.barberAsleep) then
-           println("...barber was sleeping")
+           pprintln("...barber was sleeping")
            this.barberAsleep = false
            this!next()
         else
            c!wait()
-           println("...wait-barber busy")
+           pprintln("...wait-barber busy")
         end
      end
    end
@@ -90,12 +90,12 @@ active class WaitingRoom
      val custOrNone = this.waitingCustomers.getFirst()
      match custOrNone with
          case Just(customer) =>
-           println("...going to barber")
+           pprintln("...going to barber")
            this.barber!enter(customer,this)
          end
          case Nothing  =>
            -- how can this ever happen?
-           println("...nobody there")
+           pprintln("...nobody there")
            this.barberAsleep = true
            this.barber!wait()
          end
@@ -113,7 +113,7 @@ active class Customer
      this.room = room
      this.generator = generator
      this.id = id
-     println( ("...Customer created with id:").concatenate(string_from_int(this.id)) )
+     pprintln( ("...Customer created with id:").concatenate(string_from_int(this.id)) )
   end
 
   def roomFull( ) : unit
@@ -135,7 +135,7 @@ active class Customer
   end
 
   def printState(state:String): unit
-    println( (  (".... customer ").concatenate(string_from_int(this.id) )).concatenate(state) )
+    pprintln( (  (".... customer ").concatenate(string_from_int(this.id) )).concatenate(state) )
   end
 
 end
@@ -195,7 +195,7 @@ active class CustomerGenerator
   def done(who:Customer): unit
     this.nrHaircutsSoFar = this.nrHaircutsSoFar+1
     if (this.nrHaircutsSoFar==this.maxNrHairCuts) then
-      println("simulation finished")
+      pprintln("simulation finished")
       -- in oder to avoid futures, we replaced
       --      val nrAttempts = get(this.counter!get_value())
       --      println( ("total attempts ").concatenate(string_from_int(nrAttempts)) )

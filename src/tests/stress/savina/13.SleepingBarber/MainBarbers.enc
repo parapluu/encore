@@ -1,4 +1,5 @@
 import Barber
+import Print
 
 -- Sleeping barber
 -- corresponds to https://github.com/shamsmahmood/savina/blob/master/src/main/java/edu/rice/habanero/benchmarks/barber/SleepingBarberConfig.java
@@ -44,13 +45,13 @@ active class Main
     -- args consists of the name of the program called, and the remaining actual parameters
     -- println ( ("nrArgs: ").concatenate(string_from_int(nrArgs) ))
     val N =  -- num haircuts
-          this.get_ith_argument(args,nrArgs,1,5000)
+          this.get_ith_argument(args, nrArgs, 1, 1000)    -- previously 5000
     val W =  -- waiting room size
-         this.get_ith_argument(args,nrArgs,2,1000)
+         this.get_ith_argument(args, nrArgs, 2, 100)    -- previously 1000
     val APR =  --  average production rate
-          this.get_ith_argument(args,nrArgs,3,1000)
+          this.get_ith_argument(args, nrArgs, 3, 100)    -- previously 1000
     val AHR =  --  average haircut rate
-          this.get_ith_argument(args,nrArgs,4,1000)
+          this.get_ith_argument(args, nrArgs, 4, 100)    -- previously 1000
     val debug =  --  average haircut rate
           if  (nrArgs< 6) then
             false
@@ -63,7 +64,7 @@ active class Main
     println ( ("W: ").concatenate(string_from_int(W) ))
     println ( ("APR: ").concatenate(string_from_int(APR) ))
     println ( ("AHR: ").concatenate(string_from_int(AHR) ))
-    println ( ("bebug: ").concatenate(this.boolToString(debug) ))
+    println ( ("debug: ").concatenate(this.boolToString(debug) ))
 
     -- from now on corresponds to runIteration
     val barber = new Barber(AHR)
