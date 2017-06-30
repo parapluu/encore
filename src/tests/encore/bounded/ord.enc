@@ -22,13 +22,8 @@ read class Cell[u : Ord[u]] : Ord[Cell[u]](f)
   end
 end
 
-fun foo[t : Ord[t]](x : t) : unit
-  ()
-end
-
 active class Main
   def main(args : [String]) : unit
-    foo(new Int(1))
     val n1 = new Int(3)
     val n2 = new Int(2)
     val c1 = new Cell(n1)

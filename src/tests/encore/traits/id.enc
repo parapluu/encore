@@ -1,0 +1,14 @@
+class C : Id + Eq[C]
+  def eq(x : C) : bool
+    this == x
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new C
+    if x.eq(x) then
+      println("Equidentity is cool!")
+    end
+  end
+end

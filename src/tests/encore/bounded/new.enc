@@ -1,0 +1,21 @@
+read class Foo[t : Eq[t]]
+  val f : t
+  def init(f : t) : unit
+    this.f = f
+  end
+end
+
+read class Bar : Eq[Bar]
+  def eq(other : Bar) : bool
+    true
+  end
+  def bar() : unit
+    println("In Bar")
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    (new Foo(new Bar)).f.bar()
+  end
+end
