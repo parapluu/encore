@@ -1594,8 +1594,6 @@ instance Checkable Expr where
           (eArgs, resolvedTy, _) <-
               inferenceCall fakeInitCall typeParams argTypes formal
 
-          checkTypeArgumentBounds typeParams (getTypeParameters resolvedTy)
-
           checkArgsEncapsulation eArgs resolvedTy
 
           resolvedTy' <- checkType resolvedTy

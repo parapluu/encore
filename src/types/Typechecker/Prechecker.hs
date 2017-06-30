@@ -96,9 +96,9 @@ instance Precheckable Program where
                 fromJust $
                   find ((== Just (itarget shadowedImport)) . ialias) imports
           pushError illegalAlias $ ShadowedImportError shadowedImport
-      assertNonOverlapWithPredefineds = 
+      assertNonOverlapWithPredefineds =
         when (or (map (`elem` ["Maybe", "Fut", "Stream", "Par"]) newTypeNames)) $
-                tcError OverlapWithBuiltins 
+                tcError OverlapWithBuiltins
       newTypeNames = map (getId . tname) traits ++
                      map (getId . cname) classes ++
                      map (getId . typedefdef) typedefs
@@ -223,7 +223,7 @@ instance Precheckable TraitDecl where
               else [(thisName, self)]
         assertDistinctness = do
           assertDistinctThing "declaration" "type parameter" $
-                              map (typeVar . getId) $ getTypeParameters tname
+                              getTypeParameters tname
           assertDistinctThing "requirement" "field" $
                               map fname $ requiredFields t
           assertDistinctThing "requirement" "method" $
@@ -306,7 +306,7 @@ instance Precheckable ClassDecl where
         addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
             assertDistinctThing "declaration" "type parameter" $
-                                map (typeVar . getId) $ getTypeParameters cname
+                                getTypeParameters cname
             assertDistinctThing "inclusion" "trait" $
                                 typesFromTraitComposition ccomposition
             assertDistinct "declaration" cfields

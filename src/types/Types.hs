@@ -962,9 +962,10 @@ isStringObjectType ty = isClassType ty &&
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace
-  where replace ty =
-          fromMaybe ty (lookup ty bindings)
-          `withBoxOf` ty
+    where replace ty =
+              fromMaybe ty (lookup ty bindings)
+              `withBoxOf` ty
+
 ctype :: String -> Type
 ctype = typ . CType
 
