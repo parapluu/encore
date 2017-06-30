@@ -1,0 +1,17 @@
+trait T
+  def foo[t](x : t) : t
+    x
+  end
+end
+
+class C : local T
+  def foo[u](x : u) : u
+    x
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    println((new C).foo("I compile and run!"))
+  end
+end

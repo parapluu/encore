@@ -204,7 +204,7 @@ data Error =
   | CovarianceViolationError FieldDecl Type Type
   | RequiredFieldMismatchError FieldDecl Type Type Bool
   | NonDisjointConjunctionError Type Type FieldDecl
-  | OverriddenMethodTypeError Name Type Type
+  | OverriddenMethodTypeError Name Type Type Type
   | OverriddenMethodError Name Type Error
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
@@ -391,10 +391,11 @@ instance Show Error where
         printf
           "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
            (show left) (show right) (show field)
-    show (OverriddenMethodTypeError name expected trait) =
+    show (OverriddenMethodTypeError name expected trait actual) =
         printf ("Overridden method '%s' does not " ++
-                "have the expected type '%s' required by %s")
-               (show name) (show expected) (refTypeName trait)
+                "have the expected type '%s' required by %s.\n" ++
+                "Actual type is '%s'")
+               (show name) (show expected) (refTypeName trait) (show actual)
     show (OverriddenMethodError name trait err) =
         case err of
           FieldNotFoundError f _ ->
@@ -873,7 +874,7 @@ instance Show Error where
                                  then "an aliasable"
                                  else showModeOf formal)
     show OverlapWithBuiltins =
-      printf ("Types Maybe, Fut, Stream, and Par are built-in and cannot be redefined.") 
+      printf ("Types Maybe, Fut, Stream, and Par are built-in and cannot be redefined.")
     show (SimpleError msg) = msg
     ----------------------------
     -- Capturechecking errors --
