@@ -114,7 +114,7 @@ active class Worker
       -- println("SEQ: size != depth")
       var b = new [int](depth+1)
       repeat i <- this.size do
-        this.arraycopy(data, 0, b, 0, depth+1)
+        this.arraycopy(data, 0, b, 0, depth)
         b(depth) = i
 	      -- println("Checking position at depth {}", depth)
         if this.boardValid(depth+1, b) then
