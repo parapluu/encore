@@ -294,6 +294,8 @@ subtypeOf ty1 ty2
         return $ length argTys1 == length argTys2 &&
                  ty1 `modeSubtypeOf` ty2 &&
                  contravariance && covariance
+    | isArrayType ty1 && isArrayType ty2 =
+        getResultType ty1 `equivalentTo` getResultType ty2
     | hasResultType ty1 && hasResultType ty2 =
         liftM (ty1 `hasSameKind` ty2 &&) $
               getResultType ty1 `subtypeOf` getResultType ty2

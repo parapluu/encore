@@ -1,0 +1,21 @@
+local trait A
+end
+
+local class B : A
+  var f : int = 10
+end
+
+local class C : A
+  var s : String = "Bar"
+end
+
+active class Main
+  def main() : unit
+    val bb : [B] = [new B]
+    val aa : [A] = bb
+    val c = new C
+    aa(0) = c
+    bb(0).f = 11
+    println(c.s)
+  end
+end
