@@ -1,0 +1,11 @@
+read trait T
+  def foo[t](x : t) : t
+    x
+  end
+end
+
+class C : T
+  def foo[t, s](x : t) : t
+    x
+  end
+end
