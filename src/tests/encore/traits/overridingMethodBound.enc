@@ -1,0 +1,30 @@
+read trait S[t]
+  def id(x : t) : t
+    x
+  end
+end
+
+read trait T
+  def foo[t, s : S[t]](x : t, y : s) : t
+    x
+  end
+end
+
+read class C : T
+  def foo[a, b : S[a]](x : a, y : b) : a
+    y.id(x)
+  end
+  def bar() : unit
+    println("We made it!")
+  end
+end
+
+class D : S[C]
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val c = new C
+    c.foo(c, new D).bar()
+  end
+end

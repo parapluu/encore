@@ -161,7 +161,7 @@ resolveSingleType :: Type -> TypecheckM Type
 resolveSingleType ty
   | isTypeVar ty = do
       params <- asks typeParameters
-      case find ((getId ty ==) . getId) params of
+      case find (ty ==) params of
         Just ty' -> return $ ty' `withBoxOf` ty
         Nothing  -> tcError $ FreeTypeVariableError ty
   | isRefAtomType ty = do
