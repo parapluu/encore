@@ -1,0 +1,26 @@
+fun foo[t : Echo[s], s](e : t, x : s) : s
+  e.id(x)
+end
+
+read trait Echo[t]
+  def id(x : t) : t
+    x
+  end
+end
+
+read class C1 : Echo[int]
+end
+
+read class C2[t] : Echo[t]
+  def id(x : t) : t
+    println("Echo!")
+    x
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    println(foo(new C1, 42))
+    println(foo(new C2[String], "Hello"))
+  end
+end

@@ -1,0 +1,18 @@
+fun foo[t : T](x : t) : unit
+  x.m()
+end
+
+read trait T
+  def m() : unit
+    println("Mmm...")
+  end
+end
+
+read class C
+end
+
+active class Main
+  def main(args : [String]) : unit
+    foo(new C)
+  end
+end

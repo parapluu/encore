@@ -96,9 +96,9 @@ instance Precheckable Program where
                 fromJust $
                   find ((== Just (itarget shadowedImport)) . ialias) imports
           pushError illegalAlias $ ShadowedImportError shadowedImport
-      assertNonOverlapWithPredefineds = 
+      assertNonOverlapWithPredefineds =
         when (or (map (`elem` ["Maybe", "Fut", "Stream", "Par"]) newTypeNames)) $
-                tcError OverlapWithBuiltins 
+                tcError OverlapWithBuiltins
       newTypeNames = map (getId . tname) traits ++
                      map (getId . cname) classes ++
                      map (getId . typedefdef) typedefs
@@ -129,31 +129,40 @@ instance Precheckable ImportDecl where
 
 instance Precheckable Typedef where
    doPrecheck t@Typedef{typedefdef} = do
-     let typeParams = getTypeParameters typedefdef
+     typeParams <- local (addTypeParameters (getTypeParameters typedefdef)) $
+                         mapM resolveTypeParameter (getTypeParameters typedefdef)
      let resolvesTo = typeSynonymRHS typedefdef
          addTypeParams = addTypeParameters typeParams
      resolvesTo' <- local addTypeParams $ resolveTypeAndCheckForLoops resolvesTo
-     return $ t{typedefdef = typeSynonymSetRHS typedefdef resolvesTo'}
+     let typedefdef' = typeSynonymSetRHS typedefdef resolvesTo'
+                       `setTypeParameters` typeParams
+     return $ t{typedefdef = typedefdef'}
 
 instance Precheckable FunctionHeader where
     doPrecheck header = do
-      let typeParams = htypeparams header
-      htype' <- local (addTypeParameters typeParams) $
+      htypeparams' <- local (addTypeParameters (htypeparams header)) $
+                            mapM resolveTypeParameter (htypeparams header)
+      htype' <- local (addTypeParameters htypeparams') $
                       resolveType (htype header)
-      hparams' <- local (addTypeParameters typeParams) $
+      hparams' <- local (addTypeParameters htypeparams') $
                         mapM precheck (hparams header)
 
-      classTypeParams <- getClassTypeParams
+      classTypeParams <- asks typeParameters
       assertDistinctThing "declaration" "type parameter" $
-                          typeParams ++ classTypeParams
+                          map (typeVar . getId)
+                              (htypeparams' ++ classTypeParams)
       assertDistinctThing "definition" "parameter" $ map pname hparams'
-      return $ header{htype = htype',
+      return $ header{htypeparams = htypeparams',
+                      htype = htype',
                       hparams = hparams'}
-      where
-        getClassTypeParams = do
-          environment <- ask
-          return $ typeParameters environment
 
+resolveTypeParameter ty
+  | Just bound <- getBound ty = do
+      bound' <- resolveType bound
+      unless (isCapabilityType bound') $
+             tcError $ MalformedBoundError bound'
+      return $ setBound (Just bound') ty
+  | otherwise = return ty
 
 precheckLocalFunctions :: [Function] -> [Type] -> TypecheckM [Function]
 precheckLocalFunctions locals typeParams = do
@@ -194,25 +203,27 @@ instance Precheckable Requirement where
 instance Precheckable TraitDecl where
     doPrecheck t@Trait{tname, treqs, tmethods} = do
       assertDistinctness
-      let typeParams = getTypeParameters tname
+      typeParams <- local (addTypeParameters (getTypeParameters tname)) $
+                          mapM resolveTypeParameter (getTypeParameters tname)
       when (isSharableSingleType tname) $
            tcError $ CannotGiveSharableModeError tname
-      treqs'    <- mapM (local addTypeParams . doPrecheck)
+      treqs'    <- mapM (local (addTypeParameters typeParams) . doPrecheck)
                         treqs
-      tmethods' <- mapM (local (addTypeParams . addMinorThis tname) . precheck)
+      tmethods' <- mapM (local (addTypeParameters typeParams .
+                                addMinorThis tname) . precheck)
                         tmethods
       let tmethods'' = map alphaConvertMethod tmethods'
-      return $ setType tname t{treqs = treqs', tmethods = tmethods''}
+      return $ setType (setTypeParameters tname typeParams)
+               t{treqs = treqs', tmethods = tmethods''}
       where
-        typeParameters = getTypeParameters tname
-        addTypeParams = addTypeParameters typeParameters
         addMinorThis self =
             extendEnvironmentImmutable $
               if hasMinorMode tname
               then [(thisName, makeSubordinate self)]
               else [(thisName, self)]
         assertDistinctness = do
-          assertDistinctThing "declaration" "type parameter" typeParameters
+          assertDistinctThing "declaration" "type parameter" $
+                              getTypeParameters tname
           assertDistinctThing "requirement" "field" $
                               map fname $ requiredFields t
           assertDistinctThing "requirement" "method" $
@@ -266,14 +277,16 @@ instance Precheckable TraitComposition where
 instance Precheckable ClassDecl where
     doPrecheck c@Class{cname, ccomposition, cfields, cmethods} = do
       assertDistinctness
-      let typeParams = getTypeParameters cname
-      cname' <- local addTypeParams $ resolveType cname
+      typeParams <- local (addTypeParameters (getTypeParameters cname)) $
+                          mapM resolveTypeParameter (getTypeParameters cname)
+      cname' <- local (addTypeParameters typeParams) $
+                      resolveType (setTypeParameters cname typeParams)
 
       ccomposition' <- checkComposition cname'
-      cfields' <- mapM (local (addTypeParams . addThis cname') . precheck)
-                       cfields
-      cmethods' <- mapM (local (addTypeParams . addThis cname') . precheck)
-                        cmethods
+      cfields' <- mapM (local (addTypeParameters typeParams . addThis cname') .
+                        precheck) cfields
+      cmethods' <- mapM (local (addTypeParameters typeParams . addThis cname') .
+                         precheck) cmethods
 
       checkShadowingMethodsAndFields cfields' cmethods'
 
@@ -290,11 +303,10 @@ instance Precheckable ClassDecl where
                                            else emptyConstructor c : cmethods'
                                }
       where
-        typeParameters = getTypeParameters cname
-        addTypeParams = addTypeParameters typeParameters
         addThis self = extendEnvironmentImmutable [(thisName, self)]
         assertDistinctness = do
-            assertDistinctThing "declaration" "type parameter" typeParameters
+            assertDistinctThing "declaration" "type parameter" $
+                                getTypeParameters cname
             assertDistinctThing "inclusion" "trait" $
                                 typesFromTraitComposition ccomposition
             assertDistinct "declaration" cfields
@@ -304,8 +316,8 @@ instance Precheckable ClassDecl where
           let capability = capabilityFromTraitComposition ccomposition
               resolveFormally t | isRefAtomType t = findFormalRefType t
                                 | otherwise = return t
-
-          resolvedCapability <- local addTypeParams $
+              typeParams = getTypeParameters thisType
+          resolvedCapability <- local (addTypeParameters typeParams) $
                                   typeMapM resolveFormally capability
 
           -- The resolving above is needed to allow looking up
@@ -314,7 +326,7 @@ instance Precheckable ClassDecl where
           case ccomposition of
             Just composition -> do
               composition' <-
-                local (addTypeParams . addThis thisType .
+                local (addTypeParameters typeParams . addThis thisType .
                        setTraitComposition thisType resolvedCapability) $
                     doPrecheck composition
               return $ Just composition'

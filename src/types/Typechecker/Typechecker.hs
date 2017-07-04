@@ -14,6 +14,7 @@ import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
+import Debug.Trace
 import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
@@ -92,7 +93,7 @@ instance Checkable Typedef where
              tcError $ DistinctTypeParametersError typedefdef
       let rhs = typeSynonymRHS typedefdef
       let addTypeParams = addTypeParameters $ getTypeParameters typedefdef
-      rhs' <- local addTypeParams $ resolveType rhs
+      rhs' <- local addTypeParams $ checkType rhs
       return $ t{typedefdef = typeSynonymSetRHS typedefdef rhs'}
        where
          distinctParams p = length p == length (nub p)
@@ -127,6 +128,11 @@ instance Checkable Function where
           funparams = functionParams f
           funtypeparams = functionTypeParams f
           body = Util.markStatsInBody funtype funbody
+      local (addTypeParameters funtypeparams) $
+            mapM_ typecheck funparams
+      local (addTypeParameters funtypeparams) $
+            checkType funtype
+
       eBody <-
         local (addTypeParameters funtypeparams .
                addParams funparams .
@@ -160,10 +166,17 @@ instance Checkable Requirement where
   doTypecheck r@RequiredField{rfield} = do
     rfield' <- typecheck rfield
     return r{rfield = rfield'}
-  doTypecheck r@RequiredMethod{rheader} = return r
+  doTypecheck r@RequiredMethod{rheader} = do
+    let typeParams = htypeparams rheader
+    local (addTypeParameters typeParams) $
+          mapM_ typecheck (hparams rheader)
+    local (addTypeParameters typeParams) $
+          checkType (htype rheader)
+    return r
 
 instance Checkable FieldDecl where
   doTypecheck f@Field{ftype} = do
+    checkType ftype
     Just (_, thisType)  <- findVar (qLocal thisName)
     when (isReadSingleType thisType) $ do
          unless (isValField f) $
@@ -431,11 +444,14 @@ instance Checkable ClassDecl where
   doTypecheck c@(Class {cname, cfields, cmethods, ccomposition}) = do
 
     when (isPassiveClassType cname) $
-         unless (null $ filter isForwardMethod cmethods) $
+         when (any isForwardMethod cmethods) $
                 tcError $ ForwardInPassiveContext cname
 
     let traits = typesFromTraitComposition ccomposition
         extendedTraits = extendedTraitsFromComposition ccomposition
+
+    local (addTypeVars . addThis) $
+          mapM_ checkType traits
 
     mapM_ (meetRequiredFields cfields) traits
     meetRequiredMethods cmethods traits
@@ -446,8 +462,6 @@ instance Checkable ClassDecl where
     mapM_ (ensureMatchingTraitFootprint cname extendedTraits) extendedTraits
     noOverlapFields cname ccomposition
 
-    checkOverriding cname typeParameters cmethods extendedTraits
-
     checkMethodExtensionAllowed
 
     -- TODO: Add namespace for trait methods
@@ -456,6 +470,8 @@ instance Checkable ClassDecl where
                mapM typecheck cfields
     emethods <- local (addTypeVars . addThis) $
                 mapM typecheck cmethods
+
+    checkOverriding cname typeParameters cmethods extendedTraits
 
     return c{cmethods = emethods, cfields = efields}
     where
@@ -499,6 +515,11 @@ instance Checkable MethodDecl where
             mparams = methodParams m
             mtypeparams = methodTypeParams m
             body = Util.markStatsInBody mType mbody
+        local (addTypeParameters mtypeparams) $
+               mapM_ typecheck mparams
+        local (addTypeParameters mtypeparams) $
+              checkType mType
+
         eBody <-
             local (addTypeParameters mtypeparams .
                    addParams mparams .
@@ -532,7 +553,7 @@ instance Checkable MethodDecl where
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do
-      ptype' <- resolveType ptype
+      ptype' <- checkType ptype
       return $ setType ptype' p
 
 -- | 'hasType e ty' typechecks 'e' (with backtrace) and returns
@@ -579,7 +600,7 @@ instance Checkable Expr where
     -- ----------------------
     --  E |- (body : t) : t
     doTypecheck te@(TypedExpr {body, ty}) =
-        do ty' <- resolveType ty
+        do ty' <- checkType ty
            eBody <- typecheck body
            bodyType <- AST.getType eBody `coercedInto` ty'
            let eBody' = setType bodyType eBody
@@ -850,7 +871,7 @@ instance Checkable Expr where
     --  E |- \ (x1 : t1, .., xn : tn) -> body : (t1 .. tn) -> t
     doTypecheck closure@(Closure {eparams, mty, body}) = do
       eEparams <- mapM typecheck eparams
-      mty' <- mapM resolveType mty
+      mty' <- mapM checkType mty
       eBody <- case mty' of
                  Just expected ->
                    if isUnitType expected then
@@ -941,7 +962,7 @@ instance Checkable Expr where
             return $ (eVars, eExpr):eDecls
 
           checkBinding eType (VarType x ty) = do
-            ty' <- resolveType ty
+            ty' <- checkType ty
             eType `assertSubtypeOf` ty'
             return (VarType x ty')
           checkBinding eType (VarNoType x) =
@@ -1185,7 +1206,7 @@ instance Checkable Expr where
 
         doCheckPattern pattern@(TypedExpr{body, ty}) argty = do
           eBody <- checkPattern body argty
-          ty' <- resolveType ty
+          ty' <- checkType ty
           argty `assertSubtypeOf` ty'
           return $ setType ty' eBody
 
@@ -1410,7 +1431,7 @@ instance Checkable Expr where
                          then makeLocal targetType
                          else targetType
           eTarget' = setType accessedType eTarget
-      unless (isThisAccess target ||
+      unless (isThisAccess eTarget' ||
               isPassiveClassType targetType && not (isModeless targetType)) $
         tcError $ CannotReadFieldError eTarget
       fdecl <- findField targetType name
@@ -1463,11 +1484,12 @@ instance Checkable Expr where
            Just (qname', ty) -> do
              unless (isArrowType ty) $
                     tcError (NonFunctionTypeError ty)
-             typeArgs' <- mapM resolveType typeArgs
+             typeArgs' <- mapM checkType typeArgs
              let typeParams = getTypeParameters ty
              unless (length typeArgs' == length typeParams) $
                     tcError $ WrongNumberOfFunctionTypeArgumentsError qname
                               (length typeParams) (length typeArgs')
+             checkTypeArgumentBounds typeParams typeArgs'
 
              let bindings = zip typeParams typeArgs'
                  ty' = replaceTypeVars bindings ty
@@ -1563,7 +1585,9 @@ instance Checkable Expr where
     doTypecheck new@(NewWithInit {ty, args})
       | isRefAtomType ty && null (getTypeParameters ty) = do
           formal <- findFormalRefType ty
-          header <- findConstructor formal args
+          header <- if isTypeSynonym formal
+                    then findConstructor (typeSynonymRHS formal) args
+                    else findConstructor formal args
           let typeParams = getTypeParameters formal
               argTypes = map ptype (hparams header)
 
@@ -1572,17 +1596,28 @@ instance Checkable Expr where
 
           checkArgsEncapsulation eArgs resolvedTy
 
+          resolvedTy' <- checkType resolvedTy
+
           return $ setArrowType (arrowType argTypes unitType) $
-                   setType resolvedTy new{ty = resolvedTy, args = eArgs}
+                   setType resolvedTy' new{ty = resolvedTy', args = eArgs}
 
       | otherwise = do
-          ty' <- resolveType ty
+          ty' <- checkType ty
 
           header <- findConstructor ty' args
           let expectedTypes = map ptype (hparams header)
 
           (eArgs, _) <- matchArguments args expectedTypes
+
+          -- Could be a new array
+          when (isRefAtomType ty) $ do
+            formal <- findFormalRefType ty
+            let typeParams = getTypeParameters formal
+                typeArgs = getTypeParameters ty'
+            checkTypeArgumentBounds typeParams typeArgs
+
           checkArgsEncapsulation eArgs ty'
+
           return $ setArrowType (arrowType expectedTypes unitType) $
                    setType ty' new{ty = ty', args = eArgs}
 
@@ -1654,7 +1689,7 @@ instance Checkable Expr where
     -- ----------------------------
     --  E |- new [ty](size) : [ty]
     doTypecheck new@(ArrayNew {ty, size}) =
-        do ty' <- resolveType ty
+        do ty' <- checkType ty
            eSize <- hasType size intType
            return $ setType (arrayType ty') new{ty = ty', size = eSize}
 
@@ -1738,7 +1773,7 @@ instance Checkable Expr where
     -- ------------------------
     --  E |- abort() : _|_
     doTypecheck abort@Abort{args} = do
-      sty <- resolveType stringObjectType
+      sty <- checkType stringObjectType
       let expectedTypes = [sty]
       unless (length args == length expectedTypes) $
         tcError $ WrongNumberOfFunctionArgumentsError
@@ -1782,7 +1817,7 @@ instance Checkable Expr where
     -- ---------------------
     -- E |- embed ty _ : ty
     doTypecheck embed@(Embed {ty, embedded}) =
-        do ty' <- resolveType ty
+        do ty' <- checkType ty
            embedded' <- mapM typecheckPair embedded
            return $ setType ty' embed{ty = ty'
                                      ,embedded = embedded'}
@@ -1901,14 +1936,13 @@ instance Checkable Expr where
         checkIdComparisonSupport ty
             | isMaybeType ty = checkIdComparisonSupport $ getResultType ty
             | isArrayType ty = checkIdComparisonSupport $ getResultType ty
-            | isTupleType ty = do
-                x <- mapM checkIdComparisonSupport (getArgTypes ty)
-                return ()
+            | isTupleType ty = mapM_ checkIdComparisonSupport $ getArgTypes ty
             | otherwise = do
-                id <- resolveType (refType "Id")
+                id <- checkType (refType "Id")
                 includesId <- ty `includesMarkerTrait` id
                 unless (includesId || isPrimitive ty ||
-                        isNullType ty || isBottomType ty) $
+                        isNullType ty || isBottomType ty ||
+                        isAbstractTraitType ty) $
                   tcError $ IdComparisonNotSupportedError ty
 
     doTypecheck e = error $ "Cannot typecheck expression " ++ show (ppExpr e)
@@ -2053,7 +2087,7 @@ matchArguments (arg:args) (typ:types) = do
   needCast <- fmap (&& typ /= actualTyp) $
                    actualTyp `subtypeOf` typ
   let
-    casted = TypedExpr{emeta=(getMeta eArg),body=eArg,ty=typ}
+    casted = TypedExpr{emeta=getMeta eArg, body=eArg, ty=typ}
     eArg' = if needCast then casted else eArg
   return (eArg':eArgs, bindings')
   (eArgs, bindings') <- local (bindTypes bindings) $
@@ -2188,22 +2222,6 @@ matchTypes expected ty
         ty `assertSubtypeOf` expected
         asks bindings
 
-assertSubtypeOf :: Type -> Type -> TypecheckM ()
-assertSubtypeOf sub super =
-    unlessM (sub `subtypeOf` super) $ do
-      capability <- if isClassType sub
-                    then do
-                      cap <- findCapability sub
-                      if isIncapability cap
-                      then return Nothing
-                      else return $ Just cap
-                    else return Nothing
-      case capability of
-        Just cap ->
-            tcError $ TypeWithCapabilityMismatchError sub cap super
-        Nothing ->
-            tcError $ TypeMismatchError sub super
-
 inferenceCall call typeParams argTypes resultType
   | isMethodCallOrMessageSend call || isFunctionCall call = do
       let uniquify = uniquifyTypeVars typeParams
@@ -2218,6 +2236,7 @@ inferenceCall call typeParams argTypes resultType
          tcError $ TypeArgumentInferenceError call (head unresolved)
 
       assertSafeTypeArguments typeParams' typeArgs
+      checkTypeArgumentBounds typeParams' typeArgs
       return (eArgs, resultType', typeArgs)
   | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"
@@ -2232,7 +2251,7 @@ typecheckCall call formalTypeParameters argTypes resultType
       uniqueArgTypes <- mapM uniquify argTypes
       uniqueResultType <- uniquify resultType
 
-      typeArgs' <- mapM resolveType (typeArguments call)
+      typeArgs' <- mapM checkType (typeArguments call)
       let bindings = zip uniqueTypeParameters typeArgs'
   -- NOTE: it seems redundant to use the bindTypes when we are substituting
   --  the argTypes by the bindings. this is necessary because the
@@ -2246,6 +2265,7 @@ typecheckCall call formalTypeParameters argTypes resultType
 
       let returnType = replaceTypeVars bindings uniqueResultType
       assertSafeTypeArguments uniqueTypeParameters typeArgs'
+      checkTypeArgumentBounds uniqueTypeParameters typeArgs'
       return (eArgs, returnType, typeArgs')
  | otherwise = error $ "Typechecker.hs: expression '" ++ show call ++ "' " ++
                         "is not a method or function call"
@@ -2289,7 +2309,7 @@ typecheckParametricFun argTypes eSeqFunc
       let bindings = zip formalTypeParams actualTypeParams
           expectedFunType = replaceTypeVars bindings $
                                    arrowType argTypes funResultType
-      expectedFunType' <- resolveType expectedFunType
+      expectedFunType' <- checkType expectedFunType
       seqType `assertSubtypeOf` expectedFunType'
       return expectedFunType
   | otherwise = error $ "Function that is callable but distinct from" ++

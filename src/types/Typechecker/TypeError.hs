@@ -173,7 +173,10 @@ refTypeName ty
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No refTypeName for " ++
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = refTypeName bound
+    | otherwise = error $ "TypeError.hs: No refTypeName for " ++
                           showWithKind ty
 
 -- | The data type for a type checking error. Showing it will
@@ -213,6 +216,7 @@ data Error =
   | UnknownTraitError Type
   | UnknownRefTypeError Type
   | MalformedCapabilityError Type
+  | MalformedBoundError Type
   | RecursiveTypesynonymError Type
   | DuplicateThingError String String
   | PassiveStreamingMethodError
@@ -460,6 +464,8 @@ instance Show Error where
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =
         printf "Cannot form capability with %s" (showWithKind ty)
+    show (MalformedBoundError bound) =
+        printf "Cannot use %s as bound (must have trait)" (showWithKind bound)
     show (RecursiveTypesynonymError ty) =
         printf "Type synonyms cannot be recursive. One of the culprits is %s"
                (getId ty)
@@ -604,14 +610,18 @@ instance Show Error where
     show (CannotBeNullError ty) =
         printf ("Null valued expression cannot have type '%s' " ++
                 "(must have reference type)") (show ty)
-    show (TypeMismatchError actual expected) =
-        if isArrowType actual && isArrowType expected &&
-           actual `withModeOf` expected == expected
-        then printf ("Closure of type '%s' captures %s state and cannot " ++
-                     "be used as type '%s'")
-                     (show actual) (showModeOf actual) (show expected)
-        else printf "Type '%s' does not match expected type '%s'"
-                    (show actual) (show expected)
+    show (TypeMismatchError actual expected)
+      | isTypeVar actual && isJust (getBound actual) =
+          printf "Type '%s' with bound '%s' does not match expected type '%s'"
+                  (show actual) (show . fromJust $ getBound actual) (show expected)
+      | isArrowType actual
+      , isArrowType expected
+      , actual `withModeOf` expected == expected =
+          printf ("Closure of type '%s' captures %s state and cannot " ++
+                  "be used as type '%s'")
+                 (show actual) (showModeOf actual) (show expected)
+      | otherwise =  printf "Type '%s' does not match expected type '%s'"
+                            (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
                (show actual) (show cap) (show expected) pointer
@@ -865,8 +875,11 @@ instance Show Error where
     show (UnsafeTypeArgumentError formal ty) =
         if isModeless ty then
           -- TODO: Could be more precise (e.g. distinguish between linear/subord)
-          printf "Cannot use non-aliasable type '%s' as type argument"
-                 (show ty)
+          printf ("Cannot use non-aliasable type '%s' as type argument. " ++
+                  "Type parameter '%s' requires the type to have %s mode")
+                 (show ty) (getId formal) (if isModeless formal
+                                           then "an aliasable"
+                                           else showModeOf formal)
         else
           printf ("Cannot use %s type '%s' as type argument. " ++
                   "Type parameter '%s' requires the type to have %s mode")

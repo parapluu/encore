@@ -1,0 +1,23 @@
+read class Foo
+  def foo[t : local T](x : t) : unit
+    x.bar()
+  end
+end
+
+trait T
+  require def bar() : unit
+end
+
+
+local class Bar : T
+  def bar() : unit
+    println("Welcome to the bar")
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new Foo
+    x.foo(new Bar)
+  end
+end
