@@ -1,5 +1,55 @@
 active class Main
   def main() : unit
-    println("{}", Nothing)
+    this.test1()
+    println("{}", this.test2())
+    this.test3()
+    println("{}", this.test4())
+    println("{}", this.test5())
+    println("{}", this.test6())
+  end
+
+  def test1() : unit
+     println("{}", Nothing)
+  end
+
+  def test2() : int
+    match Nothing with
+      case Nothing => 0
+      case Just(ice) => 1
+    end
+  end
+
+  def test3() : unit
+    match Nothing with
+      case Nothing =>
+        println("Nothing")
+      end
+    end
+  end
+
+  def test4() : int
+    match Nothing with
+      case Just(ice) => ice
+      case _ => 0
+    end
+  end
+
+  def test5() : int
+    val dummy = return 5
+    30
+  end
+
+
+  def test6() : int
+    val dummy = return 5
+    val d : C = dummy
+    d.foo()
+  end
+  
+end
+
+local class C
+  def foo() : int
+    100
   end
 end

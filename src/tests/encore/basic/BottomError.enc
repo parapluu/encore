@@ -1,0 +1,11 @@
+active class Main
+  def main() : unit
+    this.test5()
+  end
+
+  def test5() : int
+    val dummy = return 5
+    println("{}", dummy.l)
+    30
+  end
+end

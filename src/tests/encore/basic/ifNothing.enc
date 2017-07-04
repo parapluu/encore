@@ -7,5 +7,6 @@ active class Main
     else
       Nothing
     end
+    println("Done")
   end
 end

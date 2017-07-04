@@ -928,8 +928,8 @@ instance Checkable Expr where
                                    in map (extractBindings ty) vars
                locals = concatMap extract eDecls
                declTypes = map snd locals
-           when (any isBottomType (concatMap typeComponents declTypes)) $
-                tcError BottomTypeInferenceError
+--           when (any isBottomType (concatMap typeComponents declTypes)) $
+--                tcError BottomTypeInferenceError
            let addNames = (if mutability == Val
                            then extendEnvironmentImmutable
                            else extendEnvironment) locals
@@ -1055,8 +1055,8 @@ instance Checkable Expr where
           when (isActiveSingleType argType) $
             unless (isThisAccess arg) $
               tcError ActiveMatchError
-          when (any isBottomType (typeComponents argType)) $
-               pushError arg BottomTypeInferenceError
+--          when (any isBottomType (typeComponents argType)) $
+--               pushError arg BottomTypeInferenceError
           when (any isNullType (typeComponents argType)) $
                pushError arg NullTypeInferenceError
 

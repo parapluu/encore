@@ -54,7 +54,6 @@ import AST.AST as AST
 import Data.List
 import Data.Maybe
 import Text.Printf (printf)
-import Debug.Trace
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Arrow(second)
@@ -373,6 +372,7 @@ subtypeOf sub super
         let members1 = unionMembers sub
             members2 = unionMembers super
         allM (\ty -> anyM (ty `subtypeOf`) members2) members1
+<<<<<<< HEAD
     | isUnionType sub = do
         let members1 = unionMembers sub
         allM (`subtypeOf` super) members1
@@ -386,6 +386,22 @@ subtypeOf sub super
     , Just bound <- getBound sub
       = bound `subtypeOf` super
     | otherwise = return (sub == super)
+=======
+    | isUnionType ty1 = do
+        let members1 = unionMembers ty1
+        allM (`subtypeOf` ty2) members1
+    | isUnionType ty2 = do
+        let members2 = unionMembers ty2
+        anyM (ty1 `subtypeOf`) members2
+    | isBottomType ty1 = return True
+--    | isBottomType ty1 && (not . isBottomType $ ty2) = return True
+    | isNumeric ty1 && isNumeric ty2 =
+        return $ ty1 `numericSubtypeOf` ty2
+    | isTypeVar ty1 && not (isTypeVar ty2)
+    , Just bound <- getBound ty1
+      = bound `subtypeOf` ty2
+    | otherwise = return (ty1 == ty2)
+>>>>>>> Finished
     where
       capabilitySubtypeOf subCap superCap = do
         let traits1 = typesFromCapability subCap
@@ -654,6 +670,8 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter tys
     | isBottomType ty =
         doUnifyTypes inter tys
+    | isBottomType inter =
+        doUnifyTypes ty tys
     | isClassType ty =
         if ty == inter
         then doUnifyTypes inter tys
