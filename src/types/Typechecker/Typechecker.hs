@@ -1279,7 +1279,7 @@ instance Checkable Expr where
 
     --  E |- val : Fut t
     -- ------------------
-    --  E |- forward val : t
+    --  E |- forward val : _|_
     doTypecheck forward@(Forward {forwardExpr}) =
         do eExpr <- typecheck forwardExpr
            let ty = AST.getType eExpr
@@ -1292,7 +1292,7 @@ instance Checkable Expr where
                let returnType = methodType mdecl
                unlessM (getResultType ty `subtypeOf` returnType) $
                        pushError eExpr $ ForwardTypeError returnType ty
-               return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+               return $ setType bottomType forward {forwardExpr = eExpr}
              _ -> pushError eExpr ForwardInFunction
 
     --  E |- val : t
