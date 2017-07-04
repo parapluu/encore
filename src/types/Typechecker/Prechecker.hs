@@ -390,17 +390,24 @@ instance Precheckable MethodDecl where
 alphaConvertMethod m@Method{mheader, mbody, mlocals} =
   let typeParams    = htypeparams mheader
       bindings      = map buildBinding typeParams
-      htypeparams'  = map (replaceTypeVars bindings) typeParams
-      mheader'      = replaceHeaderTypes bindings
+      bindings'     = map (convertBound bindings) bindings
+      htypeparams'  = map (replaceTypeVars bindings') typeParams
+      mheader'      = replaceHeaderTypes bindings'
                       mheader{htypeparams = htypeparams'}
-      mbody'        = convertExpr bindings mbody
-      mlocals'      = map (convertLocal bindings) mlocals
+      mbody'        = convertExpr bindings' mbody
+      mlocals'      = map (convertLocal bindings') mlocals
   in m{mheader = mheader', mbody = mbody', mlocals = mlocals'}
   where
     buildBinding ty =
       let id = getId ty
           id' = "_" ++ id
       in (ty, alphaConvert id' ty)
+
+    convertBound bindings (from, to)
+      | isTypeVar to
+      , Just bound <- getBound to =
+          (from, setBound (Just (replaceTypeVars bindings bound)) to)
+      | otherwise = (from, to)
 
     convertExpr bindings = extend (exprTypeMap (replaceTypeVars bindings))
 

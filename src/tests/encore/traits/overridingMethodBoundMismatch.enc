@@ -1,0 +1,17 @@
+read trait S[t]
+  def id(x : t) : t
+    x
+  end
+end
+
+read trait T
+  def foo[t, s : S[t]](x : t, y : s) : t
+    x
+  end
+end
+
+read class C : T
+  def foo[t, s](x : t, y : s) : t
+    x
+  end
+end
