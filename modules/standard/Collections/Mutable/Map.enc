@@ -2,10 +2,10 @@ module Map
 
 import Hash.HashCode
 
-local trait Map[t]
-  require def clone() : Map[t]
-  require def set(key: HashCode, value: t) : unit
-  require def get_value(key: HashCode) : Maybe[t]
-  require def remove(key: HashCode) : bool
+local trait Map[k : HashCode, t]
+  require def clone() : Map[k, t]
+  require def set(key: k, value: t) : unit
+  require def get_value(key: k) : Maybe[t]
+  require def remove(key: k) : bool
   require def size() : int
 end

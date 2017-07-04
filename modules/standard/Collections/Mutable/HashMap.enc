@@ -9,24 +9,24 @@ import Collections.Mutable.Map
 import qualified Data.Array as Array
 import Data.Maybe
 
-local class Entry[v]
-  var key : HashCode
+local class Entry[k : HashCode + Eq[k], v]  -- this should be Eq[k]
+  var key : k
   var value : v
-  def init(key : HashCode, value : v) : unit
+
+  def init(key : k, value : v) : unit
     this.key = key
     this.value = value
   end
 end
 
-local class HashMapIterator[v]
-  var map : HashMap[v]
-  var current_index : uint
-  var current_node : Maybe[LinkedNode[Entry[v]]]
+local class HashMapIterator[k : HashCode + Eq[k], v]
+  var map : HashMap[k, v]
+  var current_index : uint = -1
+  var current_node : Maybe[LinkedNode[Entry[k, v]]]
 
-  def init(map : HashMap[v]) : unit
+  def init(map : HashMap[k, v]) : unit
     this.map = map.clone()
-    this.current_index = -(1)
-    this.current_node = Nothing
+    this.current_node = Nothing -- Do Not Remove!
     this.current_node = this.get_next_node()
   end
 
@@ -40,7 +40,7 @@ local class HashMapIterator[v]
     If found, it returns a reference to the list
     in a maybe type.
   -}
-  def private get_next_list() : Maybe[LinkedNode[Entry[v]]]
+  def private get_next_list() : Maybe[LinkedNode[Entry[k,v]]]
     this.current_index = this.current_index + 1
 
     while this.current_index < this.map.size do
@@ -61,7 +61,7 @@ local class HashMapIterator[v]
     Locates the next node in the LinkedList
     retrieved from get_next_list().
   -}
-  def private get_next_node() : Maybe[LinkedNode[Entry[v]]]
+  def private get_next_node() : Maybe[LinkedNode[Entry[k,v]]]
     match this.current_node with
       case Just(current) =>
         match current.next with
@@ -78,7 +78,7 @@ local class HashMapIterator[v]
     Returns Nothing if the end of the HashMap
     has been reached.
   -}
-  def next() : Maybe[Entry[v]]
+  def next() : Maybe[Entry[k,v]]
     val current = this.current_node
 
     if this.has_next() then
@@ -99,16 +99,16 @@ local class HashMapIterator[v]
   end
 end
 
-local class HashMap[v] : Map[v](size, internal_map, items, resize())
+local class HashMap[k : HashCode + Eq[k], v] : Map[k, v](size, internal_map, items, resize())
   var size         : uint
   var items        : uint
-  var internal_map : [LinkedList[Entry[v]]]
+  var internal_map : [LinkedList[Entry[k,v]]]
 
   def init() : unit
     this.items = 0
     this.size = 32
     this.internal_map = Array.new_with_generator(this.size, 
-                                                 fun (x: int) => new LinkedList[Entry[v]]())
+                                                 fun (x: int) => new LinkedList[Entry[k,v]]())
   end
 
   {-
@@ -116,8 +116,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
 
     TODO: Optimize
   -}
-  def clone() : HashMap[v]
-    val new_map = new HashMap[v]()
+  def clone() : HashMap[k,v]
+    val new_map = new HashMap[k,v]()
 
     for i <- this.internal_map do
       val iter = i.iterator()
@@ -130,7 +130,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     return new_map
   end
 
-  def remove(key : HashCode) : bool
+  def remove(key : k) : bool
     val hash = key.get_hash()
     val k = hash % this.size
 
@@ -142,7 +142,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     var i = 0
     while iter.has_next() && not removed do
       val entry = unjust(iter.next())
-      if entry.key.hash_equals(key) then
+      if entry.key.eq(key) then
         l.remove(i)  -- TODO: make more efficient (it will search through again)
         this.items = this.items - 1
         removed = true
@@ -153,9 +153,9 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     return removed
   end
 
-  def set(key : HashCode, value : v) : unit
+  def set(key : k, value : v) : unit
     val hash = key.get_hash()
-    val entry = new Entry[v](key, value)
+    val entry = new Entry[k,v](key, value)
 
     if this.items >= this.size * 0.75 then
       this.resize(this.size * 2)
@@ -181,17 +181,17 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     the HashMap.
   -}
   def resize(new_size : uint) : unit
-    val new_map = new [LinkedList[Entry[v]]](new_size)
+    val new_map = new [LinkedList[Entry[k,v]]](new_size)
 
     -- Initialize new_map
     repeat i <- new_size do
-      new_map(i) = new LinkedList[Entry[v]]()
+      new_map(i) = new LinkedList[Entry[k,v]]()
     end
 
     for l <- this.internal_map do
-      val iter = l.iterator() : LinkedListIterator[Entry[v]]
+      val iter = l.iterator() : LinkedListIterator[Entry[k,v]]
       while iter.has_next() do
-        val e = unjust(iter.next()) : Entry[v]
+        val e = unjust(iter.next()) : Entry[k,v]
         -- Add current entry to new map.
         val hash = e.key.get_hash()
         val k = hash % new_size
@@ -203,13 +203,13 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     this.size = new_size
   end
 
-  def get_value(key : HashCode) : Maybe[v]
+  def get_value(key : k) : Maybe[v]
     val hash = key.get_hash()
     val k = hash % this.size
     val i = this.internal_map(k).iterator()
     while i.has_next() do
       val entry = i.next()
-      if entry?.key?.hash_equals(key) == Just(true) then
+      if entry?.key?.eq(key) == Just(true) then
         return entry?.value
       end
     end
@@ -220,8 +220,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     this.size
   end
 
-  def iterator() : HashMapIterator[v]
-    new HashMapIterator[v](this)
+  def iterator() : HashMapIterator[k,v]
+    new HashMapIterator[k,v](this)
   end
 
   def foreach(f : v -> unit) : unit
@@ -234,8 +234,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     end
   end
 
-  def map[u](f : v -> u) : HashMap[u]
-    val new_map = new HashMap[u]()
+  def map[u](f : v -> u) : HashMap[k,u]
+    val new_map = new HashMap[k,u]()
 
     for i <- this.internal_map do
       val iter = i.iterator()
@@ -248,8 +248,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     return new_map
   end
 
-  def filter(f : v -> bool) : HashMap[v]
-    val new_map = new HashMap[v]()
+  def filter(f : v -> bool) : HashMap[k,v]
+    val new_map = new HashMap[k,v]()
 
     for i <- this.internal_map do
       val iter = i.iterator()
@@ -264,8 +264,8 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     return new_map
   end
 
-  def key_value_pairs() : [(HashCode, v)]
-    val result = new [(HashCode, v)](this.items)
+  def key_value_pairs() : [(k, v)]
+    val result = new [(k, v)](this.items)
     var index = 0
     for i <- this.internal_map do
       val iter = i.iterator()
@@ -278,7 +278,7 @@ local class HashMap[v] : Map[v](size, internal_map, items, resize())
     result
   end
   
-  def populate(pairs : [(HashCode, v)]) : unit
+  def populate(pairs : [(k, v)]) : unit
     for kv <- pairs do
       this.set(kv.0, kv.1)
     end

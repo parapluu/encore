@@ -10,10 +10,18 @@ import Collections.Mutable.HashMap
 import Hash.HashCode
 import Data.Maybe
 
-read class Foo : HashCode + Id
+read class Foo : HashCode + Id + Eq[Foo](hash_code)
   val hash_code : uint
   def init() : unit
     this.hash_code = this.hash_address()
+  end
+  
+  def hash() : uint
+    this.hash_code
+  end
+  
+  def eq(other : Foo) : bool
+    this.hash_code == other.hash()
   end
 end
 
@@ -31,7 +39,7 @@ local class Accumulator
 end
 
 fun set_and_get() : bool
-  val map = new HashMap[int]
+  val map = new HashMap[Foo,int]
   val foo = new Foo()
 
   map.set(foo, 12)
@@ -44,7 +52,7 @@ end
 
 fun items_and_size_1() : bool
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     bar = new Foo()
   in
@@ -56,7 +64,7 @@ end
 
 fun items_and_size_2() : bool
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     bar = new Foo()
   in
@@ -69,7 +77,7 @@ end
 
 fun remove_1() : bool
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
   in
     map.set(foo, 12)
@@ -88,7 +96,7 @@ end
 
 fun remove_2() : bool
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     bar = new Foo()
   in
@@ -138,7 +146,7 @@ end
 
 fun dual_remove() : bool
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     ret = true
   in
@@ -150,7 +158,7 @@ end
 
 fun items_1() : int
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
   in
     map.set(foo, 12)
@@ -160,7 +168,7 @@ end
 
 fun items_2() : int
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     bar = new Foo()
   in
@@ -172,7 +180,7 @@ end
 
 fun items_3() : int
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     foo = new Foo()
     bar = new Foo()
   in
@@ -185,7 +193,7 @@ end
 
 fun items_4() : int
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     f1 = new Foo()
     f2 = new Foo()
     f3 = new Foo()
@@ -211,7 +219,7 @@ end
 
 fun size_1() : int
   let
-    map = new HashMap[int]
+    map = new HashMap[Foo,int]
     f1 = new Foo()
     f2 = new Foo()
     f3 = new Foo()
@@ -237,11 +245,11 @@ end
 
 fun iterator_test_1() : bool
   let
-    map = new HashMap[int]()
+    map = new HashMap[Foo,int]()
     foo = new Foo()
   in
     map.set(foo, 12)
-    val iter = new HashMapIterator[int](map)
+    val iter = new HashMapIterator[Foo,int](map)
     var ret = match iter.has_next() with
                 case true =>
                   true
@@ -302,7 +310,7 @@ fun iterator_test_1() : bool
 end
 
 fun iterator_test_2() : bool
-  val map = new HashMap[int]()
+  val map = new HashMap[Foo,int]()
   val foo = new Foo()
   val bar = new Foo()
 
@@ -337,7 +345,7 @@ end
 
 fun resize_1() : bool
   let
-    map = new HashMap[int]()
+    map = new HashMap[Foo,int]()
     old_internal_map = map.internal_map
     f0 = new Foo()
     f1 = new Foo()
@@ -616,7 +624,7 @@ fun resize_1() : bool
 end
 
 fun foreach_one() : bool
-  val map = new HashMap[int]
+  val map = new HashMap[Foo,int]
   val foo = new Foo()
   val bar = new Foo()
 
@@ -635,7 +643,7 @@ fun foreach_one() : bool
 end
 
 fun map_one() : bool
-  val map = new HashMap[int]()
+  val map = new HashMap[Foo,int]()
   val foo = new Foo()
   val bar = new Foo()
 
@@ -665,7 +673,7 @@ fun map_one() : bool
 end
 
 fun clone_one() : bool
-  val map = new HashMap[int]()
+  val map = new HashMap[Foo,int]()
   val foo = new Foo()
   val bar = new Foo()
 
@@ -741,7 +749,7 @@ fun clone_one() : bool
 end
 
 fun key_value_pairs_1() : bool
-  val map = new HashMap[int]()
+  val map = new HashMap[Foo,int]()
   val foo = new Foo()
   val bar = new Foo()
 
@@ -753,7 +761,7 @@ fun key_value_pairs_1() : bool
 end
 
 fun populate() : bool
-  val map = new HashMap[int]()
+  val map = new HashMap[Foo,int]()
   val foo = new Foo()
   val bar = new Foo()
   map.populate([(foo,12),(bar,24)])
