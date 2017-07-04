@@ -380,15 +380,19 @@ checkOverriding cname typeParameters methods extendedTraits = do
     checkOverride typeParameters (abstractDecl, required, method) = do
       let expectedParamTypes = map ptype $ hparams required
           expectedType = htype required
+          expectedTypeParams = htypeparams required
           expectedMethodType = arrowType expectedParamTypes expectedType
+                               `setTypeParameters` expectedTypeParams
           actualParamTypes = map ptype $ methodParams method
           actualType = methodType method
+          actualTypeParams = methodTypeParams method
           actualMethodType = arrowType actualParamTypes actualType
+                             `setTypeParameters` actualTypeParams
           requirer = tname abstractDecl
       unlessM (actualMethodType `subtypeOf` expectedMethodType) $
              pushError method $
                OverriddenMethodTypeError
-                 (methodName method) expectedMethodType requirer
+                 (methodName method) expectedMethodType requirer actualMethodType
       typecheckWithTrait `catchError`
                           \(TCError e bt) ->
                              throwError $

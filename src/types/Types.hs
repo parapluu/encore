@@ -423,17 +423,21 @@ instance Show InnerType where
     show t@TypeVar{tmode = Nothing, ident = ('_':ident')} = show t{ident = ident'}
     show t@TypeVar{tmode = Nothing, ident} = ident
     show t@TypeVar{tmode = Just m} = show m ++ " " ++ show t{tmode = Nothing}
-    show ArrowType{argTypes = [ty], resultType, modes = []} =
+    show ArrowType{argTypes = [ty], resultType, modes = [], paramTypes = []} =
         if isTupleType ty
         then "(" ++ show ty ++ ") -> " ++ show resultType
         else show ty ++ " -> " ++ show resultType
-    show ArrowType{argTypes, resultType, modes = []} =
+    show ArrowType{argTypes, resultType, modes = [], paramTypes = []} =
         "(" ++ args ++ ") -> " ++ show resultType
         where
           args = intercalate ", " (map show argTypes)
-    show arrow@ArrowType{modes} =
+    show arrow@ArrowType{modes, paramTypes = []} =
         unwords (map show modes) ++
         " (" ++ show arrow{modes = []} ++ ")"
+    show arrow@ArrowType{paramTypes} =
+        "[" ++ params ++ "](" ++ show arrow{paramTypes = []} ++ ")"
+        where
+          params = intercalate ", " (map show paramTypes)
     show FutureType{resultType} = "Fut" ++ brackets resultType
     show ParType{resultType}    = "Par" ++ brackets resultType
     show StreamType{resultType} = "Stream" ++ brackets resultType

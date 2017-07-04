@@ -285,13 +285,17 @@ subtypeOf ty1 ty2
     | isStackboundType ty1 =
         liftM (isStackboundType ty2 &&) $ unbox ty1 `subtypeOf` unbox ty2
     | isArrowType ty1 && isArrowType ty2 = do
-        let argTys1 = getArgTypes ty1
-            argTys2 = getArgTypes ty2
+        let typeParams1 = getTypeParameters ty1
+            typeParams2 = getTypeParameters ty2
+            bindings = zip typeParams2 typeParams1
             resultTy1 = getResultType ty1
-            resultTy2 = getResultType ty2
+            resultTy2 = replaceTypeVars bindings $ getResultType ty2
+            argTys1 = getArgTypes ty1
+            argTys2 = map (replaceTypeVars bindings) $ getArgTypes ty2
         contravariance <- liftM and $ zipWithM subtypeOf argTys2 argTys1
         covariance <- resultTy1 `subtypeOf` resultTy2
         return $ length argTys1 == length argTys2 &&
+                 length typeParams1 == length typeParams2 &&
                  ty1 `modeSubtypeOf` ty2 &&
                  contravariance && covariance
     | isArrayType ty1 && isArrayType ty2 =
