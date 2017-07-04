@@ -1,0 +1,20 @@
+import IO.File
+
+active class Main
+  def main () : unit
+    val file = "FileTest.out" 
+    var f = new File(file, "w")
+    val msg  = "Hello World!\n"
+
+    -- Test write file
+    f.write(msg)
+    f.close()
+
+    -- Test read file
+    f = new File(file, "r")
+    while (not f.eof()) do
+      print("{}", f.readline())
+    end
+    f.close()
+  end
+end

@@ -1,0 +1,68 @@
+module File
+
+typedef CString = EMBED char* END
+
+typedef FilePath = String
+
+typedef FILE = EMBED FILE* END
+
+local class File
+  var file : FILE              -- convert to Maybe to avoid using null pointer under the hood
+  val file_name : String
+  val mode : String            -- replace by IOMode ADT
+
+  def init(fname : FilePath, mode : String) : unit  -- use default parameters
+    this.file_name = fname
+    this.mode = if mode.eq("") then "w+r+a" else mode end
+    this.open()
+  end
+
+  def private open() : unit
+    this.file = EMBED (FILE)
+                  FILE *file = fopen(#{this.file_name.data}, #{this.mode.data});
+                  file;
+                END
+    if not this.valid() then
+      abort("Cannot open file, exiting.")
+    end
+  end
+
+  def close() : unit
+    if not this.valid() then
+      abort("Cannot close file, exiting.\n")
+    end
+    this.file = EMBED (FILE)
+                  fclose(#{this.file});
+                  (FILE*)NULL;
+                END
+  end
+
+
+  -- write a string
+  def write(content:String) : unit
+    if not this.valid() then
+        abort("Cannot open file, exiting.")
+    end
+    EMBED (unit)
+      fprintf(#{this.file}, #{content.data});
+    END
+  end
+
+  def private valid() : bool
+    EMBED (bool) (bool)#{this.file}; END
+  end
+  
+  -- read a line
+  def readline() : String
+    var line = EMBED (CString)
+                 char* line = encore_alloc(*_ctx,255);
+                 fgets(line, 255, #{this.file});
+                 line;
+               END
+    new String(line)
+  end
+  
+  def eof() : bool
+    EMBED (bool) feof(#{this.file}); END
+  end
+end
