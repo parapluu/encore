@@ -205,6 +205,7 @@ reservedNames =
     ,"for"
     ,"fun"
     ,"forward"
+    ,"future"
     ,"if"
     ,"import"
     ,"in"
@@ -1009,6 +1010,7 @@ expr = notFollowedBy nl >>
      <|> unlessIf
      <|> explicitReturn
      <|> forward
+     <|> future
      <|> yield
      <|> try isEos
      <|> eos
@@ -1422,6 +1424,12 @@ expr = notFollowedBy nl >>
         reserved "forward"
         forwardExpr <- parens expression
         returnWithEnd Forward{emeta, forwardExpr}
+
+      future = do
+        pos <- getPosition
+        reserved "future"
+        expr <- parens expression
+        return $ Future (meta pos) expr
 
       closure = do
         indent <- L.indentLevel

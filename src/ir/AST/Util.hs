@@ -101,6 +101,7 @@ getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
 getChildren Borrow {target, body} = [target, body]
 getChildren Get {val} = [val]
 getChildren Forward {forwardExpr} = [forwardExpr]
+getChildren Future {futureExpr} = [futureExpr]
 getChildren Yield {val} = [val]
 getChildren Eos {} = []
 getChildren IsEos {target} = [target]
@@ -182,6 +183,7 @@ putChildren (arg:clauseList) e@(Match {clauses}) =
 putChildren [target, body] e@(Borrow {}) = e{target, body}
 putChildren [val] e@(Get {}) = e{val = val}
 putChildren [forwardExpr] e@(Forward {}) = e{forwardExpr = forwardExpr}
+putChildren [futureExpr] e@(Future {}) = e{futureExpr = futureExpr}
 putChildren [val] e@(Yield {}) = e{val = val}
 putChildren [] e@(Eos {}) = e
 putChildren [target] e@(IsEos {}) = e{target = target}
@@ -248,6 +250,7 @@ putChildren _ e@(Match {}) = error "'putChildren l Match' expects l to have at l
 putChildren _ e@(Borrow {}) = error "'putChildren l Borrow' expects l to have 2 element"
 putChildren _ e@(Get {}) = error "'putChildren l Get' expects l to have 1 element"
 putChildren _ e@(Forward {}) = error "'putChildren l Forward' expects l to have 1 element"
+putChildren _ e@(Future {}) = error "'putChildren l Future' expects l to have 1 element"
 putChildren _ e@(Yield {}) = error "'putChildren l Yield' expects l to have 1 element"
 putChildren _ e@(Eos {}) = error "'putChildren l Eos' expects l to have 0 elements"
 putChildren _ e@(IsEos {}) = error "'putChildren l IsEos' expects l to have 1 element"

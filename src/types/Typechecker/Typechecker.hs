@@ -1300,6 +1300,15 @@ instance Checkable Expr where
              _ -> pushError eExpr ForwardInFunction
 
     --  E |- val : t
+    -- ------------------
+    --  E |- future(val) : Fut t
+    doTypecheck future@(Future {futureExpr}) =
+        do eExpr <- typecheck futureExpr
+           let returnType = AST.getType eExpr
+           return $ setType (futureType returnType) future {futureExpr = eExpr}
+
+
+    --  E |- val : t
     --  isStreaming(currentMethod)
     -- -----------------------------
     --  E |- yield val : unit

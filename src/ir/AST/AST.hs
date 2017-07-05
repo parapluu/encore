@@ -665,6 +665,9 @@ data Expr = Skip {emeta :: Meta Expr}
                  val :: Expr}
           | Forward {emeta :: Meta Expr,
                      forwardExpr :: Expr}
+          | Future {emeta :: Meta Expr,
+                    futureExpr :: Expr}
+                     
           | Yield {emeta :: Meta Expr,
                    val :: Expr}
           | Eos {emeta :: Meta Expr}

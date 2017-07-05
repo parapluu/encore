@@ -1077,6 +1077,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                )),
                        Assign (Decl (resultType, Var tmp)) theGet])
 
+  translate A.Future{A.futureExpr} = 
+    do (mval, tval) <- translate futureExpr
+       tmp <- Ctx.genSym
+       let third = asEncoreArgT (translate $ A.getType futureExpr) (AsExpr mval)
+       let mk = Call futureMkFulfilled [AsExpr encoreCtxVar, runtimeType $ A.getType futureExpr, third]
+       let foo = Assign (Decl (C.future, Var tmp)) mk
+       return (Var tmp, Seq [tval, foo])
+
   translate yield@(A.Yield{A.val}) =
       do (nval, tval) <- translate val
          tmp <- Ctx.genSym
