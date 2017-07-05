@@ -6,6 +6,7 @@ typedef FilePath = String
 
 typedef FILE = EMBED FILE* END
 
+
 local class File
   var file : FILE              -- convert to Maybe to avoid using null pointer under the hood
   val file_name : String
@@ -55,8 +56,8 @@ local class File
   -- read a line
   def readline() : String
     var line = EMBED (CString)
-                 char* line = encore_alloc(*_ctx,255);
-                 fgets(line, 255, #{this.file});
+                 char* line = encore_alloc(*_ctx,1024);
+                 fgets(line, 1024, #{this.file});
                  line;
                END
     new String(line)
@@ -65,4 +66,39 @@ local class File
   def eof() : bool
     EMBED (bool) feof(#{this.file}); END
   end
+end
+
+ FilePath -> IOMode -> (Handle -> IO r) -> IO r
+
+fun withFile[t](fname : FilePath, mode : String = "r", f : File -> t) : t
+  val file  = new File(fname, mode)
+  val res = f(file)
+  f.close()
+  res
+end
+
+-- this is a bad idea for large files because file is read in totality into memory
+-- a lazy approach is required. 
+fun read_file(fname : FilePath) : String
+  val file = new File(fname, "r")
+  val sb = new StringBuffer()
+  while not file.eof() do
+    sb.add(file.readline())
+    sb.add("\n")  -- TODO: doesn't work properly with long lines (due to readline limitation)
+  end
+  f.close()
+  sb.build()
+end
+
+fun write_file(fname : FilePath, str : String) : unit
+  val file : File = new File(fname, "w")
+  file.write(str)
+  f.close()
+end
+
+
+fun append_file(fname : FilePath, str : String) : unit
+  val file : File = new File(fname, "a")
+  file.write(str)
+  f.close()
 end
