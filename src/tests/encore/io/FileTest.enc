@@ -2,7 +2,7 @@ import IO.File
 
 active class Main
   def main () : unit
-    val file = "FileTest.out" 
+    val file = "FileTest.tmp" 
     var f = new File(file, "w")
     val msg  = "Hello World!\n"
 
@@ -13,7 +13,7 @@ active class Main
     -- Test read file
     f = new File(file, "r")
     while (not f.eof()) do
-      print("{}", f.readline())
+      println("{}", f.readline())
     end
     f.close()
   end

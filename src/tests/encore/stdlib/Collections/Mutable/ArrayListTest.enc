@@ -1,6 +1,6 @@
 module ArrayListTest
 
-import Unit.Unit
+import Test.Unit
 import Collections.Mutable.ArrayList
 import Data.Either
 

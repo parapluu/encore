@@ -1,6 +1,6 @@
 module File
 
-typedef CString = EMBED char* END
+import Data.StringBuffer
 
 typedef FilePath = String
 
@@ -68,12 +68,11 @@ local class File
   end
 end
 
- FilePath -> IOMode -> (Handle -> IO r) -> IO r
 
-fun withFile[t](fname : FilePath, mode : String = "r", f : File -> t) : t
+fun withFile[t](fname : FilePath, f : File -> t, mode : String = "r") : t
   val file  = new File(fname, mode)
   val res = f(file)
-  f.close()
+  file.close()
   res
 end
 
@@ -86,19 +85,19 @@ fun read_file(fname : FilePath) : String
     sb.add(file.readline())
     sb.add("\n")  -- TODO: doesn't work properly with long lines (due to readline limitation)
   end
-  f.close()
+  file.close()
   sb.build()
 end
 
 fun write_file(fname : FilePath, str : String) : unit
   val file : File = new File(fname, "w")
   file.write(str)
-  f.close()
+  file.close()
 end
 
 
 fun append_file(fname : FilePath, str : String) : unit
   val file : File = new File(fname, "a")
   file.write(str)
-  f.close()
+  file.close()
 end

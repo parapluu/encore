@@ -5,7 +5,7 @@
 module HashMapTest
 
 
-import Unit.Unit
+import Test.Unit
 import Collections.Mutable.HashMap
 import Hash.HashCode
 import Data.Maybe
