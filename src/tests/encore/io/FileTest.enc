@@ -18,3 +18,10 @@ active class Main
     f.close()
   end
 end
+
+{-
+test with_file
+test read_file
+test write_file
+test append_file
+-}

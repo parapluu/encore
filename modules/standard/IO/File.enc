@@ -69,7 +69,7 @@ local class File
 end
 
 
-fun withFile[t](fname : FilePath, f : File -> t, mode : String = "r") : t
+fun with_file[t](fname : FilePath, f : File -> t, mode : String = "r") : t
   val file  = new File(fname, mode)
   val res = f(file)
   file.close()
