@@ -1,8 +1,8 @@
 module Map
 
-import Hash.HashCode
+import Hash.Hashable
 
-local trait Map[k : HashCode, t]
+local trait Map[k : Hashable, t]
   require def clone() : Map[k, t]
   require def set(key: k, value: t) : unit
   require def get_value(key: k) : Maybe[t]

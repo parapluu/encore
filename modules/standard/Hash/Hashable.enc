@@ -1,4 +1,4 @@
-module HashCode
+module Hashable
 
 import Hash.Siphash
 
@@ -7,8 +7,13 @@ EMBED
 BODY
 END
 
-read trait HashCode
+read trait Hashable
+  -- NOTE: constructor of inheriting class needs to call hash_address()
+  -- for hashing to work correctly
+
   require val hash_code : uint
+  
+  
   def hash_address() : uint
     EMBED (int)
       // Hashing-key, can be any random bytes
@@ -44,7 +49,7 @@ read trait HashCode
     this.hash_code
   end
 
-  def hash_equals(other : HashCode) : bool
+  def hash_equals(other : Hashable) : bool
     this.hash_code == other.get_hash()
   end
 end

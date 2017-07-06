@@ -7,10 +7,10 @@ module HashMapTest
 
 import Test.Unit
 import Collections.Mutable.HashMap
-import Hash.HashCode
+import Hash.Hashable
 import Data.Maybe
 
-read class Foo : HashCode + Id + Eq[Foo](hash_code)
+read class Foo : Hashable + Id + Eq[Foo](hash_code)
   val hash_code : uint
   def init() : unit
     this.hash_code = this.hash_address()

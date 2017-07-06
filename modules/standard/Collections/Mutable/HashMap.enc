@@ -3,13 +3,13 @@ module HashMap
 import Collections.Mutable.LinkedList
 import Hash.Siphash
 import Hash.Hasher
-import Hash.HashCode
+import Hash.Hashable
 import Collections.Mutable.Collection
 import Collections.Mutable.Map
 import qualified Data.Array as Array
 import Data.Maybe
 
-local class Entry[k : HashCode + Eq[k], v]  -- this should be Eq[k]
+local class Entry[k : Hashable + Eq[k], v]  -- this should be Eq[k]
   var key : k
   var value : v
 
@@ -19,7 +19,7 @@ local class Entry[k : HashCode + Eq[k], v]  -- this should be Eq[k]
   end
 end
 
-local class HashMapIterator[k : HashCode + Eq[k], v]
+local class HashMapIterator[k : Hashable + Eq[k], v]
   var map : HashMap[k, v]
   var current_index : uint = -1
   var current_node : Maybe[LinkedNode[Entry[k, v]]]
@@ -99,7 +99,7 @@ local class HashMapIterator[k : HashCode + Eq[k], v]
   end
 end
 
-local class HashMap[k : HashCode + Eq[k], v] : Map[k, v](size, internal_map, items, resize())
+local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, items, resize())
   var size         : uint
   var items        : uint
   var internal_map : [LinkedList[Entry[k,v]]]
@@ -162,7 +162,7 @@ local class HashMap[k : HashCode + Eq[k], v] : Map[k, v](size, internal_map, ite
     end
 
     -- Remove any previous occurance of this key.
-    -- This should be replaced with a better solution!
+    -- TODO: This should be replaced with a better solution!
     this.remove(key)
 
     -- Store the key-value pair.

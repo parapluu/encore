@@ -4,12 +4,14 @@ EMBED
   #include <math.h>
 END
 
+-- square root
 fun sqrt(x: real): real
   EMBED (real) 
     sqrt(#{x}); 
   END
 end
 
+-- absolute value
 fun abs(x: real): real
   if x < 0 then 
     0 - x
@@ -18,23 +20,16 @@ fun abs(x: real): real
   end
 end
 
+-- cosine
 fun cos(x: real): real
   EMBED (real) 
     cos(#{x}); 
   END
 end
 
+-- sine
 fun sin(x: real): real
   EMBED (real) 
     sin(#{x}); 
-  END
-end
-
-
-fun modulo(value : uint, mod : uint) : uint
-  EMBED (uint)
-    uint64_t value = (uint64_t) #{value};
-          uint64_t mod   = (uint64_t) #{mod};
-          (value % mod);
   END
 end

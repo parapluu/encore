@@ -83,7 +83,6 @@ fun read_file(fname : FilePath) : String
   val sb = new StringBuffer()
   while not file.eof() do
     sb.add(file.readline())
-    sb.add("\n")  -- TODO: doesn't work properly with long lines (due to readline limitation)
   end
   file.close()
   sb.build()

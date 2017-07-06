@@ -1,27 +1,57 @@
 import IO.File
 
 active class Main
-  def main () : unit
-    val file = "FileTest.tmp" 
-    var f = new File(file, "w")
-    val msg  = "Hello World!\n"
+  val file : String = "FileTest.tmp"
+  val datafile : String = "FileTestInput.txt"
+  val msg : String = "Hello World!\n"
 
-    -- Test write file
-    f.write(msg)
-    f.close()
+  def test_write() : unit
+    val f = new File(this.file, "w")
+    f.write(this.msg)
+    f.close()  
+  end
 
-    -- Test read file
-    f = new File(file, "r")
+  def test_read() : unit
+    val f = new File(this.file, "r")
     while (not f.eof()) do
-      println("{}", f.readline())
+      print("{}", f.readline())
     end
     f.close()
   end
+ 
+  def test_with_file() : unit
+    println("{}", with_file[int](this.datafile, lines))    
+  end
+
+  def test_write_file() : unit
+    write_file(this.file, this.msg)
+  end
+
+  def test_append_file() : unit
+    append_file(this.file, this.msg)  
+  end
+
+  def test_read_file() : unit
+    print("{}", read_file(this.file))
+  end
+
+  def main () : unit
+    -- the order matters!!
+    this.test_write()
+    this.test_read()
+    this.test_with_file()
+    this.test_write_file()
+    this.test_append_file()
+    this.test_read_file()
+  end
 end
 
-{-
-test with_file
-test read_file
-test write_file
-test append_file
--}
+
+fun lines(f : File) : int
+  var i : int = 0
+  while (not f.eof()) do
+    f.readline()
+    i += 1
+  end
+  i
+end

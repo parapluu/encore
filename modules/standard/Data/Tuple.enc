@@ -10,6 +10,6 @@ fun snd[a,b](x : (a,b)) : b
   x.2
 end
 
-fun bimap[a,b,c,d](x : (a,b), f : a -> c, g : b -> d) : (c,d)
+fun map2[a,b,c,d](x : (a,b), f : a -> c, g : b -> d) : (c,d)
   (f(a),g(b))
 end

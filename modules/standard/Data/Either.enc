@@ -47,7 +47,6 @@ read trait Either[a, b]
       case Right(x) =>
         f(x)
       end
-
     end
   end
 end
@@ -130,6 +129,13 @@ fun is_right[a,b](e : Either[a,b]) : bool
   match e with
     case Right(a) => true
     case _ => false
+  end
+end
+
+fun map2[a,b,c,d](e : Either[a,b], f : a -> c, g : b -> d) : Either[c,d]
+  match e with
+    case Left(x) => new Left[c,d](f(x))
+    case Right(x) => new Right[c,d](g(x))
   end
 end
 

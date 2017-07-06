@@ -5,8 +5,7 @@ fun assert(name: String, success: bool) : bool
     println("\t{}: FAILURE!", name)
     return false
   end
-
-  return true
+  true
 end
 
 fun test_optional[a](message : String, option : Maybe[a], expected : a) : bool

@@ -1,6 +1,6 @@
 module String
 
-import Hash.HashCode
+import Hash.Hashable
 
 EMBED
 #include <string.h>
@@ -96,7 +96,7 @@ end
 -- [x] change this.length(a) ==> a.length()
 -- [ ] Write proper docs
 -- Be aware of issue #204
-read class String : Id + HashCode + Eq[String](compare(),length,data)
+read class String : Id + Hashable + Eq[String](compare(),length,data)
   val data : CString
   val length : int
   val hash_code : uint
