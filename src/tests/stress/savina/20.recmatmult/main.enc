@@ -1,0 +1,201 @@
+read trait ReadConfig
+  require val options : [int]
+
+  def NUM_WORKERS() : int
+    this.options(0)
+  end
+
+  def DATA_LENGTH() : int
+    this.options(1)
+  end
+
+  def BLOCK_THRESHOLD() : int
+    this.options(2)
+  end
+
+  def PRIORITIES() : int
+    this.options(3)
+  end
+
+  def dump() : unit
+    println("NUM_WORKERS: {}\nDATA_LENGTH: {}\nBLOCK_THRESHOLD: {}\nPRIORITIES: {}", this.options(0), this.options(1), this.options(2), this.options(3))
+  end
+  
+end  
+
+linear trait ParseConfig
+  require val options : [int]
+  def parse_options(args : [String]) : unit
+    val options = ["--workers=", "--data=", "--block=", "--priorities="]
+    for arg <- args do
+      repeat i <- |options|  do
+        match parse_option(arg, options(i)) with
+          case Just(v) => { this.options(i) = v; break; () }
+          case _       => { continue; () }
+        end
+      end
+      ()
+    end
+    ()
+  where
+    fun parse_option(s : String, opt : String) : Maybe[int]
+      if s.starts_with(opt) then
+        match s.substring(opt.length(), s.length()) with
+          case Just(str) => str.to_int()
+          case _         => Nothing 
+        end
+      else
+        Nothing
+      end
+    end
+  end
+end
+  
+class Config : ParseConfig + ReadConfig
+  val options : [int]
+  def init() : unit
+    this.options = [20, 1024, 16384, 10]
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    var c = new Config()
+    c.parse_options(args)
+    new Master(consume c) ! onPostStart()
+  end
+end
+
+-- extends AkkaActor[AnyRef] 
+
+active class Master 
+  val workers : [Worker]
+  var remaining : int
+  var a : Matrix[real]
+  var b : Matrix[real]
+  var c : Matrix[real]
+  val config : ReadConfig
+  
+  def init(cfg : ReadConfig) : unit
+    this.config = cfg
+    this.workers = new [Worker](cfg.NUM_WORKERS())
+    this.remaining = 1
+    val ms = create_matrices(cfg.DATA_LENGTH())
+    this.a = ms.0
+    this.b = ms.1
+    this.c = ms.2
+  end
+
+  def onPostStart() : unit
+    repeat i <- |this.workers| do
+      this.workers(i) = new Worker(this, i, this.config)
+    end
+
+    val dataLength = this.config.DATA_LENGTH()
+    val numBlocks = this.config.DATA_LENGTH() * this.config.DATA_LENGTH()
+    this.send_work(0, 0, 0, 0, 0, 0, numBlocks, dataLength, 0)
+  end
+
+  def send_work(srA : int, scA : int, srB : int, scB : int, srC : int, scC : int, numBlocks : int, dim : int, newPriority : int) : unit
+    val workerIndex = (srC + scC) % |this.workers|
+    this.workers(workerIndex) ! do_work(srA, scA, srB, scB, srC, scC, numBlocks, dim, newPriority, this.a, this.b, this.c)
+  end
+
+  def done() : unit
+    this.remaining -= 1
+    if this.remaining == 0 then
+      println("Done!")
+    else
+      println("Remaining: {}", this.remaining)
+    end
+  end
+
+  def fragment(f : int) : unit
+    this.remaining += f
+    println("Fragmented: {}", this.remaining)
+  end
+end
+
+active class Worker
+  val master: Master
+  val id : int
+  val threshold : int
+
+  def init(master : Master, id : int, c : ReadConfig) : unit
+    this.master = master
+    this.id = id
+    this.threshold = c.BLOCK_THRESHOLD()
+  end
+
+  def do_work(srA : int, scA : int, srB : int, scB : int, srC : int, scC : int, numBlocks : int, dim : int, var newPriority : int, a : Matrix[real], b : Matrix[real], c : Matrix[real]) : unit
+    newPriority += 1
+
+    val master = this.master
+    
+    if numBlocks > this.threshold then
+      val zerDim = 0
+      val newDim = dim / 2
+      val newNumBlocks = numBlocks / 4
+
+      master ! fragment(8)
+
+      master ! send_work(newPriority, srA + zerDim, scA + zerDim, srB + zerDim, scB + zerDim, srC + zerDim, scC + zerDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + zerDim, scA + newDim, srB + newDim, scB + zerDim, srC + zerDim, scC + zerDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + zerDim, scA + zerDim, srB + zerDim, scB + newDim, srC + zerDim, scC + newDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + zerDim, scA + newDim, srB + newDim, scB + newDim, srC + zerDim, scC + newDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + newDim, scA + zerDim, srB + zerDim, scB + zerDim, srC + newDim, scC + zerDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + newDim, scA + newDim, srB + newDim, scB + zerDim, srC + newDim, scC + zerDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + newDim, scA + zerDim, srB + zerDim, scB + newDim, srC + newDim, scC + newDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done() 
+      master ! send_work(newPriority, srA + newDim, scA + newDim, srB + newDim, scB + newDim, srC + newDim, scC + newDim, newNumBlocks, newDim) ~~> fun (u:unit) => master ! done()
+
+      master ! done()
+    else
+      for i <- [srC, srC + dim] do
+        for j <- [scC, scC + dim] do
+          repeat k <- dim do
+            c.setElement(i, j, c.getElement(i, j) + a.getElement(i, scA + k) * b.getElement(srB + k, j))
+          end
+        end
+      end
+    end
+  end
+end
+
+unsafe class Matrix[t]
+  var elements: [t]
+  val n: int
+
+  def init(size1: int, size2: int): unit
+    this.n = size1
+    this.elements = new [t](size1*size2)
+  end
+
+  def getElement(i: int, j: int): t
+    if i * this.n + j < |this.elements| then
+      this.elements(i * this.n + j)
+    else
+      this.elements(0)
+    end
+  end
+
+  def setElement(i: int, j: int, e: t): unit
+    if i * this.n + j < |this.elements| then
+      this.elements(i * this.n + j) = e
+    end
+  end
+end 
+
+fun create_matrices(dim : int) : (Matrix[real], Matrix[real], Matrix[real])
+  var a = new Matrix[real](dim, dim)
+  var b = new Matrix[real](dim, dim)
+  var c = new Matrix[real](dim, dim)
+
+  repeat i <- dim do
+    repeat j <- dim do
+      a.setElement(i, j, i)
+      b.setElement(i, j, j)
+    end
+  end
+
+  (a, b, c)
+end

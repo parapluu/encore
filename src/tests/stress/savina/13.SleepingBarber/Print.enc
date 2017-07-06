@@ -1,0 +1,17 @@
+module Print
+
+fun flag() : bool
+  false -- change to true to enable printing
+end
+
+fun pprint(s : String) : unit
+  if flag() then
+    print(s)
+  end
+end
+
+fun pprintln(s : String) : unit
+  if flag() then
+    println(s)
+  end
+end

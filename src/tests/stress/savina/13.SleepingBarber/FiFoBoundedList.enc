@@ -1,0 +1,55 @@
+module FiFoBoundedList
+-- developed by SD on 21.01.2017
+-- A first-in-firt-out list
+-- removing at the head of the list,
+-- and inserting at the tail of the list
+
+import FiFoList
+
+local trait FiFoBoundedPush[t]
+    require var first : Maybe[Node[t]]
+    require var last : Maybe[Node[t]]
+    require var length : int
+    require val maxLength: int
+
+    def isFull() : bool
+      this.maxLength==this.length
+    end
+
+    def pushLast(value : t) : bool
+       if this.maxLength>this.length then
+         this.length = this.length + 1
+         match this.last with
+            case Nothing =>
+                 this.first = Just( new Node[t](value, Nothing))
+                 this.last = this.first
+                 --println("...pusLast.foundNothing")
+            end
+            case Just(node) =>
+                this.last = Just( new Node[t](value, Nothing))
+                node.next = this.last
+                -- println("...pusLast.foundSomething")
+            end
+         end
+         true
+       else
+         false
+       end
+    end
+
+end
+
+local class FiFoBoundedList[t] : FiFoBoundedPush[t] + FiFoFirst[t]
+    var first : Maybe[Node[t]]
+    var last : Maybe[Node[t]]
+    var length : int
+    val maxLength : int
+
+    def init(maxLength:int) : unit
+        this.maxLength = maxLength
+        this.first = Nothing : Maybe[Node[t]]
+        this.last = Nothing : Maybe[Node[t]]
+        this.length = 0
+    end
+
+end
