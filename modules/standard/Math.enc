@@ -11,8 +11,17 @@ fun sqrt(x: real): real
   END
 end
 
--- absolute value
+-- absolute value (real)
 fun abs(x: real): real
+  if x < 0 then 
+    0 - x
+  else 
+    x
+  end
+end
+
+-- absolute value (int)
+fun absi(x: int): int
   if x < 0 then 
     0 - x
   else 

@@ -40,64 +40,73 @@ fun testAdd() : bool
     true
   end
 end
+
 fun testSize() : bool
   get123().size() == 3
 end
+
 fun testGetMinEmpty() : bool
-  getEmpty().getMin() == Nothing
+  getEmpty().get_min() == Nothing
 end
+
 fun testGetMin123() : bool
-  match getEmpty().getMin() with
+  match getEmpty().get_min() with
     case Just(x) =>
       false
     end
     case Nothing =>
       true
     end
-
   end
 end
+
 fun testGetIterInit() : bool
   get123().iter()
   true
 end
+
 fun testHasNextEmpty() : bool
-  not(getEmpty().iter().hasNext())
+  not(getEmpty().iter().has_next())
 end
+
 fun testHasNext123() : bool
   let
     it = get123().iter()
   in
     var ret = true
-    ret = ret && it.hasNext() && it.next() == 1
-    ret = ret && it.hasNext() && it.next() == 2
-    ret = ret && it.hasNext() && it.next() == 3
-    ret = ret && not(it.hasNext())
+    ret = ret && it.has_next() && it.next() == 1
+    ret = ret && it.has_next() && it.next() == 2
+    ret = ret && it.has_next() && it.next() == 3
+    ret = ret && not(it.has_next())
     ret
   end
 end
+
 fun doTestGetIterCount(var steps : int, it : OrderedSetIterator[int]) : bool
-  while it.hasNext() do
+  while it.has_next() do
     it.step()
     steps = steps - 1
   end
   steps == 0
 end
+
 fun testGetIterCount() : bool
   doTestGetIterCount(0, getEmpty().iter()) && doTestGetIterCount(3, get123().iter())
 end
+
 fun testGetNextNode() : bool
   let
     os = get123()
   in
     let
-      t1 = os.root.left.getNextNode() == os.root && os.root.getNextNode() == os.root.right && os.root.right.getNextNode() == null
+      t1 = os.root.left.get_next_node() == os.root && os.root.get_next_node() == os.root.right && os.root.right.get_next_node() == null
     in
       os.add(4)
-      t1 && os.root.right.getNextNode().elem == 4
+      t1 && os.root.right.get_next_node().elem == 4
     end
   end
 end
+
 fun testLookup() : bool
   let
     os = get123()
@@ -169,6 +178,7 @@ fun testLookup() : bool
            end
   end
 end
+
 fun testSetSemantics() : bool
   let
     os = get123()
@@ -178,6 +188,7 @@ fun testSetSemantics() : bool
     os.size() == 4
   end
 end
+
 active class Main
   def main() : unit
     assertTrue(testInit())
