@@ -1,7 +1,7 @@
 import ParT.ParT
 
 fun show_string(x : String, const : String, type : String) : unit
-  if x.equals(const) then
+  if x.eq(const) then
     print("{} {}: OK\n", x, type)
   else
     print("{} {}: ERROR\n", const, type)
@@ -9,7 +9,7 @@ fun show_string(x : String, const : String, type : String) : unit
 end
 
 fun show_passive(x : PassiveTest, const : String, type : String) : unit
-  if x.elem.equals(const) then
+  if x.elem.eq(const) then
     print("{} {}: OK\n", x.elem, type)
   else
     print("{} {}: ERROR\n", x.elem, type)

@@ -1,0 +1,56 @@
+module Hashable
+
+import Hash.Siphash
+
+EMBED
+  #include <stdint.h> // uintptr_t
+BODY
+END
+
+read trait Hashable
+  -- NOTE: constructor of inheriting class needs to call hash_address()
+  -- for hashing to work correctly
+
+  require val hash_code : uint
+  
+  
+  def hash_address() : uint
+    EMBED (int)
+      // Hashing-key, can be any random bytes
+      uint8_t k[16] = {
+          0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, // k0
+          0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f  // k1
+      };
+
+      // Allocate 8 bytes on the stack for the hashcode
+      uint8_t hash[8];
+
+      // Retrieve address of this object
+      uintptr_t address = (uintptr_t) _this;
+
+      // Convert the address to an uint8_t-array
+      // WARNING: Assumes little endian!
+      size_t ptr_size = sizeof(uintptr_t);
+      uint8_t address_arr[ptr_size];
+      for(int i = 0; i < ptr_size; ++i) {
+          address_arr[i] = (uint8_t)((address) >> i*8);
+      }
+
+      // Compute the hash value
+      // WARNING: size_t may be larger than uint64_t !!!
+      siphash(hash, address_arr, (uint64_t) ptr_size, k);
+
+      // Return the value to the caller
+      U8TO64_LE(hash);
+    END
+  end
+
+  def get_hash() : uint
+    this.hash_code
+  end
+
+  def hash_equals(other : Hashable) : bool
+    this.hash_code == other.get_hash()
+  end
+end
+

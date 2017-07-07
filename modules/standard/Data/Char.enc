@@ -1,0 +1,51 @@
+module Char
+
+EMBED
+#include <ctype.h>
+END
+
+-- is lower case
+fun islower(ch : char) : bool
+  EMBED (bool) islower(#{ch}); END
+end
+
+-- is upper case
+fun isupper(ch : char) : bool
+  EMBED (bool) isupper(#{ch}); END
+end
+
+-- is alphabetical
+fun isalpha(ch : char) : bool
+  EMBED (bool) isalpha(#{ch}); END
+end
+
+-- is a digit
+fun isdigit(ch : char) : bool
+  EMBED (bool) isdigit(#{ch}); END
+end
+
+-- is alpha-numeric
+fun isalphanum(ch : char) : bool
+  EMBED (bool) isalnum(#{ch}); END
+end
+
+-- is punctuation
+fun ispunct(ch : char) : bool
+  EMBED (bool) ispunct(#{ch}); END
+end
+
+-- is space
+fun isspace(ch : char) : bool
+  EMBED (bool) isspace(#{ch}); END
+end
+
+-- convert to lower case
+fun tolower(ch : char) : char
+  EMBED (char) tolower(#{ch}); END
+end
+
+-- convert to upper case
+fun toupper(ch : char) : char
+  EMBED (char) toupper(#{ch}); END
+end
+

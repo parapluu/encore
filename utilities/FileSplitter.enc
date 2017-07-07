@@ -1,0 +1,71 @@
+
+import IO.File
+import Math
+
+-- TODO: add an input split option that reads from stdio and
+-- puts every n lines into a new file
+
+
+active class Main 
+  def main(args : [String]) : unit
+    var success = false
+    if |args| == 3 then
+      val filename = args(1)
+      match args(2).to_int() with
+        case Just(no_files) =>
+          if no_files >= 1
+            success = true
+            this.split(filename, no_files)
+          end
+        end
+      end
+    end
+    
+    if not success then
+      this.usage()
+    end
+  end
+  
+  def usage() : unit
+    println("Usage: FileSplitter filename number_of_files")
+  end
+  
+  def split(fname : FilePath, splits : int) : unit
+    val lines = this.number_of_lines(fname)
+    
+    -- if there is not extension, the following will have size 1
+    -- String[] tokens = filename.split("\\.(?=[^\\.]+$)");
+    
+    val k = lines / splits
+    val m = lines % splits
+    
+    val infile = new File(fname, "r")
+    
+    repeat i <- splits do
+      -- open file
+      val outfilename = fname.concatenate(".").concatenate(string_from_int(i))
+      val outfile = new File(outfilename, "w")
+            
+      val bound = (i + 1) * k + mini(i + 1, m) - (i * k + mini(i, m))
+      repeat j <- bound do
+        val line = infile.readline()
+        outfile.write(line)
+      end
+      outfile.close()
+    end
+    infile.close()
+  end
+  
+  def private number_of_lines(fname : FilePath) : int
+    with_file[int](fname, lines)
+  where
+    fun lines(f : File) : int
+      var i : int = 0
+      while (not f.eof()) do
+        f.readline()
+        i += 1
+      end
+      i
+    end
+  end
+end

@@ -1,8 +1,4 @@
--- This file was automatically converted by encorec
 
-fun id(x : int) : int
-  x
-end
 active class Test
   def f() : int
     1
@@ -11,6 +7,7 @@ active class Test
     f(this.f())
   end
 end
+
 active class Main
   def main() : unit
     var v = 0

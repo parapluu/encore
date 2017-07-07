@@ -1,8 +1,7 @@
--- This file was automatically converted by encorec
 
 import Utils
 active class Main
   def main() : unit
-    println(id("Hello"))
+    println(sid("Hello"))
   end
 end

@@ -1,0 +1,114 @@
+import Math(absi,powi)
+import Collections.Mutable.OrderedSet
+import Random
+
+active class Main
+  def main(opts : [String]) : unit
+    var success = false
+    if |opts| == 4 && opts(1).eq("-pa") then
+      val nopt = opts(2).to_int()
+      val kopt = opts(3).to_int()
+      match (nopt, kopt) with
+        case (Just(n), Just(k)) =>
+          success = true
+          this.preferential_attachment(n, k)
+        end
+      end
+    else if |opts| == 3 && opts(1).eq("-sub") then
+      val dopt = opts(2).to_int()
+      match dopt with 
+        case Just(d) =>  
+          success = true
+          this.sub_graph(d)    
+        end
+      end
+    end
+    
+    if not success then
+      this.usage()
+    end    
+  end
+  
+  def usage() : unit
+    println("Usage:")
+    println("    GraphGen -pa n k")
+    println("      generate a social network using preferential attachment")
+    println("      n is the number of node, k is the number of new edges per node")
+    println("    GraphGen -sub d")
+    println("      generate a 'subtraction graph' where d is the number of digits")
+  end
+  
+  def sub_graph(digits : int) : unit
+    val d = new DigitReverser(digits)
+    repeat i <- powi(10, digits) do
+      this.out(i, absi(i - d.reverse(i)))
+    end
+  end
+  
+  def preferential_attachment(n : int, k : int) : unit
+    val nodes = new [int](2 * n * k)
+    val rand = new Random(5334) -- random seed
+    var count = 0
+       
+    -- set up intial k nodes in ring
+    if k > 1 then
+      repeat i <- k do
+        nodes(count) = i
+        count += 1
+        nodes(count) = (i + 1) % k
+        count += 1
+        this.out(i, (i + 1) % k)
+      end
+    else
+      nodes(count) = 0
+      count += 1
+    end
+    
+    for i <- [k .. n] do  -- TODO: or n - 1   
+      val others = new OrderedSet[int](fun (i : int, j : int) => i - j)
+      repeat j <- k do
+        others.add(nodes(rand.random(count)))
+      end
+    
+      -- ITERATE OVER SET
+      val iter = others.iter()
+      while iter.has_next() do
+        var other = iter.next()
+        nodes(count) = i
+        count += 1
+        nodes(count) = other
+        count += 1
+        this.out(i, other)
+      end
+    end
+  end
+    
+  def out(i : int, j : int) : unit
+    -- TODO: offer different output formats via options
+      println("({}, {})", i ,j)
+--      println("{}, {}", i ,j)
+--      println("{} -> {};", i ,j)
+  end
+end
+
+local class DigitReverser
+  val buff : [int]
+  val size : int
+  
+  def init (size : int) : unit
+    this.size = size
+    this.buff = new [int](size)
+  end
+  
+  def reverse(var inp : int) : int
+    repeat i <- |this.buff| do
+      this.buff(i) = inp % 10
+      inp /= 10
+    end
+    var res = 0
+    repeat i <- |this.buff| do
+      res = res * 10 + this.buff(i)
+    end
+    res
+  end
+end

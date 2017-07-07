@@ -1,0 +1,92 @@
+import Data.Array
+import qualified Data.Maybe as M
+
+-- helpful functions
+fun inc(i : int) : int
+  i + 1
+end
+
+fun gt_two(i : int) : bool
+  i > 2
+end
+
+fun show_int(i : int) : unit
+  print("{}", i)
+end
+
+fun show_string(s : String) : unit
+  print(s)   
+end
+
+-- the tests
+fun test_new_with_default() : unit
+  println("-- new_with_default --")
+  val arr = new_with_default(10,"x")
+  show(show_string, arr)
+end
+
+fun test_new_with_generator() : unit
+  println("-- new_with_generator --")
+  val arr = new_with_generator(10,gen)
+  show(show_int, arr)
+where
+  fun gen(i : int) : int
+    i * 12
+  end
+end
+
+
+fun test_filter() : unit
+  println("-- filter --")
+  show(show_int, filter(gt_two, [0,1,2,3,4]))
+end
+
+
+fun test_count() : unit
+  println("-- count --")
+  println("{}", count(gt_two, [0,1,2,3,4]))
+end
+
+fun test_map() : unit
+  println("-- map --")
+  show(show_int, map(inc, [0,1,2,3,4]))
+end
+
+fun test_contains() : unit
+  println("-- contains --")
+  println("{}", contains([1,2,3,4], 3))
+  println("{}", contains([1,2,3,4], 10))
+end
+
+
+fun test_contains_str() : unit
+  println("-- contains_str --")
+  println("{}", contains_str(["foo","bar","hound","dog"], "dog"))
+  println("{}", contains_str(["foo","bar","hound","dog"], "cat"))
+end
+
+fun test_clone() : unit
+  println("-- clone --")
+  show(show_int, clone([0,1,2,3,4]))
+end
+
+fun test_nclone() : unit
+  println("-- nclone --")
+  var arr = [0,1,2,3,4]
+  println("{}", M.is_nothing(nclone(arr,10)))
+  show(show_int, M.unjust(nclone(arr,3)))
+end
+
+class Main
+  def main() : unit
+    test_new_with_default()
+    test_new_with_generator() 
+    test_filter()
+    test_count()
+    test_map()
+    test_contains()
+    test_contains_str()
+    test_clone()
+    test_nclone()
+  end
+end
