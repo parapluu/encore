@@ -1,0 +1,19 @@
+
+
+active class Main
+  def main() : unit
+    println("{}", get((new Worker()) ! seq(10)))
+  end
+
+end
+
+active class Worker
+  
+  def seq(s : int) : int
+    if s > 0 then
+      forward (this!seq(s - 1))
+    else
+      s
+    end
+  end
+end
