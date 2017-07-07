@@ -1026,11 +1026,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let nullCheck = targetNullCheck (AsExpr ntarget) target name emeta "."
 
       return (unit, Seq $
-                      ttarget : nullCheck : initArgs ++
+                      ttarget : nullCheck :
                       [Statement $
                        If futVar
-                         (Seq [Statement forwardingCall])
-                         (Seq [Statement oneWayMsg]),
+                         (Seq $ initArgs ++ [Statement forwardingCall])
+                         (Seq $ initArgs1 ++ [Statement oneWayMsg]),
                        dtraceExit,
                        Return Skip])
 
