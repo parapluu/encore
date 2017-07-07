@@ -79,7 +79,7 @@ fun mini(x : int, y : int) : int
 end
 
 -- get maximum (real) 
-fun min(x : real, y : real) : real
+fun max(x : real, y : real) : real
   if x > y then
     x
   else
@@ -88,7 +88,7 @@ fun min(x : real, y : real) : real
 end
 
 -- get maximum (int)
-fun mini(x : int, y : int) : int
+fun maxi(x : int, y : int) : int
   if x > y then
     x
   else
