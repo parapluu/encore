@@ -60,3 +60,39 @@ fun powi(x : int, var y : int) : int
   result
 end
 
+-- get minumum (real)
+fun min(x : real, y : real) : real
+  if x < y then
+    x
+  else
+    y
+  end
+end
+
+-- get minumum (int)
+fun mini(x : int, y : int) : int
+  if x < y then
+    x
+  else
+    y
+  end
+end
+
+-- get maximum (real) 
+fun min(x : real, y : real) : real
+  if x > y then
+    x
+  else
+    y
+  end
+end
+
+-- get maximum (int)
+fun mini(x : int, y : int) : int
+  if x > y then
+    x
+  else
+    y
+  end
+end
+
