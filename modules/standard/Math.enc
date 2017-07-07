@@ -42,3 +42,21 @@ fun sin(x: real): real
     sin(#{x}); 
   END
 end
+
+-- pow(x,y) compute x to y
+fun pow(x : real, y : real) : real
+  EMBED (real) 
+    pow(#{x},#{y}); 
+  END
+end
+
+-- TODO: replace by faster version
+fun powi(x : int, var y : int) : int
+  var result = 1
+  while y > 0 do
+    result *= x
+    y -= 1
+  end
+  result
+end
+
