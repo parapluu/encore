@@ -40,7 +40,7 @@ active class Main
   
   def sub_graph(digits : int) : unit
     val d = new DigitReverser(digits)
-    repeat i <- powi(10, d) do
+    repeat i <- powi(10, digits) do
       this.out(i, absi(i - d.reverse(i)))
     end
   end
