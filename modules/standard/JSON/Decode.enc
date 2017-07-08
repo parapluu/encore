@@ -29,7 +29,10 @@ import Hash.Hashable
 import JSON.Parser
 import JSON.Encode
 
-{- The design of this module follows Elm's -}
+{- The design of this module follows Elm's 
+   (http://package.elm-lang.org/packages/elm-lang/core/5.1.1/Json-Decode)
+   The implementation is mostly independent.
+-}
 
 -- TODO: move to another module related to Exceptions 
 -- But inside Encore, not Sahand's
@@ -49,10 +52,9 @@ end
    and then runs a decoder on the result.
    Fails if either the parser or the decoder fails
 
-     decode(intD(), "4")      == Right 4
-     decode(intD(), "3 + 2")  == Left ...
+     decode(intD(), "4")      => Right 4
+     decode(intD(), "3 + 2")  => Left ...
      
-  TODO: find an easier way of creating decoders
 -}
 fun decode[t](decoder : Decoder[t], str: String) : Result[t]
   match parse(str) with
@@ -62,20 +64,20 @@ fun decode[t](decoder : Decoder[t], str: String) : Result[t]
 end
 
 
--- A trait for JSON decoders
+-- A trait for JSON decoders, which decode values
 read trait Decoder[t]
   require def decode(raw: Value) : Result[t]
 end
 
 -- the decoders
 
-{-  Decode JSON String into a String 
+{-  Decodes a JSON String into a String 
 
-    decode(stringD(), "true")              == Left ...
-    decode(stringD(), "42")                == Left ...
-    decode(stringD(), "3.14")              == Left ...
-    decode(stringD(), "\"hello\"")         == Right "hello"
-    decode(stringD(), "{ \"hello\": 42 }") == Left ...
+    decode(stringD(), "true")              => Left ...
+    decode(stringD(), "42")                => Left ...
+    decode(stringD(), "3.14")              => Left ...
+    decode(stringD(), "\"hello\"")         => Right "hello"
+    decode(stringD(), "{ \"hello\": 42 }") => Left ...
 -}
 fun stringD() : Decoder[String]
   new StringDecoder()
@@ -91,13 +93,13 @@ class StringDecoder : Decoder[String]
   end 
 end
 
-{- Decode a JSON number into an int
+{- Decodes a JSON number into an int
 
-    decode(intD(), "true")              == Left ...
-    decode(intD(), "42")                == Right 42
-    decode(intD(), "3.14")              == Left ...
-    decode(intD(), "\"hello\"")         == Left ...
-    decode(intD(), "{ \"hello\": 42 }") == Left ...
+    decode(intD(), "true")              => Left ...
+    decode(intD(), "42")                => Right 42
+    decode(intD(), "3.14")              => Left ...
+    decode(intD(), "\"hello\"")         => Left ...
+    decode(intD(), "{ \"hello\": 42 }") => Left ...
 -}
 fun intD() : Decoder[int]
   new IntDecoder()
@@ -119,13 +121,13 @@ class IntDecoder : Decoder[int]
 end
 
 
-{- Decode a JSON boolean into a bool
+{- Decodes a JSON boolean into a bool
 
-    decode(boolD(), "true")              == Right True
-    decode(boolD(), "42")                == Left ...
-    decode(boolD(), "3.14")              == Left ...
-    decode(boolD(), "\"hello\"")         == Left ...
-    decode(boolD(), "{ \"hello\": 42 }") == Left ...
+    decode(boolD(), "true")              => Right True
+    decode(boolD(), "42")                => Left ...
+    decode(boolD(), "3.14")              => Left ...
+    decode(boolD(), "\"hello\"")         => Left ...
+    decode(boolD(), "{ \"hello\": 42 }") => Left ...
 -}
 fun boolD() : Decoder[bool]
   new BoolDecoder()
@@ -141,13 +143,13 @@ class BoolDecoder : Decoder[bool]
   end 
 end
 
-{- Decode a JSON number into a real
+{- Decodes a JSON number into a real
 
-    decode(realD(), "true")              == Left ..
-    decode(realD(), "42")                == Right 42
-    decode(realD(), "3.14")              == Right 3.14
-    decode(realD(), "\"hello\"")         == Left ...
-    decode(realD(), "{ \"hello\": 42 }") == Left ...
+    decode(realD(), "true")              => Left ..
+    decode(realD(), "42")                => Right 42
+    decode(realD(), "3.14")              => Right 3.14
+    decode(realD(), "\"hello\"")         => Left ...
+    decode(realD(), "{ \"hello\": 42 }") => Left ...
 -}
 fun realD() : Decoder[real]
   new RealDecoder()
@@ -168,12 +170,12 @@ class RealDecoder : Decoder[real]
   end 
 end
 
-{- Decode a `null` value into some value.
+{- Decodes a `null` value into some value.
 
-    decode(nullD[bool](False), "null") == Right False
-    decode(nullD[int](42), "null") == Right 42
-    decode(nullD[int](42), "42") == Left ...
-    decode(nullD[int](42), "false") == Left ...
+    decode(nullD[bool](False), "null") => Right False
+    decode(nullD[int](42), "null")     => Right 42
+    decode(nullD[int](42), "42")       => Left ...
+    decode(nullD[int](42), "false")    => Left ...
 
 -}
 fun nullD[t](default : t) : Decoder[t]
@@ -197,11 +199,11 @@ class NullDecoder[t] : Decoder[t](default)
 end
 
 
-{- Decode a nullable JSON value into an Elm value.
+{- Decodes a nullable JSON value into a value.
 
-    decode(nullable[int](intD()), "42")   == Right (Just 42)
-    decode(nullable[int](intD()), "null") == Right Nothing
-    decode(nullable[int](intD()), "true") == Left ...
+    decode(nullable[int](intD()), "42")   => Right (Just 42)
+    decode(nullable[int](intD()), "null") => Right Nothing
+    decode(nullable[int](intD()), "true") => Left ...
 -}
 fun nullable[t](sub : Decoder[t]) : Decoder[Maybe[t]]
   new Nullable[t](sub)
@@ -243,9 +245,9 @@ end
 
 
 {- Ignore the JSON and produce a certain value.  
-    decode(succeed[int](42), "true")    == Right 42
-    decode(succeed[int](42), "[1,2,3]") == Right 42
-    decode(succeed[int](42), "Hello")   == Left ... -- this is not a valid JSON string
+    decode(succeed[int](42), "true")    => Right 42
+    decode(succeed[int](42), "[1,2,3]") => Right 42
+    decode(succeed[int](42), "Hello")   => Left ... -- this is not a valid JSON string
 -}
 fun succeed[t](default : t) : Decoder[t]
   new Succeed[t](default)
@@ -264,6 +266,8 @@ class Succeed[t] : Decoder[t](default)
   end  
 end
 
+-- for holding more sophisticated decoders
+-- probably can be replaced by function composition
 class DecoderHolder[t] : Decoder[t](dec)
   val dec : Value -> Result[t]
   
@@ -280,11 +284,11 @@ end
 
 {- Extract a particular field from a JSON object
 
-    decode(field[int]("x", intD()), "{ \"x\": 3 }")                == Right 3
-    decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }")      == Right 3
-    decode(field[int]("x", intD()), "{ \"x\": true }")             == Left ...
-    decode(field[int]("x", intD()), "{ \"y\": 4 }")                == Left ...
-    decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }") == Right "tom"
+    decode(field[int]("x", intD()), "{ \"x\": 3 }")           => Right 3
+    decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }") => Right 3
+    decode(field[int]("x", intD()), "{ \"x\": true }")        => Left ...
+    decode(field[int]("x", intD()), "{ \"y\": 4 }")           => Left ...
+    decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }") => Right "tom"
 -}
 fun field[t](name : String, sub : Decoder[t]) : Decoder[t]
   new Field[t](name, sub)
@@ -318,8 +322,8 @@ end
 
     json = "{ "person": { "name": "tom", "age": 42 } }"
 
-    decode(at(["person", "name"], stringD())) json == Right "tom"
-    decode(at(["person", "age" ], intD())) json    == Right "42
+    decode(at(["person", "name"], stringD())) json => Right "tom"
+    decode(at(["person", "age" ], intD())) json    => Right "42
 
 -}
 fun at[t](path : [String], sub : Decoder[t]) : Decoder[t]
@@ -360,13 +364,13 @@ class At[t] : Decoder[t](sub, path)
 end
 
 
-{- extract given index of JSON array
+{- extract given index of a JSON array
     json = "[ \"alice\", \"bob\", \"chuck\" ]"
 
-    decode(index(0, stringD()), json)  == Right "alice"
-    decode(index(1, stringD()), json)  == Right "bob"
-    decode(index(2, stringD()), json)  == Right "chuck"
-    decode(index(3, stringD()), json)  == Left ...
+    decode(index(0, stringD()), json) => Right "alice"
+    decode(index(1, stringD()), json) => Right "bob"
+    decode(index(2, stringD()), json) => Right "chuck"
+    decode(index(3, stringD()), json) => Left ...
 -}
 fun index[t](index : int, dec : Decoder[t]) : Decoder[t]
   new Index(index, dec)
@@ -399,8 +403,8 @@ end
 
 {- Decode a JSON array
 
-    decode(array[int](intD()), "[1,2,3]")      == Right [1,2,3]
-    decode(array[int](intD()), "[true,false]") == Right [true,false] 
+    decode(array[int](intD()), "[1,2,3]")      => Right [1,2,3]
+    decode(array[int](intD()), "[true,false]") => Right [true,false] 
 -}
 fun array[t](dec : Decoder[t]) : Decoder[[t]]
   new ArrayDecoder[t](dec)
@@ -439,7 +443,7 @@ end
 {- Decode a JSON object into a hash table
 
     decode(dict[t](intD()), "{ \"alice\": 42, \"bob\": 99 }")
-      == HashMap["alice" => 42, "bob" => 99]
+      => HashMap["alice" => 42, "bob" => 99]
 -}
 fun dict[t](dec : Decoder[t]) : Decoder[HashMap[String,t]]
   new Dict[t](dec)
@@ -477,19 +481,14 @@ class Dict[t] : Decoder[HashMap[String,t]](dec)
 end
 
 
--- TODO: Fix so that it returns list of strings, once HashMap has been
--- genericied
 {- Decode a JSON object into an array of pairs.
 
     decode(key_value_pairs[int](intD()), "{ \"alice\": 42, \"bob\": 99 }")
-      == [("alice", 42), ("bob", 99)]
+      => [("alice", 42), ("bob", 99)]
 -}
 fun key_value_pairs[t](dec : Decoder[t]) : Decoder[[(String, t)]]
   map(fun(x : HashMap[String,t]) => x.key_value_pairs(), new Dict(dec) : Decoder[HashMap[String,t]])
 end
-
-
-
 
 -- utilities
 fun one_of[t](decs : [Decoder[t]]) : Decoder[t]
@@ -506,7 +505,7 @@ fun one_of_helper[t](decs : [Decoder[t]], index : int) : Decoder[t]
 end
 
 -- TODO: comment (basically, the core of one_of)
--- should be local to one_of
+-- should be local to one_of, but it didn't compile
 fun or_else[t](dec1 : Decoder[t], dec2 : Decoder[t]) : Decoder[t]
   val next = fun (str : Value)
                val one = dec1.decode(str)
@@ -521,26 +520,18 @@ end
 
 
 
-{- TODO: completely rewrite comment, as it is terrible
+{- Useful for dealing with optional fields. Some examples:
 
- Helpful for dealing with optional fields. Here are a few slightly different
-examples:
 
-    json = """{ "name": "tom", "age": 42 }"""
+    json = "{ \"name\": \"tom\", \"age\": 42 }"
 
-    decodeString (maybe (field "age"    int  )) json == Ok (Just 42)
-    decodeString (maybe (field "name"   int  )) json == Ok Nothing
-    decodeString (maybe (field "height" float)) json == Ok Nothing
+    decode(maybe (field("age", intD())))) json => Right (Just 42)
+    decode(maybe (field("name", intD()))) json => Right Nothing
+    decode(maybe (field("height", real()))) json => Right Nothing
 
-    decodeString (field "age"    (maybe int  )) json == Ok (Just 42)
-    decodeString (field "name"   (maybe int  )) json == Ok Nothing
-    decodeString (field "height" (maybe float)) json == Err ...
-
-Notice the last example! It is saying we *must* have a field named `height` and
-the content *may* be a float. There is no `height` field, so the decoder fails.
-
-Point is, `maybe` will make exactly what it contains conditional. For optional
-fields, this means you probably want it *outside* a use of `field` or `at`.
+    decode(field ("age",    (maybe (intD())))) json => Right (Just 42)
+    decode(field ("name",   (maybe (intD())))) json => Right Nothing
+    decode(field ("height", (maybe (realD()))) json => Left ...
 -}
 fun maybe[t](dec : Decoder[t]) : Decoder[Maybe[t]]
   new MaybeDecoder[t](dec)
@@ -562,12 +553,9 @@ class MaybeDecoder[t] : Decoder[Maybe[t]](dec)
   end
 end
 
-{- TODO : FIX Do not do anything with a JSON value, just bring it into Elm as a `Value`.
-This can be useful if you have particularly crazy data that you would like to
-deal with later. Or if you are going to send it out a port and do not care
-about its structure.
+{- 
+    return the underlying JSON value.
 -}
-
 fun value() : Decoder[Value]
   new ValueDecoder()
 end
@@ -580,7 +568,7 @@ class ValueDecoder : Decoder[Value]
 end
 
 
--- mapping functions
+-- mapping functions, useful for creating domain specific decoders
 fun map[a,v](f : a -> v, dec : Decoder[a]) : Decoder[v]
   new MMap[a,v](f, dec)
 end
@@ -645,6 +633,7 @@ class Map3[a,b,c,v] : Decoder[v](dec1,dec2,dec3,f)
     this.dec3 = dec3    
   end
   
+  -- dead god, I need monads
   def decode(raw : Value) : Result[v]
     match this.dec1.decode(raw) with
       case Left(err) => bad[v](err)
@@ -666,12 +655,11 @@ end
 
 --- TODO: UP TO 8 ---
 
-
+-- essentially monadic bind
 fun and_then[a,b](f : a -> Decoder[b], dec : Decoder[a]) : Decoder[b]
   new AndThen[a,b](f, dec)
 end
 
--- others
 class AndThen[a,b] : Decoder[b](dec,f)
   val f : a -> Decoder[b]
   val dec : Decoder[a]
@@ -689,8 +677,8 @@ class AndThen[a,b] : Decoder[b](dec,f)
   end
 end
 
-
+--- lazily applies a decoder
 fun lazy[a](thunk : unit -> Decoder[a]) : Decoder[a]
-  new AndThen[unit,a](thunk, new Succeed[unit](()))
+  and_then[unit,a](thunk, succeed[unit](()))
 end
 
