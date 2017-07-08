@@ -1,5 +1,5 @@
 # This file support line comments.
-# Note that the # must appear first on the line
+# Note that the comment character # must appear in the first position on a line
 
 #
 # Modules used by 'modules' tests
