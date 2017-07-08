@@ -1,6 +1,3 @@
-read trait Ord[t]
-  require def compare(other : t) : int
-end
 
 read class Int : Ord[Int](n)
   val n : int

@@ -3,25 +3,20 @@
 
 import Random
 
-read trait Ord
-  require def compare(o:Ord) : int
-end
-
-read class Integer : Ord(i)
+read class Integer : Ord[Integer](i)
   val i:int
 
   def init(i:int) : unit
     this.i = i
   end
 
-  def compare(other:Ord) : int
-    val y = EMBED (Integer) (void*)#{other}; END
-    this.i - y.i
+  def compare(other:Integer) : int
+    this.i - other.i
   end
 end
 
 subord class Node : Id
-  val elem : Ord
+  val elem : Integer
   var next : Node
 
   def init(i:int) : unit

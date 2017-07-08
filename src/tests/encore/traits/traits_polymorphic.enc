@@ -1,6 +1,4 @@
-fun id[a](x : a) : a
-  x
-end
+
 local trait T[t]
   require var x : t
   def foo() : unit

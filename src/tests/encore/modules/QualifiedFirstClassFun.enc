@@ -1,9 +1,10 @@
--- This file was automatically converted by encorec
 
 import Top
+
 fun apply(f : () -> int) : int
   f()
 end
+
 active class Main
   def main() : unit
     println(apply(top))

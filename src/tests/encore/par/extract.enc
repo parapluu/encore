@@ -7,7 +7,7 @@ fun dec(number : int) : int
   number - 1
 end
 fun switch_tag(p : PassiveObject) : PassiveObject
-  if p.tag.equals("pass") then
+  if p.tag.eq("pass") then
     p.update("fail", p.life)
   else
     p.update("pass", p.life)
@@ -21,7 +21,7 @@ fun switch_life(p : PassiveObject) : PassiveObject
   end
 end
 fun from_string_to_int(sentence : String) : int
-  if sentence.equals("Liftv String") then
+  if sentence.eq("Liftv String") then
     7
   else
     1
@@ -69,7 +69,7 @@ active class Test
       expected = "string"
       value = get(test ! stringf(expected))
     in
-      assertTrue(value.equals(expected), "ERROR in 'test_stringf', found {} but expecting {}", value, expected)
+      assertTrue(value.eq(expected), "ERROR in 'test_stringf', found {} but expecting {}", value, expected)
     end
   end
   def test_int_and_dec() : unit
@@ -97,7 +97,7 @@ active class Test
       expectedTag = "fail"
       expectedLife = 1
     in
-      assertTrue(switchTest.tag.equals(expectedTag), "ERROR in 'test_switch_life', wrong tag")
+      assertTrue(switchTest.tag.eq(expectedTag), "ERROR in 'test_switch_life', wrong tag")
       assertTrue(switchTest.life == expectedLife, "ERROR in 'test_switch_life', wrong life")
     end
   end
@@ -107,7 +107,7 @@ active class Test
       pObject = new PassiveObject("pass", 42)
       pObjectFulfilled = get(test ! passive_object(pObject))
     in
-      assertTrue(pObjectFulfilled.tag.equals("pass"))
+      assertTrue(pObjectFulfilled.tag.eq("pass"))
       assertTrue(pObjectFulfilled.life == 42)
     end
   end
@@ -127,7 +127,7 @@ active class Test
       arr_string = extract(liftv(expectedString))
     in
       for v <- arr_string do
-        assertTrue(v.equals(expectedString), "ERROR in 'test_liftv_primitive_string")
+        assertTrue(v.eq(expectedString), "ERROR in 'test_liftv_primitive_string")
       end
     end
   end
@@ -138,7 +138,7 @@ active class Test
       arr_passive = extract(liftv(new PassiveObject("pass", 42)))
     in
       for v <- arr_passive do
-        assertTrue(v.tag.equals(expectedTag))
+        assertTrue(v.tag.eq(expectedTag))
         assertTrue(v.life == expectedLife)
       end
     end
@@ -157,7 +157,7 @@ active class Test
       end
       for vp <- arr_par_string do
         for v <- extract(vp) do
-          assertTrue(v.equals(expectedString), "ERROR in 'test_liftv_par_primitive'")
+          assertTrue(v.eq(expectedString), "ERROR in 'test_liftv_par_primitive'")
         end
       end
     end
@@ -171,7 +171,7 @@ active class Test
       for vp <- extract(arr_par) do
         for v <- extract(vp) do
           assertTrue(v.life == expectedLife, "ERROR in 'test_liftv_par_passive'")
-          assertTrue(v.tag.equals(expectedTag), "ERROR in 'test_liftv_par_passive'")
+          assertTrue(v.tag.eq(expectedTag), "ERROR in 'test_liftv_par_passive'")
         end
       end
     end
@@ -194,7 +194,7 @@ active class Test
       arr_string = extract(liftv(expectedString) ||| liftv(expectedAnotherString))
     in
       for v <- arr_string do
-        assertTrue(v.equals(expectedString) || v.equals(expectedAnotherString), "ERROR in 'test_par_string'")
+        assertTrue(v.eq(expectedString) || v.eq(expectedAnotherString), "ERROR in 'test_par_string'")
       end
     end
   end
@@ -207,7 +207,7 @@ active class Test
       arr_passive = extract(liftv(poPass) ||| liftv(poFail))
     in
       for v <- arr_passive do
-        if v.tag.equals(expPass.tag) then
+        if v.tag.eq(expPass.tag) then
           assertTrue(v.life == expPass.life, "ERROR in 'test_par_passive'")
         else
           assertTrue(v.life == expFail.life, "ERROR in 'test_par_passive'")
@@ -239,7 +239,7 @@ active class Test
       par_passive = liftv(poPass) ||| liftv(poFail) >> switch_tag >> switch_life
     in
       for v <- extract(par_passive) do
-        if v.tag.equals("fail") then
+        if v.tag.eq("fail") then
           assertTrue(v.life == 1, "ERROR in 'test_seq_passive'")
         else
           assertTrue(v.life == 42, "ERROR in 'test_seq_passive")
@@ -259,7 +259,7 @@ active class Test
         assertTrue(v == 34, "ERROR in 'test_liftf_primitive'")
       end
       for v <- arr_string do
-        assertTrue(v.equals(expString), "ERROR in 'test_liftf_primitive'")
+        assertTrue(v.eq(expString), "ERROR in 'test_liftf_primitive'")
       end
     end
   end
@@ -274,14 +274,14 @@ active class Test
       arr_passive_join = extract(join(liftf(test ! par_passive_case(pObject))))
     in
       for v <- arr_passive do
-        assertTrue(v.tag.equals("pass"), "ERROR in 'test_liftf_passive'")
+        assertTrue(v.tag.eq("pass"), "ERROR in 'test_liftf_passive'")
         assertTrue(v.life == 42, "ERROR in 'test_liftf_passive'")
       end
       for v <- arr_int_join do
         assertTrue(v == expIntJoin1 || v == expIntJoin2, "ERROR in 'test_liftf_passive'")
       end
       for v <- arr_passive_join do
-        if v.tag.equals("pass") then
+        if v.tag.eq("pass") then
           assertTrue(v.life == expIntJoin1, "ERROR in 'test_liftf_passive'")
         else
           assertTrue(v.life == 1, "ERROR in 'test_liftf_passive'")

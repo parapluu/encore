@@ -1,14 +1,16 @@
--- This file was automatically converted by encorec
-
 module OrderedSet
+
+
 local class OrderedSet[t]
   var root : Node[t]
   var size : int
   var cmp : (t, t) -> int
+
   def init(cmp : (t, t) -> int) : unit
     this.cmp = cmp
     this.size = 0
   end
+  
   def add(e : t) : unit
     if this.root == null then
       this.root = new Node[t](e)
@@ -19,6 +21,7 @@ local class OrderedSet[t]
       end
     end
   end
+
   def lookup(e : t) : Maybe[t]
     if this.root == null then
       Nothing : Maybe[t]
@@ -26,49 +29,59 @@ local class OrderedSet[t]
       this.root.lookup(e, this.cmp)
     end
   end
+
   def remove(e : t) : unit
     assertTrue(false)
   end
-  def forEach(f : t -> unit) : unit
-    this.root.forEach(f)
+
+  def foreach(f : t -> unit) : unit
+    this.root.foreach(f)
   end
+  
   def size() : int
     this.size
   end
+  
   def iter() : OrderedSetIterator[t]
     new OrderedSetIterator[t](this.root)
   end
-  def getMin() : Maybe[t]
+  
+  def get_min() : Maybe[t]
     if this.root != null then
-      Just(this.root.getMinNode().elem)
+      Just(this.root.get_min_node().elem)
     else
       Nothing : Maybe[t]
     end
   end
 end
+
 local class Node[t] : Id
   var elem : t
   var left : Node[t]
   var right : Node[t]
   var parent : Node[t]
+  
   def init(e : t) : unit
     this.elem = e
   end
-  def addAsLeftChild(n : Node[t]) : unit
+  
+  def add_as_left_child(n : Node[t]) : unit
     this.left = n
     n.parent = this
   end
-  def addAsRightChild(n : Node[t]) : unit
+  
+  def add_as_right_child(n : Node[t]) : unit
     this.right = n
     n.parent = this
   end
+  
   def add(e : t, cmp : (t, t) -> int) : bool
     if cmp(e, this.elem) < 0 then
       if this.left == null then
         if cmp(this.elem, e) == 0 then
           false
         else
-          this.addAsLeftChild(new Node[t](e))
+          this.add_as_left_child(new Node[t](e))
           true
         end
       else
@@ -79,7 +92,7 @@ local class Node[t] : Id
         if cmp(this.elem, e) == 0 then
           false
         else
-          this.addAsRightChild(new Node[t](e))
+          this.add_as_right_child(new Node[t](e))
           true
         end
       else
@@ -87,6 +100,7 @@ local class Node[t] : Id
       end
     end
   end
+  
   def lookup(e : t, cmp : (t, t) -> int) : Maybe[t]
     if cmp(e, this.elem) == 0 then
       Just(this.elem)
@@ -106,23 +120,25 @@ local class Node[t] : Id
       end
     end
   end
-  def forEach(f : t -> unit) : unit
+  
+  def foreach(f : t -> unit) : unit
     if this.left != null then
-      this.left.forEach(f)
+      this.left.foreach(f)
     end
     f(this.elem)
     if this.right != null then
-      this.right.forEach(f)
+      this.right.foreach(f)
     end
   end
-  def getNextNode() : Node[t]
+  
+  def get_next_node() : Node[t]
     if this.parent != null then
       if this == this.parent.left then
         this.parent
       else
         assertTrue(this == this.parent.right)
         if this.right != null then
-          this.right.getMinNode()
+          this.right.get_min_node()
         else
           null : Node[t]
         end
@@ -131,46 +147,53 @@ local class Node[t] : Id
       if this.right == null then
         null : Node[t]
       else
-        this.right.getMinNode()
+        this.right.get_min_node()
       end
     end
   end
-  def getMinNode() : Node[t]
+  
+  def get_min_node() : Node[t]
     if this.left == null then
       this
     else
-      this.left.getMinNode()
+      this.left.get_min_node()
     end
   end
-  def getMaxNode() : Node[t]
+  
+  def get_max_node() : Node[t]
     if this.right == null then
       this
     else
-      this.right.getMaxNode()
+      this.right.get_max_node()
     end
   end
 end
+
 local class OrderedSetIterator[t]
   var cur : Node[t]
+  
   def init(n : Node[t]) : unit
     if n == null then
       this.cur = null
     else
-      this.cur = n.getMinNode()
+      this.cur = n.get_min_node()
     end
   end
+
   def step() : unit
     if this.cur != null then
-      this.cur = this.cur.getNextNode()
+      this.cur = this.cur.get_next_node()
     end
   end
-  def hasNext() : bool
+
+  def has_next() : bool
     if this.cur == null then
       false
     else
       true
     end
   end
+
   def next() : t
     let
       ret = this.cur.elem

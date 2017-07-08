@@ -8,6 +8,17 @@ end
 -- Equivalence is currently only supported on a given type. In
 -- the future, other solutions are planned, possibly including a
 -- self type instead of this type parameter.
-read trait Eq[t]
-  require def eq(other:t) : bool
+read trait Eq[self]
+  require def eq(other:self) : bool
+end
+
+-- A trait for comparable objects.
+-- Result: 0 is equal, 1 is this is greater, -1 other is greater
+read trait Ord[self]
+  require def compare(other:self) : int
+end
+
+-- the identity function
+fun id[a](x : a) : a
+  x
 end

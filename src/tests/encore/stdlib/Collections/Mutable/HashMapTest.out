@@ -1,0 +1,43 @@
+
+EUnit testsuite "HashMap" running 19 test(s)...
+Running test "set and get":
+	Success!
+Running test "items and size #1":
+	Success!
+Running test "items and size #2":
+	Success!
+Running test "remove #1":
+	Success!
+Running test "remove #2":
+	Success!
+Running test "dual remove":
+	Success!
+Running test "items #1":
+	Success!
+Running test "items #2":
+	Success!
+Running test "items #3":
+	Success!
+Running test "items #4":
+	Success!
+Running test "size #1":
+	Success!
+Running test "iterator #1":
+	Success!
+Running test "iterator #2":
+	Success!
+Running test "resize #1":
+	Success!
+Running test "foreach #1":
+	Success!
+Running test "map #1":
+	Success!
+Running test "clone #1":
+	Success!
+Running test "key value pairs":
+	Success!
+Running test "populate":
+	Success!
+
+EUnit testsuite "HashMap" completed.
+19/19 tests completed successfully!

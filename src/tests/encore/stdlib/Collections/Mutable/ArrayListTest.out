@@ -1,0 +1,57 @@
+
+EUnit testsuite "ArrayList" running 26 test(s)...
+Running test "prepend #1":
+	Success!
+Running test "prepend #2":
+	Success!
+Running test "prepend_all #1":
+	Success!
+Running test "append #1":
+	Success!
+Running test "append #2":
+	Success!
+Running test "insert #1":
+	Success!
+Running test "insert #2":
+	Success!
+Running test "insert #3":
+	Success!
+Running test "insert #4 failure":
+	Success!
+Running test "contains #1":
+	Success!
+Running test "contains #2":
+	Success!
+Running test "element_at #1":
+	Success!
+Running test "element_at #2":
+	Success!
+Running test "nth #1":
+	Success!
+Running test "nth #2":
+	Success!
+Running test "remove #1":
+	Success!
+Running test "remove #2":
+	Success!
+Running test "remove #3":
+	Success!
+Running test "remove_front #1":
+	Success!
+Running test "remove_back #1":
+	Success!
+Running test "shift right #1":
+	Success!
+Running test "shift left #1":
+	Success!
+Running test "shift left #2":
+	Success!
+Running test "shift left #3":
+	Success!
+Running test "ensure can accomodate #1":
+	Success!
+Running test "ensure can accomodate #2":
+	Success!
+
+EUnit testsuite "ArrayList" completed.
+26/26 tests completed successfully!

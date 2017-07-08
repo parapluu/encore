@@ -1,26 +1,32 @@
--- This file was automatically converted by encorec
 
 module Either
+
+import qualified Data.Array as A
+
 fun Left[a, b](x : a) : Either[a, b]
   new Left[a, b](x) : Either[a, b]
 end
+
 fun Right[a, b](x : b) : Either[a, b]
   new Right[a, b](x) : Either[a, b]
 end
+
 read trait Either[a, b]
   require def Left() : Maybe[a]
   require def Right() : Maybe[b]
-  def map(f : b -> b) : Either[a, b]
+
+  def map[c](f : b -> c) : Either[a, c]
     match this with
       case Left(x) =>
-        new Left[a, b](x)
+        new Left[a, c](x)
       end
       case Right(x) =>
-        new Right[a, b](f(x))
+        new Right[a, c](f(x))
       end
 
     end
   end
+
   def foreach(f : b -> unit) : unit
     match this with
       case Left(x) =>
@@ -32,39 +38,105 @@ read trait Either[a, b]
 
     end
   end
-  def flatMap(f : b -> Either[a, b]) : Either[a, b]
+
+  def flatMap[c](f : b -> Either[a, c]) : Either[a, c]
     match this with
       case Left(x) =>
-        new Left[a, b](x)
+        new Left[a, c](x)
       end
       case Right(x) =>
         f(x)
       end
-
     end
   end
 end
+
 class Left[a, b] : Either[a, b](x)
   val x : a
+
   def init(x : a) : unit
     this.x = x
   end
+
   def Left() : Maybe[a]
     Just(this.x)
   end
+
   def Right() : Maybe[b]
     Nothing
   end
 end
+
 class Right[a, b] : Either[a, b](x)
   val x : b
+
   def init(x : b) : unit
     this.x = x
   end
+
   def Left() : Maybe[a]
     Nothing
   end
+
   def Right() : Maybe[b]
     Just(this.x)
   end
 end
+
+-- TODO: maybe should be in module dealing with exceptions
+fun or_else[a,b,c](f1 : a -> Either[b,c], f2 : a -> Either[b,c], x: a) : Either[b,c]
+  match f1(x) with
+    case Right(nice) => Right[b,c](nice)
+    case Left(err) => f2(x)
+  end
+end
+
+fun either[a,b,c](f1 : a -> c, f2 : b -> c, e : Either[a,b]) : c
+  match e with
+    case Left(a) => f1(a)
+    case Right(a) => f2(a)
+  end
+end
+
+fun unright[a,b](e : Either[a,b]) : b
+  match e with
+    case Right(a) => a
+  end
+end
+
+fun unleft[a,b](e : Either[a,b]) : a
+  match e with
+    case Left(a) => a
+  end
+end
+
+fun lefts[a,b](e : [Either[a,b]]) : [a]
+  A.filter_map(is_left[a,b], unleft[a,b], e)
+end
+
+fun rights[a,b](e : [Either[a,b]]) : [b]
+  A.filter_map(is_right[a,b], unright[a,b], e)
+end
+
+fun is_left[a,b](e : Either[a,b]) : bool
+  match e with
+    case Left(a) => true
+    case _ => false
+  end
+end
+
+fun is_right[a,b](e : Either[a,b]) : bool
+  match e with
+    case Right(a) => true
+    case _ => false
+  end
+end
+
+fun map2[a,b,c,d](e : Either[a,b], f : a -> c, g : b -> d) : Either[c,d]
+  match e with
+    case Left(x) => new Left[c,d](f(x))
+    case Right(x) => new Right[c,d](g(x))
+  end
+end
+
+-- TODO: partitionEithers :: [Either a b] -> ([a], [b])

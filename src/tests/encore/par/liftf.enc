@@ -1,7 +1,7 @@
 import ParT.ParT
 
 fun show_string(x : String) : unit
-  if x.equals(primitive_const()) then
+  if x.eq(primitive_const()) then
     print("{}: OK\n", x)
   else
     print("{} vs {}: ERROR\n", x, primitive_const())
@@ -9,7 +9,7 @@ fun show_string(x : String) : unit
 end
 
 fun show_passive(x : String) : unit
-  if x.equals(passive_const()) then
+  if x.eq(passive_const()) then
     print("{}: OK\n", x)
   else
     print("{}: ERROR\n", x)
@@ -47,11 +47,11 @@ active class StringChecker
       p = primitive_const()
       pa = passive_const()
     in
-      if s.equals(p) then
+      if s.eq(p) then
         this.primitive = true
         this.prim_string = s
       else
-        if s.equals(pa) then
+        if s.eq(pa) then
           this.passiv = true
           this.pass_string = s
         else

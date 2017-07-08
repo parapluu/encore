@@ -1,0 +1,97 @@
+import Data.Maybe
+
+import qualified Data.Array as A
+
+fun inc(x : int) : int
+  x + 1
+end
+
+fun test_unjust() : unit
+  val ma = Just(10)
+  println("-- unjust --")
+  println(unjust(ma))
+end
+
+fun test_unjust_with_default() : unit
+  val ma = Just(10)
+  println("-- unjust_with_default --")
+  println(unjust_with_default(12, ma))
+  println(unjust_with_default(12, Nothing))
+end
+
+fun test_maybe() : unit
+  val ma = Just(10)
+  println("-- maybe --")
+  println(maybe(12, inc, ma))
+  println(maybe(12, inc, Nothing))
+end
+
+fun test_map() : unit
+  val ma = Just(10)
+  println("-- map --")
+  println(map(inc, ma))
+  println(map(inc, Nothing))
+end
+
+fun test_is_just() : unit
+  println("-- is_just --")
+  println("{} {}", is_just[int](Nothing), is_just(Just(10)))
+end
+
+fun test_is_nothing() : unit
+  println("-- is_nothing --")
+  println("{} {}", is_nothing[int](Nothing), is_nothing(Just(10)))
+end
+
+fun test_array_to_maybe() : unit
+  println("-- array_to_maybe --")
+  println("{} {} {}", array_to_maybe(new [int](0)), array_to_maybe([1]), array_to_maybe([1,2,3]))
+end
+
+fun test_maybe_to_array() : unit
+  println("-- maybe_to_array --")
+  A.show(print_int, maybe_to_array[int](Nothing))
+  A.show(print_int, maybe_to_array(Just(10)))
+end
+
+fun test_cat_maybes() : unit
+  println("-- cat_maybes --")
+  A.show(print_int, cat_maybes([Just(10), Nothing, Just(11)]))
+end
+
+fun test_map_maybe() : unit
+  println("-- map_maybe --")
+  A.show(print_int, map_maybe(f,[1,2,3,4]))
+where
+  fun f(i : int) : Maybe[int]
+    if i < 3 then
+      Just(i)
+    else
+      Nothing
+    end
+  end
+end
+
+-- some helper functions due to limitations in print
+fun print_int(i : int) : unit
+  print("{}", i)
+end
+
+fun print_maybe_int(m : Maybe[int]) : unit
+  print("{}", m)
+end
+
+active class Main
+  def main() : unit
+    test_unjust()
+    test_unjust_with_default()
+    test_maybe()
+    test_map()
+    test_is_just()
+    test_is_nothing()
+    test_array_to_maybe()
+    test_maybe_to_array()
+    test_cat_maybes()
+    test_map_maybe()
+  end
+end

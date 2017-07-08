@@ -1,0 +1,98 @@
+module Math
+
+EMBED
+  #include <math.h>
+END
+
+-- square root
+fun sqrt(x: real): real
+  EMBED (real) 
+    sqrt(#{x}); 
+  END
+end
+
+-- absolute value (real)
+fun abs(x: real): real
+  if x < 0 then 
+    0 - x
+  else 
+    x
+  end
+end
+
+-- absolute value (int)
+fun absi(x: int): int
+  if x < 0 then 
+    0 - x
+  else 
+    x
+  end
+end
+
+-- cosine
+fun cos(x: real): real
+  EMBED (real) 
+    cos(#{x}); 
+  END
+end
+
+-- sine
+fun sin(x: real): real
+  EMBED (real) 
+    sin(#{x}); 
+  END
+end
+
+-- pow(x,y) compute x to y
+fun pow(x : real, y : real) : real
+  EMBED (real) 
+    pow(#{x},#{y}); 
+  END
+end
+
+-- TODO: replace by faster version
+fun powi(x : int, var y : int) : int
+  var result = 1
+  while y > 0 do
+    result *= x
+    y -= 1
+  end
+  result
+end
+
+-- get minumum (real)
+fun min(x : real, y : real) : real
+  if x < y then
+    x
+  else
+    y
+  end
+end
+
+-- get minumum (int)
+fun mini(x : int, y : int) : int
+  if x < y then
+    x
+  else
+    y
+  end
+end
+
+-- get maximum (real) 
+fun max(x : real, y : real) : real
+  if x > y then
+    x
+  else
+    y
+  end
+end
+
+-- get maximum (int)
+fun maxi(x : int, y : int) : int
+  if x > y then
+    x
+  else
+    y
+  end
+end
+
