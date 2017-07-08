@@ -1,0 +1,179 @@
+
+import JSON.Decode
+import JSON.Encode
+import JSON.Parser
+
+import Data.Either
+import Data.Maybe
+
+{-
+decode
+,stringD
+,intD
+,boolD
+,realD
+,nullD
+,nullable
+,fail
+,succeed
+,field
+,at
+,index
+,array
+,dict
+-- ,key_value_pairs
+,maybe
+,value
+,map
+,map2
+,map3
+,and_then
+,lazy
+,Result
+-}
+
+fun printResult[t](rp : t -> String, x : Result[t]) : unit
+  match x with
+    case Right(y) => println("{}", rp(y))
+    case Left(err) => println("Error: {}", err)
+  end
+end
+
+fun printMaybe[t](rp : t -> String, x : Maybe[t]) : unit
+  match x with
+    case Just(ice) => println("{}", rp(ice))
+    case Nothing => println("Error")
+  end
+end
+
+fun valueString(v : Value) : String
+  encode(0, v)
+end
+
+fun json() : String 
+  "{
+    \"glossary\": {
+        \"title\": \"example glossary\",
+		\"GlossDiv\": {
+            \"title\": \"S\",
+			\"GlossList\": {
+                \"GlossEntry\": {
+                    \"ID\": \"SGML\",
+					\"SortAs\": \"SGML\",
+					\"GlossTerm\": \"Standard Generalized Markup Language\",
+					\"Acronym\": \"SGML\",
+					\"Abbrev\": \"ISO 8879:1986\",
+					\"GlossDef\": {
+                        \"para\": \"A meta-markup language, used to create markup languages such as DocBook.\",
+						\"GlossSeeAlso\": [\"GML\", \"XML\"]
+                    },
+					\"GlossSee\": \"markup\"
+                }
+            }
+        }
+    }
+  }"
+end
+
+active class Main
+
+  def encode_test() : unit
+    println("Encoding tests")
+    println("==============")
+    println("{}", encode(0, intJ(1234)))
+  end
+
+  def parse_test() : unit
+    println("Parsing tests")
+    println("=============")
+    val x = parse(json())
+    printMaybe(valueString, x)
+    
+    val ps = new Parser("null")
+    if is_just(ps.parse_null()) then
+      println("Parse of null succeeded")
+    else 
+      println("Parse of null failed")
+    end  
+    
+    val ps = new Parser("\"token\"")
+    match ps.parse_string() with
+      case Just(str) => println("Parse of string got: {}", str.raw())
+      case Nothing => println("Parse of string failed")
+    end
+
+    val empty = "{}"
+    val full = "{ \"name\" : true,  \"token\" : false }"
+    
+    val ps = new Parser(empty)
+    match ps.parse_object() with
+      case Just(str) => println("Parse of object got: {}", str.raw())
+      case Nothing => println("Parse of object failed")
+    end
+    println("1")
+    
+    val ps = new Parser(full)
+    match ps.parse_object() with
+      case Just(str) => println("Parse of object got: {}", str.raw())
+      case Nothing => println("Parse of object failed")
+    end
+    println("2")
+
+    val emptyA = "[]"
+    val fullA = "[true, true, false]"
+    val ps = new Parser(emptyA)
+    match ps.parse_array() with
+      case Just(str) => println("Parse of array got: {}", str.raw())
+      case Nothing => println("Parse of array failed")
+    end
+    println("3")
+    
+    val ps = new Parser(fullA)
+    match ps.parse_array() with
+      case Just(str) => println("Parse of array got: {}", str.raw())
+      case Nothing => println("Parse of array failed")
+    end
+    
+    println("4")
+    
+    val num1 = "1234"
+    val num2 = "10.12"
+    val num3 = "-20.12e-21"
+    
+    val ps = new Parser(num1)
+    match ps.parse_number() with
+      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Nothing => println("Parse of number failed")
+    end
+
+    val ps = new Parser(num2)
+    match ps.parse_number() with
+      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Nothing => println("Parse of number failed")
+    end
+
+    val ps = new Parser(num3)
+    match ps.parse_number() with
+      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Nothing => println("Parse of number failed")
+    end
+
+    -- also test for empty JSON
+    
+    -- also test top-level parse value
+  end
+
+  def decode_test() : unit
+    println("Decoding tests")
+    println("==============")
+    printResult(string_from_int, decode(intD(), "1231"))
+  end
+
+  def main() : unit
+    this.encode_test()
+    this.parse_test()
+    this.decode_test()
+  end
+end
+
+
