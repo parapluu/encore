@@ -1,0 +1,52 @@
+
+Encoding tests
+==============
+1234
+"1234"
+null
+1234.6
+{"four":4,"one":1,"three":3,"two":2}
+[1,2,3,4]
+true
+
+Parsing tests
+=============
+{"glossary":{"title":"example glossary","GlossDiv":{"title":"S","GlossList":{"GlossEntry":{"SortAs":"SGML","GlossTerm":"Standard Generalized Markup Language","GlossSee":"markup","ID":"SGML","Abbrev":"ISO 8879:1986","GlossDef":{"para":"A meta-markup language, used to create markup languages such as DocBook.","GlossSeeAlso":["GML","XML"]},"Acronym":"SGML"}}}}}
+Parse of null succeeded
+Parse of string got: "token"
+Parse of object got: {}
+Parse of object got: {"name":true,"token":false}
+Parse of number failed (as expected)
+Parse of array got: []
+Parse of array got: [true,true,false]
+Parse of number got: 1234
+Parse of number got: 10.12
+Parse of number got: -20.12e-21
+Top-level parse got: 1234
+Top-level parse got: "foo"
+Top-level parse got: {}
+Top-level parse got: {"name":true,"token":false}
+Top-level parse got: []
+Top-level parse got: [true,true,false]
+
+Decoding tests
+==============
+1231
+Test 1 ok
+Test 2 ok
+Test 3 ok
+Test 4 ok
+Test 5 ok
+Test 6 ok
+Test 7 ok
+Test 8 ok
+Test 9 ok
+Test 10 ok
+Test 11 ok
+Test 12 ok
+Test 13 ok
+Test 14 ok
+Test 15 ok
+Test 16 ok
+Test 17 ok
+Test 18 ok
