@@ -173,14 +173,11 @@ local class Parser
     val list = new LinkedList[Value]()
     this.symbol('[')
     this.skip()
-    println("00")
     if this.read_char(']') then
       return Just(new RawArray(this.list_reverse_array(list)))
     end
-    println("01")
     do
       this.skip()
-      println("02")
       match this.parse_value() with
         case Nothing => 
           return Nothing : Maybe[RawArray] -- invalid value
@@ -188,10 +185,8 @@ local class Parser
         end
         case Just(value) => list.prepend(value)
       end
-      println("04")
       this.skip()
     while this.read_char(',')
-    println("05")
     if not this.read_char(']') then
       return Nothing : Maybe[RawArray]-- expected ',' or ']'
     end
@@ -220,7 +215,7 @@ local class Parser
       this.skip()
       match this.parse_name() with
         case Nothing => return Nothing  : Maybe[RawObject]-- expected a name
-        case Just(name) => 
+        case Just(RawString(name)) => 
           this.skip()
           if (not this.read_char(':')) then
             return Nothing : Maybe[RawObject] -- expected ':'
@@ -231,9 +226,9 @@ local class Parser
               return Nothing  : Maybe[RawObject] -- expected a name
             end
             case Just(value) =>
-              hash.set(name.raw(), value)
+              hash.set(name, value)
               this.skip()
-              Nothing  : Maybe[RawObject] -- to fool the type checker
+              -- Nothing  : Maybe[RawObject] -- to fool the type checker
             end
           end
         end
@@ -245,7 +240,7 @@ local class Parser
     Just(new RawObject(hash))
   end
 
-  def parse_name() : Maybe[Value]
+  def parse_name() : Maybe[RawString]
     if this.current() != '"' then
       Nothing -- expected name
     else

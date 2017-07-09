@@ -5,32 +5,8 @@ import JSON.Parser
 
 import Data.Either
 import Data.Maybe
+import Collections.Mutable.HashMap
 
-{-
-decode
-,stringD
-,intD
-,boolD
-,realD
-,nullD
-,nullable
-,fail
-,succeed
-,field
-,at
-,index
-,array
-,dict
--- ,key_value_pairs
-,maybe
-,value
-,map
-,map2
-,map3
-,and_then
-,lazy
-,Result
--}
 
 fun printResult[t](rp : t -> String, x : Result[t]) : unit
   match x with
@@ -47,7 +23,7 @@ fun printMaybe[t](rp : t -> String, x : Maybe[t]) : unit
 end
 
 fun valueString(v : Value) : String
-  encode(0, v)
+  encode(v)
 end
 
 fun json() : String 
@@ -78,12 +54,21 @@ end
 active class Main
 
   def encode_test() : unit
+    println("")
     println("Encoding tests")
     println("==============")
-    println("{}", encode(0, intJ(1234)))
+    println("{}", encode(intJ(1234)))
+    println("{}", encode(stringJ("1234")))
+    println("{}", encode(nullJ()))
+    println("{}", encode(realJ(1234.566)))
+    val object = [("one", intJ(1)), ("two", intJ(2)), ("three", intJ(3)), ("four", intJ(4))]
+    println("{}", encode(objectJ(object)))
+    println("{}", encode(arrayJ([intJ(1),intJ(2),intJ(3),intJ(4)])))
+    println("{}", encode(boolJ(true)))
   end
 
   def parse_test() : unit
+    println("")
     println("Parsing tests")
     println("=============")
     val x = parse(json())
@@ -98,7 +83,7 @@ active class Main
     
     val ps = new Parser("\"token\"")
     match ps.parse_string() with
-      case Just(str) => println("Parse of string got: {}", str.raw())
+      case Just(str) => println("Parse of string got: {}", encode(str))
       case Nothing => println("Parse of string failed")
     end
 
@@ -107,66 +92,123 @@ active class Main
     
     val ps = new Parser(empty)
     match ps.parse_object() with
-      case Just(str) => println("Parse of object got: {}", str.raw())
+      case Just(str) => println("Parse of object got: {}", encode(str))
       case Nothing => println("Parse of object failed")
     end
-    println("1")
     
     val ps = new Parser(full)
     match ps.parse_object() with
-      case Just(str) => println("Parse of object got: {}", str.raw())
+      case Just(str) => println("Parse of object got: {}", encode(str))
       case Nothing => println("Parse of object failed")
     end
-    println("2")
 
     val emptyA = "[]"
     val fullA = "[true, true, false]"
     val ps = new Parser(emptyA)
     match ps.parse_array() with
-      case Just(str) => println("Parse of array got: {}", str.raw())
+      case Just(str) => println("Parse of array got: {}", encode(str))
       case Nothing => println("Parse of array failed")
     end
-    println("3")
     
     val ps = new Parser(fullA)
     match ps.parse_array() with
-      case Just(str) => println("Parse of array got: {}", str.raw())
+      case Just(str) => println("Parse of array got: {}", encode(str))
       case Nothing => println("Parse of array failed")
     end
-    
-    println("4")
-    
+        
     val num1 = "1234"
     val num2 = "10.12"
     val num3 = "-20.12e-21"
     
     val ps = new Parser(num1)
     match ps.parse_number() with
-      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Just(str) => println("Parse of number got: {}", encode(str))
       case Nothing => println("Parse of number failed")
     end
 
     val ps = new Parser(num2)
     match ps.parse_number() with
-      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Just(str) => println("Parse of number got: {}", encode(str))
       case Nothing => println("Parse of number failed")
     end
 
     val ps = new Parser(num3)
     match ps.parse_number() with
-      case Just(str) => println("Parse of number got: {}", str.raw())
+      case Just(str) => println("Parse of number got: {}", encode(str))
       case Nothing => println("Parse of number failed")
     end
 
-    -- also test for empty JSON
+    -- top level parse
+    val ps = new Parser("1234")
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
+
+    val ps = new Parser("\"foo\"")
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
     
-    -- also test top-level parse value
+    val ps = new Parser(empty)
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
+
+    val ps = new Parser(full)
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
+    
+    val ps = new Parser(emptyA)
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
+    
+    val ps = new Parser(fullA)
+    match ps.parse() with
+      case Just(str) => println("Top-level parse got: {}", encode(str))
+      case Nothing => println("Top-level parse failed")
+    end
   end
 
   def decode_test() : unit
+    println("")
     println("Decoding tests")
     println("==============")
     printResult(string_from_int, decode(intD(), "1231"))
+    
+    {-
+    {-
+    decode
+    ,stringD
+    ,intD
+    ,boolD
+    ,realD
+    ,nullD
+    ,nullable
+    ,fail
+    ,succeed
+    ,field
+    ,at
+    ,index
+    ,array
+    ,dict
+    -- ,key_value_pairs
+    ,maybe
+    ,value
+    ,map
+    ,map2
+    ,map3
+    ,and_then
+    ,lazy
+    ,Result
+    -}
+    -}
   end
 
   def main() : unit

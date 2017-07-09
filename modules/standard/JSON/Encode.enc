@@ -16,16 +16,15 @@ import Data.Maybe
 -- TODO: probably rename
 -- TODO: use default parameters: fun encode(indent : int = 0 , value : Value) : String
 --
-fun encode(indent : int, value : Value) : String
+fun encode(value : Value, indent : int = 0) : String
   val sb = new StringBuffer()
-  value.encode(sb)
+  value.encode_into(sb)
   sb.build()
 end
 
 -- parse trees for raw, uninterpreted JSON 
 local trait Value
-  require def raw() : String
-  require def encode(sb : StringBuffer) : unit
+  require def encode_into(sb : StringBuffer) : unit
   
   -- pattern matching functions. TODO: fix when ADTs have been finished
   require def RawString() : Maybe[String]
@@ -50,7 +49,7 @@ fun intJ(i : int) : Value
   new RawNumber(string_from_int(i))
 end
 
-fun readJ(r : real) : Value
+fun realJ(r : real) : Value
   new RawNumber(string_from_real(r))
 end
 
@@ -75,11 +74,7 @@ class RawString : Value(str)
     this.str = str
   end
   
-  def raw() : String
-    this.str
-  end
-  
-  def encode(sb : StringBuffer) : unit
+  def encode_into(sb : StringBuffer) : unit
     sb.add("\"")
     sb.add(this.str)
     sb.add("\"")
@@ -117,12 +112,8 @@ class RawNumber : Value(num)
   def init(num : String) : unit
     this.num = num
   end
-  
-  def raw() : String
-    this.num
-  end
-  
-  def encode(sb : StringBuffer) : unit
+    
+  def encode_into(sb : StringBuffer) : unit
     sb.add(this.num)
   end
   
@@ -158,12 +149,8 @@ class RawObject : Value(hash)
   def init(hash : HashMap[String,Value]) : unit
     this.hash = hash
   end
-  
-  def raw() : String
-    "not yet implemented"
-  end
-      
-  def encode(sb : StringBuffer) : unit
+
+  def encode_into(sb : StringBuffer) : unit
     sb.add("{")
     val iter = this.hash.iterator()
     if iter.has_next() then
@@ -181,7 +168,7 @@ class RawObject : Value(hash)
       sb.add("\"")
       sb.add(key)
       sb.add("\":")
-      value.encode(sb)      
+      value.encode_into(sb)      
     end
   end
   
@@ -219,17 +206,13 @@ class RawArray : Value(elems)
     this.elems = elems
   end
   
-  def raw() : String
-    "not yet implemented"
-  end
-  
-  def encode(sb : StringBuffer) : unit
+  def encode_into(sb : StringBuffer) : unit
     sb.add("[")
     if |this.elems| > 0 then
-      this.elems(0).encode(sb)
+      this.elems(0).encode_into(sb)
       for i <- [1 .. |this.elems| - 1] do
         sb.add(",")
-        this.elems(i).encode(sb)
+        this.elems(i).encode_into(sb)
       end
     end
     sb.add("]")
@@ -267,12 +250,8 @@ class RawBool : Value(value)
   def init(value : bool) : unit
     this.value = value
   end
-  
-  def raw() : String
-    "not yet implemented"
-  end
-  
-  def encode(sb : StringBuffer) : unit
+
+  def encode_into(sb : StringBuffer) : unit
     sb.add(string_from_bool(this.value))
   end
   
@@ -303,11 +282,7 @@ end
 
 
 class Null : Value
-  def raw() : String
-    "not yet implemented"
-  end
-  
-  def encode(sb : StringBuffer) : unit
+  def encode_into(sb : StringBuffer) : unit
     sb.add("null")
   end
 
