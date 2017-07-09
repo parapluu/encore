@@ -52,8 +52,8 @@ end
    and then runs a decoder on the result.
    Fails if either the parser or the decoder fails
 
-     decode(intD(), "4")      => Right 4
-     decode(intD(), "3 + 2")  => Left ...
+     decode(intD(), "4")      => Right(4)
+     decode(intD(), "3 + 2")  => Left(...)
      
 -}
 fun decode[t](decoder : Decoder[t], str: String) : Result[t]
@@ -73,11 +73,11 @@ end
 
 {-  Decodes a JSON String into a String 
 
-    decode(stringD(), "true")              => Left ...
-    decode(stringD(), "42")                => Left ...
-    decode(stringD(), "3.14")              => Left ...
-    decode(stringD(), "\"hello\"")         => Right "hello"
-    decode(stringD(), "{ \"hello\": 42 }") => Left ...
+    decode(stringD(), "true")              => Left(...)
+    decode(stringD(), "42")                => Left(...)
+    decode(stringD(), "3.14")              => Left(...)
+    decode(stringD(), "\"hello\"")         => Right("hello")
+    decode(stringD(), "{ \"hello\": 42 }") => Left(...)
 -}
 fun stringD() : Decoder[String]
   new StringDecoder()
@@ -95,11 +95,11 @@ end
 
 {- Decodes a JSON number into an int
 
-    decode(intD(), "true")              => Left ...
-    decode(intD(), "42")                => Right 42
-    decode(intD(), "3.14")              => Left ...
-    decode(intD(), "\"hello\"")         => Left ...
-    decode(intD(), "{ \"hello\": 42 }") => Left ...
+    decode(intD(), "true")              => Left(...)
+    decode(intD(), "42")                => Right(42)
+    decode(intD(), "3.14")              => Left(...)
+    decode(intD(), "\"hello\"")         => Left(...)
+    decode(intD(), "{ \"hello\": 42 }") => Left(...)
 -}
 fun intD() : Decoder[int]
   new IntDecoder()
@@ -123,11 +123,11 @@ end
 
 {- Decodes a JSON boolean into a bool
 
-    decode(boolD(), "true")              => Right True
-    decode(boolD(), "42")                => Left ...
-    decode(boolD(), "3.14")              => Left ...
-    decode(boolD(), "\"hello\"")         => Left ...
-    decode(boolD(), "{ \"hello\": 42 }") => Left ...
+    decode(boolD(), "true")              => Right(true)
+    decode(boolD(), "42")                => Left(...)
+    decode(boolD(), "3.14")              => Left(...)
+    decode(boolD(), "\"hello\"")         => Left(...)
+    decode(boolD(), "{ \"hello\": 42 }") => Left(...)
 -}
 fun boolD() : Decoder[bool]
   new BoolDecoder()
@@ -145,11 +145,11 @@ end
 
 {- Decodes a JSON number into a real
 
-    decode(realD(), "true")              => Left ..
-    decode(realD(), "42")                => Right 42
-    decode(realD(), "3.14")              => Right 3.14
-    decode(realD(), "\"hello\"")         => Left ...
-    decode(realD(), "{ \"hello\": 42 }") => Left ...
+    decode(realD(), "true")              => Left(...)
+    decode(realD(), "42")                => Right(42)
+    decode(realD(), "3.14")              => Right(3.14)
+    decode(realD(), "\"hello\"")         => Left(...)
+    decode(realD(), "{ \"hello\": 42 }") => Left(...)
 -}
 fun realD() : Decoder[real]
   new RealDecoder()
@@ -172,10 +172,10 @@ end
 
 {- Decodes a `null` value into some value.
 
-    decode(nullD[bool](False), "null") => Right False
-    decode(nullD[int](42), "null")     => Right 42
-    decode(nullD[int](42), "42")       => Left ...
-    decode(nullD[int](42), "false")    => Left ...
+    decode(nullD[bool](false), "null") => Right(false)
+    decode(nullD[int](42), "null")     => Right(42)
+    decode(nullD[int](42), "42")       => Left(...)
+    decode(nullD[int](42), "false")    => Left(...)
 
 -}
 fun nullD[t](default : t) : Decoder[t]
@@ -201,9 +201,9 @@ end
 
 {- Decodes a nullable JSON value into a value.
 
-    decode(nullable[int](intD()), "42")   => Right (Just 42)
-    decode(nullable[int](intD()), "null") => Right Nothing
-    decode(nullable[int](intD()), "true") => Left ...
+    decode(nullable[int](intD()), "42")   => Right(Just(42))
+    decode(nullable[int](intD()), "null") => Right(Nothing)
+    decode(nullable[int](intD()), "true") => Left(...)
 -}
 fun nullable[t](sub : Decoder[t]) : Decoder[Maybe[t]]
   new Nullable[t](sub)
@@ -245,9 +245,9 @@ end
 
 
 {- Ignore the JSON and produce a certain value.  
-    decode(succeed[int](42), "true")    => Right 42
-    decode(succeed[int](42), "[1,2,3]") => Right 42
-    decode(succeed[int](42), "Hello")   => Left ... -- this is not a valid JSON string
+    decode(succeed[int](42), "true")    => Right(42)
+    decode(succeed[int](42), "[1,2,3]") => Right(42)
+    decode(succeed[int](42), "Hello")   => Left(...) -- this is not a valid JSON string
 -}
 fun succeed[t](default : t) : Decoder[t]
   new Succeed[t](default)
@@ -284,11 +284,11 @@ end
 
 {- Extract a particular field from a JSON object
 
-    decode(field[int]("x", intD()), "{ \"x\": 3 }")           => Right 3
-    decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }") => Right 3
-    decode(field[int]("x", intD()), "{ \"x\": true }")        => Left ...
-    decode(field[int]("x", intD()), "{ \"y\": 4 }")           => Left ...
-    decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }") => Right "tom"
+    decode(field[int]("x", intD()), "{ \"x\": 3 }")           => Right(3)
+    decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }") => Right(3)
+    decode(field[int]("x", intD()), "{ \"x\": true }")        => Left(...)
+    decode(field[int]("x", intD()), "{ \"y\": 4 }")           => Left(...)
+    decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }") => Right("tom")
 -}
 fun field[t](name : String, sub : Decoder[t]) : Decoder[t]
   new Field[t](name, sub)
@@ -322,8 +322,8 @@ end
 
     json = "{ "person": { "name": "tom", "age": 42 } }"
 
-    decode(at(["person", "name"], stringD())) json => Right "tom"
-    decode(at(["person", "age" ], intD())) json    => Right "42
+    decode(at(["person", "name"], stringD()), json) => Right("tom")
+    decode(at(["person", "age" ], intD()), json)    => Right(42)
 
 -}
 fun at[t](path : [String], sub : Decoder[t]) : Decoder[t]
@@ -367,10 +367,10 @@ end
 {- extract given index of a JSON array
     json = "[ \"alice\", \"bob\", \"chuck\" ]"
 
-    decode(index(0, stringD()), json) => Right "alice"
-    decode(index(1, stringD()), json) => Right "bob"
-    decode(index(2, stringD()), json) => Right "chuck"
-    decode(index(3, stringD()), json) => Left ...
+    decode(index(0, stringD()), json) => Right("alice")
+    decode(index(1, stringD()), json) => Right("bob")
+    decode(index(2, stringD()), json) => Right("chuck")
+    decode(index(3, stringD()), json) => Left(...)
 -}
 fun index[t](index : int, dec : Decoder[t]) : Decoder[t]
   new Index(index, dec)
@@ -403,8 +403,8 @@ end
 
 {- Decode a JSON array
 
-    decode(array[int](intD()), "[1,2,3]")      => Right [1,2,3]
-    decode(array[int](intD()), "[true,false]") => Right [true,false] 
+    decode(array[int](intD()), "[1,2,3]")      => Right([1,2,3])
+    decode(array[int](intD()), "[true,false]") => Right([true,false]) 
 -}
 fun array[t](dec : Decoder[t]) : Decoder[[t]]
   new ArrayDecoder[t](dec)
@@ -525,13 +525,13 @@ end
 
     json = "{ \"name\": \"tom\", \"age\": 42 }"
 
-    decode(maybe (field("age", intD())))) json => Right (Just 42)
-    decode(maybe (field("name", intD()))) json => Right Nothing
-    decode(maybe (field("height", real()))) json => Right Nothing
+    decode(maybe (field("age", intD())))) json => Right(Just(42))
+    decode(maybe (field("name", intD()))) json => Right(Nothing)
+    decode(maybe (field("height", real()))) json => Right(Nothing)
 
-    decode(field ("age",    (maybe (intD())))) json => Right (Just 42)
-    decode(field ("name",   (maybe (intD())))) json => Right Nothing
-    decode(field ("height", (maybe (realD()))) json => Left ...
+    decode(field ("age",    (maybe (intD())))) json => Right(Just(42))
+    decode(field ("name",   (maybe (intD())))) json => Right(Nothing)
+    decode(field ("height", (maybe (realD()))) json => Left(...)
 -}
 fun maybe[t](dec : Decoder[t]) : Decoder[Maybe[t]]
   new MaybeDecoder[t](dec)

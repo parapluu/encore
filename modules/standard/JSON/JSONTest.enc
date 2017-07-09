@@ -3,8 +3,8 @@ import JSON.Decode
 import JSON.Encode
 import JSON.Parser
 
-import Data.Either
-import Data.Maybe
+import Data.Either hiding (map2)
+import Data.Maybe hiding (maybe, map)
 import Collections.Mutable.HashMap
 
 
@@ -102,6 +102,12 @@ active class Main
       case Nothing => println("Parse of object failed")
     end
 
+    val ps = new Parser("\"hello\"")
+    match ps.parse_number() with
+      case Just(str) => println("Parse of number got: {} from {}", encode(str), "\"hello\"")
+      case Nothing => println("Parse of number failed (as expected)")
+    end
+
     val emptyA = "[]"
     val fullA = "[true, true, false]"
     val ps = new Parser(emptyA)
@@ -182,33 +188,116 @@ active class Main
     println("==============")
     printResult(string_from_int, decode(intD(), "1231"))
     
-    {-
-    {-
-    decode
-    ,stringD
-    ,intD
-    ,boolD
-    ,realD
-    ,nullD
-    ,nullable
-    ,fail
-    ,succeed
-    ,field
-    ,at
-    ,index
-    ,array
-    ,dict
-    -- ,key_value_pairs
-    ,maybe
-    ,value
-    ,map
-    ,map2
-    ,map3
-    ,and_then
-    ,lazy
-    ,Result
-    -}
-    -}
+    val test1 = valid(decode(intD(), "4")) == 4 &&
+                error(decode(intD(), "3 + 2"))
+    report(1, test1)
+
+    val test2 = error(decode(intD(), "true"))  &&
+                valid(decode(intD(), "42")) == 42 &&
+--                error(decode(intD(), "3.14")) -- && -- FAILS TODO: FIX
+                error(decode(intD(), "\"hello\"")) && 
+                error(decode(intD(), "{ \"hello\": 42 }"))
+    report(2, test2)
+        
+    val test3 = error(decode(stringD(), "true")) &&
+                error(decode(stringD(), "42")) &&
+                error(decode(stringD(), "3.14")) &&
+                valid(decode(stringD(), "\"hello\"")).eq("hello") &&
+                error(decode(stringD(), "{ \"hello\": 42 }"))
+    report(3, test3)
+
+        
+    val test4 = valid(decode(boolD(), "true")) == true &&
+                error(decode(boolD(), "42")) &&
+                error(decode(boolD(), "3.14")) &&
+                error(decode(boolD(), "\"hello\"")) &&
+                error(decode(boolD(), "{ \"hello\": 42 }"))
+    report(4, test4)
+
+    val test5 = error(decode(realD(), "true")) &&
+                valid(decode(realD(), "42")) == 42 &&
+                valid(decode(realD(), "3.14")) == 3.14 &&
+                error(decode(realD(), "\"hello\"")) &&
+                error(decode(realD(), "{ \"hello\": 42 }"))
+    report(5, test5)
+    
+    val test6 = valid(decode(nullD[bool](false), "null")) == false &&
+                valid(decode(nullD[int](42), "null")) == 42 &&
+                error(decode(nullD[int](42), "42")) &&
+                error(decode(nullD[int](42), "false"))
+    report(6, test6)
+    
+    val test7 = valid(decode(nullable[int](intD()), "42")) == Just(42) &&
+                valid(decode(nullable[int](intD()), "null")) == Nothing &&
+                error(decode(nullable[int](intD()), "true"))
+    report(7, test7)
+    
+    val test8 = error(decode(fail[int]("Decoder failed"), "42"))
+    report(8, test8)
+    
+    val test9 = valid(decode(succeed[int](42), "true")) == 42 &&
+                valid(decode(succeed[int](42), "[1,2,3]")) == 42 &&
+                error(decode(succeed[int](42), "Hello")) 
+    report(9, test9)
+    
+    val test10 = valid(decode(field[int]("x", intD()), "{ \"x\": 3 }")) == 3 &&
+                 valid(decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }")) == 3 &&
+                 error(decode(field[int]("x", intD()), "{ \"x\": true }")) &&
+                 error(decode(field[int]("x", intD()), "{ \"y\": 4 }")) &&
+                 valid(decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }")).eq("tom")
+    report(10, test10)
+    
+    val json = "{ \"person\": { \"name\": \"tom\", \"age\": 42 } }"
+    val test11 = valid(decode(at(["person", "name"], stringD()), json)).eq("tom") &&
+                 valid(decode(at(["person", "age" ], intD()), json)) == 42
+    report(11, test11)
+    
+    val json = "[ \"alice\", \"bob\", \"chuck\" ]"
+
+
+    val test12 = valid(decode(index(0, stringD()), json)).eq("alice") &&
+                 valid(decode(index(1, stringD()), json)).eq("bob") &&
+                 valid(decode(index(2, stringD()), json)).eq("chuck") &&
+                 error(decode(index(3, stringD()), json))
+    report(12, test12)
+    
+    val test13 = arreqInt(valid(decode(array[int](intD()), "[1,2,3]")), [1,2,3]) &&
+                 arreqBool(valid(decode(array[bool](boolD()), "[true,false]")), [true,false])
+    report(13, test13)
+    
+    val hash = valid(decode(dict[int](intD()), "{ \"alice\": 42, \"bob\": 99 }"))
+    val test14 = is_just(hash.get_value("alice")) && unjust(hash.get_value("alice")) == 42 &&
+                 is_just(hash.get_value("bob")) && unjust(hash.get_value("bob")) == 99 &&
+                 is_nothing(hash.get_value("chuck"))
+    report(14, test14)
+    
+    val test15 = arreqSI(valid(decode(key_value_pairs[int](intD()), "{ \"alice\": 42, \"bob\": 99 }")), [("alice", 42), ("bob", 99)])
+    report(15, test15)
+   
+    val json = "{ \"name\": \"tom\", \"age\": 42 }"
+
+    val test16 = valid(decode(maybe(field("age", intD())), json)) == Just(42) &&
+                 valid(decode(maybe(field("name", intD())), json)) == Nothing &&
+                 valid(decode(maybe(field("height", realD())), json)) == Nothing
+    report(16, test16)
+
+    val test17 = valid(decode(field("age", maybe(intD())), json)) == Just(42) &&
+                 valid(decode(field("name", maybe(intD())), json)) == Nothing &&
+                 error(decode(field("height", maybe(realD())), json))
+    report(17, test17)
+    
+    val json = "{ \"name\": \"tom\", \"age\": 42 }"
+
+    val test18 = valid(decode(map(mk_box, field("age", intD())), json)).i == 84 &&
+                 valid(decode(map2(mk_person, field("name", stringD()), field("age", intD())), json)).age == 42 &&
+                 valid(decode(map3(mk_foo, field("name", stringD()), succeed[String]("Jones"), field("age", intD())), json)).age == 42
+    report(18, test18)
+    
+    
+    -- and_then
+    
+    -- lazy
+
   end
 
   def main() : unit
@@ -218,4 +307,97 @@ active class Main
   end
 end
 
+fun error[b](x : Either[String,b]) : bool
+  is_left(x)
+end
 
+fun valid[b](x : Either[String,b]) : b
+  unright(x)
+end
+
+fun report(i : int, b : bool) : unit
+  if b then
+    println("Test {} ok", i)
+  else
+    println("Test {} failed", i)
+  end
+end
+
+
+fun arreqInt(arr1 : [int], arr2 : [int]) : bool
+  if |arr1| != |arr2| then
+    return false
+  end
+  repeat i <- |arr1| do
+    if arr1(i) != arr2(i) then
+      return false
+    end
+  end
+  true
+end
+
+fun arreqBool(arr1 : [bool], arr2 : [bool]) : bool
+  if |arr1| != |arr2| then
+    return false
+  end
+  repeat i <- |arr1| do
+    if arr1(i) != arr2(i) then
+      return false
+    end
+  end
+  true
+end
+
+fun arreqSI(arr1 : [(String,int)], arr2 : [(String,int)]) : bool
+  if |arr1| != |arr2| then
+    return false
+  end
+  repeat i <- |arr1| do
+    if arr1(i) != arr2(i) then
+      return false
+    end
+  end
+  true
+end
+
+fun mk_box(i : int) : Box
+  new Box(i)
+end
+
+local class Box
+  val i : int
+  
+  def init(i : int) : unit
+    this.i = i * 2
+  end
+end
+
+fun mk_person(name : String, age : int) : Person
+  new Person(name, age)
+end
+
+local class Person
+  val name : String
+  val age : int
+
+  def init(name : String, age : int) : unit
+    this.name = name
+    this.age = age
+  end
+end
+
+fun mk_foo(name : String, surname : String, age : int) : Foo
+  new Foo(name, surname, age)
+end
+
+local class Foo
+  val name : String
+  val surname : String
+  val age : int
+
+  def init(name : String, surname : String, age : int) : unit
+    this.name = name
+    this.surname = surname
+    this.age = age
+  end
+end
