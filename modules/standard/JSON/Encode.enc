@@ -154,11 +154,11 @@ class RawObject : Value(hash)
     sb.add("{")
     val iter = this.hash.iterator()
     if iter.has_next() then
-      val entry = unjust(iter.next())
+      val entry = iter.next()
       encodeKV(entry.key, entry.value, sb)
       while iter.has_next() do
         sb.add(",")
-        val entry = unjust(iter.next())
+        val entry = iter.next()
         encodeKV(entry.key, entry.value, sb)
       end
     end

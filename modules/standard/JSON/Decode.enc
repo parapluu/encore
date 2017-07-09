@@ -463,7 +463,7 @@ class Dict[t] : Decoder[HashMap[String,t]](dec)
         val iter = hash.iterator()
         val new_map = new HashMap[String,t]()
         while iter.has_next() do
-          val x = unjust(iter.next())
+          val x = iter.next()
           match this.dec.decode(x.value) with
             case Right(y) => 
               new_map.set(x.key, y)

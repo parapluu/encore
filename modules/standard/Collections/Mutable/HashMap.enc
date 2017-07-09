@@ -78,7 +78,7 @@ local class HashMapIterator[k : Hashable + Eq[k], v]
     Returns Nothing if the end of the HashMap
     has been reached.
   -}
-  def next() : Maybe[Entry[k,v]]
+  def next() : Entry[k,v]
     val current = this.current_node
 
     if this.has_next() then
@@ -86,8 +86,8 @@ local class HashMapIterator[k : Hashable + Eq[k], v]
     end
 
     match current with
-      case Just(n) => Just(n.value)
-      case Nothing => Nothing
+      case Just(n) => n.value
+      case Nothing => abort("No next element")
     end
   end
 
@@ -122,7 +122,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for i <- this.internal_map do
       val iter = i.iterator()
       while iter.has_next() do
-        val e = unjust(iter.next())
+        val e = iter.next()
         new_map.set(e.key, e.value)
       end
     end
@@ -141,7 +141,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     val iter = l.iterator()
     var i = 0
     while iter.has_next() && not removed do
-      val entry = unjust(iter.next())
+      val entry = iter.next()
       if entry.key.eq(key) then
         l.remove(i)  -- TODO: make more efficient (it will search through again)
         this.items = this.items - 1
@@ -191,7 +191,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for l <- this.internal_map do
       val iter = l.iterator() : LinkedListIterator[Entry[k,v]]
       while iter.has_next() do
-        val e = unjust(iter.next()) : Entry[k,v]
+        val e = iter.next() : Entry[k,v]
         -- Add current entry to new map.
         val hash = e.key.get_hash()
         val k = hash % new_size
@@ -209,8 +209,8 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     val i = this.internal_map(k).iterator()
     while i.has_next() do
       val entry = i.next()
-      if entry?.key?.eq(key) == Just(true) then
-        return entry?.value
+      if entry.key.eq(key) then
+        return Just(entry.value)
       end
     end
     return Nothing : Maybe[v]
@@ -228,7 +228,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for i <- this.internal_map do
       val iter = i.iterator()
       while iter.has_next() do
-        val x = unjust(iter.next())
+        val x = iter.next()
         f(x.value)
       end
     end
@@ -240,7 +240,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for i <- this.internal_map do
       val iter = i.iterator()
       while iter.has_next() do
-        val x = unjust(iter.next())
+        val x = iter.next()
         new_map.set(x.key, f(x.value))
       end
     end
@@ -254,7 +254,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for i <- this.internal_map do
       val iter = i.iterator()
       while iter.has_next() do
-        val x = unjust(iter.next())
+        val x = iter.next()
         if f(x.value) then
           new_map.set(x.key, x.value)
         end
@@ -270,7 +270,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     for i <- this.internal_map do
       val iter = i.iterator()
       while iter.has_next() do
-        val x = unjust(iter.next())
+        val x = iter.next()
         result(index) = (x.key, x.value)
         index += 1
       end

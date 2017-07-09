@@ -294,9 +294,9 @@ active class Main
     report(18, test18)
     
     
-    -- and_then
+    -- TODO: and_then
     
-    -- lazy
+    -- TODO: lazy
 
   end
 

@@ -199,7 +199,7 @@ local class Parser
     val res = new [t](len)
     
     for i <- [0 .. len - 1] do
-      res(len - i - 1) = unjust(iter.next())
+      res(len - i - 1) = iter.next()
     end
     res
   end
