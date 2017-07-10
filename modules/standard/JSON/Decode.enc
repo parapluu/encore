@@ -97,7 +97,7 @@ end
 
     decode(intD(), "true")              => Left(...)
     decode(intD(), "42")                => Right(42)
-    decode(intD(), "3.14")              => Left(...)
+    decode(intD(), "3.14")              => Right(3)
     decode(intD(), "\"hello\"")         => Left(...)
     decode(intD(), "{ \"hello\": 42 }") => Left(...)
 -}
@@ -426,7 +426,6 @@ class ArrayDecoder[t] : Decoder[[t]](dec)
           match this.dec.decode(arr(i)) with
             case Right(v) => 
               res(i) = v
-              bad[[t]]("Nothing") -- a hack to please type system
             end
             case Left(err) => return bad[[t]](err)
           end
@@ -467,7 +466,6 @@ class Dict[t] : Decoder[HashMap[String,t]](dec)
           match this.dec.decode(x.value) with
             case Right(y) => 
               new_map.set(x.key, y)
-              bad[HashMap[String,t]]("Nothing")  -- HACK to please type checker
             end
             case Left(err) => return bad[HashMap[String,t]](err)
           end
@@ -504,7 +502,7 @@ fun one_of_helper[t](decs : [Decoder[t]], index : int) : Decoder[t]
   end
 end
 
--- TODO: comment (basically, the core of one_of)
+-- TODO: basically, the core of one_of
 -- should be local to one_of, but it didn't compile
 fun or_else[t](dec1 : Decoder[t], dec2 : Decoder[t]) : Decoder[t]
   val next = fun (str : Value)
@@ -521,7 +519,6 @@ end
 
 
 {- Useful for dealing with optional fields. Some examples:
-
 
     json = "{ \"name\": \"tom\", \"age\": 42 }"
 
@@ -633,7 +630,7 @@ class Map3[a,b,c,v] : Decoder[v](dec1,dec2,dec3,f)
     this.dec3 = dec3    
   end
   
-  -- dead god, I need monads
+  -- I need monads
   def decode(raw : Value) : Result[v]
     match this.dec1.decode(raw) with
       case Left(err) => bad[v](err)
@@ -652,6 +649,49 @@ class Map3[a,b,c,v] : Decoder[v](dec1,dec2,dec3,f)
   end
 end
 
+
+fun map4[a,b,c,d,v](f : (a,b,c,d) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c], dec4 : Decoder[d]) : Decoder[v]
+  new Map4[a,b,c,d,v](f, dec1, dec2, dec3, dec4)
+end
+
+class Map4[a,b,c,d,v] : Decoder[v](dec1,dec2,dec3,dec4,f)
+  val dec1 : Decoder[a]
+  val dec2 : Decoder[b]
+  val dec3 : Decoder[c]
+  val dec4 : Decoder[d]
+  val f : (a,b,c,d) -> v
+  
+  def init(f : (a,b,c,d) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c], dec4 : Decoder[d]) : unit
+    this.f = f
+    this.dec1 = dec1
+    this.dec2 = dec2
+    this.dec3 = dec3    
+    this.dec4 = dec4    
+  end
+  
+  -- I need monads
+  def decode(raw : Value) : Result[v]
+    match this.dec1.decode(raw) with
+      case Left(err) => bad[v](err)
+      case Right(res1) =>
+        match this.dec2.decode(raw) with
+          case Left(err) => bad[v](err)
+          case Right(res2) => 
+            match this.dec3.decode(raw) with
+              case Left(err) => bad[v](err)
+              case Right(res3) => 
+                match this.dec4.decode(raw) with
+                  case Left(err) => bad[v](err)
+                  case Right(res4) => good(this.f(res1, res2, res3, res4))
+                end
+              end
+            end
+          end
+        end
+      end
+    end    
+  end
+end
 
 --- TODO: UP TO 8 ---
 

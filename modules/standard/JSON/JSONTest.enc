@@ -294,8 +294,18 @@ active class Main
     report(18, test18)
     
     
-    -- TODO: and_then
-    
+    val json = "{ \"name\": \"donald\", \"age\": 42, \"species\":\"duck\" }"
+    val mk_person = fun (s:String) 
+                      if s.eq("duck") then 
+                        map(mk_duck, field("name", stringD()))
+                      else
+                        map(mk_chicken, field("name", stringD()))
+                      end
+                    end
+    val test19 = valid(decode(and_then(mk_person,field("species", stringD())), json)).species().eq("duck")
+    report(19, test19)
+                     
+    val json = "{ \"message\":\"Hello\", \"response\": [{ \"message\":\"Hello Back\", \"response\": { \"message\":\"How are you\", \"response\":[] } }, { \"message\":\"Hello, too\", \"response\":[] } }"
     -- TODO: lazy
 
   end
@@ -399,5 +409,52 @@ local class Foo
     this.name = name
     this.surname = surname
     this.age = age
+  end
+end
+
+local trait Animal
+  require def species() : String
+end
+
+fun mk_duck(name:String) : Animal
+  new Duck(name)
+end
+
+local class Duck : Animal
+  val name : String
+  
+  def init(name : String) : unit
+    this.name = name
+  end
+  
+  def species() : String
+    "duck"
+  end
+end
+
+fun mk_chicken(name:String) : Animal
+  new Chicken(name)
+end
+
+local class Chicken : Animal
+  val name : String
+  
+  def init(name : String) : unit
+    this.name = name
+  end
+  
+  def species() : String
+    "chicken"
+  end
+end
+
+-- for lazy example
+local class Comment
+  val message : String
+  val responses : [Comment]
+  
+  def init(message : String, responses : [Comment]) : unit
+    this.message = message
+    this.responses = responses
   end
 end
