@@ -1,0 +1,299 @@
+
+module Supervisorh
+
+import SiphashM
+import Workerh
+
+import Big.HashMap.HashMap
+import LinkedList
+
+linear class Supervisor[sharable k,sharable v]
+    var numOfWorkers: int
+    var workers : [(Worker[k,v])]
+    var workerSize : int
+    var siphash: Siphash
+    var hashFunction : k -> uint
+
+    def init(f:k -> uint) : unit
+        this.hashFunction = f
+        this.workerSize = 4
+        this.numOfWorkers = 32
+        this.siphash = new Siphash()
+        this.workers = new[Worker[k,v]](this.numOfWorkers)
+        this.initTable()
+    end
+
+    def initTable() : unit
+        repeat i <- this.numOfWorkers do
+            this.workers(i) = new Worker[k,v](this.workerSize,i,this.hashFunction)
+        end
+    end
+
+    def copy() : Supervisor[k,v]
+        var supr = new Supervisor[k,v](this.hashFunction)
+        supr.workers = this.workers
+        supr.workerSize = this.workerSize
+        supr.numOfWorkers = this.numOfWorkers
+        consume supr
+    end
+
+    def put(key:k,value:v) : unit
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        this.workers(workerID) ! put(key,value,hash)
+    end
+
+    def putMany(pairs:[(k,v)]) : unit
+        for pair <- pairs do
+            val hash = this.generateHash(pair.0)
+            val workerID = this.modulo(hash,this.numOfWorkers)
+            this.workers(workerID) ! put(pair.0,pair.1,hash)
+        end
+    end
+
+    def putManyAndBatch(pairs:[(k,v)]) : unit
+        var result = new [LinkedList[(k,v,uint)]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            result(i) = new LinkedList[(k,v,uint)]()
+        end
+
+        repeat i <- |pairs| do
+            val pair = pairs(i)
+            val hash = this.generateHash(pair.0)
+            val workerID = this.modulo(hash,this.numOfWorkers)
+            result(workerID).append((pair.0,pair.1,hash))
+        end
+
+        repeat id <- |result| do
+            var pairs = result(id)
+            var size = pairs.size()
+            if size > 0 then
+                var array = new [(k,v,uint)](size)
+                repeat i <- size do
+                    match pairs.remove_front() with
+                        case Just(value) =>
+                            array(i) = value
+                        end
+                        case _ => print("ERROR")
+                    end
+                end
+                this.workers(id) ! putMany(array)
+            end
+        end
+    end
+
+    def get(key:k) : v
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        get(this.workers(workerID) ! get(key,hash))
+    end
+
+    def remove(key:k) : Fut[unit]
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        this.workers(workerID) ! remove(key,hash)
+    end
+
+    def getMany(keys:[k]) : [v]
+        var values = new[Fut[v]](|keys|)
+        repeat i <- |values| do
+            var hash = this.generateHash(keys(i))
+            var workerID = this.modulo(hash,this.numOfWorkers)
+            values(i) = this.workers(workerID) ! get(keys(i),hash)
+        end
+
+        var returnValues = new[v](|keys|)
+        repeat i <- |values| do
+            returnValues(i) = get(values(i))
+        end
+        returnValues
+    end
+
+    def elements() : [v]
+        var workerdata = new[Fut[[v]]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            workerdata(i) = this.workers(i) ! elements()
+        end
+
+        var totalSize = 0
+        var workerdataResult = new[[v]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            workerdataResult(i) = get(workerdata(i))
+            totalSize += |workerdataResult(i)|
+        end
+
+        var result = new[v](totalSize)
+        var index = 0
+        for worker <- workerdataResult do
+            for element <- worker do
+                result(index) = element
+                index += 1
+            end
+        end
+        result
+    end
+
+    def keys() : [k]
+        var workerdata = new[Fut[[k]]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            workerdata(i) = this.workers(i) ! keys()
+        end
+
+        var totalSize = 0
+        var workerdataResult = new[[k]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            workerdataResult(i) = get(workerdata(i))
+            totalSize += |workerdataResult(i)|
+        end
+
+        var result = new[k](totalSize)
+        var index = 0
+        for worker <- workerdataResult do
+            repeat i <- |worker| do
+                result(index) = worker(i)
+                index += 1
+            end
+        end
+        result
+    end
+
+    def clear() : unit
+        for worker <- this.workers do
+            worker ! clear()
+        end
+    end
+
+    def rehash() : unit
+        for worker <- this.workers do
+            worker ! rehash()
+        end
+    end
+
+    def generateHash(key:k) : uint
+        this.siphash.hash(this.hashFunction(key))
+    end
+
+    def modulo(value : uint, mod : uint) : uint
+      EMBED (uint)
+        uint64_t value = (uint64_t) #{value};
+              uint64_t mod   = (uint64_t) #{mod};
+              (value % mod);
+      END
+    end
+
+    def removeMany(keys:[k]) : unit
+        repeat i <- |keys| do
+            var hash = this.generateHash(keys(i))
+            var workerID = this.modulo(hash,this.numOfWorkers)
+            this.workers(workerID) ! remove(keys(i),hash)
+        end
+    end
+
+    def hasKey(key:k) : bool
+        var result = false
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        get(this.workers(workerID) ! hasKey(key,hash))
+    end
+
+
+    def contains(value:v) : bool
+        var result = false
+        for element <- this.elements() do
+            if (value == element) then
+                result = true
+            end
+        end
+        result
+    end
+
+    def changeNodeDistribution(num: int,size:int) : unit
+        this.numOfWorkers = num
+        this.workerSize = size
+        this.workers = new[Worker[k,v]](num)
+        this.initTable()
+    end
+
+    def getInfo() : unit
+        var futs = new[Fut[unit]](this.numOfWorkers)
+        repeat i <- |this.workers| do
+            futs(i) = this.workers(i) ! getInfo()
+        end
+
+        repeat i <- this.numOfWorkers do
+            get(futs(i))
+        end
+    end
+
+    def getSizing() : (int,int)
+        (this.numOfWorkers, this.workerSize)
+    end
+
+    ---------------- MapReduce functions -----------------
+
+    def extend(key:k,value:v) : unit
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        this.workers(workerID) ! extend(key,value,hash)
+    end
+
+    def extendAll(key:k, values:[v]) : unit
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        this.workers(workerID) ! extendAll(key,values,hash)
+    end
+
+    def sortedExtend(pairsList:[LinkedList[(k,v,uint)]]) : unit
+        repeat id <- |pairsList| do
+            var pairs = pairsList(id)
+            val size = pairs.size()
+            if size > 0 then
+                var result = new[(k,v,uint)](size)
+                var index = 0
+                var iterator = pairs.iterator()
+                while iterator.has_next() do
+                    match (iterator.next()) with
+                        case Just(v) =>
+                            result(index) = v.value
+                        end
+                    end
+                    index += 1
+                end
+                this.workers(id) ! pairsExtend(result)
+            end
+        end
+    end
+
+    def getValues(key:k) : [v]
+        var hash = this.generateHash(key)
+        var workerID = this.modulo(hash,this.numOfWorkers)
+        get(this.workers(workerID) ! getValues(key,hash))
+    end
+
+    def mapper[sharable k2,sharable v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2), bighash:Bighash[k2,v2]) : unit
+        var futs = new[Fut[unit]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            var bighashCopy = bighash.copy()
+            futs(i) = this.workers(i) ! mapper[k2,v2](m,r,consume bighashCopy)
+            --futs(i) = this.workers(i) ! mapperNoCombiner[k2,v2](m,r,consume bighashCopy)
+            --futs(i) = this.workers(i) ! mapperOptimized[k2,v2](m,r,consume bighashCopy)
+        end
+
+        repeat i <- this.numOfWorkers do
+            get(futs(i))
+        end
+    end
+
+    def reducer(r:(k,[v]) -> (k,v),bighash:Bighash[k,v]) : unit
+        var futs = new[Fut[unit]](this.numOfWorkers)
+        repeat i <- this.numOfWorkers do
+            var bighashCopy = bighash.copy()
+            futs(i) = this.workers(i) ! reducer(r,consume bighashCopy)
+            --futs(i) = this.workers(i) ! reducerOptimzed(r,consume bighashCopy)
+        end
+
+        repeat i <- this.numOfWorkers do
+            get(futs(i))
+        end
+    end
+end

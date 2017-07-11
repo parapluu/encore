@@ -1,0 +1,31 @@
+
+-- A Framework for MapReduce algorithms
+-- To see all the code (the mapper and reducer) look at the module Big.HashMap
+-- To see example programs using MapReduce look at src/tests/stress/big
+
+module MapReduce
+
+import Big.HashMap.HashMap
+
+local class MapReduce[k1,v1,k2,v2]
+    var hasher : k2 -> uint
+
+    def init(hasher: k2 -> uint): unit
+        this.hasher = hasher
+    end
+
+    def run(input:Bighash[k1,v1], m:(k1,v1)->[(k2,v2)], r:(k2,[v2]) -> (k2,v2)): Bighash[k2,v2]
+        ------- Mapper -----------
+        var map_result = new Bighash[k2,v2](this.hasher)
+        var map_result_c = map_result.copy()
+        input.mapper[k2,v2](m,r,consume map_result_c)
+
+        ------- Reducer ----------
+        var reduce_result = new Bighash[k2,v2](this.hasher)
+        var reduce_result_c = reduce_result.copy()
+        map_result.reducer(r,consume reduce_result_c)
+
+        ------- Result -----------
+        consume reduce_result
+    end
+end

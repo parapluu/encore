@@ -1,0 +1,97 @@
+
+module HashEntry
+
+import LinkedList
+
+local class HashEntry[k,v]
+    var key : k
+    var values : LinkedList[v]
+    var hashValue : uint
+    var hasEntry : bool
+    var size : int
+
+    def init() : unit
+        this.hasEntry = false
+        this.values = new LinkedList[v]()
+        this.size = 0
+    end
+
+    def size() : int
+        this.size
+    end
+
+    def add(key:k,value:v,hashValue:uint) : unit
+        this.hashValue = hashValue
+        this.hasEntry = true
+        this.key = key
+        this.values = new LinkedList[v]()
+        this.values.append(value)
+        this.size = 1
+    end
+
+    def remove() : unit
+        this.hasEntry = false
+        this.values = new LinkedList[v]()
+        this.size = 0
+    end
+
+    def notEmpty() : bool
+        this.hasEntry
+    end
+
+    def getHash() : uint
+        this.hashValue
+    end
+
+    def getKey() : k
+        this.key
+    end
+
+    def getValue() : v
+        match this.values.first with
+            case Just(node) =>
+                node.value
+            end
+        end
+    end
+
+    -- Functions used for MapRedece
+    def map[k2,v2](m:(k,v)->[(k2,v2)]) : [(k2,v2)]
+        m(this.key,this.getValue())
+    end
+
+    def reduce(r:(k,[v]) -> (k,v)) : (k,v)
+        r(this.key,this.getValues())
+    end
+
+    def extend(key:k,value:v,hashValue:uint) : unit
+        this.size += 1
+        this.hashValue = hashValue
+        this.key = key
+        this.hasEntry = true
+        this.values.append(value)
+    end
+
+    def extendAll(key:k,values:[v],hashValue:uint) : unit
+        this.size += |values|
+        this.hashValue = hashValue
+        this.key = key
+        this.hasEntry = true
+        this.values.append_all(values)
+    end
+
+    def getValues() : [v]
+        var result = new[v](this.size)
+        var index = 0
+        var iterator = this.values.iterator()
+        while iterator.has_next() do
+            match (iterator.next()) with
+                case Just(v) =>
+                    result(index) = v.value
+                end
+            end
+            index += 1
+        end
+        result
+    end
+end
