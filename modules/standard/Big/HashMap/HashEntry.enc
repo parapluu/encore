@@ -1,7 +1,7 @@
 
 module HashEntry
 
-import LinkedList
+import Collections.Mutable.LinkedList
 
 local class HashEntry[k,v]
     var key : k
@@ -85,11 +85,7 @@ local class HashEntry[k,v]
         var index = 0
         var iterator = this.values.iterator()
         while iterator.has_next() do
-            match (iterator.next()) with
-                case Just(v) =>
-                    result(index) = v.value
-                end
-            end
+            result(index) = iterator.next()
             index += 1
         end
         result

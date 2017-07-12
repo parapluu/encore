@@ -5,7 +5,7 @@ import HashEntry
 import Framework.MapReduce.Combiner
 
 import Big.HashMap.HashMap
-import LinkedList
+import Collections.Mutable.LinkedList
 import SiphashM
 
 active class Worker[k,v]
