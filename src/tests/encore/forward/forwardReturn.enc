@@ -3,10 +3,10 @@ active class Main
     if b then
       forward (this ! foo(b))
     else
-      return this.foo(b)
+      return 42
     end
   end
   def main() : unit
-    this.foo(false)
+    println(this.foo(false))
   end
 end

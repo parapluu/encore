@@ -1116,17 +1116,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ret@(A.Return{A.val}) =
       do (nval, tval) <- translate val
          eCtx <- gets Ctx.getExecCtx
+         isAsyncForward <- gets Ctx.isAsyncForward
          let theReturn =
-               case eCtx of
-                 Ctx.FunctionContext fun ->
-                   [dtraceFunctionExit (A.functionName fun), Return nval]
-                 Ctx.MethodContext mdecl ->
-                   [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
-                 Ctx.ClosureContext clos ->
-                   let ty = (Ty.getResultType $ A.getType clos)
-                   in [dtraceClosureExit,
-                       Return $ asEncoreArgT (translate ty) nval]
-                 _ -> error "Expr.hs: No context to return from"
+              if isAsyncForward then
+                  case eCtx of
+                    Ctx.FunctionContext fun ->
+                      let ty = A.getType fun
+                      in [dtraceFunctionExit (A.functionName fun)
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    Ctx.MethodContext mdecl ->
+                      let ty = A.getType mdecl
+                      in [dtraceMethodExit thisVar (A.methodName mdecl)
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    Ctx.ClosureContext clos ->
+                      let ty = (Ty.getResultType $ A.getType clos)
+                      in [dtraceClosureExit
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    _ -> error "Expr.hs: No context to return from"
+              else
+                  case eCtx of
+                    Ctx.FunctionContext fun ->
+                      [dtraceFunctionExit (A.functionName fun), Return nval]
+                    Ctx.MethodContext mdecl ->
+                      [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
+                    Ctx.ClosureContext clos ->
+                      let ty = (Ty.getResultType $ A.getType clos)
+                      in [dtraceClosureExit,
+                         Return $ asEncoreArgT (translate ty) nval]
+                    _ -> error "Expr.hs: No context to return from"
          return (unit, Seq $ tval:theReturn)
 
   translate iseos@(A.IsEos{A.target}) =
