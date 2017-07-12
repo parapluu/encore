@@ -250,61 +250,21 @@ fun iterator_test_1() : bool
   in
     map.set(foo, 12)
     val iter = new HashMapIterator[Foo,int](map)
-    var ret = match iter.has_next() with
-                case true =>
-                  true
-                end
-                case false =>
-                  println("\tCheck #1: iter.has_next() returned false!")
-                  false
-                end
-
-              end && match iter.next() with
-                       case Just(entry) =>
-                         entry.key.hash_equals(foo) && entry.value == 12
-                       end
-                       case Nothing =>
-                         println("\tCheck #2: iter.next() returned \"Nothing\".")
-                         false
-                       end
-
-                     end && match iter.has_next() with
-                              case false =>
-                                true
-                              end
-                              case true =>
-                                println("\tCheck #3: iter.has_next() returned true!")
-                                false
-                              end
-
-                            end && match iter.next() with
-                                     case Nothing =>
-                                       true
-                                     end
-                                     case Just(e) =>
-                                       println("\tCheck #4: iter.next() returned \"Just ...\".")
-                                       false
-                                     end
-
-                                   end && match iter.has_next() with
-                                            case false =>
-                                              true
-                                            end
-                                            case true =>
-                                              println("\tCheck #5: iter.has_next() returned true!")
-                                              false
-                                            end
-
-                                          end && match iter.next() with
-                                                   case Nothing =>
-                                                     true
-                                                   end
-                                                   case Just(e) =>
-                                                     println("\tCheck #6: iter.next() returned \"Just ...\".")
-                                                     false
-                                                   end
-
-                                                 end
+    var ret = if iter.has_next() then
+                 true
+              else
+                 println("\tCheck #1: iter.has_next() returned false!")
+                 false
+              end 
+    val entry = iter.next()
+    ret = ret && entry.key.hash_equals(foo) && entry.value == 12
+    ret = ret && 
+              if not iter.has_next() then
+                true
+              else 
+                println("\tCheck #3: iter.has_next() returned true!")
+                false
+              end
     ret
   end
 end
@@ -324,9 +284,8 @@ fun iterator_test_2() : bool
   val iter = map.iterator()
 
   while iter.has_next() do
-    val current = match iter.next() with
-                    case Just(e) => e
-                  end
+    val current = iter.next()
+
 
     if not found_foo && current.key.hash_equals(foo) && current.value == 12 then
       found_foo = true
@@ -635,7 +594,7 @@ fun foreach_one() : bool
 
   val iter = map.iterator()
   while iter.has_next() do
-    val n = unjust(iter.next())
+    val n = iter.next()
     acc.add(n.value)
   end
 
@@ -659,13 +618,13 @@ fun map_one() : bool
   
   val iter1 = map.iterator()
   while iter1.has_next() do
-    val n = unjust(iter1.next())
+    val n = iter1.next()
     acc1.add(n.value)
   end
   
   val iter2 = new_map.iterator()
   while iter2.has_next() do
-    val n = unjust(iter2.next())
+    val n = iter2.next()
     acc2.add(n.value)
   end
 

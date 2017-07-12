@@ -3,7 +3,7 @@ module LinkedList
 import Data.Either
 import Data.Maybe
 import Collections.Mutable.Collection
-import Collections.Mutable.Iterable
+-- import Collections.Mutable.Iterable
 
 local class LinkedNode[t] : Id
   var value : t
@@ -391,17 +391,16 @@ local class LinkedListIterator[t]
     return this.next_node != Nothing
   end
 
-  def next() : Maybe[t]
+  def next() : t
     match this.next_node with
       case Just(n) =>
         val next = this.next_node
         this.next_node = n.next
         match next with
-          case Just(n) => Just(n.value)
-          case Nothing => Nothing
+          case Just(n) => return n.value
         end
       end
-      case Nothing => Nothing
     end
+    abort("No next element")
   end
 end
