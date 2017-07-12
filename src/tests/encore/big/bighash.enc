@@ -1,0 +1,46 @@
+import Big.HashMap.HashMap
+
+active class Main
+  def main() : unit
+    this!test()
+  end
+  
+  def test() : unit
+    val str_hash = fun (s : String) => s.hash_code
+    val bh = new Bighash[String, int](str_hash)
+    
+    bh.put("Foo", 10)
+    bh.put("Baroo", 11)
+    bh.put("Donny Jr", -1)
+    
+    println("{}", bh.get("Baroo"))
+  end
+end
+
+
+{-
+    def init(f: k -> uint) : unit
+    def copy() : Bighash[k,v]
+    def hashFunction() : k -> uint
+    def put(key:k,value:v) : unit
+    def putManyAndBatch(pairs:[(k,v)]) : unit
+    def get(key:k) : v
+    -- def remove(key:k) : unit
+    def getMany(keys:[k]) : [v]
+    def elements() : [v]
+    def removeMany(keys:[k]) : unit
+    def keys() : [k]
+    def clear() : unit
+    def rehash() : unit
+    def hasKey(key:k) : bool
+    def contains(value:v) : bool
+    def changeNodeDistribution(num: int,size:int) : unit
+    def getInfo() : unit
+    def getSizing() : (int,int)
+    def extend(key:k, value:v) : unit
+    def extendAll(key:k, values:[v]) : unit
+    def getValues(key:k) : [v]
+    def sortedExtend(pairs:[LinkedList[(k,v,uint)]]) : unit
+    def mapper[k2,v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2),b:Bighash[k2,v2]) : unit
+    def reducer(r:(k,[v]) -> (k,v),b:Bighash[k,v]) : unit
+-}
