@@ -1,0 +1,44 @@
+import Big.Array.Array
+
+active class Main
+  def main() : unit
+    this!test()
+  end
+  
+  def test() : unit
+    val array = new [int](10000)  -- not the best way to initialize
+    repeat i <- |array| do
+        array(i) = i
+    end
+    val b = new Bigvar[int](array)  -- should be named array or bigarray
+    
+    -- TODO: test more extensively
+    println(b.at(1000))
+  end
+end
+
+{-
+
+def init(array:[t]) : unit
+def size() : int
+def supr() : Supr[t]
+def array() : [t]
+def update(f : t -> t) : unit
+def filter(f: t->bool) : Bigvar[t]
+def print(f: t->String) : unit
+def insert(index: int, value: t): unit
+-- def delete(index: int): unit
+def push(value: t) : unit
+def at(index: int) : t
+def owner(index: int) : Supr[t]
+def applyto(index:int, f : t -> t) : unit
+def getstringdata(f: t -> String) : Bigvar[String]
+def printinfo() : unit
+def abortIfOutOfBounds(i: int) : unit
+
+fun randombigvar(size:int, max: int) : Bigvar[int]
+fun zerobigvar(size:int) : Bigvar[int]
+fun onesbigvar(size:int) : Bigvar[int]
+fun rangebigvar(l1:int, l2:int) : Bigvar[int]
+
+-}
