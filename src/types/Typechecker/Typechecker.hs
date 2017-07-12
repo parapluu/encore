@@ -129,6 +129,9 @@ instance Checkable Function where
           funparams = functionParams f
           funtypeparams = functionTypeParams f
           body = Util.markStatsInBody funtype funbody
+          isForward = Util.isForwardInExpr funbody
+      when (isForward) $
+            pushError funbody ForwardInFunction
       local (addTypeParameters funtypeparams) $
             mapM_ typecheck funparams
       local (addTypeParameters funtypeparams) $

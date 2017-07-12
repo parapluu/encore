@@ -1,0 +1,26 @@
+fun join[t](ff : Fut[Fut[t]]) : Fut[t]
+  ff ~~> (fun (f : Fut[t]) : t => forward(f))
+end
+
+fun intJoin(ff : Fut[Fut[int]]) : Fut[int]
+  ff ~~> (fun (f : Fut[int]) : int => forward(f))
+end
+
+active class Bar
+  def bar() : int
+    10
+  end
+
+  def baz() : Fut[int]
+    this!bar()
+  end
+end
+
+active class Main
+  def main() : unit
+    val bar = new Bar()
+    println("{}", get(bar!bar()))
+    println("{}", get(intJoin(bar!baz())))
+    println("{}", get(join(bar!baz())))
+  end
+end
